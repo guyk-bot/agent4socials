@@ -1,10 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* @ts-ignore */
-  turbopack: {
-    root: '.'
-  }
+  // Omit turbopack config so Vercel uses default (avoids "turbopack.root should be absolute" warning)
 };
 
 export default nextConfig;
