@@ -1,7 +1,7 @@
 import { Injectable, InternalServerErrorException, ServiceUnavailableException } from '@nestjs/common';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { v4 as uuid } from 'uuid';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class MediaService {
@@ -32,7 +32,7 @@ export class MediaService {
             );
         }
         const bucket = process.env.S3_BUCKET_NAME!;
-        const key = `uploads/${uuid()}-${fileName}`;
+        const key = `uploads/${randomUUID()}-${fileName}`;
         const command = new PutObjectCommand({
             Bucket: bucket,
             Key: key,
