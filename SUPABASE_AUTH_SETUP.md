@@ -50,6 +50,8 @@ In **Project Settings** → **API**:
 
 If these are missing or wrong on Vercel, you’ll see **“Invalid API key”** on `/auth/callback` after Google sign-in and the app won’t open. If **NEXT_PUBLIC_API_URL** is wrong or the API is down, the dashboard may load for a long time then redirect to login.
 
+**API project on Vercel** must have **`SUPABASE_JWT_SECRET`** (Supabase → Project Settings → API → JWT Settings → **JWT Secret**). Without it, the API returns 401 for profile requests and you get sent back to the login page after Google sign-in.
+
 **API (Vercel or `apps/api/.env`):**
 
 - `SUPABASE_JWT_SECRET` = JWT Secret from Supabase (so the API can verify Supabase-issued tokens)
@@ -63,6 +65,17 @@ cd apps/api && npx prisma migrate deploy
 ```
 
 After this, sign up and “Continue with Google” will work; the API will create or update a `User` row per Supabase user.
+
+---
+
+## Troubleshooting: Redirected back to login after Google sign-in
+
+If you sign in with Google and then land back on the login page (sometimes with an amber message about profile):
+
+1. **Web app (Vercel)** must have **`NEXT_PUBLIC_API_URL`** = your API URL (e.g. `https://api.agent4socials.com`).
+2. **API (Vercel)** must have **`SUPABASE_JWT_SECRET`** = Supabase JWT Secret (Supabase → Project Settings → API → JWT Settings → copy the **JWT Secret**).
+
+Redeploy both after changing env vars. The dashboard calls the API to load your profile; if the API rejects the token (wrong secret) or is unreachable (wrong URL), you are sent back to login.
 
 ---
 

@@ -4,14 +4,22 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Lock, Mail, ArrowRight } from 'lucide-react';
 
 export default function LoginPage() {
+  const searchParams = useSearchParams();
+  const reason = searchParams.get('reason');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { signInWithEmail, signInWithGoogle } = useAuth();
+
+  const profileFailedMessage =
+    reason === 'profile_failed'
+      ? 'Google sign-in worked, but the app could not load your profile. Set NEXT_PUBLIC_API_URL on the web app (Vercel) and SUPABASE_JWT_SECRET on the API (Vercel), then try again.'
+      : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,6 +61,11 @@ export default function LoginPage() {
           </p>
         </div>
 
+        {profileFailedMessage && (
+          <div className="bg-amber-500/10 border border-amber-500/30 text-amber-200 px-4 py-3 rounded-lg text-sm">
+            {profileFailedMessage}
+          </div>
+        )}
         {error && (
           <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg text-sm">
             {error}
