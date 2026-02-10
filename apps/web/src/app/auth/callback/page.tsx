@@ -34,7 +34,14 @@ export default function AuthCallbackPage() {
           });
           if (cancelled) return;
           if (setErrorResult) {
-            setError(setErrorResult.message);
+            const msg = setErrorResult.message;
+            if (msg?.toLowerCase().includes('invalid api key')) {
+              setError(
+                'Invalid API key — set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel (Project → Settings → Environment Variables) for this app.'
+              );
+            } else {
+              setError(msg);
+            }
             return;
           }
           router.replace('/dashboard');
@@ -69,8 +76,8 @@ export default function AuthCallbackPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-4 bg-gray-50">
-        <p className="text-red-600">{error}</p>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-4 bg-gray-50 max-w-md text-center">
+        <p className="text-red-600 font-medium">{error}</p>
         <a href="/login" className="text-indigo-600 hover:underline">Back to login</a>
       </div>
     );

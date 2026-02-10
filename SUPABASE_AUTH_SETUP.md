@@ -34,12 +34,19 @@ In **Project Settings** → **API**:
 - **anon public** key → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - **JWT Secret** (under “JWT settings”) → `SUPABASE_JWT_SECRET` (for the API only)
 
-## 5. Environment variables
+## 5. Environment variables (required for the app to open after sign-in)
 
-**Web app (Vercel or `.env.local`):**
+**Web app — set these in Vercel so production works:**
 
-- `NEXT_PUBLIC_SUPABASE_URL` = your Supabase project URL  
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` = anon public key  
+1. Vercel → your **web** project → **Settings** → **Environment Variables**.
+2. Add (for **Production**, and optionally Preview/Development):
+   - **`NEXT_PUBLIC_SUPABASE_URL`** = your Supabase project URL (e.g. `https://rfpvkjdqpjlmkuwncysq.supabase.co`).  
+     Get it: Supabase → Project Settings → API → Project URL.
+   - **`NEXT_PUBLIC_SUPABASE_ANON_KEY`** = the **anon public** key (not the service role key).  
+     Get it: Supabase → Project Settings → API → Project API keys → **anon public**.
+3. Redeploy the web app after adding or changing these.
+
+If these are missing or wrong on Vercel, you’ll see **“Invalid API key”** on `/auth/callback` after Google sign-in and the app won’t open.
 
 **API (Vercel or `apps/api/.env`):**
 
@@ -54,6 +61,18 @@ cd apps/api && npx prisma migrate deploy
 ```
 
 After this, sign up and “Continue with Google” will work; the API will create or update a `User` row per Supabase user.
+
+---
+
+## Troubleshooting: “Invalid API key” on auth callback
+
+If after Google sign-in you land on `/auth/callback` and see **“Invalid API key”**:
+
+- The **web** app (e.g. on Vercel) is not using the correct Supabase keys.
+- Fix: In **Vercel** → your **web** project → **Settings** → **Environment Variables**, set:
+  - `NEXT_PUBLIC_SUPABASE_URL` = your Supabase Project URL (Supabase → Project Settings → API).
+  - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = the **anon public** key from the same page.
+- Redeploy the web app, then try “Sign in with Google” again. The app should then open (e.g. redirect to dashboard).
 
 ---
 
