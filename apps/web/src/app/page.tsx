@@ -1,5 +1,8 @@
+'use client';
+
 import DashboardPreview from '@/components/landing/DashboardPreview';
 import Testimonials from '@/components/landing/Testimonials';
+import Link from 'next/link';
 import Image from 'next/image';
 import SiteHeader from '@/components/landing/SiteHeader';
 import SiteFooter from '@/components/landing/SiteFooter';
