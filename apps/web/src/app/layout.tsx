@@ -7,10 +7,18 @@ import { WhiteLabelProvider } from "@/context/WhiteLabelContext";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit", display: "swap" });
 
+function getMetadataBase(): URL {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://agent4socials.com");
+  } catch {
+    return new URL("https://agent4socials.com");
+  }
+}
+
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://agent4socials.com";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
+  metadataBase: getMetadataBase(),
   title: {
     default: "Agent4Socials | Schedule Posts & Analytics for Instagram, YouTube, TikTok, Facebook, Twitter & LinkedIn",
     template: "%s | Agent4Socials",

@@ -40,6 +40,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
+    // If Supabase redirected to / with token in hash, send to callback page (avoids 500 on root)
+    if (typeof window !== 'undefined' && window.location.pathname === '/' && window.location.hash.includes('access_token')) {
+      router.replace('/auth/callback' + window.location.hash);
+      return;
+    }
+
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.access_token) {
