@@ -18,7 +18,7 @@ export default function LoginPage() {
 
   const profileFailedMessage =
     reason === 'profile_failed'
-      ? 'Google sign-in worked, but the app could not load your profile. Set NEXT_PUBLIC_API_URL on the web app (Vercel) and SUPABASE_JWT_SECRET on the API (Vercel), then try again.'
+      ? 'Google sign-in worked, but the app could not load your profile. In Vercel: (1) Web app: set NEXT_PUBLIC_API_URL to your API URL. (2) API: set SUPABASE_JWT_SECRET (Supabase → API → JWT Secret) and FRONTEND_URL=https://agent4socials.com so CORS allows the request. Redeploy both.'
       : null;
 
   const handleSubmit = async (e: React.FormEvent) => {

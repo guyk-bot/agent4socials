@@ -55,6 +55,7 @@ If these are missing or wrong on Vercel, you’ll see **“Invalid API key”** 
 **API (Vercel or `apps/api/.env`):**
 
 - `SUPABASE_JWT_SECRET` = JWT Secret from Supabase (so the API can verify Supabase-issued tokens)
+- **`FRONTEND_URL`** = your web app URL (e.g. `https://agent4socials.com`). The API uses this for CORS; without it, the browser blocks the profile request and you get sent back to login.
 
 ## 6. Run migration
 
@@ -72,10 +73,11 @@ After this, sign up and “Continue with Google” will work; the API will creat
 
 If you sign in with Google and then land back on the login page (sometimes with an amber message about profile):
 
-1. **Web app (Vercel)** must have **`NEXT_PUBLIC_API_URL`** = your API URL (e.g. `https://api.agent4socials.com`).
-2. **API (Vercel)** must have **`SUPABASE_JWT_SECRET`** = Supabase JWT Secret (Supabase → Project Settings → API → JWT Settings → copy the **JWT Secret**).
+1. **Web app (Vercel)** → **`NEXT_PUBLIC_API_URL`** = your API URL (e.g. `https://api.agent4socials.com`).
+2. **API (Vercel)** → **`SUPABASE_JWT_SECRET`** = Supabase JWT Secret (Supabase → Project Settings → API → JWT Settings).
+3. **API (Vercel)** → **`FRONTEND_URL`** = your web app URL (e.g. `https://agent4socials.com`). The API uses this for **CORS**. If this is missing, the browser blocks the profile request and you are sent back to login.
 
-Redeploy both after changing env vars. The dashboard calls the API to load your profile; if the API rejects the token (wrong secret) or is unreachable (wrong URL), you are sent back to login.
+Redeploy **both** projects after changing env vars.
 
 ---
 
