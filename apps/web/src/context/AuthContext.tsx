@@ -32,6 +32,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const res = await api.get('/auth/profile', {
         headers: { Authorization: `Bearer ${accessToken}` },
+        timeout: 10_000,
       });
       setUser(res.data);
     } catch {
@@ -47,13 +48,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.access_token) {
-        await syncUserFromApi(session.access_token);
-      } else {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          await syncUserFromApi(session.access_token);
+        } else {
+          setUser(null);
+        }
+      } catch {
         setUser(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     init();
 

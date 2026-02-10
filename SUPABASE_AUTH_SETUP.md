@@ -44,9 +44,11 @@ In **Project Settings** → **API**:
      Get it: Supabase → Project Settings → API → Project URL.
    - **`NEXT_PUBLIC_SUPABASE_ANON_KEY`** = the **anon public** key (not the service role key).  
      Get it: Supabase → Project Settings → API → Project API keys → **anon public**.
+   - **`NEXT_PUBLIC_API_URL`** = your **backend API** URL (e.g. `https://api.agent4socials.com`).  
+     The dashboard calls this to load your profile; if it’s missing or wrong, the dashboard can spin forever or send you back to login.
 3. Redeploy the web app after adding or changing these.
 
-If these are missing or wrong on Vercel, you’ll see **“Invalid API key”** on `/auth/callback` after Google sign-in and the app won’t open.
+If these are missing or wrong on Vercel, you’ll see **“Invalid API key”** on `/auth/callback` after Google sign-in and the app won’t open. If **NEXT_PUBLIC_API_URL** is wrong or the API is down, the dashboard may load for a long time then redirect to login.
 
 **API (Vercel or `apps/api/.env`):**
 
