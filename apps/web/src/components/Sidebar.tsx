@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
     LayoutGrid,
@@ -14,6 +15,7 @@ import {
     ChevronRight
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useWhiteLabel } from '@/context/WhiteLabelContext';
 
 const menuItems = [
     { icon: LayoutGrid, label: 'Dashboard', href: '/dashboard' },
@@ -21,22 +23,28 @@ const menuItems = [
     { icon: Calendar, label: 'Calendar', href: '/calendar' },
     { icon: Users, label: 'Accounts', href: '/accounts' },
     { icon: History, label: 'History', href: '/posts' },
-    { icon: Settings, label: 'Settings', href: '/settings' },
+    { icon: Settings, label: 'Settings', href: '/dashboard/settings' },
 ];
 
 export default function Sidebar() {
     const pathname = usePathname();
     const { user, logout } = useAuth();
+    const { logoUrl, primaryColor } = useWhiteLabel();
+    const accent = primaryColor || '#6366f1';
 
     return (
         <div className="w-64 h-screen bg-white border-r border-gray-200 flex flex-col fixed left-0 top-0 z-50">
             <div className="p-6">
-                <div className="flex items-center space-x-3 text-indigo-600">
-                    <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center text-white">
-                        <LayoutGrid size={24} />
-                    </div>
-                    <span className="text-xl font-bold tracking-tight text-gray-900">Topost</span>
-                </div>
+                <Link href="/dashboard" className="flex items-center space-x-3" style={{ color: accent }}>
+                    {logoUrl ? (
+                        <img src={logoUrl} alt="Logo" className="h-10 w-10 rounded-lg object-contain" />
+                    ) : (
+                        <div className="w-10 h-10 rounded-lg flex items-center justify-center overflow-hidden bg-white/10">
+                            <Image src="/logo.svg" alt="Agent4Socials" width={28} height={28} />
+                        </div>
+                    )}
+                    <span className="text-xl font-bold tracking-tight text-gray-900">Agent4Socials</span>
+                </Link>
             </div>
 
             <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
@@ -47,9 +55,10 @@ export default function Sidebar() {
                             key={item.href}
                             href={item.href}
                             className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${isActive
-                                    ? 'bg-indigo-50 text-indigo-600 shadow-sm'
+                                    ? 'shadow-sm'
                                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                                 }`}
+                            style={isActive ? { backgroundColor: `${accent}15`, color: accent } : undefined}
                         >
                             <div className="flex items-center">
                                 <item.icon size={20} className="mr-3" />
@@ -63,7 +72,7 @@ export default function Sidebar() {
 
             <div className="p-4 border-t border-gray-100">
                 <div className="flex items-center p-2 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer group mb-2">
-                    <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-semibold text-xs border border-indigo-200">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center font-semibold text-xs border" style={{ backgroundColor: `${accent}20`, color: accent, borderColor: `${accent}40` }}>
                         {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
                     </div>
                     <div className="ml-3 flex-1 min-w-0">

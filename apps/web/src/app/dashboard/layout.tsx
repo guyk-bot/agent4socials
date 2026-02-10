@@ -4,6 +4,7 @@ import React from 'react';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
+import { useWhiteLabel } from '@/context/WhiteLabelContext';
 
 export default function DashboardLayout({
     children,
@@ -12,6 +13,7 @@ export default function DashboardLayout({
 }) {
     const { user, loading } = useAuth();
     const router = useRouter();
+    const { backgroundColor, primaryColor } = useWhiteLabel();
 
     React.useEffect(() => {
         if (!loading && !user) {
@@ -30,7 +32,13 @@ export default function DashboardLayout({
     if (!user) return null;
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div
+            className="min-h-screen"
+            style={{
+                backgroundColor: backgroundColor || undefined,
+                ['--wl-primary' as string]: primaryColor || undefined,
+            }}
+        >
             <Sidebar />
             <main className="pl-64 min-h-screen">
                 <div className="max-w-7xl mx-auto p-8">
