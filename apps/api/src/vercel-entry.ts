@@ -10,10 +10,9 @@ async function getExpressApp() {
   if (cachedApp) {
     return cachedApp.getHttpAdapter().getInstance();
   }
-  const app = await NestFactory.create(AppModule);
-  const origins = (process.env.FRONTEND_URL || 'http://localhost:3000').split(',').map((o: string) => o.trim());
+  const app = await NestFactory.create(AppModule, { logger: ['error', 'warn'] });
   app.enableCors({
-    origin: origins.length ? origins : ['http://localhost:3000'],
+    origin: true,
     credentials: true,
   });
   app.useGlobalPipes(

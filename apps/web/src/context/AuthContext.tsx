@@ -28,15 +28,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  const syncUserFromApi = async (accessToken: string) => {
+  const syncUserFromApi = async (accessToken: string, retries = 2) => {
     try {
       const res = await api.get('/auth/profile', {
         headers: { Authorization: `Bearer ${accessToken}` },
-        timeout: 10_000,
+        timeout: 25_000,
       });
       setUser(res.data);
       if (typeof window !== 'undefined') sessionStorage.removeItem('profile_error');
     } catch (err: unknown) {
+      // Retry on network/timeout errors (cold start)
+      const isNetworkError = err && typeof err === 'object' && !('response' in err);
+      if (isNetworkError && retries > 0) {
+        await new Promise(r => setTimeout(r, 2000));
+        return syncUserFromApi(accessToken, retries - 1);
+      }
       setUser(null);
       if (typeof window !== 'undefined') {
         const msg =

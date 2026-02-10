@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 const base = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/+$/, '');
 const api = axios.create({
   baseURL: `${base}/api`,
-  timeout: 15_000,
+  timeout: 25_000,
 });
 
 api.interceptors.request.use(async (config) => {
