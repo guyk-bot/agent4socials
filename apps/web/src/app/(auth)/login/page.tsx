@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Lock, Mail, ArrowRight } from 'lucide-react';
 
-export default function LoginPage() {
+function LoginForm() {
   const searchParams = useSearchParams();
   const reason = searchParams.get('reason');
   const [email, setEmail] = useState('');
@@ -147,5 +147,19 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-slate-950">
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-slate-600 border-t-emerald-500" />
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }
