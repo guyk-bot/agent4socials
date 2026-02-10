@@ -20,8 +20,9 @@ In **Supabase Dashboard** → **Authentication** → **Providers**:
 
 In **Authentication** → **URL Configuration** → **Redirect URLs**, add:
 
-- `http://localhost:3000/dashboard` (local)
-- `https://agent4socials.com/dashboard` (production)
+- `http://localhost:3000/auth/callback` (local)
+- `https://agent4socials.com/auth/callback` (production)
+- Optionally keep `http://localhost:3000/dashboard` and `https://agent4socials.com/dashboard` if you use them elsewhere.
 
 ## 4. Get Supabase keys
 
