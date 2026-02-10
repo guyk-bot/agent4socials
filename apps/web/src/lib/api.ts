@@ -1,7 +1,9 @@
 import axios from 'axios';
 import { supabase } from '@/lib/supabase';
 
-const base = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/+$/, '');
+const raw = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
+// If no external API URL is set, use same-origin (/api)
+const base = raw || '';
 const api = axios.create({
   baseURL: `${base}/api`,
   timeout: 25_000,
