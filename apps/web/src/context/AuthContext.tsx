@@ -28,33 +28,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  const syncUserFromApi = async (accessToken: string, retries = 2) => {
+  const syncUserFromApi = async (accessToken: string) => {
     try {
-      const res = await api.get('/auth/profile', {
+      // Always call same-origin /api/auth/profile (Next.js API route)
+      const res = await fetch('/api/auth/profile', {
         headers: { Authorization: `Bearer ${accessToken}` },
-        timeout: 25_000,
       });
-      setUser(res.data);
+      if (!res.ok) throw new Error(`${res.status}`);
+      const data = await res.json();
+      setUser(data);
       if (typeof window !== 'undefined') sessionStorage.removeItem('profile_error');
     } catch (err: unknown) {
-      // Retry on network/timeout errors (cold start)
-      const isNetworkError = err && typeof err === 'object' && !('response' in err);
-      if (isNetworkError && retries > 0) {
-        await new Promise(r => setTimeout(r, 2000));
-        return syncUserFromApi(accessToken, retries - 1);
-      }
       setUser(null);
       if (typeof window !== 'undefined') {
-        const msg =
-          err && typeof err === 'object' && err !== null && 'response' in err
-            ? (err as { response?: { status?: number; data?: unknown } }).response?.status === 401
-              ? '401 Unauthorized (wrong SUPABASE_JWT_SECRET or token)'
-              : (err as { response?: { status?: number } }).response?.status === 500
-                ? '500 API error (check API logs; often Redis or DB)'
-                : (err as { response?: { status?: number } }).response?.status
-                  ? `API ${(err as { response: { status: number } }).response.status}`
-                  : (err as { message?: string }).message || 'Network or CORS error'
-            : 'Profile request failed';
+        const msg = err instanceof Error ? err.message : 'Profile request failed';
         sessionStorage.setItem('profile_error', msg);
       }
     }
