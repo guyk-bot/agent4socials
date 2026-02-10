@@ -14,7 +14,14 @@ function LoginForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [profileErrorDetail, setProfileErrorDetail] = useState<string | null>(null);
   const { signInWithEmail, signInWithGoogle } = useAuth();
+
+  React.useEffect(() => {
+    if (reason === 'profile_failed') {
+      setProfileErrorDetail(sessionStorage.getItem('profile_error'));
+    }
+  }, [reason]);
 
   const profileFailedMessage =
     reason === 'profile_failed'
@@ -62,8 +69,15 @@ function LoginForm() {
         </div>
 
         {profileFailedMessage && (
-          <div className="bg-amber-500/10 border border-amber-500/30 text-amber-200 px-4 py-3 rounded-lg text-sm">
-            {profileFailedMessage}
+          <div className="space-y-2">
+            <div className="bg-amber-500/10 border border-amber-500/30 text-amber-200 px-4 py-3 rounded-lg text-sm">
+              {profileFailedMessage}
+            </div>
+            {profileErrorDetail && (
+              <div className="bg-slate-800 border border-slate-600 text-slate-300 px-4 py-2 rounded-lg text-xs font-mono">
+                Detail: {profileErrorDetail}
+              </div>
+            )}
           </div>
         )}
         {error && (

@@ -81,6 +81,12 @@ Redeploy **both** projects after changing env vars.
 
 ---
 
+## Troubleshooting: API 500 / "This Serverless Function has crashed"
+
+If your API URL shows a Vercel error "This Serverless Function has crashed" or 500: (1) Ensure the **API** project has **DATABASE_URL**, **SUPABASE_JWT_SECRET**, and **REDIS_HOST** (and **REDIS_PORT** / **REDIS_PASSWORD** if needed). The API uses Redis; if Redis is missing or unreachable from Vercel, the function can crash. Use a serverless Redis (e.g. Upstash). For Upstash or any TLS Redis, set **REDIS_TLS=true** (or use a host that contains `upstash.io` so TLS is auto-enabled). (2) Vercel → API project → **Logs** or **Deployments** → **Functions** to see the real error. (3) Redeploy the API after changing env vars.
+
+---
+
 ## Troubleshooting: “Invalid API key” on auth callback
 
 If after Google sign-in you land on `/auth/callback` and see **“Invalid API key”**:

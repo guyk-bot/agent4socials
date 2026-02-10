@@ -35,8 +35,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         timeout: 10_000,
       });
       setUser(res.data);
-    } catch {
+      if (typeof window !== 'undefined') sessionStorage.removeItem('profile_error');
+    } catch (err: unknown) {
       setUser(null);
+      if (typeof window !== 'undefined') {
+        const msg =
+          err && typeof err === 'object' && err !== null && 'response' in err
+            ? (err as { response?: { status?: number; data?: unknown } }).response?.status === 401
+              ? '401 Unauthorized (wrong SUPABASE_JWT_SECRET or token)'
+              : (err as { response?: { status?: number } }).response?.status === 500
+                ? '500 API error (check API logs; often Redis or DB)'
+                : (err as { response?: { status?: number } }).response?.status
+                  ? `API ${(err as { response: { status: number } }).response.status}`
+                  : (err as { message?: string }).message || 'Network or CORS error'
+            : 'Profile request failed';
+        sessionStorage.setItem('profile_error', msg);
+      }
     }
   };
 
