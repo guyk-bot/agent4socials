@@ -9,6 +9,9 @@ import {
     Instagram,
     Youtube,
     Video,
+    Facebook,
+    Twitter,
+    Linkedin,
     ExternalLink,
     ChevronRight
 } from 'lucide-react';
@@ -106,6 +109,9 @@ export default function PostsPage() {
                                                     {t.platform === 'INSTAGRAM' && <Instagram size={16} />}
                                                     {t.platform === 'YOUTUBE' && <Youtube size={16} />}
                                                     {t.platform === 'TIKTOK' && <Video size={16} />}
+                                                    {t.platform === 'FACEBOOK' && <Facebook size={16} />}
+                                                    {t.platform === 'TWITTER' && <Twitter size={16} />}
+                                                    {t.platform === 'LINKEDIN' && <Linkedin size={16} />}
                                                 </div>
                                             ))}
                                         </div>

@@ -12,7 +12,7 @@ export default function TermsPage() {
         <div className="prose prose-invert mt-8 space-y-6 text-slate-300">
           <p>
             By using Agent4Socials you agree to use the service in compliance with the terms of Instagram,
-            YouTube, and TikTok. You are responsible for your content and for keeping your account secure.
+            YouTube, TikTok, Facebook, X (Twitter), and LinkedIn. You are responsible for your content and for keeping your account secure.
           </p>
           <p>
             We may update these terms. Continued use after changes constitutes acceptance. For support,

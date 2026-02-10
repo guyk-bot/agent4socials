@@ -6,6 +6,9 @@ import api from '@/lib/api';
 import {
     Instagram,
     Youtube,
+    Facebook,
+    Twitter,
+    Linkedin,
     Send,
     Calendar,
     Image as ImageIcon,
@@ -103,6 +106,24 @@ export default function ComposerPage() {
                                 icon={<Youtube size={20} />}
                                 active={platforms.includes('YOUTUBE')}
                                 onClick={() => setPlatforms(prev => prev.includes('YOUTUBE') ? prev.filter(p => p !== 'YOUTUBE') : [...prev, 'YOUTUBE'])}
+                            />
+                            <PlatformToggle
+                                platform="FACEBOOK"
+                                icon={<Facebook size={20} />}
+                                active={platforms.includes('FACEBOOK')}
+                                onClick={() => setPlatforms(prev => prev.includes('FACEBOOK') ? prev.filter(p => p !== 'FACEBOOK') : [...prev, 'FACEBOOK'])}
+                            />
+                            <PlatformToggle
+                                platform="TWITTER"
+                                icon={<Twitter size={20} />}
+                                active={platforms.includes('TWITTER')}
+                                onClick={() => setPlatforms(prev => prev.includes('TWITTER') ? prev.filter(p => p !== 'TWITTER') : [...prev, 'TWITTER'])}
+                            />
+                            <PlatformToggle
+                                platform="LINKEDIN"
+                                icon={<Linkedin size={20} />}
+                                active={platforms.includes('LINKEDIN')}
+                                onClick={() => setPlatforms(prev => prev.includes('LINKEDIN') ? prev.filter(p => p !== 'LINKEDIN') : [...prev, 'LINKEDIN'])}
                             />
                         </div>
                     </div>
@@ -229,6 +250,9 @@ function PostPreview({ platform, content, media }: any) {
                     {platform === 'INSTAGRAM' && <Instagram size={22} />}
                     {platform === 'YOUTUBE' && <Youtube size={22} />}
                     {platform === 'TIKTOK' && <Video size={22} />}
+                    {platform === 'FACEBOOK' && <Facebook size={22} />}
+                    {platform === 'TWITTER' && <Twitter size={22} />}
+                    {platform === 'LINKEDIN' && <Linkedin size={22} />}
                 </div>
                 <p className="text-sm text-gray-800 line-clamp-3">
                     {content || 'Your caption will appear here...'}

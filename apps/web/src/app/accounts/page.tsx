@@ -5,6 +5,9 @@ import api from '@/lib/api';
 import {
     Instagram,
     Youtube,
+    Facebook,
+    Twitter,
+    Linkedin,
     Plus,
     RefreshCw,
     Trash2,
@@ -78,6 +81,30 @@ export default function AccountsPage() {
                     icon={<Youtube size={24} className="text-red-600" />}
                     connectedAccounts={accounts.filter((a: any) => a.platform === 'YOUTUBE')}
                     onConnect={() => handleConnect('youtube')}
+                />
+                <PlatformCard
+                    name="Facebook"
+                    platform="FACEBOOK"
+                    description="Post to your Facebook Page and reach your audience."
+                    icon={<Facebook size={24} className="text-blue-600" />}
+                    connectedAccounts={accounts.filter((a: any) => a.platform === 'FACEBOOK')}
+                    onConnect={() => handleConnect('facebook')}
+                />
+                <PlatformCard
+                    name="X (Twitter)"
+                    platform="TWITTER"
+                    description="Schedule tweets and threads to your X profile."
+                    icon={<Twitter size={24} className="text-sky-500" />}
+                    connectedAccounts={accounts.filter((a: any) => a.platform === 'TWITTER')}
+                    onConnect={() => handleConnect('twitter')}
+                />
+                <PlatformCard
+                    name="LinkedIn"
+                    platform="LINKEDIN"
+                    description="Share posts and articles to your LinkedIn profile."
+                    icon={<Linkedin size={24} className="text-blue-700" />}
+                    connectedAccounts={accounts.filter((a: any) => a.platform === 'LINKEDIN')}
+                    onConnect={() => handleConnect('linkedin')}
                 />
             </div>
         </div>

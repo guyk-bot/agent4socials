@@ -37,6 +37,30 @@ export class CapabilityMatrixService {
             allowedImageFormats: ['image/jpeg', 'image/png'],
             requiresBusinessAccount: false,
         },
+        [Platform.FACEBOOK]: {
+            supportsAutoPublish: true,
+            maxVideoDuration: 240,
+            maxImageSize: 4 * 1024 * 1024,
+            allowedVideoFormats: ['video/mp4', 'video/quicktime'],
+            allowedImageFormats: ['image/jpeg', 'image/png', 'image/gif'],
+            requiresBusinessAccount: false,
+        },
+        [Platform.TWITTER]: {
+            supportsAutoPublish: true,
+            maxVideoDuration: 140,
+            maxImageSize: 5 * 1024 * 1024,
+            allowedVideoFormats: ['video/mp4'],
+            allowedImageFormats: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+            requiresBusinessAccount: false,
+        },
+        [Platform.LINKEDIN]: {
+            supportsAutoPublish: true,
+            maxVideoDuration: 600,
+            maxImageSize: 5 * 1024 * 1024,
+            allowedVideoFormats: ['video/mp4'],
+            allowedImageFormats: ['image/jpeg', 'image/png', 'image/gif'],
+            requiresBusinessAccount: false,
+        },
     };
 
     getCapabilities(platform: Platform): PlatformCapabilities {

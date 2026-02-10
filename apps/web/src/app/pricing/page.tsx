@@ -4,7 +4,7 @@ import SiteFooter from '@/components/landing/SiteFooter';
 import { Check } from 'lucide-react';
 
 const features = [
-  'Schedule to Instagram, YouTube & TikTok',
+  'Schedule to Instagram, YouTube, TikTok, Facebook, X & LinkedIn',
   'One calendar, all platforms',
   'Analytics: views, likes, comments, followers, subscribers',
   'AI: best time to post',

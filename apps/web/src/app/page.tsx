@@ -8,6 +8,9 @@ import {
   Sparkles,
   Instagram,
   Youtube,
+  Facebook,
+  Twitter,
+  Linkedin,
   Zap,
   Check,
   ArrowRight,
@@ -31,7 +34,7 @@ export default function Home() {
             <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
               One dashboard for{' '}
               <span className="bg-gradient-to-r from-emerald-400 to-sky-400 bg-clip-text text-transparent">
-                Instagram, YouTube & TikTok
+                Instagram, YouTube, TikTok, Facebook, X & LinkedIn
               </span>
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-lg text-slate-400">
@@ -53,7 +56,7 @@ export default function Home() {
                 See pricing
               </Link>
             </div>
-            <div className="mt-12 flex items-center justify-center gap-8 text-slate-500">
+            <div className="mt-12 flex flex-wrap items-center justify-center gap-6 sm:gap-8 text-slate-500">
               <span className="flex items-center gap-2">
                 <Instagram className="h-5 w-5" />
                 Instagram
@@ -63,6 +66,18 @@ export default function Home() {
                 YouTube
               </span>
               <span className="flex items-center gap-2 text-lg font-medium">TikTok</span>
+              <span className="flex items-center gap-2">
+                <Facebook className="h-5 w-5" />
+                Facebook
+              </span>
+              <span className="flex items-center gap-2">
+                <Twitter className="h-5 w-5" />
+                X
+              </span>
+              <span className="flex items-center gap-2">
+                <Linkedin className="h-5 w-5" />
+                LinkedIn
+              </span>
             </div>
           </div>
         </section>
@@ -83,7 +98,7 @@ export default function Home() {
                 </div>
                 <h3 className="mt-6 text-xl font-semibold">Schedule posts</h3>
                 <p className="mt-3 text-slate-400">
-                  Plan content for Instagram, YouTube, and TikTok from one calendar. Set it and forget it.
+                  Plan content for Instagram, YouTube, TikTok, Facebook, X and LinkedIn from one calendar. Set it and forget it.
                 </p>
               </div>
               <div className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-8 backdrop-blur">
@@ -119,7 +134,7 @@ export default function Home() {
             </p>
             <ul className="mx-auto mt-12 max-w-2xl space-y-4 text-slate-300">
               {[
-                'Schedule posts to Instagram, YouTube, and TikTok from a single calendar',
+                'Schedule posts to Instagram, YouTube, TikTok, Facebook, X and LinkedIn from a single calendar',
                 'Analytics: views, likes, comments, followers, subscribers in one dashboard',
                 'AI suggests the best times to upload based on your audience',
                 'AI generates post descriptions and captions for your content',

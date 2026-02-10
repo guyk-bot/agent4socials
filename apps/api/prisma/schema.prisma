@@ -41,6 +41,9 @@ enum Platform {
   INSTAGRAM
   TIKTOK
   YOUTUBE
+  FACEBOOK
+  TWITTER
+  LINKEDIN
 }
 
 model SocialAccount {

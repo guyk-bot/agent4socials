@@ -85,6 +85,12 @@ export class ProcessorService extends WorkerHost {
                 return this.publishToTikTok(post, accessToken, account.platformUserId);
             case Platform.YOUTUBE:
                 return this.publishToYouTube(post, accessToken, account.platformUserId);
+            case Platform.FACEBOOK:
+                return this.publishToFacebook(post, accessToken, account.platformUserId);
+            case Platform.TWITTER:
+                return this.publishToTwitter(post, accessToken, account.platformUserId);
+            case Platform.LINKEDIN:
+                return this.publishToLinkedIn(post, accessToken, account.platformUserId);
             default:
                 throw new Error(`Unsupported platform: ${target.platform}`);
         }
@@ -105,5 +111,20 @@ export class ProcessorService extends WorkerHost {
     private async publishToYouTube(post: any, token: string, channelId: string) {
         this.logger.log(`Publishing to YouTube for channel ${channelId}`);
         // implementation details for YouTube Data API
+    }
+
+    private async publishToFacebook(post: any, token: string, pageId: string) {
+        this.logger.log(`Publishing to Facebook for page ${pageId}`);
+        // implementation details for Facebook Graph API (Pages)
+    }
+
+    private async publishToTwitter(post: any, token: string, userId: string) {
+        this.logger.log(`Publishing to X (Twitter) for user ${userId}`);
+        // implementation details for Twitter API v2
+    }
+
+    private async publishToLinkedIn(post: any, token: string, urn: string) {
+        this.logger.log(`Publishing to LinkedIn for ${urn}`);
+        // implementation details for LinkedIn Share API
     }
 }

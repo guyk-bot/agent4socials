@@ -21,6 +21,12 @@ export class SocialService {
                 return `https://www.tiktok.com/v2/auth/authorize/?client_key=${process.env.TIKTOK_CLIENT_KEY}&scope=user.info.basic,video.upload,video.publish&response_type=code&redirect_uri=${process.env.TIKTOK_REDIRECT_URI}&state=${state}`;
             case Platform.YOUTUBE:
                 return `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.YOUTUBE_CLIENT_ID}&redirect_uri=${process.env.YOUTUBE_REDIRECT_URI}&response_type=code&scope=https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly&access_type=offline&state=${state}&prompt=consent`;
+            case Platform.FACEBOOK:
+                return `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.META_APP_ID}&redirect_uri=${process.env.FACEBOOK_REDIRECT_URI}&state=${state}&scope=pages_manage_posts,pages_read_engagement,pages_show_list`;
+            case Platform.TWITTER:
+                return `https://twitter.com/i/oauth2/authorize?client_id=${process.env.TWITTER_CLIENT_ID}&redirect_uri=${process.env.TWITTER_REDIRECT_URI}&response_type=code&scope=tweet.read%20tweet.write%20users.read%20offline.access&state=${state}&code_challenge=challenge&code_challenge_method=plain`;
+            case Platform.LINKEDIN:
+                return `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${process.env.LINKEDIN_CLIENT_ID}&redirect_uri=${process.env.LINKEDIN_REDIRECT_URI}&state=${state}&scope=openid%20profile%20email%20w_member_social`;
             default:
                 throw new BadRequestException('Unsupported platform');
         }
@@ -37,6 +43,12 @@ export class SocialService {
                 tokenData = await this.exchangeTikTokCode(code);
             } else if (platform === Platform.YOUTUBE) {
                 tokenData = await this.exchangeYouTubeCode(code);
+            } else if (platform === Platform.FACEBOOK) {
+                tokenData = await this.exchangeFacebookCode(code);
+            } else if (platform === Platform.TWITTER) {
+                tokenData = await this.exchangeTwitterCode(code);
+            } else if (platform === Platform.LINKEDIN) {
+                tokenData = await this.exchangeLinkedInCode(code);
             }
         } catch (error) {
             console.error(`Error exchanging code for ${platform}:`, error.response?.data || error.message);
@@ -130,6 +142,65 @@ export class SocialService {
             expiresAt: new Date(Date.now() + response.data.expires_in * 1000),
             platformUserId: 'youtube-id', // Would be fetched via channel lookup
             username: 'YouTube Channel',
+        };
+    }
+
+    private async exchangeFacebookCode(code: string) {
+        const response = await axios.get('https://graph.facebook.com/v18.0/oauth/access_token', {
+            params: {
+                client_id: process.env.META_APP_ID,
+                client_secret: process.env.META_APP_SECRET,
+                redirect_uri: process.env.FACEBOOK_REDIRECT_URI,
+                code,
+            },
+        });
+        return {
+            accessToken: response.data.access_token,
+            refreshToken: null,
+            expiresAt: new Date(Date.now() + (response.data.expires_in || 3600) * 1000),
+            platformUserId: 'facebook-page-id',
+            username: 'Facebook Page',
+        };
+    }
+
+    private async exchangeTwitterCode(code: string) {
+        const response = await axios.post('https://api.twitter.com/2/oauth2/token', new URLSearchParams({
+            code,
+            grant_type: 'authorization_code',
+            redirect_uri: process.env.TWITTER_REDIRECT_URI || '',
+            code_verifier: 'challenge',
+        }).toString(), {
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            auth: {
+                username: process.env.TWITTER_CLIENT_ID || '',
+                password: process.env.TWITTER_CLIENT_SECRET || '',
+            },
+        });
+        return {
+            accessToken: response.data.access_token,
+            refreshToken: response.data.refresh_token,
+            expiresAt: new Date(Date.now() + (response.data.expires_in || 7200) * 1000),
+            platformUserId: 'twitter-user-id',
+            username: 'X User',
+        };
+    }
+
+    private async exchangeLinkedInCode(code: string) {
+        const response = await axios.post('https://www.linkedin.com/oauth/v2/accessToken', new URLSearchParams({
+            grant_type: 'authorization_code',
+            code,
+            redirect_uri: process.env.LINKEDIN_REDIRECT_URI || '',
+            client_id: process.env.LINKEDIN_CLIENT_ID || '',
+            client_secret: process.env.LINKEDIN_CLIENT_SECRET || '',
+        }).toString(), {
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        });
+        return {
+            accessToken: response.data.access_token,
+            refreshToken: null,
+            expiresAt: new Date(Date.now() + (response.data.expires_in || 3600) * 1000),
+            platformUserId: 'linkedin-urn',
+            username: 'LinkedIn Profile',
         };
     }
 
