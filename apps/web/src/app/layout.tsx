@@ -3,9 +3,37 @@ import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { WhiteLabelProvider } from "@/context/WhiteLabelContext";
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://agent4socials.com";
+
 export const metadata: Metadata = {
-  title: "Agent4Socials | Schedule, Analyze & Grow on Instagram, YouTube, TikTok, Facebook, X & LinkedIn",
-  description: "One dashboard to schedule posts and track analytics across Instagram, YouTube, TikTok, Facebook, Twitter and LinkedIn. From $2.99/mo.",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "Agent4Socials | Schedule Posts & Analytics for Instagram, YouTube, TikTok, Facebook, Twitter & LinkedIn",
+    template: "%s | Agent4Socials",
+  },
+  description: "Schedule posts and get analytics across Instagram, YouTube, TikTok, Facebook, Twitter and LinkedIn. 7-day free trial. From $2.99/mo.",
+  keywords: ["social media scheduler", "schedule Instagram posts", "schedule TikTok", "social media analytics", "post scheduler", "Instagram analytics", "TikTok scheduler", "Facebook scheduler", "LinkedIn scheduler"],
+  authors: [{ name: "Agent4Socials" }],
+  creator: "Agent4Socials",
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: siteUrl,
+    siteName: "Agent4Socials",
+    title: "Agent4Socials | Schedule Posts & Analytics for All Major Social Platforms",
+    description: "Schedule posts and get analytics across Instagram, YouTube, TikTok, Facebook, Twitter and LinkedIn. 7-day free trial.",
+    images: [{ url: "/logo.svg", width: 512, height: 512, alt: "Agent4Socials" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Agent4Socials | Schedule Posts & Analytics",
+    description: "One dashboard for scheduling and analytics. 7-day free trial.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true },
+  },
   icons: { icon: "/logo.svg", apple: "/logo.svg" },
 };
 
