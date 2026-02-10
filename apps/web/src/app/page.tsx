@@ -5,7 +5,6 @@ import SiteFooter from '@/components/landing/SiteFooter';
 import {
   Calendar,
   BarChart3,
-  Sparkles,
   Instagram,
   Youtube,
   Facebook,
@@ -13,6 +12,10 @@ import {
   Zap,
   Check,
   ArrowRight,
+  Link2,
+  CalendarCheck,
+  BarChart2,
+  HelpCircle,
 } from 'lucide-react';
 
 function TikTokIcon({ className }: { className?: string }) {
@@ -48,7 +51,7 @@ export default function Home() {
               {' '}on all major social platforms and get analytics reports.
             </h1>
             <p className="mx-auto mt-8 max-w-2xl text-lg leading-relaxed text-slate-400">
-              One dashboard for Instagram, YouTube, TikTok, Facebook, Twitter & LinkedIn. Plan your content, see what works, and grow with AI-powered insights.
+              One dashboard for Instagram, YouTube, TikTok, Facebook, Twitter & LinkedIn. Plan your content and see what works with clear analytics.
             </p>
             <div className="mt-12 flex flex-col items-center justify-center gap-4 sm:flex-row">
               <Link
@@ -93,9 +96,9 @@ export default function Home() {
               Everything you need to grow
             </h2>
             <p className="mx-auto mt-5 max-w-2xl text-center text-lg text-slate-400">
-              Schedule, analyze, and optimize with AI—all in one place.
+              Scheduling and analytics—all in one place.
             </p>
-            <div className="mt-20 grid gap-8 md:grid-cols-3">
+            <div className="mt-20 grid gap-8 md:grid-cols-2 md:max-w-3xl md:mx-auto">
               <div className="group rounded-2xl border border-slate-700/60 bg-slate-800/40 p-8 backdrop-blur transition-all hover:border-emerald-500/30 hover:bg-slate-800/60 hover:shadow-xl hover:shadow-emerald-500/5">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-400 transition-colors group-hover:bg-emerald-500/30">
                   <Calendar className="h-7 w-7" />
@@ -114,14 +117,43 @@ export default function Home() {
                   Views, likes, comments, followers, subscribers—see what works and double down.
                 </p>
               </div>
-              <div className="group rounded-2xl border border-slate-700/60 bg-slate-800/40 p-8 backdrop-blur transition-all hover:border-violet-500/30 hover:bg-slate-800/60 hover:shadow-xl hover:shadow-violet-500/5">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-500/20 text-violet-400 transition-colors group-hover:bg-violet-500/30">
-                  <Sparkles className="h-7 w-7" />
+            </div>
+          </div>
+        </section>
+
+        {/* How it works */}
+        <section id="how-it-works" className="border-t border-slate-800/80 bg-slate-900/40 py-24 sm:py-32">
+          <div className="mx-auto max-w-5xl px-4 sm:px-6">
+            <h2 className="text-center text-3xl font-bold sm:text-4xl md:text-5xl">
+              How it works
+            </h2>
+            <p className="mx-auto mt-5 max-w-2xl text-center text-lg text-slate-400">
+              Get started in three simple steps.
+            </p>
+            <div className="mt-16 grid gap-10 md:grid-cols-3">
+              <div className="relative text-center">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-emerald-500/50 bg-emerald-500/10 text-emerald-400">
+                  <Link2 className="h-7 w-7" />
                 </div>
-                <h3 className="mt-6 text-xl font-semibold">AI mode</h3>
-                <p className="mt-3 leading-relaxed text-slate-400">
-                  Best time to post, caption ideas, and performance insights—powered by AI.
-                </p>
+                <span className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-emerald-500 px-2.5 py-0.5 text-xs font-bold text-white">1</span>
+                <h3 className="mt-6 text-lg font-semibold">Connect your accounts</h3>
+                <p className="mt-2 text-slate-400">Link Instagram, YouTube, TikTok, Facebook, Twitter or LinkedIn with secure OAuth. One click per platform.</p>
+              </div>
+              <div className="relative text-center">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-emerald-500/50 bg-emerald-500/10 text-emerald-400">
+                  <CalendarCheck className="h-7 w-7" />
+                </div>
+                <span className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-emerald-500 px-2.5 py-0.5 text-xs font-bold text-white">2</span>
+                <h3 className="mt-6 text-lg font-semibold">Create & schedule</h3>
+                <p className="mt-2 text-slate-400">Draft your posts, add media, and choose when they go live. One calendar for all your channels.</p>
+              </div>
+              <div className="relative text-center">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-emerald-500/50 bg-emerald-500/10 text-emerald-400">
+                  <BarChart2 className="h-7 w-7" />
+                </div>
+                <span className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-emerald-500 px-2.5 py-0.5 text-xs font-bold text-white">3</span>
+                <h3 className="mt-6 text-lg font-semibold">Track analytics</h3>
+                <p className="mt-2 text-slate-400">See views, likes, comments, followers and subscribers in one dashboard. Know what works.</p>
               </div>
             </div>
           </div>
@@ -131,7 +163,7 @@ export default function Home() {
         <section id="product" className="border-t border-slate-800/80 py-24 sm:py-32">
           <div className="mx-auto max-w-5xl px-4 sm:px-6">
             <h2 className="text-center text-3xl font-bold sm:text-4xl md:text-5xl">
-              Schedule, analytics & AI—one product
+              Schedule & analytics—one product
             </h2>
             <p className="mx-auto mt-5 max-w-2xl text-center text-lg text-slate-400">
               No juggling multiple tools. One login, all platforms.
@@ -140,8 +172,6 @@ export default function Home() {
               {[
                 'Schedule posts to Instagram, YouTube, TikTok, Facebook, Twitter and LinkedIn from a single calendar',
                 'Analytics: views, likes, comments, followers, subscribers in one dashboard',
-                'AI suggests the best times to upload based on your audience',
-                'AI generates post descriptions and captions for your content',
                 'White-label: upload your logo and colors so it looks like your brand',
               ].map((item, i) => (
                 <li key={i} className="flex items-start gap-4 rounded-xl py-2">
@@ -191,6 +221,50 @@ export default function Home() {
                 View full pricing and features →
               </Link>
             </p>
+          </div>
+        </section>
+
+        {/* FAQ */}
+        <section id="faq" className="border-t border-slate-800/80 bg-slate-900/40 py-24 sm:py-32">
+          <div className="mx-auto max-w-3xl px-4 sm:px-6">
+            <h2 className="text-center text-3xl font-bold sm:text-4xl md:text-5xl">
+              Frequently asked questions
+            </h2>
+            <p className="mx-auto mt-5 max-w-xl text-center text-lg text-slate-400">
+              Quick answers to common questions.
+            </p>
+            <dl className="mt-14 space-y-6">
+              {[
+                {
+                  q: 'Which platforms can I connect?',
+                  a: 'You can connect Instagram, YouTube, TikTok, Facebook, Twitter (X), and LinkedIn. We use each platform’s official OAuth so you authorize access securely.',
+                },
+                {
+                  q: 'How does scheduling work?',
+                  a: 'You create a post, add your media and text, pick the date and time, and choose which connected accounts to publish to. We send the post at the scheduled time.',
+                },
+                {
+                  q: 'What analytics do I get?',
+                  a: 'We pull views, likes, comments, followers, and subscribers (where available) from your connected accounts into one dashboard so you can see performance across platforms.',
+                },
+                {
+                  q: 'Can I cancel anytime?',
+                  a: 'Yes. You can cancel your subscription at any time. You’ll keep access until the end of your billing period.',
+                },
+                {
+                  q: 'Is there a free trial?',
+                  a: 'Yes. You can start free and explore scheduling and analytics. No credit card required to sign up.',
+                },
+              ].map((item, i) => (
+                <div key={i} className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-6">
+                  <dt className="flex items-start gap-3 font-semibold text-white">
+                    <HelpCircle className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
+                    {item.q}
+                  </dt>
+                  <dd className="mt-3 pl-8 text-slate-400 leading-relaxed">{item.a}</dd>
+                </div>
+              ))}
+            </dl>
           </div>
         </section>
 
