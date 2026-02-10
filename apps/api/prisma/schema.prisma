@@ -1,0 +1,145 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  password      String?        // Nullable for OAuth users
+  name          String?
+  provider      AuthProvider   @default(LOCAL)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  socialAccounts SocialAccount[]
+  posts          Post[]
+  auditLogs      AuditLog[]
+  notifications  Notification[]
+  workspaces     Workspace[]
+}
+
+model Workspace {
+  id          String   @id @default(cuid())
+  name        String
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum Platform {
+  INSTAGRAM
+  TIKTOK
+  YOUTUBE
+}
+
+model SocialAccount {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  platform        Platform
+  username        String
+  platformUserId  String   @unique
+  profilePicture  String?
+  accessToken     String   // Should be encrypted at rest in implementation
+  refreshToken    String?  // Should be encrypted at rest in implementation
+  expiresAt       DateTime?
+  scopes          String[]
+  status          String   @default("connected") // connected, expired, disconnected
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  postTargets     PostTarget[]
+
+  @@unique([userId, platform, platformUserId])
+}
+
+enum PostStatus {
+  DRAFT
+  SCHEDULED
+  POSTING
+  POSTED
+  FAILED
+}
+
+model Post {
+  id            String       @id @default(cuid())
+  userId        String
+  user          User         @relation(fields: [userId], references: [id])
+  title         String?
+  content       String?      // Caption/Description
+  status        PostStatus   @default(DRAFT)
+  scheduledAt   DateTime?
+  postedAt      DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  media         MediaAsset[]
+  targets       PostTarget[]
+  auditLogs     AuditLog[]
+}
+
+model PostTarget {
+  id              String         @id @default(cuid())
+  postId          String
+  post            Post           @relation(fields: [postId], references: [id])
+  platform        Platform
+  socialAccountId String
+  socialAccount   SocialAccount  @relation(fields: [socialAccountId], references: [id])
+  status          PostStatus     @default(SCHEDULED)
+  platformPostId  String?        // ID returned by the platform after posting
+  error           String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@unique([postId, platform, socialAccountId])
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+model MediaAsset {
+  id          String    @id @default(cuid())
+  postId      String
+  post        Post      @relation(fields: [postId], references: [id])
+  fileUrl     String
+  type        MediaType
+  size        Int?
+  duration    Float?    // For videos
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  postId    String?
+  post      Post?    @relation(fields: [postId], references: [id])
+  action    String
+  details   Json?
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  title       String
+  message     String
+  read        Boolean  @default(false)
+  type        String   // success, failure, info
+  createdAt   DateTime @default(now())
+}
