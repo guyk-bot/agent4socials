@@ -6,13 +6,13 @@ import Image from 'next/image';
 export default function SiteFooter() {
   return (
     <footer className="border-t border-slate-800/80 bg-slate-950 text-slate-400">
-      <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
-        <div className="flex flex-col gap-10 md:flex-row md:items-start md:justify-between">
+      <div className="mx-auto max-w-6xl px-4 py-10 sm:py-14 sm:px-6">
+        <div className="flex flex-col gap-8 sm:gap-10 md:flex-row md:items-start md:justify-between">
           <div className="flex items-center gap-2.5">
-            <Image src="/logo.svg" alt="Agent4Socials" width={28} height={28} className="h-7 w-7" />
-            <span className="font-semibold text-white">Agent4Socials</span>
+            <Image src="/logo.svg" alt="Agent4Socials" width={28} height={28} className="h-6 w-6 sm:h-7 sm:w-7" />
+            <span className="font-semibold text-white text-sm sm:text-base">Agent4Socials</span>
           </div>
-          <div className="grid gap-8 sm:grid-cols-3">
+          <div className="grid gap-6 sm:gap-8 sm:grid-cols-3">
             <div>
               <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Product</h4>
               <ul className="mt-4 space-y-3">
