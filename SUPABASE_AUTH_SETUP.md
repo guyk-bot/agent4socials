@@ -16,13 +16,15 @@ In **Supabase Dashboard** → **Authentication** → **Providers**:
     `https://<your-project-ref>.supabase.co/auth/v1/callback`  
     You can copy this from Supabase: Authentication → Providers → Google (it’s shown there). Use the same project ref as in your Supabase URL (e.g. `abcdefghijk` in `https://abcdefghijk.supabase.co`).
 
-## 3. Redirect URLs (Supabase)
+## 3. Redirect URLs (Supabase) — required for “Sign in with Google”
 
-In **Authentication** → **URL Configuration** → **Redirect URLs**, add:
+**If you see “Internal Server Error” or land on the home page with a long `#access_token=...` URL after Google sign-in**, Supabase is redirecting to the wrong URL because the callback URL is not in the allow list.
 
-- `http://localhost:3000/auth/callback` (local)
-- `https://agent4socials.com/auth/callback` (production)
-- Optionally keep `http://localhost:3000/dashboard` and `https://agent4socials.com/dashboard` if you use them elsewhere.
+1. Go to **Supabase Dashboard** → **Authentication** → **URL Configuration** ([auth/url-configuration](https://supabase.com/dashboard/project/_/auth/url-configuration)).
+2. Under **Redirect URLs**, click **Add URL** and add **exactly** (no trailing slash):
+   - **Local:** `http://localhost:3000/auth/callback`
+   - **Production:** `https://agent4socials.com/auth/callback`
+3. Save. The app uses `redirectTo: origin + '/auth/callback'` in code; that URL **must** be in this list or Supabase falls back to **Site URL** (often `http://localhost:3000`), so you land on `/` with the token and can get a 500 or broken flow.
 
 ## 4. Get Supabase keys
 
