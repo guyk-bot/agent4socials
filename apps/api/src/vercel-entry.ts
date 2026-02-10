@@ -30,6 +30,12 @@ async function getExpressApp() {
 }
 
 export default async function handler(req: Request, res: Response) {
+  // Normalize path so Nest (global prefix 'api') receives /api/...
+  const rawPath = (req as any).url || (req as any).path || '/';
+  const path = (typeof rawPath === 'string' ? rawPath : '/').split('?')[0];
+  if (!path.startsWith('/api')) {
+    (req as any).url = '/api' + (path === '/' ? '' : path);
+  }
   const expressApp = await getExpressApp();
   expressApp(req, res);
 }

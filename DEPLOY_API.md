@@ -108,7 +108,7 @@ You can add OAuth and S3 variables later.
 | Problem | What to try |
 |--------|--------------|
 | Build fails on `prisma migrate deploy` | Use a **direct** Supabase URL (port 5432) for migrations, or run migrations once from your machine with that URL and remove `prisma migrate deploy` from the build. |
-| 404 or 500 on all API routes | Confirm Root Directory is `apps/api`, build runs `npm run vercel-build`, and `dist/vercel-entry.js` exists after build. Check **Functions** in the Vercel project to see the serverless function. |
+| 404 on `/api/health` or all routes | (1) Try the default deployment URL first: open the deployment in Vercel, copy the **Visit** URL (e.g. `https://agent4socials-api-xxx.vercel.app`), then try `https://that-url.vercel.app/api/health` and `https://that-url.vercel.app/`. (2) Confirm **Root Directory** is `apps/api` and **Build Command** is `npm run vercel-build`. (3) In the project, go to **Settings → Functions** and check that a function from `dist/vercel-entry.js` is listed. (4) Redeploy after any config change. |
 | CORS errors from the frontend | Set `FRONTEND_URL` to `https://agent4socials.com` (no trailing slash) in the API project. |
 | “Cannot find module” in build | Ensure **Root Directory** is exactly `apps/api` so `npm install` and the build run inside the API app. |
 
