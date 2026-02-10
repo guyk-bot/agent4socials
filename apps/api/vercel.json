@@ -11,25 +11,5 @@
       "src": "/(.*)",
       "dest": "dist/vercel-entry.js"
     }
-  ],
-  "env": {
-    "DATABASE_URL": "@database_url",
-    "REDIS_HOST": "@redis_host",
-    "REDIS_PORT": "@redis_port",
-    "JWT_SECRET": "@jwt_secret",
-    "GOOGLE_CLIENT_ID": "@google_client_id",
-    "GOOGLE_CLIENT_SECRET": "@google_client_secret",
-    "META_APP_ID": "@meta_app_id",
-    "META_APP_SECRET": "@meta_app_secret",
-    "TIKTOK_CLIENT_KEY": "@tiktok_client_key",
-    "TIKTOK_CLIENT_SECRET": "@tiktok_client_secret",
-    "YOUTUBE_CLIENT_ID": "@youtube_client_id",
-    "YOUTUBE_CLIENT_SECRET": "@youtube_client_secret",
-    "S3_ENDPOINT": "@s3_endpoint",
-    "S3_ACCESS_KEY_ID": "@s3_access_key_id",
-    "S3_SECRET_ACCESS_KEY": "@s3_secret_access_key",
-    "S3_BUCKET_NAME": "@s3_bucket_name",
-    "S3_REGION": "@s3_region",
-    "FRONTEND_URL": "@frontend_url"
-  }
+  ]
 }
