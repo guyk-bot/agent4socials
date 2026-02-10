@@ -15,6 +15,24 @@ const useTls =
   process.env.REDIS_TLS === '1' ||
   redisHost.includes('upstash.io');
 
+const bullModuleImports = process.env.REDIS_HOST
+  ? [
+      BullModule.forRoot({
+        connection: {
+          host: redisHost,
+          port: parseInt(process.env.REDIS_PORT || '6379', 10),
+          ...(process.env.REDIS_PASSWORD && {
+            username: process.env.REDIS_USERNAME || 'default',
+            password: process.env.REDIS_PASSWORD,
+          }),
+          ...(useTls && { tls: {} }),
+          connectTimeout: 5000,
+          maxRetriesPerRequest: 1,
+        },
+      }),
+    ]
+  : [];
+
 @Module({
   imports: [
     PrismaModule,
@@ -23,17 +41,7 @@ const useTls =
     SocialModule,
     MediaModule,
     PostsModule,
-    BullModule.forRoot({
-      connection: {
-        host: redisHost,
-        port: parseInt(process.env.REDIS_PORT || '6379', 10),
-        ...(process.env.REDIS_PASSWORD && {
-          username: process.env.REDIS_USERNAME || 'default',
-          password: process.env.REDIS_PASSWORD,
-        }),
-        ...(useTls && { tls: {} }),
-      },
-    }),
+    ...bullModuleImports,
   ],
   controllers: [AppController],
   providers: [AppService],
