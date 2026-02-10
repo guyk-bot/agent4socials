@@ -1,4 +1,5 @@
-import Link from 'next/link';
+import DashboardPreview from '@/components/landing/DashboardPreview';
+import Testimonials from '@/components/landing/Testimonials';
 import Image from 'next/image';
 import SiteHeader from '@/components/landing/SiteHeader';
 import SiteFooter from '@/components/landing/SiteFooter';
@@ -16,7 +17,40 @@ import {
   CalendarCheck,
   BarChart2,
   HelpCircle,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
+import { useState } from 'react';
+
+function FaqItem({ question, answer }: { question: string; answer: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 overflow-hidden transition-all duration-300 hover:border-slate-600">
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex w-full items-start justify-between gap-3 p-4 sm:p-6 text-left"
+      >
+        <span className="flex items-start gap-3 font-semibold text-white">
+          <HelpCircle className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
+          {question}
+        </span>
+        {isOpen ? (
+          <ChevronUp className="h-5 w-5 shrink-0 text-slate-400" />
+        ) : (
+          <ChevronDown className="h-5 w-5 shrink-0 text-slate-400" />
+        )}
+      </button>
+      <div 
+        className={`px-4 sm:px-6 text-slate-400 text-sm sm:text-base leading-relaxed overflow-hidden transition-all duration-300 ease-in-out ${
+          isOpen ? 'max-h-48 pb-6 opacity-100' : 'max-h-0 opacity-0'
+        }`}
+      >
+        <div className="pl-8">{answer}</div>
+      </div>
+    </div>
+  );
+}
 
 function TikTokIcon({ className }: { className?: string }) {
   return (
@@ -98,6 +132,9 @@ export default function Home() {
                 </span>
               ))}
             </div>
+
+            {/* Dashboard Preview */}
+            <DashboardPreview />
           </div>
         </section>
 
@@ -258,7 +295,7 @@ export default function Home() {
             <p className="mx-auto mt-4 sm:mt-5 max-w-xl text-center text-base sm:text-lg text-slate-400">
               Quick answers to common questions.
             </p>
-            <dl className="mt-10 sm:mt-14 space-y-4 sm:space-y-6">
+            <div className="mt-10 sm:mt-14 space-y-4">
               {[
                 {
                   q: 'Which platforms can I connect?',
@@ -281,17 +318,14 @@ export default function Home() {
                   a: 'Yes. You get a 7-day free trial to explore scheduling and analytics. No credit card required to start.',
                 },
               ].map((item, i) => (
-                <div key={i} className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-4 sm:p-6">
-                  <dt className="flex items-start gap-3 font-semibold text-white text-left">
-                    <HelpCircle className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
-                    {item.q}
-                  </dt>
-                  <dd className="mt-3 pl-8 sm:pl-8 text-slate-400 text-sm sm:text-base leading-relaxed">{item.a}</dd>
-                </div>
+                <FaqItem key={i} question={item.q} answer={item.a} />
               ))}
-            </dl>
+            </div>
           </div>
         </section>
+
+        {/* Testimonials */}
+        <Testimonials />
 
         {/* CTA */}
         <section className="relative border-t border-slate-800/80 py-16 sm:py-24 md:py-32">
