@@ -17,7 +17,7 @@ export default function DashboardLayout({
 
     React.useEffect(() => {
         if (!loading && !user) {
-            router.push('/login?reason=profile_failed');
+            router.push('/');
         }
     }, [user, loading, router]);
 
