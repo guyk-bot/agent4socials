@@ -50,7 +50,12 @@ export default function AccountsPage() {
     const handleConnect = async (platform: string) => {
         try {
             const res = await api.get(`/social/oauth/${platform}/start`);
-            const popup = window.open(res.data.url, '_blank', 'width=600,height=600');
+            const url = res.data?.url;
+            if (!url || typeof url !== 'string') {
+                alert('Invalid response from server. Check server logs.');
+                return;
+            }
+            const popup = window.open(url, '_blank', 'width=600,height=600');
             if (popup) {
                 const interval = setInterval(() => {
                     if (popup.closed) {
@@ -59,10 +64,19 @@ export default function AccountsPage() {
                     }
                 }, 500);
             }
-        } catch (err) {
-            alert(
-                'Failed to start OAuth flow. Ensure DATABASE_URL and the social platform env vars (e.g. META_APP_ID, YOUTUBE_CLIENT_ID) are set for this project and redeploy.'
-            );
+        } catch (err: unknown) {
+            const msg =
+                err && typeof err === 'object' && 'response' in err && err.response && typeof err.response === 'object' && 'data' in err.response && (err.response as { data?: { message?: string } }).data?.message
+                    ? (err.response as { data: { message: string } }).data.message
+                    : null;
+            if (msg) {
+                if (msg.includes('DATABASE_URL')) alert('Connect is not configured: add DATABASE_URL in Vercel (web app) → Settings → Environment Variables, then redeploy.');
+                else if (msg.includes('META_APP_ID') || msg.includes('META_APP_SECRET')) alert('Instagram/Facebook connect: add META_APP_ID and META_APP_SECRET in Vercel → Settings → Environment Variables, then redeploy.');
+                else if (msg === 'Unauthorized') alert('Your account is not synced yet. Try signing out and back in, then connect again.');
+                else alert(msg);
+            } else {
+                alert('Failed to start OAuth. Ensure DATABASE_URL is set and, for Instagram, META_APP_ID and META_APP_SECRET are set in Vercel, then redeploy.');
+            }
         }
     };
 

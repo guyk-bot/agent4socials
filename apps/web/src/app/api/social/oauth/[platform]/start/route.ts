@@ -43,6 +43,23 @@ export async function GET(
   if (!plat || !PLATFORMS.includes(plat)) {
     return NextResponse.json({ error: 'Invalid platform' }, { status: 400 });
   }
-  const url = getOAuthUrl(plat, userId);
-  return NextResponse.json({ url });
+  // Fail fast with clear message when required env vars are missing for this platform
+  if (plat === 'INSTAGRAM' || plat === 'FACEBOOK') {
+    if (!process.env.META_APP_ID || !process.env.META_APP_SECRET) {
+      return NextResponse.json(
+        { message: 'Instagram/Facebook connect requires META_APP_ID and META_APP_SECRET in Vercel environment variables.' },
+        { status: 503 }
+      );
+    }
+  }
+  try {
+    const url = getOAuthUrl(plat, userId);
+    return NextResponse.json({ url });
+  } catch (e) {
+    console.error('[Social OAuth] getOAuthUrl error:', e);
+    return NextResponse.json(
+      { message: 'OAuth config missing for this platform. Set the required env vars (e.g. META_APP_ID for Instagram) and redeploy.' },
+      { status: 503 }
+    );
+  }
 }
