@@ -10,8 +10,8 @@ type WhiteLabelState = {
 
 const defaultState: WhiteLabelState = {
   logoUrl: null,
-  primaryColor: '#6366f1',
-  backgroundColor: '#f8fafc',
+  primaryColor: '#10b981',
+  backgroundColor: '#0f172a',
 };
 
 const STORAGE_KEY = 'agent4socials-whitelabel';

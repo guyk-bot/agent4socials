@@ -23,9 +23,9 @@ export default function DashboardLayout({
 
     if (loading) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-gray-50">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
-                <p className="text-sm text-gray-500">Loading…</p>
+            <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-slate-950">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500" />
+                <p className="text-sm text-slate-400">Loading…</p>
             </div>
         );
     }
@@ -35,9 +35,12 @@ export default function DashboardLayout({
     return (
         <div
             className="min-h-screen"
+            data-theme="dark"
             style={{
                 backgroundColor: backgroundColor || undefined,
                 ['--wl-primary' as string]: primaryColor || undefined,
+                ['--primary' as string]: primaryColor || undefined,
+                ['--primary-hover' as string]: primaryColor ? `${primaryColor}dd` : undefined,
             }}
         >
             <Sidebar />

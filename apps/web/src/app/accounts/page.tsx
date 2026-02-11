@@ -41,7 +41,9 @@ export default function AccountsPage() {
             // In a real app, this would redirect. Here we'll open in a new tab.
             window.open(res.data.url, '_blank', 'width=600,height=600');
         } catch (err) {
-            alert('Failed to start OAuth flow');
+            alert(
+                'Failed to start OAuth flow. Social connections require the Agent4Socials API to be deployed and reachable. Set NEXT_PUBLIC_API_URL in Vercel (web project) to your API URL, then redeploy.'
+            );
         }
     };
 
@@ -49,10 +51,10 @@ export default function AccountsPage() {
         <div className="max-w-4xl mx-auto space-y-8">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Social Accounts</h1>
-                    <p className="text-gray-500">Connect and manage your social media profiles.</p>
+                    <h1 className="text-2xl font-bold text-white">Social Accounts</h1>
+                    <p className="text-slate-400">Connect and manage your social media profiles.</p>
                 </div>
-                <button onClick={fetchAccounts} className="p-2 text-gray-400 hover:text-indigo-600 transition-colors">
+                <button onClick={fetchAccounts} className="p-2 text-slate-400 hover:text-emerald-500 transition-colors">
                     <RefreshCw size={20} />
                 </button>
             </div>
@@ -116,12 +118,12 @@ function PlatformCard({ name, description, icon, connectedAccounts, onConnect }:
         <div className="card">
             <div className="flex items-start justify-between">
                 <div className="flex items-start space-x-4">
-                    <div className="p-3 bg-gray-50 rounded-xl">
+                    <div className="p-3 bg-slate-800/50 rounded-xl">
                         {icon}
                     </div>
                     <div>
-                        <h3 className="text-lg font-semibold text-gray-900">{name}</h3>
-                        <p className="text-sm text-gray-500 max-w-md mt-1">{description}</p>
+                        <h3 className="text-lg font-semibold text-white">{name}</h3>
+                        <p className="text-sm text-slate-400 max-w-md mt-1">{description}</p>
                     </div>
                 </div>
                 <button
@@ -134,15 +136,15 @@ function PlatformCard({ name, description, icon, connectedAccounts, onConnect }:
             </div>
 
             {connectedAccounts.length > 0 && (
-                <div className="mt-6 border-t border-gray-100 pt-4 space-y-3">
+                <div className="mt-6 border-t border-slate-700 pt-4 space-y-3">
                     {connectedAccounts.map((acc: any) => (
-                        <div key={acc.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div key={acc.id} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
                             <div className="flex items-center space-x-3">
-                                <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs">
+                                <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-xs">
                                     {acc.username[0]}
                                 </div>
                                 <div>
-                                    <p className="text-sm font-medium text-gray-900">{acc.username}</p>
+                                    <p className="text-sm font-medium text-white">{acc.username}</p>
                                     <div className="flex items-center space-x-2">
                                         <span className="flex items-center text-[10px] text-green-600 font-semibold uppercase">
                                             <ShieldCheck size={10} className="mr-1" />
@@ -152,7 +154,7 @@ function PlatformCard({ name, description, icon, connectedAccounts, onConnect }:
                                 </div>
                             </div>
                             <div className="flex items-center space-x-2">
-                                <button className="p-2 text-gray-400 hover:text-red-600 transition-colors">
+                                <button className="p-2 text-slate-400 hover:text-red-500 transition-colors">
                                     <Trash2 size={18} />
                                 </button>
                             </div>
