@@ -37,7 +37,7 @@ export default function AuthCallbackPage() {
             const msg = setErrorResult.message;
             if (msg?.toLowerCase().includes('invalid api key')) {
               setError(
-                'Invalid API key — set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel (Project → Settings → Environment Variables) for this app.'
+                'Invalid API key: set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel (Project → Settings → Environment Variables) for this app.'
               );
             } else {
               setError(msg);

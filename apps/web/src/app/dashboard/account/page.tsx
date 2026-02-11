@@ -15,12 +15,13 @@ import {
   AlertTriangle,
   Share2,
   Check,
+  FileText,
 } from 'lucide-react';
 
 const TRIAL_DAYS = 7;
 const CONFIRM_TEXT = 'CONFIRM';
 const SHARE_URL = 'https://agent4socials.com';
-const SHARE_TEXT = 'Check out Agent4Socials — schedule posts & analytics for Instagram, YouTube, TikTok, Facebook & more.';
+const SHARE_TEXT = 'Check out Agent4Socials: schedule posts and analytics for Instagram, YouTube, TikTok, Facebook and more.';
 
 function formatDate(d: Date) {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
@@ -251,7 +252,7 @@ export default function AccountPage() {
             <div className="min-w-0 flex-1">
               <h2 className="font-semibold text-neutral-900">Your trial</h2>
               <p className="text-sm text-neutral-500">
-                {formatDate(trialStart)} – {formatDate(trialEnd)}
+                {formatDate(trialStart)} to {formatDate(trialEnd)}
               </p>
               {daysLeft > 0 && (
                 <p className="text-sm font-medium mt-1" style={{ color: accent }}>
@@ -275,7 +276,7 @@ export default function AccountPage() {
             </div>
             <div>
               <h2 className="font-semibold text-neutral-900">Save with yearly</h2>
-              <p className="text-sm text-neutral-600">$20/year — save ~44%</p>
+              <p className="text-sm text-neutral-600">$19.99/year, save ~44%</p>
             </div>
           </div>
           <Link
@@ -288,6 +289,39 @@ export default function AccountPage() {
         </div>
       </div>
 
+      {/* Billing & Invoices */}
+      <div className="card rounded-2xl border border-neutral-200 shadow-sm">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2.5 rounded-xl bg-neutral-100 shrink-0">
+            <FileText className="w-5 h-5 text-neutral-600" />
+          </div>
+          <div>
+            <h2 className="font-semibold text-neutral-900">Billing & invoices</h2>
+            <p className="text-sm text-neutral-500">View and download your invoices.</p>
+          </div>
+        </div>
+        <div className="rounded-xl border border-neutral-200 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-neutral-50 border-b border-neutral-200">
+                <th className="text-left py-3 px-4 font-medium text-neutral-600">Date</th>
+                <th className="text-left py-3 px-4 font-medium text-neutral-600">Description</th>
+                <th className="text-right py-3 px-4 font-medium text-neutral-600">Amount</th>
+                <th className="text-right py-3 px-4 font-medium text-neutral-600 w-24">Invoice</th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* Invoices will be loaded from API when billing is connected */}
+              <tr>
+                <td colSpan={4} className="py-8 px-4 text-center text-neutral-500">
+                  No invoices yet. Invoices will appear here once you have billing history.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Share with a friend */}
       <div className="card rounded-2xl border border-neutral-200 bg-gradient-to-b from-emerald-50/50 to-white shadow-sm">
         <div className="flex items-center gap-3 mb-3">
@@ -296,7 +330,7 @@ export default function AccountPage() {
           </div>
           <div>
             <h2 className="font-semibold text-neutral-900">Share with a friend</h2>
-            <p className="text-sm text-neutral-500">Share Agent4Socials on your favorite app — one tap to share the link.</p>
+            <p className="text-sm text-neutral-500">Share Agent4Socials on your favorite app, one tap to share the link.</p>
           </div>
         </div>
         <div className="relative">

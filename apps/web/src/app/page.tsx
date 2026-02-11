@@ -177,7 +177,7 @@ export default function Home() {
                   </div>
                   <h3 className="text-2xl font-bold text-slate-100 group-hover:text-sky-400 transition-colors">Analytics</h3>
                   <p className="mt-4 leading-relaxed text-slate-400">
-                    Views, likes, comments, followers, subscribers—see what works across all platforms and double down on success.
+                    Views, likes, comments, followers, subscribers: see what works across all platforms and double down on success.
                   </p>
                 </div>
               </div>
@@ -232,7 +232,7 @@ export default function Home() {
         <section id="product" className="border-t border-slate-800/80 py-16 sm:py-24 md:py-32">
           <div className="mx-auto max-w-5xl px-4 sm:px-6">
             <h2 className="text-center text-2xl font-bold sm:text-3xl md:text-4xl lg:text-5xl">
-              Schedule & analytics—one product
+              Schedule & analytics: one product
             </h2>
             <p className="mx-auto mt-4 sm:mt-5 max-w-2xl text-center text-base sm:text-lg text-slate-400">
               No juggling multiple tools. One login, all platforms.
@@ -276,7 +276,7 @@ export default function Home() {
               </div>
               <div className="w-full max-w-sm mx-auto rounded-2xl border border-slate-700 bg-slate-800/40 p-6 sm:p-8 text-center transition-all hover:border-slate-600 hover:bg-slate-800/60">
                 <p className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-slate-400">Yearly</p>
-                <p className="mt-2 sm:mt-3 text-3xl sm:text-4xl font-bold">$20<span className="text-lg sm:text-xl font-normal text-slate-400">/yr</span></p>
+                <p className="mt-2 sm:mt-3 text-3xl sm:text-4xl font-bold">$19.99<span className="text-lg sm:text-xl font-normal text-slate-400">/yr</span></p>
                 <p className="mt-1 sm:mt-2 text-xs sm:text-sm font-medium text-emerald-400">Save ~44%</p>
                 <button
                   type="button"

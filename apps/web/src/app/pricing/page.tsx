@@ -6,7 +6,7 @@ import { Check } from 'lucide-react';
 import { useAuthModal } from '@/context/AuthModalContext';
 
 const features = [
-  '7-day free trial—no credit card required',
+  '7-day free trial, no credit card required',
   'Schedule to Instagram, YouTube, TikTok, Facebook, Twitter & LinkedIn',
   'One calendar, all platforms',
   'Analytics: views, likes, comments, followers, subscribers',
@@ -26,7 +26,7 @@ export default function PricingPage() {
             Pricing
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-center text-slate-400 text-sm sm:text-base">
-            One plan. 7-day free trial. Launch pricing—lock in this rate.
+            One plan. 7-day free trial. Launch pricing, lock in this rate.
           </p>
 
           <div className="mt-10 sm:mt-16 grid gap-6 sm:gap-8 md:grid-cols-2 md:gap-10">
@@ -62,10 +62,10 @@ export default function PricingPage() {
                 </span>
               </div>
               <p className="mt-3 sm:mt-4 text-3xl sm:text-4xl font-bold">
-                $20
+                $19.99
                 <span className="text-lg sm:text-xl font-normal text-slate-400">/year</span>
               </p>
-              <p className="mt-1 sm:mt-2 text-slate-400 text-sm">Billed once. ~$1.67/month.</p>
+              <p className="mt-1 sm:mt-2 text-slate-400 text-sm">Billed once. ~$1.67/mo.</p>
               <ul className="mt-6 sm:mt-8 space-y-3 sm:space-y-4">
                 {features.map((f, i) => (
                   <li key={i} className="flex items-center gap-3 text-slate-300 text-sm sm:text-base">
