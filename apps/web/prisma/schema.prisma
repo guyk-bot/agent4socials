@@ -21,4 +21,93 @@ model User {
   provider      AuthProvider @default(LOCAL)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  socialAccounts SocialAccount[]
+  posts          Post[]
+}
+
+enum Platform {
+  INSTAGRAM
+  TIKTOK
+  YOUTUBE
+  FACEBOOK
+  TWITTER
+  LINKEDIN
+}
+
+model SocialAccount {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform        Platform
+  username        String
+  platformUserId  String   @unique
+  profilePicture  String?
+  accessToken     String
+  refreshToken    String?
+  expiresAt       DateTime?
+  scopes          String[] @default([])
+  status          String   @default("connected")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  postTargets     PostTarget[]
+
+  @@unique([userId, platform, platformUserId])
+}
+
+enum PostStatus {
+  DRAFT
+  SCHEDULED
+  POSTING
+  POSTED
+  FAILED
+}
+
+model Post {
+  id            String     @id @default(cuid())
+  userId        String
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title         String?
+  content       String?
+  status        PostStatus @default(DRAFT)
+  scheduledAt   DateTime?
+  postedAt      DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  media         MediaAsset[]
+  targets       PostTarget[]
+}
+
+model PostTarget {
+  id              String       @id @default(cuid())
+  postId          String
+  post            Post         @relation(fields: [postId], references: [id], onDelete: Cascade)
+  platform        Platform
+  socialAccountId String
+  socialAccount   SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  status          PostStatus   @default(SCHEDULED)
+  platformPostId  String?
+  error           String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@unique([postId, platform, socialAccountId])
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+model MediaAsset {
+  id        String    @id @default(cuid())
+  postId    String
+  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  fileUrl   String
+  type      MediaType
+  size      Int?
+  duration  Float?
+  metadata  Json?
+  createdAt DateTime @default(now())
 }

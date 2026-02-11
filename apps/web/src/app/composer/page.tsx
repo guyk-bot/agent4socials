@@ -54,19 +54,24 @@ export default function ComposerPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (platforms.length === 0) return alert('Select at least one platform');
+        const targets = platforms
+            .map((p) => {
+                const acc = accounts.find((a: { platform: string }) => a.platform === p);
+                return acc?.id ? { platform: p, socialAccountId: acc.id } : null;
+            })
+            .filter(Boolean) as { platform: string; socialAccountId: string }[];
+        if (targets.length === 0) {
+            alert('Connect at least one account for the selected platforms (Accounts page).');
+            return;
+        }
 
         setLoading(true);
         try {
-            const targets = platforms.map(p => {
-                const acc = accounts.find(a => a.platform === p);
-                return { platform: p, socialAccountId: acc?.id };
-            });
-
             await api.post('/posts', {
                 content,
                 media: mediaList,
                 targets,
-                scheduledAt: scheduledAt || null,
+                scheduledAt: scheduledAt || undefined,
             });
 
             router.push('/dashboard');

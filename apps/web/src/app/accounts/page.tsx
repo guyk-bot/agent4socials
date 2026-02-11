@@ -38,11 +38,18 @@ export default function AccountsPage() {
     const handleConnect = async (platform: string) => {
         try {
             const res = await api.get(`/social/oauth/${platform}/start`);
-            // In a real app, this would redirect. Here we'll open in a new tab.
-            window.open(res.data.url, '_blank', 'width=600,height=600');
+            const popup = window.open(res.data.url, '_blank', 'width=600,height=600');
+            if (popup) {
+                const interval = setInterval(() => {
+                    if (popup.closed) {
+                        clearInterval(interval);
+                        fetchAccounts();
+                    }
+                }, 500);
+            }
         } catch (err) {
             alert(
-                'Failed to start OAuth flow. Social connections require the Agent4Socials API to be deployed and reachable. Set NEXT_PUBLIC_API_URL in Vercel (web project) to your API URL, then redeploy.'
+                'Failed to start OAuth flow. Ensure DATABASE_URL and the social platform env vars (e.g. META_APP_ID, YOUTUBE_CLIENT_ID) are set for this project and redeploy.'
             );
         }
     };

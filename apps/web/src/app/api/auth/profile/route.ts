@@ -71,7 +71,10 @@ export async function GET(request: NextRequest) {
       .select('email, full_name')
       .single();
 
-    if (claimed) await sendWelcomeEmail(claimed.email, claimed.full_name);
+    if (claimed) {
+      console.log('[Profile API] Sending welcome email for new profile:', claimed.email);
+      await sendWelcomeEmail(claimed.email, claimed.full_name);
+    }
 
     const { data: profile } = await admin
       .from('user_profiles')

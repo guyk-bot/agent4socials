@@ -28,12 +28,12 @@ export default function DashboardPage() {
         const fetchData = async () => {
             try {
                 const [accountsRes, postsRes] = await Promise.all([
-                    api.get('/social/accounts'),
-                    api.get('/posts'),
+                    api.get('/social/accounts').catch(() => ({ data: [] })),
+                    api.get('/posts').catch(() => ({ data: [] })),
                 ]);
 
-                const accounts = accountsRes.data;
-                const posts = postsRes.data;
+                const accounts = Array.isArray(accountsRes.data) ? accountsRes.data : [];
+                const posts = Array.isArray(postsRes.data) ? postsRes.data : [];
 
                 setStats({
                     accounts: accounts.length,
@@ -60,6 +60,7 @@ export default function DashboardPage() {
                 <p className="text-gray-500">Here's what's happening with your social media today.</p>
             </div>
 
+            <h2 className="text-lg font-semibold text-gray-900">Analytics</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard
                     title="Accounts"

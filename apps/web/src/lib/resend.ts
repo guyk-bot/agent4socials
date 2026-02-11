@@ -29,6 +29,8 @@ export async function sendWelcomeEmail(to: string, name: string | null): Promise
     });
     if (error) {
       console.error('[Resend] Welcome email failed:', error);
+    } else {
+      console.log('[Resend] Welcome email sent to', to);
     }
   } catch (e) {
     console.error('[Resend] Welcome email error:', e);

@@ -30,10 +30,10 @@ export default function ProfileSyncBanner() {
 
   const isSkipped = status === 'skipped';
   const title = isSkipped
-    ? 'User table sync skipped (no database configured)'
-    : 'User table sync failed';
+    ? 'Profile sync skipped (no database configured)'
+    : 'Profile sync failed';
   const detail = isSkipped
-    ? 'DATABASE_URL is not set in Vercel. Set it for the web project and redeploy to sync users to Supabase.'
+    ? 'Set SUPABASE_SERVICE_ROLE_KEY in Vercel (web project) and run the Supabase migration (user_profiles table), or set DATABASE_URL for Prisma. Then redeploy.'
     : error || 'Check Vercel logs for [Profile API].';
 
   return (
