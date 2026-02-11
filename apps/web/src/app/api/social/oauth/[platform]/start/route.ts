@@ -62,16 +62,27 @@ export async function GET(
     return NextResponse.json({ url });
   } catch (e) {
     const err = e as Error;
-    const msg = err?.message ?? String(e);
-    console.error('[Social OAuth] start error:', msg);
+    const msg = (err?.message ?? String(e)).toLowerCase();
+    console.error('[Social OAuth] start error:', err?.message ?? e);
+    // Schema / missing table (e.g. User table dropped by 002_single_users_table)
+    if (msg.includes('does not exist') || msg.includes('relation') || msg.includes('p2021')) {
+      return NextResponse.json(
+        {
+          message:
+            'Database schema error: the User table may be missing. If you ran the single-users migration (002), the app still needs the Prisma User and SocialAccount tables. Run: cd apps/web && npx prisma migrate deploy to restore them, or revert that migration.',
+        },
+        { status: 503 }
+      );
+    }
+    // Real connection failures only (not every Prisma error)
     if (
-      msg.includes("Can't reach database") ||
-      msg.includes('connection') ||
-      msg.includes('invalid') ||
-      msg.includes('P1001') ||
-      msg.includes('P1012') ||
-      msg.includes('Prisma') ||
-      msg.includes('pooler')
+      msg.includes("can't reach database") ||
+      msg.includes('connection refused') ||
+      msg.includes('econnrefused') ||
+      msg.includes('p1001') ||
+      msg.includes('p1012') ||
+      msg.includes('connection string') ||
+      msg.includes('invalid connection')
     ) {
       return NextResponse.json(
         {
@@ -82,7 +93,7 @@ export async function GET(
       );
     }
     return NextResponse.json(
-      { message: 'OAuth could not start. Check Vercel deployment logs (Functions) for the exact error.' },
+      { message: `OAuth could not start: ${(err?.message ?? String(e)).slice(0, 120)}. Check Vercel → Logs for full error.` },
       { status: 503 }
     );
   }
