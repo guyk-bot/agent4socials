@@ -13,7 +13,7 @@ export default function DashboardLayout({
 }) {
     const { user, loading } = useAuth();
     const router = useRouter();
-    const { backgroundColor, primaryColor } = useWhiteLabel();
+    const { backgroundColor, primaryColor, textColor } = useWhiteLabel();
 
     React.useEffect(() => {
         if (!loading && !user) {
@@ -37,8 +37,11 @@ export default function DashboardLayout({
             className="min-h-screen bg-neutral-100"
             style={{
                 backgroundColor: backgroundColor || undefined,
+                color: textColor || undefined,
                 ['--wl-primary' as string]: primaryColor || undefined,
                 ['--primary' as string]: primaryColor || undefined,
+                ['--wl-text' as string]: textColor || undefined,
+                ['--wl-sidebar-bg' as string]: backgroundColor || '#ffffff',
             }}
         >
             <Sidebar />

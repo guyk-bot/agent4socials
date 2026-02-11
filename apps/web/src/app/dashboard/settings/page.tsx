@@ -6,9 +6,22 @@ import { useWhiteLabel } from '@/context/WhiteLabelContext';
 import { Upload, Palette, RotateCcw } from 'lucide-react';
 
 export default function SettingsPage() {
-  const { logoUrl, primaryColor, backgroundColor, setLogoUrl, setPrimaryColor, setBackgroundColor, reset } = useWhiteLabel();
+  const {
+    logoUrl,
+    primaryColor,
+    backgroundColor,
+    textColor,
+    appName,
+    setLogoUrl,
+    setPrimaryColor,
+    setBackgroundColor,
+    setTextColor,
+    setAppName,
+    reset,
+  } = useWhiteLabel();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(logoUrl);
+  const accent = primaryColor || '#525252';
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -52,7 +65,8 @@ export default function SettingsPage() {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+              className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white"
+              style={{ backgroundColor: accent }}
             >
               <Upload size={18} />
               Upload logo
@@ -68,6 +82,23 @@ export default function SettingsPage() {
               Use default logo
             </button>
           </div>
+        </div>
+      </div>
+
+      <div className="card space-y-6">
+        <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+          <Palette size={20} />
+          App name
+        </h2>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Display name (sidebar and branding)</label>
+          <input
+            type="text"
+            value={appName}
+            onChange={(e) => setAppName(e.target.value)}
+            placeholder="Agent4Socials"
+            className="mt-2 block w-full max-w-sm rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          />
         </div>
       </div>
 
@@ -107,6 +138,23 @@ export default function SettingsPage() {
                 type="text"
                 value={backgroundColor}
                 onChange={(e) => setBackgroundColor(e.target.value)}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Text</label>
+            <div className="mt-2 flex items-center gap-3">
+              <input
+                type="color"
+                value={textColor}
+                onChange={(e) => setTextColor(e.target.value)}
+                className="h-10 w-14 cursor-pointer rounded border border-gray-300"
+              />
+              <input
+                type="text"
+                value={textColor}
+                onChange={(e) => setTextColor(e.target.value)}
                 className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
               />
             </div>

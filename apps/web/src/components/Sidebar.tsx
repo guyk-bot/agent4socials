@@ -29,22 +29,23 @@ const menuItems = [
 export default function Sidebar() {
     const pathname = usePathname();
     const { user, logout } = useAuth();
-    const { logoUrl, primaryColor } = useWhiteLabel();
+    const { logoUrl, primaryColor, textColor, appName } = useWhiteLabel();
     const accent = primaryColor || '#525252';
+    const text = textColor || '#171717';
     const isAccountPage = pathname === '/dashboard/account';
 
     return (
-        <div className="w-64 h-screen bg-white border-r border-neutral-200 flex flex-col fixed left-0 top-0 z-50">
+        <div className="w-64 h-screen border-r border-neutral-200 flex flex-col fixed left-0 top-0 z-50" style={{ backgroundColor: 'var(--wl-sidebar-bg, #ffffff)', color: text }}>
             <div className="p-6">
                 <Link href="/dashboard" className="flex items-center space-x-3" style={{ color: accent }}>
                     {logoUrl ? (
-                        <img src={logoUrl} alt="Logo" className="h-10 w-10 rounded-lg object-contain" />
+                        <img src={logoUrl} alt="" className="h-10 w-10 rounded-lg object-contain" />
                     ) : (
                         <div className="w-10 h-10 rounded-lg flex items-center justify-center overflow-hidden bg-white/10">
-                            <Image src="/logo.svg" alt="Agent4Socials" width={28} height={28} />
+                            <Image src="/logo.svg" alt="" width={28} height={28} />
                         </div>
                     )}
-                    <span className="text-xl font-bold tracking-tight text-neutral-900">Agent4Socials</span>
+                    <span className="text-xl font-bold tracking-tight" style={{ color: text }}>{appName || 'Agent4Socials'}</span>
                 </Link>
             </div>
 
@@ -55,11 +56,8 @@ export default function Sidebar() {
                         <Link
                             key={item.href}
                             href={item.href}
-                            className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${isActive
-                                    ? 'shadow-sm'
-                                    : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'
-                                }`}
-                            style={isActive ? { backgroundColor: `${accent}15`, color: accent } : undefined}
+                            className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${isActive ? 'shadow-sm' : 'hover:opacity-80'}`}
+                            style={isActive ? { backgroundColor: `${accent}15`, color: accent } : { color: text }}
                         >
                             <div className="flex items-center">
                                 <item.icon size={20} className="mr-3" />
@@ -81,8 +79,8 @@ export default function Sidebar() {
                         {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
                     </div>
                     <div className="ml-3 flex-1 min-w-0">
-                        <p className="text-sm font-medium text-neutral-900 truncate">{user?.name || 'User'}</p>
-                        <p className="text-xs text-neutral-500 truncate">{user?.email}</p>
+                        <p className="text-sm font-medium truncate" style={{ color: text }}>{user?.name || 'User'}</p>
+                        <p className="text-xs truncate opacity-70" style={{ color: text }}>{user?.email}</p>
                     </div>
                     <ChevronRight size={16} className="text-neutral-400 shrink-0" />
                 </Link>
