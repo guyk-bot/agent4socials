@@ -31,32 +31,48 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ platform: string }> }
 ) {
-  if (!process.env.DATABASE_URL) {
-    return NextResponse.json({ message: 'Social OAuth requires DATABASE_URL' }, { status: 503 });
-  }
-  const userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
-  if (!userId) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-  }
-  const { platform } = await params;
-  const plat = platform?.toUpperCase() as Platform;
-  if (!plat || !PLATFORMS.includes(plat)) {
-    return NextResponse.json({ error: 'Invalid platform' }, { status: 400 });
-  }
-  // Fail fast with clear message when required env vars are missing for this platform
-  if (plat === 'INSTAGRAM' || plat === 'FACEBOOK') {
-    if (!process.env.META_APP_ID || !process.env.META_APP_SECRET) {
-      return NextResponse.json(
-        { message: 'Instagram/Facebook connect requires META_APP_ID and META_APP_SECRET in Vercel environment variables.' },
-        { status: 503 }
-      );
-    }
-  }
   try {
+    if (!process.env.DATABASE_URL) {
+      return NextResponse.json({ message: 'Social OAuth requires DATABASE_URL' }, { status: 503 });
+    }
+    const userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
+    if (!userId) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+    const { platform } = await params;
+    const plat = platform?.toUpperCase() as Platform;
+    if (!plat || !PLATFORMS.includes(plat)) {
+      return NextResponse.json({ error: 'Invalid platform' }, { status: 400 });
+    }
+    if (plat === 'INSTAGRAM' || plat === 'FACEBOOK') {
+      if (!process.env.META_APP_ID || !process.env.META_APP_SECRET) {
+        return NextResponse.json(
+          { message: 'Instagram/Facebook connect requires META_APP_ID and META_APP_SECRET in Vercel environment variables.' },
+          { status: 503 }
+        );
+      }
+    }
     const url = getOAuthUrl(plat, userId);
     return NextResponse.json({ url });
   } catch (e) {
-    console.error('[Social OAuth] getOAuthUrl error:', e);
+    const err = e as Error;
+    const msg = err?.message ?? String(e);
+    console.error('[Social OAuth] start error:', msg);
+    if (
+      msg.includes("Can't reach database") ||
+      msg.includes('connection') ||
+      msg.includes('invalid') ||
+      msg.includes('P1001') ||
+      msg.includes('P1012')
+    ) {
+      return NextResponse.json(
+        {
+          message:
+            'Database connection failed. Use Supabase Transaction pooler (port 6543, not 5432) and URL-encode the password in DATABASE_URL (e.g. @ → %40).',
+        },
+        { status: 503 }
+      );
+    }
     return NextResponse.json(
       { message: 'OAuth config missing for this platform. Set the required env vars (e.g. META_APP_ID for Instagram) and redeploy.' },
       { status: 503 }

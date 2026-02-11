@@ -48,34 +48,53 @@ export default function AccountsPage() {
     }, []);
 
     const handleConnect = async (platform: string) => {
+        const getMessage = (err: unknown): string | null => {
+            if (!err || typeof err !== 'object' || !('response' in err)) return null;
+            const res = (err as { response?: { data?: { message?: string } } }).response;
+            return res?.data?.message ?? null;
+        };
         try {
-            const res = await api.get(`/social/oauth/${platform}/start`);
-            const url = res.data?.url;
-            if (!url || typeof url !== 'string') {
-                alert('Invalid response from server. Check server logs.');
+            // Sync profile first so Prisma User row exists (required for OAuth start). If you just added DATABASE_URL or signed in before it was set, this creates the User.
+            await api.get('/auth/profile').catch(() => null);
+            let res;
+            try {
+                res = await api.get(`/social/oauth/${platform}/start`);
+            } catch (firstErr: unknown) {
+                if ((firstErr as { response?: { status?: number } })?.response?.status === 401) {
+                    await api.get('/auth/profile').catch(() => null);
+                    res = await api.get(`/social/oauth/${platform}/start`);
+                } else {
+                    throw firstErr;
+                }
+            }
+            const url = res?.data?.url;
+            if (url && typeof url === 'string') {
+                const popup = window.open(url, '_blank', 'width=600,height=600');
+                if (popup) {
+                    const interval = setInterval(() => {
+                        if (popup.closed) {
+                            clearInterval(interval);
+                            fetchAccounts();
+                        }
+                    }, 500);
+                }
                 return;
             }
-            const popup = window.open(url, '_blank', 'width=600,height=600');
-            if (popup) {
-                const interval = setInterval(() => {
-                    if (popup.closed) {
-                        clearInterval(interval);
-                        fetchAccounts();
-                    }
-                }, 500);
-            }
+            alert('Invalid response from server. Check server logs.');
         } catch (err: unknown) {
-            const msg =
-                err && typeof err === 'object' && 'response' in err && err.response && typeof err.response === 'object' && 'data' in err.response && (err.response as { data?: { message?: string } }).data?.message
-                    ? (err.response as { data: { message: string } }).data.message
-                    : null;
+            const msg = getMessage(err);
             if (msg) {
-                if (msg.includes('DATABASE_URL')) alert('Connect is not configured: add DATABASE_URL in Vercel (web app) → Settings → Environment Variables, then redeploy.');
-                else if (msg.includes('META_APP_ID') || msg.includes('META_APP_SECRET')) alert('Instagram/Facebook connect: add META_APP_ID and META_APP_SECRET in Vercel → Settings → Environment Variables, then redeploy.');
-                else if (msg === 'Unauthorized') alert('Your account is not synced yet. Try signing out and back in, then connect again.');
-                else alert(msg);
+                if (msg.includes('DATABASE_URL') || msg.includes('Database connection')) {
+                    alert('Database not reachable. In Vercel set DATABASE_URL to Supabase Transaction pooler (port 6543, not 5432) and URL-encode the password (e.g. @ → %40). See SUPABASE_AUTH_SETUP.md.');
+                } else if (msg.includes('META_APP_ID') || msg.includes('META_APP_SECRET')) {
+                    alert('Instagram/Facebook: add META_APP_ID and META_APP_SECRET in Vercel → Environment Variables, then redeploy.');
+                } else if (msg === 'Unauthorized') {
+                    alert('Account not synced. Sign out, sign back in, then try Connect again.');
+                } else {
+                    alert(msg);
+                }
             } else {
-                alert('Failed to start OAuth. Ensure DATABASE_URL is set and, for Instagram, META_APP_ID and META_APP_SECRET are set in Vercel, then redeploy.');
+                alert('Failed to start OAuth. Check DATABASE_URL (use pooler port 6543), META_APP_ID and META_APP_SECRET for Instagram, then redeploy.');
             }
         }
     };
