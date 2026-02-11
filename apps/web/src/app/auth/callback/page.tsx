@@ -44,7 +44,16 @@ export default function AuthCallbackPage() {
             }
             return;
           }
-          router.replace('/dashboard');
+          // Load profile before navigating (avoids AbortError from nav cancelling fetch)
+          const profileRes = await fetch('/api/auth/profile', {
+            headers: { Authorization: `Bearer ${params.access_token}` },
+          });
+          if (cancelled) return;
+          if (!profileRes.ok) {
+            setError('Could not load profile. Try again.');
+            return;
+          }
+          window.location.href = '/dashboard';
           return;
         }
 
