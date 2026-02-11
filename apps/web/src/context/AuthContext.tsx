@@ -29,7 +29,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  const syncUserFromApi = async (accessToken: string) => {
+  const syncUserFromApi = async (accessToken: string, fallbackUser?: { id: string; email?: string; name?: string } | null) => {
     try {
       const res = await fetch('/api/auth/profile', {
         headers: { Authorization: `Bearer ${accessToken}` },
@@ -53,7 +53,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
       }
     } catch (err: unknown) {
-      setUser(null);
+      // Keep user on dashboard: use session data so we don't redirect to funnel when profile API fails
+      if (fallbackUser) {
+        setUser(fallbackUser);
+      } else {
+        setUser(null);
+      }
       if (typeof window !== 'undefined') {
         const msg = err instanceof Error ? err.message : 'Profile request failed';
         sessionStorage.setItem('profile_error', msg);
@@ -62,9 +67,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
-    // If Supabase redirected to / with token in hash, send to callback page (avoids 500 on root)
+    // If Supabase redirected to / with token in hash, go to callback (full navigation so hash is preserved)
     if (typeof window !== 'undefined' && window.location.pathname === '/' && window.location.hash.includes('access_token')) {
-      router.replace('/auth/callback' + window.location.hash);
+      window.location.replace('/auth/callback' + window.location.hash);
       return;
     }
 
@@ -72,7 +77,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.access_token) {
-          await syncUserFromApi(session.access_token);
+          const fallback = {
+            id: session.user.id,
+            email: session.user.email ?? '',
+            name: session.user.user_metadata?.full_name ?? session.user.user_metadata?.name ?? undefined,
+          };
+          await syncUserFromApi(session.access_token, fallback);
         } else {
           setUser(null);
         }
@@ -86,7 +96,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session: Session | null) => {
       if (session?.access_token) {
-        await syncUserFromApi(session.access_token);
+        const fallback = {
+          id: session.user.id,
+          email: session.user.email ?? '',
+          name: session.user.user_metadata?.full_name ?? session.user.user_metadata?.name ?? undefined,
+        };
+        await syncUserFromApi(session.access_token, fallback);
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
           router.push('/dashboard');
         }

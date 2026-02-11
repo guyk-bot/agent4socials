@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import DashboardPreview from '@/components/landing/DashboardPreview';
 import Testimonials from '@/components/landing/Testimonials';
 import Link from 'next/link';
@@ -66,6 +67,15 @@ function TikTokIcon({ className }: { className?: string }) {
 
 export default function Home() {
   const { openLogin, openSignup } = useAuthModal();
+
+  // When Google OAuth sends user to / with #access_token=..., redirect to callback so session is set and then dashboard
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const { pathname, hash } = window.location;
+    if (pathname === '/' && hash && hash.includes('access_token')) {
+      window.location.replace('/auth/callback' + hash);
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">

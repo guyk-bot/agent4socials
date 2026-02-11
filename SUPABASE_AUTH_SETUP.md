@@ -18,13 +18,14 @@ In **Supabase Dashboard** → **Authentication** → **Providers**:
 
 ## 3. Redirect URLs (Supabase) — required for “Sign in with Google”
 
-**If you see “Internal Server Error” or land on the home page with a long `#access_token=...` URL after Google sign-in**, Supabase is redirecting to the wrong URL because the callback URL is not in the allow list.
+**If after “Sign in with Google” you are sent to the homepage (`https://agent4socials.com/`) instead of the dashboard**, Supabase is not allowed to redirect to our callback, so it sends you to the **Site URL** (/) instead. Fix it by adding the callback URL to the allow list:
 
-1. Go to **Supabase Dashboard** → **Authentication** → **URL Configuration** ([auth/url-configuration](https://supabase.com/dashboard/project/_/auth/url-configuration)).
-2. Under **Redirect URLs**, click **Add URL** and add **exactly** (no trailing slash):
+1. Go to **Supabase Dashboard** → **Authentication** → **URL Configuration** (or [auth/url-configuration](https://supabase.com/dashboard/project/_/auth/url-configuration)).
+2. Set **Site URL** to your production URL when testing production (e.g. `https://agent4socials.com`). If it stays `http://localhost:3000`, some flows (e.g. magic links or fallbacks) can still send users to the wrong place.
+3. Under **Redirect URLs**, add **exactly** (no trailing slash):
    - **Local:** `http://localhost:3000/auth/callback`
    - **Production:** `https://agent4socials.com/auth/callback`
-3. Save. The app uses `redirectTo: origin + '/auth/callback'` in code; that URL **must** be in this list or Supabase falls back to **Site URL** (often `http://localhost:3000`), so you land on `/` with the token and can get a 500 or broken flow.
+4. Click **Save**. The app requests `redirectTo: origin + '/auth/callback'`; that URL must be in this list. If it is missing, Supabase falls back to **Site URL**, so you can land on the homepage instead of the callback.
 
 ## 4. Get Supabase keys
 

@@ -62,6 +62,7 @@ export default function AuthCallbackPage() {
           return;
         }
 
+        // No token in hash: maybe fragment was stripped or page opened without it. Check for existing session (or brief delay for redirect with hash).
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         if (cancelled) return;
         if (sessionError) {
@@ -72,8 +73,31 @@ export default function AuthCallbackPage() {
           router.replace('/dashboard');
           return;
         }
-
-        router.replace('/');
+        // Give a moment for hash to be available (e.g. client-side redirect from / with hash)
+        await new Promise((r) => setTimeout(r, 800));
+        if (cancelled) return;
+        const hash2 = typeof window !== 'undefined' ? window.location.hash : '';
+        const params2 = parseHashParams(hash2);
+        if (params2.access_token) {
+          const { error: setErr } = await supabase.auth.setSession({
+            access_token: params2.access_token,
+            refresh_token: params2.refresh_token || '',
+          });
+          if (!cancelled && !setErr) {
+            const profileRes = await fetch('/api/auth/profile', {
+              headers: { Authorization: `Bearer ${params2.access_token}` },
+            });
+            if (profileRes.ok) window.location.href = '/dashboard';
+            else setError('Could not load profile. Try again.');
+          } else if (!cancelled && setErr) setError(setErr.message);
+          return;
+        }
+        const { data: { session: session2 } } = await supabase.auth.getSession();
+        if (session2) {
+          router.replace('/dashboard');
+          return;
+        }
+        setError('Sign-in link may have expired or the session was lost. Try signing in again.');
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Something went wrong');
       }
