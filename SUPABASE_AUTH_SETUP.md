@@ -69,6 +69,27 @@ After this, sign up and “Continue with Google” will work; the API will creat
 
 ---
 
+## Troubleshooting: "Profile DB sync failed" / "The provided database string is invalid"
+
+If Vercel logs show **PrismaClientInitializationError** or "The provided database string is invalid... check the string for any illegal characters":
+
+- **Cause:** The **password** in `DATABASE_URL` contains characters that are special in URLs (`@`, `#`, `/`, `%`, etc.). They must be **URL-encoded** in the connection string.
+- **Fix:**
+  1. Open **Supabase** → **Project Settings** → **Database** and copy your **Connection string** (Transaction pooler, e.g. port 6543).
+  2. In the URL, replace the **password** part with a **percent-encoded** version:
+     - `@` → `%40`
+     - `#` → `%23`
+     - `/` → `%2F`
+     - `%` → `%25`
+     - `?` → `%3F`
+     - `&` → `%26`
+  3. Example: if your password is `Pass/word@123`, the URL segment should be `Pass%2Fword%40123` (not the raw password).
+  4. In **Vercel** → **web** project → **Environment Variables**, set `DATABASE_URL` to this **full** encoded string (no extra spaces or line breaks). Save and **redeploy**.
+
+Alternatively, in Supabase you can **reset the database password** to one that only uses letters and numbers (no `@`, `#`, `/`, `%`), then use the new connection string as-is in Vercel.
+
+---
+
 ## Troubleshooting: User table empty in Supabase
 
 If you sign in with Google successfully but the **User** table in Supabase Table Editor stays empty:
