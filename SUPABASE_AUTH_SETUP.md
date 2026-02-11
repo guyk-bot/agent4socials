@@ -79,8 +79,10 @@ If Vercel logs show **Can't reach database server at `db.xxxx.supabase.co:5432`*
 
 - **Cause:** You are using the **direct** connection (port **5432**). Supabase does not allow direct database connections from serverless runtimes like Vercel; the server is either unreachable or connection is refused.
 - **Fix:** Use the **Transaction pooler** (port **6543**) instead.
-  1. In **Supabase** go to **Project Settings** → **Database**.
-  2. Under **Connection string**, select **URI** and the **Transaction** (or "Transaction pooler") tab so the URL uses port **6543** (e.g. `...@db.xxxx.supabase.co:6543/postgres`).
+  1. In **Supabase** open your project, then get the connection string **either**:
+     - Click the **Connect** button at the top of the project dashboard (or use [Connect → Transaction](https://supabase.com/dashboard/project/_?showConnect=true&method=transaction)), **or**
+     - In the **left sidebar** click **Database** (not under the gear “Project settings”), then open **Connection string** / **Settings**.
+  2. Select **URI** and the **Transaction** (transaction mode) option so the URL uses **port 6543** (e.g. `...@db.xxxx.supabase.co:6543/postgres`).
   3. Copy that URL, replace the password with its **URL-encoded** value (e.g. `@` → `%40`, `/` → `%2F`), no parentheses or spaces.
   4. In **Vercel** → **web** project → **Environment Variables**, set `DATABASE_URL` to this pooler URL (with **6543**, not 5432). Save and **redeploy**.
 
@@ -94,7 +96,7 @@ If Vercel logs show **PrismaClientInitializationError** or "The provided databas
 
 - **Cause:** The **password** in `DATABASE_URL` contains characters that are special in URLs (`@`, `#`, `/`, `%`, etc.). They must be **URL-encoded** in the connection string.
 - **Fix:**
-  1. Open **Supabase** → **Project Settings** → **Database** and copy your **Connection string** (Transaction pooler, e.g. port 6543).
+  1. In **Supabase** use **Connect** (top of project) or **Database** in the left sidebar → **Connection string**, and copy the **Transaction** pooler string (port 6543).
   2. In the URL, replace the **password** part with a **percent-encoded** version:
      - `@` → `%40`
      - `#` → `%23`

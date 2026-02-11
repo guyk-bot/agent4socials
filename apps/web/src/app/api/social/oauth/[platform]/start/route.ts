@@ -45,9 +45,15 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid platform' }, { status: 400 });
     }
     if (plat === 'INSTAGRAM' || plat === 'FACEBOOK') {
-      if (!process.env.META_APP_ID || !process.env.META_APP_SECRET) {
+      const hasMetaId = Boolean(process.env.META_APP_ID?.trim());
+      const hasMetaSecret = Boolean(process.env.META_APP_SECRET?.trim());
+      if (!hasMetaId || !hasMetaSecret) {
+        console.error('[Social OAuth] Missing META vars:', { hasMetaId, hasMetaSecret });
         return NextResponse.json(
-          { message: 'Instagram/Facebook connect requires META_APP_ID and META_APP_SECRET in Vercel environment variables.' },
+          {
+            message:
+              'Instagram/Facebook: META_APP_ID and META_APP_SECRET must be set for Production in Vercel → Settings → Environment Variables. If they are set, ensure each variable is enabled for "Production" and redeploy.',
+          },
           { status: 503 }
         );
       }
@@ -63,7 +69,9 @@ export async function GET(
       msg.includes('connection') ||
       msg.includes('invalid') ||
       msg.includes('P1001') ||
-      msg.includes('P1012')
+      msg.includes('P1012') ||
+      msg.includes('Prisma') ||
+      msg.includes('pooler')
     ) {
       return NextResponse.json(
         {
@@ -74,7 +82,7 @@ export async function GET(
       );
     }
     return NextResponse.json(
-      { message: 'OAuth config missing for this platform. Set the required env vars (e.g. META_APP_ID for Instagram) and redeploy.' },
+      { message: 'OAuth could not start. Check Vercel deployment logs (Functions) for the exact error.' },
       { status: 503 }
     );
   }

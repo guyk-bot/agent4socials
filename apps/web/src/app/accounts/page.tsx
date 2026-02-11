@@ -87,7 +87,7 @@ export default function AccountsPage() {
                 if (msg.includes('DATABASE_URL') || msg.includes('Database connection')) {
                     alert('Database not reachable. In Vercel set DATABASE_URL to Supabase Transaction pooler (port 6543, not 5432) and URL-encode the password (e.g. @ → %40). See SUPABASE_AUTH_SETUP.md.');
                 } else if (msg.includes('META_APP_ID') || msg.includes('META_APP_SECRET')) {
-                    alert('Instagram/Facebook: add META_APP_ID and META_APP_SECRET in Vercel → Environment Variables, then redeploy.');
+                    alert('Instagram/Facebook: set META_APP_ID and META_APP_SECRET for Production in Vercel → Environment Variables. If already set, ensure they’re enabled for Production and redeploy.');
                 } else if (msg === 'Unauthorized') {
                     alert('Account not synced. Sign out, sign back in, then try Connect again.');
                 } else {
