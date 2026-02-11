@@ -21,7 +21,7 @@ export default function DashboardPage() {
         posted: 0,
         failed: 0,
     });
-    const [recentPosts, setRecentPosts] = useState([]);
+    const [recentPosts, setRecentPosts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
