@@ -1,0 +1,14 @@
+---
+description: Always commit and push changes to git after making edits
+alwaysApply: true
+---
+
+# Git: Commit and push after changes
+
+After making any code or config changes in this project:
+
+1. **Stage** all changes: `git add -A`
+2. **Commit** with a clear message describing what changed: `git commit -m "Brief description"`
+3. **Push** to the remote: `git push origin main` (or the current branch)
+
+Do this in the same turn as the edits, unless the user explicitly asks not to push. Use `git_write` and `network` permissions when running git commands.
