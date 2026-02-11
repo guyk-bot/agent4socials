@@ -61,9 +61,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: createError.message || 'Could not create account' }, { status: 400 });
   }
 
+  const userId = userData?.user?.id ?? (userData as unknown as { id?: string }).id;
+  if (!userId) {
+    return NextResponse.json({ error: 'Could not create user' }, { status: 500 });
+  }
+
   const { error: insertError } = await admin
     .from('verification_codes')
-    .insert({ user_id: (userData as { user?: { id: string }; id?: string }).user?.id ?? (userData as { id: string }).id, email, code: otp, expires_at });
+    .insert({ user_id: userId, email, code: otp, expires_at });
 
   if (insertError) {
     console.error('[Signup] verification_codes insert error:', insertError);
