@@ -63,10 +63,10 @@ If these are missing or wrong on Vercel, you’ll see **“Invalid API key”** 
 
 ## 6. Run migration
 
-So the API can link Supabase users to your `User` table:
+So the app can link Supabase users to the Prisma `User` table, create the tables in your **production** database. Set `DATABASE_URL` to the same value as in Vercel (pooler, port 6543), then run:
 
 ```bash
-cd apps/api && npx prisma migrate deploy
+cd apps/web && npx prisma migrate deploy
 ```
 
 After this, sign up and “Continue with Google” will work; the API will create or update a `User` row per Supabase user.
