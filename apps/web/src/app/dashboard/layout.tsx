@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Sidebar from '@/components/Sidebar';
+import ProfileSyncBanner from '@/components/ProfileSyncBanner';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
@@ -47,6 +48,7 @@ export default function DashboardLayout({
             <Sidebar />
             <main className="pl-64 min-h-screen">
                 <div className="max-w-7xl mx-auto p-8">
+                    <ProfileSyncBanner />
                     {children}
                 </div>
             </main>

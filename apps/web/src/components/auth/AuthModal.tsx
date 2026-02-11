@@ -13,7 +13,7 @@ function AuthModalInner() {
   const reason = searchParams.get('reason');
   const profileFailedMessage =
     reason === 'profile_failed'
-      ? 'Google sign-in worked, but the app could not load your profile. In Vercel: (1) Web app: set NEXT_PUBLIC_API_URL to your API URL. (2) API: set SUPABASE_JWT_SECRET (Supabase → API → JWT Secret) and FRONTEND_URL=https://agent4socials.com so CORS allows the request. Redeploy both.'
+      ? 'Sign-in worked, but the app could not load your profile. Check that NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set in Vercel (web project) and redeploy.'
       : null;
 
   useEffect(() => {

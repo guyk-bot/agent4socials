@@ -31,14 +31,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const syncUserFromApi = async (accessToken: string) => {
     try {
-      // Always call same-origin /api/auth/profile (Next.js API route)
       const res = await fetch('/api/auth/profile', {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (!res.ok) throw new Error(`${res.status}`);
       const data = await res.json();
       setUser(data);
-      if (typeof window !== 'undefined') sessionStorage.removeItem('profile_error');
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('profile_error');
+        const syncStatus = res.headers.get('X-Profile-Sync');
+        const syncError = res.headers.get('X-Profile-Sync-Error');
+        if (syncStatus === 'skipped') {
+          sessionStorage.setItem('profile_sync_status', 'skipped');
+          sessionStorage.removeItem('profile_sync_error');
+        } else if (syncStatus === 'failed') {
+          sessionStorage.setItem('profile_sync_status', 'failed');
+          sessionStorage.setItem('profile_sync_error', syncError || 'Unknown error');
+        } else {
+          sessionStorage.removeItem('profile_sync_status');
+          sessionStorage.removeItem('profile_sync_error');
+        }
+      }
     } catch (err: unknown) {
       setUser(null);
       if (typeof window !== 'undefined') {

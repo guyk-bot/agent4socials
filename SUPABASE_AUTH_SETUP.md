@@ -36,7 +36,9 @@ In **Project Settings** → **API**:
 
 ## 5. Environment variables (required for the app to open after sign-in)
 
-**Web app — set these in Vercel so production works:**
+**Web app — minimal setup (same as the example app):**
+
+The web app runs with **only** these two variables. No `DATABASE_URL` or `SUPABASE_JWT_SECRET` is required for sign-in.
 
 1. Vercel → your **web** project → **Settings** → **Environment Variables**.
 2. Add (for **Production**, and optionally Preview/Development):
@@ -44,18 +46,19 @@ In **Project Settings** → **API**:
      Get it: Supabase → Project Settings → API → Project URL.
    - **`NEXT_PUBLIC_SUPABASE_ANON_KEY`** = the **anon public** key (not the service role key).  
      Get it: Supabase → Project Settings → API → Project API keys → **anon public**.
-   - **`DATABASE_URL`** = your Supabase **pooler** connection string. Required for the profile API to sync users to the `User` table. Without it, sign-in works but the User table stays empty.
-   - **`NEXT_PUBLIC_API_URL`** = your **backend API** URL (e.g. `https://api.agent4socials.com`), if the app uses an external API for profile.  
 3. Redeploy the web app after adding or changing these.
+
+**Optional (for User table sync and welcome emails):**
+
+   - **`DATABASE_URL`** = your Supabase **pooler** connection string (port **6543**). If set, the profile API syncs users to the custom `User` table and sends a welcome email on first sign-up. Without it, sign-in still works; the `User` table stays empty and no welcome email is sent.
+   - **`RESEND_API_KEY`** = your Resend API key (only used when `DATABASE_URL` is set and a new user is created).
+   - **`RESEND_FROM`** or **`RESEND_FROM_EMAIL`** = sender for welcome email (e.g. `Agent4Socials <guyk@agent4socials.com>`). Verify the domain in Resend → Domains.
+
+**Web project checklist (Vercel):** Required: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Optional: `DATABASE_URL` (pooler, port 6543), `RESEND_API_KEY`, `RESEND_FROM` or `RESEND_FROM_EMAIL`, `NEXT_PUBLIC_SITE_URL` (e.g. `https://agent4socials.com`).
 
 If these are missing or wrong on Vercel, you’ll see **“Invalid API key”** on `/auth/callback` after Google sign-in and the app won’t open. If **NEXT_PUBLIC_API_URL** is wrong or the API is down, the dashboard may load for a long time then redirect to login.
 
-**API project on Vercel** must have **`SUPABASE_JWT_SECRET`** (Supabase → Project Settings → API → JWT Settings → **JWT Secret**). Without it, the API returns 401 for profile requests and you get sent back to the login page after Google sign-in.
-
-**API (Vercel or `apps/api/.env`):**
-
-- `SUPABASE_JWT_SECRET` = JWT Secret from Supabase (so the API can verify Supabase-issued tokens)
-- **`FRONTEND_URL`** = your web app URL (e.g. `https://agent4socials.com`). The API uses this for CORS; without it, the browser blocks the profile request and you get sent back to login.
+**Separate API project (if you use `apps/api` for other features):** `SUPABASE_JWT_SECRET`, **`FRONTEND_URL`** for CORS. The web app's profile route does not use these.
 
 ## 6. Run migration
 
@@ -66,6 +69,21 @@ cd apps/api && npx prisma migrate deploy
 ```
 
 After this, sign up and “Continue with Google” will work; the API will create or update a `User` row per Supabase user.
+
+---
+
+## Troubleshooting: "Can't reach database server" at ...:5432
+
+If Vercel logs show **Can't reach database server at `db.xxxx.supabase.co:5432`**:
+
+- **Cause:** You are using the **direct** connection (port **5432**). Supabase does not allow direct database connections from serverless runtimes like Vercel; the server is either unreachable or connection is refused.
+- **Fix:** Use the **Transaction pooler** (port **6543**) instead.
+  1. In **Supabase** go to **Project Settings** → **Database**.
+  2. Under **Connection string**, select **URI** and the **Transaction** (or "Transaction pooler") tab so the URL uses port **6543** (e.g. `...@db.xxxx.supabase.co:6543/postgres`).
+  3. Copy that URL, replace the password with its **URL-encoded** value (e.g. `@` → `%40`, `/` → `%2F`), no parentheses or spaces.
+  4. In **Vercel** → **web** project → **Environment Variables**, set `DATABASE_URL` to this pooler URL (with **6543**, not 5432). Save and **redeploy**.
+
+After redeploying, sign in again; the profile API should be able to connect and sync users to the User table.
 
 ---
 
@@ -100,6 +118,12 @@ If you sign in with Google successfully but the **User** table in Supabase Table
 2. **Run web app migrations** – From the project root: `cd apps/web && npx prisma migrate deploy`
 3. **Redeploy** – After adding `DATABASE_URL` to Vercel, redeploy the web project.
 4. **Sign in again** – After the fix, sign out and sign in with Google; the profile API will create the User row on first successful load.
+
+**Use the pooler URL (port 6543):** In Supabase → **Project Settings** → **Database**, use the **Connection string** for **Transaction pooler** (port **6543**), not the direct connection (5432). Serverless (Vercel) can hit connection limits or timeouts on 5432; the pooler is recommended. Replace the password in that URL with its URL-encoded form and set that as `DATABASE_URL` in the **web** project.
+
+**In-app feedback:** If sync is skipped (no `DATABASE_URL`) or fails (e.g. bad connection string), the dashboard shows an amber **banner** at the top with a short message. Use "Disconnect account" on the Account page, sign in again, and check that banner. In **Vercel** → **web** project (the one that serves your Next.js app) → **Logs**, filter for `[Profile API]` to see: "DATABASE_URL is set" vs "DATABASE_URL is not set", "Created User row for: ...", or the exact error. The profile API also sends response headers `X-Profile-Sync: ok | skipped | failed` and optionally `X-Profile-Sync-Error` so you can confirm in dev tools whether the request hit the fallback path.
+
+**Still empty?** (1) Confirm `DATABASE_URL` is set on the **same** Vercel project that deploys the Next.js app (not only the API project). (2) Use the **Transaction pooler** URL with port **6543**. (3) Redeploy the web project after changing the variable. (4) Disconnect account, sign in again, then check Vercel Logs for `[Profile API]` to see whether sync ran or what error occurred.
 
 ---
 
