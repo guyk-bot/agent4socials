@@ -30,10 +30,10 @@ export default function Sidebar() {
     const pathname = usePathname();
     const { user, logout } = useAuth();
     const { logoUrl, primaryColor } = useWhiteLabel();
-    const accent = primaryColor || '#10b981';
+    const accent = primaryColor || '#525252';
 
     return (
-        <div className="w-64 h-screen bg-slate-900/50 border-r border-slate-700 flex flex-col fixed left-0 top-0 z-50">
+        <div className="w-64 h-screen bg-white border-r border-neutral-200 flex flex-col fixed left-0 top-0 z-50">
             <div className="p-6">
                 <Link href="/dashboard" className="flex items-center space-x-3" style={{ color: accent }}>
                     {logoUrl ? (
@@ -43,7 +43,7 @@ export default function Sidebar() {
                             <Image src="/logo.svg" alt="Agent4Socials" width={28} height={28} />
                         </div>
                     )}
-                    <span className="text-xl font-bold tracking-tight text-white">Agent4Socials</span>
+                    <span className="text-xl font-bold tracking-tight text-neutral-900">Agent4Socials</span>
                 </Link>
             </div>
 
@@ -56,7 +56,7 @@ export default function Sidebar() {
                             href={item.href}
                             className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${isActive
                                     ? 'shadow-sm'
-                                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                                    : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'
                                 }`}
                             style={isActive ? { backgroundColor: `${accent}15`, color: accent } : undefined}
                         >
@@ -70,20 +70,20 @@ export default function Sidebar() {
                 })}
             </nav>
 
-            <div className="p-4 border-t border-slate-700">
-                <div className="flex items-center p-2 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer group mb-2">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center font-semibold text-xs border" style={{ backgroundColor: `${accent}20`, color: accent, borderColor: `${accent}40` }}>
+            <div className="p-4 border-t border-neutral-200">
+                <div className="flex items-center p-2 rounded-lg hover:bg-neutral-50 transition-colors cursor-pointer group mb-2">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center font-semibold text-xs border border-neutral-200" style={{ backgroundColor: `${accent}15`, color: accent }}>
                         {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
                     </div>
                     <div className="ml-3 flex-1 min-w-0">
-                        <p className="text-sm font-medium text-white truncate">{user?.name || 'User'}</p>
-                        <p className="text-xs text-slate-400 truncate">{user?.email}</p>
+                        <p className="text-sm font-medium text-neutral-900 truncate">{user?.name || 'User'}</p>
+                        <p className="text-xs text-neutral-500 truncate">{user?.email}</p>
                     </div>
                 </div>
 
                 <button
                     onClick={logout}
-                    className="w-full flex items-center px-3 py-2 text-sm font-medium text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                    className="w-full flex items-center px-3 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-100 hover:text-red-600 rounded-lg transition-colors"
                 >
                     <LogOut size={20} className="mr-3" />
                     Logout

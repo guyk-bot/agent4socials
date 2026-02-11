@@ -64,25 +64,25 @@ export default function DashboardPage() {
                 <StatCard
                     title="Accounts"
                     value={stats.accounts}
-                    icon={<Users size={20} className="text-blue-600" />}
-                    bg="bg-blue-50"
+                    icon={<Users size={20} className="text-neutral-600" />}
+                    bg="bg-neutral-100"
                 />
                 <StatCard
                     title="Scheduled"
                     value={stats.scheduled}
-                    icon={<Calendar size={20} className="text-indigo-600" />}
-                    bg="bg-indigo-50"
+                    icon={<Calendar size={20} className="text-neutral-600" />}
+                    bg="bg-neutral-100"
                 />
                 <StatCard
                     title="Posted"
                     value={stats.posted}
-                    icon={<CheckCircle size={20} className="text-green-600" />}
-                    bg="bg-green-50"
+                    icon={<CheckCircle size={20} className="text-neutral-600" />}
+                    bg="bg-neutral-100"
                 />
                 <StatCard
                     title="Failed"
                     value={stats.failed}
-                    icon={<AlertCircle size={20} className="text-red-600" />}
+                    icon={<AlertCircle size={20} className="text-red-500" />}
                     bg="bg-red-50"
                 />
             </div>
