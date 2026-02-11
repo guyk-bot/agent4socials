@@ -44,8 +44,8 @@ In **Project Settings** → **API**:
      Get it: Supabase → Project Settings → API → Project URL.
    - **`NEXT_PUBLIC_SUPABASE_ANON_KEY`** = the **anon public** key (not the service role key).  
      Get it: Supabase → Project Settings → API → Project API keys → **anon public**.
-   - **`NEXT_PUBLIC_API_URL`** = your **backend API** URL (e.g. `https://api.agent4socials.com`).  
-     The dashboard calls this to load your profile; if it’s missing or wrong, the dashboard can spin forever or send you back to login.
+   - **`DATABASE_URL`** = your Supabase **pooler** connection string. Required for the profile API to sync users to the `User` table. Without it, sign-in works but the User table stays empty.
+   - **`NEXT_PUBLIC_API_URL`** = your **backend API** URL (e.g. `https://api.agent4socials.com`), if the app uses an external API for profile.  
 3. Redeploy the web app after adding or changing these.
 
 If these are missing or wrong on Vercel, you’ll see **“Invalid API key”** on `/auth/callback` after Google sign-in and the app won’t open. If **NEXT_PUBLIC_API_URL** is wrong or the API is down, the dashboard may load for a long time then redirect to login.
@@ -66,6 +66,19 @@ cd apps/api && npx prisma migrate deploy
 ```
 
 After this, sign up and “Continue with Google” will work; the API will create or update a `User` row per Supabase user.
+
+---
+
+## Troubleshooting: User table empty in Supabase
+
+If you sign in with Google successfully but the **User** table in Supabase Table Editor stays empty:
+
+1. **Web app needs `DATABASE_URL`** – The profile API runs inside the **web** app (Next.js API route). It syncs users to the database only when `DATABASE_URL` is set.
+   - **Locally:** In `apps/web/.env`, set `DATABASE_URL` to your Supabase connection string (same as in your root `.env` or `apps/api/.env`). If it points to `localhost`, users sync to local Postgres, not Supabase.
+   - **Vercel:** In your **web** project → Settings → Environment Variables, add `DATABASE_URL` = your Supabase pooler URL.
+2. **Run web app migrations** – From the project root: `cd apps/web && npx prisma migrate deploy`
+3. **Redeploy** – After adding `DATABASE_URL` to Vercel, redeploy the web project.
+4. **Sign in again** – After the fix, sign out and sign in with Google; the profile API will create the User row on first successful load.
 
 ---
 

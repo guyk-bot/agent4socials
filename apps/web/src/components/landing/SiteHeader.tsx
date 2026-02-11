@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useState } from 'react';
 import { Menu, X } from 'lucide-react';
+import { useAuthModal } from '@/context/AuthModalContext';
 
 const navLinks = [
   { href: '/#features', label: 'Features' },
@@ -15,6 +16,8 @@ const navLinks = [
 
 export default function SiteHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { openLogin, openSignup } = useAuthModal();
+
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-slate-800/80 bg-slate-950/95 backdrop-blur-xl">
       <div className="mx-auto flex h-14 sm:h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
@@ -28,23 +31,25 @@ export default function SiteHeader() {
               {link.label}
             </Link>
           ))}
-          <Link href="/login" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">
+          <button type="button" onClick={openLogin} className="text-sm font-medium text-slate-400 hover:text-white transition-colors">
             Log in
-          </Link>
-          <Link
-            href="/signup"
+          </button>
+          <button
+            type="button"
+            onClick={openSignup}
             className="rounded-xl bg-emerald-500 px-4 py-2 sm:px-5 sm:py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-400 hover:shadow-emerald-500/30"
           >
             7-day free trial
-          </Link>
+          </button>
         </nav>
         <div className="flex items-center gap-2 md:hidden">
-          <Link
-            href="/signup"
+          <button
+            type="button"
+            onClick={openSignup}
             className="rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-white"
           >
             Free trial
-          </Link>
+          </button>
           <button
             type="button"
             onClick={() => setMobileOpen(!mobileOpen)}
@@ -67,20 +72,20 @@ export default function SiteHeader() {
               {link.label}
             </Link>
           ))}
-          <Link
-            href="/login"
-            onClick={() => setMobileOpen(false)}
-            className="py-3 px-3 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/80 font-medium transition-colors"
+          <button
+            type="button"
+            onClick={() => { setMobileOpen(false); openLogin(); }}
+            className="py-3 px-3 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/80 font-medium transition-colors w-full text-left"
           >
             Log in
-          </Link>
-          <Link
-            href="/signup"
-            onClick={() => setMobileOpen(false)}
-            className="mt-2 mx-3 py-3 rounded-xl bg-emerald-500 text-center font-semibold text-white"
+          </button>
+          <button
+            type="button"
+            onClick={() => { setMobileOpen(false); openSignup(); }}
+            className="mt-2 mx-3 py-3 rounded-xl bg-emerald-500 text-center font-semibold text-white w-full"
           >
             Start 7-day free trial
-          </Link>
+          </button>
         </nav>
       )}
     </header>

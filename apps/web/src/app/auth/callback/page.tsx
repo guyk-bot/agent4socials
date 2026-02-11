@@ -73,7 +73,7 @@ export default function AuthCallbackPage() {
           return;
         }
 
-        router.replace('/login');
+        router.replace('/');
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Something went wrong');
       }
@@ -87,7 +87,7 @@ export default function AuthCallbackPage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-4 bg-gray-50 max-w-md text-center">
         <p className="text-red-600 font-medium">{error}</p>
-        <a href="/login" className="text-indigo-600 hover:underline">Back to login</a>
+        <a href="/" className="text-indigo-600 hover:underline">Back to home</a>
       </div>
     );
   }

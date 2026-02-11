@@ -10,6 +10,7 @@ interface User {
   id: string;
   email: string;
   name?: string;
+  createdAt?: string;
 }
 
 interface AuthContextType {
@@ -110,7 +111,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const logout = async () => {
     await supabase.auth.signOut();
     setUser(null);
-    router.push('/login');
+    router.push('/');
   };
 
   return (

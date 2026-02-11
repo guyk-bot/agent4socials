@@ -48,6 +48,7 @@ export async function GET(request: NextRequest) {
         id: dbUser.id,
         email: dbUser.email,
         name: dbUser.name ?? undefined,
+        createdAt: dbUser.createdAt?.toISOString(),
       });
     }
   } catch (e) {
@@ -58,5 +59,6 @@ export async function GET(request: NextRequest) {
     id: user.id,
     email: user.email,
     name: name ?? undefined,
+    createdAt: (user as { created_at?: string }).created_at ?? undefined,
   });
 }

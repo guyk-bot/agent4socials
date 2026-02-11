@@ -1,7 +1,9 @@
-import Link from 'next/link';
+'use client';
+
 import SiteHeader from '@/components/landing/SiteHeader';
 import SiteFooter from '@/components/landing/SiteFooter';
 import { Check } from 'lucide-react';
+import { useAuthModal } from '@/context/AuthModalContext';
 
 const features = [
   '7-day free trial—no credit card required',
@@ -13,6 +15,8 @@ const features = [
 ];
 
 export default function PricingPage() {
+  const { openSignup } = useAuthModal();
+
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       <SiteHeader />
@@ -41,12 +45,13 @@ export default function PricingPage() {
                   </li>
                 ))}
               </ul>
-              <Link
-                href="/signup"
+              <button
+                type="button"
+                onClick={openSignup}
                 className="mt-8 sm:mt-10 block w-full rounded-xl bg-emerald-500 py-3.5 sm:py-4 text-center text-base sm:text-lg font-semibold text-white transition hover:bg-emerald-400 active:scale-[0.98]"
               >
                 Start 7-day free trial
-              </Link>
+              </button>
             </div>
 
             <div className="rounded-2xl border border-slate-700 bg-slate-800/30 p-6 sm:p-8 md:p-10">
@@ -69,12 +74,13 @@ export default function PricingPage() {
                   </li>
                 ))}
               </ul>
-              <Link
-                href="/signup"
+              <button
+                type="button"
+                onClick={openSignup}
                 className="mt-8 sm:mt-10 block w-full rounded-xl border border-slate-600 py-3.5 sm:py-4 text-center text-base sm:text-lg font-semibold text-white transition hover:bg-slate-700 active:scale-[0.98]"
               >
                 Start 7-day free trial
-              </Link>
+              </button>
             </div>
           </div>
 

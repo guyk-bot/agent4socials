@@ -2,8 +2,10 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
+import { useAuthModal } from '@/context/AuthModalContext';
 
 export default function SiteFooter() {
+  const { openLogin, openSignup } = useAuthModal();
   return (
     <footer className="border-t border-slate-800/80 bg-slate-950 text-slate-400">
       <div className="mx-auto max-w-6xl px-4 py-10 sm:py-14 sm:px-6">
@@ -26,8 +28,8 @@ export default function SiteFooter() {
             <div>
               <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Company</h4>
               <ul className="mt-4 space-y-3">
-                <li><Link href="/signup" className="hover:text-white transition-colors">Sign up</Link></li>
-                <li><Link href="/login" className="hover:text-white transition-colors">Log in</Link></li>
+                <li><button type="button" onClick={openSignup} className="hover:text-white transition-colors">Sign up</button></li>
+                <li><button type="button" onClick={openLogin} className="hover:text-white transition-colors">Log in</button></li>
               </ul>
             </div>
             <div>

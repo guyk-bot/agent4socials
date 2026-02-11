@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
+import { AuthModalProvider } from "@/context/AuthModalContext";
 import { WhiteLabelProvider } from "@/context/WhiteLabelContext";
+import AuthModal from "@/components/auth/AuthModal";
+import AuthModalOpener from "@/components/auth/AuthModalOpener";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit", display: "swap" });
@@ -63,9 +66,13 @@ export default function RootLayout({
           }}
         />
         <AuthProvider>
-          <WhiteLabelProvider>
-            {children}
-          </WhiteLabelProvider>
+          <AuthModalProvider>
+            <WhiteLabelProvider>
+              {children}
+              <AuthModalOpener />
+              <AuthModal />
+            </WhiteLabelProvider>
+          </AuthModalProvider>
         </AuthProvider>
       </body>
     </html>

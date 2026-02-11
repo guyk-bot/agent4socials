@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import SiteHeader from '@/components/landing/SiteHeader';
 import SiteFooter from '@/components/landing/SiteFooter';
+import { useAuthModal } from '@/context/AuthModalContext';
 import {
   Calendar,
   BarChart3,
@@ -64,6 +65,8 @@ function TikTokIcon({ className }: { className?: string }) {
 }
 
 export default function Home() {
+  const { openLogin, openSignup } = useAuthModal();
+
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       <SiteHeader />
@@ -101,14 +104,15 @@ export default function Home() {
             </p>
             
             <div className="mt-10 sm:mt-12 flex flex-col items-stretch sm:items-center justify-center gap-4 sm:flex-row">
-              <Link
-                href="/signup"
+              <button
+                type="button"
+                onClick={openSignup}
                 className="group relative inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-8 py-4 text-lg font-semibold text-white shadow-xl shadow-emerald-500/20 transition-all hover:bg-emerald-400 hover:shadow-emerald-500/40 hover:-translate-y-1 sm:w-auto overflow-hidden"
               >
                 <div className="absolute inset-0 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent z-10" />
                 <span>Start 7-day free trial</span>
                 <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-              </Link>
+              </button>
               <Link
                 href="/pricing"
                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/40 px-8 py-4 text-lg font-semibold text-slate-300 transition-all hover:text-white hover:border-slate-500 hover:bg-slate-800 sm:w-auto backdrop-blur-sm"
@@ -262,23 +266,25 @@ export default function Home() {
                 <p className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-emerald-400">7-day free trial</p>
                 <p className="mt-2 sm:mt-3 text-3xl sm:text-4xl font-bold">$2.99<span className="text-lg sm:text-xl font-normal text-slate-400">/mo</span></p>
                 <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-slate-400">Billed monthly after trial</p>
-                <Link
-                  href="/signup"
-                  className="mt-5 sm:mt-6 inline-block w-full rounded-xl bg-emerald-500 py-3 sm:py-3.5 font-semibold text-white transition-all hover:bg-emerald-400 active:scale-[0.98] sm:hover:-translate-y-0.5"
+                <button
+                  type="button"
+                  onClick={openSignup}
+                  className="mt-5 sm:mt-6 w-full rounded-xl bg-emerald-500 py-3 sm:py-3.5 font-semibold text-white transition-all hover:bg-emerald-400 active:scale-[0.98] sm:hover:-translate-y-0.5"
                 >
                   Start 7-day free trial
-                </Link>
+                </button>
               </div>
               <div className="w-full max-w-sm mx-auto rounded-2xl border border-slate-700 bg-slate-800/40 p-6 sm:p-8 text-center transition-all hover:border-slate-600 hover:bg-slate-800/60">
                 <p className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-slate-400">Yearly</p>
                 <p className="mt-2 sm:mt-3 text-3xl sm:text-4xl font-bold">$20<span className="text-lg sm:text-xl font-normal text-slate-400">/yr</span></p>
                 <p className="mt-1 sm:mt-2 text-xs sm:text-sm font-medium text-emerald-400">Save ~44%</p>
-                <Link
-                  href="/signup"
-                  className="mt-5 sm:mt-6 inline-block w-full rounded-xl border border-slate-600 py-3 sm:py-3.5 font-semibold text-white transition-all hover:bg-slate-700 active:scale-[0.98]"
+                <button
+                  type="button"
+                  onClick={openSignup}
+                  className="mt-5 sm:mt-6 w-full rounded-xl border border-slate-600 py-3 sm:py-3.5 font-semibold text-white transition-all hover:bg-slate-700 active:scale-[0.98]"
                 >
                   Start 7-day free trial
-                </Link>
+                </button>
               </div>
             </div>
             <p className="mt-10 text-center">
@@ -341,16 +347,17 @@ export default function Home() {
               Join creators and businesses who schedule smarter with Agent4Socials.
             </p>
             <div className="mt-8 sm:mt-12 flex flex-col items-stretch sm:items-center justify-center gap-4 sm:gap-5 sm:flex-row">
-              <Link
-                href="/signup"
+              <button
+                type="button"
+                onClick={openSignup}
                 className="group inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 py-3.5 sm:px-8 sm:py-4 text-base sm:text-lg font-semibold text-white shadow-xl shadow-emerald-500/25 transition-all hover:bg-emerald-400 hover:shadow-emerald-500/40 active:scale-[0.98] sm:hover:-translate-y-0.5"
               >
                 Start 7-day free trial
                 <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-              </Link>
-              <Link href="/login" className="text-slate-400 hover:text-white transition-colors font-medium">
+              </button>
+              <button type="button" onClick={openLogin} className="text-slate-400 hover:text-white transition-colors font-medium">
                 I already have an account
-              </Link>
+              </button>
             </div>
           </div>
         </section>
