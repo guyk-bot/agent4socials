@@ -86,7 +86,7 @@ const sharePlatforms = [
 ];
 
 export default function AccountPage() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { primaryColor } = useWhiteLabel();
   const accent = primaryColor || '#525252';
 
@@ -224,6 +224,19 @@ export default function AccountPage() {
       <div>
         <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">Account</h1>
         <p className="text-neutral-500 text-sm mt-1">Manage your trial, plan, and sharing.</p>
+      </div>
+
+      {/* Temporary: disconnect to test sign-in / Supabase User table */}
+      <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4">
+        <p className="text-sm font-medium text-amber-800">Testing sign-in</p>
+        <p className="text-xs text-amber-700 mt-0.5">Disconnect this account to sign in again (e.g. with another Google profile) and verify the user is added to the Supabase User table.</p>
+        <button
+          type="button"
+          onClick={logout}
+          className="mt-3 px-4 py-2 rounded-lg text-sm font-medium bg-amber-500 text-white hover:bg-amber-600"
+        >
+          Disconnect account
+        </button>
       </div>
 
       {/* Profile card */}
