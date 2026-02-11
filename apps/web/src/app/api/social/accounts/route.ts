@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   }
   const accounts = await prisma.socialAccount.findMany({
     where: { userId },
-    select: { id: true, platform: true, username: true, status: true, updatedAt: true },
+    select: { id: true, platform: true, username: true, profilePicture: true, status: true, updatedAt: true },
   });
   return NextResponse.json(accounts);
 }

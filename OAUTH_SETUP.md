@@ -2,11 +2,20 @@
 
 To allow users to connect their social accounts, you need to create "Apps" on each platform's developer portal.
 
-**Global Redirect URI for all platforms:**
-```
-https://api.agent4socials.com/social/oauth/callback
-```
-*(Copy and paste this exactly when asked for "Redirect URI" or "Callback URL")*
+**Base URL:** `https://agent4socials.com` (OAuth runs on the web app.)
+
+**Redirect URIs to whitelist (add each one that you use):**
+
+| Platform  | Redirect URI |
+|-----------|----------------|
+| Instagram | `https://agent4socials.com/api/social/oauth/instagram/callback` |
+| Facebook  | `https://agent4socials.com/api/social/oauth/facebook/callback` |
+| YouTube   | `https://agent4socials.com/api/social/oauth/youtube/callback` |
+| TikTok    | `https://agent4socials.com/api/social/oauth/tiktok/callback` |
+| Twitter   | `https://agent4socials.com/api/social/oauth/twitter/callback` |
+| LinkedIn  | `https://agent4socials.com/api/social/oauth/linkedin/callback` |
+
+**If you see "URL Blocked" or "redirect_uri_mismatch":** Add the exact URI from the table above to your app’s **Valid OAuth Redirect URIs** / **Authorized redirect URIs** in that platform’s developer console. No trailing slash; protocol and path must match exactly.
 
 ---
 
@@ -24,11 +33,11 @@ https://api.agent4socials.com/social/oauth/callback
 5. Go to **Credentials** -> **Create Credentials** -> **OAuth client ID**.
    - Application type: **Web application**.
    - Name: "Agent4Socials Web".
-   - **Authorized redirect URIs**: Paste the Global Redirect URI above.
+   - **Authorized redirect URIs**: Add `https://agent4socials.com/api/social/oauth/youtube/callback` (and any other redirects this client uses, e.g. Google Sign-In).
    - Click **Create**.
-6. **Copy these values:**
-   - `GOOGLE_CLIENT_ID`
-   - `GOOGLE_CLIENT_SECRET`
+6. **Copy these values:** (use as `YOUTUBE_CLIENT_ID` / `YOUTUBE_CLIENT_SECRET` in the web app env)
+   - Client ID
+   - Client secret
 
 ---
 
@@ -42,15 +51,19 @@ https://api.agent4socials.com/social/oauth/callback
 6. On the "Add products to your app" page:
    - Find **Facebook Login for Business** -> Click **Set Up**.
    - Go to **Settings** (under Facebook Login) on the left sidebar.
+   - Turn on **Client OAuth Login** and **Web OAuth Login**.
    - Toggle **"Enforce HTTPS"** to Yes.
-   - **Valid OAuth Redirect URIs**: Paste the Global Redirect URI.
+   - **Valid OAuth Redirect URIs**: Add **both** (one per line):
+     - `https://agent4socials.com/api/social/oauth/instagram/callback`
+     - `https://agent4socials.com/api/social/oauth/facebook/callback`
+   - Add **agent4socials.com** to **App Domains** if required.
    - Click **Save Changes**.
 7. Go to **App Settings** -> **Basic**.
-8. **Copy these values:**
-   - `FACEBOOK_APP_ID` (This is your Client ID)
-   - `FACEBOOK_APP_SECRET` (Click "Show")
+8. **Copy these values:** (use as `META_APP_ID` / `META_APP_SECRET` in the web app env)
+   - App ID (Client ID)
+   - App Secret (Click "Show")
 
-*Note: For Instagram, you technically use the Facebook App. You will need to add the "Instagram Graph API" product to this same app later for posting features.*
+*Note: Instagram uses the same Meta app; both redirect URIs above must be in Valid OAuth Redirect URIs.*
 
 ---
 
@@ -61,7 +74,7 @@ https://api.agent4socials.com/social/oauth/callback
 3. Select **"TikTok API"**.
 4. Fill in details (Name: "Agent4Socials", Category: "Utility/Productivity").
 5. Under **Configuration** (or "Manage" -> "Redirect URI"):
-   - Add the Global Redirect URI.
+   - Add `https://agent4socials.com/api/social/oauth/tiktok/callback`.
 6. Under **Products** / **Permissions**:
    - You need `user.info.basic`, `video.upload`, `video.publish`.
    - Submit for review (or use "Sandbox" mode for testing).
@@ -79,7 +92,7 @@ https://api.agent4socials.com/social/oauth/callback
 4. Once created, click **"Set up"** under **User authentication settings**.
    - App permissions: **Read and Write**.
    - Type of App: **Web App, Automated App or Bot**.
-   - **Callback URI / Redirect URL**: Paste the Global Redirect URI.
+   - **Callback URI / Redirect URL**: `https://agent4socials.com/api/social/oauth/twitter/callback`.
    - **Website URL**: `https://agent4socials.com`
    - Click **Save**.
 5. Go to the **Keys and tokens** tab.
@@ -99,7 +112,7 @@ https://api.agent4socials.com/social/oauth/callback
 4. Go to the **Auth** tab.
 5. Under **OAuth 2.0 settings**:
    - Click the pencil icon next to "Authorized redirect URLs for your app".
-   - Add the Global Redirect URI.
+   - Add `https://agent4socials.com/api/social/oauth/linkedin/callback`.
 6. Go to the **Products** tab.
    - Request access to **"Share on LinkedIn"** and **"Sign In with LinkedIn"**.
 7. Back in the **Auth** tab, **copy these values:**
@@ -110,25 +123,4 @@ https://api.agent4socials.com/social/oauth/callback
 
 ## What to do next?
 
-Once you have these keys, go to your **Vercel Dashboard** -> **agent4socials-api** -> **Settings** -> **Environment Variables**.
-
-Add them exactly like this (Key = Value):
-
-```
-GOOGLE_CLIENT_ID=...
-GOOGLE_CLIENT_SECRET=...
-
-FACEBOOK_APP_ID=...
-FACEBOOK_APP_SECRET=...
-
-TIKTOK_CLIENT_KEY=...
-TIKTOK_CLIENT_SECRET=...
-
-TWITTER_CLIENT_ID=...
-TWITTER_CLIENT_SECRET=...
-
-LINKEDIN_CLIENT_ID=...
-LINKEDIN_CLIENT_SECRET=...
-```
-
-Then **Redeploy** your API for the changes to take effect.
+Add the env vars to your **web app** (e.g. Vercel → **agent4socials** project → Settings → Environment Variables). Use the key names your app expects, e.g. `META_APP_ID`, `META_APP_SECRET`, `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `TWITTER_CLIENT_ID`, `TWITTER_CLIENT_SECRET`, `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`. Set `NEXT_PUBLIC_APP_URL=https://agent4socials.com` (or your production URL). Then **Redeploy** the web app.

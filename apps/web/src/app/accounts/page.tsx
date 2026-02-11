@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import {
     Instagram,
@@ -11,13 +12,24 @@ import {
     Plus,
     RefreshCw,
     Trash2,
-    ExternalLink,
-    ShieldCheck
+    ShieldCheck,
+    Copy,
+    Check
 } from 'lucide-react';
 
 export default function AccountsPage() {
+    const { user } = useAuth();
     const [accounts, setAccounts] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [copiedId, setCopiedId] = useState(false);
+    const userId = user?.id ?? '';
+
+    const copyUserId = () => {
+        if (!userId) return;
+        navigator.clipboard.writeText(userId);
+        setCopiedId(true);
+        setTimeout(() => setCopiedId(false), 2000);
+    };
 
     const fetchAccounts = async () => {
         setLoading(true);
@@ -56,10 +68,24 @@ export default function AccountsPage() {
 
     return (
         <div className="max-w-4xl mx-auto space-y-8">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-neutral-900">Social Accounts</h1>
                     <p className="text-neutral-500">Connect and manage your social media profiles.</p>
+                    {userId && (
+                        <div className="mt-2 flex items-center gap-2">
+                            <span className="text-xs text-neutral-500">User ID (for support):</span>
+                            <code className="text-xs bg-neutral-100 px-2 py-1 rounded font-mono text-neutral-700">{userId}</code>
+                            <button
+                                type="button"
+                                onClick={copyUserId}
+                                className="p-1.5 text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 rounded transition-colors"
+                                title="Copy User ID"
+                            >
+                                {copiedId ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
+                            </button>
+                        </div>
+                    )}
                 </div>
                 <button onClick={fetchAccounts} className="p-2 text-neutral-500 hover:text-neutral-700 transition-colors">
                     <RefreshCw size={20} />
@@ -121,54 +147,66 @@ export default function AccountsPage() {
 }
 
 function PlatformCard({ name, description, icon, connectedAccounts, onConnect }: any) {
+    const isConnected = connectedAccounts.length > 0;
+    const primaryAccount = connectedAccounts[0];
+
     return (
         <div className="card">
             <div className="flex items-start justify-between">
-                <div className="flex items-start space-x-4">
-                    <div className="p-3 bg-neutral-100 rounded-xl">
+                <div className="flex items-start space-x-4 flex-1 min-w-0">
+                    <div className="p-3 bg-neutral-100 rounded-xl flex-shrink-0">
                         {icon}
                     </div>
-                    <div>
+                    <div className="min-w-0">
                         <h3 className="text-lg font-semibold text-neutral-900">{name}</h3>
                         <p className="text-sm text-neutral-500 max-w-md mt-1">{description}</p>
+                        {isConnected && primaryAccount && (
+                            <div className="flex items-center gap-3 mt-3">
+                                <div className="w-9 h-9 rounded-full bg-neutral-200 flex items-center justify-center text-neutral-600 font-semibold text-sm overflow-hidden flex-shrink-0">
+                                    {primaryAccount.profilePicture ? (
+                                        <img src={primaryAccount.profilePicture} alt="" className="w-full h-full object-cover" />
+                                    ) : (
+                                        (primaryAccount.username || name)[0].toUpperCase()
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-2 min-w-0">
+                                    <span className="text-sm font-medium text-neutral-900 truncate">{primaryAccount.username || name}</span>
+                                    <span className="flex items-center shrink-0 text-[10px] text-green-600 font-semibold uppercase">
+                                        <ShieldCheck size={10} className="mr-1" />
+                                        Connected
+                                    </span>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
-                <button
-                    onClick={onConnect}
-                    className="btn-primary flex items-center space-x-2 text-sm"
-                >
-                    <Plus size={18} />
-                    <span>Connect</span>
-                </button>
-            </div>
-
-            {connectedAccounts.length > 0 && (
-                <div className="mt-6 border-t border-neutral-200 pt-4 space-y-3">
-                    {connectedAccounts.map((acc: any) => (
-                        <div key={acc.id} className="flex items-center justify-between p-3 bg-neutral-50 rounded-lg">
-                            <div className="flex items-center space-x-3">
-                                <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center text-neutral-600 font-bold text-xs">
-                                    {acc.username[0]}
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-neutral-900">{acc.username}</p>
-                                    <div className="flex items-center space-x-2">
-                                        <span className="flex items-center text-[10px] text-green-600 font-semibold uppercase">
-                                            <ShieldCheck size={10} className="mr-1" />
-                                            Connected
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <button className="p-2 text-neutral-500 hover:text-red-600 transition-colors">
-                                    <Trash2 size={18} />
-                                </button>
-                            </div>
-                        </div>
-                    ))}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                    {isConnected ? (
+                        <>
+                            <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-green-50 text-green-700 text-sm font-medium">
+                                <ShieldCheck size={16} />
+                                Connected
+                            </span>
+                            <button
+                                type="button"
+                                className="p-2 text-neutral-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Disconnect"
+                                aria-label="Disconnect account"
+                            >
+                                <Trash2 size={18} />
+                            </button>
+                        </>
+                    ) : (
+                        <button
+                            onClick={onConnect}
+                            className="btn-primary flex items-center space-x-2 text-sm"
+                        >
+                            <Plus size={18} />
+                            <span>Connect</span>
+                        </button>
+                    )}
                 </div>
-            )}
+            </div>
         </div>
     );
 }

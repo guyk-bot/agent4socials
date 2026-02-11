@@ -178,8 +178,15 @@ export async function GET(
     },
   });
 
-  return new NextResponse(
-    '<!DOCTYPE html><html><body><p>Account connected. You can close this window.</p><script>window.close();</script></body></html>',
-    { headers: { 'Content-Type': 'text/html' } }
-  );
+  const accountsUrl = `${baseUrl}/accounts`;
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><p>Account connected.</p><script>
+(function(){
+  if (window.opener) {
+    try { window.close(); } catch (e) {}
+  } else {
+    window.location.href = ${JSON.stringify(accountsUrl)};
+  }
+})();
+</script><p>Redirecting to <a href="${accountsUrl}">Accounts</a>…</p></body></html>`;
+  return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
 }
