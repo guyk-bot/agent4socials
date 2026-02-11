@@ -74,6 +74,16 @@ export async function GET(
         { status: 503 }
       );
     }
+    // Database authentication rejected (wrong password, wrong pooler, project paused)
+    if (msg.includes('authentication failed')) {
+      return NextResponse.json(
+        {
+          message:
+            'Database authentication failed. In Supabase: use the Transaction pooler connection string (port 6543). Copy the password from that dialog (it may differ from the direct DB password), URL-encode special characters (e.g. @ → %40). Ensure the project is not paused.',
+        },
+        { status: 503 }
+      );
+    }
     // Real connection failures only (not every Prisma error)
     if (
       msg.includes("can't reach database") ||
