@@ -2,8 +2,8 @@ import { BarChart3, Calendar, Users, ArrowUpRight, MoreHorizontal, CheckCircle2 
 
 export default function DashboardPreview() {
   return (
-    <div className="relative mx-auto mt-16 max-w-5xl px-4 sm:mt-24">
-      <div className="relative rounded-2xl border border-slate-800 bg-slate-900/50 p-2 shadow-2xl backdrop-blur-sm lg:rounded-3xl lg:p-3">
+    <div className="relative mx-auto mt-16 max-w-5xl px-4 sm:mt-24 overflow-hidden">
+      <div className="relative rounded-2xl border border-slate-800 bg-slate-900/50 p-2 shadow-2xl lg:rounded-3xl lg:p-3">
         {/* Browser chrome */}
         <div className="absolute top-0 left-0 right-0 h-12 rounded-t-2xl bg-slate-900/90 border-b border-slate-800 flex items-center px-4 gap-2">
           <div className="flex gap-2">
@@ -118,8 +118,8 @@ export default function DashboardPreview() {
           </div>
         </div>
         
-        {/* Glow behind */}
-        <div className="absolute -inset-4 bg-gradient-to-r from-emerald-500 to-sky-500 opacity-20 blur-2xl -z-10 rounded-[3rem]" />
+        {/* Subtle glow - no blur to avoid GPU rendering issues in some browsers */}
+        <div className="absolute -inset-4 bg-gradient-to-r from-emerald-500/30 to-sky-500/30 opacity-10 -z-10 rounded-[3rem] pointer-events-none" />
       </div>
     </div>
   );
