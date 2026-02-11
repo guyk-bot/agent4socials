@@ -55,7 +55,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (err: unknown) {
       // Keep user on dashboard: use session data so we don't redirect to funnel when profile API fails
       if (fallbackUser) {
-        setUser(fallbackUser);
+        setUser({
+          id: fallbackUser.id,
+          email: fallbackUser.email ?? '',
+          name: fallbackUser.name,
+        });
       } else {
         setUser(null);
       }
