@@ -26,9 +26,14 @@ export async function GET(request: NextRequest) {
   const name = user.user_metadata?.full_name || user.user_metadata?.name || null;
   const provider = user.app_metadata?.provider === 'google' ? AuthProvider.GOOGLE : AuthProvider.LOCAL;
 
+  const hasDbUrl = !!process.env.DATABASE_URL;
+  if (!hasDbUrl) {
+    console.warn('[Profile API] DATABASE_URL is not set. User will not be synced to Supabase User table. Set it in Vercel (web project) or apps/web/.env');
+  }
+
   // Sync to User table so users appear in Supabase Table Editor (requires DATABASE_URL in Vercel)
   try {
-    if (process.env.DATABASE_URL) {
+    if (hasDbUrl) {
       let dbUser = await prisma.user.findUnique({ where: { supabaseId: user.id } });
       if (!dbUser) {
         const existingByEmail = await prisma.user.findUnique({ where: { email } });
@@ -52,7 +57,15 @@ export async function GET(request: NextRequest) {
       });
     }
   } catch (e) {
-    console.error('Profile DB sync failed:', e);
+    const err = e as Error;
+    console.error('[Profile API] DB sync failed:', err?.message ?? err);
+    console.error('[Profile API] Stack:', err?.stack);
+    if (process.env.NODE_ENV === 'development') {
+      return NextResponse.json(
+        { message: 'Profile sync failed', error: err?.message, code: (e as { code?: string })?.code },
+        { status: 500 }
+      );
+    }
   }
 
   return NextResponse.json({
