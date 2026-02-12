@@ -64,13 +64,13 @@ export default function AccountsPage() {
             // Sync profile first so Prisma User row exists (required for OAuth start). If you just added DATABASE_URL or signed in before it was set, this creates the User.
             await api.get('/auth/profile').catch(() => null);
             let res;
-            const methodParam = method ? `?method=${encodeURIComponent(method)}` : '';
+            const params = method ? { method } : {};
             try {
-                res = await api.get(`/social/oauth/${platform}/start${methodParam}`);
+                res = await api.get(`/social/oauth/${platform}/start`, { params });
             } catch (firstErr: unknown) {
                 if ((firstErr as { response?: { status?: number } })?.response?.status === 401) {
                     await api.get('/auth/profile').catch(() => null);
-                    res = await api.get(`/social/oauth/${platform}/start${methodParam}`);
+                    res = await api.get(`/social/oauth/${platform}/start`, { params });
                 } else {
                     throw firstErr;
                 }
@@ -142,7 +142,7 @@ export default function AccountsPage() {
                     icon={<Instagram size={24} className="text-pink-600" />}
                     connectedAccounts={accounts.filter((a: any) => a.platform === 'INSTAGRAM')}
                     onConnect={(m?: string) => handleConnect('instagram', m)}
-                    connectOptions={[{ label: 'With Facebook', method: undefined }, { label: 'With Instagram only', method: 'instagram' }]}
+                    connectOptions={[{ label: 'With Instagram only (no Facebook)', method: 'instagram' }, { label: 'With Facebook', method: undefined }]}
                     onRefreshProfile={fetchAccounts}
                     onDisconnect={fetchAccounts}
                     connecting={connectingPlatform === 'instagram'}
