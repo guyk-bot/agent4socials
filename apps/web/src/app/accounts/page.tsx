@@ -136,7 +136,8 @@ export default function AccountsPage() {
                 <PlatformCard
                     name="Instagram"
                     platform="INSTAGRAM"
-                    description="Schedule posts, reels and stories to your Business or Creator account. Connects via Facebook — you'll sign in with Facebook; we use the Instagram account linked to your Page."
+                    description="Schedule posts, reels and stories to your Business or Creator account."
+                    hint="Instagram uses Facebook to connect: you'll see a Facebook screen asking to connect — that's correct. Click the blue Reconnect/Continue button to finish. We then use the Instagram account linked to your Facebook Page."
                     icon={<Instagram size={24} className="text-pink-600" />}
                     connectedAccounts={accounts.filter((a: any) => a.platform === 'INSTAGRAM')}
                     onConnect={() => handleConnect('instagram')}
@@ -199,7 +200,7 @@ export default function AccountsPage() {
     );
 }
 
-function PlatformCard({ name, description, icon, connectedAccounts, onConnect, onRefreshProfile, onDisconnect, connecting }: any) {
+function PlatformCard({ name, description, hint, icon, connectedAccounts, onConnect, onRefreshProfile, onDisconnect, connecting }: any) {
     const isConnected = connectedAccounts.length > 0;
     const primaryAccount = connectedAccounts[0];
     const [refreshing, setRefreshing] = useState(false);
@@ -249,6 +250,7 @@ function PlatformCard({ name, description, icon, connectedAccounts, onConnect, o
                     <div className="min-w-0">
                         <h3 className="text-lg font-semibold text-neutral-900">{name}</h3>
                         <p className="text-sm text-neutral-500 max-w-md mt-1">{description}</p>
+                        {hint && <p className="text-xs text-neutral-400 max-w-md mt-1">{hint}</p>}
                         {isConnected && primaryAccount && (
                             <div className="flex items-center gap-3 mt-3 flex-wrap">
                                 <div className="w-9 h-9 rounded-full bg-neutral-200 flex items-center justify-center text-neutral-600 font-semibold text-sm overflow-hidden flex-shrink-0">
