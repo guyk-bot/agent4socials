@@ -60,6 +60,8 @@ To allow users to connect their social accounts, you need to create "Apps" on ea
    - Click **Save Changes**.
 
 **If you see "URL Blocked" for Facebook:** The redirect URI must be exactly `https://agent4socials.com/api/social/oauth/facebook/callback` (no trailing slash). If your app is sending a different URL (e.g. `https://api.agent4socials.com/...`), in Vercel set **FACEBOOK_REDIRECT_URI** = `https://agent4socials.com/api/social/oauth/facebook/callback` for Production, then redeploy. Also ensure **NEXT_PUBLIC_APP_URL** (and **NEXT_PUBLIC_SITE_URL** if used) is `https://agent4socials.com`, not `https://api.agent4socials.com`.
+
+**If you see "Invalid Scopes: pages_manage_posts":** The app currently requests only `pages_read_engagement` and `pages_show_list` so the connection completes. If you need to post to Pages and your Meta app supports it, you can add `pages_manage_posts` in the app dashboard under the Facebook Login use case permissions, then we can re-enable it in code.
 7. Go to **App Settings** -> **Basic**.
 8. **Copy these values:** (use as `META_APP_ID` / `META_APP_SECRET` in the web app env)
    - App ID (Client ID)
