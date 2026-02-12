@@ -25,6 +25,8 @@ type TokenResult = {
   platformUserId: string;
   username: string;
   profilePicture?: string | null;
+  /** When multiple Facebook Pages, list for user to pick one */
+  pages?: Array<{ id: string; name?: string; picture?: string }>;
 };
 
 async function exchangeCodeInstagramLogin(code: string, callbackUrl: string): Promise<TokenResult> {
@@ -201,12 +203,16 @@ async function exchangeCode(
       let username = 'Facebook Page';
       let profilePicture: string | null = null;
       let pageId: string | null = null;
+      const pagesForSelect: Array<{ id: string; name?: string; picture?: string }> = [];
       try {
         const pagesRes = await axios.get<{ data?: Array<{ id: string; name?: string; picture?: { data?: { url?: string } } }> }>(
           'https://graph.facebook.com/v18.0/me/accounts',
           { params: { fields: 'id,name,picture', access_token: accessToken } }
         );
         const pages = pagesRes.data?.data || [];
+        for (const p of pages) {
+          if (p?.id) pagesForSelect.push({ id: p.id, name: p.name, picture: p.picture?.data?.url ?? undefined });
+        }
         const page = pages[0];
         if (page?.id) {
           pageId = page.id;
@@ -223,6 +229,7 @@ async function exchangeCode(
         platformUserId: pageId || 'fb-' + (accessToken?.slice(-8) || 'id'),
         username,
         profilePicture,
+        pages: pagesForSelect.length > 0 ? pagesForSelect : undefined,
       };
     }
     case 'TWITTER': {
@@ -312,6 +319,26 @@ export async function GET(
     console.error('[Social OAuth] exchange error:', err?.message ?? e, err);
     const message = err?.message?.includes('Instagram') ? err.message : 'Failed to connect account';
     return oauthErrorHtml(baseUrl, message, 500);
+  }
+
+  if (plat === 'FACEBOOK' && tokenData.pages && tokenData.pages.length > 1) {
+    try {
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+      const pending = await prisma.pendingFacebookConnection.create({
+        data: {
+          userId,
+          accessToken: tokenData.accessToken,
+          pages: tokenData.pages as unknown as object,
+          expiresAt,
+        },
+      });
+      const selectUrl = `${baseUrl}/accounts/facebook/select?pendingId=${pending.id}`;
+      const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><p>Choose one Page to connect.</p><script>window.location.href = ${JSON.stringify(selectUrl)};</script><p>Redirecting to <a href="${selectUrl}">Choose Page</a>…</p></body></html>`;
+      return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
+    } catch (e) {
+      console.error('[Social OAuth] pending Facebook create error:', e);
+      return oauthErrorHtml(baseUrl, 'Could not save. Try again.', 500);
+    }
   }
 
   const profilePicture = tokenData.profilePicture ?? undefined;

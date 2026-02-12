@@ -189,6 +189,7 @@ export default function AccountsPage() {
                     name="Facebook"
                     platform="FACEBOOK"
                     description="Post to your Facebook Page and reach your audience."
+                    hint="If you have multiple Pages, you’ll choose which one to connect after authorizing."
                     icon={<Facebook size={24} className="text-blue-600" />}
                     connectedAccounts={displayAccounts.filter((a: any) => a.platform === 'FACEBOOK')}
                     onConnect={() => handleConnect('facebook')}

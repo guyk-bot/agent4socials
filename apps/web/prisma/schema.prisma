@@ -55,6 +55,15 @@ model SocialAccount {
   @@unique([userId, platform, platformUserId])
 }
 
+model PendingFacebookConnection {
+  id          String   @id @default(cuid())
+  userId      String
+  accessToken String
+  pages       Json     // Array<{ id: string, name?: string, picture?: string }>
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+}
+
 enum PostStatus {
   DRAFT
   SCHEDULED
