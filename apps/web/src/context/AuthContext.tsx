@@ -107,7 +107,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         };
         await syncUserFromApi(session.access_token, fallback);
         if (event === 'SIGNED_IN') {
-          router.push('/dashboard');
+          const path = typeof window !== 'undefined' ? window.location.pathname : '';
+          const isFunnel = path === '/' || path === '/login' || path === '/signup' || path.startsWith('/auth/');
+          if (isFunnel) router.push('/dashboard');
         }
       } else {
         setUser(null);

@@ -21,9 +21,10 @@ import {
 
 export default function AccountsPage() {
     const { user } = useAuth();
-    const { setCachedAccounts } = useAccountsCache() ?? {};
+    const { cachedAccounts, setCachedAccounts } = useAccountsCache() ?? {};
     const [accounts, setAccounts] = useState<{ id: string; platform: string; username?: string; profilePicture?: string | null }[]>([]);
-    const [loading, setLoading] = useState(true);
+    const hasCache = (cachedAccounts?.length ?? 0) > 0;
+    const [loading, setLoading] = useState(!hasCache);
     const [copiedId, setCopiedId] = useState(false);
     const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
     const [connectingMethod, setConnectingMethod] = useState<string | undefined>(undefined);
@@ -36,8 +37,8 @@ export default function AccountsPage() {
         setTimeout(() => setCopiedId(false), 2000);
     };
 
-    const fetchAccounts = async () => {
-        setLoading(true);
+    const fetchAccounts = async (showLoading = true) => {
+        if (showLoading) setLoading(true);
         try {
             const res = await api.get('/social/accounts');
             const data = Array.isArray(res.data) ? res.data : [];
@@ -51,7 +52,7 @@ export default function AccountsPage() {
     };
 
     useEffect(() => {
-        fetchAccounts();
+        fetchAccounts(!hasCache);
     }, []);
 
     const handleConnect = async (platform: string, method?: string) => {
@@ -84,7 +85,7 @@ export default function AccountsPage() {
                     const interval = setInterval(() => {
                         if (popup.closed) {
                             clearInterval(interval);
-                            fetchAccounts();
+                            fetchAccounts(false);
                         }
                     }, 500);
                 }
@@ -137,13 +138,17 @@ export default function AccountsPage() {
             </div>
 
             <div className="grid grid-cols-1 gap-6">
+                {(() => {
+                    const displayAccounts = accounts.length ? accounts : (cachedAccounts ?? []) as { id: string; platform: string; username?: string; profilePicture?: string | null }[];
+                    return (
+                <>
                 <PlatformCard
                     name="Instagram"
                     platform="INSTAGRAM"
                     description="Schedule posts, reels and stories to your Business or Creator account."
                     hint="Two options: connect with Facebook (account linked to a Page) or with Instagram only (Professional account, no Facebook needed)."
                     icon={<Instagram size={24} className="text-pink-600" />}
-                    connectedAccounts={accounts.filter((a: any) => a.platform === 'INSTAGRAM')}
+                    connectedAccounts={displayAccounts.filter((a: any) => a.platform === 'INSTAGRAM')}
                     onConnect={(m?: string) => handleConnect('instagram', m)}
                     connectOptions={[{ label: 'With Instagram only (no Facebook)', method: 'instagram' }, { label: 'With Facebook', method: undefined }]}
                     onRefreshProfile={fetchAccounts}
@@ -156,7 +161,7 @@ export default function AccountsPage() {
                     platform="TIKTOK"
                     description="Publish your creative videos directly to TikTok."
                     icon={<div className="font-bold text-lg">TT</div>}
-                    connectedAccounts={accounts.filter((a: any) => a.platform === 'TIKTOK')}
+                    connectedAccounts={displayAccounts.filter((a: any) => a.platform === 'TIKTOK')}
                     onConnect={() => handleConnect('tiktok')}
                     onDisconnect={fetchAccounts}
                     connecting={connectingPlatform === 'tiktok'}
@@ -166,7 +171,7 @@ export default function AccountsPage() {
                     platform="YOUTUBE"
                     description="Upload and schedule videos to your YouTube channel."
                     icon={<Youtube size={24} className="text-red-600" />}
-                    connectedAccounts={accounts.filter((a: any) => a.platform === 'YOUTUBE')}
+                    connectedAccounts={displayAccounts.filter((a: any) => a.platform === 'YOUTUBE')}
                     onConnect={() => handleConnect('youtube')}
                     onDisconnect={fetchAccounts}
                     connecting={connectingPlatform === 'youtube'}
@@ -176,7 +181,7 @@ export default function AccountsPage() {
                     platform="FACEBOOK"
                     description="Post to your Facebook Page and reach your audience."
                     icon={<Facebook size={24} className="text-blue-600" />}
-                    connectedAccounts={accounts.filter((a: any) => a.platform === 'FACEBOOK')}
+                    connectedAccounts={displayAccounts.filter((a: any) => a.platform === 'FACEBOOK')}
                     onConnect={() => handleConnect('facebook')}
                     onDisconnect={fetchAccounts}
                     connecting={connectingPlatform === 'facebook'}
@@ -186,7 +191,7 @@ export default function AccountsPage() {
                     platform="TWITTER"
                     description="Schedule tweets and threads to your X profile."
                     icon={<Twitter size={24} className="text-sky-500" />}
-                    connectedAccounts={accounts.filter((a: any) => a.platform === 'TWITTER')}
+                    connectedAccounts={displayAccounts.filter((a: any) => a.platform === 'TWITTER')}
                     onConnect={() => handleConnect('twitter')}
                     onDisconnect={fetchAccounts}
                     connecting={connectingPlatform === 'twitter'}
@@ -196,11 +201,14 @@ export default function AccountsPage() {
                     platform="LINKEDIN"
                     description="Share posts and articles to your LinkedIn profile."
                     icon={<Linkedin size={24} className="text-blue-700" />}
-                    connectedAccounts={accounts.filter((a: any) => a.platform === 'LINKEDIN')}
+                    connectedAccounts={displayAccounts.filter((a: any) => a.platform === 'LINKEDIN')}
                     onConnect={() => handleConnect('linkedin')}
                     onDisconnect={fetchAccounts}
                     connecting={connectingPlatform === 'linkedin'}
                 />
+                </>
+                    );
+                })()}
             </div>
         </div>
     );
