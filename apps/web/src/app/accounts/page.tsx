@@ -53,7 +53,7 @@ export default function AccountsPage() {
         fetchAccounts();
     }, []);
 
-    const handleConnect = async (platform: string) => {
+    const handleConnect = async (platform: string, method?: string) => {
         const getMessage = (err: unknown): string | null => {
             if (!err || typeof err !== 'object' || !('response' in err)) return null;
             const res = (err as { response?: { data?: { message?: string } } }).response;
@@ -64,12 +64,13 @@ export default function AccountsPage() {
             // Sync profile first so Prisma User row exists (required for OAuth start). If you just added DATABASE_URL or signed in before it was set, this creates the User.
             await api.get('/auth/profile').catch(() => null);
             let res;
+            const methodParam = method ? `?method=${encodeURIComponent(method)}` : '';
             try {
-                res = await api.get(`/social/oauth/${platform}/start`);
+                res = await api.get(`/social/oauth/${platform}/start${methodParam}`);
             } catch (firstErr: unknown) {
                 if ((firstErr as { response?: { status?: number } })?.response?.status === 401) {
                     await api.get('/auth/profile').catch(() => null);
-                    res = await api.get(`/social/oauth/${platform}/start`);
+                    res = await api.get(`/social/oauth/${platform}/start${methodParam}`);
                 } else {
                     throw firstErr;
                 }
@@ -137,10 +138,11 @@ export default function AccountsPage() {
                     name="Instagram"
                     platform="INSTAGRAM"
                     description="Schedule posts, reels and stories to your Business or Creator account."
-                    hint="Instagram uses Facebook to connect: you'll see a Facebook screen asking to connect — that's correct. Click the blue Reconnect/Continue button to finish. We then use the Instagram account linked to your Facebook Page."
+                    hint="Two options: connect with Facebook (account linked to a Page) or with Instagram only (Professional account, no Facebook needed)."
                     icon={<Instagram size={24} className="text-pink-600" />}
                     connectedAccounts={accounts.filter((a: any) => a.platform === 'INSTAGRAM')}
-                    onConnect={() => handleConnect('instagram')}
+                    onConnect={(m?: string) => handleConnect('instagram', m)}
+                    connectOptions={[{ label: 'With Facebook', method: undefined }, { label: 'With Instagram only', method: 'instagram' }]}
                     onRefreshProfile={fetchAccounts}
                     onDisconnect={fetchAccounts}
                     connecting={connectingPlatform === 'instagram'}
@@ -200,7 +202,7 @@ export default function AccountsPage() {
     );
 }
 
-function PlatformCard({ name, description, hint, icon, connectedAccounts, onConnect, onRefreshProfile, onDisconnect, connecting }: any) {
+function PlatformCard({ name, description, hint, icon, connectedAccounts, onConnect, connectOptions, onRefreshProfile, onDisconnect, connecting }: any) {
     const isConnected = connectedAccounts.length > 0;
     const primaryAccount = connectedAccounts[0];
     const [refreshing, setRefreshing] = useState(false);
@@ -306,9 +308,23 @@ function PlatformCard({ name, description, hint, icon, connectedAccounts, onConn
                                 {disconnecting ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
                             </button>
                         </>
+                    ) : connectOptions?.length ? (
+                        <div className="flex flex-wrap gap-2">
+                            {connectOptions.map((opt: { label: string; method?: string }) => (
+                                <button
+                                    key={opt.label}
+                                    onClick={() => onConnect?.(opt.method)}
+                                    disabled={connecting}
+                                    className="btn-primary flex items-center space-x-2 text-sm disabled:opacity-70 disabled:cursor-wait"
+                                >
+                                    {connecting ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
+                                    <span>{connecting ? 'Connecting…' : `Connect ${opt.label}`}</span>
+                                </button>
+                            ))}
+                        </div>
                     ) : (
                         <button
-                            onClick={onConnect}
+                            onClick={() => onConnect?.()}
                             disabled={connecting}
                             className="btn-primary flex items-center space-x-2 text-sm disabled:opacity-70 disabled:cursor-wait"
                         >

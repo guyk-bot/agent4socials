@@ -4,13 +4,19 @@ import { Platform } from '@prisma/client';
 
 const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN'] as const;
 
-function getOAuthUrl(platform: Platform, userId: string): string {
-  const state = userId;
+function getOAuthUrl(platform: Platform, userId: string, method?: string): string {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com';
   const callbackUrl = `${baseUrl}/api/social/oauth/${platform.toLowerCase()}/callback`;
 
   switch (platform) {
     case 'INSTAGRAM':
+      if (method === 'instagram') {
+        const igClientId = process.env.INSTAGRAM_APP_ID || process.env.META_APP_ID;
+        const state = `${userId}:instagram`;
+        const scope = 'instagram_business_basic,instagram_business_content_publish';
+        return `https://www.instagram.com/oauth/authorize?client_id=${igClientId}&redirect_uri=${encodeURIComponent(callbackUrl)}&response_type=code&scope=${encodeURIComponent(scope)}&state=${encodeURIComponent(state)}`;
+      }
+      const state = userId;
       return `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.META_APP_ID}&redirect_uri=${encodeURIComponent(process.env.META_REDIRECT_URI || callbackUrl)}&state=${state}&scope=instagram_basic,instagram_content_publish,pages_read_engagement,pages_show_list`;
     case 'TIKTOK':
       return `https://www.tiktok.com/v2/auth/authorize/?client_key=${process.env.TIKTOK_CLIENT_KEY}&scope=user.info.basic,video.upload,video.publish&response_type=code&redirect_uri=${encodeURIComponent(process.env.TIKTOK_REDIRECT_URI || callbackUrl)}&state=${state}`;
@@ -44,7 +50,18 @@ export async function GET(
     if (!plat || !PLATFORMS.includes(plat)) {
       return NextResponse.json({ error: 'Invalid platform' }, { status: 400 });
     }
-    if (plat === 'INSTAGRAM' || plat === 'FACEBOOK') {
+    const method = request.nextUrl.searchParams.get('method') ?? undefined;
+
+    if (plat === 'INSTAGRAM' && method === 'instagram') {
+      const igId = process.env.INSTAGRAM_APP_ID?.trim() || process.env.META_APP_ID?.trim();
+      const igSecret = process.env.INSTAGRAM_APP_SECRET?.trim() || process.env.META_APP_SECRET?.trim();
+      if (!igId || !igSecret) {
+        return NextResponse.json(
+          { message: 'Connect with Instagram (no Facebook) requires INSTAGRAM_APP_ID and INSTAGRAM_APP_SECRET (or META_APP_ID and META_APP_SECRET) in Vercel.' },
+          { status: 503 }
+        );
+      }
+    } else if (plat === 'INSTAGRAM' || plat === 'FACEBOOK') {
       const hasMetaId = Boolean(process.env.META_APP_ID?.trim());
       const hasMetaSecret = Boolean(process.env.META_APP_SECRET?.trim());
       if (!hasMetaId || !hasMetaSecret) {
@@ -58,7 +75,7 @@ export async function GET(
         );
       }
     }
-    const url = getOAuthUrl(plat, userId);
+    const url = getOAuthUrl(plat, userId, method);
     return NextResponse.json({ url });
   } catch (e) {
     const err = e as Error;

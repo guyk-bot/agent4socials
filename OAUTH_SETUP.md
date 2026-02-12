@@ -65,6 +65,21 @@ To allow users to connect their social accounts, you need to create "Apps" on ea
 
 *Note: Instagram uses the same Meta app; both redirect URIs above must be in Valid OAuth Redirect URIs.*
 
+### Connect with Instagram only (no Facebook)
+
+Users can connect **Instagram Professional accounts** (Business or Creator) **without** linking to a Facebook Page by using "Connect with Instagram only" on the Accounts page.
+
+1. In the same Meta app (or a dedicated one), go to **Instagram** in the left sidebar.
+2. If needed, add the **Instagram** product and choose **API setup with Instagram business login** (not "Facebook Login for Business").
+3. Open **API setup with Instagram business login** → **Set up Instagram business login** → **Business login settings**.
+4. Add **OAuth redirect URI**: `https://agent4socials.com/api/social/oauth/instagram/callback` (same as above).
+5. Copy **Instagram App ID** and **Instagram App Secret** from that page.
+6. In Vercel (web app), add:
+   - `INSTAGRAM_APP_ID` = Instagram App ID  
+   - `INSTAGRAM_APP_SECRET` = Instagram App Secret  
+
+If you use the same app for both flows, you can leave these unset and use `META_APP_ID` / `META_APP_SECRET` for "Connect with Instagram only" as well (the code falls back to META_* if INSTAGRAM_* are not set).
+
 ---
 
 ## 3. TikTok

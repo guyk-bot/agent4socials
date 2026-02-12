@@ -53,12 +53,21 @@ export async function PATCH(
         }
       }
     } else {
-      const igRes = await axios.get<{ username?: string; profile_picture_url?: string }>(
-        `https://graph.facebook.com/v18.0/${account.platformUserId}`,
-        { params: { fields: 'username,profile_picture_url', access_token: token } }
-      );
-      username = igRes.data?.username ?? undefined;
-      profilePicture = igRes.data?.profile_picture_url ?? undefined;
+      try {
+        const igRes = await axios.get<{ username?: string; profile_picture_url?: string }>(
+          'https://graph.instagram.com/me',
+          { params: { fields: 'username,profile_picture_url', access_token: token } }
+        );
+        username = igRes.data?.username ?? undefined;
+        profilePicture = igRes.data?.profile_picture_url ?? undefined;
+      } catch (_) {
+        const igRes = await axios.get<{ username?: string; profile_picture_url?: string }>(
+          `https://graph.facebook.com/v18.0/${account.platformUserId}`,
+          { params: { fields: 'username,profile_picture_url', access_token: token } }
+        );
+        username = igRes.data?.username ?? undefined;
+        profilePicture = igRes.data?.profile_picture_url ?? undefined;
+      }
     }
     const data: { username?: string; profilePicture?: string; platformUserId?: string } = {};
     if (username) data.username = username;

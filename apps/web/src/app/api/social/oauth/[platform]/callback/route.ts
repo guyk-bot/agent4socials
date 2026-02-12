@@ -14,6 +14,70 @@ type TokenResult = {
   profilePicture?: string | null;
 };
 
+async function exchangeCodeInstagramLogin(code: string, callbackUrl: string): Promise<TokenResult> {
+  const clientId = process.env.INSTAGRAM_APP_ID || process.env.META_APP_ID;
+  const clientSecret = process.env.INSTAGRAM_APP_SECRET || process.env.META_APP_SECRET;
+  const r = await axios.post(
+    'https://api.instagram.com/oauth/access_token',
+    new URLSearchParams({
+      client_id: clientId!,
+      client_secret: clientSecret!,
+      grant_type: 'authorization_code',
+      redirect_uri: callbackUrl,
+      code,
+    }).toString(),
+    { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+  );
+  const data = r.data?.data?.[0] ?? r.data;
+  const accessToken = data.access_token;
+  const platformUserId = data.user_id ?? String(data.user_id);
+  let username = 'Instagram';
+  let profilePicture: string | null = null;
+  try {
+    const meRes = await axios.get<{ username?: string; profile_picture_url?: string }>(
+      'https://graph.instagram.com/me',
+      {
+        params: {
+          fields: 'username,profile_picture_url',
+          access_token: accessToken,
+        },
+      }
+    );
+    if (meRes.data?.username) username = meRes.data.username;
+    if (meRes.data?.profile_picture_url) profilePicture = meRes.data.profile_picture_url;
+  } catch (_) {
+    // use defaults
+  }
+  let finalToken = accessToken;
+  let expiresIn = 3600;
+  try {
+    const longLived = await axios.get<{ access_token?: string; expires_in?: number }>(
+      'https://graph.instagram.com/access_token',
+      {
+        params: {
+          grant_type: 'ig_exchange_token',
+          client_secret: clientSecret,
+          access_token: accessToken,
+        },
+      }
+    );
+    if (longLived.data?.access_token) {
+      finalToken = longLived.data.access_token;
+      expiresIn = longLived.data.expires_in ?? 5183944;
+    }
+  } catch (_) {
+    // store short-lived
+  }
+  return {
+    accessToken: finalToken,
+    refreshToken: null,
+    expiresAt: new Date(Date.now() + expiresIn * 1000),
+    platformUserId,
+    username,
+    profilePicture,
+  };
+}
+
 async function exchangeCode(
   platform: Platform,
   code: string,
@@ -171,18 +235,25 @@ export async function GET(
 
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
-  const state = searchParams.get('state'); // Prisma userId
+  const stateRaw = searchParams.get('state'); // Prisma userId or "userId:instagram"
 
-  if (!code || !state) {
+  if (!code || !stateRaw) {
     return NextResponse.json({ error: 'Missing code or state' }, { status: 400 });
   }
+
+  const isInstagramLogin = stateRaw.includes(':instagram');
+  const userId = isInstagramLogin ? stateRaw.replace(/:instagram$/, '') : stateRaw;
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com';
   const callbackUrl = `${baseUrl}/api/social/oauth/${platform}/callback`;
 
   let tokenData: TokenResult;
   try {
-    tokenData = await exchangeCode(plat, code, callbackUrl);
+    if (plat === 'INSTAGRAM' && isInstagramLogin) {
+      tokenData = await exchangeCodeInstagramLogin(code, callbackUrl);
+    } else {
+      tokenData = await exchangeCode(plat, code, callbackUrl);
+    }
   } catch (e) {
     console.error('[Social OAuth] exchange error:', e);
     return NextResponse.json({ error: 'Failed to connect account' }, { status: 500 });
@@ -192,7 +263,7 @@ export async function GET(
   await prisma.socialAccount.upsert({
     where: {
       userId_platform_platformUserId: {
-        userId: state,
+        userId,
         platform: plat,
         platformUserId: tokenData.platformUserId,
       },
@@ -206,7 +277,7 @@ export async function GET(
       status: 'connected',
     },
     create: {
-      userId: state,
+      userId,
       platform: plat,
       platformUserId: tokenData.platformUserId,
       username: tokenData.username,
