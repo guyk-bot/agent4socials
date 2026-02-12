@@ -132,7 +132,7 @@ export default function AccountsPage() {
                         </div>
                     )}
                 </div>
-                <button onClick={fetchAccounts} className="p-2 text-neutral-500 hover:text-neutral-700 transition-colors">
+                <button onClick={() => fetchAccounts(true)} className="p-2 text-neutral-500 hover:text-neutral-700 transition-colors">
                     <RefreshCw size={20} />
                 </button>
             </div>
