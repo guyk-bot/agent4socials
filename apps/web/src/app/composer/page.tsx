@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import api from '@/lib/api';
 import {
     Instagram,
@@ -27,6 +28,7 @@ export default function ComposerPage() {
     const [scheduledAt, setScheduledAt] = useState('');
     const [accounts, setAccounts] = useState<{ id: string; platform: string }[]>([]);
     const [loading, setLoading] = useState(false);
+    const [alertMessage, setAlertMessage] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchAccounts = async () => {
@@ -53,7 +55,10 @@ export default function ComposerPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (platforms.length === 0) return alert('Select at least one platform');
+        if (platforms.length === 0) {
+            setAlertMessage('Select at least one platform');
+            return;
+        }
         const targets = platforms
             .map((p) => {
                 const acc = accounts.find((a: { platform: string }) => a.platform === p);
@@ -61,7 +66,7 @@ export default function ComposerPage() {
             })
             .filter(Boolean) as { platform: string; socialAccountId: string }[];
         if (targets.length === 0) {
-            alert('Connect at least one account for the selected platforms (Accounts page).');
+            setAlertMessage('Connect at least one account for the selected platforms (Accounts page).');
             return;
         }
 
@@ -76,7 +81,7 @@ export default function ComposerPage() {
 
             router.push('/dashboard');
         } catch (err) {
-            alert('Failed to create post');
+            setAlertMessage('Failed to create post');
         } finally {
             setLoading(false);
         }
@@ -84,6 +89,13 @@ export default function ComposerPage() {
 
     return (
         <div className="max-w-4xl mx-auto space-y-8">
+            <ConfirmModal
+                open={alertMessage !== null}
+                onClose={() => setAlertMessage(null)}
+                message={alertMessage ?? ''}
+                variant="alert"
+                confirmLabel="OK"
+            />
             <div>
                 <h1 className="text-2xl font-bold text-gray-900">Create Post</h1>
                 <p className="text-gray-500">Draft, preview and schedule your content across platforms.</p>

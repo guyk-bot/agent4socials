@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import api from '@/lib/api';
 import {
     Instagram,
@@ -28,6 +29,7 @@ export default function AccountsPage() {
     const [copiedId, setCopiedId] = useState(false);
     const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
     const [connectingMethod, setConnectingMethod] = useState<string | undefined>(undefined);
+    const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const userId = user?.id ?? '';
 
     const copyUserId = () => {
@@ -91,19 +93,19 @@ export default function AccountsPage() {
                 }
                 return;
             }
-            alert('Invalid response from server. Check server logs.');
+            setAlertMessage('Invalid response from server. Check server logs.');
         } catch (err: unknown) {
             const msg = getMessage(err);
             if (msg) {
                 if (msg.includes('META_APP_ID') || msg.includes('META_APP_SECRET')) {
-                    alert('Instagram/Facebook: set META_APP_ID and META_APP_SECRET for Production in Vercel → Environment Variables. If already set, ensure they’re enabled for Production and redeploy.');
+                    setAlertMessage('Instagram/Facebook: set META_APP_ID and META_APP_SECRET for Production in Vercel → Environment Variables. If already set, ensure they’re enabled for Production and redeploy.');
                 } else if (msg === 'Unauthorized') {
-                    alert('Account not synced. Sign out, sign back in, then try Connect again.');
+                    setAlertMessage('Account not synced. Sign out, sign back in, then try Connect again.');
                 } else {
-                    alert(msg);
+                    setAlertMessage(msg);
                 }
             } else {
-                alert('Failed to start OAuth. Check Vercel → Logs for the error, and DATABASE_URL (pooler 6543), META_APP_ID and META_APP_SECRET for Instagram.');
+                setAlertMessage('Failed to start OAuth. Check Vercel → Logs for the error, and DATABASE_URL (pooler 6543), META_APP_ID and META_APP_SECRET for Instagram.');
             }
         } finally {
             setConnectingPlatform(null);
@@ -113,6 +115,13 @@ export default function AccountsPage() {
 
     return (
         <div className="max-w-4xl mx-auto space-y-8">
+            <ConfirmModal
+                open={alertMessage !== null}
+                onClose={() => setAlertMessage(null)}
+                message={alertMessage ?? ''}
+                variant="alert"
+                confirmLabel="OK"
+            />
             <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-neutral-900">Social Accounts</h1>
@@ -211,6 +220,7 @@ export default function AccountsPage() {
                 })()}
             </div>
         </div>
+        </>
     );
 }
 
@@ -219,6 +229,7 @@ function PlatformCard({ name, description, hint, icon, connectedAccounts, onConn
     const primaryAccount = connectedAccounts[0];
     const [refreshing, setRefreshing] = useState(false);
     const [disconnecting, setDisconnecting] = useState(false);
+    const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
     const canRefresh = (primaryAccount?.platform === 'INSTAGRAM' || primaryAccount?.platform === 'FACEBOOK') && !primaryAccount?.profilePicture && onRefreshProfile;
 
     const [actionError, setActionError] = useState<string | null>(null);
@@ -238,9 +249,13 @@ function PlatformCard({ name, description, hint, icon, connectedAccounts, onConn
         }
     };
 
-    const handleDisconnect = async () => {
+    const handleDisconnectClick = () => {
         if (!primaryAccount?.id || !onDisconnect) return;
-        if (!window.confirm(`Disconnect ${name}? You can connect again anytime.`)) return;
+        setShowDisconnectConfirm(true);
+    };
+
+    const handleDisconnectConfirm = async () => {
+        if (!primaryAccount?.id || !onDisconnect) return;
         setActionError(null);
         setDisconnecting(true);
         try {
@@ -255,6 +270,17 @@ function PlatformCard({ name, description, hint, icon, connectedAccounts, onConn
     };
 
     return (
+        <>
+        <ConfirmModal
+            open={showDisconnectConfirm}
+            onClose={() => setShowDisconnectConfirm(false)}
+            title={`Disconnect ${name}?`}
+            message="You can connect again anytime."
+            confirmLabel="Disconnect"
+            cancelLabel="Cancel"
+            variant="danger"
+            onConfirm={handleDisconnectConfirm}
+        />
         <div className="card">
             <div className="flex items-start justify-between">
                 <div className="flex items-start space-x-4 flex-1 min-w-0">
@@ -311,7 +337,7 @@ function PlatformCard({ name, description, hint, icon, connectedAccounts, onConn
                             </span>
                             <button
                                 type="button"
-                                onClick={handleDisconnect}
+                                onClick={handleDisconnectClick}
                                 disabled={disconnecting}
                                 className="p-2 text-neutral-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                                 title="Disconnect"
@@ -350,5 +376,6 @@ function PlatformCard({ name, description, hint, icon, connectedAccounts, onConn
                 </div>
             </div>
         </div>
+        </>
     );
 }
