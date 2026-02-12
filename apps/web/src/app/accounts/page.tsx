@@ -26,6 +26,7 @@ export default function AccountsPage() {
     const [loading, setLoading] = useState(true);
     const [copiedId, setCopiedId] = useState(false);
     const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
+    const [connectingMethod, setConnectingMethod] = useState<string | undefined>(undefined);
     const userId = user?.id ?? '';
 
     const copyUserId = () => {
@@ -60,6 +61,7 @@ export default function AccountsPage() {
             return res?.data?.message ?? null;
         };
         setConnectingPlatform(platform);
+        setConnectingMethod(method);
         try {
             // Sync profile first so Prisma User row exists (required for OAuth start). If you just added DATABASE_URL or signed in before it was set, this creates the User.
             await api.get('/auth/profile').catch(() => null);
@@ -104,6 +106,7 @@ export default function AccountsPage() {
             }
         } finally {
             setConnectingPlatform(null);
+            setConnectingMethod(undefined);
         }
     };
 
@@ -146,6 +149,7 @@ export default function AccountsPage() {
                     onRefreshProfile={fetchAccounts}
                     onDisconnect={fetchAccounts}
                     connecting={connectingPlatform === 'instagram'}
+                    connectingMethod={connectingMethod}
                 />
                 <PlatformCard
                     name="TikTok"
@@ -202,7 +206,7 @@ export default function AccountsPage() {
     );
 }
 
-function PlatformCard({ name, description, hint, icon, connectedAccounts, onConnect, connectOptions, onRefreshProfile, onDisconnect, connecting }: any) {
+function PlatformCard({ name, description, hint, icon, connectedAccounts, onConnect, connectOptions, onRefreshProfile, onDisconnect, connecting, connectingMethod }: any) {
     const isConnected = connectedAccounts.length > 0;
     const primaryAccount = connectedAccounts[0];
     const [refreshing, setRefreshing] = useState(false);
@@ -310,17 +314,20 @@ function PlatformCard({ name, description, hint, icon, connectedAccounts, onConn
                         </>
                     ) : connectOptions?.length ? (
                         <div className="flex flex-wrap gap-2">
-                            {connectOptions.map((opt: { label: string; method?: string }) => (
-                                <button
-                                    key={opt.label}
-                                    onClick={() => onConnect?.(opt.method)}
-                                    disabled={connecting}
-                                    className="btn-primary flex items-center space-x-2 text-sm disabled:opacity-70 disabled:cursor-wait"
-                                >
-                                    {connecting ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
-                                    <span>{connecting ? 'Connecting…' : `Connect ${opt.label}`}</span>
-                                </button>
-                            ))}
+                            {connectOptions.map((opt: { label: string; method?: string }) => {
+                                const isThisConnecting = connecting && (opt.method === connectingMethod);
+                                return (
+                                    <button
+                                        key={opt.label}
+                                        onClick={() => onConnect?.(opt.method)}
+                                        disabled={connecting}
+                                        className="btn-primary flex items-center space-x-2 text-sm disabled:opacity-70 disabled:cursor-wait"
+                                    >
+                                        {isThisConnecting ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
+                                        <span>{isThisConnecting ? 'Connecting…' : `Connect ${opt.label}`}</span>
+                                    </button>
+                                );
+                            })}
                         </div>
                     ) : (
                         <button

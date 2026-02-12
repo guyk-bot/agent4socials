@@ -244,8 +244,12 @@ export async function GET(
   const isInstagramLogin = stateRaw.includes(':instagram');
   const userId = isInstagramLogin ? stateRaw.replace(/:instagram$/, '') : stateRaw;
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com';
-  const callbackUrl = `${baseUrl}/api/social/oauth/${platform}/callback`;
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
+  const defaultCallbackUrl = `${baseUrl}/api/social/oauth/${platform}/callback`;
+  const callbackUrl =
+    plat === 'INSTAGRAM' && isInstagramLogin && process.env.INSTAGRAM_REDIRECT_URI
+      ? process.env.INSTAGRAM_REDIRECT_URI.replace(/\/+$/, '')
+      : defaultCallbackUrl;
 
   let tokenData: TokenResult;
   try {

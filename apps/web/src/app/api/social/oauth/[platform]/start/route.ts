@@ -5,7 +5,7 @@ import { Platform } from '@prisma/client';
 const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN'] as const;
 
 function getOAuthUrl(platform: Platform, userId: string, method?: string): string {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com';
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
   const callbackUrl = `${baseUrl}/api/social/oauth/${platform.toLowerCase()}/callback`;
   const state = platform === 'INSTAGRAM' && method === 'instagram' ? `${userId}:instagram` : userId;
 
@@ -14,7 +14,8 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
       if (method === 'instagram') {
         const igClientId = process.env.INSTAGRAM_APP_ID || process.env.META_APP_ID;
         const scope = 'instagram_business_basic,instagram_business_content_publish';
-        return `https://www.instagram.com/oauth/authorize?client_id=${igClientId}&redirect_uri=${encodeURIComponent(callbackUrl)}&response_type=code&scope=${encodeURIComponent(scope)}&state=${encodeURIComponent(state)}`;
+        const redirectUri = (process.env.INSTAGRAM_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
+        return `https://www.instagram.com/oauth/authorize?client_id=${igClientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&state=${encodeURIComponent(state)}`;
       }
       return `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.META_APP_ID}&redirect_uri=${encodeURIComponent(process.env.META_REDIRECT_URI || callbackUrl)}&state=${state}&scope=instagram_basic,instagram_content_publish,pages_read_engagement,pages_show_list`;
     case 'TIKTOK':

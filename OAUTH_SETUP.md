@@ -72,11 +72,12 @@ Users can connect **Instagram Professional accounts** (Business or Creator) **wi
 1. In the same Meta app (or a dedicated one), go to **Instagram** in the left sidebar.
 2. If needed, add the **Instagram** product and choose **API setup with Instagram business login** (not "Facebook Login for Business").
 3. Open **API setup with Instagram business login** → **Set up Instagram business login** → **Business login settings**.
-4. Add **OAuth redirect URI**: `https://agent4socials.com/api/social/oauth/instagram/callback` (same as above).
+4. Add **OAuth redirect URI** exactly: `https://agent4socials.com/api/social/oauth/instagram/callback` (no trailing slash, same as above).
 5. Copy **Instagram App ID** and **Instagram App Secret** from that page.
 6. In Vercel (web app), add:
    - `INSTAGRAM_APP_ID` = Instagram App ID  
    - `INSTAGRAM_APP_SECRET` = Instagram App Secret  
+   - (Optional) `INSTAGRAM_REDIRECT_URI` = `https://agent4socials.com/api/social/oauth/instagram/callback` — set this if you get **"Invalid redirect_uri"** from Instagram so the app sends this exact URL.
 
 If you use the same app for both flows, you can leave these unset and use `META_APP_ID` / `META_APP_SECRET` for "Connect with Instagram only" as well (the code falls back to META_* if INSTAGRAM_* are not set).
 
