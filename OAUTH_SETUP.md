@@ -53,11 +53,13 @@ To allow users to connect their social accounts, you need to create "Apps" on ea
    - Go to **Settings** (under Facebook Login) on the left sidebar.
    - Turn on **Client OAuth Login** and **Web OAuth Login**.
    - Toggle **"Enforce HTTPS"** to Yes.
-   - **Valid OAuth Redirect URIs**: Add **both** (one per line):
+   - **Valid OAuth Redirect URIs**: Add **both** (one per line; use **agent4socials.com**, not api.agent4socials.com):
      - `https://agent4socials.com/api/social/oauth/instagram/callback`
      - `https://agent4socials.com/api/social/oauth/facebook/callback`
    - Add **agent4socials.com** to **App Domains** if required.
    - Click **Save Changes**.
+
+**If you see "URL Blocked" for Facebook:** The redirect URI must be exactly `https://agent4socials.com/api/social/oauth/facebook/callback` (no trailing slash). If your app is sending a different URL (e.g. `https://api.agent4socials.com/...`), in Vercel set **FACEBOOK_REDIRECT_URI** = `https://agent4socials.com/api/social/oauth/facebook/callback` for Production, then redeploy. Also ensure **NEXT_PUBLIC_APP_URL** (and **NEXT_PUBLIC_SITE_URL** if used) is `https://agent4socials.com`, not `https://api.agent4socials.com`.
 7. Go to **App Settings** -> **Basic**.
 8. **Copy these values:** (use as `META_APP_ID` / `META_APP_SECRET` in the web app env)
    - App ID (Client ID)
@@ -70,10 +72,10 @@ To allow users to connect their social accounts, you need to create "Apps" on ea
 Users can connect **Instagram Professional accounts** (Business or Creator) **without** linking to a Facebook Page by using "Connect with Instagram only" on the Accounts page.
 
 1. In the same Meta app (or a dedicated one), go to **Instagram** in the left sidebar.
-2. If needed, add the **Instagram** product and choose **API setup with Instagram business login** (not "Facebook Login for Business").
-3. Open **API setup with Instagram business login** → **Set up Instagram business login** → **Business login settings**.
-4. Add **OAuth redirect URI** exactly: `https://agent4socials.com/api/social/oauth/instagram/callback` (no trailing slash, same as above).
-5. Copy **Instagram App ID** and **Instagram App Secret** from that page.
+2. Click **API setup with Instagram login** (or "API setup with Instagram business login") in the left sidebar under "Permissions and features".
+3. On the main page you’ll see numbered steps. Find step **4. Set up Instagram business login** and click the blue **Set up** button.
+4. On the setup screen, add **OAuth redirect URI** (or "Valid redirect URIs") exactly: `https://agent4socials.com/api/social/oauth/instagram/callback` (no trailing slash).
+5. Your **Instagram App ID** and **Instagram App Secret** are shown at the top of the same Instagram setup page (step 1 area). Copy them from there.
 6. In Vercel (web app), add:
    - `INSTAGRAM_APP_ID` = Instagram App ID  
    - `INSTAGRAM_APP_SECRET` = Instagram App Secret  
