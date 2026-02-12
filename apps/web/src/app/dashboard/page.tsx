@@ -33,22 +33,19 @@ export default function DashboardPage() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [accountsRes, postsRes] = await Promise.all([
-                    api.get('/social/accounts').catch(() => ({ data: [] })),
-                    api.get('/posts').catch(() => ({ data: [] })),
-                ]);
-
+                const accountsRes = await api.get('/social/accounts').catch(() => ({ data: [] }));
                 const accounts = Array.isArray(accountsRes.data) ? accountsRes.data : [];
-                const posts = Array.isArray(postsRes.data) ? postsRes.data : [];
                 setCachedAccounts?.(accounts);
+                setStats((s) => ({ ...s, accounts: accounts.length }));
 
-                setStats({
-                    accounts: accounts.length,
+                const postsRes = await api.get('/posts').catch(() => ({ data: [] }));
+                const posts = Array.isArray(postsRes.data) ? postsRes.data : [];
+                setStats((s) => ({
+                    ...s,
                     scheduled: posts.filter((p: any) => p.status === 'SCHEDULED' || p.status === 'POSTING').length,
                     posted: posts.filter((p: any) => p.status === 'POSTED').length,
                     failed: posts.filter((p: any) => p.status === 'FAILED').length,
-                });
-
+                }));
                 setRecentPosts(posts.slice(0, 5));
             } catch (err) {
                 console.error('Failed to fetch dashboard data', err);
