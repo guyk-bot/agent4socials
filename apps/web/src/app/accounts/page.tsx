@@ -219,7 +219,7 @@ function PlatformCard({ name, description, hint, icon, connectedAccounts, onConn
     const primaryAccount = connectedAccounts[0];
     const [refreshing, setRefreshing] = useState(false);
     const [disconnecting, setDisconnecting] = useState(false);
-    const canRefresh = primaryAccount?.platform === 'INSTAGRAM' && !primaryAccount?.profilePicture && onRefreshProfile;
+    const canRefresh = (primaryAccount?.platform === 'INSTAGRAM' || primaryAccount?.platform === 'FACEBOOK') && !primaryAccount?.profilePicture && onRefreshProfile;
 
     const [actionError, setActionError] = useState<string | null>(null);
 

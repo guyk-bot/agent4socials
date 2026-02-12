@@ -197,12 +197,32 @@ async function exchangeCode(
           code,
         },
       });
+      const accessToken = r.data.access_token;
+      let username = 'Facebook Page';
+      let profilePicture: string | null = null;
+      let pageId: string | null = null;
+      try {
+        const pagesRes = await axios.get<{ data?: Array<{ id: string; name?: string; picture?: { data?: { url?: string } } }> }>(
+          'https://graph.facebook.com/v18.0/me/accounts',
+          { params: { fields: 'id,name,picture', access_token: accessToken } }
+        );
+        const pages = pagesRes.data?.data || [];
+        const page = pages[0];
+        if (page?.id) {
+          pageId = page.id;
+          if (page.name) username = page.name;
+          profilePicture = page.picture?.data?.url ?? null;
+        }
+      } catch (_) {
+        // keep defaults
+      }
       return {
-        accessToken: r.data.access_token,
+        accessToken,
         refreshToken: null,
         expiresAt: new Date(Date.now() + (r.data.expires_in || 3600) * 1000),
-        platformUserId: 'fb-' + (r.data.access_token?.slice(-8) || 'id'),
-        username: 'Facebook Page',
+        platformUserId: pageId || 'fb-' + (accessToken?.slice(-8) || 'id'),
+        username,
+        profilePicture,
       };
     }
     case 'TWITTER': {

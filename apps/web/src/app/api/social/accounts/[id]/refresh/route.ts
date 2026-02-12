@@ -22,17 +22,30 @@ export async function PATCH(
   if (!account) {
     return NextResponse.json({ message: 'Account not found' }, { status: 404 });
   }
-  if (account.platform !== 'INSTAGRAM') {
-    return NextResponse.json({ message: 'Refresh only supported for Instagram' }, { status: 400 });
+  if (account.platform !== 'INSTAGRAM' && account.platform !== 'FACEBOOK') {
+    return NextResponse.json({ message: 'Refresh supported for Instagram and Facebook only' }, { status: 400 });
   }
   const token = account.accessToken;
-  const isOldFormat = account.platformUserId.startsWith('instagram-');
   let username: string | undefined;
   let profilePicture: string | undefined;
   let platformUserId: string | undefined;
 
   try {
-    if (isOldFormat) {
+    if (account.platform === 'FACEBOOK') {
+      const pagesRes = await axios.get<{ data?: Array<{ id: string; name?: string; picture?: { data?: { url?: string } } }> }>(
+        'https://graph.facebook.com/v18.0/me/accounts',
+        { params: { fields: 'id,name,picture', access_token: token } }
+      );
+      const pages = pagesRes.data?.data || [];
+      const page = pages[0];
+      if (page?.id) {
+        platformUserId = page.id;
+        username = page.name ?? undefined;
+        profilePicture = page.picture?.data?.url ?? undefined;
+      }
+    } else if (account.platform === 'INSTAGRAM') {
+      const isOldFormat = account.platformUserId.startsWith('instagram-');
+      if (isOldFormat) {
       const pagesRes = await axios.get<{ data?: Array<{ id: string; instagram_business_account?: { id: string } }> }>(
         'https://graph.facebook.com/v18.0/me/accounts',
         { params: { fields: 'id,instagram_business_account', access_token: token } }
@@ -52,21 +65,22 @@ export async function PATCH(
           break;
         }
       }
-    } else {
-      try {
-        const igRes = await axios.get<{ username?: string; profile_picture_url?: string }>(
-          'https://graph.instagram.com/me',
-          { params: { fields: 'username,profile_picture_url', access_token: token } }
-        );
-        username = igRes.data?.username ?? undefined;
-        profilePicture = igRes.data?.profile_picture_url ?? undefined;
-      } catch (_) {
-        const igRes = await axios.get<{ username?: string; profile_picture_url?: string }>(
-          `https://graph.facebook.com/v18.0/${account.platformUserId}`,
-          { params: { fields: 'username,profile_picture_url', access_token: token } }
-        );
-        username = igRes.data?.username ?? undefined;
-        profilePicture = igRes.data?.profile_picture_url ?? undefined;
+      } else {
+        try {
+          const igRes = await axios.get<{ username?: string; profile_picture_url?: string }>(
+            'https://graph.instagram.com/me',
+            { params: { fields: 'username,profile_picture_url', access_token: token } }
+          );
+          username = igRes.data?.username ?? undefined;
+          profilePicture = igRes.data?.profile_picture_url ?? undefined;
+        } catch (_) {
+          const igRes = await axios.get<{ username?: string; profile_picture_url?: string }>(
+            `https://graph.facebook.com/v18.0/${account.platformUserId}`,
+            { params: { fields: 'username,profile_picture_url', access_token: token } }
+          );
+          username = igRes.data?.username ?? undefined;
+          profilePicture = igRes.data?.profile_picture_url ?? undefined;
+        }
       }
     }
     const data: { username?: string; profilePicture?: string; platformUserId?: string } = {};
@@ -81,7 +95,7 @@ export async function PATCH(
     }
     return NextResponse.json({ ok: true });
   } catch (e) {
-    console.error('[Social accounts] Instagram refresh error:', e);
-    return NextResponse.json({ message: 'Failed to refresh Instagram profile' }, { status: 500 });
+    console.error('[Social accounts] Refresh error:', e);
+    return NextResponse.json({ message: 'Failed to refresh profile' }, { status: 500 });
   }
 }
