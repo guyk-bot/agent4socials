@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useAccountsCache } from '@/context/AccountsCacheContext';
 import api from '@/lib/api';
 import {
     Instagram,
@@ -20,9 +21,11 @@ import {
 
 export default function AccountsPage() {
     const { user } = useAuth();
+    const { setCachedAccounts } = useAccountsCache() ?? {};
     const [accounts, setAccounts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [copiedId, setCopiedId] = useState(false);
+    const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
     const userId = user?.id ?? '';
 
     const copyUserId = () => {
@@ -36,7 +39,9 @@ export default function AccountsPage() {
         setLoading(true);
         try {
             const res = await api.get('/social/accounts');
-            setAccounts(res.data);
+            const data = Array.isArray(res.data) ? res.data : [];
+            setAccounts(data);
+            setCachedAccounts?.(data);
         } catch (err) {
             console.error('Failed to fetch accounts');
         } finally {
@@ -54,6 +59,7 @@ export default function AccountsPage() {
             const res = (err as { response?: { data?: { message?: string } } }).response;
             return res?.data?.message ?? null;
         };
+        setConnectingPlatform(platform);
         try {
             // Sync profile first so Prisma User row exists (required for OAuth start). If you just added DATABASE_URL or signed in before it was set, this creates the User.
             await api.get('/auth/profile').catch(() => null);
@@ -95,6 +101,8 @@ export default function AccountsPage() {
             } else {
                 alert('Failed to start OAuth. Check Vercel → Logs for the error, and DATABASE_URL (pooler 6543), META_APP_ID and META_APP_SECRET for Instagram.');
             }
+        } finally {
+            setConnectingPlatform(null);
         }
     };
 
@@ -134,6 +142,7 @@ export default function AccountsPage() {
                     onConnect={() => handleConnect('instagram')}
                     onRefreshProfile={fetchAccounts}
                     onDisconnect={fetchAccounts}
+                    connecting={connectingPlatform === 'instagram'}
                 />
                 <PlatformCard
                     name="TikTok"
@@ -143,6 +152,7 @@ export default function AccountsPage() {
                     connectedAccounts={accounts.filter((a: any) => a.platform === 'TIKTOK')}
                     onConnect={() => handleConnect('tiktok')}
                     onDisconnect={fetchAccounts}
+                    connecting={connectingPlatform === 'tiktok'}
                 />
                 <PlatformCard
                     name="YouTube"
@@ -152,6 +162,7 @@ export default function AccountsPage() {
                     connectedAccounts={accounts.filter((a: any) => a.platform === 'YOUTUBE')}
                     onConnect={() => handleConnect('youtube')}
                     onDisconnect={fetchAccounts}
+                    connecting={connectingPlatform === 'youtube'}
                 />
                 <PlatformCard
                     name="Facebook"
@@ -161,6 +172,7 @@ export default function AccountsPage() {
                     connectedAccounts={accounts.filter((a: any) => a.platform === 'FACEBOOK')}
                     onConnect={() => handleConnect('facebook')}
                     onDisconnect={fetchAccounts}
+                    connecting={connectingPlatform === 'facebook'}
                 />
                 <PlatformCard
                     name="X (Twitter)"
@@ -170,6 +182,7 @@ export default function AccountsPage() {
                     connectedAccounts={accounts.filter((a: any) => a.platform === 'TWITTER')}
                     onConnect={() => handleConnect('twitter')}
                     onDisconnect={fetchAccounts}
+                    connecting={connectingPlatform === 'twitter'}
                 />
                 <PlatformCard
                     name="LinkedIn"
@@ -179,27 +192,32 @@ export default function AccountsPage() {
                     connectedAccounts={accounts.filter((a: any) => a.platform === 'LINKEDIN')}
                     onConnect={() => handleConnect('linkedin')}
                     onDisconnect={fetchAccounts}
+                    connecting={connectingPlatform === 'linkedin'}
                 />
             </div>
         </div>
     );
 }
 
-function PlatformCard({ name, description, icon, connectedAccounts, onConnect, onRefreshProfile, onDisconnect }: any) {
+function PlatformCard({ name, description, icon, connectedAccounts, onConnect, onRefreshProfile, onDisconnect, connecting }: any) {
     const isConnected = connectedAccounts.length > 0;
     const primaryAccount = connectedAccounts[0];
     const [refreshing, setRefreshing] = useState(false);
     const [disconnecting, setDisconnecting] = useState(false);
     const canRefresh = primaryAccount?.platform === 'INSTAGRAM' && !primaryAccount?.profilePicture && onRefreshProfile;
 
+    const [actionError, setActionError] = useState<string | null>(null);
+
     const handleRefreshProfile = async () => {
         if (!primaryAccount?.id || !onRefreshProfile) return;
+        setActionError(null);
         setRefreshing(true);
         try {
             await api.patch(`/social/accounts/${primaryAccount.id}/refresh`);
             onRefreshProfile();
-        } catch {
-            // ignore
+        } catch (err: unknown) {
+            const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+            setActionError(msg || 'Refresh failed. Try disconnecting and reconnecting.');
         } finally {
             setRefreshing(false);
         }
@@ -208,12 +226,14 @@ function PlatformCard({ name, description, icon, connectedAccounts, onConnect, o
     const handleDisconnect = async () => {
         if (!primaryAccount?.id || !onDisconnect) return;
         if (!window.confirm(`Disconnect ${name}? You can connect again anytime.`)) return;
+        setActionError(null);
         setDisconnecting(true);
         try {
             await api.delete(`/social/accounts/${primaryAccount.id}`);
             onDisconnect();
-        } catch {
-            alert('Failed to disconnect. Try again.');
+        } catch (err: unknown) {
+            const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+            setActionError(msg || 'Disconnect failed. Try again.');
         } finally {
             setDisconnecting(false);
         }
@@ -255,6 +275,9 @@ function PlatformCard({ name, description, icon, connectedAccounts, onConnect, o
                                             {refreshing ? 'Refreshing…' : 'Refresh profile'}
                                         </button>
                                     )}
+                                    {actionError && (
+                                        <span className="text-xs text-red-600" role="alert">{actionError}</span>
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -281,10 +304,11 @@ function PlatformCard({ name, description, icon, connectedAccounts, onConnect, o
                     ) : (
                         <button
                             onClick={onConnect}
-                            className="btn-primary flex items-center space-x-2 text-sm"
+                            disabled={connecting}
+                            className="btn-primary flex items-center space-x-2 text-sm disabled:opacity-70 disabled:cursor-wait"
                         >
-                            <Plus size={18} />
-                            <span>Connect</span>
+                            {connecting ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
+                            <span>{connecting ? 'Connecting…' : 'Connect'}</span>
                         </button>
                     )}
                 </div>

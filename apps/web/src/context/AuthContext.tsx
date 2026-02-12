@@ -106,7 +106,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           name: session.user.user_metadata?.full_name ?? session.user.user_metadata?.name ?? undefined,
         };
         await syncUserFromApi(session.access_token, fallback);
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        if (event === 'SIGNED_IN') {
           router.push('/dashboard');
         }
       } else {

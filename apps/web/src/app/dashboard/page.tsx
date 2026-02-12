@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useAccountsCache } from '@/context/AccountsCacheContext';
 import api from '@/lib/api';
 import {
     Users,
@@ -15,14 +16,19 @@ import Link from 'next/link';
 
 export default function DashboardPage() {
     const { user } = useAuth();
-    const [stats, setStats] = useState({
-        accounts: 0,
+    const { cachedAccounts, setCachedAccounts } = useAccountsCache() ?? { cachedAccounts: [], setCachedAccounts: undefined };
+    const [stats, setStats] = useState(() => ({
+        accounts: (typeof cachedAccounts !== 'undefined' ? cachedAccounts.length : 0),
         scheduled: 0,
         posted: 0,
         failed: 0,
-    });
+    }));
     const [recentPosts, setRecentPosts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        setStats((s) => ({ ...s, accounts: cachedAccounts.length }));
+    }, [cachedAccounts.length]);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -34,6 +40,7 @@ export default function DashboardPage() {
 
                 const accounts = Array.isArray(accountsRes.data) ? accountsRes.data : [];
                 const posts = Array.isArray(postsRes.data) ? postsRes.data : [];
+                setCachedAccounts?.(accounts);
 
                 setStats({
                     accounts: accounts.length,
@@ -51,7 +58,7 @@ export default function DashboardPage() {
         };
 
         fetchData();
-    }, []);
+    }, [setCachedAccounts]);
 
     return (
         <div className="space-y-8">

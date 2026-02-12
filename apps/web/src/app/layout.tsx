@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { AuthModalProvider } from "@/context/AuthModalContext";
 import { WhiteLabelProvider } from "@/context/WhiteLabelContext";
+import { AccountsCacheProvider } from "@/context/AccountsCacheContext";
 import AuthModal from "@/components/auth/AuthModal";
 import AuthModalOpener from "@/components/auth/AuthModalOpener";
 
@@ -66,13 +67,15 @@ export default function RootLayout({
           }}
         />
         <AuthProvider>
-          <AuthModalProvider>
-            <WhiteLabelProvider>
-              {children}
+          <AccountsCacheProvider>
+            <AuthModalProvider>
+              <WhiteLabelProvider>
+                {children}
               <AuthModalOpener />
               <AuthModal />
-            </WhiteLabelProvider>
-          </AuthModalProvider>
+              </WhiteLabelProvider>
+            </AuthModalProvider>
+          </AccountsCacheProvider>
         </AuthProvider>
       </body>
     </html>

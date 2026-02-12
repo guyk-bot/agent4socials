@@ -84,9 +84,16 @@ button {
   padding: 0.75rem 1.5rem;
   border-radius: 8px;
   font-weight: 500;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease;
 }
 
 .btn-primary:hover {
   background: var(--primary-hover);
-  transform: translateY(-1px);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 6px 12px -2px rgb(99 102 241 / 0.4);
+}
+
+.btn-primary:active {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 2px 4px -2px rgb(0 0 0 / 0.2);
 }
