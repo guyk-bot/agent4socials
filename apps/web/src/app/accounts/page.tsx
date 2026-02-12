@@ -136,7 +136,7 @@ export default function AccountsPage() {
                 <PlatformCard
                     name="Instagram"
                     platform="INSTAGRAM"
-                    description="Schedule posts, reels and stories to your Business or Creator account."
+                    description="Schedule posts, reels and stories to your Business or Creator account. Connects via Facebook — you'll sign in with Facebook; we use the Instagram account linked to your Page."
                     icon={<Instagram size={24} className="text-pink-600" />}
                     connectedAccounts={accounts.filter((a: any) => a.platform === 'INSTAGRAM')}
                     onConnect={() => handleConnect('instagram')}
@@ -277,6 +277,9 @@ function PlatformCard({ name, description, icon, connectedAccounts, onConnect, o
                                     )}
                                     {actionError && (
                                         <span className="text-xs text-red-600" role="alert">{actionError}</span>
+                                    )}
+                                    {primaryAccount?.platform === 'INSTAGRAM' && !primaryAccount?.profilePicture && (
+                                        <span className="text-xs text-neutral-500">Link an Instagram Business or Creator account to a Facebook Page to see your username and photo here.</span>
                                     )}
                                 </div>
                             </div>
