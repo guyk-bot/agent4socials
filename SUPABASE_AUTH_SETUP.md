@@ -80,7 +80,7 @@ If Vercel logs show **Can't reach database server at `db.xxxx.supabase.co:5432`*
      - In the **left sidebar** click **Database** (not under the gear “Project settings”), then open **Connection string** / **Settings**.
   2. Select **URI** and the **Transaction** (transaction mode) option so the URL uses **port 6543** (e.g. `...@db.xxxx.supabase.co:6543/postgres`).
   3. Copy that URL, replace the password with its **URL-encoded** value (e.g. `@` → `%40`, `/` → `%2F`), no parentheses or spaces.
-  4. In **Vercel** → **web** project → **Environment Variables**, set `DATABASE_URL` to this pooler URL (with **6543**, not 5432). Save and **redeploy**.
+  4. In **Vercel** → **web** project → **Environment Variables**, set `DATABASE_URL` to this pooler URL (with **6543**, not 5432). Append **`?sslmode=require`** at the end (e.g. `.../postgres?sslmode=require`). Save and **redeploy**.
 
 After redeploying, sign in again; the profile API should be able to connect and sync users to the User table.
 
