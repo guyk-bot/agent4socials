@@ -5,6 +5,19 @@ import axios from 'axios';
 
 const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN'] as const;
 
+function oauthErrorHtml(baseUrl: string, message: string, status: number): NextResponse {
+  const accountsUrl = `${baseUrl.replace(/\/+$/, '')}/accounts`;
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Connection failed</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;">
+<h2 style="color:#b91c1c;">Connection failed</h2>
+<p>${message.replace(/</g, '&lt;')}</p>
+<p><a href="${accountsUrl}">Back to Accounts</a></p>
+<script>
+if (window.opener) { try { window.close(); } catch (e) {} }
+</script>
+</body></html>`;
+  return new NextResponse(html, { status, headers: { 'Content-Type': 'text/html' } });
+}
+
 type TokenResult = {
   accessToken: string;
   refreshToken: string | null;
@@ -17,20 +30,34 @@ type TokenResult = {
 async function exchangeCodeInstagramLogin(code: string, callbackUrl: string): Promise<TokenResult> {
   const clientId = process.env.INSTAGRAM_APP_ID || process.env.META_APP_ID;
   const clientSecret = process.env.INSTAGRAM_APP_SECRET || process.env.META_APP_SECRET;
+  if (!clientId || !clientSecret) {
+    throw new Error('INSTAGRAM_APP_ID and INSTAGRAM_APP_SECRET (or META_APP_*) must be set');
+  }
   const r = await axios.post(
     'https://api.instagram.com/oauth/access_token',
     new URLSearchParams({
-      client_id: clientId!,
-      client_secret: clientSecret!,
+      client_id: clientId,
+      client_secret: clientSecret,
       grant_type: 'authorization_code',
       redirect_uri: callbackUrl,
       code,
     }).toString(),
-    { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+    { headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, validateStatus: () => true }
   );
-  const data = r.data?.data?.[0] ?? r.data;
-  const accessToken = data.access_token;
-  const platformUserId = data.user_id ?? String(data.user_id);
+  const body = r.data;
+  if (body?.error_type || body?.error_message) {
+    const msg = body.error_message || body.error_type || 'Instagram token error';
+    console.error('[Social OAuth] Instagram token error:', body);
+    throw new Error(msg);
+  }
+  const data = body?.data?.[0] ?? body;
+  const accessToken = data?.access_token;
+  const rawUserId = data?.user_id;
+  if (!accessToken || rawUserId === undefined) {
+    console.error('[Social OAuth] Instagram token response missing access_token or user_id:', body);
+    throw new Error('Instagram did not return an access token. Try again or use Connect with Facebook.');
+  }
+  const platformUserId = String(rawUserId);
   let username = 'Instagram';
   let profilePicture: string | null = null;
   try {
@@ -259,12 +286,15 @@ export async function GET(
       tokenData = await exchangeCode(plat, code, callbackUrl);
     }
   } catch (e) {
-    console.error('[Social OAuth] exchange error:', e);
-    return NextResponse.json({ error: 'Failed to connect account' }, { status: 500 });
+    const err = e as Error;
+    console.error('[Social OAuth] exchange error:', err?.message ?? e, err);
+    const message = err?.message?.includes('Instagram') ? err.message : 'Failed to connect account';
+    return oauthErrorHtml(baseUrl, message, 500);
   }
 
   const profilePicture = tokenData.profilePicture ?? undefined;
-  await prisma.socialAccount.upsert({
+  try {
+    await prisma.socialAccount.upsert({
     where: {
       userId_platform_platformUserId: {
         userId,
@@ -292,6 +322,10 @@ export async function GET(
       status: 'connected',
     },
   });
+  } catch (e) {
+    console.error('[Social OAuth] upsert error:', e);
+    return oauthErrorHtml(baseUrl, 'Could not save account. Check database connection and schema.', 500);
+  }
 
   const accountsUrl = `${baseUrl}/accounts`;
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><p>Account connected.</p><script>
