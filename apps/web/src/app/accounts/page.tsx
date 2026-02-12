@@ -133,6 +133,7 @@ export default function AccountsPage() {
                     connectedAccounts={accounts.filter((a: any) => a.platform === 'INSTAGRAM')}
                     onConnect={() => handleConnect('instagram')}
                     onRefreshProfile={fetchAccounts}
+                    onDisconnect={fetchAccounts}
                 />
                 <PlatformCard
                     name="TikTok"
@@ -141,6 +142,7 @@ export default function AccountsPage() {
                     icon={<div className="font-bold text-lg">TT</div>}
                     connectedAccounts={accounts.filter((a: any) => a.platform === 'TIKTOK')}
                     onConnect={() => handleConnect('tiktok')}
+                    onDisconnect={fetchAccounts}
                 />
                 <PlatformCard
                     name="YouTube"
@@ -149,6 +151,7 @@ export default function AccountsPage() {
                     icon={<Youtube size={24} className="text-red-600" />}
                     connectedAccounts={accounts.filter((a: any) => a.platform === 'YOUTUBE')}
                     onConnect={() => handleConnect('youtube')}
+                    onDisconnect={fetchAccounts}
                 />
                 <PlatformCard
                     name="Facebook"
@@ -157,6 +160,7 @@ export default function AccountsPage() {
                     icon={<Facebook size={24} className="text-blue-600" />}
                     connectedAccounts={accounts.filter((a: any) => a.platform === 'FACEBOOK')}
                     onConnect={() => handleConnect('facebook')}
+                    onDisconnect={fetchAccounts}
                 />
                 <PlatformCard
                     name="X (Twitter)"
@@ -165,6 +169,7 @@ export default function AccountsPage() {
                     icon={<Twitter size={24} className="text-sky-500" />}
                     connectedAccounts={accounts.filter((a: any) => a.platform === 'TWITTER')}
                     onConnect={() => handleConnect('twitter')}
+                    onDisconnect={fetchAccounts}
                 />
                 <PlatformCard
                     name="LinkedIn"
@@ -173,16 +178,18 @@ export default function AccountsPage() {
                     icon={<Linkedin size={24} className="text-blue-700" />}
                     connectedAccounts={accounts.filter((a: any) => a.platform === 'LINKEDIN')}
                     onConnect={() => handleConnect('linkedin')}
+                    onDisconnect={fetchAccounts}
                 />
             </div>
         </div>
     );
 }
 
-function PlatformCard({ name, description, icon, connectedAccounts, onConnect, onRefreshProfile }: any) {
+function PlatformCard({ name, description, icon, connectedAccounts, onConnect, onRefreshProfile, onDisconnect }: any) {
     const isConnected = connectedAccounts.length > 0;
     const primaryAccount = connectedAccounts[0];
     const [refreshing, setRefreshing] = useState(false);
+    const [disconnecting, setDisconnecting] = useState(false);
     const canRefresh = primaryAccount?.platform === 'INSTAGRAM' && !primaryAccount?.profilePicture && onRefreshProfile;
 
     const handleRefreshProfile = async () => {
@@ -195,6 +202,20 @@ function PlatformCard({ name, description, icon, connectedAccounts, onConnect, o
             // ignore
         } finally {
             setRefreshing(false);
+        }
+    };
+
+    const handleDisconnect = async () => {
+        if (!primaryAccount?.id || !onDisconnect) return;
+        if (!window.confirm(`Disconnect ${name}? You can connect again anytime.`)) return;
+        setDisconnecting(true);
+        try {
+            await api.delete(`/social/accounts/${primaryAccount.id}`);
+            onDisconnect();
+        } catch {
+            alert('Failed to disconnect. Try again.');
+        } finally {
+            setDisconnecting(false);
         }
     };
 
@@ -248,11 +269,13 @@ function PlatformCard({ name, description, icon, connectedAccounts, onConnect, o
                             </span>
                             <button
                                 type="button"
-                                className="p-2 text-neutral-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                onClick={handleDisconnect}
+                                disabled={disconnecting}
+                                className="p-2 text-neutral-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                                 title="Disconnect"
                                 aria-label="Disconnect account"
                             >
-                                <Trash2 size={18} />
+                                {disconnecting ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
                             </button>
                         </>
                     ) : (
