@@ -14,7 +14,8 @@ import {
     Trash2,
     ShieldCheck,
     Copy,
-    Check
+    Check,
+    Loader2
 } from 'lucide-react';
 
 export default function AccountsPage() {
@@ -131,6 +132,7 @@ export default function AccountsPage() {
                     icon={<Instagram size={24} className="text-pink-600" />}
                     connectedAccounts={accounts.filter((a: any) => a.platform === 'INSTAGRAM')}
                     onConnect={() => handleConnect('instagram')}
+                    onRefreshProfile={fetchAccounts}
                 />
                 <PlatformCard
                     name="TikTok"
@@ -177,9 +179,24 @@ export default function AccountsPage() {
     );
 }
 
-function PlatformCard({ name, description, icon, connectedAccounts, onConnect }: any) {
+function PlatformCard({ name, description, icon, connectedAccounts, onConnect, onRefreshProfile }: any) {
     const isConnected = connectedAccounts.length > 0;
     const primaryAccount = connectedAccounts[0];
+    const [refreshing, setRefreshing] = useState(false);
+    const canRefresh = primaryAccount?.platform === 'INSTAGRAM' && !primaryAccount?.profilePicture && onRefreshProfile;
+
+    const handleRefreshProfile = async () => {
+        if (!primaryAccount?.id || !onRefreshProfile) return;
+        setRefreshing(true);
+        try {
+            await api.patch(`/social/accounts/${primaryAccount.id}/refresh`);
+            onRefreshProfile();
+        } catch {
+            // ignore
+        } finally {
+            setRefreshing(false);
+        }
+    };
 
     return (
         <div className="card">
@@ -192,7 +209,7 @@ function PlatformCard({ name, description, icon, connectedAccounts, onConnect }:
                         <h3 className="text-lg font-semibold text-neutral-900">{name}</h3>
                         <p className="text-sm text-neutral-500 max-w-md mt-1">{description}</p>
                         {isConnected && primaryAccount && (
-                            <div className="flex items-center gap-3 mt-3">
+                            <div className="flex items-center gap-3 mt-3 flex-wrap">
                                 <div className="w-9 h-9 rounded-full bg-neutral-200 flex items-center justify-center text-neutral-600 font-semibold text-sm overflow-hidden flex-shrink-0">
                                     {primaryAccount.profilePicture ? (
                                         <img src={primaryAccount.profilePicture} alt="" className="w-full h-full object-cover" />
@@ -206,6 +223,17 @@ function PlatformCard({ name, description, icon, connectedAccounts, onConnect }:
                                         <ShieldCheck size={10} className="mr-1" />
                                         Connected
                                     </span>
+                                    {canRefresh && (
+                                        <button
+                                            type="button"
+                                            onClick={handleRefreshProfile}
+                                            disabled={refreshing}
+                                            className="text-xs text-indigo-600 hover:text-indigo-800 font-medium disabled:opacity-50 flex items-center gap-1"
+                                        >
+                                            {refreshing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                                            {refreshing ? 'Refreshing…' : 'Refresh profile'}
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         )}

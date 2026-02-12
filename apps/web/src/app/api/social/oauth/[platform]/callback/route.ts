@@ -5,11 +5,20 @@ import axios from 'axios';
 
 const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN'] as const;
 
+type TokenResult = {
+  accessToken: string;
+  refreshToken: string | null;
+  expiresAt: Date;
+  platformUserId: string;
+  username: string;
+  profilePicture?: string | null;
+};
+
 async function exchangeCode(
   platform: Platform,
   code: string,
   callbackUrl: string
-): Promise<{ accessToken: string; refreshToken: string | null; expiresAt: Date; platformUserId: string; username: string }> {
+): Promise<TokenResult> {
   switch (platform) {
     case 'INSTAGRAM': {
       const r = await axios.get('https://graph.facebook.com/v18.0/oauth/access_token', {
@@ -20,12 +29,40 @@ async function exchangeCode(
           code,
         },
       });
+      const accessToken = r.data.access_token;
+      let username = 'Instagram';
+      let profilePicture: string | null = null;
+      let platformUserId = 'instagram-' + (accessToken?.slice(-8) || 'id');
+      try {
+        const pagesRes = await axios.get<{ data?: Array<{ id: string; instagram_business_account?: { id: string } }> }>(
+          'https://graph.facebook.com/v18.0/me/accounts',
+          { params: { fields: 'id,instagram_business_account', access_token: accessToken } }
+        );
+        const pages = pagesRes.data?.data || [];
+        for (const page of pages) {
+          const igAccountId = page.instagram_business_account?.id;
+          if (!igAccountId) continue;
+          const igRes = await axios.get<{ username?: string; profile_picture_url?: string }>(
+            `https://graph.facebook.com/v18.0/${igAccountId}`,
+            { params: { fields: 'username,profile_picture_url', access_token: accessToken } }
+          );
+          if (igRes.data?.username) {
+            username = igRes.data.username;
+            profilePicture = igRes.data.profile_picture_url ?? null;
+            platformUserId = igAccountId;
+            break;
+          }
+        }
+      } catch (_) {
+        // Keep defaults if profile fetch fails
+      }
       return {
-        accessToken: r.data.access_token,
+        accessToken,
         refreshToken: null,
         expiresAt: new Date(Date.now() + (r.data.expires_in || 3600) * 1000),
-        platformUserId: 'instagram-' + (r.data.access_token?.slice(-8) || 'id'),
-        username: 'Instagram',
+        platformUserId,
+        username,
+        profilePicture,
       };
     }
     case 'TIKTOK': {
@@ -143,7 +180,7 @@ export async function GET(
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com';
   const callbackUrl = `${baseUrl}/api/social/oauth/${platform}/callback`;
 
-  let tokenData: { accessToken: string; refreshToken: string | null; expiresAt: Date; platformUserId: string; username: string };
+  let tokenData: TokenResult;
   try {
     tokenData = await exchangeCode(plat, code, callbackUrl);
   } catch (e) {
@@ -151,6 +188,7 @@ export async function GET(
     return NextResponse.json({ error: 'Failed to connect account' }, { status: 500 });
   }
 
+  const profilePicture = tokenData.profilePicture ?? undefined;
   await prisma.socialAccount.upsert({
     where: {
       userId_platform_platformUserId: {
@@ -164,6 +202,7 @@ export async function GET(
       refreshToken: tokenData.refreshToken,
       expiresAt: tokenData.expiresAt,
       username: tokenData.username,
+      ...(profilePicture !== undefined && { profilePicture }),
       status: 'connected',
     },
     create: {
@@ -171,6 +210,7 @@ export async function GET(
       platform: plat,
       platformUserId: tokenData.platformUserId,
       username: tokenData.username,
+      ...(profilePicture !== undefined && { profilePicture }),
       accessToken: tokenData.accessToken,
       refreshToken: tokenData.refreshToken,
       expiresAt: tokenData.expiresAt,
