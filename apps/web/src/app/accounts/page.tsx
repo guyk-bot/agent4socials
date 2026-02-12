@@ -22,7 +22,7 @@ import {
 export default function AccountsPage() {
     const { user } = useAuth();
     const { setCachedAccounts } = useAccountsCache() ?? {};
-    const [accounts, setAccounts] = useState([]);
+    const [accounts, setAccounts] = useState<{ id: string; platform: string; username?: string; profilePicture?: string | null }[]>([]);
     const [loading, setLoading] = useState(true);
     const [copiedId, setCopiedId] = useState(false);
     const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
