@@ -64,6 +64,15 @@ model PendingFacebookConnection {
   createdAt   DateTime @default(now())
 }
 
+model PendingInstagramConnection {
+  id          String   @id @default(cuid())
+  userId      String
+  accessToken String
+  accounts    Json     // Array<{ id: string, username?: string, profilePicture?: string }>
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+}
+
 enum PostStatus {
   DRAFT
   SCHEDULED

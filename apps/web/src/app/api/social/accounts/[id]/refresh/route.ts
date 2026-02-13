@@ -58,12 +58,11 @@ export async function PATCH(
           `https://graph.facebook.com/v18.0/${igId}`,
           { params: { fields: 'username,profile_picture_url', access_token: token } }
         );
-        if (igRes.data?.username) {
-          username = igRes.data.username;
-          profilePicture = igRes.data.profile_picture_url ?? undefined;
-          platformUserId = igId;
-          break;
-        }
+        // save real id and profile even when username is missing
+        platformUserId = igId;
+        username = igRes.data?.username ?? 'Instagram';
+        profilePicture = igRes.data?.profile_picture_url ?? undefined;
+        break;
       }
       } else {
         try {

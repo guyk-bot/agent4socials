@@ -27,6 +27,8 @@ type TokenResult = {
   profilePicture?: string | null;
   /** When multiple Facebook Pages, list for user to pick one */
   pages?: Array<{ id: string; name?: string; picture?: string }>;
+  /** When multiple Instagram Business accounts (via Facebook), list for user to pick one */
+  instagramAccounts?: Array<{ id: string; username?: string; profilePicture?: string }>;
 };
 
 async function exchangeCodeInstagramLogin(code: string, callbackUrl: string): Promise<TokenResult> {
@@ -126,6 +128,7 @@ async function exchangeCode(
       let username = 'Instagram';
       let profilePicture: string | null = null;
       let platformUserId = 'instagram-' + (accessToken?.slice(-8) || 'id');
+      const instagramAccounts: Array<{ id: string; username?: string; profilePicture?: string }> = [];
       try {
         const pagesRes = await axios.get<{ data?: Array<{ id: string; instagram_business_account?: { id: string } }> }>(
           'https://graph.facebook.com/v18.0/me/accounts',
@@ -135,21 +138,34 @@ async function exchangeCode(
         for (const page of pages) {
           const igAccountId = page.instagram_business_account?.id;
           if (!igAccountId) continue;
-          const igRes = await axios.get<{ username?: string; profile_picture_url?: string }>(
-            `https://graph.facebook.com/v18.0/${igAccountId}`,
-            { params: { fields: 'username,profile_picture_url', access_token: accessToken } }
-          );
-          if (igRes.data?.username) {
-            username = igRes.data.username;
-            profilePicture = igRes.data.profile_picture_url ?? null;
+          let igUsername: string | undefined;
+          let igPicture: string | undefined;
+          try {
+            const igRes = await axios.get<{ username?: string; profile_picture_url?: string }>(
+              `https://graph.facebook.com/v18.0/${igAccountId}`,
+              { params: { fields: 'username,profile_picture_url', access_token: accessToken } }
+            );
+            igUsername = igRes.data?.username;
+            igPicture = igRes.data?.profile_picture_url;
+          } catch {
+            // still add account with id so user can choose
+          }
+          instagramAccounts.push({
+            id: igAccountId,
+            username: igUsername,
+            profilePicture: igPicture,
+          });
+          // use first account for single-account path; save real id and picture even if username missing
+          if (instagramAccounts.length === 1) {
             platformUserId = igAccountId;
-            break;
+            username = igUsername ?? 'Instagram';
+            profilePicture = igPicture ?? null;
           }
         }
-      } catch (_) {
-        // Keep defaults if profile fetch fails
+      } catch (e) {
+        console.error('[Social OAuth] Instagram (Facebook) me/accounts or profile fetch:', (e as Error)?.message ?? e);
       }
-      return {
+      const result: TokenResult = {
         accessToken,
         refreshToken: null,
         expiresAt: new Date(Date.now() + (r.data.expires_in || 3600) * 1000),
@@ -157,6 +173,10 @@ async function exchangeCode(
         username,
         profilePicture,
       };
+      if (instagramAccounts.length > 1) {
+        result.instagramAccounts = instagramAccounts;
+      }
+      return result;
     }
     case 'TIKTOK': {
       const r = await axios.post('https://open-api.tiktok.com/oauth/access_token/', {
@@ -337,6 +357,26 @@ export async function GET(
       return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
     } catch (e) {
       console.error('[Social OAuth] pending Facebook create error:', e);
+      return oauthErrorHtml(baseUrl, 'Could not save. Try again.', 500);
+    }
+  }
+
+  if (plat === 'INSTAGRAM' && tokenData.instagramAccounts && tokenData.instagramAccounts.length > 1) {
+    try {
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+      const pending = await prisma.pendingInstagramConnection.create({
+        data: {
+          userId,
+          accessToken: tokenData.accessToken,
+          accounts: tokenData.instagramAccounts as unknown as object,
+          expiresAt,
+        },
+      });
+      const selectUrl = `${baseUrl}/accounts/instagram/select?pendingId=${pending.id}`;
+      const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><p>Choose one Instagram account to connect.</p><script>window.location.href = ${JSON.stringify(selectUrl)};</script><p>Redirecting to <a href="${selectUrl}">Choose account</a>…</p></body></html>`;
+      return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
+    } catch (e) {
+      console.error('[Social OAuth] pending Instagram create error:', e);
       return oauthErrorHtml(baseUrl, 'Could not save. Try again.', 500);
     }
   }
