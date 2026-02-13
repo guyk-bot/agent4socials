@@ -32,24 +32,34 @@ export async function PATCH(
 
   try {
     if (account.platform === 'FACEBOOK') {
+      const isPlaceholderId = account.platformUserId.startsWith('fb-');
       const pagesRes = await axios.get<{ data?: Array<{ id: string; name?: string; picture?: { data?: { url?: string } }; access_token?: string }> }>(
         'https://graph.facebook.com/v18.0/me/accounts',
         { params: { fields: 'id,name,picture,access_token', access_token: token } }
       );
       const pages = pagesRes.data?.data || [];
-      const page = pages.find((p) => p.id === account.platformUserId) ?? pages[0];
+      const page = isPlaceholderId ? pages[0] : (pages.find((p) => p.id === account.platformUserId) ?? pages[0]);
       if (page?.id) {
         platformUserId = page.id;
         username = page.name ?? undefined;
         profilePicture = page.picture?.data?.url ?? undefined;
+        const tokenToUse = page.access_token || token;
         if (!profilePicture || !username) {
-          const tokenToUse = page.access_token || token;
           try {
             const pageRes = await axios.get<{ name?: string; picture?: { data?: { url?: string } } }>(
               `https://graph.facebook.com/v18.0/${page.id}`,
               { params: { fields: 'name,picture', access_token: tokenToUse } }
             );
             if (pageRes.data?.name) username = pageRes.data.name;
+            if (pageRes.data?.picture?.data?.url) profilePicture = pageRes.data.picture.data.url;
+          } catch (_) {}
+        }
+        if (!profilePicture && tokenToUse) {
+          try {
+            const pageRes = await axios.get<{ picture?: { data?: { url?: string } } }>(
+              `https://graph.facebook.com/v18.0/${page.id}`,
+              { params: { fields: 'picture.type(large)', access_token: tokenToUse } }
+            );
             if (pageRes.data?.picture?.data?.url) profilePicture = pageRes.data.picture.data.url;
           } catch (_) {}
         }

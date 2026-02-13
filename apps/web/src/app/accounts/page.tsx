@@ -185,6 +185,7 @@ export default function AccountsPage() {
                     icon={<Facebook size={24} className="text-blue-600" />}
                     connectedAccounts={displayAccounts.filter((a: any) => a.platform === 'FACEBOOK')}
                     onConnect={() => handleConnect('facebook')}
+                    onRefreshProfile={fetchAccounts}
                     onDisconnect={fetchAccounts}
                     connecting={connectingPlatform === 'facebook'}
                 />
