@@ -15,6 +15,8 @@ import {
   Linkedin,
   RefreshCw,
   ExternalLink,
+  Star,
+  MoreVertical,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -188,15 +190,16 @@ export default function AnalyticsPage() {
               <h2 className="text-lg font-semibold text-neutral-900">Account</h2>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-medium text-neutral-500">Followers</p>
-                      <p className="text-3xl font-bold text-neutral-900 mt-1">0</p>
+                  <p className="text-sm font-medium text-neutral-500">Followers</p>
+                  <div className="flex items-center gap-3 mt-1">
+                    <span className="text-3xl font-bold text-neutral-900">0</span>
+                    <div className="flex-1 h-2 max-w-[120px] rounded-full bg-neutral-200 overflow-hidden">
+                      <div className="h-full rounded-full bg-indigo-500" style={{ width: '0%' }} />
                     </div>
-                    <div className="flex gap-1.5 shrink-0">
-                      {hasFacebook && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">Facebook</span>}
-                      {hasInstagram && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">Instagram</span>}
-                    </div>
+                  </div>
+                  <div className="flex gap-1.5 mt-3 flex-wrap">
+                    {hasInstagram && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">0 Instagram</span>}
+                    {hasFacebook && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">— Facebook</span>}
                   </div>
                   <div className="mt-4 h-40 rounded-lg bg-neutral-50 border border-neutral-100 relative overflow-hidden">
                     <div className="absolute inset-0 opacity-[0.03] font-semibold text-neutral-400 text-2xl flex items-center justify-center" style={{ transform: 'rotate(-20deg)' }}>agent4socials</div>
@@ -209,15 +212,16 @@ export default function AnalyticsPage() {
                   <p className="text-xs text-neutral-400 mt-1 px-1">Jan 14 – Feb 10</p>
                 </div>
                 <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-medium text-neutral-500">Impressions</p>
-                      <p className="text-3xl font-bold text-neutral-900 mt-1">0</p>
+                  <p className="text-sm font-medium text-neutral-500">Impressions</p>
+                  <div className="flex items-center gap-3 mt-1">
+                    <span className="text-3xl font-bold text-neutral-900">0</span>
+                    <div className="flex-1 h-2 max-w-[120px] rounded-full bg-neutral-200 overflow-hidden">
+                      <div className="h-full rounded-full bg-indigo-500" style={{ width: '0%' }} />
                     </div>
-                    <div className="flex gap-1.5 shrink-0">
-                      {hasFacebook && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">Facebook</span>}
-                      {hasInstagram && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">Instagram</span>}
-                    </div>
+                  </div>
+                  <div className="flex gap-1.5 mt-3 flex-wrap">
+                    {hasFacebook && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">0 Facebook</span>}
+                    {hasInstagram && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">0 Instagram</span>}
                   </div>
                   <div className="mt-4 h-40 rounded-lg bg-neutral-50 border border-neutral-100 relative overflow-hidden">
                     <div className="absolute inset-0 opacity-[0.03] font-semibold text-neutral-400 text-2xl flex items-center justify-center" style={{ transform: 'rotate(-20deg)' }}>agent4socials</div>
@@ -236,31 +240,32 @@ export default function AnalyticsPage() {
           {activeTab === 'posts' && (
             <div className="space-y-6">
               <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
-                <div className="flex items-start justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-neutral-700">Interactions</p>
-                    <span className="text-2xl font-bold text-neutral-900">{totalInteractions}</span>
-                    <div className="w-16 h-2 rounded-full bg-pink-200 overflow-hidden"><div className="h-full bg-pink-500 rounded-full" style={{ width: `${Math.min(100, totalInteractions * 20)}%` }} /></div>
+                <p className="text-sm font-medium text-neutral-700">Interactions</p>
+                <div className="flex items-center gap-3 mt-1">
+                  <span className="text-2xl font-bold text-neutral-900">{totalInteractions}</span>
+                  <div className="flex-1 h-2 max-w-[100px] rounded-full bg-pink-200 overflow-hidden">
+                    <div className="h-full bg-pink-500 rounded-full" style={{ width: `${Math.min(100, totalInteractions * 25)}%` }} />
                   </div>
-                  <div className="flex gap-1.5">
-                    {hasFacebook && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{importedPosts.filter((p) => p.platform === 'FACEBOOK').reduce((s, p) => s + p.interactions, 0)} Facebook</span>}
-                    {hasInstagram && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{importedPosts.filter((p) => p.platform === 'INSTAGRAM').reduce((s, p) => s + p.interactions, 0)} Instagram</span>}
-                  </div>
+                </div>
+                <div className="flex gap-1.5 mt-3 flex-wrap">
+                  {hasInstagram && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{importedPosts.filter((p) => p.platform === 'INSTAGRAM').reduce((s, p) => s + p.interactions, 0)} Instagram</span>}
+                  {hasFacebook && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{importedPosts.filter((p) => p.platform === 'FACEBOOK').reduce((s, p) => s + p.interactions, 0) || '—'} Facebook</span>}
                 </div>
                 <div className="mt-4 h-24 rounded-lg bg-neutral-50 border border-neutral-100 relative overflow-hidden">
                   <div className="absolute inset-0 opacity-[0.03] font-semibold text-neutral-400 text-xl" style={{ transform: 'rotate(-15deg)' }}>agent4socials</div>
                 </div>
               </div>
               <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
-                <div className="flex items-start justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-neutral-700">Number of posts</p>
-                    <span className="text-2xl font-bold text-neutral-900">{importedPosts.length}</span>
+                <p className="text-sm font-medium text-neutral-700">Number of posts</p>
+                <div className="flex items-center gap-3 mt-1">
+                  <span className="text-2xl font-bold text-neutral-900">{importedPosts.length}</span>
+                  <div className="flex-1 h-2 max-w-[100px] rounded-full bg-neutral-200 overflow-hidden">
+                    <div className="h-full rounded-full bg-indigo-500" style={{ width: importedPosts.length ? `${Math.min(100, importedPosts.length * 20)}%` : '0%' }} />
                   </div>
-                  <div className="flex gap-1.5">
-                    {hasFacebook && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{importedPosts.filter((p) => p.platform === 'FACEBOOK').length} Facebook</span>}
-                    {hasInstagram && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{importedPosts.filter((p) => p.platform === 'INSTAGRAM').length} Instagram</span>}
-                  </div>
+                </div>
+                <div className="flex gap-1.5 mt-3 flex-wrap">
+                  {hasFacebook && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{importedPosts.filter((p) => p.platform === 'FACEBOOK').length} Facebook</span>}
+                  {hasInstagram && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{importedPosts.filter((p) => p.platform === 'INSTAGRAM').length} Instagram</span>}
                 </div>
                 <div className="mt-4 h-24 rounded-lg bg-neutral-50 border border-neutral-100 relative overflow-hidden">
                   <div className="absolute inset-0 opacity-[0.03] font-semibold text-neutral-400 text-xl" style={{ transform: 'rotate(-15deg)' }}>agent4socials</div>
@@ -313,6 +318,7 @@ export default function AnalyticsPage() {
                             <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Network</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Date</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Type</th>
+                            <th className="px-4 py-3 w-20" />
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-neutral-200">
@@ -338,6 +344,12 @@ export default function AnalyticsPage() {
                               <td className="px-4 py-3">{PLATFORM_ICON[post.platform]}</td>
                               <td className="px-4 py-3 text-sm text-neutral-600">{new Date(post.publishedAt).toLocaleString()}</td>
                               <td className="px-4 py-3 text-sm text-neutral-500">{post.mediaType || '–'}</td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-1">
+                                  <button type="button" className="p-1.5 rounded hover:bg-neutral-100 text-neutral-400 hover:text-amber-500" title="Save"><Star size={16} /></button>
+                                  <button type="button" className="p-1.5 rounded hover:bg-neutral-100 text-neutral-400 hover:text-neutral-600" title="More"><MoreVertical size={16} /></button>
+                                </div>
+                              </td>
                             </tr>
                           ))}
                         </tbody>

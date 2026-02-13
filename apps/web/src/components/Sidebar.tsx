@@ -5,8 +5,9 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-    LayoutGrid,
-    History,
+    ListChecks,
+    FileText,
+    Hash,
     Settings,
     LogOut,
     ChevronRight,
@@ -87,29 +88,31 @@ export default function Sidebar() {
   const accent = primaryColor || '#6366f1';
   const text = textColor || '#171717';
   const isAccountPage = pathname === '/dashboard/account';
+  const isSummaryView = pathname === '/dashboard';
   const isDashboardOverview = pathname === '/dashboard' && !selectedAccountId && !selectedPlatformForConnect;
 
-  const handleDashboardClick = (e: React.MouseEvent) => {
+  const handleSummaryClick = () => {
     clearSelection();
     router.push('/dashboard');
   };
 
   return (
     <div
-      className="w-64 h-screen border-r border-neutral-200 flex flex-col fixed left-0 top-14 z-30 bg-neutral-100"
-      style={{ backgroundColor: 'var(--wl-sidebar-bg, #f5f5f5)', color: text }}
+      className="w-64 h-screen border-r border-neutral-200 flex flex-col fixed left-0 top-14 z-30 bg-white"
+      style={{ backgroundColor: 'var(--wl-sidebar-bg, #ffffff)', color: text }}
     >
       <div className="p-3">
-        <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-neutral-500">Summary</p>
         <button
           type="button"
-          onClick={handleDashboardClick}
-          className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isDashboardOverview ? 'bg-white shadow-sm' : 'hover:bg-white/70'}`}
-          style={isDashboardOverview ? { color: accent } : undefined}
+          onClick={handleSummaryClick}
+          className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            isSummaryView ? 'bg-indigo-50 border border-indigo-100 shadow-sm' : 'hover:bg-neutral-100 border border-transparent'
+          }`}
+          style={isSummaryView ? { color: accent } : undefined}
         >
-          <LayoutGrid size={18} className="shrink-0" />
-          Dashboard
-          <ChevronRight size={14} className="ml-auto opacity-50" />
+          <ListChecks size={18} className="shrink-0" />
+          Summary
+          {isSummaryView && <ChevronRight size={14} className="ml-auto opacity-70" />}
         </button>
       </div>
 
@@ -189,30 +192,37 @@ export default function Sidebar() {
         })}
       </div>
 
-      <div className="p-3 space-y-1 border-t border-neutral-200">
+      <div className="p-3 space-y-0.5 border-t border-neutral-200">
         <button
           type="button"
-          onClick={handleDashboardClick}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium hover:bg-white/70"
+          onClick={handleSummaryClick}
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium hover:bg-neutral-100"
         >
           <Plus size={18} className="shrink-0" />
           <span>More connections</span>
         </button>
         <Link
           href="/posts"
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${pathname === '/posts' ? 'bg-white shadow-sm' : 'hover:bg-white/70'}`}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${pathname === '/posts' ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
           style={pathname === '/posts' ? { color: accent } : undefined}
         >
-          <History size={18} className="shrink-0" />
-          <span>History</span>
+          <FileText size={18} className="shrink-0" />
+          <span>Reports</span>
+        </Link>
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium hover:bg-neutral-100"
+        >
+          <Hash size={18} className="shrink-0" />
+          <span>Hashtag Tracker</span>
         </Link>
         <Link
           href="/dashboard/settings"
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${pathname === '/dashboard/settings' ? 'bg-white shadow-sm' : 'hover:bg-white/70'}`}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${pathname === '/dashboard/settings' ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
           style={pathname === '/dashboard/settings' ? { color: accent } : undefined}
         >
           <Settings size={18} className="shrink-0" />
-          <span>Settings</span>
+          <span>Brand settings</span>
         </Link>
       </div>
 
