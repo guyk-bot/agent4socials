@@ -34,15 +34,24 @@ export async function PATCH(
     if (account.platform === 'FACEBOOK') {
       const pagesRes = await axios.get<{ data?: Array<{ id: string; name?: string; picture?: { data?: { url?: string } } }> }>(
         'https://graph.facebook.com/v18.0/me/accounts',
-        { params: { fields: 'id,name,picture', access_token: token } }
+        { params: { fields: 'id,name,picture.type(large)', access_token: token } }
       );
       const pages = pagesRes.data?.data || [];
-      // Use the page that matches the connected account (platformUserId), not always the first
       const page = pages.find((p) => p.id === account.platformUserId) ?? pages[0];
       if (page?.id) {
         platformUserId = page.id;
         username = page.name ?? undefined;
         profilePicture = page.picture?.data?.url ?? undefined;
+        if (!profilePicture || !username) {
+          try {
+            const pageRes = await axios.get<{ name?: string; picture?: { data?: { url?: string } } }>(
+              `https://graph.facebook.com/v18.0/${page.id}`,
+              { params: { fields: 'name,picture.type(large)', access_token: token } }
+            );
+            if (pageRes.data?.name) username = pageRes.data.name;
+            if (pageRes.data?.picture?.data?.url) profilePicture = pageRes.data.picture.data.url;
+          } catch (_) {}
+        }
       }
     } else if (account.platform === 'INSTAGRAM') {
       const isOldFormat = account.platformUserId.startsWith('instagram-');

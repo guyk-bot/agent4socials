@@ -227,17 +227,28 @@ async function exchangeCode(
       try {
         const pagesRes = await axios.get<{ data?: Array<{ id: string; name?: string; picture?: { data?: { url?: string } } }> }>(
           'https://graph.facebook.com/v18.0/me/accounts',
-          { params: { fields: 'id,name,picture', access_token: accessToken } }
+          { params: { fields: 'id,name,picture.type(large)', access_token: accessToken } }
         );
         const pages = pagesRes.data?.data || [];
         for (const p of pages) {
-          if (p?.id) pagesForSelect.push({ id: p.id, name: p.name, picture: p.picture?.data?.url ?? undefined });
+          const picUrl = p.picture?.data?.url;
+          if (p?.id) pagesForSelect.push({ id: p.id, name: p.name ?? undefined, picture: picUrl });
         }
         const page = pages[0];
         if (page?.id) {
           pageId = page.id;
-          if (page.name) username = page.name;
+          username = page.name ?? 'Facebook Page';
           profilePicture = page.picture?.data?.url ?? null;
+          if (!profilePicture) {
+            try {
+              const pageRes = await axios.get<{ name?: string; picture?: { data?: { url?: string } } }>(
+                `https://graph.facebook.com/v18.0/${page.id}`,
+                { params: { fields: 'name,picture.type(large)', access_token: accessToken } }
+              );
+              if (pageRes.data?.name) username = pageRes.data.name;
+              profilePicture = pageRes.data?.picture?.data?.url ?? null;
+            } catch (_) {}
+          }
         }
       } catch (_) {
         // keep defaults
