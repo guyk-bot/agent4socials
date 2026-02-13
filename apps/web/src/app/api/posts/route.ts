@@ -37,7 +37,9 @@ export async function POST(request: NextRequest) {
   let body: {
     title?: string;
     content?: string;
+    contentByPlatform?: Record<string, string>;
     media?: { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[];
+    mediaByPlatform?: Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[]>;
     targets?: { platform: string; socialAccountId: string }[];
     scheduledAt?: string | null;
   };
@@ -46,7 +48,7 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ message: 'Invalid JSON' }, { status: 400 });
   }
-  const { title, content, media = [], targets = [], scheduledAt } = body;
+  const { title, content, contentByPlatform, media = [], mediaByPlatform, targets = [], scheduledAt } = body;
   const validTargets = (targets || []).filter(
     (t): t is { platform: string; socialAccountId: string } =>
       Boolean(t?.platform && t?.socialAccountId)
@@ -63,6 +65,8 @@ export async function POST(request: NextRequest) {
       userId,
       title: title ?? null,
       content: content ?? null,
+      contentByPlatform: contentByPlatform && Object.keys(contentByPlatform).length > 0 ? contentByPlatform : null,
+      mediaByPlatform: mediaByPlatform && Object.keys(mediaByPlatform).length > 0 ? mediaByPlatform : null,
       status,
       scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
       media: {

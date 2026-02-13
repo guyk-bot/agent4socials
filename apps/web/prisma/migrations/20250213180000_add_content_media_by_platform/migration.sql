@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Post" ADD COLUMN IF NOT EXISTS "contentByPlatform" JSONB;
+ALTER TABLE "Post" ADD COLUMN IF NOT EXISTS "mediaByPlatform" JSONB;

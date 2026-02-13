@@ -34,12 +34,26 @@ function XTwitterIcon({ size = 20, className = '' }: { size?: number; className?
     );
 }
 
+const PLATFORM_LABELS: Record<string, string> = {
+    INSTAGRAM: 'Instagram',
+    TIKTOK: 'TikTok',
+    YOUTUBE: 'YouTube',
+    FACEBOOK: 'Facebook',
+    TWITTER: 'X',
+    LINKEDIN: 'LinkedIn',
+};
+
 export default function ComposerPage() {
     const router = useRouter();
     const [platforms, setPlatforms] = useState<string[]>([]);
     const [content, setContent] = useState('');
+    const [contentByPlatform, setContentByPlatform] = useState<Record<string, string>>({});
+    const [differentContentPerPlatform, setDifferentContentPerPlatform] = useState(false);
     const [mediaUrl, setMediaUrl] = useState('');
     const [mediaList, setMediaList] = useState<{ fileUrl: string, type: 'IMAGE' | 'VIDEO' }[]>([]);
+    const [mediaByPlatform, setMediaByPlatform] = useState<Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[]>>({});
+    const [mediaUrlByPlatform, setMediaUrlByPlatform] = useState<Record<string, string>>({});
+    const [differentMediaPerPlatform, setDifferentMediaPerPlatform] = useState(false);
     const [scheduledAt, setScheduledAt] = useState('');
     const [accounts, setAccounts] = useState<{ id: string; platform: string }[]>([]);
     const [loading, setLoading] = useState(false);
@@ -60,12 +74,30 @@ export default function ComposerPage() {
     const handleAddMedia = () => {
         if (!mediaUrl) return;
         const type = mediaUrl.match(/\.(mp4|webm|mov)$/i) ? 'VIDEO' : 'IMAGE';
-        setMediaList([...mediaList, { fileUrl: mediaUrl, type: type as any }]);
+        setMediaList([...mediaList, { fileUrl: mediaUrl, type: type as 'IMAGE' | 'VIDEO' }]);
         setMediaUrl('');
     };
 
     const handleRemoveMedia = (index: number) => {
         setMediaList(mediaList.filter((_, i) => i !== index));
+    };
+
+    const handleAddMediaForPlatform = (platform: string) => {
+        const url = mediaUrlByPlatform[platform]?.trim();
+        if (!url) return;
+        const type = url.match(/\.(mp4|webm|mov)$/i) ? 'VIDEO' : 'IMAGE';
+        setMediaByPlatform((prev) => ({
+            ...prev,
+            [platform]: [...(prev[platform] || []), { fileUrl: url, type }],
+        }));
+        setMediaUrlByPlatform((prev) => ({ ...prev, [platform]: '' }));
+    };
+
+    const handleRemoveMediaForPlatform = (platform: string, index: number) => {
+        setMediaByPlatform((prev) => ({
+            ...prev,
+            [platform]: (prev[platform] || []).filter((_, i) => i !== index),
+        }));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -87,13 +119,49 @@ export default function ComposerPage() {
 
         setLoading(true);
         try {
-            await api.post('/posts', {
+            const payload: {
+                content: string;
+                contentByPlatform?: Record<string, string>;
+                media: { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[];
+                mediaByPlatform?: Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[]>;
+                targets: { platform: string; socialAccountId: string }[];
+                scheduledAt?: string;
+            } = {
                 content,
                 media: mediaList,
                 targets,
                 scheduledAt: scheduledAt || undefined,
-            });
-
+            };
+            if (differentContentPerPlatform && platforms.some((p) => (contentByPlatform[p] ?? '').trim())) {
+                payload.contentByPlatform = platforms.reduce((acc, p) => {
+                    const v = (contentByPlatform[p] ?? '').trim();
+                    if (v) acc[p] = v;
+                    return acc;
+                }, {} as Record<string, string>);
+            }
+            if (differentMediaPerPlatform) {
+                payload.mediaByPlatform = platforms.reduce((acc, p) => {
+                    const list = mediaByPlatform[p];
+                    if (list?.length) acc[p] = list;
+                    return acc;
+                }, {} as Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[]>);
+                const firstWithMedia = platforms.find((p) => (mediaByPlatform[p]?.length ?? 0) > 0);
+                payload.media = firstWithMedia ? mediaByPlatform[firstWithMedia]! : mediaList;
+            }
+            const createRes = await api.post<{ id: string }>('/posts', payload);
+            const postId = createRes.data?.id;
+            if (postId && !scheduledAt) {
+                try {
+                    const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string }[] }>(`/posts/${postId}/publish`);
+                    const results = publishRes.data?.results;
+                    if (results?.some((r) => !r.ok)) {
+                        const failed = results.filter((r) => !r.ok).map((r) => `${r.platform}: ${r.error || 'failed'}`).join('; ');
+                        setAlertMessage(`Post created. Some platforms failed: ${failed}`);
+                    }
+                } catch (_) {
+                    setAlertMessage('Post saved but publishing failed. Check Dashboard or History.');
+                }
+            }
             router.push('/dashboard');
         } catch (err) {
             setAlertMessage('Failed to create post');
@@ -167,44 +235,111 @@ export default function ComposerPage() {
                     </div>
 
                     <div className="card space-y-4">
-                        <h3 className="font-semibold text-neutral-900">2. Content</h3>
-                        <textarea
-                            value={content}
-                            onChange={(e) => setContent(e.target.value)}
-                            placeholder="What's on your mind?..."
-                            className="w-full h-32 p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                        />
+                        <h3 className="font-semibold text-neutral-900">2. Media</h3>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={differentMediaPerPlatform}
+                                onChange={(e) => setDifferentMediaPerPlatform(e.target.checked)}
+                                className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                            />
+                            <span className="text-sm text-neutral-700">Use different media per platform</span>
+                        </label>
+                        {!differentMediaPerPlatform ? (
+                            <>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={mediaUrl}
+                                        onChange={(e) => setMediaUrl(e.target.value)}
+                                        placeholder="Paste image or video URL..."
+                                        className="flex-1 p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                    />
+                                    <button type="button" onClick={handleAddMedia} className="p-3 btn-primary rounded-xl shrink-0">
+                                        <Plus size={20} />
+                                    </button>
+                                </div>
+                                <div className="grid grid-cols-4 gap-3">
+                                    {mediaList.map((m, i) => (
+                                        <div key={i} className="relative group aspect-square rounded-xl overflow-hidden bg-neutral-100 border border-neutral-200">
+                                            <img src={m.fileUrl} alt="media" className="object-cover w-full h-full" />
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRemoveMedia(i)}
+                                                className="absolute top-1.5 right-1.5 p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow"
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </>
+                        ) : (
+                            <div className="space-y-4">
+                                {platforms.map((p) => (
+                                    <div key={p} className="p-3 rounded-xl bg-neutral-50 border border-neutral-200 space-y-2">
+                                        <p className="text-sm font-medium text-neutral-700">{PLATFORM_LABELS[p] || p}</p>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                value={mediaUrlByPlatform[p] ?? ''}
+                                                onChange={(e) => setMediaUrlByPlatform((prev) => ({ ...prev, [p]: e.target.value }))}
+                                                placeholder="Image or video URL..."
+                                                className="flex-1 p-2 border border-neutral-200 rounded-lg text-sm"
+                                            />
+                                            <button type="button" onClick={() => handleAddMediaForPlatform(p)} className="p-2 btn-primary rounded-lg shrink-0">
+                                                <Plus size={18} />
+                                            </button>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {(mediaByPlatform[p] || []).map((m, i) => (
+                                                <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden bg-neutral-200">
+                                                    <img src={m.fileUrl} alt="" className="w-full h-full object-cover" />
+                                                    <button type="button" onClick={() => handleRemoveMediaForPlatform(p, i)} className="absolute top-0.5 right-0.5 p-1 bg-red-500 text-white rounded text-xs">×</button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                                {platforms.length === 0 && <p className="text-sm text-neutral-500">Select platforms above first.</p>}
+                            </div>
+                        )}
                     </div>
 
                     <div className="card space-y-4">
-                        <h3 className="font-semibold text-neutral-900">3. Media</h3>
-                        <div className="flex gap-2">
+                        <h3 className="font-semibold text-neutral-900">3. Content</h3>
+                        <label className="flex items-center gap-2 cursor-pointer">
                             <input
-                                type="text"
-                                value={mediaUrl}
-                                onChange={(e) => setMediaUrl(e.target.value)}
-                                placeholder="Paste image or video URL..."
-                                className="flex-1 p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                type="checkbox"
+                                checked={differentContentPerPlatform}
+                                onChange={(e) => setDifferentContentPerPlatform(e.target.checked)}
+                                className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
                             />
-                            <button type="button" onClick={handleAddMedia} className="p-3 btn-primary rounded-xl shrink-0">
-                                <Plus size={20} />
-                            </button>
-                        </div>
-
-                        <div className="grid grid-cols-4 gap-3">
-                            {mediaList.map((m, i) => (
-                                <div key={i} className="relative group aspect-square rounded-xl overflow-hidden bg-neutral-100 border border-neutral-200">
-                                    <img src={m.fileUrl} alt="media" className="object-cover w-full h-full" />
-                                    <button
-                                        type="button"
-                                        onClick={() => handleRemoveMedia(i)}
-                                        className="absolute top-1.5 right-1.5 p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow"
-                                    >
-                                        <X size={14} />
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
+                            <span className="text-sm text-neutral-700">Use different content per platform</span>
+                        </label>
+                        {!differentContentPerPlatform ? (
+                            <textarea
+                                value={content}
+                                onChange={(e) => setContent(e.target.value)}
+                                placeholder="What's on your mind?..."
+                                className="w-full h-32 p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            />
+                        ) : (
+                            <div className="space-y-4">
+                                {platforms.map((p) => (
+                                    <div key={p} className="space-y-1">
+                                        <label className="text-sm font-medium text-neutral-700">{PLATFORM_LABELS[p] || p}</label>
+                                        <textarea
+                                            value={contentByPlatform[p] ?? ''}
+                                            onChange={(e) => setContentByPlatform((prev) => ({ ...prev, [p]: e.target.value }))}
+                                            placeholder="Content for this platform..."
+                                            className="w-full h-24 p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                        />
+                                    </div>
+                                ))}
+                                {platforms.length === 0 && <p className="text-sm text-neutral-500">Select platforms above first.</p>}
+                            </div>
+                        )}
                     </div>
 
                     <div className="card space-y-4">
@@ -240,7 +375,12 @@ export default function ComposerPage() {
                             </div>
                         ) : (
                             platforms.map(p => (
-                                <PostPreview key={p} platform={p} content={content} media={mediaList} />
+                                <PostPreview
+                                    key={p}
+                                    platform={p}
+                                    content={differentContentPerPlatform ? (contentByPlatform[p] ?? '') : content}
+                                    media={differentMediaPerPlatform ? (mediaByPlatform[p] ?? []) : mediaList}
+                                />
                             ))
                         )}
                     </div>
