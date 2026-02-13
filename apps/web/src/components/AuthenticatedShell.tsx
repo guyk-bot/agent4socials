@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import AppHeader from '@/components/AppHeader';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -41,12 +42,13 @@ export default function AuthenticatedShell({
                 ['--wl-primary' as string]: primaryColor || undefined,
                 ['--primary' as string]: primaryColor || undefined,
                 ['--wl-text' as string]: textColor || undefined,
-                ['--wl-sidebar-bg' as string]: backgroundColor || '#ffffff',
+                ['--wl-sidebar-bg' as string]: backgroundColor || '#f5f5f5',
             }}
         >
+            <AppHeader />
             <Sidebar />
-            <main className="pl-64 min-h-screen">
-                <div className="max-w-7xl mx-auto px-8 pt-14 pb-8">
+            <main className="pl-64 min-h-screen pt-14">
+                <div className="max-w-7xl mx-auto px-8 py-8">
                     {children}
                 </div>
             </main>

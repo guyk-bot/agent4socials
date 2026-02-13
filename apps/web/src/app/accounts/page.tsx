@@ -16,7 +16,11 @@ import {
     RefreshCw,
     Trash2,
     ShieldCheck,
-    Loader2
+    Loader2,
+    X,
+    Check,
+    Minus,
+    Star
 } from 'lucide-react';
 
 export default function AccountsPage() {
@@ -28,6 +32,8 @@ export default function AccountsPage() {
     const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
     const [connectingMethod, setConnectingMethod] = useState<string | undefined>(undefined);
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
+    const [showInstagramModal, setShowInstagramModal] = useState(false);
+    const [showTikTokModal, setShowTikTokModal] = useState(false);
 
     const fetchAccounts = async (showLoading = true) => {
         if (showLoading) setLoading(true);
@@ -146,9 +152,16 @@ export default function AccountsPage() {
                     hint="Use a Business or Creator account to connect."
                     icon={<Instagram size={24} className="text-pink-600" />}
                     connectedAccounts={displayAccounts.filter((a: any) => a.platform === 'INSTAGRAM')}
-                    onConnect={() => handleConnect('instagram', 'instagram')}
+                    onConnect={() => setShowInstagramModal(true)}
                     onRefreshProfile={fetchAccounts}
                     onDisconnect={fetchAccounts}
+                    connecting={connectingPlatform === 'instagram'}
+                />
+                <InstagramConnectModal
+                    open={showInstagramModal}
+                    onClose={() => setShowInstagramModal(false)}
+                    onConnectViaInstagram={() => { setShowInstagramModal(false); handleConnect('instagram', 'instagram'); }}
+                    onConnectViaFacebook={() => { setShowInstagramModal(false); handleConnect('instagram'); }}
                     connecting={connectingPlatform === 'instagram'}
                 />
                 <PlatformCard
@@ -157,8 +170,15 @@ export default function AccountsPage() {
                     hint="Sign in with the TikTok account you want to publish from."
                     icon={<div className="font-bold text-lg">TT</div>}
                     connectedAccounts={displayAccounts.filter((a: any) => a.platform === 'TIKTOK')}
-                    onConnect={() => handleConnect('tiktok')}
+                    onConnect={() => setShowTikTokModal(true)}
                     onDisconnect={fetchAccounts}
+                    connecting={connectingPlatform === 'tiktok'}
+                />
+                <TikTokConnectModal
+                    open={showTikTokModal}
+                    onClose={() => setShowTikTokModal(false)}
+                    onConnectPersonal={() => { setShowTikTokModal(false); handleConnect('tiktok'); }}
+                    onConnectBusiness={() => { setShowTikTokModal(false); handleConnect('tiktok'); }}
                     connecting={connectingPlatform === 'tiktok'}
                 />
                 <PlatformCard
@@ -202,6 +222,7 @@ export default function AccountsPage() {
                     onConnect={() => handleConnect('linkedin')}
                     onDisconnect={fetchAccounts}
                     connecting={connectingPlatform === 'linkedin'}
+                    comingSoon
                 />
                 </>
                     );
@@ -211,7 +232,144 @@ export default function AccountsPage() {
     );
 }
 
-function PlatformCard({ name, description, hint, icon, connectedAccounts, onConnect, connectOptions, onRefreshProfile, onDisconnect, connecting, connectingMethod }: any) {
+function InstagramConnectModal({
+    open,
+    onClose,
+    onConnectViaInstagram,
+    onConnectViaFacebook,
+    connecting,
+}: {
+    open: boolean;
+    onClose: () => void;
+    onConnectViaInstagram: () => void;
+    onConnectViaFacebook: () => void;
+    connecting: boolean;
+}) {
+    if (!open) return null;
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+            <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                <div className="flex justify-end p-3">
+                    <button type="button" onClick={onClose} className="p-2 rounded-full hover:bg-neutral-100 text-neutral-500" aria-label="Close">
+                        <X size={20} />
+                    </button>
+                </div>
+                <div className="px-8 pb-2 text-center">
+                    <div className="flex justify-center mb-4">
+                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-amber-500 flex items-center justify-center">
+                            <Instagram size={32} className="text-white" />
+                        </div>
+                    </div>
+                    <h2 className="text-xl font-semibold text-neutral-900">Connect Instagram account</h2>
+                    <p className="text-sm text-neutral-500 mt-1">Select how you would like to connect your account</p>
+                </div>
+                <div className="p-6 pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <button
+                        type="button"
+                        onClick={onConnectViaInstagram}
+                        disabled={connecting}
+                        className="text-left p-5 rounded-xl border-2 border-neutral-200 hover:border-pink-300 hover:bg-pink-50/50 transition-all flex flex-col"
+                    >
+                        <div className="flex justify-between items-start mb-3">
+                            <Instagram size={24} className="text-pink-600" />
+                            <span className="text-xs font-semibold text-neutral-500 uppercase">Limited access</span>
+                        </div>
+                        <span className="font-semibold text-neutral-900">Connect via Instagram</span>
+                        <ul className="mt-3 space-y-2 text-sm text-neutral-600">
+                            <li className="flex items-center gap-2"><Check size={14} className="text-green-600 shrink-0" /> Only basic metrics</li>
+                            <li className="flex items-center gap-2"><Minus size={14} className="text-neutral-400 shrink-0" /> Access to inbox</li>
+                            <li className="flex items-center gap-2"><Minus size={14} className="text-neutral-400 shrink-0" /> Competitor analysis</li>
+                            <li className="flex items-center gap-2"><Minus size={14} className="text-neutral-400 shrink-0" /> Tag products</li>
+                        </ul>
+                        <span className="mt-4 btn-primary inline-flex justify-center gap-2 py-2 text-sm w-full">Connect</span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onConnectViaFacebook}
+                        disabled={connecting}
+                        className="text-left p-5 rounded-xl border-2 border-indigo-200 bg-indigo-50/30 hover:border-indigo-400 hover:bg-indigo-50/50 transition-all flex flex-col relative"
+                    >
+                        <span className="absolute top-3 right-3 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-xs font-medium">
+                            <Star size={12} /> Recommended
+                        </span>
+                        <div className="flex justify-between items-start mb-3">
+                            <div className="flex gap-1">
+                                <Facebook size={24} className="text-blue-600" />
+                                <Instagram size={24} className="text-pink-600" />
+                            </div>
+                            <span className="text-xs font-semibold text-green-600 uppercase">Full access</span>
+                        </div>
+                        <span className="font-semibold text-neutral-900">Connect via Facebook</span>
+                        <p className="mt-3 text-sm text-neutral-600 flex items-start gap-2">
+                            <Check size={14} className="text-green-600 shrink-0 mt-0.5" />
+                            You have access to all Instagram features we offer
+                        </p>
+                        <p className="text-sm text-neutral-500 mt-1">You need to link your Instagram to a Facebook page.</p>
+                        <span className="mt-4 btn-primary inline-flex justify-center gap-2 py-2 text-sm w-full">Connect</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function TikTokConnectModal({
+    open,
+    onClose,
+    onConnectPersonal,
+    onConnectBusiness,
+    connecting,
+}: {
+    open: boolean;
+    onClose: () => void;
+    onConnectPersonal: () => void;
+    onConnectBusiness: () => void;
+    connecting: boolean;
+}) {
+    if (!open) return null;
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+            <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                <div className="flex justify-end p-3">
+                    <button type="button" onClick={onClose} className="p-2 rounded-full hover:bg-neutral-100 text-neutral-500" aria-label="Close">
+                        <X size={20} />
+                    </button>
+                </div>
+                <div className="px-8 pb-4 text-center">
+                    <div className="flex justify-center mb-4">
+                        <div className="w-16 h-16 rounded-full bg-neutral-900 flex items-center justify-center">
+                            <span className="font-bold text-white text-xl">TT</span>
+                        </div>
+                    </div>
+                    <h2 className="text-xl font-semibold text-neutral-900">Connect TikTok</h2>
+                    <p className="text-sm text-neutral-500 mt-1">Choose the type of account you want to connect</p>
+                </div>
+                <div className="p-6 pt-0 space-y-3">
+                    <button
+                        type="button"
+                        onClick={onConnectPersonal}
+                        disabled={connecting}
+                        className="w-full flex items-center justify-center gap-3 p-4 rounded-xl border-2 border-neutral-200 hover:border-neutral-400 hover:bg-neutral-50 transition-all font-medium text-neutral-900"
+                    >
+                        {connecting ? <Loader2 size={20} className="animate-spin" /> : <span className="text-lg font-bold">TT</span>}
+                        Connect a TikTok personal account
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onConnectBusiness}
+                        disabled={connecting}
+                        className="w-full flex items-center justify-center gap-3 p-4 rounded-xl border-2 border-neutral-200 hover:border-neutral-400 hover:bg-neutral-50 transition-all font-medium text-neutral-900"
+                    >
+                        {connecting ? <Loader2 size={20} className="animate-spin" /> : <span className="text-lg font-bold">TT</span>}
+                        Connect a TikTok business account
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function PlatformCard({ name, description, hint, icon, connectedAccounts, onConnect, connectOptions, onRefreshProfile, onDisconnect, connecting, connectingMethod, comingSoon }: any) {
     const isConnected = connectedAccounts.length > 0;
     const primaryAccount = connectedAccounts[0];
     const [refreshing, setRefreshing] = useState(false);
@@ -268,14 +426,21 @@ function PlatformCard({ name, description, hint, icon, connectedAccounts, onConn
             variant="danger"
             onConfirm={handleDisconnectConfirm}
         />
-        <div className="card">
+        <div className={`card ${comingSoon ? 'opacity-75' : ''}`}>
             <div className="flex items-start justify-between">
                 <div className="flex items-start space-x-4 flex-1 min-w-0">
                     <div className="p-3 bg-neutral-100 rounded-xl flex-shrink-0">
                         {icon}
                     </div>
                     <div className="min-w-0">
-                        <h3 className="text-lg font-semibold text-neutral-900">{name}</h3>
+                        <h3 className="text-lg font-semibold text-neutral-900 flex items-center gap-2">
+                            {name}
+                            {comingSoon && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                                    Coming soon
+                                </span>
+                            )}
+                        </h3>
                         {(hint || description) && (
                             <p className="text-sm text-neutral-500 max-w-md mt-1">{hint || description}</p>
                         )}
@@ -334,6 +499,10 @@ function PlatformCard({ name, description, hint, icon, connectedAccounts, onConn
                                 {disconnecting ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
                             </button>
                         </>
+                    ) : comingSoon ? (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-neutral-100 text-neutral-500 text-sm font-medium cursor-not-allowed">
+                            Coming soon
+                        </span>
                     ) : connectOptions?.length ? (
                         <div className="flex flex-wrap gap-2">
                             {connectOptions.map((opt: { label: string; method?: string }) => {

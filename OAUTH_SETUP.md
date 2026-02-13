@@ -4,6 +4,9 @@ To allow users to connect their social accounts, you need to create "Apps" on ea
 
 **Base URL:** `https://agent4socials.com` (OAuth runs on the web app.)
 
+**Can I connect my personal TikTok and YouTube without the app being approved?**  
+Yes. **YouTube:** Keep the OAuth consent screen in **Testing** and add your Google account as a **Test user** (OAuth consent screen → Test users). Only test users can connect; no verification or publishing needed. **TikTok:** Use **Sandbox** mode for your app and add your TikTok account as a sandbox tester; you can connect and test without full app review.
+
 **Redirect URIs to whitelist (add each one that you use):**
 
 | Platform  | Redirect URI |
@@ -14,6 +17,8 @@ To allow users to connect their social accounts, you need to create "Apps" on ea
 | TikTok    | `https://agent4socials.com/api/social/oauth/tiktok/callback` |
 | Twitter   | `https://agent4socials.com/api/social/oauth/twitter/callback` |
 | LinkedIn  | `https://agent4socials.com/api/social/oauth/linkedin/callback` |
+| Threads   | `https://agent4socials.com/api/social/oauth/threads/callback` |
+| Bluesky   | `https://agent4socials.com/api/social/oauth/bluesky/callback` |
 
 **If you see "URL Blocked" or "redirect_uri_mismatch":** Add the exact URI from the table above to your app’s **Valid OAuth Redirect URIs** / **Authorized redirect URIs** in that platform’s developer console. No trailing slash; protocol and path must match exactly.
 
@@ -78,6 +83,10 @@ To allow users to connect their social accounts, you need to create "Apps" on ea
    - App Secret (Click "Show")
 
 *Note: Instagram uses the same Meta app; both redirect URIs above must be in Valid OAuth Redirect URIs.*
+
+**Inbox scopes (already in app):** The app’s OAuth start route already requests inbox-related scopes so that when you implement the Inbox API you won’t need to ask users to reconnect. **Instagram (via Facebook):** `instagram_manage_messages`, `pages_messaging`. **Instagram (direct, API with Instagram login):** `instagram_business_manage_messages`. **Facebook:** `pages_messaging`. **Twitter/X:** `dm.read`, `dm.write`. Ensure these permissions are enabled in your Meta and Twitter developer apps.
+
+**Vercel / env vars for Inbox (when you implement webhooks):** To receive real-time message events from Meta (Instagram/Facebook), you will need to add a webhook endpoint and configure Meta to call it. In Vercel (or your host), add: **`WEBHOOK_VERIFY_TOKEN`** — a random string you choose; Meta sends it when verifying your webhook URL. Your API route should respond to GET with this token in the query. Optionally **`WEBHOOK_CALLBACK_URL`** — the full URL of your webhook (e.g. `https://agent4socials.com/api/webhooks/instagram`). If not set, you can derive it from **`NEXT_PUBLIC_APP_URL`** + path. No extra variables are required for the Inbox feature to *display* messages once scopes are granted; webhook vars are only for *real-time* updates.
 
 ### Connect with Instagram only (no Facebook)
 
@@ -151,6 +160,86 @@ If you use the same app for both flows, you can leave these unset and use `META_
 
 ---
 
+## 6. Threads (Meta)
+
+Threads uses its own **Threads API** product in Meta for Developers. You get a **Threads app ID** and **Threads app secret** (separate from your main Meta App ID/Secret used for Instagram and Facebook).
+
+1. Go to [Meta for Developers](https://developers.facebook.com/) → **My Apps**.
+2. Either **create a new app** or open an existing app. When creating, choose the **“Access the Threads API”** use case (under “Other” or “Consumer” depending on the flow). If you add it to an existing app, go to **Use cases** in the left menu → **Add use case** → **Access the Threads API**.
+3. In the left menu, open **Use cases** → click **Access the Threads API** to customize it.
+   - **Permissions:** `threads_basic` is required. For posting from Agent4Socials, add **`threads_content_publish`**. Add any others you need (e.g. `threads_manage_replies`, `threads_read_replies`).
+4. In the left menu, go to **Settings** (under the Threads product).
+   - Note your **Threads app ID** and **Threads app secret** (use these for Threads only, not the main Meta App ID/Secret).
+   - **Client OAuth Settings** → **Valid OAuth redirect URIs:** add  
+     `https://agent4socials.com/api/social/oauth/threads/callback`  
+     (and for local dev, e.g. `http://localhost:3000/api/social/oauth/threads/callback` if you use that.)
+   - **Deauthorize callback URL:** e.g. `https://agent4socials.com/api/social/oauth/threads/deauthorize` (your endpoint that accepts a POST from Meta when a user disconnects).
+   - **Data Deletion Requests URL:** e.g. `https://agent4socials.com/api/social/oauth/threads/data-deletion` (your endpoint for data deletion requests from Meta).
+   - Click **Save**.
+5. **Test users (optional):** Under **Add or Remove Threads Test Users** you can add testers. Until the app is approved, only admins/developers/testers can connect.
+6. **Publishing / App Review:** When you’re ready for any user to connect, use **Publish** and complete **App Review** for the Threads use case (same idea as for Instagram/Facebook).
+
+**Env vars (web app):**  
+`THREADS_APP_ID` = Threads app ID  
+`THREADS_APP_SECRET` = Threads app secret  
+Optional: `THREADS_REDIRECT_URI` = `https://agent4socials.com/api/social/oauth/threads/callback` if you need to force this exact URL.
+
+**In the app code** you will need to: add `THREADS` to the Platform enum (Prisma), add Threads to the OAuth start URL (Meta’s Threads OAuth endpoint and scopes), handle the callback (exchange code for token, fetch profile, save `SocialAccount`), add Threads to the composer platform list and to publish logic (Threads API for creating posts). Meta’s Threads OAuth is similar to Facebook (authorize with `threads_basic` and `threads_content_publish`).
+
+---
+
+## 7. Bluesky
+
+Bluesky uses **atproto OAuth** (not the same as “paste client ID/secret and redirect URI” style). To let users connect their Bluesky account you need to implement the atproto OAuth client flow.
+
+**High level:**
+
+1. **Client registration**  
+   Your app is identified by a **client_id** that is a **URL** where you host a **client metadata JSON** document (not a numeric ID). Example:  
+   `https://agent4socials.com/api/social/oauth/bluesky/client-metadata.json`  
+   That URL is the `client_id`. The JSON must describe your app (redirect URIs, scopes, grant types, etc.). See [Bluesky OAuth client implementation](https://docs.bsky.app/docs/advanced-guides/oauth-client).
+
+2. **OAuth flow**  
+   atproto OAuth uses:
+   - **PKCE** (required)
+   - **PAR** (Pushed Authorization Requests): you POST the auth params to the server and get a `request_uri`, then redirect the user with that URI.
+   - **DPoP** (Demonstrating Proof of Possession): tokens are bound to a key; you need to sign requests with a per-session key and handle DPoP nonces from the server.
+
+3. **Client type**  
+   For a **web app with a backend** (like Agent4Socials), you typically implement a **confidential** client: client metadata at the `client_id` URL, and a **client assertion** (JWT signed with a key whose public part is in the metadata) for token and PAR requests. You store the client secret (or private key) in env vars and never expose it to the browser.
+
+4. **Where to implement**  
+   - **Backend:**  
+     - Serve the client metadata JSON at the URL you use as `client_id`.  
+     - OAuth start: build PAR request (with PKCE, DPoP key, and optionally client assertion), POST to the authorization server’s PAR endpoint, then redirect the user to the auth URL with the returned `request_uri`.  
+     - Callback: exchange `code` for tokens at the token endpoint (with PKCE verifier, DPoP, client assertion).  
+     - Store access/refresh token and use DPoP for all API calls to Bluesky (e.g. create post).  
+   - **Discovery:**  
+     The user’s handle (e.g. `user.bsky.social`) or DID resolves to a PDS; the PDS exposes authorization server metadata (e.g. `/.well-known/oauth-authorization-server`). You use that to get the PAR, authorization, and token endpoints.
+
+**Practical steps:**
+
+1. Read the [atproto OAuth spec](https://atproto.com/specs/auth) and Bluesky’s [OAuth client guide](https://docs.bsky.app/docs/advanced-guides/oauth-client).
+2. Decide your **client_id** URL (e.g. `https://agent4socials.com/api/social/oauth/bluesky/client-metadata.json`) and create a route that serves the client metadata JSON (redirect_uris, scopes, `dpop_bound_access_tokens: true`, etc.).
+3. Implement **PAR** (POST auth params, get `request_uri`, redirect), **PKCE**, and **DPoP** (generate keypair per session, sign DPoP proof for each request, handle `DPoP-Nonce` from responses).
+4. For a confidential client, add a keypair (or use client secret if supported), put the public key in client metadata (`jwks` or `jwks_uri`), and send a JWT client assertion on PAR and token requests.
+5. In your app: add **BLUESKY** to the Platform enum, add Bluesky to the composer and to publish logic, and use the atproto/Bluesky APIs (e.g. create post) with the DPoP-bound access token.
+
+**SDK / helpers:**  
+Check whether Bluesky or the atproto team provide a TypeScript/Node SDK that implements OAuth (PAR, DPoP, token exchange). Using an SDK will reduce the amount of crypto and protocol code you write.
+
+**Summary:**  
+- **Threads:** Create a Meta app with the Threads API use case, get Threads app ID/secret, set redirect URI and env vars, then add THREADS to your app (enum, OAuth start/callback, composer, publish).  
+- **Bluesky:** Implement atproto OAuth (client metadata URL, PAR, PKCE, DPoP, confidential client if you have a backend), then add BLUESKY to your app (enum, OAuth flow, composer, publish).  
+
+---
+
 ## What to do next?
 
-Add the env vars to your **web app** (e.g. Vercel → **agent4socials** project → Settings → Environment Variables). Use the key names your app expects, e.g. `META_APP_ID`, `META_APP_SECRET`, `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `TWITTER_CLIENT_ID`, `TWITTER_CLIENT_SECRET`, `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`. Set `NEXT_PUBLIC_APP_URL=https://agent4socials.com` (or your production URL). Then **Redeploy** the web app.
+Add the env vars to your **web app** (e.g. Vercel → **agent4socials** project → Settings → Environment Variables). Use the key names your app expects, e.g. `META_APP_ID`, `META_APP_SECRET`, `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `TWITTER_CLIENT_ID`, `TWITTER_CLIENT_SECRET`, `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`, and for Threads: `THREADS_APP_ID`, `THREADS_APP_SECRET`. Set `NEXT_PUBLIC_APP_URL=https://agent4socials.com` (or your production URL). Then **Redeploy** the web app.
+
+**Implementing Threads and Bluesky in the app:**  
+After the platforms are approved and env vars are set, the codebase must be updated to support each new platform: add the platform to the Prisma `Platform` enum and run a migration, add OAuth start and callback handling (and for Bluesky, atproto OAuth with PAR/DPoP and client metadata), add the platform to the composer UI and to the publish API (calling Threads API or Bluesky/atproto API when posting).
+
+**Inbox (manage messages from all platforms except YouTube):**  
+The app has an Inbox page (Dashboard → Inbox). To enable reading and replying to messages when the feature is implemented, add these scopes in each platform’s developer console and in the OAuth flow: **Instagram** (via Facebook): `instagram_manage_messages`, `pages_messaging`. **Facebook**: `pages_messaging` (or `pages_messaging_subscriptions`). **X (Twitter)**: `dm.read`, `dm.write`. **TikTok**: check TikTok for Developers for messaging permissions. **LinkedIn**: messaging-related product/scopes in the LinkedIn Developer Portal. YouTube does not support DMs.

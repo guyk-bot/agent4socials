@@ -1,98 +1,180 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
     LayoutGrid,
-    PlusSquare,
-    Calendar,
-    Users,
     History,
     Settings,
     LogOut,
     ChevronRight,
+    Plus,
+    Instagram,
+    Youtube,
+    Facebook,
+    Linkedin,
 } from 'lucide-react';
+import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
+import { useAccountsCache } from '@/context/AccountsCacheContext';
+import { useSelectedAccount } from '@/context/SelectedAccountContext';
+import type { SocialAccount } from '@/context/SelectedAccountContext';
 
-const menuItems = [
-    { icon: LayoutGrid, label: 'Dashboard', href: '/dashboard' },
-    { icon: PlusSquare, label: 'Composer', href: '/composer' },
-    { icon: Calendar, label: 'Calendar', href: '/calendar' },
-    { icon: Users, label: 'Accounts', href: '/accounts' },
-    { icon: History, label: 'History', href: '/posts' },
-    { icon: Settings, label: 'Settings', href: '/dashboard/settings' },
-];
+function TikTokIcon({ size = 20 }: { size?: number }) {
+  return (
+    <span className="font-bold text-neutral-700" style={{ fontSize: size }}>TT</span>
+  );
+}
+
+function TwitterIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className="text-neutral-700">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  );
+}
+
+const PLATFORM_ICON: Record<string, React.ReactNode> = {
+  INSTAGRAM: <Instagram size={20} className="text-pink-600" />,
+  FACEBOOK: <Facebook size={20} className="text-blue-600" />,
+  TIKTOK: <TikTokIcon size={20} />,
+  YOUTUBE: <Youtube size={20} className="text-red-600" />,
+  TWITTER: <TwitterIcon size={20} />,
+  LINKEDIN: <Linkedin size={20} className="text-blue-700" />,
+};
+
+const PLATFORM_ORDER = ['INSTAGRAM', 'FACEBOOK', 'TIKTOK', 'YOUTUBE', 'TWITTER', 'LINKEDIN'];
 
 export default function Sidebar() {
-    const pathname = usePathname();
-    const { user, logout } = useAuth();
-    const { logoUrl, primaryColor, textColor, appName } = useWhiteLabel();
-    const accent = primaryColor || '#525252';
-    const text = textColor || '#171717';
-    const isAccountPage = pathname === '/dashboard/account';
+  const pathname = usePathname();
+  const { user, logout } = useAuth();
+  const { logoUrl, primaryColor, textColor, appName } = useWhiteLabel();
+  const { cachedAccounts, setCachedAccounts } = useAccountsCache() ?? { cachedAccounts: [], setCachedAccounts: () => {} };
+  const { selectedAccountId, setSelectedAccount } = useSelectedAccount() ?? { selectedAccountId: null, setSelectedAccount: () => {} };
 
-    return (
-        <div className="w-64 h-screen border-r border-neutral-200 flex flex-col fixed left-0 top-0 z-50" style={{ backgroundColor: 'var(--wl-sidebar-bg, #ffffff)', color: text }}>
-            <div className="p-6">
-                <Link href="/dashboard" className="flex items-center space-x-3" style={{ color: accent }}>
-                    {logoUrl ? (
-                        <img src={logoUrl} alt="" className="h-10 w-10 rounded-lg object-contain" />
-                    ) : (
-                        <div className="w-10 h-10 rounded-lg flex items-center justify-center overflow-hidden bg-white/10">
-                            <Image src="/logo.svg" alt="" width={28} height={28} />
-                        </div>
-                    )}
-                    <span className="text-xl font-bold tracking-tight" style={{ color: text }}>{appName || 'Agent4Socials'}</span>
-                </Link>
-            </div>
+  useEffect(() => {
+    if (cachedAccounts.length > 0) return;
+    api.get('/social/accounts').then((res) => {
+      const data = Array.isArray(res.data) ? res.data : [];
+      setCachedAccounts(data);
+    }).catch(() => {});
+  }, [cachedAccounts.length, setCachedAccounts]);
 
-            <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
-                {menuItems.map((item) => {
-                    const isActive = pathname === item.href;
-                    return (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${isActive ? 'shadow-sm' : 'hover:opacity-80'}`}
-                            style={isActive ? { backgroundColor: `${accent}15`, color: accent } : { color: text }}
-                        >
-                            <div className="flex items-center">
-                                <item.icon size={20} className="mr-3" />
-                                {item.label}
-                            </div>
-                            {isActive && <ChevronRight size={14} />}
-                        </Link>
-                    );
-                })}
-            </nav>
+  const accountsByPlatform = PLATFORM_ORDER.reduce<Record<string, SocialAccount[]>>((acc, p) => {
+    acc[p] = (cachedAccounts as SocialAccount[]).filter((a) => a.platform === p);
+    return acc;
+  }, {});
 
-            <div className="p-4 border-t border-neutral-200">
-                <Link
-                    href="/dashboard/account"
-                    className={`w-full flex items-center p-2 rounded-lg transition-colors mb-2 ${isAccountPage ? '' : 'hover:bg-neutral-50'}`}
-                    style={isAccountPage ? { backgroundColor: `${accent}15`, color: accent } : undefined}
-                >
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center font-semibold text-xs border border-neutral-200 shrink-0" style={{ backgroundColor: `${accent}15`, color: accent }}>
-                        {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
+  const accent = primaryColor || '#6366f1';
+  const text = textColor || '#171717';
+  const isAccountPage = pathname === '/dashboard/account';
+
+  return (
+    <div
+      className="w-64 h-screen border-r border-neutral-200 flex flex-col fixed left-0 top-14 z-30 bg-neutral-100"
+      style={{ backgroundColor: 'var(--wl-sidebar-bg, #f5f5f5)', color: text }}
+    >
+      <div className="p-3">
+        <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-neutral-500">Summary</p>
+        <Link
+          href="/dashboard"
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${pathname === '/dashboard' ? 'bg-white shadow-sm' : 'hover:bg-white/70'}`}
+          style={pathname === '/dashboard' ? { color: accent } : undefined}
+        >
+          <LayoutGrid size={18} className="shrink-0" />
+          Dashboard
+          <ChevronRight size={14} className="ml-auto opacity-50" />
+        </Link>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-2 space-y-1">
+        {PLATFORM_ORDER.map((platform) => {
+          const accounts = accountsByPlatform[platform] ?? [];
+          if (accounts.length === 0) return null;
+          return (
+            <div key={platform} className="space-y-0.5">
+              {accounts.map((acc) => {
+                const isSelected = selectedAccountId === acc.id;
+                return (
+                  <button
+                    key={acc.id}
+                    type="button"
+                    onClick={() => setSelectedAccount(acc)}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors ${
+                      isSelected ? 'bg-white shadow-sm ring-1 ring-neutral-200' : 'hover:bg-white/70'
+                    }`}
+                    style={isSelected ? { color: accent } : undefined}
+                  >
+                    <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden">
+                      {acc.profilePicture ? (
+                        <img src={acc.profilePicture} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        PLATFORM_ICON[platform] ?? <span className="font-bold text-xs">?</span>
+                      )}
                     </div>
-                    <div className="ml-3 flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate" style={{ color: text }}>{user?.name || 'User'}</p>
-                        <p className="text-xs truncate opacity-70" style={{ color: text }}>{user?.email}</p>
-                    </div>
-                    <ChevronRight size={16} className="text-neutral-400 shrink-0" />
-                </Link>
-
-                <button
-                    onClick={logout}
-                    className="w-full flex items-center px-3 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-100 hover:text-red-600 rounded-lg transition-colors"
-                >
-                    <LogOut size={20} className="mr-3" />
-                    Logout
-                </button>
+                    <span className="truncate flex-1 font-medium">{acc.username || platform}</span>
+                    {isSelected && <ChevronRight size={14} className="shrink-0 opacity-70" />}
+                  </button>
+                );
+              })}
             </div>
-        </div>
-    );
+          );
+        })}
+      </div>
+
+      <div className="p-3 space-y-1 border-t border-neutral-200">
+        <Link
+          href="/accounts"
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${pathname === '/accounts' ? 'bg-white shadow-sm' : 'hover:bg-white/70'}`}
+          style={pathname === '/accounts' ? { color: accent } : undefined}
+        >
+          <Plus size={18} className="shrink-0" />
+          <span>More connections</span>
+        </Link>
+        <Link
+          href="/posts"
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${pathname === '/posts' ? 'bg-white shadow-sm' : 'hover:bg-white/70'}`}
+          style={pathname === '/posts' ? { color: accent } : undefined}
+        >
+          <History size={18} className="shrink-0" />
+          <span>History</span>
+        </Link>
+        <Link
+          href="/dashboard/settings"
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${pathname === '/dashboard/settings' ? 'bg-white shadow-sm' : 'hover:bg-white/70'}`}
+          style={pathname === '/dashboard/settings' ? { color: accent } : undefined}
+        >
+          <Settings size={18} className="shrink-0" />
+          <span>Settings</span>
+        </Link>
+      </div>
+
+      <div className="p-4 border-t border-neutral-200">
+        <Link
+          href="/dashboard/account"
+          className={`w-full flex items-center p-2 rounded-lg transition-colors mb-2 ${isAccountPage ? '' : 'hover:bg-white/70'}`}
+          style={isAccountPage ? { backgroundColor: `${accent}20`, color: accent } : undefined}
+        >
+          <div className="w-8 h-8 rounded-full flex items-center justify-center font-semibold text-xs border border-neutral-200 shrink-0 bg-white" style={{ color: accent }}>
+            {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
+          </div>
+          <div className="ml-3 flex-1 min-w-0">
+            <p className="text-sm font-medium truncate" style={{ color: text }}>{user?.name || 'User'}</p>
+            <p className="text-xs truncate opacity-70" style={{ color: text }}>{user?.email}</p>
+          </div>
+          <ChevronRight size={16} className="text-neutral-400 shrink-0" />
+        </Link>
+        <button
+          onClick={logout}
+          className="w-full flex items-center px-3 py-2 text-sm font-medium text-neutral-600 hover:bg-white/70 hover:text-red-600 rounded-lg transition-colors"
+        >
+          <LogOut size={20} className="mr-3 shrink-0" />
+          Logout
+        </button>
+      </div>
+    </div>
+  );
 }
