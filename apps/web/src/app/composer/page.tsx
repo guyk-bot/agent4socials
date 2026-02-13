@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import api from '@/lib/api';
@@ -14,7 +14,8 @@ import {
     Image as ImageIcon,
     Video,
     X,
-    Plus
+    Plus,
+    Hash
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -43,21 +44,55 @@ const PLATFORM_LABELS: Record<string, string> = {
     LINKEDIN: 'LinkedIn',
 };
 
+const HASHTAG_POOL_KEY = 'agent4socials_hashtag_pool';
+const MAX_HASHTAGS_PER_POST = 5;
+
+function normalizeHashtag(t: string): string {
+    const s = t.trim().replace(/^#+/, '');
+    return s ? `#${s}` : '';
+}
+
 export default function ComposerPage() {
     const router = useRouter();
     const [platforms, setPlatforms] = useState<string[]>([]);
     const [content, setContent] = useState('');
     const [contentByPlatform, setContentByPlatform] = useState<Record<string, string>>({});
     const [differentContentPerPlatform, setDifferentContentPerPlatform] = useState(false);
-    const [mediaUrl, setMediaUrl] = useState('');
     const [mediaList, setMediaList] = useState<{ fileUrl: string, type: 'IMAGE' | 'VIDEO' }[]>([]);
     const [mediaByPlatform, setMediaByPlatform] = useState<Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[]>>({});
-    const [mediaUrlByPlatform, setMediaUrlByPlatform] = useState<Record<string, string>>({});
     const [differentMediaPerPlatform, setDifferentMediaPerPlatform] = useState(false);
+    const [mediaUploading, setMediaUploading] = useState(false);
+    const [mediaUploadError, setMediaUploadError] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const fileInputByPlatformRef = useRef<Record<string, HTMLInputElement | null>>({});
     const [scheduledAt, setScheduledAt] = useState('');
     const [accounts, setAccounts] = useState<{ id: string; platform: string }[]>([]);
     const [loading, setLoading] = useState(false);
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
+
+    // Hashtags: pool (saved), selection for this post (max 5), per-platform option
+    const [hashtagPool, setHashtagPool] = useState<string[]>([]);
+    const [newHashtagInput, setNewHashtagInput] = useState('');
+    const [selectedHashtags, setSelectedHashtags] = useState<string[]>([]);
+    const [differentHashtagsPerPlatform, setDifferentHashtagsPerPlatform] = useState(false);
+    const [selectedHashtagsByPlatform, setSelectedHashtagsByPlatform] = useState<Record<string, string[]>>({});
+
+    useEffect(() => {
+        try {
+            const raw = typeof window !== 'undefined' ? localStorage.getItem(HASHTAG_POOL_KEY) : null;
+            if (raw) {
+                const parsed = JSON.parse(raw) as string[];
+                if (Array.isArray(parsed)) setHashtagPool(parsed);
+            }
+        } catch (_) { /* ignore */ }
+    }, []);
+
+    useEffect(() => {
+        if (hashtagPool.length === 0) return;
+        try {
+            localStorage.setItem(HASHTAG_POOL_KEY, JSON.stringify(hashtagPool));
+        } catch (_) { /* ignore */ }
+    }, [hashtagPool]);
 
     useEffect(() => {
         const fetchAccounts = async () => {
@@ -71,26 +106,105 @@ export default function ComposerPage() {
         fetchAccounts();
     }, []);
 
-    const handleAddMedia = () => {
-        if (!mediaUrl) return;
-        const type = mediaUrl.match(/\.(mp4|webm|mov)$/i) ? 'VIDEO' : 'IMAGE';
-        setMediaList([...mediaList, { fileUrl: mediaUrl, type: type as 'IMAGE' | 'VIDEO' }]);
-        setMediaUrl('');
+    const addToHashtagPool = () => {
+        const tag = normalizeHashtag(newHashtagInput);
+        if (!tag || hashtagPool.includes(tag)) return;
+        setHashtagPool((prev) => [...prev, tag].sort());
+        setNewHashtagInput('');
+    };
+
+    const removeFromHashtagPool = (tag: string) => {
+        setHashtagPool((prev) => prev.filter((t) => t !== tag));
+        setSelectedHashtags((prev) => prev.filter((t) => t !== tag));
+        setSelectedHashtagsByPlatform((prev) => {
+            const next = { ...prev };
+            for (const p of Object.keys(next)) {
+                next[p] = next[p].filter((t) => t !== tag);
+            }
+            return next;
+        });
+    };
+
+    const toggleSelectedHashtag = (tag: string) => {
+        setSelectedHashtags((prev) =>
+            prev.includes(tag) ? prev.filter((t) => t !== tag) : prev.length < MAX_HASHTAGS_PER_POST ? [...prev, tag] : prev
+        );
+    };
+
+    const toggleSelectedHashtagForPlatform = (platform: string, tag: string) => {
+        setSelectedHashtagsByPlatform((prev) => {
+            const list = prev[platform] ?? [];
+            const next = list.includes(tag) ? list.filter((t) => t !== tag) : list.length < MAX_HASHTAGS_PER_POST ? [...list, tag] : list;
+            return { ...prev, [platform]: next };
+        });
+    };
+
+    async function uploadFile(file: File): Promise<{ fileUrl: string; type: 'IMAGE' | 'VIDEO' }> {
+        const type: 'IMAGE' | 'VIDEO' = file.type.startsWith('video/') ? 'VIDEO' : 'IMAGE';
+        const res = await api.post<{ uploadUrl: string; fileUrl: string }>('/media/upload-url', {
+            fileName: file.name,
+            contentType: file.type || 'application/octet-stream',
+        });
+        const { uploadUrl, fileUrl } = res.data;
+        await fetch(uploadUrl, {
+            method: 'PUT',
+            body: file,
+            headers: { 'Content-Type': file.type || 'application/octet-stream' },
+        });
+        return { fileUrl, type };
+    }
+
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files?.length) return;
+        setMediaUploadError(null);
+        setMediaUploading(true);
+        try {
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) continue;
+                const item = await uploadFile(file);
+                setMediaList((prev) => [...prev, item]);
+            }
+        } catch (err: unknown) {
+            const msg = err && typeof err === 'object' && 'response' in err && (err.response as { status?: number })?.status === 503
+                ? 'Media storage is not configured. Add S3 (or R2) env vars to enable uploads.'
+                : 'Upload failed. Try again.';
+            setMediaUploadError(msg);
+        } finally {
+            setMediaUploading(false);
+            e.target.value = '';
+        }
+    };
+
+    const handleFileSelectForPlatform = async (platform: string, e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files?.length) return;
+        setMediaUploadError(null);
+        setMediaUploading(true);
+        try {
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) continue;
+                const item = await uploadFile(file);
+                setMediaByPlatform((prev) => ({
+                    ...prev,
+                    [platform]: [...(prev[platform] || []), item],
+                }));
+            }
+        } catch (err: unknown) {
+            const msg = err && typeof err === 'object' && 'response' in err && (err.response as { status?: number })?.status === 503
+                ? 'Media storage is not configured. Add S3 (or R2) env vars to enable uploads.'
+                : 'Upload failed. Try again.';
+            setMediaUploadError(msg);
+        } finally {
+            setMediaUploading(false);
+            e.target.value = '';
+        }
     };
 
     const handleRemoveMedia = (index: number) => {
         setMediaList(mediaList.filter((_, i) => i !== index));
-    };
-
-    const handleAddMediaForPlatform = (platform: string) => {
-        const url = mediaUrlByPlatform[platform]?.trim();
-        if (!url) return;
-        const type = url.match(/\.(mp4|webm|mov)$/i) ? 'VIDEO' : 'IMAGE';
-        setMediaByPlatform((prev) => ({
-            ...prev,
-            [platform]: [...(prev[platform] || []), { fileUrl: url, type }],
-        }));
-        setMediaUrlByPlatform((prev) => ({ ...prev, [platform]: '' }));
     };
 
     const handleRemoveMediaForPlatform = (platform: string, index: number) => {
@@ -119,6 +233,26 @@ export default function ComposerPage() {
 
         setLoading(true);
         try {
+            // Append hashtags after content (per platform when "different hashtags per platform" is on)
+            const hashtagSuffix = (tags: string[]) => (tags.length ? ' ' + tags.join(' ') : '');
+            let contentFinal = content.trim() + hashtagSuffix(selectedHashtags);
+            let contentByPlatformFinal: Record<string, string> | undefined;
+
+            if (differentHashtagsPerPlatform) {
+                contentByPlatformFinal = platforms.reduce((acc, p) => {
+                    const text = (differentContentPerPlatform ? (contentByPlatform[p] ?? '') : content).trim();
+                    const tags = selectedHashtagsByPlatform[p] ?? [];
+                    acc[p] = text + hashtagSuffix(tags);
+                    return acc;
+                }, {} as Record<string, string>);
+            } else if (differentContentPerPlatform && platforms.some((p) => (contentByPlatform[p] ?? '').trim())) {
+                contentByPlatformFinal = platforms.reduce((acc, p) => {
+                    const v = (contentByPlatform[p] ?? '').trim() + hashtagSuffix(selectedHashtags);
+                    if (v.trim()) acc[p] = v;
+                    return acc;
+                }, {} as Record<string, string>);
+            }
+
             const payload: {
                 content: string;
                 contentByPlatform?: Record<string, string>;
@@ -127,17 +261,13 @@ export default function ComposerPage() {
                 targets: { platform: string; socialAccountId: string }[];
                 scheduledAt?: string;
             } = {
-                content,
+                content: contentFinal,
                 media: mediaList,
                 targets,
                 scheduledAt: scheduledAt || undefined,
             };
-            if (differentContentPerPlatform && platforms.some((p) => (contentByPlatform[p] ?? '').trim())) {
-                payload.contentByPlatform = platforms.reduce((acc, p) => {
-                    const v = (contentByPlatform[p] ?? '').trim();
-                    if (v) acc[p] = v;
-                    return acc;
-                }, {} as Record<string, string>);
+            if (contentByPlatformFinal && Object.keys(contentByPlatformFinal).length > 0) {
+                payload.contentByPlatform = contentByPlatformFinal;
             }
             if (differentMediaPerPlatform) {
                 payload.mediaByPlatform = platforms.reduce((acc, p) => {
@@ -247,22 +377,35 @@ export default function ComposerPage() {
                         </label>
                         {!differentMediaPerPlatform ? (
                             <>
-                                <div className="flex gap-2">
-                                    <input
-                                        type="text"
-                                        value={mediaUrl}
-                                        onChange={(e) => setMediaUrl(e.target.value)}
-                                        placeholder="Paste image or video URL..."
-                                        className="flex-1 p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                    />
-                                    <button type="button" onClick={handleAddMedia} className="p-3 btn-primary rounded-xl shrink-0">
-                                        <Plus size={20} />
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/*,video/*"
+                                    multiple
+                                    className="hidden"
+                                    onChange={handleFileSelect}
+                                />
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={mediaUploading}
+                                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+                                    >
+                                        <ImageIcon size={18} />
+                                        Add photo, video, reel or carousel from computer
                                     </button>
+                                    {mediaUploading && <span className="text-sm text-neutral-500">Uploading…</span>}
                                 </div>
+                                {mediaUploadError && <p className="text-sm text-red-600">{mediaUploadError}</p>}
                                 <div className="grid grid-cols-4 gap-3">
                                     {mediaList.map((m, i) => (
                                         <div key={i} className="relative group aspect-square rounded-xl overflow-hidden bg-neutral-100 border border-neutral-200">
-                                            <img src={m.fileUrl} alt="media" className="object-cover w-full h-full" />
+                                            {m.type === 'VIDEO' ? (
+                                                <video src={m.fileUrl} className="object-cover w-full h-full" muted playsInline />
+                                            ) : (
+                                                <img src={m.fileUrl} alt="media" className="object-cover w-full h-full" />
+                                            )}
                                             <button
                                                 type="button"
                                                 onClick={() => handleRemoveMedia(i)}
@@ -279,22 +422,34 @@ export default function ComposerPage() {
                                 {platforms.map((p) => (
                                     <div key={p} className="p-3 rounded-xl bg-neutral-50 border border-neutral-200 space-y-2">
                                         <p className="text-sm font-medium text-neutral-700">{PLATFORM_LABELS[p] || p}</p>
-                                        <div className="flex gap-2">
-                                            <input
-                                                type="text"
-                                                value={mediaUrlByPlatform[p] ?? ''}
-                                                onChange={(e) => setMediaUrlByPlatform((prev) => ({ ...prev, [p]: e.target.value }))}
-                                                placeholder="Image or video URL..."
-                                                className="flex-1 p-2 border border-neutral-200 rounded-lg text-sm"
-                                            />
-                                            <button type="button" onClick={() => handleAddMediaForPlatform(p)} className="p-2 btn-primary rounded-lg shrink-0">
-                                                <Plus size={18} />
+                                        <input
+                                            ref={(el) => { fileInputByPlatformRef.current[p] = el; }}
+                                            type="file"
+                                            accept="image/*,video/*"
+                                            multiple
+                                            className="hidden"
+                                            onChange={(ev) => handleFileSelectForPlatform(p, ev)}
+                                        />
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => fileInputByPlatformRef.current[p]?.click()}
+                                                disabled={mediaUploading}
+                                                className="inline-flex items-center gap-1.5 px-3 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                                            >
+                                                <Plus size={16} />
+                                                Add from computer
                                             </button>
+                                            {mediaUploading && <span className="text-xs text-neutral-500">Uploading…</span>}
                                         </div>
                                         <div className="flex flex-wrap gap-2">
                                             {(mediaByPlatform[p] || []).map((m, i) => (
-                                                <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden bg-neutral-200">
-                                                    <img src={m.fileUrl} alt="" className="w-full h-full object-cover" />
+                                                <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden bg-neutral-200 shrink-0">
+                                                    {m.type === 'VIDEO' ? (
+                                                        <video src={m.fileUrl} className="w-full h-full object-cover" muted playsInline />
+                                                    ) : (
+                                                        <img src={m.fileUrl} alt="" className="w-full h-full object-cover" />
+                                                    )}
                                                     <button type="button" onClick={() => handleRemoveMediaForPlatform(p, i)} className="absolute top-0.5 right-0.5 p-1 bg-red-500 text-white rounded text-xs">×</button>
                                                 </div>
                                             ))}
@@ -302,6 +457,7 @@ export default function ComposerPage() {
                                     </div>
                                 ))}
                                 {platforms.length === 0 && <p className="text-sm text-neutral-500">Select platforms above first.</p>}
+                                {mediaUploadError && <p className="text-sm text-red-600">{mediaUploadError}</p>}
                             </div>
                         )}
                     </div>
@@ -343,7 +499,88 @@ export default function ComposerPage() {
                     </div>
 
                     <div className="card space-y-4">
-                        <h3 className="font-semibold text-neutral-900">4. Schedule</h3>
+                        <h3 className="font-semibold text-neutral-900 flex items-center gap-2">
+                            <Hash size={20} className="text-neutral-500" />
+                            4. Hashtags
+                        </h3>
+                        <p className="text-sm text-neutral-500">Add hashtags to your pool, then choose up to 5 per post. They will be added after your content.</p>
+                        <div className="space-y-3">
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={newHashtagInput}
+                                    onChange={(e) => setNewHashtagInput(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addToHashtagPool())}
+                                    placeholder="e.g. travel or #travel"
+                                    className="flex-1 p-2.5 border border-neutral-200 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                />
+                                <button type="button" onClick={addToHashtagPool} className="px-4 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-lg text-sm font-medium transition-colors">
+                                    Add to pool
+                                </button>
+                            </div>
+                            {hashtagPool.length > 0 && (
+                                <div className="flex flex-wrap gap-2">
+                                    {hashtagPool.map((tag) => (
+                                        <span key={tag} className="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 bg-neutral-100 rounded-full text-sm text-neutral-700">
+                                            {tag}
+                                            <button type="button" onClick={() => removeFromHashtagPool(tag)} className="p-0.5 rounded-full hover:bg-neutral-200 text-neutral-500" aria-label={`Remove ${tag}`}>
+                                                <X size={14} />
+                                            </button>
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        {hashtagPool.length > 0 && (
+                            <>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" checked={differentHashtagsPerPlatform} onChange={(e) => setDifferentHashtagsPerPlatform(e.target.checked)} className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500" />
+                                    <span className="text-sm font-medium text-neutral-700">Use different hashtags per platform</span>
+                                </label>
+                                {!differentHashtagsPerPlatform ? (
+                                    <div className="space-y-2">
+                                        <p className="text-sm font-medium text-neutral-700">Select up to 5 for this post</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {hashtagPool.map((tag) => {
+                                                const selected = selectedHashtags.includes(tag);
+                                                return (
+                                                    <button key={tag} type="button" onClick={() => toggleSelectedHashtag(tag)} className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${selected ? 'bg-indigo-600 text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}>
+                                                        {tag}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                        {selectedHashtags.length > 0 && <p className="text-xs text-neutral-500">{selectedHashtags.length} selected (max 5)</p>}
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {platforms.map((p) => {
+                                            const list = selectedHashtagsByPlatform[p] ?? [];
+                                            return (
+                                                <div key={p} className="space-y-2">
+                                                    <p className="text-sm font-medium text-neutral-700">{PLATFORM_LABELS[p] || p} — up to 5</p>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {hashtagPool.map((tag) => {
+                                                            const selected = list.includes(tag);
+                                                            return (
+                                                                <button key={tag} type="button" onClick={() => toggleSelectedHashtagForPlatform(p, tag)} className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${selected ? 'bg-indigo-600 text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}>
+                                                                    {tag}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                    {list.length > 0 && <p className="text-xs text-neutral-500">{list.length} selected</p>}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
+
+                    <div className="card space-y-4">
+                        <h3 className="font-semibold text-neutral-900">5. Schedule</h3>
                         <div className="flex items-center gap-3">
                             <Calendar size={22} className="text-neutral-400 shrink-0" />
                             <input
@@ -374,14 +611,19 @@ export default function ComposerPage() {
                                 <p className="mt-3 text-sm font-medium">Select a platform to see preview</p>
                             </div>
                         ) : (
-                            platforms.map(p => (
-                                <PostPreview
-                                    key={p}
-                                    platform={p}
-                                    content={differentContentPerPlatform ? (contentByPlatform[p] ?? '') : content}
-                                    media={differentMediaPerPlatform ? (mediaByPlatform[p] ?? []) : mediaList}
-                                />
-                            ))
+                            platforms.map(p => {
+                                const baseContent = differentContentPerPlatform ? (contentByPlatform[p] ?? '') : content;
+                                const tags = differentHashtagsPerPlatform ? (selectedHashtagsByPlatform[p] ?? []) : selectedHashtags;
+                                const contentWithHashtags = baseContent.trim() + (tags.length ? ' ' + tags.join(' ') : '');
+                                return (
+                                    <PostPreview
+                                        key={p}
+                                        platform={p}
+                                        content={contentWithHashtags}
+                                        media={differentMediaPerPlatform ? (mediaByPlatform[p] ?? []) : mediaList}
+                                    />
+                                );
+                            })
                         )}
                     </div>
                 </div>
@@ -431,7 +673,11 @@ function PostPreview({ platform, content, media }: { platform: string; content: 
             </div>
             <div className="aspect-square bg-neutral-50 flex items-center justify-center overflow-hidden">
                 {media.length > 0 ? (
-                    <img src={media[0].fileUrl} alt="preview" className="w-full h-full object-cover" />
+                    media[0].type === 'VIDEO' ? (
+                        <video src={media[0].fileUrl} className="w-full h-full object-cover" muted playsInline />
+                    ) : (
+                        <img src={media[0].fileUrl} alt="preview" className="w-full h-full object-cover" />
+                    )
                 ) : (
                     <ImageIcon size={36} className="text-neutral-200" strokeWidth={1.5} />
                 )}
