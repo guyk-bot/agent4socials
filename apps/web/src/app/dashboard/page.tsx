@@ -161,12 +161,27 @@ export default function DashboardPage() {
     fetchData();
   }, [setCachedAccounts]);
 
+  const postsCacheRef = useRef<Record<string, Array<{ id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; impressions: number; interactions: number; publishedAt: string; mediaType?: string | null; platform: string }>>>({});
+
   useEffect(() => {
     if (selectedAccount?.id) {
       if (analyticsTab === 'posts') {
+        const cached = postsCacheRef.current[selectedAccount.id];
+        if (cached) {
+          setImportedPosts(cached);
+          setImportedPostsLoading(false);
+        } else {
+          setImportedPosts([]);
+          setImportedPostsLoading(true);
+        }
         api.get(`/social/accounts/${selectedAccount.id}/posts`)
-          .then((res) => setImportedPosts(res.data?.posts ?? []))
-          .catch(() => setImportedPosts([]));
+          .then((res) => {
+            const list = res.data?.posts ?? [];
+            postsCacheRef.current[selectedAccount.id] = list;
+            setImportedPosts(list);
+          })
+          .catch(() => setImportedPosts([]))
+          .finally(() => setImportedPostsLoading(false));
       }
       return;
     }
@@ -189,11 +204,6 @@ export default function DashboardPage() {
   const aggregatedCacheRef = useRef<{ key: string; data: { totalFollowers: number; totalImpressions: number; byPlatform: Record<string, { followers: number; impressions: number; timeSeries: Array<{ date: string; value: number }> }>; combinedTimeSeries: Array<{ date: string; value: number }> } } | null>(null);
 
   useEffect(() => {
-    setInsights(null);
-    if (!selectedAccount?.id) setAggregatedInsights(null);
-  }, [selectedAccount?.id]);
-
-  useEffect(() => {
     if (selectedAccount?.id) {
       setAggregatedInsights(null);
       const cacheKey = `${selectedAccount.id}-${dateRange.start}-${dateRange.end}`;
@@ -201,10 +211,23 @@ export default function DashboardPage() {
       if (cached && analyticsTab === 'account') {
         setInsights(cached);
         setInsightsLoading(false);
-      } else if (analyticsTab !== 'account' || !dateRange.start || !dateRange.end) return;
+      } else if (analyticsTab === 'account') {
+        setInsights(null);
+        setInsightsLoading(true);
+      }
+      if (analyticsTab !== 'account' || !dateRange.start || !dateRange.end) return;
       if (analyticsTab !== 'account') return;
-      if (!cached) setInsightsLoading(true);
-      setInsights(null);
+      if (cached && analyticsTab === 'account') {
+        api.get(`/social/accounts/${selectedAccount.id}/insights`, { params: { since: dateRange.start, until: dateRange.end } })
+          .then((res) => {
+            const data = res.data ?? null;
+            if (data) insightsCacheRef.current[cacheKey] = data;
+            setInsights(data);
+          })
+          .catch(() => {})
+          .finally(() => setInsightsLoading(false));
+        return;
+      }
       api.get(`/social/accounts/${selectedAccount.id}/insights`, { params: { since: dateRange.start, until: dateRange.end } })
         .then((res) => {
           const data = res.data ?? null;
@@ -215,7 +238,6 @@ export default function DashboardPage() {
         .finally(() => setInsightsLoading(false));
       return;
     }
-    setInsights(null);
     if (!hasAccounts || analyticsTab !== 'account' || !dateRange.start || !dateRange.end) {
       setAggregatedInsights(null);
       return;
@@ -231,6 +253,7 @@ export default function DashboardPage() {
       setAggregatedInsights(cachedAgg.data);
       setAggregatedLoading(false);
     } else {
+      setAggregatedInsights(null);
       setAggregatedLoading(true);
     }
     Promise.all(
@@ -525,7 +548,7 @@ export default function DashboardPage() {
               </div>
                 <p className="text-xs text-neutral-400 mt-1 px-1">{dateRange.start} – {dateRange.end}</p>
             </div>
-            {/* Page visits (FB) / Reach (IG) and Total content row */}
+            {/* Page visits, Reach, Total content */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:col-span-2">
               <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
                 <p className="text-xs font-medium text-neutral-500">Page visits</p>
@@ -540,6 +563,33 @@ export default function DashboardPage() {
                 <p className="text-xl font-bold text-neutral-900 mt-0.5">{importedPosts.length}</p>
               </div>
             </div>
+            {/* Derived: daily page views, daily posts, posts per week */}
+            {(() => {
+              const start = dateRange.start ? new Date(dateRange.start) : null;
+              const end = dateRange.end ? new Date(dateRange.end) : null;
+              const days = start && end ? Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000))) : 0;
+              const weeks = days ? days / 7 : 0;
+              return (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 lg:col-span-2">
+                  <div className="bg-neutral-50 border border-neutral-100 rounded-xl p-4 shadow-sm">
+                    <p className="text-xs font-medium text-neutral-500">Average daily new followers</p>
+                    <p className="text-lg font-semibold text-neutral-700 mt-0.5">—</p>
+                  </div>
+                  <div className="bg-neutral-50 border border-neutral-100 rounded-xl p-4 shadow-sm">
+                    <p className="text-xs font-medium text-neutral-500">Daily page views</p>
+                    <p className="text-lg font-semibold text-neutral-700 mt-0.5">{days ? (effectivePageVisits / days).toFixed(2) : '—'}</p>
+                  </div>
+                  <div className="bg-neutral-50 border border-neutral-100 rounded-xl p-4 shadow-sm">
+                    <p className="text-xs font-medium text-neutral-500">Daily posts</p>
+                    <p className="text-lg font-semibold text-neutral-700 mt-0.5">{days ? (importedPosts.length / days).toFixed(2) : '—'}</p>
+                  </div>
+                  <div className="bg-neutral-50 border border-neutral-100 rounded-xl p-4 shadow-sm">
+                    <p className="text-xs font-medium text-neutral-500">Posts per week</p>
+                    <p className="text-lg font-semibold text-neutral-700 mt-0.5">{weeks ? (importedPosts.length / weeks).toFixed(2) : '—'}</p>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
@@ -646,15 +696,24 @@ export default function DashboardPage() {
                           <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Content</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                             <span className="inline-flex items-center gap-1">
-                              Impressions
-                              <span title="Number of times this post was shown" className="text-neutral-400 cursor-help"><HelpCircle size={14} /></span>
-                              <button type="button" onClick={() => { setSortBy('impressions'); setSortDesc(!sortDesc); setPostsPage(1); }} className="p-0.5 rounded hover:bg-neutral-200" title="Sort by impressions"><ArrowUpDown size={14} /></button>
+                              Reach
+                              <button type="button" onClick={() => { setSortBy('impressions'); setSortDesc(!sortDesc); setPostsPage(1); }} className="p-0.5 rounded hover:bg-neutral-200" title="Sort"><ArrowUpDown size={14} /></button>
                             </span>
                           </th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                             <span className="inline-flex items-center gap-1">
+                              Views
+                              <span title="Number of times this post was shown" className="text-neutral-400 cursor-help"><HelpCircle size={14} /></span>
+                              <button type="button" onClick={() => { setSortBy('impressions'); setSortDesc(!sortDesc); setPostsPage(1); }} className="p-0.5 rounded hover:bg-neutral-200" title="Sort"><ArrowUpDown size={14} /></button>
+                            </span>
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Reactions</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Comments</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Shares</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                            <span className="inline-flex items-center gap-1">
                               Interactions
-                              <button type="button" onClick={() => { setSortBy('interactions'); setSortDesc(!sortDesc); setPostsPage(1); }} className="p-0.5 rounded hover:bg-neutral-200" title="Sort by interactions"><ArrowUpDown size={14} /></button>
+                              <button type="button" onClick={() => { setSortBy('interactions'); setSortDesc(!sortDesc); setPostsPage(1); }} className="p-0.5 rounded hover:bg-neutral-200" title="Sort"><ArrowUpDown size={14} /></button>
                             </span>
                           </th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Network</th>
@@ -689,6 +748,10 @@ export default function DashboardPage() {
                               </div>
                             </td>
                             <td className="px-4 py-3 text-sm text-neutral-600">{post.impressions}</td>
+                            <td className="px-4 py-3 text-sm text-neutral-600">{post.impressions}</td>
+                            <td className="px-4 py-3 text-sm text-neutral-500">{(post as { reactions?: number }).reactions ?? '—'}</td>
+                            <td className="px-4 py-3 text-sm text-neutral-500">{(post as { comments?: number }).comments ?? '—'}</td>
+                            <td className="px-4 py-3 text-sm text-neutral-500">{(post as { shares?: number }).shares ?? '—'}</td>
                             <td className="px-4 py-3 text-sm text-neutral-600">{post.interactions}</td>
                             <td className="px-4 py-3">{PLATFORM_ICON[post.platform]}</td>
                             <td className="px-4 py-3 text-sm text-neutral-600">{new Date(post.publishedAt).toLocaleString()}</td>

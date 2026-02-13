@@ -18,6 +18,7 @@ import {
     Linkedin,
     Gem,
     RefreshCw,
+    Trash2,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -73,6 +74,7 @@ export default function Sidebar() {
   const setSelectedPlatformForConnect = ctx?.setSelectedPlatformForConnect ?? (() => {});
   const clearSelection = ctx?.clearSelection ?? (() => {});
   const [reconnectingPlatform, setReconnectingPlatform] = React.useState<string | null>(null);
+  const [disconnectingId, setDisconnectingId] = React.useState<string | null>(null);
 
   useEffect(() => {
     if (cachedAccounts.length > 0) return;
@@ -191,6 +193,27 @@ export default function Sidebar() {
                       </div>
                       <span className="truncate flex-1 font-medium">{acc.username || PLATFORM_LABELS[platform]}</span>
                       {isSelected && <ChevronRight size={14} className="shrink-0 opacity-70" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        if (disconnectingId) return;
+                        if (!window.confirm(`Disconnect ${acc.username || PLATFORM_LABELS[platform]}? You can connect again anytime.`)) return;
+                        setDisconnectingId(acc.id);
+                        try {
+                          await api.delete(`/social/accounts/${acc.id}`);
+                          if (selectedAccountId === acc.id) clearSelection();
+                          const res = await api.get('/social/accounts');
+                          const data = Array.isArray(res.data) ? res.data : [];
+                          setCachedAccounts(data);
+                        } catch (_) {}
+                        setDisconnectingId(null);
+                      }}
+                      title="Disconnect account"
+                      className="p-2 rounded-lg hover:bg-red-50 text-neutral-400 hover:text-red-600 shrink-0"
+                    >
+                      {disconnectingId === acc.id ? <RefreshCw size={14} className="animate-spin" /> : <Trash2 size={14} />}
                     </button>
                     {canReconnect && (
                       <button
