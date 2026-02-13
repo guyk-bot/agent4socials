@@ -51,8 +51,27 @@ model SocialAccount {
   updatedAt       DateTime @updatedAt
 
   postTargets     PostTarget[]
+  importedPosts   ImportedPost[]
 
   @@unique([userId, platform, platformUserId])
+}
+
+model ImportedPost {
+  id               String   @id @default(cuid())
+  socialAccountId  String
+  socialAccount    SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  platformPostId  String
+  platform        Platform
+  content         String?
+  thumbnailUrl    String?
+  permalinkUrl   String?
+  impressions     Int      @default(0)
+  interactions    Int      @default(0)
+  publishedAt     DateTime
+  mediaType       String?  // IMAGE, VIDEO, etc.
+  syncedAt        DateTime @default(now())
+
+  @@unique([socialAccountId, platformPostId])
 }
 
 model PendingFacebookConnection {

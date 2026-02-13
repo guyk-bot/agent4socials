@@ -8,7 +8,7 @@ import { LayoutGrid, MessageCircle, PlusSquare, Calendar } from 'lucide-react';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
 
 const topNavItems = [
-  { icon: LayoutGrid, label: 'Analytics', href: '/dashboard/analytics' },
+  { icon: LayoutGrid, label: 'Analytics', href: '/dashboard' },
   { icon: MessageCircle, label: 'Inbox', href: '/dashboard/inbox' },
   { icon: PlusSquare, label: 'Composer', href: '/composer' },
   { icon: Calendar, label: 'Calendar', href: '/calendar' },

@@ -48,7 +48,7 @@ function InstagramSelectContent() {
         window.location.href = res.data.redirect;
         return;
       }
-      window.location.href = '/accounts';
+      window.location.href = '/dashboard';
     } catch {
       setError('Failed to connect. Try again.');
     } finally {
@@ -69,7 +69,7 @@ function InstagramSelectContent() {
     return (
       <div className="max-w-md mx-auto mt-16 card">
         <p className="text-neutral-700">{error ?? 'No Instagram accounts found.'}</p>
-        <Link href="/accounts" className="mt-4 inline-block btn-primary">
+        <Link href="/dashboard" className="mt-4 inline-block btn-primary">
           Back to Accounts
         </Link>
       </div>
@@ -112,7 +112,7 @@ function InstagramSelectContent() {
         </div>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="flex gap-3 pt-2">
-          <Link href="/accounts" className="flex-1 text-center py-2 rounded-lg border border-neutral-300 text-neutral-700 hover:bg-neutral-50">
+          <Link href="/dashboard" className="flex-1 text-center py-2 rounded-lg border border-neutral-300 text-neutral-700 hover:bg-neutral-50">
             Cancel
           </Link>
           <button type="submit" disabled={!selectedId || submitting} className="flex-1 btn-primary py-2 disabled:opacity-50">

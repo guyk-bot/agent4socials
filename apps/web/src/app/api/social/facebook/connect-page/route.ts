@@ -3,7 +3,7 @@ import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import axios from 'axios';
 
-type PageItem = { id: string; name?: string; picture?: string };
+type PageItem = { id: string; name?: string; picture?: string; instagram_business_account_id?: string };
 
 export async function POST(request: NextRequest) {
   if (!process.env.DATABASE_URL) {
@@ -85,6 +85,47 @@ export async function POST(request: NextRequest) {
       status: 'connected',
     },
   });
+  // Auto-connect linked Instagram if this Page has an Instagram Business account
+  const igAccountId = page.instagram_business_account_id;
+  if (igAccountId) {
+    let igUsername = 'Instagram';
+    let igPicture: string | null = null;
+    try {
+      const igRes = await axios.get<{ username?: string; profile_picture_url?: string }>(
+        `https://graph.facebook.com/v18.0/${igAccountId}`,
+        { params: { fields: 'username,profile_picture_url', access_token: pending.accessToken } }
+      );
+      if (igRes.data?.username) igUsername = igRes.data.username;
+      if (igRes.data?.profile_picture_url) igPicture = igRes.data.profile_picture_url;
+    } catch (_) {}
+    await prisma.socialAccount.upsert({
+      where: {
+        userId_platform_platformUserId: {
+          userId,
+          platform: 'INSTAGRAM',
+          platformUserId: igAccountId,
+        },
+      },
+      update: {
+        accessToken: pending.accessToken,
+        username: igUsername,
+        profilePicture: igPicture,
+        expiresAt,
+        status: 'connected',
+      },
+      create: {
+        userId,
+        platform: 'INSTAGRAM',
+        platformUserId: igAccountId,
+        username: igUsername,
+        profilePicture: igPicture,
+        accessToken: pending.accessToken,
+        refreshToken: null,
+        expiresAt,
+        status: 'connected',
+      },
+    });
+  }
   await prisma.pendingFacebookConnection.delete({ where: { id: pendingId } }).catch(() => {});
-  return NextResponse.json({ ok: true, redirect: '/accounts' });
+  return NextResponse.json({ ok: true, redirect: '/dashboard' });
 }

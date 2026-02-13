@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 
-type AccountItem = { id: string; username?: string; profilePicture?: string };
+type AccountItem = { id: string; username?: string; profilePicture?: string; pageId?: string; pageName?: string; pagePicture?: string };
 
 export async function POST(request: NextRequest) {
   if (!process.env.DATABASE_URL) {
@@ -65,6 +65,36 @@ export async function POST(request: NextRequest) {
       status: 'connected',
     },
   });
+  // Auto-connect linked Facebook Page when this IG was connected via Facebook and we have page info
+  if (account.pageId) {
+    await prisma.socialAccount.upsert({
+      where: {
+        userId_platform_platformUserId: {
+          userId,
+          platform: 'FACEBOOK',
+          platformUserId: account.pageId,
+        },
+      },
+      update: {
+        accessToken: pending.accessToken,
+        username: account.pageName ?? 'Facebook Page',
+        profilePicture: account.pagePicture ?? null,
+        expiresAt,
+        status: 'connected',
+      },
+      create: {
+        userId,
+        platform: 'FACEBOOK',
+        platformUserId: account.pageId,
+        username: account.pageName ?? 'Facebook Page',
+        profilePicture: account.pagePicture ?? null,
+        accessToken: pending.accessToken,
+        refreshToken: null,
+        expiresAt,
+        status: 'connected',
+      },
+    });
+  }
   await prisma.pendingInstagramConnection.delete({ where: { id: pendingId } }).catch(() => {});
-  return NextResponse.json({ ok: true, redirect: '/accounts' });
+  return NextResponse.json({ ok: true, redirect: '/dashboard' });
 }

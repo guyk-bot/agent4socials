@@ -3,7 +3,7 @@
 import React, { useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
     LayoutGrid,
     History,
@@ -15,6 +15,7 @@ import {
     Youtube,
     Facebook,
     Linkedin,
+    Gem,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -22,6 +23,15 @@ import { useWhiteLabel } from '@/context/WhiteLabelContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import type { SocialAccount } from '@/context/SelectedAccountContext';
+
+const PLATFORM_LABELS: Record<string, string> = {
+  INSTAGRAM: 'Instagram',
+  FACEBOOK: 'Facebook',
+  TIKTOK: 'TikTok',
+  YOUTUBE: 'YouTube',
+  TWITTER: 'X (Twitter)',
+  LINKEDIN: 'LinkedIn',
+};
 
 function TikTokIcon({ size = 20 }: { size?: number }) {
   return (
@@ -50,10 +60,16 @@ const PLATFORM_ORDER = ['INSTAGRAM', 'FACEBOOK', 'TIKTOK', 'YOUTUBE', 'TWITTER',
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, logout } = useAuth();
   const { logoUrl, primaryColor, textColor, appName } = useWhiteLabel();
   const { cachedAccounts, setCachedAccounts } = useAccountsCache() ?? { cachedAccounts: [], setCachedAccounts: () => {} };
-  const { selectedAccountId, setSelectedAccount } = useSelectedAccount() ?? { selectedAccountId: null, setSelectedAccount: () => {} };
+  const ctx = useSelectedAccount();
+  const selectedAccountId = ctx?.selectedAccountId ?? null;
+  const selectedPlatformForConnect = ctx?.selectedPlatformForConnect ?? null;
+  const setSelectedAccount = ctx?.setSelectedAccount ?? (() => {});
+  const setSelectedPlatformForConnect = ctx?.setSelectedPlatformForConnect ?? (() => {});
+  const clearSelection = ctx?.clearSelection ?? (() => {});
 
   useEffect(() => {
     if (cachedAccounts.length > 0) return;
@@ -71,6 +87,12 @@ export default function Sidebar() {
   const accent = primaryColor || '#6366f1';
   const text = textColor || '#171717';
   const isAccountPage = pathname === '/dashboard/account';
+  const isDashboardOverview = pathname === '/dashboard' && !selectedAccountId && !selectedPlatformForConnect;
+
+  const handleDashboardClick = (e: React.MouseEvent) => {
+    clearSelection();
+    router.push('/dashboard');
+  };
 
   return (
     <div
@@ -79,21 +101,60 @@ export default function Sidebar() {
     >
       <div className="p-3">
         <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-neutral-500">Summary</p>
-        <Link
-          href="/dashboard"
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${pathname === '/dashboard' ? 'bg-white shadow-sm' : 'hover:bg-white/70'}`}
-          style={pathname === '/dashboard' ? { color: accent } : undefined}
+        <button
+          type="button"
+          onClick={handleDashboardClick}
+          className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isDashboardOverview ? 'bg-white shadow-sm' : 'hover:bg-white/70'}`}
+          style={isDashboardOverview ? { color: accent } : undefined}
         >
           <LayoutGrid size={18} className="shrink-0" />
           Dashboard
           <ChevronRight size={14} className="ml-auto opacity-50" />
-        </Link>
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 space-y-1">
         {PLATFORM_ORDER.map((platform) => {
           const accounts = accountsByPlatform[platform] ?? [];
-          if (accounts.length === 0) return null;
+          const isPlatformSelected = selectedPlatformForConnect === platform;
+
+          if (platform === 'LINKEDIN') {
+            return (
+              <div key={platform} className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-amber-50/80 border border-amber-100">
+                <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center shrink-0">
+                  {PLATFORM_ICON[platform]}
+                </div>
+                <span className="truncate flex-1 font-medium text-neutral-600">{PLATFORM_LABELS[platform]}</span>
+                <Gem size={16} className="text-amber-500 shrink-0" title="Coming soon" />
+              </div>
+            );
+          }
+
+          if (accounts.length === 0) {
+            return (
+              <button
+                key={platform}
+                type="button"
+                onClick={() => {
+                  setSelectedPlatformForConnect(platform);
+                  router.push('/dashboard');
+                }}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors ${
+                  isPlatformSelected ? 'bg-white shadow-sm ring-1 ring-neutral-200' : 'hover:bg-white/70'
+                }`}
+                style={isPlatformSelected ? { color: accent } : undefined}
+              >
+                <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center shrink-0">
+                  {PLATFORM_ICON[platform]}
+                </div>
+                <span className="truncate flex-1 font-medium">{PLATFORM_LABELS[platform]}</span>
+                <div className="w-8 h-8 rounded-full bg-neutral-300 flex items-center justify-center shrink-0">
+                  <Plus size={14} className="text-white" />
+                </div>
+              </button>
+            );
+          }
+
           return (
             <div key={platform} className="space-y-0.5">
               {accounts.map((acc) => {
@@ -102,7 +163,10 @@ export default function Sidebar() {
                   <button
                     key={acc.id}
                     type="button"
-                    onClick={() => setSelectedAccount(acc)}
+                    onClick={() => {
+                      setSelectedAccount(acc);
+                      router.push('/dashboard');
+                    }}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors ${
                       isSelected ? 'bg-white shadow-sm ring-1 ring-neutral-200' : 'hover:bg-white/70'
                     }`}
@@ -115,7 +179,7 @@ export default function Sidebar() {
                         PLATFORM_ICON[platform] ?? <span className="font-bold text-xs">?</span>
                       )}
                     </div>
-                    <span className="truncate flex-1 font-medium">{acc.username || platform}</span>
+                    <span className="truncate flex-1 font-medium">{acc.username || PLATFORM_LABELS[platform]}</span>
                     {isSelected && <ChevronRight size={14} className="shrink-0 opacity-70" />}
                   </button>
                 );
@@ -126,14 +190,14 @@ export default function Sidebar() {
       </div>
 
       <div className="p-3 space-y-1 border-t border-neutral-200">
-        <Link
-          href="/accounts"
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${pathname === '/accounts' ? 'bg-white shadow-sm' : 'hover:bg-white/70'}`}
-          style={pathname === '/accounts' ? { color: accent } : undefined}
+        <button
+          type="button"
+          onClick={handleDashboardClick}
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium hover:bg-white/70"
         >
           <Plus size={18} className="shrink-0" />
           <span>More connections</span>
-        </Link>
+        </button>
         <Link
           href="/posts"
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${pathname === '/posts' ? 'bg-white shadow-sm' : 'hover:bg-white/70'}`}

@@ -6,11 +6,11 @@ import axios from 'axios';
 const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN'] as const;
 
 function oauthErrorHtml(baseUrl: string, message: string, status: number): NextResponse {
-  const accountsUrl = `${baseUrl.replace(/\/+$/, '')}/accounts`;
+  const dashboardUrl = `${baseUrl.replace(/\/+$/, '')}/dashboard`;
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Connection failed</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;">
 <h2 style="color:#b91c1c;">Connection failed</h2>
 <p>${message.replace(/</g, '&lt;')}</p>
-<p><a href="${accountsUrl}">Back to Accounts</a></p>
+<p><a href="${dashboardUrl}">Back to Dashboard</a></p>
 <script>
 if (window.opener) { try { window.close(); } catch (e) {} }
 </script>
@@ -26,9 +26,13 @@ type TokenResult = {
   username: string;
   profilePicture?: string | null;
   /** When multiple Facebook Pages, list for user to pick one */
-  pages?: Array<{ id: string; name?: string; picture?: string }>;
+  pages?: Array<{ id: string; name?: string; picture?: string; instagram_business_account_id?: string }>;
   /** When multiple Instagram Business accounts (via Facebook), list for user to pick one */
-  instagramAccounts?: Array<{ id: string; username?: string; profilePicture?: string }>;
+  instagramAccounts?: Array<{ id: string; username?: string; profilePicture?: string; pageId?: string; pageName?: string; pagePicture?: string }>;
+  /** When connecting Instagram via Facebook: the linked Page to also create as FACEBOOK */
+  linkedPage?: { id: string; name: string; picture: string | null };
+  /** When connecting Facebook: the linked Instagram Business account to also create as INSTAGRAM */
+  linkedInstagram?: { id: string; username?: string; profilePicture?: string };
 };
 
 async function exchangeCodeInstagramLogin(code: string, callbackUrl: string): Promise<TokenResult> {
@@ -128,16 +132,26 @@ async function exchangeCode(
       let username = 'Instagram';
       let profilePicture: string | null = null;
       let platformUserId = 'instagram-' + (accessToken?.slice(-8) || 'id');
-      const instagramAccounts: Array<{ id: string; username?: string; profilePicture?: string }> = [];
+      const instagramAccounts: Array<{ id: string; username?: string; profilePicture?: string; pageId?: string; pageName?: string; pagePicture?: string }> = [];
+      let linkedPage: { id: string; name: string; picture: string | null } | undefined;
       try {
-        const pagesRes = await axios.get<{ data?: Array<{ id: string; instagram_business_account?: { id: string } }> }>(
+        const pagesRes = await axios.get<{
+          data?: Array<{
+            id: string;
+            name?: string;
+            picture?: { data?: { url?: string } };
+            instagram_business_account?: { id: string };
+          }>;
+        }>(
           'https://graph.facebook.com/v18.0/me/accounts',
-          { params: { fields: 'id,instagram_business_account', access_token: accessToken } }
+          { params: { fields: 'id,name,picture,instagram_business_account', access_token: accessToken } }
         );
         const pages = pagesRes.data?.data || [];
         for (const page of pages) {
           const igAccountId = page.instagram_business_account?.id;
           if (!igAccountId) continue;
+          const pagePicture = page.picture?.data?.url ?? undefined;
+          const pageName = page.name ?? 'Facebook Page';
           let igUsername: string | undefined;
           let igPicture: string | undefined;
           try {
@@ -154,12 +168,16 @@ async function exchangeCode(
             id: igAccountId,
             username: igUsername,
             profilePicture: igPicture,
+            pageId: page.id,
+            pageName,
+            pagePicture,
           });
           // use first account for single-account path; save real id and picture even if username missing
           if (instagramAccounts.length === 1) {
             platformUserId = igAccountId;
             username = igUsername ?? 'Instagram';
             profilePicture = igPicture ?? null;
+            linkedPage = { id: page.id, name: pageName, picture: pagePicture ?? null };
           }
         }
       } catch (e) {
@@ -173,6 +191,7 @@ async function exchangeCode(
         username,
         profilePicture,
       };
+      if (linkedPage) result.linkedPage = linkedPage;
       if (instagramAccounts.length > 1) {
         result.instagramAccounts = instagramAccounts;
       }
@@ -223,11 +242,21 @@ async function exchangeCode(
       let username = 'Facebook Page';
       let profilePicture: string | null = null;
       let pageId: string | null = null;
-      const pagesForSelect: Array<{ id: string; name?: string; picture?: string }> = [];
+      let linkedInstagram: { id: string; username?: string; profilePicture?: string } | undefined;
+      const pagesForSelect: Array<{ id: string; name?: string; picture?: string; instagram_business_account_id?: string }> = [];
       try {
-        const pagesRes = await axios.get<{ data?: Array<{ id: string; name?: string; picture?: { data?: { url?: string } }; access_token?: string }>; error?: { message?: string } }>(
+        const pagesRes = await axios.get<{
+          data?: Array<{
+            id: string;
+            name?: string;
+            picture?: { data?: { url?: string } };
+            access_token?: string;
+            instagram_business_account?: { id: string };
+          }>;
+          error?: { message?: string };
+        }>(
           'https://graph.facebook.com/v18.0/me/accounts',
-          { params: { fields: 'id,name,picture,access_token', access_token: accessToken } }
+          { params: { fields: 'id,name,picture,access_token,instagram_business_account', access_token: accessToken } }
         );
         const pages = pagesRes.data?.data || [];
         if (pagesRes.data?.error) {
@@ -238,7 +267,8 @@ async function exchangeCode(
         }
         for (const p of pages) {
           const picUrl = p.picture?.data?.url;
-          if (p?.id) pagesForSelect.push({ id: p.id, name: p.name ?? undefined, picture: picUrl });
+          const igId = p.instagram_business_account?.id;
+          if (p?.id) pagesForSelect.push({ id: p.id, name: p.name ?? undefined, picture: picUrl, instagram_business_account_id: igId });
         }
         const page = pages[0];
         if (page?.id) {
@@ -256,6 +286,20 @@ async function exchangeCode(
               if (pageRes.data?.picture?.data?.url) profilePicture = pageRes.data.picture.data.url;
             } catch (_) {}
           }
+          const igAccountId = page.instagram_business_account?.id;
+          if (igAccountId) {
+            try {
+              const igRes = await axios.get<{ username?: string; profile_picture_url?: string }>(
+                `https://graph.facebook.com/v18.0/${igAccountId}`,
+                { params: { fields: 'username,profile_picture_url', access_token: accessToken } }
+              );
+              linkedInstagram = {
+                id: igAccountId,
+                username: igRes.data?.username,
+                profilePicture: igRes.data?.profile_picture_url,
+              };
+            } catch (_) {}
+          }
         }
       } catch (e) {
         console.warn('[Social OAuth] Facebook me/accounts request failed:', (e as { response?: { data?: unknown } })?.response?.data ?? (e as Error)?.message);
@@ -269,6 +313,7 @@ async function exchangeCode(
         username,
         profilePicture,
         pages: pagesForSelect.length > 0 ? pagesForSelect : undefined,
+        linkedInstagram,
       };
     }
     case 'TWITTER': {
@@ -424,47 +469,108 @@ export async function GET(
   const profilePicture = tokenData.profilePicture ?? undefined;
   try {
     await prisma.socialAccount.upsert({
-    where: {
-      userId_platform_platformUserId: {
+      where: {
+        userId_platform_platformUserId: {
+          userId,
+          platform: plat,
+          platformUserId: tokenData.platformUserId,
+        },
+      },
+      update: {
+        accessToken: tokenData.accessToken,
+        refreshToken: tokenData.refreshToken,
+        expiresAt: tokenData.expiresAt,
+        username: tokenData.username,
+        ...(profilePicture !== undefined && { profilePicture }),
+        status: 'connected',
+      },
+      create: {
         userId,
         platform: plat,
         platformUserId: tokenData.platformUserId,
+        username: tokenData.username,
+        ...(profilePicture !== undefined && { profilePicture }),
+        accessToken: tokenData.accessToken,
+        refreshToken: tokenData.refreshToken,
+        expiresAt: tokenData.expiresAt,
+        status: 'connected',
       },
-    },
-    update: {
-      accessToken: tokenData.accessToken,
-      refreshToken: tokenData.refreshToken,
-      expiresAt: tokenData.expiresAt,
-      username: tokenData.username,
-      ...(profilePicture !== undefined && { profilePicture }),
-      status: 'connected',
-    },
-    create: {
-      userId,
-      platform: plat,
-      platformUserId: tokenData.platformUserId,
-      username: tokenData.username,
-      ...(profilePicture !== undefined && { profilePicture }),
-      accessToken: tokenData.accessToken,
-      refreshToken: tokenData.refreshToken,
-      expiresAt: tokenData.expiresAt,
-      status: 'connected',
-    },
-  });
+    });
+    // Auto-connect linked account: Instagram via Facebook → also create Facebook Page; Facebook → also create linked Instagram
+    if (plat === 'INSTAGRAM' && tokenData.linkedPage) {
+      await prisma.socialAccount.upsert({
+        where: {
+          userId_platform_platformUserId: {
+            userId,
+            platform: 'FACEBOOK',
+            platformUserId: tokenData.linkedPage.id,
+          },
+        },
+        update: {
+          accessToken: tokenData.accessToken,
+          refreshToken: tokenData.refreshToken,
+          expiresAt: tokenData.expiresAt,
+          username: tokenData.linkedPage.name,
+          profilePicture: tokenData.linkedPage.picture,
+          status: 'connected',
+        },
+        create: {
+          userId,
+          platform: 'FACEBOOK',
+          platformUserId: tokenData.linkedPage.id,
+          username: tokenData.linkedPage.name,
+          profilePicture: tokenData.linkedPage.picture,
+          accessToken: tokenData.accessToken,
+          refreshToken: tokenData.refreshToken,
+          expiresAt: tokenData.expiresAt,
+          status: 'connected',
+        },
+      });
+    }
+    if (plat === 'FACEBOOK' && tokenData.linkedInstagram) {
+      await prisma.socialAccount.upsert({
+        where: {
+          userId_platform_platformUserId: {
+            userId,
+            platform: 'INSTAGRAM',
+            platformUserId: tokenData.linkedInstagram.id,
+          },
+        },
+        update: {
+          accessToken: tokenData.accessToken,
+          refreshToken: tokenData.refreshToken,
+          expiresAt: tokenData.expiresAt,
+          username: tokenData.linkedInstagram.username ?? 'Instagram',
+          profilePicture: tokenData.linkedInstagram.profilePicture ?? null,
+          status: 'connected',
+        },
+        create: {
+          userId,
+          platform: 'INSTAGRAM',
+          platformUserId: tokenData.linkedInstagram.id,
+          username: tokenData.linkedInstagram.username ?? 'Instagram',
+          profilePicture: tokenData.linkedInstagram.profilePicture ?? null,
+          accessToken: tokenData.accessToken,
+          refreshToken: tokenData.refreshToken,
+          expiresAt: tokenData.expiresAt,
+          status: 'connected',
+        },
+      });
+    }
   } catch (e) {
     console.error('[Social OAuth] upsert error:', e);
     return oauthErrorHtml(baseUrl, 'Could not save account. Check database connection and schema.', 500);
   }
 
-  const accountsUrl = `${baseUrl}/accounts`;
+  const dashboardUrl = `${baseUrl}/dashboard`;
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><p>Account connected.</p><script>
 (function(){
   if (window.opener) {
     try { window.close(); } catch (e) {}
   } else {
-    window.location.href = ${JSON.stringify(accountsUrl)};
+    window.location.href = ${JSON.stringify(dashboardUrl)};
   }
 })();
-</script><p>Redirecting to <a href="${accountsUrl}">Accounts</a>…</p></body></html>`;
+</script><p>Redirecting to <a href="${dashboardUrl}">Dashboard</a>…</p></body></html>`;
   return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
 }

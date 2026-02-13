@@ -21,10 +21,10 @@ export default function InboxPage() {
           We&apos;re building a unified inbox for Instagram, Facebook, TikTok, X (Twitter), and LinkedIn. Connect your accounts from the Accounts page to be ready.
         </p>
         <Link
-          href="/accounts"
+          href="/dashboard"
           className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800 transition-colors"
         >
-          Go to Accounts
+          Go to Dashboard
         </Link>
       </div>
 
