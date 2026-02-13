@@ -8,7 +8,6 @@ import {
     Instagram,
     Youtube,
     Facebook,
-    Twitter,
     Linkedin,
     Send,
     Calendar,
@@ -18,6 +17,22 @@ import {
     Plus
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+
+function TikTokIcon({ size = 20, className = '' }: { size?: number; className?: string }) {
+    return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
+            <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+        </svg>
+    );
+}
+
+function XTwitterIcon({ size = 20, className = '' }: { size?: number; className?: string }) {
+    return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
+            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+        </svg>
+    );
+}
 
 export default function ComposerPage() {
     const router = useRouter();
@@ -97,48 +112,54 @@ export default function ComposerPage() {
                 confirmLabel="OK"
             />
             <div>
-                <h1 className="text-2xl font-bold text-gray-900">Create Post</h1>
-                <p className="text-gray-500">Draft, preview and schedule your content across platforms.</p>
+                <h1 className="text-2xl font-bold text-neutral-900">Create Post</h1>
+                <p className="text-neutral-500 mt-1">Draft, preview and schedule your content across platforms.</p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div className="card space-y-4">
-                        <h3 className="font-semibold text-gray-900">1. Select Platforms</h3>
-                        <div className="flex space-x-4">
+                        <h3 className="font-semibold text-neutral-900">1. Select Platforms</h3>
+                        <div className="flex flex-wrap gap-3">
                             <PlatformToggle
                                 platform="INSTAGRAM"
-                                icon={<Instagram size={20} />}
+                                label="Instagram"
+                                icon={<Instagram size={22} className="text-pink-600" />}
                                 active={platforms.includes('INSTAGRAM')}
                                 onClick={() => setPlatforms(prev => prev.includes('INSTAGRAM') ? prev.filter(p => p !== 'INSTAGRAM') : [...prev, 'INSTAGRAM'])}
                             />
                             <PlatformToggle
                                 platform="TIKTOK"
-                                icon={<div className="font-bold text-xs">TT</div>}
+                                label="TikTok"
+                                icon={<TikTokIcon size={22} className="text-neutral-900" />}
                                 active={platforms.includes('TIKTOK')}
                                 onClick={() => setPlatforms(prev => prev.includes('TIKTOK') ? prev.filter(p => p !== 'TIKTOK') : [...prev, 'TIKTOK'])}
                             />
                             <PlatformToggle
                                 platform="YOUTUBE"
-                                icon={<Youtube size={20} />}
+                                label="YouTube"
+                                icon={<Youtube size={22} className="text-red-600" />}
                                 active={platforms.includes('YOUTUBE')}
                                 onClick={() => setPlatforms(prev => prev.includes('YOUTUBE') ? prev.filter(p => p !== 'YOUTUBE') : [...prev, 'YOUTUBE'])}
                             />
                             <PlatformToggle
                                 platform="FACEBOOK"
-                                icon={<Facebook size={20} />}
+                                label="Facebook"
+                                icon={<Facebook size={22} className="text-blue-600" />}
                                 active={platforms.includes('FACEBOOK')}
                                 onClick={() => setPlatforms(prev => prev.includes('FACEBOOK') ? prev.filter(p => p !== 'FACEBOOK') : [...prev, 'FACEBOOK'])}
                             />
                             <PlatformToggle
                                 platform="TWITTER"
-                                icon={<Twitter size={20} />}
+                                label="X"
+                                icon={<XTwitterIcon size={22} className="text-neutral-900" />}
                                 active={platforms.includes('TWITTER')}
                                 onClick={() => setPlatforms(prev => prev.includes('TWITTER') ? prev.filter(p => p !== 'TWITTER') : [...prev, 'TWITTER'])}
                             />
                             <PlatformToggle
                                 platform="LINKEDIN"
-                                icon={<Linkedin size={20} />}
+                                label="LinkedIn"
+                                icon={<Linkedin size={22} className="text-blue-700" />}
                                 active={platforms.includes('LINKEDIN')}
                                 onClick={() => setPlatforms(prev => prev.includes('LINKEDIN') ? prev.filter(p => p !== 'LINKEDIN') : [...prev, 'LINKEDIN'])}
                             />
@@ -146,40 +167,40 @@ export default function ComposerPage() {
                     </div>
 
                     <div className="card space-y-4">
-                        <h3 className="font-semibold text-gray-900">2. Content</h3>
+                        <h3 className="font-semibold text-neutral-900">2. Content</h3>
                         <textarea
                             value={content}
                             onChange={(e) => setContent(e.target.value)}
                             placeholder="What's on your mind?..."
-                            className="w-full h-32 p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                            className="w-full h-32 p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         />
                     </div>
 
                     <div className="card space-y-4">
-                        <h3 className="font-semibold text-gray-900">3. Media</h3>
-                        <div className="flex space-x-2">
+                        <h3 className="font-semibold text-neutral-900">3. Media</h3>
+                        <div className="flex gap-2">
                             <input
                                 type="text"
                                 value={mediaUrl}
                                 onChange={(e) => setMediaUrl(e.target.value)}
                                 placeholder="Paste image or video URL..."
-                                className="flex-1 p-2 border border-gray-300 rounded-lg sm:text-sm"
+                                className="flex-1 p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                             />
-                            <button type="button" onClick={handleAddMedia} className="p-2 bg-indigo-600 text-white rounded-lg">
+                            <button type="button" onClick={handleAddMedia} className="p-3 btn-primary rounded-xl shrink-0">
                                 <Plus size={20} />
                             </button>
                         </div>
 
-                        <div className="grid grid-cols-4 gap-2">
+                        <div className="grid grid-cols-4 gap-3">
                             {mediaList.map((m, i) => (
-                                <div key={i} className="relative group aspect-square rounded-lg overflow-hidden bg-gray-100">
+                                <div key={i} className="relative group aspect-square rounded-xl overflow-hidden bg-neutral-100 border border-neutral-200">
                                     <img src={m.fileUrl} alt="media" className="object-cover w-full h-full" />
                                     <button
                                         type="button"
                                         onClick={() => handleRemoveMedia(i)}
-                                        className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                        className="absolute top-1.5 right-1.5 p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow"
                                     >
-                                        <X size={12} />
+                                        <X size={14} />
                                     </button>
                                 </div>
                             ))}
@@ -187,14 +208,14 @@ export default function ComposerPage() {
                     </div>
 
                     <div className="card space-y-4">
-                        <h3 className="font-semibold text-gray-900">4. Schedule</h3>
-                        <div className="flex items-center space-x-3">
-                            <Calendar size={20} className="text-gray-400" />
+                        <h3 className="font-semibold text-neutral-900">4. Schedule</h3>
+                        <div className="flex items-center gap-3">
+                            <Calendar size={22} className="text-neutral-400 shrink-0" />
                             <input
                                 type="datetime-local"
                                 value={scheduledAt}
                                 onChange={(e) => setScheduledAt(e.target.value)}
-                                className="flex-1 p-2 border border-gray-300 rounded-lg sm:text-sm"
+                                className="flex-1 p-3 border border-neutral-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                             />
                         </div>
                     </div>
@@ -202,7 +223,7 @@ export default function ComposerPage() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full btn-primary flex items-center justify-center space-x-2 py-3"
+                        className="w-full btn-primary flex items-center justify-center gap-2 py-3.5 rounded-xl text-base font-medium"
                     >
                         <Send size={20} />
                         <span>{scheduledAt ? 'Schedule Post' : 'Post Now'}</span>
@@ -210,12 +231,12 @@ export default function ComposerPage() {
                 </form>
 
                 <div className="hidden lg:block space-y-6">
-                    <h2 className="text-xl font-semibold text-gray-900">Preview</h2>
-                    <div className="sticky top-8 space-y-8">
+                    <h2 className="text-xl font-semibold text-neutral-900">Preview</h2>
+                    <div className="sticky top-8 space-y-6">
                         {platforms.length === 0 ? (
-                            <div className="card bg-gray-50 border-dashed border-2 flex flex-col items-center justify-center py-20 text-gray-400">
-                                <ImageIcon size={48} strokeWidth={1} />
-                                <p className="mt-4">Select a platform to see preview</p>
+                            <div className="card border-2 border-dashed border-neutral-200 bg-neutral-50/50 flex flex-col items-center justify-center py-16 text-neutral-400">
+                                <ImageIcon size={40} strokeWidth={1.5} className="text-neutral-300" />
+                                <p className="mt-3 text-sm font-medium">Select a platform to see preview</p>
                             </div>
                         ) : (
                             platforms.map(p => (
@@ -229,49 +250,54 @@ export default function ComposerPage() {
     );
 }
 
-function PlatformToggle({ platform, icon, active, onClick }: any) {
+function PlatformToggle({ platform, label, icon, active, onClick }: { platform: string; label: string; icon: React.ReactNode; active: boolean; onClick: () => void }) {
     return (
         <button
             type="button"
             onClick={onClick}
-            className={`p-4 rounded-xl border-2 flex flex-col items-center justify-center space-y-2 transition-all ${active
-                    ? 'border-indigo-600 bg-indigo-50 text-indigo-600'
-                    : 'border-gray-200 bg-white text-gray-400 hover:border-gray-300'
+            className={`min-w-[4.5rem] p-4 rounded-xl border-2 flex flex-col items-center justify-center gap-2 transition-all duration-200 ${active
+                    ? 'border-indigo-600 bg-indigo-50 text-indigo-600 shadow-sm'
+                    : 'border-neutral-200 bg-white text-neutral-500 hover:border-neutral-300 hover:bg-neutral-50'
                 }`}
         >
-            {icon}
-            <span className="text-[10px] font-bold">{platform}</span>
+            <span className="flex items-center justify-center w-8 h-8 shrink-0">{icon}</span>
+            <span className="text-xs font-semibold uppercase tracking-wide">{label}</span>
         </button>
     );
 }
 
-function PostPreview({ platform, content, media }: any) {
+function PostPreview({ platform, content, media }: { platform: string; content: string; media: { fileUrl: string; type: string }[] }) {
+    const PlatformIcon = () => {
+        switch (platform) {
+            case 'INSTAGRAM': return <Instagram size={22} className="text-pink-600" />;
+            case 'YOUTUBE': return <Youtube size={22} className="text-red-600" />;
+            case 'TIKTOK': return <TikTokIcon size={22} className="text-neutral-800" />;
+            case 'FACEBOOK': return <Facebook size={22} className="text-blue-600" />;
+            case 'TWITTER': return <XTwitterIcon size={22} className="text-neutral-800" />;
+            case 'LINKEDIN': return <Linkedin size={22} className="text-blue-700" />;
+            default: return <Video size={22} className="text-neutral-500" />;
+        }
+    };
     return (
-        <div className="card overflow-hidden !p-0 max-w-sm mx-auto shadow-xl">
-            <div className="p-3 border-b border-gray-100 flex items-center space-x-2">
-                <div className="w-8 h-8 rounded-full bg-gray-200" />
-                <div className="flex-1">
-                    <div className="h-2 w-20 bg-gray-200 rounded" />
-                    <div className="h-2 w-12 bg-gray-100 rounded mt-1" />
+        <div className="card overflow-hidden !p-0 max-w-sm mx-auto shadow-lg border border-neutral-200">
+            <div className="p-3 border-b border-neutral-100 flex items-center gap-2">
+                <div className="w-9 h-9 rounded-full bg-neutral-200 flex items-center justify-center shrink-0">
+                    <PlatformIcon />
+                </div>
+                <div className="flex-1 min-w-0">
+                    <div className="h-3 w-24 bg-neutral-200 rounded" />
+                    <div className="h-2.5 w-16 bg-neutral-100 rounded mt-1.5" />
                 </div>
             </div>
-            <div className="aspect-square bg-gray-50 flex items-center justify-center overflow-hidden">
+            <div className="aspect-square bg-neutral-50 flex items-center justify-center overflow-hidden">
                 {media.length > 0 ? (
                     <img src={media[0].fileUrl} alt="preview" className="w-full h-full object-cover" />
                 ) : (
-                    <ImageIcon size={32} className="text-gray-200" />
+                    <ImageIcon size={36} className="text-neutral-200" strokeWidth={1.5} />
                 )}
             </div>
             <div className="p-3 space-y-2">
-                <div className="flex space-x-3 text-gray-700">
-                    {platform === 'INSTAGRAM' && <Instagram size={22} />}
-                    {platform === 'YOUTUBE' && <Youtube size={22} />}
-                    {platform === 'TIKTOK' && <Video size={22} />}
-                    {platform === 'FACEBOOK' && <Facebook size={22} />}
-                    {platform === 'TWITTER' && <Twitter size={22} />}
-                    {platform === 'LINKEDIN' && <Linkedin size={22} />}
-                </div>
-                <p className="text-sm text-gray-800 line-clamp-3">
+                <p className="text-sm text-neutral-800 line-clamp-3">
                     {content || 'Your caption will appear here...'}
                 </p>
             </div>
