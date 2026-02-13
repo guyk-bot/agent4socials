@@ -98,6 +98,15 @@ export default function DashboardPage() {
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [sortBy, setSortBy] = useState<'date' | 'impressions' | 'interactions'>('date');
   const [sortDesc, setSortDesc] = useState(true);
+  const [aggregatedInsights, setAggregatedInsights] = useState<{
+    totalFollowers: number;
+    totalImpressions: number;
+    byPlatform: Record<string, { followers: number; impressions: number; timeSeries: Array<{ date: string; value: number }> }>;
+    combinedTimeSeries: Array<{ date: string; value: number }>;
+  } | null>(null);
+  const [aggregatedLoading, setAggregatedLoading] = useState(false);
+  const accounts = (cachedAccounts as SocialAccount[]) ?? [];
+  const hasAccounts = accounts.length > 0;
 
   const fetchAccounts = async () => {
     try {
@@ -135,20 +144,79 @@ export default function DashboardPage() {
   }, [setCachedAccounts]);
 
   useEffect(() => {
-    if (analyticsTab !== 'posts' || !selectedAccount?.id) return;
-    api.get(`/social/accounts/${selectedAccount.id}/posts`)
-      .then((res) => setImportedPosts(res.data?.posts ?? []))
-      .catch(() => setImportedPosts([]));
-  }, [analyticsTab, selectedAccount?.id]);
+    if (selectedAccount?.id) {
+      if (analyticsTab === 'posts') {
+        api.get(`/social/accounts/${selectedAccount.id}/posts`)
+          .then((res) => setImportedPosts(res.data?.posts ?? []))
+          .catch(() => setImportedPosts([]));
+      }
+      return;
+    }
+    if (!hasAccounts) {
+      setImportedPosts([]);
+      return;
+    }
+    if (analyticsTab !== 'posts') return;
+    setImportedPostsLoading(true);
+    Promise.all(accounts.map((acc) => api.get(`/social/accounts/${acc.id}/posts`).then((r) => ({ id: acc.id, posts: r.data?.posts ?? [] }))))
+      .then((results) => {
+        const merged = results.flatMap((r) => r.posts).sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+        setImportedPosts(merged);
+      })
+      .catch(() => setImportedPosts([]))
+      .finally(() => setImportedPostsLoading(false));
+  }, [analyticsTab, selectedAccount?.id, hasAccounts, accounts.map((a) => a.id).join(',')]);
 
   useEffect(() => {
-    if (analyticsTab !== 'account' || !selectedAccount?.id || !dateRange.start || !dateRange.end) return;
-    setInsightsLoading(true);
-    api.get(`/social/accounts/${selectedAccount.id}/insights`, { params: { since: dateRange.start, until: dateRange.end } })
-      .then((res) => setInsights(res.data ?? null))
-      .catch(() => setInsights(null))
-      .finally(() => setInsightsLoading(false));
-  }, [analyticsTab, selectedAccount?.id, dateRange.start, dateRange.end]);
+    if (selectedAccount?.id) {
+      if (analyticsTab !== 'account' || !dateRange.start || !dateRange.end) return;
+      setInsightsLoading(true);
+      api.get(`/social/accounts/${selectedAccount.id}/insights`, { params: { since: dateRange.start, until: dateRange.end } })
+        .then((res) => setInsights(res.data ?? null))
+        .catch(() => setInsights(null))
+        .finally(() => setInsightsLoading(false));
+      return;
+    }
+    if (!hasAccounts || analyticsTab !== 'account' || !dateRange.start || !dateRange.end) {
+      setAggregatedInsights(null);
+      return;
+    }
+    const insightAccounts = accounts.filter((a) => a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK');
+    if (insightAccounts.length === 0) {
+      setAggregatedInsights(null);
+      return;
+    }
+    setAggregatedLoading(true);
+    Promise.all(
+      insightAccounts.map((acc) =>
+        api.get(`/social/accounts/${acc.id}/insights`, { params: { since: dateRange.start, until: dateRange.end } }).then((r) => ({ platform: acc.platform, data: r.data }))
+      )
+    )
+      .then((results) => {
+        const byPlatform: Record<string, { followers: number; impressions: number; timeSeries: Array<{ date: string; value: number }> }> = {};
+        let totalFollowers = 0;
+        let totalImpressions = 0;
+        const dateMap: Record<string, number> = {};
+        for (const { platform, data } of results) {
+          if (!data) continue;
+          const fol = data.followers ?? 0;
+          const imp = data.impressionsTotal ?? 0;
+          const ts = data.impressionsTimeSeries ?? [];
+          byPlatform[platform] = { followers: fol, impressions: imp, timeSeries: ts };
+          totalFollowers += fol;
+          totalImpressions += imp;
+          for (const d of ts) {
+            dateMap[d.date] = (dateMap[d.date] ?? 0) + d.value;
+          }
+        }
+        const combinedTimeSeries = Object.entries(dateMap)
+          .map(([date, value]) => ({ date, value }))
+          .sort((a, b) => a.date.localeCompare(b.date));
+        setAggregatedInsights({ totalFollowers, totalImpressions, byPlatform, combinedTimeSeries });
+      })
+      .catch(() => setAggregatedInsights(null))
+      .finally(() => setAggregatedLoading(false));
+  }, [analyticsTab, selectedAccount?.id, hasAccounts, dateRange.start, dateRange.end, accounts.map((a) => a.id).join(',')]);
 
   const handleConnect = async (platform: string, method?: string) => {
     const getMessage = (err: unknown): string | null => {
@@ -230,42 +298,47 @@ export default function DashboardPage() {
   });
   const totalPostsPages = Math.max(1, Math.ceil(sortedPosts.length / postsPerPage));
   const currentPagePosts = sortedPosts.slice((postsPage - 1) * postsPerPage, postsPage * postsPerPage);
-  const maxImpressions = insights?.impressionsTimeSeries?.length ? Math.max(...insights.impressionsTimeSeries.map((d) => d.value), 1) : 1;
 
-  if (selectedAccount) {
-    return (
-      <div className="space-y-0">
-        {/* Top row: ACCOUNT | POSTS tabs + date range (Metricool-style) */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-neutral-200">
-          <div className="flex gap-1 p-1 bg-neutral-100 rounded-lg w-fit">
-            {TABS.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setAnalyticsTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium ${analyticsTab === tab.id ? 'bg-white shadow-sm text-neutral-900' : 'text-neutral-600 hover:bg-white/70'}`}
-              >
-                <tab.icon size={18} />
-                {tab.label}
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-2 px-3 py-2 bg-white border border-neutral-200 rounded-lg shrink-0">
-            <Calendar size={16} className="text-neutral-500" />
-            <input type="date" value={dateRange.start} onChange={(e) => setDateRange((r) => ({ ...r, start: e.target.value }))} className="text-sm border-0 bg-transparent focus:ring-0 p-0 text-neutral-700 w-[7.5rem]" />
-            <span className="text-neutral-400">–</span>
-            <input type="date" value={dateRange.end} onChange={(e) => setDateRange((r) => ({ ...r, end: e.target.value }))} className="text-sm border-0 bg-transparent focus:ring-0 p-0 text-neutral-700 w-[7.5rem]" />
-          </div>
+  const effectiveFollowers = selectedAccount ? (insights?.followers ?? 0) : (aggregatedInsights?.totalFollowers ?? 0);
+  const effectiveImpressions = selectedAccount ? (insights?.impressionsTotal ?? 0) : (aggregatedInsights?.totalImpressions ?? 0);
+  const effectiveTimeSeries = selectedAccount ? (insights?.impressionsTimeSeries ?? []) : (aggregatedInsights?.combinedTimeSeries ?? []);
+  const effectiveInsightsLoading = selectedAccount ? insightsLoading : aggregatedLoading;
+  const maxImpressions = effectiveTimeSeries.length ? Math.max(...effectiveTimeSeries.map((d) => d.value), 1) : 1;
+
+  return (
+    <div className="space-y-0">
+      {/* Top row: ACCOUNT | POSTS tabs + date range (Metricool-style) */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-neutral-200">
+        <div className="flex gap-1 p-1 bg-neutral-100 rounded-lg w-fit">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setAnalyticsTab(tab.id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium ${analyticsTab === tab.id ? 'bg-white shadow-sm text-neutral-900' : 'text-neutral-600 hover:bg-white/70'}`}
+            >
+              <tab.icon size={18} />
+              {tab.label}
+            </button>
+          ))}
         </div>
-
-        {/* Upgrade banner (Metricool-style) */}
-        <div className="mt-4 flex items-center justify-between gap-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg">
-          <p className="text-sm text-amber-800">You need an upgraded plan to view data older than 30 days and without a watermark.</p>
-          <Link href="/pricing" className="shrink-0 px-3 py-1.5 rounded-lg bg-amber-500 text-white text-sm font-medium hover:bg-amber-600">Upgrade your plan</Link>
+        <div className="flex items-center gap-2 px-3 py-2 bg-white border border-neutral-200 rounded-lg shrink-0">
+          <Calendar size={16} className="text-neutral-500" />
+          <input type="date" value={dateRange.start} onChange={(e) => setDateRange((r) => ({ ...r, start: e.target.value }))} className="text-sm border-0 bg-transparent focus:ring-0 p-0 text-neutral-700 w-[7.5rem]" />
+          <span className="text-neutral-400">–</span>
+          <input type="date" value={dateRange.end} onChange={(e) => setDateRange((r) => ({ ...r, end: e.target.value }))} className="text-sm border-0 bg-transparent focus:ring-0 p-0 text-neutral-700 w-[7.5rem]" />
         </div>
+      </div>
 
-        {/* Account block: clickable profile */}
-        <div className="mt-6">
+      {/* Upgrade banner (Metricool-style) */}
+      <div className="mt-4 flex items-center justify-between gap-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg">
+        <p className="text-sm text-amber-800">You need an upgraded plan to view data older than 30 days and without a watermark.</p>
+        <Link href="/pricing" className="shrink-0 px-3 py-1.5 rounded-lg bg-amber-500 text-white text-sm font-medium hover:bg-amber-600">Upgrade your plan</Link>
+      </div>
+
+      {/* Account block: profile link when one account selected; "All connected" or connect CTA otherwise */}
+      <div className="mt-6">
+        {selectedAccount ? (
           <a
             href={profileUrlForAccount(selectedAccount)}
             target="_blank"
@@ -280,84 +353,115 @@ export default function DashboardPage() {
               <p className="text-sm text-neutral-500">{selectedAccount.platform} · Open profile</p>
             </div>
           </a>
-        </div>
-
-        {analyticsTab === 'account' && (
-          <div className="mt-6 space-y-6">
-            <h2 className="text-lg font-semibold text-neutral-900">Account</h2>
-            {insightsLoading && <p className="text-sm text-neutral-500">Loading analytics…</p>}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Followers card: real data from insights API */}
-              <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
-                <p className="text-sm font-medium text-neutral-500">Followers</p>
-                <div className="flex items-center gap-3 mt-1">
-                  <span className="text-3xl font-bold text-neutral-900">{insights?.followers ?? 0}</span>
-                  <div className="flex-1 h-2 max-w-[120px] rounded-full bg-neutral-200 overflow-hidden">
-                    <div className="h-full rounded-full bg-indigo-500" style={{ width: `${Math.min(100, ((insights?.followers ?? 0) / 2000) * 100)}%` }} />
-                  </div>
-                </div>
-                <div className="flex gap-1.5 mt-3 flex-wrap">
-                  {selectedAccount?.platform === 'INSTAGRAM' && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{insights?.followers ?? 0} Instagram</span>}
-                  {selectedAccount?.platform === 'FACEBOOK' && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{insights?.followers ?? 0} Facebook</span>}
-                  {selectedAccount?.platform && selectedAccount.platform !== 'INSTAGRAM' && selectedAccount.platform !== 'FACEBOOK' && (
-                    <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-neutral-100 text-neutral-700">{insights?.followers ?? 0} {selectedAccount.platform}</span>
-                  )}
-                </div>
-                <div className="mt-4 h-40 rounded-lg bg-neutral-50 border border-neutral-100 flex items-center justify-center relative overflow-hidden">
-                  <div className="absolute inset-0 opacity-[0.03] font-semibold text-neutral-400 text-2xl flex items-center justify-center" style={{ transform: 'rotate(-20deg)' }}>agent4socials</div>
-                  {insights?.impressionsTimeSeries?.length ? (
-                    <div className="flex items-end gap-0.5 h-full w-full p-4 pb-2">
-                      {insights.impressionsTimeSeries.map((d, i) => (
-                        <div key={d.date} className="flex-1 bg-indigo-200/80 rounded-t min-h-[4px]" style={{ height: `${(d.value / maxImpressions) * 100}%` }} title={`${d.date}: ${d.value}`} />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="flex items-end gap-1 h-full w-full p-4 pb-2">
-                      {[28, 35, 42, 38, 45].map((pct, i) => (
-                        <div key={i} className="flex-1 bg-neutral-200/60 rounded-t min-h-[20%]" style={{ height: `${pct}%` }} />
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <p className="text-xs text-neutral-400 mt-1 px-1">{dateRange.start} – {dateRange.end}</p>
-              </div>
-              {/* Impressions card: real data from insights API */}
-              <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
-                <p className="text-sm font-medium text-neutral-500">Impressions</p>
-                <div className="flex items-center gap-3 mt-1">
-                  <span className="text-3xl font-bold text-neutral-900">{insights?.impressionsTotal ?? 0}</span>
-                  <div className="flex-1 h-2 max-w-[120px] rounded-full bg-neutral-200 overflow-hidden">
-                    <div className="h-full rounded-full bg-indigo-500" style={{ width: `${insights?.impressionsTotal ? Math.min(100, (insights.impressionsTotal / 50)) : 0}%` }} />
-                  </div>
-                </div>
-                <div className="flex gap-1.5 mt-3 flex-wrap">
-                  {selectedAccount?.platform === 'FACEBOOK' && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{insights?.impressionsTotal ?? 0} Facebook</span>}
-                  {selectedAccount?.platform === 'INSTAGRAM' && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{insights?.impressionsTotal ?? 0} Instagram</span>}
-                  {selectedAccount?.platform && selectedAccount.platform !== 'INSTAGRAM' && selectedAccount.platform !== 'FACEBOOK' && (
-                    <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-neutral-100 text-neutral-700">{insights?.impressionsTotal ?? 0} {selectedAccount.platform}</span>
-                  )}
-                </div>
-                <div className="mt-4 h-40 rounded-lg bg-neutral-50 border border-neutral-100 flex items-center justify-center relative overflow-hidden">
-                  <div className="absolute inset-0 opacity-[0.03] font-semibold text-neutral-400 text-2xl flex items-center justify-center" style={{ transform: 'rotate(-20deg)' }}>agent4socials</div>
-                  {insights?.impressionsTimeSeries?.length ? (
-                    <div className="flex items-end gap-0.5 h-full w-full p-4 pb-2">
-                      {insights.impressionsTimeSeries.map((d) => (
-                        <div key={d.date} className="flex-1 bg-indigo-200/80 rounded-t min-h-[4px]" style={{ height: `${(d.value / maxImpressions) * 100}%` }} title={`${d.date}: ${d.value}`} />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="flex items-end gap-1 h-full w-full p-4 pb-2">
-                      {[32, 40, 35, 48, 42].map((pct, i) => (
-                        <div key={i} className="flex-1 bg-neutral-200/60 rounded-t min-h-[20%]" style={{ height: `${pct}%` }} />
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <p className="text-xs text-neutral-400 mt-1 px-1">{dateRange.start} – {dateRange.end}</p>
-              </div>
+        ) : hasAccounts ? (
+          <div className="flex gap-3 p-3 bg-white rounded-xl border border-neutral-200 w-fit">
+            <div className="w-12 h-12 rounded-full bg-neutral-100 flex items-center justify-center shrink-0">{PLATFORM_ICON.INSTAGRAM}</div>
+            <div>
+              <p className="font-semibold text-neutral-900">All connected accounts</p>
+              <p className="text-sm text-neutral-500">{accounts.length} account{accounts.length !== 1 ? 's' : ''} · Select one in the sidebar for a single profile</p>
             </div>
           </div>
+        ) : (
+          <div className="flex gap-3 p-4 bg-neutral-50 rounded-xl border border-neutral-200 w-full max-w-md">
+            <p className="text-sm text-neutral-600">Connect a platform from the left sidebar to see your analytics and posts here.</p>
+          </div>
         )}
+      </div>
+
+      {analyticsTab === 'account' && (
+        <div className="mt-6 space-y-6">
+          <h2 className="text-lg font-semibold text-neutral-900">Account</h2>
+          {effectiveInsightsLoading && <p className="text-sm text-neutral-500">Loading analytics…</p>}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Followers card */}
+            <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
+              <p className="text-sm font-medium text-neutral-500">Followers</p>
+              <div className="flex items-center gap-3 mt-1">
+                <span className="text-3xl font-bold text-neutral-900">{effectiveFollowers}</span>
+                <div className="flex-1 h-2 max-w-[120px] rounded-full bg-neutral-200 overflow-hidden">
+                  <div className="h-full rounded-full bg-indigo-500" style={{ width: `${Math.min(100, (effectiveFollowers / 2000) * 100)}%` }} />
+                </div>
+              </div>
+              <div className="flex gap-1.5 mt-3 flex-wrap">
+                {selectedAccount ? (
+                  <>
+                    {selectedAccount.platform === 'INSTAGRAM' && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{effectiveFollowers} Instagram</span>}
+                    {selectedAccount.platform === 'FACEBOOK' && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{effectiveFollowers} Facebook</span>}
+                    {selectedAccount.platform && selectedAccount.platform !== 'INSTAGRAM' && selectedAccount.platform !== 'FACEBOOK' && (
+                      <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-neutral-100 text-neutral-700">{effectiveFollowers} {selectedAccount.platform}</span>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {aggregatedInsights?.byPlatform?.INSTAGRAM != null && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{aggregatedInsights.byPlatform.INSTAGRAM.followers} Instagram</span>}
+                    {aggregatedInsights?.byPlatform?.FACEBOOK != null && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{aggregatedInsights.byPlatform.FACEBOOK.followers || '—'} Facebook</span>}
+                  </>
+                )}
+              </div>
+              <div className="mt-4 h-40 rounded-lg bg-neutral-50 border border-neutral-100 flex items-center justify-center relative overflow-hidden">
+                <div className="absolute inset-0 opacity-[0.03] font-semibold text-neutral-400 text-2xl flex items-center justify-center" style={{ transform: 'rotate(-20deg)' }}>agent4socials</div>
+                {effectiveTimeSeries.length ? (
+                  <div className="flex items-end gap-0.5 h-full w-full p-4 pb-2">
+                    {effectiveTimeSeries.map((d) => (
+                      <div key={d.date} className="flex-1 bg-indigo-200/80 rounded-t min-h-[4px]" style={{ height: `${(d.value / maxImpressions) * 100}%` }} title={`${d.date}: ${d.value}`} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex items-end gap-1 h-full w-full p-4 pb-2">
+                    {[28, 35, 42, 38, 45].map((pct, i) => (
+                      <div key={i} className="flex-1 bg-neutral-200/60 rounded-t min-h-[20%]" style={{ height: `${pct}%` }} />
+                    ))}
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-neutral-400 mt-1 px-1">{dateRange.start} – {dateRange.end}</p>
+            </div>
+            {/* Impressions card */}
+            <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
+              <p className="text-sm font-medium text-neutral-500">Impressions</p>
+              <div className="flex items-center gap-3 mt-1">
+                <span className="text-3xl font-bold text-neutral-900">{effectiveImpressions}</span>
+                <div className="flex-1 h-2 max-w-[120px] rounded-full bg-neutral-200 overflow-hidden">
+                  <div className="h-full rounded-full bg-indigo-500" style={{ width: effectiveImpressions ? `${Math.min(100, effectiveImpressions / 50)}%` : '0%' }} />
+                </div>
+              </div>
+              <div className="flex gap-1.5 mt-3 flex-wrap">
+                {selectedAccount ? (
+                  <>
+                    {selectedAccount.platform === 'FACEBOOK' && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{effectiveImpressions} Facebook</span>}
+                    {selectedAccount.platform === 'INSTAGRAM' && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{effectiveImpressions} Instagram</span>}
+                    {selectedAccount.platform && selectedAccount.platform !== 'INSTAGRAM' && selectedAccount.platform !== 'FACEBOOK' && (
+                      <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-neutral-100 text-neutral-700">{effectiveImpressions} {selectedAccount.platform}</span>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {aggregatedInsights?.byPlatform?.FACEBOOK != null && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{aggregatedInsights.byPlatform.FACEBOOK.impressions || '—'} Facebook</span>}
+                    {aggregatedInsights?.byPlatform?.INSTAGRAM != null && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{aggregatedInsights.byPlatform.INSTAGRAM.impressions} Instagram</span>}
+                  </>
+                )}
+              </div>
+              <div className="mt-4 h-40 rounded-lg bg-neutral-50 border border-neutral-100 flex items-center justify-center relative overflow-hidden">
+                <div className="absolute inset-0 opacity-[0.03] font-semibold text-neutral-400 text-2xl flex items-center justify-center" style={{ transform: 'rotate(-20deg)' }}>agent4socials</div>
+                {effectiveTimeSeries.length ? (
+                  <div className="flex items-end gap-0.5 h-full w-full p-4 pb-2">
+                    {effectiveTimeSeries.map((d) => (
+                      <div key={d.date} className="flex-1 bg-indigo-200/80 rounded-t min-h-[4px]" style={{ height: `${(d.value / maxImpressions) * 100}%` }} title={`${d.date}: ${d.value}`} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex items-end gap-1 h-full w-full p-4 pb-2">
+                    {[32, 40, 35, 48, 42].map((pct, i) => (
+                      <div key={i} className="flex-1 bg-neutral-200/60 rounded-t min-h-[20%]" style={{ height: `${pct}%` }} />
+                    ))}
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-neutral-400 mt-1 px-1">{dateRange.start} – {dateRange.end}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
         {analyticsTab === 'posts' && (
           <div className="mt-6 space-y-6">
@@ -404,11 +508,17 @@ export default function DashboardPage() {
                   <button
                     type="button"
                     onClick={async () => {
-                      if (!selectedAccount?.id) return;
                       setImportedPostsLoading(true);
                       try {
-                        const res = await api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: { sync: 1 } });
-                        setImportedPosts(res.data?.posts ?? []);
+                        if (selectedAccount?.id) {
+                          const res = await api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: { sync: 1 } });
+                          setImportedPosts(res.data?.posts ?? []);
+                        } else if (accounts.length > 0) {
+                          await Promise.all(accounts.map((acc) => api.get(`/social/accounts/${acc.id}/posts`, { params: { sync: 1 } })));
+                          const results = await Promise.all(accounts.map((acc) => api.get(`/social/accounts/${acc.id}/posts`).then((r) => r.data?.posts ?? [])));
+                          const merged = results.flat().sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+                          setImportedPosts(merged);
+                        }
                         setPostsPage(1);
                       } catch (_) {
                         setImportedPosts([]);
@@ -416,7 +526,7 @@ export default function DashboardPage() {
                         setImportedPostsLoading(false);
                       }
                     }}
-                    disabled={importedPostsLoading}
+                    disabled={importedPostsLoading || !hasAccounts}
                     className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-neutral-200 bg-white text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
                   >
                     <RefreshCw size={16} className={importedPostsLoading ? 'animate-spin' : ''} />
@@ -443,7 +553,9 @@ export default function DashboardPage() {
                 {importedPosts.length === 0 && !importedPostsLoading ? (
                   <div className="p-12 text-center">
                     <Image size={48} className="mx-auto text-neutral-300 mb-4" />
-                    <p className="text-sm text-neutral-500">No posts loaded. Click &quot;Sync posts&quot; to import from {selectedAccount?.platform}.</p>
+                    <p className="text-sm text-neutral-500">
+                      {hasAccounts ? 'No posts loaded. Click &quot;Sync posts&quot; to import from your connected accounts.' : 'Connect a platform and sync to see posts here.'}
+                    </p>
                   </div>
                 ) : (
                   <>
@@ -533,80 +645,6 @@ export default function DashboardPage() {
         )}
       </div>
     );
-  }
-
-  return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Welcome, {user?.name || 'there'}!</h1>
-        <p className="text-gray-500">Select a platform from the left to connect or view analytics.</p>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="Accounts" value={stats.accounts} icon={<Users size={20} className="text-neutral-600" />} bg="bg-neutral-100" />
-        <StatCard title="Scheduled" value={stats.scheduled} icon={<Calendar size={20} className="text-neutral-600" />} bg="bg-neutral-100" />
-        <StatCard title="Posted" value={stats.posted} icon={<CheckCircle size={20} className="text-neutral-600" />} bg="bg-neutral-100" />
-        <StatCard title="Failed" value={stats.failed} icon={<AlertCircle size={20} className="text-red-500" />} bg="bg-red-50" />
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-900">Recent Posts</h2>
-            <Link href="/composer" className="btn-primary flex items-center space-x-2 text-sm">
-              <Plus size={18} />
-              <span>Create Post</span>
-            </Link>
-          </div>
-          <div className="card !p-0 overflow-hidden">
-            {loading ? (
-              <div className="p-8 text-center text-gray-500">Loading posts...</div>
-            ) : recentPosts.length > 0 ? (
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Content</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Platforms</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Schedule</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {recentPosts.map((post: any) => (
-                    <tr key={post.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4"><div className="text-sm font-medium text-gray-900 truncate max-w-xs">{post.title || post.content}</div></td>
-                      <td className="px-6 py-4">
-                        <div className="flex -space-x-2">
-                          {post.targets?.map((t: any) => (
-                            <div key={t.id} title={t.platform} className="w-8 h-8 rounded-full border-2 border-white bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600">{t.platform?.[0]}</div>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${post.status === 'POSTED' ? 'bg-green-100 text-green-800' : post.status === 'FAILED' ? 'bg-red-100 text-red-800' : 'bg-indigo-100 text-indigo-800'}`}>{post.status}</span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">{post.scheduledAt ? new Date(post.scheduledAt).toLocaleDateString() : 'Draft'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <div className="p-12 text-center">
-                <Clock size={48} className="mx-auto text-gray-400 mb-4" strokeWidth={1} />
-                <h3 className="text-lg font-medium text-gray-900">No posts yet</h3>
-                <p className="text-gray-500 mt-1">Start by creating your first scheduled post.</p>
-                <Link href="/composer" className="btn-primary mt-6 inline-block">Create First Post</Link>
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="space-y-6">
-          <h2 className="text-xl font-semibold text-gray-900">Quick start</h2>
-          <div className="card space-y-4">
-            <p className="text-sm text-gray-500">Select a platform from the left sidebar to connect an account or view its analytics.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 function StatCard({ title, value, icon, bg }: { title: string; value: number; icon: React.ReactNode; bg: string }) {
