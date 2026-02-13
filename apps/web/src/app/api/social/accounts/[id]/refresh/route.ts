@@ -22,8 +22,8 @@ export async function PATCH(
   if (!account) {
     return NextResponse.json({ message: 'Account not found' }, { status: 404 });
   }
-  if (account.platform !== 'INSTAGRAM' && account.platform !== 'FACEBOOK') {
-    return NextResponse.json({ message: 'Refresh supported for Instagram and Facebook only' }, { status: 400 });
+  if (account.platform !== 'INSTAGRAM' && account.platform !== 'FACEBOOK' && account.platform !== 'TWITTER') {
+    return NextResponse.json({ message: 'Refresh supported for Instagram, Facebook, and Twitter only' }, { status: 400 });
   }
   const token = account.accessToken;
   let username: string | undefined;
@@ -122,6 +122,21 @@ export async function PATCH(
           profilePicture = igRes.data?.profile_picture_url ?? undefined;
         }
       }
+    } else if (account.platform === 'TWITTER') {
+      try {
+        const meRes = await axios.get<{ data?: { id?: string; username?: string; name?: string; profile_image_url?: string } }>(
+          'https://api.twitter.com/2/users/me',
+          {
+            params: { 'user.fields': 'username,name,profile_image_url' },
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        const u = meRes.data?.data;
+        if (u?.id) platformUserId = u.id;
+        if (u?.username) username = u.username;
+        else if (u?.name) username = u.name;
+        if (u?.profile_image_url) profilePicture = u.profile_image_url.replace(/_normal\./, '_400x400.');
+      } catch (_) {}
     }
     const data: { username?: string; profilePicture?: string; platformUserId?: string } = {};
     if (username) data.username = username;

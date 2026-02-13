@@ -284,12 +284,31 @@ async function exchangeCode(
           password: process.env.TWITTER_CLIENT_SECRET || '',
         },
       });
+      const accessToken = r.data.access_token;
+      let username = 'X User';
+      let profilePicture: string | null = null;
+      let platformUserId = 'twitter-' + (accessToken?.slice(-8) || 'id');
+      try {
+        const meRes = await axios.get<{ data?: { id?: string; username?: string; name?: string; profile_image_url?: string } }>(
+          'https://api.twitter.com/2/users/me',
+          {
+            params: { 'user.fields': 'username,name,profile_image_url' },
+            headers: { Authorization: `Bearer ${accessToken}` },
+          }
+        );
+        const u = meRes.data?.data;
+        if (u?.id) platformUserId = u.id;
+        if (u?.username) username = u.username;
+        else if (u?.name) username = u.name;
+        if (u?.profile_image_url) profilePicture = u.profile_image_url.replace(/_normal\./, '_400x400.');
+      } catch (_) {}
       return {
-        accessToken: r.data.access_token,
+        accessToken,
         refreshToken: r.data.refresh_token ?? null,
         expiresAt: new Date(Date.now() + (r.data.expires_in || 7200) * 1000),
-        platformUserId: 'twitter-' + (r.data.access_token?.slice(-8) || 'id'),
-        username: 'X User',
+        platformUserId,
+        username,
+        profilePicture,
       };
     }
     case 'LINKEDIN': {

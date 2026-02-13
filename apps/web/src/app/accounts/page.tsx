@@ -38,8 +38,8 @@ export default function AccountsPage() {
             setCachedAccounts?.(data);
             const needsProfileRefresh = data.filter(
                 (a: { platform: string; profilePicture?: string | null; username?: string }) =>
-                    (a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK') &&
-                    (!a.profilePicture || a.username === 'Facebook Page' || a.username === 'Instagram')
+                    (a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK' || a.platform === 'TWITTER') &&
+                    (!a.profilePicture || a.username === 'Facebook Page' || a.username === 'Instagram' || a.username === 'X User')
             );
             if (needsProfileRefresh.length > 0) {
                 await Promise.allSettled(
@@ -189,6 +189,7 @@ export default function AccountsPage() {
                     icon={<Twitter size={24} className="text-sky-500" />}
                     connectedAccounts={displayAccounts.filter((a: any) => a.platform === 'TWITTER')}
                     onConnect={() => handleConnect('twitter')}
+                    onRefreshProfile={fetchAccounts}
                     onDisconnect={fetchAccounts}
                     connecting={connectingPlatform === 'twitter'}
                 />
@@ -216,7 +217,7 @@ function PlatformCard({ name, description, hint, icon, connectedAccounts, onConn
     const [refreshing, setRefreshing] = useState(false);
     const [disconnecting, setDisconnecting] = useState(false);
     const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
-    const canRefresh = (primaryAccount?.platform === 'INSTAGRAM' || primaryAccount?.platform === 'FACEBOOK') && onRefreshProfile;
+    const canRefresh = (primaryAccount?.platform === 'INSTAGRAM' || primaryAccount?.platform === 'FACEBOOK' || primaryAccount?.platform === 'TWITTER') && onRefreshProfile;
 
     const [actionError, setActionError] = useState<string | null>(null);
 
