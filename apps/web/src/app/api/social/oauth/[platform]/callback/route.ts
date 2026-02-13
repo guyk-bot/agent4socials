@@ -344,6 +344,8 @@ export async function GET(
     callbackUrl = process.env.INSTAGRAM_REDIRECT_URI.replace(/\/+$/, '');
   } else if (plat === 'FACEBOOK' && process.env.FACEBOOK_REDIRECT_URI) {
     callbackUrl = process.env.FACEBOOK_REDIRECT_URI.replace(/\/+$/, '');
+  } else if (plat === 'YOUTUBE' && process.env.YOUTUBE_REDIRECT_URI) {
+    callbackUrl = process.env.YOUTUBE_REDIRECT_URI.replace(/\/+$/, '');
   }
 
   let tokenData: TokenResult;

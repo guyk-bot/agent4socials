@@ -33,11 +33,13 @@ To allow users to connect their social accounts, you need to create "Apps" on ea
 5. Go to **Credentials** -> **Create Credentials** -> **OAuth client ID**.
    - Application type: **Web application**.
    - Name: "Agent4Socials Web".
-   - **Authorized redirect URIs**: Add `https://agent4socials.com/api/social/oauth/youtube/callback` (and any other redirects this client uses, e.g. Google Sign-In).
+   - **Authorized redirect URIs**: Add `https://agent4socials.com/api/social/oauth/youtube/callback` (no trailing slash). If you test locally, also add `http://localhost:3000/api/social/oauth/youtube/callback` (use your dev port).
    - Click **Create**.
 6. **Copy these values:** (use as `YOUTUBE_CLIENT_ID` / `YOUTUBE_CLIENT_SECRET` in the web app env)
    - Client ID
    - Client secret
+
+**If you get "Error 400: redirect_uri_mismatch":** The redirect URI the app sends must match Google exactly. In **Vercel** (or your host) set **YOUTUBE_REDIRECT_URI** = `https://agent4socials.com/api/social/oauth/youtube/callback` (no trailing slash). Ensure this exact URL is in Google Cloud **Authorized redirect URIs**. Then redeploy. If your site is on a different domain (e.g. a Vercel preview URL), add that full callback URL in Google and set `YOUTUBE_REDIRECT_URI` to that same URL.
 
 ---
 
