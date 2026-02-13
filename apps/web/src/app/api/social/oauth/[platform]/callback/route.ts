@@ -429,11 +429,12 @@ export async function GET(
   if (plat === 'FACEBOOK' && tokenData.pages && tokenData.pages.length >= 1) {
     try {
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+      const pagesJson = JSON.parse(JSON.stringify(tokenData.pages)) as object;
       const pending = await prisma.pendingFacebookConnection.create({
         data: {
           userId,
           accessToken: tokenData.accessToken,
-          pages: tokenData.pages as unknown as object,
+          pages: pagesJson,
           expiresAt,
         },
       });
@@ -442,18 +443,53 @@ export async function GET(
       return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
     } catch (e) {
       console.error('[Social OAuth] pending Facebook create error:', e);
-      return oauthErrorHtml(baseUrl, 'Could not save. Try again.', 500);
+      const firstPage = tokenData.pages![0];
+      try {
+        await prisma.socialAccount.upsert({
+          where: {
+            userId_platform_platformUserId: { userId, platform: 'FACEBOOK', platformUserId: firstPage.id },
+          },
+          update: {
+            accessToken: tokenData.accessToken,
+            refreshToken: tokenData.refreshToken,
+            expiresAt: tokenData.expiresAt,
+            username: firstPage.name ?? 'Facebook Page',
+            profilePicture: firstPage.picture ?? null,
+            status: 'connected',
+          },
+          create: {
+            userId,
+            platform: 'FACEBOOK',
+            platformUserId: firstPage.id,
+            username: firstPage.name ?? 'Facebook Page',
+            profilePicture: firstPage.picture ?? null,
+            accessToken: tokenData.accessToken,
+            refreshToken: tokenData.refreshToken,
+            expiresAt: tokenData.expiresAt,
+            status: 'connected',
+          },
+        });
+        const dashboardUrl = `${baseUrl}/dashboard`;
+        const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><p>Page connected.</p><script>window.location.href = ${JSON.stringify(dashboardUrl)};</script><p><a href="${dashboardUrl}">Go to Dashboard</a></p></body></html>`;
+        return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
+      } catch (fallbackErr) {
+        console.error('[Social OAuth] Facebook fallback connect error:', fallbackErr);
+        const msg = (fallbackErr as Error)?.message ?? '';
+        const hint = msg.includes('does not exist') || msg.includes('relation') ? ' Run database migrations (e.g. npx prisma migrate deploy) and try again.' : '';
+        return oauthErrorHtml(baseUrl, `Could not save. Try again.${hint}`, 500);
+      }
     }
   }
 
   if (plat === 'INSTAGRAM' && tokenData.instagramAccounts && tokenData.instagramAccounts.length >= 1) {
     try {
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+      const accountsJson = JSON.parse(JSON.stringify(tokenData.instagramAccounts)) as object;
       const pending = await prisma.pendingInstagramConnection.create({
         data: {
           userId,
           accessToken: tokenData.accessToken,
-          accounts: tokenData.instagramAccounts as unknown as object,
+          accounts: accountsJson,
           expiresAt,
         },
       });
@@ -462,7 +498,69 @@ export async function GET(
       return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
     } catch (e) {
       console.error('[Social OAuth] pending Instagram create error:', e);
-      return oauthErrorHtml(baseUrl, 'Could not save. Try again.', 500);
+      // Fallback: connect the first Instagram account (and linked Page) directly so the user is not stuck
+      const first = tokenData.instagramAccounts![0];
+      const linkedPage = tokenData.linkedPage ?? (first.pageId ? { id: first.pageId, name: first.pageName ?? 'Facebook Page', picture: first.pagePicture ?? null } : undefined);
+      try {
+        await prisma.socialAccount.upsert({
+          where: {
+            userId_platform_platformUserId: { userId, platform: 'INSTAGRAM', platformUserId: first.id },
+          },
+          update: {
+            accessToken: tokenData.accessToken,
+            refreshToken: tokenData.refreshToken,
+            expiresAt: tokenData.expiresAt,
+            username: first.username ?? 'Instagram',
+            profilePicture: first.profilePicture ?? null,
+            status: 'connected',
+          },
+          create: {
+            userId,
+            platform: 'INSTAGRAM',
+            platformUserId: first.id,
+            username: first.username ?? 'Instagram',
+            profilePicture: first.profilePicture ?? null,
+            accessToken: tokenData.accessToken,
+            refreshToken: tokenData.refreshToken,
+            expiresAt: tokenData.expiresAt,
+            status: 'connected',
+          },
+        });
+        if (linkedPage) {
+          await prisma.socialAccount.upsert({
+            where: {
+              userId_platform_platformUserId: { userId, platform: 'FACEBOOK', platformUserId: linkedPage.id },
+            },
+            update: {
+              accessToken: tokenData.accessToken,
+              refreshToken: tokenData.refreshToken,
+              expiresAt: tokenData.expiresAt,
+              username: linkedPage.name,
+              profilePicture: linkedPage.picture,
+              status: 'connected',
+            },
+            create: {
+              userId,
+              platform: 'FACEBOOK',
+              platformUserId: linkedPage.id,
+              username: linkedPage.name,
+              profilePicture: linkedPage.picture,
+              accessToken: tokenData.accessToken,
+              refreshToken: tokenData.refreshToken,
+              expiresAt: tokenData.expiresAt,
+              status: 'connected',
+            },
+          });
+        }
+        const dashboardUrl = `${baseUrl}/dashboard`;
+        const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><p>Account connected.</p><script>window.location.href = ${JSON.stringify(dashboardUrl)};</script><p><a href="${dashboardUrl}">Go to Dashboard</a></p></body></html>`;
+        return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
+      } catch (fallbackErr) {
+        console.error('[Social OAuth] Instagram fallback connect error:', fallbackErr);
+        const msg = (fallbackErr as Error)?.message ?? '';
+        const hint = msg.includes('does not exist') || msg.includes('relation') ? ' Run database migrations (e.g. npx prisma migrate deploy) and try again.' : '';
+        return oauthErrorHtml(baseUrl, `Could not save. Try again.${hint}`, 500);
+      }
     }
   }
 
