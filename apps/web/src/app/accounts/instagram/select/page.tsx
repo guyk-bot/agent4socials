@@ -79,8 +79,8 @@ function InstagramSelectContent() {
   return (
     <div className="max-w-md mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-neutral-900">Connect one Instagram account</h1>
-        <p className="text-neutral-500 mt-1">You granted access to more than one Instagram account. Choose which one to connect to Agent4Socials.</p>
+        <h1 className="text-2xl font-bold text-neutral-900">Connect an Instagram account</h1>
+        <p className="text-neutral-500 mt-1">Choose which Instagram account you want to connect to Agent4Socials.</p>
       </div>
       <form onSubmit={handleSubmit} className="card space-y-4">
         <div className="space-y-3">

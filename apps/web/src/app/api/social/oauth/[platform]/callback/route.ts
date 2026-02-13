@@ -192,7 +192,7 @@ async function exchangeCode(
         profilePicture,
       };
       if (linkedPage) result.linkedPage = linkedPage;
-      if (instagramAccounts.length > 1) {
+      if (instagramAccounts.length >= 1) {
         result.instagramAccounts = instagramAccounts;
       }
       return result;
@@ -426,7 +426,7 @@ export async function GET(
     return oauthErrorHtml(baseUrl, message, 500);
   }
 
-  if (plat === 'FACEBOOK' && tokenData.pages && tokenData.pages.length > 1) {
+  if (plat === 'FACEBOOK' && tokenData.pages && tokenData.pages.length >= 1) {
     try {
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
       const pending = await prisma.pendingFacebookConnection.create({
@@ -446,7 +446,7 @@ export async function GET(
     }
   }
 
-  if (plat === 'INSTAGRAM' && tokenData.instagramAccounts && tokenData.instagramAccounts.length > 1) {
+  if (plat === 'INSTAGRAM' && tokenData.instagramAccounts && tokenData.instagramAccounts.length >= 1) {
     try {
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
       const pending = await prisma.pendingInstagramConnection.create({
