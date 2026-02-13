@@ -125,7 +125,7 @@ export default function Sidebar() {
                   {PLATFORM_ICON[platform]}
                 </div>
                 <span className="truncate flex-1 font-medium text-neutral-600">{PLATFORM_LABELS[platform]}</span>
-                <Gem size={16} className="text-amber-500 shrink-0" title="Coming soon" />
+                <span title="Coming soon" className="shrink-0"><Gem size={16} className="text-amber-500" /></span>
               </div>
             );
           }
