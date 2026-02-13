@@ -225,11 +225,17 @@ async function exchangeCode(
       let pageId: string | null = null;
       const pagesForSelect: Array<{ id: string; name?: string; picture?: string }> = [];
       try {
-        const pagesRes = await axios.get<{ data?: Array<{ id: string; name?: string; picture?: { data?: { url?: string } }; access_token?: string }> }>(
+        const pagesRes = await axios.get<{ data?: Array<{ id: string; name?: string; picture?: { data?: { url?: string } }; access_token?: string }>; error?: { message?: string } }>(
           'https://graph.facebook.com/v18.0/me/accounts',
           { params: { fields: 'id,name,picture,access_token', access_token: accessToken } }
         );
         const pages = pagesRes.data?.data || [];
+        if (pagesRes.data?.error) {
+          console.warn('[Social OAuth] Facebook me/accounts API error:', pagesRes.data.error);
+        }
+        if (pages.length === 0) {
+          console.warn('[Social OAuth] Facebook me/accounts returned no pages. User must grant business_management when connecting.');
+        }
         for (const p of pages) {
           const picUrl = p.picture?.data?.url;
           if (p?.id) pagesForSelect.push({ id: p.id, name: p.name ?? undefined, picture: picUrl });
@@ -251,8 +257,9 @@ async function exchangeCode(
             } catch (_) {}
           }
         }
-      } catch (_) {
-        // keep defaults
+      } catch (e) {
+        console.warn('[Social OAuth] Facebook me/accounts request failed:', (e as { response?: { data?: unknown } })?.response?.data ?? (e as Error)?.message);
+        // keep defaults (placeholder id, "Facebook Page", null picture)
       }
       return {
         accessToken,

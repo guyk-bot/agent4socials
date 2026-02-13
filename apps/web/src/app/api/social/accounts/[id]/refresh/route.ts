@@ -33,11 +33,31 @@ export async function PATCH(
   try {
     if (account.platform === 'FACEBOOK') {
       const isPlaceholderId = account.platformUserId.startsWith('fb-');
-      const pagesRes = await axios.get<{ data?: Array<{ id: string; name?: string; picture?: { data?: { url?: string } }; access_token?: string }> }>(
-        'https://graph.facebook.com/v18.0/me/accounts',
-        { params: { fields: 'id,name,picture,access_token', access_token: token } }
-      );
-      const pages = pagesRes.data?.data || [];
+      let pages: Array<{ id: string; name?: string; picture?: { data?: { url?: string } }; access_token?: string }> = [];
+      try {
+        const pagesRes = await axios.get<{ data?: typeof pages; error?: { message?: string; code?: number } }>(
+          'https://graph.facebook.com/v18.0/me/accounts',
+          { params: { fields: 'id,name,picture,access_token', access_token: token } }
+        );
+        pages = pagesRes.data?.data || [];
+        if (pagesRes.data?.error) {
+          console.warn('[Social accounts] Facebook me/accounts API error:', pagesRes.data.error);
+        }
+      } catch (meErr: unknown) {
+        const err = meErr as { response?: { data?: unknown; status?: number } };
+        console.warn('[Social accounts] Facebook me/accounts request failed:', err.response?.status, err.response?.data ?? (meErr as Error)?.message);
+        return NextResponse.json(
+          { message: 'Facebook returned an error when loading your Pages. Disconnect and reconnect Facebook, and when asked grant "Manage your business and its assets" (business_management) so we can see your Page.' },
+          { status: 502 }
+        );
+      }
+      if (pages.length === 0) {
+        console.warn('[Social accounts] Facebook me/accounts returned no pages. User may need to reconnect and grant business_management.');
+        return NextResponse.json(
+          { message: 'Facebook returned no Pages. Reconnect Facebook and when asked, allow "Manage your business and its assets" so we can load your Page name and picture.' },
+          { status: 400 }
+        );
+      }
       const page = isPlaceholderId ? pages[0] : (pages.find((p) => p.id === account.platformUserId) ?? pages[0]);
       if (page?.id) {
         platformUserId = page.id;
