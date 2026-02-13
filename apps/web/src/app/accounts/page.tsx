@@ -35,6 +35,20 @@ export default function AccountsPage() {
             const data = Array.isArray(res.data) ? res.data : [];
             setAccounts(data);
             setCachedAccounts?.(data);
+            const needsProfileRefresh = data.filter(
+                (a: { platform: string; profilePicture?: string | null; username?: string }) =>
+                    (a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK') &&
+                    (!a.profilePicture || a.username === 'Facebook Page' || a.username === 'Instagram')
+            );
+            if (needsProfileRefresh.length > 0) {
+                await Promise.allSettled(
+                    needsProfileRefresh.map((a: { id: string }) => api.patch(`/social/accounts/${a.id}/refresh`))
+                );
+                const res2 = await api.get('/social/accounts');
+                const data2 = Array.isArray(res2.data) ? res2.data : [];
+                setAccounts(data2);
+                setCachedAccounts?.(data2);
+            }
         } catch (err) {
             console.error('Failed to fetch accounts');
         } finally {
@@ -208,7 +222,7 @@ function PlatformCard({ name, description, hint, icon, connectedAccounts, onConn
     const [refreshing, setRefreshing] = useState(false);
     const [disconnecting, setDisconnecting] = useState(false);
     const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
-    const canRefresh = (primaryAccount?.platform === 'INSTAGRAM' || primaryAccount?.platform === 'FACEBOOK') && !primaryAccount?.profilePicture && onRefreshProfile;
+    const canRefresh = (primaryAccount?.platform === 'INSTAGRAM' || primaryAccount?.platform === 'FACEBOOK') && onRefreshProfile;
 
     const [actionError, setActionError] = useState<string | null>(null);
 
