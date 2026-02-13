@@ -41,6 +41,12 @@ To allow users to connect their social accounts, you need to create "Apps" on ea
 
 **If you get "Error 400: redirect_uri_mismatch":** The redirect URI the app sends must match Google exactly. In **Vercel** (or your host) set **YOUTUBE_REDIRECT_URI** = `https://agent4socials.com/api/social/oauth/youtube/callback` (no trailing slash). Ensure this exact URL is in Google Cloud **Authorized redirect URIs**. Then redeploy. If your site is on a different domain (e.g. a Vercel preview URL), add that full callback URL in Google and set `YOUTUBE_REDIRECT_URI` to that same URL.
 
+**Publishing and "Google hasn't verified this app":**
+
+- **Verification Center** (Google Cloud → **APIs & Services** → **OAuth consent screen** → **Verification Center** or **Google Auth Platform** → **Verification Center**) shows **Branding** (verified) and **Data access** status. If it says "Verification is not required" for data access, you don't need to submit for app verification.
+- **To allow anyone to connect (no warning):** In **OAuth consent screen**, set **Publishing status** to **Production**. If your app only uses non‑restricted scopes, that may be enough. If Google still shows the unverified warning, add **Test users** (same OAuth consent screen) for now so those accounts can connect, or submit for verification (see below).
+- **To submit the app for verification** (so all users can connect without the warning when you use sensitive/restricted scopes): In **OAuth consent screen** complete all required fields (app name, logo, home page, privacy policy URL, terms of service if required). Then open **Verification Center** → follow **Submit for verification** (or **Prepare for verification**) and provide the requested info (e.g. demo video, scope justification). After Google approves, the "unverified app" screen stops for normal users.
+
 ---
 
 ## 2. Meta (Instagram & Facebook)
