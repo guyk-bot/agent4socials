@@ -37,7 +37,8 @@ export async function PATCH(
         { params: { fields: 'id,name,picture', access_token: token } }
       );
       const pages = pagesRes.data?.data || [];
-      const page = pages[0];
+      // Use the page that matches the connected account (platformUserId), not always the first
+      const page = pages.find((p) => p.id === account.platformUserId) ?? pages[0];
       if (page?.id) {
         platformUserId = page.id;
         username = page.name ?? undefined;
