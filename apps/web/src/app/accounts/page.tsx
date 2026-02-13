@@ -65,6 +65,7 @@ export default function AccountsPage() {
         };
         setConnectingPlatform(platform);
         setConnectingMethod(method);
+        let openedPopup = false;
         try {
             // Sync profile first so Prisma User row exists (required for OAuth start). If you just added DATABASE_URL or signed in before it was set, this creates the User.
             await api.get('/auth/profile').catch(() => null);
@@ -84,10 +85,14 @@ export default function AccountsPage() {
             if (url && typeof url === 'string') {
                 const popup = window.open(url, '_blank', 'width=600,height=600');
                 if (popup) {
+                    openedPopup = true;
                     const interval = setInterval(() => {
                         if (popup.closed) {
                             clearInterval(interval);
-                            fetchAccounts(false);
+                            fetchAccounts(false).finally(() => {
+                                setConnectingPlatform(null);
+                                setConnectingMethod(undefined);
+                            });
                         }
                     }, 500);
                 }
@@ -108,8 +113,10 @@ export default function AccountsPage() {
                 setAlertMessage('Failed to start OAuth. Check Vercel → Logs for the error, and DATABASE_URL (pooler 6543), META_APP_ID and META_APP_SECRET for Instagram.');
             }
         } finally {
-            setConnectingPlatform(null);
-            setConnectingMethod(undefined);
+            if (!openedPopup) {
+                setConnectingPlatform(null);
+                setConnectingMethod(undefined);
+            }
         }
     };
 
@@ -352,21 +359,21 @@ function PlatformCard({ name, description, hint, icon, connectedAccounts, onConn
                                         key={opt.label}
                                         onClick={() => onConnect?.(opt.method)}
                                         disabled={connecting}
-                                        className="btn-primary flex items-center space-x-2 text-sm disabled:opacity-70 disabled:cursor-wait"
+                                        className="btn-primary flex items-center justify-center space-x-2 text-sm min-w-[8.5rem] disabled:opacity-70 disabled:cursor-wait"
                                     >
-                                        {isThisConnecting ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
+                                        {isThisConnecting ? <Loader2 size={18} className="animate-spin flex-shrink-0" /> : <Plus size={18} className="flex-shrink-0" />}
                                         <span>{isThisConnecting ? 'Connecting…' : `Connect ${opt.label}`}</span>
                                     </button>
                                 );
                             })}
                         </div>
-                    ) : (
+                                    ) : (
                         <button
                             onClick={() => onConnect?.()}
                             disabled={connecting}
-                            className="btn-primary flex items-center space-x-2 text-sm disabled:opacity-70 disabled:cursor-wait"
+                            className="btn-primary flex items-center justify-center space-x-2 text-sm min-w-[8.5rem] disabled:opacity-70 disabled:cursor-wait"
                         >
-                            {connecting ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
+                            {connecting ? <Loader2 size={18} className="animate-spin flex-shrink-0" /> : <Plus size={18} className="flex-shrink-0" />}
                             <span>{connecting ? 'Connecting…' : 'Connect'}</span>
                         </button>
                     )}
