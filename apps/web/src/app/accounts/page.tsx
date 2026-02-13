@@ -334,10 +334,10 @@ function PlatformCard({ name, description, hint, icon, connectedAccounts, onConn
                                         key={opt.label}
                                         onClick={() => onConnect?.(opt.method)}
                                         disabled={connecting}
-                                        className="btn-primary flex items-center justify-center space-x-2 text-sm min-w-[8.5rem] disabled:opacity-70 disabled:cursor-wait"
+                                        className="btn-primary flex items-center justify-center gap-2 text-sm w-[10rem] disabled:opacity-70 disabled:cursor-wait"
                                     >
                                         {isThisConnecting ? <Loader2 size={18} className="animate-spin flex-shrink-0" /> : <Plus size={18} className="flex-shrink-0" />}
-                                        <span>{isThisConnecting ? 'Connecting…' : `Connect ${opt.label}`}</span>
+                                        <span className="truncate">{isThisConnecting ? 'Connecting…' : `Connect ${opt.label}`}</span>
                                     </button>
                                 );
                             })}
@@ -346,10 +346,10 @@ function PlatformCard({ name, description, hint, icon, connectedAccounts, onConn
                         <button
                             onClick={() => onConnect?.()}
                             disabled={connecting}
-                            className="btn-primary flex items-center justify-center space-x-2 text-sm min-w-[8.5rem] disabled:opacity-70 disabled:cursor-wait"
+                            className="btn-primary flex items-center justify-center gap-2 text-sm w-[10rem] disabled:opacity-70 disabled:cursor-wait"
                         >
                             {connecting ? <Loader2 size={18} className="animate-spin flex-shrink-0" /> : <Plus size={18} className="flex-shrink-0" />}
-                            <span>{connecting ? 'Connecting…' : 'Connect'}</span>
+                            <span className="truncate">{connecting ? 'Connecting…' : 'Connect'}</span>
                         </button>
                     )}
                 </div>
