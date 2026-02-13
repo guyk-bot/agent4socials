@@ -42,9 +42,16 @@ export async function POST(request: NextRequest) {
   let picture: string | null = page.picture ?? null;
   if (!picture || !page.name) {
     try {
+      const pagesRes = await axios.get<{ data?: Array<{ id: string; name?: string; picture?: { data?: { url?: string } }; access_token?: string }> }>(
+        'https://graph.facebook.com/v18.0/me/accounts',
+        { params: { fields: 'id,name,picture,access_token', access_token: pending.accessToken } }
+      );
+      const pages = pagesRes.data?.data || [];
+      const pageFromApi = pages.find((p) => p.id === pageId);
+      const tokenToUse = pageFromApi?.access_token || pending.accessToken;
       const res = await axios.get<{ name?: string; picture?: { data?: { url?: string } } }>(
         `https://graph.facebook.com/v18.0/${pageId}`,
-        { params: { fields: 'name,picture', access_token: pending.accessToken } }
+        { params: { fields: 'name,picture', access_token: tokenToUse } }
       );
       if (res.data?.name) name = res.data.name;
       if (res.data?.picture?.data?.url) picture = res.data.picture.data.url;
