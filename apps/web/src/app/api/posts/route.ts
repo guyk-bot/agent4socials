@@ -65,8 +65,8 @@ export async function POST(request: NextRequest) {
       userId,
       title: title ?? null,
       content: content ?? null,
-      contentByPlatform: contentByPlatform && Object.keys(contentByPlatform).length > 0 ? contentByPlatform : null,
-      mediaByPlatform: mediaByPlatform && Object.keys(mediaByPlatform).length > 0 ? mediaByPlatform : null,
+      ...(contentByPlatform && Object.keys(contentByPlatform).length > 0 ? { contentByPlatform } : {}),
+      ...(mediaByPlatform && Object.keys(mediaByPlatform).length > 0 ? { mediaByPlatform } : {}),
       status,
       scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
       media: {

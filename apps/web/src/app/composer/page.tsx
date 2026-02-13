@@ -188,7 +188,7 @@ export default function ComposerPage() {
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div className="card space-y-4">
                         <h3 className="font-semibold text-neutral-900">1. Select Platforms</h3>
-                        <div className="flex flex-wrap gap-3">
+                        <div className="flex flex-wrap gap-3 justify-center">
                             <PlatformToggle
                                 platform="INSTAGRAM"
                                 label="Instagram"
@@ -395,13 +395,13 @@ function PlatformToggle({ platform, label, icon, active, onClick }: { platform: 
         <button
             type="button"
             onClick={onClick}
-            className={`min-w-[4.5rem] p-4 rounded-xl border-2 flex flex-col items-center justify-center gap-2 transition-all duration-200 ${active
+            className={`w-24 h-24 rounded-xl border-2 flex flex-col items-center justify-center gap-2 transition-all duration-200 ${active
                     ? 'border-indigo-600 bg-indigo-50 text-indigo-600 shadow-sm'
                     : 'border-neutral-200 bg-white text-neutral-500 hover:border-neutral-300 hover:bg-neutral-50'
                 }`}
         >
-            <span className="flex items-center justify-center w-8 h-8 shrink-0">{icon}</span>
-            <span className="text-xs font-semibold uppercase tracking-wide">{label}</span>
+            <span className="flex items-center justify-center w-10 h-10 shrink-0">{icon}</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-center leading-tight">{label}</span>
         </button>
     );
 }
