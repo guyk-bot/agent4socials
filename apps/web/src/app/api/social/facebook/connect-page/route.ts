@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
+import axios from 'axios';
 
 type PageItem = { id: string; name?: string; picture?: string };
 
@@ -37,6 +38,18 @@ export async function POST(request: NextRequest) {
   if (!page) {
     return NextResponse.json({ message: 'Invalid page' }, { status: 400 });
   }
+  let name = page.name ?? 'Facebook Page';
+  let picture: string | null = page.picture ?? null;
+  if (!picture || !page.name) {
+    try {
+      const res = await axios.get<{ name?: string; picture?: { data?: { url?: string } } }>(
+        `https://graph.facebook.com/v18.0/${pageId}`,
+        { params: { fields: 'name,picture', access_token: pending.accessToken } }
+      );
+      if (res.data?.name) name = res.data.name;
+      if (res.data?.picture?.data?.url) picture = res.data.picture.data.url;
+    } catch (_) {}
+  }
   const expiresAt = new Date(Date.now() + 3600 * 1000);
   await prisma.socialAccount.upsert({
     where: {
@@ -48,8 +61,8 @@ export async function POST(request: NextRequest) {
     },
     update: {
       accessToken: pending.accessToken,
-      username: page.name ?? 'Facebook Page',
-      profilePicture: page.picture ?? null,
+      username: name,
+      profilePicture: picture,
       expiresAt,
       status: 'connected',
     },
@@ -57,8 +70,8 @@ export async function POST(request: NextRequest) {
       userId,
       platform: 'FACEBOOK',
       platformUserId: page.id,
-      username: page.name ?? 'Facebook Page',
-      profilePicture: page.picture ?? null,
+      username: name,
+      profilePicture: picture,
       accessToken: pending.accessToken,
       refreshToken: null,
       expiresAt,

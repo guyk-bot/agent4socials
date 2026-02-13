@@ -227,7 +227,7 @@ async function exchangeCode(
       try {
         const pagesRes = await axios.get<{ data?: Array<{ id: string; name?: string; picture?: { data?: { url?: string } } }> }>(
           'https://graph.facebook.com/v18.0/me/accounts',
-          { params: { fields: 'id,name,picture.type(large)', access_token: accessToken } }
+          { params: { fields: 'id,name,picture', access_token: accessToken } }
         );
         const pages = pagesRes.data?.data || [];
         for (const p of pages) {
@@ -243,7 +243,7 @@ async function exchangeCode(
             try {
               const pageRes = await axios.get<{ name?: string; picture?: { data?: { url?: string } } }>(
                 `https://graph.facebook.com/v18.0/${page.id}`,
-                { params: { fields: 'name,picture.type(large)', access_token: accessToken } }
+                { params: { fields: 'name,picture', access_token: accessToken } }
               );
               if (pageRes.data?.name) username = pageRes.data.name;
               profilePicture = pageRes.data?.picture?.data?.url ?? null;
