@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
     } catch (_) {}
   }
   const expiresAt = new Date(Date.now() + 3600 * 1000);
+  await prisma.socialAccount.deleteMany({ where: { userId, platform: 'FACEBOOK' } });
   await prisma.socialAccount.upsert({
     where: {
       userId_platform_platformUserId: {
@@ -98,6 +99,7 @@ export async function POST(request: NextRequest) {
       if (igRes.data?.username) igUsername = igRes.data.username;
       if (igRes.data?.profile_picture_url) igPicture = igRes.data.profile_picture_url;
     } catch (_) {}
+    await prisma.socialAccount.deleteMany({ where: { userId, platform: 'INSTAGRAM' } });
     await prisma.socialAccount.upsert({
       where: {
         userId_platform_platformUserId: {

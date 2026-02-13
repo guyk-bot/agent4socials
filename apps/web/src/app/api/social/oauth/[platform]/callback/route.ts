@@ -445,6 +445,7 @@ export async function GET(
       console.error('[Social OAuth] pending Facebook create error:', e);
       const firstPage = tokenData.pages![0];
       try {
+        await prisma.socialAccount.deleteMany({ where: { userId, platform: 'FACEBOOK' } });
         await prisma.socialAccount.upsert({
           where: {
             userId_platform_platformUserId: { userId, platform: 'FACEBOOK', platformUserId: firstPage.id },
@@ -502,6 +503,7 @@ export async function GET(
       const first = tokenData.instagramAccounts![0];
       const linkedPage = tokenData.linkedPage ?? (first.pageId ? { id: first.pageId, name: first.pageName ?? 'Facebook Page', picture: first.pagePicture ?? null } : undefined);
       try {
+        await prisma.socialAccount.deleteMany({ where: { userId, platform: 'INSTAGRAM' } });
         await prisma.socialAccount.upsert({
           where: {
             userId_platform_platformUserId: { userId, platform: 'INSTAGRAM', platformUserId: first.id },
@@ -527,6 +529,7 @@ export async function GET(
           },
         });
         if (linkedPage) {
+          await prisma.socialAccount.deleteMany({ where: { userId, platform: 'FACEBOOK' } });
           await prisma.socialAccount.upsert({
             where: {
               userId_platform_platformUserId: { userId, platform: 'FACEBOOK', platformUserId: linkedPage.id },
@@ -566,6 +569,7 @@ export async function GET(
 
   const profilePicture = tokenData.profilePicture ?? undefined;
   try {
+    await prisma.socialAccount.deleteMany({ where: { userId, platform: plat } });
     await prisma.socialAccount.upsert({
       where: {
         userId_platform_platformUserId: {
@@ -596,6 +600,7 @@ export async function GET(
     });
     // Auto-connect linked account: Instagram via Facebook → also create Facebook Page; Facebook → also create linked Instagram
     if (plat === 'INSTAGRAM' && tokenData.linkedPage) {
+      await prisma.socialAccount.deleteMany({ where: { userId, platform: 'FACEBOOK' } });
       await prisma.socialAccount.upsert({
         where: {
           userId_platform_platformUserId: {
@@ -626,6 +631,7 @@ export async function GET(
       });
     }
     if (plat === 'FACEBOOK' && tokenData.linkedInstagram) {
+      await prisma.socialAccount.deleteMany({ where: { userId, platform: 'INSTAGRAM' } });
       await prisma.socialAccount.upsert({
         where: {
           userId_platform_platformUserId: {

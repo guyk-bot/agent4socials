@@ -77,7 +77,7 @@ export default function DashboardPage() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const { cachedAccounts, setCachedAccounts } = useAccountsCache() ?? { cachedAccounts: [], setCachedAccounts: () => {} };
-  const { selectedPlatformForConnect } = useSelectedAccount() ?? { selectedPlatformForConnect: null };
+  const { selectedPlatformForConnect, clearSelection } = useSelectedAccount() ?? { selectedPlatformForConnect: null, clearSelection: () => {} };
   const selectedAccount = useResolvedSelectedAccount(cachedAccounts as SocialAccount[]);
   const [justConnected, setJustConnected] = useState(false);
   const connectingParam = searchParams.get('connecting');
@@ -112,6 +112,7 @@ export default function DashboardPage() {
     combinedTimeSeries: Array<{ date: string; value: number }>;
   } | null>(null);
   const [aggregatedLoading, setAggregatedLoading] = useState(false);
+  const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
   const accounts = (cachedAccounts as SocialAccount[]) ?? [];
   const hasAccounts = accounts.length > 0;
 
@@ -211,22 +212,13 @@ export default function DashboardPage() {
       if (cached && analyticsTab === 'account') {
         setInsights(cached);
         setInsightsLoading(false);
-      } else if (analyticsTab === 'account') {
-        setInsights(null);
-        setInsightsLoading(true);
+        return;
       }
       if (analyticsTab !== 'account' || !dateRange.start || !dateRange.end) return;
       if (analyticsTab !== 'account') return;
-      if (cached && analyticsTab === 'account') {
-        api.get(`/social/accounts/${selectedAccount.id}/insights`, { params: { since: dateRange.start, until: dateRange.end } })
-          .then((res) => {
-            const data = res.data ?? null;
-            if (data) insightsCacheRef.current[cacheKey] = data;
-            setInsights(data);
-          })
-          .catch(() => {})
-          .finally(() => setInsightsLoading(false));
-        return;
+      if (analyticsTab === 'account') {
+        setInsights(null);
+        setInsightsLoading(true);
       }
       api.get(`/social/accounts/${selectedAccount.id}/insights`, { params: { since: dateRange.start, until: dateRange.end } })
         .then((res) => {
@@ -426,22 +418,48 @@ export default function DashboardPage() {
       </div>
 
       {/* Account block: profile link when one account selected; "All connected" or connect CTA otherwise */}
-      <div className="mt-6">
+      <div className="mt-6 flex flex-col gap-3">
         {selectedAccount ? (
-          <a
-            href={profileUrlForAccount(selectedAccount)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex gap-3 p-3 bg-white rounded-xl border border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50/50 transition-colors w-fit"
-          >
-            <div className="w-12 h-12 rounded-full bg-neutral-100 flex items-center justify-center overflow-hidden shrink-0">
-              {selectedAccount.profilePicture ? <img src={selectedAccount.profilePicture} alt="" className="w-full h-full object-cover" /> : PLATFORM_ICON[selectedAccount.platform]}
+          <>
+            <div className="flex flex-wrap items-center gap-3">
+              <a
+                href={profileUrlForAccount(selectedAccount)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex gap-3 p-3 bg-white rounded-xl border border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50/50 transition-colors w-fit"
+              >
+                <div className="w-12 h-12 rounded-full bg-neutral-100 flex items-center justify-center overflow-hidden shrink-0">
+                  {selectedAccount.profilePicture ? <img src={selectedAccount.profilePicture} alt="" className="w-full h-full object-cover" /> : PLATFORM_ICON[selectedAccount.platform]}
+                </div>
+                <div>
+                  <p className="font-semibold text-neutral-900">{selectedAccount.username || selectedAccount.platform}</p>
+                  <p className="text-sm text-neutral-500">{selectedAccount.platform} · Open profile</p>
+                </div>
+              </a>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (disconnectingId) return;
+                  if (!window.confirm(`Disconnect ${selectedAccount.username || selectedAccount.platform}? You can connect again anytime from the sidebar.`)) return;
+                  setDisconnectingId(selectedAccount.id);
+                  try {
+                    await api.delete(`/social/accounts/${selectedAccount.id}`);
+                    clearSelection();
+                    const res = await api.get('/social/accounts');
+                    const data = Array.isArray(res.data) ? res.data : [];
+                    setCachedAccounts(data);
+                    setInsights(null);
+                    setAggregatedInsights(null);
+                  } catch (_) {}
+                  setDisconnectingId(null);
+                }}
+                disabled={!!disconnectingId}
+                className="shrink-0 px-4 py-2 rounded-lg border border-red-200 bg-white text-red-700 text-sm font-medium hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {disconnectingId === selectedAccount.id ? 'Disconnecting…' : 'Disconnect account'}
+              </button>
             </div>
-            <div>
-              <p className="font-semibold text-neutral-900">{selectedAccount.username || selectedAccount.platform}</p>
-              <p className="text-sm text-neutral-500">{selectedAccount.platform} · Open profile</p>
-            </div>
-          </a>
+          </>
         ) : hasAccounts ? (
           <div className="flex gap-3 p-3 bg-white rounded-xl border border-neutral-200 w-fit">
             <div className="w-12 h-12 rounded-full bg-neutral-100 flex items-center justify-center shrink-0">{PLATFORM_ICON.INSTAGRAM}</div>

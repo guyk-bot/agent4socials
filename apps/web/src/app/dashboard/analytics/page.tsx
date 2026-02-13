@@ -134,14 +134,6 @@ export default function AnalyticsPage() {
     if (cached) {
       setInsights(cached);
       setInsightsLoading(false);
-      api.get(`/social/accounts/${selectedAccount.id}/insights`, { params: { since: dateRange.start, until: dateRange.end } })
-        .then((res) => {
-          const data = res.data ?? null;
-          if (data) insightsCacheRef.current[cacheKey] = data;
-          setInsights(data);
-        })
-        .catch(() => {})
-        .finally(() => setInsightsLoading(false));
       return;
     }
     setInsights(null);

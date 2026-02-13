@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'Invalid account' }, { status: 400 });
   }
   const expiresAt = new Date(Date.now() + 3600 * 1000);
+  await prisma.socialAccount.deleteMany({ where: { userId, platform: 'INSTAGRAM' } });
   await prisma.socialAccount.upsert({
     where: {
       userId_platform_platformUserId: {
@@ -67,6 +68,7 @@ export async function POST(request: NextRequest) {
   });
   // Auto-connect linked Facebook Page when this IG was connected via Facebook and we have page info
   if (account.pageId) {
+    await prisma.socialAccount.deleteMany({ where: { userId, platform: 'FACEBOOK' } });
     await prisma.socialAccount.upsert({
       where: {
         userId_platform_platformUserId: {
