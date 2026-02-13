@@ -53,9 +53,11 @@ type ConnectViewProps = {
   onConnect: (platform: string, method?: string) => void;
   connecting: boolean;
   connectingMethod?: string;
+  oauthRedirectUrl?: string | null;
+  connectError?: string | null;
 };
 
-export default function ConnectView({ platform, onConnect, connecting, connectingMethod }: ConnectViewProps) {
+export default function ConnectView({ platform, onConnect, connecting, connectingMethod, oauthRedirectUrl, connectError }: ConnectViewProps) {
   const info = PLATFORM_INFO[platform];
   if (!info) return null;
 
@@ -73,6 +75,7 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
   }
 
   if (platform === 'INSTAGRAM') {
+    const isRedirecting = connecting && oauthRedirectUrl && !connectingMethod;
     return (
       <div className="max-w-3xl mx-auto space-y-8">
         <div className="text-center">
@@ -82,6 +85,23 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
           <h1 className="text-2xl font-bold text-neutral-900">Connect Instagram account</h1>
           <p className="text-neutral-500 mt-1">Select how you would like to connect your account</p>
         </div>
+        {connectError && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            {connectError}
+          </div>
+        )}
+        {isRedirecting && (
+          <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-4 text-center">
+            <Loader2 size={28} className="animate-spin text-indigo-600 mx-auto mb-2" />
+            <p className="font-medium text-neutral-900">Redirecting you to Facebook…</p>
+            <p className="text-sm text-neutral-600 mt-1">If nothing happened, click the link below.</p>
+            {oauthRedirectUrl && (
+              <a href={oauthRedirectUrl} className="mt-3 inline-block text-indigo-600 font-medium hover:underline" target="_blank" rel="noopener noreferrer">
+                Open Facebook to connect →
+              </a>
+            )}
+          </div>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <button
             type="button"

@@ -81,6 +81,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
   const [connectingMethod, setConnectingMethod] = useState<string | undefined>(undefined);
+  const [oauthRedirectUrl, setOauthRedirectUrl] = useState<string | null>(null);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const [analyticsTab, setAnalyticsTab] = useState('account');
   const [importedPosts, setImportedPosts] = useState<Array<{ id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; impressions: number; interactions: number; publishedAt: string; mediaType?: string | null; platform: string }>>([]);
@@ -224,8 +225,10 @@ export default function DashboardPage() {
       const res = (err as { response?: { data?: { message?: string } } }).response;
       return res?.data?.message ?? null;
     };
+    setAlertMessage(null);
     setConnectingPlatform(platform);
     setConnectingMethod(method);
+    let redirecting = false;
     try {
       await supabase.auth.getSession();
       await api.get('/auth/profile').catch(() => null);
@@ -242,7 +245,11 @@ export default function DashboardPage() {
       }
       const url = res?.data?.url;
       if (url && typeof url === 'string') {
-        window.location.href = url;
+        redirecting = true;
+        setOauthRedirectUrl(url);
+        setTimeout(() => {
+          window.location.href = url;
+        }, 200);
         return;
       }
       setAlertMessage('Invalid response from server. Check server logs.');
@@ -260,8 +267,11 @@ export default function DashboardPage() {
         setAlertMessage('Failed to start OAuth. Check Vercel → Logs.');
       }
     } finally {
-      setConnectingPlatform(null);
-      setConnectingMethod(undefined);
+      if (!redirecting) {
+        setConnectingPlatform(null);
+        setConnectingMethod(undefined);
+        setOauthRedirectUrl(null);
+      }
     }
   };
 
@@ -274,6 +284,8 @@ export default function DashboardPage() {
           onConnect={handleConnect}
           connecting={connectingPlatform !== null}
           connectingMethod={connectingMethod}
+          oauthRedirectUrl={oauthRedirectUrl}
+          connectError={alertMessage}
         />
       </>
     );
