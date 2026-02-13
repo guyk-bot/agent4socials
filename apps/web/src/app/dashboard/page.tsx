@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
 import { useSelectedAccount, useResolvedSelectedAccount } from '@/context/SelectedAccountContext';
@@ -71,10 +73,14 @@ const TABS = [
 ];
 
 export default function DashboardPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const { cachedAccounts, setCachedAccounts } = useAccountsCache() ?? { cachedAccounts: [], setCachedAccounts: () => {} };
   const { selectedPlatformForConnect } = useSelectedAccount() ?? { selectedPlatformForConnect: null };
   const selectedAccount = useResolvedSelectedAccount(cachedAccounts as SocialAccount[]);
+  const [justConnected, setJustConnected] = useState(false);
+  const connectingParam = searchParams.get('connecting');
 
   const [stats, setStats] = useState({ accounts: 0, scheduled: 0, posted: 0, failed: 0 });
   const [recentPosts, setRecentPosts] = useState<any[]>([]);
@@ -95,7 +101,7 @@ export default function DashboardPage() {
   const [postsPage, setPostsPage] = useState(1);
   const [postsSearch, setPostsSearch] = useState('');
   const [postsPerPage, setPostsPerPage] = useState(5);
-  const [insights, setInsights] = useState<{ platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }> } | null>(null);
+  const [insights, setInsights] = useState<{ platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number } | null>(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [sortBy, setSortBy] = useState<'date' | 'impressions' | 'interactions'>('date');
   const [sortDesc, setSortDesc] = useState(true);
@@ -117,6 +123,17 @@ export default function DashboardPage() {
       setStats((s) => ({ ...s, accounts: data.length }));
     } catch (_) {}
   };
+
+  useEffect(() => {
+    if (connectingParam !== '1') return;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    fetchAccounts().then(() => {
+      router.replace('/dashboard', { scroll: false });
+      setJustConnected(true);
+      timeoutId = setTimeout(() => setJustConnected(false), 5000);
+    }).catch(() => router.replace('/dashboard', { scroll: false }));
+    return () => { if (timeoutId) clearTimeout(timeoutId); };
+  }, [connectingParam, router]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -168,16 +185,37 @@ export default function DashboardPage() {
       .finally(() => setImportedPostsLoading(false));
   }, [analyticsTab, selectedAccount?.id, hasAccounts, accounts.map((a) => a.id).join(',')]);
 
+  const insightsCacheRef = useRef<Record<string, { platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number }>>({});
+  const aggregatedCacheRef = useRef<{ key: string; data: { totalFollowers: number; totalImpressions: number; byPlatform: Record<string, { followers: number; impressions: number; timeSeries: Array<{ date: string; value: number }> }>; combinedTimeSeries: Array<{ date: string; value: number }> } } | null>(null);
+
+  useEffect(() => {
+    setInsights(null);
+    if (!selectedAccount?.id) setAggregatedInsights(null);
+  }, [selectedAccount?.id]);
+
   useEffect(() => {
     if (selectedAccount?.id) {
-      if (analyticsTab !== 'account' || !dateRange.start || !dateRange.end) return;
-      setInsightsLoading(true);
+      setAggregatedInsights(null);
+      const cacheKey = `${selectedAccount.id}-${dateRange.start}-${dateRange.end}`;
+      const cached = analyticsTab === 'account' ? insightsCacheRef.current[cacheKey] : undefined;
+      if (cached && analyticsTab === 'account') {
+        setInsights(cached);
+        setInsightsLoading(false);
+      } else if (analyticsTab !== 'account' || !dateRange.start || !dateRange.end) return;
+      if (analyticsTab !== 'account') return;
+      if (!cached) setInsightsLoading(true);
+      setInsights(null);
       api.get(`/social/accounts/${selectedAccount.id}/insights`, { params: { since: dateRange.start, until: dateRange.end } })
-        .then((res) => setInsights(res.data ?? null))
+        .then((res) => {
+          const data = res.data ?? null;
+          if (data) insightsCacheRef.current[cacheKey] = data;
+          setInsights(data);
+        })
         .catch(() => setInsights(null))
         .finally(() => setInsightsLoading(false));
       return;
     }
+    setInsights(null);
     if (!hasAccounts || analyticsTab !== 'account' || !dateRange.start || !dateRange.end) {
       setAggregatedInsights(null);
       return;
@@ -187,7 +225,14 @@ export default function DashboardPage() {
       setAggregatedInsights(null);
       return;
     }
-    setAggregatedLoading(true);
+    const aggCacheKey = `agg-${dateRange.start}-${dateRange.end}-${insightAccounts.map((a) => a.id).join(',')}`;
+    const cachedAgg = aggregatedCacheRef.current;
+    if (cachedAgg && cachedAgg.key === aggCacheKey) {
+      setAggregatedInsights(cachedAgg.data);
+      setAggregatedLoading(false);
+    } else {
+      setAggregatedLoading(true);
+    }
     Promise.all(
       insightAccounts.map((acc) =>
         api.get(`/social/accounts/${acc.id}/insights`, { params: { since: dateRange.start, until: dateRange.end } }).then((r) => ({ platform: acc.platform, data: r.data }))
@@ -213,7 +258,9 @@ export default function DashboardPage() {
         const combinedTimeSeries = Object.entries(dateMap)
           .map(([date, value]) => ({ date, value }))
           .sort((a, b) => a.date.localeCompare(b.date));
-        setAggregatedInsights({ totalFollowers, totalImpressions, byPlatform, combinedTimeSeries });
+        const data = { totalFollowers, totalImpressions, byPlatform, combinedTimeSeries };
+        aggregatedCacheRef.current = { key: aggCacheKey, data };
+        setAggregatedInsights(data);
       })
       .catch(() => setAggregatedInsights(null))
       .finally(() => setAggregatedLoading(false));
@@ -314,11 +361,18 @@ export default function DashboardPage() {
   const effectiveFollowers = selectedAccount ? (insights?.followers ?? 0) : (aggregatedInsights?.totalFollowers ?? 0);
   const effectiveImpressions = selectedAccount ? (insights?.impressionsTotal ?? 0) : (aggregatedInsights?.totalImpressions ?? 0);
   const effectiveTimeSeries = selectedAccount ? (insights?.impressionsTimeSeries ?? []) : (aggregatedInsights?.combinedTimeSeries ?? []);
+  const effectivePageVisits = selectedAccount ? (insights?.pageViewsTotal ?? 0) : 0;
+  const effectiveReach = selectedAccount ? (insights?.reachTotal ?? 0) : 0;
   const effectiveInsightsLoading = selectedAccount ? insightsLoading : aggregatedLoading;
   const maxImpressions = effectiveTimeSeries.length ? Math.max(...effectiveTimeSeries.map((d) => d.value), 1) : 1;
 
   return (
     <div className="space-y-0">
+      {(connectingParam === '1' || justConnected) && (
+        <div className={`mb-4 rounded-xl border px-4 py-3 text-sm ${justConnected ? 'border-green-200 bg-green-50 text-green-800' : 'border-indigo-200 bg-indigo-50 text-indigo-800'}`}>
+          {justConnected ? 'Account connected. You can select it from the sidebar.' : 'Connecting your account…'}
+        </div>
+      )}
       {/* Top row: ACCOUNT | POSTS tabs + date range (Metricool-style) */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-neutral-200">
         <div className="flex gap-1 p-1 bg-neutral-100 rounded-lg w-fit">
@@ -430,7 +484,7 @@ export default function DashboardPage() {
             </div>
             {/* Impressions card */}
             <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
-              <p className="text-sm font-medium text-neutral-500">Impressions</p>
+              <p className="text-sm font-medium text-neutral-500">Views</p>
               <div className="flex items-center gap-3 mt-1">
                 <span className="text-3xl font-bold text-neutral-900">{effectiveImpressions}</span>
                 <div className="flex-1 h-2 max-w-[120px] rounded-full bg-neutral-200 overflow-hidden">
@@ -469,13 +523,28 @@ export default function DashboardPage() {
                   </div>
                 )}
               </div>
-              <p className="text-xs text-neutral-400 mt-1 px-1">{dateRange.start} – {dateRange.end}</p>
+                <p className="text-xs text-neutral-400 mt-1 px-1">{dateRange.start} – {dateRange.end}</p>
+            </div>
+            {/* Page visits (FB) / Reach (IG) and Total content row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:col-span-2">
+              <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
+                <p className="text-xs font-medium text-neutral-500">Page visits</p>
+                <p className="text-xl font-bold text-neutral-900 mt-0.5">{effectivePageVisits || '—'}</p>
+              </div>
+              <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
+                <p className="text-xs font-medium text-neutral-500">Reach</p>
+                <p className="text-xl font-bold text-neutral-900 mt-0.5">{effectiveReach || '—'}</p>
+              </div>
+              <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
+                <p className="text-xs font-medium text-neutral-500">Total content</p>
+                <p className="text-xl font-bold text-neutral-900 mt-0.5">{importedPosts.length}</p>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-        {analyticsTab === 'posts' && (
+      {analyticsTab === 'posts' && (
           <div className="mt-6 space-y-6">
             {/* Interactions widget (Metricool Summary: title, number + bar, platform buttons with count) */}
             <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">

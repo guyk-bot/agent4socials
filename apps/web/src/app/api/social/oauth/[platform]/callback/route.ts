@@ -469,7 +469,7 @@ export async function GET(
             status: 'connected',
           },
         });
-        const dashboardUrl = `${baseUrl}/dashboard`;
+        const dashboardUrl = `${baseUrl}/dashboard?connecting=1`;
         const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><p>Page connected.</p><script>window.location.href = ${JSON.stringify(dashboardUrl)};</script><p><a href="${dashboardUrl}">Go to Dashboard</a></p></body></html>`;
         return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
       } catch (fallbackErr) {
@@ -552,7 +552,7 @@ export async function GET(
             },
           });
         }
-        const dashboardUrl = `${baseUrl}/dashboard`;
+        const dashboardUrl = `${baseUrl}/dashboard?connecting=1`;
         const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><p>Account connected.</p><script>window.location.href = ${JSON.stringify(dashboardUrl)};</script><p><a href="${dashboardUrl}">Go to Dashboard</a></p></body></html>`;
         return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
       } catch (fallbackErr) {
@@ -660,7 +660,7 @@ export async function GET(
     return oauthErrorHtml(baseUrl, 'Could not save account. Check database connection and schema.', 500);
   }
 
-  const dashboardUrl = `${baseUrl}/dashboard`;
+  const dashboardUrl = `${baseUrl}/dashboard?connecting=1`;
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><p>Account connected.</p><script>
 (function(){
   if (window.opener) {

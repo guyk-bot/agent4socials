@@ -17,6 +17,7 @@ import {
     Facebook,
     Linkedin,
     Gem,
+    RefreshCw,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -71,6 +72,7 @@ export default function Sidebar() {
   const setSelectedAccount = ctx?.setSelectedAccount ?? (() => {});
   const setSelectedPlatformForConnect = ctx?.setSelectedPlatformForConnect ?? (() => {});
   const clearSelection = ctx?.clearSelection ?? (() => {});
+  const [reconnectingPlatform, setReconnectingPlatform] = React.useState<string | null>(null);
 
   useEffect(() => {
     if (cachedAccounts.length > 0) return;
@@ -158,33 +160,59 @@ export default function Sidebar() {
             );
           }
 
+          const canReconnect = platform === 'INSTAGRAM' || platform === 'FACEBOOK';
           return (
             <div key={platform} className="space-y-0.5">
               {accounts.map((acc) => {
                 const isSelected = selectedAccountId === acc.id;
+                const isReconnecting = reconnectingPlatform === platform;
                 return (
-                  <button
+                  <div
                     key={acc.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedAccount(acc);
-                      router.push('/dashboard');
-                    }}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors ${
-                      isSelected ? 'bg-white shadow-sm ring-1 ring-neutral-200' : 'hover:bg-white/70'
-                    }`}
-                    style={isSelected ? { color: accent } : undefined}
+                    className={`flex items-center gap-0 rounded-lg ${isSelected ? 'bg-white shadow-sm ring-1 ring-neutral-200' : ''}`}
                   >
-                    <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden">
-                      {acc.profilePicture ? (
-                        <img src={acc.profilePicture} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        PLATFORM_ICON[platform] ?? <span className="font-bold text-xs">?</span>
-                      )}
-                    </div>
-                    <span className="truncate flex-1 font-medium">{acc.username || PLATFORM_LABELS[platform]}</span>
-                    {isSelected && <ChevronRight size={14} className="shrink-0 opacity-70" />}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedAccount(acc);
+                        router.push('/dashboard');
+                      }}
+                      className={`flex-1 flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors min-w-0 ${
+                        isSelected ? '' : 'hover:bg-white/70'
+                      }`}
+                      style={isSelected ? { color: accent } : undefined}
+                    >
+                      <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden">
+                        {acc.profilePicture ? (
+                          <img src={acc.profilePicture} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          PLATFORM_ICON[platform] ?? <span className="font-bold text-xs">?</span>
+                        )}
+                      </div>
+                      <span className="truncate flex-1 font-medium">{acc.username || PLATFORM_LABELS[platform]}</span>
+                      {isSelected && <ChevronRight size={14} className="shrink-0 opacity-70" />}
+                    </button>
+                    {canReconnect && (
+                      <button
+                        type="button"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (isReconnecting) return;
+                          setReconnectingPlatform(platform);
+                          try {
+                            const res = await api.get(`/social/oauth/${platform.toLowerCase()}/start`);
+                            const url = res?.data?.url;
+                            if (url && typeof url === 'string') window.location.href = url;
+                          } catch (_) {}
+                          setReconnectingPlatform(null);
+                        }}
+                        title="Reconnect account"
+                        className="p-2 rounded-lg hover:bg-neutral-100 text-neutral-500 hover:text-neutral-700 shrink-0"
+                      >
+                        {isReconnecting ? <RefreshCw size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                      </button>
+                    )}
+                  </div>
                 );
               })}
             </div>

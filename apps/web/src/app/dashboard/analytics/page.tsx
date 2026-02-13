@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import api from '@/lib/api';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
 import { useResolvedSelectedAccount } from '@/context/SelectedAccountContext';
@@ -72,7 +72,7 @@ export default function AnalyticsPage() {
   const [postsPerPage, setPostsPerPage] = useState(5);
   const [sortBy, setSortBy] = useState<'date' | 'impressions' | 'interactions'>('date');
   const [sortDesc, setSortDesc] = useState(true);
-  const [insights, setInsights] = useState<{ platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }> } | null>(null);
+  const [insights, setInsights] = useState<{ platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number } | null>(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [dateRange, setDateRange] = useState(() => {
     const end = new Date();
@@ -110,11 +110,28 @@ export default function AnalyticsPage() {
       .catch(() => setImportedPosts([]));
   }, [activeTab, selectedAccount?.id]);
 
+  const insightsCacheRef = useRef<Record<string, { platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number }>>({});
+
+  useEffect(() => {
+    setInsights(null);
+  }, [selectedAccount?.id]);
+
   useEffect(() => {
     if (activeTab !== 'account' || !selectedAccount?.id || !dateRange.start || !dateRange.end) return;
+    const cacheKey = `${selectedAccount.id}-${dateRange.start}-${dateRange.end}`;
+    const cached = insightsCacheRef.current[cacheKey];
+    if (cached) {
+      setInsights(cached);
+      setInsightsLoading(false);
+      return;
+    }
     setInsightsLoading(true);
     api.get(`/social/accounts/${selectedAccount.id}/insights`, { params: { since: dateRange.start, until: dateRange.end } })
-      .then((res) => setInsights(res.data ?? null))
+      .then((res) => {
+        const data = res.data ?? null;
+        if (data) insightsCacheRef.current[cacheKey] = data;
+        setInsights(data);
+      })
       .catch(() => setInsights(null))
       .finally(() => setInsightsLoading(false));
   }, [activeTab, selectedAccount?.id, dateRange.start, dateRange.end]);
@@ -242,7 +259,7 @@ export default function AnalyticsPage() {
                   <p className="text-xs text-neutral-400 mt-1 px-1">{dateRange.start} – {dateRange.end}</p>
                 </div>
                 <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
-                  <p className="text-sm font-medium text-neutral-500">Impressions</p>
+                  <p className="text-sm font-medium text-neutral-500">Views</p>
                   <div className="flex items-center gap-3 mt-1">
                     <span className="text-3xl font-bold text-neutral-900">{insights?.impressionsTotal ?? 0}</span>
                     <div className="flex-1 h-2 max-w-[120px] rounded-full bg-neutral-200 overflow-hidden">
@@ -270,6 +287,20 @@ export default function AnalyticsPage() {
                     )}
                   </div>
                   <p className="text-xs text-neutral-400 mt-1 px-1">{dateRange.start} – {dateRange.end}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
+                  <p className="text-xs font-medium text-neutral-500">Page visits</p>
+                  <p className="text-xl font-bold text-neutral-900 mt-0.5">{insights?.pageViewsTotal ?? '—'}</p>
+                </div>
+                <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
+                  <p className="text-xs font-medium text-neutral-500">Reach</p>
+                  <p className="text-xl font-bold text-neutral-900 mt-0.5">{insights?.reachTotal ?? '—'}</p>
+                </div>
+                <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
+                  <p className="text-xs font-medium text-neutral-500">Total content</p>
+                  <p className="text-xl font-bold text-neutral-900 mt-0.5">{importedPosts.length}</p>
                 </div>
               </div>
             </div>

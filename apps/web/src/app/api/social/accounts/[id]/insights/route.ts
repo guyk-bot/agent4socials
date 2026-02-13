@@ -39,6 +39,8 @@ export async function GET(
     followers: number;
     impressionsTotal: number;
     impressionsTimeSeries: Array<{ date: string; value: number }>;
+    pageViewsTotal?: number;
+    reachTotal?: number;
     followersTimeSeries?: Array<{ date: string; value: number }>;
   } = {
     platform: account.platform,
@@ -74,7 +76,8 @@ export async function GET(
               access_token: token,
             },
           });
-          const impressionValues = insightsRes.data?.data?.find((d) => d.name === 'impressions')?.values ?? [];
+          const data = insightsRes.data?.data ?? [];
+          const impressionValues = data.find((d) => d.name === 'impressions')?.values ?? [];
           let total = 0;
           const series: Array<{ date: string; value: number }> = [];
           for (const v of impressionValues) {
@@ -88,6 +91,25 @@ export async function GET(
         } catch (_) {
           // insights may require instagram_manage_insights or 100+ followers
         }
+        try {
+          const reachRes = await axios.get<{
+            data?: Array<{ name: string; values?: Array<{ value: number }> }>;
+          }>(`${baseUrl}/${account.platformUserId}/insights`, {
+            params: {
+              metric: 'reach',
+              period: 'day',
+              since: sinceTs,
+              until: untilTs,
+              access_token: token,
+            },
+          });
+          const reachValues = reachRes.data?.data?.find((d) => d.name === 'reach')?.values ?? [];
+          let reachTotal = 0;
+          for (const v of reachValues) {
+            reachTotal += typeof v.value === 'number' ? v.value : 0;
+          }
+          out.reachTotal = reachTotal;
+        } catch (_) {}
       }
       return NextResponse.json(out);
     }
@@ -109,14 +131,16 @@ export async function GET(
             data?: Array<{ name: string; values?: Array<{ value: number; end_time?: string }> }>;
           }>(`${baseUrl}/${account.platformUserId}/insights`, {
             params: {
-              metric: 'page_impressions',
+              metric: 'page_impressions,page_views_total',
               period: 'day',
               since: sinceTs,
               until: untilTs,
               access_token: token,
             },
           });
-          const impressionValues = insightsRes.data?.data?.find((d) => d.name === 'page_impressions')?.values ?? [];
+          const data = insightsRes.data?.data ?? [];
+          const impressionValues = data.find((d) => d.name === 'page_impressions')?.values ?? [];
+          const pageViewsValues = data.find((d) => d.name === 'page_views_total')?.values ?? [];
           let total = 0;
           const series: Array<{ date: string; value: number }> = [];
           for (const v of impressionValues) {
@@ -127,6 +151,11 @@ export async function GET(
           }
           out.impressionsTotal = total;
           out.impressionsTimeSeries = series.sort((a, b) => a.date.localeCompare(b.date));
+          let pageViewsTotal = 0;
+          for (const v of pageViewsValues) {
+            pageViewsTotal += typeof v.value === 'number' ? v.value : 0;
+          }
+          out.pageViewsTotal = pageViewsTotal;
         } catch (_) {}
       }
       return NextResponse.json(out);
