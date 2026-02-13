@@ -15,8 +15,6 @@ import {
     RefreshCw,
     Trash2,
     ShieldCheck,
-    Copy,
-    Check,
     Loader2
 } from 'lucide-react';
 
@@ -26,18 +24,9 @@ export default function AccountsPage() {
     const [accounts, setAccounts] = useState<{ id: string; platform: string; username?: string; profilePicture?: string | null }[]>([]);
     const hasCache = (cachedAccounts?.length ?? 0) > 0;
     const [loading, setLoading] = useState(!hasCache);
-    const [copiedId, setCopiedId] = useState(false);
     const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
     const [connectingMethod, setConnectingMethod] = useState<string | undefined>(undefined);
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
-    const userId = user?.id ?? '';
-
-    const copyUserId = () => {
-        if (!userId) return;
-        navigator.clipboard.writeText(userId);
-        setCopiedId(true);
-        setTimeout(() => setCopiedId(false), 2000);
-    };
 
     const fetchAccounts = async (showLoading = true) => {
         if (showLoading) setLoading(true);
@@ -133,20 +122,6 @@ export default function AccountsPage() {
                 <div>
                     <h1 className="text-2xl font-bold text-neutral-900">Social Accounts</h1>
                     <p className="text-neutral-500">Connect and manage your social media profiles.</p>
-                    {userId && (
-                        <div className="mt-2 flex items-center gap-2">
-                            <span className="text-xs text-neutral-500">User ID (for support):</span>
-                            <code className="text-xs bg-neutral-100 px-2 py-1 rounded font-mono text-neutral-700">{userId}</code>
-                            <button
-                                type="button"
-                                onClick={copyUserId}
-                                className="p-1.5 text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 rounded transition-colors"
-                                title="Copy User ID"
-                            >
-                                {copiedId ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
-                            </button>
-                        </div>
-                    )}
                 </div>
                 <button onClick={() => fetchAccounts(true)} className="p-2 text-neutral-500 hover:text-neutral-700 transition-colors">
                     <RefreshCw size={20} />
@@ -161,7 +136,7 @@ export default function AccountsPage() {
                 <PlatformCard
                     name="Instagram"
                     platform="INSTAGRAM"
-                    description="Schedule posts, reels and stories to your Business or Creator account."
+                    hint="Use a Business or Creator account to connect."
                     icon={<Instagram size={24} className="text-pink-600" />}
                     connectedAccounts={displayAccounts.filter((a: any) => a.platform === 'INSTAGRAM')}
                     onConnect={() => handleConnect('instagram', 'instagram')}
@@ -172,7 +147,7 @@ export default function AccountsPage() {
                 <PlatformCard
                     name="TikTok"
                     platform="TIKTOK"
-                    description="Publish your creative videos directly to TikTok."
+                    hint="Sign in with the TikTok account you want to publish from."
                     icon={<div className="font-bold text-lg">TT</div>}
                     connectedAccounts={displayAccounts.filter((a: any) => a.platform === 'TIKTOK')}
                     onConnect={() => handleConnect('tiktok')}
@@ -182,7 +157,7 @@ export default function AccountsPage() {
                 <PlatformCard
                     name="YouTube"
                     platform="YOUTUBE"
-                    description="Upload and schedule videos to your YouTube channel."
+                    hint="Connect with the Google account that owns your channel."
                     icon={<Youtube size={24} className="text-red-600" />}
                     connectedAccounts={displayAccounts.filter((a: any) => a.platform === 'YOUTUBE')}
                     onConnect={() => handleConnect('youtube')}
@@ -192,8 +167,7 @@ export default function AccountsPage() {
                 <PlatformCard
                     name="Facebook"
                     platform="FACEBOOK"
-                    description="Post to your Facebook Page and reach your audience."
-                    hint="If you have multiple Pages, you’ll choose which one to connect after authorizing."
+                    hint="Use the Facebook account that manages your Page. If you have multiple Pages, you’ll choose one after authorizing."
                     icon={<Facebook size={24} className="text-blue-600" />}
                     connectedAccounts={displayAccounts.filter((a: any) => a.platform === 'FACEBOOK')}
                     onConnect={() => handleConnect('facebook')}
@@ -203,7 +177,7 @@ export default function AccountsPage() {
                 <PlatformCard
                     name="X (Twitter)"
                     platform="TWITTER"
-                    description="Schedule tweets and threads to your X profile."
+                    hint="Authorize with the X account you want to post from."
                     icon={<Twitter size={24} className="text-sky-500" />}
                     connectedAccounts={displayAccounts.filter((a: any) => a.platform === 'TWITTER')}
                     onConnect={() => handleConnect('twitter')}
@@ -213,7 +187,7 @@ export default function AccountsPage() {
                 <PlatformCard
                     name="LinkedIn"
                     platform="LINKEDIN"
-                    description="Share posts and articles to your LinkedIn profile."
+                    hint="Sign in with the LinkedIn account you want to publish from."
                     icon={<Linkedin size={24} className="text-blue-700" />}
                     connectedAccounts={displayAccounts.filter((a: any) => a.platform === 'LINKEDIN')}
                     onConnect={() => handleConnect('linkedin')}
@@ -293,8 +267,9 @@ function PlatformCard({ name, description, hint, icon, connectedAccounts, onConn
                     </div>
                     <div className="min-w-0">
                         <h3 className="text-lg font-semibold text-neutral-900">{name}</h3>
-                        <p className="text-sm text-neutral-500 max-w-md mt-1">{description}</p>
-                        {hint && <p className="text-xs text-neutral-400 max-w-md mt-1">{hint}</p>}
+                        {(hint || description) && (
+                            <p className="text-sm text-neutral-500 max-w-md mt-1">{hint || description}</p>
+                        )}
                         {isConnected && primaryAccount && (
                             <div className="flex items-center gap-3 mt-3 flex-wrap">
                                 <div className="w-9 h-9 rounded-full bg-neutral-200 flex items-center justify-center text-neutral-600 font-semibold text-sm overflow-hidden flex-shrink-0">

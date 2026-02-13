@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   Share2,
   Check,
+  Copy,
   FileText,
 } from 'lucide-react';
 
@@ -103,8 +104,17 @@ export default function AccountPage() {
   const [cancelError, setCancelError] = useState('');
   const [cancelSuccess, setCancelSuccess] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [copiedId, setCopiedId] = useState(false);
 
   useEffect(() => setMounted(true), []);
+
+  const userId = user?.id ?? '';
+  const copyUserId = () => {
+    if (!userId) return;
+    navigator.clipboard.writeText(userId);
+    setCopiedId(true);
+    setTimeout(() => setCopiedId(false), 2000);
+  };
 
   const handleSharePlatform = (getHref: () => string) => {
     window.open(getHref(), '_blank', 'noopener,noreferrer,width=600,height=500');
@@ -224,6 +234,20 @@ export default function AccountPage() {
       <div>
         <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">Account</h1>
         <p className="text-neutral-500 text-sm mt-1">Manage your trial, plan, and sharing.</p>
+        {userId && (
+          <div className="mt-3 flex items-center gap-2">
+            <span className="text-xs text-neutral-500">User ID (for support):</span>
+            <code className="text-xs bg-neutral-100 px-2 py-1 rounded font-mono text-neutral-700">{userId}</code>
+            <button
+              type="button"
+              onClick={copyUserId}
+              className="p-1.5 text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 rounded transition-colors"
+              title="Copy User ID"
+            >
+              {copiedId ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Temporary: disconnect to test sign-in / Supabase User table */}
