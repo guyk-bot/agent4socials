@@ -56,6 +56,22 @@ async function syncImportedPosts(
     const items = res.data?.data ?? [];
     for (const m of items) {
       const publishedAt = m.timestamp ? new Date(m.timestamp) : new Date();
+      let impressions = 0;
+      let interactions = 0;
+      try {
+        const insightsRes = await axios.get<{ data?: Array<{ name: string; values?: Array<{ value: number }> }> }>(
+          `${baseUrl}/${m.id}/insights`,
+          { params: { metric: 'impressions,engagement', access_token: accessToken } }
+        );
+        const data = insightsRes.data?.data ?? [];
+        for (const d of data) {
+          const val = d.values?.[0]?.value ?? 0;
+          if (d.name === 'impressions') impressions = val;
+          if (d.name === 'engagement') interactions = val;
+        }
+      } catch {
+        // insights may not be available for all media
+      }
       await prisma.importedPost.upsert({
         where: {
           socialAccountId_platformPostId: { socialAccountId, platformPostId: m.id },
@@ -66,6 +82,8 @@ async function syncImportedPosts(
           permalinkUrl: m.permalink ?? null,
           publishedAt,
           mediaType: m.media_type ?? null,
+          impressions,
+          interactions,
           syncedAt: new Date(),
         },
         create: {
@@ -77,6 +95,8 @@ async function syncImportedPosts(
           permalinkUrl: m.permalink ?? null,
           publishedAt,
           mediaType: m.media_type ?? null,
+          impressions,
+          interactions,
         },
       });
     }

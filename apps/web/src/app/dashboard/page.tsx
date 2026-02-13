@@ -26,6 +26,8 @@ import {
   ExternalLink,
   Star,
   MoreVertical,
+  HelpCircle,
+  ArrowUpDown,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -91,6 +93,11 @@ export default function DashboardPage() {
   });
   const [postsPage, setPostsPage] = useState(1);
   const [postsSearch, setPostsSearch] = useState('');
+  const [postsPerPage, setPostsPerPage] = useState(5);
+  const [insights, setInsights] = useState<{ platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }> } | null>(null);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [sortBy, setSortBy] = useState<'date' | 'impressions' | 'interactions'>('date');
+  const [sortDesc, setSortDesc] = useState(true);
 
   const fetchAccounts = async () => {
     try {
@@ -133,6 +140,15 @@ export default function DashboardPage() {
       .then((res) => setImportedPosts(res.data?.posts ?? []))
       .catch(() => setImportedPosts([]));
   }, [analyticsTab, selectedAccount?.id]);
+
+  useEffect(() => {
+    if (analyticsTab !== 'account' || !selectedAccount?.id || !dateRange.start || !dateRange.end) return;
+    setInsightsLoading(true);
+    api.get(`/social/accounts/${selectedAccount.id}/insights`, { params: { since: dateRange.start, until: dateRange.end } })
+      .then((res) => setInsights(res.data ?? null))
+      .catch(() => setInsights(null))
+      .finally(() => setInsightsLoading(false));
+  }, [analyticsTab, selectedAccount?.id, dateRange.start, dateRange.end]);
 
   const handleConnect = async (platform: string, method?: string) => {
     const getMessage = (err: unknown): string | null => {
@@ -199,11 +215,22 @@ export default function DashboardPage() {
   const hasFacebook = connectedPlatforms.includes('FACEBOOK');
   const hasInstagram = connectedPlatforms.includes('INSTAGRAM');
   const totalInteractions = importedPosts.reduce((s, p) => s + (p.interactions || 0), 0);
-  const POSTS_PER_PAGE = 5;
-  const paginatedPosts = importedPosts
-    .filter((p) => !postsSearch || (p.content?.toLowerCase().includes(postsSearch.toLowerCase())));
-  const totalPostsPages = Math.max(1, Math.ceil(paginatedPosts.length / POSTS_PER_PAGE));
-  const currentPagePosts = paginatedPosts.slice((postsPage - 1) * POSTS_PER_PAGE, postsPage * POSTS_PER_PAGE);
+  const filteredPosts = importedPosts.filter((p) => !postsSearch || (p.content?.toLowerCase().includes(postsSearch.toLowerCase())));
+  const sortedPosts = [...filteredPosts].sort((a, b) => {
+    if (sortBy === 'date') {
+      const t = new Date(a.publishedAt).getTime() - new Date(b.publishedAt).getTime();
+      return sortDesc ? -t : t;
+    }
+    if (sortBy === 'impressions') {
+      const t = (a.impressions ?? 0) - (b.impressions ?? 0);
+      return sortDesc ? -t : t;
+    }
+    const t = (a.interactions ?? 0) - (b.interactions ?? 0);
+    return sortDesc ? -t : t;
+  });
+  const totalPostsPages = Math.max(1, Math.ceil(sortedPosts.length / postsPerPage));
+  const currentPagePosts = sortedPosts.slice((postsPage - 1) * postsPerPage, postsPage * postsPerPage);
+  const maxImpressions = insights?.impressionsTimeSeries?.length ? Math.max(...insights.impressionsTimeSeries.map((d) => d.value), 1) : 1;
 
   if (selectedAccount) {
     return (
@@ -258,52 +285,75 @@ export default function DashboardPage() {
         {analyticsTab === 'account' && (
           <div className="mt-6 space-y-6">
             <h2 className="text-lg font-semibold text-neutral-900">Account</h2>
+            {insightsLoading && <p className="text-sm text-neutral-500">Loading analytics…</p>}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Followers card (Metricool Summary: number + bar, then platform buttons with count) */}
+              {/* Followers card: real data from insights API */}
               <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
                 <p className="text-sm font-medium text-neutral-500">Followers</p>
                 <div className="flex items-center gap-3 mt-1">
-                  <span className="text-3xl font-bold text-neutral-900">0</span>
+                  <span className="text-3xl font-bold text-neutral-900">{insights?.followers ?? 0}</span>
                   <div className="flex-1 h-2 max-w-[120px] rounded-full bg-neutral-200 overflow-hidden">
-                    <div className="h-full rounded-full bg-indigo-500" style={{ width: '0%' }} />
+                    <div className="h-full rounded-full bg-indigo-500" style={{ width: `${Math.min(100, ((insights?.followers ?? 0) / 2000) * 100)}%` }} />
                   </div>
                 </div>
                 <div className="flex gap-1.5 mt-3 flex-wrap">
-                  {hasInstagram && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">0 Instagram</span>}
-                  {hasFacebook && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">— Facebook</span>}
+                  {selectedAccount?.platform === 'INSTAGRAM' && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{insights?.followers ?? 0} Instagram</span>}
+                  {selectedAccount?.platform === 'FACEBOOK' && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{insights?.followers ?? 0} Facebook</span>}
+                  {selectedAccount?.platform && selectedAccount.platform !== 'INSTAGRAM' && selectedAccount.platform !== 'FACEBOOK' && (
+                    <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-neutral-100 text-neutral-700">{insights?.followers ?? 0} {selectedAccount.platform}</span>
+                  )}
                 </div>
                 <div className="mt-4 h-40 rounded-lg bg-neutral-50 border border-neutral-100 flex items-center justify-center relative overflow-hidden">
                   <div className="absolute inset-0 opacity-[0.03] font-semibold text-neutral-400 text-2xl flex items-center justify-center" style={{ transform: 'rotate(-20deg)' }}>agent4socials</div>
-                  <div className="flex items-end gap-1 h-full w-full p-4 pb-2">
-                    {[28, 35, 42, 38, 45].map((pct, i) => (
-                      <div key={i} className="flex-1 bg-neutral-200/60 rounded-t min-h-[20%]" style={{ height: `${pct}%` }} />
-                    ))}
-                  </div>
+                  {insights?.impressionsTimeSeries?.length ? (
+                    <div className="flex items-end gap-0.5 h-full w-full p-4 pb-2">
+                      {insights.impressionsTimeSeries.map((d, i) => (
+                        <div key={d.date} className="flex-1 bg-indigo-200/80 rounded-t min-h-[4px]" style={{ height: `${(d.value / maxImpressions) * 100}%` }} title={`${d.date}: ${d.value}`} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-end gap-1 h-full w-full p-4 pb-2">
+                      {[28, 35, 42, 38, 45].map((pct, i) => (
+                        <div key={i} className="flex-1 bg-neutral-200/60 rounded-t min-h-[20%]" style={{ height: `${pct}%` }} />
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <p className="text-xs text-neutral-400 mt-1 px-1">Jan 14 – Feb 10</p>
+                <p className="text-xs text-neutral-400 mt-1 px-1">{dateRange.start} – {dateRange.end}</p>
               </div>
-              {/* Impressions card */}
+              {/* Impressions card: real data from insights API */}
               <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
                 <p className="text-sm font-medium text-neutral-500">Impressions</p>
                 <div className="flex items-center gap-3 mt-1">
-                  <span className="text-3xl font-bold text-neutral-900">0</span>
+                  <span className="text-3xl font-bold text-neutral-900">{insights?.impressionsTotal ?? 0}</span>
                   <div className="flex-1 h-2 max-w-[120px] rounded-full bg-neutral-200 overflow-hidden">
-                    <div className="h-full rounded-full bg-indigo-500" style={{ width: '0%' }} />
+                    <div className="h-full rounded-full bg-indigo-500" style={{ width: `${insights?.impressionsTotal ? Math.min(100, (insights.impressionsTotal / 50)) : 0}%` }} />
                   </div>
                 </div>
                 <div className="flex gap-1.5 mt-3 flex-wrap">
-                  {hasFacebook && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">0 Facebook</span>}
-                  {hasInstagram && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">0 Instagram</span>}
+                  {selectedAccount?.platform === 'FACEBOOK' && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{insights?.impressionsTotal ?? 0} Facebook</span>}
+                  {selectedAccount?.platform === 'INSTAGRAM' && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{insights?.impressionsTotal ?? 0} Instagram</span>}
+                  {selectedAccount?.platform && selectedAccount.platform !== 'INSTAGRAM' && selectedAccount.platform !== 'FACEBOOK' && (
+                    <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-neutral-100 text-neutral-700">{insights?.impressionsTotal ?? 0} {selectedAccount.platform}</span>
+                  )}
                 </div>
                 <div className="mt-4 h-40 rounded-lg bg-neutral-50 border border-neutral-100 flex items-center justify-center relative overflow-hidden">
                   <div className="absolute inset-0 opacity-[0.03] font-semibold text-neutral-400 text-2xl flex items-center justify-center" style={{ transform: 'rotate(-20deg)' }}>agent4socials</div>
-                  <div className="flex items-end gap-1 h-full w-full p-4 pb-2">
-                    {[32, 40, 35, 48, 42].map((pct, i) => (
-                      <div key={i} className="flex-1 bg-neutral-200/60 rounded-t min-h-[20%]" style={{ height: `${pct}%` }} />
-                    ))}
-                  </div>
+                  {insights?.impressionsTimeSeries?.length ? (
+                    <div className="flex items-end gap-0.5 h-full w-full p-4 pb-2">
+                      {insights.impressionsTimeSeries.map((d) => (
+                        <div key={d.date} className="flex-1 bg-indigo-200/80 rounded-t min-h-[4px]" style={{ height: `${(d.value / maxImpressions) * 100}%` }} title={`${d.date}: ${d.value}`} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-end gap-1 h-full w-full p-4 pb-2">
+                      {[32, 40, 35, 48, 42].map((pct, i) => (
+                        <div key={i} className="flex-1 bg-neutral-200/60 rounded-t min-h-[20%]" style={{ height: `${pct}%` }} />
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <p className="text-xs text-neutral-400 mt-1 px-1">Jan 14 – Feb 10</p>
+                <p className="text-xs text-neutral-400 mt-1 px-1">{dateRange.start} – {dateRange.end}</p>
               </div>
             </div>
           </div>
@@ -401,10 +451,26 @@ export default function DashboardPage() {
                       <thead className="bg-neutral-50">
                         <tr>
                           <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Content</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Impressions</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Interactions</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                            <span className="inline-flex items-center gap-1">
+                              Impressions
+                              <span title="Number of times this post was shown" className="text-neutral-400 cursor-help"><HelpCircle size={14} /></span>
+                              <button type="button" onClick={() => { setSortBy('impressions'); setSortDesc(!sortDesc); setPostsPage(1); }} className="p-0.5 rounded hover:bg-neutral-200" title="Sort by impressions"><ArrowUpDown size={14} /></button>
+                            </span>
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                            <span className="inline-flex items-center gap-1">
+                              Interactions
+                              <button type="button" onClick={() => { setSortBy('interactions'); setSortDesc(!sortDesc); setPostsPage(1); }} className="p-0.5 rounded hover:bg-neutral-200" title="Sort by interactions"><ArrowUpDown size={14} /></button>
+                            </span>
+                          </th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Network</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Date</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                            <span className="inline-flex items-center gap-1">
+                              Date
+                              <button type="button" onClick={() => { setSortBy('date'); setSortDesc(!sortDesc); setPostsPage(1); }} className="p-0.5 rounded hover:bg-neutral-200" title="Sort by date"><ArrowUpDown size={14} /></button>
+                            </span>
+                          </th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Type</th>
                           <th className="px-4 py-3 w-20" />
                         </tr>
@@ -444,12 +510,19 @@ export default function DashboardPage() {
                         ))}
                       </tbody>
                     </table>
-                    <div className="flex items-center justify-between px-4 py-3 border-t border-neutral-200 bg-neutral-50/50 text-sm text-neutral-600">
-                      <span>Items per page: {POSTS_PER_PAGE}</span>
-                      <span>{(postsPage - 1) * POSTS_PER_PAGE + 1}–{Math.min(postsPage * POSTS_PER_PAGE, paginatedPosts.length)} of {paginatedPosts.length}</span>
+                    <div className="flex items-center justify-between px-4 py-3 border-t border-neutral-200 bg-neutral-50/50 text-sm text-neutral-600 flex-wrap gap-2">
+                      <span className="inline-flex items-center gap-2">
+                        Items per page:
+                        <select value={postsPerPage} onChange={(e) => { setPostsPerPage(Number(e.target.value)); setPostsPage(1); }} className="border border-neutral-200 rounded px-2 py-1 text-neutral-700 bg-white">
+                          {[5, 10, 25].map((n) => (<option key={n} value={n}>{n}</option>))}
+                        </select>
+                      </span>
+                      <span>{(postsPage - 1) * postsPerPage + 1}–{Math.min(postsPage * postsPerPage, sortedPosts.length)} of {sortedPosts.length}</span>
                       <div className="flex gap-1">
+                        <button type="button" onClick={() => setPostsPage(1)} disabled={postsPage <= 1} className="p-1.5 rounded hover:bg-neutral-200 disabled:opacity-50">«</button>
                         <button type="button" onClick={() => setPostsPage((p) => Math.max(1, p - 1))} disabled={postsPage <= 1} className="p-1.5 rounded hover:bg-neutral-200 disabled:opacity-50">←</button>
                         <button type="button" onClick={() => setPostsPage((p) => Math.min(totalPostsPages, p + 1))} disabled={postsPage >= totalPostsPages} className="p-1.5 rounded hover:bg-neutral-200 disabled:opacity-50">→</button>
+                        <button type="button" onClick={() => setPostsPage(totalPostsPages)} disabled={postsPage >= totalPostsPages} className="p-1.5 rounded hover:bg-neutral-200 disabled:opacity-50">»</button>
                       </div>
                     </div>
                   </>
