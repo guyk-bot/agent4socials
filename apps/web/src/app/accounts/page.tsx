@@ -155,15 +155,12 @@ export default function AccountsPage() {
                     name="Instagram"
                     platform="INSTAGRAM"
                     description="Schedule posts, reels and stories to your Business or Creator account."
-                    hint="Two options: connect with Facebook (account linked to a Page) or with Instagram only (Professional account, no Facebook needed)."
                     icon={<Instagram size={24} className="text-pink-600" />}
                     connectedAccounts={displayAccounts.filter((a: any) => a.platform === 'INSTAGRAM')}
-                    onConnect={(m?: string) => handleConnect('instagram', m)}
-                    connectOptions={[{ label: 'With Instagram only (no Facebook)', method: 'instagram' }, { label: 'With Facebook', method: undefined }]}
+                    onConnect={() => handleConnect('instagram', 'instagram')}
                     onRefreshProfile={fetchAccounts}
                     onDisconnect={fetchAccounts}
                     connecting={connectingPlatform === 'instagram'}
-                    connectingMethod={connectingMethod}
                 />
                 <PlatformCard
                     name="TikTok"
