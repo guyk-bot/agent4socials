@@ -86,19 +86,9 @@ export default function AccountsPage() {
             }
             const url = res?.data?.url;
             if (url && typeof url === 'string') {
-                const popup = window.open(url, '_blank', 'width=600,height=600');
-                if (popup) {
-                    openedPopup = true;
-                    const interval = setInterval(() => {
-                        if (popup.closed) {
-                            clearInterval(interval);
-                            fetchAccounts(false).finally(() => {
-                                setConnectingPlatform(null);
-                                setConnectingMethod(undefined);
-                            });
-                        }
-                    }, 500);
-                }
+                // Redirect in same window so one click always works (popups are often blocked after async calls).
+                window.location.href = url;
+                openedPopup = true;
                 return;
             }
             setAlertMessage('Invalid response from server. Check server logs.');
