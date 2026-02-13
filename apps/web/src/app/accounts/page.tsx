@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import api from '@/lib/api';
+import { supabase } from '@/lib/supabase';
 import {
     Instagram,
     Youtube,
@@ -70,6 +71,8 @@ export default function AccountsPage() {
         setConnectingMethod(method);
         let openedPopup = false;
         try {
+            // Ensure session is ready so first API call has auth (avoids 401 and needing a second click).
+            await supabase.auth.getSession();
             // Sync profile first so Prisma User row exists (required for OAuth start). If you just added DATABASE_URL or signed in before it was set, this creates the User.
             await api.get('/auth/profile').catch(() => null);
             let res;
@@ -337,6 +340,7 @@ function PlatformCard({ name, description, hint, icon, connectedAccounts, onConn
                                 return (
                                     <button
                                         key={opt.label}
+                                        type="button"
                                         onClick={() => onConnect?.(opt.method)}
                                         disabled={connecting}
                                         className="btn-primary flex items-center justify-center gap-2 text-sm w-[10rem] disabled:opacity-70 disabled:cursor-wait"
@@ -349,6 +353,7 @@ function PlatformCard({ name, description, hint, icon, connectedAccounts, onConn
                         </div>
                                     ) : (
                         <button
+                            type="button"
                             onClick={() => onConnect?.()}
                             disabled={connecting}
                             className="btn-primary flex items-center justify-center gap-2 text-sm w-[10rem] disabled:opacity-70 disabled:cursor-wait"
