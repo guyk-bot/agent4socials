@@ -167,7 +167,7 @@ export default function AccountsPage() {
                 <PlatformCard
                     name="Facebook"
                     platform="FACEBOOK"
-                    hint="Use the Facebook account that manages your Page. If you have multiple Pages: 1. Opt in to \"current Pages only\". 2. Choose the page you want to connect."
+                    hint={'Use the Facebook account that manages your Page. If you have multiple Pages: 1. Opt in to "current Pages only". 2. Choose the page you want to connect.'}
                     icon={<Facebook size={24} className="text-blue-600" />}
                     connectedAccounts={displayAccounts.filter((a: any) => a.platform === 'FACEBOOK')}
                     onConnect={() => handleConnect('facebook')}
