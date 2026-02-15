@@ -28,7 +28,7 @@ type TokenResult = {
   /** When multiple Facebook Pages, list for user to pick one (access_token is the Page token) */
   pages?: Array<{ id: string; name?: string; picture?: string; instagram_business_account_id?: string; access_token?: string }>;
   /** When multiple Instagram Business accounts (via Facebook), list for user to pick one */
-  instagramAccounts?: Array<{ id: string; username?: string; profilePicture?: string; pageId?: string; pageName?: string; pagePicture?: string }>;
+  instagramAccounts?: Array<{ id: string; username?: string; profilePicture?: string; pageId?: string; pageName?: string; pagePicture?: string; pageAccessToken?: string }>;
   /** When connecting Instagram via Facebook: the linked Page to also create as FACEBOOK */
   linkedPage?: { id: string; name: string; picture: string | null };
   /** When connecting Facebook: the linked Instagram Business account to also create as INSTAGRAM */
@@ -132,7 +132,7 @@ async function exchangeCode(
       let username = 'Instagram';
       let profilePicture: string | null = null;
       let platformUserId = 'instagram-' + (accessToken?.slice(-8) || 'id');
-      const instagramAccounts: Array<{ id: string; username?: string; profilePicture?: string; pageId?: string; pageName?: string; pagePicture?: string }> = [];
+      const instagramAccounts: Array<{ id: string; username?: string; profilePicture?: string; pageId?: string; pageName?: string; pagePicture?: string; pageAccessToken?: string }> = [];
       let linkedPage: { id: string; name: string; picture: string | null } | undefined;
       try {
         const pagesRes = await axios.get<{
@@ -140,11 +140,12 @@ async function exchangeCode(
             id: string;
             name?: string;
             picture?: { data?: { url?: string } };
+            access_token?: string;
             instagram_business_account?: { id: string };
           }>;
         }>(
           'https://graph.facebook.com/v18.0/me/accounts',
-          { params: { fields: 'id,name,picture,instagram_business_account', access_token: accessToken } }
+          { params: { fields: 'id,name,picture,access_token,instagram_business_account', access_token: accessToken } }
         );
         const pages = pagesRes.data?.data || [];
         for (const page of pages) {
@@ -171,6 +172,7 @@ async function exchangeCode(
             pageId: page.id,
             pageName,
             pagePicture,
+            pageAccessToken: page.access_token,
           });
           // use first account for single-account path; save real id and picture even if username missing
           if (instagramAccounts.length === 1) {
@@ -537,8 +539,9 @@ export async function GET(
       return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
     } catch (e) {
       console.error('[Social OAuth] pending Instagram create error:', e);
-      // Fallback: connect the first Instagram account (and linked Page) directly so the user is not stuck
+      // Fallback: connect the first Instagram account (and linked Page). Use Page token when available so insights/posts/inbox work.
       const first = tokenData.instagramAccounts![0];
+      const pageToken = first.pageAccessToken || tokenData.accessToken;
       const linkedPage = tokenData.linkedPage ?? (first.pageId ? { id: first.pageId, name: first.pageName ?? 'Facebook Page', picture: first.pagePicture ?? null } : undefined);
       try {
         await prisma.socialAccount.deleteMany({ where: { userId, platform: 'INSTAGRAM' } });
@@ -547,7 +550,7 @@ export async function GET(
             userId_platform_platformUserId: { userId, platform: 'INSTAGRAM', platformUserId: first.id },
           },
           update: {
-            accessToken: tokenData.accessToken,
+            accessToken: pageToken,
             refreshToken: tokenData.refreshToken,
             expiresAt: tokenData.expiresAt,
             username: first.username ?? 'Instagram',
@@ -560,7 +563,7 @@ export async function GET(
             platformUserId: first.id,
             username: first.username ?? 'Instagram',
             profilePicture: first.profilePicture ?? null,
-            accessToken: tokenData.accessToken,
+            accessToken: pageToken,
             refreshToken: tokenData.refreshToken,
             expiresAt: tokenData.expiresAt,
             status: 'connected',
@@ -573,7 +576,7 @@ export async function GET(
               userId_platform_platformUserId: { userId, platform: 'FACEBOOK', platformUserId: linkedPage.id },
             },
             update: {
-              accessToken: tokenData.accessToken,
+              accessToken: pageToken,
               refreshToken: tokenData.refreshToken,
               expiresAt: tokenData.expiresAt,
               username: linkedPage.name,
@@ -586,7 +589,7 @@ export async function GET(
               platformUserId: linkedPage.id,
               username: linkedPage.name,
               profilePicture: linkedPage.picture,
-              accessToken: tokenData.accessToken,
+              accessToken: pageToken,
               refreshToken: tokenData.refreshToken,
               expiresAt: tokenData.expiresAt,
               status: 'connected',

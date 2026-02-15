@@ -23,7 +23,7 @@ Yes. **YouTube:** Keep the OAuth consent screen in **Testing** and add your Goog
 **If you see "URL Blocked" or "redirect_uri_mismatch":** Add the exact URI from the table above to your app’s **Valid OAuth Redirect URIs** / **Authorized redirect URIs** in that platform’s developer console. No trailing slash; protocol and path must match exactly.
 
 **Facebook/Instagram: Why analytics, posts, and inbox show no data**  
-The app needs the **Page** access token (not the user token) for insights, posts, and inbox. If you connected before we stored the Page token, **reconnect once**: use **Reconnect** in the left sidebar for Facebook (and Instagram if you use "Connect with Facebook"), complete the flow, and when asked **choose your Page**. After that, analytics, posts, and inbox will show data like in Metricool.
+The app needs the **Page** access token (not the user token) for insights, posts, and inbox. We store it in the **SocialAccount** table in the **accessToken** column (there is no separate "page token" column). If you connected before we stored the Page token, **reconnect once**: use **Reconnect** in the left sidebar for Facebook (and Instagram if you use "Connect with Facebook"), complete the flow, and when asked **choose your Page**. After that, analytics, posts, and inbox will show data like in Metricool.
 
 ---
 
