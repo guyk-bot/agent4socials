@@ -83,8 +83,8 @@ export default function Sidebar() {
 
   return (
     <div
-      className="w-64 h-screen border-r border-neutral-200 flex flex-col fixed left-0 top-14 z-30 bg-white"
-      style={{ backgroundColor: 'var(--wl-sidebar-bg, #ffffff)', color: text }}
+      className="w-64 border-r border-neutral-200 flex flex-col fixed left-0 top-14 bottom-0 z-30 bg-white min-h-0"
+      style={{ height: 'calc(100vh - 3.5rem)', backgroundColor: 'var(--wl-sidebar-bg, #ffffff)', color: text }}
     >
       <div className="p-3">
         <button
