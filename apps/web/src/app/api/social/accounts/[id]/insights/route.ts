@@ -171,6 +171,11 @@ export async function GET(
       }
       return NextResponse.json(out);
     }
+
+    if (account.platform === 'LINKEDIN') {
+      out.insightsHint = "LinkedIn doesn't provide follower or view metrics for personal profiles in our app. You can still schedule and publish posts to LinkedIn from the Composer.";
+      return NextResponse.json(out);
+    }
   } catch (e) {
     console.error('[Insights] error:', e);
   }

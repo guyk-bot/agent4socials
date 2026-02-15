@@ -252,7 +252,9 @@ export default function AnalyticsPage() {
               {insights?.insightsHint && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                   <p>{insights.insightsHint}</p>
-                  <p className="mt-2 text-xs text-amber-700">Use Reconnect in the left sidebar for this account, then choose your Page when asked.</p>
+                  {(selectedAccount?.platform === 'INSTAGRAM' || selectedAccount?.platform === 'FACEBOOK') && (
+                    <p className="mt-2 text-xs text-amber-700">Use Reconnect in the left sidebar for this account, then choose your Page when asked.</p>
+                  )}
                 </div>
               )}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
