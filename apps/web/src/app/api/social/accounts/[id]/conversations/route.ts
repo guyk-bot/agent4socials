@@ -46,9 +46,10 @@ export async function GET(
 
     if (res.data?.error) {
       const msg = res.data.error.message ?? '';
+      const code = (res.data as { error?: { code?: number } }).error?.code;
       if (msg.includes('permission') || msg.includes('OAuth') || msg.includes('access'))
-        return NextResponse.json({ conversations: [], error: 'Reconnect from the sidebar and choose your Page when asked to grant messaging permission.' });
-      return NextResponse.json({ conversations: [], error: msg });
+        return NextResponse.json({ conversations: [], error: 'Reconnect from the sidebar and choose your Page when asked to grant messaging permission.', debug: { rawMessage: msg, code } });
+      return NextResponse.json({ conversations: [], error: msg, debug: { rawMessage: msg, code } });
     }
 
     const list = (res.data?.data ?? []).map((c) => ({
@@ -59,9 +60,10 @@ export async function GET(
     return NextResponse.json({ conversations: list });
   } catch (e) {
     const msg = (e as Error)?.message ?? '';
+    const axiosData = (e as { response?: { data?: unknown } })?.response?.data;
     if (msg.includes('403') || msg.includes('permission') || msg.includes('OAuth'))
-      return NextResponse.json({ conversations: [], error: 'Reconnect from the sidebar and choose your Page when asked to grant messaging permission.' });
+      return NextResponse.json({ conversations: [], error: 'Reconnect from the sidebar and choose your Page when asked to grant messaging permission.', debug: { rawMessage: msg, responseData: axiosData } });
     console.error('[Conversations] error:', e);
-    return NextResponse.json({ conversations: [], error: 'Could not load conversations.' });
+    return NextResponse.json({ conversations: [], error: 'Could not load conversations.', debug: { rawMessage: msg, responseData: axiosData } });
   }
 }

@@ -52,6 +52,13 @@ async function main() {
   const mediaRes = await fetch(mediaUrl).then((r) => r.json());
   console.log(JSON.stringify(mediaRes, null, 2));
 
+  if (PLATFORM === 'INSTAGRAM' || PLATFORM === 'FACEBOOK') {
+    console.log('\n---', PLATFORM, 'conversations (inbox) ---\n');
+    const convUrl = `${baseUrl}/${pid}/conversations?fields=id,updated_time,senders&access_token=${enc}`;
+    const convRes = await fetch(convUrl).then((r) => r.json());
+    console.log(JSON.stringify(convRes, null, 2));
+  }
+
   console.log('\n--- Done ---\n');
 }
 

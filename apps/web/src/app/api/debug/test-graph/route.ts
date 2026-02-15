@@ -31,15 +31,17 @@ export async function GET() {
       ? `${prefix}?fields=followers_count&${tokenParam}`
       : `${prefix}?fields=fan_count&${tokenParam}`;
     const insightsUrl = a.platform === 'INSTAGRAM'
-      ? `${prefix}/insights?metric=impressions,reach,profile_views&period=day&since=2026-01-16&until=2026-02-15&${tokenParam}`
+      ? `${prefix}/insights?metric=reach,profile_views,views&metric_type=total_value&period=day&since=2026-01-16&until=2026-02-15&${tokenParam}`
       : `${prefix}/insights?metric=page_impressions,page_views_total,page_fan_reach&period=day&since=2026-01-16&until=2026-02-15&${tokenParam}`;
     const mediaUrl = a.platform === 'INSTAGRAM'
       ? `${prefix}/media?fields=id,caption,timestamp&${tokenParam}`
       : `${prefix}/published_posts?fields=id,message,created_time&${tokenParam}`;
+    const convUrl = `${prefix}/conversations?fields=id,updated_time,senders&${tokenParam}`;
 
     let profileRes: unknown;
     let insightsRes: unknown;
     let mediaRes: unknown;
+    let conversationsRes: unknown;
     try {
       profileRes = await fetch(profileUrl).then((r) => r.json());
     } catch (e) {
@@ -55,13 +57,20 @@ export async function GET() {
     } catch (e) {
       mediaRes = { fetchError: (e as Error).message };
     }
+    try {
+      conversationsRes = await fetch(convUrl).then((r) => r.json());
+    } catch (e) {
+      conversationsRes = { fetchError: (e as Error).message };
+    }
 
     results[key] = {
       platformUserId: pid,
+      accountId: a.id,
       tokenPreview: token.slice(0, 30) + '...',
       profile: profileRes,
       insights: insightsRes,
       media: mediaRes,
+      conversations: conversationsRes,
     };
   }
   return NextResponse.json({ accounts: results });

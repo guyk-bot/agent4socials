@@ -42,12 +42,20 @@ export default function InboxPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [conversationsLoading, setConversationsLoading] = useState(false);
   const [conversationsError, setConversationsError] = useState<string | null>(null);
+  const [conversationsDebug, setConversationsDebug] = useState<{ rawMessage?: string; code?: number; responseData?: unknown } | null>(null);
   const connectRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     api.get('/social/accounts').then((res) => {
       const data = Array.isArray(res.data) ? res.data : [];
       setAccounts(data);
+      // If no platform selected yet but we have Instagram or Facebook, default to first available so we show conversations or real API error
+      setSelectedPlatform((prev) => {
+        if (prev) return prev;
+        if (data.some((a: Account) => a.platform === 'INSTAGRAM')) return 'INSTAGRAM';
+        if (data.some((a: Account) => a.platform === 'FACEBOOK')) return 'FACEBOOK';
+        return null;
+      });
     }).catch(() => setAccounts([]));
   }, []);
 
@@ -61,24 +69,29 @@ export default function InboxPage() {
     if (!selectedPlatform || (selectedPlatform !== 'INSTAGRAM' && selectedPlatform !== 'FACEBOOK')) {
       setConversations([]);
       setConversationsError(null);
+      setConversationsDebug(null);
       return;
     }
     const account = accounts.find((a) => a.platform === selectedPlatform);
     if (!account) {
       setConversations([]);
       setConversationsError(`Connect a ${selectedPlatform === 'INSTAGRAM' ? 'Instagram' : 'Facebook'} account from the Dashboard to see conversations here.`);
+      setConversationsDebug(null);
       return;
     }
     setConversationsLoading(true);
     setConversationsError(null);
+    setConversationsDebug(null);
     api.get(`/social/accounts/${account.id}/conversations`)
       .then((res) => {
         setConversations(res.data?.conversations ?? []);
         setConversationsError(res.data?.error ?? null);
+        setConversationsDebug(res.data?.debug ?? null);
       })
       .catch(() => {
         setConversations([]);
         setConversationsError('Could not load conversations.');
+        setConversationsDebug(null);
       })
       .finally(() => setConversationsLoading(false));
   }, [selectedPlatform, accounts]);
@@ -211,6 +224,9 @@ export default function InboxPage() {
               <div className="rounded-xl border-2 border-indigo-200 bg-indigo-50 px-4 py-4">
                 <p className="text-sm font-medium text-indigo-900">To load conversations, reconnect and choose your Page.</p>
                 <p className="text-xs text-indigo-700 mt-1">{conversationsError}</p>
+                {conversationsDebug && (conversationsDebug.rawMessage || conversationsDebug.code != null) && (
+                  <p className="text-xs text-neutral-500 mt-1 font-mono">API: {conversationsDebug.rawMessage ?? ''} {conversationsDebug.code != null ? `(code ${conversationsDebug.code})` : ''}</p>
+                )}
                 <button
                   type="button"
                   onClick={async () => {

@@ -37,6 +37,7 @@ export default function SiteFooter() {
               <ul className="mt-4 space-y-3">
                 <li><Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link></li>
                 <li><Link href="/terms" className="hover:text-white transition-colors">Terms</Link></li>
+                <li><Link href="/data-deletion" className="hover:text-white transition-colors">Data deletion</Link></li>
               </ul>
             </div>
           </div>
