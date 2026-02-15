@@ -7,7 +7,12 @@ const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LIN
 function getOAuthUrl(platform: Platform, userId: string, method?: string): string {
   const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
   const callbackUrl = `${baseUrl}/api/social/oauth/${platform.toLowerCase()}/callback`;
-  const state = platform === 'INSTAGRAM' && method === 'instagram' ? `${userId}:instagram` : userId;
+  const state =
+    platform === 'INSTAGRAM' && method === 'instagram'
+      ? `${userId}:instagram`
+      : platform === 'LINKEDIN' && method === 'page'
+        ? `${userId}:linkedin_page`
+        : userId;
 
   switch (platform) {
     case 'INSTAGRAM':
@@ -32,8 +37,13 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
     }
     case 'TWITTER':
       return `https://twitter.com/i/oauth2/authorize?client_id=${process.env.TWITTER_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.TWITTER_REDIRECT_URI || callbackUrl)}&response_type=code&scope=tweet.read%20tweet.write%20users.read%20dm.read%20dm.write%20offline.access&state=${state}&code_challenge=challenge&code_challenge_method=plain`;
-    case 'LINKEDIN':
-      return `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${process.env.LINKEDIN_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.LINKEDIN_REDIRECT_URI || callbackUrl)}&state=${state}&scope=openid%20profile%20email%20w_member_social`;
+    case 'LINKEDIN': {
+      const linkedInScopes =
+        method === 'page'
+          ? 'openid profile email w_member_social r_organization_social w_organization_social'
+          : 'openid profile email w_member_social';
+      return `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${process.env.LINKEDIN_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.LINKEDIN_REDIRECT_URI || callbackUrl)}&state=${encodeURIComponent(state)}&scope=${encodeURIComponent(linkedInScopes)}`;
+    }
     default:
       throw new Error('Unsupported platform');
   }

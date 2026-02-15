@@ -417,7 +417,8 @@ export async function GET(
   }
 
   const isInstagramLogin = stateRaw.includes(':instagram');
-  const userId = isInstagramLogin ? stateRaw.replace(/:instagram$/, '') : stateRaw;
+  const isLinkedInPage = stateRaw.includes(':linkedin_page');
+  const userId = isInstagramLogin ? stateRaw.replace(/:instagram$/, '') : isLinkedInPage ? stateRaw.replace(/:linkedin_page$/, '') : stateRaw;
 
   const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
   const defaultCallbackUrl = `${baseUrl}/api/social/oauth/${platform}/callback`;
@@ -442,6 +443,46 @@ export async function GET(
     console.error('[Social OAuth] exchange error:', err?.message ?? e, err);
     const message = err?.message?.includes('Instagram') ? err.message : 'Failed to connect account';
     return oauthErrorHtml(baseUrl, message, 500);
+  }
+
+  if (plat === 'LINKEDIN' && isLinkedInPage && tokenData.accessToken) {
+    try {
+      const aclRes = await axios.get<{ elements?: Array<{ organization?: string }> }>(
+        'https://api.linkedin.com/rest/organizationAcls?q=roleAssignee&role=ADMINISTRATOR',
+        {
+          headers: {
+            Authorization: `Bearer ${tokenData.accessToken}`,
+            'X-Restli-Protocol-Version': '2.0.0',
+          },
+        }
+      );
+      const orgUrn = aclRes.data?.elements?.[0]?.organization;
+      if (orgUrn && typeof orgUrn === 'string') {
+        const orgId = orgUrn.replace(/^urn:li:organization:/i, '') || orgUrn;
+        tokenData.platformUserId = orgUrn;
+        tokenData.username = 'LinkedIn Page';
+        try {
+          const orgRes = await axios.get<{
+            localizedName?: string;
+            name?: { localized?: Record<string, string> };
+          }>(
+            `https://api.linkedin.com/rest/organizations/${encodeURIComponent(orgId)}`,
+            {
+              headers: {
+                Authorization: `Bearer ${tokenData.accessToken}`,
+                'X-Restli-Protocol-Version': '2.0.0',
+              },
+            }
+          );
+          const name =
+            orgRes.data?.localizedName ??
+            (orgRes.data?.name?.localized && Object.values(orgRes.data.name.localized)[0]);
+          if (name) tokenData.username = name;
+        } catch (_) {}
+      }
+    } catch (_) {
+      // Org ACL or lookup failed (e.g. app lacks Community Management); keep tokenData as personal
+    }
   }
 
   if (plat === 'FACEBOOK' && tokenData.pages && tokenData.pages.length >= 1) {

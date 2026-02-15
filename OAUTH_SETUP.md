@@ -170,6 +170,8 @@ If you use the same app for both flows, you can leave these unset and use `META_
    - `LINKEDIN_CLIENT_ID`
    - `LINKEDIN_CLIENT_SECRET`
 
+**Connect a LinkedIn Page (company page):** The app offers two LinkedIn options: **Personal profile** and **LinkedIn Page**. For the Page flow we request `r_organization_social` and `w_organization_social`. To resolve the Page name and store it correctly, the callback calls LinkedIn’s **Organization ACLs** and **Organization Lookup** APIs, which may require the **Community Management API** product and `rw_organization_admin` (or similar) approval from LinkedIn. If your app does not have that product approved, the user can still complete the flow; the connected account may show as their personal profile. To get full Page support (e.g. correct Page name and logo), add and request the **Community Management API** (or equivalent) in the LinkedIn Developer Portal.
+
 ---
 
 ## 6. Threads (Meta)

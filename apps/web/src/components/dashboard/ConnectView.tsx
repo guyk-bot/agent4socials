@@ -133,6 +133,60 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
     );
   }
 
+  if (platform === 'LINKEDIN') {
+    return (
+      <div className="max-w-3xl mx-auto space-y-8">
+        <div className="text-center">
+          <div className="inline-flex p-2 rounded-2xl mb-4">
+            <LinkedinIcon size={48} />
+          </div>
+          <h1 className="text-2xl font-bold text-neutral-900">Connect LinkedIn</h1>
+          <p className="text-neutral-500 mt-1">Choose how you want to connect</p>
+        </div>
+        {connectError && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            {connectError}
+          </div>
+        )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <button
+            type="button"
+            onClick={() => onConnect('linkedin')}
+            disabled={connecting}
+            className="text-left p-6 rounded-xl border-2 border-neutral-200 hover:border-blue-300 hover:bg-blue-50/30 transition-all flex flex-col card"
+          >
+            <div className="flex justify-between items-start mb-3">
+              <LinkedinIcon size={24} />
+            </div>
+            <span className="font-semibold text-neutral-900">Personal profile</span>
+            <p className="mt-3 text-sm text-neutral-600">Post and manage your personal LinkedIn profile from the Composer.</p>
+            <span className="mt-4 btn-primary inline-flex justify-center gap-2 py-2.5 text-sm w-full">
+              {connecting && connectingMethod !== 'page' ? <Loader2 size={18} className="animate-spin" /> : 'Connect'}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onConnect('linkedin', 'page')}
+            disabled={connecting}
+            className="text-left p-6 rounded-xl border-2 border-neutral-200 hover:border-blue-400 hover:bg-blue-50/50 transition-all flex flex-col card relative"
+          >
+            <span className="absolute top-4 right-4 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-xs font-medium">
+              Company page
+            </span>
+            <div className="flex justify-between items-start mb-3">
+              <LinkedinIcon size={24} />
+            </div>
+            <span className="font-semibold text-neutral-900">LinkedIn Page</span>
+            <p className="mt-3 text-sm text-neutral-600">Connect a company or organization Page to post and view analytics (requires LinkedIn Community Management API approval).</p>
+            <span className="mt-4 btn-primary inline-flex justify-center gap-2 py-2.5 text-sm w-full">
+              {connecting && connectingMethod === 'page' ? <Loader2 size={18} className="animate-spin" /> : 'Connect Page'}
+            </span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (platform === 'TIKTOK') {
     return (
       <div className="max-w-xl mx-auto space-y-8">
