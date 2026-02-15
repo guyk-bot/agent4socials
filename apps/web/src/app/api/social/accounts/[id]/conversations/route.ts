@@ -35,7 +35,7 @@ export async function GET(
 
   try {
     const res = await axios.get<{
-      data?: Array<{ id: string; updated_time?: string; senders?: { data?: Array<{ username?: string; name?: string }> } };
+      data?: Array<{ id: string; updated_time?: string; senders?: { data?: Array<{ username?: string; name?: string }> } }>;
       error?: { message: string };
     }>(`${baseUrl}/${account.platformUserId}/conversations`, {
       params: {
