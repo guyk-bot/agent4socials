@@ -93,8 +93,9 @@ export default function AnalyticsPage() {
 
   const postsCacheRef = useRef<Record<string, Array<{ id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; impressions: number; interactions: number; publishedAt: string; mediaType?: string | null; platform: string }>>>({});
 
+  // Load posts whenever an account is selected (so ACCOUNT tab shows Total content and POSTS tab has data).
   useEffect(() => {
-    if (activeTab !== 'posts' || !selectedAccount?.id) return;
+    if (!selectedAccount?.id) return;
     const cached = postsCacheRef.current[selectedAccount.id];
     if (cached) {
       setImportedPosts(cached);
@@ -113,7 +114,7 @@ export default function AnalyticsPage() {
       })
       .catch(() => { setImportedPosts([]); setPostsSyncError(null); })
       .finally(() => setImportedPostsLoading(false));
-  }, [activeTab, selectedAccount?.id]);
+  }, [selectedAccount?.id]);
 
   const insightsCacheRef = useRef<Record<string, { platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number; profileViewsTotal?: number; insightsHint?: string }>>({});
 

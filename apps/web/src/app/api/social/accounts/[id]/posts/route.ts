@@ -69,12 +69,12 @@ async function syncImportedPosts(
       try {
         const insightsRes = await axios.get<{ data?: Array<{ name: string; values?: Array<{ value: number }> }> }>(
           `${baseUrl}/${m.id}/insights`,
-          { params: { metric: 'impressions,engagement', access_token: accessToken } }
+          { params: { metric: 'views,engagement', access_token: accessToken } }
         );
         const data = insightsRes.data?.data ?? [];
         for (const d of data) {
           const val = d.values?.[0]?.value ?? 0;
-          if (d.name === 'impressions') impressions = val;
+          if (d.name === 'views' || d.name === 'impressions') impressions = val;
           if (d.name === 'engagement') interactions = val;
         }
       } catch {
