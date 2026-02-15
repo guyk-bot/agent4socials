@@ -33,12 +33,12 @@ const PLATFORM_LABELS: Record<string, string> = {
 };
 
 const PLATFORM_ICON: Record<string, React.ReactNode> = {
-  INSTAGRAM: <InstagramIcon size={20} />,
-  FACEBOOK: <FacebookIcon size={20} />,
-  TIKTOK: <TikTokIcon size={20} />,
-  YOUTUBE: <YoutubeIcon size={20} />,
-  TWITTER: <XTwitterIcon size={20} className="text-neutral-800" />,
-  LINKEDIN: <LinkedinIcon size={20} />,
+  INSTAGRAM: <InstagramIcon size={26} />,
+  FACEBOOK: <FacebookIcon size={26} />,
+  TIKTOK: <TikTokIcon size={26} />,
+  YOUTUBE: <YoutubeIcon size={26} />,
+  TWITTER: <XTwitterIcon size={26} className="text-neutral-800" />,
+  LINKEDIN: <LinkedinIcon size={26} />,
 };
 
 const PLATFORM_ORDER = ['INSTAGRAM', 'FACEBOOK', 'TIKTOK', 'YOUTUBE', 'TWITTER', 'LINKEDIN'];
@@ -109,7 +109,7 @@ export default function Sidebar() {
           if (platform === 'LINKEDIN') {
             return (
               <div key={platform} className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-amber-50/80 border border-amber-100">
-                <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 flex items-center justify-center shrink-0">
                   {PLATFORM_ICON[platform]}
                 </div>
                 <span className="truncate flex-1 font-medium text-neutral-600">{PLATFORM_LABELS[platform]}</span>
@@ -132,7 +132,7 @@ export default function Sidebar() {
                 }`}
                 style={isPlatformSelected ? { color: accent } : undefined}
               >
-                <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 flex items-center justify-center shrink-0">
                   {PLATFORM_ICON[platform]}
                 </div>
                 <span className="truncate flex-1 font-medium">{PLATFORM_LABELS[platform]}</span>
@@ -165,7 +165,7 @@ export default function Sidebar() {
                       }`}
                       style={isSelected ? { color: accent } : undefined}
                     >
-                      <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden">
+                      <div className={`w-10 h-10 flex items-center justify-center shrink-0 ${acc.profilePicture ? 'rounded-full overflow-hidden' : ''}`}>
                         {acc.profilePicture ? (
                           <img src={acc.profilePicture} alt="" className="w-full h-full object-cover" />
                         ) : (
