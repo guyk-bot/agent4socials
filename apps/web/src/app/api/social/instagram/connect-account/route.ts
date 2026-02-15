@@ -15,7 +15,8 @@ type AccountItem = {
 /**
  * POST /api/social/instagram/connect-account
  * Called from /accounts/instagram/select after the user picks an IG Business account.
- * Fetches the Page token from me/accounts and saves both the Instagram account and linked Facebook Page.
+ * Must fetch the PAGE access token from me/accounts. Saving the user token would make
+ * followers work but insights, posts, and inbox would stay empty.
  */
 export async function POST(request: NextRequest) {
   if (!process.env.DATABASE_URL) {
@@ -51,10 +52,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'Invalid account' }, { status: 400 });
   }
 
-  // Get the Page token from me/accounts using the user token.
-  // The Page token is what we need for IG insights, posts, and inbox.
-  let pageAccessToken = pending.accessToken;
-  let pageId = account.pageId;
+  // Get the PAGE access token from me/accounts. Insights, posts, and inbox require it.
+  let pageAccessToken: string | null = null;
+  let pageId = account.pageId ?? null;
   let pageName = account.pageName ?? 'Facebook Page';
   let pagePicture: string | null = account.pagePicture ?? null;
   let igUsername = account.username ?? 'Instagram';
@@ -70,16 +70,18 @@ export async function POST(request: NextRequest) {
         instagram_business_account?: { id: string };
       }>;
     }>('https://graph.facebook.com/v18.0/me/accounts', {
-      params: { fields: 'id,name,picture,access_token,instagram_business_account', access_token: pending.accessToken },
+      params: {
+        fields: 'id,name,picture,access_token,instagram_business_account',
+        access_token: pending.accessToken,
+      },
     });
     const pagesFromApi = pagesRes.data?.data ?? [];
-    // Find the page linked to this Instagram account
     const linkedPage = pageId
       ? pagesFromApi.find((p) => p.id === pageId)
       : pagesFromApi.find((p) => p.instagram_business_account?.id === accountId);
     if (linkedPage?.access_token) {
       pageAccessToken = linkedPage.access_token;
-      if (linkedPage.id) pageId = linkedPage.id;
+      pageId = linkedPage.id;
       if (linkedPage.name) pageName = linkedPage.name;
       if (linkedPage.picture?.data?.url) pagePicture = linkedPage.picture.data.url;
     }
@@ -87,7 +89,17 @@ export async function POST(request: NextRequest) {
     console.warn('[Instagram connect-account] me/accounts error:', (e as Error)?.message ?? e);
   }
 
-  // Fetch fresh IG profile info with the Page token
+  if (!pageAccessToken) {
+    return NextResponse.json(
+      {
+        message:
+          'Could not get Page access. When connecting, allow "Manage your business and its assets" (business_management) so we can load analytics, posts, and inbox. Try reconnecting and grant all requested permissions.',
+      },
+      { status: 400 }
+    );
+  }
+
+  // Refresh IG profile with Page token
   try {
     const igRes = await axios.get<{ username?: string; profile_picture_url?: string }>(
       `https://graph.facebook.com/v18.0/${accountId}`,
@@ -99,7 +111,6 @@ export async function POST(request: NextRequest) {
 
   const expiresAt = new Date(Date.now() + 3600 * 1000);
 
-  // Save Instagram account with Page token
   await prisma.socialAccount.deleteMany({ where: { userId, platform: 'INSTAGRAM' } });
   await prisma.socialAccount.upsert({
     where: {
@@ -129,7 +140,6 @@ export async function POST(request: NextRequest) {
     },
   });
 
-  // Also save linked Facebook Page with Page token
   if (pageId) {
     await prisma.socialAccount.deleteMany({ where: { userId, platform: 'FACEBOOK' } });
     await prisma.socialAccount.upsert({

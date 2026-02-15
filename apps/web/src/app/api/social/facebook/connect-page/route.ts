@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
   let name = page.name ?? 'Facebook Page';
   let picture: string | null = page.picture ?? null;
   let instagramId: string | null = (page as PageItem & { instagram_business_account_id?: string }).instagram_business_account_id ?? null;
+  let gotPageToken = false;
   try {
     const pagesRes = await axios.get<{
       data?: Array<{
@@ -60,11 +61,24 @@ export async function POST(request: NextRequest) {
     const pageFromApi = pagesFromApi.find((p) => p.id === pageId);
     if (pageFromApi?.access_token) {
       pageAccessToken = pageFromApi.access_token;
+      gotPageToken = true;
     }
     if (pageFromApi?.name) name = pageFromApi.name;
     if (pageFromApi?.picture?.data?.url) picture = pageFromApi.picture.data.url;
     if (pageFromApi?.instagram_business_account?.id) instagramId = pageFromApi.instagram_business_account.id;
-  } catch (_) {}
+  } catch (e) {
+    console.warn('[Facebook connect-page] me/accounts error:', (e as Error)?.message ?? e);
+  }
+
+  if (!gotPageToken) {
+    return NextResponse.json(
+      {
+        message:
+          'Could not get Page access token. When connecting, allow "Manage your business and its assets" (business_management) so we can load analytics, posts, and inbox. Try reconnecting and grant all requested permissions.',
+      },
+      { status: 400 }
+    );
+  }
 
   const expiresAt = new Date(Date.now() + 3600 * 1000);
   await prisma.socialAccount.deleteMany({ where: { userId, platform: 'FACEBOOK' } });

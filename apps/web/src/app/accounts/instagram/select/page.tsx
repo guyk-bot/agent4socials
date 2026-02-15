@@ -49,8 +49,9 @@ function InstagramSelectContent() {
         return;
       }
       window.location.href = '/dashboard';
-    } catch {
-      setError('Failed to connect. Try again.');
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setError(msg ?? 'Failed to connect. Try again.');
     } finally {
       setSubmitting(false);
     }
