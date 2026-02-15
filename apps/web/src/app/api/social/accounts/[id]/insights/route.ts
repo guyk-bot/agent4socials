@@ -71,7 +71,7 @@ export async function GET(
             data?: Array<{ name: string; values?: Array<{ value: number; end_time?: string }> }>;
           }>(`${baseUrl}/${account.platformUserId}/insights`, {
             params: {
-              metric: 'impressions,reach,profile_views',
+              metric: 'reach,profile_views,views',
               period: 'day',
               since: sinceTs,
               until: untilTs,
@@ -89,7 +89,7 @@ export async function GET(
               const date = v.end_time ? v.end_time.slice(0, 10) : '';
               if (date) series.push({ date, value: val });
             }
-            if (d.name === 'impressions') {
+            if (d.name === 'views' || d.name === 'impressions') {
               out.impressionsTotal = total;
               out.impressionsTimeSeries = series.sort((a, b) => a.date.localeCompare(b.date));
             } else if (d.name === 'reach') {
