@@ -470,7 +470,8 @@ export default function DashboardPage() {
           {effectiveInsightsLoading && <p className="text-sm text-neutral-500">Loading analytics…</p>}
           {insights?.insightsHint && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              {insights.insightsHint}
+              <p>{insights.insightsHint}</p>
+              <p className="mt-2 text-xs text-amber-700">Use Reconnect in the left sidebar for this account, then choose your Page when asked.</p>
             </div>
           )}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -687,7 +688,8 @@ export default function DashboardPage() {
               </div>
               {postsSyncError && (
                 <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                  {postsSyncError}
+                  <p>{postsSyncError}</p>
+                  <p className="mt-2 text-xs text-amber-700">Use Reconnect in the left sidebar for Instagram or Facebook, then choose your Page when asked.</p>
                 </div>
               )}
               <div className="bg-white border border-neutral-200 rounded-xl shadow-sm overflow-hidden">

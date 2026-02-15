@@ -101,7 +101,7 @@ export async function GET(
         } catch (e) {
           const msg = (e as Error)?.message ?? String(e);
           console.warn('[Insights] Instagram insights:', msg);
-          if (out.followers === 0 && !out.impressionsTotal && !out.reachTotal) out.insightsHint = 'Reconnect your account to grant insights permission and see Views, Reach, and Profile views.';
+          if (out.followers === 0 && !out.impressionsTotal && !out.reachTotal) out.insightsHint = 'Reconnect from the sidebar and choose your Page when asked to see followers, views, reach, and profile views.';
         }
       }
       return NextResponse.json(out);
@@ -156,7 +156,7 @@ export async function GET(
         } catch (e) {
           const msg = (e as Error)?.message ?? String(e);
           console.warn('[Insights] Facebook insights:', msg);
-          if (out.followers === 0 && !out.impressionsTotal) out.insightsHint = 'Reconnect your account to grant Page insights permission.';
+          if (out.followers === 0 && !out.impressionsTotal) out.insightsHint = 'Reconnect from the sidebar and choose your Page when asked to see Page analytics.';
         }
       }
       return NextResponse.json(out);

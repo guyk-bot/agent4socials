@@ -25,8 +25,8 @@ type TokenResult = {
   platformUserId: string;
   username: string;
   profilePicture?: string | null;
-  /** When multiple Facebook Pages, list for user to pick one (access_token is the Page token) */
-  pages?: Array<{ id: string; name?: string; picture?: string; instagram_business_account_id?: string; access_token?: string }>;
+  /** When multiple Facebook Pages, list for user to pick one */
+  pages?: Array<{ id: string; name?: string; picture?: string; instagram_business_account_id?: string }>;
   /** When multiple Instagram Business accounts (via Facebook), list for user to pick one */
   instagramAccounts?: Array<{ id: string; username?: string; profilePicture?: string; pageId?: string; pageName?: string; pagePicture?: string }>;
   /** When connecting Instagram via Facebook: the linked Page to also create as FACEBOOK */
@@ -243,7 +243,7 @@ async function exchangeCode(
       let profilePicture: string | null = null;
       let pageId: string | null = null;
       let linkedInstagram: { id: string; username?: string; profilePicture?: string } | undefined;
-      const pagesForSelect: Array<{ id: string; name?: string; picture?: string; instagram_business_account_id?: string; access_token?: string }> = [];
+      const pagesForSelect: Array<{ id: string; name?: string; picture?: string; instagram_business_account_id?: string }> = [];
       try {
         const pagesRes = await axios.get<{
           data?: Array<{
@@ -268,7 +268,7 @@ async function exchangeCode(
         for (const p of pages) {
           const picUrl = p.picture?.data?.url;
           const igId = p.instagram_business_account?.id;
-          if (p?.id) pagesForSelect.push({ id: p.id, name: p.name ?? undefined, picture: picUrl, instagram_business_account_id: igId, access_token: p.access_token });
+          if (p?.id) pagesForSelect.push({ id: p.id, name: p.name ?? undefined, picture: picUrl, instagram_business_account_id: igId });
         }
         const page = pages[0];
         if (page?.id) {
@@ -429,7 +429,7 @@ export async function GET(
   if (plat === 'FACEBOOK' && tokenData.pages && tokenData.pages.length >= 1) {
     try {
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-      const pagesJson = tokenData.pages.map(({ access_token: _at, ...p }) => p) as object;
+      const pagesJson = JSON.parse(JSON.stringify(tokenData.pages)) as object;
       const pending = await prisma.pendingFacebookConnection.create({
         data: {
           userId,
@@ -444,7 +444,6 @@ export async function GET(
     } catch (e) {
       console.error('[Social OAuth] pending Facebook create error:', e);
       const firstPage = tokenData.pages![0];
-      const pageToken = firstPage.access_token || tokenData.accessToken;
       try {
         await prisma.socialAccount.deleteMany({ where: { userId, platform: 'FACEBOOK' } });
         await prisma.socialAccount.upsert({
@@ -452,7 +451,7 @@ export async function GET(
             userId_platform_platformUserId: { userId, platform: 'FACEBOOK', platformUserId: firstPage.id },
           },
           update: {
-            accessToken: pageToken,
+            accessToken: tokenData.accessToken,
             refreshToken: tokenData.refreshToken,
             expiresAt: tokenData.expiresAt,
             username: firstPage.name ?? 'Facebook Page',
@@ -465,49 +464,12 @@ export async function GET(
             platformUserId: firstPage.id,
             username: firstPage.name ?? 'Facebook Page',
             profilePicture: firstPage.picture ?? null,
-            accessToken: pageToken,
+            accessToken: tokenData.accessToken,
             refreshToken: tokenData.refreshToken,
             expiresAt: tokenData.expiresAt,
             status: 'connected',
           },
         });
-        const igId = firstPage.instagram_business_account_id;
-        if (igId) {
-          let igUsername = 'Instagram';
-          let igPicture: string | null = null;
-          try {
-            const igRes = await axios.get<{ username?: string; profile_picture_url?: string }>(
-              `https://graph.facebook.com/v18.0/${igId}`,
-              { params: { fields: 'username,profile_picture_url', access_token: pageToken } }
-            );
-            if (igRes.data?.username) igUsername = igRes.data.username;
-            if (igRes.data?.profile_picture_url) igPicture = igRes.data.profile_picture_url;
-          } catch (_) {}
-          await prisma.socialAccount.deleteMany({ where: { userId, platform: 'INSTAGRAM' } });
-          await prisma.socialAccount.upsert({
-            where: {
-              userId_platform_platformUserId: { userId, platform: 'INSTAGRAM', platformUserId: igId },
-            },
-            update: {
-              accessToken: pageToken,
-              username: igUsername,
-              profilePicture: igPicture,
-              expiresAt: tokenData.expiresAt,
-              status: 'connected',
-            },
-            create: {
-              userId,
-              platform: 'INSTAGRAM',
-              platformUserId: igId,
-              username: igUsername,
-              profilePicture: igPicture,
-              accessToken: pageToken,
-              refreshToken: null,
-              expiresAt: tokenData.expiresAt,
-              status: 'connected',
-            },
-          });
-        }
         const dashboardUrl = `${baseUrl}/dashboard?connecting=1`;
         const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><p>Page connected.</p><script>window.location.href = ${JSON.stringify(dashboardUrl)};</script><p><a href="${dashboardUrl}">Go to Dashboard</a></p></body></html>`;
         return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });

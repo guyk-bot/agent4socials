@@ -59,6 +59,7 @@ export default function AnalyticsPage() {
   const [sortDesc, setSortDesc] = useState(true);
   const [insights, setInsights] = useState<{ platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number; profileViewsTotal?: number; insightsHint?: string } | null>(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
+  const [postsSyncError, setPostsSyncError] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState(() => {
     const end = new Date();
     const start = new Date();
@@ -106,8 +107,9 @@ export default function AnalyticsPage() {
         const list = res.data?.posts ?? [];
         postsCacheRef.current[selectedAccount.id] = list;
         setImportedPosts(list);
+        setPostsSyncError(res.data?.syncError ?? null);
       })
-      .catch(() => setImportedPosts([]))
+      .catch(() => { setImportedPosts([]); setPostsSyncError(null); })
       .finally(() => setImportedPostsLoading(false));
   }, [activeTab, selectedAccount?.id]);
 
@@ -227,7 +229,8 @@ export default function AnalyticsPage() {
               {insightsLoading && <p className="text-sm text-neutral-500">Loading analytics…</p>}
               {insights?.insightsHint && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                  {insights.insightsHint}
+                  <p>{insights.insightsHint}</p>
+                  <p className="mt-2 text-xs text-amber-700">Use Reconnect in the left sidebar for this account, then choose your Page when asked.</p>
                 </div>
               )}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -383,6 +386,12 @@ export default function AnalyticsPage() {
                 </div>
               </div>
               <div>
+                {postsSyncError && (
+                  <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    <p>{postsSyncError}</p>
+                    <p className="mt-2 text-xs text-amber-700">Use Reconnect in the left sidebar for this account, then choose your Page when asked.</p>
+                  </div>
+                )}
                 <div className="flex items-center justify-between gap-4 flex-wrap mb-3">
                   <h3 className="text-sm font-semibold text-neutral-800">List of posts</h3>
                   <button
@@ -393,9 +402,11 @@ export default function AnalyticsPage() {
                       try {
                         const res = await api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: { sync: 1 } });
                         setImportedPosts(res.data?.posts ?? []);
+                        setPostsSyncError(res.data?.syncError ?? null);
                         setPostsPage(1);
                       } catch (_) {
                         setImportedPosts([]);
+                        setPostsSyncError(null);
                       } finally {
                         setImportedPostsLoading(false);
                       }

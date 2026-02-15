@@ -47,7 +47,7 @@ export async function GET(
     if (res.data?.error) {
       const msg = res.data.error.message ?? '';
       if (msg.includes('permission') || msg.includes('OAuth') || msg.includes('access'))
-        return NextResponse.json({ conversations: [], error: 'Reconnect your account to grant messaging permission.' });
+        return NextResponse.json({ conversations: [], error: 'Reconnect from the sidebar and choose your Page when asked to grant messaging permission.' });
       return NextResponse.json({ conversations: [], error: msg });
     }
 
@@ -60,7 +60,7 @@ export async function GET(
   } catch (e) {
     const msg = (e as Error)?.message ?? '';
     if (msg.includes('403') || msg.includes('permission') || msg.includes('OAuth'))
-      return NextResponse.json({ conversations: [], error: 'Reconnect your account to grant messaging permission.' });
+      return NextResponse.json({ conversations: [], error: 'Reconnect from the sidebar and choose your Page when asked to grant messaging permission.' });
     console.error('[Conversations] error:', e);
     return NextResponse.json({ conversations: [], error: 'Could not load conversations.' });
   }

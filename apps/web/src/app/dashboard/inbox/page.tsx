@@ -211,7 +211,7 @@ export default function InboxPage() {
               <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-800">
                 {conversationsError}
               </div>
-              <p className="text-xs text-neutral-500 mt-3 text-center">Connect from the Dashboard and ensure messaging permissions are granted.</p>
+              <p className="text-xs text-neutral-500 mt-3 text-center">Use Reconnect in the left sidebar for this account, then choose your Page when asked.</p>
             </div>
           ) : conversations.length === 0 ? (
             <div className="p-6 text-center">
