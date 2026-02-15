@@ -117,7 +117,7 @@ export default function InboxPage() {
                   }`}
                   title={`${p.label} inbox`}
                 >
-                  <Icon size={22} className={p.color} />
+                  <Icon size={22} className={'color' in p ? p.color : undefined} />
                 </button>
               );
             })}
@@ -148,7 +148,7 @@ export default function InboxPage() {
                           isComingSoon ? 'text-neutral-400 cursor-default' : 'text-neutral-700 hover:bg-neutral-50'
                         }`}
                       >
-                        <Icon size={20} className={`shrink-0 ${p.color}`} />
+                        <Icon size={20} className={'color' in p && p.color ? `shrink-0 ${p.color}` : 'shrink-0'} />
                         <span className="flex-1">Connect a {p.label} account</span>
                         {isComingSoon && (
                           <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded">Coming soon</span>
