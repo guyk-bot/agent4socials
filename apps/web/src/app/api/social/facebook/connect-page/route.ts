@@ -38,25 +38,34 @@ export async function POST(request: NextRequest) {
   if (!page) {
     return NextResponse.json({ message: 'Invalid page' }, { status: 400 });
   }
+
+  // Fetch me/accounts to get the PAGE access token. Insights, posts, and inbox require the Page token, not the user token.
+  let pageAccessToken = pending.accessToken;
   let name = page.name ?? 'Facebook Page';
   let picture: string | null = page.picture ?? null;
-  if (!picture || !page.name) {
-    try {
-      const pagesRes = await axios.get<{ data?: Array<{ id: string; name?: string; picture?: { data?: { url?: string } }; access_token?: string }> }>(
-        'https://graph.facebook.com/v18.0/me/accounts',
-        { params: { fields: 'id,name,picture,access_token', access_token: pending.accessToken } }
-      );
-      const pages = pagesRes.data?.data || [];
-      const pageFromApi = pages.find((p) => p.id === pageId);
-      const tokenToUse = pageFromApi?.access_token || pending.accessToken;
-      const res = await axios.get<{ name?: string; picture?: { data?: { url?: string } } }>(
-        `https://graph.facebook.com/v18.0/${pageId}`,
-        { params: { fields: 'name,picture', access_token: tokenToUse } }
-      );
-      if (res.data?.name) name = res.data.name;
-      if (res.data?.picture?.data?.url) picture = res.data.picture.data.url;
-    } catch (_) {}
-  }
+  let instagramId: string | null = (page as PageItem & { instagram_business_account_id?: string }).instagram_business_account_id ?? null;
+  try {
+    const pagesRes = await axios.get<{
+      data?: Array<{
+        id: string;
+        name?: string;
+        picture?: { data?: { url?: string } };
+        access_token?: string;
+        instagram_business_account?: { id: string };
+      }>;
+    }>('https://graph.facebook.com/v18.0/me/accounts', {
+      params: { fields: 'id,name,picture,access_token,instagram_business_account', access_token: pending.accessToken },
+    });
+    const pagesFromApi = pagesRes.data?.data ?? [];
+    const pageFromApi = pagesFromApi.find((p) => p.id === pageId);
+    if (pageFromApi?.access_token) {
+      pageAccessToken = pageFromApi.access_token;
+    }
+    if (pageFromApi?.name) name = pageFromApi.name;
+    if (pageFromApi?.picture?.data?.url) picture = pageFromApi.picture.data.url;
+    if (pageFromApi?.instagram_business_account?.id) instagramId = pageFromApi.instagram_business_account.id;
+  } catch (_) {}
+
   const expiresAt = new Date(Date.now() + 3600 * 1000);
   await prisma.socialAccount.deleteMany({ where: { userId, platform: 'FACEBOOK' } });
   await prisma.socialAccount.upsert({
@@ -68,7 +77,7 @@ export async function POST(request: NextRequest) {
       },
     },
     update: {
-      accessToken: pending.accessToken,
+      accessToken: pageAccessToken,
       username: name,
       profilePicture: picture,
       expiresAt,
@@ -80,21 +89,21 @@ export async function POST(request: NextRequest) {
       platformUserId: page.id,
       username: name,
       profilePicture: picture,
-      accessToken: pending.accessToken,
+      accessToken: pageAccessToken,
       refreshToken: null,
       expiresAt,
       status: 'connected',
     },
   });
-  // Auto-connect linked Instagram if this Page has an Instagram Business account
-  const igAccountId = page.instagram_business_account_id;
-  if (igAccountId) {
+
+  // Auto-connect linked Instagram if this Page has an Instagram Business account. Use the same Page token for IG API calls.
+  if (instagramId) {
     let igUsername = 'Instagram';
     let igPicture: string | null = null;
     try {
       const igRes = await axios.get<{ username?: string; profile_picture_url?: string }>(
-        `https://graph.facebook.com/v18.0/${igAccountId}`,
-        { params: { fields: 'username,profile_picture_url', access_token: pending.accessToken } }
+        `https://graph.facebook.com/v18.0/${instagramId}`,
+        { params: { fields: 'username,profile_picture_url', access_token: pageAccessToken } }
       );
       if (igRes.data?.username) igUsername = igRes.data.username;
       if (igRes.data?.profile_picture_url) igPicture = igRes.data.profile_picture_url;
@@ -105,11 +114,11 @@ export async function POST(request: NextRequest) {
         userId_platform_platformUserId: {
           userId,
           platform: 'INSTAGRAM',
-          platformUserId: igAccountId,
+          platformUserId: instagramId,
         },
       },
       update: {
-        accessToken: pending.accessToken,
+        accessToken: pageAccessToken,
         username: igUsername,
         profilePicture: igPicture,
         expiresAt,
@@ -118,10 +127,10 @@ export async function POST(request: NextRequest) {
       create: {
         userId,
         platform: 'INSTAGRAM',
-        platformUserId: igAccountId,
+        platformUserId: instagramId,
         username: igUsername,
         profilePicture: igPicture,
-        accessToken: pending.accessToken,
+        accessToken: pageAccessToken,
         refreshToken: null,
         expiresAt,
         status: 'connected',
