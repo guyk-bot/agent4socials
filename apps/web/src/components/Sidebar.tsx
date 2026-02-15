@@ -12,7 +12,6 @@ import {
     LogOut,
     ChevronRight,
     Plus,
-    Gem,
     RefreshCw,
 } from 'lucide-react';
 import api from '@/lib/api';
@@ -106,18 +105,6 @@ export default function Sidebar() {
           const accounts = accountsByPlatform[platform] ?? [];
           const isPlatformSelected = selectedPlatformForConnect === platform;
 
-          if (platform === 'LINKEDIN') {
-            return (
-              <div key={platform} className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-amber-50/80 border border-amber-100">
-                <div className="w-10 h-10 flex items-center justify-center shrink-0">
-                  {PLATFORM_ICON[platform]}
-                </div>
-                <span className="truncate flex-1 font-medium text-neutral-600">{PLATFORM_LABELS[platform]}</span>
-                <span title="Coming soon" className="shrink-0"><Gem size={16} className="text-amber-500" /></span>
-              </div>
-            );
-          }
-
           if (accounts.length === 0) {
             return (
               <button
@@ -143,7 +130,7 @@ export default function Sidebar() {
             );
           }
 
-          const canReconnect = platform === 'INSTAGRAM' || platform === 'FACEBOOK';
+          const canReconnect = platform === 'INSTAGRAM' || platform === 'FACEBOOK' || platform === 'LINKEDIN';
           return (
             <div key={platform} className="space-y-0.5">
               {accounts.map((acc) => {
