@@ -26,7 +26,7 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
     }
     case 'FACEBOOK': {
       const fbRedirectUri = (process.env.FACEBOOK_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
-      return `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.META_APP_ID}&redirect_uri=${encodeURIComponent(fbRedirectUri)}&state=${state}&scope=pages_read_engagement,pages_show_list,business_management`;
+      return `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.META_APP_ID}&redirect_uri=${encodeURIComponent(fbRedirectUri)}&state=${state}&scope=pages_read_engagement,pages_show_list,read_insights,business_management`;
     }
     case 'TWITTER':
       return `https://twitter.com/i/oauth2/authorize?client_id=${process.env.TWITTER_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.TWITTER_REDIRECT_URI || callbackUrl)}&response_type=code&scope=tweet.read%20tweet.write%20users.read%20dm.read%20dm.write%20offline.access&state=${state}&code_challenge=challenge&code_challenge_method=plain`;
