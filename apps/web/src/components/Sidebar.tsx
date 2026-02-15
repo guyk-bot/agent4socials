@@ -203,7 +203,7 @@ export default function Sidebar() {
         })}
       </div>
 
-      <div className="p-3 space-y-0.5 border-t border-neutral-200">
+      <div className="p-3 space-y-0.5 border-t border-neutral-200 shrink-0">
         <button
           type="button"
           onClick={handleSummaryClick}
@@ -237,7 +237,7 @@ export default function Sidebar() {
         </Link>
       </div>
 
-      <div className="p-4 border-t border-neutral-200">
+      <div className="mt-auto p-4 border-t border-neutral-200 shrink-0">
         <Link
           href="/dashboard/account"
           className={`w-full flex items-center p-2 rounded-lg transition-colors mb-2 ${isAccountPage ? '' : 'hover:bg-white/70'}`}
@@ -253,6 +253,7 @@ export default function Sidebar() {
           <ChevronRight size={16} className="text-neutral-400 shrink-0" />
         </Link>
         <button
+          type="button"
           onClick={logout}
           className="w-full flex items-center px-3 py-2 text-sm font-medium text-neutral-600 hover:bg-white/70 hover:text-red-600 rounded-lg transition-colors"
         >
