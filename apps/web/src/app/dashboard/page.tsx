@@ -20,10 +20,6 @@ import {
   Plus,
   BarChart3,
   Image,
-  Instagram,
-  Youtube,
-  Facebook,
-  Linkedin,
   RefreshCw,
   ExternalLink,
   Star,
@@ -32,26 +28,15 @@ import {
   ArrowUpDown,
 } from 'lucide-react';
 import Link from 'next/link';
-
-function TikTokIcon({ size = 24 }: { size?: number }) {
-  return <span className="font-bold text-neutral-800" style={{ fontSize: size }}>TT</span>;
-}
-
-function TwitterIcon({ size = 24 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className="text-neutral-800">
-      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-    </svg>
-  );
-}
+import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
 
 const PLATFORM_ICON: Record<string, React.ReactNode> = {
-  INSTAGRAM: <Instagram size={22} className="text-pink-600" />,
-  FACEBOOK: <Facebook size={22} className="text-blue-600" />,
+  INSTAGRAM: <InstagramIcon size={22} />,
+  FACEBOOK: <FacebookIcon size={22} />,
   TIKTOK: <TikTokIcon size={22} />,
-  YOUTUBE: <Youtube size={22} className="text-red-600" />,
-  TWITTER: <TwitterIcon size={22} />,
-  LINKEDIN: <Linkedin size={22} className="text-blue-700" />,
+  YOUTUBE: <YoutubeIcon size={22} />,
+  TWITTER: <XTwitterIcon size={22} className="text-neutral-800" />,
+  LINKEDIN: <LinkedinIcon size={22} />,
 };
 
 function profileUrlForAccount(account: { platform: string; username?: string | null; platformUserId?: string }): string {

@@ -5,10 +5,6 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
   MessageCircle,
-  Instagram,
-  Facebook,
-  Youtube,
-  Linkedin,
   Plus,
   Search,
   Check,
@@ -19,27 +15,16 @@ import {
   Loader2,
 } from 'lucide-react';
 import api from '@/lib/api';
-
-function TikTokIcon({ size = 22 }: { size?: number }) {
-  return <span className="font-bold text-neutral-800" style={{ fontSize: size }}>TT</span>;
-}
-
-function TwitterIcon({ size = 22 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className="text-neutral-800">
-      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-    </svg>
-  );
-}
+import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
 
 const PLATFORMS = [
-  { id: 'INSTAGRAM', label: 'Instagram', icon: Instagram, color: 'text-pink-600' },
-  { id: 'FACEBOOK', label: 'Facebook', icon: Facebook, color: 'text-blue-600' },
-  { id: 'TIKTOK', label: 'TikTok', icon: TikTokIcon, color: 'text-neutral-800' },
-  { id: 'YOUTUBE', label: 'YouTube', icon: Youtube, color: 'text-red-600' },
-  { id: 'TWITTER', label: 'X (Twitter)', icon: TwitterIcon, color: 'text-neutral-700' },
+  { id: 'INSTAGRAM', label: 'Instagram', icon: InstagramIcon },
+  { id: 'FACEBOOK', label: 'Facebook', icon: FacebookIcon },
+  { id: 'TIKTOK', label: 'TikTok', icon: TikTokIcon },
+  { id: 'YOUTUBE', label: 'YouTube', icon: YoutubeIcon },
+  { id: 'TWITTER', label: 'X (Twitter)', icon: XTwitterIcon, color: 'text-neutral-800' },
   { id: 'GMB', label: 'Google Business', icon: Building2, color: 'text-green-600', comingSoon: true },
-  { id: 'LINKEDIN', label: 'LinkedIn', icon: Linkedin, color: 'text-blue-700', comingSoon: true },
+  { id: 'LINKEDIN', label: 'LinkedIn', icon: LinkedinIcon, comingSoon: true },
 ] as const;
 
 type Account = { id: string; platform: string; username?: string | null };

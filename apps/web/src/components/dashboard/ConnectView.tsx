@@ -1,30 +1,19 @@
 'use client';
 
 import React from 'react';
-import { Instagram, Facebook, Youtube, Linkedin, Check, Minus, Star, Loader2 } from 'lucide-react';
-
-function TikTokIcon({ size = 24, className = '' }: { size?: number; className?: string }) {
-  return <span className={`font-bold ${className || 'text-neutral-800'}`} style={{ fontSize: size }}>TT</span>;
-}
-
-function TwitterIcon({ size = 24 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className="text-sky-500">
-      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-    </svg>
-  );
-}
+import { Check, Minus, Star, Loader2 } from 'lucide-react';
+import { InstagramIcon, FacebookIcon, YoutubeIcon, LinkedinIcon, TikTokIcon, XTwitterIcon } from '@/components/SocialPlatformIcons';
 
 const PLATFORM_INFO: Record<string, { name: string; description: string; icon: React.ReactNode }> = {
   INSTAGRAM: {
     name: 'Instagram',
     description: 'Use a Business or Creator account to connect.',
-    icon: <Instagram size={40} className="text-pink-600" />,
+    icon: <InstagramIcon size={40} />,
   },
   FACEBOOK: {
     name: 'Facebook',
     description: 'Use the Facebook account that manages your Page. If you have multiple Pages: opt in to "current Pages only" and choose the page you want to connect.',
-    icon: <Facebook size={40} className="text-blue-600" />,
+    icon: <FacebookIcon size={40} />,
   },
   TIKTOK: {
     name: 'TikTok',
@@ -34,17 +23,17 @@ const PLATFORM_INFO: Record<string, { name: string; description: string; icon: R
   YOUTUBE: {
     name: 'YouTube',
     description: 'Connect with the Google account that owns your channel.',
-    icon: <Youtube size={40} className="text-red-600" />,
+    icon: <YoutubeIcon size={40} />,
   },
   TWITTER: {
     name: 'X (Twitter)',
     description: 'Authorize with the X account you want to post from.',
-    icon: <TwitterIcon size={40} />,
+    icon: <XTwitterIcon size={40} className="text-neutral-800" />,
   },
   LINKEDIN: {
     name: 'LinkedIn',
     description: 'Sign in with the LinkedIn account you want to publish from.',
-    icon: <Linkedin size={40} className="text-blue-700" />,
+    icon: <LinkedinIcon size={40} />,
   },
 };
 
@@ -66,7 +55,7 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
   if (platform === 'LINKEDIN') {
     return (
       <div className="max-w-xl mx-auto card border-2 border-dashed border-amber-200 bg-amber-50/50 flex flex-col items-center justify-center py-16 text-center">
-        <Linkedin size={48} className="text-blue-700 mb-4" />
+        <LinkedinIcon size={48} className="mb-4" />
         <h2 className="text-xl font-semibold text-neutral-900">LinkedIn</h2>
         <p className="text-amber-800 font-medium mt-2">Coming soon</p>
         <p className="text-sm text-neutral-500 mt-1">{info.description}</p>
@@ -79,8 +68,8 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
     return (
       <div className="max-w-3xl mx-auto space-y-8">
         <div className="text-center">
-          <div className="inline-flex p-4 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-amber-500 mb-4">
-            <Instagram size={48} className="text-white" />
+          <div className="inline-flex p-2 rounded-2xl mb-4">
+            <InstagramIcon size={48} />
           </div>
           <h1 className="text-2xl font-bold text-neutral-900">Connect Instagram account</h1>
           <p className="text-neutral-500 mt-1">Select how you would like to connect your account</p>
@@ -110,7 +99,7 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
             className="text-left p-6 rounded-xl border-2 border-neutral-200 hover:border-pink-300 hover:bg-pink-50/50 transition-all flex flex-col card"
           >
             <div className="flex justify-between items-start mb-3">
-              <Instagram size={24} className="text-pink-600" />
+              <InstagramIcon size={24} />
               <span className="text-xs font-semibold text-neutral-500 uppercase">Limited access</span>
             </div>
             <span className="font-semibold text-neutral-900">Connect via Instagram</span>
@@ -135,8 +124,8 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
             </span>
             <div className="flex justify-between items-start mb-3">
               <div className="flex gap-1">
-                <Facebook size={24} className="text-blue-600" />
-                <Instagram size={24} className="text-pink-600" />
+                <FacebookIcon size={24} />
+                <InstagramIcon size={24} />
               </div>
               <span className="text-xs font-semibold text-green-600 uppercase">Full access</span>
             </div>
@@ -159,8 +148,8 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
     return (
       <div className="max-w-xl mx-auto space-y-8">
         <div className="text-center">
-          <div className="inline-flex p-4 rounded-full bg-neutral-900 mb-4 text-white">
-            <TikTokIcon size={48} className="text-white" />
+          <div className="inline-flex p-2 rounded-full mb-4">
+            <TikTokIcon size={48} />
           </div>
           <h1 className="text-2xl font-bold text-neutral-900">Connect your TikTok and extract all the analytics</h1>
           <p className="text-neutral-500 mt-1">{info.description}</p>
