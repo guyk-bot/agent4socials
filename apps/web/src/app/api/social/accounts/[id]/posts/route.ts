@@ -25,12 +25,13 @@ export async function GET(
     return NextResponse.json({ message: 'Account not found' }, { status: 404 });
   }
   const sync = request.nextUrl.searchParams.get('sync') === '1';
+  let syncError: string | undefined;
   if (sync) {
     try {
-      await syncImportedPosts(account.id, account.platform, account.platformUserId, account.accessToken);
+      syncError = await syncImportedPosts(account.id, account.platform, account.platformUserId, account.accessToken);
     } catch (e) {
       console.error('[Imported posts] sync error:', e);
-      return NextResponse.json({ message: 'Sync failed', posts: [] }, { status: 200 });
+      syncError = (e as Error)?.message ?? 'Sync failed. Try reconnecting your account.';
     }
   }
   const posts = await prisma.importedPost.findMany({
@@ -38,7 +39,7 @@ export async function GET(
     orderBy: { publishedAt: 'desc' },
     take: 200,
   });
-  return NextResponse.json({ posts });
+  return NextResponse.json({ posts, syncError });
 }
 
 async function syncImportedPosts(
@@ -46,13 +47,20 @@ async function syncImportedPosts(
   platform: Platform,
   platformUserId: string,
   accessToken: string
-) {
+): Promise<string | undefined> {
   const baseUrl = 'https://graph.facebook.com/v18.0';
   if (platform === 'INSTAGRAM') {
-    const res = await axios.get<{ data?: Array<{ id: string; media_type?: string; media_url?: string; permalink?: string; caption?: string; timestamp?: string }> }>(
-      `${baseUrl}/${platformUserId}/media`,
-      { params: { fields: 'id,media_type,media_url,permalink,caption,timestamp', access_token: accessToken } }
-    );
+    let res: { data?: { data?: Array<{ id: string; media_type?: string; media_url?: string; permalink?: string; caption?: string; timestamp?: string }> } };
+    try {
+      res = await axios.get(
+        `${baseUrl}/${platformUserId}/media`,
+        { params: { fields: 'id,media_type,media_url,permalink,caption,timestamp', access_token: accessToken } }
+      );
+    } catch (e) {
+      const msg = (e as Error)?.message ?? '';
+      if (msg.includes('OAuth') || msg.includes('permission') || msg.includes('access')) return 'Reconnect your Instagram account to sync posts.';
+      throw e;
+    }
     const items = res.data?.data ?? [];
     for (const m of items) {
       const publishedAt = m.timestamp ? new Date(m.timestamp) : new Date();
@@ -100,13 +108,20 @@ async function syncImportedPosts(
         },
       });
     }
-    return;
+    return undefined;
   }
   if (platform === 'FACEBOOK') {
-    const res = await axios.get<{ data?: Array<{ id: string; message?: string; created_time?: string; full_picture?: string; permalink_url?: string }> }>(
-      `${baseUrl}/${platformUserId}/published_posts`,
-      { params: { fields: 'id,message,created_time,full_picture,permalink_url', access_token: accessToken } }
-    );
+    let res: { data?: { data?: Array<{ id: string; message?: string; created_time?: string; full_picture?: string; permalink_url?: string }> } };
+    try {
+      res = await axios.get(
+        `${baseUrl}/${platformUserId}/published_posts`,
+        { params: { fields: 'id,message,created_time,full_picture,permalink_url', access_token: accessToken } }
+      );
+    } catch (e) {
+      const msg = (e as Error)?.message ?? '';
+      if (msg.includes('OAuth') || msg.includes('permission') || msg.includes('access')) return 'Reconnect your Facebook Page to sync posts.';
+      throw e;
+    }
     const items = res.data?.data ?? [];
     for (const p of items) {
       const publishedAt = p.created_time ? new Date(p.created_time) : new Date();
@@ -137,4 +152,5 @@ async function syncImportedPosts(
     return;
   }
   // Other platforms: no sync for now
+  return undefined;
 }

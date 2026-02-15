@@ -92,6 +92,7 @@ export default function DashboardPage() {
   const [analyticsTab, setAnalyticsTab] = useState('account');
   const [importedPosts, setImportedPosts] = useState<Array<{ id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; impressions: number; interactions: number; publishedAt: string; mediaType?: string | null; platform: string }>>([]);
   const [importedPostsLoading, setImportedPostsLoading] = useState(false);
+  const [postsSyncError, setPostsSyncError] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState(() => {
     const end = new Date();
     const start = new Date();
@@ -101,7 +102,7 @@ export default function DashboardPage() {
   const [postsPage, setPostsPage] = useState(1);
   const [postsSearch, setPostsSearch] = useState('');
   const [postsPerPage, setPostsPerPage] = useState(5);
-  const [insights, setInsights] = useState<{ platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number; profileViewsTotal?: number } | null>(null);
+  const [insights, setInsights] = useState<{ platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number; profileViewsTotal?: number; insightsHint?: string } | null>(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [sortBy, setSortBy] = useState<'date' | 'impressions' | 'interactions'>('date');
   const [sortDesc, setSortDesc] = useState(true);
@@ -181,8 +182,9 @@ export default function DashboardPage() {
             const list = res.data?.posts ?? [];
             postsCacheRef.current[selectedAccount.id] = list;
             setImportedPosts(list);
+            setPostsSyncError(res.data?.syncError ?? null);
           })
-          .catch(() => setImportedPosts([]))
+          .catch(() => { setImportedPosts([]); setPostsSyncError(null); })
           .finally(() => setImportedPostsLoading(false));
       }
       return;
@@ -481,6 +483,11 @@ export default function DashboardPage() {
         <div className="mt-6 space-y-6">
           <h2 className="text-lg font-semibold text-neutral-900">Account</h2>
           {effectiveInsightsLoading && <p className="text-sm text-neutral-500">Loading analytics…</p>}
+          {insights?.insightsHint && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              {insights.insightsHint}
+            </div>
+          )}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Followers card */}
             <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
@@ -671,6 +678,7 @@ export default function DashboardPage() {
                         if (selectedAccount?.id) {
                           const res = await api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: { sync: 1 } });
                           setImportedPosts(res.data?.posts ?? []);
+                          setPostsSyncError(res.data?.syncError ?? null);
                         } else if (accounts.length > 0) {
                           await Promise.all(accounts.map((acc) => api.get(`/social/accounts/${acc.id}/posts`, { params: { sync: 1 } })));
                           const results = await Promise.all(accounts.map((acc) => api.get(`/social/accounts/${acc.id}/posts`).then((r) => r.data?.posts ?? [])));
@@ -692,6 +700,11 @@ export default function DashboardPage() {
                   </button>
                 </div>
               </div>
+              {postsSyncError && (
+                <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  {postsSyncError}
+                </div>
+              )}
               <div className="bg-white border border-neutral-200 rounded-xl shadow-sm overflow-hidden">
                 <div className="flex items-center gap-2 p-3 border-b border-neutral-200 flex-wrap">
                   <input

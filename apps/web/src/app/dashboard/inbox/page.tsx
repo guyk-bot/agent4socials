@@ -16,7 +16,9 @@ import {
   Image as ImageIcon,
   Smile,
   Building2,
+  Loader2,
 } from 'lucide-react';
+import api from '@/lib/api';
 
 function TikTokIcon({ size = 22 }: { size?: number }) {
   return <span className="font-bold text-neutral-800" style={{ fontSize: size }}>TT</span>;
@@ -40,21 +42,61 @@ const PLATFORMS = [
   { id: 'LINKEDIN', label: 'LinkedIn', icon: Linkedin, color: 'text-blue-700', comingSoon: true },
 ] as const;
 
+type Account = { id: string; platform: string; username?: string | null };
+type Conversation = { id: string; updatedTime: string | null; senders: Array<{ username?: string; name?: string }> };
+
 export default function InboxPage() {
   const searchParams = useSearchParams();
   const platformFromUrl = searchParams.get('platform')?.toUpperCase();
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
   const [inboxFilter, setInboxFilter] = useState<'unresolved' | 'unread'>('unresolved');
   const [searchQuery, setSearchQuery] = useState('');
   const [connectOpen, setConnectOpen] = useState(false);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [conversationsLoading, setConversationsLoading] = useState(false);
+  const [conversationsError, setConversationsError] = useState<string | null>(null);
   const connectRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    api.get('/social/accounts').then((res) => {
+      const data = Array.isArray(res.data) ? res.data : [];
+      setAccounts(data);
+    }).catch(() => setAccounts([]));
+  }, []);
 
   useEffect(() => {
     if (platformFromUrl && PLATFORMS.some((p) => p.id === platformFromUrl && p.id !== 'GMB' && p.id !== 'LINKEDIN')) {
       setSelectedPlatform(platformFromUrl);
     }
   }, [platformFromUrl]);
+
+  useEffect(() => {
+    if (!selectedPlatform || (selectedPlatform !== 'INSTAGRAM' && selectedPlatform !== 'FACEBOOK')) {
+      setConversations([]);
+      setConversationsError(null);
+      return;
+    }
+    const account = accounts.find((a) => a.platform === selectedPlatform);
+    if (!account) {
+      setConversations([]);
+      setConversationsError(`Connect a ${selectedPlatform === 'INSTAGRAM' ? 'Instagram' : 'Facebook'} account from the Dashboard to see conversations here.`);
+      return;
+    }
+    setConversationsLoading(true);
+    setConversationsError(null);
+    api.get(`/social/accounts/${account.id}/conversations`)
+      .then((res) => {
+        setConversations(res.data?.conversations ?? []);
+        setConversationsError(res.data?.error ?? null);
+      })
+      .catch(() => {
+        setConversations([]);
+        setConversationsError('Could not load conversations.');
+      })
+      .finally(() => setConversationsLoading(false));
+  }, [selectedPlatform, accounts]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -174,38 +216,56 @@ export default function InboxPage() {
               <MessageCircle size={40} className="mx-auto text-neutral-300 mb-3" />
               <p className="text-sm text-neutral-500">Click a platform icon above to open its inbox.</p>
             </div>
-          ) : (
-            <div className="p-2">
-              {/* Placeholder conversations - replace with real data when API exists */}
-              <div className="space-y-0">
-                {[1, 2, 3].map((i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => setSelectedConversationId(`conv-${i}`)}
-                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors ${
-                      selectedConversationId === `conv-${i}` ? 'bg-indigo-50 border border-indigo-100' : 'hover:bg-neutral-50'
-                    }`}
-                  >
-                    <div className="w-10 h-10 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 text-sm font-semibold text-neutral-600">
-                      {['AB', 'CD', 'EF'][i - 1]}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-neutral-900 truncate">Conversation {i}</p>
-                      <p className="text-xs text-neutral-500 truncate">Message not available</p>
-                    </div>
-                    <div className="shrink-0 flex items-center gap-1">
-                      <span className="text-xs text-neutral-400">Jan {24 + i}, 2026</span>
-                      <button type="button" className="p-1 rounded hover:bg-neutral-200" title="Mark resolved">
-                        <Check size={14} className="text-neutral-400" />
-                      </button>
-                    </div>
-                  </button>
-                ))}
+          ) : conversationsLoading ? (
+            <div className="p-6 flex flex-col items-center justify-center gap-3">
+              <Loader2 size={32} className="text-indigo-500 animate-spin" />
+              <p className="text-sm text-neutral-500">Loading conversations…</p>
+            </div>
+          ) : conversationsError ? (
+            <div className="p-4">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-800">
+                {conversationsError}
               </div>
-              <p className="text-xs text-neutral-400 text-center py-4">
-                Inbox API coming soon. Connect accounts from the Dashboard to be ready.
-              </p>
+              <p className="text-xs text-neutral-500 mt-3 text-center">Connect from the Dashboard and ensure messaging permissions are granted.</p>
+            </div>
+          ) : conversations.length === 0 ? (
+            <div className="p-6 text-center">
+              <MessageCircle size={40} className="mx-auto text-neutral-300 mb-3" />
+              <p className="text-sm text-neutral-500">No conversations yet.</p>
+              <p className="text-xs text-neutral-400 mt-1">Messages will appear here when you receive them.</p>
+            </div>
+          ) : (
+            <div className="p-2 space-y-0">
+              {conversations
+                .filter((c) => !searchQuery || (c.senders?.[0]?.username ?? c.senders?.[0]?.name ?? c.id).toLowerCase().includes(searchQuery.toLowerCase()))
+                .map((c) => {
+                  const name = c.senders?.[0]?.username ?? c.senders?.[0]?.name ?? 'Unknown';
+                  const initials = name.slice(0, 2).toUpperCase();
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setSelectedConversationId(c.id)}
+                      className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors ${
+                        selectedConversationId === c.id ? 'bg-indigo-50 border border-indigo-100' : 'hover:bg-neutral-50'
+                      }`}
+                    >
+                      <div className="w-10 h-10 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 text-sm font-semibold text-neutral-600">
+                        {initials}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-neutral-900 truncate">{name}</p>
+                        <p className="text-xs text-neutral-500 truncate">Conversation</p>
+                      </div>
+                      <div className="shrink-0 flex items-center gap-1">
+                        {c.updatedTime && <span className="text-xs text-neutral-400">{new Date(c.updatedTime).toLocaleDateString()}</span>}
+                        <button type="button" className="p-1 rounded hover:bg-neutral-200" title="Mark resolved">
+                          <Check size={14} className="text-neutral-400" />
+                        </button>
+                      </div>
+                    </button>
+                  );
+                })}
             </div>
           )}
         </div>

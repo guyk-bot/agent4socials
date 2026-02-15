@@ -72,7 +72,7 @@ export default function AnalyticsPage() {
   const [postsPerPage, setPostsPerPage] = useState(5);
   const [sortBy, setSortBy] = useState<'date' | 'impressions' | 'interactions'>('date');
   const [sortDesc, setSortDesc] = useState(true);
-  const [insights, setInsights] = useState<{ platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number; profileViewsTotal?: number } | null>(null);
+  const [insights, setInsights] = useState<{ platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number; profileViewsTotal?: number; insightsHint?: string } | null>(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [dateRange, setDateRange] = useState(() => {
     const end = new Date();
@@ -126,7 +126,7 @@ export default function AnalyticsPage() {
       .finally(() => setImportedPostsLoading(false));
   }, [activeTab, selectedAccount?.id]);
 
-  const insightsCacheRef = useRef<Record<string, { platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number; profileViewsTotal?: number }>>({});
+  const insightsCacheRef = useRef<Record<string, { platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number; profileViewsTotal?: number; insightsHint?: string }>>({});
 
   useEffect(() => {
     if (activeTab !== 'account' || !selectedAccount?.id || !dateRange.start || !dateRange.end) return;
@@ -240,6 +240,11 @@ export default function AnalyticsPage() {
             <div className="space-y-6">
               <h2 className="text-lg font-semibold text-neutral-900">Account</h2>
               {insightsLoading && <p className="text-sm text-neutral-500">Loading analytics…</p>}
+              {insights?.insightsHint && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  {insights.insightsHint}
+                </div>
+              )}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
                   <p className="text-sm font-medium text-neutral-500">Followers</p>

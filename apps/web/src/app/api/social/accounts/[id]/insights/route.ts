@@ -43,6 +43,7 @@ export async function GET(
     reachTotal?: number;
     profileViewsTotal?: number;
     followersTimeSeries?: Array<{ date: string; value: number }>;
+    insightsHint?: string;
   } = {
     platform: account.platform,
     followers: 0,
@@ -98,7 +99,9 @@ export async function GET(
             }
           }
         } catch (e) {
-          console.warn('[Insights] Instagram insights:', (e as Error)?.message ?? e);
+          const msg = (e as Error)?.message ?? String(e);
+          console.warn('[Insights] Instagram insights:', msg);
+          if (out.followers === 0 && !out.impressionsTotal && !out.reachTotal) out.insightsHint = 'Reconnect your account to grant insights permission and see Views, Reach, and Profile views.';
         }
       }
       return NextResponse.json(out);
@@ -151,7 +154,9 @@ export async function GET(
             }
           }
         } catch (e) {
-          console.warn('[Insights] Facebook insights:', (e as Error)?.message ?? e);
+          const msg = (e as Error)?.message ?? String(e);
+          console.warn('[Insights] Facebook insights:', msg);
+          if (out.followers === 0 && !out.impressionsTotal) out.insightsHint = 'Reconnect your account to grant Page insights permission.';
         }
       }
       return NextResponse.json(out);
