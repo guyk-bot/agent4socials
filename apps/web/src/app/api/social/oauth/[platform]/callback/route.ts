@@ -481,7 +481,8 @@ export async function GET(
         } catch (_) {}
       }
     } catch (_) {
-      // Org ACL or lookup failed (e.g. app lacks Community Management); keep tokenData as personal
+      // Org ACL or lookup failed (e.g. app lacks org scopes/Community Management); label as Page for UI
+      tokenData.username = 'LinkedIn Page';
     }
   }
 

@@ -38,10 +38,12 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
     case 'TWITTER':
       return `https://twitter.com/i/oauth2/authorize?client_id=${process.env.TWITTER_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.TWITTER_REDIRECT_URI || callbackUrl)}&response_type=code&scope=tweet.read%20tweet.write%20users.read%20dm.read%20dm.write%20offline.access&state=${state}&code_challenge=challenge&code_challenge_method=plain`;
     case 'LINKEDIN': {
-      const linkedInScopes =
-        method === 'page'
-          ? 'openid profile email w_member_social r_organization_social w_organization_social'
-          : 'openid profile email w_member_social';
+      // r_organization_social / w_organization_social require Marketing/Community Management product approval.
+      // Request them only when explicitly enabled so the Page flow doesn't fail with "Bummer, something went wrong".
+      const requestOrgScopes = process.env.LINKEDIN_REQUEST_ORG_SCOPES === 'true' && method === 'page';
+      const linkedInScopes = requestOrgScopes
+        ? 'openid profile email w_member_social r_organization_social w_organization_social'
+        : 'openid profile email w_member_social';
       return `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${process.env.LINKEDIN_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.LINKEDIN_REDIRECT_URI || callbackUrl)}&state=${encodeURIComponent(state)}&scope=${encodeURIComponent(linkedInScopes)}`;
     }
     default:
