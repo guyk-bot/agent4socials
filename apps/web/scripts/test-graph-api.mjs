@@ -40,7 +40,7 @@ async function main() {
 
   console.log('\n---', PLATFORM, 'insights (views, reach, profile_views) ---\n');
   const insightsUrl = PLATFORM === 'INSTAGRAM'
-    ? `${baseUrl}/${pid}/insights?metric=reach,profile_views,views&period=day&since=2026-01-16&until=2026-02-15&access_token=${enc}`
+    ? `${baseUrl}/${pid}/insights?metric=reach,profile_views,views&metric_type=total_value&period=day&since=2026-01-16&until=2026-02-15&access_token=${enc}`
     : `${baseUrl}/${pid}/insights?metric=page_impressions,page_views_total,page_fan_reach&period=day&since=2026-01-16&until=2026-02-15&access_token=${enc}`;
   const insightsRes = await fetch(insightsUrl).then((r) => r.json());
   console.log(JSON.stringify(insightsRes, null, 2));

@@ -68,10 +68,15 @@ export async function GET(
       if (sinceTs != null && untilTs != null) {
         try {
           const insightsRes = await axios.get<{
-            data?: Array<{ name: string; values?: Array<{ value: number; end_time?: string }> }>;
+            data?: Array<{
+              name: string;
+              values?: Array<{ value: number; end_time?: string }>;
+              total_value?: { value: number };
+            }>;
           }>(`${baseUrl}/${account.platformUserId}/insights`, {
             params: {
               metric: 'reach,profile_views,views',
+              metric_type: 'total_value',
               period: 'day',
               since: sinceTs,
               until: untilTs,
@@ -80,18 +85,23 @@ export async function GET(
           });
           const data = insightsRes.data?.data ?? [];
           for (const d of data) {
-            const values = d.values ?? [];
-            let total = 0;
-            const series: Array<{ date: string; value: number }> = [];
-            for (const v of values) {
-              const val = typeof v.value === 'number' ? v.value : 0;
-              total += val;
-              const date = v.end_time ? v.end_time.slice(0, 10) : '';
-              if (date) series.push({ date, value: val });
-            }
+            const total =
+              typeof d.total_value?.value === 'number'
+                ? d.total_value.value
+                : (d.values ?? []).reduce((s, v) => s + (typeof v.value === 'number' ? v.value : 0), 0);
+            const series: Array<{ date: string; value: number }> =
+              (d.values ?? []).length > 0
+                ? (d.values ?? [])
+                    .map((v) => ({
+                      date: v.end_time ? v.end_time.slice(0, 10) : '',
+                      value: typeof v.value === 'number' ? v.value : 0,
+                    }))
+                    .filter((x) => x.date)
+                    .sort((a, b) => a.date.localeCompare(b.date))
+                : [];
             if (d.name === 'views' || d.name === 'impressions') {
               out.impressionsTotal = total;
-              out.impressionsTimeSeries = series.sort((a, b) => a.date.localeCompare(b.date));
+              out.impressionsTimeSeries = series.length ? series : (total ? [{ date: new Date().toISOString().slice(0, 10), value: total }] : []);
             } else if (d.name === 'reach') {
               out.reachTotal = total;
             } else if (d.name === 'profile_views') {
