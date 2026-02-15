@@ -208,10 +208,23 @@ export default function InboxPage() {
             </div>
           ) : conversationsError ? (
             <div className="p-4">
-              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-800">
-                {conversationsError}
+              <div className="rounded-xl border-2 border-indigo-200 bg-indigo-50 px-4 py-4">
+                <p className="text-sm font-medium text-indigo-900">To load conversations, reconnect and choose your Page.</p>
+                <p className="text-xs text-indigo-700 mt-1">{conversationsError}</p>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const res = await api.get('/social/oauth/facebook/start');
+                      const url = res?.data?.url;
+                      if (url && typeof url === 'string') window.location.href = url;
+                    } catch (_) {}
+                  }}
+                  className="mt-3 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700"
+                >
+                  Reconnect Facebook & Instagram
+                </button>
               </div>
-              <p className="text-xs text-neutral-500 mt-3 text-center">Use Reconnect in the left sidebar for this account, then choose your Page when asked.</p>
             </div>
           ) : conversations.length === 0 ? (
             <div className="p-6 text-center">

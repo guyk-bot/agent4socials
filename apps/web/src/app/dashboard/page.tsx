@@ -369,12 +369,33 @@ export default function DashboardPage() {
   const effectiveProfileViews = selectedAccount ? (insights?.profileViewsTotal ?? 0) : 0;
   const effectiveInsightsLoading = selectedAccount ? insightsLoading : aggregatedLoading;
   const maxImpressions = effectiveTimeSeries.length ? Math.max(...effectiveTimeSeries.map((d) => d.value), 1) : 1;
+  const hasFbOrIg = accounts.some((a) => a.platform === 'FACEBOOK' || a.platform === 'INSTAGRAM');
+  const showReconnectBanner = hasFbOrIg && (insights?.insightsHint || postsSyncError);
 
   return (
     <div className="space-y-0">
       {(connectingParam === '1' || justConnected) && (
         <div className={`mb-4 rounded-xl border px-4 py-3 text-sm ${justConnected ? 'border-green-200 bg-green-50 text-green-800' : 'border-indigo-200 bg-indigo-50 text-indigo-800'}`}>
           {justConnected ? 'Account connected. You can select it from the sidebar.' : 'Connecting your account…'}
+        </div>
+      )}
+      {showReconnectBanner && (
+        <div className="mb-4 rounded-xl border-2 border-indigo-200 bg-indigo-50 px-4 py-4">
+          <p className="text-sm font-medium text-indigo-900">To see analytics, posts, and inbox like Metricool, reconnect and choose your Page.</p>
+          <p className="text-xs text-indigo-700 mt-1">Click the button below, sign in with Facebook when asked, then select your Page. This loads all data for that Page and its linked Instagram.</p>
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                const res = await api.get('/social/oauth/facebook/start');
+                const url = res?.data?.url;
+                if (url && typeof url === 'string') window.location.href = url;
+              } catch (_) {}
+            }}
+            className="mt-3 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700"
+          >
+            Reconnect Facebook & Instagram
+          </button>
         </div>
       )}
       {/* Top row: ACCOUNT | POSTS tabs + date range (Metricool-style) */}

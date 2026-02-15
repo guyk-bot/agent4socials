@@ -80,6 +80,8 @@ export default function AnalyticsPage() {
   const totalPostsPages = Math.max(1, Math.ceil(sortedPosts.length / postsPerPage));
   const currentPagePosts = sortedPosts.slice((postsPage - 1) * postsPerPage, postsPage * postsPerPage);
   const maxImpressions = insights?.impressionsTimeSeries?.length ? Math.max(...insights.impressionsTimeSeries.map((d) => d.value), 1) : 1;
+  const hasFbOrIg = connectedPlatforms.includes('FACEBOOK') || connectedPlatforms.includes('INSTAGRAM');
+  const showReconnectBanner = hasFbOrIg && (insights?.insightsHint || postsSyncError);
 
   useEffect(() => {
     if (cachedAccounts.length > 0) return;
@@ -138,6 +140,25 @@ export default function AnalyticsPage() {
 
   return (
     <div className="space-y-6">
+      {showReconnectBanner && (
+        <div className="rounded-xl border-2 border-indigo-200 bg-indigo-50 px-4 py-4">
+          <p className="text-sm font-medium text-indigo-900">To see analytics, posts, and inbox like Metricool, reconnect and choose your Page.</p>
+          <p className="text-xs text-indigo-700 mt-1">Click the button below, sign in with Facebook when asked, then select your Page.</p>
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                const res = await api.get('/social/oauth/facebook/start');
+                const url = res?.data?.url;
+                if (url && typeof url === 'string') window.location.href = url;
+              } catch (_) {}
+            }}
+            className="mt-3 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700"
+          >
+            Reconnect Facebook & Instagram
+          </button>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900">Analytics</h1>
