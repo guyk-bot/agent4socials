@@ -41,6 +41,7 @@ export async function GET(
     impressionsTimeSeries: Array<{ date: string; value: number }>;
     pageViewsTotal?: number;
     reachTotal?: number;
+    profileViewsTotal?: number;
     followersTimeSeries?: Array<{ date: string; value: number }>;
   } = {
     platform: account.platform,
@@ -60,8 +61,8 @@ export async function GET(
         if (typeof profileRes.data?.followers_count === 'number') {
           out.followers = profileRes.data.followers_count;
         }
-      } catch (_) {
-        // profile may not have followers_count for some tokens
+      } catch (e) {
+        console.warn('[Insights] Instagram profile:', (e as Error)?.message ?? e);
       }
       if (sinceTs != null && untilTs != null) {
         try {
@@ -69,7 +70,7 @@ export async function GET(
             data?: Array<{ name: string; values?: Array<{ value: number; end_time?: string }> }>;
           }>(`${baseUrl}/${account.platformUserId}/insights`, {
             params: {
-              metric: 'impressions',
+              metric: 'impressions,reach,profile_views',
               period: 'day',
               since: sinceTs,
               until: untilTs,
@@ -77,39 +78,28 @@ export async function GET(
             },
           });
           const data = insightsRes.data?.data ?? [];
-          const impressionValues = data.find((d) => d.name === 'impressions')?.values ?? [];
-          let total = 0;
-          const series: Array<{ date: string; value: number }> = [];
-          for (const v of impressionValues) {
-            const val = typeof v.value === 'number' ? v.value : 0;
-            total += val;
-            const date = v.end_time ? v.end_time.slice(0, 10) : '';
-            if (date) series.push({ date, value: val });
+          for (const d of data) {
+            const values = d.values ?? [];
+            let total = 0;
+            const series: Array<{ date: string; value: number }> = [];
+            for (const v of values) {
+              const val = typeof v.value === 'number' ? v.value : 0;
+              total += val;
+              const date = v.end_time ? v.end_time.slice(0, 10) : '';
+              if (date) series.push({ date, value: val });
+            }
+            if (d.name === 'impressions') {
+              out.impressionsTotal = total;
+              out.impressionsTimeSeries = series.sort((a, b) => a.date.localeCompare(b.date));
+            } else if (d.name === 'reach') {
+              out.reachTotal = total;
+            } else if (d.name === 'profile_views') {
+              out.profileViewsTotal = total;
+            }
           }
-          out.impressionsTotal = total;
-          out.impressionsTimeSeries = series.sort((a, b) => a.date.localeCompare(b.date));
-        } catch (_) {
-          // insights may require instagram_manage_insights or 100+ followers
+        } catch (e) {
+          console.warn('[Insights] Instagram insights:', (e as Error)?.message ?? e);
         }
-        try {
-          const reachRes = await axios.get<{
-            data?: Array<{ name: string; values?: Array<{ value: number }> }>;
-          }>(`${baseUrl}/${account.platformUserId}/insights`, {
-            params: {
-              metric: 'reach',
-              period: 'day',
-              since: sinceTs,
-              until: untilTs,
-              access_token: token,
-            },
-          });
-          const reachValues = reachRes.data?.data?.find((d) => d.name === 'reach')?.values ?? [];
-          let reachTotal = 0;
-          for (const v of reachValues) {
-            reachTotal += typeof v.value === 'number' ? v.value : 0;
-          }
-          out.reachTotal = reachTotal;
-        } catch (_) {}
       }
       return NextResponse.json(out);
     }
@@ -124,14 +114,16 @@ export async function GET(
         if (typeof pageRes.data?.fan_count === 'number') {
           out.followers = pageRes.data.fan_count;
         }
-      } catch (_) {}
+      } catch (e) {
+        console.warn('[Insights] Facebook page profile:', (e as Error)?.message ?? e);
+      }
       if (sinceTs != null && untilTs != null) {
         try {
           const insightsRes = await axios.get<{
             data?: Array<{ name: string; values?: Array<{ value: number; end_time?: string }> }>;
           }>(`${baseUrl}/${account.platformUserId}/insights`, {
             params: {
-              metric: 'page_impressions,page_views_total',
+              metric: 'page_impressions,page_views_total,page_fan_reach',
               period: 'day',
               since: sinceTs,
               until: untilTs,
@@ -139,24 +131,28 @@ export async function GET(
             },
           });
           const data = insightsRes.data?.data ?? [];
-          const impressionValues = data.find((d) => d.name === 'page_impressions')?.values ?? [];
-          const pageViewsValues = data.find((d) => d.name === 'page_views_total')?.values ?? [];
-          let total = 0;
-          const series: Array<{ date: string; value: number }> = [];
-          for (const v of impressionValues) {
-            const val = typeof v.value === 'number' ? v.value : 0;
-            total += val;
-            const date = v.end_time ? v.end_time.slice(0, 10) : '';
-            if (date) series.push({ date, value: val });
+          for (const d of data) {
+            const values = d.values ?? [];
+            let total = 0;
+            const series: Array<{ date: string; value: number }> = [];
+            for (const v of values) {
+              const val = typeof v.value === 'number' ? v.value : 0;
+              total += val;
+              const date = v.end_time ? v.end_time.slice(0, 10) : '';
+              if (date) series.push({ date, value: val });
+            }
+            if (d.name === 'page_impressions') {
+              out.impressionsTotal = total;
+              out.impressionsTimeSeries = series.sort((a, b) => a.date.localeCompare(b.date));
+            } else if (d.name === 'page_views_total') {
+              out.pageViewsTotal = total;
+            } else if (d.name === 'page_fan_reach') {
+              out.reachTotal = total;
+            }
           }
-          out.impressionsTotal = total;
-          out.impressionsTimeSeries = series.sort((a, b) => a.date.localeCompare(b.date));
-          let pageViewsTotal = 0;
-          for (const v of pageViewsValues) {
-            pageViewsTotal += typeof v.value === 'number' ? v.value : 0;
-          }
-          out.pageViewsTotal = pageViewsTotal;
-        } catch (_) {}
+        } catch (e) {
+          console.warn('[Insights] Facebook insights:', (e as Error)?.message ?? e);
+        }
       }
       return NextResponse.json(out);
     }

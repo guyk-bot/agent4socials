@@ -72,7 +72,7 @@ export default function AnalyticsPage() {
   const [postsPerPage, setPostsPerPage] = useState(5);
   const [sortBy, setSortBy] = useState<'date' | 'impressions' | 'interactions'>('date');
   const [sortDesc, setSortDesc] = useState(true);
-  const [insights, setInsights] = useState<{ platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number } | null>(null);
+  const [insights, setInsights] = useState<{ platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number; profileViewsTotal?: number } | null>(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [dateRange, setDateRange] = useState(() => {
     const end = new Date();
@@ -115,7 +115,8 @@ export default function AnalyticsPage() {
       setImportedPosts([]);
       setImportedPostsLoading(true);
     }
-    api.get(`/social/accounts/${selectedAccount.id}/posts`)
+    const syncFirst = !cached;
+    api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: syncFirst ? { sync: 1 } : {} })
       .then((res) => {
         const list = res.data?.posts ?? [];
         postsCacheRef.current[selectedAccount.id] = list;
@@ -125,7 +126,7 @@ export default function AnalyticsPage() {
       .finally(() => setImportedPostsLoading(false));
   }, [activeTab, selectedAccount?.id]);
 
-  const insightsCacheRef = useRef<Record<string, { platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number }>>({});
+  const insightsCacheRef = useRef<Record<string, { platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number; profileViewsTotal?: number }>>({});
 
   useEffect(() => {
     if (activeTab !== 'account' || !selectedAccount?.id || !dateRange.start || !dateRange.end) return;
@@ -302,10 +303,17 @@ export default function AnalyticsPage() {
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
-                  <p className="text-xs font-medium text-neutral-500">Page visits</p>
-                  <p className="text-xl font-bold text-neutral-900 mt-0.5">{insights?.pageViewsTotal ?? '—'}</p>
-                </div>
+                {selectedAccount?.platform === 'INSTAGRAM' ? (
+                  <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
+                    <p className="text-xs font-medium text-neutral-500">Profile views</p>
+                    <p className="text-xl font-bold text-neutral-900 mt-0.5">{insights?.profileViewsTotal ?? '—'}</p>
+                  </div>
+                ) : (
+                  <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
+                    <p className="text-xs font-medium text-neutral-500">Page visits</p>
+                    <p className="text-xl font-bold text-neutral-900 mt-0.5">{insights?.pageViewsTotal ?? '—'}</p>
+                  </div>
+                )}
                 <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
                   <p className="text-xs font-medium text-neutral-500">Reach</p>
                   <p className="text-xl font-bold text-neutral-900 mt-0.5">{insights?.reachTotal ?? '—'}</p>
@@ -328,7 +336,13 @@ export default function AnalyticsPage() {
                     </div>
                     <div className="bg-neutral-50 border border-neutral-100 rounded-xl p-4 shadow-sm">
                       <p className="text-xs font-medium text-neutral-500">Daily page views</p>
-                      <p className="text-lg font-semibold text-neutral-700 mt-0.5">{days && insights?.pageViewsTotal != null ? (insights.pageViewsTotal / days).toFixed(2) : '—'}</p>
+                      <p className="text-lg font-semibold text-neutral-700 mt-0.5">
+                        {days && selectedAccount?.platform === 'INSTAGRAM' && insights?.profileViewsTotal != null
+                          ? (insights.profileViewsTotal / days).toFixed(2)
+                          : days && insights?.pageViewsTotal != null
+                            ? (insights.pageViewsTotal / days).toFixed(2)
+                            : '—'}
+                      </p>
                     </div>
                     <div className="bg-neutral-50 border border-neutral-100 rounded-xl p-4 shadow-sm">
                       <p className="text-xs font-medium text-neutral-500">Daily posts</p>

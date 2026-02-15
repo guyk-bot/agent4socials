@@ -1,60 +1,280 @@
 'use client';
 
-import React from 'react';
-import { MessageCircle, Instagram, Facebook, Twitter, Linkedin } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import {
+  MessageCircle,
+  Instagram,
+  Facebook,
+  Youtube,
+  Linkedin,
+  Plus,
+  Search,
+  Check,
+  Send,
+  Image as ImageIcon,
+  Smile,
+  Building2,
+} from 'lucide-react';
+
+function TikTokIcon({ size = 22 }: { size?: number }) {
+  return <span className="font-bold text-neutral-800" style={{ fontSize: size }}>TT</span>;
+}
+
+function TwitterIcon({ size = 22 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className="text-neutral-800">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  );
+}
+
+const PLATFORMS = [
+  { id: 'INSTAGRAM', label: 'Instagram', icon: Instagram, color: 'text-pink-600' },
+  { id: 'FACEBOOK', label: 'Facebook', icon: Facebook, color: 'text-blue-600' },
+  { id: 'TIKTOK', label: 'TikTok', icon: TikTokIcon, color: 'text-neutral-800' },
+  { id: 'YOUTUBE', label: 'YouTube', icon: Youtube, color: 'text-red-600' },
+  { id: 'TWITTER', label: 'X (Twitter)', icon: TwitterIcon, color: 'text-neutral-700' },
+  { id: 'GMB', label: 'Google Business', icon: Building2, color: 'text-green-600', comingSoon: true },
+  { id: 'LINKEDIN', label: 'LinkedIn', icon: Linkedin, color: 'text-blue-700', comingSoon: true },
+] as const;
 
 export default function InboxPage() {
+  const searchParams = useSearchParams();
+  const platformFromUrl = searchParams.get('platform')?.toUpperCase();
+  const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
+  const [inboxFilter, setInboxFilter] = useState<'unresolved' | 'unread'>('unresolved');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [connectOpen, setConnectOpen] = useState(false);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const connectRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (platformFromUrl && PLATFORMS.some((p) => p.id === platformFromUrl && p.id !== 'GMB' && p.id !== 'LINKEDIN')) {
+      setSelectedPlatform(platformFromUrl);
+    }
+  }, [platformFromUrl]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (connectRef.current && !connectRef.current.contains(e.target as Node)) setConnectOpen(false);
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handlePlatformClick = (platformId: string) => {
+    if (platformId === 'GMB' || platformId === 'LINKEDIN') return;
+    setSelectedPlatform(platformId);
+    setSelectedConversationId(null);
+  };
+
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-neutral-900">Inbox</h1>
-        <p className="text-neutral-500 mt-1">
-          Manage messages from your connected accounts in one place. YouTube does not support direct messages.
-        </p>
+    <div className="flex h-[calc(100vh-3.5rem)] bg-white">
+      {/* Left sidebar - Metricool style */}
+      <div className="w-80 border-r border-neutral-200 flex flex-col shrink-0 bg-white">
+        {/* Platform icons + Connect */}
+        <div className="p-3 border-b border-neutral-100">
+          <div className="flex items-center gap-2 flex-wrap">
+            {PLATFORMS.filter((p) => p.id !== 'GMB' && p.id !== 'LINKEDIN').map((p) => {
+              const Icon = p.icon;
+              const isSelected = selectedPlatform === p.id;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => handlePlatformClick(p.id)}
+                  className={`w-10 h-10 rounded-lg flex items-center justify-center border transition-colors ${
+                    isSelected ? 'bg-neutral-100 border-neutral-300 ring-1 ring-neutral-200' : 'border-neutral-200 hover:bg-neutral-50'
+                  }`}
+                  title={`${p.label} inbox`}
+                >
+                  <Icon size={22} className={p.color} />
+                </button>
+              );
+            })}
+            <div className="relative" ref={connectRef}>
+              <button
+                type="button"
+                onClick={() => setConnectOpen((o) => !o)}
+                className="w-10 h-10 rounded-lg flex items-center justify-center border-2 border-dashed border-red-300 bg-red-50/50 text-red-600 hover:bg-red-50 hover:border-red-400 transition-colors"
+                title="Connect account"
+              >
+                <Plus size={22} />
+              </button>
+              {connectOpen && (
+                <div className="absolute top-full left-0 mt-1 w-64 py-1 bg-white border border-neutral-200 rounded-xl shadow-lg z-50">
+                  <p className="px-3 py-2 text-xs font-semibold text-neutral-500 uppercase tracking-wider">Connect account</p>
+                  {PLATFORMS.map((p) => {
+                    const Icon = p.icon;
+                    const isComingSoon = p.id === 'GMB' || p.id === 'LINKEDIN';
+                    return (
+                      <Link
+                        key={p.id}
+                        href={isComingSoon ? '#' : '/dashboard'}
+                        onClick={(e) => {
+                          if (isComingSoon) e.preventDefault();
+                          setConnectOpen(false);
+                        }}
+                        className={`flex items-center gap-3 px-3 py-2.5 text-sm transition-colors ${
+                          isComingSoon ? 'text-neutral-400 cursor-default' : 'text-neutral-700 hover:bg-neutral-50'
+                        }`}
+                      >
+                        <Icon size={20} className={`shrink-0 ${p.color}`} />
+                        <span className="flex-1">Connect a {p.label} account</span>
+                        {isComingSoon && (
+                          <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded">Coming soon</span>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="p-2 border-b border-neutral-100">
+          <div className="relative">
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+            <input
+              type="search"
+              placeholder="Search conversation..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 border border-neutral-200 rounded-lg text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+            />
+          </div>
+        </div>
+
+        {/* Unresolved / Unread */}
+        <div className="flex border-b border-neutral-200">
+          <button
+            type="button"
+            onClick={() => setInboxFilter('unresolved')}
+            className={`flex-1 py-3 text-sm font-medium ${inboxFilter === 'unresolved' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
+          >
+            Unresolved
+          </button>
+          <button
+            type="button"
+            onClick={() => setInboxFilter('unread')}
+            className={`flex-1 py-3 text-sm font-medium ${inboxFilter === 'unread' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
+          >
+            Unread
+          </button>
+        </div>
+
+        {/* Conversation list */}
+        <div className="flex-1 overflow-y-auto">
+          {!selectedPlatform ? (
+            <div className="p-6 text-center">
+              <MessageCircle size={40} className="mx-auto text-neutral-300 mb-3" />
+              <p className="text-sm text-neutral-500">Click a platform icon above to open its inbox.</p>
+            </div>
+          ) : (
+            <div className="p-2">
+              {/* Placeholder conversations - replace with real data when API exists */}
+              <div className="space-y-0">
+                {[1, 2, 3].map((i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setSelectedConversationId(`conv-${i}`)}
+                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors ${
+                      selectedConversationId === `conv-${i}` ? 'bg-indigo-50 border border-indigo-100' : 'hover:bg-neutral-50'
+                    }`}
+                  >
+                    <div className="w-10 h-10 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 text-sm font-semibold text-neutral-600">
+                      {['AB', 'CD', 'EF'][i - 1]}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-neutral-900 truncate">Conversation {i}</p>
+                      <p className="text-xs text-neutral-500 truncate">Message not available</p>
+                    </div>
+                    <div className="shrink-0 flex items-center gap-1">
+                      <span className="text-xs text-neutral-400">Jan {24 + i}, 2026</span>
+                      <button type="button" className="p-1 rounded hover:bg-neutral-200" title="Mark resolved">
+                        <Check size={14} className="text-neutral-400" />
+                      </button>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-neutral-400 text-center py-4">
+                Inbox API coming soon. Connect accounts from the Dashboard to be ready.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="card border-2 border-dashed border-neutral-200 bg-neutral-50/50 flex flex-col items-center justify-center py-16 text-center">
-        <MessageCircle size={48} className="text-neutral-300 mb-4" />
-        <h2 className="text-lg font-semibold text-neutral-700">Inbox coming soon</h2>
-        <p className="text-sm text-neutral-500 mt-2 max-w-md">
-          We&apos;re building a unified inbox for Instagram, Facebook, TikTok, X (Twitter), and LinkedIn. Connect your accounts from the Accounts page to be ready.
-        </p>
-        <Link
-          href="/dashboard"
-          className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800 transition-colors"
-        >
-          Go to Dashboard
-        </Link>
-      </div>
-
-      <div className="card">
-        <h3 className="font-semibold text-neutral-900 mb-3">Scopes needed for Inbox (when implemented)</h3>
-        <p className="text-sm text-neutral-500 mb-4">
-          To enable reading and replying to messages, your app must request these permissions when users connect. Add them in each platform&apos;s developer console and in the OAuth scope list when we implement the inbox API.
-        </p>
-        <ul className="space-y-3 text-sm">
-          <li className="flex items-center gap-3">
-            <Instagram size={18} className="text-pink-600 shrink-0" />
-            <span><strong>Instagram</strong> (Connect via Facebook): <code className="bg-neutral-100 px-1 rounded">instagram_manage_messages</code>, <code className="bg-neutral-100 px-1 rounded">pages_messaging</code></span>
-          </li>
-          <li className="flex items-center gap-3">
-            <Facebook size={18} className="text-blue-600 shrink-0" />
-            <span><strong>Facebook</strong>: <code className="bg-neutral-100 px-1 rounded">pages_messaging</code> or <code className="bg-neutral-100 px-1 rounded">pages_messaging_subscriptions</code></span>
-          </li>
-          <li className="flex items-center gap-3">
-            <span className="w-[18px] text-center font-bold text-neutral-800 shrink-0">TT</span>
-            <span><strong>TikTok</strong>: Check TikTok for Developers for messaging / inbox permissions when available for your app type.</span>
-          </li>
-          <li className="flex items-center gap-3">
-            <Twitter size={18} className="text-sky-500 shrink-0" />
-            <span><strong>X (Twitter)</strong>: <code className="bg-neutral-100 px-1 rounded">dm.read</code>, <code className="bg-neutral-100 px-1 rounded">dm.write</code> (or equivalent in Twitter API v2).</span>
-          </li>
-          <li className="flex items-center gap-3">
-            <Linkedin size={18} className="text-blue-700 shrink-0" />
-            <span><strong>LinkedIn</strong>: Messaging product / scope in LinkedIn Developer Portal (e.g. <code className="bg-neutral-100 px-1 rounded">w_member_social</code> or dedicated messaging scope).</span>
-          </li>
-        </ul>
+      {/* Main content - conversation view */}
+      <div className="flex-1 flex flex-col min-w-0 bg-neutral-50/50">
+        {!selectedPlatform ? (
+          <div className="flex-1 flex items-center justify-center p-8">
+            <div className="text-center max-w-sm">
+              <MessageCircle size={64} className="mx-auto text-neutral-300 mb-4" />
+              <h2 className="text-lg font-semibold text-neutral-800">Open an inbox</h2>
+              <p className="text-sm text-neutral-500 mt-2">
+                Click an Instagram, Facebook, TikTok, YouTube, or X icon in the left sidebar to view that platform&apos;s conversations.
+              </p>
+            </div>
+          </div>
+        ) : !selectedConversationId ? (
+          <div className="flex-1 flex items-center justify-center p-8">
+            <div className="text-center max-w-sm">
+              <MessageCircle size={48} className="mx-auto text-neutral-300 mb-3" />
+              <p className="text-sm text-neutral-600">Select a conversation from the list</p>
+              <p className="text-xs text-neutral-400 mt-1">
+                {PLATFORMS.find((p) => p.id === selectedPlatform)?.label} inbox
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="max-w-2xl mx-auto">
+                <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
+                  <div className="p-4 border-b border-neutral-100 bg-neutral-50/50">
+                    <p className="text-sm font-medium text-neutral-800">Conversation thread</p>
+                    <p className="text-xs text-neutral-500 mt-0.5">Unified inbox — reply below when the API is connected.</p>
+                  </div>
+                  <div className="p-6 min-h-[200px]">
+                    <p className="text-sm text-neutral-500 italic">No messages loaded yet. Connect your accounts and enable the Inbox API to see and reply to conversations here.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="border-t border-neutral-200 bg-white p-4">
+              <div className="max-w-2xl mx-auto flex items-end gap-2">
+                <button type="button" className="p-2 rounded-lg border border-neutral-200 text-neutral-400 hover:bg-neutral-50" title="Add image">
+                  <ImageIcon size={20} />
+                </button>
+                <button type="button" className="p-2 rounded-lg border border-neutral-200 text-neutral-400 hover:bg-neutral-50" title="Emoji">
+                  <Smile size={20} />
+                </button>
+                <textarea
+                  placeholder="Type a reply..."
+                  rows={2}
+                  className="flex-1 px-4 py-3 border border-neutral-200 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none"
+                  disabled
+                />
+                <button
+                  type="button"
+                  disabled
+                  className="p-3 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Send (⇧ + Enter)"
+                >
+                  <Send size={20} />
+                </button>
+              </div>
+              <p className="text-xs text-neutral-400 mt-2 text-center">Send (⇧ + Enter)</p>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

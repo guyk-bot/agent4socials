@@ -101,7 +101,7 @@ export default function DashboardPage() {
   const [postsPage, setPostsPage] = useState(1);
   const [postsSearch, setPostsSearch] = useState('');
   const [postsPerPage, setPostsPerPage] = useState(5);
-  const [insights, setInsights] = useState<{ platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number } | null>(null);
+  const [insights, setInsights] = useState<{ platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number; profileViewsTotal?: number } | null>(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [sortBy, setSortBy] = useState<'date' | 'impressions' | 'interactions'>('date');
   const [sortDesc, setSortDesc] = useState(true);
@@ -175,7 +175,8 @@ export default function DashboardPage() {
           setImportedPosts([]);
           setImportedPostsLoading(true);
         }
-        api.get(`/social/accounts/${selectedAccount.id}/posts`)
+        const syncFirst = !cached;
+        api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: syncFirst ? { sync: 1 } : {} })
           .then((res) => {
             const list = res.data?.posts ?? [];
             postsCacheRef.current[selectedAccount.id] = list;
@@ -201,7 +202,7 @@ export default function DashboardPage() {
       .finally(() => setImportedPostsLoading(false));
   }, [analyticsTab, selectedAccount?.id, hasAccounts, accounts.map((a) => a.id).join(',')]);
 
-  const insightsCacheRef = useRef<Record<string, { platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number }>>({});
+  const insightsCacheRef = useRef<Record<string, { platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number; profileViewsTotal?: number }>>({});
   const aggregatedCacheRef = useRef<{ key: string; data: { totalFollowers: number; totalImpressions: number; byPlatform: Record<string, { followers: number; impressions: number; timeSeries: Array<{ date: string; value: number }> }>; combinedTimeSeries: Array<{ date: string; value: number }> } } | null>(null);
 
   useEffect(() => {
@@ -378,6 +379,7 @@ export default function DashboardPage() {
   const effectiveTimeSeries = selectedAccount ? (insights?.impressionsTimeSeries ?? []) : (aggregatedInsights?.combinedTimeSeries ?? []);
   const effectivePageVisits = selectedAccount ? (insights?.pageViewsTotal ?? 0) : 0;
   const effectiveReach = selectedAccount ? (insights?.reachTotal ?? 0) : 0;
+  const effectiveProfileViews = selectedAccount ? (insights?.profileViewsTotal ?? 0) : 0;
   const effectiveInsightsLoading = selectedAccount ? insightsLoading : aggregatedLoading;
   const maxImpressions = effectiveTimeSeries.length ? Math.max(...effectiveTimeSeries.map((d) => d.value), 1) : 1;
 
@@ -566,12 +568,19 @@ export default function DashboardPage() {
               </div>
                 <p className="text-xs text-neutral-400 mt-1 px-1">{dateRange.start} – {dateRange.end}</p>
             </div>
-            {/* Page visits, Reach, Total content */}
+            {/* Page visits / Profile views, Reach, Total content */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:col-span-2">
-              <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
-                <p className="text-xs font-medium text-neutral-500">Page visits</p>
-                <p className="text-xl font-bold text-neutral-900 mt-0.5">{effectivePageVisits || '—'}</p>
-              </div>
+              {selectedAccount?.platform === 'INSTAGRAM' ? (
+                <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
+                  <p className="text-xs font-medium text-neutral-500">Profile views</p>
+                  <p className="text-xl font-bold text-neutral-900 mt-0.5">{effectiveProfileViews || '—'}</p>
+                </div>
+              ) : (
+                <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
+                  <p className="text-xs font-medium text-neutral-500">Page visits</p>
+                  <p className="text-xl font-bold text-neutral-900 mt-0.5">{effectivePageVisits || '—'}</p>
+                </div>
+              )}
               <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
                 <p className="text-xs font-medium text-neutral-500">Reach</p>
                 <p className="text-xl font-bold text-neutral-900 mt-0.5">{effectiveReach || '—'}</p>
