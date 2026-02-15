@@ -366,12 +366,28 @@ async function exchangeCode(
         client_id: process.env.LINKEDIN_CLIENT_ID!,
         client_secret: process.env.LINKEDIN_CLIENT_SECRET!,
       }).toString(), { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+      const accessToken = r.data.access_token;
+      let platformUserId = 'li-' + (accessToken?.slice(-8) || 'id');
+      let username = 'LinkedIn';
+      let profilePicture: string | null = null;
+      try {
+        const userRes = await axios.get<{ sub?: string; name?: string; picture?: string }>(
+          'https://api.linkedin.com/v2/userinfo',
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        if (userRes.data?.sub) platformUserId = userRes.data.sub;
+        if (userRes.data?.name) username = userRes.data.name;
+        if (userRes.data?.picture) profilePicture = userRes.data.picture;
+      } catch (_) {
+        // keep defaults if userinfo fails
+      }
       return {
-        accessToken: r.data.access_token,
+        accessToken,
         refreshToken: null,
         expiresAt: new Date(Date.now() + (r.data.expires_in || 3600) * 1000),
-        platformUserId: 'li-' + (r.data.access_token?.slice(-8) || 'id'),
-        username: 'LinkedIn',
+        platformUserId,
+        username,
+        profilePicture,
       };
     }
     default:
