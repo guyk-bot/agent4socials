@@ -11,10 +11,6 @@ import { useAuthModal } from '@/context/AuthModalContext';
 import {
   Calendar,
   BarChart3,
-  Instagram,
-  Youtube,
-  Facebook,
-  Linkedin,
   Zap,
   Check,
   ArrowRight,
@@ -26,6 +22,7 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { useState } from 'react';
+import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
 
 function FaqItem({ question, answer }: { question: string; answer: string }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -57,13 +54,14 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
   );
 }
 
-function TikTokIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden>
-      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
-    </svg>
-  );
-}
+const HERO_PLATFORMS = [
+  { Icon: InstagramIcon, label: 'Instagram' },
+  { Icon: YoutubeIcon, label: 'YouTube' },
+  { Icon: TikTokIcon, label: 'TikTok' },
+  { Icon: FacebookIcon, label: 'Facebook' },
+  { Icon: XTwitterIcon, label: 'X' },
+  { Icon: LinkedinIcon, label: 'LinkedIn' },
+] as const;
 
 export default function Home() {
   const { openLogin, openSignup } = useAuthModal();
@@ -131,22 +129,23 @@ export default function Home() {
               </Link>
             </div>
 
-            <div className="mt-16 sm:mt-20 flex flex-wrap items-center justify-center gap-3 sm:gap-6 animate-float" style={{ animationDelay: '1s' }}>
-              {[
-                { icon: <Instagram className="h-5 w-5" />, label: 'Instagram', color: 'hover:border-pink-500/50 hover:text-pink-400' },
-                { icon: <Youtube className="h-5 w-5" />, label: 'YouTube', color: 'hover:border-red-500/50 hover:text-red-400' },
-                { icon: <TikTokIcon className="h-5 w-5" />, label: 'TikTok', color: 'hover:border-slate-200/50 hover:text-white' },
-                { icon: <Facebook className="h-5 w-5" />, label: 'Facebook', color: 'hover:border-blue-500/50 hover:text-blue-400' },
-                { label: 'Twitter', color: 'hover:border-sky-500/50 hover:text-sky-400' },
-                { icon: <Linkedin className="h-5 w-5" />, label: 'LinkedIn', color: 'hover:border-blue-700/50 hover:text-blue-500' },
-              ].map((item) => (
-                <span
-                  key={item.label}
-                  className={`flex items-center gap-2 rounded-full border border-slate-800 bg-slate-900/60 px-4 py-2 text-sm font-medium text-slate-400 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-current/10 ${item.color} backdrop-blur-md`}
+            <div className="mt-16 sm:mt-20 flex flex-wrap items-center justify-center gap-6 sm:gap-10">
+              {HERO_PLATFORMS.map(({ Icon, label }, i) => (
+                <div
+                  key={label}
+                  className="flex flex-col items-center gap-2 opacity-0 animate-fade-in-up"
+                  style={{ animationDelay: `${1.2 + i * 0.12}s`, animationFillMode: 'forwards' }}
                 >
-                  {item.icon}
-                  {item.label}
-                </span>
+                  <div
+                    className="rounded-2xl border border-slate-700/60 bg-slate-800/40 p-3 sm:p-4 shadow-lg transition-all duration-300 hover:-translate-y-2 hover:border-emerald-500/40 hover:shadow-emerald-500/20 hover:shadow-xl"
+                    style={{ animation: 'hero-logo-float 3s ease-in-out infinite', animationDelay: `${i * 0.2}s` }}
+                  >
+                    <span className={label === 'X' ? 'inline-block invert' : ''}>
+                      <Icon size={44} />
+                    </span>
+                  </div>
+                  <span className="text-xs font-medium text-slate-500">{label}</span>
+                </div>
               ))}
             </div>
 
