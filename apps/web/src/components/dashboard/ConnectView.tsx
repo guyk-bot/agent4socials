@@ -52,17 +52,6 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
 
   const platformLower = platform.toLowerCase();
 
-  if (platform === 'LINKEDIN') {
-    return (
-      <div className="max-w-xl mx-auto card border-2 border-dashed border-amber-200 bg-amber-50/50 flex flex-col items-center justify-center py-16 text-center">
-        <LinkedinIcon size={48} className="mb-4" />
-        <h2 className="text-xl font-semibold text-neutral-900">LinkedIn</h2>
-        <p className="text-amber-800 font-medium mt-2">Coming soon</p>
-        <p className="text-sm text-neutral-500 mt-1">{info.description}</p>
-      </div>
-    );
-  }
-
   if (platform === 'INSTAGRAM') {
     const isRedirecting = connecting && oauthRedirectUrl && !connectingMethod;
     return (
