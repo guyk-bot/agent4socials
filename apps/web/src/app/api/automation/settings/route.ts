@@ -2,25 +2,30 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 
+const defaultSettings = {
+  dmWelcomeEnabled: false,
+  dmWelcomeMessage: null as string | null,
+  dmNewFollowerEnabled: false,
+  dmNewFollowerMessage: null as string | null,
+};
+
 export async function GET(request: NextRequest) {
   if (!process.env.DATABASE_URL) {
-    return NextResponse.json({ message: 'DATABASE_URL required' }, { status: 503 });
+    return NextResponse.json(defaultSettings);
   }
   const userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
   if (!userId) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
-  const settings = await prisma.automationSettings.findUnique({
-    where: { userId },
-  });
-  return NextResponse.json(
-    settings ?? {
-      dmWelcomeEnabled: false,
-      dmWelcomeMessage: null,
-      dmNewFollowerEnabled: false,
-      dmNewFollowerMessage: null,
-    }
-  );
+  try {
+    const settings = await prisma.automationSettings.findUnique({
+      where: { userId },
+    });
+    return NextResponse.json(settings ?? defaultSettings);
+  } catch (e) {
+    console.error('[Automation GET]', e);
+    return NextResponse.json(defaultSettings);
+  }
 }
 
 export async function PATCH(request: NextRequest) {

@@ -12,30 +12,53 @@ type AutomationSettings = {
   dmNewFollowerMessage: string | null;
 };
 
+const defaultSettings: AutomationSettings = {
+  dmWelcomeEnabled: false,
+  dmWelcomeMessage: null,
+  dmNewFollowerEnabled: false,
+  dmNewFollowerMessage: null,
+};
+
 export default function AutomationPage() {
-  const [settings, setSettings] = useState<AutomationSettings | null>(null);
+  const [settings, setSettings] = useState<AutomationSettings>(defaultSettings);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     api
       .get<AutomationSettings>('/automation/settings')
-      .then((res) => setSettings(res.data ?? null))
-      .catch(() => setSettings(null))
+      .then((res) => {
+        const data = res.data;
+        if (data && typeof data.dmWelcomeEnabled === 'boolean') {
+          setSettings({
+            dmWelcomeEnabled: data.dmWelcomeEnabled,
+            dmWelcomeMessage: data.dmWelcomeMessage ?? null,
+            dmNewFollowerEnabled: data.dmNewFollowerEnabled ?? false,
+            dmNewFollowerMessage: data.dmNewFollowerMessage ?? null,
+          });
+        }
+        setLoadError(null);
+      })
+      .catch(() => {
+        setSettings(defaultSettings);
+        setLoadError('Could not load settings. You can still change options below and save.');
+      })
       .finally(() => setLoading(false));
   }, []);
 
   const update = (patch: Partial<AutomationSettings>) => {
-    const next = { ...settings!, ...patch };
+    const next = { ...settings, ...patch };
     setSettings(next);
     setSaving(true);
     api
       .patch('/automation/settings', next)
-      .then(() => {})
+      .then(() => setLoadError(null))
+      .catch(() => {})
       .finally(() => setSaving(false));
   };
 
-  if (loading || !settings) {
+  if (loading) {
     return (
       <div className="max-w-2xl mx-auto p-6 flex items-center justify-center min-h-[200px]">
         <Loader2 size={28} className="animate-spin text-neutral-400" />
@@ -45,6 +68,11 @@ export default function AutomationPage() {
 
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-10">
+      {loadError && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {loadError}
+        </div>
+      )}
       <div>
         <h1 className="text-2xl font-bold text-neutral-900">Automation</h1>
         <p className="mt-1 text-sm text-neutral-500">
