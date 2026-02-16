@@ -30,10 +30,10 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
       return `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.YOUTUBE_CLIENT_ID}&redirect_uri=${encodeURIComponent(ytRedirect)}&response_type=code&scope=https://www.googleapis.com/auth/youtube.upload%20https://www.googleapis.com/auth/youtube.readonly&access_type=offline&state=${state}&prompt=consent`;
     }
     case 'FACEBOOK': {
-      // read_insights and pages_messaging are currently rejected by Meta as "Invalid Scopes" in the OAuth dialog.
-      // pages_manage_posts is required for posting to Page feed; add it in Meta app if you see Invalid Scopes.
+      // pages_messaging is often rejected as "Invalid Scopes" until the app has that permission.
+      // read_insights = Page analytics (impressions, page views, reach). Add it in Meta app (App Review) then reconnect.
       const fbRedirectUri = (process.env.FACEBOOK_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
-      return `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.META_APP_ID}&redirect_uri=${encodeURIComponent(fbRedirectUri)}&state=${state}&scope=pages_read_engagement,pages_show_list,pages_manage_posts,business_management`;
+      return `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.META_APP_ID}&redirect_uri=${encodeURIComponent(fbRedirectUri)}&state=${state}&scope=pages_read_engagement,pages_show_list,pages_manage_posts,read_insights,business_management`;
     }
     case 'TWITTER':
       return `https://twitter.com/i/oauth2/authorize?client_id=${process.env.TWITTER_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.TWITTER_REDIRECT_URI || callbackUrl)}&response_type=code&scope=tweet.read%20tweet.write%20users.read%20dm.read%20dm.write%20offline.access&state=${state}&code_challenge=challenge&code_challenge_method=plain`;
