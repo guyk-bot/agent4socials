@@ -153,15 +153,18 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
             type="button"
             onClick={() => onConnect('linkedin')}
             disabled={connecting}
-            className="text-left p-6 rounded-xl border-2 border-neutral-200 hover:border-blue-300 hover:bg-blue-50/30 transition-all flex flex-col card"
+            className="text-left p-6 rounded-xl border-2 border-neutral-200 hover:border-blue-300 hover:bg-blue-50/30 transition-all flex flex-col card relative"
           >
+            <span className="absolute top-4 right-4 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-700 text-xs font-medium">
+              Personal page
+            </span>
             <div className="flex justify-between items-start mb-3">
               <LinkedinIcon size={24} />
             </div>
-            <span className="font-semibold text-neutral-900">Personal profile</span>
+            <span className="font-semibold text-neutral-900">LinkedIn personal page</span>
             <p className="mt-3 text-sm text-neutral-600">Post and manage your personal LinkedIn profile from the Composer.</p>
             <span className="mt-4 btn-primary inline-flex justify-center gap-2 py-2.5 text-sm w-full">
-              {connecting && connectingMethod !== 'page' ? <Loader2 size={18} className="animate-spin" /> : 'Connect'}
+              {connecting && connectingMethod !== 'page' ? <Loader2 size={18} className="animate-spin" /> : 'Connect personal'}
             </span>
           </button>
           <button
