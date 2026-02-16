@@ -31,9 +31,9 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
     }
     case 'FACEBOOK': {
       // read_insights and pages_messaging are currently rejected by Meta as "Invalid Scopes" in the OAuth dialog.
-      // We request the minimum needed to get a Page token; add those in App Dashboard (Products) if you need insights/inbox.
+      // pages_manage_posts is required for posting to Page feed; add it in Meta app if you see Invalid Scopes.
       const fbRedirectUri = (process.env.FACEBOOK_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
-      return `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.META_APP_ID}&redirect_uri=${encodeURIComponent(fbRedirectUri)}&state=${state}&scope=pages_read_engagement,pages_show_list,business_management`;
+      return `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.META_APP_ID}&redirect_uri=${encodeURIComponent(fbRedirectUri)}&state=${state}&scope=pages_read_engagement,pages_show_list,pages_manage_posts,business_management`;
     }
     case 'TWITTER':
       return `https://twitter.com/i/oauth2/authorize?client_id=${process.env.TWITTER_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.TWITTER_REDIRECT_URI || callbackUrl)}&response_type=code&scope=tweet.read%20tweet.write%20users.read%20dm.read%20dm.write%20offline.access&state=${state}&code_challenge=challenge&code_challenge_method=plain`;
