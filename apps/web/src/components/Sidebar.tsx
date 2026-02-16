@@ -118,10 +118,13 @@ export default function Sidebar() {
                 }`}
                 style={isPlatformSelected ? { color: accent } : undefined}
               >
-                <div className="w-10 h-10 rounded-full bg-neutral-300 flex items-center justify-center shrink-0">
-                  <Plus size={18} className="text-white" />
+                <div className="w-10 h-10 flex items-center justify-center shrink-0">
+                  {PLATFORM_ICON[platform]}
                 </div>
                 <span className="truncate flex-1 font-medium">{PLATFORM_LABELS[platform]}</span>
+                <div className="w-8 h-8 rounded-full bg-neutral-300 flex items-center justify-center shrink-0">
+                  <Plus size={14} className="text-white" />
+                </div>
               </button>
             );
           }
@@ -143,15 +146,17 @@ export default function Sidebar() {
                     }`}
                     style={isSelected ? { color: accent } : undefined}
                   >
-                    <div className={`w-10 h-10 flex items-center justify-center shrink-0 ${acc.profilePicture ? 'rounded-full overflow-hidden' : ''}`}>
+                    <div className="w-10 h-10 flex items-center justify-center shrink-0">
+                      {PLATFORM_ICON[platform]}
+                    </div>
+                    <span className="truncate flex-1 font-medium">{acc.username || PLATFORM_LABELS[platform]}</span>
+                    <div className={`w-8 h-8 flex items-center justify-center shrink-0 rounded-full overflow-hidden ${acc.profilePicture ? '' : 'bg-neutral-200'}`}>
                       {acc.profilePicture ? (
                         <img src={acc.profilePicture} alt="" className="w-full h-full object-cover" />
                       ) : (
-                        PLATFORM_ICON[platform] ?? <span className="font-bold text-xs">?</span>
+                        PLATFORM_ICON[platform] ?? <span className="font-bold text-xs text-neutral-500">?</span>
                       )}
                     </div>
-                    <span className="truncate flex-1 font-medium">{acc.username || PLATFORM_LABELS[platform]}</span>
-                    {isSelected && <ChevronRight size={14} className="shrink-0 opacity-70" />}
                   </button>
                 );
               })}
