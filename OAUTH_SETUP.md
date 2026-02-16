@@ -25,6 +25,18 @@ Yes. **YouTube:** Keep the OAuth consent screen in **Testing** and add your Goog
 **Facebook/Instagram: Why analytics, posts, and inbox show no data**  
 The app needs the **Page** access token (not the user token) for insights, posts, and inbox. We store it in the **SocialAccount** table in the **accessToken** column (there is no separate "page token" column). If you connected before we stored the Page token, **reconnect once**: use **Reconnect** in the left sidebar for Facebook (and Instagram if you use "Connect with Facebook"), complete the flow, and when asked **choose your Page**. After that, analytics, posts, and inbox will show data like in Metricool.
 
+**Media storage (images/videos in Composer)**  
+Uploading images or videos in the Composer requires S3-compatible storage (e.g. **Cloudflare R2**). If you see "Media storage is not configured", add these env vars to the **web app** (e.g. in Vercel for the Next.js app):
+
+- `S3_ENDPOINT` – e.g. `https://<account-id>.r2.cloudflarestorage.com`
+- `S3_ACCESS_KEY_ID` – R2 API token access key
+- `S3_SECRET_ACCESS_KEY` – R2 API token secret
+- `S3_BUCKET_NAME` – e.g. `agent4socials-media`
+- `S3_REGION` – use `auto` for R2
+- `S3_PUBLIC_URL` (recommended for R2) – public URL for the bucket so LinkedIn/X can load the image (e.g. R2 custom domain or dev URL)
+
+Full steps to create the bucket and token: **SETUP.md**, Step 3 (Object Storage Setup). After adding the variables, redeploy the web app and try uploading again.
+
 ---
 
 ## 1. Google / YouTube

@@ -181,6 +181,7 @@ git push -u origin main
    S3_SECRET_ACCESS_KEY=<Your R2 Secret Key>
    S3_BUCKET_NAME=agent4socials-media
    S3_REGION=auto
+   S3_PUBLIC_URL=<R2 bucket public URL so LinkedIn/X can load images>
    
    FRONTEND_URL=https://agent4socials.com
    BACKEND_URL=https://api.agent4socials.com
@@ -207,6 +208,14 @@ git push -u origin main
 4. Add Environment Variables:
    ```
    NEXT_PUBLIC_API_URL=https://api.agent4socials.com
+   
+   # Required for Composer image/video uploads (use same R2 values as API)
+   S3_ENDPOINT=<Your R2 Endpoint>
+   S3_ACCESS_KEY_ID=<Your R2 Access Key>
+   S3_SECRET_ACCESS_KEY=<Your R2 Secret Key>
+   S3_BUCKET_NAME=agent4socials-media
+   S3_REGION=auto
+   S3_PUBLIC_URL=<R2 bucket public URL>
    ```
 
 5. Click "Deploy"
