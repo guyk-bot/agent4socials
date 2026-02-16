@@ -13,6 +13,7 @@ import {
     ChevronRight,
     Plus,
     RefreshCw,
+    MessageCircle,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -206,6 +207,14 @@ export default function Sidebar() {
         >
           <FileText size={18} className="shrink-0" />
           <span>Reports</span>
+        </Link>
+        <Link
+          href="/dashboard/automation"
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${pathname === '/dashboard/automation' ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
+          style={pathname === '/dashboard/automation' ? { color: accent } : undefined}
+        >
+          <MessageCircle size={18} className="shrink-0" />
+          <span>Automation</span>
         </Link>
         <Link
           href="/dashboard"

@@ -42,13 +42,14 @@ export async function POST(request: NextRequest) {
     mediaByPlatform?: Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[]>;
     targets?: { platform: string; socialAccountId: string }[];
     scheduledAt?: string | null;
+    commentAutomation?: { keywords: string[]; replyTemplate: string; usePrivateReply?: boolean } | null;
   };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ message: 'Invalid JSON' }, { status: 400 });
   }
-  const { title, content, contentByPlatform, media = [], mediaByPlatform, targets = [], scheduledAt } = body;
+  const { title, content, contentByPlatform, media = [], mediaByPlatform, targets = [], scheduledAt, commentAutomation } = body;
   const validTargets = (targets || []).filter(
     (t): t is { platform: string; socialAccountId: string } =>
       Boolean(t?.platform && t?.socialAccountId)
@@ -67,6 +68,9 @@ export async function POST(request: NextRequest) {
       content: content ?? null,
       ...(contentByPlatform && Object.keys(contentByPlatform).length > 0 ? { contentByPlatform } : {}),
       ...(mediaByPlatform && Object.keys(mediaByPlatform).length > 0 ? { mediaByPlatform } : {}),
+      ...(commentAutomation && Array.isArray(commentAutomation.keywords) && commentAutomation.keywords.length > 0 && (commentAutomation.replyTemplate ?? '').trim()
+        ? { commentAutomation: commentAutomation as object }
+        : {}),
       status,
       scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
       media: {

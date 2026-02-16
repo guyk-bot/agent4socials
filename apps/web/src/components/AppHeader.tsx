@@ -4,13 +4,14 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { LayoutGrid, MessageCircle, PlusSquare, Calendar } from 'lucide-react';
+import { LayoutGrid, MessageCircle, PlusSquare, Calendar, Zap } from 'lucide-react';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
 
 const topNavItems = [
   { icon: LayoutGrid, label: 'Analytics', href: '/dashboard' },
   { icon: MessageCircle, label: 'Inbox', href: '/dashboard/inbox' },
   { icon: PlusSquare, label: 'Composer', href: '/composer' },
+  { icon: Zap, label: 'Automation', href: '/dashboard/automation' },
   { icon: Calendar, label: 'Calendar', href: '/calendar' },
 ];
 

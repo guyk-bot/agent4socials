@@ -77,6 +77,12 @@ export default function ComposerPage() {
     const [differentHashtagsPerPlatform, setDifferentHashtagsPerPlatform] = useState(false);
     const [selectedHashtagsByPlatform, setSelectedHashtagsByPlatform] = useState<Record<string, string[]>>({});
 
+    // Comment automation (optional): keyword capture + auto-reply for this post
+    const [commentAutomationEnabled, setCommentAutomationEnabled] = useState(false);
+    const [commentAutomationKeywords, setCommentAutomationKeywords] = useState('');
+    const [commentAutomationReplyTemplate, setCommentAutomationReplyTemplate] = useState('');
+    const [commentAutomationUsePrivateReply, setCommentAutomationUsePrivateReply] = useState(false);
+
     useEffect(() => {
         try {
             const raw = typeof window !== 'undefined' ? localStorage.getItem(HASHTAG_POOL_KEY) : null;
@@ -260,6 +266,7 @@ export default function ComposerPage() {
                 mediaByPlatform?: Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[]>;
                 targets: { platform: string; socialAccountId: string }[];
                 scheduledAt?: string;
+                commentAutomation?: { keywords: string[]; replyTemplate: string; usePrivateReply?: boolean } | null;
             } = {
                 content: contentFinal,
                 media: mediaList,
@@ -268,6 +275,19 @@ export default function ComposerPage() {
             };
             if (contentByPlatformFinal && Object.keys(contentByPlatformFinal).length > 0) {
                 payload.contentByPlatform = contentByPlatformFinal;
+            }
+            if (commentAutomationEnabled && commentAutomationKeywords.trim() && commentAutomationReplyTemplate.trim()) {
+                const keywords = commentAutomationKeywords
+                    .split(/[\n,]+/)
+                    .map((k) => k.trim().toLowerCase())
+                    .filter(Boolean);
+                if (keywords.length > 0) {
+                    payload.commentAutomation = {
+                        keywords,
+                        replyTemplate: commentAutomationReplyTemplate.trim(),
+                        usePrivateReply: commentAutomationUsePrivateReply,
+                    };
+                }
             }
             if (differentMediaPerPlatform) {
                 payload.mediaByPlatform = platforms.reduce((acc, p) => {
@@ -499,9 +519,58 @@ export default function ComposerPage() {
                     </div>
 
                     <div className="card space-y-4">
+                        <h3 className="font-semibold text-neutral-900">4. Comment automation</h3>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={commentAutomationEnabled}
+                                onChange={(e) => setCommentAutomationEnabled(e.target.checked)}
+                                className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                            />
+                            <span className="text-sm font-medium text-neutral-700">Enable keyword comment automation</span>
+                        </label>
+                        <p className="text-sm text-neutral-500">When comments contain your keywords on this post, automatically reply (or send a private DM on Instagram).</p>
+                        {commentAutomationEnabled && (
+                            <div className="space-y-4 pt-2 border-t border-neutral-100">
+                                <div>
+                                    <label className="block text-sm font-medium text-neutral-700 mb-1.5">Keywords (one per line or comma-separated)</label>
+                                    <textarea
+                                        value={commentAutomationKeywords}
+                                        onChange={(e) => setCommentAutomationKeywords(e.target.value)}
+                                        placeholder="e.g. price, discount, help"
+                                        rows={2}
+                                        className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-neutral-700 mb-1.5">Auto-reply template</label>
+                                    <textarea
+                                        value={commentAutomationReplyTemplate}
+                                        onChange={(e) => setCommentAutomationReplyTemplate(e.target.value)}
+                                        placeholder="e.g. Thanks for your interest! We'll DM you with details."
+                                        rows={3}
+                                        className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                    />
+                                </div>
+                                {platforms.includes('INSTAGRAM') && (
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={commentAutomationUsePrivateReply}
+                                            onChange={(e) => setCommentAutomationUsePrivateReply(e.target.checked)}
+                                            className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                                        />
+                                        <span className="text-sm text-neutral-700">Send as private reply (DM) on Instagram</span>
+                                    </label>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="card space-y-4">
                         <h3 className="font-semibold text-neutral-900 flex items-center gap-2">
                             <Hash size={20} className="text-neutral-500" />
-                            4. Hashtags
+                            5. Hashtags
                         </h3>
                         <p className="text-sm text-neutral-500">Add hashtags to your pool, then choose up to 5 per post. They will be added after your content.</p>
                         <div className="space-y-3">
@@ -580,7 +649,7 @@ export default function ComposerPage() {
                     </div>
 
                     <div className="card space-y-4">
-                        <h3 className="font-semibold text-neutral-900">5. Schedule</h3>
+                        <h3 className="font-semibold text-neutral-900">6. Schedule</h3>
                         <div className="flex items-center gap-3">
                             <Calendar size={22} className="text-neutral-400 shrink-0" />
                             <input
