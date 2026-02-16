@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import api from '@/lib/api';
@@ -15,6 +15,30 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
+
+const COMPOSER_DRAFT_KEY = 'agent4socials_composer_draft';
+
+type ComposerDraft = {
+    platforms: string[];
+    content: string;
+    contentByPlatform: Record<string, string>;
+    differentContentPerPlatform: boolean;
+    mediaList: { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[];
+    mediaByPlatform: Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[]>;
+    differentMediaPerPlatform: boolean;
+    scheduledAt: string;
+    selectedHashtags: string[];
+    differentHashtagsPerPlatform: boolean;
+    selectedHashtagsByPlatform: Record<string, string[]>;
+    commentAutomationEnabled: boolean;
+    commentAutomationKeywords: string;
+    commentAutomationReplyTemplate: string;
+    commentAutomationUsePrivateReply: boolean;
+};
+
+function isPersistableMediaUrl(url: string): boolean {
+    return typeof url === 'string' && (url.startsWith('http://') || url.startsWith('https://'));
+}
 
 const PLATFORM_LABELS: Record<string, string> = {
     INSTAGRAM: 'Instagram',
@@ -80,6 +104,107 @@ export default function ComposerPage() {
             localStorage.setItem(HASHTAG_POOL_KEY, JSON.stringify(hashtagPool));
         } catch (_) { /* ignore */ }
     }, [hashtagPool]);
+
+    // Restore composer draft from localStorage on mount (so progress survives navigation/refresh)
+    const [draftRestored, setDraftRestored] = useState(false);
+    useEffect(() => {
+        if (typeof window === 'undefined' || draftRestored) return;
+        try {
+            const raw = localStorage.getItem(COMPOSER_DRAFT_KEY);
+            if (!raw) {
+                setDraftRestored(true);
+                return;
+            }
+            const d = JSON.parse(raw) as Partial<ComposerDraft>;
+            if (d && typeof d === 'object') {
+                if (Array.isArray(d.platforms)) setPlatforms(d.platforms);
+                if (typeof d.content === 'string') setContent(d.content);
+                if (d.contentByPlatform && typeof d.contentByPlatform === 'object') setContentByPlatform(d.contentByPlatform);
+                if (typeof d.differentContentPerPlatform === 'boolean') setDifferentContentPerPlatform(d.differentContentPerPlatform);
+                if (Array.isArray(d.mediaList)) {
+                    const valid = d.mediaList.filter((m) => m && isPersistableMediaUrl(m.fileUrl));
+                    if (valid.length) setMediaList(valid);
+                }
+                if (d.mediaByPlatform && typeof d.mediaByPlatform === 'object') {
+                    const cleaned: Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[]> = {};
+                    for (const [k, arr] of Object.entries(d.mediaByPlatform)) {
+                        if (Array.isArray(arr)) {
+                            const v = arr.filter((m) => m && isPersistableMediaUrl(m.fileUrl));
+                            if (v.length) cleaned[k] = v;
+                        }
+                    }
+                    if (Object.keys(cleaned).length) setMediaByPlatform(cleaned);
+                }
+                if (typeof d.differentMediaPerPlatform === 'boolean') setDifferentMediaPerPlatform(d.differentMediaPerPlatform);
+                if (typeof d.scheduledAt === 'string') setScheduledAt(d.scheduledAt);
+                if (Array.isArray(d.selectedHashtags)) setSelectedHashtags(d.selectedHashtags);
+                if (typeof d.differentHashtagsPerPlatform === 'boolean') setDifferentHashtagsPerPlatform(d.differentHashtagsPerPlatform);
+                if (d.selectedHashtagsByPlatform && typeof d.selectedHashtagsByPlatform === 'object') setSelectedHashtagsByPlatform(d.selectedHashtagsByPlatform);
+                if (typeof d.commentAutomationEnabled === 'boolean') setCommentAutomationEnabled(d.commentAutomationEnabled);
+                if (typeof d.commentAutomationKeywords === 'string') setCommentAutomationKeywords(d.commentAutomationKeywords);
+                if (typeof d.commentAutomationReplyTemplate === 'string') setCommentAutomationReplyTemplate(d.commentAutomationReplyTemplate);
+                if (typeof d.commentAutomationUsePrivateReply === 'boolean') setCommentAutomationUsePrivateReply(d.commentAutomationUsePrivateReply);
+            }
+        } catch (_) { /* ignore */ }
+        setDraftRestored(true);
+    }, [draftRestored]);
+
+    const clearComposerDraft = useCallback(() => {
+        try {
+            localStorage.removeItem(COMPOSER_DRAFT_KEY);
+        } catch (_) { /* ignore */ }
+    }, []);
+
+    // Persist composer draft when state changes (debounced)
+    useEffect(() => {
+        if (!draftRestored) return;
+        const t = setTimeout(() => {
+            try {
+                const mediaListToSave = mediaList.filter((m) => isPersistableMediaUrl(m.fileUrl));
+                const mediaByPlatformToSave: Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[]> = {};
+                for (const [k, arr] of Object.entries(mediaByPlatform)) {
+                    const v = (arr || []).filter((m) => isPersistableMediaUrl(m.fileUrl));
+                    if (v.length) mediaByPlatformToSave[k] = v;
+                }
+                const draft: ComposerDraft = {
+                    platforms,
+                    content,
+                    contentByPlatform,
+                    differentContentPerPlatform,
+                    mediaList: mediaListToSave,
+                    mediaByPlatform: mediaByPlatformToSave,
+                    differentMediaPerPlatform,
+                    scheduledAt,
+                    selectedHashtags,
+                    differentHashtagsPerPlatform,
+                    selectedHashtagsByPlatform,
+                    commentAutomationEnabled,
+                    commentAutomationKeywords,
+                    commentAutomationReplyTemplate,
+                    commentAutomationUsePrivateReply,
+                };
+                localStorage.setItem(COMPOSER_DRAFT_KEY, JSON.stringify(draft));
+            } catch (_) { /* ignore */ }
+        }, 400);
+        return () => clearTimeout(t);
+    }, [
+        draftRestored,
+        platforms,
+        content,
+        contentByPlatform,
+        differentContentPerPlatform,
+        mediaList,
+        mediaByPlatform,
+        differentMediaPerPlatform,
+        scheduledAt,
+        selectedHashtags,
+        differentHashtagsPerPlatform,
+        selectedHashtagsByPlatform,
+        commentAutomationEnabled,
+        commentAutomationKeywords,
+        commentAutomationReplyTemplate,
+        commentAutomationUsePrivateReply,
+    ]);
 
     useEffect(() => {
         const fetchAccounts = async () => {
@@ -293,6 +418,7 @@ export default function ComposerPage() {
                     setAlertMessage('Post saved but publishing failed. Check Dashboard or History.');
                 }
             }
+            clearComposerDraft();
             router.push('/dashboard');
         } catch (err) {
             setAlertMessage('Failed to create post');
