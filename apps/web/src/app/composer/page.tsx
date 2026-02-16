@@ -5,10 +5,6 @@ import { useAuth } from '@/context/AuthContext';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import api from '@/lib/api';
 import {
-    Instagram,
-    Youtube,
-    Facebook,
-    Linkedin,
     Send,
     Calendar,
     Image as ImageIcon,
@@ -18,22 +14,7 @@ import {
     Hash
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-
-function TikTokIcon({ size = 20, className = '' }: { size?: number; className?: string }) {
-    return (
-        <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
-            <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
-        </svg>
-    );
-}
-
-function XTwitterIcon({ size = 20, className = '' }: { size?: number; className?: string }) {
-    return (
-        <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
-            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-        </svg>
-    );
-}
+import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
 
 const PLATFORM_LABELS: Record<string, string> = {
     INSTAGRAM: 'Instagram',
@@ -342,42 +323,42 @@ export default function ComposerPage() {
                             <PlatformToggle
                                 platform="INSTAGRAM"
                                 label="Instagram"
-                                icon={<Instagram size={22} className="text-pink-600" />}
+                                icon={<InstagramIcon size={26} />}
                                 active={platforms.includes('INSTAGRAM')}
                                 onClick={() => setPlatforms(prev => prev.includes('INSTAGRAM') ? prev.filter(p => p !== 'INSTAGRAM') : [...prev, 'INSTAGRAM'])}
                             />
                             <PlatformToggle
                                 platform="TIKTOK"
                                 label="TikTok"
-                                icon={<TikTokIcon size={22} className="text-neutral-900" />}
+                                icon={<TikTokIcon size={26} />}
                                 active={platforms.includes('TIKTOK')}
                                 onClick={() => setPlatforms(prev => prev.includes('TIKTOK') ? prev.filter(p => p !== 'TIKTOK') : [...prev, 'TIKTOK'])}
                             />
                             <PlatformToggle
                                 platform="YOUTUBE"
                                 label="YouTube"
-                                icon={<Youtube size={22} className="text-red-600" />}
+                                icon={<YoutubeIcon size={26} />}
                                 active={platforms.includes('YOUTUBE')}
                                 onClick={() => setPlatforms(prev => prev.includes('YOUTUBE') ? prev.filter(p => p !== 'YOUTUBE') : [...prev, 'YOUTUBE'])}
                             />
                             <PlatformToggle
                                 platform="FACEBOOK"
                                 label="Facebook"
-                                icon={<Facebook size={22} className="text-blue-600" />}
+                                icon={<FacebookIcon size={26} />}
                                 active={platforms.includes('FACEBOOK')}
                                 onClick={() => setPlatforms(prev => prev.includes('FACEBOOK') ? prev.filter(p => p !== 'FACEBOOK') : [...prev, 'FACEBOOK'])}
                             />
                             <PlatformToggle
                                 platform="TWITTER"
                                 label="X"
-                                icon={<XTwitterIcon size={22} className="text-neutral-900" />}
+                                icon={<XTwitterIcon size={26} className="text-neutral-800" />}
                                 active={platforms.includes('TWITTER')}
                                 onClick={() => setPlatforms(prev => prev.includes('TWITTER') ? prev.filter(p => p !== 'TWITTER') : [...prev, 'TWITTER'])}
                             />
                             <PlatformToggle
                                 platform="LINKEDIN"
                                 label="LinkedIn"
-                                icon={<Linkedin size={22} className="text-blue-700" />}
+                                icon={<LinkedinIcon size={26} />}
                                 active={platforms.includes('LINKEDIN')}
                                 onClick={() => setPlatforms(prev => prev.includes('LINKEDIN') ? prev.filter(p => p !== 'LINKEDIN') : [...prev, 'LINKEDIN'])}
                             />
@@ -720,12 +701,12 @@ function PlatformToggle({ platform, label, icon, active, onClick }: { platform: 
 function PostPreview({ platform, content, media }: { platform: string; content: string; media: { fileUrl: string; type: string }[] }) {
     const PlatformIcon = () => {
         switch (platform) {
-            case 'INSTAGRAM': return <Instagram size={22} className="text-pink-600" />;
-            case 'YOUTUBE': return <Youtube size={22} className="text-red-600" />;
-            case 'TIKTOK': return <TikTokIcon size={22} className="text-neutral-800" />;
-            case 'FACEBOOK': return <Facebook size={22} className="text-blue-600" />;
+            case 'INSTAGRAM': return <InstagramIcon size={22} />;
+            case 'YOUTUBE': return <YoutubeIcon size={22} />;
+            case 'TIKTOK': return <TikTokIcon size={22} />;
+            case 'FACEBOOK': return <FacebookIcon size={22} />;
             case 'TWITTER': return <XTwitterIcon size={22} className="text-neutral-800" />;
-            case 'LINKEDIN': return <Linkedin size={22} className="text-blue-700" />;
+            case 'LINKEDIN': return <LinkedinIcon size={22} />;
             default: return <Video size={22} className="text-neutral-500" />;
         }
     };
