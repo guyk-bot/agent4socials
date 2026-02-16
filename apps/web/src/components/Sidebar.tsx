@@ -166,14 +166,6 @@ export default function Sidebar() {
       </div>
 
       <div className="p-3 space-y-0.5 border-t border-neutral-200 shrink-0">
-        <button
-          type="button"
-          onClick={handleSummaryClick}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium hover:bg-neutral-100"
-        >
-          <Plus size={18} className="shrink-0" />
-          <span>More connections</span>
-        </button>
         <Link
           href="/posts"
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${pathname === '/posts' ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
@@ -191,11 +183,12 @@ export default function Sidebar() {
           <span>Automation</span>
         </Link>
         <Link
-          href="/dashboard"
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium hover:bg-neutral-100"
+          href="/dashboard/hashtag-pool"
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${pathname === '/dashboard/hashtag-pool' ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
+          style={pathname === '/dashboard/hashtag-pool' ? { color: accent } : undefined}
         >
           <Hash size={18} className="shrink-0" />
-          <span>Hashtag Tracker</span>
+          <span>Hashtag Pool</span>
         </Link>
         <Link
           href="/dashboard/settings"

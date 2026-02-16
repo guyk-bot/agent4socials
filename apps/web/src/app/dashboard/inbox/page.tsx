@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import {
   MessageCircle,
   Plus,
@@ -11,28 +10,29 @@ import {
   Send,
   Image as ImageIcon,
   Smile,
-  Building2,
   Loader2,
 } from 'lucide-react';
 import api from '@/lib/api';
-import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
+import { useSelectedAccount } from '@/context/SelectedAccountContext';
+import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon } from '@/components/SocialPlatformIcons';
 
+// Inbox-relevant platforms only (no GMB/LinkedIn in connect list). LinkedIn excluded from + dropdown per request.
 const PLATFORMS = [
   { id: 'INSTAGRAM', label: 'Instagram', icon: InstagramIcon },
   { id: 'FACEBOOK', label: 'Facebook', icon: FacebookIcon },
   { id: 'TIKTOK', label: 'TikTok', icon: TikTokIcon },
   { id: 'YOUTUBE', label: 'YouTube', icon: YoutubeIcon },
   { id: 'TWITTER', label: 'X (Twitter)', icon: XTwitterIcon, color: 'text-neutral-800' },
-  { id: 'GMB', label: 'Google Business', icon: Building2, color: 'text-green-600', comingSoon: true },
-  { id: 'LINKEDIN', label: 'LinkedIn', icon: LinkedinIcon, comingSoon: true },
 ] as const;
 
 type Account = { id: string; platform: string; username?: string | null };
 type Conversation = { id: string; updatedTime: string | null; senders: Array<{ username?: string; name?: string }> };
 
 export default function InboxPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const platformFromUrl = searchParams.get('platform')?.toUpperCase();
+  const setSelectedPlatformForConnect = useSelectedAccount()?.setSelectedPlatformForConnect ?? (() => {});
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
   const [inboxFilter, setInboxFilter] = useState<'unresolved' | 'unread'>('unresolved');
@@ -60,10 +60,13 @@ export default function InboxPage() {
   }, []);
 
   useEffect(() => {
-    if (platformFromUrl && PLATFORMS.some((p) => p.id === platformFromUrl && p.id !== 'GMB' && p.id !== 'LINKEDIN')) {
+    if (platformFromUrl && PLATFORMS.some((p) => p.id === platformFromUrl)) {
       setSelectedPlatform(platformFromUrl);
     }
   }, [platformFromUrl]);
+
+  const connectedPlatforms = PLATFORMS.filter((p) => accounts.some((a) => a.platform === p.id));
+  const unconnectedPlatforms = PLATFORMS.filter((p) => !accounts.some((a) => a.platform === p.id));
 
   useEffect(() => {
     if (!selectedPlatform || (selectedPlatform !== 'INSTAGRAM' && selectedPlatform !== 'FACEBOOK')) {
@@ -105,7 +108,6 @@ export default function InboxPage() {
   }, []);
 
   const handlePlatformClick = (platformId: string) => {
-    if (platformId === 'GMB' || platformId === 'LINKEDIN') return;
     setSelectedPlatform(platformId);
     setSelectedConversationId(null);
   };
@@ -117,7 +119,7 @@ export default function InboxPage() {
         {/* Platform icons + Connect */}
         <div className="p-3 border-b border-neutral-100">
           <div className="flex items-center gap-2 flex-wrap">
-            {PLATFORMS.filter((p) => p.id !== 'GMB' && p.id !== 'LINKEDIN').map((p) => {
+            {connectedPlatforms.map((p) => {
               const Icon = p.icon;
               const isSelected = selectedPlatform === p.id;
               return (
@@ -146,29 +148,28 @@ export default function InboxPage() {
               {connectOpen && (
                 <div className="absolute top-full left-0 mt-1 w-64 py-1 bg-white border border-neutral-200 rounded-xl shadow-lg z-50">
                   <p className="px-3 py-2 text-xs font-semibold text-neutral-500 uppercase tracking-wider">Connect account</p>
-                  {PLATFORMS.map((p) => {
-                    const Icon = p.icon;
-                    const isComingSoon = p.id === 'GMB' || p.id === 'LINKEDIN';
-                    return (
-                      <Link
-                        key={p.id}
-                        href={isComingSoon ? '#' : '/dashboard'}
-                        onClick={(e) => {
-                          if (isComingSoon) e.preventDefault();
-                          setConnectOpen(false);
-                        }}
-                        className={`flex items-center gap-3 px-3 py-2.5 text-sm transition-colors ${
-                          isComingSoon ? 'text-neutral-400 cursor-default' : 'text-neutral-700 hover:bg-neutral-50'
-                        }`}
-                      >
-                        <Icon size={20} className={'color' in p && p.color ? `shrink-0 ${p.color}` : 'shrink-0'} />
-                        <span className="flex-1">Connect a {p.label} account</span>
-                        {isComingSoon && (
-                          <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded">Coming soon</span>
-                        )}
-                      </Link>
-                    );
-                  })}
+                  {unconnectedPlatforms.length === 0 ? (
+                    <p className="px-3 py-3 text-sm text-neutral-500">All inbox platforms connected.</p>
+                  ) : (
+                    unconnectedPlatforms.map((p) => {
+                      const Icon = p.icon;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedPlatformForConnect(p.id);
+                            setConnectOpen(false);
+                            router.push('/dashboard');
+                          }}
+                          className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 text-left"
+                        >
+                          <Icon size={20} className={'color' in p && p.color ? `shrink-0 ${p.color}` : 'shrink-0'} />
+                          <span className="flex-1">Connect a {p.label} account</span>
+                        </button>
+                      );
+                    })
+                  )}
                 </div>
               )}
             </div>
