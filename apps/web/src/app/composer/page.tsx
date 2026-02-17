@@ -40,6 +40,15 @@ function isPersistableMediaUrl(url: string): boolean {
     return typeof url === 'string' && (url.startsWith('http://') || url.startsWith('https://'));
 }
 
+/** Use proxy for R2 URLs so the browser gets correct Content-Type and avoids CORB. */
+function mediaDisplayUrl(fileUrl: string): string {
+    if (typeof fileUrl !== 'string' || !fileUrl.startsWith('http')) return fileUrl;
+    if (fileUrl.includes('r2.dev') || fileUrl.includes('cloudflarestorage.com')) {
+        return `/api/media/proxy?url=${encodeURIComponent(fileUrl)}`;
+    }
+    return fileUrl;
+}
+
 const PLATFORM_LABELS: Record<string, string> = {
     INSTAGRAM: 'Instagram',
     TIKTOK: 'TikTok',
@@ -529,9 +538,9 @@ export default function ComposerPage() {
                                     {mediaList.map((m, i) => (
                                         <div key={i} className="relative group aspect-square rounded-xl overflow-hidden bg-neutral-100 border border-neutral-200">
                                             {m.type === 'VIDEO' ? (
-                                                <video src={m.fileUrl} className="object-cover w-full h-full" muted playsInline />
+                                                <video src={mediaDisplayUrl(m.fileUrl)} className="object-cover w-full h-full" muted playsInline />
                                             ) : (
-                                                <img src={m.fileUrl} alt="media" className="object-cover w-full h-full" />
+                                                <img src={mediaDisplayUrl(m.fileUrl)} alt="media" className="object-cover w-full h-full" />
                                             )}
                                             <button
                                                 type="button"
@@ -573,9 +582,9 @@ export default function ComposerPage() {
                                             {(mediaByPlatform[p] || []).map((m, i) => (
                                                 <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden bg-neutral-200 shrink-0">
                                                     {m.type === 'VIDEO' ? (
-                                                        <video src={m.fileUrl} className="w-full h-full object-cover" muted playsInline />
+                                                        <video src={mediaDisplayUrl(m.fileUrl)} className="w-full h-full object-cover" muted playsInline />
                                                     ) : (
-                                                        <img src={m.fileUrl} alt="" className="w-full h-full object-cover" />
+                                                        <img src={mediaDisplayUrl(m.fileUrl)} alt="" className="w-full h-full object-cover" />
                                                     )}
                                                     <button type="button" onClick={() => handleRemoveMediaForPlatform(p, i)} className="absolute top-0.5 right-0.5 p-1 bg-red-500 text-white rounded text-xs">×</button>
                                                 </div>
@@ -850,9 +859,9 @@ function PostPreview({ platform, content, media }: { platform: string; content: 
             <div className="aspect-square bg-neutral-50 flex items-center justify-center overflow-hidden">
                 {media.length > 0 ? (
                     media[0].type === 'VIDEO' ? (
-                        <video src={media[0].fileUrl} className="w-full h-full object-cover" muted playsInline />
+                        <video src={mediaDisplayUrl(media[0].fileUrl)} className="w-full h-full object-cover" muted playsInline />
                     ) : (
-                        <img src={media[0].fileUrl} alt="preview" className="w-full h-full object-cover" />
+                        <img src={mediaDisplayUrl(media[0].fileUrl)} alt="preview" className="w-full h-full object-cover" />
                     )
                 ) : (
                     <ImageIcon size={36} className="text-neutral-200" strokeWidth={1.5} />
