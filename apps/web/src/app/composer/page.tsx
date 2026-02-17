@@ -61,6 +61,15 @@ const PLATFORM_LABELS: Record<string, string> = {
 const HASHTAG_POOL_KEY = 'agent4socials_hashtag_pool';
 const MAX_HASHTAGS_PER_POST = 5;
 
+type MediaTypeChoice = 'photo' | 'video' | 'reel' | 'carousel';
+
+const MEDIA_RECOMMENDATIONS: Record<MediaTypeChoice, { label: string; accept: string; multiple: boolean; hint: string }> = {
+    photo: { label: 'Photo', accept: 'image/*', multiple: false, hint: 'Recommended: 1080×1080 (square) or 1080×1350 (portrait). Works on all platforms.' },
+    video: { label: 'Video', accept: 'video/*', multiple: false, hint: 'Recommended: 1080×1920 (9:16) or 1920×1080. Max length varies by platform.' },
+    reel: { label: 'Reel / Short', accept: 'video/*', multiple: false, hint: 'Instagram Reels / TikTok: 1080×1920 (9:16), 15–90 sec. YouTube Shorts: 1080×1920, up to 60 sec.' },
+    carousel: { label: 'Carousel', accept: 'image/*', multiple: true, hint: 'Add multiple images (2–10). Recommended: 1080×1080 per slide. Instagram, Facebook, LinkedIn support carousels.' },
+};
+
 function normalizeHashtag(t: string): string {
     const s = t.trim().replace(/^#+/, '');
     return s ? `#${s}` : '';
@@ -77,6 +86,7 @@ export default function ComposerPage() {
     const [differentMediaPerPlatform, setDifferentMediaPerPlatform] = useState(false);
     const [mediaUploading, setMediaUploading] = useState(false);
     const [mediaUploadError, setMediaUploadError] = useState<string | null>(null);
+    const [mediaType, setMediaType] = useState<MediaTypeChoice>('photo');
     const fileInputRef = useRef<HTMLInputElement>(null);
     const fileInputByPlatformRef = useRef<Record<string, HTMLInputElement | null>>({});
     const [scheduledAt, setScheduledAt] = useState('');
@@ -513,11 +523,28 @@ export default function ComposerPage() {
                         </label>
                         {!differentMediaPerPlatform ? (
                             <>
+                                <p className="text-sm font-medium text-neutral-700">Choose what to upload</p>
+                                <div className="flex flex-wrap gap-2">
+                                    {(['photo', 'video', 'reel', 'carousel'] as const).map((type) => (
+                                        <button
+                                            key={type}
+                                            type="button"
+                                            onClick={() => setMediaType(type)}
+                                            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${mediaType === type
+                                                ? 'bg-indigo-600 text-white'
+                                                : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                                                }`}
+                                        >
+                                            {MEDIA_RECOMMENDATIONS[type].label}
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="text-xs text-neutral-500">{MEDIA_RECOMMENDATIONS[mediaType].hint}</p>
                                 <input
                                     ref={fileInputRef}
                                     type="file"
-                                    accept="image/*,video/*"
-                                    multiple
+                                    accept={MEDIA_RECOMMENDATIONS[mediaType].accept}
+                                    multiple={MEDIA_RECOMMENDATIONS[mediaType].multiple}
                                     className="hidden"
                                     onChange={handleFileSelect}
                                 />
@@ -529,11 +556,16 @@ export default function ComposerPage() {
                                         className="inline-flex items-center gap-2 px-4 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
                                     >
                                         <ImageIcon size={18} />
-                                        Add photo, video, reel or carousel from computer
+                                        {mediaType === 'carousel'
+                                            ? 'Add images for carousel'
+                                            : `Add ${MEDIA_RECOMMENDATIONS[mediaType].label.toLowerCase()} from computer`}
                                     </button>
                                     {mediaUploading && <span className="text-sm text-neutral-500">Uploading…</span>}
                                 </div>
                                 {mediaUploadError && <p className="text-sm text-red-600">{mediaUploadError}</p>}
+                                <p className="text-xs text-neutral-400 italic">
+                                    Sound attachment and Music pool (viral sounds, volume control, simple video editor) are planned for a future update.
+                                </p>
                                 <div className="grid grid-cols-4 gap-3">
                                     {mediaList.map((m, i) => (
                                         <div key={i} className="relative group aspect-square rounded-xl overflow-hidden bg-neutral-100 border border-neutral-200">
@@ -800,10 +832,13 @@ export default function ComposerPage() {
                                 const baseContent = differentContentPerPlatform ? (contentByPlatform[p] ?? '') : content;
                                 const tags = differentHashtagsPerPlatform ? (selectedHashtagsByPlatform[p] ?? []) : selectedHashtags;
                                 const contentWithHashtags = baseContent.trim() + (tags.length ? ' ' + tags.join(' ') : '');
+                                const accountForPlatform = accounts.find((a: { platform: string }) => a.platform === p) as { username?: string; profilePicture?: string } | undefined;
                                 return (
                                     <PostPreview
                                         key={p}
                                         platform={p}
+                                        profileName={accountForPlatform?.username ?? ''}
+                                        profilePicture={accountForPlatform?.profilePicture ?? undefined}
                                         content={contentWithHashtags}
                                         media={differentMediaPerPlatform ? (mediaByPlatform[p] ?? []) : mediaList}
                                     />
@@ -833,7 +868,19 @@ function PlatformToggle({ platform, label, icon, active, onClick }: { platform: 
     );
 }
 
-function PostPreview({ platform, content, media }: { platform: string; content: string; media: { fileUrl: string; type: string }[] }) {
+function PostPreview({
+    platform,
+    profileName,
+    profilePicture,
+    content,
+    media,
+}: {
+    platform: string;
+    profileName: string;
+    profilePicture?: string;
+    content: string;
+    media: { fileUrl: string; type: string }[];
+}) {
     const PlatformIcon = () => {
         switch (platform) {
             case 'INSTAGRAM': return <InstagramIcon size={22} />;
@@ -848,27 +895,38 @@ function PostPreview({ platform, content, media }: { platform: string; content: 
     return (
         <div className="card overflow-hidden !p-0 max-w-sm mx-auto shadow-lg border border-neutral-200">
             <div className="p-3 border-b border-neutral-100 flex items-center gap-2">
-                <div className="w-9 h-9 rounded-full bg-neutral-200 flex items-center justify-center shrink-0">
-                    <PlatformIcon />
+                <div className="w-9 h-9 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden">
+                    {profilePicture ? (
+                        <img src={profilePicture} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                        <PlatformIcon />
+                    )}
                 </div>
                 <div className="flex-1 min-w-0">
-                    <div className="h-3 w-24 bg-neutral-200 rounded" />
-                    <div className="h-2.5 w-16 bg-neutral-100 rounded mt-1.5" />
+                    <p className="text-sm font-semibold text-neutral-900 truncate">{profileName || 'Your profile'}</p>
+                    <p className="text-xs text-neutral-500 truncate">{PLATFORM_LABELS[platform] || platform}</p>
                 </div>
             </div>
-            <div className="aspect-square bg-neutral-50 flex items-center justify-center overflow-hidden">
+            <div className="aspect-square bg-neutral-50 flex items-center justify-center overflow-hidden relative">
                 {media.length > 0 ? (
-                    media[0].type === 'VIDEO' ? (
-                        <video src={mediaDisplayUrl(media[0].fileUrl)} className="w-full h-full object-cover" muted playsInline />
-                    ) : (
-                        <img src={mediaDisplayUrl(media[0].fileUrl)} alt="preview" className="w-full h-full object-cover" />
-                    )
+                    <>
+                        {media[0].type === 'VIDEO' ? (
+                            <video src={mediaDisplayUrl(media[0].fileUrl)} className="w-full h-full object-cover" muted playsInline />
+                        ) : (
+                            <img src={mediaDisplayUrl(media[0].fileUrl)} alt="preview" className="w-full h-full object-cover" />
+                        )}
+                        {media.length > 1 && (
+                            <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-black/60 text-white text-xs font-medium">
+                                1 / {media.length}
+                            </span>
+                        )}
+                    </>
                 ) : (
                     <ImageIcon size={36} className="text-neutral-200" strokeWidth={1.5} />
                 )}
             </div>
             <div className="p-3 space-y-2">
-                <p className="text-sm text-neutral-800 line-clamp-3">
+                <p className="text-sm text-neutral-800 whitespace-pre-wrap break-words max-h-32 overflow-y-auto">
                     {content || 'Your caption will appear here...'}
                 </p>
             </div>
