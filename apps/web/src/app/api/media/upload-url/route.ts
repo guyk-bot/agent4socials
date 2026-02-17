@@ -54,7 +54,11 @@ export async function POST(request: NextRequest) {
       { expiresIn: 3600 }
     );
     const baseUrl = process.env.S3_PUBLIC_URL || endpoint || '';
-    const fileUrl = baseUrl ? `${baseUrl.replace(/\/$/, '')}/${bucket}/${key}` : key;
+    // R2 Public Development URL (pub-xxx.r2.dev) is bucket-specific: path is key only, not bucket/key
+    const isR2Dev = baseUrl.includes('r2.dev');
+    const fileUrl = baseUrl
+      ? `${baseUrl.replace(/\/$/, '')}${isR2Dev ? `/${key}` : `/${bucket}/${key}`}`
+      : key;
     return NextResponse.json({ uploadUrl: url, fileUrl, key });
   } catch (err) {
     console.error('Error generating upload URL:', err);
