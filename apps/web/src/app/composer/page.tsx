@@ -487,8 +487,22 @@ export default function ComposerPage() {
             }
             clearComposerDraft();
             router.push('/dashboard');
-        } catch (err) {
-            setAlertMessage('Failed to create post');
+        } catch (err: unknown) {
+            let msg = 'Failed to create post';
+            if (err && typeof err === 'object' && 'response' in err) {
+                const res = (err as { response?: { data?: unknown; status?: number } }).response;
+                if (res?.data && typeof res.data === 'object' && res.data !== null && 'message' in res.data && typeof (res.data as { message: unknown }).message === 'string') {
+                    msg = (res.data as { message: string }).message;
+                } else if (res?.status === 401) {
+                    msg = 'Session expired or not logged in. Please sign in again.';
+                } else if (res?.status === 400 && res.data) {
+                    msg = typeof res.data === 'object' && res.data !== null && 'message' in res.data ? String((res.data as { message: unknown }).message) : 'Invalid request. Check that you have connected accounts for the selected platforms.';
+                }
+            } else if (err instanceof Error) {
+                msg = err.message;
+            }
+            if (typeof window !== 'undefined') console.error('[Composer] Create post error:', err);
+            setAlertMessage(msg);
         } finally {
             setLoading(false);
         }

@@ -62,6 +62,7 @@ export async function POST(request: NextRequest) {
     );
   }
   const status: PostStatus = scheduledAt ? PostStatus.SCHEDULED : PostStatus.DRAFT;
+  try {
   const post = await prisma.post.create({
     data: {
       userId,
@@ -99,4 +100,8 @@ export async function POST(request: NextRequest) {
     },
   });
   return NextResponse.json(post);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Failed to create post';
+    return NextResponse.json({ message }, { status: 500 });
+  }
 }

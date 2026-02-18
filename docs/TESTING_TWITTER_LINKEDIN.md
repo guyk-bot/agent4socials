@@ -24,7 +24,8 @@ This checklist is for testing **scheduled “email with links”** and **automat
 **How to test:**
 1. Connect **Twitter** and **LinkedIn** in the app (Accounts).
 2. In Composer, select **only Twitter and LinkedIn**, add content/media, set a **schedule** a few minutes from now, choose **“Email me a link per platform”**, then click **Schedule Post**.
-3. When the cron runs after that time, you should receive an email with the link. Open it and use the Twitter and LinkedIn buttons to open the post on each platform.
+3. **Trigger the cron:** Either wait for cron-job.org (1–5 min), or run now: `curl -X GET "https://agent4socials.com/api/cron/process-scheduled" -H "X-Cron-Secret: YOUR_CRON_SECRET"` (replace with your real CRON_SECRET). Response shows if email was sent (`"ok": true`).
+4. When the cron runs (or after you triggered it), check the inbox for the user who created the post. Open the email and click the link, then use the Twitter and LinkedIn buttons to open the post on each platform and publish manually.
 
 ---
 
