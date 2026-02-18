@@ -5,17 +5,21 @@
  *   - instagram_business_manage_insights
  *   - instagram_business_manage_comments
  *
- * Usage:
- *   GRAPH_TEST_TOKEN=user_token node scripts/run-meta-app-review-tests.js
+ * Usage (no token needed if you have Facebook + Instagram connected in the app):
+ *   node apps/web/scripts/run-meta-app-review-tests.js
+ *   (from repo root; or from apps/web: node scripts/run-meta-app-review-tests.js)
+ *   Uses tokens from your database (SocialAccount).
  *
- * Optional (for Instagram tests; if not set, script prints manual steps):
- *   INSTAGRAM_TOKEN=instagram_token  IG_USER_ID=123456  node scripts/run-meta-app-review-tests.js
+ * Or with env tokens:
+ *   GRAPH_TEST_TOKEN=user_token node scripts/run-meta-app-review-tests.js
+ *   Optional: INSTAGRAM_TOKEN=... IG_USER_ID=... for the 2 Instagram tests.
  *
  * Loads .env from apps/web if present.
  */
 
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
 
 function loadEnv() {
   const candidates = [
@@ -51,11 +55,26 @@ async function get(url, token) {
 }
 
 async function main() {
+  // If no token given, try running the DB-backed script (uses connected accounts)
+  if (!GRAPH_TEST_TOKEN && !INSTAGRAM_TOKEN) {
+    const webScript = path.join(__dirname, '..', 'apps', 'web', 'scripts', 'run-meta-app-review-tests.js');
+    if (fs.existsSync(webScript)) {
+      console.log('No GRAPH_TEST_TOKEN set. Running script that uses tokens from your database...\n');
+      const r = spawnSync(process.execPath, [webScript], {
+        cwd: path.join(__dirname, '..', 'apps', 'web'),
+        stdio: 'inherit',
+        env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL },
+      });
+      process.exit(r.status ?? 1);
+    }
+  }
+
   console.log('--- Meta App Review: 3 required API tests ---\n');
 
   if (!GRAPH_TEST_TOKEN) {
     console.log('Set GRAPH_TEST_TOKEN (User Token with pages_manage_engagement).');
-    console.log('Get it from: https://developers.facebook.com/tools/explorer/\n');
+    console.log('Or run from apps/web (with DATABASE_URL in .env): node scripts/run-meta-app-review-tests.js');
+    console.log('  to use tokens from your connected Facebook/Instagram accounts.\n');
     process.exit(1);
   }
 
