@@ -362,6 +362,25 @@ export default function ComposerPage() {
         });
     };
 
+    const [carouselDraggingIndex, setCarouselDraggingIndex] = useState<number | null>(null);
+    const handleCarouselDragStart = (e: React.DragEvent, index: number) => {
+        setCarouselDraggingIndex(index);
+        e.dataTransfer.setData('text/plain', String(index));
+        e.dataTransfer.effectAllowed = 'move';
+    };
+    const handleCarouselDragEnd = () => setCarouselDraggingIndex(null);
+    const handleCarouselDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    };
+    const handleCarouselDrop = (e: React.DragEvent, toIndex: number) => {
+        e.preventDefault();
+        setCarouselDraggingIndex(null);
+        const fromIndex = parseInt(e.dataTransfer.getData('text/plain'), 10);
+        if (Number.isNaN(fromIndex) || fromIndex === toIndex) return;
+        moveCarouselToPosition(fromIndex, toIndex);
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (platforms.length === 0) {
@@ -596,17 +615,22 @@ export default function ComposerPage() {
                                     {mediaList.map((m, i) => (
                                         <div
                                             key={i}
-                                            className={`relative group aspect-square rounded-xl overflow-hidden bg-neutral-100 border-2 ${mediaType === 'carousel' ? 'cursor-pointer border-neutral-300 hover:border-indigo-400' : 'border-neutral-200'}`}
+                                            className={`relative group aspect-square rounded-xl overflow-hidden bg-neutral-100 border-2 ${mediaType === 'carousel' ? 'cursor-grab active:cursor-grabbing border-neutral-300 hover:border-indigo-400' : 'border-neutral-200'} ${carouselDraggingIndex === i ? 'opacity-50 ring-2 ring-indigo-400' : ''}`}
                                             onClick={mediaType === 'carousel' ? () => moveCarouselToPosition(i, 0) : undefined}
                                             role={mediaType === 'carousel' ? 'button' : undefined}
+                                            draggable={mediaType === 'carousel'}
+                                            onDragStart={mediaType === 'carousel' ? (e) => handleCarouselDragStart(e, i) : undefined}
+                                            onDragEnd={mediaType === 'carousel' ? handleCarouselDragEnd : undefined}
+                                            onDragOver={mediaType === 'carousel' ? handleCarouselDragOver : undefined}
+                                            onDrop={mediaType === 'carousel' ? (e) => handleCarouselDrop(e, i) : undefined}
                                         >
                                             {m.type === 'VIDEO' ? (
-                                                <video src={mediaDisplayUrl(m.fileUrl)} className="object-cover w-full h-full" muted playsInline />
+                                                <video src={mediaDisplayUrl(m.fileUrl)} className="object-cover w-full h-full pointer-events-none" muted playsInline />
                                             ) : (
-                                                <img src={mediaDisplayUrl(m.fileUrl)} alt="media" className="object-cover w-full h-full" />
+                                                <img src={mediaDisplayUrl(m.fileUrl)} alt="media" className="object-cover w-full h-full pointer-events-none" draggable={false} />
                                             )}
                                             {mediaType === 'carousel' && (
-                                                <span className="absolute top-1.5 left-1.5 w-7 h-7 rounded-full bg-black/70 text-white text-sm font-bold flex items-center justify-center">
+                                                <span className="absolute top-1.5 left-1.5 w-7 h-7 rounded-full bg-black/70 text-white text-sm font-bold flex items-center justify-center pointer-events-none">
                                                     {i + 1}
                                                 </span>
                                             )}
@@ -620,6 +644,9 @@ export default function ComposerPage() {
                                         </div>
                                     ))}
                                 </div>
+                                {mediaType === 'carousel' && mediaList.length > 1 && (
+                                    <p className="text-xs text-neutral-500">Drag images to reorder. Click an image to move it to position 1.</p>
+                                )}
                             </>
                         ) : (
                             <div className="space-y-4">
