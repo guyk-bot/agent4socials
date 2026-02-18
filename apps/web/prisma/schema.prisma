@@ -102,19 +102,23 @@ enum PostStatus {
 }
 
 model Post {
-  id                String     @id @default(cuid())
-  userId            String
-  user              User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title             String?
-  content           String?
-  contentByPlatform Json?      // { INSTAGRAM?: string, FACEBOOK?: string, ... }
-  mediaByPlatform   Json?      // { INSTAGRAM?: { fileUrl: string; type: string }[], ... }
-  commentAutomation Json?      // { keywords: string[], replyTemplate: string, usePrivateReply?: boolean } when set, enable keyword auto-reply for this post
-  status            PostStatus @default(DRAFT)
-  scheduledAt       DateTime?
-  postedAt          DateTime?
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
+  id                    String     @id @default(cuid())
+  userId                String
+  user                  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title                 String?
+  content               String?
+  contentByPlatform     Json?      // { INSTAGRAM?: string, FACEBOOK?: string, ... }
+  mediaByPlatform       Json?      // { INSTAGRAM?: { fileUrl: string; type: string }[], ... }
+  commentAutomation     Json?      // { keywords: string[], replyTemplate: string, usePrivateReply?: boolean } when set, enable keyword auto-reply for this post
+  status                PostStatus @default(DRAFT)
+  scheduledAt           DateTime?
+  scheduleDelivery      String?    // 'auto' | 'email_links'; when 'email_links', at scheduled time we send email with links to post manually
+  scheduleEmailSentAt   DateTime?  // set when we sent the "post manually" email so we don't send twice
+  emailOpenToken        String?    // one-time token for /post/[id]/open?t= so user can open share links without logging in
+  emailOpenTokenExpiresAt DateTime?
+  postedAt              DateTime?
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
 
   media         MediaAsset[]
   targets       PostTarget[]

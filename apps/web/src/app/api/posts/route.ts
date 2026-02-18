@@ -42,6 +42,7 @@ export async function POST(request: NextRequest) {
     mediaByPlatform?: Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[]>;
     targets?: { platform: string; socialAccountId: string }[];
     scheduledAt?: string | null;
+    scheduleDelivery?: 'auto' | 'email_links' | null;
     commentAutomation?: { keywords: string[]; replyTemplate: string; usePrivateReply?: boolean } | null;
   };
   try {
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ message: 'Invalid JSON' }, { status: 400 });
   }
-  const { title, content, contentByPlatform, media = [], mediaByPlatform, targets = [], scheduledAt, commentAutomation } = body;
+  const { title, content, contentByPlatform, media = [], mediaByPlatform, targets = [], scheduledAt, scheduleDelivery, commentAutomation } = body;
   const validTargets = (targets || []).filter(
     (t): t is { platform: string; socialAccountId: string } =>
       Boolean(t?.platform && t?.socialAccountId)
@@ -73,6 +74,7 @@ export async function POST(request: NextRequest) {
         : {}),
       status,
       scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
+      scheduleDelivery: scheduledAt && (scheduleDelivery === 'auto' || scheduleDelivery === 'email_links') ? scheduleDelivery : null,
       media: {
         create: media.map((m) => ({
           fileUrl: m.fileUrl,

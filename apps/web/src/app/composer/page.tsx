@@ -27,6 +27,7 @@ type ComposerDraft = {
     mediaByPlatform: Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[]>;
     differentMediaPerPlatform: boolean;
     scheduledAt: string;
+    scheduleDelivery: 'auto' | 'email_links';
     selectedHashtags: string[];
     differentHashtagsPerPlatform: boolean;
     selectedHashtagsByPlatform: Record<string, string[]>;
@@ -67,7 +68,7 @@ const MEDIA_RECOMMENDATIONS: Record<MediaTypeChoice, { label: string; accept: st
     photo: { label: 'Photo', accept: 'image/*', multiple: false, hint: 'Recommended: 1080×1080 (square) or 1080×1350 (portrait). Works on all platforms.' },
     video: { label: 'Video', accept: 'video/*', multiple: false, hint: 'Recommended: 1080×1920 (9:16) or 1920×1080. Max length varies by platform.' },
     reel: { label: 'Reel / Short', accept: 'video/*', multiple: false, hint: 'Instagram Reels / TikTok: 1080×1920 (9:16), 15–90 sec. YouTube Shorts: 1080×1920, up to 60 sec.' },
-    carousel: { label: 'Carousel', accept: 'image/*', multiple: true, hint: 'Add multiple images (2–10). Recommended: 1080×1080 per slide. Instagram, Facebook, LinkedIn support carousels.' },
+    carousel: { label: 'Carousel', accept: 'image/*', multiple: true, hint: 'Add multiple images (2–10). Recommended: 1080×1080 per slide. Instagram, Facebook, X, and LinkedIn support carousels.' },
 };
 
 function normalizeHashtag(t: string): string {
@@ -90,6 +91,7 @@ export default function ComposerPage() {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const fileInputByPlatformRef = useRef<Record<string, HTMLInputElement | null>>({});
     const [scheduledAt, setScheduledAt] = useState('');
+    const [scheduleDelivery, setScheduleDelivery] = useState<'auto' | 'email_links'>('auto');
     const [accounts, setAccounts] = useState<{ id: string; platform: string }[]>([]);
     const [loading, setLoading] = useState(false);
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
@@ -156,6 +158,7 @@ export default function ComposerPage() {
                 }
                 if (typeof d.differentMediaPerPlatform === 'boolean') setDifferentMediaPerPlatform(d.differentMediaPerPlatform);
                 if (typeof d.scheduledAt === 'string') setScheduledAt(d.scheduledAt);
+                if (d.scheduleDelivery === 'auto' || d.scheduleDelivery === 'email_links') setScheduleDelivery(d.scheduleDelivery);
                 if (Array.isArray(d.selectedHashtags)) setSelectedHashtags(d.selectedHashtags);
                 if (typeof d.differentHashtagsPerPlatform === 'boolean') setDifferentHashtagsPerPlatform(d.differentHashtagsPerPlatform);
                 if (d.selectedHashtagsByPlatform && typeof d.selectedHashtagsByPlatform === 'object') setSelectedHashtagsByPlatform(d.selectedHashtagsByPlatform);
@@ -194,6 +197,7 @@ export default function ComposerPage() {
                     mediaByPlatform: mediaByPlatformToSave,
                     differentMediaPerPlatform,
                     scheduledAt,
+                    scheduleDelivery,
                     selectedHashtags,
                     differentHashtagsPerPlatform,
                     selectedHashtagsByPlatform,
@@ -216,6 +220,7 @@ export default function ComposerPage() {
         mediaByPlatform,
         differentMediaPerPlatform,
         scheduledAt,
+        scheduleDelivery,
         selectedHashtags,
         differentHashtagsPerPlatform,
         selectedHashtagsByPlatform,
@@ -391,12 +396,14 @@ export default function ComposerPage() {
                 mediaByPlatform?: Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[]>;
                 targets: { platform: string; socialAccountId: string }[];
                 scheduledAt?: string;
+                scheduleDelivery?: 'auto' | 'email_links';
                 commentAutomation?: { keywords: string[]; replyTemplate: string; usePrivateReply?: boolean } | null;
             } = {
                 content: contentFinal,
                 media: mediaList,
                 targets,
                 scheduledAt: scheduledAt || undefined,
+                scheduleDelivery: scheduledAt ? scheduleDelivery : undefined,
             };
             if (contentByPlatformFinal && Object.keys(contentByPlatformFinal).length > 0) {
                 payload.contentByPlatform = contentByPlatformFinal;
@@ -563,9 +570,6 @@ export default function ComposerPage() {
                                     {mediaUploading && <span className="text-sm text-neutral-500">Uploading…</span>}
                                 </div>
                                 {mediaUploadError && <p className="text-sm text-red-600">{mediaUploadError}</p>}
-                                <p className="text-xs text-neutral-400 italic">
-                                    Sound attachment and Music pool (viral sounds, volume control, simple video editor) are planned for a future update.
-                                </p>
                                 <div className="grid grid-cols-4 gap-3">
                                     {mediaList.map((m, i) => (
                                         <div key={i} className="relative group aspect-square rounded-xl overflow-hidden bg-neutral-100 border border-neutral-200">
@@ -807,6 +811,31 @@ export default function ComposerPage() {
                                 className="flex-1 p-3 border border-neutral-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                             />
                         </div>
+                        {scheduledAt && (
+                            <div className="space-y-2">
+                                <p className="text-sm font-medium text-neutral-700">At scheduled time:</p>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        name="scheduleDelivery"
+                                        checked={scheduleDelivery === 'auto'}
+                                        onChange={() => setScheduleDelivery('auto')}
+                                        className="text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <span className="text-sm text-neutral-800">Post automatically to all platforms</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        name="scheduleDelivery"
+                                        checked={scheduleDelivery === 'email_links'}
+                                        onChange={() => setScheduleDelivery('email_links')}
+                                        className="text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <span className="text-sm text-neutral-800">Email me a link per platform so I can open each one, edit or add sound, and publish manually</span>
+                                </label>
+                            </div>
+                        )}
                     </div>
 
                     <button

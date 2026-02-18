@@ -11,13 +11,20 @@ export async function POST(
   if (!process.env.DATABASE_URL) {
     return NextResponse.json({ message: 'DATABASE_URL required' }, { status: 503 });
   }
-  const userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
-  if (!userId) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  const cronSecret = request.headers.get('X-Cron-Secret');
+  const isCron = process.env.CRON_SECRET && cronSecret === process.env.CRON_SECRET;
+  let userId: string | null = null;
+  if (!isCron) {
+    userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
+    if (!userId) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
   }
   const { id: postId } = await params;
   const post = await prisma.post.findFirst({
-    where: { id: postId, userId },
+    where: isCron
+      ? { id: postId, status: PostStatus.SCHEDULED, scheduledAt: { lte: new Date() }, scheduleDelivery: 'auto' }
+      : { id: postId, userId: userId! },
     include: {
       media: true,
       targets: {

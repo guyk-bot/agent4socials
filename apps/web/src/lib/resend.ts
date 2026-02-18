@@ -36,3 +36,35 @@ export async function sendWelcomeEmail(to: string, name: string | null): Promise
     console.error('[Resend] Welcome email error:', e);
   }
 }
+
+/**
+ * Sends "your post is ready" email with a link to open and post manually per platform.
+ */
+export async function sendScheduledPostLinksEmail(to: string, openLink: string): Promise<boolean> {
+  if (!resend) {
+    console.warn('[Resend] RESEND_API_KEY not set; skipping scheduled post links email');
+    return false;
+  }
+  const from = process.env.RESEND_FROM_EMAIL || process.env.RESEND_FROM || DEFAULT_FROM;
+  try {
+    const { error } = await resend.emails.send({
+      from,
+      to: [to],
+      subject: 'Your scheduled post is ready – post manually',
+      html: `
+        <p>Your scheduled post is ready. Open the link below to see your content and open each platform to edit, add sound, and publish manually.</p>
+        <p><a href="${openLink}" style="color:#4f46e5;font-weight:600">Open post and get platform links</a></p>
+        <p>This link is valid for 7 days. If you didn't schedule a post, you can ignore this email.</p>
+        <p>Cheers,<br>The Agent4Socials team</p>
+      `,
+    });
+    if (error) {
+      console.error('[Resend] Scheduled post links email failed:', error);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error('[Resend] Scheduled post links email error:', e);
+    return false;
+  }
+}

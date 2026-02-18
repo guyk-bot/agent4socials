@@ -228,12 +228,14 @@ git push -u origin main
 
 ## Step 6: Run Database Migrations
 
-Run once (locally or in CI) to create tables in Supabase:
+Run once (locally or in CI) to create tables in Supabase. The **web** app has its own Prisma and migrations:
 
 ```bash
-cd apps/api
-npx prisma migrate deploy
+cd apps/web
+DATABASE_URL="<your-pooler-or-direct-url>" npx prisma migrate deploy
 ```
+
+If you also use the NestJS API with a separate Prisma, run from `apps/api` as needed.
 
 If you use the **connection pooler** URL in `DATABASE_URL`, Prisma may report "prepared statement already exists". In that case, run migrations with the **direct** connection URL (port 5432, user `postgres`):
 
@@ -242,6 +244,13 @@ DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@db.PROJECT_REF.supabase.co:543
 ```
 
 Then keep the pooler URL in `.env` for running the app and for Vercel.
+
+## Step 6b: Scheduled Posts (Cron and "Email me links")
+
+- **Auto-publish at scheduled time:** Set up a cron (e.g. Vercel Cron) to call your app every few minutes:
+  - **URL:** `GET` or `POST` `https://agent4socials.com/api/cron/process-scheduled`
+  - **Header:** `X-Cron-Secret: <your-secret>` (set `CRON_SECRET` in Vercel env).
+- **"Email me links" option:** When the user chooses "Email me a link per platform" and schedules a post, at the scheduled time the cron will send one email (via Resend) with a single link. The user opens it to see the post and platform-specific "Open in X" / "Open in LinkedIn" etc. to edit and publish manually. Requires `RESEND_API_KEY` and `RESEND_FROM` (or `RESEND_FROM_EMAIL`) in the web project.
 
 ## Step 7: Test Your App
 
