@@ -11,7 +11,9 @@ import {
     Video,
     X,
     Plus,
-    Hash
+    Hash,
+    ChevronLeft,
+    ChevronRight
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
@@ -55,7 +57,7 @@ const PLATFORM_LABELS: Record<string, string> = {
     TIKTOK: 'TikTok',
     YOUTUBE: 'YouTube',
     FACEBOOK: 'Facebook',
-    TWITTER: 'X',
+    TWITTER: 'Twitter/X',
     LINKEDIN: 'LinkedIn',
 };
 
@@ -68,7 +70,7 @@ const MEDIA_RECOMMENDATIONS: Record<MediaTypeChoice, { label: string; accept: st
     photo: { label: 'Photo', accept: 'image/*', multiple: false, hint: 'Recommended: 1080×1080 (square) or 1080×1350 (portrait). Works on all platforms.' },
     video: { label: 'Video', accept: 'video/*', multiple: false, hint: 'Recommended: 1080×1920 (9:16) or 1920×1080. Max length varies by platform.' },
     reel: { label: 'Reel / Short', accept: 'video/*', multiple: false, hint: 'Instagram Reels / TikTok: 1080×1920 (9:16), 15–90 sec. YouTube Shorts: 1080×1920, up to 60 sec.' },
-    carousel: { label: 'Carousel', accept: 'image/*', multiple: true, hint: 'Add multiple images (2–10). Recommended: 1080×1080 per slide. Instagram, Facebook, X, and LinkedIn support carousels.' },
+    carousel: { label: 'Carousel', accept: 'image/*', multiple: true, hint: 'Add multiple images (2–10). Recommended: 1080×1080 per slide. Instagram, Facebook, Twitter/X, and LinkedIn support carousels.' },
 };
 
 function normalizeHashtag(t: string): string {
@@ -350,6 +352,16 @@ export default function ComposerPage() {
         }));
     };
 
+    const moveCarouselToPosition = (fromIndex: number, toPosition: number) => {
+        if (fromIndex === toPosition) return;
+        setMediaList((prev) => {
+            const arr = [...prev];
+            const [item] = arr.splice(fromIndex, 1);
+            arr.splice(toPosition, 0, item);
+            return arr;
+        });
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (platforms.length === 0) {
@@ -502,7 +514,7 @@ export default function ComposerPage() {
                             />
                             <PlatformToggle
                                 platform="TWITTER"
-                                label="X"
+                                label="Twitter/X"
                                 icon={<XTwitterIcon size={26} className="text-neutral-800" />}
                                 active={platforms.includes('TWITTER')}
                                 onClick={() => setPlatforms(prev => prev.includes('TWITTER') ? prev.filter(p => p !== 'TWITTER') : [...prev, 'TWITTER'])}
@@ -536,7 +548,17 @@ export default function ComposerPage() {
                                         <button
                                             key={type}
                                             type="button"
-                                            onClick={() => setMediaType(type)}
+                                            onClick={() => {
+                                                if (type !== mediaType) {
+                                                    setMediaType(type);
+                                                    setMediaList([]);
+                                                    setMediaByPlatform((prev) => {
+                                                        const next = { ...prev };
+                                                        for (const p of Object.keys(next)) next[p] = [];
+                                                        return next;
+                                                    });
+                                                }
+                                            }}
                                             className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${mediaType === type
                                                 ? 'bg-indigo-600 text-white'
                                                 : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
@@ -572,15 +594,25 @@ export default function ComposerPage() {
                                 {mediaUploadError && <p className="text-sm text-red-600">{mediaUploadError}</p>}
                                 <div className="grid grid-cols-4 gap-3">
                                     {mediaList.map((m, i) => (
-                                        <div key={i} className="relative group aspect-square rounded-xl overflow-hidden bg-neutral-100 border border-neutral-200">
+                                        <div
+                                            key={i}
+                                            className={`relative group aspect-square rounded-xl overflow-hidden bg-neutral-100 border-2 ${mediaType === 'carousel' ? 'cursor-pointer border-neutral-300 hover:border-indigo-400' : 'border-neutral-200'}`}
+                                            onClick={mediaType === 'carousel' ? () => moveCarouselToPosition(i, 0) : undefined}
+                                            role={mediaType === 'carousel' ? 'button' : undefined}
+                                        >
                                             {m.type === 'VIDEO' ? (
                                                 <video src={mediaDisplayUrl(m.fileUrl)} className="object-cover w-full h-full" muted playsInline />
                                             ) : (
                                                 <img src={mediaDisplayUrl(m.fileUrl)} alt="media" className="object-cover w-full h-full" />
                                             )}
+                                            {mediaType === 'carousel' && (
+                                                <span className="absolute top-1.5 left-1.5 w-7 h-7 rounded-full bg-black/70 text-white text-sm font-bold flex items-center justify-center">
+                                                    {i + 1}
+                                                </span>
+                                            )}
                                             <button
                                                 type="button"
-                                                onClick={() => handleRemoveMedia(i)}
+                                                onClick={(e) => { e.stopPropagation(); handleRemoveMedia(i); }}
                                                 className="absolute top-1.5 right-1.5 p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow"
                                             >
                                                 <X size={14} />
@@ -910,6 +942,10 @@ function PostPreview({
     content: string;
     media: { fileUrl: string; type: string }[];
 }) {
+    const [currentSlide, setCurrentSlide] = useState(0);
+    const slideIndex = media.length > 0 ? Math.min(currentSlide, media.length - 1) : 0;
+    const currentMedia = media[slideIndex];
+
     const PlatformIcon = () => {
         switch (platform) {
             case 'INSTAGRAM': return <InstagramIcon size={22} />;
@@ -937,17 +973,35 @@ function PostPreview({
                 </div>
             </div>
             <div className="aspect-square bg-neutral-50 flex items-center justify-center overflow-hidden relative">
-                {media.length > 0 ? (
+                {currentMedia ? (
                     <>
-                        {media[0].type === 'VIDEO' ? (
-                            <video src={mediaDisplayUrl(media[0].fileUrl)} className="w-full h-full object-cover" muted playsInline />
+                        {currentMedia.type === 'VIDEO' ? (
+                            <video src={mediaDisplayUrl(currentMedia.fileUrl)} className="w-full h-full object-cover" muted playsInline />
                         ) : (
-                            <img src={mediaDisplayUrl(media[0].fileUrl)} alt="preview" className="w-full h-full object-cover" />
+                            <img src={mediaDisplayUrl(currentMedia.fileUrl)} alt="preview" className="w-full h-full object-cover" />
                         )}
                         {media.length > 1 && (
-                            <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-black/60 text-white text-xs font-medium">
-                                1 / {media.length}
-                            </span>
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); setCurrentSlide((s) => (s <= 0 ? media.length - 1 : s - 1)); }}
+                                    className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center shadow"
+                                    aria-label="Previous"
+                                >
+                                    <ChevronLeft size={22} />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); setCurrentSlide((s) => (s >= media.length - 1 ? 0 : s + 1)); }}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center shadow"
+                                    aria-label="Next"
+                                >
+                                    <ChevronRight size={22} />
+                                </button>
+                                <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-black/60 text-white text-xs font-medium">
+                                    {slideIndex + 1} / {media.length}
+                                </span>
+                            </>
                         )}
                     </>
                 ) : (

@@ -27,7 +27,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   FACEBOOK: 'Facebook',
   TIKTOK: 'TikTok',
   YOUTUBE: 'YouTube',
-  TWITTER: 'X (Twitter)',
+  TWITTER: 'Twitter/X',
   LINKEDIN: 'LinkedIn',
 };
 

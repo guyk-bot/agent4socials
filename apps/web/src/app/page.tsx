@@ -59,7 +59,7 @@ const HERO_PLATFORMS = [
   { Icon: YoutubeIcon, label: 'YouTube' },
   { Icon: TikTokIcon, label: 'TikTok' },
   { Icon: FacebookIcon, label: 'Facebook' },
-  { Icon: XTwitterIcon, label: 'X' },
+  { Icon: XTwitterIcon, label: 'Twitter/X' },
   { Icon: LinkedinIcon, label: 'LinkedIn' },
 ] as const;
 
@@ -140,7 +140,7 @@ export default function Home() {
                     className="rounded-2xl border border-slate-700/60 bg-slate-800/40 p-3 sm:p-4 shadow-lg transition-all duration-300 hover:-translate-y-2 hover:border-emerald-500/40 hover:shadow-emerald-500/20 hover:shadow-xl"
                     style={{ animation: 'hero-logo-float 3s ease-in-out infinite', animationDelay: `${i * 0.2}s` }}
                   >
-                    <span className={label === 'X' ? 'inline-block invert' : ''}>
+                    <span className={label === 'Twitter/X' ? 'inline-block invert' : ''}>
                       <Icon size={44} />
                     </span>
                   </div>

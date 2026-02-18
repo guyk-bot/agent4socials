@@ -67,7 +67,7 @@ async function main() {
   console.log('2. instagram_business_manage_insights');
   if (ig) {
     const insightsRes = await get(
-      `${BASE}/${ig.platformUserId}/insights?metric=impressions&period=day`,
+      `${BASE}/${ig.platformUserId}/insights?metric=reach&period=day`,
       ig.accessToken
     );
     if (insightsRes.ok) {

@@ -22,7 +22,7 @@ const PLATFORMS = [
   { id: 'FACEBOOK', label: 'Facebook', icon: FacebookIcon },
   { id: 'TIKTOK', label: 'TikTok', icon: TikTokIcon },
   { id: 'YOUTUBE', label: 'YouTube', icon: YoutubeIcon },
-  { id: 'TWITTER', label: 'X (Twitter)', icon: XTwitterIcon, color: 'text-neutral-800' },
+  { id: 'TWITTER', label: 'Twitter/X', icon: XTwitterIcon, color: 'text-neutral-800' },
 ] as const;
 
 type Account = { id: string; platform: string; username?: string | null };
