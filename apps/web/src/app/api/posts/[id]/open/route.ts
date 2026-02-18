@@ -35,8 +35,9 @@ export async function GET(
   if (!post) {
     return NextResponse.json({ message: 'Invalid or expired link' }, { status: 404 });
   }
-  const contentByPlatform = (post as { contentByPlatform?: Record<string, string> | null }).contentByPlatform ?? null;
-  const mediaByPlatform = (post as { mediaByPlatform?: Record<string, { fileUrl: string; type: string }[] } | null }).mediaByPlatform ?? null;
+  type PostWithJson = { contentByPlatform?: Record<string, string> | null; mediaByPlatform?: Record<string, { fileUrl: string; type: string }[]> | null };
+  const contentByPlatform = (post as PostWithJson).contentByPlatform ?? null;
+  const mediaByPlatform = (post as PostWithJson).mediaByPlatform ?? null;
   const defaultMedia = post.media.map((m) => ({ fileUrl: m.fileUrl, type: m.type }));
   const platforms = post.targets.map((t) => ({
     platform: t.socialAccount.platform,
