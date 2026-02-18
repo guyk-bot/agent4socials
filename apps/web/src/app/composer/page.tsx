@@ -244,6 +244,14 @@ export default function ComposerPage() {
         fetchAccounts();
     }, []);
 
+    // Photo / Video / Reel: only one item allowed; trim if more
+    useEffect(() => {
+        const singleFormat = mediaType === 'photo' || mediaType === 'video' || mediaType === 'reel';
+        if (singleFormat && mediaList.length > 1) {
+            setMediaList([mediaList[0]]);
+        }
+    }, [mediaType, mediaList.length]);
+
     const addToHashtagPool = () => {
         const tag = normalizeHashtag(newHashtagInput);
         if (!tag || hashtagPool.includes(tag)) return;
@@ -297,12 +305,14 @@ export default function ComposerPage() {
         if (!files?.length) return;
         setMediaUploadError(null);
         setMediaUploading(true);
+        const singleFormat = mediaType === 'photo' || mediaType === 'video' || mediaType === 'reel';
         try {
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
                 if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) continue;
                 const item = await uploadFile(file);
-                setMediaList((prev) => [...prev, item]);
+                setMediaList((prev) => (singleFormat ? [item] : [...prev, item]));
+                if (singleFormat) break; // only one file for Photo / Video / Reel
             }
         } catch (err: unknown) {
             const msg = err && typeof err === 'object' && 'response' in err && (err.response as { status?: number })?.status === 503
