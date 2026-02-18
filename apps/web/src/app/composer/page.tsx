@@ -750,7 +750,7 @@ export default function ComposerPage() {
                             />
                             <span className="text-sm font-medium text-neutral-700">Enable keyword comment automation</span>
                         </label>
-                        <p className="text-sm text-neutral-500">When comments contain your keywords on this post, automatically reply (or send a private DM on Instagram).</p>
+                        <p className="text-sm text-neutral-500">When comments contain your keywords on this post, automatically reply (or send a private DM on Instagram). Your settings are saved with the post. Auto-reply will work first on Instagram when we enable it; Twitter/X and LinkedIn support may follow (LinkedIn’s API is more limited).</p>
                         {commentAutomationEnabled && (
                             <div className="space-y-4 pt-2 border-t border-neutral-100">
                                 <div>
