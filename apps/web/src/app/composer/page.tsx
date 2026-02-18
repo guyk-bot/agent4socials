@@ -880,31 +880,31 @@ export default function ComposerPage() {
                                 className="flex-1 p-3 border border-neutral-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                             />
                         </div>
-                        {scheduledAt && (
-                            <div className="space-y-2">
-                                <p className="text-sm font-medium text-neutral-700">At scheduled time:</p>
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <input
-                                        type="radio"
-                                        name="scheduleDelivery"
-                                        checked={scheduleDelivery === 'auto'}
-                                        onChange={() => setScheduleDelivery('auto')}
-                                        className="text-indigo-600 focus:ring-indigo-500"
-                                    />
-                                    <span className="text-sm text-neutral-800">Post automatically to all platforms</span>
-                                </label>
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <input
-                                        type="radio"
-                                        name="scheduleDelivery"
-                                        checked={scheduleDelivery === 'email_links'}
-                                        onChange={() => setScheduleDelivery('email_links')}
-                                        className="text-indigo-600 focus:ring-indigo-500"
-                                    />
-                                    <span className="text-sm text-neutral-800">Email me a link per platform so I can open each one, edit or add sound, and publish manually</span>
-                                </label>
-                            </div>
-                        )}
+                        <div className="space-y-2">
+                            <p className="text-sm font-medium text-neutral-700">
+                                {scheduledAt ? 'At scheduled time:' : 'When you set a date above, at that time:'}
+                            </p>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="radio"
+                                    name="scheduleDelivery"
+                                    checked={scheduleDelivery === 'auto'}
+                                    onChange={() => setScheduleDelivery('auto')}
+                                    className="text-indigo-600 focus:ring-indigo-500"
+                                />
+                                <span className="text-sm text-neutral-800">Post automatically to all platforms</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="radio"
+                                    name="scheduleDelivery"
+                                    checked={scheduleDelivery === 'email_links'}
+                                    onChange={() => setScheduleDelivery('email_links')}
+                                    className="text-indigo-600 focus:ring-indigo-500"
+                                />
+                                <span className="text-sm text-neutral-800">Email me a link per platform so I can open each one, edit or add sound, and publish manually</span>
+                            </label>
+                        </div>
                     </div>
 
                     <button

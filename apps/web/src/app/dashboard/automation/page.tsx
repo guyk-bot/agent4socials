@@ -87,7 +87,7 @@ export default function AutomationPage() {
           Keyword comment automation
         </h2>
         <p className="text-sm text-neutral-600 mt-1">
-          When you create or schedule a post, enable &quot;Comment automation&quot; in the Composer to add keywords and an auto-reply template. Your settings are saved with each post. When we enable the feature, auto-reply will work on Instagram first; Twitter/X and LinkedIn may be added later (LinkedIn’s API is more limited for comment automation).
+          When someone comments on your post with a keyword you set (e.g. &quot;demo&quot;), they get an automatic reply or DM. Set keywords and the reply template per post in the Composer (section 4). Your settings are saved with each post. Backend to detect comments and send the reply is in progress for Instagram, then Twitter/X and LinkedIn.
         </p>
         <Link
           href="/composer"
