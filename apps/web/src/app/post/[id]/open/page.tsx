@@ -14,19 +14,24 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   if (!t?.trim()) return {};
   const data = await getPostForOpen(id, t);
   if (!data) return {};
-  const title = (data.content || 'Your post').slice(0, 60) + (data.content && data.content.length > 60 ? '…' : '');
+  const desc = data.bestDescription || data.content || 'Scheduled post from Agent4Socials';
+  const title = desc.slice(0, 60) + (desc.length > 60 ? '…' : '') || 'Your post';
+  const images = data.allImageUrls.length > 0
+    ? data.allImageUrls.map((url) => ({ url }))
+    : data.firstImageUrl ? [{ url: data.firstImageUrl }] : [];
   return {
     title: title || 'Your post',
-    description: data.content?.slice(0, 160) || 'Scheduled post from Agent4Socials',
+    description: desc.slice(0, 200) || 'Scheduled post from Agent4Socials',
     openGraph: {
       title: title || 'Your post',
-      description: data.content?.slice(0, 160) || 'Scheduled post from Agent4Socials',
-      ...(data.firstImageUrl ? { images: [{ url: data.firstImageUrl }] } : {}),
+      description: desc.slice(0, 200) || 'Scheduled post from Agent4Socials',
+      ...(images.length > 0 ? { images } : {}),
     },
     twitter: {
-      card: data.firstImageUrl ? 'summary_large_image' : 'summary',
+      card: images.length > 0 ? 'summary_large_image' : 'summary',
       title: title || 'Your post',
-      description: data.content?.slice(0, 160) || 'Scheduled post from Agent4Socials',
+      description: desc.slice(0, 200) || 'Scheduled post from Agent4Socials',
+      ...(images.length > 0 ? { images } : {}),
     },
   };
 }

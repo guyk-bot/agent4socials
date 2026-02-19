@@ -9,6 +9,10 @@ export type PostOpenData = {
     media: { fileUrl: string; type: string }[];
   }[];
   firstImageUrl?: string;
+  /** All image URLs for og:images (carousel preview) */
+  allImageUrls: string[];
+  /** Best description for og:metadata (LinkedIn caption if available, else first platform, else content) */
+  bestDescription: string;
 };
 
 export async function getPostForOpen(postId: string, token: string): Promise<PostOpenData | null> {
@@ -43,10 +47,18 @@ export async function getPostForOpen(postId: string, token: string): Promise<Pos
     media: (mediaByPlatform?.[t.socialAccount.platform]?.length ? mediaByPlatform[t.socialAccount.platform] : defaultMedia) as { fileUrl: string; type: string }[],
   }));
 
-  const firstImage = post.media.find((m) => m.type === 'IMAGE');
+  const allImageUrls = [
+    ...post.media.filter((m) => m.type === 'IMAGE').map((m) => m.fileUrl),
+    ...platforms.flatMap((p) => p.media.filter((m) => m.type === 'IMAGE').map((m) => m.fileUrl)),
+  ].filter((url, i, arr) => arr.indexOf(url) === i);
+  const firstImageUrl = allImageUrls[0];
+  const linkedInCaption = platforms.find((p) => p.platform === 'LINKEDIN')?.caption;
+  const bestDescription = (linkedInCaption || platforms[0]?.caption || post.content || '').trim();
   return {
     content: post.content ?? '',
     platforms,
-    firstImageUrl: firstImage?.fileUrl ?? platforms[0]?.media?.find((m) => m.type === 'IMAGE')?.fileUrl,
+    firstImageUrl,
+    allImageUrls,
+    bestDescription: bestDescription.slice(0, 200),
   };
 }

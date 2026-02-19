@@ -142,7 +142,11 @@ export default function PostOpenClient({
                       ))}
                     </div>
                   )}
-                  <p className="text-xs text-neutral-500">Click images to open or download. X (Twitter) web share does not support images; add them manually in X.</p>
+                  <p className="text-xs text-neutral-500">
+                    {platform === 'TWITTER'
+                      ? 'Right-click images to save, then add them in X (web share cannot attach images).'
+                      : 'Click images to open or download.'}
+                  </p>
                 </div>
               )}
               <p className="text-sm text-neutral-700 whitespace-pre-wrap break-words">{caption || 'No caption'}</p>
@@ -152,6 +156,16 @@ export default function PostOpenClient({
                 </p>
               )}
               <div className="flex flex-wrap gap-2 items-center">
+                {(platform === 'INSTAGRAM' || platform === 'TWITTER' || platform === 'LINKEDIN') && (
+                  <button
+                    type="button"
+                    onClick={() => copyCaption(platform, caption)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 bg-neutral-100 text-neutral-700 rounded-lg text-sm font-medium hover:bg-neutral-200"
+                  >
+                    {copied === platform ? <Check size={16} /> : <Copy size={16} />}
+                    {copied === platform ? 'Copied' : 'Copy caption'}
+                  </button>
+                )}
                 {shareUrl && (
                   <a
                     href={shareUrl}
@@ -163,21 +177,19 @@ export default function PostOpenClient({
                     Open in {PLATFORM_LABELS[platform] || platform}
                   </a>
                 )}
-                {(platform === 'INSTAGRAM' || platform === 'TWITTER' || platform === 'LINKEDIN') && (
-                  <button
-                    type="button"
-                    onClick={() => copyCaption(platform, caption)}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 bg-neutral-100 text-neutral-700 rounded-lg text-sm font-medium hover:bg-neutral-200"
-                  >
-                    {copied === platform ? <Check size={16} /> : <Copy size={16} />}
-                    {copied === platform ? 'Copied' : 'Copy caption'}
-                  </button>
-                )}
                 {platform === 'INSTAGRAM' && (
                   <span className="text-xs text-neutral-500">Then open the Instagram app and create a new post.</span>
                 )}
                 {platform === 'LINKEDIN' && (
-                  <span className="text-xs text-neutral-500">LinkedIn will show a preview of this page. Paste your caption in the post.</span>
+                  <span className="text-xs text-neutral-500">
+                    Ensure you are logged into the right LinkedIn account. Share preview uses this page. If you see old text/images, LinkedIn may have cached it; use{' '}
+                    <a href="https://www.linkedin.com/post-inspector/" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">Post Inspector</a> to refresh.
+                  </span>
+                )}
+                {platform === 'TWITTER' && (
+                  <span className="text-xs text-neutral-500">
+                    Be logged into the correct X account before opening. Web share cannot attach images; paste caption and add images from above.
+                  </span>
                 )}
               </div>
             </div>
