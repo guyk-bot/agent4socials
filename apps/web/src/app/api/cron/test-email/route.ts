@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sendScheduledPostLinksEmail } from '@/lib/resend';
+import { sendTestEmail } from '@/lib/resend';
 
 /**
  * GET /api/cron/test-email?to=your@email.com
- * Sends a test email to verify Resend is configured correctly.
+ * Sends a clearly marked test email to verify Resend is configured.
  * Call with X-Cron-Secret header (same as process-scheduled).
- * Use ?to=your@email.com to specify the recipient.
+ * Real scheduled post emails have a different subject and link to the specific post.
  */
 export async function GET(request: NextRequest) {
   const cronSecret = request.headers.get('X-Cron-Secret') || request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
@@ -21,9 +21,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
-  const testLink = `${baseUrl}/calendar`;
-  const result = await sendScheduledPostLinksEmail(to, testLink);
+  const result = await sendTestEmail(to);
 
   return NextResponse.json({
     ok: result.ok,

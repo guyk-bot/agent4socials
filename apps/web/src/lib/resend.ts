@@ -38,6 +38,39 @@ export async function sendWelcomeEmail(to: string, name: string | null): Promise
 }
 
 /**
+ * Sends a test email to verify Resend is configured. Clearly marked as a test (different subject).
+ * Returns { ok: true } on success, { ok: false, error: string } on failure.
+ */
+export async function sendTestEmail(to: string): Promise<{ ok: boolean; error?: string }> {
+  if (!resend) {
+    return { ok: false, error: 'RESEND_API_KEY not set' };
+  }
+  const from = process.env.RESEND_FROM_EMAIL || process.env.RESEND_FROM || DEFAULT_FROM;
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
+  try {
+    const { error } = await resend.emails.send({
+      from,
+      to: [to],
+      subject: 'Test: Agent4Socials email is working',
+      html: `
+        <p>If you received this, Resend is configured correctly and scheduled post emails will work.</p>
+        <p><a href="${baseUrl}/calendar" style="color:#4f46e5;font-weight:600">Open Calendar</a></p>
+        <p>Real scheduled post emails will have a different subject (&quot;Your scheduled post is ready&quot;) and link directly to your post.</p>
+        <p>Cheers,<br>The Agent4Socials team</p>
+      `,
+    });
+    if (error) {
+      const errMsg = typeof error === 'object' && error !== null && 'message' in error ? String((error as { message?: unknown }).message) : String(error);
+      return { ok: false, error: errMsg };
+    }
+    return { ok: true };
+  } catch (e) {
+    const errMsg = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: errMsg };
+  }
+}
+
+/**
  * Sends "your post is ready" email with a link to open and post manually per platform.
  * Returns { ok: true } on success, { ok: false, error: string } on failure.
  */

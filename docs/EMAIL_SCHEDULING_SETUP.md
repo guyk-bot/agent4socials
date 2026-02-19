@@ -25,7 +25,7 @@ curl -X GET "https://YOUR_DOMAIN/api/cron/test-email?to=YOUR_EMAIL" \
   -H "X-Cron-Secret: YOUR_CRON_SECRET"
 ```
 
-If you get `"ok": true`, check your inbox (and spam). If `"ok": false`, the `error` field shows the problem (e.g. domain not verified).
+If you get `"ok": true`, check your inbox. The **test email** has subject "Test: Agent4Socials email is working" and links to the calendar (no real post). **Real scheduled post emails** have subject "Your scheduled post is ready" and link directly to your post with platform buttons.
 
 ## Why emails might not arrive
 
