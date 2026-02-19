@@ -22,14 +22,17 @@ function formatTime(date: Date): string {
     return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 }
 
-function postLabel(p: { content?: string | null; title?: string | null; targets?: { platform: string }[]; scheduleDelivery?: string | null; scheduledAt?: string | Date | null }): string {
-    const text = (p.title || p.content || 'Scheduled post').slice(0, 28);
+function postContentPreview(p: { content?: string | null; title?: string | null }): string {
+    return (p.title || p.content || 'Scheduled post').replace(/\s+/g, ' ').slice(0, 35);
+}
+
+function postTimeAndPlatforms(p: { targets?: { platform: string }[]; scheduledAt?: string | Date | null }): string {
     const platforms = (p.targets || []).map((t: { platform: string }) => PLATFORM_SHORT[t.platform] || t.platform).filter(Boolean);
     const time = p.scheduledAt ? formatTime(new Date(p.scheduledAt)) : '';
-    const parts = [text];
-    if (platforms.length) parts.push(platforms.join(', '));
+    const parts: string[] = [];
     if (time) parts.push(time);
-    return parts.join(' · ');
+    if (platforms.length) parts.push(platforms.join(', '));
+    return parts.join(' · ') || 'Scheduled';
 }
 
 export default function CalendarPage() {
@@ -92,7 +95,12 @@ export default function CalendarPage() {
             {justScheduled && (
                 <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
                     <p className="font-medium">Post scheduled.</p>
-                    <p className="mt-1 text-green-700">You will receive an email with a link to post when the scheduled time is reached (our cron runs every few minutes). Check your inbox at that time.</p>
+                    <p className="mt-1 text-green-700">The email with the link is sent when the scheduled time is reached. For that to work:</p>
+                    <ul className="mt-2 list-disc list-inside text-green-700 space-y-0.5">
+                        <li>Set <strong>RESEND_API_KEY</strong> and <strong>CRON_SECRET</strong> in Vercel (Environment Variables).</li>
+                        <li>Set up a cron (e.g. <a href="https://cron-job.org" target="_blank" rel="noopener noreferrer" className="underline">cron-job.org</a>) to call <code className="bg-green-100 px-1 rounded">https://agent4socials.com/api/cron/process-scheduled</code> every 5 minutes with header <code className="bg-green-100 px-1 rounded">X-Cron-Secret: your-secret</code>.</li>
+                    </ul>
+                    <p className="mt-2 text-green-700">Without the cron, no email is sent (Resend will show no sent emails).</p>
                 </div>
             )}
             <div className="flex items-center justify-between">
@@ -119,15 +127,20 @@ export default function CalendarPage() {
                 </div>
                 <div className="grid grid-cols-7">
                     {days.map((day, i) => (
-                        <div key={i} className={`min-h-[120px] border-b border-r border-gray-100 p-2 ${day === null ? 'bg-gray-50' : 'bg-white'}`}>
+                        <div key={i} className={`min-h-[140px] border-b border-r border-gray-100 p-2 ${day === null ? 'bg-gray-50' : 'bg-white'}`}>
                             {day && (
                                 <>
                                     <span className="text-sm font-medium text-gray-400">{day}</span>
-                                    <div className="mt-2 space-y-1">
+                                    <div className="mt-2 space-y-1.5">
                                         {getPostsForDay(day).map((p: any) => (
-                                            <div key={p.id} className="p-1.5 px-2 text-[10px] font-medium rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100 flex items-start gap-1">
-                                                <Clock size={10} className="mt-0.5 shrink-0" />
-                                                <span className="truncate" title={postLabel(p)}>{postLabel(p)}</span>
+                                            <div key={p.id} className="p-2 rounded-lg bg-indigo-50 text-indigo-800 border border-indigo-100">
+                                                <div className="flex items-start gap-1.5">
+                                                    <Clock size={12} className="shrink-0 mt-0.5 text-indigo-500" />
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="text-[11px] font-medium leading-tight truncate" title={postContentPreview(p)}>{postContentPreview(p)}</div>
+                                                        <div className="text-[10px] text-indigo-600 mt-0.5 font-medium">{postTimeAndPlatforms(p)}</div>
+                                                    </div>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
