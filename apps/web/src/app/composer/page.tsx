@@ -212,24 +212,44 @@ export default function ComposerPage() {
         }
         setAiLoading(true);
         setAiError(null);
-        api.post('/ai/generate-description', {
-            topic: aiTopic.trim(),
-            prompt: aiPrompt.trim() || undefined,
-            platform: aiPlatform || undefined,
-        }).then((res) => {
-            const text = res.data?.content ?? '';
-            if (differentContentPerPlatform && aiPlatform && platforms.includes(aiPlatform)) {
-                setContentByPlatform((prev) => ({ ...prev, [aiPlatform]: text }));
-            } else if (!differentContentPerPlatform) {
+        const topic = aiTopic.trim();
+        const prompt = aiPrompt.trim() || undefined;
+
+        if (differentContentPerPlatform && platforms.length > 0) {
+            // Generate one description per selected platform, each suited to that platform
+            Promise.all(
+                platforms.map((p) =>
+                    api.post('/ai/generate-description', { topic, prompt, platform: p }).then((res) => ({ platform: p, text: res.data?.content ?? '' }))
+                )
+            )
+                .then((results) => {
+                    setContentByPlatform((prev) => {
+                        const next = { ...prev };
+                        for (const { platform, text } of results) next[platform] = text;
+                        return next;
+                    });
+                    setAiModalOpen(false);
+                })
+                .catch((err) => {
+                    const msg = err.response?.data?.message ?? 'Failed to generate for one or more platforms. Try again.';
+                    setAiError(msg);
+                })
+                .finally(() => setAiLoading(false));
+        } else {
+            // Single description for all platforms (optional platform hint)
+            api.post('/ai/generate-description', {
+                topic,
+                prompt,
+                platform: aiPlatform || undefined,
+            }).then((res) => {
+                const text = res.data?.content ?? '';
                 setContent(text);
-            } else {
-                setContent(text);
-            }
-            setAiModalOpen(false);
-        }).catch((err) => {
-            const msg = err.response?.data?.message ?? 'Failed to generate. Try again.';
-            setAiError(msg);
-        }).finally(() => setAiLoading(false));
+                setAiModalOpen(false);
+            }).catch((err) => {
+                const msg = err.response?.data?.message ?? 'Failed to generate. Try again.';
+                setAiError(msg);
+            }).finally(() => setAiLoading(false));
+        }
     }, [aiTopic, aiPrompt, aiPlatform, differentContentPerPlatform, platforms]);
 
     // Persist composer draft when state changes (debounced; shorter delay when only media changed so carousel keeps all images after upload)
@@ -614,7 +634,11 @@ export default function ComposerPage() {
                                     rows={2}
                                     className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
                                 />
-                                {platforms.length > 0 && (
+                                {differentContentPerPlatform && platforms.length > 0 ? (
+                                    <p className="mt-3 text-sm text-neutral-600">
+                                        We&apos;ll generate a separate description for each selected platform: {platforms.map((p) => PLATFORM_LABELS[p] ?? p).join(', ')}.
+                                    </p>
+                                ) : platforms.length > 0 ? (
                                     <>
                                         <label className="mt-3 block text-sm font-medium text-neutral-700">Platform (optional)</label>
                                         <select
@@ -628,8 +652,11 @@ export default function ComposerPage() {
                                             ))}
                                         </select>
                                     </>
-                                )}
+                                ) : null}
                                 {aiError && <p className="mt-2 text-sm text-red-600">{aiError}</p>}
+                                {aiLoading && differentContentPerPlatform && platforms.length > 1 && (
+                                    <p className="mt-2 text-sm text-neutral-500">Generating for {platforms.length} platforms…</p>
+                                )}
                                 <div className="mt-6 flex flex-wrap justify-end gap-3">
                                     <button type="button" onClick={() => !aiLoading && setAiModalOpen(false)} className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50">Cancel</button>
                                     <button type="button" onClick={handleAiGenerate} disabled={aiLoading} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">

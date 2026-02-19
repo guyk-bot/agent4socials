@@ -47,6 +47,17 @@ function cleanGeneratedText(text: string): string {
     .trim();
 }
 
+function getPlatformHint(platform: string): string {
+  const p = platform.toUpperCase();
+  if (p === 'TWITTER') return 'Keep it concise (under 280 characters works best). Hashtags and a clear CTA work well.';
+  if (p === 'LINKEDIN') return 'Professional tone. One to three short paragraphs. Suitable for a business audience.';
+  if (p === 'INSTAGRAM') return 'Engaging and visual. Line breaks and a few hashtags work well.';
+  if (p === 'FACEBOOK') return 'Conversational. One or two short paragraphs.';
+  if (p === 'TIKTOK') return 'Casual and punchy. Short lines. Hook in the first line.';
+  if (p === 'YOUTUBE') return 'Descriptive but concise. Good for video captions or community posts.';
+  return '';
+}
+
 export async function POST(request: NextRequest) {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey?.trim()) {
@@ -81,7 +92,8 @@ export async function POST(request: NextRequest) {
   }
 
   const systemPrompt = buildSystemPrompt(brand);
-  const userContent = [topic && `Topic: ${topic}`, prompt && `Instructions: ${prompt}`, platform && `Platform: ${platform}`]
+  const platformHint = platform ? getPlatformHint(platform) : '';
+  const userContent = [topic && `Topic: ${topic}`, prompt && `Instructions: ${prompt}`, platform && `Platform: ${platform}${platformHint ? `. ${platformHint}` : ''}`]
     .filter(Boolean)
     .join('\n') || 'Write a short social post that fits my brand.';
 
