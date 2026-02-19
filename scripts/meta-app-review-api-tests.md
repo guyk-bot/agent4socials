@@ -6,6 +6,36 @@ Meta requires **at least 1 successful API call** for each of these before you ca
 2. **instagram_business_manage_insights**
 3. **instagram_business_manage_comments**
 
+If App Review shows **"0 of 1 API call(s) required"** for the two Instagram scopes, run the tests below so Meta records the usage. Then refresh the Review → Testing page after a few minutes.
+
+---
+
+## Quick run (recommended)
+
+**Using tokens from your app (Instagram account connected in Agent4socials):**
+
+1. Use an Instagram token that has both scopes. In the app: **Dashboard** → left sidebar under **Instagram**, click **"Connect with Instagram only"** (if you already have an Instagram connected via Facebook, this option appears below your account). That flow requests insights + comments. If you don’t see that option, click **Instagram** (with the +) in the sidebar when no Instagram is connected, then choose the first card **"Connect with Instagram only"**. If you connected earlier without the comments scope, use **"Connect with Instagram only"** again to get a new token.
+2. From the repo root:
+   ```bash
+   node apps/web/scripts/run-meta-app-review-tests.js
+   ```
+   Or from `apps/web`: `node scripts/run-meta-app-review-tests.js`  
+   Requires `DATABASE_URL` in `apps/web/.env`.
+3. You should see "OK" for each of the 3 tests. Wait a few minutes, then refresh **App Dashboard → App Review → Testing**; "0 of 1" should become "1 of 1" for each scope.
+
+**Using env tokens (no DB):**
+
+```bash
+GRAPH_TEST_TOKEN=your_user_token node scripts/run-meta-app-review-tests.js
+INSTAGRAM_TOKEN=your_instagram_token IG_USER_ID=your_ig_user_id node scripts/run-meta-app-review-tests.js
+```
+
+Get the Instagram token and IG User ID from [Graph API Explorer](https://developers.facebook.com/tools/explorer/) (see manual steps below).
+
+---
+
+## Manual steps (Graph API Explorer)
+
 Use **Graph API Explorer**: https://developers.facebook.com/tools/explorer/
 
 ---

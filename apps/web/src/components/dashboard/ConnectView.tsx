@@ -91,12 +91,12 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
               <InstagramIcon size={24} />
               <span className="text-xs font-semibold text-neutral-500 uppercase">Limited access</span>
             </div>
-            <span className="font-semibold text-neutral-900">Connect via Instagram</span>
+            <span className="font-semibold text-neutral-900">Connect with Instagram only</span>
+            <p className="text-xs text-neutral-500 mt-0.5">No Facebook Page required</p>
             <ul className="mt-3 space-y-2 text-sm text-neutral-600">
-              <li className="flex items-center gap-2"><Check size={14} className="text-green-600 shrink-0" /> Only basic metrics</li>
-              <li className="flex items-center gap-2"><Minus size={14} className="text-neutral-400 shrink-0" /> Access to inbox</li>
-              <li className="flex items-center gap-2"><Minus size={14} className="text-neutral-400 shrink-0" /> Competitor analysis</li>
-              <li className="flex items-center gap-2"><Minus size={14} className="text-neutral-400 shrink-0" /> Tag products</li>
+              <li className="flex items-center gap-2"><Check size={14} className="text-green-600 shrink-0" /> Insights (for Meta App Review)</li>
+              <li className="flex items-center gap-2"><Check size={14} className="text-green-600 shrink-0" /> Comments / messages</li>
+              <li className="flex items-center gap-2"><Minus size={14} className="text-neutral-400 shrink-0" /> No competitor analysis</li>
             </ul>
             <span className="mt-4 btn-primary inline-flex justify-center gap-2 py-2.5 text-sm w-full">
               {connecting && connectingMethod === 'instagram' ? <Loader2 size={18} className="animate-spin" /> : 'Connect'}

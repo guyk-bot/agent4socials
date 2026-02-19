@@ -18,7 +18,7 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
     case 'INSTAGRAM':
       if (method === 'instagram') {
         const igClientId = process.env.INSTAGRAM_APP_ID || process.env.META_APP_ID;
-        const scope = 'instagram_business_basic,instagram_business_content_publish,instagram_business_manage_messages,instagram_business_manage_insights';
+        const scope = 'instagram_business_basic,instagram_business_content_publish,instagram_business_manage_messages,instagram_business_manage_insights,instagram_business_manage_comments';
         const redirectUri = (process.env.INSTAGRAM_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
         return `https://www.instagram.com/oauth/authorize?client_id=${igClientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&state=${encodeURIComponent(state)}`;
       }
