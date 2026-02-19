@@ -2,12 +2,9 @@
 
 ## "The column contentByPlatform does not exist"
 
-This means the production database is missing columns added by a Prisma migration. The build now runs **`prisma migrate deploy`** so the next deploy will apply any pending migrations.
+This means the production database is missing columns added by a Prisma migration. Migrations are **not** run during Vercel build (to avoid slow or stuck builds with the DB pooler). Run them from your machine when you add or change schema:
 
-**What you need:**
-- **DATABASE_URL** must be set in Vercel (Settings → Environment Variables) for the **Production** environment so migrations run during build.
-
-**If you can't redeploy yet** – run migrations once from your machine:
+**Run migrations (fixes missing columns):**
 
 ```bash
 cd apps/web
