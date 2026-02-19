@@ -49,7 +49,7 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
       </button>
       <div 
         className={`px-4 sm:px-6 text-slate-400 text-sm sm:text-base leading-relaxed overflow-hidden transition-all duration-300 ease-in-out ${
-          isOpen ? 'max-h-48 pb-6 opacity-100' : 'max-h-0 opacity-0'
+          isOpen ? 'max-h-[28rem] pb-6 opacity-100' : 'max-h-0 opacity-0'
         }`}
       >
         <div className="pl-8">{answer}</div>
@@ -97,7 +97,7 @@ export default function Home() {
               <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4 fill-emerald-400/20" />
               <span>7-day free trial</span>
               <span className="text-slate-600">|</span>
-              <span className="text-slate-400">$2.99/mo after</span>
+              <span className="text-slate-400">Plans from $12/mo</span>
             </div>
             
             <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl xl:text-[5rem] leading-[1.1]">
@@ -111,8 +111,8 @@ export default function Home() {
             </h1>
             
             <p className="mx-auto mt-8 max-w-2xl text-lg sm:text-xl leading-relaxed text-slate-400 px-2 font-medium">
-              One dashboard for Instagram, YouTube, TikTok, Facebook, Twitter & LinkedIn. 
-              <span className="block mt-1 text-slate-500">Schedule posts, auto-reply to comments, manage DMs, and track analytics.</span>
+              One dashboard for Instagram, YouTube, TikTok, Facebook, Twitter and LinkedIn.
+              <span className="block mt-1 text-slate-500">Schedule posts, automate comment and DM replies, manage your inbox, and grow with AI-powered captions.</span>
             </p>
             
             <div className="mt-10 sm:mt-12 flex flex-col items-stretch sm:items-center justify-center gap-4 sm:flex-row">
@@ -166,7 +166,7 @@ export default function Home() {
               Everything you need to grow
             </h2>
             <p className="mx-auto mt-6 max-w-2xl text-center text-lg text-slate-400">
-              Powerful tools designed to save you time and boost your engagement.
+              Scheduling, analytics, unified inbox, keyword and DM automation, and AI-powered captions. All in one place.
             </p>
             <div className="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-3 md:max-w-5xl md:mx-auto">
               <div className="group relative rounded-3xl border border-slate-800 bg-slate-900/50 p-8 transition-all hover:border-emerald-500/30 hover:shadow-2xl hover:shadow-emerald-500/5 hover:-translate-y-1">
@@ -290,26 +290,38 @@ export default function Home() {
 
         {/* Product detail */}
         <section id="product" className="border-t border-slate-800/80 py-16 sm:py-24 md:py-32">
-          <div className="mx-auto max-w-5xl px-4 sm:px-6">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_60%_at_50%_50%,rgba(16,185,129,0.03),transparent)] pointer-events-none" />
+          <div className="mx-auto max-w-5xl px-4 sm:px-6 relative z-10">
             <h2 className="text-center text-2xl font-bold sm:text-3xl md:text-4xl lg:text-5xl">
               One product, everything you need
             </h2>
             <p className="mx-auto mt-4 sm:mt-5 max-w-2xl text-center text-base sm:text-lg text-slate-400">
-              No juggling multiple tools. One login, all platforms.
+              No juggling multiple tools. One login, all platforms. Scale from solo creator to agency.
             </p>
-            <ul className="mx-auto mt-10 sm:mt-14 max-w-2xl space-y-4 sm:space-y-5 text-slate-300">
+            <div className="mt-12 sm:mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 max-w-4xl mx-auto">
               {[
-                'Schedule posts to Instagram, YouTube, TikTok, Facebook, Twitter and LinkedIn from a single calendar',
-                'Analytics: views, likes, comments, followers, subscribers in one dashboard',
-                'Unified inbox: view and reply to DMs from Instagram, Facebook and X in one place',
-                'Comment automation: auto-reply when people comment a keyword; set different reply text per platform; optional welcome DMs',
-                'Hashtag pool: save and reuse hashtag sets for your posts',
-                'AI Assistant: brand voice and AI-suggested captions in the Composer',
-                'White-label: upload your logo and colors so it looks like your brand',
+                { title: 'Publish everywhere', desc: 'Schedule to Instagram, YouTube, TikTok, Facebook, Twitter and LinkedIn from one calendar. Draft once, pick time and accounts, and go live.' },
+                { title: 'Analytics that matter', desc: 'Views, likes, comments, followers and subscribers in one dashboard. See what works and double down.' },
+                { title: 'Unified inbox', desc: 'View and reply to DMs from Instagram, Facebook and X in one place. No more app hopping.' },
+                { title: 'Smart automation', desc: 'Keyword comment replies (with different text per platform), welcome DMs, and new-follower messages. Set it per post or account-wide.' },
+                { title: 'Hashtag pool & AI', desc: 'Save hashtag sets and reuse them. Set your brand voice and get AI-suggested captions in the Composer.' },
+                { title: 'White-label (Agency)', desc: 'Upload your logo and colors so the dashboard looks like your brand. Multiple workspaces and team members on higher plans.' },
               ].map((item, i) => (
-                <li key={i} className="flex items-start gap-4 rounded-xl py-2">
-                  <Check className="mt-0.5 h-6 w-6 shrink-0 text-emerald-500" />
-                  <span className="text-base leading-relaxed">{item}</span>
+                <div key={i} className="rounded-2xl border border-slate-700/60 bg-slate-800/30 p-5 sm:p-6 text-left hover:border-slate-600 hover:bg-slate-800/50 transition-all">
+                  <h3 className="font-semibold text-slate-100 text-lg">{item.title}</h3>
+                  <p className="mt-2 text-sm text-slate-400 leading-relaxed">{item.desc}</p>
+                </div>
+              ))}
+            </div>
+            <ul className="mx-auto mt-14 max-w-2xl space-y-3 text-slate-300 text-sm sm:text-base">
+              {[
+                'All plans include scheduling, basic analytics, unified inbox, and AI assistant (generations vary by plan).',
+                'Keyword comment automation and higher limits on Growth and Agency.',
+                'Agency adds multiple brands, team members, white-label, and priority support.',
+              ].map((item, i) => (
+                <li key={i} className="flex items-start gap-3">
+                  <Check className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
+                  <span>{item}</span>
                 </li>
               ))}
             </ul>
@@ -320,40 +332,35 @@ export default function Home() {
         <section className="border-t border-slate-800/80 bg-slate-900/40 py-16 sm:py-24 md:py-32">
           <div className="mx-auto max-w-5xl px-4 sm:px-6">
             <h2 className="text-center text-2xl font-bold sm:text-3xl md:text-4xl lg:text-5xl">
-              Simple, transparent pricing
+              Plans for every stage
             </h2>
             <p className="mx-auto mt-4 sm:mt-5 max-w-xl text-center text-base sm:text-lg text-slate-400">
-              7-day free trial, then $2.99/month. No hidden fees. Cancel anytime.
+              7-day free trial on any plan. Yearly billing saves 19%. No hidden fees.
             </p>
-            <div className="mt-10 sm:mt-16 flex flex-col items-stretch sm:items-center justify-center gap-6 sm:gap-8 sm:flex-row">
-              <div className="w-full max-w-sm mx-auto rounded-2xl border-2 border-emerald-500/50 bg-slate-800/50 p-6 sm:p-8 text-center shadow-xl shadow-emerald-500/10 transition-all hover:border-emerald-500/70 hover:shadow-emerald-500/20">
-                <p className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-emerald-400">7-day free trial</p>
-                <p className="mt-2 sm:mt-3 text-3xl sm:text-4xl font-bold">$2.99<span className="text-lg sm:text-xl font-normal text-slate-400">/mo</span></p>
-                <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-slate-400">Billed monthly after trial</p>
-                <button
-                  type="button"
-                  onClick={openSignup}
-                  className="mt-5 sm:mt-6 w-full rounded-xl bg-emerald-500 py-3 sm:py-3.5 font-semibold text-white transition-all hover:bg-emerald-400 active:scale-[0.98] sm:hover:-translate-y-0.5"
-                >
-                  Start 7-day free trial
-                </button>
+            <div className="mt-12 grid gap-6 sm:grid-cols-3 max-w-4xl mx-auto">
+              <div className="rounded-2xl border border-slate-700 bg-slate-800/40 p-5 sm:p-6 text-center">
+                <p className="text-xs font-semibold uppercase tracking-wider text-emerald-400">Creator</p>
+                <p className="mt-2 text-2xl font-bold">$12<span className="text-slate-400 font-normal text-base">/mo</span></p>
+                <p className="mt-1 text-xs text-slate-500">5 accounts, scheduling, inbox, 100 DM automations, AI (30/mo)</p>
+                <Link href="/pricing" className="mt-4 inline-block w-full rounded-xl border border-slate-600 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-slate-700">View plan</Link>
               </div>
-              <div className="w-full max-w-sm mx-auto rounded-2xl border border-slate-700 bg-slate-800/40 p-6 sm:p-8 text-center transition-all hover:border-slate-600 hover:bg-slate-800/60">
-                <p className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-slate-400">Yearly</p>
-                <p className="mt-2 sm:mt-3 text-3xl sm:text-4xl font-bold">$19.99<span className="text-lg sm:text-xl font-normal text-slate-400">/yr</span></p>
-                <p className="mt-1 sm:mt-2 text-xs sm:text-sm font-medium text-emerald-400">Save ~44%</p>
-                <button
-                  type="button"
-                  onClick={openSignup}
-                  className="mt-5 sm:mt-6 w-full rounded-xl border border-slate-600 py-3 sm:py-3.5 font-semibold text-white transition-all hover:bg-slate-700 active:scale-[0.98]"
-                >
-                  Start 7-day free trial
-                </button>
+              <div className="rounded-2xl border-2 border-sky-500/50 bg-slate-800/60 p-5 sm:p-6 text-center relative">
+                <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-sky-500 px-2 py-0.5 text-[10px] font-semibold text-white">Popular</span>
+                <p className="text-xs font-semibold uppercase tracking-wider text-sky-400">Growth</p>
+                <p className="mt-2 text-2xl font-bold">$24<span className="text-slate-400 font-normal text-base">/mo</span></p>
+                <p className="mt-1 text-xs text-slate-500">15 accounts, advanced analytics, keyword automations, 1K DM actions, AI (150/mo)</p>
+                <Link href="/pricing" className="mt-4 inline-block w-full rounded-xl bg-sky-500 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-400">View plan</Link>
+              </div>
+              <div className="rounded-2xl border border-slate-700 bg-slate-800/40 p-5 sm:p-6 text-center">
+                <p className="text-xs font-semibold uppercase tracking-wider text-violet-400">Agency</p>
+                <p className="mt-2 text-2xl font-bold">$59<span className="text-slate-400 font-normal text-base">/mo</span></p>
+                <p className="mt-1 text-xs text-slate-500">Multiple brands, 3 team members, white-label, AI (500+/mo), priority support</p>
+                <Link href="/pricing" className="mt-4 inline-block w-full rounded-xl border border-violet-500/50 py-2.5 text-sm font-semibold text-violet-300 transition hover:bg-violet-500/10">View plan</Link>
               </div>
             </div>
             <p className="mt-10 text-center">
               <Link href="/pricing" className="text-emerald-400 font-medium hover:text-emerald-300 hover:underline">
-                View full pricing and features →
+                Compare all features and yearly pricing →
               </Link>
             </p>
           </div>
@@ -396,7 +403,11 @@ export default function Home() {
                 },
                 {
                   q: 'Is there a free trial?',
-                  a: 'Yes. You get a 7-day free trial to explore scheduling, automation, inbox and analytics. No credit card required to start.',
+                  a: 'Yes. You get a 7-day free trial on any plan (Creator, Growth, or Agency) to explore scheduling, automation, inbox and analytics. No credit card required to start.',
+                },
+                {
+                  q: 'Which plan is right for me?',
+                  a: 'Creator ($12/mo) is for solo creators and small businesses: 5 accounts, scheduling, basic analytics, inbox, 100 DM automations, and 30 AI generations per month. Growth ($24/mo) adds 15 accounts, advanced analytics, keyword automations, 1,000 DM actions, and 150 AI generations. Agency ($59/mo) is for teams: multiple brands, 3 team members, white-label, higher limits, and priority support. Yearly billing saves 19%.',
                 },
               ].map((item, i) => (
                 <FaqItem key={i} question={item.q} answer={item.a} />
