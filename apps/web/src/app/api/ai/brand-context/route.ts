@@ -65,11 +65,10 @@ export async function PUT(request: NextRequest) {
     additionalContext: truncate(body.additionalContext, MAX_LENGTH.additionalContext),
   };
   try {
-    const brandContext = await prisma.brandContext.upsert({
-      where: { userId },
-      create: { userId, ...data },
-      update: data,
-    });
+    const existing = await prisma.brandContext.findUnique({ where: { userId } });
+    const brandContext = existing
+      ? await prisma.brandContext.update({ where: { userId }, data })
+      : await prisma.brandContext.create({ data: { userId, ...data } });
     return NextResponse.json(brandContext);
   } catch (e) {
     console.error('[Brand context PUT]', e);

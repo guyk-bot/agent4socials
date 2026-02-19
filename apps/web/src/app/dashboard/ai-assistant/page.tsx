@@ -60,24 +60,44 @@ export default function AIAssistantPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const savePayload = () => ({
+    targetAudience: form.targetAudience || null,
+    toneOfVoice: form.toneOfVoice || null,
+    toneExamples: form.toneExamples || null,
+    productDescription: form.productDescription || null,
+    additionalContext: form.additionalContext || null,
+  });
+
   const handleSave = () => {
     setSaving(true);
     setMessage(null);
-    api
-      .put('/ai/brand-context', {
-        targetAudience: form.targetAudience || null,
-        toneOfVoice: form.toneOfVoice || null,
-        toneExamples: form.toneExamples || null,
-        productDescription: form.productDescription || null,
-        additionalContext: form.additionalContext || null,
-      })
+    let willRetry = false;
+    const doPut = () => api.put('/ai/brand-context', savePayload());
+    doPut()
       .then(() => setMessage({ type: 'success', text: 'Brand context saved. You can use "Generate with AI" in the Composer.' }))
       .catch((err: { response?: { data?: { message?: string }; status?: number }; message?: string }) => {
+        const status = err.response?.status;
         const msg = err.response?.data?.message
-          || (err.response?.status === 401 ? 'Please log in again.' : err.response?.status === 503 ? 'Service unavailable. Try again later.' : err.response?.status === 500 ? 'Server error. Try again in a moment or log out and back in.' : err.message || 'Failed to save. Check your connection and try again.');
-        setMessage({ type: 'error', text: msg });
+          || (status === 401 ? 'Please log in again.' : status === 503 ? 'Service unavailable. Try again later.' : status === 500 ? 'Server error. Try again in a moment or log out and back in.' : err.message || 'Failed to save. Check your connection and try again.');
+        if ((status === 500 || status === undefined) && !willRetry) {
+          willRetry = true;
+          setMessage({ type: 'error', text: msg + ' Retrying once in a moment…' });
+          window.setTimeout(() => {
+            doPut()
+              .then(() => setMessage({ type: 'success', text: 'Brand context saved. You can use "Generate with AI" in the Composer.' }))
+              .catch((retryErr: { response?: { data?: { message?: string }; status?: number }; message?: string }) => {
+                const retryMsg = retryErr.response?.data?.message || retryErr.message || msg;
+                setMessage({ type: 'error', text: retryMsg + ' Click "Save brand context" again to retry.' });
+              })
+              .finally(() => setSaving(false));
+          }, 2000);
+          return;
+        }
+        setMessage({ type: 'error', text: msg + (status === 401 ? '' : ' Click "Save brand context" again to retry.') });
       })
-      .finally(() => setSaving(false));
+      .finally(() => {
+        if (!willRetry) setSaving(false);
+      });
   };
 
   if (loading) {
@@ -108,7 +128,17 @@ export default function AIAssistantPage() {
             message.type === 'success' ? 'bg-green-50 text-green-800' : message.type === 'warning' ? 'bg-amber-50 text-amber-800' : 'bg-red-50 text-red-800'
           }`}
         >
-          {message.text}
+          <p>{message.text}</p>
+          {message.type === 'error' && (
+            <button
+              type="button"
+              onClick={() => handleSave()}
+              disabled={saving}
+              className="mt-3 px-3 py-1.5 rounded-lg bg-red-100 hover:bg-red-200 text-red-800 text-sm font-medium disabled:opacity-50"
+            >
+              {saving ? 'Saving…' : 'Try again'}
+            </button>
+          )}
         </div>
       )}
 
