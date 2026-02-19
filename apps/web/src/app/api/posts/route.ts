@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     targets?: { platform: string; socialAccountId: string }[];
     scheduledAt?: string | null;
     scheduleDelivery?: 'auto' | 'email_links' | null;
-    commentAutomation?: { keywords: string[]; replyTemplate: string; usePrivateReply?: boolean } | null;
+    commentAutomation?: { keywords: string[]; replyTemplate?: string; replyTemplateByPlatform?: Record<string, string>; usePrivateReply?: boolean } | null;
   };
   try {
     body = await request.json();
