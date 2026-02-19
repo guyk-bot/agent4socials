@@ -13,6 +13,7 @@ import {
     ChevronRight,
     Plus,
     MessageCircle,
+    Sparkles,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -207,6 +208,14 @@ export default function Sidebar() {
         >
           <Hash size={18} className="shrink-0" />
           <span>Hashtag Pool</span>
+        </Link>
+        <Link
+          href="/dashboard/ai-assistant"
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${pathname === '/dashboard/ai-assistant' ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
+          style={pathname === '/dashboard/ai-assistant' ? { color: accent } : undefined}
+        >
+          <Sparkles size={18} className="shrink-0" />
+          <span>AI Assistant</span>
         </Link>
         <Link
           href="/dashboard/settings"

@@ -13,8 +13,11 @@ import {
     Plus,
     Hash,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    Sparkles,
+    Loader2,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
 
@@ -112,6 +115,15 @@ export default function ComposerPage() {
     const [commentAutomationReplyTemplate, setCommentAutomationReplyTemplate] = useState('');
     const [commentAutomationUsePrivateReply, setCommentAutomationUsePrivateReply] = useState(false);
 
+    // AI description (optional): generate copy from brand context
+    const [aiModalOpen, setAiModalOpen] = useState(false);
+    const [aiTopic, setAiTopic] = useState('');
+    const [aiPrompt, setAiPrompt] = useState('');
+    const [aiPlatform, setAiPlatform] = useState('');
+    const [aiLoading, setAiLoading] = useState(false);
+    const [aiError, setAiError] = useState<string | null>(null);
+    const [hasBrandContext, setHasBrandContext] = useState<boolean | null>(null);
+
     useEffect(() => {
         try {
             const raw = typeof window !== 'undefined' ? localStorage.getItem(HASHTAG_POOL_KEY) : null;
@@ -180,6 +192,45 @@ export default function ComposerPage() {
             localStorage.removeItem(COMPOSER_DRAFT_KEY);
         } catch (_) { /* ignore */ }
     }, []);
+
+    const openAiModal = useCallback(() => {
+        setAiError(null);
+        setAiTopic('');
+        setAiPrompt('');
+        setAiPlatform(platforms[0] || '');
+        setAiModalOpen(true);
+        api.get('/ai/brand-context').then((res) => {
+            const data = res.data;
+            setHasBrandContext(!!(data && typeof data === 'object' && (data.targetAudience ?? data.toneOfVoice ?? data.productDescription)));
+        }).catch(() => setHasBrandContext(false));
+    }, [platforms]);
+
+    const handleAiGenerate = useCallback(() => {
+        if (!aiTopic.trim()) {
+            setAiError('Describe what this post is about.');
+            return;
+        }
+        setAiLoading(true);
+        setAiError(null);
+        api.post('/ai/generate-description', {
+            topic: aiTopic.trim(),
+            prompt: aiPrompt.trim() || undefined,
+            platform: aiPlatform || undefined,
+        }).then((res) => {
+            const text = res.data?.content ?? '';
+            if (differentContentPerPlatform && aiPlatform && platforms.includes(aiPlatform)) {
+                setContentByPlatform((prev) => ({ ...prev, [aiPlatform]: text }));
+            } else if (!differentContentPerPlatform) {
+                setContent(text);
+            } else {
+                setContent(text);
+            }
+            setAiModalOpen(false);
+        }).catch((err) => {
+            const msg = err.response?.data?.message ?? 'Failed to generate. Try again.';
+            setAiError(msg);
+        }).finally(() => setAiLoading(false));
+    }, [aiTopic, aiPrompt, aiPlatform, differentContentPerPlatform, platforms]);
 
     // Persist composer draft when state changes (debounced; shorter delay when only media changed so carousel keeps all images after upload)
     const mediaSignature = mediaList.map((m) => m.fileUrl).join('|');
@@ -535,6 +586,68 @@ export default function ComposerPage() {
                 variant="alert"
                 confirmLabel="OK"
             />
+            {aiModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+                    <div className="absolute inset-0 bg-neutral-900/50 backdrop-blur-sm" onClick={() => !aiLoading && setAiModalOpen(false)} aria-hidden="true" />
+                    <div className="relative w-full max-w-md rounded-xl border border-neutral-200 bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+                        <h3 className="text-lg font-semibold text-neutral-900">Generate with AI</h3>
+                        {hasBrandContext === false && (
+                            <p className="mt-2 text-sm text-amber-700 bg-amber-50 rounded-lg p-3">
+                                Set up your brand context first in <Link href="/dashboard/ai-assistant" className="underline font-medium">Dashboard → AI Assistant</Link> so the AI can match your voice and audience.
+                            </p>
+                        )}
+                        {hasBrandContext === true && (
+                            <>
+                                <label className="mt-4 block text-sm font-medium text-neutral-700">What&apos;s this post about?</label>
+                                <input
+                                    type="text"
+                                    value={aiTopic}
+                                    onChange={(e) => setAiTopic(e.target.value)}
+                                    placeholder="e.g. New feature launch, tip of the week"
+                                    className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                                />
+                                <label className="mt-3 block text-sm font-medium text-neutral-700">Extra instructions (optional)</label>
+                                <textarea
+                                    value={aiPrompt}
+                                    onChange={(e) => setAiPrompt(e.target.value)}
+                                    placeholder="e.g. Keep it under 150 chars, add a CTA"
+                                    rows={2}
+                                    className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                                />
+                                {platforms.length > 0 && (
+                                    <>
+                                        <label className="mt-3 block text-sm font-medium text-neutral-700">Platform (optional)</label>
+                                        <select
+                                            value={aiPlatform}
+                                            onChange={(e) => setAiPlatform(e.target.value)}
+                                            className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                                        >
+                                            <option value="">Any</option>
+                                            {platforms.map((p) => (
+                                                <option key={p} value={p}>{PLATFORM_LABELS[p] ?? p}</option>
+                                            ))}
+                                        </select>
+                                    </>
+                                )}
+                                {aiError && <p className="mt-2 text-sm text-red-600">{aiError}</p>}
+                                <div className="mt-6 flex flex-wrap justify-end gap-3">
+                                    <button type="button" onClick={() => !aiLoading && setAiModalOpen(false)} className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50">Cancel</button>
+                                    <button type="button" onClick={handleAiGenerate} disabled={aiLoading} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
+                                        {aiLoading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+                                        Generate
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                        {hasBrandContext === null && (
+                            <div className="mt-4 flex items-center gap-2 text-neutral-500">
+                                <Loader2 size={18} className="animate-spin" />
+                                <span className="text-sm">Checking brand context…</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
             <div>
                 <h1 className="text-2xl font-bold text-neutral-900">Create Post</h1>
                 <p className="text-neutral-500 mt-1">Draft, preview and schedule your content across platforms.</p>
@@ -746,6 +859,17 @@ export default function ComposerPage() {
                             />
                             <span className="text-sm text-neutral-700">Use different content per platform</span>
                         </label>
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={openAiModal}
+                                className="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-sm font-medium transition-colors"
+                            >
+                                <Sparkles size={16} />
+                                Generate with AI
+                            </button>
+                            <span className="text-xs text-neutral-500">Optional. Set brand context in Dashboard → AI Assistant first.</span>
+                        </div>
                         {!differentContentPerPlatform ? (
                             <textarea
                                 value={content}

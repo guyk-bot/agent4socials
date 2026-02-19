@@ -24,6 +24,20 @@ model User {
   socialAccounts     SocialAccount[]
   posts              Post[]
   automationSettings AutomationSettings?
+  brandContext       BrandContext?
+}
+
+model BrandContext {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetAudience      String?  // Who you're writing for (demographics, interests)
+  toneOfVoice         String?  // e.g. professional, casual, playful
+  toneExamples        String?  // Example phrases or posts that match the desired tone
+  productDescription  String?  // What you sell or offer
+  additionalContext   String?  // Any other info for the AI (brand values, keywords, etc.)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
 enum Platform {
