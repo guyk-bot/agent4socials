@@ -181,7 +181,9 @@ export default function ComposerPage() {
         } catch (_) { /* ignore */ }
     }, []);
 
-    // Persist composer draft when state changes (debounced)
+    // Persist composer draft when state changes (debounced; shorter delay when only media changed so carousel keeps all images after upload)
+    const mediaSignature = mediaList.map((m) => m.fileUrl).join('|');
+    const debounceMs = mediaList.some((m) => isPersistableMediaUrl(m.fileUrl)) ? 150 : 400;
     useEffect(() => {
         if (!draftRestored) return;
         const t = setTimeout(() => {
@@ -213,7 +215,7 @@ export default function ComposerPage() {
                 };
                 localStorage.setItem(COMPOSER_DRAFT_KEY, JSON.stringify(draft));
             } catch (_) { /* ignore */ }
-        }, 400);
+        }, debounceMs);
         return () => clearTimeout(t);
     }, [
         draftRestored,
@@ -234,6 +236,8 @@ export default function ComposerPage() {
         commentAutomationKeywords,
         commentAutomationReplyTemplate,
         commentAutomationUsePrivateReply,
+        mediaSignature,
+        debounceMs,
     ]);
 
     useEffect(() => {
