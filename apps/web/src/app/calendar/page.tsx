@@ -162,7 +162,7 @@ export default function CalendarPage() {
                         <li>In Composer, choose &quot;Email me a link when it&apos;s time&quot; for the post.</li>
                     </ul>
                     <p className="mt-2 text-green-700">Without the cron, no email is sent (Resend will show no sent emails).</p>
-                    <p className="mt-2 text-green-800 text-xs">Not getting the email? Check: (1) Post scheduled time has already passed. (2) <strong>CRON_SECRET</strong> is set in Vercel and matches your cron job exactly. (3) An external cron (e.g. <a href="https://cron-job.org" target="_blank" rel="noopener noreferrer" className="underline">cron-job.org</a>) calls the endpoint every 1–5 min (Vercel Cron on free tier runs only once/day). (4) Resend: API key valid and sender domain verified. See <code className="bg-green-100 px-1 rounded">docs/EMAIL_SCHEDULING_SETUP.md</code> for details.</p>
+                    <p className="mt-2 text-green-800 text-xs">Not getting the email? Check: (1) <strong>RESEND_FROM_EMAIL</strong> in Vercel matches your verified domain exactly (e.g. agent4socials.com, not agent4social.com). (2) Post scheduled time has already passed. (3) CRON_SECRET set and external cron (e.g. cron-job.org) calls the endpoint every 1–5 min. (4) Test with: <code className="bg-green-100 px-1 rounded">/api/cron/test-email?to=your@email.com</code> plus X-Cron-Secret header. See <code className="bg-green-100 px-1 rounded">docs/EMAIL_SCHEDULING_SETUP.md</code>.</p>
                 </div>
             )}
 

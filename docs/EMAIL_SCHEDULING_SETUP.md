@@ -16,14 +16,26 @@ curl -X GET "https://agent4socials.com/api/cron/process-scheduled" \
 
 When you schedule a post and choose **"Email me a link per platform"**, the app sends you an email at the scheduled time with a link to open your post and publish manually to each platform.
 
+## Test Resend before scheduling
+
+Verify Resend works without waiting for a scheduled post:
+
+```bash
+curl -X GET "https://YOUR_DOMAIN/api/cron/test-email?to=YOUR_EMAIL" \
+  -H "X-Cron-Secret: YOUR_CRON_SECRET"
+```
+
+If you get `"ok": true`, check your inbox (and spam). If `"ok": false`, the `error` field shows the problem (e.g. domain not verified).
+
 ## Why emails might not arrive
 
-1. **CRON_SECRET not set** – The cron endpoint requires this header. Add `CRON_SECRET` to Vercel Environment Variables (use a long random string, e.g. `openssl rand -hex 32`).
-2. **No cron hitting the endpoint** – Something must call `/api/cron/process-scheduled` when posts are due. Options:
+1. **RESEND_FROM_EMAIL typo** – Use the **verified** domain exactly. If you verified `agent4socials.com` in Resend, the sender must be `guyk@agent4socials.com` (with the "s"). A typo like `agent4social.com` will fail silently in Resend’s dashboard.
+2. **CRON_SECRET not set** – The cron endpoint requires this header. Add `CRON_SECRET` to Vercel Environment Variables (use a long random string, e.g. `openssl rand -hex 32`).
+3. **No cron hitting the endpoint** – Something must call `/api/cron/process-scheduled` when posts are due. Options:
    - **cron-job.org (free):** Create a job that calls `https://YOUR_DOMAIN/api/cron/process-scheduled` every 1–5 minutes with header `X-Cron-Secret: YOUR_CRON_SECRET`.
-   - **Vercel Cron (Pro):** The `vercel.json` cron runs automatically but only once per day on the Hobby plan. For frequent runs, use cron-job.org.
-3. **RESEND_API_KEY not set** – Add your Resend API key to Vercel. Verify your sender domain in Resend Dashboard.
-4. **Scheduled time in the future** – The cron only processes posts whose `scheduledAt` has already passed.
+   - **Vercel Cron (Pro):** The `vercel.json` cron runs only once per day on the Hobby plan. For frequent runs, use cron-job.org.
+4. **RESEND_API_KEY not set** – Add your Resend API key to Vercel. Ensure the key belongs to the same Resend project where you verified the domain.
+5. **Scheduled time in the future** – The cron only processes posts whose `scheduledAt` has already passed.
 
 ## Quick test
 
