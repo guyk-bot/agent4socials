@@ -1,5 +1,19 @@
 # Email Scheduling Setup ("Email me a link" option)
 
+## Reset stuck posts (emails never sent)
+
+If you have posts marked as "sent" but Resend shows no emails (due to a previous bug), reset them and re-send:
+
+```bash
+# 1. Reset the stuck posts (clears scheduleEmailSentAt so they can be re-processed)
+curl -X POST "https://agent4socials.com/api/cron/reset-email-posts" \
+  -H "X-Cron-Secret: YOUR_CRON_SECRET"
+
+# 2. Trigger the cron to actually send the emails
+curl -X GET "https://agent4socials.com/api/cron/process-scheduled" \
+  -H "X-Cron-Secret: YOUR_CRON_SECRET"
+```
+
 When you schedule a post and choose **"Email me a link per platform"**, the app sends you an email at the scheduled time with a link to open your post and publish manually to each platform.
 
 ## Why emails might not arrive

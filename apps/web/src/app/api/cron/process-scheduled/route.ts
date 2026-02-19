@@ -91,7 +91,6 @@ async function processScheduled(request: NextRequest) {
         data: {
           emailOpenToken: token,
           emailOpenTokenExpiresAt: expiresAt,
-          scheduleEmailSentAt: now,
         },
       });
       const openLink = `${baseUrl()}/post/${post.id}/open?t=${encodeURIComponent(token)}`;
@@ -101,6 +100,12 @@ async function processScheduled(request: NextRequest) {
         continue;
       }
       const sendResult = await sendScheduledPostLinksEmail(userEmail, openLink);
+      if (sendResult.ok) {
+        await prisma.post.update({
+          where: { id: post.id },
+          data: { scheduleEmailSentAt: now },
+        });
+      }
       results.push({ postId: post.id, action: 'email_links', ok: sendResult.ok, error: sendResult.error });
       continue;
     }
