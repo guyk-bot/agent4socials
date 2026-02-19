@@ -128,6 +128,37 @@ export async function POST(
           data: { status: PostStatus.POSTED, ...(postId ? { platformPostId: postId } : {}) },
         });
         results.push({ platform: 'FACEBOOK', ok: true });
+      } else if (platform === 'LINKEDIN') {
+        const author = platformUserId.startsWith('urn:li:') ? platformUserId : `urn:li:person:${platformUserId}`;
+        const postRes = await axios.post<{ id?: string }>(
+          'https://api.linkedin.com/rest/posts',
+          {
+            author,
+            commentary: caption || ' ',
+            visibility: 'PUBLIC',
+            distribution: {
+              feedDistribution: 'MAIN_FEED',
+              targetEntities: [],
+              thirdPartyDistributionChannels: [],
+            },
+            lifecycleState: 'PUBLISHED',
+            isReshareDisabledByAuthor: false,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+              'X-Restli-Protocol-Version': '2.0.0',
+              'Linkedin-Version': '202602',
+            },
+          }
+        );
+        const postUrn = postRes.headers?.['x-restli-id'] ?? postRes.data?.id;
+        await prisma.postTarget.update({
+          where: { id: target.id },
+          data: { status: PostStatus.POSTED, ...(postUrn ? { platformPostId: postUrn } : {}) },
+        });
+        results.push({ platform: 'LINKEDIN', ok: true });
       } else {
         await prisma.postTarget.update({
           where: { id: target.id },

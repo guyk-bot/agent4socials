@@ -87,7 +87,7 @@ export default function AutomationPage() {
           Keyword comment automation
         </h2>
         <p className="text-sm text-neutral-600 mt-1">
-          When someone comments on your post with a keyword you set (e.g. &quot;demo&quot;), they get an automatic reply (or DM on Instagram if you enable it). Set keywords and the reply text per post in the Composer (section 4); you can set a different reply per platform. Add a cron job calling <code className="bg-neutral-100 px-1 rounded text-xs">/api/cron/comment-automation</code> with the same <strong>X-Cron-Secret</strong> header (e.g. every 10–15 minutes) so new comments get replies. Supported: Instagram, Facebook, Twitter/X.
+          When someone comments on your post with a keyword you set (e.g. &quot;demo&quot;), they get an automatic reply (or DM on Instagram if you enable it). Set keywords and the reply text per post in the Composer (section 4); you can set a different reply per platform. Add a cron job calling <code className="bg-neutral-100 px-1 rounded text-xs">/api/cron/comment-automation</code> with the same <strong>X-Cron-Secret</strong> header (e.g. every 10–15 minutes) so new comments get replies. Supported: Instagram, Facebook, Twitter/X, LinkedIn.
         </p>
         <Link
           href="/composer"
