@@ -86,7 +86,7 @@ export async function POST(
         if (!creationId) {
           throw new Error(JSON.stringify(containerRes.data));
         }
-        await axios.post(
+        const publishRes = await axios.post<{ id?: string }>(
           `https://graph.facebook.com/v18.0/${platformUserId}/media_publish`,
           null,
           {
@@ -96,9 +96,10 @@ export async function POST(
             },
           }
         );
+        const mediaId = publishRes.data?.id;
         await prisma.postTarget.update({
           where: { id: target.id },
-          data: { status: PostStatus.POSTED },
+          data: { status: PostStatus.POSTED, ...(mediaId ? { platformPostId: mediaId } : {}) },
         });
         results.push({ platform: 'INSTAGRAM', ok: true });
       } else if (platform === 'FACEBOOK') {
@@ -116,14 +117,15 @@ export async function POST(
           access_token: pageToken,
         };
         if (firstMediaUrl) feedParams.link = firstMediaUrl;
-        await axios.post(
+        const feedRes = await axios.post<{ id?: string }>(
           `https://graph.facebook.com/v18.0/${platformUserId}/feed`,
           null,
           { params: feedParams }
         );
+        const postId = feedRes.data?.id;
         await prisma.postTarget.update({
           where: { id: target.id },
-          data: { status: PostStatus.POSTED },
+          data: { status: PostStatus.POSTED, ...(postId ? { platformPostId: postId } : {}) },
         });
         results.push({ platform: 'FACEBOOK', ok: true });
       } else {

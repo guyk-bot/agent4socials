@@ -40,6 +40,7 @@ type ComposerDraft = {
     commentAutomationEnabled: boolean;
     commentAutomationKeywords: string;
     commentAutomationReplyTemplate: string;
+    commentAutomationReplyByPlatform?: Record<string, string>;
     commentAutomationUsePrivateReply: boolean;
 };
 
@@ -109,10 +110,11 @@ export default function ComposerPage() {
     const [differentHashtagsPerPlatform, setDifferentHashtagsPerPlatform] = useState(false);
     const [selectedHashtagsByPlatform, setSelectedHashtagsByPlatform] = useState<Record<string, string[]>>({});
 
-    // Comment automation (optional): keyword capture + auto-reply for this post
+    // Comment automation (optional): keyword capture + auto-reply for this post (per-platform reply text)
     const [commentAutomationEnabled, setCommentAutomationEnabled] = useState(false);
     const [commentAutomationKeywords, setCommentAutomationKeywords] = useState('');
     const [commentAutomationReplyTemplate, setCommentAutomationReplyTemplate] = useState('');
+    const [commentAutomationReplyByPlatform, setCommentAutomationReplyByPlatform] = useState<Record<string, string>>({});
     const [commentAutomationUsePrivateReply, setCommentAutomationUsePrivateReply] = useState(false);
 
     // AI description (optional): generate copy from brand context
@@ -187,6 +189,7 @@ export default function ComposerPage() {
                 if (typeof d.commentAutomationEnabled === 'boolean') setCommentAutomationEnabled(d.commentAutomationEnabled);
                 if (typeof d.commentAutomationKeywords === 'string') setCommentAutomationKeywords(d.commentAutomationKeywords);
                 if (typeof d.commentAutomationReplyTemplate === 'string') setCommentAutomationReplyTemplate(d.commentAutomationReplyTemplate);
+                if (d.commentAutomationReplyByPlatform && typeof d.commentAutomationReplyByPlatform === 'object') setCommentAutomationReplyByPlatform(d.commentAutomationReplyByPlatform);
                 if (typeof d.commentAutomationUsePrivateReply === 'boolean') setCommentAutomationUsePrivateReply(d.commentAutomationUsePrivateReply);
             }
         } catch (_) { /* ignore */ }
@@ -288,6 +291,7 @@ export default function ComposerPage() {
                     commentAutomationEnabled,
                     commentAutomationKeywords,
                     commentAutomationReplyTemplate,
+                    commentAutomationReplyByPlatform,
                     commentAutomationUsePrivateReply,
                 };
                 localStorage.setItem(COMPOSER_DRAFT_KEY, JSON.stringify(draft));
@@ -312,6 +316,7 @@ export default function ComposerPage() {
         commentAutomationEnabled,
         commentAutomationKeywords,
         commentAutomationReplyTemplate,
+        commentAutomationReplyByPlatform,
         commentAutomationUsePrivateReply,
         mediaSignature,
         debounceMs,
@@ -547,15 +552,23 @@ export default function ComposerPage() {
                 payload.scheduledAt = undefined;
             }
             if (payload.scheduledAt) payload.scheduleDelivery = scheduleDelivery;
-            if (commentAutomationEnabled && commentAutomationKeywords.trim() && commentAutomationReplyTemplate.trim()) {
+            if (commentAutomationEnabled && commentAutomationKeywords.trim()) {
                 const keywords = commentAutomationKeywords
                     .split(/[\n,]+/)
                     .map((k) => k.trim().toLowerCase())
                     .filter(Boolean);
-                if (keywords.length > 0) {
+                const defaultReply = commentAutomationReplyTemplate.trim();
+                const byPlatform: Record<string, string> = {};
+                for (const p of platforms) {
+                    const t = (commentAutomationReplyByPlatform[p] ?? defaultReply).trim();
+                    if (t) byPlatform[p] = t;
+                }
+                const hasReply = defaultReply || Object.keys(byPlatform).length > 0;
+                if (keywords.length > 0 && hasReply) {
                     payload.commentAutomation = {
                         keywords,
-                        replyTemplate: commentAutomationReplyTemplate.trim(),
+                        replyTemplate: defaultReply || (byPlatform[platforms[0]] ?? ''),
+                        ...(Object.keys(byPlatform).length > 0 ? { replyTemplateByPlatform: byPlatform } : {}),
                         usePrivateReply: commentAutomationUsePrivateReply,
                     };
                 }
@@ -952,7 +965,7 @@ export default function ComposerPage() {
                             />
                             <span className="text-sm font-medium text-neutral-700">Enable keyword comment automation</span>
                         </label>
-                        <p className="text-sm text-neutral-500">When comments contain your keywords on this post, automatically reply (or send a private DM on Instagram). Your settings are saved with the post. Auto-reply will work first on Instagram when we enable it; Twitter/X and LinkedIn support may follow (LinkedIn’s API is more limited).</p>
+                        <p className="text-sm text-neutral-500">When comments contain your keywords on this post, we automatically reply. Set a default reply and/or a different reply per platform below. Your settings are saved with the post.</p>
                         {commentAutomationEnabled && (
                             <div className="space-y-4 pt-2 border-t border-neutral-100">
                                 <div>
@@ -966,15 +979,34 @@ export default function ComposerPage() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-neutral-700 mb-1.5">Auto-reply template</label>
+                                    <label className="block text-sm font-medium text-neutral-700 mb-1.5">Default reply (used if no platform-specific reply is set)</label>
                                     <textarea
                                         value={commentAutomationReplyTemplate}
                                         onChange={(e) => setCommentAutomationReplyTemplate(e.target.value)}
-                                        placeholder="e.g. Thanks for your interest! We'll DM you with details."
-                                        rows={3}
+                                        placeholder="e.g. Thanks for your interest!"
+                                        rows={2}
                                         className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                                     />
                                 </div>
+                                {platforms.length > 0 && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-neutral-700 mb-2">Reply per platform (optional)</label>
+                                        <div className="space-y-3">
+                                            {platforms.map((p) => (
+                                                <div key={p} className="space-y-1">
+                                                    <span className="text-sm font-medium text-neutral-600">{PLATFORM_LABELS[p] || p}</span>
+                                                    <textarea
+                                                        value={commentAutomationReplyByPlatform[p] ?? ''}
+                                                        onChange={(e) => setCommentAutomationReplyByPlatform((prev) => ({ ...prev, [p]: e.target.value }))}
+                                                        placeholder={commentAutomationReplyTemplate.trim() || 'e.g. Thanks for commenting!'}
+                                                        rows={2}
+                                                        className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                                 {platforms.includes('INSTAGRAM') && (
                                     <label className="flex items-center gap-2 cursor-pointer">
                                         <input

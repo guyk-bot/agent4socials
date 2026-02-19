@@ -125,7 +125,7 @@ model Post {
   content               String?
   contentByPlatform     Json?      // { INSTAGRAM?: string, FACEBOOK?: string, ... }
   mediaByPlatform       Json?      // { INSTAGRAM?: { fileUrl: string; type: string }[], ... }
-  commentAutomation     Json?      // { keywords: string[], replyTemplate: string, usePrivateReply?: boolean } when set, enable keyword auto-reply for this post
+  commentAutomation     Json?      // { keywords: string[], replyTemplate: string, replyTemplateByPlatform?: Record<platform, string>, usePrivateReply?: boolean }
   status                PostStatus @default(DRAFT)
   scheduledAt           DateTime?
   scheduleDelivery      String?    // 'auto' | 'email_links'; when 'email_links', at scheduled time we send email with links to post manually
@@ -176,8 +176,20 @@ model PostTarget {
   error           String?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
+  commentReplies  CommentAutomationReply[]
 
   @@unique([postId, platform, socialAccountId])
+}
+
+model CommentAutomationReply {
+  id                String     @id @default(cuid())
+  postTargetId      String
+  postTarget        PostTarget @relation(fields: [postTargetId], references: [id], onDelete: Cascade)
+  platformCommentId String     // Instagram comment id, Twitter tweet id, etc.
+  repliedAt         DateTime   @default(now())
+
+  @@unique([postTargetId, platformCommentId])
+  @@index([postTargetId])
 }
 
 enum MediaType {

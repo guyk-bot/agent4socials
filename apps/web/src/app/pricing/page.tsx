@@ -10,6 +10,9 @@ const features = [
   'Schedule to Instagram, YouTube, TikTok, Facebook, Twitter & LinkedIn',
   'One calendar, all platforms',
   'Analytics: views, likes, comments, followers, subscribers',
+  'Unified inbox: DMs from Instagram, Facebook & X',
+  'Comment automation: keyword auto-reply, different reply per platform',
+  'Hashtag pool & AI Assistant for captions',
   'White-label: your logo & colors',
   'Cancel anytime',
 ];

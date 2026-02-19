@@ -91,7 +91,10 @@ export async function POST(request: NextRequest) {
       content: content ?? null,
       ...(contentByPlatform && Object.keys(contentByPlatform).length > 0 ? { contentByPlatform } : {}),
       ...(mediaByPlatform && Object.keys(mediaByPlatform).length > 0 ? { mediaByPlatform } : {}),
-      ...(commentAutomation && Array.isArray(commentAutomation.keywords) && commentAutomation.keywords.length > 0 && (commentAutomation.replyTemplate ?? '').trim()
+      ...(commentAutomation && Array.isArray(commentAutomation.keywords) && commentAutomation.keywords.length > 0 && (
+        (commentAutomation.replyTemplate ?? '').trim() ||
+        (commentAutomation.replyTemplateByPlatform && typeof commentAutomation.replyTemplateByPlatform === 'object' && Object.values(commentAutomation.replyTemplateByPlatform).some((s: unknown) => (typeof s === 'string' && s.trim())))
+      )
         ? { commentAutomation: commentAutomation as object }
         : {}),
       status,

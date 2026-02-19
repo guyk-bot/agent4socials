@@ -20,6 +20,10 @@ import {
   HelpCircle,
   ChevronDown,
   ChevronUp,
+  MessageCircle,
+  MessageSquare,
+  Hash,
+  Sparkles,
 } from 'lucide-react';
 import { useState } from 'react';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
@@ -98,17 +102,17 @@ export default function Home() {
             
             <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl xl:text-[5rem] leading-[1.1]">
               <span className="bg-gradient-to-br from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
-                A simple tool to
+                Schedule, automate & grow
               </span>
               <br />
               <span className="bg-gradient-to-r from-emerald-400 via-teal-400 to-sky-400 bg-clip-text text-transparent">
-                schedule posts
+                across all your socials
               </span>
             </h1>
             
             <p className="mx-auto mt-8 max-w-2xl text-lg sm:text-xl leading-relaxed text-slate-400 px-2 font-medium">
               One dashboard for Instagram, YouTube, TikTok, Facebook, Twitter & LinkedIn. 
-              <span className="block mt-1 text-slate-500">Plan content, track analytics, and grow your audience.</span>
+              <span className="block mt-1 text-slate-500">Schedule posts, auto-reply to comments, manage DMs, and track analytics.</span>
             </p>
             
             <div className="mt-10 sm:mt-12 flex flex-col items-stretch sm:items-center justify-center gap-4 sm:flex-row">
@@ -164,7 +168,7 @@ export default function Home() {
             <p className="mx-auto mt-6 max-w-2xl text-center text-lg text-slate-400">
               Powerful tools designed to save you time and boost your engagement.
             </p>
-            <div className="mt-16 grid gap-8 md:grid-cols-2 md:max-w-4xl md:mx-auto">
+            <div className="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-3 md:max-w-5xl md:mx-auto">
               <div className="group relative rounded-3xl border border-slate-800 bg-slate-900/50 p-8 transition-all hover:border-emerald-500/30 hover:shadow-2xl hover:shadow-emerald-500/5 hover:-translate-y-1">
                 <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="relative">
@@ -177,7 +181,6 @@ export default function Home() {
                   </p>
                 </div>
               </div>
-              
               <div className="group relative rounded-3xl border border-slate-800 bg-slate-900/50 p-8 transition-all hover:border-sky-500/30 hover:shadow-2xl hover:shadow-sky-500/5 hover:-translate-y-1">
                 <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-sky-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="relative">
@@ -187,6 +190,54 @@ export default function Home() {
                   <h3 className="text-2xl font-bold text-slate-100 group-hover:text-sky-400 transition-colors">Analytics</h3>
                   <p className="mt-4 leading-relaxed text-slate-400">
                     Views, likes, comments, followers, subscribers: see what works across all platforms and double down on success.
+                  </p>
+                </div>
+              </div>
+              <div className="group relative rounded-3xl border border-slate-800 bg-slate-900/50 p-8 transition-all hover:border-violet-500/30 hover:shadow-2xl hover:shadow-violet-500/5 hover:-translate-y-1 sm:col-span-2 lg:col-span-1">
+                <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-violet-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="relative">
+                  <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-800 text-violet-400 shadow-inner shadow-white/5 ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-300">
+                    <MessageCircle className="h-7 w-7" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-slate-100 group-hover:text-violet-400 transition-colors">Unified inbox</h3>
+                  <p className="mt-4 leading-relaxed text-slate-400">
+                    View and reply to DMs and messages from Instagram, Facebook and X in one place.
+                  </p>
+                </div>
+              </div>
+              <div className="group relative rounded-3xl border border-slate-800 bg-slate-900/50 p-8 transition-all hover:border-amber-500/30 hover:shadow-2xl hover:shadow-amber-500/5 hover:-translate-y-1">
+                <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="relative">
+                  <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-800 text-amber-400 shadow-inner shadow-white/5 ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-300">
+                    <MessageSquare className="h-7 w-7" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-slate-100 group-hover:text-amber-400 transition-colors">Comment automation</h3>
+                  <p className="mt-4 leading-relaxed text-slate-400">
+                    Auto-reply when someone comments a keyword on your post. Set different reply text per platform. Optional welcome DMs when someone messages you first.
+                  </p>
+                </div>
+              </div>
+              <div className="group relative rounded-3xl border border-slate-800 bg-slate-900/50 p-8 transition-all hover:border-rose-500/30 hover:shadow-2xl hover:shadow-rose-500/5 hover:-translate-y-1">
+                <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-rose-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="relative">
+                  <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-800 text-rose-400 shadow-inner shadow-white/5 ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-300">
+                    <Hash className="h-7 w-7" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-slate-100 group-hover:text-rose-400 transition-colors">Hashtag pool</h3>
+                  <p className="mt-4 leading-relaxed text-slate-400">
+                    Save and reuse hashtag sets for your posts. Keep your best-performing tags organized and one click away.
+                  </p>
+                </div>
+              </div>
+              <div className="group relative rounded-3xl border border-slate-800 bg-slate-900/50 p-8 transition-all hover:border-cyan-500/30 hover:shadow-2xl hover:shadow-cyan-500/5 hover:-translate-y-1">
+                <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="relative">
+                  <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-800 text-cyan-400 shadow-inner shadow-white/5 ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-300">
+                    <Sparkles className="h-7 w-7" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-slate-100 group-hover:text-cyan-400 transition-colors">AI Assistant</h3>
+                  <p className="mt-4 leading-relaxed text-slate-400">
+                    Set your brand voice and audience. Get AI-suggested captions and ideas in the Composer that match your style.
                   </p>
                 </div>
               </div>
@@ -241,7 +292,7 @@ export default function Home() {
         <section id="product" className="border-t border-slate-800/80 py-16 sm:py-24 md:py-32">
           <div className="mx-auto max-w-5xl px-4 sm:px-6">
             <h2 className="text-center text-2xl font-bold sm:text-3xl md:text-4xl lg:text-5xl">
-              Schedule & analytics: one product
+              One product, everything you need
             </h2>
             <p className="mx-auto mt-4 sm:mt-5 max-w-2xl text-center text-base sm:text-lg text-slate-400">
               No juggling multiple tools. One login, all platforms.
@@ -250,6 +301,10 @@ export default function Home() {
               {[
                 'Schedule posts to Instagram, YouTube, TikTok, Facebook, Twitter and LinkedIn from a single calendar',
                 'Analytics: views, likes, comments, followers, subscribers in one dashboard',
+                'Unified inbox: view and reply to DMs from Instagram, Facebook and X in one place',
+                'Comment automation: auto-reply when people comment a keyword; set different reply text per platform; optional welcome DMs',
+                'Hashtag pool: save and reuse hashtag sets for your posts',
+                'AI Assistant: brand voice and AI-suggested captions in the Composer',
                 'White-label: upload your logo and colors so it looks like your brand',
               ].map((item, i) => (
                 <li key={i} className="flex items-start gap-4 rounded-xl py-2">
@@ -317,15 +372,23 @@ export default function Home() {
               {[
                 {
                   q: 'Which platforms can I connect?',
-                  a: 'You can connect Instagram, YouTube, TikTok, Facebook, Twitter (X), and LinkedIn. We use each platform’s official OAuth so you authorize access securely.',
+                  a: 'You can connect Instagram, YouTube, TikTok, Facebook, Twitter (X), and LinkedIn. We use each platform’s official OAuth so you authorize access securely. Inbox and comment automation are available for Instagram, Facebook and X; scheduling and analytics support all six platforms.',
                 },
                 {
                   q: 'How does scheduling work?',
-                  a: 'You create a post, add your media and text, pick the date and time, and choose which connected accounts to publish to. We send the post at the scheduled time.',
+                  a: 'You create a post in the Composer, add your media and text, pick the date and time, and choose which connected accounts to publish to. We send the post at the scheduled time. You can also set keyword comment automation and per-platform reply text per post.',
+                },
+                {
+                  q: 'What is comment automation?',
+                  a: 'When someone comments on your post with a keyword you set (e.g. "demo"), we can automatically reply with a message you define, or send a DM on Instagram if you prefer. You can set different reply text per platform (Instagram, Facebook, X).',
                 },
                 {
                   q: 'What analytics do I get?',
                   a: 'We pull views, likes, comments, followers, and subscribers (where available) from your connected accounts into one dashboard so you can see performance across platforms.',
+                },
+                {
+                  q: 'How do I delete my data?',
+                  a: 'You can delete your account and data from Account or Settings in the app, or send a data deletion request to support@agent4socials.com. We process requests within 30 days. See our Privacy Policy and Data Deletion page for details.',
                 },
                 {
                   q: 'Can I cancel anytime?',
@@ -333,7 +396,7 @@ export default function Home() {
                 },
                 {
                   q: 'Is there a free trial?',
-                  a: 'Yes. You get a 7-day free trial to explore scheduling and analytics. No credit card required to start.',
+                  a: 'Yes. You get a 7-day free trial to explore scheduling, automation, inbox and analytics. No credit card required to start.',
                 },
               ].map((item, i) => (
                 <FaqItem key={i} question={item.q} answer={item.a} />

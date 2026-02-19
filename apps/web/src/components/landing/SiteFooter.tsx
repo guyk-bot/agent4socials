@@ -20,7 +20,7 @@ export default function SiteFooter() {
               <ul className="mt-4 space-y-3">
                 <li><Link href="/#features" className="hover:text-white transition-colors">Features</Link></li>
                 <li><Link href="/pricing" className="hover:text-white transition-colors">Pricing</Link></li>
-                <li><Link href="/#product" className="hover:text-white transition-colors">Schedule & analytics</Link></li>
+                <li><Link href="/#product" className="hover:text-white transition-colors">Product</Link></li>
                 <li><Link href="/#how-it-works" className="hover:text-white transition-colors">How it works</Link></li>
                 <li><Link href="/#faq" className="hover:text-white transition-colors">FAQ</Link></li>
               </ul>
