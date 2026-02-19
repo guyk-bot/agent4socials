@@ -21,6 +21,14 @@ const defaultForm: BrandContextPayload = {
   additionalContext: null,
 };
 
+const MAX_LENGTH = {
+  targetAudience: 500,
+  toneOfVoice: 200,
+  toneExamples: 1500,
+  productDescription: 2000,
+  additionalContext: 1000,
+} as const;
+
 export default function AIAssistantPage() {
   const [form, setForm] = useState<BrandContextPayload>(defaultForm);
   const [loading, setLoading] = useState(true);
@@ -99,11 +107,16 @@ export default function AIAssistantPage() {
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Target audience</label>
           <textarea
             value={form.targetAudience ?? ''}
-            onChange={(e) => setForm((f) => ({ ...f, targetAudience: e.target.value || null }))}
+            onChange={(e) => {
+              const v = e.target.value.slice(0, MAX_LENGTH.targetAudience);
+              setForm((f) => ({ ...f, targetAudience: v || null }));
+            }}
             placeholder="e.g. Small business owners, 25-45, interested in productivity and marketing"
             rows={2}
+            maxLength={MAX_LENGTH.targetAudience}
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
           />
+          <p className="mt-1 text-xs text-gray-500">{(form.targetAudience ?? '').length} / {MAX_LENGTH.targetAudience}</p>
         </div>
 
         <div>
@@ -111,43 +124,63 @@ export default function AIAssistantPage() {
           <input
             type="text"
             value={form.toneOfVoice ?? ''}
-            onChange={(e) => setForm((f) => ({ ...f, toneOfVoice: e.target.value || null }))}
+            onChange={(e) => {
+              const v = e.target.value.slice(0, MAX_LENGTH.toneOfVoice);
+              setForm((f) => ({ ...f, toneOfVoice: v || null }));
+            }}
             placeholder="e.g. Professional but friendly, concise"
+            maxLength={MAX_LENGTH.toneOfVoice}
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
           />
+          <p className="mt-1 text-xs text-gray-500">{(form.toneOfVoice ?? '').length} / {MAX_LENGTH.toneOfVoice}</p>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">Tone examples</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">Tone examples (optional)</label>
           <textarea
             value={form.toneExamples ?? ''}
-            onChange={(e) => setForm((f) => ({ ...f, toneExamples: e.target.value || null }))}
+            onChange={(e) => {
+              const v = e.target.value.slice(0, MAX_LENGTH.toneExamples);
+              setForm((f) => ({ ...f, toneExamples: v || null }));
+            }}
             placeholder="Paste 1-3 example phrases or short posts that match the tone you want"
             rows={4}
+            maxLength={MAX_LENGTH.toneExamples}
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
           />
+          <p className="mt-1 text-xs text-gray-500">{(form.toneExamples ?? '').length} / {MAX_LENGTH.toneExamples}</p>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Product or service description</label>
           <textarea
             value={form.productDescription ?? ''}
-            onChange={(e) => setForm((f) => ({ ...f, productDescription: e.target.value || null }))}
+            onChange={(e) => {
+              const v = e.target.value.slice(0, MAX_LENGTH.productDescription);
+              setForm((f) => ({ ...f, productDescription: v || null }));
+            }}
             placeholder="What you offer in one or two sentences"
             rows={3}
+            maxLength={MAX_LENGTH.productDescription}
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
           />
+          <p className="mt-1 text-xs text-gray-500">{(form.productDescription ?? '').length} / {MAX_LENGTH.productDescription}</p>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Additional context (optional)</label>
           <textarea
             value={form.additionalContext ?? ''}
-            onChange={(e) => setForm((f) => ({ ...f, additionalContext: e.target.value || null }))}
+            onChange={(e) => {
+              const v = e.target.value.slice(0, MAX_LENGTH.additionalContext);
+              setForm((f) => ({ ...f, additionalContext: v || null }));
+            }}
             placeholder="Brand values, key messages, hashtags you often use, etc."
             rows={2}
+            maxLength={MAX_LENGTH.additionalContext}
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
           />
+          <p className="mt-1 text-xs text-gray-500">{(form.additionalContext ?? '').length} / {MAX_LENGTH.additionalContext}</p>
         </div>
 
         <button

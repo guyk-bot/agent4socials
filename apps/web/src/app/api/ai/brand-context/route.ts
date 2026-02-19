@@ -21,6 +21,20 @@ export async function GET(request: NextRequest) {
   }
 }
 
+const MAX_LENGTH = {
+  targetAudience: 500,
+  toneOfVoice: 200,
+  toneExamples: 1500,
+  productDescription: 2000,
+  additionalContext: 1000,
+} as const;
+
+function truncate(s: string | null | undefined, max: number): string | null {
+  if (s == null || typeof s !== 'string') return null;
+  const t = s.trim().slice(0, max);
+  return t || null;
+}
+
 const bodySchema = {
   targetAudience: undefined as string | null | undefined,
   toneOfVoice: undefined as string | null | undefined,
@@ -44,11 +58,11 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ message: 'Invalid JSON' }, { status: 400 });
   }
   const data = {
-    targetAudience: body.targetAudience ?? null,
-    toneOfVoice: body.toneOfVoice ?? null,
-    toneExamples: body.toneExamples ?? null,
-    productDescription: body.productDescription ?? null,
-    additionalContext: body.additionalContext ?? null,
+    targetAudience: truncate(body.targetAudience, MAX_LENGTH.targetAudience),
+    toneOfVoice: truncate(body.toneOfVoice, MAX_LENGTH.toneOfVoice),
+    toneExamples: truncate(body.toneExamples, MAX_LENGTH.toneExamples),
+    productDescription: truncate(body.productDescription, MAX_LENGTH.productDescription),
+    additionalContext: truncate(body.additionalContext, MAX_LENGTH.additionalContext),
   };
   try {
     const brandContext = await prisma.brandContext.upsert({
