@@ -87,8 +87,16 @@ export default function AutomationPage() {
           Keyword comment automation
         </h2>
         <p className="text-sm text-neutral-600 mt-1">
-          When someone comments on your post with a keyword you set (e.g. &quot;demo&quot;), they get an automatic reply (or DM on Instagram if you enable it). Set keywords and the reply text per post in the Composer (section 4); you can set a different reply per platform. Add a cron job calling <code className="bg-neutral-100 px-1 rounded text-xs">/api/cron/comment-automation</code> with the same <strong>X-Cron-Secret</strong> header (e.g. every 1–5 minutes) so new comments get replies. Supported: Instagram, Facebook, Twitter/X, LinkedIn.
+          When someone comments on your post with a keyword you set (e.g. &quot;demo&quot;), they get an automatic reply. Set keywords and the reply text per post in the Composer (section 4). Add a cron job calling <code className="bg-neutral-100 px-1 rounded text-xs">/api/cron/comment-automation</code> with the same <strong>X-Cron-Secret</strong> header (e.g. every 1–5 minutes).
         </p>
+        <div className="mt-2 p-2.5 rounded-lg bg-white border border-neutral-200 text-xs">
+          <p className="font-medium text-neutral-700 mb-1.5">Platform capabilities</p>
+          <ul className="space-y-1 text-neutral-600">
+            <li><strong>Keyword reply:</strong> Instagram (public or DM), Facebook, X, LinkedIn (public)</li>
+            <li><strong>Welcome DM:</strong> Instagram, Facebook, X (when someone messages you first)</li>
+            <li><strong>New-follower DM:</strong> X only</li>
+          </ul>
+        </div>
         <Link
           href="/composer"
           className="inline-flex items-center gap-2 mt-3 text-sm font-medium text-indigo-600 hover:text-indigo-700"
