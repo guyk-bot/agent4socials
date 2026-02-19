@@ -8,17 +8,16 @@ This means the production database is missing columns added by a Prisma migratio
 
 Your current `DATABASE_URL` uses Supabase’s **pooler** (port 6543), which can hang on `migrate deploy`. Use the **direct** connection once for migrations:
 
-1. In **Supabase Dashboard** → your project → **Settings** → **Database**.
-2. Under **Connection string**, choose **URI** and pick the **Session** (direct) option, not Transaction/pooler. It should use port **5432** (e.g. `postgresql://postgres.[ref]:[YOUR-PASSWORD]@aws-0-[region].pooler.supabase.com:5432/postgres`). Copy it and replace `[YOUR-PASSWORD]` with your database password.
-3. From your machine:
+1. In **apps/web/.env** set **DATABASE_DIRECT_URL** to your direct URL (port **5432**). Use the same value as `DATABASE_URL` but change `:6543` to `:5432`. (If that fails, get Session/direct URI from Supabase Dashboard → Settings → Database.)
+2. From your machine:
 
 ```bash
 cd apps/web
-DATABASE_URL="postgresql://postgres.xxx:password@...:5432/postgres" npx prisma migrate deploy
+npx prisma migrate deploy
 ```
 
-(Use the URL you copied. Port must be **5432** for migrations.)
-4. After it finishes, try creating a post again on agent4socials.com.
+Prisma uses `DATABASE_DIRECT_URL` from `.env` for migrations.
+3. After it finishes, try again on agent4socials.com.
 
 ## "AI Assistant not set up yet (database table missing)"
 

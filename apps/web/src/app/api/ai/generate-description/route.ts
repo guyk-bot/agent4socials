@@ -31,9 +31,20 @@ function buildSystemPrompt(brand: {
     parts.push(`Additional context: ${brand.additionalContext.trim()}`);
   }
   parts.push(
-    'Output only the post caption text, no meta-commentary. Keep it concise and platform-ready (e.g. 1-3 short paragraphs or bullet points).'
+    'Output only the post caption text, no meta-commentary. Keep it concise and platform-ready (e.g. 1-3 short paragraphs or bullet points).',
+    'Rules: Use plain text only. Do not use markdown (no ** for bold, no * for italic). Do not use em dashes or en dashes; use commas, colons, or " to " instead.'
   );
   return parts.join('\n\n');
+}
+
+function cleanGeneratedText(text: string): string {
+  return text
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/[\u2013\u2014]/g, ', ')
+    .replace(/,(\s*,)+/g, ',')
+    .replace(/\s+,/g, ',')
+    .trim();
 }
 
 export async function POST(request: NextRequest) {
@@ -109,6 +120,7 @@ export async function POST(request: NextRequest) {
   if (data.error?.message) {
     return NextResponse.json({ message: data.error.message }, { status: 502 });
   }
-  const content = data.choices?.[0]?.message?.content?.trim() ?? '';
+  let content = data.choices?.[0]?.message?.content?.trim() ?? '';
+  content = cleanGeneratedText(content);
   return NextResponse.json({ content });
 }
