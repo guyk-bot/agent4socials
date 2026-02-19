@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { PostStatus } from '@prisma/client';
+import { PostStatus, Prisma } from '@prisma/client';
 import axios from 'axios';
 
 /**
@@ -44,7 +44,7 @@ async function runCommentAutomation(request: NextRequest) {
     const posts = await prisma.post.findMany({
       where: {
         status: PostStatus.POSTED,
-        commentAutomation: { not: null },
+        commentAutomation: { not: Prisma.DbNull },
       },
       include: {
         targets: {
