@@ -39,11 +39,12 @@ export async function sendWelcomeEmail(to: string, name: string | null): Promise
 
 /**
  * Sends "your post is ready" email with a link to open and post manually per platform.
+ * Returns { ok: true } on success, { ok: false, error: string } on failure.
  */
-export async function sendScheduledPostLinksEmail(to: string, openLink: string): Promise<boolean> {
+export async function sendScheduledPostLinksEmail(to: string, openLink: string): Promise<{ ok: boolean; error?: string }> {
   if (!resend) {
     console.warn('[Resend] RESEND_API_KEY not set; skipping scheduled post links email');
-    return false;
+    return { ok: false, error: 'RESEND_API_KEY not set' };
   }
   const from = process.env.RESEND_FROM_EMAIL || process.env.RESEND_FROM || DEFAULT_FROM;
   try {
@@ -59,12 +60,14 @@ export async function sendScheduledPostLinksEmail(to: string, openLink: string):
       `,
     });
     if (error) {
+      const errMsg = typeof error === 'object' && error !== null && 'message' in error ? String((error as { message?: unknown }).message) : String(error);
       console.error('[Resend] Scheduled post links email failed:', error);
-      return false;
+      return { ok: false, error: errMsg };
     }
-    return true;
+    return { ok: true };
   } catch (e) {
+    const errMsg = e instanceof Error ? e.message : String(e);
     console.error('[Resend] Scheduled post links email error:', e);
-    return false;
+    return { ok: false, error: errMsg };
   }
 }

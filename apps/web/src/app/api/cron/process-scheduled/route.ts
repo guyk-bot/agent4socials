@@ -41,6 +41,10 @@ async function processScheduled(request: NextRequest) {
     },
   });
 
+  if (due.length > 0) {
+    console.log('[Cron] process-scheduled: found', due.length, 'due post(s)');
+  }
+
   const results: { postId: string; action: string; ok: boolean; error?: string }[] = [];
 
   for (const post of due) {
@@ -68,8 +72,8 @@ async function processScheduled(request: NextRequest) {
         results.push({ postId: post.id, action: 'email_links', ok: false, error: 'User has no email' });
         continue;
       }
-      const sent = await sendScheduledPostLinksEmail(userEmail, openLink);
-      results.push({ postId: post.id, action: 'email_links', ok: sent });
+      const sendResult = await sendScheduledPostLinksEmail(userEmail, openLink);
+      results.push({ postId: post.id, action: 'email_links', ok: sendResult.ok, error: sendResult.error });
       continue;
     }
 
