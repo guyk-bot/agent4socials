@@ -19,7 +19,7 @@ export async function GET(
   const { id } = await params;
   const account = await prisma.socialAccount.findFirst({
     where: { id, userId },
-    select: { id: true, platform: true, platformUserId: true, accessToken: true },
+    select: { id: true, platform: true, platformUserId: true, accessToken: true, username: true },
   });
   if (!account) {
     return NextResponse.json({ message: 'Account not found' }, { status: 404 });
@@ -150,6 +150,49 @@ async function syncImportedPosts(
       });
     }
     return;
+  }
+  if (platform === 'TWITTER') {
+    try {
+      const tweetsRes = await axios.get<{
+        data?: Array<{ id: string; text?: string; created_at?: string }>;
+      }>(`https://api.twitter.com/2/users/${platformUserId}/tweets`, {
+        params: {
+          max_results: 50,
+          'tweet.fields': 'created_at',
+          exclude: 'retweets,replies',
+        },
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const items = tweetsRes.data?.data ?? [];
+      for (const t of items) {
+        const publishedAt = t.created_at ? new Date(t.created_at) : new Date();
+        const permalinkUrl = `https://x.com/i/status/${t.id}`;
+        await prisma.importedPost.upsert({
+          where: {
+            socialAccountId_platformPostId: { socialAccountId, platformPostId: t.id },
+          },
+          update: {
+            content: t.text ?? null,
+            permalinkUrl,
+            publishedAt,
+            syncedAt: new Date(),
+          },
+          create: {
+            socialAccountId,
+            platformPostId: t.id,
+            platform: 'TWITTER',
+            content: t.text ?? null,
+            permalinkUrl,
+            publishedAt,
+          },
+        });
+      }
+      return undefined;
+    } catch (e) {
+      const msg = (e as Error)?.message ?? '';
+      if (msg.includes('OAuth') || msg.includes('401') || msg.includes('403')) return 'Reconnect your X (Twitter) account to sync posts.';
+      throw e;
+    }
   }
   // Other platforms: no sync for now
   return undefined;

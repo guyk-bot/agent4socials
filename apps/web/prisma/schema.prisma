@@ -22,10 +22,11 @@ model User {
   provider           AuthProvider       @default(LOCAL)
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
-  socialAccounts     SocialAccount[]
-  posts              Post[]
-  automationSettings AutomationSettings?
-  brandContext       BrandContext?
+  socialAccounts            SocialAccount[]
+  posts                     Post[]
+  automationSettings         AutomationSettings?
+  automationFollowerWelcomes AutomationFollowerWelcome[]
+  brandContext               BrandContext?
 }
 
 model BrandContext {
@@ -146,9 +147,21 @@ model AutomationSettings {
   dmWelcomeEnabled       Boolean  @default(false)
   dmWelcomeMessage       String?
   dmNewFollowerEnabled   Boolean  @default(false)
-  dmNewFollowerMessage   String?  // Not supported by Instagram API; kept for future or other platforms
+  dmNewFollowerMessage   String?  // Welcome DM sent to new followers (Twitter)
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
+}
+
+model AutomationFollowerWelcome {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform       String   // TWITTER
+  platformUserId String   // The follower's platform user id we welcomed
+  welcomedAt     DateTime @default(now())
+
+  @@unique([userId, platform, platformUserId])
+  @@index([userId, platform])
 }
 
 model PostTarget {

@@ -87,7 +87,18 @@ export default function DashboardPage() {
   const [postsPage, setPostsPage] = useState(1);
   const [postsSearch, setPostsSearch] = useState('');
   const [postsPerPage, setPostsPerPage] = useState(5);
-  const [insights, setInsights] = useState<{ platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number; profileViewsTotal?: number; insightsHint?: string } | null>(null);
+  const [insights, setInsights] = useState<{
+    platform: string;
+    followers: number;
+    impressionsTotal: number;
+    impressionsTimeSeries: Array<{ date: string; value: number }>;
+    pageViewsTotal?: number;
+    reachTotal?: number;
+    profileViewsTotal?: number;
+    insightsHint?: string;
+    tweetCount?: number;
+    recentTweets?: Array<{ id: string; text: string; created_at: string | null; like_count: number; reply_count: number; retweet_count: number; impression_count: number }>;
+  } | null>(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [sortBy, setSortBy] = useState<'date' | 'impressions' | 'interactions'>('date');
   const [sortDesc, setSortDesc] = useState(true);
@@ -364,6 +375,9 @@ export default function DashboardPage() {
 
   const effectiveFollowers = selectedAccount ? (insights?.followers ?? 0) : (aggregatedInsights?.totalFollowers ?? 0);
   const effectiveImpressions = selectedAccount ? (insights?.impressionsTotal ?? 0) : (aggregatedInsights?.totalImpressions ?? 0);
+  const isTwitter = selectedAccount?.platform === 'TWITTER';
+  const effectiveTweets = isTwitter ? (insights?.tweetCount ?? 0) : 0;
+  const recentTweets = isTwitter ? (insights?.recentTweets ?? []) : [];
   const effectiveTimeSeries = selectedAccount ? (insights?.impressionsTimeSeries ?? []) : (aggregatedInsights?.combinedTimeSeries ?? []);
   const effectivePageVisits = selectedAccount ? (insights?.pageViewsTotal ?? 0) : 0;
   const effectiveReach = selectedAccount ? (insights?.reachTotal ?? 0) : 0;
@@ -561,13 +575,13 @@ export default function DashboardPage() {
               </div>
               <p className="text-xs text-neutral-400 mt-1 px-1">{dateRange.start} – {dateRange.end}</p>
             </div>
-            {/* Impressions card */}
+            {/* Impressions / Tweets card */}
             <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
-              <p className="text-sm font-medium text-neutral-500">Views</p>
+              <p className="text-sm font-medium text-neutral-500">{isTwitter ? 'Tweets' : 'Views'}</p>
               <div className="flex items-center gap-3 mt-1">
-                <span className="text-3xl font-bold text-neutral-900">{effectiveImpressions}</span>
+                <span className="text-3xl font-bold text-neutral-900">{isTwitter ? effectiveTweets : effectiveImpressions}</span>
                 <div className="flex-1 h-2 max-w-[120px] rounded-full bg-neutral-200 overflow-hidden">
-                  <div className="h-full rounded-full bg-indigo-500" style={{ width: effectiveImpressions ? `${Math.min(100, effectiveImpressions / 50)}%` : '0%' }} />
+                  <div className="h-full rounded-full bg-indigo-500" style={{ width: (isTwitter ? effectiveTweets : effectiveImpressions) ? `${Math.min(100, (isTwitter ? effectiveTweets : effectiveImpressions) / 50)}%` : '0%' }} />
                 </div>
               </div>
               <div className="flex gap-1.5 mt-3 flex-wrap">
@@ -575,7 +589,8 @@ export default function DashboardPage() {
                   <>
                     {selectedAccount.platform === 'FACEBOOK' && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{effectiveImpressions} Facebook</span>}
                     {selectedAccount.platform === 'INSTAGRAM' && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{effectiveImpressions} Instagram</span>}
-                    {selectedAccount.platform && selectedAccount.platform !== 'INSTAGRAM' && selectedAccount.platform !== 'FACEBOOK' && (
+                    {selectedAccount.platform === 'TWITTER' && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-neutral-100 text-neutral-800">{effectiveTweets} Twitter/X</span>}
+                    {selectedAccount.platform && selectedAccount.platform !== 'INSTAGRAM' && selectedAccount.platform !== 'FACEBOOK' && selectedAccount.platform !== 'TWITTER' && (
                       <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-neutral-100 text-neutral-700">{effectiveImpressions} {selectedAccount.platform}</span>
                     )}
                   </>
@@ -623,9 +638,29 @@ export default function DashboardPage() {
               </div>
               <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
                 <p className="text-xs font-medium text-neutral-500">Total content</p>
-                <p className="text-xl font-bold text-neutral-900 mt-0.5">{importedPosts.length}</p>
+                <p className="text-xl font-bold text-neutral-900 mt-0.5">{isTwitter ? (recentTweets.length > 0 ? effectiveTweets : importedPosts.length) : importedPosts.length}</p>
               </div>
             </div>
+            {isTwitter && recentTweets.length > 0 && (
+              <div className="lg:col-span-2 bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
+                <p className="text-sm font-medium text-neutral-500 mb-3">Recent tweets</p>
+                <ul className="space-y-3 max-h-64 overflow-y-auto">
+                  {recentTweets.slice(0, 10).map((t) => (
+                    <li key={t.id} className="flex flex-col gap-1 text-sm border-b border-neutral-100 pb-2 last:border-0">
+                      <p className="text-neutral-800 line-clamp-2">{t.text || '—'}</p>
+                      <div className="flex gap-3 text-xs text-neutral-500">
+                        <span>{t.like_count} likes</span>
+                        <span>{t.retweet_count} retweets</span>
+                        <span>{t.reply_count} replies</span>
+                        {t.impression_count > 0 && <span>{t.impression_count} impressions</span>}
+                        {t.created_at && <span>{new Date(t.created_at).toLocaleDateString()}</span>}
+                      </div>
+                      <a href={`https://x.com/i/status/${t.id}`} target="_blank" rel="noopener noreferrer" className="text-indigo-600 text-xs hover:underline">View on X</a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {/* Derived: daily page views, daily posts, posts per week */}
             {(() => {
               const start = dateRange.start ? new Date(dateRange.start) : null;

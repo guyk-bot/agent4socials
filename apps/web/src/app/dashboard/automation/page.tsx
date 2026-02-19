@@ -130,22 +130,37 @@ export default function AutomationPage() {
         {saving && <p className="text-xs text-neutral-400 flex items-center gap-1"><Loader2 size={14} className="animate-spin" /> Saving...</p>}
       </div>
 
-      {/* Auto-DM new followers: not supported, show as disabled with note */}
-      <div className="card space-y-4 border border-amber-100 bg-amber-50/30">
+      {/* Auto-DM new followers (Twitter/X) */}
+      <div className="card space-y-4">
         <h2 className="font-semibold text-neutral-900 flex items-center gap-2">
           <UserPlus size={20} className="text-neutral-500" />
-          Auto-DM new followers
+          Welcome message to new followers (Twitter/X)
         </h2>
         <p className="text-sm text-neutral-600">
-          Instagram and most platforms do not allow apps to send the first DM to a user. You can only reply within 24 hours after they message you. So &quot;welcome new followers&quot; via DM is not supported by the APIs.
+          When someone follows your X (Twitter) account, they will receive this message as a direct message. Set up a cron to call <code className="bg-neutral-100 px-1 rounded text-xs">/api/cron/welcome-followers</code> with the same <strong>X-Cron-Secret</strong> header (e.g. every 15 minutes) so new followers get the DM.
         </p>
-        <label className="flex items-center gap-2 cursor-not-allowed opacity-70">
-          <input type="checkbox" disabled className="rounded border-neutral-300" />
-          <span className="text-sm text-neutral-500">Enable (not available via API)</span>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={settings.dmNewFollowerEnabled}
+            onChange={(e) => update({ dmNewFollowerEnabled: e.target.checked })}
+            className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+          />
+          <span className="text-sm font-medium text-neutral-700">Send welcome DM to new followers</span>
         </label>
-        <p className="text-xs text-amber-800">
-          You can still use &quot;Auto-DM when someone messages you first&quot; above to welcome anyone who DMs you.
-        </p>
+        {settings.dmNewFollowerEnabled && (
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1.5">Welcome message (sent once per new follower)</label>
+            <textarea
+              value={settings.dmNewFollowerMessage ?? ''}
+              onChange={(e) => update({ dmNewFollowerMessage: e.target.value || null })}
+              placeholder="Thanks for following! Here's what we share..."
+              rows={4}
+              className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+            />
+          </div>
+        )}
+        {saving && <p className="text-xs text-neutral-400 flex items-center gap-1"><Loader2 size={14} className="animate-spin" /> Saving...</p>}
       </div>
     </div>
   );

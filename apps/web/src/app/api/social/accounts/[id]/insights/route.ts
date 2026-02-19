@@ -176,6 +176,66 @@ export async function GET(
       out.insightsHint = "LinkedIn doesn't provide follower or view metrics for personal profiles in our app. You can still schedule and publish posts to LinkedIn from the Composer.";
       return NextResponse.json(out);
     }
+
+    if (account.platform === 'TWITTER') {
+      const token = account.accessToken;
+      let tweetCount = 0;
+      try {
+        const userRes = await axios.get<{
+          data?: {
+            public_metrics?: {
+              followers_count?: number;
+              following_count?: number;
+              tweet_count?: number;
+              listed_count?: number;
+            };
+          };
+        }>(`https://api.twitter.com/2/users/${account.platformUserId}`, {
+          params: { 'user.fields': 'public_metrics' },
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const metrics = userRes.data?.data?.public_metrics;
+        if (metrics) {
+          if (typeof metrics.followers_count === 'number') out.followers = metrics.followers_count;
+          if (typeof metrics.tweet_count === 'number') tweetCount = metrics.tweet_count;
+        }
+      } catch (e) {
+        const msg = (e as Error)?.message ?? String(e);
+        console.warn('[Insights] Twitter user/metrics:', msg);
+        if (out.followers === 0 && !tweetCount) out.insightsHint = 'Reconnect your X (Twitter) account to see follower and tweet counts.';
+      }
+      try {
+        const tweetsRes = await axios.get<{
+          data?: Array<{
+            id: string;
+            text?: string;
+            created_at?: string;
+            public_metrics?: { like_count?: number; reply_count?: number; retweet_count?: number; impression_count?: number };
+          }>;
+        }>(`https://api.twitter.com/2/users/${account.platformUserId}/tweets`, {
+          params: {
+            max_results: 25,
+            'tweet.fields': 'created_at,public_metrics',
+            exclude: 'retweets,replies',
+          },
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const tweets = tweetsRes.data?.data ?? [];
+        const recentTweets = tweets.map((t) => ({
+          id: t.id,
+          text: t.text?.slice(0, 200) ?? '',
+          created_at: t.created_at ?? null,
+          like_count: t.public_metrics?.like_count ?? 0,
+          reply_count: t.public_metrics?.reply_count ?? 0,
+          retweet_count: t.public_metrics?.retweet_count ?? 0,
+          impression_count: t.public_metrics?.impression_count ?? 0,
+        }));
+        return NextResponse.json({ ...out, recentTweets, tweetCount });
+      } catch (e) {
+        console.warn('[Insights] Twitter tweets:', (e as Error)?.message ?? e);
+      }
+      return NextResponse.json({ ...out, tweetCount });
+    }
   } catch (e) {
     console.error('[Insights] error:', e);
   }

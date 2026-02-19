@@ -13,11 +13,29 @@ const baseUrl = () =>
  * Finds posts due now: scheduleDelivery=email_links -> send email with open link; scheduleDelivery=auto -> publish.
  */
 export async function GET(request: NextRequest) {
-  return processScheduled(request);
+  try {
+    return await processScheduled(request);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[Cron] process-scheduled error:', err);
+    return NextResponse.json(
+      { message: 'Cron failed', error: message, processed: 0, results: [] },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(request: NextRequest) {
-  return processScheduled(request);
+  try {
+    return await processScheduled(request);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[Cron] process-scheduled error:', err);
+    return NextResponse.json(
+      { message: 'Cron failed', error: message, processed: 0, results: [] },
+      { status: 500 }
+    );
+  }
 }
 
 async function processScheduled(request: NextRequest) {
@@ -30,16 +48,26 @@ async function processScheduled(request: NextRequest) {
   }
 
   const now = new Date();
-  const due = await prisma.post.findMany({
-    where: {
-      status: PostStatus.SCHEDULED,
-      scheduledAt: { lte: now },
-    },
-    include: {
-      user: { select: { id: true, email: true } },
-      targets: true,
-    },
-  });
+  let due: Awaited<ReturnType<typeof prisma.post.findMany>>;
+  try {
+    due = await prisma.post.findMany({
+      where: {
+        status: PostStatus.SCHEDULED,
+        scheduledAt: { lte: now },
+      },
+      include: {
+        user: { select: { id: true, email: true } },
+        targets: true,
+      },
+    });
+  } catch (dbErr) {
+    const msg = dbErr instanceof Error ? dbErr.message : String(dbErr);
+    console.error('[Cron] Database error in process-scheduled:', dbErr);
+    return NextResponse.json(
+      { message: 'Database error', error: msg, processed: 0, results: [] },
+      { status: 500 }
+    );
+  }
 
   if (due.length > 0) {
     console.log('[Cron] process-scheduled: found', due.length, 'due post(s)');
@@ -67,7 +95,7 @@ async function processScheduled(request: NextRequest) {
         },
       });
       const openLink = `${baseUrl()}/post/${post.id}/open?t=${encodeURIComponent(token)}`;
-      const userEmail = post.user.email;
+      const userEmail = post.user?.email ?? null;
       if (!userEmail) {
         results.push({ postId: post.id, action: 'email_links', ok: false, error: 'User has no email' });
         continue;

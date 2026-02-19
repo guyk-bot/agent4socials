@@ -173,7 +173,13 @@ export default function ComposerPage() {
                     if (Object.keys(cleaned).length) setMediaByPlatform(cleaned);
                 }
                 if (typeof d.differentMediaPerPlatform === 'boolean') setDifferentMediaPerPlatform(d.differentMediaPerPlatform);
-                if (typeof d.scheduledAt === 'string') setScheduledAt(d.scheduledAt);
+                if (typeof d.scheduledAt === 'string') {
+                    const parsed = new Date(d.scheduledAt);
+                    if (!Number.isNaN(parsed.getTime())) {
+                        const pad = (n: number) => String(n).padStart(2, '0');
+                        setScheduledAt(`${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}T${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`);
+                    } else setScheduledAt(d.scheduledAt);
+                }
                 if (d.scheduleDelivery === 'auto' || d.scheduleDelivery === 'email_links') setScheduleDelivery(d.scheduleDelivery);
                 if (Array.isArray(d.selectedHashtags)) setSelectedHashtags(d.selectedHashtags);
                 if (typeof d.differentHashtagsPerPlatform === 'boolean') setDifferentHashtagsPerPlatform(d.differentHashtagsPerPlatform);
@@ -528,6 +534,19 @@ export default function ComposerPage() {
             if (contentByPlatformFinal && Object.keys(contentByPlatformFinal).length > 0) {
                 payload.contentByPlatform = contentByPlatformFinal;
             }
+            // Send scheduled time as UTC ISO so server stores correct moment (datetime-local is in user's local time)
+            if (scheduledAt && scheduledAt.trim()) {
+                try {
+                    const localDate = new Date(scheduledAt.trim());
+                    if (!Number.isNaN(localDate.getTime())) payload.scheduledAt = localDate.toISOString();
+                    else payload.scheduledAt = scheduledAt.trim();
+                } catch {
+                    payload.scheduledAt = scheduledAt.trim();
+                }
+            } else {
+                payload.scheduledAt = undefined;
+            }
+            if (payload.scheduledAt) payload.scheduleDelivery = scheduleDelivery;
             if (commentAutomationEnabled && commentAutomationKeywords.trim() && commentAutomationReplyTemplate.trim()) {
                 const keywords = commentAutomationKeywords
                     .split(/[\n,]+/)
