@@ -72,9 +72,9 @@ export default function AIAssistantPage() {
         additionalContext: form.additionalContext || null,
       })
       .then(() => setMessage({ type: 'success', text: 'Brand context saved. You can use "Generate with AI" in the Composer.' }))
-      .catch((err: { response?: { data?: { message?: string }; status?: number } }) => {
+      .catch((err: { response?: { data?: { message?: string }; status?: number }; message?: string }) => {
         const msg = err.response?.data?.message
-          || (err.response?.status === 401 ? 'Please log in again.' : err.response?.status === 503 ? 'Service unavailable. Try again later.' : 'Failed to save. Try again or check your connection.');
+          || (err.response?.status === 401 ? 'Please log in again.' : err.response?.status === 503 ? 'Service unavailable. Try again later.' : err.response?.status === 500 ? 'Server error. Try again in a moment or log out and back in.' : err.message || 'Failed to save. Check your connection and try again.');
         setMessage({ type: 'error', text: msg });
       })
       .finally(() => setSaving(false));
@@ -115,7 +115,8 @@ export default function AIAssistantPage() {
       <div className="card p-6 flex-1 flex flex-col min-h-0">
         <h2 className="font-semibold text-gray-900 mb-4">Brand context</h2>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-5 flex-1">
+        {/* Row 1: Who you reach + What you offer (symmetrical) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-5">
           <div className="flex flex-col">
             <label className="flex items-center justify-between text-sm font-medium text-gray-700 mb-2">
               Target audience
@@ -128,12 +129,11 @@ export default function AIAssistantPage() {
                 setForm((f) => ({ ...f, targetAudience: v || null }));
               }}
               placeholder="e.g. Small business owners, 25-45..."
-              rows={5}
+              rows={4}
               maxLength={MAX_LENGTH.targetAudience}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm flex-1 min-h-[120px]"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm min-h-[100px]"
             />
           </div>
-
           <div className="flex flex-col">
             <label className="flex items-center justify-between text-sm font-medium text-gray-700 mb-2">
               Product or service description
@@ -146,49 +146,31 @@ export default function AIAssistantPage() {
                 setForm((f) => ({ ...f, productDescription: v || null }));
               }}
               placeholder="What you offer in one or two sentences"
-              rows={5}
+              rows={4}
               maxLength={MAX_LENGTH.productDescription}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm flex-1 min-h-[120px]"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm min-h-[100px]"
             />
           </div>
 
-          <div>
+          {/* Row 2: How you sound (tone + examples, symmetrical height) */}
+          <div className="flex flex-col">
             <label className="flex items-center justify-between text-sm font-medium text-gray-700 mb-2">
               Tone of voice
               <span className="text-xs font-normal text-gray-500">{(form.toneOfVoice ?? '').length}/{MAX_LENGTH.toneOfVoice}</span>
             </label>
-            <input
-              type="text"
+            <textarea
               value={form.toneOfVoice ?? ''}
               onChange={(e) => {
                 const v = e.target.value.slice(0, MAX_LENGTH.toneOfVoice);
                 setForm((f) => ({ ...f, toneOfVoice: v || null }));
               }}
               placeholder="e.g. Professional but friendly, concise"
-              maxLength={MAX_LENGTH.toneOfVoice}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="flex items-center justify-between text-sm font-medium text-gray-700 mb-2">
-              Additional context (optional)
-              <span className="text-xs font-normal text-gray-500">{(form.additionalContext ?? '').length}/{MAX_LENGTH.additionalContext}</span>
-            </label>
-            <textarea
-              value={form.additionalContext ?? ''}
-              onChange={(e) => {
-                const v = e.target.value.slice(0, MAX_LENGTH.additionalContext);
-                setForm((f) => ({ ...f, additionalContext: v || null }));
-              }}
-              placeholder="Brand values, key messages, hashtags..."
               rows={3}
-              maxLength={MAX_LENGTH.additionalContext}
+              maxLength={MAX_LENGTH.toneOfVoice}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm min-h-[80px]"
             />
           </div>
-
-          <div className="lg:col-span-2 flex flex-col">
+          <div className="flex flex-col">
             <label className="flex items-center justify-between text-sm font-medium text-gray-700 mb-2">
               Tone examples (optional)
               <span className="text-xs font-normal text-gray-500">{(form.toneExamples ?? '').length}/{MAX_LENGTH.toneExamples}</span>
@@ -200,11 +182,30 @@ export default function AIAssistantPage() {
                 setForm((f) => ({ ...f, toneExamples: v || null }));
               }}
               placeholder="Paste 1-3 example phrases that match the tone you want"
-              rows={4}
+              rows={3}
               maxLength={MAX_LENGTH.toneExamples}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm min-h-[100px]"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm min-h-[80px]"
             />
           </div>
+        </div>
+
+        {/* Row 3: Extra context (full width) */}
+        <div className="mt-5">
+          <label className="flex items-center justify-between text-sm font-medium text-gray-700 mb-2">
+            Additional context (optional)
+            <span className="text-xs font-normal text-gray-500">{(form.additionalContext ?? '').length}/{MAX_LENGTH.additionalContext}</span>
+          </label>
+          <textarea
+            value={form.additionalContext ?? ''}
+            onChange={(e) => {
+              const v = e.target.value.slice(0, MAX_LENGTH.additionalContext);
+              setForm((f) => ({ ...f, additionalContext: v || null }));
+            }}
+            placeholder="Brand values, key messages, hashtags you often use..."
+            rows={2}
+            maxLength={MAX_LENGTH.additionalContext}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm min-h-[70px]"
+          />
         </div>
 
         <div className="pt-6 mt-4 border-t border-gray-100">

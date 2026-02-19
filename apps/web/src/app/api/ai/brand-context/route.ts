@@ -73,9 +73,11 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(brandContext);
   } catch (e) {
     console.error('[Brand context PUT]', e);
-    const msg = (e as { code?: string })?.code === 'P2002'
-      ? 'This profile is already in use. Try refreshing the page.'
-      : 'Failed to save. If it keeps happening, try logging out and back in.';
+    const prismaError = e as { code?: string; message?: string };
+    let msg = 'Failed to save. Try again in a moment or log out and back in.';
+    if (prismaError?.code === 'P2002') msg = 'This profile is already in use. Try refreshing the page.';
+    else if (prismaError?.code === 'P2025' || prismaError?.message?.includes('Record to update not found')) msg = 'Session may have changed. Please refresh the page and try again.';
+    else if (prismaError?.message?.includes('connect') || prismaError?.message?.includes('timeout')) msg = 'Database temporarily unavailable. Please try again in a moment.';
     return NextResponse.json({ message: msg }, { status: 500 });
   }
 }
