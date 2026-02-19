@@ -95,7 +95,7 @@ async function processScheduled(request: NextRequest) {
         },
       });
       const openLink = `${baseUrl()}/post/${post.id}/open?t=${encodeURIComponent(token)}`;
-      const userEmail = post.user?.email ?? null;
+      const userEmail = (post as typeof post & { user?: { email?: string | null } }).user?.email ?? null;
       if (!userEmail) {
         results.push({ postId: post.id, action: 'email_links', ok: false, error: 'User has no email' });
         continue;
