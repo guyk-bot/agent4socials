@@ -6,13 +6,19 @@ This means the production database is missing columns added by a Prisma migratio
 
 **Run migrations (fixes missing columns):**
 
+Your current `DATABASE_URL` uses Supabase’s **pooler** (port 6543), which can hang on `migrate deploy`. Use the **direct** connection once for migrations:
+
+1. In **Supabase Dashboard** → your project → **Settings** → **Database**.
+2. Under **Connection string**, choose **URI** and pick the **Session** (direct) option, not Transaction/pooler. It should use port **5432** (e.g. `postgresql://postgres.[ref]:[YOUR-PASSWORD]@aws-0-[region].pooler.supabase.com:5432/postgres`). Copy it and replace `[YOUR-PASSWORD]` with your database password.
+3. From your machine:
+
 ```bash
 cd apps/web
-# Use your production DATABASE_URL (from Vercel or Supabase)
-DATABASE_URL="postgresql://..." npx prisma migrate deploy
+DATABASE_URL="postgresql://postgres.xxx:password@...:5432/postgres" npx prisma migrate deploy
 ```
 
-Then redeploy the app so the code and DB stay in sync.
+(Use the URL you copied. Port must be **5432** for migrations.)
+4. After it finishes, try creating a post again on agent4socials.com.
 
 ## LinkedIn + Twitter scheduling and "email with links"
 
