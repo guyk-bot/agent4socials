@@ -67,6 +67,11 @@ export default function RootLayout({
             __html: `(function(){var p=window.location.pathname,h=window.location.hash;if(p==='/'&&h&&h.indexOf('access_token')!==-1){window.location.replace('/auth/callback'+h);}})();`,
           }}
         />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){var key='chunk_reload';window.addEventListener('error',function(e){var msg=(e.message||'');var isChunk=/Loading chunk|ChunkLoadError|dynamically imported module|Importing a module script failed/i.test(msg)||(e.filename||'').indexOf('_next/static/chunks')!==-1;if(isChunk&&!sessionStorage.getItem(key)){sessionStorage.setItem(key,'1');window.location.reload();}});})();`,
+          }}
+        />
         <AuthProvider>
           <AccountsCacheProvider>
             <SelectedAccountProvider>

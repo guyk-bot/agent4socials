@@ -33,9 +33,15 @@ const prisma = new PrismaClient();
 
 const BASE = 'https://graph.facebook.com/v18.0';
 
+function trimToken(t) {
+  if (typeof t !== 'string') return t;
+  return t.trim().replace(/\r?\n/g, '');
+}
+
 async function get(url, token) {
+  const t = trimToken(token);
   const sep = url.includes('?') ? '&' : '?';
-  const res = await fetch(`${url}${sep}access_token=${encodeURIComponent(token)}`);
+  const res = await fetch(`${url}${sep}access_token=${encodeURIComponent(t)}`);
   const data = await res.json();
   return { ok: res.ok, status: res.status, data };
 }
@@ -45,6 +51,9 @@ async function main() {
 
   const fb = await prisma.socialAccount.findFirst({ where: { platform: 'FACEBOOK' } });
   const ig = await prisma.socialAccount.findFirst({ where: { platform: 'INSTAGRAM' } });
+  if (ig && (!ig.accessToken || trimToken(ig.accessToken).length < 20)) {
+    console.log('Instagram token in DB looks invalid (too short or empty). Reconnect with "Connect with Instagram only".\n');
+  }
 
   // 1) pages_manage_engagement
   console.log('1. pages_manage_engagement');
