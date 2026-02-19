@@ -447,27 +447,25 @@ export default function DashboardPage() {
                   <p className="text-sm text-neutral-500">{selectedAccount.platform} · Open profile</p>
                 </div>
               </a>
-              {(selectedAccount.platform === 'INSTAGRAM' || selectedAccount.platform === 'FACEBOOK' || selectedAccount.platform === 'LINKEDIN') && (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (reconnectingId) return;
-                    setReconnectingId(selectedAccount.id);
-                    try {
-                      const res = await api.get(`/social/oauth/${selectedAccount.platform.toLowerCase()}/start`);
-                      const url = res?.data?.url;
-                      if (url && typeof url === 'string') window.location.href = url;
-                    } catch (_) {}
-                    setReconnectingId(null);
-                  }}
-                  disabled={!!reconnectingId}
-                  title="Reconnect account"
-                  className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-neutral-200 bg-white text-neutral-700 text-sm font-medium hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {reconnectingId === selectedAccount.id ? <RefreshCw size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-                  {reconnectingId === selectedAccount.id ? 'Reconnecting…' : 'Reconnect'}
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={async () => {
+                  if (reconnectingId) return;
+                  setReconnectingId(selectedAccount.id);
+                  try {
+                    const res = await api.get(`/social/oauth/${selectedAccount.platform.toLowerCase()}/start`);
+                    const url = res?.data?.url;
+                    if (url && typeof url === 'string') window.location.href = url;
+                  } catch (_) {}
+                  setReconnectingId(null);
+                }}
+                disabled={!!reconnectingId}
+                title="Reconnect account"
+                className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-neutral-200 bg-white text-neutral-700 text-sm font-medium hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {reconnectingId === selectedAccount.id ? <RefreshCw size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                {reconnectingId === selectedAccount.id ? 'Reconnecting…' : 'Reconnect'}
+              </button>
               <button
                 type="button"
                 onClick={async () => {
