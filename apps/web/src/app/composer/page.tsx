@@ -494,7 +494,11 @@ export default function ComposerPage() {
                 }
             }
             clearComposerDraft();
-            router.push('/dashboard');
+            if (scheduledAt) {
+                router.push('/calendar?scheduled=1');
+            } else {
+                router.push('/dashboard');
+            }
         } catch (err: unknown) {
             let msg = 'Failed to create post';
             if (err && typeof err === 'object' && 'response' in err) {
@@ -932,6 +936,9 @@ export default function ComposerPage() {
                                 />
                                 <span className="text-sm text-neutral-800">Email me a link per platform so I can open each one, edit or add sound, and publish manually</span>
                             </label>
+                            {scheduleDelivery === 'email_links' && scheduledAt && (
+                                <p className="text-xs text-neutral-500 mt-1 ml-6">You will receive the email when the scheduled time is reached (usually within a few minutes).</p>
+                            )}
                         </div>
                     </div>
 
