@@ -498,11 +498,12 @@ export default function ComposerPage() {
             return;
         }
 
+        // Append hashtags after content (per platform when "different hashtags per platform" is on)
+        const hashtagSuffix = (tags: string[]) => (tags.length ? ' ' + tags.join(' ') : '');
+        let contentFinal = content.trim() + hashtagSuffix(selectedHashtags);
+
         setLoading(true);
         try {
-            // Append hashtags after content (per platform when "different hashtags per platform" is on)
-            const hashtagSuffix = (tags: string[]) => (tags.length ? ' ' + tags.join(' ') : '');
-            let contentFinal = content.trim() + hashtagSuffix(selectedHashtags);
             let contentByPlatformFinal: Record<string, string> | undefined;
 
             if (differentHashtagsPerPlatform) {
@@ -518,6 +519,16 @@ export default function ComposerPage() {
                     if (v.trim()) acc[p] = v;
                     return acc;
                 }, {} as Record<string, string>);
+            }
+
+            const TWITTER_CHAR_LIMIT = 280;
+            if (platforms.includes('TWITTER')) {
+                const twitterText = (contentByPlatformFinal?.['TWITTER'] ?? contentFinal).trim();
+                if (twitterText.length > TWITTER_CHAR_LIMIT) {
+                    setLoading(false);
+                    setAlertMessage(`X (Twitter) limit is ${TWITTER_CHAR_LIMIT} characters. Your post for Twitter is ${twitterText.length} characters. Shorten the text or remove Twitter from this post.`);
+                    return;
+                }
             }
 
             const payload: {
@@ -930,25 +941,44 @@ export default function ComposerPage() {
                             <span className="text-xs text-neutral-500">Optional. Set brand context in Dashboard → AI Assistant first.</span>
                         </div>
                         {!differentContentPerPlatform ? (
-                            <textarea
-                                value={content}
-                                onChange={(e) => setContent(e.target.value)}
-                                placeholder="What's on your mind?..."
-                                className="w-full h-32 p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                            />
+                            <div>
+                                <textarea
+                                    value={content}
+                                    onChange={(e) => setContent(e.target.value)}
+                                    placeholder="What's on your mind?..."
+                                    className="w-full h-32 p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                />
+                                {platforms.includes('TWITTER') && (() => {
+                                    const withTags = content.trim() + (selectedHashtags.length ? ' ' + selectedHashtags.join(' ') : '');
+                                    return (
+                                        <p className={`mt-1 text-xs ${withTags.length > 280 ? 'text-amber-600 font-medium' : 'text-neutral-500'}`}>
+                                            X (Twitter) limit: 280 chars. Current (with hashtags): {withTags.length}
+                                        </p>
+                                    );
+                                })()}
+                            </div>
                         ) : (
                             <div className="space-y-4">
-                                {platforms.map((p) => (
-                                    <div key={p} className="space-y-1">
-                                        <label className="text-sm font-medium text-neutral-700">{PLATFORM_LABELS[p] || p}</label>
-                                        <textarea
-                                            value={contentByPlatform[p] ?? ''}
-                                            onChange={(e) => setContentByPlatform((prev) => ({ ...prev, [p]: e.target.value }))}
-                                            placeholder="Content for this platform..."
-                                            className="w-full h-24 p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                                        />
-                                    </div>
-                                ))}
+                                {platforms.map((p) => {
+                                    const tags = differentHashtagsPerPlatform ? (selectedHashtagsByPlatform[p] ?? []) : selectedHashtags;
+                                    const fullLength = (contentByPlatform[p] ?? '').trim().length + (tags.length ? ' ' + tags.join(' ') : '').length;
+                                    return (
+                                        <div key={p} className="space-y-1">
+                                            <label className="text-sm font-medium text-neutral-700">{PLATFORM_LABELS[p] || p}</label>
+                                            <textarea
+                                                value={contentByPlatform[p] ?? ''}
+                                                onChange={(e) => setContentByPlatform((prev) => ({ ...prev, [p]: e.target.value }))}
+                                                placeholder="Content for this platform..."
+                                                className="w-full h-24 p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                            />
+                                            {p === 'TWITTER' && (
+                                                <p className={`text-xs ${fullLength > 280 ? 'text-amber-600 font-medium' : 'text-neutral-500'}`}>
+                                                    X limit: 280. Current (with hashtags): {fullLength}
+                                                </p>
+                                            )}
+                                        </div>
+                                    );
+                                })}
                                 {platforms.length === 0 && <p className="text-sm text-neutral-500">Select platforms above first.</p>}
                             </div>
                         )}
