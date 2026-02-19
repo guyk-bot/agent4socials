@@ -32,7 +32,7 @@ function buildSystemPrompt(brand: {
   }
   parts.push(
     'Output only the post caption text, no meta-commentary. Keep it concise and platform-ready (e.g. 1-3 short paragraphs or bullet points).',
-    'Rules: Use plain text only. Do not use markdown (no ** for bold, no * for italic). Do not use em dashes or en dashes; use commas, colons, or " to " instead.'
+    'Rules: Use plain text only. Do not use markdown (no ** for bold, no * for italic). Do not use em dashes or en dashes; use commas, colons, or " to " instead. Do not include hashtags.'
   );
   return parts.join('\n\n');
 }
@@ -44,14 +44,17 @@ function cleanGeneratedText(text: string): string {
     .replace(/[\u2013\u2014]/g, ', ')
     .replace(/,(\s*,)+/g, ',')
     .replace(/\s+,/g, ',')
+    .replace(/#\w+/g, '')             // remove #hashtags
+    .replace(/\n\s*\n\s*\n/g, '\n\n') // collapse extra blank lines
+    .replace(/  +/g, ' ')             // collapse multiple spaces
     .trim();
 }
 
 function getPlatformHint(platform: string): string {
   const p = platform.toUpperCase();
-  if (p === 'TWITTER') return 'Keep it concise (under 280 characters works best). Hashtags and a clear CTA work well.';
+  if (p === 'TWITTER') return 'Keep it concise (under 280 characters works best). A clear CTA works well.';
   if (p === 'LINKEDIN') return 'Professional tone. One to three short paragraphs. Suitable for a business audience.';
-  if (p === 'INSTAGRAM') return 'Engaging and visual. Line breaks and a few hashtags work well.';
+  if (p === 'INSTAGRAM') return 'Engaging and visual. Line breaks work well.';
   if (p === 'FACEBOOK') return 'Conversational. One or two short paragraphs.';
   if (p === 'TIKTOK') return 'Casual and punchy. Short lines. Hook in the first line.';
   if (p === 'YOUTUBE') return 'Descriptive but concise. Good for video captions or community posts.';
