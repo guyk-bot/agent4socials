@@ -9,7 +9,7 @@ The app includes an **optional** AI assistant that helps users write post descri
    - **Local:** `apps/web/.env` → `OPENROUTER_API_KEY=sk-or-v1-...`
    - **Production (Vercel):** Project → Settings → Environment Variables → add `OPENROUTER_API_KEY` with the same value.
 
-   The backend uses **Gemini 2.5 Flash** via OpenRouter (`google/gemini-2.5-flash`). Do not commit the key; use env only.
+   The backend uses **GPT-4.1 Mini** via OpenRouter (`openai/gpt-4.1-mini`). Do not commit the key; use env only.
 
 2. **Brand context**  
    Users set their brand context once under **Dashboard → AI Assistant**: target audience, tone of voice (with examples), product description, and any extra context. This is stored per user and used when generating descriptions.
@@ -21,7 +21,7 @@ The app includes an **optional** AI assistant that helps users write post descri
 
 - **GET /api/ai/brand-context** – Returns the current user’s brand context (or `null`).
 - **PUT /api/ai/brand-context** – Saves/updates brand context (JSON body: `targetAudience`, `toneOfVoice`, `toneExamples`, `productDescription`, `additionalContext`).
-- **POST /api/ai/generate-description** – Generates a post description. Body: `{ topic?, prompt?, platform? }`. Requires brand context to be set; uses `OPENROUTER_API_KEY` and OpenRouter’s Gemini 2.5 Flash.
+- **POST /api/ai/generate-description** – Generates a post description. Body: `{ topic?, prompt?, platform? }`. Requires brand context to be set; uses `OPENROUTER_API_KEY` and OpenRouter’s GPT-4.1 Mini.
 
 All routes require authentication (Bearer token from Supabase session).
 

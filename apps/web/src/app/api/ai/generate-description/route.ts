@@ -3,7 +3,7 @@ import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const MODEL = 'google/gemini-2.5-flash';
+const MODEL = 'openai/gpt-4.1-mini';
 
 function buildSystemPrompt(brand: {
   targetAudience: string | null;
