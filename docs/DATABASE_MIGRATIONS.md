@@ -20,6 +20,10 @@ DATABASE_URL="postgresql://postgres.xxx:password@...:5432/postgres" npx prisma m
 (Use the URL you copied. Port must be **5432** for migrations.)
 4. After it finishes, try creating a post again on agent4socials.com.
 
+## "AI Assistant not set up yet (database table missing)"
+
+If the **AI Writing Assistant** (Dashboard → AI Assistant) shows "Couldn't load your saved context" or "Failed to save" and the error says the database table is missing, the **BrandContext** table has not been created in production. Run the same migration steps above (use the **direct** Supabase URL with port **5432**). That will create the `BrandContext` table and brand context save will work.
+
 ## LinkedIn + Twitter scheduling and "email with links"
 
 Once the DB has the latest schema (contentByPlatform, etc.):

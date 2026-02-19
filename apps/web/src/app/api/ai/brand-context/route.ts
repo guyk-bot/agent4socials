@@ -17,7 +17,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(brandContext ?? null);
   } catch (e) {
     console.error('[Brand context GET]', e);
-    return NextResponse.json({ message: 'Failed to load brand context' }, { status: 500 });
+    const errMsg = (e as { message?: string })?.message ?? '';
+    const msg = errMsg.includes('does not exist') || errMsg.includes('BrandContext') || errMsg.includes('relation')
+      ? 'AI Assistant not set up yet (database table missing). Run migrations. See docs/DATABASE_MIGRATIONS.md.'
+      : 'Failed to load brand context';
+    return NextResponse.json({ message: msg }, { status: 500 });
   }
 }
 
@@ -73,10 +77,12 @@ export async function PUT(request: NextRequest) {
   } catch (e) {
     console.error('[Brand context PUT]', e);
     const prismaError = e as { code?: string; message?: string };
+    const errMsg = prismaError?.message ?? '';
     let msg = 'Failed to save. Try again in a moment or log out and back in.';
     if (prismaError?.code === 'P2002') msg = 'This profile is already in use. Try refreshing the page.';
-    else if (prismaError?.code === 'P2025' || prismaError?.message?.includes('Record to update not found')) msg = 'Session may have changed. Please refresh the page and try again.';
-    else if (prismaError?.message?.includes('connect') || prismaError?.message?.includes('timeout')) msg = 'Database temporarily unavailable. Please try again in a moment.';
+    else if (prismaError?.code === 'P2025' || errMsg.includes('Record to update not found')) msg = 'Session may have changed. Please refresh the page and try again.';
+    else if (errMsg.includes('connect') || errMsg.includes('timeout')) msg = 'Database temporarily unavailable. Please try again in a moment.';
+    else if (errMsg.includes('does not exist') || errMsg.includes('BrandContext') || errMsg.includes('relation')) msg = 'AI Assistant is not set up on this server yet (database table missing). If you run the site: run the database migrations with your direct database URL. See docs/DATABASE_MIGRATIONS.md.';
     return NextResponse.json({ message: msg }, { status: 500 });
   }
 }
