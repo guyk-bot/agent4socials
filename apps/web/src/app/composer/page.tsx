@@ -25,6 +25,7 @@ type ComposerDraft = {
     content: string;
     contentByPlatform: Record<string, string>;
     differentContentPerPlatform: boolean;
+    mediaType: MediaTypeChoice;
     mediaList: { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[];
     mediaByPlatform: Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[]>;
     differentMediaPerPlatform: boolean;
@@ -144,6 +145,7 @@ export default function ComposerPage() {
                 if (typeof d.content === 'string') setContent(d.content);
                 if (d.contentByPlatform && typeof d.contentByPlatform === 'object') setContentByPlatform(d.contentByPlatform);
                 if (typeof d.differentContentPerPlatform === 'boolean') setDifferentContentPerPlatform(d.differentContentPerPlatform);
+                if (d.mediaType === 'photo' || d.mediaType === 'video' || d.mediaType === 'reel' || d.mediaType === 'carousel') setMediaType(d.mediaType);
                 if (Array.isArray(d.mediaList)) {
                     const valid = d.mediaList.filter((m) => m && isPersistableMediaUrl(m.fileUrl));
                     if (valid.length) setMediaList(valid);
@@ -195,6 +197,7 @@ export default function ComposerPage() {
                     content,
                     contentByPlatform,
                     differentContentPerPlatform,
+                    mediaType,
                     mediaList: mediaListToSave,
                     mediaByPlatform: mediaByPlatformToSave,
                     differentMediaPerPlatform,
@@ -218,6 +221,7 @@ export default function ComposerPage() {
         content,
         contentByPlatform,
         differentContentPerPlatform,
+        mediaType,
         mediaList,
         mediaByPlatform,
         differentMediaPerPlatform,
@@ -491,17 +495,23 @@ export default function ComposerPage() {
             let msg = 'Failed to create post';
             if (err && typeof err === 'object' && 'response' in err) {
                 const res = (err as { response?: { data?: unknown; status?: number } }).response;
-                if (res?.data && typeof res.data === 'object' && res.data !== null && 'message' in res.data && typeof (res.data as { message: unknown }).message === 'string') {
-                    msg = (res.data as { message: string }).message;
-                } else if (res?.status === 401) {
+                const status = res?.status;
+                const data = res?.data;
+                if (typeof window !== 'undefined') console.error('[Composer] Create post error:', { status, data, err });
+                if (status === 401) {
                     msg = 'Session expired or not logged in. Please sign in again.';
-                } else if (res?.status === 400 && res.data) {
-                    msg = typeof res.data === 'object' && res.data !== null && 'message' in res.data ? String((res.data as { message: unknown }).message) : 'Invalid request. Check that you have connected accounts for the selected platforms.';
+                } else if (status === 400) {
+                    msg = typeof data === 'object' && data !== null && 'message' in data ? String((data as { message: unknown }).message) : 'Invalid request. Connect at least one account for the selected platforms in Accounts.';
+                } else if (data != null) {
+                    if (typeof data === 'string') msg = data;
+                    else if (typeof data === 'object' && data !== null && 'message' in data && typeof (data as { message: unknown }).message === 'string') msg = (data as { message: string }).message;
+                    else if (typeof data === 'object' && data !== null && 'error' in data && typeof (data as { error: unknown }).error === 'string') msg = (data as { error: string }).error;
                 }
-            } else if (err instanceof Error) {
-                msg = err.message;
+            } else {
+                if (err instanceof Error) msg = err.message;
+                if (typeof window !== 'undefined') console.error('[Composer] Create post error (no response):', err);
             }
-            if (typeof window !== 'undefined') console.error('[Composer] Create post error:', err);
+            if (msg === 'Failed to create post') msg += ' Open the browser console (F12 → Console) for details.';
             setAlertMessage(msg);
         } finally {
             setLoading(false);

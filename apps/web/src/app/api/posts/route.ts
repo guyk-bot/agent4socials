@@ -61,6 +61,27 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
+  const validPlatforms = Object.values(Platform) as string[];
+  const invalidPlatform = validTargets.find((t) => !validPlatforms.includes(t.platform));
+  if (invalidPlatform) {
+    return NextResponse.json(
+      { message: `Invalid platform: ${invalidPlatform.platform}. Use one of: ${validPlatforms.join(', ')}` },
+      { status: 400 }
+    );
+  }
+  const accountIds = [...new Set(validTargets.map((t) => t.socialAccountId))];
+  const accountsForUser = await prisma.socialAccount.findMany({
+    where: { id: { in: accountIds }, userId },
+    select: { id: true },
+  });
+  const foundIds = new Set(accountsForUser.map((a) => a.id));
+  const missing = accountIds.filter((id) => !foundIds.has(id));
+  if (missing.length) {
+    return NextResponse.json(
+      { message: 'One or more selected accounts are invalid or do not belong to you. Please reconnect from Accounts.' },
+      { status: 400 }
+    );
+  }
   const status: PostStatus = scheduledAt ? PostStatus.SCHEDULED : PostStatus.DRAFT;
   try {
   const post = await prisma.post.create({
@@ -102,6 +123,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.json(post);
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Failed to create post';
+    console.error('[POST /api/posts]', e);
     return NextResponse.json({ message }, { status: 500 });
   }
 }
