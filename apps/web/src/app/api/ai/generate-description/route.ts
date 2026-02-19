@@ -52,7 +52,7 @@ function cleanGeneratedText(text: string): string {
 
 function getPlatformHint(platform: string): string {
   const p = platform.toUpperCase();
-  if (p === 'TWITTER') return 'Keep it concise (under 280 characters works best). A clear CTA works well.';
+  if (p === 'TWITTER') return 'X (Twitter) has a 280 character limit total. Hashtags are added separately by the user (typically 5, about 40-60 chars). Keep the description to 200-220 characters maximum so there is room for hashtags. Be concise. A clear CTA works well.';
   if (p === 'LINKEDIN') return 'Professional tone. One to three short paragraphs. Suitable for a business audience.';
   if (p === 'INSTAGRAM') return 'Engaging and visual. Line breaks work well.';
   if (p === 'FACEBOOK') return 'Conversational. One or two short paragraphs.';
