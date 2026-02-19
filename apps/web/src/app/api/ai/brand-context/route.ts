@@ -73,6 +73,9 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(brandContext);
   } catch (e) {
     console.error('[Brand context PUT]', e);
-    return NextResponse.json({ message: 'Failed to save brand context' }, { status: 500 });
+    const msg = (e as { code?: string })?.code === 'P2002'
+      ? 'This profile is already in use. Try refreshing the page.'
+      : 'Failed to save. If it keeps happening, try logging out and back in.';
+    return NextResponse.json({ message: msg }, { status: 500 });
   }
 }
