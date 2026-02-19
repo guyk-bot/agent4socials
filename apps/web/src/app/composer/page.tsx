@@ -1147,10 +1147,19 @@ export default function ComposerPage() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full btn-primary flex items-center justify-center gap-2 py-3.5 rounded-xl text-base font-medium"
+                        className="w-full btn-primary flex items-center justify-center gap-2 py-3.5 rounded-xl text-base font-medium disabled:opacity-70 disabled:cursor-not-allowed"
                     >
-                        <Send size={20} />
-                        <span>{scheduledAt ? 'Schedule Post' : 'Post Now'}</span>
+                        {loading ? (
+                            <>
+                                <Loader2 size={20} className="animate-spin shrink-0" />
+                                <span>{scheduledAt ? 'Scheduling…' : 'Posting…'}</span>
+                            </>
+                        ) : (
+                            <>
+                                <Send size={20} />
+                                <span>{scheduledAt ? 'Schedule Post' : 'Post Now'}</span>
+                            </>
+                        )}
                     </button>
                 </form>
 

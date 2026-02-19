@@ -161,24 +161,6 @@ export default function Sidebar() {
                   </button>
                 );
               })}
-              {platform === 'INSTAGRAM' && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedPlatformForConnect(platform);
-                    router.push('/dashboard');
-                  }}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left text-sm transition-colors ${
-                    selectedPlatformForConnect === platform ? 'bg-white shadow-sm ring-1 ring-neutral-200' : 'hover:bg-white/70'
-                  }`}
-                  style={selectedPlatformForConnect === platform ? { color: accent } : undefined}
-                >
-                  <div className="w-8 h-8 flex items-center justify-center shrink-0 rounded-full bg-neutral-100">
-                    <Plus size={14} className="text-neutral-500" />
-                  </div>
-                  <span className="flex-1 font-medium text-neutral-600">Connect with Instagram only</span>
-                </button>
-              )}
             </div>
           );
         })}
