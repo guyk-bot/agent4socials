@@ -87,8 +87,19 @@ export default function AutomationPage() {
           Keyword comment automation
         </h2>
         <p className="text-sm text-neutral-600 mt-1">
-          When someone comments on your post with a keyword you set (e.g. &quot;demo&quot;), they get an automatic reply. Set keywords and the reply text per post in the Composer (section 4). Add a cron job calling <code className="bg-neutral-100 px-1 rounded text-xs">/api/cron/comment-automation</code> with the same <strong>X-Cron-Secret</strong> header (e.g. every 1–5 minutes).
+          When someone comments on your post with a keyword you set (e.g. &quot;demo&quot;), they get an automatic reply. Set keywords and the reply text per post in the Composer (section 4).
         </p>
+        <div className="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-900">
+          <p className="font-medium mb-1.5">Replies only run when a cron job calls our endpoint</p>
+          <p className="text-amber-800 mb-2">
+            If you comment with a keyword and nothing happens after 5–10 minutes, the comment-automation cron is probably not set up. Add a cron (e.g. <a href="https://cron-job.org" target="_blank" rel="noopener noreferrer" className="underline">cron-job.org</a>) that runs every 1–5 minutes:
+          </p>
+          <ul className="list-disc list-inside space-y-1 text-amber-800 mb-2">
+            <li>URL: <code className="bg-amber-100/80 px-1 rounded text-xs break-all">https://agent4socials.com/api/cron/comment-automation</code></li>
+            <li>Header: <code className="bg-amber-100/80 px-1 rounded text-xs">X-Cron-Secret: YOUR_CRON_SECRET</code> (same value as in Vercel env)</li>
+          </ul>
+          <p className="text-amber-800 text-xs">Without this cron, no autoreply runs no matter how long you wait.</p>
+        </div>
         <div className="mt-2 p-2.5 rounded-lg bg-white border border-neutral-200 text-xs">
           <p className="font-medium text-neutral-700 mb-1.5">Platform capabilities</p>
           <ul className="space-y-1 text-neutral-600">
