@@ -86,13 +86,13 @@ export async function sendScheduledPostLinksEmail(to: string, openLink: string):
       to: [to],
       subject: 'Your scheduled post is ready',
       html: `
-        <p>Your scheduled post is ready. Open the link below to choose how to publish:</p>
+        <p>Your scheduled post is ready. Open the link below to publish:</p>
         <p><a href="${openLink}" style="color:#4f46e5;font-weight:600">Open your post</a></p>
-        <p><strong>What you can do on the page:</strong></p>
+        <p><strong>Important:</strong> X (Twitter) and LinkedIn do not let us open a pre-filled post with images in the browser. On the page you have three options:</p>
         <ul>
-          <li><strong>Publish now</strong> – Click &quot;Publish now&quot; to post directly to your connected accounts with captions and images (no manual upload). Best for X and LinkedIn.</li>
-          <li><strong>Download media</strong> – Use the Download button on each image/video if you prefer to upload manually in each app.</li>
-          <li><strong>Open in X / LinkedIn</strong> – Opens the platform with the caption only; add images manually (e.g. after downloading them from the page).</li>
+          <li><strong>Publish now</strong> – One click to post to your connected accounts with captions and images. Use this for X and LinkedIn so the post goes out as-is.</li>
+          <li><strong>Download media</strong> – Download each image or video, then upload them manually in X or LinkedIn and paste the caption.</li>
+          <li><strong>Open in X / LinkedIn</strong> – Opens the app with the caption only (no images). You can then add images manually after downloading them from the page.</li>
         </ul>
         <p>This link is valid for 7 days. If you didn't schedule a post, you can ignore this email.</p>
         <p>Cheers,<br>The Agent4Socials team</p>

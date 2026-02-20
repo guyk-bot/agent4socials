@@ -100,12 +100,12 @@ export default function PostOpenClient({
       <div className="max-w-lg mx-auto space-y-6">
         <div className="text-center">
           <h1 className="text-xl font-semibold text-neutral-900">Your post is ready</h1>
-          <p className="text-sm text-neutral-500 mt-1">Publish directly with images, or download media and post manually.</p>
+          <p className="text-sm text-neutral-500 mt-1">X and LinkedIn cannot open with images in the browser. Use &quot;Publish now&quot; to post as-is, or download media and post manually.</p>
         </div>
         {postId && token && (
           <div className="card space-y-3 border-2 border-indigo-200 bg-indigo-50/50">
-            <p className="text-sm font-semibold text-neutral-900">Post directly (with images)</p>
-            <p className="text-xs text-neutral-600">Publish to your connected accounts with captions and media as-is. No need to open X or LinkedIn in the browser.</p>
+            <p className="text-sm font-semibold text-neutral-900">Option 1: Post directly (with images)</p>
+            <p className="text-xs text-neutral-600">Publish to your connected accounts with captions and media as-is. Best for X and LinkedIn (no need to open them in the browser or add images manually).</p>
             <button
               type="button"
               onClick={handlePublishNow}
@@ -134,8 +134,8 @@ export default function PostOpenClient({
         )}
         {data.platforms.some((p) => p.media.length > 0) && (
           <div className="card space-y-2">
-            <p className="text-sm font-medium text-neutral-900">Download media</p>
-            <p className="text-xs text-neutral-500">Save images/videos to upload manually in X or LinkedIn if you don&apos;t use &quot;Publish now&quot;.</p>
+            <p className="text-sm font-medium text-neutral-900">Option 2: Download media</p>
+            <p className="text-xs text-neutral-500">Save each image or video to your device, then upload them in X or LinkedIn and paste the caption. Use this if you prefer to post manually.</p>
             <div className="flex flex-wrap gap-2">
               {Array.from(new Map(data.platforms.flatMap((p) => p.media.map((m) => [m.fileUrl, m]))).entries()).map(([url, m], i) => (
                 <a
@@ -169,7 +169,7 @@ export default function PostOpenClient({
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-medium text-neutral-500">Media ({media.length} {media.length === 1 ? 'item' : 'items'})</p>
-                    <span className="text-xs text-neutral-500">Download any file below to upload manually in X or LinkedIn</span>
+                    <span className="text-xs text-neutral-500">Use the Download button on each item to save and upload in the app</span>
                   </div>
                   {images.length > 0 ? (
                     <div className="relative overflow-hidden rounded-lg bg-neutral-100">
@@ -261,8 +261,10 @@ export default function PostOpenClient({
                   )}
                   <p className="text-xs text-neutral-500">
                     {platform === 'TWITTER'
-                      ? 'Or download each image and add it in X. Web &quot;Open in X&quot; cannot attach images.'
-                      : 'Download media to upload manually, or use &quot;Publish now&quot; at the top to post with images.'}
+                      ? '&quot;Open in X&quot; only pastes the caption. To include images: use &quot;Publish now&quot; at the top or download images above and add them in X.'
+                      : platform === 'LINKEDIN'
+                        ? '&quot;Open in LinkedIn&quot; only pastes the caption. To include images: use &quot;Publish now&quot; at the top or download images above and add them in LinkedIn.'
+                        : 'Use &quot;Publish now&quot; at the top to post with images, or download media to upload manually.'}
                   </p>
                 </div>
               )}
