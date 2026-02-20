@@ -4,6 +4,14 @@ import { prisma } from '@/lib/db';
 import { PostStatus } from '@prisma/client';
 import axios from 'axios';
 
+async function fetchImageBuffer(url: string): Promise<{ buffer: Buffer; contentType: string }> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Failed to fetch image: ${res.status}`);
+  const buffer = Buffer.from(await res.arrayBuffer());
+  const contentType = res.headers.get('content-type') || 'image/jpeg';
+  return { buffer, contentType };
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -147,20 +155,57 @@ export async function POST(
         results.push({ platform: 'FACEBOOK', ok: true });
       } else if (platform === 'LINKEDIN') {
         const author = platformUserId.startsWith('urn:li:') ? platformUserId : `urn:li:person:${platformUserId}`;
+        let postBody: {
+          author: string;
+          commentary: string;
+          visibility: string;
+          distribution: object;
+          lifecycleState: string;
+          isReshareDisabledByAuthor: boolean;
+          content?: { media: { id: string; altText?: string } };
+        } = {
+          author,
+          commentary: caption || ' ',
+          visibility: 'PUBLIC',
+          distribution: {
+            feedDistribution: 'MAIN_FEED',
+            targetEntities: [],
+            thirdPartyDistributionChannels: [],
+          },
+          lifecycleState: 'PUBLISHED',
+          isReshareDisabledByAuthor: false,
+        };
+        if (firstImageUrl) {
+          const { buffer, contentType } = await fetchImageBuffer(firstImageUrl);
+          const initRes = await axios.post<{ value?: { uploadUrl?: string; image?: string } }>(
+            'https://api.linkedin.com/rest/images?action=initializeUpload',
+            { initializeUploadRequest: { owner: author } },
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'X-Restli-Protocol-Version': '2.0.0',
+                'Linkedin-Version': '202602',
+              },
+            }
+          );
+          const uploadUrl = initRes.data?.value?.uploadUrl;
+          const imageUrn = initRes.data?.value?.image;
+          if (uploadUrl && imageUrn) {
+            await axios.put(uploadUrl, buffer, {
+              headers: {
+                'Content-Type': contentType,
+                Authorization: `Bearer ${token}`,
+              },
+              maxBodyLength: Infinity,
+              maxContentLength: Infinity,
+            });
+            postBody.content = { media: { id: imageUrn, altText: caption.slice(0, 120) || undefined } };
+          }
+        }
         const postRes = await axios.post<{ id?: string }>(
           'https://api.linkedin.com/rest/posts',
-          {
-            author,
-            commentary: caption || ' ',
-            visibility: 'PUBLIC',
-            distribution: {
-              feedDistribution: 'MAIN_FEED',
-              targetEntities: [],
-              thirdPartyDistributionChannels: [],
-            },
-            lifecycleState: 'PUBLISHED',
-            isReshareDisabledByAuthor: false,
-          },
+          postBody,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -176,6 +221,38 @@ export async function POST(
           data: { status: PostStatus.POSTED, ...(postUrn ? { platformPostId: postUrn } : {}) },
         });
         results.push({ platform: 'LINKEDIN', ok: true });
+      } else if (platform === 'TWITTER') {
+        const text = caption.slice(0, 280) || ' ';
+        let mediaIds: string[] = [];
+        if (firstImageUrl) {
+          const { buffer, contentType } = await fetchImageBuffer(firstImageUrl);
+          const form = new FormData();
+          form.append('media', new Blob([buffer], { type: contentType }), contentType.includes('png') ? 'image.png' : 'image.jpg');
+          const uploadRes = await fetch('https://upload.twitter.com/1.1/media/upload.json', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: form,
+          });
+          if (!uploadRes.ok) {
+            const errText = await uploadRes.text();
+            throw new Error(`Twitter media upload failed: ${uploadRes.status} ${errText}`);
+          }
+          const uploadData = (await uploadRes.json()) as { media_id_string?: string };
+          const mediaId = uploadData?.media_id_string;
+          if (mediaId) mediaIds = [mediaId];
+        }
+        const tweetBody = mediaIds.length > 0 ? { text, media: { media_ids: mediaIds } } : { text };
+        const tweetRes = await axios.post<{ data?: { id?: string } }>(
+          'https://api.twitter.com/2/tweets',
+          tweetBody,
+          { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
+        );
+        const tweetId = tweetRes.data?.data?.id;
+        await prisma.postTarget.update({
+          where: { id: target.id },
+          data: { status: PostStatus.POSTED, ...(tweetId ? { platformPostId: tweetId } : {}) },
+        });
+        results.push({ platform: 'TWITTER', ok: true });
       } else {
         await prisma.postTarget.update({
           where: { id: target.id },
