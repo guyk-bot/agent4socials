@@ -227,7 +227,7 @@ export async function POST(
         if (firstImageUrl) {
           const { buffer, contentType } = await fetchImageBuffer(firstImageUrl);
           const form = new FormData();
-          form.append('media', new Blob([buffer], { type: contentType }), contentType.includes('png') ? 'image.png' : 'image.jpg');
+          form.append('media', new Blob([new Uint8Array(buffer)], { type: contentType }), contentType.includes('png') ? 'image.png' : 'image.jpg');
           const uploadRes = await fetch('https://upload.twitter.com/1.1/media/upload.json', {
             method: 'POST',
             headers: { Authorization: `Bearer ${token}` },
