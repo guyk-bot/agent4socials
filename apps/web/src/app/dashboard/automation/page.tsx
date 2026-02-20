@@ -89,16 +89,15 @@ export default function AutomationPage() {
         <p className="text-sm text-neutral-600 mt-1">
           When someone comments on your post with a keyword you set (e.g. &quot;demo&quot;), they get an automatic reply. Set keywords and the reply text per post in the Composer (section 4).
         </p>
-        <div className="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-900">
-          <p className="font-medium mb-1.5">Replies only run when a cron job calls our endpoint</p>
-          <p className="text-amber-800 mb-2">
-            If you comment with a keyword and nothing happens after 5–10 minutes, the comment-automation cron is probably not set up. Add a cron (e.g. <a href="https://cron-job.org" target="_blank" rel="noopener noreferrer" className="underline">cron-job.org</a>) that runs every 1–5 minutes:
-          </p>
-          <ul className="list-disc list-inside space-y-1 text-amber-800 mb-2">
-            <li>URL: <code className="bg-amber-100/80 px-1 rounded text-xs break-all">https://agent4socials.com/api/cron/comment-automation</code></li>
-            <li>Header: <code className="bg-amber-100/80 px-1 rounded text-xs">X-Cron-Secret: YOUR_CRON_SECRET</code> (same value as in Vercel env)</li>
-          </ul>
-          <p className="text-amber-800 text-xs">Without this cron, no autoreply runs no matter how long you wait.</p>
+        <div className="mt-3 p-3 rounded-lg bg-green-50 border border-green-200 text-sm text-green-900">
+          <p className="font-medium mb-2">Setup checklist (do all steps)</p>
+          <ol className="list-decimal list-inside space-y-1.5 text-green-800 mb-2">
+            <li><strong>Add the secret header in your cron job.</strong> In cron-job.org: edit your job → look for &quot;Request headers&quot;, &quot;Advanced&quot;, or a similar section → add header <code className="bg-green-100/80 px-1 rounded text-xs">X-Cron-Secret</code> with value exactly equal to <code className="bg-green-100/80 px-1 rounded text-xs">CRON_SECRET</code> from Vercel (Environment Variables). Without this, the app returns 401 and never replies.</li>
+            <li><strong>Create a post with comment automation.</strong> In Composer: add your content and platforms, then in section 4 enable &quot;Keyword comment automation&quot;, add keywords (e.g. <code className="bg-green-100/80 px-1 rounded text-xs">demo</code>, <code className="bg-green-100/80 px-1 rounded text-xs">hello</code>) and the reply text (or different text per platform). Schedule or save the post.</li>
+            <li><strong>Publish that post.</strong> The post must be published (status Posted) to the platforms you want. Use &quot;Publish now&quot; or schedule with &quot;Auto&quot; so it goes out; the cron only checks posts that are already published.</li>
+            <li><strong>Wait for the cron.</strong> Your cron runs every 5 minutes. When someone comments with one of your keywords, the next run will reply (usually within 5 minutes).</li>
+          </ol>
+          <p className="text-green-800 text-xs">Cron URL: <code className="bg-green-100/80 px-1 rounded break-all">https://agent4socials.com/api/cron/comment-automation</code>. Use &quot;TEST RUN&quot; in cron-job.org to trigger once; check the response (200 = OK, 401 = wrong or missing X-Cron-Secret).</p>
         </div>
         <div className="mt-2 p-2.5 rounded-lg bg-white border border-neutral-200 text-xs">
           <p className="font-medium text-neutral-700 mb-1.5">Platform capabilities</p>
@@ -177,9 +176,24 @@ export default function AutomationPage() {
               rows={4}
               className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
             />
+            <p className="mt-2 text-xs text-neutral-500">Add a cron (e.g. every 15 min) calling <code className="bg-neutral-100 px-1 rounded">/api/cron/welcome-followers</code> with header <code className="bg-neutral-100 px-1 rounded">X-Cron-Secret: YOUR_CRON_SECRET</code>.</p>
           </div>
         )}
         {saving && <p className="text-xs text-neutral-400 flex items-center gap-1"><Loader2 size={14} className="animate-spin" /> Saving...</p>}
+      </div>
+
+      {/* Introduction DM: LinkedIn / new connections */}
+      <div className="card border border-neutral-200 bg-neutral-50/50">
+        <h2 className="font-semibold text-neutral-900 flex items-center gap-2">
+          <UserPlus size={20} className="text-neutral-500" />
+          Introduction DM for new LinkedIn connections or followers
+        </h2>
+        <p className="text-sm text-neutral-600 mt-1">
+          <strong>X (Twitter) new followers:</strong> Use the &quot;Welcome message to new followers&quot; section above. Enable it, set your message, and add a cron for <code className="bg-neutral-100 px-1 rounded text-xs">/api/cron/welcome-followers</code> (same X-Cron-Secret, e.g. every 15 minutes).
+        </p>
+        <p className="text-sm text-neutral-600 mt-2">
+          <strong>LinkedIn new connections:</strong> LinkedIn&apos;s API does not expose a way for apps to detect when someone connects with you or to send an automatic intro DM to new connections. So we cannot offer &quot;auto-DM when someone connects on LinkedIn&quot; at this time. When LinkedIn adds support, we can add it here.
+        </p>
       </div>
     </div>
   );
