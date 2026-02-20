@@ -88,6 +88,28 @@ export default function PostOpenClient({
         setPublishState('error');
         return;
       }
+      // API returns 200 with ok: false when a platform fails (e.g. Twitter 401)
+      if (json?.ok === false && Array.isArray(json?.results)) {
+        const failed = json.results.filter((r: { ok?: boolean }) => !r.ok);
+        if (failed.length > 0) {
+          const messages = failed.map(
+            (r: { platform?: string; error?: string }) =>
+              `${r.platform || 'Unknown'}: ${r.error || 'Publish failed'}`
+          );
+          const hasAuthError = messages.some(
+            (m: string) =>
+              /401|403|unauthorized|token|invalid|expired/i.test(m)
+          );
+          setPublishError(
+            messages.join('. ') +
+              (hasAuthError
+                ? ' Reconnect that account in the dashboard (Summary → click the account → Reconnect) and try again.'
+                : '')
+          );
+          setPublishState('error');
+          return;
+        }
+      }
       setPublishState('done');
     } catch (err) {
       setPublishError(err instanceof Error ? err.message : 'Network error');
