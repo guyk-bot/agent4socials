@@ -522,12 +522,12 @@ export default function ComposerPage() {
                 }, {} as Record<string, string>);
             }
 
-            const TWITTER_CHAR_LIMIT = 280;
+            const TWITTER_CHAR_LIMIT = 256;
             if (platforms.includes('TWITTER')) {
                 const twitterText = (contentByPlatformFinal?.['TWITTER'] ?? contentFinal).trim();
                 if (twitterText.length > TWITTER_CHAR_LIMIT) {
                     setLoading(false);
-                    setAlertMessage(`X (Twitter) limit is ${TWITTER_CHAR_LIMIT} characters. Your post for Twitter is ${twitterText.length} characters. Shorten the text or remove Twitter from this post.`);
+                    setAlertMessage(`X (Twitter) limit is ${TWITTER_CHAR_LIMIT} characters (including spaces). Your post for Twitter is ${twitterText.length} characters. Shorten the text or remove Twitter from this post.`);
                     return;
                 }
             }
@@ -964,8 +964,8 @@ export default function ComposerPage() {
                                 {platforms.includes('TWITTER') && (() => {
                                     const withTags = content.trim() + (selectedHashtags.length ? ' ' + selectedHashtags.join(' ') : '');
                                     return (
-                                        <p className={`mt-1 text-xs ${withTags.length > 280 ? 'text-amber-600 font-medium' : 'text-neutral-500'}`}>
-                                            X (Twitter) limit: 280 chars. Current (with hashtags): {withTags.length}
+                                        <p className={`mt-1 text-xs ${withTags.length > 256 ? 'text-amber-600 font-medium' : 'text-neutral-500'}`}>
+                                            X (Twitter) limit: 256 chars (including spaces). Current (with hashtags): {withTags.length}
                                         </p>
                                     );
                                 })()}
@@ -985,8 +985,8 @@ export default function ComposerPage() {
                                                 className="w-full h-24 p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                                             />
                                             {p === 'TWITTER' && (
-                                                <p className={`text-xs ${fullLength > 280 ? 'text-amber-600 font-medium' : 'text-neutral-500'}`}>
-                                                    X limit: 280. Current (with hashtags): {fullLength}
+                                                <p className={`text-xs ${fullLength > 256 ? 'text-amber-600 font-medium' : 'text-neutral-500'}`}>
+                                                    X limit: 256 (including spaces). Current (with hashtags): {fullLength}
                                                 </p>
                                             )}
                                         </div>

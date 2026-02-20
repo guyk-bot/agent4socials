@@ -155,7 +155,7 @@ async function runCommentAutomation(request: NextRequest) {
               try {
                 await axios.post(
                   'https://api.twitter.com/2/tweets',
-                  { text: replyText.slice(0, 280), reply: { in_reply_to_tweet_id: t.id } },
+                  { text: replyText.slice(0, 256), reply: { in_reply_to_tweet_id: t.id } },
                   { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
                 );
                 await prisma.commentAutomationReply.create({

@@ -14,7 +14,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   LINKEDIN: 'LinkedIn',
 };
 
-const TWITTER_CHAR_LIMIT = 280;
+const TWITTER_CHAR_LIMIT = 256;
 
 function PlatformIcon({ platform }: { platform: string }) {
   switch (platform) {
@@ -280,7 +280,7 @@ export default function PostOpenClient({
               </div>
               {platform === 'TWITTER' && currentCaption.length > TWITTER_CHAR_LIMIT && (
                 <p className="text-xs text-amber-700 bg-amber-50 rounded p-2">
-                  Caption is {currentCaption.length} chars. X limit is {TWITTER_CHAR_LIMIT}. The &quot;Open in X&quot; button will use the first {TWITTER_CHAR_LIMIT} chars.
+                  Caption is {currentCaption.length} chars. X limit is {TWITTER_CHAR_LIMIT} (including spaces). The &quot;Open in X&quot; button will use the first {TWITTER_CHAR_LIMIT} chars.
                 </p>
               )}
               <div className="flex flex-wrap gap-2 items-center">
