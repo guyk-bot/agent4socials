@@ -59,6 +59,6 @@ export async function getPostForOpen(postId: string, token: string): Promise<Pos
     platforms,
     firstImageUrl,
     allImageUrls,
-    bestDescription: bestDescription.slice(0, 200),
+    bestDescription: bestDescription.slice(0, 300),
   };
 }

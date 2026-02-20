@@ -16,6 +16,7 @@ import {
     ChevronRight,
     Sparkles,
     Loader2,
+    Download,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -866,6 +867,17 @@ export default function ComposerPage() {
                                             >
                                                 <X size={14} />
                                             </button>
+                                            <a
+                                                href={m.fileUrl}
+                                                download
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                onClick={(e) => e.stopPropagation()}
+                                                className="absolute bottom-1.5 right-1.5 p-1.5 bg-black/60 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow"
+                                                title="Download"
+                                            >
+                                                <Download size={14} />
+                                            </a>
                                         </div>
                                     ))}
                                 </div>
@@ -900,13 +912,14 @@ export default function ComposerPage() {
                                         </div>
                                         <div className="flex flex-wrap gap-2">
                                             {(mediaByPlatform[p] || []).map((m, i) => (
-                                                <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden bg-neutral-200 shrink-0">
+                                                <div key={i} className="relative group w-16 h-16 rounded-lg overflow-hidden bg-neutral-200 shrink-0">
                                                     {m.type === 'VIDEO' ? (
                                                         <video src={mediaDisplayUrl(m.fileUrl)} className="w-full h-full object-cover" muted playsInline />
                                                     ) : (
                                                         <img src={mediaDisplayUrl(m.fileUrl)} alt="" className="w-full h-full object-cover" />
                                                     )}
                                                     <button type="button" onClick={() => handleRemoveMediaForPlatform(p, i)} className="absolute top-0.5 right-0.5 p-1 bg-red-500 text-white rounded text-xs">×</button>
+                                                    <a href={m.fileUrl} download target="_blank" rel="noopener noreferrer" className="absolute bottom-0.5 right-0.5 p-1 bg-black/60 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity" title="Download"><Download size={12} /></a>
                                                 </div>
                                             ))}
                                         </div>

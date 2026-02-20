@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { ExternalLink, Copy, Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ExternalLink, Copy, Check, ChevronLeft, ChevronRight, Download, Send } from 'lucide-react';
 import { InstagramIcon, FacebookIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
 
 const PLATFORM_LABELS: Record<string, string> = {
@@ -32,13 +32,23 @@ export default function PostOpenClient({
   data,
   baseUrl,
   pageUrl,
+  postId,
+  token,
 }: {
   data: { content: string; platforms: PlatformData[] };
   baseUrl: string;
   pageUrl: string;
+  postId?: string;
+  token?: string;
 }) {
   const [copied, setCopied] = useState<string | null>(null);
+  const [publishState, setPublishState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [publishError, setPublishError] = useState<string | null>(null);
   const [carouselIndex, setCarouselIndex] = useState<Record<string, number>>({});
+  const [editedCaptions, setEditedCaptions] = useState<Record<string, string>>(() =>
+    Object.fromEntries(data.platforms.map((p) => [p.platform, p.caption]))
+  );
+  const captionFor = (platform: string, fallback: string) => editedCaptions[platform] ?? fallback;
 
   const copyCaption = (platform: string, caption: string) => {
     navigator.clipboard.writeText(caption);
@@ -55,15 +65,97 @@ export default function PostOpenClient({
     FACEBOOK: () => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(pageUrl)}`,
   };
 
+  const copyCaptionAndOpenLinkedIn = (caption: string) => {
+    navigator.clipboard.writeText(caption);
+    setCopied('LINKEDIN');
+    setTimeout(() => setCopied(null), 3000);
+    window.open(shareUrls.LINKEDIN(caption, []), '_blank', 'noopener,noreferrer');
+  };
+
+  const handlePublishNow = async () => {
+    if (!postId || !token) return;
+    setPublishState('loading');
+    setPublishError(null);
+    try {
+      const res = await fetch(`/api/posts/${postId}/publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, contentByPlatform: editedCaptions }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setPublishError(json?.message || 'Failed to publish');
+        setPublishState('error');
+        return;
+      }
+      setPublishState('done');
+    } catch (err) {
+      setPublishError(err instanceof Error ? err.message : 'Network error');
+      setPublishState('error');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-neutral-50 py-8 px-4">
       <div className="max-w-lg mx-auto space-y-6">
         <div className="text-center">
           <h1 className="text-xl font-semibold text-neutral-900">Your post is ready</h1>
-          <p className="text-sm text-neutral-500 mt-1">Open each platform below to edit, add sound, and publish manually.</p>
+          <p className="text-sm text-neutral-500 mt-1">Publish directly with images, or download media and post manually.</p>
         </div>
+        {postId && token && (
+          <div className="card space-y-3 border-2 border-indigo-200 bg-indigo-50/50">
+            <p className="text-sm font-semibold text-neutral-900">Post directly (with images)</p>
+            <p className="text-xs text-neutral-600">Publish to your connected accounts with captions and media as-is. No need to open X or LinkedIn in the browser.</p>
+            <button
+              type="button"
+              onClick={handlePublishNow}
+              disabled={publishState === 'loading'}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-60"
+            >
+              {publishState === 'loading' ? (
+                <>
+                  <Send size={16} className="animate-pulse" />
+                  Publishing…
+                </>
+              ) : publishState === 'done' ? (
+                <>
+                  <Check size={16} />
+                  Published
+                </>
+              ) : (
+                <>
+                  <Send size={16} />
+                  Publish now
+                </>
+              )}
+            </button>
+            {publishError && <p className="text-sm text-red-600">{publishError}</p>}
+          </div>
+        )}
+        {data.platforms.some((p) => p.media.length > 0) && (
+          <div className="card space-y-2">
+            <p className="text-sm font-medium text-neutral-900">Download media</p>
+            <p className="text-xs text-neutral-500">Save images/videos to upload manually in X or LinkedIn if you don&apos;t use &quot;Publish now&quot;.</p>
+            <div className="flex flex-wrap gap-2">
+              {Array.from(new Map(data.platforms.flatMap((p) => p.media.map((m) => [m.fileUrl, m]))).entries()).map(([url, m], i) => (
+                <a
+                  key={i}
+                  href={url.startsWith('http') ? url : undefined}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-neutral-100 text-neutral-700 text-sm font-medium hover:bg-neutral-200"
+                >
+                  <Download size={14} />
+                  {m.type === 'VIDEO' ? `Video ${i + 1}` : `Image ${i + 1}`}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
         {data.platforms.map(({ platform, username, caption, media }) => {
-          const shareUrl = shareUrls[platform]?.(caption, media);
+          const currentCaption = captionFor(platform, caption);
+          const shareUrl = shareUrls[platform]?.(currentCaption, media);
           const idx = carouselIndex[platform] ?? 0;
           const images = media.filter((m) => m.type === 'IMAGE');
           return (
@@ -75,7 +167,10 @@ export default function PostOpenClient({
               </div>
               {media.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-xs font-medium text-neutral-500">Media ({media.length} {media.length === 1 ? 'item' : 'items'})</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium text-neutral-500">Media ({media.length} {media.length === 1 ? 'item' : 'items'})</p>
+                    <span className="text-xs text-neutral-500">Download any file below to upload manually in X or LinkedIn</span>
+                  </div>
                   {images.length > 0 ? (
                     <div className="relative overflow-hidden rounded-lg bg-neutral-100">
                       <div
@@ -83,15 +178,26 @@ export default function PostOpenClient({
                         style={{ transform: `translateX(-${idx * 100}%)` }}
                       >
                         {images.map((m, i) => (
-                          <a
-                            key={i}
-                            href={m.fileUrl.startsWith('http') ? m.fileUrl : undefined}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex-shrink-0 w-full"
-                          >
-                            <img src={m.fileUrl} alt="" className="w-full max-h-64 object-contain bg-neutral-200" />
-                          </a>
+                          <div key={i} className="flex-shrink-0 w-full relative group">
+                            <a
+                              href={m.fileUrl.startsWith('http') ? m.fileUrl : undefined}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block"
+                            >
+                              <img src={m.fileUrl} alt="" className="w-full max-h-64 object-contain bg-neutral-200" />
+                            </a>
+                            <a
+                              href={m.fileUrl.startsWith('http') ? m.fileUrl : undefined}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              download
+                              className="absolute bottom-2 right-2 inline-flex items-center gap-1 px-2 py-1.5 rounded-md bg-black/60 text-white text-xs font-medium hover:bg-black/80"
+                            >
+                              <Download size={14} />
+                              Download
+                            </a>
+                          </div>
                         ))}
                       </div>
                       {images.length > 1 && (
@@ -126,47 +232,67 @@ export default function PostOpenClient({
                   ) : (
                     <div className="flex gap-2 flex-wrap">
                       {media.map((m, i) => (
-                        <a
-                          key={i}
-                          href={m.fileUrl.startsWith('http') ? m.fileUrl : undefined}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="w-24 h-24 rounded-lg overflow-hidden bg-neutral-200 flex items-center justify-center"
-                        >
-                          {m.type === 'VIDEO' ? (
-                            <span className="text-xs text-neutral-500">Video</span>
-                          ) : (
-                            <img src={m.fileUrl} alt="" className="w-full h-full object-cover" />
-                          )}
-                        </a>
+                        <div key={i} className="relative group">
+                          <a
+                            href={m.fileUrl.startsWith('http') ? m.fileUrl : undefined}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block w-24 h-24 rounded-lg overflow-hidden bg-neutral-200 flex items-center justify-center"
+                          >
+                            {m.type === 'VIDEO' ? (
+                              <span className="text-xs text-neutral-500">Video</span>
+                            ) : (
+                              <img src={m.fileUrl} alt="" className="w-full h-full object-cover" />
+                            )}
+                          </a>
+                          <a
+                            href={m.fileUrl.startsWith('http') ? m.fileUrl : undefined}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            download
+                            className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Download"
+                          >
+                            <Download size={20} className="text-white" />
+                          </a>
+                        </div>
                       ))}
                     </div>
                   )}
                   <p className="text-xs text-neutral-500">
                     {platform === 'TWITTER'
-                      ? 'Right-click images to save, then add them in X (web share cannot attach images).'
-                      : 'Click images to open or download.'}
+                      ? 'Or download each image and add it in X. Web &quot;Open in X&quot; cannot attach images.'
+                      : 'Download media to upload manually, or use &quot;Publish now&quot; at the top to post with images.'}
                   </p>
                 </div>
               )}
-              <p className="text-sm text-neutral-700 whitespace-pre-wrap break-words">{caption || 'No caption'}</p>
-              {platform === 'TWITTER' && caption.length > TWITTER_CHAR_LIMIT && (
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-neutral-500">Caption (editable)</label>
+                <textarea
+                  value={currentCaption}
+                  onChange={(e) => setEditedCaptions((prev) => ({ ...prev, [platform]: e.target.value }))}
+                  rows={4}
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                  placeholder="No caption"
+                />
+              </div>
+              {platform === 'TWITTER' && currentCaption.length > TWITTER_CHAR_LIMIT && (
                 <p className="text-xs text-amber-700 bg-amber-50 rounded p-2">
-                  Caption is {caption.length} chars. X limit is {TWITTER_CHAR_LIMIT}. The &quot;Open in X&quot; button will use the first {TWITTER_CHAR_LIMIT} chars. Copy the full caption below if needed.
+                  Caption is {currentCaption.length} chars. X limit is {TWITTER_CHAR_LIMIT}. The &quot;Open in X&quot; button will use the first {TWITTER_CHAR_LIMIT} chars.
                 </p>
               )}
               <div className="flex flex-wrap gap-2 items-center">
                 {(platform === 'INSTAGRAM' || platform === 'TWITTER' || platform === 'LINKEDIN') && (
                   <button
                     type="button"
-                    onClick={() => copyCaption(platform, caption)}
+                    onClick={() => copyCaption(platform, currentCaption)}
                     className="inline-flex items-center gap-1.5 px-3 py-2 bg-neutral-100 text-neutral-700 rounded-lg text-sm font-medium hover:bg-neutral-200"
                   >
                     {copied === platform ? <Check size={16} /> : <Copy size={16} />}
                     {copied === platform ? 'Copied' : 'Copy caption'}
                   </button>
                 )}
-                {shareUrl && (
+                {shareUrl && platform !== 'LINKEDIN' && (
                   <a
                     href={shareUrl}
                     target="_blank"
@@ -177,18 +303,27 @@ export default function PostOpenClient({
                     Open in {PLATFORM_LABELS[platform] || platform}
                   </a>
                 )}
+                {platform === 'LINKEDIN' && shareUrl && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => copyCaptionAndOpenLinkedIn(currentCaption)}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-neutral-100 text-neutral-700 rounded-lg text-sm font-medium hover:bg-neutral-200"
+                    >
+                      <ExternalLink size={16} />
+                      Copy caption and open LinkedIn (manual: paste + add images)
+                    </button>
+                    <span className="text-xs text-neutral-500 w-full block">
+                      LinkedIn web share does not attach images. Prefer &quot;Publish now&quot; at the top to post with media, or download images and add them in LinkedIn.
+                    </span>
+                  </>
+                )}
                 {platform === 'INSTAGRAM' && (
                   <span className="text-xs text-neutral-500">Then open the Instagram app and create a new post.</span>
                 )}
-                {platform === 'LINKEDIN' && (
-                  <span className="text-xs text-neutral-500">
-                    Ensure you are logged into the right LinkedIn account. Share preview uses this page. If you see old text/images, LinkedIn may have cached it; use{' '}
-                    <a href="https://www.linkedin.com/post-inspector/" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">Post Inspector</a> to refresh.
-                  </span>
-                )}
                 {platform === 'TWITTER' && (
                   <span className="text-xs text-neutral-500">
-                    Be logged into the correct X account before opening. Web share cannot attach images; paste caption and add images from above.
+                    &quot;Open in X&quot; only pastes the caption. To include images, use &quot;Publish now&quot; at the top or download images and add them in X.
                   </span>
                 )}
               </div>

@@ -16,21 +16,22 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   if (!data) return {};
   const desc = data.bestDescription || data.content || 'Scheduled post from Agent4Socials';
   const title = desc.slice(0, 60) + (desc.length > 60 ? '…' : '') || 'Your post';
+  const ogDescription = desc.slice(0, 300) || 'Scheduled post from Agent4Socials';
   const images = data.allImageUrls.length > 0
     ? data.allImageUrls.map((url) => ({ url }))
     : data.firstImageUrl ? [{ url: data.firstImageUrl }] : [];
   return {
     title: title || 'Your post',
-    description: desc.slice(0, 200) || 'Scheduled post from Agent4Socials',
+    description: ogDescription,
     openGraph: {
       title: title || 'Your post',
-      description: desc.slice(0, 200) || 'Scheduled post from Agent4Socials',
+      description: ogDescription,
       ...(images.length > 0 ? { images } : {}),
     },
     twitter: {
       card: images.length > 0 ? 'summary_large_image' : 'summary',
       title: title || 'Your post',
-      description: desc.slice(0, 200) || 'Scheduled post from Agent4Socials',
+      description: ogDescription,
       ...(images.length > 0 ? { images } : {}),
     },
   };
@@ -59,5 +60,5 @@ export default async function PostOpenPage({ params, searchParams }: Props) {
   }
   const url = baseUrl();
   const pageUrl = `${url}/post/${id}/open?t=${encodeURIComponent(t)}`;
-  return <PostOpenClient data={data} baseUrl={url} pageUrl={pageUrl} />;
+  return <PostOpenClient data={data} baseUrl={url} pageUrl={pageUrl} postId={id} token={t} />;
 }

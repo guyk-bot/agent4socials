@@ -84,10 +84,16 @@ export async function sendScheduledPostLinksEmail(to: string, openLink: string):
     const { error } = await resend.emails.send({
       from,
       to: [to],
-      subject: 'Your scheduled post is ready – post manually',
+      subject: 'Your scheduled post is ready',
       html: `
-        <p>Your scheduled post is ready. Open the link below to see your content and open each platform to edit, add sound, and publish manually.</p>
-        <p><a href="${openLink}" style="color:#4f46e5;font-weight:600">Open post and get platform links</a></p>
+        <p>Your scheduled post is ready. Open the link below to choose how to publish:</p>
+        <p><a href="${openLink}" style="color:#4f46e5;font-weight:600">Open your post</a></p>
+        <p><strong>What you can do on the page:</strong></p>
+        <ul>
+          <li><strong>Publish now</strong> – Click &quot;Publish now&quot; to post directly to your connected accounts with captions and images (no manual upload). Best for X and LinkedIn.</li>
+          <li><strong>Download media</strong> – Use the Download button on each image/video if you prefer to upload manually in each app.</li>
+          <li><strong>Open in X / LinkedIn</strong> – Opens the platform with the caption only; add images manually (e.g. after downloading them from the page).</li>
+        </ul>
         <p>This link is valid for 7 days. If you didn't schedule a post, you can ignore this email.</p>
         <p>Cheers,<br>The Agent4Socials team</p>
       `,

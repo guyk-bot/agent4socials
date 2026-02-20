@@ -11,20 +11,37 @@ export async function POST(
   if (!process.env.DATABASE_URL) {
     return NextResponse.json({ message: 'DATABASE_URL required' }, { status: 503 });
   }
+  const { id: postId } = await params;
   const cronSecret = request.headers.get('X-Cron-Secret');
   const isCron = process.env.CRON_SECRET && cronSecret === process.env.CRON_SECRET;
   let userId: string | null = null;
+  let linkToken: string | null = null;
   if (!isCron) {
     userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
     if (!userId) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+      try {
+        const body = (await request.json().catch(() => ({}))) as { token?: string; contentByPlatform?: Record<string, string> };
+        linkToken = typeof body?.token === 'string' ? body.token.trim() : null;
+        if (linkToken && body?.contentByPlatform && typeof body.contentByPlatform === 'object' && Object.keys(body.contentByPlatform).length > 0) {
+          await prisma.post.updateMany({
+            where: { id: postId, emailOpenToken: linkToken, emailOpenTokenExpiresAt: { gte: new Date() } },
+            data: { contentByPlatform: body.contentByPlatform },
+          });
+        }
+      } catch {
+        linkToken = null;
+      }
+      if (!linkToken) {
+        return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+      }
     }
   }
-  const { id: postId } = await params;
-  const post = await prisma.post.findFirst({
+  let post = await prisma.post.findFirst({
     where: isCron
       ? { id: postId, status: PostStatus.SCHEDULED, scheduledAt: { lte: new Date() }, scheduleDelivery: 'auto' }
-      : { id: postId, userId: userId! },
+      : linkToken
+        ? { id: postId, emailOpenToken: linkToken, emailOpenTokenExpiresAt: { gte: new Date() } }
+        : { id: postId, userId: userId! },
     include: {
       media: true,
       targets: {
