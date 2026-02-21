@@ -57,4 +57,4 @@ You must be a **member** of that Vercel team (or owner if Hobby). The commit aut
 After fixing the commit author and (if needed) repo access, every push to `main` from that identity should create a new deployment. No deploy hook needed for normal pushes.
 
 ---
-*Last doc update: trigger deploy check.*
+*Last doc update: git post-push hook installed - deploys automatically on every push.*
