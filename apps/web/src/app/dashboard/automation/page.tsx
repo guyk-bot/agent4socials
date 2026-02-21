@@ -24,6 +24,8 @@ export default function AutomationPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [commentRunLoading, setCommentRunLoading] = useState(false);
+  const [commentRunResult, setCommentRunResult] = useState<{ ok?: boolean; results?: unknown; message?: string } | null>(null);
 
   useEffect(() => {
     api
@@ -56,6 +58,16 @@ export default function AutomationPage() {
       .then(() => setLoadError(null))
       .catch(() => {})
       .finally(() => setSaving(false));
+  };
+
+  const runCommentAutomation = () => {
+    setCommentRunResult(null);
+    setCommentRunLoading(true);
+    api
+      .post<{ ok?: boolean; results?: unknown; message?: string }>('/automation/run-comment-automation')
+      .then((res) => setCommentRunResult(res.data ?? {}))
+      .catch((err) => setCommentRunResult({ ok: false, message: err.response?.data?.message ?? err.message ?? 'Request failed' }))
+      .finally(() => setCommentRunLoading(false));
   };
 
   if (loading) {
@@ -98,8 +110,29 @@ export default function AutomationPage() {
             <li><strong>Publish that post.</strong> The post must be published (status Posted) to the platforms you want. Use &quot;Publish now&quot; or schedule with &quot;Auto&quot; so it goes out; the cron only checks posts that are already published.</li>
             <li><strong>When do replies run?</strong> On Vercel Hobby, comment automation runs <strong>once per day</strong> (with process-scheduled). So keyword replies can take up to ~24 hours. For <strong>faster replies (e.g. within 5 minutes)</strong>, add a separate external cron (e.g. <a href="https://cron-job.org" target="_blank" rel="noopener noreferrer" className="underline">cron-job.org</a>) that calls <code className="bg-green-100/80 px-1 rounded">/api/cron/comment-automation</code> every 5 minutes with the same <code className="bg-green-100/80 px-1 rounded">X-Cron-Secret</code> header.</li>
           </ol>
-          <p className="text-green-800 text-xs">One cron job calling <code className="bg-green-100/80 px-1 rounded break-all">/api/cron/process-scheduled</code> does both. Use &quot;TEST RUN&quot; to trigger once; response includes <code className="bg-green-100/80 px-1 rounded">commentAutomation</code> when it ran.</p>
+          <p className="text-green-800 text-xs">One cron job calling <code className="bg-green-100/80 px-1 rounded break-all">/api/cron/process-scheduled</code> does both.</p>
         </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={runCommentAutomation}
+            disabled={commentRunLoading}
+            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+          >
+            {commentRunLoading ? <Loader2 size={16} className="animate-spin" /> : null}
+            Run comment automation now
+          </button>
+          <span className="text-xs text-neutral-500">Runs keyword replies for all published posts with comment automation. Use this when someone just commented and you don&apos;t want to wait for the cron.</span>
+        </div>
+        {commentRunResult != null && (
+          <div className={`mt-2 rounded-lg border px-3 py-2 text-sm ${commentRunResult.ok ? 'border-green-200 bg-green-50 text-green-900' : 'border-red-200 bg-red-50 text-red-900'}`}>
+            {commentRunResult.ok ? (
+              <p>Ran successfully. {Array.isArray(commentRunResult.results) && commentRunResult.results.length > 0 ? `${commentRunResult.results.length} post(s) checked.` : 'No posts with comment automation, or no new matching comments.'}</p>
+            ) : (
+              <p>{commentRunResult.message ?? 'Something went wrong.'}</p>
+            )}
+          </div>
+        )}
         <div className="mt-2 p-2.5 rounded-lg bg-white border border-neutral-200 text-xs">
           <p className="font-medium text-neutral-700 mb-1.5">Platform capabilities</p>
           <ul className="space-y-1 text-neutral-600">
