@@ -4,6 +4,6 @@
   "installCommand": "npm install",
   "crons": [
     { "path": "/api/cron/process-scheduled", "schedule": "0 9 * * *" },
-    { "path": "/api/cron/comment-automation", "schedule": "*/5 * * * *" }
+    { "path": "/api/cron/comment-automation", "schedule": "5 9 * * *" }
   ]
 }
