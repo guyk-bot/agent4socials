@@ -174,6 +174,8 @@ If you use the same app for both flows, you can leave these unset and use `META_
      - `TWITTER_CLIENT_ID`
      - `TWITTER_CLIENT_SECRET`
 
+**Twitter media upload 403:** If you see "Twitter media upload failed: 403" when posting with an image or video, (1) In the [Twitter Developer Portal](https://developer.twitter.com/en/portal/dashboard) open your app → **User authentication settings** and ensure **App permissions** is **Read and Write** (not Read only). (2) **Disconnect** the Twitter account in Agent4Socials (Dashboard → Accounts) and **connect again** so the new token has write scope. (3) If it still returns 403, check that your app is not in a restricted state and that you have access to the Twitter API tier that allows posting with media.
+
 ---
 
 ## 5. LinkedIn

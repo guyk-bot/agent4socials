@@ -725,7 +725,8 @@ export default function ComposerPage() {
                         const results = publishRes.data?.results;
                         if (results?.some((r) => !r.ok)) {
                             const failed = results.filter((r) => !r.ok).map((r) => `${r.platform}: ${r.error || 'failed'}`).join('; ');
-                            setAlertMessage(`Post updated but some platforms failed: ${failed}. Open the post from History to retry or fix.`);
+                            const hint = failed.includes('TWITTER') && (failed.includes('403') || failed.includes('media')) ? ' For Twitter 403/media: set your app to Read and write in the Twitter Developer Portal, then reconnect the account (Accounts page).' : '';
+                            setAlertMessage(`Post updated but some platforms failed: ${failed}. Open the post from History to retry or fix.${hint}`);
                             router.push(`/composer?edit=${editPostId}`);
                             return;
                         }
@@ -750,7 +751,8 @@ export default function ComposerPage() {
                         const results = publishRes.data?.results;
                         if (results?.some((r) => !r.ok)) {
                             const failed = results.filter((r) => !r.ok).map((r) => `${r.platform}: ${r.error || 'failed'}`).join('; ');
-                            setAlertMessage(`Post created but some platforms failed: ${failed}. Open the post from History to retry or fix.`);
+                            const hint = failed.includes('TWITTER') && (failed.includes('403') || failed.includes('media')) ? ' For Twitter 403/media: set your app to Read and write in the Twitter Developer Portal, then reconnect the account (Accounts page).' : '';
+                            setAlertMessage(`Post created but some platforms failed: ${failed}. Open the post from History to retry or fix.${hint}`);
                             router.push(`/composer?edit=${postId}`);
                             return;
                         }
