@@ -56,6 +56,14 @@ async function runCommentAutomation(request: NextRequest) {
       },
     });
 
+    if (posts.length === 0) {
+      return NextResponse.json({
+        ok: true,
+        results: [],
+        summary: { postsFound: 0, totalReplied: 0, hint: 'No posted posts have keyword comment automation. In Composer create a post, enable section 4 (keywords + reply text), then publish it to X (or other platforms).' },
+      });
+    }
+
     for (const post of posts) {
       const ca = post.commentAutomation as CommentAutomation | null;
       if (!ca || !Array.isArray(ca.keywords) || ca.keywords.length === 0) continue;
@@ -136,18 +144,32 @@ async function runCommentAutomation(request: NextRequest) {
               }
             }
           } else if (platform === 'TWITTER') {
-            const searchRes = await axios.get<{ data?: Array<{ id: string; text?: string }> }>(
-              'https://api.twitter.com/2/tweets/search/recent',
-              {
-                params: {
-                  query: `conversation_id:${platformPostId} is:reply`,
-                  'tweet.fields': 'text',
-                  max_results: 50,
-                },
-                headers: { Authorization: `Bearer ${token}` },
+            let tweets: Array<{ id: string; text?: string }> = [];
+            try {
+              const searchRes = await axios.get<{ data?: Array<{ id: string; text?: string }>; errors?: Array<{ message?: string }> }>(
+                'https://api.twitter.com/2/tweets/search/recent',
+                {
+                  params: {
+                    query: `conversation_id:${platformPostId} is:reply`,
+                    'tweet.fields': 'text',
+                    max_results: 50,
+                  },
+                  headers: { Authorization: `Bearer ${token}` },
+                }
+              );
+              const errs = searchRes.data?.errors;
+              if (errs?.length) {
+                errors.push(`X Search API: ${errs.map((e) => e.message ?? '').join('; ')}`);
+              } else {
+                tweets = searchRes.data?.data ?? [];
               }
-            );
-            const tweets = searchRes.data?.data ?? [];
+            } catch (e: unknown) {
+              const ax = e as { response?: { status?: number; data?: { detail?: string; errors?: Array<{ message?: string }> } } };
+              const status = ax.response?.status;
+              const body = ax.response?.data;
+              const msg = body?.detail ?? (Array.isArray(body?.errors) ? body.errors.map((x) => x.message).join('; ') : null) ?? (e as Error)?.message ?? String(e);
+              errors.push(`X Search: ${status ?? ''} ${msg}`.trim().slice(0, 200));
+            }
             for (const t of tweets) {
               if (repliedSet.has(t.id)) continue;
               const text = (t.text ?? '').toLowerCase();
@@ -215,7 +237,19 @@ async function runCommentAutomation(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ ok: true, results });
+    const totalReplied = results.reduce((s, r) => s + r.replied, 0);
+    const hasErrors = results.some((r) => r.errors.length > 0);
+    return NextResponse.json({
+      ok: true,
+      results,
+      summary: {
+        postsFound: posts.length,
+        totalReplied,
+        hint: hasErrors
+          ? 'One or more platforms returned errors (e.g. X Search may require a paid plan or app in a Project). Check errors below.'
+          : undefined,
+      },
+    });
   } catch (e) {
     console.error('[Cron] comment-automation error:', e);
     return NextResponse.json(

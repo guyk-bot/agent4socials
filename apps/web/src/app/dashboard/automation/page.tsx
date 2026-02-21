@@ -25,7 +25,12 @@ export default function AutomationPage() {
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [commentRunLoading, setCommentRunLoading] = useState(false);
-  const [commentRunResult, setCommentRunResult] = useState<{ ok?: boolean; results?: unknown; message?: string } | null>(null);
+  const [commentRunResult, setCommentRunResult] = useState<{
+    ok?: boolean;
+    results?: { platform: string; replied: number; errors: string[] }[];
+    summary?: { postsFound?: number; totalReplied?: number; hint?: string };
+    message?: string;
+  } | null>(null);
 
   useEffect(() => {
     api
@@ -64,7 +69,7 @@ export default function AutomationPage() {
     setCommentRunResult(null);
     setCommentRunLoading(true);
     api
-      .post<{ ok?: boolean; results?: unknown; message?: string }>('/automation/run-comment-automation')
+      .post<{ ok?: boolean; results?: { platform: string; replied: number; errors: string[] }[]; summary?: { postsFound?: number; totalReplied?: number; hint?: string }; message?: string }>('/automation/run-comment-automation')
       .then((res) => setCommentRunResult(res.data ?? {}))
       .catch((err) => setCommentRunResult({ ok: false, message: err.response?.data?.message ?? err.message ?? 'Request failed' }))
       .finally(() => setCommentRunLoading(false));
@@ -127,7 +132,28 @@ export default function AutomationPage() {
         {commentRunResult != null && (
           <div className={`mt-2 rounded-lg border px-3 py-2 text-sm ${commentRunResult.ok ? 'border-green-200 bg-green-50 text-green-900' : 'border-red-200 bg-red-50 text-red-900'}`}>
             {commentRunResult.ok ? (
-              <p>Ran successfully. {Array.isArray(commentRunResult.results) && commentRunResult.results.length > 0 ? `${commentRunResult.results.length} post(s) checked.` : 'No posts with comment automation, or no new matching comments.'}</p>
+              <div className="space-y-1">
+                {commentRunResult.summary?.postsFound === 0 ? (
+                  <p>{commentRunResult.summary?.hint ?? 'No posts with comment automation, or no new matching comments.'}</p>
+                ) : (
+                  <>
+                    <p>
+                      Ran successfully. Found {commentRunResult.summary?.postsFound ?? 0} post(s) with comment automation.
+                      {typeof commentRunResult.summary?.totalReplied === 'number' && (
+                        <> Replied to {commentRunResult.summary.totalReplied} comment(s).</>
+                      )}
+                    </p>
+                    {commentRunResult.summary?.hint && <p className="text-amber-800">{commentRunResult.summary.hint}</p>}
+                    {Array.isArray(commentRunResult.results) && commentRunResult.results.some((r) => r.errors?.length) ? (
+                      <ul className="list-disc list-inside text-xs mt-1">
+                        {commentRunResult.results.filter((r) => r.errors?.length).map((r, i) => (
+                          <li key={i}>{r.platform}: {r.errors?.slice(0, 2).join('; ')}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </>
+                )}
+              </div>
             ) : (
               <p>{commentRunResult.message ?? 'Something went wrong.'}</p>
             )}
@@ -136,7 +162,7 @@ export default function AutomationPage() {
         <div className="mt-2 p-2.5 rounded-lg bg-white border border-neutral-200 text-xs">
           <p className="font-medium text-neutral-700 mb-1.5">Platform capabilities</p>
           <ul className="space-y-1 text-neutral-600">
-            <li><strong>Keyword reply:</strong> Instagram (public or DM), Facebook, X, LinkedIn (public)</li>
+            <li><strong>Keyword reply:</strong> Instagram (public or DM), Facebook, X, LinkedIn (public). X uses the Search API; if you see an error when running, ensure your X app is attached to a Project in the Developer Portal.</li>
             <li><strong>Welcome DM:</strong> Instagram, Facebook, X (when someone messages you first)</li>
             <li><strong>New-follower DM:</strong> X only</li>
           </ul>
