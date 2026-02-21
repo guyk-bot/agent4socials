@@ -175,17 +175,21 @@ export async function publishTarget(
             contentType.includes('png') ? 'image.png' : 'image.jpg'
           );
           form.append('media_category', 'tweet_image');
+          // OAuth 2.0 PKCE token is valid for 1.1 media upload; do not set Content-Type so fetch sets multipart boundary
           const uploadRes = await fetchFn('https://upload.twitter.com/1.1/media/upload.json', {
             method: 'POST',
             headers: { Authorization: `Bearer ${token}` },
             body: form,
           });
           if (!uploadRes.ok) {
+            const errText = await uploadRes.text();
             if (uploadRes.status === 403) {
+              if (typeof console !== 'undefined' && console.error) {
+                console.error('[Twitter media upload] 403:', errText.slice(0, 400));
+              }
               mediaSkipped = true;
             } else {
-              const errText = await uploadRes.text();
-              throw new Error(`Twitter media upload failed: ${uploadRes.status} ${errText}`);
+              throw new Error(`Twitter media upload failed: ${uploadRes.status} ${errText}`.slice(0, 300));
             }
           } else {
             const uploadData = (await uploadRes.json()) as { media_id_string?: string };

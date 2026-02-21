@@ -137,5 +137,11 @@ export async function POST(request: NextRequest) {
   }
   let content = data.choices?.[0]?.message?.content?.trim() ?? '';
   content = cleanGeneratedText(content);
+  // Enforce platform character limit (e.g. X standard 280; leave room for hashtags)
+  const platformUpper = platform.toUpperCase();
+  if (platformUpper === 'TWITTER' || platformUpper === 'X') {
+    const max = 250;
+    if (content.length > max) content = content.slice(0, max).trim();
+  }
   return NextResponse.json({ content });
 }

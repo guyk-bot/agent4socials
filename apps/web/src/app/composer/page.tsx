@@ -240,6 +240,7 @@ export default function ComposerPage() {
 
     // Load post for editing when ?edit=id is present
     const [editLoaded, setEditLoaded] = useState(false);
+    const [editPostAlreadyPosted, setEditPostAlreadyPosted] = useState(false);
     useEffect(() => {
         if (!editPostId || editLoaded) return;
         let cancelled = false;
@@ -247,6 +248,7 @@ export default function ComposerPage() {
             .then((res) => {
                 if (cancelled || !res.data) return;
                 const p = res.data as {
+                    status?: string;
                     title?: string | null;
                     content?: string | null;
                     contentByPlatform?: Record<string, string> | null;
@@ -257,6 +259,7 @@ export default function ComposerPage() {
                     scheduleDelivery?: string | null;
                     commentAutomation?: { keywords?: string[]; replyTemplate?: string; replyTemplateByPlatform?: Record<string, string>; usePrivateReply?: boolean } | null;
                 };
+                setEditPostAlreadyPosted(p.status === 'POSTED');
                 const plats = [...new Set((p.targets ?? []).map((t: { platform: string }) => t.platform))];
                 setPlatforms(plats);
                 const cp = p.contentByPlatform && typeof p.contentByPlatform === 'object' ? p.contentByPlatform : {};
@@ -712,7 +715,9 @@ export default function ComposerPage() {
                 const firstWithMedia = platforms.find((p) => (mediaByPlatform[p]?.length ?? 0) > 0);
                 payload.media = firstWithMedia ? mediaByPlatform[firstWithMedia]! : mediaList;
             }
-            if (editPostId) {
+            // If editing an already-posted post, create a new post (and publish/schedule) instead of updating the original
+            const updateExisting = editPostId && !editPostAlreadyPosted;
+            if (updateExisting) {
                 await api.patch(`/posts/${editPostId}`, payload);
                 clearComposerDraft();
                 if (scheduledAt) {
@@ -1389,7 +1394,7 @@ export default function ComposerPage() {
                         ) : (
                             <>
                                 <Send size={20} />
-                                <span>{editPostId ? (scheduledAt ? 'Update & Schedule' : 'Update & Post Now') : (scheduledAt ? 'Schedule Post' : 'Post Now')}</span>
+                                <span>{editPostId ? (editPostAlreadyPosted ? (scheduledAt ? 'Create new post & Schedule' : 'Create new post & Post Now') : (scheduledAt ? 'Update & Schedule' : 'Update & Post Now')) : (scheduledAt ? 'Schedule Post' : 'Post Now')}</span>
                             </>
                         )}
                     </button>
