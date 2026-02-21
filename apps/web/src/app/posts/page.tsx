@@ -21,7 +21,7 @@ import {
 
 export default function PostsPage() {
     const pathname = usePathname();
-    const [posts, setPosts] = useState([]);
+    const [posts, setPosts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('ALL');
 
