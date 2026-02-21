@@ -1158,9 +1158,14 @@ export default function ComposerPage() {
                                 {platforms.includes('TWITTER') && (() => {
                                     const withTags = content.trim() + (selectedHashtags.length ? ' ' + selectedHashtags.join(' ') : '');
                                     return (
-                                        <p className={`mt-1 text-xs ${withTags.length > 280 ? 'text-amber-600 font-medium' : 'text-neutral-500'}`}>
-                                            X (Twitter) limit: 280 chars (including spaces). Current (with hashtags): {withTags.length}
-                                        </p>
+                                        <div className="mt-1 space-y-0.5">
+                                            <p className={`text-xs ${withTags.length > 280 ? 'text-amber-600 font-medium' : 'text-neutral-500'}`}>
+                                                X (Twitter) limit: 280 chars (including spaces). Current (with hashtags): {withTags.length}
+                                            </p>
+                                            {mediaList.length > 0 && (
+                                                <p className="text-xs text-neutral-400">Image on X: if upload is not allowed for your app, the post will go out as text only.</p>
+                                            )}
+                                        </div>
                                     );
                                 })()}
                             </div>

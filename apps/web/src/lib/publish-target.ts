@@ -168,19 +168,26 @@ export async function publishTarget(
       if (firstImageUrl) {
         try {
           const { buffer, contentType } = await fetchImageBuffer(firstImageUrl, fetchFn);
+          const mediaCategory = 'tweet_image';
+          // Try multipart upload first (OAuth 2.0 PKCE may work in some setups)
           const form = new FormData();
-          form.append(
-            'media',
-            new Blob([new Uint8Array(buffer)], { type: contentType }),
-            contentType.includes('png') ? 'image.png' : 'image.jpg'
-          );
-          form.append('media_category', 'tweet_image');
-          // OAuth 2.0 PKCE token is valid for 1.1 media upload; do not set Content-Type so fetch sets multipart boundary
-          const uploadRes = await fetchFn('https://upload.twitter.com/1.1/media/upload.json', {
+          form.append('media', new Blob([new Uint8Array(buffer)], { type: contentType }), contentType.includes('png') ? 'image.png' : 'image.jpg');
+          form.append('media_category', mediaCategory);
+          let uploadRes = await fetchFn('https://upload.twitter.com/1.1/media/upload.json', {
             method: 'POST',
             headers: { Authorization: `Bearer ${token}` },
             body: form,
           });
+          // If 403, try base64 media_data (some docs suggest it may work with Bearer)
+          if (!uploadRes.ok && uploadRes.status === 403) {
+            const base64 = buffer.toString('base64');
+            const body = new URLSearchParams({ media_data: base64, media_category: mediaCategory });
+            uploadRes = await fetchFn('https://upload.twitter.com/1.1/media/upload.json', {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: body.toString(),
+            });
+          }
           if (!uploadRes.ok) {
             const errText = await uploadRes.text();
             if (uploadRes.status === 403) {
