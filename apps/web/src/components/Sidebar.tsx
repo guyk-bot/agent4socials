@@ -173,7 +173,7 @@ export default function Sidebar() {
           style={pathname === '/posts' ? { color: accent } : undefined}
         >
           <FileText size={18} className="shrink-0" />
-          <span>Reports</span>
+          <span>History</span>
         </Link>
         <Link
           href="/dashboard/automation"

@@ -19,7 +19,7 @@ import {
     Download,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
 
 const COMPOSER_DRAFT_KEY = 'agent4socials_composer_draft';
@@ -86,6 +86,8 @@ function normalizeHashtag(t: string): string {
 
 export default function ComposerPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const editPostId = searchParams.get('edit');
     const [platforms, setPlatforms] = useState<string[]>([]);
     const [content, setContent] = useState('');
     const [contentByPlatform, setContentByPlatform] = useState<Record<string, string>>({});
@@ -148,6 +150,7 @@ export default function ComposerPage() {
     const [draftRestored, setDraftRestored] = useState(false);
     useEffect(() => {
         if (typeof window === 'undefined' || draftRestored) return;
+        if (editPostId) { setDraftRestored(true); return; }
         try {
             const raw = localStorage.getItem(COMPOSER_DRAFT_KEY);
             if (!raw) {
@@ -196,6 +199,68 @@ export default function ComposerPage() {
         } catch (_) { /* ignore */ }
         setDraftRestored(true);
     }, [draftRestored]);
+
+    // Load post for editing when ?edit=id is present
+    const [editLoaded, setEditLoaded] = useState(false);
+    useEffect(() => {
+        if (!editPostId || editLoaded) return;
+        let cancelled = false;
+        api.get(`/posts/${editPostId}`)
+            .then((res) => {
+                if (cancelled || !res.data) return;
+                const p = res.data as {
+                    title?: string | null;
+                    content?: string | null;
+                    contentByPlatform?: Record<string, string> | null;
+                    media?: { fileUrl: string; type: string }[];
+                    mediaByPlatform?: Record<string, { fileUrl: string; type: string }[]>;
+                    targets?: { platform: string; socialAccount: { id: string } }[];
+                    scheduledAt?: string | null;
+                    scheduleDelivery?: string | null;
+                    commentAutomation?: { keywords?: string[]; replyTemplate?: string; replyTemplateByPlatform?: Record<string, string>; usePrivateReply?: boolean } | null;
+                };
+                const plats = [...new Set((p.targets ?? []).map((t: { platform: string }) => t.platform))];
+                setPlatforms(plats);
+                const cp = p.contentByPlatform && typeof p.contentByPlatform === 'object' ? p.contentByPlatform : {};
+                const hasPerPlatform = Object.keys(cp).some((k) => (cp[k] ?? '').trim());
+                setDifferentContentPerPlatform(hasPerPlatform);
+                if (hasPerPlatform) {
+                    setContentByPlatform({ ...cp });
+                    setContent((cp[plats[0]] ?? p.content ?? '').trim());
+                } else {
+                    setContent((p.content ?? '').trim());
+                }
+                const mediaList_ = (p.media ?? []).map((m) => ({ fileUrl: m.fileUrl, type: (m.type === 'VIDEO' ? 'VIDEO' : 'IMAGE') as 'IMAGE' | 'VIDEO' }));
+                setMediaList(mediaList_);
+                if (p.mediaByPlatform && Object.keys(p.mediaByPlatform).length > 0) {
+                    const cleaned: Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[]> = {};
+                    for (const [k, arr] of Object.entries(p.mediaByPlatform)) {
+                        if (Array.isArray(arr)) cleaned[k] = arr.map((m) => ({ fileUrl: m.fileUrl, type: (m.type === 'VIDEO' ? 'VIDEO' : 'IMAGE') as 'IMAGE' | 'VIDEO' }));
+                    }
+                    setMediaByPlatform(cleaned);
+                    setDifferentMediaPerPlatform(true);
+                }
+                if (p.scheduledAt) {
+                    const d = new Date(p.scheduledAt);
+                    const pad = (n: number) => String(n).padStart(2, '0');
+                    setScheduledAt(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+                }
+                if (p.scheduleDelivery === 'auto' || p.scheduleDelivery === 'email_links') setScheduleDelivery(p.scheduleDelivery);
+                const ca = p.commentAutomation;
+                if (ca && Array.isArray(ca.keywords) && ca.keywords.length > 0) {
+                    setCommentAutomationEnabled(true);
+                    setCommentAutomationKeywords(ca.keywords.join(', '));
+                    setCommentAutomationReplyTemplate((ca.replyTemplate ?? '').trim());
+                    if (ca.replyTemplateByPlatform && typeof ca.replyTemplateByPlatform === 'object') {
+                        setCommentAutomationReplyByPlatform({ ...ca.replyTemplateByPlatform });
+                    }
+                    if (ca.usePrivateReply) setCommentAutomationUsePrivateReply(true);
+                }
+                setEditLoaded(true);
+            })
+            .catch(() => setEditLoaded(true));
+        return () => { cancelled = true; };
+    }, [editPostId, editLoaded]);
 
     const clearComposerDraft = useCallback(() => {
         try {
@@ -522,7 +587,7 @@ export default function ComposerPage() {
                 }, {} as Record<string, string>);
             }
 
-            const TWITTER_CHAR_LIMIT = 256;
+            const TWITTER_CHAR_LIMIT = 280;
             if (platforms.includes('TWITTER')) {
                 const twitterText = (contentByPlatformFinal?.['TWITTER'] ?? contentFinal).trim();
                 if (twitterText.length > TWITTER_CHAR_LIMIT) {
@@ -533,6 +598,7 @@ export default function ComposerPage() {
             }
 
             const payload: {
+                title?: string;
                 content: string;
                 contentByPlatform?: Record<string, string>;
                 media: { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[];
@@ -594,25 +660,36 @@ export default function ComposerPage() {
                 const firstWithMedia = platforms.find((p) => (mediaByPlatform[p]?.length ?? 0) > 0);
                 payload.media = firstWithMedia ? mediaByPlatform[firstWithMedia]! : mediaList;
             }
-            const createRes = await api.post<{ id: string }>('/posts', payload);
-            const postId = createRes.data?.id;
-            if (postId && !scheduledAt) {
-                try {
-                    const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string }[] }>(`/posts/${postId}/publish`);
-                    const results = publishRes.data?.results;
-                    if (results?.some((r) => !r.ok)) {
-                        const failed = results.filter((r) => !r.ok).map((r) => `${r.platform}: ${r.error || 'failed'}`).join('; ');
-                        setAlertMessage(`Post created. Some platforms failed: ${failed}`);
-                    }
-                } catch (_) {
-                    setAlertMessage('Post saved but publishing failed. Check Dashboard or History.');
+            if (editPostId) {
+                await api.patch(`/posts/${editPostId}`, payload);
+                clearComposerDraft();
+                setAlertMessage('Post updated.');
+                if (scheduledAt) {
+                    router.push('/calendar?scheduled=1');
+                } else {
+                    router.push('/posts');
                 }
-            }
-            clearComposerDraft();
-            if (scheduledAt) {
-                router.push('/calendar?scheduled=1');
             } else {
-                router.push('/dashboard');
+                const createRes = await api.post<{ id: string }>('/posts', payload);
+                const postId = createRes.data?.id;
+                if (postId && !scheduledAt) {
+                    try {
+                        const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string }[] }>(`/posts/${postId}/publish`);
+                        const results = publishRes.data?.results;
+                        if (results?.some((r) => !r.ok)) {
+                            const failed = results.filter((r) => !r.ok).map((r) => `${r.platform}: ${r.error || 'failed'}`).join('; ');
+                            setAlertMessage(`Post created. Some platforms failed: ${failed}`);
+                        }
+                    } catch (_) {
+                        setAlertMessage('Post saved but publishing failed. Check Dashboard or History.');
+                    }
+                }
+                clearComposerDraft();
+                if (scheduledAt) {
+                    router.push('/calendar?scheduled=1');
+                } else {
+                    router.push('/dashboard');
+                }
             }
         } catch (err: unknown) {
             let msg = 'Failed to create post';
@@ -674,10 +751,21 @@ export default function ComposerPage() {
                                 <textarea
                                     value={aiPrompt}
                                     onChange={(e) => setAiPrompt(e.target.value)}
-                                    placeholder="e.g. Keep it under 150 chars, add a CTA"
+                                    placeholder="e.g. Keep it under 280 chars for X, add a CTA"
                                     rows={2}
                                     className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
                                 />
+                                {platforms.length > 1 && (
+                                    <label className="mt-3 flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={differentContentPerPlatform}
+                                            onChange={(e) => setDifferentContentPerPlatform(e.target.checked)}
+                                            className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                                        />
+                                        <span className="text-sm text-neutral-700">Use different content per platform</span>
+                                    </label>
+                                )}
                                 {differentContentPerPlatform && platforms.length > 0 ? (
                                     <p className="mt-3 text-sm text-neutral-600">
                                         We&apos;ll generate a separate description for each selected platform: {platforms.map((p) => PLATFORM_LABELS[p] ?? p).join(', ')}.
@@ -720,8 +808,8 @@ export default function ComposerPage() {
                 </div>
             )}
             <div>
-                <h1 className="text-2xl font-bold text-neutral-900">Create Post</h1>
-                <p className="text-neutral-500 mt-1">Draft, preview and schedule your content across platforms.</p>
+                <h1 className="text-2xl font-bold text-neutral-900">{editPostId ? 'Edit Post' : 'Create Post'}</h1>
+                <p className="text-neutral-500 mt-1">{editPostId ? 'Update content, schedule, or platforms.' : 'Draft, preview and schedule your content across platforms.'}</p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -964,8 +1052,8 @@ export default function ComposerPage() {
                                 {platforms.includes('TWITTER') && (() => {
                                     const withTags = content.trim() + (selectedHashtags.length ? ' ' + selectedHashtags.join(' ') : '');
                                     return (
-                                        <p className={`mt-1 text-xs ${withTags.length > 256 ? 'text-amber-600 font-medium' : 'text-neutral-500'}`}>
-                                            X (Twitter) limit: 256 chars (including spaces). Current (with hashtags): {withTags.length}
+                                        <p className={`mt-1 text-xs ${withTags.length > 280 ? 'text-amber-600 font-medium' : 'text-neutral-500'}`}>
+                                            X (Twitter) limit: 280 chars (including spaces). Current (with hashtags): {withTags.length}
                                         </p>
                                     );
                                 })()}
@@ -985,8 +1073,8 @@ export default function ComposerPage() {
                                                 className="w-full h-24 p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                                             />
                                             {p === 'TWITTER' && (
-                                                <p className={`text-xs ${fullLength > 256 ? 'text-amber-600 font-medium' : 'text-neutral-500'}`}>
-                                                    X limit: 256 (including spaces). Current (with hashtags): {fullLength}
+                                                <p className={`text-xs ${fullLength > 280 ? 'text-amber-600 font-medium' : 'text-neutral-500'}`}>
+                                                    X limit: 280 (including spaces). Current (with hashtags): {fullLength}
                                                 </p>
                                             )}
                                         </div>
@@ -1200,7 +1288,7 @@ export default function ComposerPage() {
                         ) : (
                             <>
                                 <Send size={20} />
-                                <span>{scheduledAt ? 'Schedule Post' : 'Post Now'}</span>
+                                <span>{editPostId ? (scheduledAt ? 'Update & Schedule' : 'Update Post') : (scheduledAt ? 'Schedule Post' : 'Post Now')}</span>
                             </>
                         )}
                     </button>

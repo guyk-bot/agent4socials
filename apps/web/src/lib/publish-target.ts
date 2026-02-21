@@ -160,7 +160,7 @@ export async function publishTarget(
     }
 
     if (platform === 'TWITTER') {
-      const text = caption.slice(0, 256) || ' ';
+      const text = caption.slice(0, 280) || ' ';
       let mediaIds: string[] = [];
       if (firstImageUrl) {
         const { buffer, contentType } = await fetchImageBuffer(firstImageUrl, fetchFn);

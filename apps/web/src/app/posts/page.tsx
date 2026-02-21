@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import api from '@/lib/api';
+import Link from 'next/link';
 import {
     Search,
     Filter,
@@ -13,7 +14,8 @@ import {
     Twitter,
     Linkedin,
     ExternalLink,
-    ChevronRight
+    ChevronRight,
+    Loader2,
 } from 'lucide-react';
 
 export default function PostsPage() {
@@ -71,7 +73,15 @@ export default function PostsPage() {
 
             <div className="card !p-0 overflow-hidden">
                 {loading ? (
-                    <div className="p-12 text-center text-gray-500">Loading history...</div>
+                    <div className="p-12 flex flex-col items-center justify-center gap-4">
+                        <Loader2 size={32} className="animate-spin text-indigo-600" />
+                        <p className="text-gray-500">Loading history...</p>
+                        <div className="w-full max-w-md space-y-3">
+                            {[1, 2, 3, 4, 5].map((i) => (
+                                <div key={i} className="h-14 rounded-lg bg-gray-100 animate-pulse" />
+                            ))}
+                        </div>
+                    </div>
                 ) : filteredPosts.length > 0 ? (
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -125,9 +135,13 @@ export default function PostsPage() {
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 text-right">
-                                        <button className="text-gray-400 hover:text-indigo-600 transition-colors">
-                                            <ChevronRight size={20} />
-                                        </button>
+                                        <Link
+                                            href={`/composer?edit=${post.id}`}
+                                            className="inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+                                        >
+                                            Open in Composer
+                                            <ChevronRight size={18} />
+                                        </Link>
                                     </td>
                                 </tr>
                             ))}

@@ -248,7 +248,7 @@ export default function CalendarPage() {
                                                             return (
                                                                 <Link
                                                                     key={p.id}
-                                                                    href="/posts"
+                                                                    href={`/composer?edit=${p.id}`}
                                                                     className={`block rounded-lg border p-2 ${style.bg} ${style.border} ${style.text} hover:opacity-90 transition-opacity`}
                                                                 >
                                                                     <div className="flex items-center gap-1.5 mb-1">
@@ -306,7 +306,7 @@ export default function CalendarPage() {
                                                 return (
                                                     <Link
                                                         key={p.id}
-                                                        href="/posts"
+                                                        href={`/composer?edit=${p.id}`}
                                                         className={`block p-2 rounded-lg border ${style.bg} ${style.border} ${style.text}`}
                                                     >
                                                         <div className="flex items-start gap-1.5">

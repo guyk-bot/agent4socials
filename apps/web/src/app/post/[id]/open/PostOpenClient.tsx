@@ -14,7 +14,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   LINKEDIN: 'LinkedIn',
 };
 
-const TWITTER_CHAR_LIMIT = 256;
+const TWITTER_CHAR_LIMIT = 280;
 
 function PlatformIcon({ platform }: { platform: string }) {
   switch (platform) {

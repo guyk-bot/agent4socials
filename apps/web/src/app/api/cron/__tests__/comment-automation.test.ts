@@ -107,7 +107,7 @@ describe('comment-automation', () => {
     });
   });
 
-  it('Twitter/X: fetches replies by conversation_id, matches keyword, posts reply (256 char limit)', async () => {
+  it('Twitter/X: fetches replies by conversation_id, matches keyword, posts reply (280 char limit)', async () => {
     const postId = 'post-2';
     const targetId = 'target-2';
     const platformPostId = '1234567890';
@@ -169,7 +169,7 @@ describe('comment-automation', () => {
       }),
       expect.any(Object)
     );
-    expect((axios.post as jest.Mock).mock.calls[0][1].text.length).toBeLessThanOrEqual(256);
+    expect((axios.post as jest.Mock).mock.calls[0][1].text.length).toBeLessThanOrEqual(280);
     expect(prisma.commentAutomationReply.create).toHaveBeenCalledWith({
       data: { postTargetId: targetId, platformCommentId: 'reply-tweet-1' },
     });
