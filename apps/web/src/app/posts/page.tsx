@@ -48,6 +48,7 @@ export default function PostsPage() {
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Post History</h1>
                     <p className="text-gray-500">Track and manage all your social media content.</p>
+                    <p className="text-xs text-gray-500 mt-1">Scheduled posts change to &quot;Posted&quot; when the cron runs (Vercel Hobby: once daily). For sooner publishing, use an external cron for <code className="bg-gray-100 px-1 rounded">/api/cron/process-scheduled</code>.</p>
                 </div>
                 <div className="flex items-center space-x-3">
                     <div className="relative">

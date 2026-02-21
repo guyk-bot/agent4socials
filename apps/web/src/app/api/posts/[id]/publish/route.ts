@@ -55,9 +55,10 @@ export async function POST(
   if (!post) {
     return NextResponse.json({ message: 'Post not found' }, { status: 404 });
   }
-  if (post.status !== PostStatus.DRAFT && post.status !== PostStatus.SCHEDULED) {
-    return NextResponse.json({ message: 'Post already published or in progress' }, { status: 400 });
+  if (post.status !== PostStatus.DRAFT && post.status !== PostStatus.SCHEDULED && post.status !== PostStatus.POSTING) {
+    return NextResponse.json({ message: 'Post already published' }, { status: 400 });
   }
+  // Allow retry when POSTING (e.g. previous publish failed mid-way)
 
   await prisma.post.update({
     where: { id: postId },

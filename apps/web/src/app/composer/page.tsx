@@ -672,23 +672,35 @@ export default function ComposerPage() {
             } else {
                 const createRes = await api.post<{ id: string }>('/posts', payload);
                 const postId = createRes.data?.id;
+                clearComposerDraft();
                 if (postId && !scheduledAt) {
                     try {
-                        const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string }[] }>(`/posts/${postId}/publish`);
+                        const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string }[]; message?: string }>(`/posts/${postId}/publish`);
                         const results = publishRes.data?.results;
                         if (results?.some((r) => !r.ok)) {
                             const failed = results.filter((r) => !r.ok).map((r) => `${r.platform}: ${r.error || 'failed'}`).join('; ');
-                            setAlertMessage(`Post created. Some platforms failed: ${failed}`);
+                            setAlertMessage(`Post created but some platforms failed: ${failed}. Open the post from History to retry or fix.`);
+                            router.push(`/composer?edit=${postId}`);
+                            return;
                         }
-                    } catch (_) {
-                        setAlertMessage('Post saved but publishing failed. Check Dashboard or History.');
+                    } catch (err: unknown) {
+                        const res = err && typeof err === 'object' && 'response' in err ? (err as { response?: { status?: number; data?: { message?: string } } }).response : undefined;
+                        const status = res?.status;
+                        const msg = res?.data?.message ?? (status === 401 ? 'Session expired. Sign in again, then open the post from History and try Post now.' : 'Publish failed. Open the post from History and try Post now again.');
+                        setAlertMessage(msg);
+                        router.push(`/composer?edit=${postId}`);
+                        return;
                     }
                 }
-                clearComposerDraft();
+                if (!postId && !scheduledAt) {
+                    setAlertMessage('Post was created but we could not publish it. Open it from History and try Post now.');
+                    router.push('/posts');
+                    return;
+                }
                 if (scheduledAt) {
                     router.push('/calendar?scheduled=1');
                 } else {
-                    router.push('/dashboard');
+                    router.push('/posts');
                 }
             }
         } catch (err: unknown) {
