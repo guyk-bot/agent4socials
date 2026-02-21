@@ -11,6 +11,7 @@ const baseUrl = () =>
  * GET/POST /api/cron/process-scheduled
  * Call with header X-Cron-Secret: CRON_SECRET (or Authorization: Bearer CRON_SECRET).
  * Finds posts due now: scheduleDelivery=email_links -> send email with open link; scheduleDelivery=auto -> publish.
+ * Also runs comment automation (keyword replies on published posts) so one cron job can do both.
  */
 export async function GET(request: NextRequest) {
   try {
