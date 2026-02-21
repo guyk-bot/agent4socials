@@ -348,7 +348,7 @@ export default function Home() {
                 <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-sky-500 px-2 py-0.5 text-[10px] font-semibold text-white">Popular</span>
                 <p className="text-xs font-semibold uppercase tracking-wider text-sky-400">Growth</p>
                 <p className="mt-2 text-2xl font-bold">$24<span className="text-slate-400 font-normal text-base">/mo</span></p>
-                <p className="mt-1 text-xs text-slate-500">15 accounts, advanced analytics, keyword automations, 1K DM actions, AI (150/mo)</p>
+                <p className="mt-1 text-xs text-slate-500">15 accounts, advanced analytics, keyword automations, Unlimited DM automations, AI (150/mo)</p>
                 <Link href="/pricing" className="mt-4 inline-block w-full rounded-xl bg-sky-500 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-400">View plan</Link>
               </div>
               <div className="rounded-2xl border border-slate-700 bg-slate-800/40 p-5 sm:p-6 text-center">
@@ -407,7 +407,7 @@ export default function Home() {
                 },
                 {
                   q: 'Which plan is right for me?',
-                  a: 'Creator ($12/mo) is for solo creators and small businesses: 5 accounts, scheduling, basic analytics, inbox, 100 DM automations, and 30 AI generations per month. Growth ($24/mo) adds 15 accounts, advanced analytics, keyword automations, 1,000 DM actions, and 150 AI generations. Agency ($59/mo) is for teams: multiple brands, 3 team members, white-label, higher limits, and priority support. Yearly billing saves 19%.',
+                  a: 'Creator ($12/mo) is for solo creators and small businesses: 5 accounts, scheduling, basic analytics, inbox, 100 DM automations, and 30 AI generations per month. Growth ($24/mo) adds 15 accounts, advanced analytics, keyword automations, Unlimited DM automations, and 150 AI generations. Agency ($59/mo) is for teams: multiple brands, 3 team members, white-label, higher limits, and priority support. Yearly billing saves 19%.',
                 },
               ].map((item, i) => (
                 <FaqItem key={i} question={item.q} answer={item.a} />

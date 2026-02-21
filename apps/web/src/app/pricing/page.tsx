@@ -20,7 +20,7 @@ const GROWTH_FEATURES = [
   'Advanced analytics',
   'Full inbox',
   'Keyword automations',
-  '1,000 DM actions',
+  'Unlimited DM automations',
   'AI assistant (150 AI generations/month)',
   'Performance insights',
 ];
