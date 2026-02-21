@@ -163,6 +163,7 @@ export default function ComposerPage() {
     const [aiTopic, setAiTopic] = useState('');
     const [aiPrompt, setAiPrompt] = useState('');
     const [aiPlatform, setAiPlatform] = useState('');
+    const [aiIncludeCtaAndAutomation, setAiIncludeCtaAndAutomation] = useState(true);
     const [aiLoading, setAiLoading] = useState(false);
     const [aiError, setAiError] = useState<string | null>(null);
     const [hasBrandContext, setHasBrandContext] = useState<boolean | null>(null);
@@ -345,19 +346,49 @@ export default function ComposerPage() {
         const topic = aiTopic.trim();
         const prompt = aiPrompt.trim() || undefined;
 
+        const applyCtaAndAutomation = (data: { content?: string; cta?: string; keywords?: string[]; replyTemplate?: string }) => {
+            if (!data) return;
+            if (data.cta && typeof data.content === 'string') {
+                const withCta = data.content.trim() + '\n\n' + data.cta.trim();
+                setContent(withCta);
+            }
+            if (Array.isArray(data.keywords) && data.keywords.length > 0) {
+                setCommentAutomationEnabled(true);
+                setCommentAutomationKeywords(data.keywords.join(', '));
+            }
+            if (typeof data.replyTemplate === 'string' && data.replyTemplate.trim()) {
+                setCommentAutomationReplyTemplate(data.replyTemplate.trim());
+            }
+        };
+
         if (differentContentPerPlatform && platforms.length > 0) {
-            // Generate one description per selected platform, each suited to that platform
-            Promise.all(
-                platforms.map((p) =>
-                    api.post('/ai/generate-description', { topic, prompt, platform: p }).then((res) => ({ platform: p, text: res.data?.content ?? '' }))
-                )
-            )
+            // Generate one description per selected platform; first call can include CTA + automation
+            const firstPlatform = platforms[0];
+            const rest = platforms.slice(1);
+            const firstPromise = api.post<{ content?: string; cta?: string; keywords?: string[]; replyTemplate?: string }>('/ai/generate-description', {
+                topic,
+                prompt,
+                platform: firstPlatform,
+                includeCtaAndAutomation: aiIncludeCtaAndAutomation,
+            }).then((res) => ({ platform: firstPlatform, data: res.data }));
+            const restPromises = rest.map((p) =>
+                api.post<{ content?: string }>('/ai/generate-description', { topic, prompt, platform: p }).then((res) => ({ platform: p, data: res.data }))
+            );
+            Promise.all([firstPromise, ...restPromises])
                 .then((results) => {
+                    const first = results[0];
                     setContentByPlatform((prev) => {
                         const next = { ...prev };
-                        for (const { platform, text } of results) next[platform] = text;
+                        for (const { platform, data: d } of results) {
+                            let text = d?.content ?? '';
+                            if (platform === first?.platform && aiIncludeCtaAndAutomation && (d as { cta?: string })?.cta) {
+                                text = text.trim() + '\n\n' + (d as { cta: string }).cta.trim();
+                            }
+                            next[platform] = text;
+                        }
                         return next;
                     });
+                    if (aiIncludeCtaAndAutomation && first?.data) applyCtaAndAutomation(first.data);
                     setAiModalOpen(false);
                 })
                 .catch((err) => {
@@ -366,21 +397,22 @@ export default function ComposerPage() {
                 })
                 .finally(() => setAiLoading(false));
         } else {
-            // Single description for all platforms (optional platform hint)
-            api.post('/ai/generate-description', {
+            api.post<{ content?: string; cta?: string; keywords?: string[]; replyTemplate?: string }>('/ai/generate-description', {
                 topic,
                 prompt,
                 platform: aiPlatform || undefined,
+                includeCtaAndAutomation: aiIncludeCtaAndAutomation,
             }).then((res) => {
-                const text = res.data?.content ?? '';
-                setContent(text);
+                const data = res.data;
+                setContent(data?.content ?? '');
+                if (aiIncludeCtaAndAutomation && data) applyCtaAndAutomation(data);
                 setAiModalOpen(false);
             }).catch((err) => {
                 const msg = err.response?.data?.message ?? 'Failed to generate. Try again.';
                 setAiError(msg);
             }).finally(() => setAiLoading(false));
         }
-    }, [aiTopic, aiPrompt, aiPlatform, differentContentPerPlatform, platforms]);
+    }, [aiTopic, aiPrompt, aiPlatform, aiIncludeCtaAndAutomation, differentContentPerPlatform, platforms]);
 
     // Persist composer draft when state changes (debounced; shorter delay when only media changed so carousel keeps all images after upload)
     const mediaSignature = mediaList.map((m) => m.fileUrl).join('|');
@@ -861,8 +893,17 @@ export default function ComposerPage() {
                                     rows={2}
                                     className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
                                 />
+                                <label className="mt-3 flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={aiIncludeCtaAndAutomation}
+                                        onChange={(e) => setAiIncludeCtaAndAutomation(e.target.checked)}
+                                        className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <span className="text-sm text-neutral-700">Also generate CTA and comment automation (keyword + reply)</span>
+                                </label>
                                 {platforms.length > 1 && (
-                                    <label className="mt-3 flex items-center gap-2 cursor-pointer">
+                                    <label className="mt-2 flex items-center gap-2 cursor-pointer">
                                         <input
                                             type="checkbox"
                                             checked={differentContentPerPlatform}

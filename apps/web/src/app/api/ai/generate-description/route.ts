@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
   if (!userId) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
-  let body: { topic?: string; prompt?: string; platform?: string };
+  let body: { topic?: string; prompt?: string; platform?: string; includeCtaAndAutomation?: boolean };
   try {
     body = await request.json();
   } catch {
@@ -85,6 +85,7 @@ export async function POST(request: NextRequest) {
   const topic = typeof body.topic === 'string' ? body.topic.trim() : '';
   const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
   const platform = typeof body.platform === 'string' ? body.platform.trim() : '';
+  const includeCtaAndAutomation = body.includeCtaAndAutomation === true;
 
   const brand = await prisma.brandContext.findUnique({ where: { userId } });
   if (!brand) {
@@ -96,9 +97,12 @@ export async function POST(request: NextRequest) {
 
   const systemPrompt = buildSystemPrompt(brand);
   const platformHint = platform ? getPlatformHint(platform) : '';
-  const userContent = [topic && `Topic: ${topic}`, prompt && `Instructions: ${prompt}`, platform && `Platform: ${platform}${platformHint ? `. ${platformHint}` : ''}`]
+  let userContent = [topic && `Topic: ${topic}`, prompt && `Instructions: ${prompt}`, platform && `Platform: ${platform}${platformHint ? `. ${platformHint}` : ''}`]
     .filter(Boolean)
     .join('\n') || 'Write a short social post that fits my brand.';
+  if (includeCtaAndAutomation) {
+    userContent += '\n\nAlso provide: (1) a short CTA (call-to-action) line, e.g. "Comment demo for a free trial". (2) Comment automation: 1-2 keywords (e.g. demo, yes) and a short reply template for when someone comments with that keyword. Respond with a JSON object only, no markdown: {"content":"...","cta":"...","keywords":["keyword1","keyword2"],"replyTemplate":"..."}. Use double quotes. Content = main post text; cta = one line; keywords = array of strings; replyTemplate = one short reply sentence.';
+  }
 
   const payload = {
     model: MODEL,
@@ -106,7 +110,7 @@ export async function POST(request: NextRequest) {
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userContent },
     ],
-    max_tokens: 500,
+    max_tokens: includeCtaAndAutomation ? 600 : 500,
   };
 
   const res = await fetch(OPENROUTER_URL, {
@@ -135,9 +139,33 @@ export async function POST(request: NextRequest) {
   if (data.error?.message) {
     return NextResponse.json({ message: data.error.message }, { status: 502 });
   }
-  let content = data.choices?.[0]?.message?.content?.trim() ?? '';
-  content = cleanGeneratedText(content);
-  // Enforce platform character limit (e.g. X standard 280; leave room for hashtags)
+  let raw = data.choices?.[0]?.message?.content?.trim() ?? '';
+
+  if (includeCtaAndAutomation) {
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    const parsed = jsonMatch ? (() => { try { return JSON.parse(jsonMatch[0]) as Record<string, unknown>; } catch { return null; } })() : null;
+    if (parsed && typeof parsed.content === 'string') {
+      let content = cleanGeneratedText(parsed.content);
+      const platformUpper = platform.toUpperCase();
+      if (platformUpper === 'TWITTER' || platformUpper === 'X') {
+        const max = 250;
+        if (content.length > max) content = content.slice(0, max).trim();
+      }
+      const cta = typeof parsed.cta === 'string' ? cleanGeneratedText(parsed.cta).slice(0, 200) : undefined;
+      const keywords = Array.isArray(parsed.keywords)
+        ? (parsed.keywords as unknown[]).filter((k): k is string => typeof k === 'string').map((k) => k.trim().toLowerCase()).filter(Boolean).slice(0, 5)
+        : undefined;
+      const replyTemplate = typeof parsed.replyTemplate === 'string' ? cleanGeneratedText(parsed.replyTemplate).slice(0, 500) : undefined;
+      return NextResponse.json({
+        content,
+        ...(cta ? { cta } : {}),
+        ...(keywords?.length ? { keywords } : {}),
+        ...(replyTemplate ? { replyTemplate } : {}),
+      });
+    }
+  }
+
+  let content = cleanGeneratedText(raw);
   const platformUpper = platform.toUpperCase();
   if (platformUpper === 'TWITTER' || platformUpper === 'X') {
     const max = 250;
