@@ -725,7 +725,11 @@ export default function ComposerPage() {
                         const results = publishRes.data?.results;
                         if (results?.some((r) => !r.ok)) {
                             const failed = results.filter((r) => !r.ok).map((r) => `${r.platform}: ${r.error || 'failed'}`).join('; ');
-                            const hint = failed.includes('TWITTER') && (failed.includes('403') || failed.includes('media')) ? ' For Twitter 403/media: set your app to Read and write in the Twitter Developer Portal, then reconnect the account (Accounts page).' : '';
+                            let hint = '';
+                            if (failed.includes('TWITTER')) {
+                                if (failed.includes('403') || failed.includes('media')) hint = ' For Twitter 403/media: set your app to Read and write in the Twitter Developer Portal, then reconnect the account (Accounts page).';
+                                else if (failed.includes('401') || failed.includes('Unauthorized')) hint = ' Your Twitter session may have expired. Reconnect the Twitter account in the Accounts page, then try again.';
+                            }
                             setAlertMessage(`Post updated but some platforms failed: ${failed}. Open the post from History to retry or fix.${hint}`);
                             router.push(`/composer?edit=${editPostId}`);
                             return;
@@ -753,7 +757,11 @@ export default function ComposerPage() {
                         const results = publishRes.data?.results;
                         if (results?.some((r) => !r.ok)) {
                             const failed = results.filter((r) => !r.ok).map((r) => `${r.platform}: ${r.error || 'failed'}`).join('; ');
-                            const hint = failed.includes('TWITTER') && (failed.includes('403') || failed.includes('media')) ? ' For Twitter 403/media: set your app to Read and write in the Twitter Developer Portal, then reconnect the account (Accounts page).' : '';
+                            let hint = '';
+                            if (failed.includes('TWITTER')) {
+                                if (failed.includes('403') || failed.includes('media')) hint = ' For Twitter 403/media: set your app to Read and write in the Twitter Developer Portal, then reconnect the account (Accounts page).';
+                                else if (failed.includes('401') || failed.includes('Unauthorized')) hint = ' Your Twitter session may have expired. Reconnect the Twitter account in the Accounts page, then try again.';
+                            }
                             setAlertMessage(`Post created but some platforms failed: ${failed}. Open the post from History to retry or fix.${hint}`);
                             router.push(`/composer?edit=${postId}`);
                             return;
