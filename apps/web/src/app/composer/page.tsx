@@ -721,7 +721,7 @@ export default function ComposerPage() {
                 } else {
                     // Post now: publish immediately after update (same as create + Post now)
                     try {
-                        const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string }[]; message?: string }>(`/posts/${editPostId}/publish`);
+                        const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string }>(`/posts/${editPostId}/publish`);
                         const results = publishRes.data?.results;
                         if (results?.some((r) => !r.ok)) {
                             const failed = results.filter((r) => !r.ok).map((r) => `${r.platform}: ${r.error || 'failed'}`).join('; ');
@@ -730,7 +730,7 @@ export default function ComposerPage() {
                             router.push(`/composer?edit=${editPostId}`);
                             return;
                         }
-                        const mediaSkipped = results?.filter((r: { mediaSkipped?: boolean }) => r.mediaSkipped).map((r: { platform: string }) => r.platform);
+                        const mediaSkipped = results?.filter((r) => r.mediaSkipped).map((r) => r.platform);
                         const msg = mediaSkipped?.length ? `Post updated and published. Note: ${mediaSkipped.join(', ')} posted as text only (image upload was not allowed).` : 'Post updated and published.';
                         setAlertMessage(msg);
                         router.push('/posts');
@@ -749,7 +749,7 @@ export default function ComposerPage() {
                 clearComposerDraft();
                 if (postId && !scheduledAt) {
                     try {
-                        const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string }[]; message?: string }>(`/posts/${postId}/publish`);
+                        const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string }>(`/posts/${postId}/publish`);
                         const results = publishRes.data?.results;
                         if (results?.some((r) => !r.ok)) {
                             const failed = results.filter((r) => !r.ok).map((r) => `${r.platform}: ${r.error || 'failed'}`).join('; ');
@@ -758,7 +758,7 @@ export default function ComposerPage() {
                             router.push(`/composer?edit=${postId}`);
                             return;
                         }
-                        const mediaSkippedCreate = results?.filter((r: { mediaSkipped?: boolean }) => r.mediaSkipped).map((r: { platform: string }) => r.platform);
+                        const mediaSkippedCreate = results?.filter((r) => r.mediaSkipped).map((r) => r.platform);
                         if (mediaSkippedCreate?.length) {
                             setAlertMessage(`Post published. Note: ${mediaSkippedCreate.join(', ')} posted as text only (image upload was not allowed).`);
                         }
