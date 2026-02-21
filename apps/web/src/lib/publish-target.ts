@@ -16,6 +16,8 @@ export type PublishTargetResult = {
   ok: boolean;
   platformPostId?: string;
   error?: string;
+  /** True when the post was published but media (e.g. image) was skipped (e.g. Twitter 403 on upload). */
+  mediaSkipped?: boolean;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -162,26 +164,37 @@ export async function publishTarget(
     if (platform === 'TWITTER') {
       const text = caption.slice(0, 280) || ' ';
       let mediaIds: string[] = [];
+      let mediaSkipped = false;
       if (firstImageUrl) {
-        const { buffer, contentType } = await fetchImageBuffer(firstImageUrl, fetchFn);
-        const form = new FormData();
-        form.append(
-          'media',
-          new Blob([new Uint8Array(buffer)], { type: contentType }),
-          contentType.includes('png') ? 'image.png' : 'image.jpg'
-        );
-        const uploadRes = await fetchFn('https://upload.twitter.com/1.1/media/upload.json', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-          body: form,
-        });
-        if (!uploadRes.ok) {
-          const errText = await uploadRes.text();
-          throw new Error(`Twitter media upload failed: ${uploadRes.status} ${errText}`);
+        try {
+          const { buffer, contentType } = await fetchImageBuffer(firstImageUrl, fetchFn);
+          const form = new FormData();
+          form.append(
+            'media',
+            new Blob([new Uint8Array(buffer)], { type: contentType }),
+            contentType.includes('png') ? 'image.png' : 'image.jpg'
+          );
+          form.append('media_category', 'tweet_image');
+          const uploadRes = await fetchFn('https://upload.twitter.com/1.1/media/upload.json', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: form,
+          });
+          if (!uploadRes.ok) {
+            if (uploadRes.status === 403) {
+              mediaSkipped = true;
+            } else {
+              const errText = await uploadRes.text();
+              throw new Error(`Twitter media upload failed: ${uploadRes.status} ${errText}`);
+            }
+          } else {
+            const uploadData = (await uploadRes.json()) as { media_id_string?: string };
+            const mediaId = uploadData?.media_id_string;
+            if (mediaId) mediaIds = [mediaId];
+          }
+        } catch (err) {
+          throw err;
         }
-        const uploadData = (await uploadRes.json()) as { media_id_string?: string };
-        const mediaId = uploadData?.media_id_string;
-        if (mediaId) mediaIds = [mediaId];
       }
       const tweetBody = mediaIds.length > 0 ? { text, media: { media_ids: mediaIds } } : { text };
       const tweetRes = await axiosInstance.post(
@@ -190,7 +203,7 @@ export async function publishTarget(
         { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
       );
       const tweetId = (tweetRes.data as { data?: { id?: string } })?.data?.id;
-      return { ok: true, platformPostId: tweetId };
+      return { ok: true, platformPostId: tweetId, ...(mediaSkipped ? { mediaSkipped: true } : {}) };
     }
 
     return { ok: false, error: `Publish not implemented for ${platform}` };

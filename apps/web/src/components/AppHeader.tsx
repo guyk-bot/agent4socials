@@ -22,11 +22,11 @@ export default function AppHeader() {
   return (
     <header className="h-14 flex items-center justify-between px-6 bg-neutral-900 text-white border-b border-neutral-800 fixed top-0 left-0 right-0 z-40">
       <div className="flex items-center gap-8">
-        <Link href="/dashboard" className="flex items-center gap-2 shrink-0">
+        <Link href="/dashboard" className="flex items-center gap-2 shrink-0 [&_img]:bg-transparent">
           {logoUrl ? (
-            <img src={logoUrl} alt="" className="h-8 w-8 rounded object-contain" />
+            <img src={logoUrl} alt="" className="h-8 w-8 object-contain" />
           ) : (
-            <Image src="/logo.svg" alt="" width={32} height={32} className="h-8 w-8 object-contain" />
+            <Image src="/logo.svg" alt="" width={32} height={32} className="h-8 w-8 object-contain bg-transparent" />
           )}
           <span className="font-semibold text-white hidden sm:inline">{appName || 'Agent4Socials'}</span>
         </Link>

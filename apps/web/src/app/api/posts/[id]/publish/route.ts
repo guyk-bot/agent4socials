@@ -68,7 +68,7 @@ export async function POST(
   const contentByPlatform = (post as { contentByPlatform?: Record<string, string> | null }).contentByPlatform ?? null;
   const mediaByPlatform = (post as { mediaByPlatform?: Record<string, { fileUrl: string; type: string }[]> | null }).mediaByPlatform ?? null;
   const defaultMedia = post.media.map((m) => ({ fileUrl: m.fileUrl, type: m.type }));
-  const results: { platform: string; ok: boolean; error?: string }[] = [];
+  const results: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[] = [];
 
   for (const target of post.targets) {
     const { platform, socialAccount } = target;
@@ -97,7 +97,7 @@ export async function POST(
         where: { id: target.id },
         data: { status: PostStatus.POSTED, ...(result.platformPostId ? { platformPostId: result.platformPostId } : {}) },
       });
-      results.push({ platform, ok: true });
+      results.push({ platform, ok: true, ...(result.mediaSkipped ? { mediaSkipped: true } : {}) });
     } else {
       await prisma.postTarget.update({
         where: { id: target.id },

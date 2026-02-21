@@ -730,7 +730,9 @@ export default function ComposerPage() {
                             router.push(`/composer?edit=${editPostId}`);
                             return;
                         }
-                        setAlertMessage('Post updated and published.');
+                        const mediaSkipped = results?.filter((r: { mediaSkipped?: boolean }) => r.mediaSkipped).map((r: { platform: string }) => r.platform);
+                        const msg = mediaSkipped?.length ? `Post updated and published. Note: ${mediaSkipped.join(', ')} posted as text only (image upload was not allowed).` : 'Post updated and published.';
+                        setAlertMessage(msg);
                         router.push('/posts');
                     } catch (err: unknown) {
                         const res = err && typeof err === 'object' && 'response' in err ? (err as { response?: { status?: number; data?: { message?: string } } }).response : undefined;
@@ -755,6 +757,10 @@ export default function ComposerPage() {
                             setAlertMessage(`Post created but some platforms failed: ${failed}. Open the post from History to retry or fix.${hint}`);
                             router.push(`/composer?edit=${postId}`);
                             return;
+                        }
+                        const mediaSkippedCreate = results?.filter((r: { mediaSkipped?: boolean }) => r.mediaSkipped).map((r: { platform: string }) => r.platform);
+                        if (mediaSkippedCreate?.length) {
+                            setAlertMessage(`Post published. Note: ${mediaSkippedCreate.join(', ')} posted as text only (image upload was not allowed).`);
                         }
                     } catch (err: unknown) {
                         const res = err && typeof err === 'object' && 'response' in err ? (err as { response?: { status?: number; data?: { message?: string } } }).response : undefined;
