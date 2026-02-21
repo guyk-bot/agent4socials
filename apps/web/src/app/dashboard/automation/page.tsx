@@ -91,13 +91,14 @@ export default function AutomationPage() {
         </p>
         <div className="mt-3 p-3 rounded-lg bg-green-50 border border-green-200 text-sm text-green-900">
           <p className="font-medium mb-2">Setup checklist (do all steps)</p>
+          <p className="text-green-800 mb-2 text-xs">You can use the <strong>same cron job</strong> you already have (the one that calls <code className="bg-green-100/80 px-1 rounded">/api/cron/process-scheduled</code>). That endpoint now also runs comment automation, so no need to create a second job.</p>
           <ol className="list-decimal list-inside space-y-1.5 text-green-800 mb-2">
-            <li><strong>Add the secret header in your cron job.</strong> In cron-job.org: edit your job → look for &quot;Request headers&quot;, &quot;Advanced&quot;, or a similar section → add header <code className="bg-green-100/80 px-1 rounded text-xs">X-Cron-Secret</code> with value exactly equal to <code className="bg-green-100/80 px-1 rounded text-xs">CRON_SECRET</code> from Vercel (Environment Variables). Without this, the app returns 401 and never replies.</li>
+            <li><strong>Secret header.</strong> Your existing job should already send <code className="bg-green-100/80 px-1 rounded text-xs">X-Cron-Secret</code> (same as <code className="bg-green-100/80 px-1 rounded text-xs">CRON_SECRET</code> in Vercel). If not, add it so the app accepts the request.</li>
             <li><strong>Create a post with comment automation.</strong> In Composer: add your content and platforms, then in section 4 enable &quot;Keyword comment automation&quot;, add keywords (e.g. <code className="bg-green-100/80 px-1 rounded text-xs">demo</code>, <code className="bg-green-100/80 px-1 rounded text-xs">hello</code>) and the reply text (or different text per platform). Schedule or save the post.</li>
             <li><strong>Publish that post.</strong> The post must be published (status Posted) to the platforms you want. Use &quot;Publish now&quot; or schedule with &quot;Auto&quot; so it goes out; the cron only checks posts that are already published.</li>
-            <li><strong>Wait for the cron.</strong> Your cron runs every 5 minutes. When someone comments with one of your keywords, the next run will reply (usually within 5 minutes).</li>
+            <li><strong>Wait for the cron.</strong> When your cron runs (e.g. every 5 minutes), it processes scheduled posts and then runs comment automation. When someone comments with one of your keywords, the next run will reply (usually within 5 minutes).</li>
           </ol>
-          <p className="text-green-800 text-xs">Cron URL: <code className="bg-green-100/80 px-1 rounded break-all">https://agent4socials.com/api/cron/comment-automation</code>. Use &quot;TEST RUN&quot; in cron-job.org to trigger once; check the response (200 = OK, 401 = wrong or missing X-Cron-Secret).</p>
+          <p className="text-green-800 text-xs">One cron job calling <code className="bg-green-100/80 px-1 rounded break-all">/api/cron/process-scheduled</code> does both. Use &quot;TEST RUN&quot; to trigger once; response includes <code className="bg-green-100/80 px-1 rounded">commentAutomation</code> when it ran.</p>
         </div>
         <div className="mt-2 p-2.5 rounded-lg bg-white border border-neutral-200 text-xs">
           <p className="font-medium text-neutral-700 mb-1.5">Platform capabilities</p>

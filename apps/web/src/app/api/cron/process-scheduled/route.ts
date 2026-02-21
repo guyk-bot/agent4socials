@@ -134,5 +134,21 @@ async function processScheduled(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ processed: due.length, results });
+  // Also run comment automation so one cron job can do both
+  let commentAutomationResult: { ok?: boolean; results?: unknown } = {};
+  try {
+    const commentRes = await fetch(`${baseUrl()}/api/cron/comment-automation`, {
+      method: 'GET',
+      headers: { 'X-Cron-Secret': process.env.CRON_SECRET ?? '' },
+    });
+    commentAutomationResult = await commentRes.json().catch(() => ({}));
+  } catch (_) {
+    // non-fatal: scheduled posts are already done
+  }
+
+  return NextResponse.json({
+    processed: due.length,
+    results,
+    commentAutomation: commentAutomationResult?.ok === true ? { ok: true, results: commentAutomationResult?.results } : { ok: false },
+  });
 }
