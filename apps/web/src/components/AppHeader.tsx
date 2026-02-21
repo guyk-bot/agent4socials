@@ -26,9 +26,7 @@ export default function AppHeader() {
           {logoUrl ? (
             <img src={logoUrl} alt="" className="h-8 w-8 rounded object-contain" />
           ) : (
-            <div className="h-8 w-8 rounded flex items-center justify-center bg-white/10">
-              <Image src="/logo.svg" alt="" width={20} height={20} className="invert" />
-            </div>
+            <Image src="/logo.svg" alt="" width={32} height={32} className="h-8 w-8 object-contain" />
           )}
           <span className="font-semibold text-white hidden sm:inline">{appName || 'Agent4Socials'}</span>
         </Link>

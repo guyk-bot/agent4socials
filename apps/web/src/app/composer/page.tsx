@@ -84,6 +84,44 @@ function normalizeHashtag(t: string): string {
     return s ? `#${s}` : '';
 }
 
+/** Extract hashtags from text (e.g. stored post content) for pre-filling selection when opening from History. */
+function extractHashtagsFromText(text: string | null | undefined): string[] {
+    if (!text || typeof text !== 'string') return [];
+    const matches = text.match(/#[\w]+/g) ?? [];
+    const normalized = [...new Set(matches.map((m) => normalizeHashtag(m)).filter(Boolean))];
+    return normalized.slice(0, MAX_HASHTAGS_PER_POST);
+}
+
+/** Extract up to 5 hashtags from a post's content and contentByPlatform (so opening from History shows them as selected). */
+function extractHashtagsFromPost(post: { content?: string | null; contentByPlatform?: Record<string, string> | null }): string[] {
+    const texts: string[] = [];
+    if (post.content && typeof post.content === 'string') texts.push(post.content);
+    if (post.contentByPlatform && typeof post.contentByPlatform === 'object') {
+        for (const v of Object.values(post.contentByPlatform)) {
+            if (typeof v === 'string' && v.trim()) texts.push(v);
+        }
+    }
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const text of texts) {
+        const matches = text.match(/#[\w]+/g) ?? [];
+        for (const m of matches) {
+            const tag = normalizeHashtag(m);
+            if (tag && !seen.has(tag)) {
+                seen.add(tag);
+                out.push(tag);
+                if (out.length >= MAX_HASHTAGS_PER_POST) return out;
+            }
+        }
+    }
+    return out;
+}
+
+/** Remove trailing hashtags from content so we can store caption and selectedHashtags separately (avoid duplicate in preview). */
+function stripTrailingHashtags(text: string): string {
+    return text.replace(/(?:\s+#[\w]+)+\s*$/, '').trimEnd();
+}
+
 export default function ComposerPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -224,11 +262,13 @@ export default function ComposerPage() {
                 const cp = p.contentByPlatform && typeof p.contentByPlatform === 'object' ? p.contentByPlatform : {};
                 const hasPerPlatform = Object.keys(cp).some((k) => (cp[k] ?? '').trim());
                 setDifferentContentPerPlatform(hasPerPlatform);
+                const rawContent = (p.content ?? '').trim();
+                const rawFirstPlatform = (cp[plats[0]] ?? rawContent).trim();
                 if (hasPerPlatform) {
                     setContentByPlatform({ ...cp });
-                    setContent((cp[plats[0]] ?? p.content ?? '').trim());
+                    setContent(stripTrailingHashtags(rawFirstPlatform));
                 } else {
-                    setContent((p.content ?? '').trim());
+                    setContent(stripTrailingHashtags(rawContent));
                 }
                 const mediaList_ = (p.media ?? []).map((m) => ({ fileUrl: m.fileUrl, type: (m.type === 'VIDEO' ? 'VIDEO' : 'IMAGE') as 'IMAGE' | 'VIDEO' }));
                 setMediaList(mediaList_);
@@ -255,6 +295,18 @@ export default function ComposerPage() {
                         setCommentAutomationReplyByPlatform({ ...ca.replyTemplateByPlatform });
                     }
                     if (ca.usePrivateReply) setCommentAutomationUsePrivateReply(true);
+                }
+                // Pre-fill selected hashtags from post content (and contentByPlatform) so "Select up to 5" shows them as selected
+                const tagsFromPost = extractHashtagsFromPost(p);
+                if (tagsFromPost.length > 0) {
+                    setHashtagPool((prev) => {
+                        const combined = [...prev];
+                        for (const tag of tagsFromPost) {
+                            if (!combined.includes(tag)) combined.push(tag);
+                        }
+                        return combined.sort();
+                    });
+                    setSelectedHashtags(tagsFromPost);
                 }
                 setEditLoaded(true);
             })
@@ -663,11 +715,30 @@ export default function ComposerPage() {
             if (editPostId) {
                 await api.patch(`/posts/${editPostId}`, payload);
                 clearComposerDraft();
-                setAlertMessage('Post updated.');
                 if (scheduledAt) {
+                    setAlertMessage('Post updated and scheduled.');
                     router.push('/calendar?scheduled=1');
                 } else {
-                    router.push('/posts');
+                    // Post now: publish immediately after update (same as create + Post now)
+                    try {
+                        const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string }[]; message?: string }>(`/posts/${editPostId}/publish`);
+                        const results = publishRes.data?.results;
+                        if (results?.some((r) => !r.ok)) {
+                            const failed = results.filter((r) => !r.ok).map((r) => `${r.platform}: ${r.error || 'failed'}`).join('; ');
+                            setAlertMessage(`Post updated but some platforms failed: ${failed}. Open the post from History to retry or fix.`);
+                            router.push(`/composer?edit=${editPostId}`);
+                            return;
+                        }
+                        setAlertMessage('Post updated and published.');
+                        router.push('/posts');
+                    } catch (err: unknown) {
+                        const res = err && typeof err === 'object' && 'response' in err ? (err as { response?: { status?: number; data?: { message?: string } } }).response : undefined;
+                        const status = res?.status;
+                        const msg = res?.data?.message ?? (status === 401 ? 'Session expired. Sign in again, then open the post from History and try Post now.' : 'Publish failed. Open the post from History and try Post now again.');
+                        setAlertMessage(msg);
+                        router.push(`/composer?edit=${editPostId}`);
+                        return;
+                    }
                 }
             } else {
                 const createRes = await api.post<{ id: string }>('/posts', payload);
@@ -1300,7 +1371,7 @@ export default function ComposerPage() {
                         ) : (
                             <>
                                 <Send size={20} />
-                                <span>{editPostId ? (scheduledAt ? 'Update & Schedule' : 'Update Post') : (scheduledAt ? 'Schedule Post' : 'Post Now')}</span>
+                                <span>{editPostId ? (scheduledAt ? 'Update & Schedule' : 'Update & Post Now') : (scheduledAt ? 'Schedule Post' : 'Post Now')}</span>
                             </>
                         )}
                     </button>

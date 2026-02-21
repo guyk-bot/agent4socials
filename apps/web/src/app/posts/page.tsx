@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { usePathname } from 'next/navigation';
 import api from '@/lib/api';
 import Link from 'next/link';
 import {
@@ -19,23 +20,27 @@ import {
 } from 'lucide-react';
 
 export default function PostsPage() {
+    const pathname = usePathname();
     const [posts, setPosts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('ALL');
 
-    useEffect(() => {
-        const fetchPosts = async () => {
-            try {
-                const res = await api.get('/posts');
-                setPosts(res.data);
-            } catch (err) {
-                console.error('Failed to fetch posts');
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchPosts();
+    const fetchPosts = useCallback(async () => {
+        try {
+            setLoading(true);
+            const res = await api.get('/posts');
+            setPosts(Array.isArray(res.data) ? res.data : []);
+        } catch (err) {
+            console.error('Failed to fetch posts');
+        } finally {
+            setLoading(false);
+        }
     }, []);
+
+    // Refetch when user navigates to this page (e.g. after "Post now" from composer so status updates show)
+    useEffect(() => {
+        if (pathname === '/posts') fetchPosts();
+    }, [pathname, fetchPosts]);
 
     const filteredPosts = posts.filter((p: any) => {
         if (filter === 'ALL') return true;
@@ -67,6 +72,7 @@ export default function PostsPage() {
                         <option value="ALL">All Status</option>
                         <option value="POSTED">Posted</option>
                         <option value="SCHEDULED">Scheduled</option>
+                        <option value="DRAFT">Draft</option>
                         <option value="FAILED">Failed</option>
                     </select>
                 </div>
