@@ -4,6 +4,7 @@
  */
 
 import FormData from 'form-data';
+import { signTwitterRequest } from './twitter-oauth1';
 
 export type PublishTargetOptions = {
   platform: string;
@@ -12,6 +13,8 @@ export type PublishTargetOptions = {
   caption: string;
   firstImageUrl?: string;
   firstMediaUrl?: string;
+  /** When set, Twitter v1.1 media upload uses OAuth 1.0a (avoids 403). Tweet creation still uses token (OAuth 2.0). */
+  twitterOAuth1?: { accessToken: string; accessTokenSecret: string };
 };
 
 export type PublishTargetResult = {
@@ -40,7 +43,7 @@ export async function publishTarget(
   options: PublishTargetOptions,
   deps: PublishDeps
 ): Promise<PublishTargetResult> {
-  const { platform, token, platformUserId, caption, firstImageUrl, firstMediaUrl } = options;
+  const { platform, token, platformUserId, caption, firstImageUrl, firstMediaUrl, twitterOAuth1 } = options;
   const { fetch: fetchFn, axios: axiosInstance } = deps;
 
   try {
@@ -172,42 +175,51 @@ export async function publishTarget(
           const { buffer, contentType } = await fetchImageBuffer(firstImageUrl, fetchFn);
           const mediaCategory = 'tweet_image';
           const filename = contentType.includes('png') ? 'image.png' : 'image.jpg';
-          // Use form-data package so multipart boundary is correct (Node fetch/FormData can miss it; 403 often from bad boundary)
           const form = new FormData();
           form.append('media', buffer, { filename, contentType });
           form.append('media_category', mediaCategory);
-          const uploadRes = await axiosInstance.post(
-            'https://upload.twitter.com/1.1/media/upload.json',
-            form,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                ...form.getHeaders(),
-              },
+
+          const doUpload = (url: string, headers: Record<string, string>) =>
+            axiosInstance.post(url, form, {
+              headers: { ...headers, ...form.getHeaders() },
               maxContentLength: Infinity,
               maxBodyLength: Infinity,
               validateStatus: () => true,
+            });
+
+          let uploadRes: { status: number; data: unknown };
+          const useOAuth1 = twitterOAuth1 && process.env.TWITTER_API_KEY && process.env.TWITTER_API_SECRET;
+          const v2Url = 'https://api.twitter.com/2/media/upload';
+
+          if (useOAuth1) {
+            uploadRes = await doUpload('https://upload.twitter.com/1.1/media/upload.json', signTwitterRequest('POST', 'https://upload.twitter.com/1.1/media/upload.json', { key: twitterOAuth1!.accessToken, secret: twitterOAuth1!.accessTokenSecret }));
+          } else {
+            uploadRes = await doUpload(v2Url, { Authorization: `Bearer ${token}` });
+            if (uploadRes.status !== 200) {
+              const v1Res = await doUpload('https://upload.twitter.com/1.1/media/upload.json', { Authorization: `Bearer ${token}` });
+              if (v1Res.status === 200) uploadRes = v1Res;
             }
-          );
+          }
+
           if (uploadRes.status !== 200) {
             const errData = uploadRes.data as unknown;
             const errText =
               errData === undefined || errData === null
-                ? uploadRes.statusText || 'No response body'
+                ? (uploadRes as { statusText?: string }).statusText || 'No response body'
                 : typeof errData === 'object'
                   ? JSON.stringify(errData)
                   : String(errData);
             if (uploadRes.status === 403) {
               if (typeof console !== 'undefined' && console.error) {
-                console.error('[Twitter media upload] 403', errText.slice(0, 500));
+                console.error('[Twitter media upload] 403 body:', errText.slice(0, 500));
               }
               mediaSkipped = true;
             } else {
               throw new Error(`Twitter media upload failed: ${uploadRes.status} ${errText}`.slice(0, 300));
             }
           } else {
-            const data = uploadRes.data as { media_id_string?: string } | undefined;
-            const mediaId = data?.media_id_string;
+            const data = uploadRes.data as { media_id_string?: string; media_id?: string } | undefined;
+            const mediaId = data?.media_id_string ?? (data?.media_id != null ? String(data.media_id) : undefined);
             if (mediaId) mediaIds = [mediaId];
           }
         } catch (err) {

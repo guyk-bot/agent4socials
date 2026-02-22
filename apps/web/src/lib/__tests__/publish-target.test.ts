@@ -110,10 +110,13 @@ describe('publishTarget', () => {
         get: async () => ({ data: {} }),
         post: async (url: string, data?: unknown) => {
           axiosPostCalls.push({ url, data });
+          if (url.includes('upload.twitter.com') || url.includes('api.twitter.com/2/media')) {
+            return { status: 200, data: { media_id_string: '12345' } };
+          }
           if (url.includes('api.twitter.com/2/tweets')) {
             return { data: { data: { id: 'tweet-1' } } };
           }
-          return { data: {} };
+          return { status: 200, data: {} };
         },
         put: async () => undefined,
       };
@@ -134,10 +137,9 @@ describe('publishTarget', () => {
       // 1) Fetched the image
       expect(fetchCalls.some((c) => c.url === fakeImageUrl)).toBe(true);
 
-      // 2) Uploaded to Twitter media endpoint (body is FormData)
-      const uploadCall = fetchCalls.find((c) => c.url.includes('upload.twitter.com'));
+      // 2) Uploaded to Twitter media endpoint via axios (v2 or v1.1)
+      const uploadCall = axiosPostCalls.find((c) => c.url.includes('upload.twitter.com') || c.url.includes('api.twitter.com/2/media'));
       expect(uploadCall).toBeDefined();
-      expect(uploadCall!.init?.method).toBe('POST');
 
       // 3) Created tweet with media_ids
       const tweetCall = axiosPostCalls.find((c) => c.url.includes('2/tweets'));

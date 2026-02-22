@@ -111,6 +111,7 @@ export default function DashboardPage() {
   const [aggregatedLoading, setAggregatedLoading] = useState(false);
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
   const [reconnectingId, setReconnectingId] = useState<string | null>(null);
+  const [enablingTwitter1oa, setEnablingTwitter1oa] = useState(false);
   const accounts = (cachedAccounts as SocialAccount[]) ?? [];
   const hasAccounts = accounts.length > 0;
 
@@ -133,6 +134,21 @@ export default function DashboardPage() {
     }).catch(() => router.replace('/dashboard', { scroll: false }));
     return () => { if (timeoutId) clearTimeout(timeoutId); };
   }, [connectingParam, router]);
+
+  useEffect(() => {
+    const twitter1oa = searchParams.get('twitter_1oa');
+    const err = searchParams.get('error');
+    if (twitter1oa === 'ok') {
+      setAlertMessage('Image upload for X is now enabled. Your next posts with images will attach media to tweets.');
+      router.replace('/dashboard', { scroll: false });
+    } else if (err?.startsWith('twitter_1oa_')) {
+      const msg = err === 'twitter_1oa_no_account' ? 'Connect X (Twitter) first with Reconnect, then enable image upload.'
+        : err === 'twitter_1oa_session_expired' ? 'Session expired. Click Enable image upload again.'
+        : 'Something went wrong. Try again or add TWITTER_API_KEY and TWITTER_API_SECRET in Vercel.';
+      setAlertMessage(msg);
+      router.replace('/dashboard', { scroll: false });
+    }
+  }, [searchParams, router]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -389,6 +405,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-0">
+      <ConfirmModal open={alertMessage !== null} onClose={() => setAlertMessage(null)} message={alertMessage ?? ''} variant="alert" confirmLabel="OK" />
       {(connectingParam === '1' || justConnected) && (
         <div className={`mb-4 rounded-xl border px-4 py-3 text-sm ${justConnected ? 'border-green-200 bg-green-50 text-green-800' : 'border-indigo-200 bg-indigo-50 text-indigo-800'}`}>
           {justConnected ? 'Account connected. You can select it from the sidebar.' : 'Connecting your account…'}
@@ -480,6 +497,31 @@ export default function DashboardPage() {
                 {reconnectingId === selectedAccount.id ? <RefreshCw size={16} className="animate-spin" /> : <RefreshCw size={16} />}
                 {reconnectingId === selectedAccount.id ? 'Reconnecting…' : 'Reconnect'}
               </button>
+              {selectedAccount.platform === 'TWITTER' && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (enablingTwitter1oa) return;
+                    setEnablingTwitter1oa(true);
+                    try {
+                      const res = await api.get('/social/oauth/twitter-1oa/start');
+                      const url = res?.data?.url;
+                      if (url && typeof url === 'string') window.location.href = url;
+                      else setAlertMessage(res?.data?.message ?? 'Could not start. Add TWITTER_API_KEY and TWITTER_API_SECRET in Vercel.');
+                    } catch (e: unknown) {
+                      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+                      setAlertMessage(msg ?? 'Enable image upload failed. Add TWITTER_API_KEY and TWITTER_API_SECRET in Vercel.');
+                    }
+                    setEnablingTwitter1oa(false);
+                  }}
+                  disabled={!!enablingTwitter1oa}
+                  title="Enable image upload for X posts (OAuth 1.0a)"
+                  className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-neutral-200 bg-white text-neutral-700 text-sm font-medium hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {enablingTwitter1oa ? <RefreshCw size={16} className="animate-spin" /> : <Image size={16} />}
+                  Enable image upload
+                </button>
+              )}
               <button
                 type="button"
                 onClick={async () => {

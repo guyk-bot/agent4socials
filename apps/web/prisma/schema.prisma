@@ -64,6 +64,7 @@ model SocialAccount {
   expiresAt       DateTime?
   scopes          String[] @default([])
   status          String   @default("connected")
+  credentialsJson Json?    // Optional: e.g. Twitter OAuth 1.0a tokens for media upload
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -107,6 +108,14 @@ model PendingInstagramConnection {
   accounts    Json     // Array<{ id: string, username?: string, profilePicture?: string }>
   expiresAt   DateTime
   createdAt   DateTime @default(now())
+}
+
+model PendingTwitterOAuth1 {
+  id                 String   @id @default(cuid())
+  userId             String
+  requestToken       String
+  requestTokenSecret String
+  createdAt          DateTime @default(now())
 }
 
 enum PostStatus {

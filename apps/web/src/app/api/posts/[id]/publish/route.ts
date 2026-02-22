@@ -66,7 +66,7 @@ export async function POST(
       media: true,
       targets: {
         include: {
-          socialAccount: { select: { id: true, platform: true, platformUserId: true, accessToken: true, refreshToken: true } },
+          socialAccount: { select: { id: true, platform: true, platformUserId: true, accessToken: true, refreshToken: true, credentialsJson: true } },
         },
       },
     },
@@ -99,6 +99,12 @@ export async function POST(
     const firstImageUrl = targetMedia.find((m) => m.type === 'IMAGE')?.fileUrl;
     const firstMediaUrl = targetMedia[0]?.fileUrl;
 
+    const creds = socialAccount.credentialsJson as { twitterOAuth1AccessToken?: string; twitterOAuth1AccessTokenSecret?: string } | null;
+    const twitterOAuth1 =
+      platform === 'TWITTER' && creds?.twitterOAuth1AccessToken && creds?.twitterOAuth1AccessTokenSecret
+        ? { accessToken: creds.twitterOAuth1AccessToken, accessTokenSecret: creds.twitterOAuth1AccessTokenSecret }
+        : undefined;
+
     let result = await publishTarget(
       {
         platform,
@@ -107,6 +113,7 @@ export async function POST(
         caption,
         firstImageUrl,
         firstMediaUrl,
+        twitterOAuth1,
       },
       { fetch, axios }
     );
@@ -125,7 +132,7 @@ export async function POST(
         });
         token = newAccess;
         result = await publishTarget(
-          { platform, token, platformUserId, caption, firstImageUrl, firstMediaUrl },
+          { platform, token, platformUserId, caption, firstImageUrl, firstMediaUrl, twitterOAuth1 },
           { fetch, axios }
         );
       } catch (refreshErr) {
