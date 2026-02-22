@@ -5,6 +5,25 @@ import { PostStatus } from '@prisma/client';
 import axios from 'axios';
 import { publishTarget } from '@/lib/publish-target';
 
+/** Refresh Twitter OAuth2 access token; returns new accessToken and refreshToken (if provided). */
+async function refreshTwitterToken(refreshToken: string): Promise<{ accessToken: string; refreshToken: string | null }> {
+  const clientId = process.env.TWITTER_CLIENT_ID;
+  const clientSecret = process.env.TWITTER_CLIENT_SECRET;
+  if (!clientId || !clientSecret) throw new Error('Twitter client credentials not configured');
+  const r = await axios.post<{ access_token: string; refresh_token?: string; expires_in?: number }>(
+    'https://api.twitter.com/2/oauth2/token',
+    new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshToken }).toString(),
+    {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      auth: { username: clientId, password: clientSecret },
+    }
+  );
+  return {
+    accessToken: r.data.access_token,
+    refreshToken: r.data.refresh_token ?? null,
+  };
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -47,7 +66,7 @@ export async function POST(
       media: true,
       targets: {
         include: {
-          socialAccount: { select: { id: true, platform: true, platformUserId: true, accessToken: true } },
+          socialAccount: { select: { id: true, platform: true, platformUserId: true, accessToken: true, refreshToken: true } },
         },
       },
     },
@@ -72,7 +91,7 @@ export async function POST(
 
   for (const target of post.targets) {
     const { platform, socialAccount } = target;
-    const token = socialAccount.accessToken;
+    let token = socialAccount.accessToken;
     const platformUserId = socialAccount.platformUserId;
     const caption = (contentByPlatform?.[platform] ?? post.content ?? '').trim();
     const platformMedia = mediaByPlatform?.[platform];
@@ -80,7 +99,7 @@ export async function POST(
     const firstImageUrl = targetMedia.find((m) => m.type === 'IMAGE')?.fileUrl;
     const firstMediaUrl = targetMedia[0]?.fileUrl;
 
-    const result = await publishTarget(
+    let result = await publishTarget(
       {
         platform,
         token,
@@ -91,6 +110,31 @@ export async function POST(
       },
       { fetch, axios }
     );
+
+    // On 401 Unauthorized for Twitter, try refreshing the token and retry once
+    const isTwitterUnauthorized =
+      platform === 'TWITTER' &&
+      !result.ok &&
+      (result.error?.includes('401') || (result.error?.toLowerCase?.() ?? '').includes('unauthorized'));
+    if (isTwitterUnauthorized && socialAccount.refreshToken && process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET) {
+      try {
+        const { accessToken: newAccess, refreshToken: newRefresh } = await refreshTwitterToken(socialAccount.refreshToken);
+        await prisma.socialAccount.update({
+          where: { id: socialAccount.id },
+          data: { accessToken: newAccess, ...(newRefresh ? { refreshToken: newRefresh } : {}) },
+        });
+        token = newAccess;
+        result = await publishTarget(
+          { platform, token, platformUserId, caption, firstImageUrl, firstMediaUrl },
+          { fetch, axios }
+        );
+      } catch (refreshErr) {
+        result = {
+          ok: false,
+          error: `Token refresh failed: ${(refreshErr as Error).message}. Reconnect the Twitter account in Accounts.`,
+        };
+      }
+    }
 
     if (result.ok) {
       await prisma.postTarget.update({

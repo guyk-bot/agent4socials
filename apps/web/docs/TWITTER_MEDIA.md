@@ -12,6 +12,10 @@ We use the **form-data** npm package so the multipart request has the correct `C
 
 Authentication is your app’s **OAuth 2.0 PKCE** access token (Bearer). X’s docs state that PKCE tokens can be used for v1.1 media upload.
 
+## 401 Unauthorized (expired token)
+
+X access tokens expire after 2 hours. When publish gets a 401 from X, we **automatically refresh** the token (using the stored refresh token and `TWITTER_CLIENT_ID` / `TWITTER_CLIENT_SECRET`) and retry the publish once. If refresh fails (e.g. refresh token revoked or expired), the user must reconnect the X account in **Dashboard > Accounts**.
+
 ## If you still get 403 or no image
 
 - **App permissions:** In the [X Developer Portal](https://developer.x.com), your app must have **Read and write** (or Read and write and Direct message). Then **reconnect** the X account in Agent4Socials (Accounts) so the new permissions apply.
