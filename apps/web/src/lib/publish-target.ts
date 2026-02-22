@@ -3,6 +3,8 @@
  * Used by the publish route and by tests to verify image upload + post flow.
  */
 
+import FormData from 'form-data';
+
 export type PublishTargetOptions = {
   platform: string;
   token: string;
@@ -169,38 +171,38 @@ export async function publishTarget(
         try {
           const { buffer, contentType } = await fetchImageBuffer(firstImageUrl, fetchFn);
           const mediaCategory = 'tweet_image';
-          // Try multipart upload first (OAuth 2.0 PKCE may work in some setups)
+          const filename = contentType.includes('png') ? 'image.png' : 'image.jpg';
+          // Use form-data package so multipart boundary is correct (Node fetch/FormData can miss it; 403 often from bad boundary)
           const form = new FormData();
-          form.append('media', new Blob([new Uint8Array(buffer)], { type: contentType }), contentType.includes('png') ? 'image.png' : 'image.jpg');
+          form.append('media', buffer, { filename, contentType });
           form.append('media_category', mediaCategory);
-          let uploadRes = await fetchFn('https://upload.twitter.com/1.1/media/upload.json', {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${token}` },
-            body: form,
-          });
-          // If 403, try base64 media_data (some docs suggest it may work with Bearer)
-          if (!uploadRes.ok && uploadRes.status === 403) {
-            const base64 = buffer.toString('base64');
-            const body = new URLSearchParams({ media_data: base64, media_category: mediaCategory });
-            uploadRes = await fetchFn('https://upload.twitter.com/1.1/media/upload.json', {
-              method: 'POST',
-              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-              body: body.toString(),
-            });
-          }
-          if (!uploadRes.ok) {
-            const errText = await uploadRes.text();
+          const uploadRes = await axiosInstance.post(
+            'https://upload.twitter.com/1.1/media/upload.json',
+            form,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                ...form.getHeaders(),
+              },
+              maxContentLength: Infinity,
+              maxBodyLength: Infinity,
+              validateStatus: () => true,
+            }
+          );
+          if (uploadRes.status !== 200) {
+            const errData = (uploadRes.data ?? uploadRes.statusText) as unknown;
+            const errText = typeof errData === 'object' && errData !== null ? JSON.stringify(errData) : String(errData);
             if (uploadRes.status === 403) {
               if (typeof console !== 'undefined' && console.error) {
-                console.error('[Twitter media upload] 403:', errText.slice(0, 400));
+                console.error('[Twitter media upload] 403:', String(errText).slice(0, 400));
               }
               mediaSkipped = true;
             } else {
               throw new Error(`Twitter media upload failed: ${uploadRes.status} ${errText}`.slice(0, 300));
             }
           } else {
-            const uploadData = (await uploadRes.json()) as { media_id_string?: string };
-            const mediaId = uploadData?.media_id_string;
+            const data = uploadRes.data as { media_id_string?: string } | undefined;
+            const mediaId = data?.media_id_string;
             if (mediaId) mediaIds = [mediaId];
           }
         } catch (err) {
