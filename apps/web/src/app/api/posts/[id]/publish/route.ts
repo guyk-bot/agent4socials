@@ -143,6 +143,22 @@ export async function POST(
       }
     }
 
+    // On transient network errors (e.g. socket hang up on serverless), retry once for Twitter
+    const isTwitterNetworkError =
+      platform === 'TWITTER' &&
+      !result.ok &&
+      (result.error?.includes('socket hang up') ||
+        result.error?.includes('ECONNRESET') ||
+        result.error?.includes('ETIMEDOUT') ||
+        result.error?.includes('ECONNABORTED') ||
+        (result.error?.toLowerCase?.() ?? '').includes('network'));
+    if (isTwitterNetworkError) {
+      result = await publishTarget(
+        { platform, token, platformUserId, caption, firstImageUrl, firstMediaUrl, twitterOAuth1 },
+        { fetch, axios }
+      );
+    }
+
     if (result.ok) {
       await prisma.postTarget.update({
         where: { id: target.id },
