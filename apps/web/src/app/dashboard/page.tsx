@@ -124,8 +124,10 @@ export default function DashboardPage() {
     } catch (_) {}
   };
 
+  const twitter1oaNext = searchParams.get('twitter_1oa_next');
   useEffect(() => {
     if (connectingParam !== '1') return;
+    if (twitter1oaNext === '1') return;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     fetchAccounts().then(() => {
       router.replace('/dashboard', { scroll: false });
@@ -133,13 +135,33 @@ export default function DashboardPage() {
       timeoutId = setTimeout(() => setJustConnected(false), 5000);
     }).catch(() => router.replace('/dashboard', { scroll: false }));
     return () => { if (timeoutId) clearTimeout(timeoutId); };
-  }, [connectingParam, router]);
+  }, [connectingParam, twitter1oaNext, router]);
+
+  useEffect(() => {
+    if (twitter1oaNext !== '1') return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get('/social/oauth/twitter-1oa/start');
+        const url = res?.data?.url;
+        if (cancelled || !url || typeof url !== 'string') {
+          router.replace('/dashboard', { scroll: false });
+          return;
+        }
+        window.location.href = url;
+      } catch {
+        if (!cancelled) router.replace('/dashboard', { scroll: false });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [twitter1oaNext, router]);
 
   useEffect(() => {
     const twitter1oa = searchParams.get('twitter_1oa');
     const err = searchParams.get('error');
     if (twitter1oa === 'ok') {
       setAlertMessage('Image upload for X is now enabled. Your next posts with images will attach media to tweets.');
+      fetchAccounts().catch(() => {});
       router.replace('/dashboard', { scroll: false });
     } else if (err?.startsWith('twitter_1oa_')) {
       const msg = err === 'twitter_1oa_no_account' ? 'Connect X (Twitter) first with Reconnect, then enable image upload.'
@@ -497,7 +519,7 @@ export default function DashboardPage() {
                 {reconnectingId === selectedAccount.id ? <RefreshCw size={16} className="animate-spin" /> : <RefreshCw size={16} />}
                 {reconnectingId === selectedAccount.id ? 'Reconnecting…' : 'Reconnect'}
               </button>
-              {selectedAccount.platform === 'TWITTER' && (
+              {selectedAccount.platform === 'TWITTER' && !(selectedAccount as { imageUploadEnabled?: boolean }).imageUploadEnabled && (
                 <button
                   type="button"
                   onClick={async () => {

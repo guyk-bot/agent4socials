@@ -765,7 +765,8 @@ export async function GET(
     return oauthErrorHtml(baseUrl, 'Could not save account. Check database connection and schema.', 500);
   }
 
-  const dashboardUrl = `${baseUrl}/dashboard?connecting=1`;
+  const twitter1oaNext = plat === 'TWITTER' && process.env.TWITTER_API_KEY && process.env.TWITTER_API_SECRET ? '&twitter_1oa_next=1' : '';
+  const dashboardUrl = `${baseUrl}/dashboard?connecting=1${twitter1oaNext}`;
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><p>Account connected.</p><script>
 (function(){
   if (window.opener) {
