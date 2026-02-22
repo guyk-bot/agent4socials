@@ -143,20 +143,23 @@ export async function POST(
       }
     }
 
-    // On transient network errors (e.g. socket hang up on serverless), retry once for Twitter
-    const isTwitterNetworkError =
+    // On transient network errors (e.g. socket hang up on serverless), retry up to 2 more times with delay for Twitter
+    const isTwitterNetworkError = (r: typeof result) =>
       platform === 'TWITTER' &&
-      !result.ok &&
-      (result.error?.includes('socket hang up') ||
-        result.error?.includes('ECONNRESET') ||
-        result.error?.includes('ETIMEDOUT') ||
-        result.error?.includes('ECONNABORTED') ||
-        (result.error?.toLowerCase?.() ?? '').includes('network'));
-    if (isTwitterNetworkError) {
-      result = await publishTarget(
-        { platform, token, platformUserId, caption, firstImageUrl, firstMediaUrl, twitterOAuth1 },
-        { fetch, axios }
-      );
+      !r.ok &&
+      (r.error?.includes('socket hang up') ||
+        r.error?.includes('ECONNRESET') ||
+        r.error?.includes('ETIMEDOUT') ||
+        r.error?.includes('ECONNABORTED') ||
+        (r.error?.toLowerCase?.() ?? '').includes('network'));
+    if (isTwitterNetworkError(result)) {
+      for (let attempt = 0; attempt < 2 && isTwitterNetworkError(result); attempt++) {
+        await new Promise((r) => setTimeout(r, 2000));
+        result = await publishTarget(
+          { platform, token, platformUserId, caption, firstImageUrl, firstMediaUrl, twitterOAuth1 },
+          { fetch, axios }
+        );
+      }
     }
 
     if (result.ok) {

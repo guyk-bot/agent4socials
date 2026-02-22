@@ -184,6 +184,7 @@ export async function publishTarget(
               headers: { ...headers, ...form.getHeaders() },
               maxContentLength: Infinity,
               maxBodyLength: Infinity,
+              timeout: 25_000,
               validateStatus: () => true,
             });
 
@@ -230,7 +231,7 @@ export async function publishTarget(
       const tweetRes = await axiosInstance.post(
         'https://api.twitter.com/2/tweets',
         tweetBody,
-        { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
+        { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, timeout: 15_000 }
       );
       const tweetId = (tweetRes.data as { data?: { id?: string } })?.data?.id;
       return { ok: true, platformPostId: tweetId, ...(mediaSkipped ? { mediaSkipped: true } : {}) };
