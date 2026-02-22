@@ -761,7 +761,7 @@ export default function ComposerPage() {
                 } else {
                     // Post now: publish immediately after update (same as create + Post now)
                     try {
-                        const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string }>(`/posts/${editPostId}/publish`);
+                        const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string }>(`/posts/${editPostId}/publish`, undefined, { timeout: 90_000 });
                         const results = publishRes.data?.results;
                         if (results?.some((r) => !r.ok)) {
                             const failed = results.filter((r) => !r.ok).map((r) => `${r.platform}: ${r.error || 'failed'}`).join('; ');
@@ -782,7 +782,9 @@ export default function ComposerPage() {
                     } catch (err: unknown) {
                         const res = err && typeof err === 'object' && 'response' in err ? (err as { response?: { status?: number; data?: { message?: string } } }).response : undefined;
                         const status = res?.status;
-                        const msg = res?.data?.message ?? (status === 401 ? 'Session expired. Sign in again, then open the post from History and try Post now.' : 'Publish failed. Open the post from History and try Post now again.');
+                        const code = err && typeof err === 'object' && 'code' in err ? (err as { code?: string }).code : undefined;
+                        const isTimeout = code === 'ECONNABORTED' || (typeof (err as Error)?.message === 'string' && (err as Error).message.includes('timeout'));
+                        const msg = res?.data?.message ?? (status === 401 ? 'Session expired. Sign in again, then open the post from History and try Post now.' : isTimeout ? 'Publish is taking longer than usual (e.g. uploading media). Open the post from History and try Post now again; it may have already gone through.' : 'Publish failed. Open the post from History and try Post now again.');
                         setAlertMessage(msg);
                         router.push(`/composer?edit=${editPostId}`);
                         return;
@@ -794,7 +796,7 @@ export default function ComposerPage() {
                 clearComposerDraft();
                 if (postId && !scheduledAt) {
                     try {
-                        const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string }>(`/posts/${postId}/publish`);
+                        const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string }>(`/posts/${postId}/publish`, undefined, { timeout: 90_000 });
                         const results = publishRes.data?.results;
                         if (results?.some((r) => !r.ok)) {
                             const failed = results.filter((r) => !r.ok).map((r) => `${r.platform}: ${r.error || 'failed'}`).join('; ');
@@ -815,7 +817,9 @@ export default function ComposerPage() {
                     } catch (err: unknown) {
                         const res = err && typeof err === 'object' && 'response' in err ? (err as { response?: { status?: number; data?: { message?: string } } }).response : undefined;
                         const status = res?.status;
-                        const msg = res?.data?.message ?? (status === 401 ? 'Session expired. Sign in again, then open the post from History and try Post now.' : 'Publish failed. Open the post from History and try Post now again.');
+                        const code = err && typeof err === 'object' && 'code' in err ? (err as { code?: string }).code : undefined;
+                        const isTimeout = code === 'ECONNABORTED' || (typeof (err as Error)?.message === 'string' && (err as Error).message.includes('timeout'));
+                        const msg = res?.data?.message ?? (status === 401 ? 'Session expired. Sign in again, then open the post from History and try Post now.' : isTimeout ? 'Publish is taking longer than usual (e.g. uploading media). Open the post from History and try Post now again; it may have already gone through.' : 'Publish failed. Open the post from History and try Post now again.');
                         setAlertMessage(msg);
                         router.push(`/composer?edit=${postId}`);
                         return;
