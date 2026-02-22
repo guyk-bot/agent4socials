@@ -52,3 +52,25 @@ ALTER TABLE "CommentAutomationReply" ADD CONSTRAINT "CommentAutomationReply_post
 ```
 
 3. After that, comment automation (and the build) will work even if `prisma migrate deploy` doesn't run in Vercel.
+
+### If you get "The column SocialAccount.credentialsJson does not exist"
+
+The app expects a `credentialsJson` column and a `PendingTwitterOAuth1` table (for X/Twitter OAuth 1.0a media upload). If migrations didn't run, add them manually:
+
+1. Open **Supabase Dashboard** → your project → **SQL Editor**.
+2. Run:
+
+```sql
+ALTER TABLE "SocialAccount" ADD COLUMN IF NOT EXISTS "credentialsJson" JSONB;
+
+CREATE TABLE IF NOT EXISTS "PendingTwitterOAuth1" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "requestToken" TEXT NOT NULL,
+    "requestTokenSecret" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "PendingTwitterOAuth1_pkey" PRIMARY KEY ("id")
+);
+```
+
+3. Save. After that, publish and "Enable image upload" for X will work.
