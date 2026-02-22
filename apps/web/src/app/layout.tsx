@@ -45,6 +45,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Agent4Socials | Schedule Posts & Analytics",
     description: "One dashboard for scheduling and analytics. 7-day free trial.",
+    images: ["/logo.svg"],
   },
   robots: {
     index: true,
