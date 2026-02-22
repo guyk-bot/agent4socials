@@ -184,7 +184,7 @@ export async function publishTarget(
               headers: { ...headers, ...form.getHeaders() },
               maxContentLength: Infinity,
               maxBodyLength: Infinity,
-              timeout: 25_000,
+              timeout: 55_000,
               validateStatus: () => true,
             });
 

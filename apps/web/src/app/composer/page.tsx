@@ -771,6 +771,7 @@ export default function ComposerPage() {
                                 else if (failed.includes('403') || failed.includes('media')) hint = ' Enable image upload: in Dashboard select your X account and click "Enable image upload", or set the app to Read and write in the X Developer Portal and reconnect.';
                                 else if (failed.includes('401') || failed.includes('Unauthorized')) hint = ' Your Twitter session may have expired. Reconnect the Twitter account in the Accounts page, then try again.';
                                 else if (failed.includes('socket hang up') || failed.includes('ECONNRESET')) hint = ' Connection to X dropped (often temporary). Check your X profile to see if the post went through; if not, open the post from History and try Post now again.';
+                                else if (failed.includes('timeout')) hint = ' X took too long (e.g. image upload). Open the post from History and try Post now again, or try a smaller image.';
                             }
                             setAlertMessage(`Post updated but some platforms failed: ${failed}. Open the post from History to retry or fix.${hint}`);
                             router.push(`/composer?edit=${editPostId}`);
@@ -807,6 +808,7 @@ export default function ComposerPage() {
                                 else if (failed.includes('403') || failed.includes('media')) hint = ' Enable image upload: in Dashboard select your X account and click "Enable image upload", or set the app to Read and write in the X Developer Portal and reconnect.';
                                 else if (failed.includes('401') || failed.includes('Unauthorized')) hint = ' Your Twitter session may have expired. Reconnect the Twitter account in the Accounts page, then try again.';
                                 else if (failed.includes('socket hang up') || failed.includes('ECONNRESET')) hint = ' Connection to X dropped (often temporary). Check your X profile to see if the post went through; if not, open the post from History and try Post now again.';
+                                else if (failed.includes('timeout')) hint = ' X took too long (e.g. image upload). Open the post from History and try Post now again, or try a smaller image.';
                             }
                             setAlertMessage(`Post created but some platforms failed: ${failed}. Open the post from History to retry or fix.${hint}`);
                             router.push(`/composer?edit=${postId}`);
