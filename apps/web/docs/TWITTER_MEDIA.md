@@ -12,6 +12,21 @@ We use the **form-data** npm package so the multipart request has the correct `C
 
 Authentication is your app’s **OAuth 2.0 PKCE** access token (Bearer). X’s docs state that PKCE tokens can be used for v1.1 media upload.
 
+## "Something went wrong" when connecting or reconnecting (OAuth 2.0)
+
+If X shows **"Something went wrong"** or **"You weren't able to give access to the App"** during connect/reconnect:
+
+1. **Redirect URI**  
+   In the [X Developer Portal](https://developer.x.com) go to your app → **User authentication settings** → **OAuth 2.0** → **Redirect URI**. It must match **exactly** what we send (no trailing slash, same scheme and host). For Agent4Socials that is:  
+   `https://agent4socials.com/api/social/oauth/twitter/callback`  
+   If you use a different domain, set `TWITTER_REDIRECT_URI` in Vercel to that URL and add the same URL in the Portal.
+
+2. **App type and users**  
+   If the app is in **Development** mode, only the developer account (and any added test users) can authorize. Use the same X account that owns the app, or add the account as a test user.
+
+3. **Try again**  
+   Sometimes the error is temporary. Log out of X in the browser, then try Reconnect again.
+
 ## 401 Unauthorized (expired token)
 
 X access tokens expire after 2 hours. When publish gets a 401 from X, we **automatically refresh** the token (using the stored refresh token and `TWITTER_CLIENT_ID` / `TWITTER_CLIENT_SECRET`) and retry the publish once. If refresh fails (e.g. refresh token revoked or expired), the user must reconnect the X account in **Dashboard > Accounts**.
