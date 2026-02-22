@@ -5,7 +5,7 @@
 When publishing a post with an image to X (Twitter), we:
 
 1. Fetch the image from your stored URL (e.g. S3).
-2. Upload it: we try **POST https://api.twitter.com/2/media/upload** first (v2, same Bearer token as tweets). If that fails, we fall back to **v1.1** `https://upload.twitter.com/1.1/media/upload.json` (multipart/form-data).
+2. Upload it via **v1.1** only: **POST https://upload.twitter.com/1.1/media/upload.json** (multipart/form-data). The v2 media endpoint does not accept OAuth 2.0 Bearer; we use v1.1 with OAuth 1.0a when configured, otherwise Bearer.
 3. Create the tweet with the returned `media_id` via **POST https://api.twitter.com/2/tweets**.
 
 We use the **form-data** npm package so the multipart request has the correct `Content-Type` boundary (Node’s built-in `FormData` can produce invalid boundaries and lead to 403).

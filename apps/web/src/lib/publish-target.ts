@@ -179,27 +179,29 @@ export async function publishTarget(
           form.append('media', buffer, { filename, contentType });
           form.append('media_category', mediaCategory);
 
+          // v2 media upload does not support OAuth 2.0 Bearer; use v1.1 only. Content-Length helps avoid socket hang up.
+          const contentLength = await new Promise<number>((resolve, reject) => {
+            form.getLength((err: Error | null, length?: number) => (err ? reject(err) : resolve(length ?? 0)));
+          });
+          const formHeaders = { ...form.getHeaders(), 'Content-Length': String(contentLength) };
+
           const doUpload = (url: string, headers: Record<string, string>) =>
             axiosInstance.post(url, form, {
-              headers: { ...headers, ...form.getHeaders() },
+              headers: { ...headers, ...formHeaders },
               maxContentLength: Infinity,
               maxBodyLength: Infinity,
-              timeout: 55_000,
+              timeout: 60_000,
               validateStatus: () => true,
             });
 
-          let uploadRes: { status: number; data: unknown };
+          const v1Url = 'https://upload.twitter.com/1.1/media/upload.json';
           const useOAuth1 = twitterOAuth1 && process.env.TWITTER_API_KEY && process.env.TWITTER_API_SECRET;
-          const v2Url = 'https://api.twitter.com/2/media/upload';
+          let uploadRes: { status: number; data: unknown };
 
           if (useOAuth1) {
-            uploadRes = await doUpload('https://upload.twitter.com/1.1/media/upload.json', signTwitterRequest('POST', 'https://upload.twitter.com/1.1/media/upload.json', { key: twitterOAuth1!.accessToken, secret: twitterOAuth1!.accessTokenSecret }));
+            uploadRes = await doUpload(v1Url, signTwitterRequest('POST', v1Url, { key: twitterOAuth1!.accessToken, secret: twitterOAuth1!.accessTokenSecret }));
           } else {
-            uploadRes = await doUpload(v2Url, { Authorization: `Bearer ${token}` });
-            if (uploadRes.status !== 200) {
-              const v1Res = await doUpload('https://upload.twitter.com/1.1/media/upload.json', { Authorization: `Bearer ${token}` });
-              if (v1Res.status === 200) uploadRes = v1Res;
-            }
+            uploadRes = await doUpload(v1Url, { Authorization: `Bearer ${token}` });
           }
 
           if (uploadRes.status !== 200) {

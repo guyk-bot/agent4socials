@@ -98,6 +98,10 @@ async function runCommentAutomation(request: NextRequest) {
               const text = (c.text ?? '').toLowerCase();
               if (!keywords.some((k) => text.includes(k))) continue;
               try {
+                await prisma.commentAutomationReply.create({
+                  data: { postTargetId: target.id, platformCommentId: c.id },
+                });
+                repliedSet.add(c.id);
                 if (ca.usePrivateReply) {
                   await axios.post(
                     `https://graph.facebook.com/v18.0/${c.id}/private_reply`,
@@ -111,11 +115,11 @@ async function runCommentAutomation(request: NextRequest) {
                     { params: { access_token: token }, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
                   );
                 }
-                await prisma.commentAutomationReply.create({
-                  data: { postTargetId: target.id, platformCommentId: c.id },
-                });
                 replied++;
               } catch (e) {
+                await prisma.commentAutomationReply.deleteMany({
+                  where: { postTargetId: target.id, platformCommentId: c.id },
+                }).catch(() => {});
                 errors.push((e as Error)?.message ?? String(e));
               }
             }
@@ -130,28 +134,33 @@ async function runCommentAutomation(request: NextRequest) {
               const text = (c.message ?? '').toLowerCase();
               if (!keywords.some((k) => text.includes(k))) continue;
               try {
+                await prisma.commentAutomationReply.create({
+                  data: { postTargetId: target.id, platformCommentId: c.id },
+                });
+                repliedSet.add(c.id);
                 await axios.post(
                   `https://graph.facebook.com/v18.0/${c.id}/comments`,
                   new URLSearchParams({ message: replyText }),
                   { params: { access_token: token }, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
                 );
-                await prisma.commentAutomationReply.create({
-                  data: { postTargetId: target.id, platformCommentId: c.id },
-                });
                 replied++;
               } catch (e) {
+                await prisma.commentAutomationReply.deleteMany({
+                  where: { postTargetId: target.id, platformCommentId: c.id },
+                }).catch(() => {});
                 errors.push((e as Error)?.message ?? String(e));
               }
             }
           } else if (platform === 'TWITTER') {
-            let tweets: Array<{ id: string; text?: string }> = [];
+            const ourAuthorId = (target.socialAccount.platformUserId ?? '').trim();
+            let tweets: Array<{ id: string; text?: string; author_id?: string }> = [];
             try {
-              const searchRes = await axios.get<{ data?: Array<{ id: string; text?: string }>; errors?: Array<{ message?: string }> }>(
+              const searchRes = await axios.get<{ data?: Array<{ id: string; text?: string; author_id?: string }>; errors?: Array<{ message?: string }> }>(
                 'https://api.twitter.com/2/tweets/search/recent',
                 {
                   params: {
                     query: `conversation_id:${platformPostId} is:reply`,
-                    'tweet.fields': 'text',
+                    'tweet.fields': 'text,author_id',
                     max_results: 50,
                   },
                   headers: { Authorization: `Bearer ${token}` },
@@ -161,7 +170,16 @@ async function runCommentAutomation(request: NextRequest) {
               if (errs?.length) {
                 errors.push(`X Search API: ${errs.map((e) => e.message ?? '').join('; ')}`);
               } else {
-                tweets = searchRes.data?.data ?? [];
+                const raw = searchRes.data?.data ?? [];
+                // Exclude our own replies so we never reply to ourselves (avoids duplicate chains)
+                const fromOthers = ourAuthorId ? raw.filter((t) => t.author_id !== ourAuthorId) : raw;
+                // Dedupe by id in case API returns duplicates
+                const seen = new Set<string>();
+                tweets = fromOthers.filter((t) => {
+                  if (seen.has(t.id)) return false;
+                  seen.add(t.id);
+                  return true;
+                });
               }
             } catch (e: unknown) {
               const ax = e as { response?: { status?: number; data?: { detail?: string; errors?: Array<{ message?: string }> } } };
@@ -175,16 +193,21 @@ async function runCommentAutomation(request: NextRequest) {
               const text = (t.text ?? '').toLowerCase();
               if (!keywords.some((k) => text.includes(k))) continue;
               try {
+                // Mark as replied before sending so overlapping cron runs don't double-reply
+                await prisma.commentAutomationReply.create({
+                  data: { postTargetId: target.id, platformCommentId: t.id },
+                });
+                repliedSet.add(t.id);
                 await axios.post(
                   'https://api.twitter.com/2/tweets',
                   { text: replyText.slice(0, 280), reply: { in_reply_to_tweet_id: t.id } },
                   { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
                 );
-                await prisma.commentAutomationReply.create({
-                  data: { postTargetId: target.id, platformCommentId: t.id },
-                });
                 replied++;
               } catch (e) {
+                await prisma.commentAutomationReply.deleteMany({
+                  where: { postTargetId: target.id, platformCommentId: t.id },
+                }).catch(() => {});
                 errors.push((e as Error)?.message ?? String(e));
               }
             }
@@ -209,6 +232,10 @@ async function runCommentAutomation(request: NextRequest) {
               const text = (c.message?.text ?? '').toLowerCase();
               if (!keywords.some((k) => text.includes(k))) continue;
               try {
+                await prisma.commentAutomationReply.create({
+                  data: { postTargetId: target.id, platformCommentId: commentId },
+                });
+                repliedSet.add(commentId);
                 const parentUrn = c.commentUrn ?? `urn:li:comment:(${c.object ?? platformPostId},${c.id})`;
                 const parentEnc = encodeURIComponent(parentUrn);
                 await axios.post(
@@ -221,11 +248,11 @@ async function runCommentAutomation(request: NextRequest) {
                   },
                   { headers: { ...linkedInHeaders, 'Content-Type': 'application/json' } }
                 );
-                await prisma.commentAutomationReply.create({
-                  data: { postTargetId: target.id, platformCommentId: commentId },
-                });
                 replied++;
               } catch (e) {
+                await prisma.commentAutomationReply.deleteMany({
+                  where: { postTargetId: target.id, platformCommentId: commentId },
+                }).catch(() => {});
                 errors.push((e as Error)?.message ?? String(e));
               }
             }
