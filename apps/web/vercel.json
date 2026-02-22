@@ -2,6 +2,7 @@
   "framework": "nextjs",
   "buildCommand": "npm run build",
   "installCommand": "npm install",
+  "env": { "NODE_OPTIONS": "--no-deprecation" },
   "crons": [
     { "path": "/api/cron/process-scheduled", "schedule": "0 9 * * *" },
     { "path": "/api/cron/comment-automation", "schedule": "5 9 * * *" }

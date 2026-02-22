@@ -164,8 +164,11 @@ export async function GET(
             }
           }
         } catch (e) {
-          const msg = (e as Error)?.message ?? String(e);
-          console.warn('[Insights] Facebook insights:', msg);
+          const status = (e as { response?: { status?: number } })?.response?.status;
+          if (status !== 400) {
+            const msg = (e as Error)?.message ?? String(e);
+            console.warn('[Insights] Facebook insights:', msg);
+          }
           if (out.followers === 0 && !out.impressionsTotal) out.insightsHint = 'Reconnect from the sidebar and choose your Page when asked to see Page analytics.';
         }
       }
@@ -200,8 +203,11 @@ export async function GET(
           if (typeof metrics.tweet_count === 'number') tweetCount = metrics.tweet_count;
         }
       } catch (e) {
-        const msg = (e as Error)?.message ?? String(e);
-        console.warn('[Insights] Twitter user/metrics:', msg);
+        const status = (e as { response?: { status?: number } })?.response?.status;
+        if (status !== 401) {
+          const msg = (e as Error)?.message ?? String(e);
+          console.warn('[Insights] Twitter user/metrics:', msg);
+        }
         if (out.followers === 0 && !tweetCount) out.insightsHint = 'Reconnect your X (Twitter) account to see follower and tweet counts.';
       }
       try {
@@ -232,7 +238,8 @@ export async function GET(
         }));
         return NextResponse.json({ ...out, recentTweets, tweetCount });
       } catch (e) {
-        console.warn('[Insights] Twitter tweets:', (e as Error)?.message ?? e);
+        const status = (e as { response?: { status?: number } })?.response?.status;
+        if (status !== 401) console.warn('[Insights] Twitter tweets:', (e as Error)?.message ?? e);
       }
       return NextResponse.json({ ...out, tweetCount });
     }
