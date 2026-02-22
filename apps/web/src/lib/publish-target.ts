@@ -190,11 +190,16 @@ export async function publishTarget(
             }
           );
           if (uploadRes.status !== 200) {
-            const errData = (uploadRes.data ?? uploadRes.statusText) as unknown;
-            const errText = typeof errData === 'object' && errData !== null ? JSON.stringify(errData) : String(errData);
+            const errData = uploadRes.data as unknown;
+            const errText =
+              errData === undefined || errData === null
+                ? uploadRes.statusText || 'No response body'
+                : typeof errData === 'object'
+                  ? JSON.stringify(errData)
+                  : String(errData);
             if (uploadRes.status === 403) {
               if (typeof console !== 'undefined' && console.error) {
-                console.error('[Twitter media upload] 403:', String(errText).slice(0, 400));
+                console.error('[Twitter media upload] 403', errText.slice(0, 500));
               }
               mediaSkipped = true;
             } else {
