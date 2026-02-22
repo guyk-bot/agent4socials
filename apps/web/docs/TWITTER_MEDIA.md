@@ -27,7 +27,8 @@ As of 2025–2026, the X API uses **pay-per-use** pricing rather than fixed tier
 - **Logs:** In Vercel (or your host) logs, search for `[Twitter media upload] 403 body:` to see the response body from X (if any).
 - **OAuth 1.0a for media:** The v1.1 media upload endpoint often requires **OAuth 1.0a** (signed requests). To enable image uploads:
   1. In the [X Developer Portal](https://developer.x.com), open your Project and App. Under "Keys and tokens", copy the **API Key** and **API Key Secret** (these are OAuth 1.0a consumer key/secret).
-  2. In Vercel (or your host), add environment variables: `TWITTER_API_KEY` and `TWITTER_API_SECRET` (the API Key and API Key Secret), then redeploy.
-  3. In Agent4Socials go to **Dashboard > Accounts**. Open the link to **enable image upload** for your connected X account (this runs a one-time OAuth 1.0a flow and stores credentials). After that, publishing with images will use OAuth 1.0a for the upload and images should attach.
+  2. In the same app, open **User authentication settings** (or App settings) and add a **Callback URL** exactly: `https://agent4socials.com/api/social/oauth/twitter-1oa/callback` (or your app URL + `/api/social/oauth/twitter-1oa/callback`). X requires this for the OAuth 1.0a "enable image upload" flow.
+  3. In Vercel (or your host), add environment variables: `TWITTER_API_KEY` and `TWITTER_API_SECRET` (the API Key and API Key Secret), then redeploy.
+  4. In Agent4Socials go to **Dashboard > Accounts**. Open the link to **enable image upload** for your connected X account (this runs a one-time OAuth 1.0a flow and stores credentials). After that, publishing with images will use OAuth 1.0a for the upload and images should attach.
 - **Node deprecation:** A `url.parse()` deprecation warning in logs usually comes from a dependency (e.g. form-data/axios). It is safe to ignore; to hide it in Vercel you can set `NODE_OPTIONS=--no-deprecation` in Environment Variables (optional).
 - If 403 persists after enabling OAuth 1.0a, the post is still sent as **text only** and we set `mediaSkipped: true`.
