@@ -163,7 +163,8 @@ export default function ComposerPage() {
     const [aiTopic, setAiTopic] = useState('');
     const [aiPrompt, setAiPrompt] = useState('');
     const [aiPlatform, setAiPlatform] = useState('');
-    const [aiIncludeCtaAndAutomation, setAiIncludeCtaAndAutomation] = useState(true);
+    const [aiIncludeCtaAndAutomation, setAiIncludeCtaAndAutomation] = useState(false);
+    const [aiCtaAutomationPrompt, setAiCtaAutomationPrompt] = useState('');
     const [aiLoading, setAiLoading] = useState(false);
     const [aiError, setAiError] = useState<string | null>(null);
     const [hasBrandContext, setHasBrandContext] = useState<boolean | null>(null);
@@ -370,6 +371,7 @@ export default function ComposerPage() {
                 prompt,
                 platform: firstPlatform,
                 includeCtaAndAutomation: aiIncludeCtaAndAutomation,
+                ctaAutomationPrompt: aiIncludeCtaAndAutomation ? aiCtaAutomationPrompt.trim() || undefined : undefined,
             }).then((res) => ({ platform: firstPlatform, data: res.data }));
             const restPromises = rest.map((p) =>
                 api.post<{ content?: string }>('/ai/generate-description', { topic, prompt, platform: p }).then((res) => ({ platform: p, data: res.data }))
@@ -402,6 +404,7 @@ export default function ComposerPage() {
                 prompt,
                 platform: aiPlatform || undefined,
                 includeCtaAndAutomation: aiIncludeCtaAndAutomation,
+                ctaAutomationPrompt: aiIncludeCtaAndAutomation ? aiCtaAutomationPrompt.trim() || undefined : undefined,
             }).then((res) => {
                 const data = res.data;
                 setContent(data?.content ?? '');
@@ -412,7 +415,7 @@ export default function ComposerPage() {
                 setAiError(msg);
             }).finally(() => setAiLoading(false));
         }
-    }, [aiTopic, aiPrompt, aiPlatform, aiIncludeCtaAndAutomation, differentContentPerPlatform, platforms]);
+    }, [aiTopic, aiPrompt, aiPlatform, aiIncludeCtaAndAutomation, aiCtaAutomationPrompt, differentContentPerPlatform, platforms]);
 
     // Persist composer draft when state changes (debounced; shorter delay when only media changed so carousel keeps all images after upload)
     const mediaSignature = mediaList.map((m) => m.fileUrl).join('|');
@@ -902,6 +905,18 @@ export default function ComposerPage() {
                                     />
                                     <span className="text-sm text-neutral-700">Also generate CTA and comment automation (keyword + reply)</span>
                                 </label>
+                                {aiIncludeCtaAndAutomation && (
+                                    <>
+                                        <label className="mt-2 block text-sm font-medium text-neutral-700">Describe the CTA, keyword(s), and reply you want</label>
+                                        <textarea
+                                            value={aiCtaAutomationPrompt}
+                                            onChange={(e) => setAiCtaAutomationPrompt(e.target.value)}
+                                            placeholder="e.g. CTA: invite people to comment 'demo' for a 30-day free trial. Keywords: demo, yes. Reply: Thanks! We'll DM you the coupon code."
+                                            rows={3}
+                                            className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm placeholder:text-neutral-400"
+                                        />
+                                    </>
+                                )}
                                 {platforms.length > 1 && (
                                     <label className="mt-2 flex items-center gap-2 cursor-pointer">
                                         <input

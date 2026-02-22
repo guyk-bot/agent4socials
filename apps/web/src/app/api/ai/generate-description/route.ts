@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
   if (!userId) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
-  let body: { topic?: string; prompt?: string; platform?: string; includeCtaAndAutomation?: boolean };
+  let body: { topic?: string; prompt?: string; platform?: string; includeCtaAndAutomation?: boolean; ctaAutomationPrompt?: string };
   try {
     body = await request.json();
   } catch {
@@ -86,6 +86,7 @@ export async function POST(request: NextRequest) {
   const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
   const platform = typeof body.platform === 'string' ? body.platform.trim() : '';
   const includeCtaAndAutomation = body.includeCtaAndAutomation === true;
+  const ctaAutomationPrompt = typeof body.ctaAutomationPrompt === 'string' ? body.ctaAutomationPrompt.trim() : '';
 
   const brand = await prisma.brandContext.findUnique({ where: { userId } });
   if (!brand) {
@@ -101,7 +102,10 @@ export async function POST(request: NextRequest) {
     .filter(Boolean)
     .join('\n') || 'Write a short social post that fits my brand.';
   if (includeCtaAndAutomation) {
-    userContent += '\n\nAlso provide: (1) a short CTA (call-to-action) line, e.g. "Comment demo for a free trial". (2) Comment automation: 1-2 keywords (e.g. demo, yes) and a short reply template for when someone comments with that keyword. Respond with a JSON object only, no markdown: {"content":"...","cta":"...","keywords":["keyword1","keyword2"],"replyTemplate":"..."}. Use double quotes. Content = main post text; cta = one line; keywords = array of strings; replyTemplate = one short reply sentence.';
+    userContent += '\n\nAlso provide: (1) a short CTA (call-to-action) line. (2) Comment automation: 1-2 keywords and a short reply template for when someone comments with that keyword. Respond with a JSON object only, no markdown: {"content":"...","cta":"...","keywords":["keyword1","keyword2"],"replyTemplate":"..."}. Use double quotes. Content = main post text; cta = one line; keywords = array of strings; replyTemplate = one short reply sentence.';
+    if (ctaAutomationPrompt) {
+      userContent += `\n\nUser instructions for CTA and automation: ${ctaAutomationPrompt}`;
+    }
   }
 
   const payload = {
