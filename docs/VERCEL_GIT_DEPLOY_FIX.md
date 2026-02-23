@@ -6,7 +6,31 @@ Vercel only starts a deployment when the **commit author** can be matched to a G
 
 ---
 
-## Recommended fix: Deploy Hook + GitHub Action (works for every push)
+## Easiest fix: Deploy Hook + app cron (no GitHub workflow needed)
+
+This app already has a cron that runs every 5 minutes. It checks the latest commit on `main`; if it changed since the last run, it calls your Vercel Deploy Hook. **No GitHub Actions or workflow scope required.**
+
+### 1. Create a Deploy Hook in Vercel
+
+1. Open [Vercel](https://vercel.com) → your **web** project.
+2. **Settings** → **Git** → **Deploy Hooks**.
+3. **Create Hook**: name e.g. **Cron**, branch **main**, then **Create**.
+4. Copy the generated URL.
+
+### 2. Add env in Vercel
+
+In the **web** project → **Settings** → **Environment Variables**:
+
+- **`VERCEL_DEPLOY_HOOK_URL`** = the URL from step 1 (all envs).
+- **`CRON_SECRET`** = a random secret (same value you use for other cron routes; required so only Vercel Cron can call the trigger).
+- Optional: **`GITHUB_REPO`** if your repo is not `guyk-bot/agent4socials` (e.g. `owner/repo`).
+- Optional: **`GITHUB_TOKEN`** for private repos (no token needed for public).
+
+Redeploy once so the new env is applied. After that, every 5 minutes the app will see new commits on `main` and trigger the hook (deploy within about 5 minutes of a push).
+
+---
+
+## Alternative: Deploy Hook + GitHub Action (immediate deploy on every push)
 
 This makes **every** push to `main` trigger a Vercel deployment, regardless of who authored the commit.
 

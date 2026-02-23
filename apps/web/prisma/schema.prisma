@@ -217,3 +217,9 @@ model MediaAsset {
   metadata  Json?
   createdAt DateTime @default(now())
 }
+
+model DeployTriggerState {
+  id            String    @id @default("default")
+  lastCommitSha String?
+  updatedAt     DateTime  @updatedAt
+}
