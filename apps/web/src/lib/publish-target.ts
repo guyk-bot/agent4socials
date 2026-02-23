@@ -164,7 +164,7 @@ export async function publishTarget(
         // Video upload: initialize -> PUT parts -> finalize -> create post with video URN
         const { buffer } = await fetchMediaBuffer(firstMediaUrl, fetchFn);
         const fileSizeBytes = buffer.length;
-        const initRes = await axiosInstance.post<{ value?: { video?: string; uploadToken?: string; uploadInstructions?: { uploadUrl: string; firstByte: number; lastByte: number }[] } }>(
+        const initRes = await axiosInstance.post(
           'https://api.linkedin.com/rest/videos?action=initializeUpload',
           {
             initializeUploadRequest: {
@@ -183,7 +183,7 @@ export async function publishTarget(
             },
           }
         );
-        const val = initRes.data?.value;
+        const val = (initRes.data as { value?: { video?: string; uploadToken?: string; uploadInstructions?: { uploadUrl: string; firstByte: number; lastByte: number }[] } })?.value;
         const videoUrn = val?.video;
         const uploadToken = val?.uploadToken ?? '';
         const instructions = val?.uploadInstructions ?? [];
