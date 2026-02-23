@@ -86,7 +86,11 @@ export async function POST(
 
   const contentByPlatform = (post as { contentByPlatform?: Record<string, string> | null }).contentByPlatform ?? null;
   const mediaByPlatform = (post as { mediaByPlatform?: Record<string, { fileUrl: string; type: string }[]> | null }).mediaByPlatform ?? null;
-  const defaultMedia = post.media.map((m) => ({ fileUrl: m.fileUrl, type: m.type }));
+  const defaultMedia = post.media.map((m) => ({
+    fileUrl: m.fileUrl,
+    type: m.type,
+    thumbnailUrl: (m as { metadata?: { thumbnailUrl?: string } }).metadata?.thumbnailUrl,
+  }));
   const results: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[] = [];
 
   for (const target of post.targets) {
@@ -95,9 +99,10 @@ export async function POST(
     const platformUserId = socialAccount.platformUserId;
     const caption = (contentByPlatform?.[platform] ?? post.content ?? '').trim();
     const platformMedia = mediaByPlatform?.[platform];
-    const targetMedia = (platformMedia && platformMedia.length > 0 ? platformMedia : defaultMedia) as { fileUrl: string; type: string }[];
+    const targetMedia = (platformMedia && platformMedia.length > 0 ? platformMedia : defaultMedia) as { fileUrl: string; type: string; thumbnailUrl?: string }[];
     const firstImageUrl = targetMedia.find((m) => m.type === 'IMAGE')?.fileUrl;
     const firstMediaUrl = targetMedia[0]?.fileUrl;
+    const videoThumbnailUrl = targetMedia[0] && targetMedia[0].type === 'VIDEO' ? (targetMedia[0] as { thumbnailUrl?: string }).thumbnailUrl : undefined;
 
     const creds = socialAccount.credentialsJson as { twitterOAuth1AccessToken?: string; twitterOAuth1AccessTokenSecret?: string } | null;
     const twitterOAuth1 =
@@ -113,6 +118,7 @@ export async function POST(
         caption,
         firstImageUrl,
         firstMediaUrl,
+        videoThumbnailUrl,
         twitterOAuth1,
       },
       { fetch, axios }
@@ -132,7 +138,7 @@ export async function POST(
         });
         token = newAccess;
         result = await publishTarget(
-          { platform, token, platformUserId, caption, firstImageUrl, firstMediaUrl, twitterOAuth1 },
+          { platform, token, platformUserId, caption, firstImageUrl, firstMediaUrl, videoThumbnailUrl, twitterOAuth1 },
           { fetch, axios }
         );
       } catch (refreshErr) {
@@ -156,7 +162,7 @@ export async function POST(
       for (let attempt = 0; attempt < 2 && isTwitterNetworkError(result); attempt++) {
         await new Promise((r) => setTimeout(r, 2000));
         result = await publishTarget(
-          { platform, token, platformUserId, caption, firstImageUrl, firstMediaUrl, twitterOAuth1 },
+          { platform, token, platformUserId, caption, firstImageUrl, firstMediaUrl, videoThumbnailUrl, twitterOAuth1 },
           { fetch, axios }
         );
       }

@@ -61,7 +61,7 @@ export async function PATCH(
     title?: string;
     content?: string;
     contentByPlatform?: Record<string, string>;
-    media?: { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[];
+    media?: { fileUrl: string; type: 'IMAGE' | 'VIDEO'; thumbnailUrl?: string }[];
     mediaByPlatform?: Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[]>;
     targets?: { platform: string; socialAccountId: string }[];
     scheduledAt?: string | null;
@@ -115,6 +115,7 @@ export async function PATCH(
           postId: id,
           fileUrl: m.fileUrl,
           type: m.type,
+          metadata: (m as { thumbnailUrl?: string }).thumbnailUrl ? { thumbnailUrl: (m as { thumbnailUrl?: string }).thumbnailUrl } : undefined,
         })),
       });
     }

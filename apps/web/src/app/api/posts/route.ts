@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     title?: string;
     content?: string;
     contentByPlatform?: Record<string, string>;
-    media?: { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[];
+    media?: { fileUrl: string; type: 'IMAGE' | 'VIDEO'; thumbnailUrl?: string }[];
     mediaByPlatform?: Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[]>;
     targets?: { platform: string; socialAccountId: string }[];
     scheduledAt?: string | null;
@@ -104,6 +104,7 @@ export async function POST(request: NextRequest) {
         create: media.map((m) => ({
           fileUrl: m.fileUrl,
           type: m.type as 'IMAGE' | 'VIDEO',
+          metadata: (m as { thumbnailUrl?: string }).thumbnailUrl ? { thumbnailUrl: (m as { thumbnailUrl?: string }).thumbnailUrl } : undefined,
         })),
       },
       targets: {

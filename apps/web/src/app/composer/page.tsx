@@ -24,14 +24,16 @@ import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, Lin
 
 const COMPOSER_DRAFT_KEY = 'agent4socials_composer_draft';
 
+type MediaItem = { fileUrl: string; type: 'IMAGE' | 'VIDEO'; thumbnailUrl?: string };
+
 type ComposerDraft = {
     platforms: string[];
     content: string;
     contentByPlatform: Record<string, string>;
     differentContentPerPlatform: boolean;
     mediaType: MediaTypeChoice;
-    mediaList: { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[];
-    mediaByPlatform: Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[]>;
+    mediaList: MediaItem[];
+    mediaByPlatform: Record<string, MediaItem[]>;
     differentMediaPerPlatform: boolean;
     scheduledAt: string;
     scheduleDelivery: 'auto' | 'email_links';
@@ -130,13 +132,18 @@ export default function ComposerPage() {
     const [content, setContent] = useState('');
     const [contentByPlatform, setContentByPlatform] = useState<Record<string, string>>({});
     const [differentContentPerPlatform, setDifferentContentPerPlatform] = useState(false);
-    const [mediaList, setMediaList] = useState<{ fileUrl: string, type: 'IMAGE' | 'VIDEO' }[]>([]);
+    const [mediaList, setMediaList] = useState<MediaItem[]>([]);
     const [mediaByPlatform, setMediaByPlatform] = useState<Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[]>>({});
     const [differentMediaPerPlatform, setDifferentMediaPerPlatform] = useState(false);
     const [mediaUploading, setMediaUploading] = useState(false);
     const [mediaUploadError, setMediaUploadError] = useState<string | null>(null);
     const [mediaType, setMediaType] = useState<MediaTypeChoice>('photo');
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const thumbnailFileInputRef = useRef<HTMLInputElement>(null);
+    const videoThumbnailRef = useRef<HTMLVideoElement>(null);
+    const [thumbnailPickerTime, setThumbnailPickerTime] = useState(0);
+    const [thumbnailVideoDuration, setThumbnailVideoDuration] = useState(1);
+    const [thumbnailPicking, setThumbnailPicking] = useState(false);
     const fileInputByPlatformRef = useRef<Record<string, HTMLInputElement | null>>({});
     const [scheduledAt, setScheduledAt] = useState('');
     const [scheduleDelivery, setScheduleDelivery] = useState<'auto' | 'email_links'>('auto');
@@ -209,10 +216,10 @@ export default function ComposerPage() {
                     if (valid.length) setMediaList(valid);
                 }
                 if (d.mediaByPlatform && typeof d.mediaByPlatform === 'object') {
-                    const cleaned: Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[]> = {};
+                    const cleaned: Record<string, MediaItem[]> = {};
                     for (const [k, arr] of Object.entries(d.mediaByPlatform)) {
                         if (Array.isArray(arr)) {
-                            const v = arr.filter((m) => m && isPersistableMediaUrl(m.fileUrl));
+                            const v = arr.filter((m) => m && isPersistableMediaUrl(m.fileUrl)) as MediaItem[];
                             if (v.length) cleaned[k] = v;
                         }
                     }
@@ -275,12 +282,20 @@ export default function ComposerPage() {
                 } else {
                     setContent(stripTrailingHashtags(rawContent));
                 }
-                const mediaList_ = (p.media ?? []).map((m) => ({ fileUrl: m.fileUrl, type: (m.type === 'VIDEO' ? 'VIDEO' : 'IMAGE') as 'IMAGE' | 'VIDEO' }));
+                const mediaList_ = (p.media ?? []).map((m) => ({
+                    fileUrl: m.fileUrl,
+                    type: (m.type === 'VIDEO' ? 'VIDEO' : 'IMAGE') as 'IMAGE' | 'VIDEO',
+                    thumbnailUrl: (m as { metadata?: { thumbnailUrl?: string } }).metadata?.thumbnailUrl,
+                }));
                 setMediaList(mediaList_);
                 if (p.mediaByPlatform && Object.keys(p.mediaByPlatform).length > 0) {
-                    const cleaned: Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[]> = {};
+                    const cleaned: Record<string, MediaItem[]> = {};
                     for (const [k, arr] of Object.entries(p.mediaByPlatform)) {
-                        if (Array.isArray(arr)) cleaned[k] = arr.map((m) => ({ fileUrl: m.fileUrl, type: (m.type === 'VIDEO' ? 'VIDEO' : 'IMAGE') as 'IMAGE' | 'VIDEO' }));
+                        if (Array.isArray(arr)) cleaned[k] = arr.map((m) => ({
+                            fileUrl: m.fileUrl,
+                            type: (m.type === 'VIDEO' ? 'VIDEO' : 'IMAGE') as 'IMAGE' | 'VIDEO',
+                            thumbnailUrl: (m as { thumbnailUrl?: string }).thumbnailUrl,
+                        }));
                     }
                     setMediaByPlatform(cleaned);
                     setDifferentMediaPerPlatform(true);
@@ -424,10 +439,10 @@ export default function ComposerPage() {
         if (!draftRestored) return;
         const t = setTimeout(() => {
             try {
-                const mediaListToSave = mediaList.filter((m) => isPersistableMediaUrl(m.fileUrl));
-                const mediaByPlatformToSave: Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[]> = {};
+                const mediaListToSave = mediaList.filter((m) => isPersistableMediaUrl(m.fileUrl)) as MediaItem[];
+                const mediaByPlatformToSave: Record<string, MediaItem[]> = {};
                 for (const [k, arr] of Object.entries(mediaByPlatform)) {
-                    const v = (arr || []).filter((m) => isPersistableMediaUrl(m.fileUrl));
+                    const v = (arr || []).filter((m) => isPersistableMediaUrl(m.fileUrl)) as MediaItem[];
                     if (v.length) mediaByPlatformToSave[k] = v;
                 }
                 const draft: ComposerDraft = {
@@ -599,6 +614,50 @@ export default function ComposerPage() {
 
     const handleRemoveMedia = (index: number) => {
         setMediaList(mediaList.filter((_, i) => i !== index));
+    };
+
+    const handleThumbnailImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !file.type.startsWith('image/')) return;
+        setMediaUploadError(null);
+        setMediaUploading(true);
+        try {
+            const { fileUrl } = await uploadFile(file);
+            setMediaList((prev) => prev.map((item, i) => (i === 0 ? { ...item, thumbnailUrl: fileUrl } : item)));
+        } catch (err) {
+            setMediaUploadError('Thumbnail upload failed. Try again.');
+        } finally {
+            setMediaUploading(false);
+            e.target.value = '';
+        }
+    };
+
+    const handleUseFrameAsThumbnail = useCallback(async () => {
+        const video = videoThumbnailRef.current;
+        if (!video || mediaList.length === 0 || mediaList[0].type !== 'VIDEO') return;
+        setMediaUploadError(null);
+        setThumbnailPicking(true);
+        try {
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) throw new Error('Canvas not available');
+            ctx.drawImage(video, 0, 0);
+            const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+            if (!blob) throw new Error('Failed to capture frame');
+            const file = new File([blob], 'thumbnail.jpg', { type: 'image/jpeg' });
+            const { fileUrl } = await uploadFile(file);
+            setMediaList((prev) => prev.map((item, i) => (i === 0 ? { ...item, thumbnailUrl: fileUrl } : item)));
+        } catch (err) {
+            setMediaUploadError('Failed to use frame. Try again or upload an image.');
+        } finally {
+            setThumbnailPicking(false);
+        }
+    }, [mediaList]);
+
+    const handleRemoveThumbnail = () => {
+        setMediaList((prev) => prev.map((item, i) => (i === 0 ? { ...item, thumbnailUrl: undefined } : item)));
     };
 
     const handleRemoveMediaForPlatform = (platform: string, index: number) => {
@@ -1141,6 +1200,39 @@ export default function ComposerPage() {
                                 </div>
                                 {mediaType === 'carousel' && mediaList.length > 1 && (
                                     <p className="text-xs text-neutral-500">Drag images to reorder. Click an image to move it to position 1.</p>
+                                )}
+                                {(mediaType === 'video' || mediaType === 'reel') && mediaList.length === 1 && mediaList[0].type === 'VIDEO' && (
+                                    <div className="mt-4 p-4 rounded-xl bg-neutral-50 border border-neutral-200 space-y-3">
+                                        <h4 className="text-sm font-medium text-neutral-800">Thumbnail (optional)</h4>
+                                        <p className="text-xs text-neutral-500">Some platforms use this as the cover for your video. Upload an image or pick a frame from the video.</p>
+                                        <div className="flex flex-wrap items-start gap-4">
+                                            <div className="flex flex-col gap-2">
+                                                {mediaList[0].thumbnailUrl ? (
+                                                    <div className="relative inline-block">
+                                                        <img src={mediaDisplayUrl(mediaList[0].thumbnailUrl)} alt="Thumbnail" className="w-32 h-32 rounded-lg object-cover border border-neutral-200" />
+                                                        <button type="button" onClick={handleRemoveThumbnail} className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded opacity-90 hover:opacity-100" title="Remove thumbnail"><X size={14} /></button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="w-32 h-32 rounded-lg bg-neutral-200 border border-neutral-300 flex items-center justify-center text-xs text-neutral-500">No thumbnail</div>
+                                                )}
+                                            </div>
+                                            <div className="flex flex-col gap-2">
+                                                <input ref={thumbnailFileInputRef} type="file" accept="image/*" className="hidden" onChange={handleThumbnailImageSelect} />
+                                                <button type="button" onClick={() => thumbnailFileInputRef.current?.click()} disabled={mediaUploading} className="inline-flex items-center gap-1.5 px-3 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-lg text-sm font-medium disabled:opacity-50">
+                                                    <ImageIcon size={16} />
+                                                    Upload image
+                                                </button>
+                                                <div className="flex flex-col gap-1.5">
+                                                    <video ref={videoThumbnailRef} src={mediaDisplayUrl(mediaList[0].fileUrl)} className="w-48 rounded border border-neutral-200" muted playsInline onLoadedMetadata={(e) => { const d = e.currentTarget.duration; setThumbnailVideoDuration(Number.isFinite(d) ? d : 1); setThumbnailPickerTime(0); }} onTimeUpdate={(e) => setThumbnailPickerTime(e.currentTarget.currentTime)} />
+                                                    <input type="range" min={0} max={thumbnailVideoDuration} step={0.1} value={thumbnailPickerTime} onChange={(e) => { const t = parseFloat(e.target.value); setThumbnailPickerTime(t); if (videoThumbnailRef.current) videoThumbnailRef.current.currentTime = t; }} className="w-48" />
+                                                    <button type="button" onClick={handleUseFrameAsThumbnail} disabled={thumbnailPicking || mediaUploading} className="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-800 rounded-lg text-sm font-medium disabled:opacity-50">
+                                                        {thumbnailPicking ? <Loader2 size={16} className="animate-spin" /> : <ImageIcon size={16} />}
+                                                        Use this frame
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 )}
                             </>
                         ) : (

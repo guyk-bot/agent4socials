@@ -13,6 +13,8 @@ export type PublishTargetOptions = {
   caption: string;
   firstImageUrl?: string;
   firstMediaUrl?: string;
+  /** Optional cover/thumbnail URL for video (e.g. Instagram Reels cover_url). */
+  videoThumbnailUrl?: string;
   /** When set, Twitter v1.1 media upload uses OAuth 1.0a (avoids 403). Tweet creation still uses token (OAuth 2.0). */
   twitterOAuth1?: { accessToken: string; accessTokenSecret: string };
 };
@@ -55,13 +57,37 @@ export async function publishTarget(
   options: PublishTargetOptions,
   deps: PublishDeps
 ): Promise<PublishTargetResult> {
-  const { platform, token, platformUserId, caption, firstImageUrl, firstMediaUrl, twitterOAuth1 } = options;
+  const { platform, token, platformUserId, caption, firstImageUrl, firstMediaUrl, videoThumbnailUrl, twitterOAuth1 } = options;
   const { fetch: fetchFn, axios: axiosInstance } = deps;
 
   try {
     if (platform === 'INSTAGRAM') {
+      if (firstMediaUrl) {
+        // Reel: video_url + optional cover_url (thumbnail)
+        const reelParams: Record<string, string> = {
+          media_type: 'REELS',
+          video_url: firstMediaUrl,
+          access_token: token,
+        };
+        if (caption?.trim()) reelParams.caption = caption.trim();
+        if (videoThumbnailUrl) reelParams.cover_url = videoThumbnailUrl;
+        const containerRes = await axiosInstance.post(
+          `https://graph.facebook.com/v18.0/${platformUserId}/media`,
+          null,
+          { params: reelParams }
+        );
+        const creationId = (containerRes.data as { id?: string })?.id;
+        if (!creationId) throw new Error(JSON.stringify(containerRes.data));
+        const publishRes = await axiosInstance.post(
+          `https://graph.facebook.com/v18.0/${platformUserId}/media_publish`,
+          null,
+          { params: { creation_id: creationId, access_token: token } }
+        );
+        const mediaId = (publishRes.data as { id?: string })?.id;
+        return { ok: true, platformPostId: mediaId };
+      }
       if (!firstImageUrl) {
-        return { ok: false, error: 'Instagram requires at least one image' };
+        return { ok: false, error: 'Instagram requires at least one image or video' };
       }
       const containerRes = await axiosInstance.post(
         `https://graph.facebook.com/v18.0/${platformUserId}/media`,
