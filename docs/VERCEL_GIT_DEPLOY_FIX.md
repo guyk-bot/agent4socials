@@ -2,13 +2,64 @@
 
 ## Root cause: Commit author not recognized by Vercel
 
-Vercel only starts a deployment when the **commit author** can be matched to a GitHub user who has access to the Vercel project. Your recent commits use:
+Vercel only starts a deployment when the **commit author** can be matched to a GitHub user who has access to the Vercel project. Commits made from Cursor, automation, or with a local/machine email (e.g. `guykogen@guys-MacBook-Air.local`) are not linked to a GitHub account, so Vercel **does not create a deployment** for those pushes.
 
-- **Author email:** `guykogen@guys-MacBook-Air.local` (local hostname, not a GitHub email)
+---
 
-Because that email is not associated with any GitHub account, Vercel cannot verify you and **does not create a deployment** for those pushes. Production branch and repo connection are correct; the blocker is author identity.
+## Recommended fix: Deploy Hook + GitHub Action (works for every push)
 
-## Fix (do this once)
+This makes **every** push to `main` trigger a Vercel deployment, regardless of who authored the commit.
+
+### 1. Create a Deploy Hook in Vercel
+
+1. Open [Vercel](https://vercel.com) → your **web** project (the Next.js app).
+2. **Settings** → **Git** → scroll to **Deploy Hooks**.
+3. Click **Create Hook**. Name it e.g. **GitHub Push**, branch **main**, then **Create**.
+4. **Copy the generated URL** (e.g. `https://api.vercel.com/v1/integrations/deploy/...`). Treat it like a password; don’t commit it.
+
+### 2. Add the URL as a GitHub secret
+
+1. Open **GitHub** → repo **guyk-bot/agent4socials** → **Settings** → **Secrets and variables** → **Actions**.
+2. **New repository secret**: name = **`VERCEL_DEPLOY_HOOK_URL`**, value = the URL from step 1.
+
+### 3. Add the workflow file (one-time)
+
+GitHub only allows creating/updating workflow files with a token that has **workflow** scope. If the workflow file is not yet in the repo, create it in GitHub:
+
+1. **GitHub** → repo → **Add file** → **Create new file**.
+2. Name the file: **`.github/workflows/trigger-vercel-deploy.yml`** (include the path).
+3. Paste the contents below, then **Commit changes** → **Commit directly to main**.
+
+```yaml
+name: Trigger Vercel deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Vercel Deploy Hook
+        run: |
+          if [ -n "${{ secrets.VERCEL_DEPLOY_HOOK_URL }}" ]; then
+            curl -fsS -X POST "${{ secrets.VERCEL_DEPLOY_HOOK_URL }}"
+            echo "Vercel deploy triggered."
+          else
+            echo "VERCEL_DEPLOY_HOOK_URL not set. Add it in repo Secrets to trigger deploys on push."
+          fi
+        env:
+          VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+```
+
+### 4. Done
+
+Once the secret and workflow file are in place, every push to `main` will trigger a new Vercel deployment. No need to change Git author or amend commits.
+
+---
+
+## Alternative: Fix commit author (only works when you push from your machine)
 
 ### 1. Set your Git identity to your GitHub account
 
@@ -47,14 +98,10 @@ You must be a **member** of that Vercel team (or owner if Hobby). The commit aut
 
 ## Summary
 
-| Check | Status |
-|-------|--------|
-| Production branch = main | OK (you confirmed) |
-| Repo connected = guyk-bot/agent4socials | OK (dashboard shows it) |
-| **Commit author = GitHub email** | **Fix: set `user.email` and `user.name`** |
-| Vercel GitHub App has repo access | Verify on GitHub / Vercel Auth |
-
-After fixing the commit author and (if needed) repo access, every push to `main` from that identity should create a new deployment. No deploy hook needed for normal pushes.
+| Fix | When to use |
+|-----|-------------|
+| **Deploy Hook + GitHub Action** | Best: every push to `main` triggers a deploy (any author). One-time setup: create hook in Vercel, add `VERCEL_DEPLOY_HOOK_URL` in GitHub repo Secrets. |
+| **Commit author** | Alternative: set `git config user.email` and `user.name` to your GitHub identity; only pushes you make from that machine will trigger Vercel. |
 
 ---
-*Last doc update: git post-push hook installed - deploys automatically on every push.*
+*Last doc update: added GitHub Action + Deploy Hook so pushes from any author trigger Vercel.*
