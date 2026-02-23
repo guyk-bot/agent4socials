@@ -11,6 +11,7 @@ import {
   Image as ImageIcon,
   Smile,
   Loader2,
+  BarChart3,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
@@ -48,7 +49,7 @@ export default function InboxPage() {
   const [inboxFilter, setInboxFilter] = useState<'unresolved' | 'unread'>('unresolved');
   const [searchQuery, setSearchQuery] = useState('');
   const [connectOpen, setConnectOpen] = useState(false);
-  const [inboxMode, setInboxMode] = useState<'messages' | 'comments'>('messages');
+  const [inboxMode, setInboxMode] = useState<'messages' | 'comments' | 'engagement'>('messages');
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [conversationsLoading, setConversationsLoading] = useState(false);
@@ -228,7 +229,7 @@ export default function InboxPage() {
             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
             <input
               type="search"
-              placeholder={inboxMode === 'comments' ? 'Search comments...' : 'Search conversation...'}
+              placeholder={inboxMode === 'comments' ? 'Search comments...' : inboxMode === 'engagement' ? 'Search engagement...' : 'Search conversation...'}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-3 py-2 border border-neutral-200 rounded-lg text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
@@ -236,7 +237,7 @@ export default function InboxPage() {
           </div>
         </div>
 
-        {/* Messages / Comments */}
+        {/* Messages / Comments / Engagement */}
         <div className="flex border-b border-neutral-200">
           <button
             type="button"
@@ -251,6 +252,13 @@ export default function InboxPage() {
             className={`flex-1 py-3 text-sm font-medium ${inboxMode === 'comments' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
           >
             Comments
+          </button>
+          <button
+            type="button"
+            onClick={() => { setInboxMode('engagement'); setSelectedConversationId(null); setSelectedComment(null); }}
+            className={`flex-1 py-3 text-sm font-medium ${inboxMode === 'engagement' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
+          >
+            Engagement
           </button>
         </div>
 
@@ -273,9 +281,15 @@ export default function InboxPage() {
           </div>
         )}
 
-        {/* Conversation or comment list */}
+        {/* Conversation, comment, or engagement list */}
         <div className="flex-1 overflow-y-auto">
-          {inboxMode === 'comments' && !commentsSupported ? (
+          {inboxMode === 'engagement' ? (
+            <div className="p-6 text-center">
+              <BarChart3 size={40} className="mx-auto text-neutral-300 mb-3" />
+              <p className="text-sm font-medium text-neutral-900">Engagement</p>
+              <p className="text-sm text-neutral-500 mt-1">Likes, shares, and mentions for your posts. Select a platform above to see engagement for that account.</p>
+            </div>
+          ) : inboxMode === 'comments' && !commentsSupported ? (
             <div className="p-6 text-center">
               <p className="text-sm text-neutral-500">Comments are available for Instagram, Facebook, and X. Select one of those platforms above.</p>
             </div>
@@ -475,6 +489,16 @@ export default function InboxPage() {
               <MessageCircle size={48} className="mx-auto text-neutral-300 mb-3" />
               <p className="text-sm text-neutral-600">Select a comment from the list to reply</p>
               <p className="text-xs text-neutral-400 mt-1">{PLATFORMS.find((p) => p.id === selectedPlatform)?.label} comments</p>
+            </div>
+          </div>
+        ) : inboxMode === 'engagement' ? (
+          <div className="flex-1 flex items-center justify-center p-8">
+            <div className="text-center max-w-sm">
+              <BarChart3 size={48} className="mx-auto text-neutral-300 mb-3" />
+              <h2 className="text-lg font-semibold text-neutral-800">Engagement</h2>
+              <p className="text-sm text-neutral-500 mt-2">
+                View likes, shares, and mentions for your posts. Content for this view is coming soon.
+              </p>
             </div>
           </div>
         ) : !selectedConversationId ? (
