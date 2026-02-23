@@ -27,6 +27,16 @@ const PLATFORMS = [
 
 type Account = { id: string; platform: string; username?: string | null };
 type Conversation = { id: string; updatedTime: string | null; senders: Array<{ username?: string; name?: string }> };
+type PostComment = {
+  commentId: string;
+  postTargetId: string;
+  platformPostId: string;
+  postPreview: string;
+  text: string;
+  authorName: string;
+  createdAt: string;
+  platform: string;
+};
 
 export default function InboxPage() {
   const router = useRouter();
@@ -38,11 +48,18 @@ export default function InboxPage() {
   const [inboxFilter, setInboxFilter] = useState<'unresolved' | 'unread'>('unresolved');
   const [searchQuery, setSearchQuery] = useState('');
   const [connectOpen, setConnectOpen] = useState(false);
+  const [inboxMode, setInboxMode] = useState<'messages' | 'comments'>('messages');
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [conversationsLoading, setConversationsLoading] = useState(false);
   const [conversationsError, setConversationsError] = useState<string | null>(null);
   const [conversationsDebug, setConversationsDebug] = useState<{ rawMessage?: string; code?: number; responseData?: unknown } | null>(null);
+  const [comments, setComments] = useState<PostComment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentsError, setCommentsError] = useState<string | null>(null);
+  const [selectedComment, setSelectedComment] = useState<PostComment | null>(null);
+  const [replyText, setReplyText] = useState('');
+  const [replySending, setReplySending] = useState(false);
   const connectRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -99,6 +116,34 @@ export default function InboxPage() {
       .finally(() => setConversationsLoading(false));
   }, [selectedPlatform, accounts]);
 
+  const commentsSupported = selectedPlatform === 'INSTAGRAM' || selectedPlatform === 'FACEBOOK' || selectedPlatform === 'TWITTER';
+  useEffect(() => {
+    if (inboxMode !== 'comments' || !selectedPlatform || !commentsSupported) {
+      setComments([]);
+      setCommentsError(null);
+      setSelectedComment(null);
+      return;
+    }
+    const account = accounts.find((a) => a.platform === selectedPlatform);
+    if (!account) {
+      setComments([]);
+      setCommentsError('Connect an account to see comments.');
+      return;
+    }
+    setCommentsLoading(true);
+    setCommentsError(null);
+    api.get(`/social/accounts/${account.id}/comments`)
+      .then((res) => {
+        setComments(res.data?.comments ?? []);
+        setCommentsError(res.data?.error ?? null);
+      })
+      .catch(() => {
+        setComments([]);
+        setCommentsError('Could not load comments.');
+      })
+      .finally(() => setCommentsLoading(false));
+  }, [inboxMode, selectedPlatform, accounts, commentsSupported]);
+
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (connectRef.current && !connectRef.current.contains(e.target as Node)) setConnectOpen(false);
@@ -110,6 +155,7 @@ export default function InboxPage() {
   const handlePlatformClick = (platformId: string) => {
     setSelectedPlatform(platformId);
     setSelectedConversationId(null);
+    setSelectedComment(null);
   };
 
   return (
@@ -182,7 +228,7 @@ export default function InboxPage() {
             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
             <input
               type="search"
-              placeholder="Search conversation..."
+              placeholder={inboxMode === 'comments' ? 'Search comments...' : 'Search conversation...'}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-3 py-2 border border-neutral-200 rounded-lg text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
@@ -190,31 +236,96 @@ export default function InboxPage() {
           </div>
         </div>
 
-        {/* Unresolved / Unread */}
+        {/* Messages / Comments */}
         <div className="flex border-b border-neutral-200">
           <button
             type="button"
-            onClick={() => setInboxFilter('unresolved')}
-            className={`flex-1 py-3 text-sm font-medium ${inboxFilter === 'unresolved' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
+            onClick={() => { setInboxMode('messages'); setSelectedComment(null); }}
+            className={`flex-1 py-3 text-sm font-medium ${inboxMode === 'messages' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
           >
-            Unresolved
+            Messages
           </button>
           <button
             type="button"
-            onClick={() => setInboxFilter('unread')}
-            className={`flex-1 py-3 text-sm font-medium ${inboxFilter === 'unread' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
+            onClick={() => { setInboxMode('comments'); setSelectedConversationId(null); }}
+            className={`flex-1 py-3 text-sm font-medium ${inboxMode === 'comments' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
           >
-            Unread
+            Comments
           </button>
         </div>
 
-        {/* Conversation list */}
+        {inboxMode === 'messages' && (
+          <div className="flex border-b border-neutral-200">
+            <button
+              type="button"
+              onClick={() => setInboxFilter('unresolved')}
+              className={`flex-1 py-2 text-xs font-medium ${inboxFilter === 'unresolved' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
+            >
+              Unresolved
+            </button>
+            <button
+              type="button"
+              onClick={() => setInboxFilter('unread')}
+              className={`flex-1 py-2 text-xs font-medium ${inboxFilter === 'unread' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
+            >
+              Unread
+            </button>
+          </div>
+        )}
+
+        {/* Conversation or comment list */}
         <div className="flex-1 overflow-y-auto">
-          {!selectedPlatform ? (
+          {inboxMode === 'comments' && !commentsSupported ? (
+            <div className="p-6 text-center">
+              <p className="text-sm text-neutral-500">Comments are available for Instagram, Facebook, and X. Select one of those platforms above.</p>
+            </div>
+          ) : !selectedPlatform ? (
             <div className="p-6 text-center">
               <MessageCircle size={40} className="mx-auto text-neutral-300 mb-3" />
               <p className="text-sm text-neutral-500">Click a platform icon above to open its inbox.</p>
             </div>
+          ) : inboxMode === 'comments' ? (
+            commentsLoading ? (
+              <div className="p-6 flex flex-col items-center justify-center gap-3">
+                <Loader2 size={32} className="text-indigo-500 animate-spin" />
+                <p className="text-sm text-neutral-500">Loading comments…</p>
+              </div>
+            ) : commentsError ? (
+              <div className="p-4">
+                <p className="text-sm text-neutral-700">{commentsError}</p>
+              </div>
+            ) : comments.length === 0 ? (
+              <div className="p-6 text-center">
+                <MessageCircle size={40} className="mx-auto text-neutral-300 mb-3" />
+                <p className="text-sm text-neutral-500">No comments yet.</p>
+                <p className="text-xs text-neutral-400 mt-1">Comments on your posts will appear here.</p>
+              </div>
+            ) : (
+              <div className="p-2 space-y-0">
+                {comments
+                  .filter((c) => !searchQuery || c.text.toLowerCase().includes(searchQuery.toLowerCase()) || c.authorName.toLowerCase().includes(searchQuery.toLowerCase()))
+                  .map((c) => (
+                    <button
+                      key={c.commentId}
+                      type="button"
+                      onClick={() => setSelectedComment(c)}
+                      className={`w-full flex items-start gap-3 px-3 py-3 rounded-lg text-left transition-colors ${
+                        selectedComment?.commentId === c.commentId ? 'bg-indigo-50 border border-indigo-100' : 'hover:bg-neutral-50'
+                      }`}
+                    >
+                      <div className="w-9 h-9 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 text-xs font-semibold text-neutral-600">
+                        {(c.authorName || '?').slice(0, 2).toUpperCase()}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-neutral-900 truncate">{c.authorName}</p>
+                        <p className="text-xs text-neutral-600 line-clamp-2">{c.text}</p>
+                        <p className="text-xs text-neutral-400 mt-0.5 truncate">{c.postPreview}</p>
+                        <p className="text-xs text-neutral-400 mt-0.5">{new Date(c.createdAt).toLocaleString()}</p>
+                      </div>
+                    </button>
+                  ))}
+              </div>
+            )
           ) : conversationsLoading ? (
             <div className="p-6 flex flex-col items-center justify-center gap-3">
               <Loader2 size={32} className="text-indigo-500 animate-spin" />
@@ -286,7 +397,7 @@ export default function InboxPage() {
         </div>
       </div>
 
-      {/* Main content - conversation view */}
+      {/* Main content - conversation or comment reply */}
       <div className="flex-1 flex flex-col min-w-0 bg-neutral-50/50">
         {!selectedPlatform ? (
           <div className="flex-1 flex items-center justify-center p-8">
@@ -294,8 +405,76 @@ export default function InboxPage() {
               <MessageCircle size={64} className="mx-auto text-neutral-300 mb-4" />
               <h2 className="text-lg font-semibold text-neutral-800">Open an inbox</h2>
               <p className="text-sm text-neutral-500 mt-2">
-                Click an Instagram, Facebook, TikTok, YouTube, or X icon in the left sidebar to view that platform&apos;s conversations.
+                Click an Instagram, Facebook, TikTok, YouTube, or X icon in the left sidebar to view that platform&apos;s conversations and comments.
               </p>
+            </div>
+          </div>
+        ) : inboxMode === 'comments' && selectedComment ? (
+          <>
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="max-w-2xl mx-auto">
+                <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
+                  <div className="p-4 border-b border-neutral-100 bg-neutral-50/50">
+                    <p className="text-sm font-medium text-neutral-800">Comment on your post</p>
+                    <p className="text-xs text-neutral-500 mt-0.5">{selectedComment.authorName} · {PLATFORMS.find((p) => p.id === selectedPlatform)?.label}</p>
+                  </div>
+                  <div className="p-4 space-y-3">
+                    <div>
+                      <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Comment</p>
+                      <p className="text-sm text-neutral-800 mt-1">{selectedComment.text}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Your post</p>
+                      <p className="text-sm text-neutral-600 mt-1 line-clamp-2">{selectedComment.postPreview}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="border-t border-neutral-200 bg-white p-4">
+              <div className="max-w-2xl mx-auto flex items-end gap-2">
+                <textarea
+                  placeholder="Type your reply..."
+                  rows={2}
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  className="flex-1 px-4 py-3 border border-neutral-200 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none"
+                />
+                <button
+                  type="button"
+                  disabled={replySending || !replyText.trim()}
+                  onClick={async () => {
+                    const account = accounts.find((a) => a.platform === selectedPlatform);
+                    if (!account || !selectedComment) return;
+                    setReplySending(true);
+                    try {
+                      await api.post(`/social/accounts/${account.id}/comments/reply`, {
+                        commentId: selectedComment.commentId,
+                        message: replyText.trim(),
+                      });
+                      setReplyText('');
+                      setSelectedComment(null);
+                    } catch (e: unknown) {
+                      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+                      alert(msg ?? 'Failed to send reply.');
+                    } finally {
+                      setReplySending(false);
+                    }
+                  }}
+                  className="p-3 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                  title="Send reply"
+                >
+                  {replySending ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
+                </button>
+              </div>
+            </div>
+          </>
+        ) : inboxMode === 'comments' ? (
+          <div className="flex-1 flex items-center justify-center p-8">
+            <div className="text-center max-w-sm">
+              <MessageCircle size={48} className="mx-auto text-neutral-300 mb-3" />
+              <p className="text-sm text-neutral-600">Select a comment from the list to reply</p>
+              <p className="text-xs text-neutral-400 mt-1">{PLATFORMS.find((p) => p.id === selectedPlatform)?.label} comments</p>
             </div>
           </div>
         ) : !selectedConversationId ? (
