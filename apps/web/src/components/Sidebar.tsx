@@ -14,6 +14,7 @@ import {
     Plus,
     MessageCircle,
     Sparkles,
+    X,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -22,6 +23,7 @@ import { useAccountsCache } from '@/context/AccountsCacheContext';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import type { SocialAccount } from '@/context/SelectedAccountContext';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
+import { topNavItems } from '@/components/AppHeader';
 
 const PLATFORM_LABELS: Record<string, string> = {
   INSTAGRAM: 'Instagram',
@@ -43,7 +45,12 @@ const PLATFORM_ICON: Record<string, React.ReactNode> = {
 
 const PLATFORM_ORDER = ['INSTAGRAM', 'FACEBOOK', 'TIKTOK', 'YOUTUBE', 'TWITTER', 'LINKEDIN'];
 
-export default function Sidebar() {
+type SidebarProps = {
+  mobileOpen?: boolean;
+  onClose?: () => void;
+};
+
+export default function Sidebar({ mobileOpen = false, onClose = () => {} }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
@@ -64,6 +71,14 @@ export default function Sidebar() {
     }).catch(() => {});
   }, [cachedAccounts.length, setCachedAccounts]);
 
+  // Prevent body scroll when mobile menu is open
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = ''; };
+    }
+  }, [mobileOpen]);
+
   const accountsByPlatform = PLATFORM_ORDER.reduce<Record<string, SocialAccount[]>>((acc, p) => {
     acc[p] = (cachedAccounts as SocialAccount[]).filter((a) => a.platform === p);
     return acc;
@@ -78,13 +93,11 @@ export default function Sidebar() {
   const handleSummaryClick = () => {
     clearSelection();
     router.push('/dashboard');
+    onClose();
   };
 
-  return (
-    <div
-      className="w-64 border-r border-neutral-200 flex flex-col fixed left-0 top-14 bottom-0 z-30 bg-white min-h-0"
-      style={{ height: 'calc(100vh - 3.5rem)', backgroundColor: 'var(--wl-sidebar-bg, #ffffff)', color: text }}
-    >
+  const sidebarContent = (
+    <>
       <div className="p-3">
         <button
           type="button"
@@ -113,6 +126,7 @@ export default function Sidebar() {
                 onClick={() => {
                   setSelectedPlatformForConnect(platform);
                   router.push('/dashboard');
+                  onClose();
                 }}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors ${
                   isPlatformSelected ? 'bg-white shadow-sm ring-1 ring-neutral-200' : 'hover:bg-white/70'
@@ -141,6 +155,7 @@ export default function Sidebar() {
                     onClick={() => {
                       setSelectedAccount(acc);
                       router.push('/dashboard');
+                      onClose();
                     }}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors min-w-0 ${
                       isSelected ? 'bg-white shadow-sm ring-1 ring-neutral-200' : 'hover:bg-white/70'
@@ -169,6 +184,7 @@ export default function Sidebar() {
       <div className="p-3 space-y-0.5 border-t border-neutral-200 shrink-0">
         <Link
           href="/posts"
+          onClick={onClose}
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${pathname === '/posts' ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
           style={pathname === '/posts' ? { color: accent } : undefined}
         >
@@ -177,6 +193,7 @@ export default function Sidebar() {
         </Link>
         <Link
           href="/dashboard/automation"
+          onClick={onClose}
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${pathname === '/dashboard/automation' ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
           style={pathname === '/dashboard/automation' ? { color: accent } : undefined}
         >
@@ -185,6 +202,7 @@ export default function Sidebar() {
         </Link>
         <Link
           href="/dashboard/hashtag-pool"
+          onClick={onClose}
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${pathname === '/dashboard/hashtag-pool' ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
           style={pathname === '/dashboard/hashtag-pool' ? { color: accent } : undefined}
         >
@@ -193,6 +211,7 @@ export default function Sidebar() {
         </Link>
         <Link
           href="/dashboard/ai-assistant"
+          onClick={onClose}
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${pathname === '/dashboard/ai-assistant' ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
           style={pathname === '/dashboard/ai-assistant' ? { color: accent } : undefined}
         >
@@ -201,6 +220,7 @@ export default function Sidebar() {
         </Link>
         <Link
           href="/dashboard/settings"
+          onClick={onClose}
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${pathname === '/dashboard/settings' ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
           style={pathname === '/dashboard/settings' ? { color: accent } : undefined}
         >
@@ -212,6 +232,7 @@ export default function Sidebar() {
       <div className="mt-auto p-4 border-t border-neutral-200 shrink-0">
         <Link
           href="/dashboard/account"
+          onClick={onClose}
           className={`w-full flex items-center p-2 rounded-lg transition-colors mb-2 ${isAccountPage ? '' : 'hover:bg-white/70'}`}
           style={isAccountPage ? { backgroundColor: `${accent}20`, color: accent } : undefined}
         >
@@ -226,13 +247,65 @@ export default function Sidebar() {
         </Link>
         <button
           type="button"
-          onClick={logout}
+          onClick={() => { logout(); onClose(); }}
           className="w-full flex items-center px-3 py-2 text-sm font-medium text-neutral-600 hover:bg-white/70 hover:text-red-600 rounded-lg transition-colors"
         >
           <LogOut size={20} className="mr-3 shrink-0" />
           Logout
         </button>
       </div>
-    </div>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop: fixed sidebar */}
+      <div
+        className="hidden md:flex w-64 border-r border-neutral-200 flex-col fixed left-0 top-14 bottom-0 z-30 bg-white min-h-0"
+        style={{ height: 'calc(100vh - 3.5rem)', backgroundColor: 'var(--wl-sidebar-bg, #ffffff)', color: text }}
+      >
+        {sidebarContent}
+      </div>
+
+      {/* Mobile: overlay + slide-in panel */}
+      {mobileOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex" aria-modal="true" role="dialog">
+          <button type="button" onClick={onClose} className="absolute inset-0 bg-black/50" aria-label="Close menu" />
+          <div
+            className="relative w-full max-w-sm flex flex-col bg-white min-h-full shadow-xl overflow-y-auto transition-transform duration-200 ease-out"
+            style={{ backgroundColor: 'var(--wl-sidebar-bg, #ffffff)', color: text }}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-neutral-200 shrink-0">
+              <span className="font-semibold" style={{ color: text }}>{appName || 'Agent4Socials'}</span>
+              <button type="button" onClick={onClose} className="p-2 rounded-lg text-neutral-500 hover:bg-neutral-100" aria-label="Close menu">
+                <X size={24} />
+              </button>
+            </div>
+            <div className="p-3 border-b border-neutral-200 space-y-0.5">
+              {topNavItems.map((item) => {
+                const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={onClose}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      isActive ? 'bg-indigo-50' : 'hover:bg-neutral-100'
+                    }`}
+                    style={isActive ? { color: accent } : undefined}
+                  >
+                    <item.icon size={20} className="shrink-0" />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+            <div className="flex-1 overflow-y-auto flex flex-col min-h-0" style={{ height: 'calc(100vh - 14rem)' }}>
+              {sidebarContent}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

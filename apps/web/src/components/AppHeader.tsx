@@ -3,10 +3,10 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutGrid, MessageCircle, PlusSquare, Calendar, Zap } from 'lucide-react';
+import { LayoutGrid, MessageCircle, PlusSquare, Calendar, Zap, Menu } from 'lucide-react';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
 
-const topNavItems = [
+export const topNavItems = [
   { icon: LayoutGrid, label: 'Analytics', href: '/dashboard' },
   { icon: MessageCircle, label: 'Inbox', href: '/dashboard/inbox' },
   { icon: PlusSquare, label: 'Composer', href: '/composer' },
@@ -14,22 +14,34 @@ const topNavItems = [
   { icon: Calendar, label: 'Calendar', href: '/calendar' },
 ];
 
-export default function AppHeader() {
+type AppHeaderProps = {
+  onMenuOpen?: () => void;
+};
+
+export default function AppHeader({ onMenuOpen }: AppHeaderProps) {
   const pathname = usePathname();
   const { logoUrl, appName } = useWhiteLabel();
 
   return (
-    <header className="h-14 flex items-center justify-between px-6 bg-neutral-900 text-white border-b border-neutral-800 fixed top-0 left-0 right-0 z-40">
-      <div className="flex items-center gap-8">
+    <header className="h-14 flex items-center justify-between px-4 sm:px-6 bg-neutral-900 text-white border-b border-neutral-800 fixed top-0 left-0 right-0 z-40">
+      <div className="flex items-center gap-4 min-w-0">
+        <button
+          type="button"
+          onClick={onMenuOpen}
+          className="md:hidden p-2 -ml-2 rounded-lg text-neutral-300 hover:text-white hover:bg-white/10"
+          aria-label="Open menu"
+        >
+          <Menu size={24} />
+        </button>
         <Link href="/dashboard" className="flex items-center gap-2 shrink-0">
           {logoUrl ? (
             <img src={logoUrl} alt="" className="h-8 w-8 object-contain" />
           ) : (
             <img src="/logo.svg" alt="" className="h-8 w-8 object-contain block" style={{ background: 'transparent', border: 'none' }} />
           )}
-          <span className="font-semibold text-white hidden sm:inline">{appName || 'Agent4Socials'}</span>
+          <span className="font-semibold text-white hidden sm:inline truncate">{appName || 'Agent4Socials'}</span>
         </Link>
-        <nav className="flex items-center gap-1">
+        <nav className="hidden md:flex items-center gap-1">
           {topNavItems.map((item) => {
             const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
             return (

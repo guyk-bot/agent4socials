@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import AppHeader from '@/components/AppHeader';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/context/AuthContext';
@@ -15,6 +15,8 @@ export default function AuthenticatedShell({
     const { user, loading } = useAuth();
     const router = useRouter();
     const { backgroundColor, primaryColor, textColor } = useWhiteLabel();
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
 
     React.useEffect(() => {
         if (!loading && !user) {
@@ -45,10 +47,10 @@ export default function AuthenticatedShell({
                 ['--wl-sidebar-bg' as string]: backgroundColor || '#f5f5f5',
             }}
         >
-            <AppHeader />
-            <Sidebar />
-            <main className="pl-64 min-h-screen pt-14">
-                <div className="max-w-7xl mx-auto px-8 py-8">
+            <AppHeader onMenuOpen={() => setMobileMenuOpen(true)} />
+            <Sidebar mobileOpen={mobileMenuOpen} onClose={closeMobileMenu} />
+            <main className="pl-0 md:pl-64 min-h-screen pt-14">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6 md:py-8">
                     {children}
                 </div>
             </main>
