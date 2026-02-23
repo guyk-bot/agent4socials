@@ -119,7 +119,7 @@ export async function publishTarget(
         distribution: object;
         lifecycleState: string;
         isReshareDisabledByAuthor: boolean;
-        content?: { media: { id: string; altText?: string } };
+        content?: { media: { id: string; altText?: string; title?: string } };
       } = {
         author,
         commentary: caption || ' ',
@@ -227,7 +227,7 @@ export async function publishTarget(
             },
           }
         );
-        postBody.content = { media: { id: videoUrn, altText: caption.slice(0, 120) || undefined } };
+        postBody.content = { media: { id: videoUrn, title: (caption || 'Video').slice(0, 200) } };
       }
       const postRes = await axiosInstance.post(
         'https://api.linkedin.com/rest/posts',
@@ -306,6 +306,7 @@ export async function publishTarget(
           initForm.append('command', 'INIT');
           initForm.append('total_bytes', String(totalBytes));
           initForm.append('media_type', 'video/mp4');
+          initForm.append('media_category', 'tweet_video');
 
           const initRes = await axiosInstance.post(v1Url, initForm, {
             headers: { ...getUploadHeaders('POST'), ...initForm.getHeaders() },
