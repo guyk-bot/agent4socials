@@ -314,10 +314,18 @@ export async function publishTarget(
             validateStatus: () => true,
           });
           if (initRes.status !== 200) {
-            throw new Error(`Twitter video INIT failed: ${initRes.status} ${JSON.stringify(initRes.data)}`);
+            if (initRes.status === 403) {
+              if (typeof console !== 'undefined' && console.error) console.error('[Twitter video INIT] 403:', JSON.stringify(initRes.data).slice(0, 300));
+              mediaSkipped = true;
+            } else {
+              throw new Error(`Twitter video INIT failed: ${initRes.status} ${JSON.stringify(initRes.data)}`);
+            }
           }
-          const mediaId = (initRes.data as { media_id_string?: string })?.media_id_string;
-          if (!mediaId) throw new Error('Twitter INIT did not return media_id_string');
+          const mediaId = initRes.status === 200 ? (initRes.data as { media_id_string?: string })?.media_id_string : undefined;
+          if (!mediaId && !mediaSkipped) throw new Error('Twitter INIT did not return media_id_string');
+          if (!mediaId) {
+            // 403 or no media_id: post text only
+          } else {
 
           let segmentIndex = 0;
           for (let offset = 0; offset < totalBytes; offset += CHUNK_SIZE, segmentIndex++) {
@@ -373,6 +381,7 @@ export async function publishTarget(
           }
           if (mediaIds.length === 0) {
             throw new Error('Twitter video processing timed out');
+          }
           }
         } catch (err) {
           throw err;
