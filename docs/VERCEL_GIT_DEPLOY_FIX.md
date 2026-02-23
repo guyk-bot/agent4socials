@@ -22,9 +22,40 @@ A workflow runs on every push to `main` and calls your Vercel Deploy Hook so **e
 1. Open **GitHub** → repo **guyk-bot/agent4socials** → **Settings** → **Secrets and variables** → **Actions**.
 2. **New repository secret**: name = **`VERCEL_DEPLOY_HOOK_URL`**, value = the URL from step 1.
 
-### 3. Done
+### 3. Add the workflow file once (required)
 
-Once the secret is set, every push to `main` triggers a Vercel deployment. The workflow file is in the repo (`.github/workflows/trigger-vercel-deploy.yml`). If it was not pushed because of token scope, add it once in GitHub: **Add file** → **Create new file** → path **`.github/workflows/trigger-vercel-deploy.yml`** → paste the content from the repo file → **Commit to main**.
+GitHub does not allow this repo’s push token to create workflow files. Add it **once** in the GitHub UI:
+
+1. **GitHub** → repo **guyk-bot/agent4socials** → **Add file** → **Create new file**.
+2. File name: **`.github/workflows/trigger-vercel-deploy.yml`** (type the path exactly).
+3. Paste this entire block as the file content, then **Commit to main**:
+
+```yaml
+name: Trigger Vercel deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Vercel Deploy Hook
+        run: |
+          if [ -n "${{ secrets.VERCEL_DEPLOY_HOOK_URL }}" ]; then
+            curl -fsS -X POST "${{ secrets.VERCEL_DEPLOY_HOOK_URL }}"
+            echo "Vercel deploy triggered."
+          else
+            echo "VERCEL_DEPLOY_HOOK_URL not set. Add it in repo Secrets to trigger deploys on push."
+          fi
+        env:
+          VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+```
+
+### 4. Done
+
+Once the secret (step 2) and the workflow file (step 3) are in place, **every push to `main`** triggers a Vercel deployment, including pushes from Cursor.
 
 ---
 
