@@ -44,8 +44,8 @@ export async function GET(request: NextRequest) {
     console.error('[Twitter OAuth 1.0a] request_token failed', res.status, body);
     const hint =
       res.status === 401 || res.status === 403
-        ? ` Add this URL to your app's Callback URL allowlist in X Developer Portal (App settings or User authentication settings): ${callbackUrl} Use API Key and API Key Secret as TWITTER_API_KEY and TWITTER_API_SECRET (not Access Token).`
-        : ' Check TWITTER_API_KEY and TWITTER_API_SECRET (Consumer Key and Secret from X Developer Portal).';
+        ? ` In X Developer Console (console.x.com): Apps → your app → OAuth 2.0 Keys → Edit settings → add this Callback URI (use "Add another"): ${callbackUrl} Use OAuth 1.0 Consumer Key and Consumer Key Secret as TWITTER_API_KEY and TWITTER_API_SECRET (not Access Token).`
+        : ' Check TWITTER_API_KEY and TWITTER_API_SECRET (OAuth 1.0 Consumer Key and Secret from X Developer Console).';
     return NextResponse.json(
       { message: 'Twitter request token failed (HTTP ' + res.status + ').' + hint },
       { status: 502 }
