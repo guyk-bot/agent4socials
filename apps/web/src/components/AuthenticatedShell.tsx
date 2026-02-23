@@ -15,8 +15,8 @@ export default function AuthenticatedShell({
     const { user, loading } = useAuth();
     const router = useRouter();
     const { backgroundColor, primaryColor, textColor } = useWhiteLabel();
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
+    const [sidebarOpen, setSidebarOpen] = useState(true);
+    const toggleSidebar = useCallback(() => setSidebarOpen((v) => !v), []);
 
     React.useEffect(() => {
         if (!loading && !user) {
@@ -47,9 +47,9 @@ export default function AuthenticatedShell({
                 ['--wl-sidebar-bg' as string]: backgroundColor || '#f5f5f5',
             }}
         >
-            <AppHeader onMenuOpen={() => setMobileMenuOpen(true)} />
-            <Sidebar mobileOpen={mobileMenuOpen} onClose={closeMobileMenu} />
-            <main className="pl-0 md:pl-64 min-h-screen pt-14">
+            <AppHeader sidebarOpen={sidebarOpen} onSidebarToggle={toggleSidebar} />
+            <Sidebar sidebarOpen={sidebarOpen} onSidebarToggle={toggleSidebar} />
+            <main className={`min-h-screen pt-14 transition-[padding] duration-200 ${sidebarOpen ? 'pl-64' : 'pl-0'} md:pl-64`}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6 md:py-8">
                     {children}
                 </div>
