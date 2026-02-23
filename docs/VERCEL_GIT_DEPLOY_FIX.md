@@ -6,35 +6,11 @@ Vercel only starts a deployment when the **commit author** can be matched to a G
 
 ---
 
-## Easiest fix: Deploy Hook + app cron (no GitHub workflow needed)
+## Fix: Deploy on every push (GitHub Action + Deploy Hook)
 
-This app already has a cron that runs every 5 minutes. It checks the latest commit on `main`; if it changed since the last run, it calls your Vercel Deploy Hook. **No GitHub Actions or workflow scope required.**
+A workflow runs on every push to `main` and calls your Vercel Deploy Hook so **every** push triggers a deploy, regardless of commit author.
 
-### 1. Create a Deploy Hook in Vercel
-
-1. Open [Vercel](https://vercel.com) → your **web** project.
-2. **Settings** → **Git** → **Deploy Hooks**.
-3. **Create Hook**: name e.g. **Cron**, branch **main**, then **Create**.
-4. Copy the generated URL.
-
-### 2. Add env in Vercel
-
-In the **web** project → **Settings** → **Environment Variables**:
-
-- **`VERCEL_DEPLOY_HOOK_URL`** = the URL from step 1 (all envs).
-- **`CRON_SECRET`** = a random secret (same value you use for other cron routes; required so only Vercel Cron can call the trigger).
-- Optional: **`GITHUB_REPO`** if your repo is not `guyk-bot/agent4socials` (e.g. `owner/repo`).
-- Optional: **`GITHUB_TOKEN`** for private repos (no token needed for public).
-
-Redeploy once so the new env is applied. After that, every 5 minutes the app will see new commits on `main` and trigger the hook (deploy within about 5 minutes of a push).
-
----
-
-## Alternative: Deploy Hook + GitHub Action (immediate deploy on every push)
-
-This makes **every** push to `main` trigger a Vercel deployment, regardless of who authored the commit.
-
-### 1. Create a Deploy Hook in Vercel
+### 1. Create a Deploy Hook in Vercel (if you haven't)
 
 1. Open [Vercel](https://vercel.com) → your **web** project (the Next.js app).
 2. **Settings** → **Git** → scroll to **Deploy Hooks**.
@@ -46,40 +22,9 @@ This makes **every** push to `main` trigger a Vercel deployment, regardless of w
 1. Open **GitHub** → repo **guyk-bot/agent4socials** → **Settings** → **Secrets and variables** → **Actions**.
 2. **New repository secret**: name = **`VERCEL_DEPLOY_HOOK_URL`**, value = the URL from step 1.
 
-### 3. Add the workflow file (one-time)
+### 3. Done
 
-GitHub only allows creating/updating workflow files with a token that has **workflow** scope. If the workflow file is not yet in the repo, create it in GitHub:
-
-1. **GitHub** → repo → **Add file** → **Create new file**.
-2. Name the file: **`.github/workflows/trigger-vercel-deploy.yml`** (include the path).
-3. Paste the contents below, then **Commit changes** → **Commit directly to main**.
-
-```yaml
-name: Trigger Vercel deploy
-
-on:
-  push:
-    branches: [main]
-
-jobs:
-  trigger:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Trigger Vercel Deploy Hook
-        run: |
-          if [ -n "${{ secrets.VERCEL_DEPLOY_HOOK_URL }}" ]; then
-            curl -fsS -X POST "${{ secrets.VERCEL_DEPLOY_HOOK_URL }}"
-            echo "Vercel deploy triggered."
-          else
-            echo "VERCEL_DEPLOY_HOOK_URL not set. Add it in repo Secrets to trigger deploys on push."
-          fi
-        env:
-          VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
-```
-
-### 4. Done
-
-Once the secret and workflow file are in place, every push to `main` will trigger a new Vercel deployment. No need to change Git author or amend commits.
+Once the secret is set, every push to `main` triggers a Vercel deployment. The workflow file is in the repo (`.github/workflows/trigger-vercel-deploy.yml`). If it was not pushed because of token scope, add it once in GitHub: **Add file** → **Create new file** → path **`.github/workflows/trigger-vercel-deploy.yml`** → paste the content from the repo file → **Commit to main**.
 
 ---
 
