@@ -74,11 +74,25 @@ const MAX_HASHTAGS_PER_POST = 5;
 
 type MediaTypeChoice = 'photo' | 'video' | 'reel' | 'carousel';
 
-const MEDIA_RECOMMENDATIONS: Record<MediaTypeChoice, { label: string; accept: string; multiple: boolean; hint: string }> = {
+const VIDEO_ACCEPT = 'video/mp4,video/quicktime,video/x-ms-asf,video/x-msvideo,video/x-matroska,video/mpeg,video/webm,.mp4,.mov,.asf,.avi,.mkv,.mpeg,.mpg,.m4v,.webm';
+
+const MEDIA_RECOMMENDATIONS: Record<MediaTypeChoice, { label: string; accept: string; multiple: boolean; hint: string; formatsHint?: string }> = {
     photo: { label: 'Photo', accept: 'image/*', multiple: false, hint: 'Recommended: 1080×1080 (square) or 1080×1350 (portrait). Works on all platforms.' },
-    video: { label: 'Video', accept: 'video/*', multiple: false, hint: 'Recommended: 1080×1920 (9:16) or 1920×1080. Max length varies by platform.' },
-    reel: { label: 'Reel / Short', accept: 'video/*', multiple: false, hint: 'Instagram Reels / TikTok: 1080×1920 (9:16), 15–90 sec. YouTube Shorts: 1080×1920, up to 60 sec.' },
-    carousel: { label: 'Carousel', accept: 'image/*', multiple: true, hint: 'Add multiple images (2–10). Recommended: 1080×1080 per slide. Instagram, Facebook, Twitter/X, and LinkedIn support carousels.' },
+    video: {
+        label: 'Video',
+        accept: VIDEO_ACCEPT,
+        multiple: false,
+        hint: 'X: MP4, MOV up to 512MB, 2m20s (or 2h premium). LinkedIn: MP4, MOV, ASF, AVI, MKV, MPEG, WebM up to 5GB, 10 min. 1:1, 16:9, or 9:16.',
+        formatsHint: 'MP4, MOV, ASF, AVI, MKV, MPEG-1/4, WebM',
+    },
+    reel: {
+        label: 'Reel / Short',
+        accept: VIDEO_ACCEPT,
+        multiple: false,
+        hint: 'Reels/TikTok: 1080×1920 (9:16), 15–90 sec. Shorts: 1080×1920, up to 60 sec. X best: 1080×1080 or 1080×1920, under 60s.',
+        formatsHint: 'MP4, MOV, ASF, AVI, MKV, MPEG-1/4, WebM',
+    },
+    carousel: { label: 'Carousel', accept: 'image/*', multiple: true, hint: 'Add multiple images (2–10). Recommended: 1080×1080 per slide. Instagram, Facebook, X, and LinkedIn support carousels.' },
 };
 
 function normalizeHashtag(t: string): string {
@@ -1124,8 +1138,8 @@ export default function ComposerPage() {
                         </div>
                     </div>
 
-                    <div className="card space-y-4">
-                        <h3 className="font-semibold text-neutral-900">2. Media</h3>
+                    <div className="card space-y-5 border border-neutral-200/80 shadow-sm">
+                        <h3 className="font-semibold text-neutral-900 text-base">2. Media</h3>
                         <label className="flex items-center gap-2 cursor-pointer">
                             <input
                                 type="checkbox"
@@ -1138,7 +1152,7 @@ export default function ComposerPage() {
                         {!differentMediaPerPlatform ? (
                             <>
                                 <p className="text-sm font-medium text-neutral-700">Choose what to upload</p>
-                                <div className="flex flex-wrap gap-2">
+                                <div className="flex flex-wrap gap-2 p-1 bg-neutral-100/80 rounded-xl w-fit">
                                     {(['photo', 'video', 'reel', 'carousel'] as const).map((type) => (
                                         <button
                                             key={type}
@@ -1154,16 +1168,21 @@ export default function ComposerPage() {
                                                     });
                                                 }
                                             }}
-                                            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${mediaType === type
-                                                ? 'bg-indigo-600 text-white'
-                                                : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                                            className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${mediaType === type
+                                                ? 'bg-white text-indigo-700 shadow-sm ring-1 ring-neutral-200'
+                                                : 'text-neutral-600 hover:text-neutral-900 hover:bg-white/60'
                                                 }`}
                                         >
                                             {MEDIA_RECOMMENDATIONS[type].label}
                                         </button>
                                     ))}
                                 </div>
-                                <p className="text-xs text-neutral-500">{MEDIA_RECOMMENDATIONS[mediaType].hint}</p>
+                                <div className="space-y-0.5">
+                                    <p className="text-xs text-neutral-500">{MEDIA_RECOMMENDATIONS[mediaType].hint}</p>
+                                    {(mediaType === 'video' || mediaType === 'reel') && MEDIA_RECOMMENDATIONS[mediaType].formatsHint && (
+                                        <p className="text-xs text-neutral-400">Supported: {MEDIA_RECOMMENDATIONS[mediaType].formatsHint}. Max 512MB (X) / 5GB (LinkedIn).</p>
+                                    )}
+                                </div>
                                 <input
                                     ref={fileInputRef}
                                     type="file"
@@ -1177,9 +1196,9 @@ export default function ComposerPage() {
                                         type="button"
                                         onClick={() => fileInputRef.current?.click()}
                                         disabled={mediaUploading}
-                                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+                                        className="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-medium transition-all border-2 border-dashed border-neutral-300 hover:border-indigo-400 hover:bg-indigo-50/50 text-neutral-700 hover:text-indigo-800 disabled:opacity-50 disabled:border-neutral-200"
                                     >
-                                        <ImageIcon size={18} />
+                                        <ImageIcon size={18} className="shrink-0" />
                                         {mediaType === 'carousel'
                                             ? 'Add images for carousel'
                                             : `Add ${MEDIA_RECOMMENDATIONS[mediaType].label.toLowerCase()} from computer`}
@@ -1239,28 +1258,32 @@ export default function ComposerPage() {
                                     <p className="text-xs text-neutral-500">Drag images to reorder. Click an image to move it to position 1.</p>
                                 )}
                                 {(mediaType === 'video' || mediaType === 'reel') && mediaList.length === 1 && mediaList[0].type === 'VIDEO' && (
-                                    <div className="mt-4 p-4 rounded-xl bg-neutral-50 border border-neutral-200 space-y-3">
-                                        <h4 className="text-sm font-medium text-neutral-800">Thumbnail (optional)</h4>
-                                        <p className="text-xs text-neutral-500">Some platforms use this as the cover for your video. Upload an image or pick a frame from the video.{mediaType === 'reel' && ' Use 9:16 (1080×1920) for best results.'}</p>
-                                        <div className="flex flex-wrap items-start gap-4">
+                                    <div className="mt-5 p-5 rounded-2xl bg-gradient-to-b from-neutral-50 to-white border border-neutral-200/90 shadow-sm space-y-4">
+                                        <div>
+                                            <h4 className="text-sm font-semibold text-neutral-800">Thumbnail (optional)</h4>
+                                            <p className="text-xs text-neutral-500 mt-0.5">Cover for your video. Upload an image or pick a frame below.{mediaType === 'reel' && ' Use 9:16 (1080×1920) for best results.'}</p>
+                                        </div>
+                                        <div className="flex flex-wrap items-start gap-6">
                                             <div className="flex flex-col gap-2">
+                                                <span className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Current</span>
                                                 {mediaList[0].thumbnailUrl ? (
-                                                    <div className={`relative inline-block rounded-lg overflow-hidden border border-neutral-200 ${mediaType === 'reel' ? 'aspect-[9/16] w-28' : 'w-32 h-32'}`}>
+                                                    <div className={`relative inline-block rounded-xl overflow-hidden border border-neutral-200 shadow-sm ${mediaType === 'reel' ? 'aspect-[9/16] w-28' : 'w-32 h-32'}`}>
                                                         <img src={mediaDisplayUrl(mediaList[0].thumbnailUrl)} alt="Thumbnail" className="w-full h-full object-cover" />
-                                                        <button type="button" onClick={handleRemoveThumbnail} className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded opacity-90 hover:opacity-100" title="Remove thumbnail"><X size={14} /></button>
+                                                        <button type="button" onClick={handleRemoveThumbnail} className="absolute top-1.5 right-1.5 p-1.5 bg-red-500 text-white rounded-lg opacity-90 hover:opacity-100 shadow" title="Remove thumbnail"><X size={14} /></button>
                                                     </div>
                                                 ) : (
-                                                    <div className={`rounded-lg bg-neutral-200 border border-neutral-300 flex items-center justify-center text-xs text-neutral-500 ${mediaType === 'reel' ? 'aspect-[9/16] w-28' : 'w-32 h-32'}`}>No thumbnail</div>
+                                                    <div className={`rounded-xl bg-neutral-100 border border-neutral-200 flex items-center justify-center text-xs text-neutral-500 ${mediaType === 'reel' ? 'aspect-[9/16] w-28' : 'w-32 h-32'}`}>No thumbnail</div>
                                                 )}
-                                            </div>
-                                            <div className="flex flex-col gap-2">
                                                 <input ref={thumbnailFileInputRef} type="file" accept="image/*" className="hidden" onChange={handleThumbnailImageSelect} />
-                                                <button type="button" onClick={() => thumbnailFileInputRef.current?.click()} disabled={mediaUploading} className="inline-flex items-center gap-1.5 px-3 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-lg text-sm font-medium disabled:opacity-50">
+                                                <button type="button" onClick={() => thumbnailFileInputRef.current?.click()} disabled={mediaUploading} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-700 disabled:opacity-50 transition-colors">
                                                     <ImageIcon size={16} />
                                                     Upload image
                                                 </button>
+                                            </div>
+                                            <div className="flex flex-col gap-2">
+                                                <span className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Pick a frame</span>
                                                 <div className={`flex flex-col gap-1.5 ${mediaType === 'reel' ? 'w-36' : ''}`}>
-                                                    <div className={`relative rounded border border-neutral-200 overflow-hidden bg-black ${mediaType === 'reel' ? 'aspect-[9/16] w-36' : 'w-48'}`}>
+                                                    <div className={`relative rounded-xl border border-neutral-200 overflow-hidden bg-black shadow-sm ${mediaType === 'reel' ? 'aspect-[9/16] w-36' : 'w-48'}`}>
                                                         <video
                                                             ref={videoThumbnailRef}
                                                             src={mediaDisplayUrl(mediaList[0].fileUrl)}
@@ -1285,9 +1308,9 @@ export default function ComposerPage() {
                                                         />
                                                         <canvas ref={thumbnailCanvasRef} className="absolute inset-0 w-full h-full object-contain" style={{ width: '100%', height: '100%', zIndex: 1 }} />
                                                     </div>
-                                                    <input type="range" min={0} max={thumbnailVideoDuration} step={0.1} value={thumbnailPickerTime} onChange={(e) => handleThumbnailSliderChange(parseFloat(e.target.value))} onInput={(e) => handleThumbnailSliderChange(parseFloat((e.target as HTMLInputElement).value))} className="w-full max-w-[12rem]" />
-                                                    <button type="button" onClick={handleUseFrameAsThumbnail} disabled={thumbnailPicking || mediaUploading} className="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-800 rounded-lg text-sm font-medium disabled:opacity-50">
-                                                        {thumbnailPicking ? <Loader2 size={16} className="animate-spin" /> : <ImageIcon size={16} />}
+                                                    <input type="range" min={0} max={thumbnailVideoDuration} step={0.1} value={thumbnailPickerTime} onChange={(e) => handleThumbnailSliderChange(parseFloat(e.target.value))} onInput={(e) => handleThumbnailSliderChange(parseFloat((e.target as HTMLInputElement).value))} className="w-full max-w-[12rem] h-2 rounded-full accent-indigo-600" />
+                                                    <button type="button" onClick={handleUseFrameAsThumbnail} disabled={thumbnailPicking || mediaUploading} className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-colors shadow-sm">
+                                                        {thumbnailPicking ? <Loader2 size={16} className="animate-spin shrink-0" /> : <ImageIcon size={16} className="shrink-0" />}
                                                         Use this frame
                                                     </button>
                                                 </div>
@@ -1304,7 +1327,7 @@ export default function ComposerPage() {
                                         <input
                                             ref={(el) => { fileInputByPlatformRef.current[p] = el; }}
                                             type="file"
-                                            accept="image/*,video/*"
+                                            accept={`image/*,${VIDEO_ACCEPT}`}
                                             multiple
                                             className="hidden"
                                             onChange={(ev) => handleFileSelectForPlatform(p, ev)}
