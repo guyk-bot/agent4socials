@@ -272,7 +272,7 @@ export default function DashboardPage() {
       setAggregatedInsights(null);
       return;
     }
-    const insightAccounts = accounts.filter((a) => a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK');
+    const insightAccounts = accounts.filter((a) => a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK' || a.platform === 'TWITTER');
     if (insightAccounts.length === 0) {
       setAggregatedInsights(null);
       return;
@@ -299,7 +299,7 @@ export default function DashboardPage() {
         for (const { platform, data } of results) {
           if (!data) continue;
           const fol = data.followers ?? 0;
-          const imp = data.impressionsTotal ?? 0;
+          const imp = platform === 'TWITTER' ? (data.impressionsTotal ?? (data as { tweetCount?: number }).tweetCount ?? 0) : (data.impressionsTotal ?? 0);
           const ts = data.impressionsTimeSeries ?? [];
           byPlatform[platform] = { followers: fol, impressions: imp, timeSeries: ts };
           totalFollowers += fol;
@@ -570,7 +570,13 @@ export default function DashboardPage() {
           </>
         ) : hasAccounts ? (
           <div className="flex gap-3 p-3 bg-white rounded-xl border border-neutral-200 w-fit">
-            <div className="w-12 h-12 rounded-full bg-neutral-100 flex items-center justify-center shrink-0">{PLATFORM_ICON.INSTAGRAM}</div>
+            <div className="flex items-center gap-1 shrink-0">
+              {accounts.slice(0, 6).map((acc) => (
+                <span key={acc.id} className="w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center [&>svg]:w-4 [&>svg]:h-4" title={acc.platform}>
+                  {PLATFORM_ICON[acc.platform] ?? acc.platform}
+                </span>
+              ))}
+            </div>
             <div>
               <p className="font-semibold text-neutral-900">All connected accounts</p>
               <p className="text-sm text-neutral-500">{accounts.length} account{accounts.length !== 1 ? 's' : ''} · Select one in the sidebar for a single profile</p>
@@ -616,8 +622,24 @@ export default function DashboardPage() {
                   </>
                 ) : (
                   <>
-                    {aggregatedInsights?.byPlatform?.INSTAGRAM != null && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{aggregatedInsights.byPlatform.INSTAGRAM.followers} Instagram</span>}
-                    {aggregatedInsights?.byPlatform?.FACEBOOK != null && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{aggregatedInsights.byPlatform.FACEBOOK.followers || '—'} Facebook</span>}
+                    {Array.from(new Set(accounts.map((a) => a.platform))).map((platform) => {
+                      const data = aggregatedInsights?.byPlatform?.[platform];
+                      const value = data != null ? data.followers : null;
+                      const label = platform === 'TWITTER' ? 'X' : platform.charAt(0) + platform.slice(1).toLowerCase();
+                      const cls =
+                        platform === 'INSTAGRAM' ? 'bg-pink-100 text-pink-800' :
+                        platform === 'FACEBOOK' ? 'bg-blue-100 text-blue-800' :
+                        platform === 'TWITTER' ? 'bg-neutral-100 text-neutral-800' :
+                        platform === 'TIKTOK' ? 'bg-black/10 text-neutral-800' :
+                        platform === 'YOUTUBE' ? 'bg-red-100 text-red-800' :
+                        platform === 'LINKEDIN' ? 'bg-blue-50 text-blue-800' :
+                        'bg-neutral-100 text-neutral-700';
+                      return (
+                        <span key={platform} className={`px-2.5 py-1 rounded-md text-xs font-medium ${cls}`}>
+                          {value != null ? value : '—'} {label}
+                        </span>
+                      );
+                    })}
                   </>
                 )}
               </div>
@@ -660,8 +682,24 @@ export default function DashboardPage() {
                   </>
                 ) : (
                   <>
-                    {aggregatedInsights?.byPlatform?.FACEBOOK != null && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{aggregatedInsights.byPlatform.FACEBOOK.impressions || '—'} Facebook</span>}
-                    {aggregatedInsights?.byPlatform?.INSTAGRAM != null && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{aggregatedInsights.byPlatform.INSTAGRAM.impressions} Instagram</span>}
+                    {Array.from(new Set(accounts.map((a) => a.platform))).map((platform) => {
+                      const data = aggregatedInsights?.byPlatform?.[platform];
+                      const value = data != null ? data.impressions : null;
+                      const label = platform === 'TWITTER' ? 'X (Tweets)' : platform === 'INSTAGRAM' ? 'Instagram (Views)' : platform === 'FACEBOOK' ? 'Facebook (Views)' : platform.charAt(0) + platform.slice(1).toLowerCase();
+                      const cls =
+                        platform === 'INSTAGRAM' ? 'bg-pink-100 text-pink-800' :
+                        platform === 'FACEBOOK' ? 'bg-blue-100 text-blue-800' :
+                        platform === 'TWITTER' ? 'bg-neutral-100 text-neutral-800' :
+                        platform === 'TIKTOK' ? 'bg-black/10 text-neutral-800' :
+                        platform === 'YOUTUBE' ? 'bg-red-100 text-red-800' :
+                        platform === 'LINKEDIN' ? 'bg-blue-50 text-blue-800' :
+                        'bg-neutral-100 text-neutral-700';
+                      return (
+                        <span key={platform} className={`px-2.5 py-1 rounded-md text-xs font-medium ${cls}`}>
+                          {value != null && value > 0 ? value : '—'} {label}
+                        </span>
+                      );
+                    })}
                   </>
                 )}
               </div>
