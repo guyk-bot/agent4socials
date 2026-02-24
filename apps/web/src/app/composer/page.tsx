@@ -664,7 +664,8 @@ export default function ComposerPage() {
     const drawVideoFrameToCanvas = useCallback(() => {
         const video = videoThumbnailRef.current;
         const canvas = thumbnailCanvasRef.current;
-        if (!video || !canvas || video.readyState < 2) return;
+        if (!video || !canvas) return;
+        if (video.readyState < 2) return;
         const w = video.videoWidth;
         const h = video.videoHeight;
         if (!w || !h) return;
@@ -674,6 +675,21 @@ export default function ComposerPage() {
         if (!ctx) return;
         ctx.drawImage(video, 0, 0);
     }, []);
+
+    const handleThumbnailSliderChange = useCallback((t: number) => {
+        setThumbnailPickerTime(t);
+        const v = videoThumbnailRef.current;
+        if (!v) return;
+        v.currentTime = t;
+        drawVideoFrameToCanvas();
+        const drawAfterSeek = () => {
+            drawVideoFrameToCanvas();
+        };
+        requestAnimationFrame(() => drawAfterSeek());
+        setTimeout(drawAfterSeek, 50);
+        setTimeout(drawAfterSeek, 150);
+        setTimeout(drawAfterSeek, 400);
+    }, [drawVideoFrameToCanvas]);
 
     const handleRemoveMediaForPlatform = (platform: string, index: number) => {
         setMediaByPlatform((prev) => ({
@@ -1246,7 +1262,8 @@ export default function ComposerPage() {
                                                         <video
                                                             ref={videoThumbnailRef}
                                                             src={mediaDisplayUrl(mediaList[0].fileUrl)}
-                                                            className="absolute inset-0 w-full h-full object-contain opacity-0 pointer-events-none"
+                                                            className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+                                                            style={{ zIndex: 0, opacity: 0.01 }}
                                                             muted
                                                             playsInline
                                                             preload="auto"
@@ -1261,9 +1278,9 @@ export default function ComposerPage() {
                                                             onSeeked={drawVideoFrameToCanvas}
                                                             onTimeUpdate={(e) => setThumbnailPickerTime(e.currentTarget.currentTime)}
                                                         />
-                                                        <canvas ref={thumbnailCanvasRef} className="absolute inset-0 w-full h-full object-contain" style={{ width: '100%', height: '100%' }} />
+                                                        <canvas ref={thumbnailCanvasRef} className="absolute inset-0 w-full h-full object-contain" style={{ width: '100%', height: '100%', zIndex: 1 }} />
                                                     </div>
-                                                    <input type="range" min={0} max={thumbnailVideoDuration} step={0.1} value={thumbnailPickerTime} onChange={(e) => { const t = parseFloat(e.target.value); setThumbnailPickerTime(t); const v = videoThumbnailRef.current; if (v) { v.currentTime = t; } }} className="w-full max-w-[12rem]" />
+                                                    <input type="range" min={0} max={thumbnailVideoDuration} step={0.1} value={thumbnailPickerTime} onChange={(e) => handleThumbnailSliderChange(parseFloat(e.target.value))} onInput={(e) => handleThumbnailSliderChange(parseFloat((e.target as HTMLInputElement).value))} className="w-full max-w-[12rem]" />
                                                     <button type="button" onClick={handleUseFrameAsThumbnail} disabled={thumbnailPicking || mediaUploading} className="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-800 rounded-lg text-sm font-medium disabled:opacity-50">
                                                         {thumbnailPicking ? <Loader2 size={16} className="animate-spin" /> : <ImageIcon size={16} />}
                                                         Use this frame
