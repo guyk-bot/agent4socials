@@ -166,6 +166,7 @@ export default function ComposerPage() {
     const [scheduledAt, setScheduledAt] = useState('');
     const [scheduleDelivery, setScheduleDelivery] = useState<'auto' | 'email_links'>('auto');
     const [accounts, setAccounts] = useState<{ id: string; platform: string }[]>([]);
+    const [accountsFetched, setAccountsFetched] = useState(false);
     const [loading, setLoading] = useState(false);
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [sectionOpen, setSectionOpen] = useState({ platforms: true, media: true, content: false, commentAutomation: false, hashtags: false, schedule: false });
@@ -544,15 +545,20 @@ export default function ComposerPage() {
     ]);
 
     useEffect(() => {
-        const fetchAccounts = async () => {
-            try {
-                const res = await api.get('/social/accounts');
-                setAccounts(res.data);
-            } catch (err) {
-                console.error('Failed to fetch accounts');
-            }
-        };
-        fetchAccounts();
+        let cancelled = false;
+        api.get('/social/accounts')
+            .then((res) => {
+                if (!cancelled) {
+                    setAccounts(Array.isArray(res.data) ? res.data : []);
+                }
+            })
+            .catch(() => {
+                if (!cancelled) setAccounts([]);
+            })
+            .finally(() => {
+                if (!cancelled) setAccountsFetched(true);
+            });
+        return () => { cancelled = true; };
     }, []);
 
     // Photo / Video / Reel: only one item allowed; trim if more
@@ -1009,6 +1015,20 @@ export default function ComposerPage() {
             setLoading(false);
         }
     };
+
+    const composerReady = draftRestored && (!editPostId || editLoaded) && accountsFetched;
+
+    if (!composerReady) {
+        return (
+            <div className="max-w-6xl mx-auto px-2 sm:px-4 flex flex-col items-center justify-center min-h-[60vh]">
+                <div className="flex flex-col items-center gap-4">
+                    <Loader2 size={40} className="animate-spin text-indigo-600" aria-hidden />
+                    <p className="text-neutral-600 font-medium">Loading composer…</p>
+                    <p className="text-sm text-neutral-400">Restoring your draft and accounts</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-6xl mx-auto px-2 sm:px-4 space-y-6">
