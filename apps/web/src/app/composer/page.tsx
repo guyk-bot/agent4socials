@@ -14,6 +14,8 @@ import {
     Hash,
     ChevronLeft,
     ChevronRight,
+    ChevronDown,
+    ChevronUp,
     Sparkles,
     Loader2,
     Download,
@@ -166,6 +168,8 @@ export default function ComposerPage() {
     const [accounts, setAccounts] = useState<{ id: string; platform: string }[]>([]);
     const [loading, setLoading] = useState(false);
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
+    const [sectionOpen, setSectionOpen] = useState({ platforms: true, media: true, content: false, commentAutomation: false, hashtags: false, schedule: false });
+    const toggleSection = (key: keyof typeof sectionOpen) => setSectionOpen((s) => ({ ...s, [key]: !s[key] }));
 
     // Hashtags: pool (saved), selection for this post (max 5), per-platform option
     const [hashtagPool, setHashtagPool] = useState<string[]>([]);
@@ -974,7 +978,7 @@ export default function ComposerPage() {
     };
 
     return (
-        <div className="max-w-4xl mx-auto space-y-8">
+        <div className="max-w-6xl mx-auto px-2 sm:px-4 space-y-6">
             <ConfirmModal
                 open={alertMessage !== null}
                 onClose={() => setAlertMessage(null)}
@@ -1088,11 +1092,15 @@ export default function ComposerPage() {
                 <p className="text-neutral-500 mt-1">{editPostId ? 'Update content, schedule, or platforms.' : 'Draft, preview and schedule your content across platforms.'}</p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="card space-y-4">
-                        <h3 className="font-semibold text-neutral-900">1. Select Platforms</h3>
-                        <div className="flex flex-wrap gap-3 justify-center">
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-6 lg:gap-8">
+                <form onSubmit={handleSubmit} className="space-y-4 min-w-0">
+                    <div className="card">
+                        <button type="button" onClick={() => toggleSection('platforms')} className="w-full flex items-center justify-between text-left">
+                            <h3 className="font-semibold text-neutral-900">Select Platforms</h3>
+                            {sectionOpen.platforms ? <ChevronUp size={20} className="text-neutral-400 shrink-0" /> : <ChevronDown size={20} className="text-neutral-400 shrink-0" />}
+                        </button>
+                        {sectionOpen.platforms && (
+                        <div className="pt-4 flex flex-wrap gap-3 justify-center">
                             <PlatformToggle
                                 platform="INSTAGRAM"
                                 label="Instagram"
@@ -1136,10 +1144,16 @@ export default function ComposerPage() {
                                 onClick={() => setPlatforms(prev => prev.includes('LINKEDIN') ? prev.filter(p => p !== 'LINKEDIN') : [...prev, 'LINKEDIN'])}
                             />
                         </div>
+                        )}
                     </div>
 
-                    <div className="card space-y-5 border border-neutral-200/80 shadow-sm">
-                        <h3 className="font-semibold text-neutral-900 text-base">2. Media</h3>
+                    <div className="card border border-neutral-200/80 shadow-sm">
+                        <button type="button" onClick={() => toggleSection('media')} className="w-full flex items-center justify-between text-left">
+                            <h3 className="font-semibold text-neutral-900 text-base">Media</h3>
+                            {sectionOpen.media ? <ChevronUp size={20} className="text-neutral-400 shrink-0" /> : <ChevronDown size={20} className="text-neutral-400 shrink-0" />}
+                        </button>
+                        {sectionOpen.media && (
+                        <div className="pt-4 space-y-5">
                         <label className="flex items-center gap-2 cursor-pointer">
                             <input
                                 type="checkbox"
@@ -1363,10 +1377,17 @@ export default function ComposerPage() {
                                 {mediaUploadError && <p className="text-sm text-red-600">{mediaUploadError}</p>}
                             </div>
                         )}
+                        </div>
+                        )}
                     </div>
 
                     <div className="card space-y-4">
-                        <h3 className="font-semibold text-neutral-900">3. Content</h3>
+                        <button type="button" onClick={() => toggleSection('content')} className="w-full flex items-center justify-between text-left">
+                            <h3 className="font-semibold text-neutral-900">Content</h3>
+                            {sectionOpen.content ? <ChevronUp size={20} className="text-neutral-400 shrink-0" /> : <ChevronDown size={20} className="text-neutral-400 shrink-0" />}
+                        </button>
+                        {sectionOpen.content && (
+                        <div className="pt-4 space-y-4">
                         <label className="flex items-center gap-2 cursor-pointer">
                             <input
                                 type="checkbox"
@@ -1434,10 +1455,17 @@ export default function ComposerPage() {
                                 {platforms.length === 0 && <p className="text-sm text-neutral-500">Select platforms above first.</p>}
                             </div>
                         )}
+                        </div>
+                        )}
                     </div>
 
                     <div className="card space-y-4">
-                        <h3 className="font-semibold text-neutral-900">4. Comment automation</h3>
+                        <button type="button" onClick={() => toggleSection('commentAutomation')} className="w-full flex items-center justify-between text-left">
+                            <h3 className="font-semibold text-neutral-900">Comment automation</h3>
+                            {sectionOpen.commentAutomation ? <ChevronUp size={20} className="text-neutral-400 shrink-0" /> : <ChevronDown size={20} className="text-neutral-400 shrink-0" />}
+                        </button>
+                        {sectionOpen.commentAutomation && (
+                        <div className="pt-4 space-y-4">
                         <label className="flex items-center gap-2 cursor-pointer">
                             <input
                                 type="checkbox"
@@ -1502,13 +1530,20 @@ export default function ComposerPage() {
                                 )}
                             </div>
                         )}
+                        </div>
+                        )}
                     </div>
 
                     <div className="card space-y-4">
-                        <h3 className="font-semibold text-neutral-900 flex items-center gap-2">
-                            <Hash size={20} className="text-neutral-500" />
-                            5. Hashtags
-                        </h3>
+                        <button type="button" onClick={() => toggleSection('hashtags')} className="w-full flex items-center justify-between text-left">
+                            <h3 className="font-semibold text-neutral-900 flex items-center gap-2">
+                                <Hash size={20} className="text-neutral-500" />
+                                Hashtags
+                            </h3>
+                            {sectionOpen.hashtags ? <ChevronUp size={20} className="text-neutral-400 shrink-0" /> : <ChevronDown size={20} className="text-neutral-400 shrink-0" />}
+                        </button>
+                        {sectionOpen.hashtags && (
+                        <div className="pt-4 space-y-4">
                         <p className="text-sm text-neutral-500">Add hashtags to your pool, then choose up to 5 per post. They will be added after your content.</p>
                         <div className="space-y-3">
                             <div className="flex gap-2">
@@ -1583,10 +1618,17 @@ export default function ComposerPage() {
                                 )}
                             </>
                         )}
+                        </div>
+                        )}
                     </div>
 
                     <div className="card space-y-4">
-                        <h3 className="font-semibold text-neutral-900">6. Schedule</h3>
+                        <button type="button" onClick={() => toggleSection('schedule')} className="w-full flex items-center justify-between text-left">
+                            <h3 className="font-semibold text-neutral-900">Schedule</h3>
+                            {sectionOpen.schedule ? <ChevronUp size={20} className="text-neutral-400 shrink-0" /> : <ChevronDown size={20} className="text-neutral-400 shrink-0" />}
+                        </button>
+                        {sectionOpen.schedule && (
+                        <div className="pt-4 space-y-4">
                         <div className="flex items-center gap-3">
                             <Calendar size={22} className="text-neutral-400 shrink-0" />
                             <input
@@ -1624,6 +1666,8 @@ export default function ComposerPage() {
                                 <p className="text-xs text-neutral-500 mt-1 ml-6">You will receive the email when the scheduled time is reached (usually within a few minutes).</p>
                             )}
                         </div>
+                        </div>
+                        )}
                     </div>
 
                     <button
@@ -1645,32 +1689,35 @@ export default function ComposerPage() {
                     </button>
                 </form>
 
-                <div className="hidden lg:block space-y-6">
-                    <h2 className="text-xl font-semibold text-neutral-900">Preview</h2>
-                    <div className="sticky top-8 space-y-6">
+                <div className="lg:block space-y-3">
+                    <h2 className="text-sm font-semibold text-neutral-600 uppercase tracking-wide">Preview</h2>
+                    <div className="sticky top-6 space-y-3 overflow-y-auto max-h-[calc(100vh-8rem)]">
                         {platforms.length === 0 ? (
-                            <div className="card border-2 border-dashed border-neutral-200 bg-neutral-50/50 flex flex-col items-center justify-center py-16 text-neutral-400">
-                                <ImageIcon size={40} strokeWidth={1.5} className="text-neutral-300" />
-                                <p className="mt-3 text-sm font-medium">Select a platform to see preview</p>
+                            <div className="rounded-xl border-2 border-dashed border-neutral-200 bg-neutral-50/50 flex flex-col items-center justify-center py-8 text-neutral-400">
+                                <ImageIcon size={28} strokeWidth={1.5} className="text-neutral-300" />
+                                <p className="mt-2 text-xs font-medium">Select platforms</p>
                             </div>
                         ) : (
-                            platforms.map(p => {
-                                const baseContent = differentContentPerPlatform ? (contentByPlatform[p] ?? '') : content;
-                                const tags = differentHashtagsPerPlatform ? (selectedHashtagsByPlatform[p] ?? []) : selectedHashtags;
-                                const contentWithHashtags = baseContent.trim() + (tags.length ? ' ' + tags.join(' ') : '');
-                                const accountForPlatform = accounts.find((a: { platform: string }) => a.platform === p) as { username?: string; profilePicture?: string } | undefined;
-                                return (
-                                    <PostPreview
-                                        key={p}
-                                        platform={p}
-                                        profileName={accountForPlatform?.username ?? ''}
-                                        profilePicture={accountForPlatform?.profilePicture ?? undefined}
-                                        content={contentWithHashtags}
-                                        media={differentMediaPerPlatform ? (mediaByPlatform[p] ?? []) : mediaList}
-                                        mediaType={mediaType}
-                                    />
-                                );
-                            })
+                            <div className="grid grid-cols-2 gap-2">
+                                {platforms.map(p => {
+                                    const baseContent = differentContentPerPlatform ? (contentByPlatform[p] ?? '') : content;
+                                    const tags = differentHashtagsPerPlatform ? (selectedHashtagsByPlatform[p] ?? []) : selectedHashtags;
+                                    const contentWithHashtags = baseContent.trim() + (tags.length ? ' ' + tags.join(' ') : '');
+                                    const accountForPlatform = accounts.find((a: { platform: string }) => a.platform === p) as { username?: string; profilePicture?: string } | undefined;
+                                    return (
+                                        <PostPreview
+                                            key={p}
+                                            platform={p}
+                                            profileName={accountForPlatform?.username ?? ''}
+                                            profilePicture={accountForPlatform?.profilePicture ?? undefined}
+                                            content={contentWithHashtags}
+                                            media={differentMediaPerPlatform ? (mediaByPlatform[p] ?? []) : mediaList}
+                                            mediaType={mediaType}
+                                            compact
+                                        />
+                                    );
+                                })}
+                            </div>
                         )}
                     </div>
                 </div>
@@ -1702,6 +1749,7 @@ function PostPreview({
     content,
     media,
     mediaType = 'photo',
+    compact = false,
 }: {
     platform: string;
     profileName: string;
@@ -1709,6 +1757,7 @@ function PostPreview({
     content: string;
     media: { fileUrl: string; type: string; thumbnailUrl?: string }[];
     mediaType?: MediaTypeChoice;
+    compact?: boolean;
 }) {
     const [currentSlide, setCurrentSlide] = useState(0);
     const slideIndex = media.length > 0 ? Math.min(currentSlide, media.length - 1) : 0;
@@ -1716,19 +1765,19 @@ function PostPreview({
 
     const PlatformIcon = () => {
         switch (platform) {
-            case 'INSTAGRAM': return <InstagramIcon size={22} />;
-            case 'YOUTUBE': return <YoutubeIcon size={22} />;
-            case 'TIKTOK': return <TikTokIcon size={22} />;
-            case 'FACEBOOK': return <FacebookIcon size={22} />;
-            case 'TWITTER': return <XTwitterIcon size={22} className="text-neutral-800" />;
-            case 'LINKEDIN': return <LinkedinIcon size={22} />;
-            default: return <Video size={22} className="text-neutral-500" />;
+            case 'INSTAGRAM': return <InstagramIcon size={compact ? 16 : 22} />;
+            case 'YOUTUBE': return <YoutubeIcon size={compact ? 16 : 22} />;
+            case 'TIKTOK': return <TikTokIcon size={compact ? 16 : 22} />;
+            case 'FACEBOOK': return <FacebookIcon size={compact ? 16 : 22} />;
+            case 'TWITTER': return <XTwitterIcon size={compact ? 16 : 22} className="text-neutral-800" />;
+            case 'LINKEDIN': return <LinkedinIcon size={compact ? 16 : 22} />;
+            default: return <Video size={compact ? 16 : 22} className="text-neutral-500" />;
         }
     };
     return (
-        <div className="card overflow-hidden !p-0 max-w-sm mx-auto shadow-lg border border-neutral-200">
-            <div className="p-3 border-b border-neutral-100 flex items-center gap-2">
-                <div className="w-9 h-9 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden">
+        <div className={`rounded-xl overflow-hidden border border-neutral-200 bg-white shadow-sm ${compact ? 'max-w-[140px]' : 'max-w-sm mx-auto shadow-lg'}`}>
+            <div className={`border-b border-neutral-100 flex items-center gap-1.5 ${compact ? 'p-1.5' : 'p-3'}`}>
+                <div className={`rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden ${compact ? 'w-6 h-6' : 'w-9 h-9'}`}>
                     {profilePicture ? (
                         <img src={profilePicture} alt="" className="w-full h-full object-cover" />
                     ) : (
@@ -1736,8 +1785,8 @@ function PostPreview({
                     )}
                 </div>
                 <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-neutral-900 truncate">{profileName || 'Your profile'}</p>
-                    <p className="text-xs text-neutral-500 truncate">{PLATFORM_LABELS[platform] || platform}</p>
+                    <p className={`truncate text-neutral-900 ${compact ? 'text-[10px] font-semibold' : 'text-sm font-semibold'}`}>{profileName || 'Your profile'}</p>
+                    <p className={`truncate text-neutral-500 ${compact ? 'text-[9px]' : 'text-xs'}`}>{PLATFORM_LABELS[platform] || platform}</p>
                 </div>
             </div>
             <div className={`bg-neutral-50 flex items-center justify-center overflow-hidden relative ${mediaType === 'reel' ? 'aspect-[9/16]' : 'aspect-square'}`}>
@@ -1757,32 +1806,32 @@ function PostPreview({
                                 <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); setCurrentSlide((s) => (s <= 0 ? media.length - 1 : s - 1)); }}
-                                    className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center shadow"
+                                    className={`absolute top-1/2 -translate-y-1/2 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center shadow ${compact ? 'left-0.5 w-6 h-6' : 'left-2 w-9 h-9'}`}
                                     aria-label="Previous"
                                 >
-                                    <ChevronLeft size={22} />
+                                    <ChevronLeft size={compact ? 14 : 22} />
                                 </button>
                                 <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); setCurrentSlide((s) => (s >= media.length - 1 ? 0 : s + 1)); }}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center shadow"
+                                    className={`absolute top-1/2 -translate-y-1/2 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center shadow ${compact ? 'right-0.5 w-6 h-6' : 'right-2 w-9 h-9'}`}
                                     aria-label="Next"
                                 >
-                                    <ChevronRight size={22} />
+                                    <ChevronRight size={compact ? 14 : 22} />
                                 </button>
-                                <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-black/60 text-white text-xs font-medium">
+                                <span className={`absolute bottom-1 right-1 rounded bg-black/60 text-white font-medium ${compact ? 'px-1 py-0.5 text-[9px]' : 'bottom-2 right-2 px-2 py-0.5 text-xs'}`}>
                                     {slideIndex + 1} / {media.length}
                                 </span>
                             </>
                         )}
                     </>
                 ) : (
-                    <ImageIcon size={36} className="text-neutral-200" strokeWidth={1.5} />
+                    <ImageIcon size={compact ? 20 : 36} className="text-neutral-200" strokeWidth={1.5} />
                 )}
             </div>
-            <div className="p-3 space-y-2">
-                <p className="text-sm text-neutral-800 whitespace-pre-wrap break-words max-h-32 overflow-y-auto">
-                    {content || 'Your caption will appear here...'}
+            <div className={compact ? 'p-1.5' : 'p-3 space-y-2'}>
+                <p className={`text-neutral-800 whitespace-pre-wrap break-words overflow-y-auto ${compact ? 'text-[10px] max-h-12' : 'text-sm max-h-32'}`}>
+                    {content || (compact ? '…' : 'Your caption will appear here...')}
                 </p>
             </div>
         </div>
