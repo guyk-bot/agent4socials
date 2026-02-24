@@ -171,6 +171,36 @@ export default function ComposerPage() {
     const [sectionOpen, setSectionOpen] = useState({ platforms: true, media: true, content: false, commentAutomation: false, hashtags: false, schedule: false });
     const toggleSection = (key: keyof typeof sectionOpen) => setSectionOpen((s) => ({ ...s, [key]: !s[key] }));
 
+    // Resizable right preview panel (px); min 200, max 480
+    const [previewWidthPx, setPreviewWidthPx] = useState(260);
+    const previewResizeRef = useRef<{ startX: number; startW: number } | null>(null);
+
+    useEffect(() => {
+        const onMove = (e: MouseEvent) => {
+            const r = previewResizeRef.current;
+            if (!r) return;
+            const delta = r.startX - e.clientX;
+            setPreviewWidthPx((w) => Math.min(480, Math.max(200, r.startW + delta)));
+        };
+        const onUp = () => { previewResizeRef.current = null; };
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+        return () => {
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onUp);
+        };
+    }, []);
+
+    // Thumbnail source: which single option is selected (none = use video default, upload = custom image, frame = pick from video)
+    const [thumbnailChoice, setThumbnailChoice] = useState<'none' | 'upload' | 'frame'>('none');
+
+    // When we have a thumbnail (e.g. from draft), show a selected option so UI matches state
+    useEffect(() => {
+        if (mediaList.length === 1 && mediaList[0].type === 'VIDEO' && mediaList[0].thumbnailUrl && thumbnailChoice === 'none') {
+            setThumbnailChoice('upload');
+        }
+    }, [mediaList.length, mediaList[0]?.type, mediaList[0]?.thumbnailUrl, thumbnailChoice]);
+
     // Hashtags: pool (saved), selection for this post (max 5), per-platform option
     const [hashtagPool, setHashtagPool] = useState<string[]>([]);
     const [newHashtagInput, setNewHashtagInput] = useState('');
@@ -644,6 +674,7 @@ export default function ComposerPage() {
         try {
             const { fileUrl } = await uploadFile(file);
             setMediaList((prev) => prev.map((item, i) => (i === 0 ? { ...item, thumbnailUrl: fileUrl } : item)));
+            setThumbnailChoice('upload');
         } catch (err) {
             setMediaUploadError('Thumbnail upload failed. Try again.');
         } finally {
@@ -669,6 +700,7 @@ export default function ComposerPage() {
             const file = new File([blob], 'thumbnail.jpg', { type: 'image/jpeg' });
             const { fileUrl } = await uploadFile(file);
             setMediaList((prev) => prev.map((item, i) => (i === 0 ? { ...item, thumbnailUrl: fileUrl } : item)));
+            setThumbnailChoice('frame');
         } catch (err) {
             setMediaUploadError('Failed to use frame. Try again or upload an image.');
         } finally {
@@ -678,6 +710,7 @@ export default function ComposerPage() {
 
     const handleRemoveThumbnail = () => {
         setMediaList((prev) => prev.map((item, i) => (i === 0 ? { ...item, thumbnailUrl: undefined } : item)));
+        setThumbnailChoice('none');
     };
 
     const drawVideoFrameToCanvas = useCallback(() => {
@@ -1092,8 +1125,8 @@ export default function ComposerPage() {
                 <p className="text-neutral-500 mt-1">{editPostId ? 'Update content, schedule, or platforms.' : 'Draft, preview and schedule your content across platforms.'}</p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-6 lg:gap-8">
-                <form onSubmit={handleSubmit} className="space-y-4 min-w-0">
+            <div className="flex flex-col lg:flex-row gap-0 lg:gap-0 items-stretch">
+                <form onSubmit={handleSubmit} className="space-y-4 min-w-0 flex-1 lg:min-w-0">
                     <div className="card">
                         <button type="button" onClick={() => toggleSection('platforms')} className="w-full flex items-center justify-between text-left">
                             <h3 className="font-semibold text-neutral-900">Select Platforms</h3>
@@ -1226,35 +1259,49 @@ export default function ComposerPage() {
                                             <div>
                                                 <h4 className="text-sm font-semibold text-neutral-800">Thumbnail (optional)</h4>
                                                 <p className="text-xs text-neutral-500 mt-0.5">{mediaType === 'reel' ? '9:16 (1080×1920) for best results.' : 'Cover for your video.'}</p>
+                                                <p className="text-xs text-neutral-400 mt-1 font-medium">Choose one option:</p>
                                             </div>
-                                            <div className="flex flex-col gap-3">
-                                                <div className="flex flex-col gap-1.5">
-                                                    <span className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Current</span>
-                                                    <input ref={thumbnailFileInputRef} type="file" accept="image/*" className="hidden" onChange={handleThumbnailImageSelect} />
-                                                    <div className="flex flex-wrap items-center gap-2">
+                                            <div className="flex flex-col gap-2">
+                                                <label className={`flex items-center gap-2.5 p-2.5 rounded-lg border-2 cursor-pointer transition-colors ${thumbnailChoice === 'none' ? 'border-indigo-500 bg-indigo-50/80' : 'border-neutral-200 hover:border-neutral-300'}`}>
+                                                    <input type="radio" name="thumbnailOption" checked={thumbnailChoice === 'none'} onChange={() => { setThumbnailChoice('none'); handleRemoveThumbnail(); }} className="text-indigo-600 focus:ring-indigo-500" />
+                                                    <span className="text-sm font-medium text-neutral-800">No custom thumbnail</span>
+                                                    <span className="text-xs text-neutral-500">(use video default)</span>
+                                                </label>
+                                                <label className={`flex items-center gap-2.5 p-2.5 rounded-lg border-2 cursor-pointer transition-colors ${thumbnailChoice === 'upload' ? 'border-indigo-500 bg-indigo-50/80' : 'border-neutral-200 hover:border-neutral-300'}`}>
+                                                    <input type="radio" name="thumbnailOption" checked={thumbnailChoice === 'upload'} onChange={() => setThumbnailChoice('upload')} className="text-indigo-600 focus:ring-indigo-500" />
+                                                    <span className="text-sm font-medium text-neutral-800">Upload image</span>
+                                                </label>
+                                                {thumbnailChoice === 'upload' && (
+                                                    <div className="ml-6 flex flex-wrap items-center gap-2">
+                                                        <input ref={thumbnailFileInputRef} type="file" accept="image/*" className="hidden" onChange={handleThumbnailImageSelect} />
                                                         <button type="button" onClick={() => thumbnailFileInputRef.current?.click()} disabled={mediaUploading} className="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-medium border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-700 disabled:opacity-50">
                                                             <ImageIcon size={14} />
-                                                            Upload image
+                                                            Choose file
                                                         </button>
                                                         {mediaList[0].thumbnailUrl && (
                                                             <button type="button" onClick={handleRemoveThumbnail} className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium border border-red-200 text-red-700 hover:bg-red-50">Remove</button>
                                                         )}
                                                     </div>
-                                                </div>
-                                                <div className="flex flex-col gap-1.5">
-                                                    <span className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Pick a frame</span>
-                                                    <input type="range" min={0} max={thumbnailVideoDuration} step={0.1} value={thumbnailPickerTime} onChange={(e) => handleThumbnailSliderChange(parseFloat(e.target.value))} onInput={(e) => handleThumbnailSliderChange(parseFloat((e.target as HTMLInputElement).value))} className="w-full max-w-[200px] h-2 rounded-full accent-indigo-600" />
-                                                    <button type="button" onClick={handleUseFrameAsThumbnail} disabled={thumbnailPicking || mediaUploading} className="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium disabled:opacity-50 w-fit">
-                                                        {thumbnailPicking ? <Loader2 size={14} className="animate-spin shrink-0" /> : <ImageIcon size={14} className="shrink-0" />}
-                                                        Use this frame
-                                                    </button>
-                                                </div>
+                                                )}
+                                                <label className={`flex items-center gap-2.5 p-2.5 rounded-lg border-2 cursor-pointer transition-colors ${thumbnailChoice === 'frame' ? 'border-indigo-500 bg-indigo-50/80' : 'border-neutral-200 hover:border-neutral-300'}`}>
+                                                    <input type="radio" name="thumbnailOption" checked={thumbnailChoice === 'frame'} onChange={() => setThumbnailChoice('frame')} className="text-indigo-600 focus:ring-indigo-500" />
+                                                    <span className="text-sm font-medium text-neutral-800">Pick a frame from video</span>
+                                                </label>
+                                                {thumbnailChoice === 'frame' && (
+                                                    <div className="ml-6 flex flex-col gap-1.5">
+                                                        <input type="range" min={0} max={thumbnailVideoDuration} step={0.1} value={thumbnailPickerTime} onChange={(e) => handleThumbnailSliderChange(parseFloat(e.target.value))} onInput={(e) => handleThumbnailSliderChange(parseFloat((e.target as HTMLInputElement).value))} className="w-full max-w-[200px] h-2 rounded-full accent-indigo-600" />
+                                                        <button type="button" onClick={handleUseFrameAsThumbnail} disabled={thumbnailPicking || mediaUploading} className="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium disabled:opacity-50 w-fit">
+                                                            {thumbnailPicking ? <Loader2 size={14} className="animate-spin shrink-0" /> : <ImageIcon size={14} className="shrink-0" />}
+                                                            Use this frame
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                         <div className="flex flex-col gap-1.5 shrink-0">
                                             <span className="text-xs font-medium text-neutral-500 uppercase tracking-wide sm:block hidden">Preview</span>
                                             <div className="flex gap-2 flex-1">
-                                                <div className={`flex flex-col gap-0.5 rounded-lg overflow-hidden border border-neutral-200 bg-neutral-50 shrink-0 ${mediaType === 'reel' ? 'aspect-[9/16] w-24' : 'aspect-video w-28'}`}>
+                                                <div className={`flex flex-col gap-0.5 rounded-lg overflow-hidden border border-neutral-200 bg-neutral-50 shrink-0 ${mediaType === 'reel' ? 'aspect-[9/16] w-36' : 'aspect-video w-40'}`}>
                                                     <span className="text-[10px] text-neutral-400 px-0.5">Current</span>
                                                     {mediaList[0].thumbnailUrl ? (
                                                         <img src={mediaDisplayUrl(mediaList[0].thumbnailUrl)} alt="Thumbnail" className="w-full h-full object-cover flex-1 min-h-0" />
@@ -1262,7 +1309,7 @@ export default function ComposerPage() {
                                                         <div className="flex-1 min-h-0 flex items-center justify-center text-[10px] text-neutral-400">No thumbnail</div>
                                                     )}
                                                 </div>
-                                                <div className={`flex flex-col gap-0.5 rounded-lg overflow-hidden border border-neutral-200 bg-black shrink-0 ${mediaType === 'reel' ? 'aspect-[9/16] w-24' : 'aspect-video w-28'}`}>
+                                                <div className={`flex flex-col gap-0.5 rounded-lg overflow-hidden border border-neutral-200 bg-black shrink-0 ${mediaType === 'reel' ? 'aspect-[9/16] w-36' : 'aspect-video w-40'}`}>
                                                     <span className="text-[10px] text-neutral-400 px-0.5">Frame</span>
                                                     <div className="relative flex-1 min-h-0 w-full">
                                                         <video
@@ -1290,7 +1337,7 @@ export default function ComposerPage() {
                                                         <canvas ref={thumbnailCanvasRef} className="absolute inset-0 w-full h-full object-contain" style={{ width: '100%', height: '100%', zIndex: 1 }} />
                                                     </div>
                                                 </div>
-                                                <div className={`relative group flex flex-col gap-0.5 rounded-lg overflow-hidden border-2 border-neutral-200 bg-neutral-100 shrink-0 ${mediaType === 'reel' ? 'aspect-[9/16] w-24' : 'aspect-video w-28'}`}>
+                                                <div className={`relative group flex flex-col gap-0.5 rounded-lg overflow-hidden border-2 border-neutral-200 bg-neutral-100 shrink-0 ${mediaType === 'reel' ? 'aspect-[9/16] w-36' : 'aspect-video w-40'}`}>
                                                     <span className="text-[10px] text-neutral-400 px-0.5">Video</span>
                                                     <div className="flex-1 min-h-0 relative">
                                                         {mediaList[0].thumbnailUrl ? (
@@ -1715,9 +1762,55 @@ export default function ComposerPage() {
                     </button>
                 </form>
 
-                <div className="lg:block space-y-3">
+                {/* Resizable preview panel: drag the handle to change width */}
+                <div
+                    className="hidden lg:block shrink-0 w-2 cursor-col-resize bg-neutral-200 hover:bg-indigo-300 active:bg-indigo-400 transition-colors rounded-full my-2 self-stretch"
+                    role="separator"
+                    aria-label="Resize preview"
+                    onMouseDown={(e) => {
+                        e.preventDefault();
+                        previewResizeRef.current = { startX: e.clientX, startW: previewWidthPx };
+                    }}
+                />
+                <div
+                    className="hidden lg:flex flex-col flex-shrink-0 space-y-3 lg:pl-2"
+                    style={{ width: `${previewWidthPx}px`, minWidth: 200, maxWidth: 480 }}
+                >
                     <h2 className="text-sm font-semibold text-neutral-600 uppercase tracking-wide">Preview</h2>
                     <div className="sticky top-6 space-y-3 overflow-y-auto max-h-[calc(100vh-8rem)]">
+                        {platforms.length === 0 ? (
+                            <div className="rounded-xl border-2 border-dashed border-neutral-200 bg-neutral-50/50 flex flex-col items-center justify-center py-8 text-neutral-400">
+                                <ImageIcon size={28} strokeWidth={1.5} className="text-neutral-300" />
+                                <p className="mt-2 text-xs font-medium">Select platforms</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-2 gap-2">
+                                {platforms.map(p => {
+                                    const baseContent = differentContentPerPlatform ? (contentByPlatform[p] ?? '') : content;
+                                    const tags = differentHashtagsPerPlatform ? (selectedHashtagsByPlatform[p] ?? []) : selectedHashtags;
+                                    const contentWithHashtags = baseContent.trim() + (tags.length ? ' ' + tags.join(' ') : '');
+                                    const accountForPlatform = accounts.find((a: { platform: string }) => a.platform === p) as { username?: string; profilePicture?: string } | undefined;
+                                    return (
+                                        <PostPreview
+                                            key={p}
+                                            platform={p}
+                                            profileName={accountForPlatform?.username ?? ''}
+                                            profilePicture={accountForPlatform?.profilePicture ?? undefined}
+                                            content={contentWithHashtags}
+                                            media={differentMediaPerPlatform ? (mediaByPlatform[p] ?? []) : mediaList}
+                                            mediaType={mediaType}
+                                            compact
+                                        />
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                </div>
+                {/* Mobile: preview below form (no resize) */}
+                <div className="lg:hidden w-full mt-6 space-y-3">
+                    <h2 className="text-sm font-semibold text-neutral-600 uppercase tracking-wide">Preview</h2>
+                    <div className="space-y-3">
                         {platforms.length === 0 ? (
                             <div className="rounded-xl border-2 border-dashed border-neutral-200 bg-neutral-50/50 flex flex-col items-center justify-center py-8 text-neutral-400">
                                 <ImageIcon size={28} strokeWidth={1.5} className="text-neutral-300" />
