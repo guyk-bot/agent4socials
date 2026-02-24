@@ -4,10 +4,8 @@ The site favicon is the Agent4Socials "A4" logo.
 
 ## Where it’s set
 
-- **Tab / browser icon:** `apps/web/src/app/icon.svg`  
-  Next.js serves this at a URL like `/icon?<hash>` so the icon updates when the file changes (cache-busting).
-- **Apple touch icon:** `metadata.icons.apple` in `apps/web/src/app/layout.tsx` points to `/logo.svg`.
-- **Shared logo asset:** `apps/web/public/logo.svg` (used for OG, Apple, etc.). Keep this in sync with `app/icon.svg` if you change the logo.
+- **Tab and Apple icon:** `apps/web/src/app/layout.tsx` sets `metadata.icons` to `/logo.svg?v=2`. Bump the version (e.g. `?v=3`) when you change the logo so browsers fetch the new favicon.
+- **Source file:** `apps/web/public/logo.svg` is the 4S logo. Keep `app/icon.svg` in sync if needed; the live favicon is served from `public/logo.svg`.
 
 ## Why the favicon might not change right away
 
@@ -21,8 +19,9 @@ The site favicon is the Agent4Socials "A4" logo.
    - Use [Google Search Console](https://search.google.com/search-console) and request indexing for your homepage, and/or use “URL Inspection” for the site URL.
 
 3. **After changing the icon**  
-   - Update both `apps/web/src/app/icon.svg` and `apps/web/public/logo.svg` if you want the same logo everywhere.
-   - Redeploy so the new icon is live; the new `/icon?<hash>` URL will then be used for new visits.
+   - Update `apps/web/public/logo.svg` (and `app/icon.svg` if you keep it in sync).
+   - In `layout.tsx`, bump the query param in `icons.icon` and `icons.apple` (e.g. `?v=3`).
+   - Redeploy so the new icon URL is used and caches are bypassed.
 
 ## Optional: favicon.ico
 

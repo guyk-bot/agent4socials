@@ -52,8 +52,11 @@ export const metadata: Metadata = {
     follow: true,
     googleBot: { index: true, follow: true },
   },
-  // Favicon from app/icon.svg (cache-busting URL). When you change the icon, redeploy; for Google, request re-index in Search Console.
-  icons: { apple: "/logo.svg" },
+  // Favicon: explicit URL with version so browsers don't use cached old icon. Bump v= when you change the logo.
+  icons: {
+    icon: "/logo.svg?v=2",
+    apple: "/logo.svg?v=2",
+  },
 };
 
 export default function RootLayout({
