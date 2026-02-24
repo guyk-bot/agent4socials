@@ -141,6 +141,7 @@ export default function ComposerPage() {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const thumbnailFileInputRef = useRef<HTMLInputElement>(null);
     const videoThumbnailRef = useRef<HTMLVideoElement>(null);
+    const thumbnailCanvasRef = useRef<HTMLCanvasElement>(null);
     const [thumbnailPickerTime, setThumbnailPickerTime] = useState(0);
     const [thumbnailVideoDuration, setThumbnailVideoDuration] = useState(1);
     const [thumbnailPicking, setThumbnailPicking] = useState(false);
@@ -660,6 +661,20 @@ export default function ComposerPage() {
         setMediaList((prev) => prev.map((item, i) => (i === 0 ? { ...item, thumbnailUrl: undefined } : item)));
     };
 
+    const drawVideoFrameToCanvas = useCallback(() => {
+        const video = videoThumbnailRef.current;
+        const canvas = thumbnailCanvasRef.current;
+        if (!video || !canvas || video.readyState < 2) return;
+        const w = video.videoWidth;
+        const h = video.videoHeight;
+        if (!w || !h) return;
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.drawImage(video, 0, 0);
+    }, []);
+
     const handleRemoveMediaForPlatform = (platform: string, index: number) => {
         setMediaByPlatform((prev) => ({
             ...prev,
@@ -1158,7 +1173,7 @@ export default function ComposerPage() {
                                     {mediaList.map((m, i) => (
                                         <div
                                             key={i}
-                                            className={`relative group aspect-square rounded-xl overflow-hidden bg-neutral-100 border-2 ${mediaType === 'carousel' ? 'cursor-grab active:cursor-grabbing border-neutral-300 hover:border-indigo-400' : 'border-neutral-200'} ${carouselDraggingIndex === i ? 'opacity-50 ring-2 ring-indigo-400' : ''}`}
+                                            className={`relative group rounded-xl overflow-hidden bg-neutral-100 border-2 ${mediaType === 'reel' ? 'aspect-[9/16]' : 'aspect-square'} ${mediaType === 'carousel' ? 'cursor-grab active:cursor-grabbing border-neutral-300 hover:border-indigo-400' : 'border-neutral-200'} ${carouselDraggingIndex === i ? 'opacity-50 ring-2 ring-indigo-400' : ''}`}
                                             onClick={mediaType === 'carousel' ? () => moveCarouselToPosition(i, 0) : undefined}
                                             role={mediaType === 'carousel' ? 'button' : undefined}
                                             draggable={mediaType === 'carousel'}
@@ -1168,7 +1183,11 @@ export default function ComposerPage() {
                                             onDrop={mediaType === 'carousel' ? (e) => handleCarouselDrop(e, i) : undefined}
                                         >
                                             {m.type === 'VIDEO' ? (
-                                                <video src={mediaDisplayUrl(m.fileUrl)} className="object-cover w-full h-full pointer-events-none" muted playsInline />
+                                                (m as MediaItem).thumbnailUrl ? (
+                                                    <img src={mediaDisplayUrl((m as MediaItem).thumbnailUrl!)} alt="Video cover" className="object-cover w-full h-full pointer-events-none" />
+                                                ) : (
+                                                    <video src={mediaDisplayUrl(m.fileUrl)} className="object-cover w-full h-full pointer-events-none" muted playsInline />
+                                                )
                                             ) : (
                                                 <img src={mediaDisplayUrl(m.fileUrl)} alt="media" className="object-cover w-full h-full pointer-events-none" draggable={false} />
                                             )}
@@ -1204,16 +1223,16 @@ export default function ComposerPage() {
                                 {(mediaType === 'video' || mediaType === 'reel') && mediaList.length === 1 && mediaList[0].type === 'VIDEO' && (
                                     <div className="mt-4 p-4 rounded-xl bg-neutral-50 border border-neutral-200 space-y-3">
                                         <h4 className="text-sm font-medium text-neutral-800">Thumbnail (optional)</h4>
-                                        <p className="text-xs text-neutral-500">Some platforms use this as the cover for your video. Upload an image or pick a frame from the video.</p>
+                                        <p className="text-xs text-neutral-500">Some platforms use this as the cover for your video. Upload an image or pick a frame from the video.{mediaType === 'reel' && ' Use 9:16 (1080×1920) for best results.'}</p>
                                         <div className="flex flex-wrap items-start gap-4">
                                             <div className="flex flex-col gap-2">
                                                 {mediaList[0].thumbnailUrl ? (
-                                                    <div className="relative inline-block">
-                                                        <img src={mediaDisplayUrl(mediaList[0].thumbnailUrl)} alt="Thumbnail" className="w-32 h-32 rounded-lg object-cover border border-neutral-200" />
+                                                    <div className={`relative inline-block rounded-lg overflow-hidden border border-neutral-200 ${mediaType === 'reel' ? 'aspect-[9/16] w-28' : 'w-32 h-32'}`}>
+                                                        <img src={mediaDisplayUrl(mediaList[0].thumbnailUrl)} alt="Thumbnail" className="w-full h-full object-cover" />
                                                         <button type="button" onClick={handleRemoveThumbnail} className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded opacity-90 hover:opacity-100" title="Remove thumbnail"><X size={14} /></button>
                                                     </div>
                                                 ) : (
-                                                    <div className="w-32 h-32 rounded-lg bg-neutral-200 border border-neutral-300 flex items-center justify-center text-xs text-neutral-500">No thumbnail</div>
+                                                    <div className={`rounded-lg bg-neutral-200 border border-neutral-300 flex items-center justify-center text-xs text-neutral-500 ${mediaType === 'reel' ? 'aspect-[9/16] w-28' : 'w-32 h-32'}`}>No thumbnail</div>
                                                 )}
                                             </div>
                                             <div className="flex flex-col gap-2">
@@ -1222,9 +1241,29 @@ export default function ComposerPage() {
                                                     <ImageIcon size={16} />
                                                     Upload image
                                                 </button>
-                                                <div className="flex flex-col gap-1.5">
-                                                    <video ref={videoThumbnailRef} src={mediaDisplayUrl(mediaList[0].fileUrl)} className="w-48 rounded border border-neutral-200" muted playsInline onLoadedMetadata={(e) => { const d = e.currentTarget.duration; setThumbnailVideoDuration(Number.isFinite(d) ? d : 1); setThumbnailPickerTime(0); }} onTimeUpdate={(e) => setThumbnailPickerTime(e.currentTarget.currentTime)} />
-                                                    <input type="range" min={0} max={thumbnailVideoDuration} step={0.1} value={thumbnailPickerTime} onChange={(e) => { const t = parseFloat(e.target.value); setThumbnailPickerTime(t); if (videoThumbnailRef.current) videoThumbnailRef.current.currentTime = t; }} className="w-48" />
+                                                <div className={`flex flex-col gap-1.5 ${mediaType === 'reel' ? 'w-36' : ''}`}>
+                                                    <div className={`relative rounded border border-neutral-200 overflow-hidden bg-black ${mediaType === 'reel' ? 'aspect-[9/16] w-36' : 'w-48'}`}>
+                                                        <video
+                                                            ref={videoThumbnailRef}
+                                                            src={mediaDisplayUrl(mediaList[0].fileUrl)}
+                                                            className="absolute inset-0 w-full h-full object-contain opacity-0 pointer-events-none"
+                                                            muted
+                                                            playsInline
+                                                            preload="auto"
+                                                            key={mediaList[0].fileUrl}
+                                                            onLoadedMetadata={(e) => {
+                                                                const v = e.currentTarget;
+                                                                const d = v.duration;
+                                                                setThumbnailVideoDuration(Number.isFinite(d) ? d : 1);
+                                                                setThumbnailPickerTime(0);
+                                                            }}
+                                                            onLoadedData={drawVideoFrameToCanvas}
+                                                            onSeeked={drawVideoFrameToCanvas}
+                                                            onTimeUpdate={(e) => setThumbnailPickerTime(e.currentTarget.currentTime)}
+                                                        />
+                                                        <canvas ref={thumbnailCanvasRef} className="absolute inset-0 w-full h-full object-contain" style={{ width: '100%', height: '100%' }} />
+                                                    </div>
+                                                    <input type="range" min={0} max={thumbnailVideoDuration} step={0.1} value={thumbnailPickerTime} onChange={(e) => { const t = parseFloat(e.target.value); setThumbnailPickerTime(t); const v = videoThumbnailRef.current; if (v) { v.currentTime = t; } }} className="w-full max-w-[12rem]" />
                                                     <button type="button" onClick={handleUseFrameAsThumbnail} disabled={thumbnailPicking || mediaUploading} className="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-800 rounded-lg text-sm font-medium disabled:opacity-50">
                                                         {thumbnailPicking ? <Loader2 size={16} className="animate-spin" /> : <ImageIcon size={16} />}
                                                         Use this frame
@@ -1583,6 +1622,7 @@ export default function ComposerPage() {
                                         profilePicture={accountForPlatform?.profilePicture ?? undefined}
                                         content={contentWithHashtags}
                                         media={differentMediaPerPlatform ? (mediaByPlatform[p] ?? []) : mediaList}
+                                        mediaType={mediaType}
                                     />
                                 );
                             })
@@ -1616,12 +1656,14 @@ function PostPreview({
     profilePicture,
     content,
     media,
+    mediaType = 'photo',
 }: {
     platform: string;
     profileName: string;
     profilePicture?: string;
     content: string;
-    media: { fileUrl: string; type: string }[];
+    media: { fileUrl: string; type: string; thumbnailUrl?: string }[];
+    mediaType?: MediaTypeChoice;
 }) {
     const [currentSlide, setCurrentSlide] = useState(0);
     const slideIndex = media.length > 0 ? Math.min(currentSlide, media.length - 1) : 0;
@@ -1653,11 +1695,15 @@ function PostPreview({
                     <p className="text-xs text-neutral-500 truncate">{PLATFORM_LABELS[platform] || platform}</p>
                 </div>
             </div>
-            <div className="aspect-square bg-neutral-50 flex items-center justify-center overflow-hidden relative">
+            <div className={`bg-neutral-50 flex items-center justify-center overflow-hidden relative ${mediaType === 'reel' ? 'aspect-[9/16]' : 'aspect-square'}`}>
                 {currentMedia ? (
                     <>
                         {currentMedia.type === 'VIDEO' ? (
-                            <video src={mediaDisplayUrl(currentMedia.fileUrl)} className="w-full h-full object-cover" muted playsInline />
+                            (currentMedia as { thumbnailUrl?: string }).thumbnailUrl ? (
+                                <img src={mediaDisplayUrl((currentMedia as { thumbnailUrl?: string }).thumbnailUrl!)} alt="Video cover" className="w-full h-full object-cover" />
+                            ) : (
+                                <video src={mediaDisplayUrl(currentMedia.fileUrl)} className="w-full h-full object-cover" muted playsInline />
+                            )
                         ) : (
                             <img src={mediaDisplayUrl(currentMedia.fileUrl)} alt="preview" className="w-full h-full object-cover" />
                         )}
