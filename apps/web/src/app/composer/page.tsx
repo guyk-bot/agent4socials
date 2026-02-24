@@ -142,6 +142,7 @@ export default function ComposerPage() {
     const thumbnailFileInputRef = useRef<HTMLInputElement>(null);
     const videoThumbnailRef = useRef<HTMLVideoElement>(null);
     const thumbnailCanvasRef = useRef<HTMLCanvasElement>(null);
+    const ignoreTimeUpdateUntilRef = useRef<number>(0);
     const [thumbnailPickerTime, setThumbnailPickerTime] = useState(0);
     const [thumbnailVideoDuration, setThumbnailVideoDuration] = useState(1);
     const [thumbnailPicking, setThumbnailPicking] = useState(false);
@@ -678,6 +679,7 @@ export default function ComposerPage() {
 
     const handleThumbnailSliderChange = useCallback((t: number) => {
         setThumbnailPickerTime(t);
+        ignoreTimeUpdateUntilRef.current = Date.now() + 800;
         const v = videoThumbnailRef.current;
         if (!v) return;
         v.currentTime = t;
@@ -1276,7 +1278,10 @@ export default function ComposerPage() {
                                                             }}
                                                             onLoadedData={drawVideoFrameToCanvas}
                                                             onSeeked={drawVideoFrameToCanvas}
-                                                            onTimeUpdate={(e) => setThumbnailPickerTime(e.currentTarget.currentTime)}
+                                                            onTimeUpdate={(e) => {
+                                                                if (Date.now() < ignoreTimeUpdateUntilRef.current) return;
+                                                                setThumbnailPickerTime(e.currentTarget.currentTime);
+                                                            }}
                                                         />
                                                         <canvas ref={thumbnailCanvasRef} className="absolute inset-0 w-full h-full object-contain" style={{ width: '100%', height: '100%', zIndex: 1 }} />
                                                     </div>

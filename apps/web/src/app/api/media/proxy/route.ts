@@ -46,10 +46,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
   }
 
+  const rangeHeader = request.headers.get('range');
+  const fetchHeaders: HeadersInit = { Accept: '*/*' };
+  if (rangeHeader) fetchHeaders['Range'] = rangeHeader;
+
   try {
     let res = await fetch(targetUrl.href, {
       method: 'GET',
-      headers: { Accept: '*/*' },
+      headers: fetchHeaders,
       cache: 'no-store',
     });
     // R2 dev URL: path may have been built as /bucket/key but R2 expects /key only; retry with key only
@@ -58,7 +62,7 @@ export async function GET(request: NextRequest) {
       if (pathParts.length >= 2) {
         const keyOnly = pathParts.slice(1).join('/');
         const fallbackUrl = `${allowedBase}/${keyOnly}`;
-        res = await fetch(fallbackUrl, { method: 'GET', headers: { Accept: '*/*' }, cache: 'no-store' });
+        res = await fetch(fallbackUrl, { method: 'GET', headers: fetchHeaders, cache: 'no-store' });
       }
     }
     if (!res.ok) {
@@ -66,12 +70,21 @@ export async function GET(request: NextRequest) {
     }
     const contentType = res.headers.get('content-type')?.split(';')[0]?.trim()
       || contentTypeFromUrl(targetUrl.href);
+    const responseHeaders: Record<string, string> = {
+      'Content-Type': contentType,
+      'Cache-Control': 'private, max-age=3600',
+    };
+    if (res.status === 206) {
+      const contentRange = res.headers.get('Content-Range');
+      const acceptRanges = res.headers.get('Accept-Ranges');
+      if (contentRange) responseHeaders['Content-Range'] = contentRange;
+      if (acceptRanges) responseHeaders['Accept-Ranges'] = acceptRanges;
+    } else if (!rangeHeader && res.headers.get('Accept-Ranges')) {
+      responseHeaders['Accept-Ranges'] = res.headers.get('Accept-Ranges')!;
+    }
     return new NextResponse(res.body, {
-      status: 200,
-      headers: {
-        'Content-Type': contentType,
-        'Cache-Control': 'private, max-age=3600',
-      },
+      status: res.status,
+      headers: responseHeaders,
     });
   } catch (err) {
     console.error('Media proxy fetch error:', err);
