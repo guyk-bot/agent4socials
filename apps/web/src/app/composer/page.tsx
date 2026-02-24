@@ -1220,6 +1220,76 @@ export default function ComposerPage() {
                                     {mediaUploading && <span className="text-sm text-neutral-500">Uploading…</span>}
                                 </div>
                                 {mediaUploadError && <p className="text-sm text-red-600">{mediaUploadError}</p>}
+                                {(mediaType === 'video' || mediaType === 'reel') && mediaList.length === 1 && mediaList[0].type === 'VIDEO' ? (
+                                    <div className="flex flex-col sm:flex-row gap-4 items-start">
+                                        <div className="w-full sm:w-auto p-4 rounded-2xl bg-gradient-to-b from-neutral-50 to-white border border-neutral-200/90 shadow-sm space-y-3 shrink-0">
+                                            <div>
+                                                <h4 className="text-sm font-semibold text-neutral-800">Thumbnail (optional)</h4>
+                                                <p className="text-xs text-neutral-500 mt-0.5">{mediaType === 'reel' ? '9:16 (1080×1920) for best results.' : 'Cover for your video.'}</p>
+                                            </div>
+                                            <div className="flex flex-col gap-3">
+                                                <div className="flex flex-col gap-1.5">
+                                                    <span className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Current</span>
+                                                    {mediaList[0].thumbnailUrl ? (
+                                                        <div className={`relative inline-block rounded-xl overflow-hidden border border-neutral-200 shadow-sm ${mediaType === 'reel' ? 'aspect-[9/16] w-28' : 'w-32 h-32'}`}>
+                                                            <img src={mediaDisplayUrl(mediaList[0].thumbnailUrl)} alt="Thumbnail" className="w-full h-full object-cover" />
+                                                            <button type="button" onClick={handleRemoveThumbnail} className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-lg opacity-90 hover:opacity-100 shadow" title="Remove thumbnail"><X size={12} /></button>
+                                                        </div>
+                                                    ) : (
+                                                        <div className={`rounded-xl bg-neutral-100 border border-neutral-200 flex items-center justify-center text-xs text-neutral-500 ${mediaType === 'reel' ? 'aspect-[9/16] w-28' : 'w-32 h-32'}`}>No thumbnail</div>
+                                                    )}
+                                                    <input ref={thumbnailFileInputRef} type="file" accept="image/*" className="hidden" onChange={handleThumbnailImageSelect} />
+                                                    <button type="button" onClick={() => thumbnailFileInputRef.current?.click()} disabled={mediaUploading} className="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-medium border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-700 disabled:opacity-50">
+                                                        <ImageIcon size={14} />
+                                                        Upload image
+                                                    </button>
+                                                </div>
+                                                <div className="flex flex-col gap-1.5">
+                                                    <span className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Pick a frame</span>
+                                                    <div className={`relative rounded-lg border border-neutral-200 overflow-hidden bg-black ${mediaType === 'reel' ? 'aspect-[9/16] w-32' : 'w-40 aspect-video'}`}>
+                                                        <video
+                                                            ref={videoThumbnailRef}
+                                                            src={mediaDisplayUrl(mediaList[0].fileUrl)}
+                                                            className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+                                                            style={{ zIndex: 0, opacity: 0.01 }}
+                                                            muted
+                                                            playsInline
+                                                            preload="auto"
+                                                            key={mediaList[0].fileUrl}
+                                                            onLoadedMetadata={(e) => {
+                                                                const v = e.currentTarget;
+                                                                const d = v.duration;
+                                                                setThumbnailVideoDuration(Number.isFinite(d) ? d : 1);
+                                                                setThumbnailPickerTime(0);
+                                                            }}
+                                                            onLoadedData={drawVideoFrameToCanvas}
+                                                            onSeeked={drawVideoFrameToCanvas}
+                                                            onTimeUpdate={(e) => {
+                                                                if (Date.now() < ignoreTimeUpdateUntilRef.current) return;
+                                                                setThumbnailPickerTime(e.currentTarget.currentTime);
+                                                            }}
+                                                        />
+                                                        <canvas ref={thumbnailCanvasRef} className="absolute inset-0 w-full h-full object-contain" style={{ width: '100%', height: '100%', zIndex: 1 }} />
+                                                    </div>
+                                                    <input type="range" min={0} max={thumbnailVideoDuration} step={0.1} value={thumbnailPickerTime} onChange={(e) => handleThumbnailSliderChange(parseFloat(e.target.value))} onInput={(e) => handleThumbnailSliderChange(parseFloat((e.target as HTMLInputElement).value))} className="w-full h-2 rounded-full accent-indigo-600" />
+                                                    <button type="button" onClick={handleUseFrameAsThumbnail} disabled={thumbnailPicking || mediaUploading} className="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium disabled:opacity-50">
+                                                        {thumbnailPicking ? <Loader2 size={14} className="animate-spin shrink-0" /> : <ImageIcon size={14} className="shrink-0" />}
+                                                        Use this frame
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className={`relative group rounded-xl overflow-hidden bg-neutral-100 border-2 border-neutral-200 shrink-0 ${mediaType === 'reel' ? 'aspect-[9/16] w-full sm:w-52' : 'aspect-video w-full sm:w-64'}`}>
+                                            {mediaList[0].thumbnailUrl ? (
+                                                <img src={mediaDisplayUrl(mediaList[0].thumbnailUrl)} alt="Video cover" className="object-cover w-full h-full pointer-events-none" />
+                                            ) : (
+                                                <video src={mediaDisplayUrl(mediaList[0].fileUrl)} className="object-cover w-full h-full pointer-events-none" muted playsInline />
+                                            )}
+                                            <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveMedia(0); }} className="absolute top-1.5 right-1.5 p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow"><X size={14} /></button>
+                                            <a href={mediaList[0].fileUrl} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="absolute bottom-1.5 right-1.5 p-1.5 bg-black/60 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow" title="Download"><Download size={14} /></a>
+                                        </div>
+                                    </div>
+                                ) : (
                                 <div className="grid grid-cols-4 gap-3">
                                     {mediaList.map((m, i) => (
                                         <div
@@ -1268,69 +1338,9 @@ export default function ComposerPage() {
                                         </div>
                                     ))}
                                 </div>
+                                )}
                                 {mediaType === 'carousel' && mediaList.length > 1 && (
                                     <p className="text-xs text-neutral-500">Drag images to reorder. Click an image to move it to position 1.</p>
-                                )}
-                                {(mediaType === 'video' || mediaType === 'reel') && mediaList.length === 1 && mediaList[0].type === 'VIDEO' && (
-                                    <div className="mt-5 p-5 rounded-2xl bg-gradient-to-b from-neutral-50 to-white border border-neutral-200/90 shadow-sm space-y-4">
-                                        <div>
-                                            <h4 className="text-sm font-semibold text-neutral-800">Thumbnail (optional)</h4>
-                                            <p className="text-xs text-neutral-500 mt-0.5">Cover for your video. Upload an image or pick a frame below.{mediaType === 'reel' && ' Use 9:16 (1080×1920) for best results.'}</p>
-                                        </div>
-                                        <div className="flex flex-wrap items-start gap-6">
-                                            <div className="flex flex-col gap-2">
-                                                <span className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Current</span>
-                                                {mediaList[0].thumbnailUrl ? (
-                                                    <div className={`relative inline-block rounded-xl overflow-hidden border border-neutral-200 shadow-sm ${mediaType === 'reel' ? 'aspect-[9/16] w-28' : 'w-32 h-32'}`}>
-                                                        <img src={mediaDisplayUrl(mediaList[0].thumbnailUrl)} alt="Thumbnail" className="w-full h-full object-cover" />
-                                                        <button type="button" onClick={handleRemoveThumbnail} className="absolute top-1.5 right-1.5 p-1.5 bg-red-500 text-white rounded-lg opacity-90 hover:opacity-100 shadow" title="Remove thumbnail"><X size={14} /></button>
-                                                    </div>
-                                                ) : (
-                                                    <div className={`rounded-xl bg-neutral-100 border border-neutral-200 flex items-center justify-center text-xs text-neutral-500 ${mediaType === 'reel' ? 'aspect-[9/16] w-28' : 'w-32 h-32'}`}>No thumbnail</div>
-                                                )}
-                                                <input ref={thumbnailFileInputRef} type="file" accept="image/*" className="hidden" onChange={handleThumbnailImageSelect} />
-                                                <button type="button" onClick={() => thumbnailFileInputRef.current?.click()} disabled={mediaUploading} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-700 disabled:opacity-50 transition-colors">
-                                                    <ImageIcon size={16} />
-                                                    Upload image
-                                                </button>
-                                            </div>
-                                            <div className="flex flex-col gap-2">
-                                                <span className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Pick a frame</span>
-                                                <div className={`flex flex-col gap-1.5 ${mediaType === 'reel' ? 'w-36' : ''}`}>
-                                                    <div className={`relative rounded-xl border border-neutral-200 overflow-hidden bg-black shadow-sm ${mediaType === 'reel' ? 'aspect-[9/16] w-36' : 'w-48'}`}>
-                                                        <video
-                                                            ref={videoThumbnailRef}
-                                                            src={mediaDisplayUrl(mediaList[0].fileUrl)}
-                                                            className="absolute inset-0 w-full h-full object-contain pointer-events-none"
-                                                            style={{ zIndex: 0, opacity: 0.01 }}
-                                                            muted
-                                                            playsInline
-                                                            preload="auto"
-                                                            key={mediaList[0].fileUrl}
-                                                            onLoadedMetadata={(e) => {
-                                                                const v = e.currentTarget;
-                                                                const d = v.duration;
-                                                                setThumbnailVideoDuration(Number.isFinite(d) ? d : 1);
-                                                                setThumbnailPickerTime(0);
-                                                            }}
-                                                            onLoadedData={drawVideoFrameToCanvas}
-                                                            onSeeked={drawVideoFrameToCanvas}
-                                                            onTimeUpdate={(e) => {
-                                                                if (Date.now() < ignoreTimeUpdateUntilRef.current) return;
-                                                                setThumbnailPickerTime(e.currentTarget.currentTime);
-                                                            }}
-                                                        />
-                                                        <canvas ref={thumbnailCanvasRef} className="absolute inset-0 w-full h-full object-contain" style={{ width: '100%', height: '100%', zIndex: 1 }} />
-                                                    </div>
-                                                    <input type="range" min={0} max={thumbnailVideoDuration} step={0.1} value={thumbnailPickerTime} onChange={(e) => handleThumbnailSliderChange(parseFloat(e.target.value))} onInput={(e) => handleThumbnailSliderChange(parseFloat((e.target as HTMLInputElement).value))} className="w-full max-w-[12rem] h-2 rounded-full accent-indigo-600" />
-                                                    <button type="button" onClick={handleUseFrameAsThumbnail} disabled={thumbnailPicking || mediaUploading} className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-colors shadow-sm">
-                                                        {thumbnailPicking ? <Loader2 size={16} className="animate-spin shrink-0" /> : <ImageIcon size={16} className="shrink-0" />}
-                                                        Use this frame
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
                                 )}
                             </>
                         ) : (
