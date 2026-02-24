@@ -1248,7 +1248,7 @@ export default function ComposerPage() {
                                         <ImageIcon size={18} className="shrink-0" />
                                         {mediaType === 'carousel'
                                             ? 'Add images for carousel'
-                                            : `Add ${MEDIA_RECOMMENDATIONS[mediaType].label.toLowerCase()} from computer`}
+                                            : <>Add {MEDIA_RECOMMENDATIONS[mediaType].label.toLowerCase()} from <span className="sm:hidden">library</span><span className="hidden sm:inline">computer</span></>}
                                     </button>
                                     {mediaUploading && <span className="text-sm text-neutral-500">Uploading…</span>}
                                 </div>
@@ -1427,7 +1427,8 @@ export default function ComposerPage() {
                                                 className="inline-flex items-center gap-1.5 px-3 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
                                             >
                                                 <Plus size={16} />
-                                                Add from computer
+                                                <span className="sm:hidden">Add from library</span>
+                                                <span className="hidden sm:inline">Add from computer</span>
                                             </button>
                                             {mediaUploading && <span className="text-xs text-neutral-500">Uploading…</span>}
                                         </div>
