@@ -1300,18 +1300,15 @@ export default function ComposerPage() {
                                         </div>
                                         <div className="flex flex-col gap-1.5 shrink-0">
                                             <span className="text-xs font-medium text-neutral-500 uppercase tracking-wide sm:block hidden">Preview</span>
-                                            <div className="flex gap-2 flex-1">
-                                                <div className={`flex flex-col gap-0.5 rounded-lg overflow-hidden border border-neutral-200 bg-neutral-50 shrink-0 ${mediaType === 'reel' ? 'aspect-[9/16] w-36' : 'aspect-video w-40'}`}>
-                                                    <span className="text-[10px] text-neutral-400 px-0.5">Current</span>
-                                                    {mediaList[0].thumbnailUrl ? (
-                                                        <img src={mediaDisplayUrl(mediaList[0].thumbnailUrl)} alt="Thumbnail" className="w-full h-full object-cover flex-1 min-h-0" />
-                                                    ) : (
-                                                        <div className="flex-1 min-h-0 flex items-center justify-center text-[10px] text-neutral-400">No thumbnail</div>
-                                                    )}
-                                                </div>
-                                                <div className={`flex flex-col gap-0.5 rounded-lg overflow-hidden border border-neutral-200 bg-black shrink-0 ${mediaType === 'reel' ? 'aspect-[9/16] w-36' : 'aspect-video w-40'}`}>
-                                                    <span className="text-[10px] text-neutral-400 px-0.5">Frame</span>
-                                                    <div className="relative flex-1 min-h-0 w-full">
+                                            <div className={`relative group rounded-lg overflow-hidden border-2 border-neutral-200 bg-neutral-100 shrink-0 ${mediaType === 'reel' ? 'aspect-[9/16] w-44' : 'aspect-video w-52'}`}>
+                                                {mediaList[0].thumbnailUrl ? (
+                                                    <>
+                                                        <img src={mediaDisplayUrl(mediaList[0].thumbnailUrl)} alt="Thumbnail" className="w-full h-full object-cover" />
+                                                        <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveMedia(0); }} className="absolute top-1 right-1 p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow"><X size={12} /></button>
+                                                        <a href={mediaList[0].fileUrl} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="absolute bottom-1 right-1 p-1.5 bg-black/60 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow" title="Download"><Download size={12} /></a>
+                                                    </>
+                                                ) : thumbnailChoice === 'frame' ? (
+                                                    <div className="absolute inset-0 w-full h-full bg-black">
                                                         <video
                                                             ref={videoThumbnailRef}
                                                             src={mediaDisplayUrl(mediaList[0].fileUrl)}
@@ -1336,19 +1333,13 @@ export default function ComposerPage() {
                                                         />
                                                         <canvas ref={thumbnailCanvasRef} className="absolute inset-0 w-full h-full object-contain" style={{ width: '100%', height: '100%', zIndex: 1 }} />
                                                     </div>
-                                                </div>
-                                                <div className={`relative group flex flex-col gap-0.5 rounded-lg overflow-hidden border-2 border-neutral-200 bg-neutral-100 shrink-0 ${mediaType === 'reel' ? 'aspect-[9/16] w-36' : 'aspect-video w-40'}`}>
-                                                    <span className="text-[10px] text-neutral-400 px-0.5">Video</span>
-                                                    <div className="flex-1 min-h-0 relative">
-                                                        {mediaList[0].thumbnailUrl ? (
-                                                            <img src={mediaDisplayUrl(mediaList[0].thumbnailUrl)} alt="Cover" className="absolute inset-0 w-full h-full object-cover" />
-                                                        ) : (
-                                                            <video src={mediaDisplayUrl(mediaList[0].fileUrl)} className="absolute inset-0 w-full h-full object-cover" muted playsInline />
-                                                        )}
-                                                        <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveMedia(0); }} className="absolute top-0.5 right-0.5 p-1 bg-red-500 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity"><X size={10} /></button>
-                                                        <a href={mediaList[0].fileUrl} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="absolute bottom-0.5 right-0.5 p-1 bg-black/60 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity" title="Download"><Download size={10} /></a>
-                                                    </div>
-                                                </div>
+                                                ) : (
+                                                    <>
+                                                        <video src={mediaDisplayUrl(mediaList[0].fileUrl)} className="w-full h-full object-cover" muted playsInline />
+                                                        <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveMedia(0); }} className="absolute top-1 right-1 p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow"><X size={12} /></button>
+                                                        <a href={mediaList[0].fileUrl} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="absolute bottom-1 right-1 p-1.5 bg-black/60 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow" title="Download"><Download size={12} /></a>
+                                                    </>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
