@@ -5,9 +5,11 @@ import axios from 'axios';
 
 const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN'] as const;
 
+const OAUTH_HEAD = '<meta charset="utf-8"><meta name="robots" content="noindex, nofollow">';
+
 function oauthErrorHtml(baseUrl: string, message: string, status: number): NextResponse {
   const dashboardUrl = `${baseUrl.replace(/\/+$/, '')}/dashboard`;
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Connection failed</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;">
+  const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Agent4Socials – Connection failed</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;">
 <h2 style="color:#b91c1c;">Connection failed</h2>
 <p>${message.replace(/</g, '&lt;')}</p>
 <p><a href="${dashboardUrl}">Back to Dashboard</a></p>
@@ -499,7 +501,7 @@ export async function GET(
         },
       });
       const selectUrl = `${baseUrl}/accounts/facebook/select?pendingId=${pending.id}`;
-      const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><p>Choose one Page to connect.</p><script>window.location.href = ${JSON.stringify(selectUrl)};</script><p>Redirecting to <a href="${selectUrl}">Choose Page</a>…</p></body></html>`;
+      const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Agent4Socials – Choose Page</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;"><p><strong>Agent4Socials</strong> – Choose one Page to connect.</p><script>window.location.href = ${JSON.stringify(selectUrl)};</script><p>Redirecting to <a href="${selectUrl}">Choose Page</a>…</p></body></html>`;
       return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
     } catch (e) {
       console.error('[Social OAuth] pending Facebook create error:', e);
@@ -569,7 +571,7 @@ export async function GET(
           });
         }
         const dashboardUrl = `${baseUrl}/dashboard?connecting=1`;
-        const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><p>Page connected.</p><script>window.location.href = ${JSON.stringify(dashboardUrl)};</script><p><a href="${dashboardUrl}">Go to Dashboard</a></p></body></html>`;
+        const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Agent4Socials – Page connected</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;"><p><strong>Agent4Socials</strong> – Page connected.</p><script>window.location.href = ${JSON.stringify(dashboardUrl)};</script><p><a href="${dashboardUrl}">Go to Dashboard</a></p></body></html>`;
         return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
       } catch (fallbackErr) {
         console.error('[Social OAuth] Facebook fallback connect error:', fallbackErr);
@@ -593,7 +595,7 @@ export async function GET(
         },
       });
       const selectUrl = `${baseUrl}/accounts/instagram/select?pendingId=${pending.id}`;
-      const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><p>Choose one Instagram account to connect.</p><script>window.location.href = ${JSON.stringify(selectUrl)};</script><p>Redirecting to <a href="${selectUrl}">Choose account</a>…</p></body></html>`;
+      const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Agent4Socials – Choose Instagram account</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;"><p><strong>Agent4Socials</strong> – Choose one Instagram account to connect.</p><script>window.location.href = ${JSON.stringify(selectUrl)};</script><p>Redirecting to <a href="${selectUrl}">Choose account</a>…</p></body></html>`;
       return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
     } catch (e) {
       console.error('[Social OAuth] pending Instagram create error:', e);
@@ -655,7 +657,7 @@ export async function GET(
           });
         }
         const dashboardUrl = `${baseUrl}/dashboard?connecting=1`;
-        const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><p>Account connected.</p><script>window.location.href = ${JSON.stringify(dashboardUrl)};</script><p><a href="${dashboardUrl}">Go to Dashboard</a></p></body></html>`;
+        const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Agent4Socials – Account connected</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;"><p><strong>Agent4Socials</strong> – Account connected.</p><script>window.location.href = ${JSON.stringify(dashboardUrl)};</script><p><a href="${dashboardUrl}">Go to Dashboard</a></p></body></html>`;
         return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
       } catch (fallbackErr) {
         console.error('[Social OAuth] Instagram fallback connect error:', fallbackErr);
@@ -767,7 +769,7 @@ export async function GET(
 
   const twitter1oaNext = plat === 'TWITTER' && process.env.TWITTER_API_KEY && process.env.TWITTER_API_SECRET ? '&twitter_1oa_next=1' : '';
   const dashboardUrl = `${baseUrl}/dashboard?connecting=1${twitter1oaNext}`;
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><p>Account connected.</p><script>
+  const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Agent4Socials – Account connected</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;"><p><strong>Agent4Socials</strong> – Account connected.</p><script>
 (function(){
   if (window.opener) {
     try { window.close(); } catch (e) {}
