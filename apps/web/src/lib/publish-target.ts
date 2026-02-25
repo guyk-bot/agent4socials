@@ -339,7 +339,8 @@ export async function publishTarget(
             timeout: 30_000,
             validateStatus: () => true,
           });
-          if (initRes.status !== 200) {
+          const initOk = initRes.status === 200 || initRes.status === 202;
+          if (!initOk) {
             if (initRes.status === 403) {
               if (typeof console !== 'undefined' && console.error) console.error('[Twitter video INIT] 403:', JSON.stringify(initRes.data).slice(0, 300));
               mediaSkipped = true;
@@ -347,7 +348,7 @@ export async function publishTarget(
               throw new Error(`Twitter video INIT failed: ${initRes.status} ${JSON.stringify(initRes.data)}`);
             }
           }
-          const mediaId = initRes.status === 200 ? (initRes.data as { media_id_string?: string })?.media_id_string : undefined;
+          const mediaId = initOk ? (initRes.data as { media_id_string?: string })?.media_id_string : undefined;
           if (!mediaId && !mediaSkipped) throw new Error('Twitter INIT did not return media_id_string');
           if (!mediaId) {
             // 403 or no media_id: post text only
