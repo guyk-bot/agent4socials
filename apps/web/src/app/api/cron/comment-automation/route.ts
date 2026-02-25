@@ -75,6 +75,8 @@ async function runCommentAutomation(request: NextRequest) {
         const platform = target.socialAccount.platform;
         const replyText = getReplyText(ca, platform);
         if (!replyText) continue;
+        // Keyword comment automation is not offered for LinkedIn
+        if (platform === 'LINKEDIN') continue;
 
         const token = target.socialAccount.accessToken;
         const platformPostId = target.platformPostId;

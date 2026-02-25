@@ -17,7 +17,20 @@ import {
     ExternalLink,
     ChevronRight,
     Loader2,
+    ImageIcon,
 } from 'lucide-react';
+
+function postMediaThumbUrl(mediaItem: { fileUrl: string; type: string; metadata?: { thumbnailUrl?: string } | null } | undefined): string | null {
+    if (!mediaItem?.fileUrl) return null;
+    const url = mediaItem.type === 'VIDEO'
+        ? (mediaItem.metadata && typeof mediaItem.metadata === 'object' && mediaItem.metadata.thumbnailUrl) || mediaItem.fileUrl
+        : mediaItem.fileUrl;
+    if (typeof url !== 'string' || !url) return null;
+    if (url.startsWith('http') && (url.includes('r2.dev') || url.includes('cloudflarestorage.com'))) {
+        return `/api/media/proxy?url=${encodeURIComponent(url)}`;
+    }
+    return url;
+}
 
 export default function PostsPage() {
     const pathname = usePathname();
@@ -109,9 +122,16 @@ export default function PostsPage() {
                                     <td className="px-6 py-4">
                                         <div className="flex items-center space-x-3">
                                             {post.media?.[0] && (
-                                                <div className="w-10 h-10 rounded bg-gray-100 overflow-hidden flex-shrink-0">
-                                                    <img src={post.media[0].fileUrl} alt="" className="w-full h-full object-cover" />
+                                                <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
+                                                    {postMediaThumbUrl(post.media[0]) ? (
+                                                        <img src={postMediaThumbUrl(post.media[0])!} alt="" className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center text-gray-400"><Video size={20} /></div>
+                                                    )}
                                                 </div>
+                                            )}
+                                            {!post.media?.length && (
+                                                <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 text-gray-400"><ImageIcon size={20} /></div>
                                             )}
                                             <div className="text-sm font-medium text-gray-900 truncate max-w-xs">
                                                 {post.title || post.content}

@@ -106,6 +106,12 @@ export default function AutomationPage() {
         <p className="text-sm text-neutral-600 mt-1">
           When someone comments on your post with a keyword you set (e.g. &quot;demo&quot;), they get an automatic reply. Set keywords and the reply text per post in the Composer (section 4).
         </p>
+        <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
+          <strong>LinkedIn:</strong> Keyword comment automation is not supported for LinkedIn. Replies run only on Instagram, Facebook, and X.
+        </p>
+        <p className="text-xs text-neutral-500 mt-2">
+          <strong>X (Twitter):</strong> If keyword replies on X don’t run, your X app may need access to the Search API (e.g. Basic or Pro tier in the X Developer Portal). Check that your app is in a Project with &quot;Read and write&quot; and that you have not hit rate or usage limits.
+        </p>
         <div className="mt-3 p-3 rounded-lg bg-green-50 border border-green-200 text-sm text-green-900">
           <p className="font-medium mb-2">Setup checklist (do all steps)</p>
           <p className="text-green-800 mb-2 text-xs">You can use the <strong>same cron job</strong> you already have (the one that calls <code className="bg-green-100/80 px-1 rounded">/api/cron/process-scheduled</code>). That endpoint now also runs comment automation, so no need to create a second job.</p>

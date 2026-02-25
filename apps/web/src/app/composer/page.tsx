@@ -1620,7 +1620,7 @@ export default function ComposerPage() {
                             />
                             <span className="text-sm font-medium text-neutral-700">Enable keyword comment automation</span>
                         </label>
-                        <p className="text-sm text-neutral-500">When comments contain your keywords on this post, we automatically reply. Set a default reply and/or a different reply per platform below. Instagram can send DM; Facebook, X, LinkedIn send public replies. Settings are saved with the post.</p>
+                        <p className="text-sm text-neutral-500">When comments contain your keywords on this post, we automatically reply. Set a default reply and/or a different reply per platform below. Instagram can send DM; Facebook and X send public replies. <strong>LinkedIn does not support keyword comment automation</strong>; replies are only sent on Instagram, Facebook, and X. Settings are saved with the post.</p>
                         {commentAutomationEnabled && (
                             <div className="space-y-4 pt-2 border-t border-neutral-100">
                                 <div>
@@ -1649,7 +1649,7 @@ export default function ComposerPage() {
                                         <div className="space-y-3">
                                             {platforms.map((p) => (
                                                 <div key={p} className="space-y-1">
-                                                    <span className="text-sm font-medium text-neutral-600">{PLATFORM_LABELS[p] || p}</span>
+                                                    <span className="text-sm font-medium text-neutral-600">{PLATFORM_LABELS[p] || p}{p === 'LINKEDIN' ? ' (not supported for keyword replies)' : ''}</span>
                                                     <textarea
                                                         value={commentAutomationReplyByPlatform[p] ?? ''}
                                                         onChange={(e) => setCommentAutomationReplyByPlatform((prev) => ({ ...prev, [p]: e.target.value }))}
