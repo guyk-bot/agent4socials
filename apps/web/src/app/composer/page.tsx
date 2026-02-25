@@ -37,6 +37,8 @@ type ComposerDraft = {
     mediaList: MediaItem[];
     mediaByPlatform: Record<string, MediaItem[]>;
     differentMediaPerPlatform: boolean;
+    differentThumbnailPerPlatform?: boolean;
+    thumbnailByPlatform?: Record<string, string>;
     scheduledAt: string;
     scheduleDelivery: 'auto' | 'email_links';
     selectedHashtags: string[];
@@ -172,8 +174,8 @@ export default function ComposerPage() {
     const [sectionOpen, setSectionOpen] = useState({ platforms: true, media: true, content: false, commentAutomation: false, hashtags: false, schedule: false });
     const toggleSection = (key: keyof typeof sectionOpen) => setSectionOpen((s) => ({ ...s, [key]: !s[key] }));
 
-    // Resizable right preview panel (px); min 200, max 480
-    const [previewWidthPx, setPreviewWidthPx] = useState(260);
+    // Resizable right preview panel (px); min 200, max 560
+    const [previewWidthPx, setPreviewWidthPx] = useState(340);
     const previewResizeRef = useRef<{ startX: number; startW: number } | null>(null);
 
     useEffect(() => {
@@ -181,7 +183,7 @@ export default function ComposerPage() {
             const r = previewResizeRef.current;
             if (!r) return;
             const delta = r.startX - e.clientX;
-            setPreviewWidthPx((w) => Math.min(480, Math.max(200, r.startW + delta)));
+            setPreviewWidthPx((w) => Math.min(560, Math.max(200, r.startW + delta)));
         };
         const onUp = () => { previewResizeRef.current = null; };
         window.addEventListener('mousemove', onMove);
@@ -194,6 +196,15 @@ export default function ComposerPage() {
 
     // Thumbnail source: which single option is selected (none = use video default, upload = custom image, frame = pick from video)
     const [thumbnailChoice, setThumbnailChoice] = useState<'none' | 'upload' | 'frame'>('none');
+    const [differentThumbnailPerPlatform, setDifferentThumbnailPerPlatform] = useState(false);
+    const [thumbnailByPlatform, setThumbnailByPlatform] = useState<Record<string, string>>({});
+    const [selectedPlatformForThumbnail, setSelectedPlatformForThumbnail] = useState<string>('');
+
+    // When platforms change, keep selected platform for thumbnail in sync
+    useEffect(() => {
+        if (platforms.length === 0) return;
+        setSelectedPlatformForThumbnail((prev) => (platforms.includes(prev) ? prev : platforms[0]));
+    }, [platforms]);
 
     // When we have a thumbnail (e.g. from draft), show a selected option so UI matches state
     useEffect(() => {
@@ -277,6 +288,8 @@ export default function ComposerPage() {
                     if (Object.keys(cleaned).length) setMediaByPlatform(cleaned);
                 }
                 if (typeof d.differentMediaPerPlatform === 'boolean') setDifferentMediaPerPlatform(d.differentMediaPerPlatform);
+                if (typeof d.differentThumbnailPerPlatform === 'boolean') setDifferentThumbnailPerPlatform(d.differentThumbnailPerPlatform);
+                if (d.thumbnailByPlatform && typeof d.thumbnailByPlatform === 'object') setThumbnailByPlatform(d.thumbnailByPlatform);
                 if (typeof d.scheduledAt === 'string') {
                     const parsed = new Date(d.scheduledAt);
                     if (!Number.isNaN(parsed.getTime())) {
@@ -505,6 +518,8 @@ export default function ComposerPage() {
                     mediaList: mediaListToSave,
                     mediaByPlatform: mediaByPlatformToSave,
                     differentMediaPerPlatform,
+                    differentThumbnailPerPlatform,
+                    thumbnailByPlatform,
                     scheduledAt,
                     scheduleDelivery,
                     selectedHashtags,
@@ -530,6 +545,8 @@ export default function ComposerPage() {
         mediaList,
         mediaByPlatform,
         differentMediaPerPlatform,
+        differentThumbnailPerPlatform,
+        thumbnailByPlatform,
         scheduledAt,
         scheduleDelivery,
         selectedHashtags,
@@ -681,6 +698,9 @@ export default function ComposerPage() {
             const { fileUrl } = await uploadFile(file);
             setMediaList((prev) => prev.map((item, i) => (i === 0 ? { ...item, thumbnailUrl: fileUrl } : item)));
             setThumbnailChoice('upload');
+            if (differentThumbnailPerPlatform && selectedPlatformForThumbnail) {
+                setThumbnailByPlatform((prev) => ({ ...prev, [selectedPlatformForThumbnail]: fileUrl }));
+            }
         } catch (err) {
             setMediaUploadError('Thumbnail upload failed. Try again.');
         } finally {
@@ -707,6 +727,9 @@ export default function ComposerPage() {
             const { fileUrl } = await uploadFile(file);
             setMediaList((prev) => prev.map((item, i) => (i === 0 ? { ...item, thumbnailUrl: fileUrl } : item)));
             setThumbnailChoice('frame');
+            if (differentThumbnailPerPlatform && selectedPlatformForThumbnail) {
+                setThumbnailByPlatform((prev) => ({ ...prev, [selectedPlatformForThumbnail]: fileUrl }));
+            }
         } catch (err) {
             setMediaUploadError('Failed to use frame. Try again or upload an image.');
         } finally {
@@ -715,7 +738,15 @@ export default function ComposerPage() {
     }, [mediaList]);
 
     const handleRemoveThumbnail = () => {
-        setMediaList((prev) => prev.map((item, i) => (i === 0 ? { ...item, thumbnailUrl: undefined } : item)));
+        if (differentThumbnailPerPlatform && selectedPlatformForThumbnail) {
+            setThumbnailByPlatform((prev) => {
+                const next = { ...prev };
+                delete next[selectedPlatformForThumbnail];
+                return next;
+            });
+        } else {
+            setMediaList((prev) => prev.map((item, i) => (i === 0 ? { ...item, thumbnailUrl: undefined } : item)));
+        }
         setThumbnailChoice('none');
     };
 
@@ -1279,6 +1310,31 @@ export default function ComposerPage() {
                                             <div>
                                                 <h4 className="text-sm font-semibold text-neutral-800">Thumbnail (optional)</h4>
                                                 <p className="text-xs text-neutral-500 mt-0.5">{mediaType === 'reel' ? '9:16 (1080×1920) for best results.' : 'Cover for your video.'}</p>
+                                                {platforms.length > 1 && (
+                                                    <label className="mt-3 flex items-center gap-2 cursor-pointer">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={differentThumbnailPerPlatform}
+                                                            onChange={(e) => setDifferentThumbnailPerPlatform(e.target.checked)}
+                                                            className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                                                        />
+                                                        <span className="text-sm text-neutral-700">Use different thumbnail per platform</span>
+                                                    </label>
+                                                )}
+                                                {differentThumbnailPerPlatform && platforms.length > 1 && (
+                                                    <div className="mt-2">
+                                                        <label className="text-xs font-medium text-neutral-500">Thumbnail for:</label>
+                                                        <select
+                                                            value={selectedPlatformForThumbnail}
+                                                            onChange={(e) => setSelectedPlatformForThumbnail(e.target.value)}
+                                                            className="ml-2 mt-0.5 rounded-lg border border-neutral-200 px-2 py-1.5 text-sm text-neutral-800"
+                                                        >
+                                                            {platforms.map((p) => (
+                                                                <option key={p} value={p}>{PLATFORM_LABELS[p] ?? p}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                )}
                                                 <p className="text-xs text-neutral-400 mt-1 font-medium">Choose one option:</p>
                                             </div>
                                             <div className="flex flex-col gap-2">
@@ -1298,7 +1354,7 @@ export default function ComposerPage() {
                                                             <ImageIcon size={14} />
                                                             Choose file
                                                         </button>
-                                                        {mediaList[0].thumbnailUrl && (
+                                                        {(differentThumbnailPerPlatform && selectedPlatformForThumbnail ? thumbnailByPlatform[selectedPlatformForThumbnail] : mediaList[0].thumbnailUrl) && (
                                                             <button type="button" onClick={handleRemoveThumbnail} className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium border border-red-200 text-red-700 hover:bg-red-50">Remove</button>
                                                         )}
                                                     </div>
@@ -1318,12 +1374,15 @@ export default function ComposerPage() {
                                                 )}
                                             </div>
                                         </div>
-                                        <div className="flex flex-col gap-1.5 shrink-0">
-                                            <span className="text-xs font-medium text-neutral-500 uppercase tracking-wide sm:block hidden">Preview</span>
+                                        <div className="shrink-0 sm:pt-0 pt-0">
                                             <div className={`relative group rounded-lg overflow-hidden border-2 border-neutral-200 bg-neutral-100 shrink-0 ${mediaType === 'reel' ? 'aspect-[9/16] w-44' : 'aspect-video w-52'}`}>
-                                                {mediaList[0].thumbnailUrl ? (
+                                                {(() => {
+                                                    const effectiveThumbnail = differentThumbnailPerPlatform && selectedPlatformForThumbnail
+                                                        ? (thumbnailByPlatform[selectedPlatformForThumbnail] ?? mediaList[0].thumbnailUrl)
+                                                        : mediaList[0].thumbnailUrl;
+                                                    return effectiveThumbnail ? (
                                                     <>
-                                                        <img src={mediaDisplayUrl(mediaList[0].thumbnailUrl)} alt="Thumbnail" className="w-full h-full object-cover" />
+                                                        <img src={mediaDisplayUrl(effectiveThumbnail)} alt="Thumbnail" className="w-full h-full object-cover" />
                                                         <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveMedia(0); }} className="absolute top-1 right-1 p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow"><X size={12} /></button>
                                                         <a href={mediaList[0].fileUrl} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="absolute bottom-1 right-1 p-1.5 bg-black/60 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow" title="Download"><Download size={12} /></a>
                                                     </>
@@ -1359,7 +1418,8 @@ export default function ComposerPage() {
                                                         <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveMedia(0); }} className="absolute top-1 right-1 p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow"><X size={12} /></button>
                                                         <a href={mediaList[0].fileUrl} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="absolute bottom-1 right-1 p-1.5 bg-black/60 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow" title="Download"><Download size={12} /></a>
                                                     </>
-                                                )}
+                                                );
+                                                })()}
                                             </div>
                                         </div>
                                     </div>
@@ -1786,7 +1846,7 @@ export default function ComposerPage() {
                 />
                 <div
                     className="hidden lg:flex flex-col flex-shrink-0 space-y-3 lg:pl-2"
-                    style={{ width: `${previewWidthPx}px`, minWidth: 200, maxWidth: 480 }}
+                    style={{ width: `${previewWidthPx}px`, minWidth: 200, maxWidth: 560 }}
                 >
                     <h2 className="text-sm font-semibold text-neutral-600 uppercase tracking-wide">Preview</h2>
                     <div className="sticky top-6 space-y-3 overflow-y-auto max-h-[calc(100vh-8rem)]">
@@ -1802,6 +1862,10 @@ export default function ComposerPage() {
                                     const tags = differentHashtagsPerPlatform ? (selectedHashtagsByPlatform[p] ?? []) : selectedHashtags;
                                     const contentWithHashtags = baseContent.trim() + (tags.length ? ' ' + tags.join(' ') : '');
                                     const accountForPlatform = accounts.find((a: { platform: string }) => a.platform === p) as { username?: string; profilePicture?: string } | undefined;
+                                    const mediaForPlatform = differentMediaPerPlatform ? (mediaByPlatform[p] ?? []) : mediaList;
+                                    const effectiveMedia = (mediaType === 'video' || mediaType === 'reel') && mediaForPlatform.length === 1 && differentThumbnailPerPlatform
+                                        ? mediaForPlatform.map((m, i) => (i === 0 && m.type === 'VIDEO' ? { ...m, thumbnailUrl: thumbnailByPlatform[p] ?? (m as MediaItem).thumbnailUrl } : m))
+                                        : mediaForPlatform;
                                     return (
                                         <PostPreview
                                             key={p}
@@ -1809,7 +1873,7 @@ export default function ComposerPage() {
                                             profileName={accountForPlatform?.username ?? ''}
                                             profilePicture={accountForPlatform?.profilePicture ?? undefined}
                                             content={contentWithHashtags}
-                                            media={differentMediaPerPlatform ? (mediaByPlatform[p] ?? []) : mediaList}
+                                            media={effectiveMedia}
                                             mediaType={mediaType}
                                             compact
                                         />
@@ -1835,6 +1899,10 @@ export default function ComposerPage() {
                                     const tags = differentHashtagsPerPlatform ? (selectedHashtagsByPlatform[p] ?? []) : selectedHashtags;
                                     const contentWithHashtags = baseContent.trim() + (tags.length ? ' ' + tags.join(' ') : '');
                                     const accountForPlatform = accounts.find((a: { platform: string }) => a.platform === p) as { username?: string; profilePicture?: string } | undefined;
+                                    const mediaForPlatform = differentMediaPerPlatform ? (mediaByPlatform[p] ?? []) : mediaList;
+                                    const effectiveMedia = (mediaType === 'video' || mediaType === 'reel') && mediaForPlatform.length === 1 && differentThumbnailPerPlatform
+                                        ? mediaForPlatform.map((m, i) => (i === 0 && m.type === 'VIDEO' ? { ...m, thumbnailUrl: thumbnailByPlatform[p] ?? (m as MediaItem).thumbnailUrl } : m))
+                                        : mediaForPlatform;
                                     return (
                                         <PostPreview
                                             key={p}
@@ -1842,7 +1910,7 @@ export default function ComposerPage() {
                                             profileName={accountForPlatform?.username ?? ''}
                                             profilePicture={accountForPlatform?.profilePicture ?? undefined}
                                             content={contentWithHashtags}
-                                            media={differentMediaPerPlatform ? (mediaByPlatform[p] ?? []) : mediaList}
+                                            media={effectiveMedia}
                                             mediaType={mediaType}
                                             compact
                                         />
