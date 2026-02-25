@@ -213,51 +213,6 @@ async function runCommentAutomation(request: NextRequest) {
                 errors.push((e as Error)?.message ?? String(e));
               }
             }
-          } else if (platform === 'LINKEDIN') {
-            const linkedInHeaders = {
-              Authorization: `Bearer ${token}`,
-              'X-Restli-Protocol-Version': '2.0.0',
-              'Linkedin-Version': '202602',
-            };
-            const postUrnEnc = encodeURIComponent(platformPostId);
-            const commentsRes = await axios.get<{ elements?: Array<{ id: string; commentUrn?: string; object?: string; message?: { text?: string } }> }>(
-              `https://api.linkedin.com/rest/socialActions/${postUrnEnc}/comments`,
-              { headers: linkedInHeaders }
-            );
-            const elements = commentsRes.data?.elements ?? [];
-            const rawActor = target.socialAccount.platformUserId ?? '';
-            const actor = rawActor.startsWith('urn:li:') ? rawActor : `urn:li:person:${rawActor}`;
-            if (!actor || actor === 'urn:li:person:') continue;
-            for (const c of elements) {
-              const commentId = c.commentUrn ?? c.id;
-              if (repliedSet.has(commentId)) continue;
-              const text = (c.message?.text ?? '').toLowerCase();
-              if (!keywords.some((k) => text.includes(k))) continue;
-              try {
-                await prisma.commentAutomationReply.create({
-                  data: { postTargetId: target.id, platformCommentId: commentId },
-                });
-                repliedSet.add(commentId);
-                const parentUrn = c.commentUrn ?? `urn:li:comment:(${c.object ?? platformPostId},${c.id})`;
-                const parentEnc = encodeURIComponent(parentUrn);
-                await axios.post(
-                  `https://api.linkedin.com/rest/socialActions/${parentEnc}/comments`,
-                  {
-                    actor,
-                    object: c.object ?? platformPostId,
-                    parentComment: parentUrn,
-                    message: { text: replyText },
-                  },
-                  { headers: { ...linkedInHeaders, 'Content-Type': 'application/json' } }
-                );
-                replied++;
-              } catch (e) {
-                await prisma.commentAutomationReply.deleteMany({
-                  where: { postTargetId: target.id, platformCommentId: commentId },
-                }).catch(() => {});
-                errors.push((e as Error)?.message ?? String(e));
-              }
-            }
           }
         } catch (e) {
           errors.push((e as Error)?.message ?? String(e));
