@@ -58,7 +58,11 @@ async function syncImportedPosts(
       );
     } catch (e) {
       const msg = (e as Error)?.message ?? '';
-      if (msg.includes('OAuth') || msg.includes('permission') || msg.includes('access')) return 'Reconnect your Instagram account to sync posts.';
+      const metaMsg = (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
+      if (msg.includes('OAuth') || msg.includes('permission') || msg.includes('access') || metaMsg?.toLowerCase().includes('token') || metaMsg?.toLowerCase().includes('permission')) {
+        return 'Reconnect your Instagram account to sync posts.';
+      }
+      if (metaMsg) return metaMsg;
       throw e;
     }
     const items = res.data?.data ?? [];
@@ -119,7 +123,11 @@ async function syncImportedPosts(
       );
     } catch (e) {
       const msg = (e as Error)?.message ?? '';
-      if (msg.includes('OAuth') || msg.includes('permission') || msg.includes('access')) return 'Reconnect your Facebook Page to sync posts.';
+      const metaMsg = (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
+      if (msg.includes('OAuth') || msg.includes('permission') || msg.includes('access') || metaMsg?.toLowerCase().includes('token') || metaMsg?.toLowerCase().includes('permission')) {
+        return 'Reconnect your Facebook Page to sync posts.';
+      }
+      if (metaMsg) return metaMsg;
       throw e;
     }
     const items = res.data?.data ?? [];

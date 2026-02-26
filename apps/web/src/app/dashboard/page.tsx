@@ -240,22 +240,39 @@ export default function DashboardPage() {
     const syncAllFirst = syncAllRequestedRef.current !== accountIdsKey;
     if (syncAllFirst) syncAllRequestedRef.current = accountIdsKey;
     setAllPostsSyncError(null);
-    Promise.all(
+    const timeoutMs = syncAllFirst ? 60_000 : 25_000;
+    Promise.allSettled(
       accounts.map((acc) =>
-        api.get(`/social/accounts/${acc.id}/posts`, { params: syncAllFirst ? { sync: 1 } : {} }).then((r) => ({
+        api.get(`/social/accounts/${acc.id}/posts`, { params: syncAllFirst ? { sync: 1 } : {}, timeout: timeoutMs }).then((r) => ({
           id: acc.id,
           posts: r.data?.posts ?? [],
           syncError: r.data?.syncError as string | undefined,
         }))
       )
     )
-      .then((results) => {
+      .then((outcomes) => {
+        const results: Array<{ posts: Array<{ id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; impressions: number; interactions: number; publishedAt: string; mediaType?: string | null; platform: string }>; syncError?: string }> = [];
+        const errors: string[] = [];
+        for (const outcome of outcomes) {
+          if (outcome.status === 'fulfilled' && outcome.value) {
+            results.push({ posts: outcome.value.posts ?? [], syncError: outcome.value.syncError });
+            if (outcome.value.syncError) errors.push(outcome.value.syncError);
+          } else if (outcome.status === 'rejected') {
+            const err = outcome.reason;
+            const msg = err?.response?.data?.message ?? err?.message ?? 'Request failed';
+            if (msg.includes('timeout') || msg.includes('Timeout')) {
+              errors.push('Sync is taking too long. Try selecting one account in the sidebar and click Sync there, or try again in a moment.');
+            } else if (err?.response?.status === 401) {
+              errors.push('Session expired. Please log out and log back in.');
+            } else {
+              errors.push(msg);
+            }
+          }
+        }
         const merged = results.flatMap((r) => r.posts).sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
         setImportedPosts(merged);
-        const firstError = results.map((r) => r.syncError).find(Boolean);
-        if (firstError) setAllPostsSyncError(firstError);
+        if (errors.length) setAllPostsSyncError(errors[0]);
       })
-      .catch(() => { setImportedPosts([]); setAllPostsSyncError('Failed to load posts.'); })
       .finally(() => setImportedPostsLoading(false));
   }, [analyticsTab, selectedAccount?.id, hasAccounts, syncAllTrigger, accounts.map((a) => a.id).join(',')]);
 
@@ -456,7 +473,7 @@ export default function DashboardPage() {
         : [];
   const maxImpressions = displayTimeSeries.length ? Math.max(...displayTimeSeries.map((d) => d.value), 1) : 1;
   const hasFbOrIg = accounts.some((a) => a.platform === 'FACEBOOK' || a.platform === 'INSTAGRAM');
-  const showReconnectBanner = hasFbOrIg && (insights?.insightsHint || postsSyncError || allPostsSyncError);
+  const showReconnectBanner = hasFbOrIg && (insights?.insightsHint || postsSyncError || (allPostsSyncError && (allPostsSyncError.includes('Reconnect') || allPostsSyncError.includes('Session expired') || allPostsSyncError.includes('log back in'))));
 
   return (
     <div className="space-y-0">
@@ -629,7 +646,8 @@ export default function DashboardPage() {
           {!selectedAccount && hasAccounts && (importedPosts.length === 0 || allPostsSyncError) && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
               {importedPosts.length === 0 && <p>No posts in this period yet. Sync to load posts from Instagram and Facebook (and see interactions, number of posts, and total content).</p>}
-              {allPostsSyncError && <p className="mt-1">{allPostsSyncError}</p>}
+              {allPostsSyncError && <p className="mt-1 font-medium">{allPostsSyncError}</p>}
+              <p className="mt-2 text-xs text-amber-700">Tip: If syncing all accounts fails or times out, select one account in the sidebar and click Sync there.</p>
               <button
                 type="button"
                 onClick={() => {
