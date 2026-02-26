@@ -74,3 +74,33 @@ CREATE TABLE IF NOT EXISTS "PendingTwitterOAuth1" (
 ```
 
 3. Save. After that, publish and "Enable image upload" for X will work.
+
+### If you get "The table 'public.ImportedPost' does not exist"
+
+Summary and Sync posts need the `ImportedPost` table. A migration was added (`20250226120000_add_imported_post`). Either:
+
+1. **Redeploy** so the build runs `prisma migrate deploy` (ensure `DATABASE_DIRECT_URL` is set if you use a pooler).
+2. Or create the table once in **Supabase Dashboard** → **SQL Editor**:
+
+```sql
+CREATE TABLE IF NOT EXISTS "ImportedPost" (
+    "id" TEXT NOT NULL,
+    "socialAccountId" TEXT NOT NULL,
+    "platformPostId" TEXT NOT NULL,
+    "platform" "Platform" NOT NULL,
+    "content" TEXT,
+    "thumbnailUrl" TEXT,
+    "permalinkUrl" TEXT,
+    "impressions" INTEGER NOT NULL DEFAULT 0,
+    "interactions" INTEGER NOT NULL DEFAULT 0,
+    "publishedAt" TIMESTAMP(3) NOT NULL,
+    "mediaType" TEXT,
+    "syncedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "ImportedPost_pkey" PRIMARY KEY ("id")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "ImportedPost_socialAccountId_platformPostId_key" ON "ImportedPost"("socialAccountId", "platformPostId");
+ALTER TABLE "ImportedPost" DROP CONSTRAINT IF EXISTS "ImportedPost_socialAccountId_fkey";
+ALTER TABLE "ImportedPost" ADD CONSTRAINT "ImportedPost_socialAccountId_fkey" FOREIGN KEY ("socialAccountId") REFERENCES "SocialAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+```
+
+Then click **Sync posts** again on the dashboard.
