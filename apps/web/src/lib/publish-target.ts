@@ -60,6 +60,31 @@ export async function publishTarget(
   const { platform, token, platformUserId, caption, firstImageUrl, firstMediaUrl, videoThumbnailUrl, twitterOAuth1 } = options;
   const { fetch: fetchFn, axios: axiosInstance } = deps;
 
+  /** Poll Instagram container until status_code is FINISHED or ERROR. Required before media_publish. */
+  async function waitForInstagramContainer(containerId: string, token: string, maxWaitMs = 90_000): Promise<{ ok: boolean; error?: string }> {
+    const intervalMs = 2000;
+    const start = Date.now();
+    while (Date.now() - start < maxWaitMs) {
+      try {
+        const statusRes = await axiosInstance.get<{ status_code?: string; status?: string }>(
+          `https://graph.facebook.com/v18.0/${containerId}`,
+          { params: { fields: 'status_code,status', access_token: token } }
+        );
+        const code = statusRes.data?.status_code;
+        if (code === 'FINISHED') return { ok: true };
+        if (code === 'ERROR') {
+          const msg = statusRes.data?.status ?? 'Container processing failed';
+          return { ok: false, error: msg };
+        }
+      } catch (e) {
+        const msg = (e as Error)?.message ?? String(e);
+        return { ok: false, error: msg };
+      }
+      await new Promise((r) => setTimeout(r, intervalMs));
+    }
+    return { ok: false, error: 'Container did not finish processing in time' };
+  }
+
   try {
     if (platform === 'INSTAGRAM') {
       if (firstMediaUrl) {
@@ -78,6 +103,8 @@ export async function publishTarget(
         );
         const creationId = (containerRes.data as { id?: string })?.id;
         if (!creationId) throw new Error(JSON.stringify(containerRes.data));
+        const wait = await waitForInstagramContainer(creationId, token, 90_000);
+        if (!wait.ok) throw new Error(wait.error ?? 'Reel container not ready');
         const publishRes = await axiosInstance.post(
           `https://graph.facebook.com/v18.0/${platformUserId}/media_publish`,
           null,
@@ -102,6 +129,8 @@ export async function publishTarget(
       );
       const creationId = (containerRes.data as { id?: string })?.id;
       if (!creationId) throw new Error(JSON.stringify(containerRes.data));
+      const wait = await waitForInstagramContainer(creationId, token, 30_000);
+      if (!wait.ok) throw new Error(wait.error ?? 'Image container not ready');
       const publishRes = await axiosInstance.post(
         `https://graph.facebook.com/v18.0/${platformUserId}/media_publish`,
         null,
@@ -122,6 +151,21 @@ export async function publishTarget(
         const page = data?.data?.find((p) => p.id === platformUserId);
         if (page?.access_token) pageToken = page.access_token;
       } catch (_) {}
+      // Post image as a Page photo (no link text). Video or link-only: use feed with link.
+      if (firstImageUrl) {
+        const photoParams: Record<string, string> = {
+          url: firstImageUrl,
+          access_token: pageToken,
+        };
+        if (caption?.trim()) photoParams.caption = caption.trim();
+        const photoRes = await axiosInstance.post(
+          `https://graph.facebook.com/v18.0/${platformUserId}/photos`,
+          null,
+          { params: photoParams }
+        );
+        const postId = (photoRes.data as { id?: string; post_id?: string })?.post_id ?? (photoRes.data as { id?: string })?.id;
+        return { ok: true, platformPostId: postId };
+      }
       const feedParams: Record<string, string> = {
         message: caption || ' ',
         access_token: pageToken,

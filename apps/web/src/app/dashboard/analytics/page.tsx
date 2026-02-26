@@ -79,7 +79,16 @@ export default function AnalyticsPage() {
   });
   const totalPostsPages = Math.max(1, Math.ceil(sortedPosts.length / postsPerPage));
   const currentPagePosts = sortedPosts.slice((postsPage - 1) * postsPerPage, postsPage * postsPerPage);
-  const maxImpressions = insights?.impressionsTimeSeries?.length ? Math.max(...insights.impressionsTimeSeries.map((d) => d.value), 1) : 1;
+  const effectiveTimeSeries = insights?.impressionsTimeSeries ?? [];
+  const fallbackSeriesValue = (insights?.impressionsTotal ?? 0) || (insights?.followers ?? 0) || 0;
+  const hasNonZeroSeries = effectiveTimeSeries.length > 0 && effectiveTimeSeries.some((d) => d.value > 0);
+  const displayTimeSeries =
+    hasNonZeroSeries
+      ? effectiveTimeSeries
+      : fallbackSeriesValue > 0
+        ? [{ date: dateRange.end || new Date().toISOString().slice(0, 10), value: fallbackSeriesValue }]
+        : [];
+  const maxImpressions = displayTimeSeries.length ? Math.max(...displayTimeSeries.map((d) => d.value), 1) : 1;
   const hasFbOrIg = connectedPlatforms.includes('FACEBOOK') || connectedPlatforms.includes('INSTAGRAM');
   const showReconnectBanner = hasFbOrIg && (insights?.insightsHint || postsSyncError);
 
@@ -305,9 +314,9 @@ export default function AnalyticsPage() {
                   </div>
                   <div className="mt-4 h-40 rounded-lg bg-neutral-50 border border-neutral-100 relative overflow-hidden">
                     <div className="absolute inset-0 opacity-[0.03] font-semibold text-neutral-400 text-2xl" style={{ transform: 'rotate(-20deg)' }}>agent4socials</div>
-                    {insights?.impressionsTimeSeries?.length ? (
+                    {displayTimeSeries.length ? (
                       <div className="flex items-end gap-0.5 h-full w-full p-4 pb-2">
-                        {insights.impressionsTimeSeries.map((d) => (
+                        {displayTimeSeries.map((d) => (
                           <div key={d.date} className="flex-1 bg-indigo-200/80 rounded-t min-h-[4px]" style={{ height: `${(d.value / maxImpressions) * 100}%` }} title={`${d.date}: ${d.value}`} />
                         ))}
                       </div>
@@ -335,9 +344,9 @@ export default function AnalyticsPage() {
                   </div>
                   <div className="mt-4 h-40 rounded-lg bg-neutral-50 border border-neutral-100 relative overflow-hidden">
                     <div className="absolute inset-0 opacity-[0.03] font-semibold text-neutral-400 text-2xl" style={{ transform: 'rotate(-20deg)' }}>agent4socials</div>
-                    {insights?.impressionsTimeSeries?.length ? (
+                    {displayTimeSeries.length ? (
                       <div className="flex items-end gap-0.5 h-full w-full p-4 pb-2">
-                        {insights.impressionsTimeSeries.map((d) => (
+                        {displayTimeSeries.map((d) => (
                           <div key={d.date} className="flex-1 bg-indigo-200/80 rounded-t min-h-[4px]" style={{ height: `${(d.value / maxImpressions) * 100}%` }} title={`${d.date}: ${d.value}`} />
                         ))}
                       </div>

@@ -49,23 +49,50 @@ export async function GET(
     postTargetId: string;
     platformPostId: string;
     postPreview: string;
+    postImageUrl?: string | null;
     text: string;
     authorName: string;
+    authorPictureUrl?: string | null;
     createdAt: string;
     platform: string;
   }> = [];
 
+  /** Fetch post image for Facebook (full_picture or picture) or Instagram (media_url). */
+  async function getPostImageUrl(postId: string, plat: string, accessToken: string): Promise<string | null> {
+    try {
+      if (plat === 'FACEBOOK') {
+        const r = await axios.get<{ full_picture?: string; picture?: string }>(
+          `https://graph.facebook.com/v18.0/${postId}`,
+          { params: { fields: 'full_picture,picture', access_token: accessToken } }
+        );
+        return r.data?.full_picture ?? r.data?.picture ?? null;
+      }
+      if (plat === 'INSTAGRAM') {
+        const r = await axios.get<{ media_url?: string }>(
+          `https://graph.facebook.com/v18.0/${postId}`,
+          { params: { fields: 'media_url', access_token: accessToken } }
+        );
+        return r.data?.media_url ?? null;
+      }
+    } catch (_) {}
+    return null;
+  }
+
   for (const target of targets) {
     const platformPostId = target.platformPostId!;
     const postPreview = (target.post?.content ?? '').slice(0, 80) || 'Post';
+    const postImageUrl = await getPostImageUrl(platformPostId, platform, token);
 
     if (platform === 'INSTAGRAM' || platform === 'FACEBOOK') {
-      const fields = platform === 'INSTAGRAM' ? 'id,from,text,created_time' : 'id,from,message,created_time';
+      const fields =
+        platform === 'INSTAGRAM'
+          ? 'id,from{id,username,profile_picture_url},text,created_time'
+          : 'id,from{id,name,picture},message,created_time';
       try {
         const res = await axios.get<{
           data?: Array<{
             id: string;
-            from?: { username?: string; name?: string };
+            from?: { id?: string; username?: string; name?: string; profile_picture_url?: string; picture?: { data?: { url?: string } } };
             text?: string;
             message?: string;
             created_time?: string;
@@ -76,15 +103,21 @@ export async function GET(
         const list = res.data?.data ?? [];
         for (const c of list) {
           const from = c.from;
-          const authorName = from?.username ?? from?.name ?? 'Unknown';
+          const authorName = (platform === 'INSTAGRAM' ? from?.username : from?.name) ?? 'Unknown';
+          const authorPictureUrl =
+            platform === 'INSTAGRAM'
+              ? (from as { profile_picture_url?: string })?.profile_picture_url ?? null
+              : (from as { picture?: { data?: { url?: string } } })?.picture?.data?.url ?? null;
           const text = (platform === 'INSTAGRAM' ? c.text : c.message) ?? '';
           comments.push({
             commentId: c.id,
             postTargetId: target.id,
             platformPostId,
             postPreview,
+            postImageUrl,
             text,
             authorName,
+            authorPictureUrl: authorPictureUrl || null,
             createdAt: c.created_time ?? new Date().toISOString(),
             platform,
           });
@@ -114,18 +147,21 @@ export async function GET(
         const errs = searchRes.data?.errors;
         if (errs?.length) continue;
         const tweets = searchRes.data?.data ?? [];
-        const users = (searchRes.data?.includes?.users ?? []) as Array<{ id: string; username?: string; name?: string }>;
+        const users = (searchRes.data?.includes?.users ?? []) as Array<{ id: string; username?: string; name?: string; profile_image_url?: string }>;
         const userMap = new Map(users.map((u) => [u.id, u]));
         for (const t of tweets) {
           const u = userMap.get(t.author_id ?? '');
           const authorName = u?.username ?? u?.name ?? 'Unknown';
+          const authorPictureUrl = u?.profile_image_url?.replace(/_normal\./, '_400x400.') ?? null;
           comments.push({
             commentId: t.id,
             postTargetId: target.id,
             platformPostId,
             postPreview,
+            postImageUrl: null,
             text: t.text ?? '',
             authorName,
+            authorPictureUrl,
             createdAt: t.created_at ?? new Date().toISOString(),
             platform: 'TWITTER',
           });

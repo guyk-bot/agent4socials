@@ -28,13 +28,23 @@ const PLATFORMS = [
 
 type Account = { id: string; platform: string; username?: string | null };
 type Conversation = { id: string; updatedTime: string | null; senders: Array<{ username?: string; name?: string }> };
+type ConversationMessage = {
+  id: string;
+  fromId: string | null;
+  fromName: string | null;
+  message: string;
+  createdTime: string | null;
+  isFromPage: boolean;
+};
 type PostComment = {
   commentId: string;
   postTargetId: string;
   platformPostId: string;
   postPreview: string;
+  postImageUrl?: string | null;
   text: string;
   authorName: string;
+  authorPictureUrl?: string | null;
   createdAt: string;
   platform: string;
 };
@@ -61,6 +71,12 @@ export default function InboxPage() {
   const [selectedComment, setSelectedComment] = useState<PostComment | null>(null);
   const [replyText, setReplyText] = useState('');
   const [replySending, setReplySending] = useState(false);
+  const [conversationMessages, setConversationMessages] = useState<ConversationMessage[]>([]);
+  const [conversationRecipientId, setConversationRecipientId] = useState<string | null>(null);
+  const [conversationMessagesLoading, setConversationMessagesLoading] = useState(false);
+  const [conversationMessagesError, setConversationMessagesError] = useState<string | null>(null);
+  const [dmReplyText, setDmReplyText] = useState('');
+  const [dmReplySending, setDmReplySending] = useState(false);
   const connectRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -82,6 +98,30 @@ export default function InboxPage() {
       setSelectedPlatform(platformFromUrl);
     }
   }, [platformFromUrl]);
+
+  const currentAccountForMessages = selectedPlatform ? accounts.find((a) => a.platform === selectedPlatform) : null;
+  useEffect(() => {
+    if (!selectedConversationId || !currentAccountForMessages || (selectedPlatform !== 'INSTAGRAM' && selectedPlatform !== 'FACEBOOK')) {
+      setConversationMessages([]);
+      setConversationRecipientId(null);
+      setConversationMessagesError(null);
+      return;
+    }
+    setConversationMessagesLoading(true);
+    setConversationMessagesError(null);
+    api.get(`/social/accounts/${currentAccountForMessages.id}/conversations/${selectedConversationId}/messages`)
+      .then((res) => {
+        setConversationMessages(res.data?.messages ?? []);
+        setConversationRecipientId(res.data?.recipientId ?? null);
+        setConversationMessagesError(res.data?.error ?? null);
+      })
+      .catch(() => {
+        setConversationMessages([]);
+        setConversationRecipientId(null);
+        setConversationMessagesError('Could not load messages.');
+      })
+      .finally(() => setConversationMessagesLoading(false));
+  }, [selectedConversationId, currentAccountForMessages?.id, selectedPlatform]);
 
   const connectedPlatforms = PLATFORMS.filter((p) => accounts.some((a) => a.platform === p.id));
   const unconnectedPlatforms = PLATFORMS.filter((p) => !accounts.some((a) => a.platform === p.id));
@@ -162,9 +202,9 @@ export default function InboxPage() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] bg-white">
+    <div className="flex h-[calc(100vh-3.5rem)] bg-white flex-col md:flex-row">
       {/* Left sidebar - Metricool style */}
-      <div className="w-80 border-r border-neutral-200 flex flex-col shrink-0 bg-white">
+      <div className="w-full md:w-80 border-r border-neutral-200 flex flex-col shrink-0 bg-white">
         {/* Platform icons + Connect */}
         <div className="p-3 border-b border-neutral-100">
           <div className="flex items-center gap-2 flex-wrap">
@@ -329,8 +369,12 @@ export default function InboxPage() {
                         selectedComment?.commentId === c.commentId ? 'bg-indigo-50 border border-indigo-100' : 'hover:bg-neutral-50'
                       }`}
                     >
-                      <div className="w-9 h-9 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 text-xs font-semibold text-neutral-600">
-                        {(c.authorName || '?').slice(0, 2).toUpperCase()}
+                      <div className="w-9 h-9 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden">
+                        {c.authorPictureUrl ? (
+                          <img src={c.authorPictureUrl} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-xs font-semibold text-neutral-600">{(c.authorName || '?').slice(0, 2).toUpperCase()}</span>
+                        )}
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-neutral-900 truncate">{c.authorName}</p>
@@ -414,7 +458,7 @@ export default function InboxPage() {
       </div>
 
       {/* Main content - conversation or comment reply */}
-      <div className="flex-1 flex flex-col min-w-0 bg-neutral-50/50">
+      <div className="flex-1 flex flex-col min-w-0 bg-neutral-50/50 min-h-0">
         {!selectedPlatform ? (
           <div className="flex-1 flex items-center justify-center p-8">
             <div className="text-center max-w-sm">
@@ -427,12 +471,23 @@ export default function InboxPage() {
           </div>
         ) : inboxMode === 'comments' && selectedComment ? (
           <>
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-6 min-h-0">
               <div className="max-w-2xl mx-auto">
                 <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
-                  <div className="p-4 border-b border-neutral-100 bg-neutral-50/50">
-                    <p className="text-sm font-medium text-neutral-800">Comment on your post</p>
-                    <p className="text-xs text-neutral-500 mt-0.5">{selectedComment.authorName} · {PLATFORMS.find((p) => p.id === selectedPlatform)?.label}</p>
+                  <div className="p-4 border-b border-neutral-100 bg-neutral-50/50 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-neutral-200 shrink-0 overflow-hidden">
+                      {selectedComment.authorPictureUrl ? (
+                        <img src={selectedComment.authorPictureUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="w-full h-full flex items-center justify-center text-sm font-semibold text-neutral-600">
+                          {(selectedComment.authorName || '?').slice(0, 2).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-neutral-800">Comment on your post</p>
+                      <p className="text-xs text-neutral-500">{selectedComment.authorName} · {PLATFORMS.find((p) => p.id === selectedPlatform)?.label}</p>
+                    </div>
                   </div>
                   <div className="p-4 space-y-3">
                     <div>
@@ -441,13 +496,18 @@ export default function InboxPage() {
                     </div>
                     <div>
                       <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Your post</p>
+                      {selectedComment.postImageUrl && (
+                        <div className="mt-2 rounded-lg overflow-hidden border border-neutral-100 bg-neutral-50 max-w-xs">
+                          <img src={selectedComment.postImageUrl} alt="Post" className="w-full h-auto object-contain max-h-48" />
+                        </div>
+                      )}
                       <p className="text-sm text-neutral-600 mt-1 line-clamp-2">{selectedComment.postPreview}</p>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-            <div className="border-t border-neutral-200 bg-white p-4">
+            <div className="border-t border-neutral-200 bg-white p-4 shrink-0 pb-6">
               <div className="max-w-2xl mx-auto flex items-end gap-2">
                 <textarea
                   placeholder="Type your reply..."
@@ -515,43 +575,96 @@ export default function InboxPage() {
           </div>
         ) : (
           <>
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-6 min-h-0">
               <div className="max-w-2xl mx-auto">
                 <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
                   <div className="p-4 border-b border-neutral-100 bg-neutral-50/50">
-                    <p className="text-sm font-medium text-neutral-800">Conversation thread</p>
-                    <p className="text-xs text-neutral-500 mt-0.5">Unified inbox — reply below when the API is connected.</p>
+                    <p className="text-sm font-medium text-neutral-800">Conversation</p>
+                    <p className="text-xs text-neutral-500 mt-0.5">{PLATFORMS.find((p) => p.id === selectedPlatform)?.label} inbox</p>
                   </div>
                   <div className="p-6 min-h-[200px]">
-                    <p className="text-sm text-neutral-500 italic">No messages loaded yet. Connect your accounts and enable the Inbox API to see and reply to conversations here.</p>
+                    {conversationMessagesLoading ? (
+                      <div className="flex flex-col items-center justify-center gap-3 py-8">
+                        <Loader2 size={32} className="text-indigo-500 animate-spin" />
+                        <p className="text-sm text-neutral-500">Loading messages…</p>
+                      </div>
+                    ) : conversationMessagesError ? (
+                      <p className="text-sm text-amber-700">{conversationMessagesError}</p>
+                    ) : conversationMessages.length === 0 ? (
+                      <p className="text-sm text-neutral-500 italic">No messages in this conversation yet.</p>
+                    ) : (
+                      <div className="space-y-4">
+                        {conversationMessages.map((msg) => (
+                          <div
+                            key={msg.id}
+                            className={`flex ${msg.isFromPage ? 'justify-end' : 'justify-start'}`}
+                          >
+                            <div
+                              className={`max-w-[80%] rounded-2xl px-4 py-2 ${
+                                msg.isFromPage
+                                  ? 'bg-indigo-600 text-white rounded-br-md'
+                                  : 'bg-neutral-100 text-neutral-900 rounded-bl-md'
+                              }`}
+                            >
+                              {!msg.isFromPage && msg.fromName && (
+                                <p className="text-xs font-medium text-neutral-500 mb-0.5">{msg.fromName}</p>
+                              )}
+                              <p className="text-sm whitespace-pre-wrap break-words">{msg.message || '—'}</p>
+                              {msg.createdTime && (
+                                <p className={`text-xs mt-1 ${msg.isFromPage ? 'text-indigo-200' : 'text-neutral-400'}`}>
+                                  {new Date(msg.createdTime).toLocaleString()}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
             </div>
-            <div className="border-t border-neutral-200 bg-white p-4">
+            <div className="border-t border-neutral-200 bg-white p-4 shrink-0">
               <div className="max-w-2xl mx-auto flex items-end gap-2">
-                <button type="button" className="p-2 rounded-lg border border-neutral-200 text-neutral-400 hover:bg-neutral-50" title="Add image">
-                  <ImageIcon size={20} />
-                </button>
-                <button type="button" className="p-2 rounded-lg border border-neutral-200 text-neutral-400 hover:bg-neutral-50" title="Emoji">
-                  <Smile size={20} />
-                </button>
                 <textarea
                   placeholder="Type a reply..."
                   rows={2}
-                  className="flex-1 px-4 py-3 border border-neutral-200 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none"
-                  disabled
+                  value={dmReplyText}
+                  onChange={(e) => setDmReplyText(e.target.value)}
+                  disabled={dmReplySending || !conversationRecipientId}
+                  className="flex-1 px-4 py-3 border border-neutral-200 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none disabled:opacity-60 disabled:cursor-not-allowed"
                 />
                 <button
                   type="button"
-                  disabled
-                  className="p-3 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Send (⇧ + Enter)"
+                  disabled={dmReplySending || !dmReplyText.trim() || !conversationRecipientId}
+                  onClick={async () => {
+                    const account = currentAccountForMessages;
+                    if (!account || !selectedConversationId || !dmReplyText.trim()) return;
+                    setDmReplySending(true);
+                    try {
+                      await api.post(
+                        `/social/accounts/${account.id}/conversations/${selectedConversationId}/messages`,
+                        { text: dmReplyText.trim(), recipientId: conversationRecipientId ?? undefined }
+                      );
+                      setDmReplyText('');
+                      const res = await api.get(`/social/accounts/${account.id}/conversations/${selectedConversationId}/messages`);
+                      setConversationMessages(res.data?.messages ?? []);
+                      setConversationRecipientId(res.data?.recipientId ?? null);
+                      setConversationMessagesError(res.data?.error ?? null);
+                    } catch (e: unknown) {
+                      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+                      alert(msg ?? 'Failed to send message.');
+                    } finally {
+                      setDmReplySending(false);
+                    }
+                  }}
+                  className="p-3 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                  title="Send"
                 >
-                  <Send size={20} />
+                  {dmReplySending ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
                 </button>
               </div>
-              <p className="text-xs text-neutral-400 mt-2 text-center">Send (⇧ + Enter)</p>
+              <p className="text-xs text-neutral-400 mt-2 text-center">Send a message to this conversation</p>
             </div>
           </>
         )}

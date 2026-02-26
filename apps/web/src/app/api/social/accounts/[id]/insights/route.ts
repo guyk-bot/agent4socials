@@ -39,8 +39,17 @@ export async function GET(
     }
   const since = request.nextUrl.searchParams.get('since') ?? '';
   const until = request.nextUrl.searchParams.get('until') ?? '';
-  const sinceTs = since ? Math.floor(new Date(since).getTime() / 1000) : null;
-  const untilTs = until ? Math.floor(new Date(until).getTime() / 1000) : null;
+  let sinceParam = since;
+  let untilParam = until;
+  if (!sinceParam || !untilParam) {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - 30);
+    untilParam = untilParam || end.toISOString().slice(0, 10);
+    sinceParam = sinceParam || start.toISOString().slice(0, 10);
+  }
+  const sinceTs = sinceParam ? Math.floor(new Date(sinceParam).getTime() / 1000) : null;
+  const untilTs = untilParam ? Math.floor(new Date(untilParam).getTime() / 1000) : null;
 
   const out: {
     platform: string;
@@ -108,7 +117,7 @@ export async function GET(
                 : [];
             if (d.name === 'impressions' || d.name === 'views') {
               out.impressionsTotal = total;
-              out.impressionsTimeSeries = series.length ? series : (total ? [{ date: until?.slice(0, 10) || new Date().toISOString().slice(0, 10), value: total }] : []);
+              out.impressionsTimeSeries = series.length ? series : (total ? [{ date: untilParam?.slice(0, 10) || new Date().toISOString().slice(0, 10), value: total }] : []);
             } else if (d.name === 'reach') {
               out.reachTotal = total;
             } else if (d.name === 'profile_views') {
@@ -163,7 +172,7 @@ export async function GET(
             }
             if (d.name === 'page_impressions') {
               out.impressionsTotal = total;
-              out.impressionsTimeSeries = series.length ? series.sort((a, b) => a.date.localeCompare(b.date)) : (total ? [{ date: until?.slice(0, 10) || new Date().toISOString().slice(0, 10), value: total }] : []);
+              out.impressionsTimeSeries = series.length ? series.sort((a, b) => a.date.localeCompare(b.date)) : (total ? [{ date: untilParam?.slice(0, 10) || new Date().toISOString().slice(0, 10), value: total }] : []);
             } else if (d.name === 'page_views_total') {
               out.pageViewsTotal = total;
             } else if (d.name === 'page_fan_reach') {

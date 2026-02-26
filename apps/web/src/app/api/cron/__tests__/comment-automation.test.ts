@@ -1,6 +1,5 @@
 /**
- * Verifies comment keyword reply automation for LinkedIn and X (Twitter):
- * correct API calls to fetch comments and post replies when keywords match.
+ * Verifies comment keyword reply automation for X (Twitter); LinkedIn is skipped by cron.
  */
 import axios from 'axios';
 import { GET } from '../comment-automation/route';
@@ -42,7 +41,7 @@ describe('comment-automation', () => {
     expect(res.status).toBe(401);
   });
 
-  it('LinkedIn: fetches comments, matches keyword, posts reply with correct payload', async () => {
+  it('skips LinkedIn (cron does not run comment automation for LinkedIn)', async () => {
     const postId = 'post-1';
     const targetId = 'target-1';
     const platformPostId = 'urn:li:share:abc123';
@@ -70,41 +69,14 @@ describe('comment-automation', () => {
       },
     ]);
 
-    const linkedInComment = {
-      id: 'comment-1',
-      commentUrn: 'urn:li:comment:(share,comment-1)',
-      object: 'share',
-      message: { text: 'I want a demo' },
-    };
-    (axios.get as jest.Mock).mockResolvedValueOnce({
-      data: { elements: [linkedInComment] },
-    });
-
     const res = await GET(mockRequest(CRON_SECRET));
     const body = await res.json();
 
     expect(res.status).toBe(200);
     expect(body.ok).toBe(true);
-    expect(body.results).toHaveLength(1);
-    expect(body.results[0].platform).toBe('LINKEDIN');
-    expect(body.results[0].replied).toBe(1);
-
-    expect(axios.get).toHaveBeenCalledWith(
-      expect.stringContaining('api.linkedin.com/rest/socialActions/'),
-      expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer li-token' }) })
-    );
-    expect(axios.post).toHaveBeenCalledWith(
-      expect.stringMatching(/api\.linkedin\.com\/rest\/socialActions\/.*\/comments/),
-      expect.objectContaining({
-        actor: 'urn:li:person:person456',
-        message: { text: 'Thanks for your interest!' },
-        parentComment: linkedInComment.commentUrn,
-      }),
-      expect.any(Object)
-    );
-    expect(prisma.commentAutomationReply.create).toHaveBeenCalledWith({
-      data: { postTargetId: targetId, platformCommentId: linkedInComment.commentUrn },
-    });
+    expect(body.results).toHaveLength(0);
+    expect(axios.get).not.toHaveBeenCalled();
+    expect(axios.post).not.toHaveBeenCalled();
   });
 
   it('Twitter/X: fetches replies by conversation_id, matches keyword, posts reply (280 char limit)', async () => {
