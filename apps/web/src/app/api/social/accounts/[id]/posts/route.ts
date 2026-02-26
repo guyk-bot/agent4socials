@@ -72,12 +72,21 @@ async function syncImportedPosts(
 ): Promise<string | undefined> {
   const baseUrl = 'https://graph.facebook.com/v18.0';
   if (platform === 'INSTAGRAM') {
-    let res: { data?: { data?: Array<{ id: string; media_type?: string; media_url?: string; permalink?: string; caption?: string; timestamp?: string }> } };
+    const fields = 'id,media_type,media_url,permalink,caption,timestamp,thumbnail_url';
+    const allItems: Array<{ id: string; media_type?: string; media_url?: string; permalink?: string; caption?: string; timestamp?: string; thumbnail_url?: string }> = [];
+    const maxMedia = 200;
+    let nextUrl: string | null = `${baseUrl}/${platformUserId}/media`;
     try {
-      res = await axios.get(
-        `${baseUrl}/${platformUserId}/media`,
-        { params: { fields: 'id,media_type,media_url,permalink,caption,timestamp', access_token: accessToken } }
-      );
+      while (nextUrl && allItems.length < maxMedia) {
+        const isFirst = !nextUrl.includes('?');
+        const res = await axios.get<{
+          data?: Array<{ id: string; media_type?: string; media_url?: string; permalink?: string; caption?: string; timestamp?: string; thumbnail_url?: string }>;
+          paging?: { next?: string };
+        }>(nextUrl, isFirst ? { params: { fields, access_token: accessToken, limit: 50 } } : {});
+        const page = res.data?.data ?? [];
+        allItems.push(...page);
+        nextUrl = page.length > 0 && allItems.length < maxMedia && res.data?.paging?.next ? res.data.paging.next : null;
+      }
     } catch (e) {
       const msg = (e as Error)?.message ?? '';
       const metaMsg = (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
@@ -87,9 +96,22 @@ async function syncImportedPosts(
       if (metaMsg) return metaMsg;
       throw e;
     }
-    const items = res.data?.data ?? [];
+    const items = allItems;
     for (const m of items) {
       const publishedAt = m.timestamp ? new Date(m.timestamp) : new Date();
+      let thumbnailUrl: string | null = m.media_url ?? m.thumbnail_url ?? null;
+      if (!thumbnailUrl && m.media_type === 'CAROUSEL_ALBUM') {
+        try {
+          const childRes = await axios.get<{ data?: Array<{ media_url?: string }> }>(
+            `${baseUrl}/${m.id}/children`,
+            { params: { fields: 'media_url', access_token: accessToken } }
+          );
+          const first = childRes.data?.data?.[0];
+          if (first?.media_url) thumbnailUrl = first.media_url;
+        } catch {
+          // ignore
+        }
+      }
       let impressions = 0;
       let interactions = 0;
       try {
@@ -112,7 +134,7 @@ async function syncImportedPosts(
         },
         update: {
           content: m.caption ?? null,
-          thumbnailUrl: m.media_url ?? null,
+          thumbnailUrl,
           permalinkUrl: m.permalink ?? null,
           publishedAt,
           mediaType: m.media_type ?? null,
@@ -125,7 +147,7 @@ async function syncImportedPosts(
           platformPostId: m.id,
           platform,
           content: m.caption ?? null,
-          thumbnailUrl: m.media_url ?? null,
+          thumbnailUrl,
           permalinkUrl: m.permalink ?? null,
           publishedAt,
           mediaType: m.media_type ?? null,
