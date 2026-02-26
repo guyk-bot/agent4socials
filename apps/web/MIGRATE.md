@@ -2,6 +2,8 @@
 
 The app runs `prisma migrate deploy` on every Vercel build so the production database stays in sync.
 
+**Vercel build:** If the build failed with a TypeScript error in `posts/route.ts`, that is fixed. Ensure `DATABASE_DIRECT_URL` is set in Vercel (see below) so `prisma migrate deploy` can run.
+
 ## You only have DATABASE_URL (Supabase pooler)
 
 If your `DATABASE_URL` uses Supabase's **transaction pooler** (e.g. `pooler.supabase.com:6543`), Prisma needs a **session-mode** connection for migrations. Add **`DATABASE_DIRECT_URL`** in Vercel.

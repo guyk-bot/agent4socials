@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import { Platform } from '@prisma/client';
-import axios from 'axios';
+import axios, { type AxiosResponse } from 'axios';
 
 /** GET: list imported posts for this account. ?sync=1 to sync from platform first then return. */
 export async function GET(
@@ -72,6 +72,10 @@ async function syncImportedPosts(
 ): Promise<string | undefined> {
   const baseUrl = 'https://graph.facebook.com/v18.0';
   if (platform === 'INSTAGRAM') {
+    type MediaPage = {
+      data?: Array<{ id: string; media_type?: string; media_url?: string; permalink?: string; caption?: string; timestamp?: string; thumbnail_url?: string }>;
+      paging?: { next?: string };
+    };
     const fields = 'id,media_type,media_url,permalink,caption,timestamp,thumbnail_url';
     const allItems: Array<{ id: string; media_type?: string; media_url?: string; permalink?: string; caption?: string; timestamp?: string; thumbnail_url?: string }> = [];
     const maxMedia = 200;
@@ -79,10 +83,7 @@ async function syncImportedPosts(
     try {
       while (nextUrl && allItems.length < maxMedia) {
         const isFirst = !nextUrl.includes('?');
-        const res = await axios.get<{
-          data?: Array<{ id: string; media_type?: string; media_url?: string; permalink?: string; caption?: string; timestamp?: string; thumbnail_url?: string }>;
-          paging?: { next?: string };
-        }>(nextUrl, isFirst ? { params: { fields, access_token: accessToken, limit: 50 } } : {});
+        const res: AxiosResponse<MediaPage> = await axios.get<MediaPage>(nextUrl, isFirst ? { params: { fields, access_token: accessToken, limit: 50 } } : {});
         const page = res.data?.data ?? [];
         allItems.push(...page);
         nextUrl = page.length > 0 && allItems.length < maxMedia && res.data?.paging?.next ? res.data.paging.next : null;
