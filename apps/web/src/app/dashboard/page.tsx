@@ -457,6 +457,27 @@ export default function DashboardPage() {
   const totalPostsPages = Math.max(1, Math.ceil(sortedPosts.length / postsPerPage));
   const currentPagePosts = sortedPosts.slice((postsPage - 1) * postsPerPage, postsPage * postsPerPage);
 
+  const postsByDateSeries = React.useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const p of importedPosts) {
+      const d = p.publishedAt ? String(p.publishedAt).slice(0, 10) : '';
+      if (d) map[d] = (map[d] ?? 0) + 1;
+    }
+    return Object.entries(map).map(([date, value]) => ({ date, value })).sort((a, b) => a.date.localeCompare(b.date));
+  }, [importedPosts]);
+  const interactionsByDateSeries = React.useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const p of importedPosts) {
+      const d = p.publishedAt ? String(p.publishedAt).slice(0, 10) : '';
+      if (d) map[d] = (map[d] ?? 0) + (p.interactions ?? 0);
+    }
+    return Object.entries(map).map(([date, value]) => ({ date, value })).sort((a, b) => a.date.localeCompare(b.date));
+  }, [importedPosts]);
+  const postsTabDisplaySeries = postsByDateSeries.length > 0 ? postsByDateSeries : (importedPosts.length > 0 ? [{ date: dateRange.end || new Date().toISOString().slice(0, 10), value: importedPosts.length }] : []);
+  const interactionsTabDisplaySeries = interactionsByDateSeries.length > 0 ? interactionsByDateSeries : (totalInteractions > 0 ? [{ date: dateRange.end || new Date().toISOString().slice(0, 10), value: totalInteractions }] : []);
+  const maxPostsTabValue = Math.max(...postsTabDisplaySeries.map((d) => d.value), 1);
+  const maxInteractionsTabValue = Math.max(...interactionsTabDisplaySeries.map((d) => d.value), 1);
+
   const effectiveFollowers = selectedAccount ? (insights?.followers ?? 0) : (aggregatedInsights?.totalFollowers ?? 0);
   const effectiveImpressions = selectedAccount ? (insights?.impressionsTotal ?? 0) : (aggregatedInsights?.totalImpressions ?? 0);
   const isTwitter = selectedAccount?.platform === 'TWITTER';
@@ -922,8 +943,13 @@ export default function DashboardPage() {
                 {hasInstagram && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{importedPosts.filter((p) => p.platform === 'INSTAGRAM').reduce((s, p) => s + p.interactions, 0)} Instagram</span>}
                 {hasFacebook && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{importedPosts.filter((p) => p.platform === 'FACEBOOK').reduce((s, p) => s + p.interactions, 0) || '—'} Facebook</span>}
               </div>
-              <div className="mt-4 h-24 rounded-lg bg-neutral-50 border border-neutral-100 relative overflow-hidden">
+              <div className="mt-4 h-24 rounded-lg bg-neutral-50 border border-neutral-100 flex items-end gap-0.5 p-3 pb-2 relative overflow-hidden">
                 <div className="absolute inset-0 opacity-[0.03] font-semibold text-neutral-400 text-xl" style={{ transform: 'rotate(-15deg)' }}>agent4socials</div>
+                {interactionsTabDisplaySeries.length > 0 ? (
+                  interactionsTabDisplaySeries.map((d) => (
+                    <div key={d.date} className="flex-1 bg-pink-300/80 rounded-t min-h-[4px]" style={{ height: `${(d.value / maxInteractionsTabValue) * 100}%` }} title={`${d.date}: ${d.value}`} />
+                  ))
+                ) : null}
               </div>
             </div>
             {/* Number of posts widget */}
@@ -939,8 +965,13 @@ export default function DashboardPage() {
                 {hasFacebook && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{importedPosts.filter((p) => p.platform === 'FACEBOOK').length} Facebook</span>}
                 {hasInstagram && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{importedPosts.filter((p) => p.platform === 'INSTAGRAM').length} Instagram</span>}
               </div>
-              <div className="mt-4 h-24 rounded-lg bg-neutral-50 border border-neutral-100 relative overflow-hidden">
+              <div className="mt-4 h-24 rounded-lg bg-neutral-50 border border-neutral-100 flex items-end gap-0.5 p-3 pb-2 relative overflow-hidden">
                 <div className="absolute inset-0 opacity-[0.03] font-semibold text-neutral-400 text-xl" style={{ transform: 'rotate(-15deg)' }}>agent4socials</div>
+                {postsTabDisplaySeries.length > 0 ? (
+                  postsTabDisplaySeries.map((d) => (
+                    <div key={d.date} className="flex-1 bg-indigo-300/80 rounded-t min-h-[4px]" style={{ height: `${(d.value / maxPostsTabValue) * 100}%` }} title={`${d.date}: ${d.value}`} />
+                  ))
+                ) : null}
               </div>
             </div>
 

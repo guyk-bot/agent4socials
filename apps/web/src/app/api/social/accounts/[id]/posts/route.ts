@@ -74,19 +74,33 @@ async function syncImportedPosts(
   if (platform === 'INSTAGRAM') {
     type MediaPage = {
       data?: Array<{ id: string; media_type?: string; media_url?: string; permalink?: string; caption?: string; timestamp?: string; thumbnail_url?: string }>;
-      paging?: { next?: string };
+      paging?: { next?: string; cursors?: { before?: string; after?: string } };
     };
     const fields = 'id,media_type,media_url,permalink,caption,timestamp,thumbnail_url';
     const allItems: Array<{ id: string; media_type?: string; media_url?: string; permalink?: string; caption?: string; timestamp?: string; thumbnail_url?: string }> = [];
     const maxMedia = 200;
+    const firstPageLimit = 100;
     let nextUrl: string | null = `${baseUrl}/${platformUserId}/media`;
     try {
       while (nextUrl && allItems.length < maxMedia) {
         const isFirst = !nextUrl.includes('?');
-        const res: AxiosResponse<MediaPage> = await axios.get<MediaPage>(nextUrl, isFirst ? { params: { fields, access_token: accessToken, limit: 50 } } : {});
+        const res: AxiosResponse<MediaPage> = await axios.get<MediaPage>(
+          nextUrl,
+          isFirst ? { params: { fields, access_token: accessToken, limit: firstPageLimit } } : {}
+        );
         const page = res.data?.data ?? [];
         allItems.push(...page);
-        nextUrl = page.length > 0 && allItems.length < maxMedia && res.data?.paging?.next ? res.data.paging.next : null;
+        const paging = res.data?.paging;
+        const nextFromMeta = paging?.next;
+        const afterCursor = paging?.cursors?.after;
+        const gotFullPage = page.length >= (isFirst ? firstPageLimit : 50);
+        if (nextFromMeta && allItems.length < maxMedia) {
+          nextUrl = nextFromMeta;
+        } else if (!nextFromMeta && afterCursor && gotFullPage && allItems.length < maxMedia) {
+          nextUrl = `${baseUrl}/${platformUserId}/media?fields=${encodeURIComponent(fields)}&access_token=${encodeURIComponent(accessToken)}&limit=50&after=${encodeURIComponent(afterCursor)}`;
+        } else {
+          nextUrl = null;
+        }
       }
     } catch (e) {
       const msg = (e as Error)?.message ?? '';
@@ -118,12 +132,12 @@ async function syncImportedPosts(
       try {
         const insightsRes = await axios.get<{ data?: Array<{ name: string; values?: Array<{ value: number }> }> }>(
           `${baseUrl}/${m.id}/insights`,
-          { params: { metric: 'views,engagement', access_token: accessToken } }
+          { params: { metric: 'impressions,reach,engagement', access_token: accessToken } }
         );
         const data = insightsRes.data?.data ?? [];
         for (const d of data) {
           const val = d.values?.[0]?.value ?? 0;
-          if (d.name === 'views' || d.name === 'impressions') impressions = val;
+          if (d.name === 'impressions' || d.name === 'reach' || d.name === 'views') impressions = val;
           if (d.name === 'engagement') interactions = val;
         }
       } catch {
