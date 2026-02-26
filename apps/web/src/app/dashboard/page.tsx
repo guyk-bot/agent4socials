@@ -104,6 +104,7 @@ export default function DashboardPage() {
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [sortBy, setSortBy] = useState<'date' | 'impressions' | 'interactions'>('date');
   const [sortDesc, setSortDesc] = useState(true);
+  const [postsPlatformFilter, setPostsPlatformFilter] = useState<'all' | 'FACEBOOK' | 'INSTAGRAM'>('all');
   const [aggregatedInsights, setAggregatedInsights] = useState<{
     totalFollowers: number;
     totalImpressions: number;
@@ -438,7 +439,9 @@ export default function DashboardPage() {
   const hasFacebook = connectedPlatforms.includes('FACEBOOK');
   const hasInstagram = connectedPlatforms.includes('INSTAGRAM');
   const totalInteractions = importedPosts.reduce((s, p) => s + (p.interactions || 0), 0);
-  const filteredPosts = importedPosts.filter((p) => !postsSearch || (p.content?.toLowerCase().includes(postsSearch.toLowerCase())));
+  const filteredPosts = importedPosts
+    .filter((p) => !postsSearch || (p.content?.toLowerCase().includes(postsSearch.toLowerCase())))
+    .filter((p) => postsPlatformFilter === 'all' || p.platform === postsPlatformFilter);
   const sortedPosts = [...filteredPosts].sort((a, b) => {
     if (sortBy === 'date') {
       const t = new Date(a.publishedAt).getTime() - new Date(b.publishedAt).getTime();
@@ -465,8 +468,9 @@ export default function DashboardPage() {
   const effectiveProfileViews = selectedAccount ? (insights?.profileViewsTotal ?? 0) : (aggregatedInsights?.totalProfileViews ?? 0);
   const effectiveInsightsLoading = selectedAccount ? insightsLoading : aggregatedLoading;
   const fallbackSeriesValue = effectiveImpressions || effectiveFollowers || 0;
+  const hasNonZeroSeries = effectiveTimeSeries.length > 0 && effectiveTimeSeries.some((d) => d.value > 0);
   const displayTimeSeries =
-    effectiveTimeSeries.length > 0
+    hasNonZeroSeries
       ? effectiveTimeSeries
       : fallbackSeriesValue > 0
         ? [{ date: dateRange.end || new Date().toISOString().slice(0, 10), value: fallbackSeriesValue }]
@@ -990,6 +994,35 @@ export default function DashboardPage() {
                     onChange={(e) => { setPostsSearch(e.target.value); setPostsPage(1); }}
                     className="px-3 py-2 border border-neutral-200 rounded-lg text-sm w-48"
                   />
+                  {hasFacebook && (
+                    <button
+                      type="button"
+                      onClick={() => { setPostsPlatformFilter(postsPlatformFilter === 'FACEBOOK' ? 'all' : 'FACEBOOK'); setPostsPage(1); }}
+                      className={`px-3 py-2 rounded-lg border text-sm font-medium inline-flex items-center gap-1.5 ${postsPlatformFilter === 'FACEBOOK' ? 'bg-blue-100 border-blue-200 text-blue-800' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-50'}`}
+                    >
+                      {PLATFORM_ICON['FACEBOOK']}
+                      {importedPosts.filter((p) => p.platform === 'FACEBOOK').length} Facebook
+                    </button>
+                  )}
+                  {hasInstagram && (
+                    <button
+                      type="button"
+                      onClick={() => { setPostsPlatformFilter(postsPlatformFilter === 'INSTAGRAM' ? 'all' : 'INSTAGRAM'); setPostsPage(1); }}
+                      className={`px-3 py-2 rounded-lg border text-sm font-medium inline-flex items-center gap-1.5 ${postsPlatformFilter === 'INSTAGRAM' ? 'bg-pink-100 border-pink-200 text-pink-800' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-50'}`}
+                    >
+                      {PLATFORM_ICON['INSTAGRAM']}
+                      {importedPosts.filter((p) => p.platform === 'INSTAGRAM').length} Instagram
+                    </button>
+                  )}
+                  {(hasFacebook || hasInstagram) && (
+                    <button
+                      type="button"
+                      onClick={() => { setPostsPlatformFilter('all'); setPostsPage(1); }}
+                      className={`px-3 py-2 rounded-lg border text-sm font-medium ${postsPlatformFilter === 'all' ? 'bg-neutral-100 border-neutral-300 text-neutral-800' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-50'}`}
+                    >
+                      All ({importedPosts.length})
+                    </button>
+                  )}
                   <button type="button" className="px-3 py-2 rounded-lg border border-neutral-200 text-sm font-medium text-neutral-600 hover:bg-neutral-50 inline-flex items-center gap-1.5">
                     Download CSV
                   </button>
@@ -1013,13 +1046,14 @@ export default function DashboardPage() {
                           <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                             <span className="inline-flex items-center gap-1">
                               Reach
+                              <span title="Impressions (times post was shown)" className="text-neutral-400 cursor-help"><HelpCircle size={14} /></span>
                               <button type="button" onClick={() => { setSortBy('impressions'); setSortDesc(!sortDesc); setPostsPage(1); }} className="p-0.5 rounded hover:bg-neutral-200" title="Sort"><ArrowUpDown size={14} /></button>
                             </span>
                           </th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                             <span className="inline-flex items-center gap-1">
                               Views
-                              <span title="Number of times this post was shown" className="text-neutral-400 cursor-help"><HelpCircle size={14} /></span>
+                              <span title="Impressions (times post was shown)" className="text-neutral-400 cursor-help"><HelpCircle size={14} /></span>
                               <button type="button" onClick={() => { setSortBy('impressions'); setSortDesc(!sortDesc); setPostsPage(1); }} className="p-0.5 rounded hover:bg-neutral-200" title="Sort"><ArrowUpDown size={14} /></button>
                             </span>
                           </th>

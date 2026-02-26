@@ -42,7 +42,7 @@ export async function GET(
         fields: 'id,updated_time,senders',
         access_token: account.accessToken,
       },
-      timeout: 20_000,
+      timeout: 35_000,
     });
 
     if (res.data?.error) {
