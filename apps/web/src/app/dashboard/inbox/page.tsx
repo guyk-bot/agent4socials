@@ -12,6 +12,7 @@ import {
   Smile,
   Loader2,
   BarChart3,
+  Sparkles,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
@@ -77,6 +78,8 @@ export default function InboxPage() {
   const [conversationMessagesError, setConversationMessagesError] = useState<string | null>(null);
   const [dmReplyText, setDmReplyText] = useState('');
   const [dmReplySending, setDmReplySending] = useState(false);
+  const [aiReplyLoading, setAiReplyLoading] = useState(false);
+  const [aiReplyError, setAiReplyError] = useState<string | null>(null);
   const connectRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -122,6 +125,10 @@ export default function InboxPage() {
       })
       .finally(() => setConversationMessagesLoading(false));
   }, [selectedConversationId, currentAccountForMessages?.id, selectedPlatform]);
+
+  useEffect(() => {
+    setAiReplyError(null);
+  }, [selectedComment?.commentId, selectedConversationId]);
 
   const connectedPlatforms = PLATFORMS.filter((p) => accounts.some((a) => a.platform === p.id));
   const unconnectedPlatforms = PLATFORMS.filter((p) => !accounts.some((a) => a.platform === p.id));
@@ -199,6 +206,7 @@ export default function InboxPage() {
     setSelectedPlatform(platformId);
     setSelectedConversationId(null);
     setSelectedComment(null);
+    setAiReplyError(null);
   };
 
   return (
@@ -508,15 +516,48 @@ export default function InboxPage() {
               </div>
             </div>
             <div className="border-t border-neutral-200 bg-white p-4 shrink-0 pb-6">
-              <div className="max-w-2xl mx-auto flex items-end gap-2">
-                <textarea
-                  placeholder="Type your reply..."
-                  rows={2}
-                  value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
-                  className="flex-1 px-4 py-3 border border-neutral-200 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none"
-                />
-                <button
+              <div className="max-w-2xl mx-auto">
+                {aiReplyError && (
+                  <p className="text-sm text-amber-700 mb-2">{aiReplyError}</p>
+                )}
+                <div className="flex items-end gap-2">
+                  <textarea
+                    placeholder="Type your reply..."
+                    rows={2}
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    className="flex-1 px-4 py-3 border border-neutral-200 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none"
+                  />
+                  <button
+                    type="button"
+                    disabled={aiReplyLoading}
+                    onClick={async () => {
+                      if (!selectedComment) return;
+                      setAiReplyError(null);
+                      setAiReplyLoading(true);
+                      try {
+                        const res = await api.post<{ reply?: string }>('/ai/generate-inbox-reply', {
+                          type: 'comment',
+                          text: selectedComment.text,
+                          context: selectedComment.postPreview ?? undefined,
+                          platform: selectedPlatform ?? undefined,
+                        });
+                        const reply = res.data?.reply?.trim();
+                        if (reply) setReplyText(reply);
+                        else setAiReplyError('No reply generated. Try again.');
+                      } catch (e: unknown) {
+                        const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+                        setAiReplyError(msg ?? 'Could not generate reply. Check that OPENROUTER_API_KEY is set.');
+                      } finally {
+                        setAiReplyLoading(false);
+                      }
+                    }}
+                    className="p-3 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 disabled:opacity-50 shrink-0 border border-indigo-200"
+                    title="Generate reply with AI"
+                  >
+                    {aiReplyLoading ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
+                  </button>
+                  <button
                   type="button"
                   disabled={replySending || !replyText.trim()}
                   onClick={async () => {
@@ -539,9 +580,11 @@ export default function InboxPage() {
                   }}
                   className="p-3 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                   title="Send reply"
-                >
-                  {replySending ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
-                </button>
+                  >
+                    {replySending ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
+                  </button>
+                </div>
+                <p className="text-xs text-neutral-400 mt-2">Use the sparkle button to generate a reply with AI, then edit or send.</p>
               </div>
             </div>
           </>
@@ -625,16 +668,49 @@ export default function InboxPage() {
               </div>
             </div>
             <div className="border-t border-neutral-200 bg-white p-4 shrink-0">
-              <div className="max-w-2xl mx-auto flex items-end gap-2">
-                <textarea
-                  placeholder="Type a reply..."
-                  rows={2}
-                  value={dmReplyText}
-                  onChange={(e) => setDmReplyText(e.target.value)}
-                  disabled={dmReplySending || !conversationRecipientId}
-                  className="flex-1 px-4 py-3 border border-neutral-200 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none disabled:opacity-60 disabled:cursor-not-allowed"
-                />
-                <button
+              <div className="max-w-2xl mx-auto">
+                {aiReplyError && (
+                  <p className="text-sm text-amber-700 mb-2">{aiReplyError}</p>
+                )}
+                <div className="flex items-end gap-2">
+                  <textarea
+                    placeholder="Type a reply..."
+                    rows={2}
+                    value={dmReplyText}
+                    onChange={(e) => setDmReplyText(e.target.value)}
+                    disabled={dmReplySending || !conversationRecipientId}
+                    className="flex-1 px-4 py-3 border border-neutral-200 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none disabled:opacity-60 disabled:cursor-not-allowed"
+                  />
+                  <button
+                    type="button"
+                    disabled={dmReplySending || !conversationRecipientId || aiReplyLoading}
+                    onClick={async () => {
+                      const lastFromUser = [...conversationMessages].reverse().find((m) => !m.isFromPage && m.message);
+                      const textToReplyTo = lastFromUser?.message ?? conversationMessages.filter((m) => !m.isFromPage).map((m) => m.message).join('\n') || 'Hello';
+                      setAiReplyError(null);
+                      setAiReplyLoading(true);
+                      try {
+                        const res = await api.post<{ reply?: string }>('/ai/generate-inbox-reply', {
+                          type: 'message',
+                          text: textToReplyTo,
+                          platform: selectedPlatform ?? undefined,
+                        });
+                        const reply = res.data?.reply?.trim();
+                        if (reply) setDmReplyText(reply);
+                        else setAiReplyError('No reply generated. Try again.');
+                      } catch (e: unknown) {
+                        const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+                        setAiReplyError(msg ?? 'Could not generate reply. Check that OPENROUTER_API_KEY is set.');
+                      } finally {
+                        setAiReplyLoading(false);
+                      }
+                    }}
+                    className="p-3 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 disabled:opacity-50 shrink-0 border border-indigo-200"
+                    title="Generate reply with AI"
+                  >
+                    {aiReplyLoading ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
+                  </button>
+                  <button
                   type="button"
                   disabled={dmReplySending || !dmReplyText.trim() || !conversationRecipientId}
                   onClick={async () => {
@@ -664,7 +740,7 @@ export default function InboxPage() {
                   {dmReplySending ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
                 </button>
               </div>
-              <p className="text-xs text-neutral-400 mt-2 text-center">Send a message to this conversation</p>
+              <p className="text-xs text-neutral-400 mt-2 text-center">Send a message to this conversation. Use the sparkle button to generate a reply with AI.</p>
             </div>
           </>
         )}
