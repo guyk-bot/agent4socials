@@ -477,7 +477,7 @@ export default function DashboardPage() {
 
       {/* Upgrade banner (Metricool-style) */}
       <div className="mt-4 flex items-center justify-between gap-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg">
-        <p className="text-sm text-amber-800">You need an upgraded plan to view data older than 30 days and without a watermark.</p>
+        <p className="text-sm text-amber-800">Upgrade to view data older than 30 days and to export reports without a watermark.</p>
         <Link href="/pricing" className="shrink-0 px-3 py-1.5 rounded-lg bg-amber-500 text-white text-sm font-medium hover:bg-amber-600">Upgrade your plan</Link>
       </div>
 

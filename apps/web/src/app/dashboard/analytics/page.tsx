@@ -222,7 +222,7 @@ export default function AnalyticsPage() {
           </div>
 
           <div className="flex items-center justify-between gap-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg">
-            <p className="text-sm text-amber-800">You need an upgraded plan to view data older than 30 days and without a watermark.</p>
+            <p className="text-sm text-amber-800">Upgrade to view data older than 30 days and to export reports without a watermark.</p>
             <Link href="/pricing" className="shrink-0 px-3 py-1.5 rounded-lg bg-amber-500 text-white text-sm font-medium hover:bg-amber-600">Upgrade your plan</Link>
           </div>
 
@@ -255,6 +255,39 @@ export default function AnalyticsPage() {
                   {(selectedAccount?.platform === 'INSTAGRAM' || selectedAccount?.platform === 'FACEBOOK') && (
                     <p className="mt-2 text-xs text-amber-700">Use Reconnect in the left sidebar for this account, then choose your Page when asked.</p>
                   )}
+                </div>
+              )}
+              {(selectedAccount?.platform === 'INSTAGRAM' || selectedAccount?.platform === 'FACEBOOK') && (postsSyncError || importedPosts.length === 0) && (
+                <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
+                  <p className="font-medium">Posts and engagement</p>
+                  <p className="mt-1 text-indigo-700">
+                    {postsSyncError
+                      ? postsSyncError
+                      : 'No posts synced yet. Sync from Instagram/Facebook to see Total content, engagement, and the list of posts.'}
+                  </p>
+                  <p className="mt-2 text-xs text-indigo-600">Reconnect and choose your Page if sync keeps failing. Then click Sync posts.</p>
+                  <button
+                    type="button"
+                    disabled={importedPostsLoading}
+                    onClick={async () => {
+                      if (!selectedAccount?.id) return;
+                      setImportedPostsLoading(true);
+                      try {
+                        const res = await api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: { sync: 1 } });
+                        const list = res.data?.posts ?? [];
+                        postsCacheRef.current[selectedAccount.id] = list;
+                        setImportedPosts(list);
+                        setPostsSyncError(res.data?.syncError ?? null);
+                      } catch (_) {
+                        setPostsSyncError('Sync failed. Try reconnecting your account.');
+                      } finally {
+                        setImportedPostsLoading(false);
+                      }
+                    }}
+                    className="mt-3 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
+                  >
+                    {importedPostsLoading ? 'Syncing…' : 'Sync posts'}
+                  </button>
                 </div>
               )}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -338,6 +371,9 @@ export default function AnalyticsPage() {
                 <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
                   <p className="text-xs font-medium text-neutral-500">Total content</p>
                   <p className="text-xl font-bold text-neutral-900 mt-0.5">{importedPosts.length}</p>
+                  {(selectedAccount?.platform === 'INSTAGRAM' || selectedAccount?.platform === 'FACEBOOK') && importedPosts.length === 0 && (
+                    <p className="text-xs text-amber-700 mt-1">Sync posts from your account to see content and engagement.</p>
+                  )}
                 </div>
               </div>
               {(() => {
