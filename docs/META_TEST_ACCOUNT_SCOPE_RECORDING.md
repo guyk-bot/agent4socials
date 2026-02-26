@@ -22,6 +22,31 @@ This guide explains how to **add a test account** in Meta for Developers and how
 
 ---
 
+## Administrator vs Tester: when you need each
+
+**If you are the Administrator**  
+You do **not** need to add yourself as Tester. Admins can already test all permissions, generate tokens, and use all features in Development mode. You're covered for recording with your own account.
+
+**When you actually need a Tester**
+- Meta reviewers may need test accounts (they do **not** use your admin account; they need a clear screencast and test instructions).
+- You want someone else (teammate, QA) to test the app.
+- You're testing permissions in Development mode with a non-admin flow.
+- You need an **Instagram Tester** specifically (for Instagram Basic Display or Instagram features): add the person as **Instagram Tester** in App roles and have them **accept the invite in the Instagram app** (Settings → Apps and Websites or the invite notification).
+
+**Two different things**
+1. **App roles** (Roles tab): Administrator, Developer, **Tester**, **Instagram Tester** – real people you invite; they need a Facebook Developer Account to be added.
+2. **Test users** (Test users tab): "Create Test Facebook Accounts" creates **synthetic** (fake) accounts for development only; not used for App Review screencasts.
+
+**For Meta App Review**  
+Adding yourself as Tester does not affect approval. Meta reviewers require a clear screencast, real business usage, and test instructions. **Meta sometimes prefers screencasts that show a non-admin account** (a Tester) going through the flow.
+
+**Recommendation for Agent4Socials**  
+- Keep yourself as Administrator.  
+- Add **one separate real Facebook account** as **Tester** (and as **Instagram Tester** if you demo Instagram); that person must have a Facebook Developer Account and accept the invite.  
+- Record the screencast with that Tester account (or with your Admin account; both are valid). If Meta has asked for test accounts, use the Tester for the recording.
+
+---
+
 ## Why some scopes don't appear in "Create Test Facebook Accounts"
 
 The **"Create Test Facebook Accounts"** modal (under App roles → Test users) creates **synthetic** test accounts. The **Login permissions** dropdown there only lists a limited set of permissions and often **does not include**:
