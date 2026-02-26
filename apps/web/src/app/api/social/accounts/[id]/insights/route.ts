@@ -17,18 +17,26 @@ export async function GET(
   if (!process.env.DATABASE_URL) {
     return NextResponse.json({ message: 'DATABASE_URL required' }, { status: 503 });
   }
-  const userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
-  if (!userId) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-  }
-  const { id } = await params;
-  const account = await prisma.socialAccount.findFirst({
-    where: { id, userId },
-    select: { id: true, platform: true, platformUserId: true, accessToken: true },
+  const emptyOut = (platform: string) => ({
+    platform,
+    followers: 0,
+    impressionsTotal: 0,
+    impressionsTimeSeries: [] as Array<{ date: string; value: number }>,
+    insightsHint: 'Could not load insights. Try reconnecting from the sidebar.',
   });
-  if (!account) {
-    return NextResponse.json({ message: 'Account not found' }, { status: 404 });
-  }
+  try {
+    const userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
+    if (!userId) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+    const { id } = await params;
+    const account = await prisma.socialAccount.findFirst({
+      where: { id, userId },
+      select: { id: true, platform: true, platformUserId: true, accessToken: true },
+    });
+    if (!account) {
+      return NextResponse.json({ message: 'Account not found' }, { status: 404 });
+    }
   const since = request.nextUrl.searchParams.get('since') ?? '';
   const until = request.nextUrl.searchParams.get('until') ?? '';
   const sinceTs = since ? Math.floor(new Date(since).getTime() / 1000) : null;
@@ -244,6 +252,11 @@ export async function GET(
     }
   } catch (e) {
     console.error('[Insights] error:', e);
+    return NextResponse.json(emptyOut('UNKNOWN'), { status: 200 });
   }
   return NextResponse.json(out);
+} catch (e) {
+  console.error('[Insights] error:', e);
+  return NextResponse.json(emptyOut('UNKNOWN'), { status: 200 });
+}
 }

@@ -12,34 +12,56 @@ export async function GET(
   if (!process.env.DATABASE_URL) {
     return NextResponse.json({ message: 'DATABASE_URL required' }, { status: 503 });
   }
-  const userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
-  if (!userId) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-  }
-  const { id } = await params;
-  const account = await prisma.socialAccount.findFirst({
-    where: { id, userId },
-    select: { id: true, platform: true, platformUserId: true, accessToken: true, username: true },
-  });
-  if (!account) {
-    return NextResponse.json({ message: 'Account not found' }, { status: 404 });
-  }
-  const sync = request.nextUrl.searchParams.get('sync') === '1';
-  let syncError: string | undefined;
-  if (sync) {
-    try {
-      syncError = await syncImportedPosts(account.id, account.platform, account.platformUserId, account.accessToken);
-    } catch (e) {
-      console.error('[Imported posts] sync error:', e);
-      syncError = (e as Error)?.message ?? 'Sync failed. Try reconnecting your account.';
+  try {
+    const userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
+    if (!userId) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
+    const { id } = await params;
+    const account = await prisma.socialAccount.findFirst({
+      where: { id, userId },
+      select: { id: true, platform: true, platformUserId: true, accessToken: true, username: true },
+    });
+    if (!account) {
+      return NextResponse.json({ message: 'Account not found' }, { status: 404 });
+    }
+    if (!account.accessToken) {
+      return NextResponse.json({ posts: [], syncError: 'Reconnect your account to sync posts.' }, { status: 200 });
+    }
+    const sync = request.nextUrl.searchParams.get('sync') === '1';
+    let syncError: string | undefined;
+    if (sync) {
+      try {
+        syncError = await syncImportedPosts(account.id, account.platform, account.platformUserId, account.accessToken);
+      } catch (e) {
+        console.error('[Imported posts] sync error:', e);
+        const msg = (e as Error)?.message ?? '';
+        const metaMsg = (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
+        syncError = metaMsg || msg || 'Sync failed. Try reconnecting your account.';
+      }
+    }
+    const posts = await prisma.importedPost.findMany({
+      where: { socialAccountId: account.id },
+      orderBy: { publishedAt: 'desc' },
+      take: 200,
+    });
+    const serialized = posts.map((p) => ({
+      id: p.id,
+      content: p.content,
+      thumbnailUrl: p.thumbnailUrl,
+      permalinkUrl: p.permalinkUrl,
+      impressions: p.impressions ?? 0,
+      interactions: p.interactions ?? 0,
+      publishedAt: p.publishedAt instanceof Date ? p.publishedAt.toISOString() : String(p.publishedAt),
+      mediaType: p.mediaType,
+      platform: p.platform,
+    }));
+    return NextResponse.json({ posts: serialized, syncError });
+  } catch (e) {
+    console.error('[Imported posts] GET error:', e);
+    const msg = (e as Error)?.message ?? 'Server error while loading posts.';
+    return NextResponse.json({ posts: [], syncError: msg }, { status: 200 });
   }
-  const posts = await prisma.importedPost.findMany({
-    where: { socialAccountId: account.id },
-    orderBy: { publishedAt: 'desc' },
-    take: 200,
-  });
-  return NextResponse.json({ posts, syncError });
 }
 
 async function syncImportedPosts(
@@ -143,6 +165,8 @@ async function syncImportedPosts(
           permalinkUrl: p.permalink_url ?? null,
           publishedAt,
           mediaType: null,
+          impressions: 0,
+          interactions: 0,
           syncedAt: new Date(),
         },
         create: {
@@ -154,6 +178,8 @@ async function syncImportedPosts(
           permalinkUrl: p.permalink_url ?? null,
           publishedAt,
           mediaType: null,
+          impressions: 0,
+          interactions: 0,
         },
       });
     }
@@ -183,6 +209,8 @@ async function syncImportedPosts(
             content: t.text ?? null,
             permalinkUrl,
             publishedAt,
+            impressions: 0,
+            interactions: 0,
             syncedAt: new Date(),
           },
           create: {
@@ -192,6 +220,8 @@ async function syncImportedPosts(
             content: t.text ?? null,
             permalinkUrl,
             publishedAt,
+            impressions: 0,
+            interactions: 0,
           },
         });
       }
