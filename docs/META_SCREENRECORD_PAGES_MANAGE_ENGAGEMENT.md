@@ -2,6 +2,8 @@
 
 Step-by-step guide for recording the screencast to submit to Meta App Review for the **pages_manage_engagement** permission.
 
+**For a single test-account flow that shows real user experience across all Meta scopes (including this one), see [META_TEST_ACCOUNT_SCOPE_RECORDING.md](./META_TEST_ACCOUNT_SCOPE_RECORDING.md).**
+
 ---
 
 ## Before you record
