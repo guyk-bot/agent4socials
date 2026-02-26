@@ -352,6 +352,9 @@ export default function ComposerPage() {
                     thumbnailUrl: (m as { metadata?: { thumbnailUrl?: string } }).metadata?.thumbnailUrl,
                 }));
                 setMediaList(mediaList_);
+                if (mediaList_.length === 1 && mediaList_[0].type === 'VIDEO') setMediaType('reel');
+                else if (mediaList_.length === 1) setMediaType('photo');
+                else if (mediaList_.length > 1) setMediaType('carousel');
                 if (p.mediaByPlatform && Object.keys(p.mediaByPlatform).length > 0) {
                     const cleaned: Record<string, MediaItem[]> = {};
                     for (const [k, arr] of Object.entries(p.mediaByPlatform)) {
@@ -1988,7 +1991,7 @@ function PostPreview({
                     <p className={`truncate text-neutral-500 ${compact ? 'text-[9px]' : 'text-xs'}`}>{PLATFORM_LABELS[platform] || platform}</p>
                 </div>
             </div>
-            <div className={`bg-neutral-50 flex items-center justify-center overflow-hidden relative ${mediaType === 'reel' ? 'aspect-[9/16]' : 'aspect-square'}`}>
+            <div className={`bg-neutral-50 flex items-center justify-center overflow-hidden relative ${mediaType === 'reel' || (mediaType === 'video' && media.length === 1) ? 'aspect-[9/16]' : 'aspect-square'}`}>
                 {currentMedia ? (
                     <>
                         {currentMedia.type === 'VIDEO' ? (
