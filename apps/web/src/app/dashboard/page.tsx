@@ -105,6 +105,9 @@ export default function DashboardPage() {
   const [aggregatedInsights, setAggregatedInsights] = useState<{
     totalFollowers: number;
     totalImpressions: number;
+    totalReach: number;
+    totalProfileViews: number;
+    totalPageViews: number;
     byPlatform: Record<string, { followers: number; impressions: number; timeSeries: Array<{ date: string; value: number }> }>;
     combinedTimeSeries: Array<{ date: string; value: number }>;
   } | null>(null);
@@ -199,6 +202,7 @@ export default function DashboardPage() {
   }, [setCachedAccounts]);
 
   const postsCacheRef = useRef<Record<string, Array<{ id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; impressions: number; interactions: number; publishedAt: string; mediaType?: string | null; platform: string }>>>({});
+  const syncAllRequestedRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (selectedAccount?.id) {
@@ -228,9 +232,16 @@ export default function DashboardPage() {
       setImportedPosts([]);
       return;
     }
-    if (analyticsTab !== 'posts') return;
+    if (analyticsTab !== 'posts' && analyticsTab !== 'account') return;
     setImportedPostsLoading(true);
-    Promise.all(accounts.map((acc) => api.get(`/social/accounts/${acc.id}/posts`).then((r) => ({ id: acc.id, posts: r.data?.posts ?? [] }))))
+    const accountIdsKey = accounts.map((a) => a.id).sort().join(',');
+    const syncAllFirst = syncAllRequestedRef.current !== accountIdsKey;
+    if (syncAllFirst) syncAllRequestedRef.current = accountIdsKey;
+    Promise.all(
+      accounts.map((acc) =>
+        api.get(`/social/accounts/${acc.id}/posts`, { params: syncAllFirst ? { sync: 1 } : {} }).then((r) => ({ id: acc.id, posts: r.data?.posts ?? [] }))
+      )
+    )
       .then((results) => {
         const merged = results.flatMap((r) => r.posts).sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
         setImportedPosts(merged);
@@ -240,7 +251,7 @@ export default function DashboardPage() {
   }, [analyticsTab, selectedAccount?.id, hasAccounts, accounts.map((a) => a.id).join(',')]);
 
   const insightsCacheRef = useRef<Record<string, { platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number; profileViewsTotal?: number }>>({});
-  const aggregatedCacheRef = useRef<{ key: string; data: { totalFollowers: number; totalImpressions: number; byPlatform: Record<string, { followers: number; impressions: number; timeSeries: Array<{ date: string; value: number }> }>; combinedTimeSeries: Array<{ date: string; value: number }> } } | null>(null);
+  const aggregatedCacheRef = useRef<{ key: string; data: { totalFollowers: number; totalImpressions: number; totalReach: number; totalProfileViews: number; totalPageViews: number; byPlatform: Record<string, { followers: number; impressions: number; timeSeries: Array<{ date: string; value: number }> }>; combinedTimeSeries: Array<{ date: string; value: number }> } } | null>(null);
 
   useEffect(() => {
     if (selectedAccount?.id) {
@@ -295,6 +306,9 @@ export default function DashboardPage() {
         const byPlatform: Record<string, { followers: number; impressions: number; timeSeries: Array<{ date: string; value: number }> }> = {};
         let totalFollowers = 0;
         let totalImpressions = 0;
+        let totalReach = 0;
+        let totalProfileViews = 0;
+        let totalPageViews = 0;
         const dateMap: Record<string, number> = {};
         for (const { platform, data } of results) {
           if (!data) continue;
@@ -304,6 +318,9 @@ export default function DashboardPage() {
           byPlatform[platform] = { followers: fol, impressions: imp, timeSeries: ts };
           totalFollowers += fol;
           totalImpressions += imp;
+          totalReach += data.reachTotal ?? 0;
+          totalProfileViews += data.profileViewsTotal ?? 0;
+          totalPageViews += data.pageViewsTotal ?? 0;
           for (const d of ts) {
             dateMap[d.date] = (dateMap[d.date] ?? 0) + d.value;
           }
@@ -311,7 +328,7 @@ export default function DashboardPage() {
         const combinedTimeSeries = Object.entries(dateMap)
           .map(([date, value]) => ({ date, value }))
           .sort((a, b) => a.date.localeCompare(b.date));
-        const data = { totalFollowers, totalImpressions, byPlatform, combinedTimeSeries };
+        const data = { totalFollowers, totalImpressions, totalReach, totalProfileViews, totalPageViews, byPlatform, combinedTimeSeries };
         aggregatedCacheRef.current = { key: aggCacheKey, data };
         setAggregatedInsights(data);
       })
@@ -417,9 +434,9 @@ export default function DashboardPage() {
   const effectiveTweets = isTwitter ? (insights?.tweetCount ?? 0) : 0;
   const recentTweets = isTwitter ? (insights?.recentTweets ?? []) : [];
   const effectiveTimeSeries = selectedAccount ? (insights?.impressionsTimeSeries ?? []) : (aggregatedInsights?.combinedTimeSeries ?? []);
-  const effectivePageVisits = selectedAccount ? (insights?.pageViewsTotal ?? 0) : 0;
-  const effectiveReach = selectedAccount ? (insights?.reachTotal ?? 0) : 0;
-  const effectiveProfileViews = selectedAccount ? (insights?.profileViewsTotal ?? 0) : 0;
+  const effectivePageVisits = selectedAccount ? (insights?.pageViewsTotal ?? 0) : (aggregatedInsights?.totalPageViews ?? 0);
+  const effectiveReach = selectedAccount ? (insights?.reachTotal ?? 0) : (aggregatedInsights?.totalReach ?? 0);
+  const effectiveProfileViews = selectedAccount ? (insights?.profileViewsTotal ?? 0) : (aggregatedInsights?.totalProfileViews ?? 0);
   const effectiveInsightsLoading = selectedAccount ? insightsLoading : aggregatedLoading;
   const maxImpressions = effectiveTimeSeries.length ? Math.max(...effectiveTimeSeries.map((d) => d.value), 1) : 1;
   const hasFbOrIg = accounts.some((a) => a.platform === 'FACEBOOK' || a.platform === 'INSTAGRAM');
@@ -721,9 +738,50 @@ export default function DashboardPage() {
               </div>
                 <p className="text-xs text-neutral-400 mt-1 px-1">{dateRange.start} – {dateRange.end}</p>
             </div>
+            {/* Interactions (Metricool-style) */}
+            <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm lg:col-span-2">
+              <p className="text-sm font-medium text-neutral-500">Interactions</p>
+              <div className="flex items-center gap-3 mt-1">
+                <span className="text-3xl font-bold text-neutral-900">{totalInteractions}</span>
+                <div className="flex-1 h-2 max-w-[120px] rounded-full bg-pink-200 overflow-hidden">
+                  <div className="h-full bg-pink-500 rounded-full" style={{ width: `${Math.min(100, totalInteractions * 25)}%` }} />
+                </div>
+              </div>
+              <div className="flex gap-1.5 mt-3 flex-wrap">
+                {hasInstagram && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{importedPosts.filter((p) => p.platform === 'INSTAGRAM').reduce((s, p) => s + (p.interactions ?? 0), 0)} Instagram</span>}
+                {hasFacebook && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{importedPosts.filter((p) => p.platform === 'FACEBOOK').reduce((s, p) => s + (p.interactions ?? 0), 0)} Facebook</span>}
+                {accounts.some((a) => a.platform === 'TWITTER') && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-neutral-100 text-neutral-800">{importedPosts.filter((p) => p.platform === 'TWITTER').reduce((s, p) => s + (p.interactions ?? 0), 0)} X</span>}
+              </div>
+            </div>
+            {/* Number of posts (Metricool-style) */}
+            <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm lg:col-span-2">
+              <p className="text-sm font-medium text-neutral-500">Number of posts</p>
+              <div className="flex items-center gap-3 mt-1">
+                <span className="text-3xl font-bold text-neutral-900">{importedPosts.length}</span>
+                <div className="flex-1 h-2 max-w-[120px] rounded-full bg-neutral-200 overflow-hidden">
+                  <div className="h-full rounded-full bg-indigo-500" style={{ width: importedPosts.length ? `${Math.min(100, importedPosts.length * 20)}%` : '0%' }} />
+                </div>
+              </div>
+              <div className="flex gap-1.5 mt-3 flex-wrap">
+                {hasFacebook && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{importedPosts.filter((p) => p.platform === 'FACEBOOK').length} Facebook</span>}
+                {hasInstagram && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{importedPosts.filter((p) => p.platform === 'INSTAGRAM').length} Instagram</span>}
+                {accounts.some((a) => a.platform === 'TWITTER') && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-neutral-100 text-neutral-800">{importedPosts.filter((p) => p.platform === 'TWITTER').length} X</span>}
+              </div>
+            </div>
             {/* Page visits / Profile views, Reach, Total content */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:col-span-2">
-              {selectedAccount?.platform === 'INSTAGRAM' ? (
+              {!selectedAccount ? (
+                <>
+                  <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
+                    <p className="text-xs font-medium text-neutral-500">Profile views</p>
+                    <p className="text-xl font-bold text-neutral-900 mt-0.5">{effectiveProfileViews || '—'}</p>
+                  </div>
+                  <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
+                    <p className="text-xs font-medium text-neutral-500">Page visits</p>
+                    <p className="text-xl font-bold text-neutral-900 mt-0.5">{effectivePageVisits || '—'}</p>
+                  </div>
+                </>
+              ) : selectedAccount.platform === 'INSTAGRAM' ? (
                 <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
                   <p className="text-xs font-medium text-neutral-500">Profile views</p>
                   <p className="text-xl font-bold text-neutral-900 mt-0.5">{effectiveProfileViews || '—'}</p>
