@@ -109,10 +109,12 @@ export default function InboxPage() {
         setConversationsError(res.data?.error ?? null);
         setConversationsDebug(res.data?.debug ?? null);
       })
-      .catch(() => {
+      .catch((err: { message?: string; response?: { status?: number; data?: unknown } }) => {
         setConversations([]);
-        setConversationsError('Could not load conversations.');
-        setConversationsDebug(null);
+        const msg = err?.message ?? 'Could not load conversations.';
+        const isTimeout = err?.response?.status === 408 || /timeout|408/i.test(msg);
+        setConversationsError(isTimeout ? 'Request timed out. Try again or reconnect and choose your Page.' : 'Could not load conversations.');
+        setConversationsDebug({ rawMessage: msg });
       })
       .finally(() => setConversationsLoading(false));
   }, [selectedPlatform, accounts]);

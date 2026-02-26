@@ -489,6 +489,80 @@ export async function GET(
   }
 
   if (plat === 'FACEBOOK' && tokenData.pages && tokenData.pages.length >= 1) {
+    const firstPage = tokenData.pages[0];
+    const pageToken = firstPage.access_token || tokenData.accessToken;
+    const hasRealPageToken = Boolean(firstPage.access_token);
+    if (tokenData.pages.length === 1 && hasRealPageToken) {
+      try {
+        await prisma.socialAccount.deleteMany({ where: { userId, platform: 'FACEBOOK' } });
+        await prisma.socialAccount.upsert({
+          where: {
+            userId_platform_platformUserId: { userId, platform: 'FACEBOOK', platformUserId: firstPage.id },
+          },
+          update: {
+            accessToken: pageToken,
+            refreshToken: tokenData.refreshToken,
+            expiresAt: tokenData.expiresAt,
+            username: firstPage.name ?? 'Facebook Page',
+            profilePicture: firstPage.picture ?? null,
+            status: 'connected',
+          },
+          create: {
+            userId,
+            platform: 'FACEBOOK',
+            platformUserId: firstPage.id,
+            username: firstPage.name ?? 'Facebook Page',
+            profilePicture: firstPage.picture ?? null,
+            accessToken: pageToken,
+            refreshToken: tokenData.refreshToken,
+            expiresAt: tokenData.expiresAt,
+            status: 'connected',
+          },
+        });
+        const igId = (firstPage as { instagram_business_account_id?: string }).instagram_business_account_id;
+        if (igId) {
+          let igUsername = 'Instagram';
+          let igPicture: string | null = null;
+          try {
+            const igRes = await axios.get<{ username?: string; profile_picture_url?: string }>(
+              `https://graph.facebook.com/v18.0/${igId}`,
+              { params: { fields: 'username,profile_picture_url', access_token: pageToken } }
+            );
+            if (igRes.data?.username) igUsername = igRes.data.username;
+            if (igRes.data?.profile_picture_url) igPicture = igRes.data.profile_picture_url;
+          } catch (_) {}
+          await prisma.socialAccount.deleteMany({ where: { userId, platform: 'INSTAGRAM' } });
+          await prisma.socialAccount.upsert({
+            where: {
+              userId_platform_platformUserId: { userId, platform: 'INSTAGRAM', platformUserId: igId },
+            },
+            update: {
+              accessToken: pageToken,
+              username: igUsername,
+              profilePicture: igPicture,
+              expiresAt: tokenData.expiresAt,
+              status: 'connected',
+            },
+            create: {
+              userId,
+              platform: 'INSTAGRAM',
+              platformUserId: igId,
+              username: igUsername,
+              profilePicture: igPicture,
+              accessToken: pageToken,
+              refreshToken: null,
+              expiresAt: tokenData.expiresAt,
+              status: 'connected',
+            },
+          });
+        }
+        const dashboardUrl = `${baseUrl}/dashboard?connecting=1`;
+        const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Agent4Socials – Connected</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;"><p><strong>Agent4Socials</strong> – Page connected.</p><script>window.location.href = ${JSON.stringify(dashboardUrl)};</script><p><a href="${dashboardUrl}">Go to Dashboard</a></p></body></html>`;
+        return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
+      } catch (e) {
+        console.error('[Social OAuth] Facebook single-page connect error:', e);
+      }
+    }
     try {
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
       const pagesJson = tokenData.pages.map(({ access_token: _at, ...p }) => p) as object;

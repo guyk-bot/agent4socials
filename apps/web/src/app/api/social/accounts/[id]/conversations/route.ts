@@ -42,6 +42,7 @@ export async function GET(
         fields: 'id,updated_time,senders',
         access_token: account.accessToken,
       },
+      timeout: 20_000,
     });
 
     if (res.data?.error) {
@@ -59,10 +60,14 @@ export async function GET(
     }));
     return NextResponse.json({ conversations: list });
   } catch (e) {
-    const msg = (e as Error)?.message ?? '';
-    const axiosData = (e as { response?: { data?: unknown } })?.response?.data;
+    const err = e as { message?: string; code?: string; response?: { data?: unknown; status?: number } };
+    const msg = err?.message ?? '';
+    const axiosData = err?.response?.data;
+    const isTimeout = err?.code === 'ECONNABORTED' || /timeout|408/i.test(msg);
     if (msg.includes('403') || msg.includes('permission') || msg.includes('OAuth'))
       return NextResponse.json({ conversations: [], error: 'Reconnect from the sidebar and choose your Page when asked to grant messaging permission.', debug: { rawMessage: msg, responseData: axiosData } });
+    if (isTimeout)
+      return NextResponse.json({ conversations: [], error: 'The request to load conversations timed out. Try again or reconnect and choose your Page.', debug: { rawMessage: msg, responseData: axiosData } });
     console.error('[Conversations] error:', e);
     return NextResponse.json({ conversations: [], error: 'Could not load conversations.', debug: { rawMessage: msg, responseData: axiosData } });
   }
