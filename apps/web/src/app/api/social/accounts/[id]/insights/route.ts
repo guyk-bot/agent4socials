@@ -75,8 +75,7 @@ export async function GET(
             }>;
           }>(`${baseUrl}/${account.platformUserId}/insights`, {
             params: {
-              metric: 'reach,profile_views,views',
-              metric_type: 'total_value',
+              metric: 'impressions,reach,profile_views',
               period: 'day',
               since: sinceTs,
               until: untilTs,
@@ -99,9 +98,9 @@ export async function GET(
                     .filter((x) => x.date)
                     .sort((a, b) => a.date.localeCompare(b.date))
                 : [];
-            if (d.name === 'views' || d.name === 'impressions') {
+            if (d.name === 'impressions' || d.name === 'views') {
               out.impressionsTotal = total;
-              out.impressionsTimeSeries = series.length ? series : (total ? [{ date: new Date().toISOString().slice(0, 10), value: total }] : []);
+              out.impressionsTimeSeries = series.length ? series : (total ? [{ date: until?.slice(0, 10) || new Date().toISOString().slice(0, 10), value: total }] : []);
             } else if (d.name === 'reach') {
               out.reachTotal = total;
             } else if (d.name === 'profile_views') {
@@ -156,7 +155,7 @@ export async function GET(
             }
             if (d.name === 'page_impressions') {
               out.impressionsTotal = total;
-              out.impressionsTimeSeries = series.sort((a, b) => a.date.localeCompare(b.date));
+              out.impressionsTimeSeries = series.length ? series.sort((a, b) => a.date.localeCompare(b.date)) : (total ? [{ date: until?.slice(0, 10) || new Date().toISOString().slice(0, 10), value: total }] : []);
             } else if (d.name === 'page_views_total') {
               out.pageViewsTotal = total;
             } else if (d.name === 'page_fan_reach') {

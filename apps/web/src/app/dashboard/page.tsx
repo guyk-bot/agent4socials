@@ -78,6 +78,8 @@ export default function DashboardPage() {
   const [importedPosts, setImportedPosts] = useState<Array<{ id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; impressions: number; interactions: number; publishedAt: string; mediaType?: string | null; platform: string }>>([]);
   const [importedPostsLoading, setImportedPostsLoading] = useState(false);
   const [postsSyncError, setPostsSyncError] = useState<string | null>(null);
+  const [allPostsSyncError, setAllPostsSyncError] = useState<string | null>(null);
+  const [syncAllTrigger, setSyncAllTrigger] = useState(0);
   const [dateRange, setDateRange] = useState(() => {
     const end = new Date();
     const start = new Date();
@@ -237,18 +239,25 @@ export default function DashboardPage() {
     const accountIdsKey = accounts.map((a) => a.id).sort().join(',');
     const syncAllFirst = syncAllRequestedRef.current !== accountIdsKey;
     if (syncAllFirst) syncAllRequestedRef.current = accountIdsKey;
+    setAllPostsSyncError(null);
     Promise.all(
       accounts.map((acc) =>
-        api.get(`/social/accounts/${acc.id}/posts`, { params: syncAllFirst ? { sync: 1 } : {} }).then((r) => ({ id: acc.id, posts: r.data?.posts ?? [] }))
+        api.get(`/social/accounts/${acc.id}/posts`, { params: syncAllFirst ? { sync: 1 } : {} }).then((r) => ({
+          id: acc.id,
+          posts: r.data?.posts ?? [],
+          syncError: r.data?.syncError as string | undefined,
+        }))
       )
     )
       .then((results) => {
         const merged = results.flatMap((r) => r.posts).sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
         setImportedPosts(merged);
+        const firstError = results.map((r) => r.syncError).find(Boolean);
+        if (firstError) setAllPostsSyncError(firstError);
       })
-      .catch(() => setImportedPosts([]))
+      .catch(() => { setImportedPosts([]); setAllPostsSyncError('Failed to load posts.'); })
       .finally(() => setImportedPostsLoading(false));
-  }, [analyticsTab, selectedAccount?.id, hasAccounts, accounts.map((a) => a.id).join(',')]);
+  }, [analyticsTab, selectedAccount?.id, hasAccounts, syncAllTrigger, accounts.map((a) => a.id).join(',')]);
 
   const insightsCacheRef = useRef<Record<string, { platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number; profileViewsTotal?: number }>>({});
   const aggregatedCacheRef = useRef<{ key: string; data: { totalFollowers: number; totalImpressions: number; totalReach: number; totalProfileViews: number; totalPageViews: number; byPlatform: Record<string, { followers: number; impressions: number; timeSeries: Array<{ date: string; value: number }> }>; combinedTimeSeries: Array<{ date: string; value: number }> } } | null>(null);
@@ -438,9 +447,16 @@ export default function DashboardPage() {
   const effectiveReach = selectedAccount ? (insights?.reachTotal ?? 0) : (aggregatedInsights?.totalReach ?? 0);
   const effectiveProfileViews = selectedAccount ? (insights?.profileViewsTotal ?? 0) : (aggregatedInsights?.totalProfileViews ?? 0);
   const effectiveInsightsLoading = selectedAccount ? insightsLoading : aggregatedLoading;
-  const maxImpressions = effectiveTimeSeries.length ? Math.max(...effectiveTimeSeries.map((d) => d.value), 1) : 1;
+  const fallbackSeriesValue = effectiveImpressions || effectiveFollowers || 0;
+  const displayTimeSeries =
+    effectiveTimeSeries.length > 0
+      ? effectiveTimeSeries
+      : fallbackSeriesValue > 0
+        ? [{ date: dateRange.end || new Date().toISOString().slice(0, 10), value: fallbackSeriesValue }]
+        : [];
+  const maxImpressions = displayTimeSeries.length ? Math.max(...displayTimeSeries.map((d) => d.value), 1) : 1;
   const hasFbOrIg = accounts.some((a) => a.platform === 'FACEBOOK' || a.platform === 'INSTAGRAM');
-  const showReconnectBanner = hasFbOrIg && (insights?.insightsHint || postsSyncError);
+  const showReconnectBanner = hasFbOrIg && (insights?.insightsHint || postsSyncError || allPostsSyncError);
 
   return (
     <div className="space-y-0">
@@ -610,6 +626,23 @@ export default function DashboardPage() {
         <div className="mt-6 space-y-6">
           <h2 className="text-lg font-semibold text-neutral-900">Account</h2>
           {effectiveInsightsLoading && <p className="text-sm text-neutral-500">Loading analytics…</p>}
+          {!selectedAccount && hasAccounts && (importedPosts.length === 0 || allPostsSyncError) && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              {importedPosts.length === 0 && <p>No posts in this period yet. Sync to load posts from Instagram and Facebook (and see interactions, number of posts, and total content).</p>}
+              {allPostsSyncError && <p className="mt-1">{allPostsSyncError}</p>}
+              <button
+                type="button"
+                onClick={() => {
+                  syncAllRequestedRef.current = null;
+                  setSyncAllTrigger((t) => t + 1);
+                }}
+                disabled={importedPostsLoading}
+                className="mt-3 px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 disabled:opacity-50"
+              >
+                {importedPostsLoading ? 'Syncing…' : 'Sync posts'}
+              </button>
+            </div>
+          )}
           {insights?.insightsHint && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
               <p>{insights.insightsHint}</p>
@@ -662,9 +695,9 @@ export default function DashboardPage() {
               </div>
               <div className="mt-4 h-40 rounded-lg bg-neutral-50 border border-neutral-100 flex items-center justify-center relative overflow-hidden">
                 <div className="absolute inset-0 opacity-[0.03] font-semibold text-neutral-400 text-2xl flex items-center justify-center" style={{ transform: 'rotate(-20deg)' }}>agent4socials</div>
-                {effectiveTimeSeries.length ? (
+                {displayTimeSeries.length ? (
                   <div className="flex items-end gap-0.5 h-full w-full p-4 pb-2">
-                    {effectiveTimeSeries.map((d) => (
+                    {displayTimeSeries.map((d) => (
                       <div key={d.date} className="flex-1 bg-indigo-200/80 rounded-t min-h-[4px]" style={{ height: `${(d.value / maxImpressions) * 100}%` }} title={`${d.date}: ${d.value}`} />
                     ))}
                   </div>
@@ -722,9 +755,9 @@ export default function DashboardPage() {
               </div>
               <div className="mt-4 h-40 rounded-lg bg-neutral-50 border border-neutral-100 flex items-center justify-center relative overflow-hidden">
                 <div className="absolute inset-0 opacity-[0.03] font-semibold text-neutral-400 text-2xl flex items-center justify-center" style={{ transform: 'rotate(-20deg)' }}>agent4socials</div>
-                {effectiveTimeSeries.length ? (
+                {displayTimeSeries.length ? (
                   <div className="flex items-end gap-0.5 h-full w-full p-4 pb-2">
-                    {effectiveTimeSeries.map((d) => (
+                    {displayTimeSeries.map((d) => (
                       <div key={d.date} className="flex-1 bg-indigo-200/80 rounded-t min-h-[4px]" style={{ height: `${(d.value / maxImpressions) * 100}%` }} title={`${d.date}: ${d.value}`} />
                     ))}
                   </div>
