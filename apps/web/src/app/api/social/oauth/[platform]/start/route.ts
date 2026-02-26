@@ -22,7 +22,7 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
         const redirectUri = (process.env.INSTAGRAM_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
         return `https://www.instagram.com/oauth/authorize?client_id=${igClientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&state=${encodeURIComponent(state)}`;
       }
-      return `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.META_APP_ID}&redirect_uri=${encodeURIComponent(process.env.META_REDIRECT_URI || callbackUrl)}&state=${state}&scope=instagram_basic,instagram_content_publish,instagram_manage_messages,instagram_manage_insights,pages_read_engagement,pages_show_list,business_management`;
+      return `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.META_APP_ID}&redirect_uri=${encodeURIComponent(process.env.META_REDIRECT_URI || callbackUrl)}&state=${state}&scope=instagram_basic,instagram_content_publish,instagram_manage_messages,instagram_manage_insights,instagram_manage_comments,pages_read_engagement,pages_show_list,pages_manage_posts,pages_manage_engagement,pages_messaging,pages_read_user_content,business_management`;
     case 'TIKTOK':
       return `https://www.tiktok.com/v2/auth/authorize/?client_key=${process.env.TIKTOK_CLIENT_KEY}&scope=user.info.basic,video.upload,video.publish&response_type=code&redirect_uri=${encodeURIComponent(process.env.TIKTOK_REDIRECT_URI || callbackUrl)}&state=${state}`;
     case 'YOUTUBE': {
@@ -37,10 +37,10 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
       return `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.YOUTUBE_CLIENT_ID}&redirect_uri=${encodeURIComponent(ytRedirect)}&response_type=code&scope=${ytScopes}&access_type=offline&state=${state}&prompt=consent`;
     }
     case 'FACEBOOK': {
-      // pages_messaging is often rejected as "Invalid Scopes" until the app has that permission.
-      // read_insights = Page analytics (impressions, page views, reach). Add it in Meta app (App Review) then reconnect.
+      // Full set for admin testing and App Review: posts, engagement, messaging, read Page content.
+      // If you see "Invalid Scopes" for a permission, add it in Meta app → App Review → Permissions and features first, then reconnect.
       const fbRedirectUri = (process.env.FACEBOOK_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
-      return `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.META_APP_ID}&redirect_uri=${encodeURIComponent(fbRedirectUri)}&state=${state}&scope=pages_read_engagement,pages_show_list,pages_manage_posts,read_insights,business_management`;
+      return `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.META_APP_ID}&redirect_uri=${encodeURIComponent(fbRedirectUri)}&state=${state}&scope=pages_read_engagement,pages_show_list,pages_manage_posts,pages_manage_engagement,pages_messaging,pages_read_user_content,read_insights,business_management`;
     }
     case 'TWITTER':
       return `https://twitter.com/i/oauth2/authorize?client_id=${process.env.TWITTER_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.TWITTER_REDIRECT_URI || callbackUrl)}&response_type=code&scope=tweet.read%20tweet.write%20users.read%20dm.read%20dm.write%20offline.access&state=${state}&code_challenge=challenge&code_challenge_method=plain`;
