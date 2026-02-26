@@ -7,8 +7,8 @@ This guide explains how to **add a test account** in Meta for Developers and how
 ## Part 1: Add a test user (so you can demo without going Live)
 
 1. Go to [Meta for Developers](https://developers.facebook.com/) and open your app.
-2. In the left sidebar, go to **App roles** → **Roles** (or **Settings** → **Basic** → **App roles**).
-3. Under **Test users** (or **Testers**):
+2. In the **left sidebar**, under **App settings**, click **App roles** (it appears under "Basic" and "Advanced"). Do not use **Create test app** (that creates a separate test app; you want to add testers to this app).
+3. Under **App roles** you’ll see **Roles** and **Test users** (or **Testers**):
    - Click **Add Testers**.
    - Enter the **Facebook account email** (or Facebook user name) of the person who will perform the demo. That person must have a **Facebook account** and, for Instagram, an **Instagram Business/Creator account** linked to a **Facebook Page**.
 4. Send the invite; the test user accepts it from their Facebook account (often under Settings → Apps and Websites → App Invites or from the email invite).
@@ -19,6 +19,22 @@ This guide explains how to **add a test account** in Meta for Developers and how
 - Create or use a **Facebook Page** and link an **Instagram Business or Creator account** to that Page (Facebook Page → Settings → Instagram → Connect account).
 
 **For Instagram-only login** (if you use “Connect with Instagram”): Add the same person as a test user; they connect with their Instagram account when you choose that method.
+
+---
+
+## Why some scopes don't appear in "Create Test Facebook Accounts"
+
+The **"Create Test Facebook Accounts"** modal (under App roles → Test users) creates **synthetic** test accounts. The **Login permissions** dropdown there only lists a limited set of permissions and often **does not include**:
+
+- **instagram_business_manage_messages** – This is an **Instagram** scope (Instagram Login / Instagram Graph API). The "Create Test Facebook Accounts" flow is for **Facebook** login only, so Instagram scopes usually do not appear there.
+- **pages_read_user_content** – May not appear until the permission is added to your app (App Review → Permissions and features) or may be under a different label. It also may not be offered in the synthetic test-user permission list.
+- **pages_manage_posts** – Sometimes only appears after the permission is added to the app under App Review → Permissions and features (or Use cases → Facebook Login → Customize).
+
+**You do not need to select these scopes in that modal for your screen recording.** For App Review you should use **real people as Testers**, not synthetic test users:
+
+1. In **App roles** → **Test users**, use **Add Testers** (invite a real person by email/Facebook account). Do not rely on "Create test users" for the permission list.
+2. When a **Tester** (real person) opens your app and clicks "Connect Facebook" or "Connect Instagram", they go through the **real OAuth flow**. The consent screen shows **exactly the scopes your app requests** in code (e.g. in `apps/web/src/app/api/social/oauth/[platform]/start/route.ts`). You do not pick those scopes in the Meta dashboard; your app's OAuth URL already includes them.
+3. So: add the permissions to your app under **App Review → Permissions and features** (or **Use cases** → Facebook Login / Instagram → Customize), then ensure your **OAuth scope string** in the code includes `pages_manage_posts`, `pages_read_user_content` (if you use it), and `instagram_business_manage_messages` (for Instagram-only login). After that, when a Tester connects, they will see and grant those scopes in the real login dialog.
 
 ---
 
