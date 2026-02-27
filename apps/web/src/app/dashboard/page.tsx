@@ -85,7 +85,7 @@ export default function DashboardPage() {
   const [dateRange, setDateRange] = useState(() => {
     const end = new Date();
     const start = new Date();
-    start.setDate(start.getDate() - 30);
+    start.setFullYear(start.getFullYear() - 2);
     return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
   });
   const [postsPage, setPostsPage] = useState(1);
@@ -308,9 +308,9 @@ export default function DashboardPage() {
     if (selectedAccount?.id) {
       setAggregatedInsights(null);
       const cacheKey = `${selectedAccount.id}-${dateRange.start}-${dateRange.end}`;
-      const defaultEnd = new Date().toISOString().slice(0, 10);
-      const defaultStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-      const usePrefetchedInsights = analyticsTab === 'account' && dateRange.start === defaultStart && dateRange.end === defaultEnd && appData?.getInsights(selectedAccount.id);
+    const defaultEnd = new Date().toISOString().slice(0, 10);
+    const defaultStart = new Date(Date.now() - 2 * 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const usePrefetchedInsights = analyticsTab === 'account' && dateRange.start === defaultStart && dateRange.end === defaultEnd && appData?.getInsights(selectedAccount.id);
       const cached = analyticsTab === 'account' ? (usePrefetchedInsights ?? insightsCacheRef.current[cacheKey]) : undefined;
       if (cached && analyticsTab === 'account') {
         setInsights(cached);

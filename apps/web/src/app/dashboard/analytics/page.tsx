@@ -65,7 +65,7 @@ export default function AnalyticsPage() {
   const [dateRange, setDateRange] = useState(() => {
     const end = new Date();
     const start = new Date();
-    start.setDate(start.getDate() - 30);
+    start.setFullYear(start.getFullYear() - 2);
     return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
   });
   const accounts = cachedAccounts as { id: string; platform: string; username?: string; profilePicture?: string | null; platformUserId?: string }[];
@@ -135,7 +135,7 @@ export default function AnalyticsPage() {
     if (activeTab !== 'account' || !selectedAccount?.id || !dateRange.start || !dateRange.end) return;
     const cacheKey = `${selectedAccount.id}-${dateRange.start}-${dateRange.end}`;
     const defaultEnd = new Date().toISOString().slice(0, 10);
-    const defaultStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const defaultStart = new Date(Date.now() - 2 * 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const usePrefetched = dateRange.start === defaultStart && dateRange.end === defaultEnd && appData?.getInsights(selectedAccount.id);
     const cached = usePrefetched ?? insightsCacheRef.current[cacheKey];
     if (cached) {

@@ -44,7 +44,7 @@ export async function GET(
   if (!sinceParam || !untilParam) {
     const end = new Date();
     const start = new Date();
-    start.setDate(start.getDate() - 30);
+    start.setFullYear(start.getFullYear() - 2);
     untilParam = untilParam || end.toISOString().slice(0, 10);
     sinceParam = sinceParam || start.toISOString().slice(0, 10);
   }

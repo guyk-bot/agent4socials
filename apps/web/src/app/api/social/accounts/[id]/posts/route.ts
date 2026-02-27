@@ -43,7 +43,7 @@ export async function GET(
     const posts = await prisma.importedPost.findMany({
       where: { socialAccountId: account.id },
       orderBy: { publishedAt: 'desc' },
-      take: 200,
+      take: 500,
     });
     const serialized = posts.map((p) => ({
       id: p.id,

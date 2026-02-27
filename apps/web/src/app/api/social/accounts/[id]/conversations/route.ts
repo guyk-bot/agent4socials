@@ -68,8 +68,15 @@ export async function GET(
   } catch (e) {
     const err = e as { message?: string; code?: string; response?: { data?: unknown; status?: number } };
     const msg = err?.message ?? '';
+    const status = err?.response?.status;
     const axiosData = err?.response?.data;
     const isTimeout = err?.code === 'ECONNABORTED' || /timeout|408/i.test(msg);
+    if (status === 400) {
+      const hint = account.platform === 'INSTAGRAM'
+        ? 'Instagram returned 400. Ensure instagram_manage_messages is granted: reconnect from the sidebar and choose your Page, or request Advanced Access in Meta App Dashboard.'
+        : 'Reconnect from the sidebar and choose your Page when asked to grant messaging permission.';
+      return NextResponse.json({ conversations: [], error: hint, debug: { rawMessage: msg, responseData: axiosData } });
+    }
     if (msg.includes('403') || msg.includes('permission') || msg.includes('OAuth'))
       return NextResponse.json({ conversations: [], error: 'Reconnect from the sidebar and choose your Page when asked to grant messaging permission.', debug: { rawMessage: msg, responseData: axiosData } });
     if (isTimeout)

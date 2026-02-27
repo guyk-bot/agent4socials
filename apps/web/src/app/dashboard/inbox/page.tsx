@@ -84,8 +84,9 @@ export default function InboxPage() {
   const [dmReplySending, setDmReplySending] = useState(false);
   const [aiReplyLoading, setAiReplyLoading] = useState(false);
   const [aiReplyError, setAiReplyError] = useState<string | null>(null);
-  const [notifications, setNotifications] = useState({ comments: 0, messages: 0 });
+  const [notifications, setNotifications] = useState<{ comments: number; messages: number; byPlatform?: Record<string, { comments: number; messages: number }> }>({ comments: 0, messages: 0 });
   const connectRef = useRef<HTMLDivElement>(null);
+  const [openPlatforms, setOpenPlatforms] = useState<string[]>([]);
 
   useEffect(() => {
     if ((cachedAccounts as Account[]).length > 0) return;
@@ -97,6 +98,14 @@ export default function InboxPage() {
         if (data.some((a: Account) => a.platform === 'INSTAGRAM')) return 'INSTAGRAM';
         if (data.some((a: Account) => a.platform === 'FACEBOOK')) return 'FACEBOOK';
         return null;
+      });
+      setOpenPlatforms((prev) => {
+        if (prev.length > 0) return prev;
+        const platforms: string[] = [];
+        if (data.some((a: Account) => a.platform === 'INSTAGRAM')) platforms.push('INSTAGRAM');
+        if (data.some((a: Account) => a.platform === 'FACEBOOK')) platforms.push('FACEBOOK');
+        if (data.some((a: Account) => a.platform === 'TWITTER')) platforms.push('TWITTER');
+        return platforms;
       });
     }).catch(() => setAccounts([]));
   }, [cachedAccounts.length]);
@@ -110,9 +119,12 @@ export default function InboxPage() {
   const effectiveAccounts = (cachedAccounts as Account[]).length > 0 ? (cachedAccounts as Account[]) : accounts;
   const connectedPlatforms = PLATFORMS.filter((p) => effectiveAccounts.some((a) => a.platform === p.id));
   const unconnectedPlatforms = PLATFORMS.filter((p) => !effectiveAccounts.some((a) => a.platform === p.id));
-  const effectiveNotifications = appData?.notifications
-    ? { comments: appData.notifications.comments, messages: appData.notifications.messages }
-    : notifications;
+  const byPlatform = appData?.notifications?.byPlatform ?? notifications.byPlatform ?? {};
+  const effectiveNotifications = selectedPlatform
+    ? { comments: byPlatform[selectedPlatform]?.comments ?? 0, messages: byPlatform[selectedPlatform]?.messages ?? 0 }
+    : appData?.notifications
+      ? { comments: appData.notifications.comments, messages: appData.notifications.messages }
+      : { comments: notifications.comments, messages: notifications.messages };
 
   const currentAccountForMessages = selectedPlatform ? effectiveAccounts.find((a) => a.platform === selectedPlatform) : null;
   useEffect(() => {
@@ -144,8 +156,12 @@ export default function InboxPage() {
 
   useEffect(() => {
     if (appData) return;
-    api.get<{ comments?: number; messages?: number }>('/social/notifications')
-      .then((res) => setNotifications({ comments: res.data?.comments ?? 0, messages: res.data?.messages ?? 0 }))
+    api.get<{ comments?: number; messages?: number; byPlatform?: Record<string, { comments: number; messages: number }> }>('/social/notifications')
+      .then((res) => setNotifications({
+        comments: res.data?.comments ?? 0,
+        messages: res.data?.messages ?? 0,
+        byPlatform: res.data?.byPlatform ?? {},
+      }))
       .catch(() => setNotifications({ comments: 0, messages: 0 }));
   }, [selectedPlatform, inboxMode, appData]);
 
@@ -237,11 +253,36 @@ export default function InboxPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if ((cachedAccounts as Account[]).length > 0 && openPlatforms.length === 0) {
+      const accs = cachedAccounts as Account[];
+      const platforms: string[] = [];
+      if (accs.some((a) => a.platform === 'INSTAGRAM')) platforms.push('INSTAGRAM');
+      if (accs.some((a) => a.platform === 'FACEBOOK')) platforms.push('FACEBOOK');
+      if (accs.some((a) => a.platform === 'TWITTER')) platforms.push('TWITTER');
+      if (platforms.length) {
+        setOpenPlatforms(platforms);
+        setSelectedPlatform((prev) => prev || platforms[0] ?? null);
+      }
+    }
+  }, [cachedAccounts, openPlatforms.length]);
+
   const handlePlatformClick = (platformId: string) => {
+    setOpenPlatforms((prev) => (prev.includes(platformId) ? prev : [...prev, platformId]));
     setSelectedPlatform(platformId);
     setSelectedConversationId(null);
     setSelectedComment(null);
     setAiReplyError(null);
+  };
+
+  const removeOpenPlatform = (platformId: string, currentOpen: string[]) => {
+    const next = currentOpen.filter((p) => p !== platformId);
+    setOpenPlatforms(next);
+    if (selectedPlatform === platformId) {
+      setSelectedPlatform(next[0] ?? null);
+      setSelectedConversationId(null);
+      setSelectedComment(null);
+    }
   };
 
   return (
@@ -307,6 +348,45 @@ export default function InboxPage() {
             </div>
           </div>
         </div>
+
+        {/* Open inboxes chips - multiple platforms at once */}
+        {openPlatforms.length > 0 && (
+          <div className="px-3 pb-2 border-b border-neutral-100">
+            <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-1.5">Open inboxes</p>
+            <div className="flex flex-wrap gap-1.5">
+              {openPlatforms.map((platformId) => {
+                const p = PLATFORMS.find((x) => x.id === platformId);
+                const Icon = p?.icon;
+                const isSelected = selectedPlatform === platformId;
+                return (
+                  <div
+                    key={platformId}
+                    className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-sm ${
+                      isSelected ? 'bg-neutral-100 border-neutral-300 ring-1 ring-neutral-200' : 'border-neutral-200 bg-white hover:bg-neutral-50'
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedPlatform(platformId); setSelectedConversationId(null); setSelectedComment(null); }}
+                      className="flex items-center gap-1.5"
+                    >
+                      {Icon && <Icon size={16} className={'color' in p && p.color ? p.color : undefined} />}
+                      <span>{p?.label ?? platformId}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeOpenPlatform(platformId, openPlatforms)}
+                      className="p-0.5 rounded hover:bg-neutral-200 text-neutral-500 hover:text-neutral-700"
+                      aria-label={`Close ${p?.label ?? platformId} inbox`}
+                    >
+                      <span className="text-xs leading-none">×</span>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Search */}
         <div className="p-2 border-b border-neutral-100">

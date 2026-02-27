@@ -28,7 +28,12 @@ export type CachedInsights = {
   insightsHint?: string;
 };
 
-type NotificationsCache = { inbox: number; comments: number; messages: number };
+type NotificationsCache = {
+  inbox: number;
+  comments: number;
+  messages: number;
+  byPlatform?: Record<string, { comments: number; messages: number }>;
+};
 
 export type CachedComment = {
   commentId: string;
@@ -75,7 +80,7 @@ const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
 function getDefaultDateRange() {
   const end = new Date();
   const start = new Date();
-  start.setDate(start.getDate() - 30);
+  start.setFullYear(start.getFullYear() - 2);
   return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
 }
 
@@ -151,8 +156,13 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         const dateRange = getDefaultDateRange();
 
         await Promise.all([
-          api.get<{ inbox?: number; comments?: number; messages?: number }>('/social/notifications').then((r) => {
-            if (!cancelled) setNotificationsState({ inbox: r.data?.inbox ?? 0, comments: r.data?.comments ?? 0, messages: r.data?.messages ?? 0 });
+          api.get<{ inbox?: number; comments?: number; messages?: number; byPlatform?: Record<string, { comments: number; messages: number }> }>('/social/notifications').then((r) => {
+            if (!cancelled) setNotificationsState({
+              inbox: r.data?.inbox ?? 0,
+              comments: r.data?.comments ?? 0,
+              messages: r.data?.messages ?? 0,
+              byPlatform: r.data?.byPlatform ?? {},
+            });
           }).catch(() => {}),
           ...accounts.map((acc) =>
             api.get<{ posts?: CachedPost[] }>(`/social/accounts/${acc.id}/posts`).then((r) => {
