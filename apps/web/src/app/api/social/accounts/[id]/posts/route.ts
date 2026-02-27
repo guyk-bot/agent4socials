@@ -78,26 +78,35 @@ async function syncImportedPosts(
     };
     const fields = 'id,media_type,media_url,permalink,caption,timestamp,thumbnail_url';
     const allItems: Array<{ id: string; media_type?: string; media_url?: string; permalink?: string; caption?: string; timestamp?: string; thumbnail_url?: string }> = [];
-    const maxMedia = 200;
-    const firstPageLimit = 100;
+    const maxMedia = 500;
+    const pageLimit = 50;
+    const until = Math.floor(Date.now() / 1000);
+    const since = until - 2 * 365 * 24 * 60 * 60;
+    const firstParams: Record<string, string | number> = {
+      fields,
+      access_token: accessToken,
+      limit: pageLimit,
+      since,
+      until,
+    };
     let nextUrl: string | null = `${baseUrl}/${platformUserId}/media`;
     try {
       while (nextUrl && allItems.length < maxMedia) {
         const isFirst = !nextUrl.includes('?');
         const res: AxiosResponse<MediaPage> = await axios.get<MediaPage>(
           nextUrl,
-          isFirst ? { params: { fields, access_token: accessToken, limit: firstPageLimit } } : {}
+          isFirst ? { params: firstParams } : {}
         );
         const page = res.data?.data ?? [];
         allItems.push(...page);
         const paging = res.data?.paging;
         const nextFromMeta = paging?.next;
         const afterCursor = paging?.cursors?.after;
-        const gotFullPage = page.length >= (isFirst ? firstPageLimit : 50);
+        const gotFullPage = page.length >= pageLimit;
         if (nextFromMeta && allItems.length < maxMedia) {
           nextUrl = nextFromMeta;
         } else if (!nextFromMeta && afterCursor && gotFullPage && allItems.length < maxMedia) {
-          nextUrl = `${baseUrl}/${platformUserId}/media?fields=${encodeURIComponent(fields)}&access_token=${encodeURIComponent(accessToken)}&limit=50&after=${encodeURIComponent(afterCursor)}`;
+          nextUrl = `${baseUrl}/${platformUserId}/media?fields=${encodeURIComponent(fields)}&access_token=${encodeURIComponent(accessToken)}&limit=${pageLimit}&after=${encodeURIComponent(afterCursor)}&since=${since}&until=${until}`;
         } else {
           nextUrl = null;
         }
