@@ -86,33 +86,27 @@ export default function InboxPage() {
   const [aiReplyError, setAiReplyError] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<{ comments: number; messages: number; byPlatform?: Record<string, { comments: number; messages: number }> }>({ comments: 0, messages: 0 });
   const connectRef = useRef<HTMLDivElement>(null);
-  const [openPlatforms, setOpenPlatforms] = useState<string[]>([]);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
 
   useEffect(() => {
     if ((cachedAccounts as Account[]).length > 0) return;
     api.get('/social/accounts').then((res) => {
       const data = Array.isArray(res.data) ? res.data : [];
       setAccounts(data);
-      setSelectedPlatform((prev) => {
-        if (prev) return prev;
-        if (data.some((a: Account) => a.platform === 'INSTAGRAM')) return 'INSTAGRAM';
-        if (data.some((a: Account) => a.platform === 'FACEBOOK')) return 'FACEBOOK';
-        return null;
-      });
-      setOpenPlatforms((prev) => {
-        if (prev.length > 0) return prev;
-        const platforms: string[] = [];
-        if (data.some((a: Account) => a.platform === 'INSTAGRAM')) platforms.push('INSTAGRAM');
-        if (data.some((a: Account) => a.platform === 'FACEBOOK')) platforms.push('FACEBOOK');
-        if (data.some((a: Account) => a.platform === 'TWITTER')) platforms.push('TWITTER');
-        return platforms;
-      });
+      const first =
+        data.some((a: Account) => a.platform === 'INSTAGRAM') ? 'INSTAGRAM'
+          : data.some((a: Account) => a.platform === 'FACEBOOK') ? 'FACEBOOK'
+          : null;
+      setSelectedPlatform(first);
+      setSelectedPlatforms(first ? [first] : []);
     }).catch(() => setAccounts([]));
   }, [cachedAccounts.length]);
 
   useEffect(() => {
     if (platformFromUrl && PLATFORMS.some((p) => p.id === platformFromUrl)) {
-      setSelectedPlatform(platformFromUrl);
+      const id = platformFromUrl;
+      setSelectedPlatform(id);
+      setSelectedPlatforms((prev) => (prev.includes(id) ? prev : [...prev, id]));
     }
   }, [platformFromUrl]);
 
@@ -120,8 +114,11 @@ export default function InboxPage() {
   const connectedPlatforms = PLATFORMS.filter((p) => effectiveAccounts.some((a) => a.platform === p.id));
   const unconnectedPlatforms = PLATFORMS.filter((p) => !effectiveAccounts.some((a) => a.platform === p.id));
   const byPlatform = appData?.notifications?.byPlatform ?? notifications.byPlatform ?? {};
-  const effectiveNotifications = selectedPlatform
-    ? { comments: byPlatform[selectedPlatform]?.comments ?? 0, messages: byPlatform[selectedPlatform]?.messages ?? 0 }
+  const effectiveNotifications = selectedPlatforms.length > 0
+    ? {
+        comments: selectedPlatforms.reduce((s, p) => s + (byPlatform[p]?.comments ?? 0), 0),
+        messages: selectedPlatforms.reduce((s, p) => s + (byPlatform[p]?.messages ?? 0), 0),
+      }
     : appData?.notifications
       ? { comments: appData.notifications.comments, messages: appData.notifications.messages }
       : { comments: notifications.comments, messages: notifications.messages };
@@ -165,85 +162,137 @@ export default function InboxPage() {
       .catch(() => setNotifications({ comments: 0, messages: 0 }));
   }, [selectedPlatform, inboxMode, appData]);
 
+  const dmOrFbPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK');
   useEffect(() => {
-    if (!selectedPlatform || (selectedPlatform !== 'INSTAGRAM' && selectedPlatform !== 'FACEBOOK')) {
+    if (dmOrFbPlatforms.length === 0) {
       setConversations([]);
       setConversationsError(null);
       setConversationsDebug(null);
       return;
     }
-    const account = effectiveAccounts.find((a) => a.platform === selectedPlatform);
-    if (!account) {
-      setConversations([]);
-      setConversationsError(`Connect a ${selectedPlatform === 'INSTAGRAM' ? 'Instagram' : 'Facebook'} account from the Dashboard to see conversations here.`);
-      setConversationsDebug(null);
-      return;
-    }
-    const fromCache = appData?.getConversations(account.id);
-    if (fromCache !== undefined && fromCache !== null) {
-      setConversations(fromCache);
-      setConversationsLoading(false);
-      setConversationsError(null);
-      setConversationsDebug(null);
-      return;
-    }
+    let cancelled = false;
+    const merge: Array<Conversation & { platform: string }> = [];
+    const errors: string[] = [];
+    const debugs: Array<{ rawMessage?: string; code?: number }> = [];
+    let pending = dmOrFbPlatforms.length;
+
+    dmOrFbPlatforms.forEach((platform) => {
+      const account = effectiveAccounts.find((a) => a.platform === platform);
+      if (!account) {
+        if (--pending === 0 && !cancelled) {
+          setConversations(merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? '')));
+          setConversationsError(errors[0] ?? null);
+          setConversationsDebug(debugs[0] ?? null);
+          setConversationsLoading(false);
+        }
+        return;
+      }
+      const fromCache = appData?.getConversations(account.id);
+      if (fromCache !== undefined && fromCache !== null) {
+        merge.push(...fromCache.map((c) => ({ ...c, platform })));
+        if (--pending === 0 && !cancelled) {
+          setConversations(merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? '')));
+          setConversationsError(null);
+          setConversationsDebug(null);
+          setConversationsLoading(false);
+        }
+        return;
+      }
+      api.get(`/social/accounts/${account.id}/conversations`)
+        .then((res) => {
+          if (cancelled) return;
+          const list = (res.data?.conversations ?? []).map((c: Conversation) => ({ ...c, platform }));
+          merge.push(...list);
+          if (res.data?.error) errors.push(res.data.error);
+          if (res.data?.debug) debugs.push(res.data.debug);
+          appData?.setConversationsForAccount(account.id, res.data?.conversations ?? []);
+          if (--pending === 0) {
+            setConversations(merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? '')));
+            setConversationsError(errors[0] ?? null);
+            setConversationsDebug(debugs[0] ?? null);
+          }
+        })
+        .catch((err: { message?: string; response?: { status?: number; data?: unknown } }) => {
+          if (cancelled) return;
+          const msg = err?.message ?? 'Could not load conversations.';
+          const isTimeout = err?.response?.status === 408 || /timeout|408/i.test(msg);
+          errors.push(isTimeout ? 'Request timed out. Try again or reconnect and choose your Page.' : msg);
+          debugs.push({ rawMessage: msg });
+          if (--pending === 0) {
+            setConversations(merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? '')));
+            setConversationsError(errors[0] ?? null);
+            setConversationsDebug(debugs[0] ?? null);
+          }
+        })
+        .finally(() => {
+          if (pending === 0 && !cancelled) setConversationsLoading(false);
+        });
+    });
+
     setConversationsLoading(true);
     setConversationsError(null);
     setConversationsDebug(null);
-    api.get(`/social/accounts/${account.id}/conversations`)
-      .then((res) => {
-        const list = res.data?.conversations ?? [];
-        appData?.setConversationsForAccount(account.id, list);
-        setConversations(list);
-        setConversationsError(res.data?.error ?? null);
-        setConversationsDebug(res.data?.debug ?? null);
-      })
-      .catch((err: { message?: string; response?: { status?: number; data?: unknown } }) => {
-        setConversations([]);
-        const msg = err?.message ?? 'Could not load conversations.';
-        const isTimeout = err?.response?.status === 408 || /timeout|408/i.test(msg);
-        setConversationsError(isTimeout ? 'Request timed out. Try again or reconnect and choose your Page.' : 'Could not load conversations.');
-        setConversationsDebug({ rawMessage: msg });
-      })
-      .finally(() => setConversationsLoading(false));
-  }, [selectedPlatform, effectiveAccounts, appData]);
+    return () => { cancelled = true; };
+  }, [dmOrFbPlatforms.join(','), effectiveAccounts, appData]);
 
-  const commentsSupported = selectedPlatform === 'INSTAGRAM' || selectedPlatform === 'FACEBOOK' || selectedPlatform === 'TWITTER';
+  const commentsSupportedPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK' || p === 'TWITTER');
   useEffect(() => {
-    if (inboxMode !== 'comments' || !selectedPlatform || !commentsSupported) {
+    if (inboxMode !== 'comments' || commentsSupportedPlatforms.length === 0) {
       setComments([]);
       setCommentsError(null);
       setSelectedComment(null);
       return;
     }
-    const account = effectiveAccounts.find((a) => a.platform === selectedPlatform);
-    if (!account) {
-      setComments([]);
-      setCommentsError('Connect an account to see comments.');
-      return;
-    }
-    const fromCache = appData?.getComments(account.id);
-    if (fromCache !== undefined && fromCache !== null) {
-      setComments(fromCache);
-      setCommentsLoading(false);
-      setCommentsError(null);
-      return;
-    }
+    let cancelled = false;
+    const merge: PostComment[] = [];
+    let pending = commentsSupportedPlatforms.length;
+
+    commentsSupportedPlatforms.forEach((platform) => {
+      const account = effectiveAccounts.find((a) => a.platform === platform);
+      if (!account) {
+        if (--pending === 0 && !cancelled) {
+          setComments(merge.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+          setCommentsLoading(false);
+        }
+        return;
+      }
+      const fromCache = appData?.getComments(account.id);
+      if (fromCache !== undefined && fromCache !== null) {
+        merge.push(...fromCache);
+        if (--pending === 0 && !cancelled) {
+          setComments(merge.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+          setCommentsError(null);
+          setCommentsLoading(false);
+        }
+        return;
+      }
+      api.get(`/social/accounts/${account.id}/comments`)
+        .then((res) => {
+          if (cancelled) return;
+          const list = res.data?.comments ?? [];
+          merge.push(...list);
+          appData?.setCommentsForAccount(account.id, list);
+          if (--pending === 0) {
+            setComments(merge.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+            setCommentsError(res.data?.error ?? null);
+          }
+        })
+        .catch(() => {
+          if (cancelled) return;
+          if (--pending === 0) {
+            setComments(merge.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+            setCommentsError('Could not load comments.');
+          }
+        })
+        .finally(() => {
+          if (pending === 0 && !cancelled) setCommentsLoading(false);
+        });
+    });
+
     setCommentsLoading(true);
     setCommentsError(null);
-    api.get(`/social/accounts/${account.id}/comments`)
-      .then((res) => {
-        const list = res.data?.comments ?? [];
-        appData?.setCommentsForAccount(account.id, list);
-        setComments(list);
-        setCommentsError(res.data?.error ?? null);
-      })
-      .catch(() => {
-        setComments([]);
-        setCommentsError('Could not load comments.');
-      })
-      .finally(() => setCommentsLoading(false));
-  }, [inboxMode, selectedPlatform, effectiveAccounts, commentsSupported, appData]);
+    return () => { cancelled = true; };
+  }, [inboxMode, commentsSupportedPlatforms.join(','), effectiveAccounts, appData]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -254,35 +303,29 @@ export default function InboxPage() {
   }, []);
 
   useEffect(() => {
-    if ((cachedAccounts as Account[]).length > 0 && openPlatforms.length === 0) {
+    if ((cachedAccounts as Account[]).length > 0 && selectedPlatforms.length === 0) {
       const accs = cachedAccounts as Account[];
-      const platforms: string[] = [];
-      if (accs.some((a) => a.platform === 'INSTAGRAM')) platforms.push('INSTAGRAM');
-      if (accs.some((a) => a.platform === 'FACEBOOK')) platforms.push('FACEBOOK');
-      if (accs.some((a) => a.platform === 'TWITTER')) platforms.push('TWITTER');
-      if (platforms.length) {
-        setOpenPlatforms(platforms);
-        setSelectedPlatform((prev) => prev || (platforms[0] ?? null));
+      const first = accs.some((a) => a.platform === 'INSTAGRAM') ? 'INSTAGRAM' : accs.some((a) => a.platform === 'FACEBOOK') ? 'FACEBOOK' : accs.some((a) => a.platform === 'TWITTER') ? 'TWITTER' : null;
+      if (first) {
+        setSelectedPlatforms([first]);
+        setSelectedPlatform(first);
       }
     }
-  }, [cachedAccounts, openPlatforms.length]);
+  }, [cachedAccounts, selectedPlatforms.length]);
 
   const handlePlatformClick = (platformId: string) => {
-    setOpenPlatforms((prev) => (prev.includes(platformId) ? prev : [...prev, platformId]));
-    setSelectedPlatform(platformId);
+    setSelectedPlatforms((prev) => {
+      const next = prev.includes(platformId) ? prev.filter((p) => p !== platformId) : [...prev, platformId];
+      if (!next.includes(selectedPlatform)) {
+        setSelectedPlatform(next[0] ?? null);
+        setSelectedConversationId(null);
+        setSelectedComment(null);
+      }
+      return next;
+    });
     setSelectedConversationId(null);
     setSelectedComment(null);
     setAiReplyError(null);
-  };
-
-  const removeOpenPlatform = (platformId: string, currentOpen: string[]) => {
-    const next = currentOpen.filter((p) => p !== platformId);
-    setOpenPlatforms(next);
-    if (selectedPlatform === platformId) {
-      setSelectedPlatform(next[0] ?? null);
-      setSelectedConversationId(null);
-      setSelectedComment(null);
-    }
   };
 
   return (
@@ -294,7 +337,7 @@ export default function InboxPage() {
           <div className="flex items-center gap-2 flex-wrap">
             {connectedPlatforms.map((p) => {
               const Icon = p.icon;
-              const isSelected = selectedPlatform === p.id;
+              const isSelected = selectedPlatforms.includes(p.id);
               return (
                 <button
                   key={p.id}
@@ -348,45 +391,6 @@ export default function InboxPage() {
             </div>
           </div>
         </div>
-
-        {/* Open inboxes chips - multiple platforms at once */}
-        {openPlatforms.length > 0 && (
-          <div className="px-3 pb-2 border-b border-neutral-100">
-            <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-1.5">Open inboxes</p>
-            <div className="flex flex-wrap gap-1.5">
-              {openPlatforms.map((platformId) => {
-                const p = PLATFORMS.find((x) => x.id === platformId);
-                const Icon = p?.icon;
-                const isSelected = selectedPlatform === platformId;
-                return (
-                  <div
-                    key={platformId}
-                    className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-sm ${
-                      isSelected ? 'bg-neutral-100 border-neutral-300 ring-1 ring-neutral-200' : 'border-neutral-200 bg-white hover:bg-neutral-50'
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => { setSelectedPlatform(platformId); setSelectedConversationId(null); setSelectedComment(null); }}
-                      className="flex items-center gap-1.5"
-                    >
-                      {Icon && <Icon size={16} className={'color' in p && p.color ? p.color : undefined} />}
-                      <span>{p?.label ?? platformId}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => removeOpenPlatform(platformId, openPlatforms)}
-                      className="p-0.5 rounded hover:bg-neutral-200 text-neutral-500 hover:text-neutral-700"
-                      aria-label={`Close ${p?.label ?? platformId} inbox`}
-                    >
-                      <span className="text-xs leading-none">×</span>
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
         {/* Search */}
         <div className="p-2 border-b border-neutral-100">
@@ -464,14 +468,14 @@ export default function InboxPage() {
               <p className="text-sm font-medium text-neutral-900">Engagement</p>
               <p className="text-sm text-neutral-500 mt-1">Likes, shares, and mentions for your posts. Select a platform above to see engagement for that account.</p>
             </div>
-          ) : inboxMode === 'comments' && !commentsSupported ? (
+          ) : inboxMode === 'comments' && commentsSupportedPlatforms.length === 0 ? (
             <div className="p-6 text-center">
-              <p className="text-sm text-neutral-500">Comments are available for Instagram, Facebook, and X. Select one of those platforms above.</p>
+              <p className="text-sm text-neutral-500">Comments are available for Instagram, Facebook, and X. Select one or more of those platforms above.</p>
             </div>
-          ) : !selectedPlatform ? (
+          ) : selectedPlatforms.length === 0 ? (
             <div className="p-6 text-center">
               <MessageCircle size={40} className="mx-auto text-neutral-300 mb-3" />
-              <p className="text-sm text-neutral-500">Click a platform icon above to open its inbox.</p>
+              <p className="text-sm text-neutral-500">Click one or more platform icons above to view their inboxes.</p>
             </div>
           ) : inboxMode === 'comments' ? (
             commentsLoading ? (
@@ -560,11 +564,15 @@ export default function InboxPage() {
                 .map((c) => {
                   const name = c.senders?.[0]?.username ?? c.senders?.[0]?.name ?? 'Unknown';
                   const initials = name.slice(0, 2).toUpperCase();
+                  const platform = (c as Conversation & { platform?: string }).platform;
                   return (
                     <button
-                      key={c.id}
+                      key={platform ? `${platform}-${c.id}` : c.id}
                       type="button"
-                      onClick={() => setSelectedConversationId(c.id)}
+                      onClick={() => {
+                        if (platform) setSelectedPlatform(platform);
+                        setSelectedConversationId(c.id);
+                      }}
                       className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors ${
                         selectedConversationId === c.id ? 'bg-indigo-50 border border-indigo-100' : 'hover:bg-neutral-50'
                       }`}
