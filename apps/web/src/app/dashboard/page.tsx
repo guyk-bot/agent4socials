@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
+import { useAppData } from '@/context/AppDataContext';
 import { useSelectedAccount, useResolvedSelectedAccount } from '@/context/SelectedAccountContext';
 import type { SocialAccount } from '@/context/SelectedAccountContext';
 import api from '@/lib/api';
@@ -62,6 +63,7 @@ export default function DashboardPage() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const { cachedAccounts, setCachedAccounts } = useAccountsCache() ?? { cachedAccounts: [], setCachedAccounts: () => {} };
+  const appData = useAppData();
   const { selectedPlatformForConnect, clearSelection } = useSelectedAccount() ?? { selectedPlatformForConnect: null, clearSelection: () => {} };
   const selectedAccount = useResolvedSelectedAccount(cachedAccounts as SocialAccount[]);
   const [justConnected, setJustConnected] = useState(false);
@@ -179,13 +181,12 @@ export default function DashboardPage() {
   }, [searchParams, router]);
 
   useEffect(() => {
+    setStats((s) => ({ ...s, accounts: (cachedAccounts as SocialAccount[]).length }));
+  }, [(cachedAccounts as SocialAccount[]).length]);
+
+  useEffect(() => {
     const fetchData = async () => {
       try {
-        const accountsRes = await api.get('/social/accounts').catch(() => ({ data: [] }));
-        const accounts = Array.isArray(accountsRes.data) ? accountsRes.data : [];
-        setCachedAccounts(accounts);
-        setStats((s) => ({ ...s, accounts: accounts.length }));
-
         const postsRes = await api.get('/posts').catch(() => ({ data: [] }));
         const posts = Array.isArray(postsRes.data) ? postsRes.data : [];
         setStats((s) => ({
@@ -202,7 +203,7 @@ export default function DashboardPage() {
       }
     };
     fetchData();
-  }, [setCachedAccounts]);
+  }, []);
 
   const postsCacheRef = useRef<Record<string, Array<{ id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; impressions: number; interactions: number; publishedAt: string; mediaType?: string | null; platform: string }>>>({});
   const syncAllRequestedRef = useRef<string | null>(null);
@@ -210,19 +211,21 @@ export default function DashboardPage() {
   useEffect(() => {
     if (selectedAccount?.id) {
       if (analyticsTab === 'posts') {
-        const cached = postsCacheRef.current[selectedAccount.id];
-        if (cached) {
+        const fromCache = appData?.getPosts(selectedAccount.id);
+        const cached = fromCache ?? postsCacheRef.current[selectedAccount.id];
+        if (cached !== undefined && cached !== null) {
           setImportedPosts(cached);
           setImportedPostsLoading(false);
-        } else {
-          setImportedPosts([]);
-          setImportedPostsLoading(true);
+          return;
         }
-        const syncFirst = !cached;
+        setImportedPosts([]);
+        setImportedPostsLoading(true);
+        const syncFirst = !postsCacheRef.current[selectedAccount.id];
         api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: syncFirst ? { sync: 1 } : {} })
           .then((res) => {
             const list = res.data?.posts ?? [];
             postsCacheRef.current[selectedAccount.id] = list;
+            appData?.setPostsForAccount(selectedAccount.id, list);
             setImportedPosts(list);
             setPostsSyncError(res.data?.syncError ?? null);
           })
@@ -236,8 +239,28 @@ export default function DashboardPage() {
       return;
     }
     if (analyticsTab !== 'posts' && analyticsTab !== 'account') return;
+    const accountIds = accounts.map((a) => a.id);
+    if (appData && accountIds.length > 0) {
+      const merged: Array<{ id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; impressions: number; interactions: number; publishedAt: string; mediaType?: string | null; platform: string }> = [];
+      let allCached = true;
+      for (const id of accountIds) {
+        const list = appData.getPosts(id);
+        if (list === undefined) {
+          allCached = false;
+          break;
+        }
+        merged.push(...list);
+      }
+      if (allCached && merged.length >= 0) {
+        const sorted = [...merged].sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+        setImportedPosts(sorted);
+        setImportedPostsLoading(false);
+        setAllPostsSyncError(null);
+        return;
+      }
+    }
     setImportedPostsLoading(true);
-    const accountIdsKey = accounts.map((a) => a.id).sort().join(',');
+    const accountIdsKey = accountIds.sort().join(',');
     const syncAllFirst = syncAllRequestedRef.current !== accountIdsKey;
     if (syncAllFirst) syncAllRequestedRef.current = accountIdsKey;
     setAllPostsSyncError(null);
@@ -258,6 +281,7 @@ export default function DashboardPage() {
           if (outcome.status === 'fulfilled' && outcome.value) {
             results.push({ posts: outcome.value.posts ?? [], syncError: outcome.value.syncError });
             if (outcome.value.syncError) errors.push(outcome.value.syncError);
+            appData?.setPostsForAccount(outcome.value.id, outcome.value.posts ?? []);
           } else if (outcome.status === 'rejected') {
             const err = outcome.reason;
             const msg = err?.response?.data?.message ?? err?.message ?? 'Request failed';
@@ -275,7 +299,7 @@ export default function DashboardPage() {
         if (errors.length) setAllPostsSyncError(errors[0]);
       })
       .finally(() => setImportedPostsLoading(false));
-  }, [analyticsTab, selectedAccount?.id, hasAccounts, syncAllTrigger, accounts.map((a) => a.id).join(',')]);
+  }, [analyticsTab, selectedAccount?.id, hasAccounts, syncAllTrigger, accounts.map((a) => a.id).join(','), appData]);
 
   const insightsCacheRef = useRef<Record<string, { platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number; profileViewsTotal?: number }>>({});
   const aggregatedCacheRef = useRef<{ key: string; data: { totalFollowers: number; totalImpressions: number; totalReach: number; totalProfileViews: number; totalPageViews: number; byPlatform: Record<string, { followers: number; impressions: number; timeSeries: Array<{ date: string; value: number }> }>; combinedTimeSeries: Array<{ date: string; value: number }> } } | null>(null);
@@ -284,22 +308,25 @@ export default function DashboardPage() {
     if (selectedAccount?.id) {
       setAggregatedInsights(null);
       const cacheKey = `${selectedAccount.id}-${dateRange.start}-${dateRange.end}`;
-      const cached = analyticsTab === 'account' ? insightsCacheRef.current[cacheKey] : undefined;
+      const defaultEnd = new Date().toISOString().slice(0, 10);
+      const defaultStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const usePrefetchedInsights = analyticsTab === 'account' && dateRange.start === defaultStart && dateRange.end === defaultEnd && appData?.getInsights(selectedAccount.id);
+      const cached = analyticsTab === 'account' ? (usePrefetchedInsights ?? insightsCacheRef.current[cacheKey]) : undefined;
       if (cached && analyticsTab === 'account') {
         setInsights(cached);
         setInsightsLoading(false);
         return;
       }
       if (analyticsTab !== 'account' || !dateRange.start || !dateRange.end) return;
-      if (analyticsTab !== 'account') return;
-      if (analyticsTab === 'account') {
-        setInsights(null);
-        setInsightsLoading(true);
-      }
+      setInsights(null);
+      setInsightsLoading(true);
       api.get(`/social/accounts/${selectedAccount.id}/insights`, { params: { since: dateRange.start, until: dateRange.end } })
         .then((res) => {
           const data = res.data ?? null;
-          if (data) insightsCacheRef.current[cacheKey] = data;
+          if (data) {
+            insightsCacheRef.current[cacheKey] = data;
+            appData?.setInsightsForAccount(selectedAccount.id, data);
+          }
           setInsights(data);
         })
         .catch(() => setInsights(null))
@@ -361,7 +388,7 @@ export default function DashboardPage() {
       })
       .catch(() => setAggregatedInsights(null))
       .finally(() => setAggregatedLoading(false));
-  }, [analyticsTab, selectedAccount?.id, hasAccounts, dateRange.start, dateRange.end, accounts.map((a) => a.id).join(',')]);
+  }, [analyticsTab, selectedAccount?.id, hasAccounts, dateRange.start, dateRange.end, accounts.map((a) => a.id).join(','), appData]);
 
   const handleConnect = async (platform: string, method?: string) => {
     const getMessage = (err: unknown): string | null => {

@@ -6,6 +6,7 @@ import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
+import { AppDataProvider } from '@/context/AppDataContext';
 
 export default function AuthenticatedShell({
     children,
@@ -36,6 +37,7 @@ export default function AuthenticatedShell({
     if (!user) return null;
 
     return (
+        <AppDataProvider>
         <div
             className="min-h-screen bg-neutral-100"
             style={{
@@ -55,5 +57,6 @@ export default function AuthenticatedShell({
                 </div>
             </main>
         </div>
+        </AppDataProvider>
     );
 }

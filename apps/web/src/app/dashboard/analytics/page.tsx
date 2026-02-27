@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '@/lib/api';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
+import { useAppData } from '@/context/AppDataContext';
 import { useResolvedSelectedAccount } from '@/context/SelectedAccountContext';
 import {
   BarChart3,
@@ -48,6 +49,7 @@ const TABS = [
 
 export default function AnalyticsPage() {
   const { cachedAccounts, setCachedAccounts } = useAccountsCache() ?? { cachedAccounts: [], setCachedAccounts: () => {} };
+  const appData = useAppData();
   const selectedAccount = useResolvedSelectedAccount(cachedAccounts as { id: string; platform: string; username?: string; profilePicture?: string | null; platformUserId?: string }[]);
   const [activeTab, setActiveTab] = useState('account');
   const [importedPosts, setImportedPosts] = useState<Array<{ id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; impressions: number; interactions: number; publishedAt: string; mediaType?: string | null; platform: string }>>([]);
@@ -102,35 +104,40 @@ export default function AnalyticsPage() {
 
   const postsCacheRef = useRef<Record<string, Array<{ id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; impressions: number; interactions: number; publishedAt: string; mediaType?: string | null; platform: string }>>>({});
 
-  // Load posts whenever an account is selected (so ACCOUNT tab shows Total content and POSTS tab has data).
+  // Load posts whenever an account is selected (prefer prefetched, then local cache, then fetch).
   useEffect(() => {
     if (!selectedAccount?.id) return;
-    const cached = postsCacheRef.current[selectedAccount.id];
-    if (cached) {
+    const fromCache = appData?.getPosts(selectedAccount.id);
+    const cached = fromCache ?? postsCacheRef.current[selectedAccount.id];
+    if (cached !== undefined && cached !== null) {
       setImportedPosts(cached);
       setImportedPostsLoading(false);
-    } else {
-      setImportedPosts([]);
-      setImportedPostsLoading(true);
+      return;
     }
-    const syncFirst = !cached;
+    setImportedPosts([]);
+    setImportedPostsLoading(true);
+    const syncFirst = !postsCacheRef.current[selectedAccount.id];
     api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: syncFirst ? { sync: 1 } : {} })
       .then((res) => {
         const list = res.data?.posts ?? [];
         postsCacheRef.current[selectedAccount.id] = list;
+        appData?.setPostsForAccount(selectedAccount.id, list);
         setImportedPosts(list);
         setPostsSyncError(res.data?.syncError ?? null);
       })
       .catch(() => { setImportedPosts([]); setPostsSyncError(null); })
       .finally(() => setImportedPostsLoading(false));
-  }, [selectedAccount?.id]);
+  }, [selectedAccount?.id, appData]);
 
   const insightsCacheRef = useRef<Record<string, { platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number; profileViewsTotal?: number; insightsHint?: string }>>({});
 
   useEffect(() => {
     if (activeTab !== 'account' || !selectedAccount?.id || !dateRange.start || !dateRange.end) return;
     const cacheKey = `${selectedAccount.id}-${dateRange.start}-${dateRange.end}`;
-    const cached = insightsCacheRef.current[cacheKey];
+    const defaultEnd = new Date().toISOString().slice(0, 10);
+    const defaultStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const usePrefetched = dateRange.start === defaultStart && dateRange.end === defaultEnd && appData?.getInsights(selectedAccount.id);
+    const cached = usePrefetched ?? insightsCacheRef.current[cacheKey];
     if (cached) {
       setInsights(cached);
       setInsightsLoading(false);
@@ -141,12 +148,15 @@ export default function AnalyticsPage() {
     api.get(`/social/accounts/${selectedAccount.id}/insights`, { params: { since: dateRange.start, until: dateRange.end } })
       .then((res) => {
         const data = res.data ?? null;
-        if (data) insightsCacheRef.current[cacheKey] = data;
+        if (data) {
+          insightsCacheRef.current[cacheKey] = data;
+          appData?.setInsightsForAccount(selectedAccount.id, data);
+        }
         setInsights(data);
       })
       .catch(() => setInsights(null))
       .finally(() => setInsightsLoading(false));
-  }, [activeTab, selectedAccount?.id, dateRange.start, dateRange.end]);
+  }, [activeTab, selectedAccount?.id, dateRange.start, dateRange.end, appData]);
 
   return (
     <div className="space-y-6">

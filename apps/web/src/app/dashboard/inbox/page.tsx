@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
+import { useAppData } from '@/context/AppDataContext';
+import { useAccountsCache } from '@/context/AccountsCacheContext';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon } from '@/components/SocialPlatformIcons';
 
 // Inbox-relevant platforms only (no GMB/LinkedIn in connect list). LinkedIn excluded from + dropdown per request.
@@ -55,6 +57,8 @@ export default function InboxPage() {
   const searchParams = useSearchParams();
   const platformFromUrl = searchParams.get('platform')?.toUpperCase();
   const setSelectedPlatformForConnect = useSelectedAccount()?.setSelectedPlatformForConnect ?? (() => {});
+  const appData = useAppData();
+  const { cachedAccounts } = useAccountsCache() ?? { cachedAccounts: [] };
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
   const [inboxFilter, setInboxFilter] = useState<'unresolved' | 'unread'>('unresolved');
@@ -84,10 +88,10 @@ export default function InboxPage() {
   const connectRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if ((cachedAccounts as Account[]).length > 0) return;
     api.get('/social/accounts').then((res) => {
       const data = Array.isArray(res.data) ? res.data : [];
       setAccounts(data);
-      // If no platform selected yet but we have Instagram or Facebook, default to first available so we show conversations or real API error
       setSelectedPlatform((prev) => {
         if (prev) return prev;
         if (data.some((a: Account) => a.platform === 'INSTAGRAM')) return 'INSTAGRAM';
@@ -95,7 +99,7 @@ export default function InboxPage() {
         return null;
       });
     }).catch(() => setAccounts([]));
-  }, []);
+  }, [cachedAccounts.length]);
 
   useEffect(() => {
     if (platformFromUrl && PLATFORMS.some((p) => p.id === platformFromUrl)) {
@@ -103,7 +107,14 @@ export default function InboxPage() {
     }
   }, [platformFromUrl]);
 
-  const currentAccountForMessages = selectedPlatform ? accounts.find((a) => a.platform === selectedPlatform) : null;
+  const effectiveAccounts = (cachedAccounts as Account[]).length > 0 ? (cachedAccounts as Account[]) : accounts;
+  const connectedPlatforms = PLATFORMS.filter((p) => effectiveAccounts.some((a) => a.platform === p.id));
+  const unconnectedPlatforms = PLATFORMS.filter((p) => !effectiveAccounts.some((a) => a.platform === p.id));
+  const effectiveNotifications = appData?.notifications
+    ? { comments: appData.notifications.comments, messages: appData.notifications.messages }
+    : notifications;
+
+  const currentAccountForMessages = selectedPlatform ? effectiveAccounts.find((a) => a.platform === selectedPlatform) : null;
   useEffect(() => {
     if (!selectedConversationId || !currentAccountForMessages || (selectedPlatform !== 'INSTAGRAM' && selectedPlatform !== 'FACEBOOK')) {
       setConversationMessages([]);
@@ -132,13 +143,11 @@ export default function InboxPage() {
   }, [selectedComment?.commentId, selectedConversationId]);
 
   useEffect(() => {
+    if (appData) return;
     api.get<{ comments?: number; messages?: number }>('/social/notifications')
       .then((res) => setNotifications({ comments: res.data?.comments ?? 0, messages: res.data?.messages ?? 0 }))
       .catch(() => setNotifications({ comments: 0, messages: 0 }));
-  }, [selectedPlatform, inboxMode]);
-
-  const connectedPlatforms = PLATFORMS.filter((p) => accounts.some((a) => a.platform === p.id));
-  const unconnectedPlatforms = PLATFORMS.filter((p) => !accounts.some((a) => a.platform === p.id));
+  }, [selectedPlatform, inboxMode, appData]);
 
   useEffect(() => {
     if (!selectedPlatform || (selectedPlatform !== 'INSTAGRAM' && selectedPlatform !== 'FACEBOOK')) {
@@ -147,7 +156,7 @@ export default function InboxPage() {
       setConversationsDebug(null);
       return;
     }
-    const account = accounts.find((a) => a.platform === selectedPlatform);
+    const account = effectiveAccounts.find((a) => a.platform === selectedPlatform);
     if (!account) {
       setConversations([]);
       setConversationsError(`Connect a ${selectedPlatform === 'INSTAGRAM' ? 'Instagram' : 'Facebook'} account from the Dashboard to see conversations here.`);
@@ -171,7 +180,7 @@ export default function InboxPage() {
         setConversationsDebug({ rawMessage: msg });
       })
       .finally(() => setConversationsLoading(false));
-  }, [selectedPlatform, accounts]);
+  }, [selectedPlatform, effectiveAccounts]);
 
   const commentsSupported = selectedPlatform === 'INSTAGRAM' || selectedPlatform === 'FACEBOOK' || selectedPlatform === 'TWITTER';
   useEffect(() => {
@@ -181,7 +190,7 @@ export default function InboxPage() {
       setSelectedComment(null);
       return;
     }
-    const account = accounts.find((a) => a.platform === selectedPlatform);
+    const account = effectiveAccounts.find((a) => a.platform === selectedPlatform);
     if (!account) {
       setComments([]);
       setCommentsError('Connect an account to see comments.');
@@ -199,7 +208,7 @@ export default function InboxPage() {
         setCommentsError('Could not load comments.');
       })
       .finally(() => setCommentsLoading(false));
-  }, [inboxMode, selectedPlatform, accounts, commentsSupported]);
+  }, [inboxMode, selectedPlatform, effectiveAccounts, commentsSupported]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -302,9 +311,9 @@ export default function InboxPage() {
             className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-1.5 ${inboxMode === 'messages' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
           >
             Messages
-            {notifications.messages > 0 && (
+            {inboxMode !== 'messages' && effectiveNotifications.messages > 0 && (
               <span className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
-                {notifications.messages > 99 ? '99' : notifications.messages}
+                {effectiveNotifications.messages > 99 ? '99' : effectiveNotifications.messages}
               </span>
             )}
           </button>
@@ -314,9 +323,9 @@ export default function InboxPage() {
             className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-1.5 ${inboxMode === 'comments' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
           >
             Comments
-            {notifications.comments > 0 && (
+            {inboxMode !== 'comments' && effectiveNotifications.comments > 0 && (
               <span className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
-                {notifications.comments > 99 ? '99' : notifications.comments}
+                {effectiveNotifications.comments > 99 ? '99' : effectiveNotifications.comments}
               </span>
             )}
           </button>
@@ -578,7 +587,7 @@ export default function InboxPage() {
                   type="button"
                   disabled={replySending || !replyText.trim()}
                   onClick={async () => {
-                    const account = accounts.find((a) => a.platform === selectedPlatform);
+                    const account = effectiveAccounts.find((a) => a.platform === selectedPlatform);
                     if (!account || !selectedComment) return;
                     setReplySending(true);
                     try {

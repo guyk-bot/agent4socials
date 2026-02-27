@@ -36,18 +36,18 @@ export async function GET(
   const isInstagram = account.platform === 'INSTAGRAM';
   const baseUrlForConversations = isInstagram ? 'https://graph.instagram.com/v18.0' : baseUrl;
   const conversationsPath = `/${account.platformUserId}/conversations`;
-  const params: Record<string, string> = {
+  const queryParams: Record<string, string> = {
     fields: 'id,updated_time,senders',
     access_token: account.accessToken,
   };
-  if (isInstagram) params.platform = 'instagram';
+  if (isInstagram) queryParams.platform = 'instagram';
 
   try {
     const res = await axios.get<{
       data?: Array<{ id: string; updated_time?: string; senders?: { data?: Array<{ username?: string; name?: string }> } }>;
       error?: { message: string };
     }>(`${baseUrlForConversations}${conversationsPath}`, {
-      params,
+      params: queryParams,
       timeout: 60_000,
     });
 

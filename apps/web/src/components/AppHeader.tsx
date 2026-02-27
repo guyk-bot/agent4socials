@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LayoutGrid, MessageCircle, PlusSquare, Calendar, Zap, Menu, PanelLeft, PanelLeftClose } from 'lucide-react';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
+import { useAppData } from '@/context/AppDataContext';
 import api from '@/lib/api';
 
 export const topNavItems = [
@@ -23,16 +24,18 @@ type AppHeaderProps = {
 export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHeaderProps) {
   const pathname = usePathname();
   const { logoUrl, appName } = useWhiteLabel();
+  const appData = useAppData();
   const [topNavOpen, setTopNavOpen] = useState(false);
   const [inboxCount, setInboxCount] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (appData) return;
     api.get<{ inbox?: number }>('/social/notifications').then((res) => {
       const n = res.data?.inbox ?? 0;
       setInboxCount(n);
     }).catch(() => setInboxCount(0));
-  }, [pathname]);
+  }, [pathname, appData]);
 
   useEffect(() => {
     if (!topNavOpen) return;
@@ -67,7 +70,8 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
         <nav className="hidden md:flex items-center gap-1">
           {topNavItems.map((item) => {
             const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
-            const badge = item.badgeKey === 'inbox' ? inboxCount : 0;
+            const inboxRaw = appData?.notifications?.inbox ?? inboxCount;
+            const badge = item.badgeKey === 'inbox' ? (isActive && item.href === '/dashboard/inbox' ? 0 : inboxRaw) : 0;
             return (
               <Link
                 key={item.href}
@@ -104,7 +108,8 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
           <div className="absolute right-0 top-full mt-1 py-1 w-52 rounded-lg bg-neutral-800 border border-neutral-700 shadow-xl z-50">
             {topNavItems.map((item) => {
               const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
-              const badge = item.badgeKey === 'inbox' ? inboxCount : 0;
+              const inboxRaw = appData?.notifications?.inbox ?? inboxCount;
+              const badge = item.badgeKey === 'inbox' ? (isActive && item.href === '/dashboard/inbox' ? 0 : inboxRaw) : 0;
               return (
                 <Link
                   key={item.href}
