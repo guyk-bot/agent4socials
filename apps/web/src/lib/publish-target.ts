@@ -66,14 +66,15 @@ export async function publishTarget(
     const start = Date.now();
     while (Date.now() - start < maxWaitMs) {
       try {
-        const statusRes = await axiosInstance.get<{ status_code?: string; status?: string }>(
+        const statusRes = await axiosInstance.get(
           `https://graph.facebook.com/v18.0/${containerId}`,
           { params: { fields: 'status_code,status', access_token: token } }
         );
-        const code = statusRes.data?.status_code;
+        const data = statusRes.data as { status_code?: string; status?: string };
+        const code = data?.status_code;
         if (code === 'FINISHED') return { ok: true };
         if (code === 'ERROR') {
-          const msg = statusRes.data?.status ?? 'Container processing failed';
+          const msg = data?.status ?? 'Container processing failed';
           return { ok: false, error: msg };
         }
       } catch (e) {

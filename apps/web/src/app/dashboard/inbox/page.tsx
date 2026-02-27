@@ -686,7 +686,7 @@ export default function InboxPage() {
                     disabled={dmReplySending || !conversationRecipientId || aiReplyLoading}
                     onClick={async () => {
                       const lastFromUser = [...conversationMessages].reverse().find((m) => !m.isFromPage && m.message);
-                      const textToReplyTo = lastFromUser?.message ?? conversationMessages.filter((m) => !m.isFromPage).map((m) => m.message).join('\n') || 'Hello';
+                      const textToReplyTo = (lastFromUser?.message ?? conversationMessages.filter((m) => !m.isFromPage).map((m) => m.message).join('\n')) || 'Hello';
                       setAiReplyError(null);
                       setAiReplyLoading(true);
                       try {
@@ -742,6 +742,7 @@ export default function InboxPage() {
               </div>
               <p className="text-xs text-neutral-400 mt-2 text-center">Send a message to this conversation. Use the sparkle button to generate a reply with AI.</p>
             </div>
+          </div>
           </>
         )}
       </div>
