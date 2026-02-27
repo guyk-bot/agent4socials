@@ -6,7 +6,7 @@ import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
-import { AppDataProvider, useAppData } from '@/context/AppDataContext';
+import { useAppData } from '@/context/AppDataContext';
 
 function AuthenticatedContent({
     sidebarOpen,
@@ -80,10 +80,8 @@ export default function AuthenticatedShell({
     if (!user) return null;
 
     return (
-        <AppDataProvider>
-            <AuthenticatedContent sidebarOpen={sidebarOpen} onSidebarToggle={toggleSidebar}>
-                {children}
-            </AuthenticatedContent>
-        </AppDataProvider>
+        <AuthenticatedContent sidebarOpen={sidebarOpen} onSidebarToggle={toggleSidebar}>
+            {children}
+        </AuthenticatedContent>
     );
 }

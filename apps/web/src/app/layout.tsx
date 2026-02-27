@@ -6,6 +6,7 @@ import { AuthModalProvider } from "@/context/AuthModalContext";
 import { WhiteLabelProvider } from "@/context/WhiteLabelContext";
 import { AccountsCacheProvider } from "@/context/AccountsCacheContext";
 import { SelectedAccountProvider } from "@/context/SelectedAccountContext";
+import { AppDataProvider } from "@/context/AppDataContext";
 import AuthModal from "@/components/auth/AuthModal";
 import AuthModalOpener from "@/components/auth/AuthModalOpener";
 
@@ -80,6 +81,7 @@ export default function RootLayout({
         <AuthProvider>
           <AccountsCacheProvider>
             <SelectedAccountProvider>
+            <AppDataProvider>
             <AuthModalProvider>
               <WhiteLabelProvider>
                 {children}
@@ -87,6 +89,7 @@ export default function RootLayout({
               <AuthModal />
               </WhiteLabelProvider>
             </AuthModalProvider>
+            </AppDataProvider>
             </SelectedAccountProvider>
           </AccountsCacheProvider>
         </AuthProvider>
