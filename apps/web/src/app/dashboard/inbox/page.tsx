@@ -316,7 +316,7 @@ export default function InboxPage() {
   const handlePlatformClick = (platformId: string) => {
     setSelectedPlatforms((prev) => {
       const next = prev.includes(platformId) ? prev.filter((p) => p !== platformId) : [...prev, platformId];
-      if (!next.includes(selectedPlatform)) {
+      if (selectedPlatform != null && !next.includes(selectedPlatform)) {
         setSelectedPlatform(next[0] ?? null);
         setSelectedConversationId(null);
         setSelectedComment(null);
