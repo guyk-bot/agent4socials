@@ -33,16 +33,22 @@ export async function GET(
     return NextResponse.json({ conversations: [], hint: 'Conversations are only available for Instagram and Facebook.' });
   }
 
+  const isInstagram = account.platform === 'INSTAGRAM';
+  const baseUrlForConversations = isInstagram ? 'https://graph.instagram.com/v18.0' : baseUrl;
+  const conversationsPath = `/${account.platformUserId}/conversations`;
+  const params: Record<string, string> = {
+    fields: 'id,updated_time,senders',
+    access_token: account.accessToken,
+  };
+  if (isInstagram) params.platform = 'instagram';
+
   try {
     const res = await axios.get<{
       data?: Array<{ id: string; updated_time?: string; senders?: { data?: Array<{ username?: string; name?: string }> } }>;
       error?: { message: string };
-    }>(`${baseUrl}/${account.platformUserId}/conversations`, {
-      params: {
-        fields: 'id,updated_time,senders',
-        access_token: account.accessToken,
-      },
-      timeout: 35_000,
+    }>(`${baseUrlForConversations}${conversationsPath}`, {
+      params,
+      timeout: 60_000,
     });
 
     if (res.data?.error) {
@@ -67,7 +73,7 @@ export async function GET(
     if (msg.includes('403') || msg.includes('permission') || msg.includes('OAuth'))
       return NextResponse.json({ conversations: [], error: 'Reconnect from the sidebar and choose your Page when asked to grant messaging permission.', debug: { rawMessage: msg, responseData: axiosData } });
     if (isTimeout)
-      return NextResponse.json({ conversations: [], error: 'The request to load conversations timed out. Try again or reconnect and choose your Page.', debug: { rawMessage: msg, responseData: axiosData } });
+      return NextResponse.json({ conversations: [], error: 'The request to load conversations timed out. Try again. If you have many Instagram conversations, request Advanced Access for instagram_manage_messages in Meta App Dashboard, or reconnect and choose your Page.', debug: { rawMessage: msg, responseData: axiosData } });
     console.error('[Conversations] error:', e);
     return NextResponse.json({ conversations: [], error: 'Could not load conversations.', debug: { rawMessage: msg, responseData: axiosData } });
   }
