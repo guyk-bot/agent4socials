@@ -19,8 +19,9 @@ function AuthenticatedContent({
 }) {
     const appData = useAppData();
     const { backgroundColor, primaryColor, textColor } = useWhiteLabel();
+    const showFullScreenLoader = appData?.prefetchStatus === 'loading' && !appData?.prefetchHasLoadedOnce;
 
-    if (appData?.prefetchStatus === 'loading') {
+    if (showFullScreenLoader) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-neutral-100">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />

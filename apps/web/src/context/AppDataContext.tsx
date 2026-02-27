@@ -65,6 +65,7 @@ type AppDataContextType = {
   conversationsByAccountId: Record<string, CachedConversation[]>;
   scheduledPosts: CachedScheduledPost[];
   prefetchStatus: 'idle' | 'loading' | 'done';
+  prefetchHasLoadedOnce: boolean;
   getPosts: (accountId: string) => CachedPost[] | undefined;
   getInsights: (accountId: string) => CachedInsights | undefined;
   getComments: (accountId: string) => CachedComment[] | undefined;
@@ -101,6 +102,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [conversationsByAccountId, setConversationsByAccountId] = useState<Record<string, CachedConversation[]>>({});
   const [scheduledPosts, setScheduledPostsState] = useState<CachedScheduledPost[]>([]);
   const [prefetchStatus, setPrefetchStatus] = useState<'idle' | 'loading' | 'done'>('idle');
+  const [prefetchHasLoadedOnce, setPrefetchHasLoadedOnce] = useState(false);
 
   const setPostsForAccount = useCallback((accountId: string, posts: CachedPost[]) => {
     setPostsByAccountId((prev) => ({ ...prev, [accountId]: posts }));
@@ -153,11 +155,13 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     setConversationsByAccountId({});
     setScheduledPostsState([]);
     setPrefetchStatus('idle');
+    setPrefetchHasLoadedOnce(false);
   }, []);
 
   useEffect(() => {
     if (!user) {
       setPrefetchStatus('idle');
+      setPrefetchHasLoadedOnce(false);
       return;
     }
     let cancelled = false;
@@ -207,8 +211,10 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           ),
         ]);
         if (!cancelled) setPrefetchStatus('done');
+        if (!cancelled) setPrefetchHasLoadedOnce(true);
       } catch {
         if (!cancelled) setPrefetchStatus('done');
+        if (!cancelled) setPrefetchHasLoadedOnce(true);
       }
     })();
 
@@ -223,6 +229,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     conversationsByAccountId,
     scheduledPosts,
     prefetchStatus,
+    prefetchHasLoadedOnce,
     getPosts,
     getInsights,
     getComments,

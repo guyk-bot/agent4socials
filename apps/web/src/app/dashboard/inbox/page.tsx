@@ -244,6 +244,7 @@ export default function InboxPage() {
   useEffect(() => {
     if (inboxMode !== 'comments' || commentsSupportedPlatforms.length === 0) {
       setComments([]);
+      setCommentsLoading(false);
       setCommentsError(null);
       setSelectedComment(null);
       return;
@@ -251,6 +252,7 @@ export default function InboxPage() {
     let cancelled = false;
     const merge: PostComment[] = [];
     let pending = commentsSupportedPlatforms.length;
+    let needsFetch = false;
 
     commentsSupportedPlatforms.forEach((platform) => {
       const account = effectiveAccounts.find((a) => a.platform === platform);
@@ -271,6 +273,7 @@ export default function InboxPage() {
         }
         return;
       }
+      needsFetch = true;
       api.get(`/social/accounts/${account.id}/comments`)
         .then((res) => {
           if (cancelled) return;
@@ -294,8 +297,10 @@ export default function InboxPage() {
         });
     });
 
-    setCommentsLoading(true);
-    setCommentsError(null);
+    if (needsFetch) {
+      setCommentsLoading(true);
+      setCommentsError(null);
+    }
     return () => { cancelled = true; };
   }, [inboxMode, commentsSupportedPlatforms.join(','), effectiveAccounts, appData]);
 
