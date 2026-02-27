@@ -30,15 +30,40 @@ export type CachedInsights = {
 
 type NotificationsCache = { inbox: number; comments: number; messages: number };
 
+export type CachedComment = {
+  commentId: string;
+  postTargetId: string;
+  platformPostId: string;
+  postPreview: string;
+  postImageUrl?: string | null;
+  text: string;
+  authorName: string;
+  authorPictureUrl?: string | null;
+  createdAt: string;
+  platform: string;
+};
+
+export type CachedConversation = {
+  id: string;
+  updatedTime: string | null;
+  senders: Array<{ username?: string; name?: string }>;
+};
+
 type AppDataContextType = {
   notifications: NotificationsCache;
   postsByAccountId: Record<string, CachedPost[]>;
   insightsByAccountId: Record<string, CachedInsights>;
+  commentsByAccountId: Record<string, CachedComment[]>;
+  conversationsByAccountId: Record<string, CachedConversation[]>;
   prefetchStatus: 'idle' | 'loading' | 'done';
   getPosts: (accountId: string) => CachedPost[] | undefined;
   getInsights: (accountId: string) => CachedInsights | undefined;
+  getComments: (accountId: string) => CachedComment[] | undefined;
+  getConversations: (accountId: string) => CachedConversation[] | undefined;
   setPostsForAccount: (accountId: string, posts: CachedPost[]) => void;
   setInsightsForAccount: (accountId: string, insights: CachedInsights) => void;
+  setCommentsForAccount: (accountId: string, comments: CachedComment[]) => void;
+  setConversationsForAccount: (accountId: string, conversations: CachedConversation[]) => void;
   setNotifications: (n: NotificationsCache) => void;
   invalidate: () => void;
 };
@@ -60,6 +85,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotificationsState] = useState<NotificationsCache>(defaultNotifications);
   const [postsByAccountId, setPostsByAccountId] = useState<Record<string, CachedPost[]>>({});
   const [insightsByAccountId, setInsightsByAccountId] = useState<Record<string, CachedInsights>>({});
+  const [commentsByAccountId, setCommentsByAccountId] = useState<Record<string, CachedComment[]>>({});
+  const [conversationsByAccountId, setConversationsByAccountId] = useState<Record<string, CachedConversation[]>>({});
   const [prefetchStatus, setPrefetchStatus] = useState<'idle' | 'loading' | 'done'>('idle');
 
   const setPostsForAccount = useCallback((accountId: string, posts: CachedPost[]) => {
@@ -68,6 +95,14 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
   const setInsightsForAccount = useCallback((accountId: string, insights: CachedInsights) => {
     setInsightsByAccountId((prev) => ({ ...prev, [accountId]: insights }));
+  }, []);
+
+  const setCommentsForAccount = useCallback((accountId: string, comments: CachedComment[]) => {
+    setCommentsByAccountId((prev) => ({ ...prev, [accountId]: comments }));
+  }, []);
+
+  const setConversationsForAccount = useCallback((accountId: string, conversations: CachedConversation[]) => {
+    setConversationsByAccountId((prev) => ({ ...prev, [accountId]: conversations }));
   }, []);
 
   const setNotifications = useCallback((n: NotificationsCache) => {
@@ -82,9 +117,19 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     return insightsByAccountId[accountId];
   }, [insightsByAccountId]);
 
+  const getComments = useCallback((accountId: string) => {
+    return commentsByAccountId[accountId];
+  }, [commentsByAccountId]);
+
+  const getConversations = useCallback((accountId: string) => {
+    return conversationsByAccountId[accountId];
+  }, [conversationsByAccountId]);
+
   const invalidate = useCallback(() => {
     setPostsByAccountId({});
     setInsightsByAccountId({});
+    setCommentsByAccountId({});
+    setConversationsByAccountId({});
     setPrefetchStatus('idle');
   }, []);
 
@@ -119,6 +164,17 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
               if (!cancelled && r.data) setInsightsByAccountId((prev) => ({ ...prev, [acc.id]: r.data as CachedInsights }));
             }).catch(() => {})
           ),
+          ...accounts.filter((acc) => acc.platform === 'INSTAGRAM' || acc.platform === 'FACEBOOK' || acc.platform === 'TWITTER').map((acc) =>
+            api.get<{ comments?: CachedComment[] }>(`/social/accounts/${acc.id}/comments`).then((r) => {
+              if (!cancelled && r.data) setCommentsByAccountId((prev) => ({ ...prev, [acc.id]: r.data.comments ?? [] }));
+            }).catch(() => {})
+          ),
+          ...accounts.filter((acc) => acc.platform === 'INSTAGRAM' || acc.platform === 'FACEBOOK').map((acc) =>
+            api.get<{ conversations?: CachedConversation[] }>(`/social/accounts/${acc.id}/conversations`).then((r) => {
+              const list = r.data?.conversations ?? [];
+              if (!cancelled) setConversationsByAccountId((prev) => ({ ...prev, [acc.id]: list }));
+            }).catch(() => {})
+          ),
         ]);
         if (!cancelled) setPrefetchStatus('done');
       } catch {
@@ -133,11 +189,17 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     notifications,
     postsByAccountId,
     insightsByAccountId,
+    commentsByAccountId,
+    conversationsByAccountId,
     prefetchStatus,
     getPosts,
     getInsights,
+    getComments,
+    getConversations,
     setPostsForAccount,
     setInsightsForAccount,
+    setCommentsForAccount,
+    setConversationsForAccount,
     setNotifications,
     invalidate,
   };

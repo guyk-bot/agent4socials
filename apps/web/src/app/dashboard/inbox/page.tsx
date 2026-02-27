@@ -163,12 +163,22 @@ export default function InboxPage() {
       setConversationsDebug(null);
       return;
     }
+    const fromCache = appData?.getConversations(account.id);
+    if (fromCache !== undefined && fromCache !== null) {
+      setConversations(fromCache);
+      setConversationsLoading(false);
+      setConversationsError(null);
+      setConversationsDebug(null);
+      return;
+    }
     setConversationsLoading(true);
     setConversationsError(null);
     setConversationsDebug(null);
     api.get(`/social/accounts/${account.id}/conversations`)
       .then((res) => {
-        setConversations(res.data?.conversations ?? []);
+        const list = res.data?.conversations ?? [];
+        appData?.setConversationsForAccount(account.id, list);
+        setConversations(list);
         setConversationsError(res.data?.error ?? null);
         setConversationsDebug(res.data?.debug ?? null);
       })
@@ -180,7 +190,7 @@ export default function InboxPage() {
         setConversationsDebug({ rawMessage: msg });
       })
       .finally(() => setConversationsLoading(false));
-  }, [selectedPlatform, effectiveAccounts]);
+  }, [selectedPlatform, effectiveAccounts, appData]);
 
   const commentsSupported = selectedPlatform === 'INSTAGRAM' || selectedPlatform === 'FACEBOOK' || selectedPlatform === 'TWITTER';
   useEffect(() => {
@@ -196,11 +206,20 @@ export default function InboxPage() {
       setCommentsError('Connect an account to see comments.');
       return;
     }
+    const fromCache = appData?.getComments(account.id);
+    if (fromCache !== undefined && fromCache !== null) {
+      setComments(fromCache);
+      setCommentsLoading(false);
+      setCommentsError(null);
+      return;
+    }
     setCommentsLoading(true);
     setCommentsError(null);
     api.get(`/social/accounts/${account.id}/comments`)
       .then((res) => {
-        setComments(res.data?.comments ?? []);
+        const list = res.data?.comments ?? [];
+        appData?.setCommentsForAccount(account.id, list);
+        setComments(list);
         setCommentsError(res.data?.error ?? null);
       })
       .catch(() => {
@@ -208,7 +227,7 @@ export default function InboxPage() {
         setCommentsError('Could not load comments.');
       })
       .finally(() => setCommentsLoading(false));
-  }, [inboxMode, selectedPlatform, effectiveAccounts, commentsSupported]);
+  }, [inboxMode, selectedPlatform, effectiveAccounts, commentsSupported, appData]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
