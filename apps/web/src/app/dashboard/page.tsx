@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
-import { useAppData } from '@/context/AppDataContext';
+import { useAppData, getDefaultDateRange } from '@/context/AppDataContext';
 import { useSelectedAccount, useResolvedSelectedAccount } from '@/context/SelectedAccountContext';
 import type { SocialAccount } from '@/context/SelectedAccountContext';
 import api from '@/lib/api';
@@ -304,36 +304,37 @@ export default function DashboardPage() {
   const insightsCacheRef = useRef<Record<string, { platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number; profileViewsTotal?: number }>>({});
   const aggregatedCacheRef = useRef<{ key: string; data: { totalFollowers: number; totalImpressions: number; totalReach: number; totalProfileViews: number; totalPageViews: number; byPlatform: Record<string, { followers: number; impressions: number; timeSeries: Array<{ date: string; value: number }> }>; combinedTimeSeries: Array<{ date: string; value: number }> } } | null>(null);
 
+  // Single-account insights: when an account is selected
   useEffect(() => {
-    if (selectedAccount?.id) {
-      const cacheKey = `${selectedAccount.id}-${dateRange.start}-${dateRange.end}`;
-    const defaultEnd = new Date().toISOString().slice(0, 10);
-    const defaultStart = new Date(Date.now() - 2 * 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    const usePrefetchedInsights = analyticsTab === 'account' && dateRange.start === defaultStart && dateRange.end === defaultEnd && appData?.getInsights(selectedAccount.id);
-      const cached = analyticsTab === 'account' ? (usePrefetchedInsights ?? insightsCacheRef.current[cacheKey]) : undefined;
-      if (cached && analyticsTab === 'account') {
-        setInsights(cached);
-        setInsightsLoading(false);
-        return;
-      }
-      if (analyticsTab !== 'account' || !dateRange.start || !dateRange.end) return;
-      setInsights(null);
-      setInsightsLoading(true);
-      api.get(`/social/accounts/${selectedAccount.id}/insights`, { params: { since: dateRange.start, until: dateRange.end } })
-        .then((res) => {
-          const data = res.data ?? null;
-          if (data) {
-            insightsCacheRef.current[cacheKey] = data;
-            appData?.setInsightsForAccount(selectedAccount.id, data);
-          }
-          setInsights(data);
-        })
-        .catch(() => setInsights(null))
-        .finally(() => setInsightsLoading(false));
+    if (!selectedAccount?.id || analyticsTab !== 'account' || !dateRange.start || !dateRange.end) return;
+    const cacheKey = `${selectedAccount.id}-${dateRange.start}-${dateRange.end}`;
+    const defaultRange = getDefaultDateRange();
+    const usePrefetchedInsights = dateRange.start === defaultRange.start && dateRange.end === defaultRange.end && appData?.getInsights(selectedAccount.id);
+    const cached = usePrefetchedInsights ?? insightsCacheRef.current[cacheKey];
+    if (cached) {
+      setInsights(cached);
+      setInsightsLoading(false);
       return;
     }
+    setInsights(null);
+    setInsightsLoading(true);
+    api.get(`/social/accounts/${selectedAccount.id}/insights`, { params: { since: dateRange.start, until: dateRange.end } })
+      .then((res) => {
+        const data = res.data ?? null;
+        if (data) {
+          insightsCacheRef.current[cacheKey] = data;
+          appData?.setInsightsForAccount(selectedAccount.id, data);
+        }
+        setInsights(data);
+      })
+      .catch(() => setInsights(null))
+      .finally(() => setInsightsLoading(false));
+  }, [analyticsTab, selectedAccount?.id, dateRange.start, dateRange.end, appData]);
+
+  // Aggregated insights: always fetch when we have accounts (provides fallback for single-account view)
+  useEffect(() => {
     if (!hasAccounts || analyticsTab !== 'account' || !dateRange.start || !dateRange.end) {
-      setAggregatedInsights(null);
+      if (!hasAccounts) setAggregatedInsights(null);
       return;
     }
     const insightAccounts = accounts.filter((a) => a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK' || a.platform === 'TWITTER');
@@ -347,7 +348,6 @@ export default function DashboardPage() {
       setAggregatedInsights(cachedAgg.data);
       setAggregatedLoading(false);
     } else {
-      setAggregatedInsights(null);
       setAggregatedLoading(true);
     }
     Promise.all(
@@ -378,16 +378,13 @@ export default function DashboardPage() {
             dateMap[d.date] = (dateMap[d.date] ?? 0) + d.value;
           }
         }
-        const combinedTimeSeries = Object.entries(dateMap)
-          .map(([date, value]) => ({ date, value }))
-          .sort((a, b) => a.date.localeCompare(b.date));
-        const data = { totalFollowers, totalImpressions, totalReach, totalProfileViews, totalPageViews, byPlatform, combinedTimeSeries };
+        const data = { totalFollowers, totalImpressions, totalReach, totalProfileViews, totalPageViews, byPlatform, combinedTimeSeries: Object.entries(dateMap).map(([date, value]) => ({ date, value })).sort((a, b) => a.date.localeCompare(b.date)) };
         aggregatedCacheRef.current = { key: aggCacheKey, data };
         setAggregatedInsights(data);
       })
       .catch(() => setAggregatedInsights(null))
       .finally(() => setAggregatedLoading(false));
-  }, [analyticsTab, selectedAccount?.id, hasAccounts, dateRange.start, dateRange.end, accounts.map((a) => a.id).join(','), appData]);
+  }, [analyticsTab, hasAccounts, dateRange.start, dateRange.end, accounts.map((a) => a.id).join(',')]);
 
   const handleConnect = async (platform: string, method?: string) => {
     const getMessage = (err: unknown): string | null => {
@@ -504,17 +501,18 @@ export default function DashboardPage() {
   const maxPostsTabValue = Math.max(...postsTabDisplaySeries.map((d) => d.value), 1);
   const maxInteractionsTabValue = Math.max(...interactionsTabDisplaySeries.map((d) => d.value), 1);
 
+  const plat = selectedAccount ? aggregatedInsights?.byPlatform[selectedAccount.platform] : null;
   const effectiveFollowers = selectedAccount
-    ? (insights?.followers ?? aggregatedInsights?.byPlatform[selectedAccount.platform]?.followers ?? 0)
+    ? Math.max(insights?.followers ?? 0, plat?.followers ?? 0)
     : (aggregatedInsights?.totalFollowers ?? 0);
   const effectiveImpressions = selectedAccount
-    ? (insights?.impressionsTotal ?? aggregatedInsights?.byPlatform[selectedAccount.platform]?.impressions ?? 0)
+    ? Math.max(insights?.impressionsTotal ?? 0, plat?.impressions ?? 0)
     : (aggregatedInsights?.totalImpressions ?? 0);
   const isTwitter = selectedAccount?.platform === 'TWITTER';
   const effectiveTweets = isTwitter ? (insights?.tweetCount ?? 0) : 0;
   const recentTweets = isTwitter ? (insights?.recentTweets ?? []) : [];
   const effectiveTimeSeries = selectedAccount
-    ? (insights?.impressionsTimeSeries?.length ? insights.impressionsTimeSeries : aggregatedInsights?.byPlatform[selectedAccount.platform]?.timeSeries ?? [])
+    ? ((insights?.impressionsTimeSeries?.length && insights.impressionsTimeSeries.some((d) => d.value > 0)) ? insights.impressionsTimeSeries : (plat?.timeSeries?.length ? plat.timeSeries : []))
     : (aggregatedInsights?.combinedTimeSeries ?? []);
   const effectivePageVisits = selectedAccount
     ? (insights?.pageViewsTotal ?? aggregatedInsights?.totalPageViews ?? 0)
@@ -526,7 +524,7 @@ export default function DashboardPage() {
     ? (insights?.profileViewsTotal ?? aggregatedInsights?.totalProfileViews ?? 0)
     : (aggregatedInsights?.totalProfileViews ?? 0);
   const effectiveInsightsLoading = selectedAccount
-    ? (insightsLoading && !insights && !aggregatedInsights?.byPlatform[selectedAccount.platform])
+    ? (insightsLoading && !insights && !plat)
     : aggregatedLoading;
   const fallbackSeriesValue = effectiveImpressions || effectiveFollowers || 0;
   const hasNonZeroSeries = effectiveTimeSeries.length > 0 && effectiveTimeSeries.some((d) => d.value > 0);
