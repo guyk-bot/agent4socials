@@ -71,3 +71,31 @@ This document lists every Meta scope we request in the OAuth flow and where it i
 - **All** Meta scopes we request are used in the codebase for the features listed above.
 - If you remove a scope, the corresponding feature (e.g. Inbox, Comments, Insights, Publish, or Page list) will fail with permission errors until the scope is restored or the feature is removed.
 - For App Review, you can point reviewers to this audit and to the specific routes in the "Where we use it" column to show each permission in use.
+
+---
+
+## Why Metricool shows more data (Inbox, full analytics, demographics)
+
+We request the **same permissions** Metricool uses (e.g. `instagram_manage_messages`, `instagram_manage_insights`, `pages_messaging`, `read_insights`) and call the **same Meta APIs**. The difference is **Meta's access level**, not our code.
+
+- **Standard Access**: Meta grants these permissions only to **app roles** (admins, developers, testers). Other users get restricted or empty data. No App Review needed.
+- **Advanced Access**: After **App Review** (and, for many permissions, **Business Verification**), Meta grants full access to **any user** who connects. Metricool has gone through App Review and has Advanced Access for messaging, insights, and engagement.
+
+So:
+
+| Feature | Why Metricool has it | Why we might not (yet) |
+|--------|----------------------|-------------------------|
+| **Inbox (DMs)** | Advanced Access for `instagram_manage_messages` / `pages_messaging` | App in Development: only test users get full inbox; others get 400 or empty. |
+| **Views, reach, impressions** | Advanced Access for `instagram_manage_insights` / `read_insights` | Same: full data only for app roles or after App Review. |
+| **Followers** | Works with `instagram_basic` (often Standard Access) | We show this because it does not require Advanced Access. |
+| **Demographics (age, gender, country)** | Extra endpoints and/or Marketing API / insights products | We do not call demographic endpoints yet; some may need additional permissions or approval. |
+
+**What to do:** To get Metricool-level data (inbox, full insights, posts) for all users:
+
+1. In [Meta for Developers](https://developers.facebook.com/) go to your app, then **App Review**.
+2. Request **Advanced Access** for each permission you need (e.g. Instagram Manage Messages, Instagram Manage Insights, Page Messaging, Read Page Insights). Add the permissions under **App Review > Permissions and Features** first if they are not there.
+3. Complete **Business Verification** if Meta requires it for those permissions.
+4. Submit for **App Review** with screen recordings and a clear explanation of how each permission is used (this audit and the file reference above are enough for the "where we use it" part).
+5. After approval, switch the app to **Live** so all users get full tokens.
+
+Until then, only accounts that have a **role on the app** (admin/developer/tester) will get full Inbox and analytics; other users will see followers and possibly partial or empty data.
