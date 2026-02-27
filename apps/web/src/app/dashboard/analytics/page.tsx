@@ -72,8 +72,14 @@ export default function AnalyticsPage() {
   const connectedPlatforms = accounts.map((a) => a.platform);
   const hasFacebook = connectedPlatforms.includes('FACEBOOK');
   const hasInstagram = connectedPlatforms.includes('INSTAGRAM');
-  const totalInteractions = importedPosts.reduce((s, p) => s + (p.interactions || 0), 0);
-  const filteredPosts = importedPosts.filter((p) => !postsSearch || (p.content?.toLowerCase().includes(postsSearch.toLowerCase())));
+  const defaultRange = getDefaultDateRange();
+  const isDefaultDateRange = dateRange.start === defaultRange.start && dateRange.end === defaultRange.end;
+  const prefetchedInsights = selectedAccount?.id && isDefaultDateRange ? appData?.getInsights(selectedAccount.id) : undefined;
+  const prefetchedPosts = selectedAccount?.id ? appData?.getPosts(selectedAccount.id) : undefined;
+  const displayInsights = prefetchedInsights ?? insights;
+  const displayPosts = prefetchedPosts ?? importedPosts;
+  const totalInteractions = displayPosts.reduce((s, p) => s + (p.interactions || 0), 0);
+  const filteredPosts = displayPosts.filter((p) => !postsSearch || (p.content?.toLowerCase().includes(postsSearch.toLowerCase())));
   const sortedPosts = [...filteredPosts].sort((a, b) => {
     if (sortBy === 'date') return sortDesc ? new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime() : new Date(a.publishedAt).getTime() - new Date(b.publishedAt).getTime();
     if (sortBy === 'impressions') return sortDesc ? (b.impressions ?? 0) - (a.impressions ?? 0) : (a.impressions ?? 0) - (b.impressions ?? 0);
@@ -81,8 +87,8 @@ export default function AnalyticsPage() {
   });
   const totalPostsPages = Math.max(1, Math.ceil(sortedPosts.length / postsPerPage));
   const currentPagePosts = sortedPosts.slice((postsPage - 1) * postsPerPage, postsPage * postsPerPage);
-  const effectiveTimeSeries = insights?.impressionsTimeSeries ?? [];
-  const fallbackSeriesValue = (insights?.impressionsTotal ?? 0) || (insights?.followers ?? 0) || 0;
+  const effectiveTimeSeries = displayInsights?.impressionsTimeSeries ?? [];
+  const fallbackSeriesValue = (displayInsights?.impressionsTotal ?? 0) || (displayInsights?.followers ?? 0) || 0;
   const hasNonZeroSeries = effectiveTimeSeries.length > 0 && effectiveTimeSeries.some((d) => d.value > 0);
   const displayTimeSeries =
     hasNonZeroSeries
@@ -92,7 +98,9 @@ export default function AnalyticsPage() {
         : [];
   const maxImpressions = displayTimeSeries.length ? Math.max(...displayTimeSeries.map((d) => d.value), 1) : 1;
   const hasFbOrIg = connectedPlatforms.includes('FACEBOOK') || connectedPlatforms.includes('INSTAGRAM');
-  const showReconnectBanner = hasFbOrIg && (insights?.insightsHint || postsSyncError);
+  const showReconnectBanner = hasFbOrIg && (displayInsights?.insightsHint || postsSyncError);
+  const showInsightsLoading = insightsLoading && !displayInsights;
+  const showPostsLoading = importedPostsLoading && !(prefetchedPosts?.length || importedPosts.length);
 
   useEffect(() => {
     if (cachedAccounts.length > 0) return;
@@ -266,16 +274,16 @@ export default function AnalyticsPage() {
           {activeTab === 'account' && (
             <div className="space-y-6">
               <h2 className="text-lg font-semibold text-neutral-900">Account</h2>
-              {insightsLoading && <p className="text-sm text-neutral-500">Loading analytics…</p>}
-              {insights?.insightsHint && (
+              {showInsightsLoading && <p className="text-sm text-neutral-500">Loading analytics…</p>}
+              {displayInsights?.insightsHint && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                  <p>{insights.insightsHint}</p>
+                  <p>{displayInsights.insightsHint}</p>
                   {(selectedAccount?.platform === 'INSTAGRAM' || selectedAccount?.platform === 'FACEBOOK') && (
                     <p className="mt-2 text-xs text-amber-700">Use Reconnect in the left sidebar for this account, then choose your Page when asked.</p>
                   )}
                 </div>
               )}
-              {(selectedAccount?.platform === 'INSTAGRAM' || selectedAccount?.platform === 'FACEBOOK') && (postsSyncError || importedPosts.length === 0) && (
+              {(selectedAccount?.platform === 'INSTAGRAM' || selectedAccount?.platform === 'FACEBOOK') && (postsSyncError || displayPosts.length === 0) && (
                 <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
                   <p className="font-medium">Posts and engagement</p>
                   <p className="mt-1 text-indigo-700">
@@ -312,14 +320,14 @@ export default function AnalyticsPage() {
                 <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
                   <p className="text-sm font-medium text-neutral-500">Followers</p>
                   <div className="flex items-center gap-3 mt-1">
-                    <span className="text-3xl font-bold text-neutral-900">{insights?.followers ?? 0}</span>
+                    <span className="text-3xl font-bold text-neutral-900">{displayInsights?.followers ?? 0}</span>
                     <div className="flex-1 h-2 max-w-[120px] rounded-full bg-neutral-200 overflow-hidden">
-                      <div className="h-full rounded-full bg-indigo-500" style={{ width: `${Math.min(100, ((insights?.followers ?? 0) / 2000) * 100)}%` }} />
+                      <div className="h-full rounded-full bg-indigo-500" style={{ width: `${Math.min(100, ((displayInsights?.followers ?? 0) / 2000) * 100)}%` }} />
                     </div>
                   </div>
                   <div className="flex gap-1.5 mt-3 flex-wrap">
-                    {selectedAccount?.platform === 'INSTAGRAM' && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{insights?.followers ?? 0} Instagram</span>}
-                    {selectedAccount?.platform === 'FACEBOOK' && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{insights?.followers ?? 0} Facebook</span>}
+                    {selectedAccount?.platform === 'INSTAGRAM' && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{displayInsights?.followers ?? 0} Instagram</span>}
+                    {selectedAccount?.platform === 'FACEBOOK' && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{displayInsights?.followers ?? 0} Facebook</span>}
                   </div>
                   <div className="mt-4 h-40 rounded-lg bg-neutral-50 border border-neutral-100 relative overflow-hidden">
                     <div className="absolute inset-0 opacity-[0.03] font-semibold text-neutral-400 text-2xl" style={{ transform: 'rotate(-20deg)' }}>agent4socials</div>
@@ -342,14 +350,14 @@ export default function AnalyticsPage() {
                 <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
                   <p className="text-sm font-medium text-neutral-500">Views</p>
                   <div className="flex items-center gap-3 mt-1">
-                    <span className="text-3xl font-bold text-neutral-900">{insights?.impressionsTotal ?? 0}</span>
+                    <span className="text-3xl font-bold text-neutral-900">{displayInsights?.impressionsTotal ?? 0}</span>
                     <div className="flex-1 h-2 max-w-[120px] rounded-full bg-neutral-200 overflow-hidden">
-                      <div className="h-full rounded-full bg-indigo-500" style={{ width: `${insights?.impressionsTotal ? Math.min(100, (insights.impressionsTotal / 50)) : 0}%` }} />
+                      <div className="h-full rounded-full bg-indigo-500" style={{ width: `${displayInsights?.impressionsTotal ? Math.min(100, (displayInsights.impressionsTotal / 50)) : 0}%` }} />
                     </div>
                   </div>
                   <div className="flex gap-1.5 mt-3 flex-wrap">
-                    {selectedAccount?.platform === 'FACEBOOK' && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{insights?.impressionsTotal ?? 0} Facebook</span>}
-                    {selectedAccount?.platform === 'INSTAGRAM' && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{insights?.impressionsTotal ?? 0} Instagram</span>}
+                    {selectedAccount?.platform === 'FACEBOOK' && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{displayInsights?.impressionsTotal ?? 0} Facebook</span>}
+                    {selectedAccount?.platform === 'INSTAGRAM' && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{displayInsights?.impressionsTotal ?? 0} Instagram</span>}
                   </div>
                   <div className="mt-4 h-40 rounded-lg bg-neutral-50 border border-neutral-100 relative overflow-hidden">
                     <div className="absolute inset-0 opacity-[0.03] font-semibold text-neutral-400 text-2xl" style={{ transform: 'rotate(-20deg)' }}>agent4socials</div>
@@ -374,22 +382,22 @@ export default function AnalyticsPage() {
                 {selectedAccount?.platform === 'INSTAGRAM' ? (
                   <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
                     <p className="text-xs font-medium text-neutral-500">Profile views</p>
-                    <p className="text-xl font-bold text-neutral-900 mt-0.5">{insights?.profileViewsTotal ?? '—'}</p>
+                    <p className="text-xl font-bold text-neutral-900 mt-0.5">{displayInsights?.profileViewsTotal ?? '—'}</p>
                   </div>
                 ) : (
                   <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
                     <p className="text-xs font-medium text-neutral-500">Page visits</p>
-                    <p className="text-xl font-bold text-neutral-900 mt-0.5">{insights?.pageViewsTotal ?? '—'}</p>
+                    <p className="text-xl font-bold text-neutral-900 mt-0.5">{displayInsights?.pageViewsTotal ?? '—'}</p>
                   </div>
                 )}
                 <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
                   <p className="text-xs font-medium text-neutral-500">Reach</p>
-                  <p className="text-xl font-bold text-neutral-900 mt-0.5">{insights?.reachTotal ?? '—'}</p>
+                  <p className="text-xl font-bold text-neutral-900 mt-0.5">{displayInsights?.reachTotal ?? '—'}</p>
                 </div>
                 <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
                   <p className="text-xs font-medium text-neutral-500">Total content</p>
-                  <p className="text-xl font-bold text-neutral-900 mt-0.5">{importedPosts.length}</p>
-                  {(selectedAccount?.platform === 'INSTAGRAM' || selectedAccount?.platform === 'FACEBOOK') && importedPosts.length === 0 && (
+                  <p className="text-xl font-bold text-neutral-900 mt-0.5">{displayPosts.length}</p>
+                  {(selectedAccount?.platform === 'INSTAGRAM' || selectedAccount?.platform === 'FACEBOOK') && displayPosts.length === 0 && (
                     <p className="text-xs text-amber-700 mt-1">Sync posts from your account to see content and engagement.</p>
                   )}
                 </div>
@@ -408,20 +416,20 @@ export default function AnalyticsPage() {
                     <div className="bg-neutral-50 border border-neutral-100 rounded-xl p-4 shadow-sm">
                       <p className="text-xs font-medium text-neutral-500">Daily page views</p>
                       <p className="text-lg font-semibold text-neutral-700 mt-0.5">
-                        {days && selectedAccount?.platform === 'INSTAGRAM' && insights?.profileViewsTotal != null
-                          ? (insights.profileViewsTotal / days).toFixed(2)
-                          : days && insights?.pageViewsTotal != null
-                            ? (insights.pageViewsTotal / days).toFixed(2)
+                        {days && selectedAccount?.platform === 'INSTAGRAM' && displayInsights?.profileViewsTotal != null
+                          ? (displayInsights.profileViewsTotal / days).toFixed(2)
+                          : days && displayInsights?.pageViewsTotal != null
+                            ? (displayInsights.pageViewsTotal / days).toFixed(2)
                             : '—'}
                       </p>
                     </div>
                     <div className="bg-neutral-50 border border-neutral-100 rounded-xl p-4 shadow-sm">
                       <p className="text-xs font-medium text-neutral-500">Daily posts</p>
-                      <p className="text-lg font-semibold text-neutral-700 mt-0.5">{days ? (importedPosts.length / days).toFixed(2) : '—'}</p>
+                      <p className="text-lg font-semibold text-neutral-700 mt-0.5">{days ? (displayPosts.length / days).toFixed(2) : '—'}</p>
                     </div>
                     <div className="bg-neutral-50 border border-neutral-100 rounded-xl p-4 shadow-sm">
                       <p className="text-xs font-medium text-neutral-500">Posts per week</p>
-                      <p className="text-lg font-semibold text-neutral-700 mt-0.5">{weeks ? (importedPosts.length / weeks).toFixed(2) : '—'}</p>
+                      <p className="text-lg font-semibold text-neutral-700 mt-0.5">{weeks ? (displayPosts.length / weeks).toFixed(2) : '—'}</p>
                     </div>
                   </div>
                 );
@@ -440,8 +448,8 @@ export default function AnalyticsPage() {
                   </div>
                 </div>
                 <div className="flex gap-1.5 mt-3 flex-wrap">
-                  {hasInstagram && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{importedPosts.filter((p) => p.platform === 'INSTAGRAM').reduce((s, p) => s + p.interactions, 0)} Instagram</span>}
-                  {hasFacebook && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{importedPosts.filter((p) => p.platform === 'FACEBOOK').reduce((s, p) => s + p.interactions, 0) || '—'} Facebook</span>}
+                  {hasInstagram && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{displayPosts.filter((p) => p.platform === 'INSTAGRAM').reduce((s, p) => s + p.interactions, 0)} Instagram</span>}
+                  {hasFacebook && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{displayPosts.filter((p) => p.platform === 'FACEBOOK').reduce((s, p) => s + p.interactions, 0) || '—'} Facebook</span>}
                 </div>
                 <div className="mt-4 h-24 rounded-lg bg-neutral-50 border border-neutral-100 relative overflow-hidden">
                   <div className="absolute inset-0 opacity-[0.03] font-semibold text-neutral-400 text-xl" style={{ transform: 'rotate(-15deg)' }}>agent4socials</div>
@@ -450,14 +458,14 @@ export default function AnalyticsPage() {
               <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
                 <p className="text-sm font-medium text-neutral-700">Number of posts</p>
                 <div className="flex items-center gap-3 mt-1">
-                  <span className="text-2xl font-bold text-neutral-900">{importedPosts.length}</span>
+                  <span className="text-2xl font-bold text-neutral-900">{displayPosts.length}</span>
                   <div className="flex-1 h-2 max-w-[100px] rounded-full bg-neutral-200 overflow-hidden">
-                    <div className="h-full rounded-full bg-indigo-500" style={{ width: importedPosts.length ? `${Math.min(100, importedPosts.length * 20)}%` : '0%' }} />
+                    <div className="h-full rounded-full bg-indigo-500" style={{ width: displayPosts.length ? `${Math.min(100, displayPosts.length * 20)}%` : '0%' }} />
                   </div>
                 </div>
                 <div className="flex gap-1.5 mt-3 flex-wrap">
-                  {hasFacebook && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{importedPosts.filter((p) => p.platform === 'FACEBOOK').length} Facebook</span>}
-                  {hasInstagram && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{importedPosts.filter((p) => p.platform === 'INSTAGRAM').length} Instagram</span>}
+                  {hasFacebook && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{displayPosts.filter((p) => p.platform === 'FACEBOOK').length} Facebook</span>}
+                  {hasInstagram && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{displayPosts.filter((p) => p.platform === 'INSTAGRAM').length} Instagram</span>}
                 </div>
                 <div className="mt-4 h-24 rounded-lg bg-neutral-50 border border-neutral-100 relative overflow-hidden">
                   <div className="absolute inset-0 opacity-[0.03] font-semibold text-neutral-400 text-xl" style={{ transform: 'rotate(-15deg)' }}>agent4socials</div>
@@ -502,7 +510,7 @@ export default function AnalyticsPage() {
                     <button type="button" className="px-3 py-2 rounded-lg border border-neutral-200 text-sm font-medium text-neutral-600 hover:bg-neutral-50 inline-flex items-center gap-1.5">Download CSV</button>
                     <button type="button" className="px-3 py-2 rounded-lg border border-neutral-200 text-sm font-medium text-neutral-600 hover:bg-neutral-50 inline-flex items-center gap-1.5">Columns</button>
                   </div>
-                  {importedPosts.length === 0 && !importedPostsLoading ? (
+                  {displayPosts.length === 0 && !showPostsLoading ? (
                     <div className="p-12 text-center">
                       <Image size={48} className="mx-auto text-neutral-300 mb-4" />
                       <p className="text-sm text-neutral-500">No posts loaded. Click &quot;Sync posts&quot; to import from {selectedAccount?.platform}.</p>

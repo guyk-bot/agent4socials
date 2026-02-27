@@ -12,7 +12,7 @@ import {
     LogOut,
     ChevronRight,
     Plus,
-    MessageCircle,
+    Zap,
     Sparkles,
     PanelLeftClose,
 } from 'lucide-react';
@@ -183,7 +183,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${pathname === '/dashboard/automation' ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
           style={pathname === '/dashboard/automation' ? { color: accent } : undefined}
         >
-          <MessageCircle size={18} className="shrink-0" />
+          <Zap size={18} className="shrink-0" />
           <span>Automation</span>
         </Link>
         <Link
