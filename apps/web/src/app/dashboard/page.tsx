@@ -537,6 +537,8 @@ export default function DashboardPage() {
   const maxImpressions = displayTimeSeries.length ? Math.max(...displayTimeSeries.map((d) => d.value), 1) : 1;
   const hasFbOrIg = accounts.some((a) => a.platform === 'FACEBOOK' || a.platform === 'INSTAGRAM');
   const showReconnectBanner = hasFbOrIg && (insights?.insightsHint || postsSyncError || (allPostsSyncError && (allPostsSyncError.includes('Reconnect') || allPostsSyncError.includes('Session expired') || allPostsSyncError.includes('log back in'))));
+  const hasFollowersOnly = hasFbOrIg && effectiveFollowers > 0 && effectiveImpressions === 0 && !effectiveTimeSeries.some((d) => d.value > 0);
+  const showViewsHint = hasFollowersOnly && (selectedAccount?.platform === 'INSTAGRAM' || selectedAccount?.platform === 'FACEBOOK' || !selectedAccount);
 
   return (
     <div className="space-y-0">
@@ -563,6 +565,12 @@ export default function DashboardPage() {
           >
             Reconnect Facebook & Instagram
           </button>
+        </div>
+      )}
+      {showViewsHint && !showReconnectBanner && (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <p className="font-medium">You're seeing follower counts. Views, reach, and trend graphs need Page/Instagram insights.</p>
+          <p className="mt-1 text-xs text-amber-700">Use <strong>Reconnect</strong> in the sidebar for Instagram or Facebook, then choose your Page when asked, to load full analytics and sync posts.</p>
         </div>
       )}
       {/* Top row: ACCOUNT | POSTS tabs + date range (Metricool-style) */}

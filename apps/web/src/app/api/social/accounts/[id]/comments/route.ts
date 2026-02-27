@@ -33,6 +33,7 @@ export async function GET(
     return NextResponse.json({ comments: [], error: 'Comments are only available for Instagram, Facebook, and X.' });
   }
 
+  // Posts we published through the app
   const targets = await prisma.postTarget.findMany({
     where: {
       socialAccountId: account.id,
@@ -43,6 +44,29 @@ export async function GET(
     orderBy: { updatedAt: 'desc' },
     take: 15,
   });
+  const targetPostIds = new Set(targets.map((t) => t.platformPostId!));
+
+  // Synced (imported) posts from the platform so we can show comments on all posts, not only app-published
+  const imported = await prisma.importedPost.findMany({
+    where: { socialAccountId: account.id },
+    orderBy: { publishedAt: 'desc' },
+    take: 25,
+  });
+  const importedPostsToFetch = imported.filter((p) => !targetPostIds.has(p.platformPostId));
+
+  type PostSource = { platformPostId: string; postPreview: string; postTargetId: string };
+  const sources: PostSource[] = [
+    ...targets.map((t) => ({
+      platformPostId: t.platformPostId!,
+      postPreview: (t.post?.content ?? '').slice(0, 80) || 'Post',
+      postTargetId: t.id,
+    })),
+    ...importedPostsToFetch.map((p) => ({
+      platformPostId: p.platformPostId,
+      postPreview: (p.content ?? '').slice(0, 80) || 'Post',
+      postTargetId: `imported-${p.id}`,
+    })),
+  ];
   const token = account.accessToken;
   const comments: Array<{
     commentId: string;
@@ -57,7 +81,6 @@ export async function GET(
     platform: string;
   }> = [];
 
-  /** Fetch post image for Facebook (full_picture or picture) or Instagram (media_url). */
   async function getPostImageUrl(postId: string, plat: string, accessToken: string): Promise<string | null> {
     try {
       if (plat === 'FACEBOOK') {
@@ -78,9 +101,8 @@ export async function GET(
     return null;
   }
 
-  for (const target of targets) {
-    const platformPostId = target.platformPostId!;
-    const postPreview = (target.post?.content ?? '').slice(0, 80) || 'Post';
+  for (const source of sources) {
+    const { platformPostId, postPreview, postTargetId } = source;
     const postImageUrl = await getPostImageUrl(platformPostId, platform, token);
 
     if (platform === 'INSTAGRAM' || platform === 'FACEBOOK') {
@@ -111,7 +133,7 @@ export async function GET(
           const text = (platform === 'INSTAGRAM' ? c.text : c.message) ?? '';
           comments.push({
             commentId: c.id,
-            postTargetId: target.id,
+            postTargetId,
             platformPostId,
             postPreview,
             postImageUrl,
@@ -155,7 +177,7 @@ export async function GET(
           const authorPictureUrl = u?.profile_image_url?.replace(/_normal\./, '_400x400.') ?? null;
           comments.push({
             commentId: t.id,
-            postTargetId: target.id,
+            postTargetId,
             platformPostId,
             postPreview,
             postImageUrl: null,

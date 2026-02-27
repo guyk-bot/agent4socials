@@ -501,7 +501,7 @@ export default function InboxPage() {
               <div className="p-6 text-center">
                 <MessageCircle size={40} className="mx-auto text-neutral-300 mb-3" />
                 <p className="text-sm text-neutral-500">No comments yet.</p>
-                <p className="text-xs text-neutral-400 mt-1">Comments on your posts will appear here.</p>
+                <p className="text-xs text-neutral-400 mt-1">Comments on your posts will appear here. Sync posts from the Dashboard (Analytics, then POSTS or Summary) so we can load your existing posts; comments on those will then show here.</p>
               </div>
             ) : (
               <div className="p-2 space-y-0">
