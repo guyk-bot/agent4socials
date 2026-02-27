@@ -262,7 +262,7 @@ export default function InboxPage() {
       if (accs.some((a) => a.platform === 'TWITTER')) platforms.push('TWITTER');
       if (platforms.length) {
         setOpenPlatforms(platforms);
-        setSelectedPlatform((prev) => prev || platforms[0] ?? null);
+        setSelectedPlatform((prev) => prev || (platforms[0] ?? null));
       }
     }
   }, [cachedAccounts, openPlatforms.length]);
