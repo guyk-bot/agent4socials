@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '@/lib/api';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
-import { useAppData } from '@/context/AppDataContext';
+import { useAppData, getDefaultDateRange } from '@/context/AppDataContext';
 import { useResolvedSelectedAccount } from '@/context/SelectedAccountContext';
 import {
   BarChart3,
@@ -134,9 +134,8 @@ export default function AnalyticsPage() {
   useEffect(() => {
     if (activeTab !== 'account' || !selectedAccount?.id || !dateRange.start || !dateRange.end) return;
     const cacheKey = `${selectedAccount.id}-${dateRange.start}-${dateRange.end}`;
-    const defaultEnd = new Date().toISOString().slice(0, 10);
-    const defaultStart = new Date(Date.now() - 2 * 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    const usePrefetched = dateRange.start === defaultStart && dateRange.end === defaultEnd && appData?.getInsights(selectedAccount.id);
+    const defaultRange = getDefaultDateRange();
+    const usePrefetched = dateRange.start === defaultRange.start && dateRange.end === defaultRange.end && appData?.getInsights(selectedAccount.id);
     const cached = usePrefetched ?? insightsCacheRef.current[cacheKey];
     if (cached) {
       setInsights(cached);

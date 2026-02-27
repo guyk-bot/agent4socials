@@ -12,6 +12,7 @@ import {
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { PlatformIcon, PLATFORM_ICON_MAP } from '@/components/SocialPlatformIcons';
+import { useAppData } from '@/context/AppDataContext';
 
 const PLATFORM_SHORT: Record<string, string> = {
     INSTAGRAM: 'IG',
@@ -73,16 +74,25 @@ const HOURS_END = 24;
 
 export default function CalendarPage() {
     const searchParams = useSearchParams();
+    const appData = useAppData();
     const [view, setView] = useState<'week' | 'month'>('week');
     const [currentDate, setCurrentDate] = useState(new Date());
     const [posts, setPosts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        const fromCache = appData?.getScheduledPosts?.();
+        if (fromCache !== undefined && Array.isArray(fromCache) && fromCache.length >= 0) {
+            setPosts(fromCache as any[]);
+            setLoading(false);
+            return;
+        }
         const fetchPosts = async () => {
             try {
                 const res = await api.get('/posts');
-                setPosts(Array.isArray(res.data) ? res.data : []);
+                const list = Array.isArray(res.data) ? res.data : [];
+                setPosts(list);
+                appData?.setScheduledPosts?.(list);
             } catch (err) {
                 console.error('Failed to fetch posts');
             } finally {
@@ -90,7 +100,7 @@ export default function CalendarPage() {
             }
         };
         fetchPosts();
-    }, []);
+    }, [appData]);
 
     const weekStart = getWeekStart(currentDate);
     const weekEnd = new Date(weekStart);

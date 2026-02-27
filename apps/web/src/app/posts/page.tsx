@@ -19,6 +19,7 @@ import {
     Loader2,
     ImageIcon,
 } from 'lucide-react';
+import { useAppData } from '@/context/AppDataContext';
 
 function postMediaThumbUrl(mediaItem: { fileUrl: string; type: string; metadata?: { thumbnailUrl?: string } | null } | undefined): string | null {
     if (!mediaItem?.fileUrl) return null;
@@ -34,6 +35,7 @@ function postMediaThumbUrl(mediaItem: { fileUrl: string; type: string; metadata?
 
 export default function PostsPage() {
     const pathname = usePathname();
+    const appData = useAppData();
     const [posts, setPosts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('ALL');
@@ -42,18 +44,25 @@ export default function PostsPage() {
         try {
             setLoading(true);
             const res = await api.get('/posts');
-            setPosts(Array.isArray(res.data) ? res.data : []);
+            const list = Array.isArray(res.data) ? res.data : [];
+            setPosts(list);
+            appData?.setScheduledPosts?.(list);
         } catch (err) {
             console.error('Failed to fetch posts');
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [appData]);
 
-    // Refetch when user navigates to this page (e.g. after "Post now" from composer so status updates show)
     useEffect(() => {
+        const fromCache = appData?.getScheduledPosts?.();
+        if (fromCache !== undefined && Array.isArray(fromCache)) {
+            setPosts(fromCache as any[]);
+            setLoading(false);
+            return;
+        }
         if (pathname === '/posts') fetchPosts();
-    }, [pathname, fetchPosts]);
+    }, [pathname, appData, fetchPosts]);
 
     const filteredPosts = posts.filter((p: any) => {
         if (filter === 'ALL') return true;

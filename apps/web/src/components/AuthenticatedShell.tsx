@@ -6,7 +6,51 @@ import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
-import { AppDataProvider } from '@/context/AppDataContext';
+import { AppDataProvider, useAppData } from '@/context/AppDataContext';
+
+function AuthenticatedContent({
+    sidebarOpen,
+    onSidebarToggle,
+    children,
+}: {
+    sidebarOpen: boolean;
+    onSidebarToggle: () => void;
+    children: React.ReactNode;
+}) {
+    const appData = useAppData();
+    const { backgroundColor, primaryColor, textColor } = useWhiteLabel();
+
+    if (appData?.prefetchStatus === 'loading') {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-neutral-100">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
+                <p className="text-sm text-neutral-500">Loading your data…</p>
+            </div>
+        );
+    }
+
+    return (
+        <div
+            className="min-h-screen bg-neutral-100"
+            style={{
+                backgroundColor: backgroundColor || undefined,
+                color: textColor || undefined,
+                ['--wl-primary' as string]: primaryColor || undefined,
+                ['--primary' as string]: primaryColor || undefined,
+                ['--wl-text' as string]: textColor || undefined,
+                ['--wl-sidebar-bg' as string]: backgroundColor || '#f5f5f5',
+            }}
+        >
+            <AppHeader sidebarOpen={sidebarOpen} onSidebarToggle={onSidebarToggle} />
+            <Sidebar sidebarOpen={sidebarOpen} onSidebarToggle={onSidebarToggle} />
+            <main className={`min-h-screen pt-14 transition-[padding] duration-200 ${sidebarOpen ? 'pl-64' : 'pl-0'} md:pl-64`}>
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6 md:py-8">
+                    {children}
+                </div>
+            </main>
+        </div>
+    );
+}
 
 export default function AuthenticatedShell({
     children,
@@ -15,7 +59,6 @@ export default function AuthenticatedShell({
 }) {
     const { user, loading } = useAuth();
     const router = useRouter();
-    const { backgroundColor, primaryColor, textColor } = useWhiteLabel();
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const toggleSidebar = useCallback(() => setSidebarOpen((v) => !v), []);
 
@@ -38,25 +81,9 @@ export default function AuthenticatedShell({
 
     return (
         <AppDataProvider>
-        <div
-            className="min-h-screen bg-neutral-100"
-            style={{
-                backgroundColor: backgroundColor || undefined,
-                color: textColor || undefined,
-                ['--wl-primary' as string]: primaryColor || undefined,
-                ['--primary' as string]: primaryColor || undefined,
-                ['--wl-text' as string]: textColor || undefined,
-                ['--wl-sidebar-bg' as string]: backgroundColor || '#f5f5f5',
-            }}
-        >
-            <AppHeader sidebarOpen={sidebarOpen} onSidebarToggle={toggleSidebar} />
-            <Sidebar sidebarOpen={sidebarOpen} onSidebarToggle={toggleSidebar} />
-            <main className={`min-h-screen pt-14 transition-[padding] duration-200 ${sidebarOpen ? 'pl-64' : 'pl-0'} md:pl-64`}>
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6 md:py-8">
-                    {children}
-                </div>
-            </main>
-        </div>
+            <AuthenticatedContent sidebarOpen={sidebarOpen} onSidebarToggle={toggleSidebar}>
+                {children}
+            </AuthenticatedContent>
         </AppDataProvider>
     );
 }

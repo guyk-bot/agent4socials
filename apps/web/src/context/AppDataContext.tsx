@@ -54,21 +54,27 @@ export type CachedConversation = {
   senders: Array<{ username?: string; name?: string }>;
 };
 
+/** Post from GET /posts (scheduled/draft/history) */
+export type CachedScheduledPost = Record<string, unknown>;
+
 type AppDataContextType = {
   notifications: NotificationsCache;
   postsByAccountId: Record<string, CachedPost[]>;
   insightsByAccountId: Record<string, CachedInsights>;
   commentsByAccountId: Record<string, CachedComment[]>;
   conversationsByAccountId: Record<string, CachedConversation[]>;
+  scheduledPosts: CachedScheduledPost[];
   prefetchStatus: 'idle' | 'loading' | 'done';
   getPosts: (accountId: string) => CachedPost[] | undefined;
   getInsights: (accountId: string) => CachedInsights | undefined;
   getComments: (accountId: string) => CachedComment[] | undefined;
   getConversations: (accountId: string) => CachedConversation[] | undefined;
+  getScheduledPosts: () => CachedScheduledPost[];
   setPostsForAccount: (accountId: string, posts: CachedPost[]) => void;
   setInsightsForAccount: (accountId: string, insights: CachedInsights) => void;
   setCommentsForAccount: (accountId: string, comments: CachedComment[]) => void;
   setConversationsForAccount: (accountId: string, conversations: CachedConversation[]) => void;
+  setScheduledPosts: (posts: CachedScheduledPost[]) => void;
   setNotifications: (n: NotificationsCache) => void;
   invalidate: () => void;
 };
@@ -77,7 +83,8 @@ const defaultNotifications: NotificationsCache = { inbox: 0, comments: 0, messag
 
 const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
 
-function getDefaultDateRange() {
+/** Shared default date range (2 years) used by prefetch and analytics. */
+export function getDefaultDateRange() {
   const end = new Date();
   const start = new Date();
   start.setFullYear(start.getFullYear() - 2);
@@ -92,6 +99,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [insightsByAccountId, setInsightsByAccountId] = useState<Record<string, CachedInsights>>({});
   const [commentsByAccountId, setCommentsByAccountId] = useState<Record<string, CachedComment[]>>({});
   const [conversationsByAccountId, setConversationsByAccountId] = useState<Record<string, CachedConversation[]>>({});
+  const [scheduledPosts, setScheduledPostsState] = useState<CachedScheduledPost[]>([]);
   const [prefetchStatus, setPrefetchStatus] = useState<'idle' | 'loading' | 'done'>('idle');
 
   const setPostsForAccount = useCallback((accountId: string, posts: CachedPost[]) => {
@@ -108,6 +116,10 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
   const setConversationsForAccount = useCallback((accountId: string, conversations: CachedConversation[]) => {
     setConversationsByAccountId((prev) => ({ ...prev, [accountId]: conversations }));
+  }, []);
+
+  const setScheduledPosts = useCallback((posts: CachedScheduledPost[]) => {
+    setScheduledPostsState(posts);
   }, []);
 
   const setNotifications = useCallback((n: NotificationsCache) => {
@@ -130,11 +142,16 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     return conversationsByAccountId[accountId];
   }, [conversationsByAccountId]);
 
+  const getScheduledPosts = useCallback(() => {
+    return scheduledPosts;
+  }, [scheduledPosts]);
+
   const invalidate = useCallback(() => {
     setPostsByAccountId({});
     setInsightsByAccountId({});
     setCommentsByAccountId({});
     setConversationsByAccountId({});
+    setScheduledPostsState([]);
     setPrefetchStatus('idle');
   }, []);
 
@@ -163,6 +180,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
               messages: r.data?.messages ?? 0,
               byPlatform: r.data?.byPlatform ?? {},
             });
+          }).catch(() => {}),
+          api.get<CachedScheduledPost[]>('/posts').then((r) => {
+            if (!cancelled && Array.isArray(r.data)) setScheduledPostsState(r.data);
           }).catch(() => {}),
           ...accounts.map((acc) =>
             api.get<{ posts?: CachedPost[] }>(`/social/accounts/${acc.id}/posts`).then((r) => {
@@ -201,15 +221,18 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     insightsByAccountId,
     commentsByAccountId,
     conversationsByAccountId,
+    scheduledPosts,
     prefetchStatus,
     getPosts,
     getInsights,
     getComments,
     getConversations,
+    getScheduledPosts,
     setPostsForAccount,
     setInsightsForAccount,
     setCommentsForAccount,
     setConversationsForAccount,
+    setScheduledPosts,
     setNotifications,
     invalidate,
   };
