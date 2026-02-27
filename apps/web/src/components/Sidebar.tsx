@@ -78,12 +78,12 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
   const accent = primaryColor || '#6366f1';
   const text = textColor || '#171717';
   const isAccountPage = pathname === '/dashboard/account';
-  const isSummaryView = pathname === '/dashboard';
-  const isDashboardOverview = pathname === '/dashboard' && !selectedAccountId && !selectedPlatformForConnect;
+  const isSummaryView = pathname === '/dashboard/summary';
+  const isDashboardOverview = pathname === '/dashboard/summary' && !selectedAccountId && !selectedPlatformForConnect;
 
   const handleSummaryClick = () => {
     clearSelection();
-    router.push('/dashboard');
+    router.push('/dashboard/summary');
   };
 
   const sidebarContent = (

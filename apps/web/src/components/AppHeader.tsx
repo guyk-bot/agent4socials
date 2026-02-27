@@ -9,7 +9,7 @@ import { useAppData } from '@/context/AppDataContext';
 import api from '@/lib/api';
 
 export const topNavItems = [
-  { icon: LayoutGrid, label: 'Analytics', href: '/dashboard' },
+  { icon: LayoutGrid, label: 'Analytics', href: '/dashboard/summary' },
   { icon: MessageCircle, label: 'Inbox', href: '/dashboard/inbox', badgeKey: 'inbox' as const },
   { icon: PlusSquare, label: 'Composer', href: '/composer' },
   { icon: Zap, label: 'Automation', href: '/dashboard/automation' },
