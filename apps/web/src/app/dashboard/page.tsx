@@ -577,9 +577,15 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Upgrade banner (Metricool-style) */}
+      {/* API limit / upgrade banner */}
       <div className="mt-4 flex items-center justify-between gap-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg">
-        <p className="text-sm text-amber-800">Upgrade to view data older than 30 days and to export reports without a watermark.</p>
+        <p className="text-sm text-amber-800">
+          {selectedAccount?.platform === 'INSTAGRAM'
+            ? "Instagram's API only allows the last 28 days of insights. We show that data; older ranges are capped to 28 days."
+            : selectedAccount?.platform === 'FACEBOOK'
+              ? "Facebook Page insights are limited to 90 days per API request. Upgrade for export options."
+              : 'Upgrade to export reports without a watermark.'}
+        </p>
         <Link href="/pricing" className="shrink-0 px-3 py-1.5 rounded-lg bg-amber-500 text-white text-sm font-medium hover:bg-amber-600">Upgrade your plan</Link>
       </div>
 

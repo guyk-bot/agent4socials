@@ -51,6 +51,29 @@ export async function GET(
   const sinceTs = sinceParam ? Math.floor(new Date(sinceParam).getTime() / 1000) : null;
   const untilTs = untilParam ? Math.floor(new Date(untilParam).getTime() / 1000) : null;
 
+  const INSTAGRAM_INSIGHTS_DAYS = 28;
+  const FACEBOOK_INSIGHTS_DAYS = 90;
+  let effectiveSinceTs = sinceTs;
+  let effectiveUntilTs = untilTs;
+  let insightsRangeHint: string | undefined;
+
+  if (account.platform === 'INSTAGRAM' && sinceTs != null && untilTs != null) {
+    const rangeDays = (untilTs - sinceTs) / (24 * 60 * 60);
+    if (rangeDays > INSTAGRAM_INSIGHTS_DAYS) {
+      effectiveUntilTs = Math.floor(Date.now() / 1000);
+      effectiveSinceTs = effectiveUntilTs - INSTAGRAM_INSIGHTS_DAYS * 24 * 60 * 60;
+      insightsRangeHint = `Showing last ${INSTAGRAM_INSIGHTS_DAYS} days (Instagram\'s API limits insights to ${INSTAGRAM_INSIGHTS_DAYS} days).`;
+    }
+  }
+  if (account.platform === 'FACEBOOK' && sinceTs != null && untilTs != null) {
+    const rangeDays = (untilTs - sinceTs) / (24 * 60 * 60);
+    if (rangeDays > FACEBOOK_INSIGHTS_DAYS) {
+      effectiveUntilTs = Math.floor(Date.now() / 1000);
+      effectiveSinceTs = effectiveUntilTs - FACEBOOK_INSIGHTS_DAYS * 24 * 60 * 60;
+      insightsRangeHint = `Showing last ${FACEBOOK_INSIGHTS_DAYS} days (Facebook allows up to ${FACEBOOK_INSIGHTS_DAYS} days per request).`;
+    }
+  }
+
   const out: {
     platform: string;
     followers: number;
@@ -66,6 +89,7 @@ export async function GET(
     followers: 0,
     impressionsTotal: 0,
     impressionsTimeSeries: [],
+    ...(insightsRangeHint ? { insightsHint: insightsRangeHint } : {}),
   };
 
   try {
@@ -82,7 +106,7 @@ export async function GET(
       } catch (e) {
         console.warn('[Insights] Instagram profile:', (e as Error)?.message ?? e);
       }
-      if (sinceTs != null && untilTs != null) {
+      if (effectiveSinceTs != null && effectiveUntilTs != null) {
         try {
           const insightsRes = await axios.get<{
             data?: Array<{
@@ -94,8 +118,8 @@ export async function GET(
             params: {
               metric: 'impressions,reach,profile_views',
               period: 'day',
-              since: sinceTs,
-              until: untilTs,
+              since: effectiveSinceTs,
+              until: effectiveUntilTs,
               access_token: token,
             },
           });
@@ -126,8 +150,13 @@ export async function GET(
           }
         } catch (e) {
           const msg = (e as Error)?.message ?? String(e);
-          console.warn('[Insights] Instagram insights:', msg);
-          if (out.followers === 0 && !out.impressionsTotal && !out.reachTotal) out.insightsHint = 'Reconnect from the sidebar and choose your Page when asked to see followers, views, reach, and profile views.';
+          const apiMsg = (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
+          console.warn('[Insights] Instagram insights:', msg, apiMsg ?? '');
+          if (!out.insightsHint && out.followers === 0 && !out.impressionsTotal && !out.reachTotal) {
+            out.insightsHint = apiMsg && apiMsg.length < 200
+              ? apiMsg
+              : 'Reconnect from the sidebar and choose your Page when asked to see followers, views, reach, and profile views.';
+          }
         }
       }
       return NextResponse.json(out);
@@ -146,7 +175,7 @@ export async function GET(
       } catch (e) {
         console.warn('[Insights] Facebook page profile:', (e as Error)?.message ?? e);
       }
-      if (sinceTs != null && untilTs != null) {
+      if (effectiveSinceTs != null && effectiveUntilTs != null) {
         try {
           const insightsRes = await axios.get<{
             data?: Array<{ name: string; values?: Array<{ value: number; end_time?: string }> }>;
@@ -154,8 +183,8 @@ export async function GET(
             params: {
               metric: 'page_impressions,page_views_total,page_fan_reach',
               period: 'day',
-              since: sinceTs,
-              until: untilTs,
+              since: effectiveSinceTs,
+              until: effectiveUntilTs,
               access_token: token,
             },
           });
@@ -185,7 +214,7 @@ export async function GET(
             const msg = (e as Error)?.message ?? String(e);
             console.warn('[Insights] Facebook insights:', msg);
           }
-          if (out.followers === 0 && !out.impressionsTotal) out.insightsHint = 'Reconnect from the sidebar and choose your Page when asked to see Page analytics.';
+          if (!out.insightsHint && out.followers === 0 && !out.impressionsTotal) out.insightsHint = 'Reconnect from the sidebar and choose your Page when asked to see Page analytics.';
         }
       }
       return NextResponse.json(out);
