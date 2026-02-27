@@ -306,7 +306,6 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (selectedAccount?.id) {
-      setAggregatedInsights(null);
       const cacheKey = `${selectedAccount.id}-${dateRange.start}-${dateRange.end}`;
     const defaultEnd = new Date().toISOString().slice(0, 10);
     const defaultStart = new Date(Date.now() - 2 * 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -505,16 +504,30 @@ export default function DashboardPage() {
   const maxPostsTabValue = Math.max(...postsTabDisplaySeries.map((d) => d.value), 1);
   const maxInteractionsTabValue = Math.max(...interactionsTabDisplaySeries.map((d) => d.value), 1);
 
-  const effectiveFollowers = selectedAccount ? (insights?.followers ?? 0) : (aggregatedInsights?.totalFollowers ?? 0);
-  const effectiveImpressions = selectedAccount ? (insights?.impressionsTotal ?? 0) : (aggregatedInsights?.totalImpressions ?? 0);
+  const effectiveFollowers = selectedAccount
+    ? (insights?.followers ?? aggregatedInsights?.byPlatform[selectedAccount.platform]?.followers ?? 0)
+    : (aggregatedInsights?.totalFollowers ?? 0);
+  const effectiveImpressions = selectedAccount
+    ? (insights?.impressionsTotal ?? aggregatedInsights?.byPlatform[selectedAccount.platform]?.impressions ?? 0)
+    : (aggregatedInsights?.totalImpressions ?? 0);
   const isTwitter = selectedAccount?.platform === 'TWITTER';
   const effectiveTweets = isTwitter ? (insights?.tweetCount ?? 0) : 0;
   const recentTweets = isTwitter ? (insights?.recentTweets ?? []) : [];
-  const effectiveTimeSeries = selectedAccount ? (insights?.impressionsTimeSeries ?? []) : (aggregatedInsights?.combinedTimeSeries ?? []);
-  const effectivePageVisits = selectedAccount ? (insights?.pageViewsTotal ?? 0) : (aggregatedInsights?.totalPageViews ?? 0);
-  const effectiveReach = selectedAccount ? (insights?.reachTotal ?? 0) : (aggregatedInsights?.totalReach ?? 0);
-  const effectiveProfileViews = selectedAccount ? (insights?.profileViewsTotal ?? 0) : (aggregatedInsights?.totalProfileViews ?? 0);
-  const effectiveInsightsLoading = selectedAccount ? insightsLoading : aggregatedLoading;
+  const effectiveTimeSeries = selectedAccount
+    ? (insights?.impressionsTimeSeries?.length ? insights.impressionsTimeSeries : aggregatedInsights?.byPlatform[selectedAccount.platform]?.timeSeries ?? [])
+    : (aggregatedInsights?.combinedTimeSeries ?? []);
+  const effectivePageVisits = selectedAccount
+    ? (insights?.pageViewsTotal ?? aggregatedInsights?.totalPageViews ?? 0)
+    : (aggregatedInsights?.totalPageViews ?? 0);
+  const effectiveReach = selectedAccount
+    ? (insights?.reachTotal ?? aggregatedInsights?.totalReach ?? 0)
+    : (aggregatedInsights?.totalReach ?? 0);
+  const effectiveProfileViews = selectedAccount
+    ? (insights?.profileViewsTotal ?? aggregatedInsights?.totalProfileViews ?? 0)
+    : (aggregatedInsights?.totalProfileViews ?? 0);
+  const effectiveInsightsLoading = selectedAccount
+    ? (insightsLoading && !insights && !aggregatedInsights?.byPlatform[selectedAccount.platform])
+    : aggregatedLoading;
   const fallbackSeriesValue = effectiveImpressions || effectiveFollowers || 0;
   const hasNonZeroSeries = effectiveTimeSeries.length > 0 && effectiveTimeSeries.some((d) => d.value > 0);
   const displayTimeSeries =

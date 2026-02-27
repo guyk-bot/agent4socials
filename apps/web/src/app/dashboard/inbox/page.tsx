@@ -166,6 +166,7 @@ export default function InboxPage() {
   useEffect(() => {
     if (dmOrFbPlatforms.length === 0) {
       setConversations([]);
+      setConversationsLoading(false);
       setConversationsError(null);
       setConversationsDebug(null);
       return;
@@ -175,6 +176,7 @@ export default function InboxPage() {
     const errors: string[] = [];
     const debugs: Array<{ rawMessage?: string; code?: number }> = [];
     let pending = dmOrFbPlatforms.length;
+    let needsFetch = false;
 
     dmOrFbPlatforms.forEach((platform) => {
       const account = effectiveAccounts.find((a) => a.platform === platform);
@@ -198,6 +200,7 @@ export default function InboxPage() {
         }
         return;
       }
+      needsFetch = true;
       api.get(`/social/accounts/${account.id}/conversations`)
         .then((res) => {
           if (cancelled) return;
@@ -229,9 +232,11 @@ export default function InboxPage() {
         });
     });
 
-    setConversationsLoading(true);
-    setConversationsError(null);
-    setConversationsDebug(null);
+    if (needsFetch) {
+      setConversationsLoading(true);
+      setConversationsError(null);
+      setConversationsDebug(null);
+    }
     return () => { cancelled = true; };
   }, [dmOrFbPlatforms.join(','), effectiveAccounts, appData]);
 
