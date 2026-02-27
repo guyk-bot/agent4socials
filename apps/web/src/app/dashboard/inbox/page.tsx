@@ -80,6 +80,7 @@ export default function InboxPage() {
   const [dmReplySending, setDmReplySending] = useState(false);
   const [aiReplyLoading, setAiReplyLoading] = useState(false);
   const [aiReplyError, setAiReplyError] = useState<string | null>(null);
+  const [notifications, setNotifications] = useState({ comments: 0, messages: 0 });
   const connectRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -129,6 +130,12 @@ export default function InboxPage() {
   useEffect(() => {
     setAiReplyError(null);
   }, [selectedComment?.commentId, selectedConversationId]);
+
+  useEffect(() => {
+    api.get<{ comments?: number; messages?: number }>('/social/notifications')
+      .then((res) => setNotifications({ comments: res.data?.comments ?? 0, messages: res.data?.messages ?? 0 }))
+      .catch(() => setNotifications({ comments: 0, messages: 0 }));
+  }, [selectedPlatform, inboxMode]);
 
   const connectedPlatforms = PLATFORMS.filter((p) => accounts.some((a) => a.platform === p.id));
   const unconnectedPlatforms = PLATFORMS.filter((p) => !accounts.some((a) => a.platform === p.id));
@@ -292,16 +299,26 @@ export default function InboxPage() {
           <button
             type="button"
             onClick={() => { setInboxMode('messages'); setSelectedComment(null); }}
-            className={`flex-1 py-3 text-sm font-medium ${inboxMode === 'messages' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
+            className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-1.5 ${inboxMode === 'messages' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
           >
             Messages
+            {notifications.messages > 0 && (
+              <span className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
+                {notifications.messages > 99 ? '99' : notifications.messages}
+              </span>
+            )}
           </button>
           <button
             type="button"
             onClick={() => { setInboxMode('comments'); setSelectedConversationId(null); }}
-            className={`flex-1 py-3 text-sm font-medium ${inboxMode === 'comments' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
+            className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-1.5 ${inboxMode === 'comments' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
           >
             Comments
+            {notifications.comments > 0 && (
+              <span className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
+                {notifications.comments > 99 ? '99' : notifications.comments}
+              </span>
+            )}
           </button>
           <button
             type="button"
