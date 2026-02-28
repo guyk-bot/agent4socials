@@ -38,12 +38,12 @@ export async function POST(request: NextRequest) {
     title?: string;
     content?: string;
     contentByPlatform?: Record<string, string>;
-    media?: { fileUrl: string; type: 'IMAGE' | 'VIDEO'; thumbnailUrl?: string }[];
+    media?: { fileUrl: string; type: 'IMAGE' | 'VIDEO'; thumbnailUrl?: string; useVideoDefaultForPublish?: boolean }[];
     mediaByPlatform?: Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[]>;
     targets?: { platform: string; socialAccountId: string }[];
     scheduledAt?: string | null;
     scheduleDelivery?: 'auto' | 'email_links' | null;
-    commentAutomation?: { keywords: string[]; replyTemplate?: string; replyTemplateByPlatform?: Record<string, string>; usePrivateReply?: boolean } | null;
+    commentAutomation?: { keywords: string[]; replyTemplate?: string; replyTemplateByPlatform?: Record<string, string>; replyOnComment?: boolean; usePrivateReply?: boolean } | null;
   };
   try {
     body = await request.json();
@@ -105,7 +105,13 @@ export async function POST(request: NextRequest) {
         create: media.map((m) => ({
           fileUrl: m.fileUrl,
           type: m.type as 'IMAGE' | 'VIDEO',
-          metadata: (m as { thumbnailUrl?: string }).thumbnailUrl ? { thumbnailUrl: (m as { thumbnailUrl?: string }).thumbnailUrl } : undefined,
+          metadata: (() => {
+            const meta = m as { thumbnailUrl?: string; useVideoDefaultForPublish?: boolean };
+            const obj: Record<string, unknown> = {};
+            if (meta.thumbnailUrl) obj.thumbnailUrl = meta.thumbnailUrl;
+            if (meta.useVideoDefaultForPublish) obj.useVideoDefaultForPublish = true;
+            return Object.keys(obj).length ? obj : undefined;
+          })(),
         })),
       },
       targets: {

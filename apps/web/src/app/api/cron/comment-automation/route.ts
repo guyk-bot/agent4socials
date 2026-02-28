@@ -21,6 +21,7 @@ type CommentAutomation = {
   keywords: string[];
   replyTemplate?: string;
   replyTemplateByPlatform?: Record<string, string>;
+  replyOnComment?: boolean;
   usePrivateReply?: boolean;
 };
 
@@ -107,20 +108,23 @@ async function runCommentAutomation(request: NextRequest) {
                   data: { postTargetId: target.id, platformCommentId: c.id },
                 });
                 repliedSet.add(c.id);
-                if (ca.usePrivateReply) {
-                  await axios.post(
-                    `https://graph.facebook.com/v18.0/${c.id}/private_reply`,
-                    new URLSearchParams({ message: replyText }),
-                    { params: { access_token: token }, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-                  );
-                } else {
+                const doPublicReply = ca.replyOnComment === true || (ca.replyOnComment === undefined && !ca.usePrivateReply);
+                const doPrivateReply = ca.usePrivateReply === true;
+                if (doPublicReply) {
                   await axios.post(
                     `https://graph.facebook.com/v18.0/${c.id}/replies`,
                     new URLSearchParams({ message: replyText }),
                     { params: { access_token: token }, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
                   );
                 }
-                replied++;
+                if (doPrivateReply) {
+                  await axios.post(
+                    `https://graph.facebook.com/v18.0/${c.id}/private_reply`,
+                    new URLSearchParams({ message: replyText }),
+                    { params: { access_token: token }, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+                  );
+                }
+                if (doPublicReply || doPrivateReply) replied++;
               } catch (e) {
                 await prisma.commentAutomationReply.deleteMany({
                   where: { postTargetId: target.id, platformCommentId: c.id },

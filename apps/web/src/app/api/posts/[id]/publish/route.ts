@@ -88,11 +88,15 @@ export async function POST(
 
   const contentByPlatform = (post as { contentByPlatform?: Record<string, string> | null }).contentByPlatform ?? null;
   const mediaByPlatform = (post as { mediaByPlatform?: Record<string, { fileUrl: string; type: string }[]> | null }).mediaByPlatform ?? null;
-  const defaultMedia = post.media.map((m) => ({
-    fileUrl: m.fileUrl,
-    type: m.type,
-    thumbnailUrl: (m as { metadata?: { thumbnailUrl?: string } }).metadata?.thumbnailUrl,
-  }));
+  const defaultMedia = post.media.map((m) => {
+    const meta = (m as { metadata?: { thumbnailUrl?: string; useVideoDefaultForPublish?: boolean } }).metadata;
+    const useVideoDefault = meta?.useVideoDefaultForPublish;
+    return {
+      fileUrl: m.fileUrl,
+      type: m.type,
+      thumbnailUrl: useVideoDefault ? undefined : meta?.thumbnailUrl,
+    };
+  });
 
   /** When URL is already on our R2 (S3_PUBLIC_URL), return as-is. Meta fetches directly from r2.dev, bypassing our domain (avoids Vercel bot protection / robots 403). */
   function directR2IfOurs(url: string): string | null {
