@@ -126,21 +126,26 @@ export async function POST(
     const caption = (contentByPlatform?.[platform] ?? post.content ?? '').trim();
     const platformMedia = mediaByPlatform?.[platform];
     const targetMedia = (platformMedia && platformMedia.length > 0 ? platformMedia : defaultMedia) as { fileUrl: string; type: string; thumbnailUrl?: string }[];
-    let firstImageUrl = targetMedia.find((m) => m.type === 'IMAGE')?.fileUrl;
+    const allImages = targetMedia.filter((m) => m.type === 'IMAGE');
+    let firstImageUrl = allImages[0]?.fileUrl;
     let firstMediaUrl = targetMedia[0]?.fileUrl;
     let videoThumbnailUrl = targetMedia[0] && targetMedia[0].type === 'VIDEO' ? (targetMedia[0] as { thumbnailUrl?: string }).thumbnailUrl : undefined;
+    let imageUrls: string[] | undefined;
     if (platform === 'INSTAGRAM' || platform === 'FACEBOOK') {
       const isInstagram = platform === 'INSTAGRAM';
       const firstIsImage = targetMedia[0]?.type === 'IMAGE';
       if (firstImageUrl) firstImageUrl = publicMediaUrlForMeta(firstImageUrl, { instagramImage: isInstagram });
       if (firstMediaUrl) firstMediaUrl = publicMediaUrlForMeta(firstMediaUrl, { instagramImage: isInstagram && firstIsImage });
       if (videoThumbnailUrl) videoThumbnailUrl = publicMediaUrlForMeta(videoThumbnailUrl, { instagramImage: isInstagram });
+      if (isInstagram && allImages.length >= 2 && allImages.length <= 10) {
+        imageUrls = allImages.map((m) => publicMediaUrlForMeta(m.fileUrl, { instagramImage: true }));
+      }
       if (isDebug && debugInfo.mediaUrlsByPlatform) {
         const url = firstImageUrl || firstMediaUrl || videoThumbnailUrl;
         if (url) debugInfo.mediaUrlsByPlatform[platform] = url;
       }
       // Pre-flight: verify Meta can fetch the media URL (2207076 = Meta couldn't fetch)
-      const urlToCheck = firstImageUrl || firstMediaUrl;
+      const urlToCheck = firstImageUrl || firstMediaUrl || (imageUrls && imageUrls[0]);
       if (urlToCheck && urlToCheck.startsWith('http')) {
         try {
           const headRes = await fetch(urlToCheck, { method: 'GET', headers: { 'User-Agent': 'InstagramBot/1.0' }, signal: AbortSignal.timeout(15_000) });
@@ -191,6 +196,7 @@ export async function POST(
         caption,
         firstImageUrl,
         firstMediaUrl,
+        imageUrls,
         videoThumbnailUrl,
         twitterOAuth1,
       },
@@ -211,7 +217,7 @@ export async function POST(
         });
         token = newAccess;
         result = await publishTarget(
-          { platform, token, platformUserId, caption, firstImageUrl, firstMediaUrl, videoThumbnailUrl, twitterOAuth1 },
+          { platform, token, platformUserId, caption, firstImageUrl, firstMediaUrl, imageUrls, videoThumbnailUrl, twitterOAuth1 },
           { fetch, axios }
         );
       } catch (refreshErr) {
@@ -235,7 +241,7 @@ export async function POST(
       for (let attempt = 0; attempt < 2 && isTwitterNetworkError(result); attempt++) {
         await new Promise((r) => setTimeout(r, 2000));
         result = await publishTarget(
-          { platform, token, platformUserId, caption, firstImageUrl, firstMediaUrl, videoThumbnailUrl, twitterOAuth1 },
+          { platform, token, platformUserId, caption, firstImageUrl, firstMediaUrl, imageUrls, videoThumbnailUrl, twitterOAuth1 },
           { fetch, axios }
         );
       }

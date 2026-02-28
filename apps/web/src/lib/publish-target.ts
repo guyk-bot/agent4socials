@@ -13,6 +13,8 @@ export type PublishTargetOptions = {
   caption: string;
   firstImageUrl?: string;
   firstMediaUrl?: string;
+  /** For Instagram carousel: 2-10 image URLs (all must be JPEG for Meta). */
+  imageUrls?: string[];
   /** Optional cover/thumbnail URL for video (e.g. Instagram Reels cover_url). */
   videoThumbnailUrl?: string;
   /** When set, Twitter v1.1 media upload uses OAuth 1.0a (avoids 403). Tweet creation still uses token (OAuth 2.0). */
@@ -57,7 +59,7 @@ export async function publishTarget(
   options: PublishTargetOptions,
   deps: PublishDeps
 ): Promise<PublishTargetResult> {
-  const { platform, token, platformUserId, caption, firstImageUrl, firstMediaUrl, videoThumbnailUrl, twitterOAuth1 } = options;
+  const { platform, token, platformUserId, caption, firstImageUrl, firstMediaUrl, imageUrls, videoThumbnailUrl, twitterOAuth1 } = options;
   const { fetch: fetchFn, axios: axiosInstance } = deps;
 
   /** Poll Instagram container until status_code is FINISHED or ERROR. Required before media_publish. */
@@ -114,15 +116,54 @@ export async function publishTarget(
         const mediaId = (publishRes.data as { id?: string })?.id;
         return { ok: true, platformPostId: mediaId };
       }
-      if (!firstImageUrl) {
+      if (!firstImageUrl && (!imageUrls || imageUrls.length === 0)) {
         return { ok: false, error: 'Instagram requires at least one image or video' };
+      }
+      const urls = imageUrls && imageUrls.length >= 2 ? imageUrls : [firstImageUrl!];
+      if (urls.length >= 2 && urls.length <= 10) {
+        const childIds: string[] = [];
+        for (const imageUrl of urls) {
+          const itemRes = await axiosInstance.post(
+            `https://graph.facebook.com/v18.0/${platformUserId}/media`,
+            null,
+            { params: { image_url: imageUrl, is_carousel_item: 'true', access_token: token } }
+          );
+          const id = (itemRes.data as { id?: string })?.id;
+          if (!id) throw new Error(JSON.stringify(itemRes.data));
+          const wait = await waitForInstagramContainer(id, token, 30_000);
+          if (!wait.ok) throw new Error(wait.error ?? 'Carousel item not ready');
+          childIds.push(id);
+        }
+        const carouselRes = await axiosInstance.post(
+          `https://graph.facebook.com/v18.0/${platformUserId}/media`,
+          null,
+          {
+            params: {
+              media_type: 'CAROUSEL',
+              children: childIds.join(','),
+              caption: caption || undefined,
+              access_token: token,
+            },
+          }
+        );
+        const creationId = (carouselRes.data as { id?: string })?.id;
+        if (!creationId) throw new Error(JSON.stringify(carouselRes.data));
+        const wait = await waitForInstagramContainer(creationId, token, 60_000);
+        if (!wait.ok) throw new Error(wait.error ?? 'Carousel not ready');
+        const publishRes = await axiosInstance.post(
+          `https://graph.facebook.com/v18.0/${platformUserId}/media_publish`,
+          null,
+          { params: { creation_id: creationId, access_token: token } }
+        );
+        const mediaId = (publishRes.data as { id?: string })?.id;
+        return { ok: true, platformPostId: mediaId };
       }
       const containerRes = await axiosInstance.post(
         `https://graph.facebook.com/v18.0/${platformUserId}/media`,
         null,
         {
           params: {
-            image_url: firstImageUrl,
+            image_url: firstImageUrl!,
             caption: caption || undefined,
             access_token: token,
           },

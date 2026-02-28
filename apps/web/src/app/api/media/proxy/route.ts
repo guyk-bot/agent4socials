@@ -77,7 +77,9 @@ export async function GET(request: NextRequest) {
     let contentType = res.headers.get('content-type')?.split(';')[0]?.trim()
       || contentTypeFromUrl(targetUrl.href);
     let body: Buffer | ReadableStream<Uint8Array> = res.body as ReadableStream<Uint8Array>;
-    if (formatJpeg && /^image\/(png|webp|gif)$/i.test(contentType)) {
+    const isImageLike = /^image\//i.test(contentType) || contentType === 'application/octet-stream'
+      || /\.(png|webp|gif|jpe?g)$/i.test(targetUrl.pathname);
+    if (formatJpeg && isImageLike) {
       const buf = Buffer.from(await res.arrayBuffer());
       const converted = await convertToJpegIfNeeded(buf, contentType);
       body = converted.buffer;

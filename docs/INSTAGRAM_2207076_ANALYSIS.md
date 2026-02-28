@@ -61,7 +61,10 @@ For **Reels/videos**, Meta recommends **Resumable Uploads** (upload bytes to Met
 
 Meta's official Image Specifications: **Format: JPEG** only. PNG, WebP, and GIF are not supported for feed images.
 
-**Fix (implemented)**: When publishing to Instagram, we append `&format=jpeg` to the media URL. Our serve/proxy routes convert PNG, WebP, and GIF to JPEG on-the-fly before Meta fetches. JPEG sources pass through unchanged.
+**Fix (implemented)**: When publishing to Instagram, we append `&format=jpeg` to all image URLs (single image, carousel items, video thumbnails). Our serve/proxy routes convert PNG, WebP, and GIF to JPEG on-the-fly before Meta fetches. We also:
+- Detect format by magic bytes when Content-Type is wrong (e.g. `application/octet-stream`)
+- Resize images over 8MB down to fit within Meta's limit
+- Support carousels (2–10 images) with each item converted to JPEG
 
 ### 6. Image size or format
 
