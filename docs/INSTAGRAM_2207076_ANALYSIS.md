@@ -99,6 +99,14 @@ Then in a new incognito tab (no auth cookies), visit that URL. You should get th
 
 If you get an error, that’s what Meta sees → 2207076.
 
+### Verify Range fix (200 not 206)
+
+```bash
+cd apps/web && npm run test:instagram-media -- "https://agent4socials.com/api/media/proxy?url=YOUR_ENCODED_R2_URL"
+```
+
+Get the proxy URL from Post History: open a post with an image, right-click image → Copy image address. The script sends a Range header (like Meta) and checks we return **200** (not 206).
+
 ---
 
 ## Code flow reference
