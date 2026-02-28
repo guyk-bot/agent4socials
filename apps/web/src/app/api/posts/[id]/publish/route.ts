@@ -91,6 +91,17 @@ export async function POST(
     type: m.type,
     thumbnailUrl: (m as { metadata?: { thumbnailUrl?: string } }).metadata?.thumbnailUrl,
   }));
+
+  /** Meta (Instagram/Facebook) must fetch the image URL from their servers. Use our proxy so they get a stable, public URL. */
+  function publicMediaUrlForMeta(fileUrl: string): string {
+    if (!fileUrl || !fileUrl.startsWith('http')) return fileUrl;
+    if (fileUrl.includes('r2.dev') || fileUrl.includes('cloudflarestorage.com')) {
+      const base = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '');
+      if (base) return `${base.replace(/\/$/, '')}/api/media/proxy?url=${encodeURIComponent(fileUrl)}`;
+    }
+    return fileUrl;
+  }
+
   const results: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[] = [];
 
   for (const target of post.targets) {
@@ -100,9 +111,14 @@ export async function POST(
     const caption = (contentByPlatform?.[platform] ?? post.content ?? '').trim();
     const platformMedia = mediaByPlatform?.[platform];
     const targetMedia = (platformMedia && platformMedia.length > 0 ? platformMedia : defaultMedia) as { fileUrl: string; type: string; thumbnailUrl?: string }[];
-    const firstImageUrl = targetMedia.find((m) => m.type === 'IMAGE')?.fileUrl;
-    const firstMediaUrl = targetMedia[0]?.fileUrl;
-    const videoThumbnailUrl = targetMedia[0] && targetMedia[0].type === 'VIDEO' ? (targetMedia[0] as { thumbnailUrl?: string }).thumbnailUrl : undefined;
+    let firstImageUrl = targetMedia.find((m) => m.type === 'IMAGE')?.fileUrl;
+    let firstMediaUrl = targetMedia[0]?.fileUrl;
+    let videoThumbnailUrl = targetMedia[0] && targetMedia[0].type === 'VIDEO' ? (targetMedia[0] as { thumbnailUrl?: string }).thumbnailUrl : undefined;
+    if (platform === 'INSTAGRAM' || platform === 'FACEBOOK') {
+      if (firstImageUrl) firstImageUrl = publicMediaUrlForMeta(firstImageUrl);
+      if (firstMediaUrl) firstMediaUrl = publicMediaUrlForMeta(firstMediaUrl);
+      if (videoThumbnailUrl) videoThumbnailUrl = publicMediaUrlForMeta(videoThumbnailUrl);
+    }
 
     const creds = socialAccount.credentialsJson as { twitterOAuth1AccessToken?: string; twitterOAuth1AccessTokenSecret?: string } | null;
     const twitterOAuth1 =

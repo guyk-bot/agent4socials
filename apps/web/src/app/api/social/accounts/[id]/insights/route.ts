@@ -116,7 +116,7 @@ export async function GET(
             }>;
           }>(`${baseUrl}/${account.platformUserId}/insights`, {
             params: {
-              metric: 'impressions,reach,profile_views',
+              metric: 'reach,profile_views,views',
               period: 'day',
               since: effectiveSinceTs,
               until: effectiveUntilTs,
