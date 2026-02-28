@@ -443,6 +443,24 @@ export default function DashboardPage() {
     }
   };
 
+  // Must run unconditionally before any early return (hooks rule)
+  const postsByDateSeries = React.useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const p of importedPosts) {
+      const d = p.publishedAt ? String(p.publishedAt).slice(0, 10) : '';
+      if (d) map[d] = (map[d] ?? 0) + 1;
+    }
+    return Object.entries(map).map(([date, value]) => ({ date, value })).sort((a, b) => a.date.localeCompare(b.date));
+  }, [importedPosts]);
+  const interactionsByDateSeries = React.useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const p of importedPosts) {
+      const d = p.publishedAt ? String(p.publishedAt).slice(0, 10) : '';
+      if (d) map[d] = (map[d] ?? 0) + (p.interactions ?? 0);
+    }
+    return Object.entries(map).map(([date, value]) => ({ date, value })).sort((a, b) => a.date.localeCompare(b.date));
+  }, [importedPosts]);
+
   if (selectedPlatformForConnect) {
     return (
       <>
@@ -481,22 +499,6 @@ export default function DashboardPage() {
   const totalPostsPages = Math.max(1, Math.ceil(sortedPosts.length / postsPerPage));
   const currentPagePosts = sortedPosts.slice((postsPage - 1) * postsPerPage, postsPage * postsPerPage);
 
-  const postsByDateSeries = React.useMemo(() => {
-    const map: Record<string, number> = {};
-    for (const p of importedPosts) {
-      const d = p.publishedAt ? String(p.publishedAt).slice(0, 10) : '';
-      if (d) map[d] = (map[d] ?? 0) + 1;
-    }
-    return Object.entries(map).map(([date, value]) => ({ date, value })).sort((a, b) => a.date.localeCompare(b.date));
-  }, [importedPosts]);
-  const interactionsByDateSeries = React.useMemo(() => {
-    const map: Record<string, number> = {};
-    for (const p of importedPosts) {
-      const d = p.publishedAt ? String(p.publishedAt).slice(0, 10) : '';
-      if (d) map[d] = (map[d] ?? 0) + (p.interactions ?? 0);
-    }
-    return Object.entries(map).map(([date, value]) => ({ date, value })).sort((a, b) => a.date.localeCompare(b.date));
-  }, [importedPosts]);
   const postsTabDisplaySeries = postsByDateSeries.length > 0 ? postsByDateSeries : (importedPosts.length > 0 ? [{ date: dateRange.end || new Date().toISOString().slice(0, 10), value: importedPosts.length }] : []);
   const interactionsTabDisplaySeries = interactionsByDateSeries.length > 0 ? interactionsByDateSeries : (totalInteractions > 0 ? [{ date: dateRange.end || new Date().toISOString().slice(0, 10), value: totalInteractions }] : []);
   const maxPostsTabValue = Math.max(...postsTabDisplaySeries.map((d) => d.value), 1);
