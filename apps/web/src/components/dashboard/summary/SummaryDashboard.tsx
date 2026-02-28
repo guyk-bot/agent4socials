@@ -19,7 +19,6 @@ export function SummaryDashboard() {
   const [dateRange, setDateRange] = useState({ start: DEFAULT_DATE_START, end: DEFAULT_DATE_END });
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [compareEnabled, setCompareEnabled] = useState(false);
-  const [competitorOpen, setCompetitorOpen] = useState(false);
 
   const summary = useSummaryData(dateRange, selectedPlatforms);
 
@@ -91,23 +90,6 @@ export function SummaryDashboard() {
       <ContentActivityPanels dailyPublishing={summary.dailyPublishing} dailyEngagement={summary.dailyEngagement} />
       <PostPerformanceTable posts={summary.posts} />
       <ContentTypeDistribution data={summary.contentTypeDistribution} />
-
-      {/* Optional: Competitor Comparison (collapsible) */}
-      <section className="rounded-[20px] bg-white border border-slate-200/60 overflow-hidden" style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
-        <button
-          type="button"
-          onClick={() => setCompetitorOpen((o) => !o)}
-          className="w-full flex items-center justify-between p-5 text-left hover:bg-slate-50/50 transition-colors"
-        >
-          <h2 className="text-lg font-semibold text-slate-900">Competitor Comparison</h2>
-          <span className="text-slate-500 text-sm">{competitorOpen ? 'Collapse' : 'Expand'}</span>
-        </button>
-        {competitorOpen && (
-          <div className="px-5 pb-5 pt-0 border-t border-slate-100">
-            <p className="text-slate-500 text-sm">Add competitors to compare follower growth, engagement, and content frequency. Coming soon.</p>
-          </div>
-        )}
-      </section>
     </div>
   );
 }
