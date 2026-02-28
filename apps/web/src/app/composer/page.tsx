@@ -1998,7 +1998,7 @@ export default function ComposerPage() {
                                     const effectiveMedia = (mediaType === 'video' || mediaType === 'reel') && mediaForPlatform.length === 1 && differentThumbnailPerPlatform
                                         ? mediaForPlatform.map((m, i) => (i === 0 && m.type === 'VIDEO' ? { ...m, thumbnailUrl: thumbnailByPlatform[p] ?? (m as MediaItem).thumbnailUrl } : m))
                                         : mediaForPlatform;
-                                    return (
+                                        return (
                                         <PostPreview
                                             key={p}
                                             platform={p}
@@ -2007,7 +2007,7 @@ export default function ComposerPage() {
                                             content={contentWithHashtags}
                                             media={effectiveMedia}
                                             mediaType={mediaType}
-                                            compact
+                                            compact={platforms.length > 1}
                                         />
                                     );
                                 })}
@@ -2035,7 +2035,7 @@ export default function ComposerPage() {
                                     const effectiveMedia = (mediaType === 'video' || mediaType === 'reel') && mediaForPlatform.length === 1 && differentThumbnailPerPlatform
                                         ? mediaForPlatform.map((m, i) => (i === 0 && m.type === 'VIDEO' ? { ...m, thumbnailUrl: thumbnailByPlatform[p] ?? (m as MediaItem).thumbnailUrl } : m))
                                         : mediaForPlatform;
-                                    return (
+                                        return (
                                         <PostPreview
                                             key={p}
                                             platform={p}
@@ -2044,7 +2044,7 @@ export default function ComposerPage() {
                                             content={contentWithHashtags}
                                             media={effectiveMedia}
                                             mediaType={mediaType}
-                                            compact
+                                            compact={platforms.length > 1}
                                         />
                                     );
                                 })}
@@ -2106,7 +2106,7 @@ function PostPreview({
         }
     };
     return (
-        <div className={`rounded-xl overflow-hidden border border-neutral-200 bg-white shadow-sm ${compact ? 'max-w-[140px]' : 'max-w-sm mx-auto shadow-lg'}`}>
+        <div className={`rounded-xl overflow-hidden border border-neutral-200 bg-white shadow-sm ${compact ? 'max-w-[220px]' : 'max-w-sm mx-auto shadow-lg'}`}>
             <div className={`border-b border-neutral-100 flex items-center gap-1.5 ${compact ? 'p-1.5' : 'p-3'}`}>
                 <div className={`rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden ${compact ? 'w-6 h-6' : 'w-9 h-9'}`}>
                     {profilePicture ? (
