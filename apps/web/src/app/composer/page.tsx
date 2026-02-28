@@ -944,8 +944,11 @@ export default function ComposerPage() {
                 } else {
                     // Post now: publish immediately after update (same as create + Post now)
                     try {
-                        const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string }>(`/posts/${editPostId}/publish`, undefined, { timeout: 90_000 });
+                        const debug = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('publish_debug') === '1';
+                        if (debug) sessionStorage.removeItem('publish_debug');
+                        const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string; debugInfo?: { mediaUrlsByPlatform?: Record<string, string>; fullErrors?: Record<string, string> } }>(`/posts/${editPostId}/publish${debug ? '?debug=1' : ''}`, undefined, { timeout: 90_000 });
                         const results = publishRes.data?.results;
+                        if (publishRes.data?.debugInfo) console.log('[Publish Debug]', publishRes.data.debugInfo);
                         if (results?.some((r) => !r.ok)) {
                             const failed = results.filter((r) => !r.ok).map((r) => `${r.platform}: ${r.error || 'failed'}`).join('; ');
                             let hint = '';
@@ -982,8 +985,11 @@ export default function ComposerPage() {
                 clearComposerDraft();
                 if (postId && !scheduledAt) {
                     try {
-                        const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string }>(`/posts/${postId}/publish`, undefined, { timeout: 90_000 });
+                        const debug = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('publish_debug') === '1';
+                        if (debug) sessionStorage.removeItem('publish_debug');
+                        const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string; debugInfo?: { mediaUrlsByPlatform?: Record<string, string>; fullErrors?: Record<string, string> } }>(`/posts/${postId}/publish${debug ? '?debug=1' : ''}`, undefined, { timeout: 90_000 });
                         const results = publishRes.data?.results;
+                        if (publishRes.data?.debugInfo) console.log('[Publish Debug]', publishRes.data.debugInfo);
                         if (results?.some((r) => !r.ok)) {
                             const failed = results.filter((r) => !r.ok).map((r) => `${r.platform}: ${r.error || 'failed'}`).join('; ');
                             let hint = '';

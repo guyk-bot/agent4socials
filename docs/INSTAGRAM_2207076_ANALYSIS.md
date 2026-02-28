@@ -116,3 +116,5 @@ Get the proxy URL from Post History: open a post with an image, right-click imag
 - `apps/web/src/app/api/media/proxy/route.ts` – proxy for R2 URLs
 - `apps/web/src/lib/publish-target.ts` – Instagram `media` + `media_publish` calls
 - `apps/web/src/lib/media-serve-token.ts` – token creation (needs MEDIA_SERVE_SECRET or CRON_SECRET)
+
+**Still failing?** See [INSTAGRAM_DEBUG_GUIDE.md](./INSTAGRAM_DEBUG_GUIDE.md) for how to capture debug info and send a screenshot.

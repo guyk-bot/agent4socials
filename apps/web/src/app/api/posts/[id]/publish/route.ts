@@ -114,6 +114,8 @@ export async function POST(
   }
 
   const results: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[] = [];
+  const isDebug = request.nextUrl.searchParams.get('debug') === '1';
+  const debugInfo: { mediaUrlsByPlatform?: Record<string, string>; fullErrors?: Record<string, string> } = isDebug ? { mediaUrlsByPlatform: {}, fullErrors: {} } : undefined!;
 
   for (const target of post.targets) {
     const { platform, socialAccount } = target;
@@ -129,6 +131,10 @@ export async function POST(
       if (firstImageUrl) firstImageUrl = publicMediaUrlForMeta(firstImageUrl);
       if (firstMediaUrl) firstMediaUrl = publicMediaUrlForMeta(firstMediaUrl);
       if (videoThumbnailUrl) videoThumbnailUrl = publicMediaUrlForMeta(videoThumbnailUrl);
+      if (isDebug && debugInfo.mediaUrlsByPlatform) {
+        const url = firstImageUrl || firstMediaUrl || videoThumbnailUrl;
+        if (url) debugInfo.mediaUrlsByPlatform[platform] = url;
+      }
       // Pre-flight: verify Meta can fetch the media URL (2207076 = Meta couldn't fetch)
       const urlToCheck = firstImageUrl || firstMediaUrl;
       if (urlToCheck && urlToCheck.startsWith('http')) {
@@ -242,6 +248,9 @@ export async function POST(
         where: { id: target.id },
         data: { status: PostStatus.FAILED, error: result.error?.slice(0, 500) },
       });
+      if (isDebug && debugInfo.fullErrors && result.error) {
+        debugInfo.fullErrors[platform] = result.error;
+      }
       results.push({ platform, ok: false, error: result.error?.slice(0, 200) });
     }
   }
@@ -255,5 +264,5 @@ export async function POST(
     },
   });
 
-  return NextResponse.json({ ok: !anyFailed, results });
+  return NextResponse.json({ ok: !anyFailed, results, ...(isDebug && debugInfo ? { debugInfo } : {}) });
 }
