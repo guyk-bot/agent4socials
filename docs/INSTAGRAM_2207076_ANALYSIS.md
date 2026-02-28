@@ -54,9 +54,10 @@ For **Reels/videos**, Meta recommends **Resumable Uploads** (upload bytes to Met
 ### 4. Image size or format
 
 - Over **8MB** → Meta rejects
+- **PNG** can sometimes cause 2207076 even when valid; **JPEG is more reliable**
 - Unusual formats or corrupted files → Meta may fail
 
-**Fix**: Validate size/format before upload; prefer JPEG/PNG for images.
+**Fix**: Prefer **JPEG** over PNG. Export/save as JPEG, 1080×1080, under 8MB.
 
 ### 5. Token/secret not set
 

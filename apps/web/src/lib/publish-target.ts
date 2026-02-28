@@ -475,13 +475,16 @@ export async function publishTarget(
     const ax = err as { response?: { data?: unknown; status?: number }; message?: string };
     let message: string;
     if (ax?.response?.data != null && typeof ax.response.data === 'object') {
-      const data = ax.response.data as { error?: { message?: string; code?: number } };
+      const data = ax.response.data as { error?: { message?: string; code?: number; error_user_msg?: string; error_user_title?: string } };
       const metaMsg = data?.error?.message;
       if (typeof metaMsg === 'string' && metaMsg.length > 0) {
         message = metaMsg;
         const code = data.error?.code;
         if (code === 2207082 || code === 2207076 || message.includes('2207082') || message.includes('2207076')) {
-          message += ' Try again with a different image or ensure the image is under 8MB and the URL is publicly accessible (HTTPS).';
+          message += ' Try JPEG instead of PNG, under 8MB, or ensure the URL is publicly accessible (HTTPS).';
+        }
+        if (process.env.NODE_ENV !== 'test') {
+          console.error('[Publish] Meta API error:', JSON.stringify(data.error));
         }
       } else {
         message = JSON.stringify(ax.response.data);
