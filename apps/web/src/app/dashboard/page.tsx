@@ -120,6 +120,7 @@ export default function DashboardPage() {
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
   const [reconnectingId, setReconnectingId] = useState<string | null>(null);
   const [enablingTwitter1oa, setEnablingTwitter1oa] = useState(false);
+  const [tokenDebugLoading, setTokenDebugLoading] = useState<string | null>(null);
   const accounts = (cachedAccounts as SocialAccount[]) ?? [];
   const hasAccounts = accounts.length > 0;
 
@@ -646,6 +647,33 @@ export default function DashboardPage() {
                 {reconnectingId === selectedAccount.id ? <RefreshCw size={16} className="animate-spin" /> : <RefreshCw size={16} />}
                 {reconnectingId === selectedAccount.id ? 'Reconnecting…' : 'Reconnect'}
               </button>
+              {(selectedAccount.platform === 'INSTAGRAM' || selectedAccount.platform === 'FACEBOOK') && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (tokenDebugLoading) return;
+                    setTokenDebugLoading(selectedAccount.id);
+                    try {
+                      const res = await api.get(`/social/accounts/${selectedAccount.id}/token-debug`);
+                      const d = res.data as { isValid?: boolean; scopes?: string[]; hasPublishScope?: boolean; expiresAt?: number };
+                      const exp = d.expiresAt ? new Date(d.expiresAt * 1000).toISOString().slice(0, 10) : 'N/A';
+                      const scopeList = (d.scopes ?? []).join(', ') || 'none';
+                      const msg = `Token valid: ${d.isValid ?? false}. Publish scope: ${d.hasPublishScope ? 'yes' : 'no'}. Expires: ${exp}. Scopes: ${scopeList}`;
+                      setAlertMessage(msg);
+                    } catch (e: unknown) {
+                      const err = e as { response?: { data?: { message?: string; error?: string } } };
+                      setAlertMessage(err?.response?.data?.message ?? err?.response?.data?.error ?? 'Could not validate token.');
+                    }
+                    setTokenDebugLoading(null);
+                  }}
+                  disabled={!!tokenDebugLoading}
+                  title="Validate Meta token and show granted scopes"
+                  className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-neutral-200 bg-white text-neutral-700 text-sm font-medium hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {tokenDebugLoading === selectedAccount.id ? <RefreshCw size={16} className="animate-spin" /> : <HelpCircle size={16} />}
+                  {tokenDebugLoading === selectedAccount.id ? 'Checking…' : 'Check permissions'}
+                </button>
+              )}
               {selectedAccount.platform === 'TWITTER' && !(selectedAccount as { imageUploadEnabled?: boolean }).imageUploadEnabled && (
                 <button
                   type="button"
