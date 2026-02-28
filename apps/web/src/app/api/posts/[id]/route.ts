@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
-import { PostStatus, Platform } from '@prisma/client';
+import { PostStatus, Platform, Prisma } from '@prisma/client';
 
 /**
  * GET /api/posts/[id] - Fetch a single post for viewing/editing in composer.
@@ -120,7 +120,7 @@ export async function PATCH(
             const obj: Record<string, unknown> = {};
             if (meta.thumbnailUrl) obj.thumbnailUrl = meta.thumbnailUrl;
             if (meta.useVideoDefaultForPublish) obj.useVideoDefaultForPublish = true;
-            return Object.keys(obj).length ? obj : undefined;
+            return (Object.keys(obj).length ? obj : undefined) as Prisma.InputJsonValue | undefined;
           })(),
         })),
       });
