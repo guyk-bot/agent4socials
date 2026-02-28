@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import Link from 'next/link';
 import {
@@ -54,6 +54,8 @@ function PostMediaThumb({ mediaItem }: { mediaItem: { fileUrl: string; type: str
 
 export default function PostsPage() {
     const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const router = useRouter();
     const appData = useAppData();
     const [posts, setPosts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -88,8 +90,23 @@ export default function PostsPage() {
         return p.status === filter;
     });
 
+    const [showDraftSavedBanner, setShowDraftSavedBanner] = useState(false);
+    const draftSaved = searchParams.get('draft_saved') === '1';
+    useEffect(() => {
+        if (draftSaved) {
+            setShowDraftSavedBanner(true);
+            router.replace('/posts', { scroll: false });
+        }
+    }, [draftSaved, router]);
+
     return (
         <div className="space-y-8">
+            {showDraftSavedBanner && (
+                <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 flex items-center justify-between">
+                    <span>Draft saved. Find it in History below.</span>
+                    <button type="button" onClick={() => setShowDraftSavedBanner(false)} className="text-green-600 hover:text-green-800 font-medium">Dismiss</button>
+                </div>
+            )}
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Post History</h1>

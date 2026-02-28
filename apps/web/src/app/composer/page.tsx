@@ -181,6 +181,7 @@ export default function ComposerPage() {
     // Resizable right preview panel (px); min 280, max 720
     const [previewWidthPx, setPreviewWidthPx] = useState(480);
     const previewResizeRef = useRef<{ startX: number; startW: number } | null>(null);
+    const saveAsDraftRef = useRef(false);
 
     useEffect(() => {
         const onMove = (e: MouseEvent) => {
@@ -894,6 +895,8 @@ export default function ComposerPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        const saveAsDraft = (e.nativeEvent as SubmitEvent).submitter?.getAttribute('value') === 'draft';
+        saveAsDraftRef.current = saveAsDraft;
         if (platforms.length === 0) {
             setAlertMessage('Select at least one platform');
             return;
@@ -972,7 +975,10 @@ export default function ComposerPage() {
                 payload.contentByPlatform = contentByPlatformFinal;
             }
             // Send scheduled time as UTC ISO so server stores correct moment (datetime-local is in user's local time)
-            if (scheduledAt && scheduledAt.trim()) {
+            if (saveAsDraft) {
+                payload.scheduledAt = undefined;
+                payload.scheduleDelivery = undefined;
+            } else if (scheduledAt && scheduledAt.trim()) {
                 try {
                     const localDate = new Date(scheduledAt.trim());
                     if (!Number.isNaN(localDate.getTime())) payload.scheduledAt = localDate.toISOString();
@@ -980,10 +986,10 @@ export default function ComposerPage() {
                 } catch {
                     payload.scheduledAt = scheduledAt.trim();
                 }
+                if (payload.scheduledAt) payload.scheduleDelivery = scheduleDelivery;
             } else {
                 payload.scheduledAt = undefined;
             }
-            if (payload.scheduledAt) payload.scheduleDelivery = scheduleDelivery;
             if (commentAutomationEnabled && commentAutomationKeywords.trim()) {
                 const keywords = commentAutomationKeywords
                     .split(/[\n,]+/)
@@ -1040,6 +1046,11 @@ export default function ComposerPage() {
             if (updateExisting) {
                 await api.patch(`/posts/${editPostId}`, payload);
                 clearComposerDraft();
+                if (saveAsDraft) {
+                    router.push('/posts?draft_saved=1');
+                    setLoading(false);
+                    return;
+                }
                 if (scheduledAt) {
                     setAlertMessage('Post updated and scheduled.');
                     router.push('/calendar?scheduled=1');
@@ -1085,6 +1096,11 @@ export default function ComposerPage() {
                 const createRes = await api.post<{ id: string }>('/posts', payload);
                 const postId = createRes.data?.id;
                 clearComposerDraft();
+                if (saveAsDraft) {
+                    router.push('/posts?draft_saved=1');
+                    setLoading(false);
+                    return;
+                }
                 if (postId && !scheduledAt) {
                     try {
                         const debug = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('publish_debug') === '1';
@@ -1156,6 +1172,7 @@ export default function ComposerPage() {
             if (msg === 'Failed to create post') msg += ' Open the browser console (F12 → Console) for details.';
             setAlertMessage(msg);
         } finally {
+            saveAsDraftRef.current = false;
             setLoading(false);
         }
     };
@@ -1975,23 +1992,34 @@ export default function ComposerPage() {
                         )}
                     </div>
 
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full btn-primary flex items-center justify-center gap-2 py-3.5 rounded-xl text-base font-medium disabled:opacity-70 disabled:cursor-not-allowed"
-                    >
-                        {loading ? (
-                            <>
-                                <Loader2 size={20} className="animate-spin shrink-0" />
-                                <span>{scheduledAt ? 'Scheduling…' : 'Posting…'}</span>
-                            </>
-                        ) : (
-                            <>
-                                <Send size={20} />
-                                <span>{editPostId ? (editPostAlreadyPosted ? (scheduledAt ? 'Create new post & Schedule' : 'Create new post & Post Now') : (scheduledAt ? 'Update & Schedule' : 'Update & Post Now')) : (scheduledAt ? 'Schedule Post' : 'Post Now')}</span>
-                            </>
-                        )}
-                    </button>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                        <button
+                            type="submit"
+                            value="publish"
+                            disabled={loading}
+                            className="flex-1 btn-primary flex items-center justify-center gap-2 py-3.5 rounded-xl text-base font-medium disabled:opacity-70 disabled:cursor-not-allowed"
+                        >
+                            {loading ? (
+                                <>
+                                    <Loader2 size={20} className="animate-spin shrink-0" />
+                                    <span>{saveAsDraftRef.current ? 'Saving…' : scheduledAt ? 'Scheduling…' : 'Posting…'}</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Send size={20} />
+                                    <span>{editPostId ? (editPostAlreadyPosted ? (scheduledAt ? 'Create new post & Schedule' : 'Create new post & Post Now') : (scheduledAt ? 'Update & Schedule' : 'Update & Post Now')) : (scheduledAt ? 'Schedule Post' : 'Post Now')}</span>
+                                </>
+                            )}
+                        </button>
+                        <button
+                            type="submit"
+                            value="draft"
+                            disabled={loading}
+                            className="shrink-0 px-6 py-3.5 rounded-xl border-2 border-neutral-200 text-neutral-700 hover:bg-neutral-50 hover:border-neutral-300 font-medium disabled:opacity-70 disabled:cursor-not-allowed transition-colors"
+                        >
+                            {loading ? <Loader2 size={20} className="animate-spin" /> : 'Save draft'}
+                        </button>
+                    </div>
                 </form>
 
                 {/* Resizable preview panel: drag the handle to change width */}
