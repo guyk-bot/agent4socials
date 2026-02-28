@@ -127,6 +127,7 @@ export async function PATCH(
       ...(scheduledAt !== undefined ? { scheduledAt: scheduledAt ? new Date(scheduledAt) : null } : {}),
       ...(scheduleDelivery !== undefined ? { scheduleDelivery: scheduledAt && (scheduleDelivery === 'auto' || scheduleDelivery === 'email_links') ? scheduleDelivery : null } : {}),
       status,
+      ...(validTargets.length > 0 ? { targetPlatforms: validTargets.map((t) => t.platform) } : {}),
     };
     if (commentAutomation !== undefined) {
       const ca = commentAutomation as { keywords?: string[]; replyTemplate?: string; replyTemplateByPlatform?: Record<string, string>; usePrivateReply?: boolean } | null;

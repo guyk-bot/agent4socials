@@ -23,8 +23,9 @@ import { useAppData } from '@/context/AppDataContext';
 
 function postMediaThumbUrl(mediaItem: { fileUrl: string; type: string; metadata?: { thumbnailUrl?: string } | null } | undefined): string | null {
     if (!mediaItem?.fileUrl) return null;
+    // For VIDEO/Reels: prefer thumbnail from metadata; don't use video URL as img src (fails to render)
     const url = mediaItem.type === 'VIDEO'
-        ? (mediaItem.metadata && typeof mediaItem.metadata === 'object' && mediaItem.metadata.thumbnailUrl) || mediaItem.fileUrl
+        ? (mediaItem.metadata && typeof mediaItem.metadata === 'object' && (mediaItem.metadata.thumbnailUrl as string | undefined)) || null
         : mediaItem.fileUrl;
     if (typeof url !== 'string' || !url) return null;
     if (url.startsWith('http') && (url.includes('r2.dev') || url.includes('cloudflarestorage.com'))) {
@@ -151,12 +152,15 @@ export default function PostsPage() {
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex flex-wrap items-center gap-2">
-                                            {(post.targets || []).length > 0 ? (
-                                                (post.targets || []).map((t: any) => (
+                                            {(() => {
+                                                const targets = post.targets || [];
+                                                const platforms = targets.length > 0 ? targets : (post.targetPlatforms || []).map((p: string) => ({ platform: p, status: post.status, id: p }));
+                                                return platforms.length > 0 ? (
+                                                platforms.map((t: any) => (
                                                     <span
-                                                        key={t.id}
-                                                        title={`${t.platform}${t.socialAccount?.username ? ` @${t.socialAccount.username}` : ''} · ${t.status}`}
-                                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${t.status === 'POSTED' ? 'bg-green-100 text-green-800' : t.status === 'FAILED' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-700'}`}
+                                                        key={t.id || t.platform}
+                                                        title={typeof t === 'object' && t.socialAccount?.username ? `${t.platform} @${t.socialAccount.username} · ${t.status}` : t.platform || t}
+                                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${(t.status || post.status) === 'POSTED' ? 'bg-green-100 text-green-800' : (t.status || post.status) === 'FAILED' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-700'}`}
                                                     >
                                                         {t.platform === 'INSTAGRAM' && <Instagram size={14} />}
                                                         {t.platform === 'YOUTUBE' && <Youtube size={14} />}
@@ -167,9 +171,10 @@ export default function PostsPage() {
                                                         <span>{t.platform}</span>
                                                     </span>
                                                 ))
-                                            ) : (
+                                                ) : (
                                                 <span className="text-gray-400 text-sm">—</span>
-                                            )}
+                                            );
+                                            })()}
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">

@@ -98,6 +98,7 @@ export async function POST(request: NextRequest) {
         ? { commentAutomation: commentAutomation as object }
         : {}),
       status,
+      targetPlatforms: validTargets.map((t) => t.platform),
       scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
       scheduleDelivery: scheduledAt && (scheduleDelivery === 'auto' || scheduleDelivery === 'email_links') ? scheduleDelivery : null,
       media: {

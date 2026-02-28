@@ -145,6 +145,7 @@ model Post {
   createdAt             DateTime   @default(now())
   updatedAt             DateTime   @updatedAt
 
+  targetPlatforms       String[]   @default([]) // Platform names stored at Post level so they survive account reconnect
   media         MediaAsset[]
   targets       PostTarget[]
 }
