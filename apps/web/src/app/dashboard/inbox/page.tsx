@@ -69,7 +69,7 @@ export default function InboxPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [conversationsLoading, setConversationsLoading] = useState(false);
   const [conversationsError, setConversationsError] = useState<string | null>(null);
-  const [conversationsDebug, setConversationsDebug] = useState<{ rawMessage?: string; code?: number; responseData?: unknown } | null>(null);
+  const [conversationsDebug, setConversationsDebug] = useState<{ rawMessage?: string; code?: number; responseData?: unknown; metaMessage?: string } | null>(null);
   const [comments, setComments] = useState<PostComment[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [commentsError, setCommentsError] = useState<string | null>(null);
@@ -220,7 +220,12 @@ export default function InboxPage() {
           const msg = err?.message ?? 'Could not load conversations.';
           const isTimeout = err?.response?.status === 408 || /timeout|408/i.test(msg);
           errors.push(isTimeout ? 'Request timed out. Try again or reconnect and choose your Page.' : msg);
-          debugs.push({ rawMessage: msg });
+          const metaError = err?.response?.data && typeof err.response.data === 'object' && (err.response.data as { error?: { message?: string; code?: number } }).error;
+          debugs.push({
+            rawMessage: msg,
+            responseData: err?.response?.data,
+            ...(metaError?.message && { metaMessage: metaError.message, code: metaError.code }),
+          });
           if (--pending === 0) {
             setConversations(merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? '')));
             setConversationsError(errors[0] ?? null);
@@ -541,11 +546,18 @@ export default function InboxPage() {
           ) : conversationsError ? (
             <div className="p-4">
               <div className="rounded-xl border-2 border-indigo-200 bg-indigo-50 px-4 py-4">
-                <p className="text-sm font-medium text-indigo-900">To load conversations, reconnect and choose your Page.</p>
+                <p className="text-sm font-medium text-indigo-900">Instagram and Facebook inbox need permission from Meta.</p>
                 <p className="text-xs text-indigo-700 mt-1">{conversationsError}</p>
-                {conversationsDebug && (conversationsDebug.rawMessage || conversationsDebug.code != null) && (
+                {conversationsDebug?.metaMessage && (
+                  <p className="text-xs text-indigo-800 mt-1 font-mono bg-indigo-100/80 px-2 py-1 rounded mt-2">Meta: {conversationsDebug.metaMessage}</p>
+                )}
+                {conversationsDebug?.responseData && typeof conversationsDebug.responseData === 'object' && (conversationsDebug.responseData as { error?: { message?: string } }).error?.message && !conversationsDebug.metaMessage && (
+                  <p className="text-xs text-indigo-800 mt-1 font-mono bg-indigo-100/80 px-2 py-1 rounded mt-2">Meta: {(conversationsDebug.responseData as { error: { message: string } }).error.message}</p>
+                )}
+                {conversationsDebug && (conversationsDebug.rawMessage || conversationsDebug.code != null) && !conversationsDebug.metaMessage && (
                   <p className="text-xs text-neutral-500 mt-1 font-mono">API: {conversationsDebug.rawMessage ?? ''} {conversationsDebug.code != null ? `(code ${conversationsDebug.code})` : ''}</p>
                 )}
+                <p className="text-xs text-indigo-700 mt-3">Tools like Metricool show inbox because their app has <strong>Advanced Access</strong> for instagram_manage_messages. To get the same in A4S, complete Meta App Review (see docs in the repo).</p>
                 <button
                   type="button"
                   onClick={async () => {
@@ -566,6 +578,11 @@ export default function InboxPage() {
               <MessageCircle size={40} className="mx-auto text-neutral-300 mb-3" />
               <p className="text-sm text-neutral-500">No conversations yet.</p>
               <p className="text-xs text-neutral-400 mt-1">Messages will appear here when you receive them.</p>
+              {dmOrFbPlatforms.includes('INSTAGRAM') && (
+                <p className="text-xs text-amber-700 mt-3 max-w-sm mx-auto bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  If you see Instagram DMs in Metricool but not here, Meta is only granting inbox access to apps with <strong>Advanced Access</strong>. Complete App Review for instagram_manage_messages to enable it in A4S.
+                </p>
+              )}
             </div>
           ) : (
             <div className="p-2 space-y-0">

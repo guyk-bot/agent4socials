@@ -54,9 +54,10 @@ export async function GET(
     if (res.data?.error) {
       const msg = res.data.error.message ?? '';
       const code = (res.data as { error?: { code?: number } }).error?.code;
+      const metaMsg = typeof msg === 'string' ? msg : '';
       if (msg.includes('permission') || msg.includes('OAuth') || msg.includes('access'))
-        return NextResponse.json({ conversations: [], error: 'Reconnect from the sidebar and choose your Page when asked to grant messaging permission.', debug: { rawMessage: msg, code } });
-      return NextResponse.json({ conversations: [], error: msg, debug: { rawMessage: msg, code } });
+        return NextResponse.json({ conversations: [], error: 'Reconnect from the sidebar and choose your Page when asked to grant messaging permission.', debug: { rawMessage: metaMsg, code, metaMessage: metaMsg } });
+      return NextResponse.json({ conversations: [], error: metaMsg, debug: { rawMessage: metaMsg, code, metaMessage: metaMsg } });
     }
 
     const list = (res.data?.data ?? []).map((c) => ({
@@ -72,10 +73,15 @@ export async function GET(
     const axiosData = err?.response?.data;
     const isTimeout = err?.code === 'ECONNABORTED' || /timeout|408/i.test(msg);
     if (status === 400) {
+      const metaMsg = axiosData && typeof axiosData === 'object' && (axiosData as { error?: { message?: string } }).error?.message;
       const hint = account.platform === 'INSTAGRAM'
         ? 'Instagram returned 400. Ensure instagram_manage_messages is granted: reconnect from the sidebar and choose your Page, or request Advanced Access in Meta App Dashboard.'
         : 'Reconnect from the sidebar and choose your Page when asked to grant messaging permission.';
-      return NextResponse.json({ conversations: [], error: hint, debug: { rawMessage: msg, responseData: axiosData } });
+      return NextResponse.json({
+        conversations: [],
+        error: hint,
+        debug: { rawMessage: msg, responseData: axiosData, ...(metaMsg && { metaMessage: metaMsg }) },
+      });
     }
     if (msg.includes('403') || msg.includes('permission') || msg.includes('OAuth'))
       return NextResponse.json({ conversations: [], error: 'Reconnect from the sidebar and choose your Page when asked to grant messaging permission.', debug: { rawMessage: msg, responseData: axiosData } });
