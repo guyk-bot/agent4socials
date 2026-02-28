@@ -80,7 +80,7 @@ export async function GET(
       return NextResponse.json({
         conversations: [],
         error: hint,
-        debug: { rawMessage: msg, responseData: axiosData, ...(metaMsg && { metaMessage: metaMsg }) },
+        debug: { rawMessage: msg, responseData: axiosData, ...(metaMsg ? { metaMessage: metaMsg } : {}) },
       });
     }
     if (msg.includes('403') || msg.includes('permission') || msg.includes('OAuth'))
