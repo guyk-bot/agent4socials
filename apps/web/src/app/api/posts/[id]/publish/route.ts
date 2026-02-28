@@ -94,6 +94,19 @@ export async function POST(
     thumbnailUrl: (m as { metadata?: { thumbnailUrl?: string } }).metadata?.thumbnailUrl,
   }));
 
+  /** When URL is already on our R2 (S3_PUBLIC_URL), return as-is. Meta fetches directly from r2.dev, bypassing our domain (avoids Vercel bot protection / robots 403). */
+  function directR2IfOurs(url: string): string | null {
+    if (!url?.startsWith('http')) return null;
+    const base = process.env.S3_PUBLIC_URL?.trim();
+    if (!base) return null;
+    try {
+      const baseOrigin = new URL(base.replace(/\/$/, '')).origin;
+      const urlOrigin = new URL(url).origin;
+      if (urlOrigin === baseOrigin) return url;
+    } catch (_) {}
+    return null;
+  }
+
   /** Meta (Instagram/Facebook) must fetch the image URL from their servers. Prefer short token URL (serve), else proxy, else raw.
    * For Instagram: append format=jpeg (Meta requires JPEG only; we convert PNG/WebP on-the-fly). */
   function publicMediaUrlForMeta(fileUrl: string, opts?: { instagramImage?: boolean }): string {
@@ -136,13 +149,21 @@ export async function POST(
       const isInstagram = platform === 'INSTAGRAM';
       const firstIsImage = targetMedia[0]?.type === 'IMAGE';
       async function urlForInstagram(raw: string, forImage: boolean): Promise<string> {
-        if (!forImage) return publicMediaUrlForMeta(raw, { instagramImage: false });
+        if (!forImage) {
+          const directR2 = directR2IfOurs(raw);
+          if (directR2) return directR2;
+          return publicMediaUrlForMeta(raw, { instagramImage: false });
+        }
         const direct = await ensureInstagramJpegOnR2(raw, fetch);
         return direct ?? publicMediaUrlForMeta(raw, { instagramImage: true });
       }
       if (firstImageUrl) firstImageUrl = await urlForInstagram(firstImageUrl, isInstagram);
       if (firstMediaUrl) firstMediaUrl = await urlForInstagram(firstMediaUrl, isInstagram && firstIsImage);
-      if (videoThumbnailUrl) videoThumbnailUrl = await urlForInstagram(videoThumbnailUrl, isInstagram);
+      if (videoThumbnailUrl) {
+        const thumbR2 = directR2IfOurs(videoThumbnailUrl);
+        if (thumbR2) videoThumbnailUrl = thumbR2;
+        else videoThumbnailUrl = await urlForInstagram(videoThumbnailUrl, isInstagram);
+      }
       if (isInstagram && allImages.length >= 2 && allImages.length <= 10) {
         imageUrls = await Promise.all(allImages.map((m) => urlForInstagram(m.fileUrl, true)));
       }

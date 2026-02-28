@@ -22,6 +22,8 @@ Error **2207076** means Meta's servers tried to fetch your media URL and **faile
 
 **What happens**: We send `https://agent4socials.com/api/media/serve?t=...` or `/api/media/proxy?url=...`. When Meta fetches it:
 
+- **403 "Restricted by robots.txt"**: Often caused by Vercel's Bot Protection/WAF blocking Meta's crawler, not by robots.txt itself. **Fix**: For videos and thumbnails already on R2, we now send the **direct R2 URL** (e.g. `https://pub-xxx.r2.dev/uploads/...`) so Meta fetches from r2.dev, bypassing our domain.
+
 - **Serve route** requires `S3_PUBLIC_URL` and `MEDIA_SERVE_SECRET`/`CRON_SECRET`. If either is missing in Vercel, we return 400/503.
 - **Serve/proxy** check that the target URL (R2) matches `S3_PUBLIC_URL` origin. Mismatch → 403 Forbidden.
 - **Serve/proxy** fetch from R2; if R2 returns 404 (e.g. wrong path) or 403 (private bucket), we forward that → Meta gets error → 2207076.
