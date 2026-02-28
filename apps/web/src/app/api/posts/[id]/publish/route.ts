@@ -129,6 +129,42 @@ export async function POST(
       if (firstImageUrl) firstImageUrl = publicMediaUrlForMeta(firstImageUrl);
       if (firstMediaUrl) firstMediaUrl = publicMediaUrlForMeta(firstMediaUrl);
       if (videoThumbnailUrl) videoThumbnailUrl = publicMediaUrlForMeta(videoThumbnailUrl);
+      // Pre-flight: verify Meta can fetch the media URL (2207076 = Meta couldn't fetch)
+      const urlToCheck = firstImageUrl || firstMediaUrl;
+      if (urlToCheck && urlToCheck.startsWith('http')) {
+        try {
+          const headRes = await fetch(urlToCheck, { method: 'GET', headers: { 'User-Agent': 'InstagramBot/1.0' }, signal: AbortSignal.timeout(15_000) });
+          if (!headRes.ok) {
+            const hint = !process.env.MEDIA_SERVE_SECRET && !process.env.CRON_SECRET
+              ? ' Set MEDIA_SERVE_SECRET or CRON_SECRET in Vercel.'
+              : !process.env.S3_PUBLIC_URL
+                ? ' Set S3_PUBLIC_URL in Vercel.'
+                : '';
+            await prisma.postTarget.update({
+              where: { id: target.id },
+              data: { status: PostStatus.FAILED, error: `Media URL ${headRes.status}${hint}`.slice(0, 500) },
+            });
+            results.push({
+              platform,
+              ok: false,
+              error: `Media URL returned ${headRes.status} (Meta would get same).${hint} Check docs/INSTAGRAM_2207076_ANALYSIS.md`,
+            });
+            continue;
+          }
+        } catch (preflightErr) {
+          const msg = (preflightErr as Error)?.message ?? String(preflightErr);
+          await prisma.postTarget.update({
+            where: { id: target.id },
+            data: { status: PostStatus.FAILED, error: `Media unreachable: ${msg}`.slice(0, 500) },
+          });
+          results.push({
+            platform,
+            ok: false,
+            error: `Media URL unreachable: ${msg}. Set S3_PUBLIC_URL, CRON_SECRET in Vercel. See docs/INSTAGRAM_2207076_ANALYSIS.md`,
+          });
+          continue;
+        }
+      }
     }
 
     const creds = socialAccount.credentialsJson as { twitterOAuth1AccessToken?: string; twitterOAuth1AccessTokenSecret?: string } | null;
