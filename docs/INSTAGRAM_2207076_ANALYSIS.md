@@ -51,7 +51,13 @@ For **Reels/videos**, Meta recommends **Resumable Uploads** (upload bytes to Met
 
 **Fix**: We should add resumable upload for videos (fetch from our storage, stream to `rupload.facebook.com`). Images usually work with `image_url`.
 
-### 4. Image size or format
+### 4. Range header → 206 Partial Content (fixed)
+
+**What happens**: Meta's servers may send a `Range` header when fetching the image. If we forward it to R2, R2 returns `206 Partial Content` with only part of the file. Meta receives a partial/corrupt image → 2207076.
+
+**Fix (implemented)**: The serve and proxy routes **do not forward** the `Range` header. They always fetch the full file from R2 and return `200 OK` with the complete image. This applies to both `/api/media/serve` and `/api/media/proxy`.
+
+### 5. Image size or format
 
 - Over **8MB** → Meta rejects
 - **PNG** can sometimes cause 2207076 even when valid; **JPEG is more reliable**
@@ -59,7 +65,7 @@ For **Reels/videos**, Meta recommends **Resumable Uploads** (upload bytes to Met
 
 **Fix**: Prefer **JPEG** over PNG. Export/save as JPEG, 1080×1080, under 8MB.
 
-### 5. Token/secret not set
+### 6. Token/secret not set
 
 If `MEDIA_SERVE_SECRET` and `CRON_SECRET` are both missing:
 

@@ -47,12 +47,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
   }
 
-  const rangeHeader = request.headers.get('range');
+  // Do NOT forward Range to R2. Meta/Instagram fetches image_url and may send Range;
+  // R2 would return 206 Partial Content, causing corrupt image and error 2207076.
   const fetchHeaders: HeadersInit = {
     Accept: '*/*',
     'User-Agent': 'Mozilla/5.0 (compatible; Meta-Instagram/1.0; +https://www.instagram.com)',
   };
-  if (rangeHeader) fetchHeaders['Range'] = rangeHeader;
 
   try {
     let res = await fetch(targetUrl.href, {
@@ -80,12 +80,7 @@ export async function GET(request: NextRequest) {
     };
     const contentLength = res.headers.get('content-length');
     if (contentLength) responseHeaders['Content-Length'] = contentLength;
-    if (res.status === 206) {
-      const contentRange = res.headers.get('Content-Range');
-      const acceptRanges = res.headers.get('Accept-Ranges');
-      if (contentRange) responseHeaders['Content-Range'] = contentRange;
-      if (acceptRanges) responseHeaders['Accept-Ranges'] = acceptRanges;
-    } else if (!rangeHeader && res.headers.get('Accept-Ranges')) {
+    if (res.headers.get('Accept-Ranges')) {
       responseHeaders['Accept-Ranges'] = res.headers.get('Accept-Ranges')!;
     }
     return new NextResponse(res.body, {
