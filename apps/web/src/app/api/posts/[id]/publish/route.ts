@@ -5,6 +5,7 @@ import { PostStatus } from '@prisma/client';
 import axios from 'axios';
 import { publishTarget } from '@/lib/publish-target';
 import { createMediaServeToken } from '@/lib/media-serve-token';
+import { ensureInstagramJpegOnR2 } from '@/lib/instagram-media-r2';
 
 /** Refresh Twitter OAuth2 access token; returns new accessToken and refreshToken (if provided). */
 async function refreshTwitterToken(refreshToken: string): Promise<{ accessToken: string; refreshToken: string | null }> {
@@ -134,11 +135,16 @@ export async function POST(
     if (platform === 'INSTAGRAM' || platform === 'FACEBOOK') {
       const isInstagram = platform === 'INSTAGRAM';
       const firstIsImage = targetMedia[0]?.type === 'IMAGE';
-      if (firstImageUrl) firstImageUrl = publicMediaUrlForMeta(firstImageUrl, { instagramImage: isInstagram });
-      if (firstMediaUrl) firstMediaUrl = publicMediaUrlForMeta(firstMediaUrl, { instagramImage: isInstagram && firstIsImage });
-      if (videoThumbnailUrl) videoThumbnailUrl = publicMediaUrlForMeta(videoThumbnailUrl, { instagramImage: isInstagram });
+      async function urlForInstagram(raw: string, forImage: boolean): Promise<string> {
+        if (!forImage) return publicMediaUrlForMeta(raw, { instagramImage: false });
+        const direct = await ensureInstagramJpegOnR2(raw, fetch);
+        return direct ?? publicMediaUrlForMeta(raw, { instagramImage: true });
+      }
+      if (firstImageUrl) firstImageUrl = await urlForInstagram(firstImageUrl, isInstagram);
+      if (firstMediaUrl) firstMediaUrl = await urlForInstagram(firstMediaUrl, isInstagram && firstIsImage);
+      if (videoThumbnailUrl) videoThumbnailUrl = await urlForInstagram(videoThumbnailUrl, isInstagram);
       if (isInstagram && allImages.length >= 2 && allImages.length <= 10) {
-        imageUrls = allImages.map((m) => publicMediaUrlForMeta(m.fileUrl, { instagramImage: true }));
+        imageUrls = await Promise.all(allImages.map((m) => urlForInstagram(m.fileUrl, true)));
       }
       if (isDebug && debugInfo.mediaUrlsByPlatform) {
         const url = firstImageUrl || firstMediaUrl || videoThumbnailUrl;
