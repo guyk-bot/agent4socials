@@ -106,3 +106,16 @@ ALTER TABLE "ImportedPost" ADD CONSTRAINT "ImportedPost_socialAccountId_fkey" FO
 ```
 
 Then click **Sync posts** again on the dashboard.
+
+### If you get "The column 'targetPlatforms' does not exist"
+
+The Post model needs `targetPlatforms` so platforms show in History after account reconnect. Either redeploy (ensure `DATABASE_DIRECT_URL` is set), or run manually:
+
+1. **Supabase Dashboard** → your project → **SQL Editor**
+2. Run:
+
+```sql
+ALTER TABLE "Post" ADD COLUMN IF NOT EXISTS "targetPlatforms" TEXT[] DEFAULT ARRAY[]::TEXT[];
+```
+
+3. Save. Create/post and History will work.
