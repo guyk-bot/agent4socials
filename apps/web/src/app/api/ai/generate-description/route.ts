@@ -88,13 +88,21 @@ export async function POST(request: NextRequest) {
   const includeCtaAndAutomation = body.includeCtaAndAutomation === true;
   const ctaAutomationPrompt = typeof body.ctaAutomationPrompt === 'string' ? body.ctaAutomationPrompt.trim() : '';
 
-  const brand = await prisma.brandContext.findUnique({ where: { userId } });
-  if (!brand) {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { brandContext: true } });
+  const ctx = user?.brandContext as Record<string, unknown> | null;
+  if (!ctx) {
     return NextResponse.json(
       { message: 'Set up your brand context first in Dashboard > AI Assistant' },
       { status: 400 }
     );
   }
+  const brand = {
+    targetAudience: (ctx.targetAudience as string | undefined) ?? null,
+    toneOfVoice: (ctx.toneOfVoice as string | undefined) ?? null,
+    toneExamples: (ctx.toneExamples as string | undefined) ?? null,
+    productDescription: (ctx.productDescription as string | undefined) ?? null,
+    additionalContext: (ctx.additionalContext as string | undefined) ?? null,
+  };
 
   const systemPrompt = buildSystemPrompt(brand);
   const platformHint = platform ? getPlatformHint(platform) : '';

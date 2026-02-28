@@ -566,11 +566,11 @@ export async function GET(
     try {
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
       const pagesJson = tokenData.pages.map(({ access_token: _at, ...p }) => p) as object;
-      const pending = await prisma.pendingFacebookConnection.create({
+      const pending = await prisma.pendingConnection.create({
         data: {
           userId,
-          accessToken: tokenData.accessToken,
-          pages: pagesJson,
+          platform: 'FACEBOOK',
+          payload: { accessToken: tokenData.accessToken, pages: pagesJson },
           expiresAt,
         },
       });
@@ -660,11 +660,11 @@ export async function GET(
     try {
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
       const accountsJson = JSON.parse(JSON.stringify(tokenData.instagramAccounts)) as object;
-      const pending = await prisma.pendingInstagramConnection.create({
+      const pending = await prisma.pendingConnection.create({
         data: {
           userId,
-          accessToken: tokenData.accessToken,
-          accounts: accountsJson,
+          platform: 'INSTAGRAM',
+          payload: { accessToken: tokenData.accessToken, accounts: accountsJson },
           expiresAt,
         },
       });

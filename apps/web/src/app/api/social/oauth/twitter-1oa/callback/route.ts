@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getTwitterOAuth1 } from '@/lib/twitter-oauth1';
 import axios from 'axios';
-import { Platform } from '@prisma/client';
 
 export async function GET(request: NextRequest) {
   const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
@@ -15,17 +14,20 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${dashboardUrl}?error=twitter_1oa_missing_params`);
   }
 
-  const pending = await prisma.pendingTwitterOAuth1.findFirst({
-    where: { requestToken: oauthToken },
+  const candidates = await prisma.pendingConnection.findMany({
+    where: { platform: 'TWITTER' },
     orderBy: { createdAt: 'desc' },
+    take: 50,
   });
+  const pending = candidates.find((c) => (c.payload as { requestToken?: string })?.requestToken === oauthToken);
   if (!pending) {
     return NextResponse.redirect(`${dashboardUrl}?error=twitter_1oa_session_expired`);
   }
+  const pPayload = pending.payload as { requestToken?: string; requestTokenSecret?: string };
 
   const oauth = getTwitterOAuth1();
   if (!oauth) {
-    await prisma.pendingTwitterOAuth1.deleteMany({ where: { id: pending.id } });
+    await prisma.pendingConnection.deleteMany({ where: { id: pending.id } });
     return NextResponse.redirect(`${dashboardUrl}?error=twitter_1oa_not_configured`);
   }
 
@@ -37,7 +39,7 @@ export async function GET(request: NextRequest) {
         method: 'POST',
         data: { oauth_token: oauthToken, oauth_verifier: oauthVerifier },
       },
-      { key: oauthToken, secret: pending.requestTokenSecret }
+      { key: oauthToken, secret: pPayload.requestTokenSecret ?? '' }
     ) as any
   );
 
@@ -52,7 +54,7 @@ export async function GET(request: NextRequest) {
       validateStatus: () => true,
     }
   );
-  await prisma.pendingTwitterOAuth1.deleteMany({ where: { id: pending.id } });
+  await prisma.pendingConnection.deleteMany({ where: { id: pending.id } });
 
   if (res.status !== 200) {
     console.error('[Twitter OAuth 1.0a] access_token failed', res.status, res.data);
@@ -66,7 +68,7 @@ export async function GET(request: NextRequest) {
   }
 
   const account = await prisma.socialAccount.findFirst({
-    where: { userId: pending.userId, platform: Platform.TWITTER },
+    where: { userId: pending.userId, platform: 'TWITTER' },
   });
   if (!account) {
     return NextResponse.redirect(`${dashboardUrl}?error=twitter_1oa_no_account`);

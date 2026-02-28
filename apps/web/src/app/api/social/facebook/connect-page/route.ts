@@ -23,24 +23,25 @@ export async function POST(request: NextRequest) {
   if (!pendingId || !pageId) {
     return NextResponse.json({ message: 'Missing pendingId or pageId' }, { status: 400 });
   }
-  const pending = await prisma.pendingFacebookConnection.findUnique({
+  const pending = await prisma.pendingConnection.findUnique({
     where: { id: pendingId },
   });
-  if (!pending || pending.userId !== userId) {
+  if (!pending || pending.userId !== userId || pending.platform !== 'FACEBOOK') {
     return NextResponse.json({ message: 'Not found or expired' }, { status: 404 });
   }
-  if (new Date() > pending.expiresAt) {
-    await prisma.pendingFacebookConnection.delete({ where: { id: pendingId } }).catch(() => {});
+  const payload = pending.payload as { pages?: PageItem[]; accessToken?: string };
+  if (pending.expiresAt && new Date() > pending.expiresAt) {
+    await prisma.pendingConnection.delete({ where: { id: pendingId } }).catch(() => {});
     return NextResponse.json({ message: 'Expired' }, { status: 410 });
   }
-  const pages = (pending.pages as PageItem[]) ?? [];
+  const pages = (payload?.pages ?? []) as PageItem[];
   const page = pages.find((p) => p.id === pageId);
   if (!page) {
     return NextResponse.json({ message: 'Invalid page' }, { status: 400 });
   }
 
   // Fetch me/accounts to get the PAGE access token. Insights, posts, and inbox require the Page token, not the user token.
-  let pageAccessToken = pending.accessToken;
+  let pageAccessToken = payload.accessToken ?? '';
   let name = page.name ?? 'Facebook Page';
   let picture: string | null = page.picture ?? null;
   let instagramId: string | null = (page as PageItem & { instagram_business_account_id?: string }).instagram_business_account_id ?? null;
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
         instagram_business_account?: { id: string };
       }>;
     }>('https://graph.facebook.com/v18.0/me/accounts', {
-      params: { fields: 'id,name,picture,access_token,instagram_business_account', access_token: pending.accessToken },
+      params: { fields: 'id,name,picture,access_token,instagram_business_account', access_token: payload.accessToken },
     });
     const pagesFromApi = pagesRes.data?.data ?? [];
     const pageFromApi = pagesFromApi.find((p) => p.id === pageId);
@@ -151,6 +152,6 @@ export async function POST(request: NextRequest) {
       },
     });
   }
-  await prisma.pendingFacebookConnection.delete({ where: { id: pendingId } }).catch(() => {});
+  await prisma.pendingConnection.delete({ where: { id: pendingId } }).catch(() => {});
   return NextResponse.json({ ok: true, redirect: '/dashboard' });
 }

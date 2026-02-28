@@ -107,6 +107,14 @@ ALTER TABLE "ImportedPost" ADD CONSTRAINT "ImportedPost_socialAccountId_fkey" FO
 
 Then click **Sync posts** again on the dashboard.
 
+### Table consolidation (PendingConnection, User.brandContext, User.automationSettings)
+
+The app now uses consolidated tables. Two options:
+
+1. **Let migration run on deploy:** Set `DATABASE_DIRECT_URL` in Vercel so `prisma migrate deploy` runs during build. The migration `20250228120000_consolidate_tables` will create the new structure, migrate data, and drop old tables.
+
+2. **Manual SQL first:** If you already ran `apps/web/scripts/supabase-rls-and-consolidation.sql`, the DB is updated. Mark the migration applied: `npx prisma migrate resolve --applied 20250228120000_consolidate_tables` (with `DATABASE_URL` and `DATABASE_DIRECT_URL` set).
+
 ### If you get "The column 'targetPlatforms' does not exist"
 
 The Post model needs `targetPlatforms` so platforms show in History after account reconnect. Either redeploy (ensure `DATABASE_DIRECT_URL` is set), or run manually:

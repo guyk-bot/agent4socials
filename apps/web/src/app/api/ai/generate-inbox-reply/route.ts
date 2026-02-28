@@ -46,7 +46,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'text is required (the message or comment to reply to)' }, { status: 400 });
   }
 
-  const brand = await prisma.brandContext.findUnique({ where: { userId } });
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { brandContext: true } });
+  const brand = user?.brandContext as { toneOfVoice?: string; toneExamples?: string } | null;
   const systemParts: string[] = [
     'You are a helpful assistant that writes short, natural replies for social media inbox messages and comments.',
     'Output only the reply text, nothing else. No quotes, no "Reply:", no meta-commentary.',

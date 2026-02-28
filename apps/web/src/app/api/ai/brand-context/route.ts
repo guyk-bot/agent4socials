@@ -11,14 +11,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
   try {
-    const brandContext = await prisma.brandContext.findUnique({
-      where: { userId },
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { brandContext: true },
     });
-    return NextResponse.json(brandContext ?? null);
+    const brandContext = (user?.brandContext as object | null) ?? null;
+    return NextResponse.json(brandContext);
   } catch (e) {
     console.error('[Brand context GET]', e);
     const errMsg = (e as { message?: string })?.message ?? '';
-    const msg = errMsg.includes('does not exist') || errMsg.includes('BrandContext') || errMsg.includes('relation')
+    const msg = errMsg.includes('does not exist') || errMsg.includes('relation')
       ? 'AI Assistant not set up yet (database table missing). Run migrations. See docs/DATABASE_MIGRATIONS.md.'
       : 'Failed to load brand context';
     return NextResponse.json({ message: msg }, { status: 500 });
@@ -69,11 +71,11 @@ export async function PUT(request: NextRequest) {
     additionalContext: truncate(body.additionalContext, MAX_LENGTH.additionalContext),
   };
   try {
-    const existing = await prisma.brandContext.findUnique({ where: { userId } });
-    const brandContext = existing
-      ? await prisma.brandContext.update({ where: { userId }, data })
-      : await prisma.brandContext.create({ data: { userId, ...data } });
-    return NextResponse.json(brandContext);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { brandContext: data as object },
+    });
+    return NextResponse.json(data);
   } catch (e) {
     console.error('[Brand context PUT]', e);
     const prismaError = e as { code?: string; message?: string };
@@ -82,7 +84,7 @@ export async function PUT(request: NextRequest) {
     if (prismaError?.code === 'P2002') msg = 'This profile is already in use. Try refreshing the page.';
     else if (prismaError?.code === 'P2025' || errMsg.includes('Record to update not found')) msg = 'Session may have changed. Please refresh the page and try again.';
     else if (errMsg.includes('connect') || errMsg.includes('timeout')) msg = 'Database temporarily unavailable. Please try again in a moment.';
-    else if (errMsg.includes('does not exist') || errMsg.includes('BrandContext') || errMsg.includes('relation')) msg = 'AI Assistant is not set up on this server yet (database table missing). If you run the site: run the database migrations with your direct database URL. See docs/DATABASE_MIGRATIONS.md.';
+    else if (errMsg.includes('does not exist') || errMsg.includes('relation')) msg = 'AI Assistant is not set up on this server yet (database table missing). If you run the site: run the database migrations with your direct database URL. See docs/DATABASE_MIGRATIONS.md.';
     return NextResponse.json({ message: msg }, { status: 500 });
   }
 }

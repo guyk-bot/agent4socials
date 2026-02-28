@@ -16,16 +16,17 @@ export async function GET(request: NextRequest) {
   if (!pendingId) {
     return NextResponse.json({ message: 'Missing pendingId' }, { status: 400 });
   }
-  const pending = await prisma.pendingFacebookConnection.findUnique({
+  const pending = await prisma.pendingConnection.findUnique({
     where: { id: pendingId },
   });
-  if (!pending || pending.userId !== userId) {
+  if (!pending || pending.userId !== userId || pending.platform !== 'FACEBOOK') {
     return NextResponse.json({ message: 'Not found or expired' }, { status: 404 });
   }
-  if (new Date() > pending.expiresAt) {
-    await prisma.pendingFacebookConnection.delete({ where: { id: pendingId } }).catch(() => {});
+  const payload = pending.payload as { pages?: PageItem[]; accessToken?: string };
+  if (pending.expiresAt && new Date() > pending.expiresAt) {
+    await prisma.pendingConnection.delete({ where: { id: pendingId } }).catch(() => {});
     return NextResponse.json({ message: 'Expired' }, { status: 410 });
   }
-  const pages = (pending.pages as PageItem[]) ?? [];
+  const pages = (payload?.pages ?? []) as PageItem[];
   return NextResponse.json({ pages });
 }

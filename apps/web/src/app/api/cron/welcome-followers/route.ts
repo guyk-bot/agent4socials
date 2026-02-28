@@ -28,26 +28,28 @@ async function runWelcomeFollowers(request: NextRequest) {
   const results: { userId: string; platform: string; sent: number; errors: string[] }[] = [];
 
   try {
-    const settings = await prisma.automationSettings.findMany({
-      where: {
-        dmNewFollowerEnabled: true,
-        dmNewFollowerMessage: { not: null },
-      },
-      select: { userId: true, dmNewFollowerMessage: true },
+    const users = await prisma.user.findMany({
+      select: { id: true, automationSettings: true },
+    });
+    const settings = users.filter((u) => {
+      const s = u.automationSettings as { dmNewFollowerEnabled?: boolean; dmNewFollowerMessage?: string | null } | null;
+      return s != null && s.dmNewFollowerEnabled === true && (s.dmNewFollowerMessage ?? '').trim().length > 0;
     });
 
-    for (const s of settings) {
-      const message = (s.dmNewFollowerMessage ?? '').trim();
+    for (const u of settings) {
+      const s = u.automationSettings as { dmNewFollowerMessage?: string | null };
+      const message = (s?.dmNewFollowerMessage ?? '').trim();
+      const userId = u.id;
       if (!message) continue;
 
       const twitterAccount = await prisma.socialAccount.findFirst({
-        where: { userId: s.userId, platform: 'TWITTER' },
+        where: { userId, platform: 'TWITTER' },
         select: { id: true, platformUserId: true, accessToken: true },
       });
       if (!twitterAccount) continue;
 
       const welcomed = await prisma.automationFollowerWelcome.findMany({
-        where: { userId: s.userId, platform: 'TWITTER' },
+        where: { userId, platform: 'TWITTER' },
         select: { platformUserId: true },
       });
       const welcomedSet = new Set(welcomed.map((w) => w.platformUserId));
@@ -64,7 +66,7 @@ async function runWelcomeFollowers(request: NextRequest) {
         followerIds = (res.data?.data ?? []).map((d) => d.id);
       } catch (e) {
         const msg = (e as Error)?.message ?? String(e);
-        results.push({ userId: s.userId, platform: 'TWITTER', sent: 0, errors: [`Failed to get followers: ${msg}`] });
+        results.push({ userId, platform: 'TWITTER', sent: 0, errors: [`Failed to get followers: ${msg}`] });
         continue;
       }
 
@@ -87,7 +89,7 @@ async function runWelcomeFollowers(request: NextRequest) {
           if (dmRes.status >= 200 && dmRes.status < 300) {
             await prisma.automationFollowerWelcome.create({
               data: {
-                userId: s.userId,
+                userId,
                 platform: 'TWITTER',
                 platformUserId: participantId,
               },
@@ -100,7 +102,7 @@ async function runWelcomeFollowers(request: NextRequest) {
         }
       }
 
-      results.push({ userId: s.userId, platform: 'TWITTER', sent, errors: errors.slice(0, 5) });
+      results.push({ userId, platform: 'TWITTER', sent, errors: errors.slice(0, 5) });
     }
 
     return NextResponse.json({ ok: true, results });

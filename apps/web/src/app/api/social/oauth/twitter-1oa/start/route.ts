@@ -58,8 +58,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: 'Twitter did not return a request token' }, { status: 502 });
   }
 
-  await prisma.pendingTwitterOAuth1.create({
-    data: { userId, requestToken, requestTokenSecret },
+  await prisma.pendingConnection.create({
+    data: {
+      userId,
+      platform: 'TWITTER',
+      payload: { requestToken, requestTokenSecret },
+    },
   });
 
   const authorizeUrl = `https://api.twitter.com/oauth/authorize?oauth_token=${encodeURIComponent(requestToken)}`;

@@ -36,17 +36,18 @@ export async function POST(request: NextRequest) {
   if (!pendingId || !accountId) {
     return NextResponse.json({ message: 'Missing pendingId or accountId' }, { status: 400 });
   }
-  const pending = await prisma.pendingInstagramConnection.findUnique({
+  const pending = await prisma.pendingConnection.findUnique({
     where: { id: pendingId },
   });
-  if (!pending || pending.userId !== userId) {
+  if (!pending || pending.userId !== userId || pending.platform !== 'INSTAGRAM') {
     return NextResponse.json({ message: 'Not found or expired' }, { status: 404 });
   }
-  if (new Date() > pending.expiresAt) {
-    await prisma.pendingInstagramConnection.delete({ where: { id: pendingId } }).catch(() => {});
+  const payload = pending.payload as { accounts?: AccountItem[]; accessToken?: string };
+  if (pending.expiresAt && new Date() > pending.expiresAt) {
+    await prisma.pendingConnection.delete({ where: { id: pendingId } }).catch(() => {});
     return NextResponse.json({ message: 'Expired' }, { status: 410 });
   }
-  const accounts = (pending.accounts as AccountItem[]) ?? [];
+  const accounts = (payload?.accounts ?? []) as AccountItem[];
   const account = accounts.find((a) => a.id === accountId);
   if (!account) {
     return NextResponse.json({ message: 'Invalid account' }, { status: 400 });
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest) {
     }>('https://graph.facebook.com/v18.0/me/accounts', {
       params: {
         fields: 'id,name,picture,access_token,instagram_business_account',
-        access_token: pending.accessToken,
+        access_token: payload.accessToken,
       },
     });
     const pagesFromApi = pagesRes.data?.data ?? [];
@@ -171,6 +172,6 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  await prisma.pendingInstagramConnection.delete({ where: { id: pendingId } }).catch(() => {});
+  await prisma.pendingConnection.delete({ where: { id: pendingId } }).catch(() => {});
   return NextResponse.json({ ok: true, redirect: '/dashboard' });
 }
