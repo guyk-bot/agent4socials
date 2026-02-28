@@ -472,10 +472,23 @@ export async function publishTarget(
 
     return { ok: false, error: `Publish not implemented for ${platform}` };
   } catch (err: unknown) {
-    const message =
-      (err as { response?: { data?: unknown }; message?: string })?.response?.data != null
-        ? JSON.stringify((err as { response: { data: unknown } }).response.data)
-        : (err as Error)?.message || 'Unknown error';
+    const ax = err as { response?: { data?: unknown; status?: number }; message?: string };
+    let message: string;
+    if (ax?.response?.data != null && typeof ax.response.data === 'object') {
+      const data = ax.response.data as { error?: { message?: string; code?: number } };
+      const metaMsg = data?.error?.message;
+      if (typeof metaMsg === 'string' && metaMsg.length > 0) {
+        message = metaMsg;
+        const code = data.error?.code;
+        if (code === 2207082 || message.includes('2207082')) {
+          message += ' Try again with a different image or ensure the image is under 8MB and the URL is publicly accessible (HTTPS).';
+        }
+      } else {
+        message = JSON.stringify(ax.response.data);
+      }
+    } else {
+      message = (err as Error)?.message || 'Unknown error';
+    }
     return { ok: false, error: message.slice(0, 500) };
   }
 }

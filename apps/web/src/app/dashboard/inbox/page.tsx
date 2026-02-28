@@ -175,7 +175,7 @@ export default function InboxPage() {
     let cancelled = false;
     const merge: Array<Conversation & { platform: string }> = [];
     const errors: string[] = [];
-    const debugs: Array<{ rawMessage?: string; code?: number }> = [];
+    const debugs: Array<{ rawMessage?: string; code?: number; responseData?: unknown; metaMessage?: string }> = [];
     let pending = dmOrFbPlatforms.length;
     let needsFetch = false;
 
@@ -221,11 +221,14 @@ export default function InboxPage() {
           const msg = err?.message ?? 'Could not load conversations.';
           const isTimeout = err?.response?.status === 408 || /timeout|408/i.test(msg);
           errors.push(isTimeout ? 'Request timed out. Try again or reconnect and choose your Page.' : msg);
-          const metaError = err?.response?.data && typeof err.response.data === 'object' && (err.response.data as { error?: { message?: string; code?: number } }).error;
+          type MetaErr = { message?: string; code?: number };
+          const metaError: MetaErr | undefined = err?.response?.data && typeof err.response.data === 'object'
+            ? (err.response.data as { error?: MetaErr }).error
+            : undefined;
           debugs.push({
             rawMessage: msg,
             responseData: err?.response?.data,
-            ...(metaError?.message && { metaMessage: metaError.message, code: metaError.code }),
+            ...(metaError?.message ? { metaMessage: metaError.message, code: metaError.code } : {}),
           });
           if (--pending === 0) {
             setConversations(merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? '')));
@@ -560,7 +563,7 @@ export default function InboxPage() {
                 {conversationsDebug?.metaMessage && (
                   <p className="text-xs text-indigo-800 mt-1 font-mono bg-indigo-100/80 px-2 py-1 rounded mt-2">Meta: {conversationsDebug.metaMessage}</p>
                 )}
-                {conversationsDebug?.responseData && typeof conversationsDebug.responseData === 'object' && (conversationsDebug.responseData as { error?: { message?: string } }).error?.message && !conversationsDebug.metaMessage && (
+                {conversationsDebug?.responseData != null && typeof conversationsDebug.responseData === 'object' && (conversationsDebug.responseData as { error?: { message?: string } }).error?.message && !conversationsDebug.metaMessage && (
                   <p className="text-xs text-indigo-800 mt-1 font-mono bg-indigo-100/80 px-2 py-1 rounded mt-2">Meta: {(conversationsDebug.responseData as { error: { message: string } }).error.message}</p>
                 )}
                 {conversationsDebug && (conversationsDebug.rawMessage || conversationsDebug.code != null) && !conversationsDebug.metaMessage && (
