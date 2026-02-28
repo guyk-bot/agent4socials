@@ -1,0 +1,24 @@
+{
+  "name": "Agent4Socials",
+  "short_name": "Agent4Socials",
+  "description": "Schedule posts and get analytics across Instagram, YouTube, TikTok, Facebook, Twitter and LinkedIn.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F8FAFC",
+  "theme_color": "#22FF88",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/logo.svg?v=2",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.svg?v=2",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

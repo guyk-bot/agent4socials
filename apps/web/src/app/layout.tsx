@@ -58,6 +58,13 @@ export const metadata: Metadata = {
     icon: "/logo.svg?v=2",
     apple: "/logo.svg?v=2",
   },
+  manifest: "/manifest.json",
+  themeColor: "#22FF88",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Agent4Socials",
+  },
 };
 
 export default function RootLayout({
