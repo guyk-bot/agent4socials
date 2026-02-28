@@ -126,7 +126,9 @@ export default function PostsPage() {
                             {filteredPosts.map((post: any) => (
                                 <tr key={post.id} className="hover:bg-gray-50 transition-colors group">
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {post.scheduledAt ? new Date(post.scheduledAt).toLocaleString() : 'N/A'}
+                                        {(post.scheduledAt || post.postedAt || post.createdAt)
+                                            ? new Date(post.scheduledAt || post.postedAt || post.createdAt).toLocaleString()
+                                            : 'N/A'}
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex items-center space-x-3">
@@ -148,18 +150,26 @@ export default function PostsPage() {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <div className="flex space-x-2">
-                                            {post.targets.map((t: any) => (
-                                                <div key={t.id} title={t.status} className={`p-1 rounded bg-gray-100 ${t.status === 'POSTED' ? 'text-green-600' : t.status === 'FAILED' ? 'text-red-600' : 'text-gray-400'
-                                                    }`}>
-                                                    {t.platform === 'INSTAGRAM' && <Instagram size={16} />}
-                                                    {t.platform === 'YOUTUBE' && <Youtube size={16} />}
-                                                    {t.platform === 'TIKTOK' && <Video size={16} />}
-                                                    {t.platform === 'FACEBOOK' && <Facebook size={16} />}
-                                                    {t.platform === 'TWITTER' && <Twitter size={16} />}
-                                                    {t.platform === 'LINKEDIN' && <Linkedin size={16} />}
-                                                </div>
-                                            ))}
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            {(post.targets || []).length > 0 ? (
+                                                (post.targets || []).map((t: any) => (
+                                                    <span
+                                                        key={t.id}
+                                                        title={`${t.platform}${t.socialAccount?.username ? ` @${t.socialAccount.username}` : ''} · ${t.status}`}
+                                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${t.status === 'POSTED' ? 'bg-green-100 text-green-800' : t.status === 'FAILED' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-700'}`}
+                                                    >
+                                                        {t.platform === 'INSTAGRAM' && <Instagram size={14} />}
+                                                        {t.platform === 'YOUTUBE' && <Youtube size={14} />}
+                                                        {t.platform === 'TIKTOK' && <Video size={14} />}
+                                                        {t.platform === 'FACEBOOK' && <Facebook size={14} />}
+                                                        {t.platform === 'TWITTER' && <Twitter size={14} />}
+                                                        {t.platform === 'LINKEDIN' && <Linkedin size={14} />}
+                                                        <span>{t.platform}</span>
+                                                    </span>
+                                                ))
+                                            ) : (
+                                                <span className="text-gray-400 text-sm">—</span>
+                                            )}
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
