@@ -22,7 +22,9 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
         const redirectUri = (process.env.INSTAGRAM_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
         return `https://www.instagram.com/oauth/authorize?client_id=${igClientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&state=${encodeURIComponent(state)}`;
       }
-      return `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.META_APP_ID}&redirect_uri=${encodeURIComponent(process.env.META_REDIRECT_URI || callbackUrl)}&state=${state}&scope=instagram_basic,instagram_content_publish,instagram_manage_messages,instagram_manage_insights,instagram_manage_comments,pages_read_engagement,pages_show_list,pages_manage_posts,pages_manage_engagement,pages_messaging,pages_read_user_content,business_management`;
+      // Instagram via Facebook Login: Page token is used for publish. Put publish scopes first so they are requested.
+      // In Meta App Dashboard add instagram_content_publish under App Review → Permissions and features, then reconnect.
+      return `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.META_APP_ID}&redirect_uri=${encodeURIComponent(process.env.META_REDIRECT_URI || callbackUrl)}&state=${state}&scope=instagram_content_publish,instagram_basic,pages_read_engagement,pages_show_list,pages_manage_posts,instagram_manage_messages,instagram_manage_insights,instagram_manage_comments,pages_manage_engagement,pages_messaging,pages_read_user_content,business_management`;
     case 'TIKTOK':
       return `https://www.tiktok.com/v2/auth/authorize/?client_key=${process.env.TIKTOK_CLIENT_KEY}&scope=user.info.basic,video.upload,video.publish&response_type=code&redirect_uri=${encodeURIComponent(process.env.TIKTOK_REDIRECT_URI || callbackUrl)}&state=${state}`;
     case 'YOUTUBE': {

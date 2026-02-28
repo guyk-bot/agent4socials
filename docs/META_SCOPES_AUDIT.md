@@ -99,3 +99,24 @@ So:
 5. After approval, switch the app to **Live** so all users get full tokens.
 
 Until then, only accounts that have a **role on the app** (admin/developer/tester) will get full Inbox and analytics; other users will see followers and possibly partial or empty data.
+
+---
+
+## Checklist: Instagram publish not working (e.g. error 2207076)
+
+If posts fail to upload to Instagram with "Media upload has failed" or a permission error:
+
+1. **Add the permission in the Meta App**
+   - Go to [Meta for Developers](https://developers.facebook.com/) → your app → **App Review** → **Permissions and Features**.
+   - Find **Instagram Content Publish** (or **instagram_content_publish**) and add it if it is not there. Request it so it appears in the OAuth dialog.
+
+2. **Reconnect Instagram so the new scope is granted**
+   - In Agent4Socials go to **Dashboard** → **Accounts** (or sidebar).
+   - **Disconnect** the Instagram account, then **Connect** again.
+   - In the Facebook/Instagram consent screen, ensure **Publish to Instagram** (or similar) is listed and **accepted**. If it does not appear, the permission was not added in step 1.
+
+3. **Use a Page-linked Instagram account**
+   - Publishing uses the **Facebook Page access token** for the Page connected to the Instagram account. The Instagram account must be a **Professional/Creator** account linked to a **Facebook Page**. Personal accounts or accounts not linked to a Page cannot be used for API publishing.
+
+4. **Media URL**
+   - The image or video must be reachable by Meta's servers (public HTTPS URL). We proxy media through our domain when possible; ensure **S3_PUBLIC_URL** and, for short URLs, **CRON_SECRET** or **MEDIA_SERVE_SECRET** are set in Vercel.
