@@ -931,7 +931,13 @@ export default function ComposerPage() {
                     return acc;
                 }, {} as Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[]>);
                 const firstWithMedia = platforms.find((p) => (mediaByPlatform[p]?.length ?? 0) > 0);
-                payload.media = firstWithMedia ? mediaByPlatform[firstWithMedia]! : mediaList;
+                const baseMedia = firstWithMedia ? mediaByPlatform[firstWithMedia]! : mediaList;
+                payload.media = baseMedia.map((m, i) => {
+                    if (i === 0 && m.type === 'VIDEO' && (mediaList[0] as MediaItem)?.thumbnailUrl) {
+                        return { ...m, thumbnailUrl: (mediaList[0] as MediaItem).thumbnailUrl };
+                    }
+                    return m;
+                });
             }
             // If editing an already-posted post, create a new post (and publish/schedule) instead of updating the original
             const updateExisting = editPostId && !editPostAlreadyPosted;

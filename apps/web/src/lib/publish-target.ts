@@ -91,21 +91,37 @@ export async function publishTarget(
   try {
     if (platform === 'INSTAGRAM') {
       if (firstMediaUrl) {
-        // Reel: video_url + optional cover_url (thumbnail)
-        const reelParams: Record<string, string> = {
-          media_type: 'REELS',
-          video_url: firstMediaUrl,
-          access_token: token,
-        };
-        if (caption?.trim()) reelParams.caption = caption.trim();
-        if (videoThumbnailUrl) reelParams.cover_url = videoThumbnailUrl;
+        // Reel: Resumable upload (more reliable than video_url; video_url often fails with 2207076)
         const containerRes = await axiosInstance.post(
           `https://graph.facebook.com/v18.0/${platformUserId}/media`,
           null,
-          { params: reelParams }
+          {
+            params: {
+              media_type: 'REELS',
+              upload_type: 'resumable',
+              ...(caption?.trim() ? { caption: caption.trim() } : {}),
+              ...(videoThumbnailUrl ? { cover_url: videoThumbnailUrl } : {}),
+              access_token: token,
+            },
+          }
         );
         const creationId = (containerRes.data as { id?: string })?.id;
-        if (!creationId) throw new Error(JSON.stringify(containerRes.data));
+        const uploadUri = (containerRes.data as { uri?: string })?.uri;
+        if (!creationId || !uploadUri) throw new Error(JSON.stringify(containerRes.data));
+        const uploadRes = await axiosInstance.post(
+          uploadUri,
+          null,
+          {
+            headers: {
+              Authorization: `OAuth ${token}`,
+              file_url: firstMediaUrl,
+            },
+            validateStatus: (s: number) => s === 200 || s === 201,
+          }
+        );
+        if (uploadRes.status !== 200 && uploadRes.status !== 201) {
+          throw new Error(uploadRes.data?.debug_info?.message ?? JSON.stringify(uploadRes.data));
+        }
         const wait = await waitForInstagramContainer(creationId, token, 90_000);
         if (!wait.ok) throw new Error(wait.error ?? 'Reel container not ready');
         const publishRes = await axiosInstance.post(

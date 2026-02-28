@@ -260,6 +260,9 @@ export async function POST(
       });
       results.push({ platform, ok: true, ...(result.mediaSkipped ? { mediaSkipped: true } : {}) });
     } else {
+      if (platform === 'INSTAGRAM') {
+        console.error('[Instagram publish failed]', { postId, error: result.error, mediaUrl: firstImageUrl || firstMediaUrl });
+      }
       await prisma.postTarget.update({
         where: { id: target.id },
         data: { status: PostStatus.FAILED, error: result.error?.slice(0, 500) },

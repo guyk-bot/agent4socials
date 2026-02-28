@@ -34,6 +34,24 @@ function postMediaThumbUrl(mediaItem: { fileUrl: string; type: string; metadata?
     return url;
 }
 
+function PostMediaThumb({ mediaItem }: { mediaItem: { fileUrl: string; type: string; metadata?: { thumbnailUrl?: string } | null } }) {
+    const [imgError, setImgError] = useState(false);
+    const thumbUrl = postMediaThumbUrl(mediaItem);
+    const showIcon = !thumbUrl || imgError;
+    return (
+        <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
+            {thumbUrl && !imgError && (
+                <img src={thumbUrl} alt="" className="w-full h-full object-cover" onError={() => setImgError(true)} />
+            )}
+            {showIcon && (
+                <div className="w-full h-full flex items-center justify-center text-gray-400">
+                    {mediaItem.type === 'VIDEO' ? <Video size={20} /> : <ImageIcon size={20} />}
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function PostsPage() {
     const pathname = usePathname();
     const appData = useAppData();
@@ -134,13 +152,7 @@ export default function PostsPage() {
                                     <td className="px-6 py-4">
                                         <div className="flex items-center space-x-3">
                                             {post.media?.[0] && (
-                                                <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
-                                                    {postMediaThumbUrl(post.media[0]) ? (
-                                                        <img src={postMediaThumbUrl(post.media[0])!} alt="" className="w-full h-full object-cover" />
-                                                    ) : (
-                                                        <div className="w-full h-full flex items-center justify-center text-gray-400"><Video size={20} /></div>
-                                                    )}
-                                                </div>
+                                                <PostMediaThumb mediaItem={post.media[0]} />
                                             )}
                                             {!post.media?.length && (
                                                 <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 text-gray-400"><ImageIcon size={20} /></div>
