@@ -108,7 +108,7 @@ async function runCommentAutomation(request: NextRequest) {
                   data: { postTargetId: target.id, platformCommentId: c.id },
                 });
                 repliedSet.add(c.id);
-                const doPublicReply = (ca.replyOnComment === true || (ca.replyOnComment === undefined && !ca.usePrivateReply)) && !ca.usePrivateReply;
+                const doPublicReply = ca.replyOnComment === true || (ca.replyOnComment === undefined && !ca.usePrivateReply);
                 const doPrivateReply = ca.usePrivateReply === true;
                 if (doPublicReply) {
                   await axios.post(

@@ -1004,7 +1004,7 @@ export default function ComposerPage() {
                 }
                 const hasReply = defaultReply || Object.keys(byPlatform).length > 0;
                 const hasInstagram = supportedPlatforms.includes('INSTAGRAM');
-                const replyOnComment = (supportedPlatforms.length > 1) || !commentAutomationUsePrivateReply;
+                const replyOnComment = true;
                 const usePrivateReply = hasInstagram && commentAutomationUsePrivateReply;
                 if (keywords.length > 0 && hasReply) {
                     if (!replyOnComment && !usePrivateReply) {
@@ -1782,6 +1782,13 @@ export default function ComposerPage() {
                                                     <span className="text-sm font-medium text-neutral-600">{PLATFORM_LABELS[p] || p}</span>
                                                     {p === 'INSTAGRAM' ? (
                                                         <>
+                                                            <textarea
+                                                                value={commentAutomationReplyByPlatform[p] ?? ''}
+                                                                onChange={(e) => setCommentAutomationReplyByPlatform((prev) => ({ ...prev, [p]: e.target.value }))}
+                                                                placeholder={commentAutomationReplyTemplate.trim() || 'e.g. Thanks for commenting!'}
+                                                                rows={2}
+                                                                className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                                            />
                                                             <label className="flex items-center gap-2 cursor-pointer mt-2">
                                                                 <input
                                                                     type="checkbox"
@@ -1789,51 +1796,10 @@ export default function ComposerPage() {
                                                                     onChange={(e) => setCommentAutomationUsePrivateReply(e.target.checked)}
                                                                     className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
                                                                 />
-                                                                <span className="text-sm text-neutral-700">Send as private reply (DM) on Instagram</span>
+                                                                <span className="text-sm text-neutral-700">Also send as private reply (DM) on Instagram</span>
                                                             </label>
                                                             {commentAutomationUsePrivateReply && (
-                                                                <div className="mt-2 space-y-1">
-                                                                    <label className="block text-xs font-medium text-neutral-600">DM message</label>
-                                                                    <div className="flex gap-2">
-                                                                        <textarea
-                                                                            value={commentAutomationReplyByPlatform[p] ?? ''}
-                                                                            onChange={(e) => setCommentAutomationReplyByPlatform((prev) => ({ ...prev, [p]: e.target.value }))}
-                                                                            placeholder="e.g. Thanks! I'll send you the link via DM."
-                                                                            rows={2}
-                                                                            className="flex-1 p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                                                                        />
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={async () => {
-                                                                                try {
-                                                                                    setDmReplyAiLoading(true);
-                                                                                    const res = await api.post<{ content?: string }>('/ai/generate-description', {
-                                                                                        topic: 'Comment reply',
-                                                                                        prompt: 'Short, friendly Instagram DM reply when someone comments with interest. Keep under 200 characters.',
-                                                                                        platform: 'INSTAGRAM',
-                                                                                    });
-                                                                                    const text = res.data?.content?.trim();
-                                                                                    if (text) setCommentAutomationReplyByPlatform((prev) => ({ ...prev, [p]: text }));
-                                                                                } catch (_) {}
-                                                                                finally { setDmReplyAiLoading(false); }
-                                                                            }}
-                                                                            disabled={dmReplyAiLoading}
-                                                                            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-sm font-medium disabled:opacity-50"
-                                                                        >
-                                                                            {dmReplyAiLoading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                                                                            Generate with AI
-                                                                        </button>
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                            {!commentAutomationUsePrivateReply && (
-                                                                <textarea
-                                                                    value={commentAutomationReplyByPlatform[p] ?? ''}
-                                                                    onChange={(e) => setCommentAutomationReplyByPlatform((prev) => ({ ...prev, [p]: e.target.value }))}
-                                                                    placeholder={commentAutomationReplyTemplate.trim() || 'e.g. Thanks for commenting!'}
-                                                                    rows={2}
-                                                                    className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                                                                />
+                                                                <p className="mt-2 text-xs text-neutral-500">The reply above will also be sent as a private DM.</p>
                                                             )}
                                                         </>
                                                     ) : (
