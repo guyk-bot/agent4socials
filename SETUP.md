@@ -216,6 +216,8 @@ git push -u origin main
    S3_BUCKET_NAME=agent4socials-media
    S3_REGION=auto
    S3_PUBLIC_URL=<R2 bucket public URL>
+   
+   # Optional: for Instagram/Facebook media uploads we use a short URL (serve?t=...). Set CRON_SECRET or MEDIA_SERVE_SECRET so the app can sign tokens; otherwise the long proxy URL is used.
    ```
 
 5. Click "Deploy"

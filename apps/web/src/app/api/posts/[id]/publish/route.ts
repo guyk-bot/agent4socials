@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { PostStatus } from '@prisma/client';
 import axios from 'axios';
 import { publishTarget } from '@/lib/publish-target';
+import { createMediaServeToken } from '@/lib/media-serve-token';
 
 /** Refresh Twitter OAuth2 access token; returns new accessToken and refreshToken (if provided). */
 async function refreshTwitterToken(refreshToken: string): Promise<{ accessToken: string; refreshToken: string | null }> {
@@ -92,7 +93,7 @@ export async function POST(
     thumbnailUrl: (m as { metadata?: { thumbnailUrl?: string } }).metadata?.thumbnailUrl,
   }));
 
-  /** Meta (Instagram/Facebook) must fetch the image URL from their servers. Use our proxy so they get a stable URL on our domain. */
+  /** Meta (Instagram/Facebook) must fetch the image URL from their servers. Prefer short token URL (serve), else proxy, else raw. */
   function publicMediaUrlForMeta(fileUrl: string): string {
     if (!fileUrl || !fileUrl.startsWith('http')) return fileUrl;
     const appBase = (process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')).replace(/\/$/, '');
@@ -100,9 +101,16 @@ export async function POST(
     try {
       const parsed = new URL(fileUrl);
       const appHost = new URL(appBase).hostname;
-      if (parsed.hostname === appHost) return fileUrl;
+      if (parsed.hostname === appHost) return fileUrl; // already our domain
     } catch (_) {}
-    return `${appBase}/api/media/proxy?url=${encodeURIComponent(fileUrl)}`;
+    const serveToken = createMediaServeToken(fileUrl);
+    if (serveToken) {
+      return `${appBase}/api/media/serve?t=${serveToken}`;
+    }
+    if (process.env.S3_PUBLIC_URL?.trim()) {
+      return `${appBase}/api/media/proxy?url=${encodeURIComponent(fileUrl)}`;
+    }
+    return fileUrl;
   }
 
   const results: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[] = [];

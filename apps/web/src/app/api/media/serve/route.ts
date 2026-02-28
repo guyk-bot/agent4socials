@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifyMediaServeToken } from '@/lib/media-serve-token';
 
-// No auth required: <img>/<video> don't send Authorization. We only allow URLs under S3_PUBLIC_URL.
+// Same MIME and fetch behavior as proxy; short URL for Meta (no long query string).
 
 const MIME_BY_EXT: Record<string, string> = {
   '.png': 'image/png',
@@ -25,24 +26,28 @@ function contentTypeFromUrl(url: string): string {
 }
 
 export async function GET(request: NextRequest) {
-  const urlParam = request.nextUrl.searchParams.get('url');
-  if (!urlParam || typeof urlParam !== 'string') {
-    return NextResponse.json({ message: 'url is required' }, { status: 400 });
+  const tokenParam = request.nextUrl.searchParams.get('t');
+  if (!tokenParam || typeof tokenParam !== 'string') {
+    return NextResponse.json({ message: 't (token) required' }, { status: 400 });
+  }
+
+  const decoded = verifyMediaServeToken(tokenParam);
+  if (!decoded) {
+    return NextResponse.json({ message: 'Invalid or expired token' }, { status: 400 });
   }
 
   let targetUrl: URL;
   try {
-    targetUrl = new URL(decodeURIComponent(urlParam));
+    targetUrl = new URL(decoded.url);
   } catch {
-    return NextResponse.json({ message: 'Invalid url' }, { status: 400 });
+    return NextResponse.json({ message: 'Invalid url in token' }, { status: 400 });
   }
 
   const publicBase = process.env.S3_PUBLIC_URL?.trim();
   if (!publicBase) {
-    return NextResponse.json({ message: 'Media proxy not configured' }, { status: 503 });
+    return NextResponse.json({ message: 'Media serve not configured' }, { status: 503 });
   }
-  const allowedBase = publicBase.replace(/\/$/, '');
-  const allowedOrigin = new URL(allowedBase.startsWith('http') ? allowedBase : `https://${allowedBase}`).origin;
+  const allowedOrigin = new URL(publicBase.replace(/\/$/, '')).origin;
   if (targetUrl.origin !== allowedOrigin) {
     return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
   }
@@ -50,7 +55,7 @@ export async function GET(request: NextRequest) {
   const rangeHeader = request.headers.get('range');
   const fetchHeaders: HeadersInit = {
     Accept: '*/*',
-    'User-Agent': 'Mozilla/5.0 (compatible; Meta-Instagram/1.0; +https://www.instagram.com)',
+    'User-Agent': 'Mozilla/5.0 (compatible; InstagramBot/1.0; +https://www.instagram.com)',
   };
   if (rangeHeader) fetchHeaders['Range'] = rangeHeader;
 
@@ -60,12 +65,11 @@ export async function GET(request: NextRequest) {
       headers: fetchHeaders,
       cache: 'no-store',
     });
-    // R2 dev URL: path may have been built as /bucket/key but R2 expects /key only; retry with key only
     if (res.status === 404 && targetUrl.pathname.includes('/') && publicBase.includes('r2.dev')) {
       const pathParts = targetUrl.pathname.replace(/^\/+/, '').split('/');
       if (pathParts.length >= 2) {
         const keyOnly = pathParts.slice(1).join('/');
-        const fallbackUrl = `${allowedBase}/${keyOnly}`;
+        const fallbackUrl = `${allowedOrigin}/${keyOnly}`;
         res = await fetch(fallbackUrl, { method: 'GET', headers: fetchHeaders, cache: 'no-store' });
       }
     }
@@ -93,7 +97,7 @@ export async function GET(request: NextRequest) {
       headers: responseHeaders,
     });
   } catch (err) {
-    console.error('Media proxy fetch error:', err);
-    return NextResponse.json({ message: 'Proxy failed' }, { status: 502 });
+    console.error('[Media serve] fetch error:', err);
+    return NextResponse.json({ message: 'Serve failed' }, { status: 502 });
   }
 }
