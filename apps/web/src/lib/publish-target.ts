@@ -209,7 +209,7 @@ export async function publishTarget(
         const page = data?.data?.find((p) => p.id === platformUserId);
         if (page?.access_token) pageToken = page.access_token;
       } catch (_) {}
-      // Post image as a Page photo (no link text). Video or link-only: use feed with link.
+      // Post image as a Page photo. Video: use native /videos upload (not link).
       if (firstImageUrl) {
         const photoParams: Record<string, string> = {
           url: firstImageUrl,
@@ -224,11 +224,59 @@ export async function publishTarget(
         const postId = (photoRes.data as { id?: string; post_id?: string })?.post_id ?? (photoRes.data as { id?: string })?.id;
         return { ok: true, platformPostId: postId };
       }
+      if (firstMediaUrl) {
+        // Native video upload: try file_url first (Facebook fetches). Fallback to multipart if 389 (unable to fetch).
+        let videoId: string | undefined;
+        try {
+          const videoParams: Record<string, string> = {
+            file_url: firstMediaUrl,
+            access_token: pageToken,
+          };
+          if (caption?.trim()) videoParams.description = caption.trim();
+          const videoRes = await axiosInstance.post(
+            `https://graph-video.facebook.com/v18.0/${platformUserId}/videos`,
+            null,
+            { params: videoParams, timeout: 120_000 }
+          );
+          videoId = (videoRes.data as { id?: string })?.id;
+        } catch (fileUrlErr: unknown) {
+          const ax = fileUrlErr as { response?: { data?: { error?: { code?: number; message?: string } } }; message?: string };
+          const code = ax?.response?.data?.error?.code;
+          const msg = ax?.response?.data?.error?.message ?? ax?.message ?? '';
+          const isFetchError = code === 389 || (typeof msg === 'string' && (msg.includes('fetch') || msg.includes('389')));
+          if (isFetchError && fetchFn) {
+            try {
+              const { buffer, contentType } = await fetchMediaBuffer(firstMediaUrl, fetchFn);
+              const ext = contentType.includes('quicktime') ? 'mov' : 'mp4';
+              const form = new FormData();
+              form.append('source', buffer, { filename: `video.${ext}`, contentType: contentType || 'video/mp4' });
+              form.append('access_token', pageToken);
+              if (caption?.trim()) form.append('description', caption.trim());
+              const formRes = await axiosInstance.post(
+                `https://graph-video.facebook.com/v18.0/${platformUserId}/videos`,
+                form,
+                {
+                  headers: form.getHeaders(),
+                  maxBodyLength: Infinity,
+                  maxContentLength: Infinity,
+                  timeout: 120_000,
+                }
+              );
+              videoId = (formRes.data as { id?: string })?.id;
+            } catch (_) {
+              throw fileUrlErr;
+            }
+          } else {
+            throw fileUrlErr;
+          }
+        }
+        return { ok: true, platformPostId: videoId };
+      }
+      // Text-only post
       const feedParams: Record<string, string> = {
         message: caption || ' ',
         access_token: pageToken,
       };
-      if (firstMediaUrl) feedParams.link = firstMediaUrl;
       const feedRes = await axiosInstance.post(
         `https://graph.facebook.com/v18.0/${platformUserId}/feed`,
         null,
