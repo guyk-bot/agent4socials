@@ -1,6 +1,6 @@
 /**
  * Convert image buffer to JPEG for Instagram (Meta requires JPEG only).
- * Used by serve/proxy routes when format=jpeg for image_url.
+ * Uses sharp; @img/sharp-linux-x64 in optionalDeps for Vercel.
  */
 import sharp from 'sharp';
 

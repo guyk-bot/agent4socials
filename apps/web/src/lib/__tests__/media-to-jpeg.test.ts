@@ -18,4 +18,15 @@ describe('media-to-jpeg', () => {
     expect(result.contentType).toBe('image/jpeg');
     expect(result.buffer).toBe(jpegHeader);
   });
+
+  it('output is valid JPEG (starts with FFD8FF)', async () => {
+    const minimalPng = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      'base64'
+    );
+    const result = await convertToJpegIfNeeded(minimalPng, 'image/png');
+    expect(result.buffer[0]).toBe(0xff);
+    expect(result.buffer[1]).toBe(0xd8);
+    expect(result.buffer[2]).toBe(0xff);
+  });
 });
