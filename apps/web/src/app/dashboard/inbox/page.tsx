@@ -13,6 +13,7 @@ import {
   Loader2,
   BarChart3,
   Sparkles,
+  RefreshCw,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
@@ -208,7 +209,7 @@ export default function InboxPage() {
           merge.push(...list);
           if (res.data?.error) errors.push(res.data.error);
           if (res.data?.debug) debugs.push(res.data.debug);
-          appData?.setConversationsForAccount(account.id, res.data?.conversations ?? []);
+          if (!res.data?.error) appData?.setConversationsForAccount(account.id, res.data?.conversations ?? []);
           if (--pending === 0) {
             setConversations(merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? '')));
             setConversationsError(errors[0] ?? null);
@@ -471,6 +472,14 @@ export default function InboxPage() {
               className={`flex-1 py-2 text-xs font-medium ${inboxFilter === 'unread' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
             >
               Unread
+            </button>
+            <button
+              type="button"
+              onClick={() => { appData?.invalidateConversations?.(); }}
+              className="p-2 text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 border-b-2 border-transparent"
+              title="Refresh inbox"
+            >
+              <RefreshCw size={16} />
             </button>
           </div>
         )}

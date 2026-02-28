@@ -78,6 +78,7 @@ type AppDataContextType = {
   setScheduledPosts: (posts: CachedScheduledPost[]) => void;
   setNotifications: (n: NotificationsCache) => void;
   invalidate: () => void;
+  invalidateConversations: () => void;
 };
 
 const defaultNotifications: NotificationsCache = { inbox: 0, comments: 0, messages: 0 };
@@ -158,6 +159,10 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     setPrefetchHasLoadedOnce(false);
   }, []);
 
+  const invalidateConversations = useCallback(() => {
+    setConversationsByAccountId({});
+  }, []);
+
   useEffect(() => {
     if (!user) {
       setPrefetchStatus('idle');
@@ -204,9 +209,10 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
             }).catch(() => {})
           ),
           ...accounts.filter((acc) => acc.platform === 'INSTAGRAM' || acc.platform === 'FACEBOOK').map((acc) =>
-            api.get<{ conversations?: CachedConversation[] }>(`/social/accounts/${acc.id}/conversations`).then((r) => {
+            api.get<{ conversations?: CachedConversation[]; error?: string }>(`/social/accounts/${acc.id}/conversations`).then((r) => {
+              if (cancelled || r.data?.error) return;
               const list = r.data?.conversations ?? [];
-              if (!cancelled) setConversationsByAccountId((prev) => ({ ...prev, [acc.id]: list }));
+              setConversationsByAccountId((prev) => ({ ...prev, [acc.id]: list }));
             }).catch(() => {})
           ),
         ]);
@@ -242,6 +248,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     setScheduledPosts,
     setNotifications,
     invalidate,
+    invalidateConversations,
   };
 
   return (
