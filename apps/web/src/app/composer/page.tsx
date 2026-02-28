@@ -295,6 +295,7 @@ export default function ComposerPage() {
     const [aiIncludeCtaAndAutomation, setAiIncludeCtaAndAutomation] = useState(false);
     const [aiCtaAutomationPrompt, setAiCtaAutomationPrompt] = useState('');
     const [aiLoading, setAiLoading] = useState(false);
+    const [dmReplyAiLoading, setDmReplyAiLoading] = useState(false);
     const [aiError, setAiError] = useState<string | null>(null);
     const [hasBrandContext, setHasBrandContext] = useState<boolean | null>(null);
 
@@ -989,23 +990,25 @@ export default function ComposerPage() {
                     .map((k) => k.trim().toLowerCase())
                     .filter(Boolean);
                 const defaultReply = commentAutomationReplyTemplate.trim();
+                const supportedPlatforms = platforms.filter((p) => p !== 'LINKEDIN');
                 const byPlatform: Record<string, string> = {};
-                for (const p of platforms) {
+                for (const p of supportedPlatforms) {
                     const t = (commentAutomationReplyByPlatform[p] ?? defaultReply).trim();
                     if (t) byPlatform[p] = t;
                 }
                 const hasReply = defaultReply || Object.keys(byPlatform).length > 0;
-                const replyOnComment = commentAutomationReplyOnComment;
-                const usePrivateReply = commentAutomationUsePrivateReply;
+                const isInstagramOnly = supportedPlatforms.length === 1 && supportedPlatforms[0] === 'INSTAGRAM';
+                const replyOnComment = isInstagramOnly ? !commentAutomationUsePrivateReply : true;
+                const usePrivateReply = isInstagramOnly && commentAutomationUsePrivateReply;
                 if (keywords.length > 0 && hasReply) {
                     if (!replyOnComment && !usePrivateReply) {
-                        setAlertMessage('Comment automation requires at least one reply option: public reply or DM.');
+                        setAlertMessage('Comment automation: add a reply message for your platform.');
                         setLoading(false);
                         return;
                     }
                     payload.commentAutomation = {
                         keywords,
-                        replyTemplate: defaultReply || (byPlatform[platforms[0]] ?? ''),
+                        replyTemplate: defaultReply || (byPlatform[supportedPlatforms[0]] ?? ''),
                         ...(Object.keys(byPlatform).length > 0 ? { replyTemplateByPlatform: byPlatform } : {}),
                         replyOnComment,
                         usePrivateReply,
@@ -1730,7 +1733,7 @@ export default function ComposerPage() {
                             />
                             <span className="text-sm font-medium text-neutral-700">Enable keyword comment automation</span>
                         </label>
-                        <p className="text-sm text-neutral-500">When comments contain your keywords on this post, we automatically reply. Set a default reply and/or a different reply per platform below. Instagram can send DM; Facebook and X send public replies. <strong>LinkedIn does not support keyword comment automation</strong>; replies are only sent on Instagram, Facebook, and X. Settings are saved with the post.</p>
+                        <p className="text-sm text-neutral-500">When comments contain your keywords on this post, we automatically reply. Set a default reply and/or a different reply per platform below. Replies are sent on Instagram, Facebook, and X. Settings are saved with the post.</p>
                         {commentAutomationEnabled && (
                             <div className="space-y-4 pt-2 border-t border-neutral-100">
                                 <div>
@@ -1757,54 +1760,79 @@ export default function ComposerPage() {
                                     <div>
                                         <label className="block text-sm font-medium text-neutral-700 mb-2">Reply per platform (optional)</label>
                                         <div className="space-y-3">
-                                            {platforms.map((p) => (
+                                            {platforms.filter((p) => p !== 'LINKEDIN').map((p) => (
                                                 <div key={p} className="space-y-1">
-                                                    <span className="text-sm font-medium text-neutral-600">{PLATFORM_LABELS[p] || p}{p === 'LINKEDIN' ? ' (not supported for keyword replies)' : ''}</span>
-                                                    <textarea
-                                                        value={commentAutomationReplyByPlatform[p] ?? ''}
-                                                        onChange={(e) => setCommentAutomationReplyByPlatform((prev) => ({ ...prev, [p]: e.target.value }))}
-                                                        placeholder={commentAutomationReplyTemplate.trim() || 'e.g. Thanks for commenting!'}
-                                                        rows={2}
-                                                        className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                                                    />
+                                                    <span className="text-sm font-medium text-neutral-600">{PLATFORM_LABELS[p] || p}</span>
+                                                    {(platforms.length === 1 && p === 'INSTAGRAM') ? (
+                                                        <>
+                                                            <label className="flex items-center gap-2 cursor-pointer mt-2">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={commentAutomationUsePrivateReply}
+                                                                    onChange={(e) => setCommentAutomationUsePrivateReply(e.target.checked)}
+                                                                    className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                                                                />
+                                                                <span className="text-sm text-neutral-700">Send as private reply (DM) on Instagram</span>
+                                                            </label>
+                                                            {commentAutomationUsePrivateReply && (
+                                                                <div className="mt-2 space-y-1">
+                                                                    <label className="block text-xs font-medium text-neutral-600">DM message</label>
+                                                                    <div className="flex gap-2">
+                                                                        <textarea
+                                                                            value={commentAutomationReplyByPlatform[p] ?? ''}
+                                                                            onChange={(e) => setCommentAutomationReplyByPlatform((prev) => ({ ...prev, [p]: e.target.value }))}
+                                                                            placeholder="e.g. Thanks! I'll send you the link via DM."
+                                                                            rows={2}
+                                                                            className="flex-1 p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                                                        />
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={async () => {
+                                                                                try {
+                                                                                    setDmReplyAiLoading(true);
+                                                                                    const res = await api.post<{ content?: string }>('/ai/generate-description', {
+                                                                                        topic: 'Comment reply',
+                                                                                        prompt: 'Short, friendly Instagram DM reply when someone comments with interest. Keep under 200 characters.',
+                                                                                        platform: 'INSTAGRAM',
+                                                                                    });
+                                                                                    const text = res.data?.content?.trim();
+                                                                                    if (text) setCommentAutomationReplyByPlatform((prev) => ({ ...prev, [p]: text }));
+                                                                                } catch (_) {}
+                                                                                finally { setDmReplyAiLoading(false); }
+                                                                            }}
+                                                                            disabled={dmReplyAiLoading}
+                                                                            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-sm font-medium disabled:opacity-50"
+                                                                        >
+                                                                            {dmReplyAiLoading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                                                                            Generate with AI
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                            {!commentAutomationUsePrivateReply && (
+                                                                <textarea
+                                                                    value={commentAutomationReplyByPlatform[p] ?? ''}
+                                                                    onChange={(e) => setCommentAutomationReplyByPlatform((prev) => ({ ...prev, [p]: e.target.value }))}
+                                                                    placeholder={commentAutomationReplyTemplate.trim() || 'e.g. Thanks for commenting!'}
+                                                                    rows={2}
+                                                                    className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                                                />
+                                                            )}
+                                                        </>
+                                                    ) : (
+                                                        <textarea
+                                                            value={commentAutomationReplyByPlatform[p] ?? ''}
+                                                            onChange={(e) => setCommentAutomationReplyByPlatform((prev) => ({ ...prev, [p]: e.target.value }))}
+                                                            placeholder={commentAutomationReplyTemplate.trim() || 'e.g. Thanks for commenting!'}
+                                                            rows={2}
+                                                            className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                                        />
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>
                                     </div>
                                 )}
-                                <div className="space-y-2">
-                                    <p className="text-sm font-medium text-neutral-700">When someone comments with a keyword, reply by:</p>
-                                    <div className="flex flex-col gap-2">
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                checked={commentAutomationReplyOnComment}
-                                                onChange={(e) => {
-                                                    const v = e.target.checked;
-                                                    setCommentAutomationReplyOnComment(v);
-                                                    if (!v && !commentAutomationUsePrivateReply) setCommentAutomationUsePrivateReply(true);
-                                                }}
-                                                className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
-                                            />
-                                            <span className="text-sm text-neutral-700">Public reply on comment</span>
-                                        </label>
-                                        {platforms.includes('INSTAGRAM') && (
-                                            <label className="flex items-center gap-2 cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={commentAutomationUsePrivateReply}
-                                                    onChange={(e) => {
-                                                        const v = e.target.checked;
-                                                        setCommentAutomationUsePrivateReply(v);
-                                                        if (!v && !commentAutomationReplyOnComment) setCommentAutomationReplyOnComment(true);
-                                                    }}
-                                                    className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
-                                                />
-                                                <span className="text-sm text-neutral-700">Send as private reply (DM) on Instagram</span>
-                                            </label>
-                                        )}
-                                    </div>
-                                </div>
                             </div>
                         )}
                         </div>
