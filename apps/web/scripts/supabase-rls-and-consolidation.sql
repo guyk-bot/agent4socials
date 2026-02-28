@@ -6,22 +6,7 @@
 -- =============================================================================
 
 -- PART 1: Enable RLS (removes UNRESTRICTED tag)
-ALTER TABLE "User" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "BrandContext" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "SocialAccount" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "ImportedPost" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "PendingFacebookConnection" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "PendingInstagramConnection" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "PendingTwitterOAuth1" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "Post" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "PostTarget" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "MediaAsset" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "CommentAutomationReply" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "AutomationSettings" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "AutomationFollowerWelcome" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "DeployTriggerState" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "_prisma_migrations" ENABLE ROW LEVEL SECURITY;
-
+-- Only applies to tables that exist, so script won't fail if some tables are missing
 DO $$
 DECLARE
   t text;
@@ -34,8 +19,11 @@ DECLARE
 BEGIN
   FOREACH t IN ARRAY tables
   LOOP
-    EXECUTE format('DROP POLICY IF EXISTS "allow_app_full_access" ON %I', t);
-    EXECUTE format('CREATE POLICY "allow_app_full_access" ON %I FOR ALL USING (true) WITH CHECK (true)', t);
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = t) THEN
+      EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+      EXECUTE format('DROP POLICY IF EXISTS "allow_app_full_access" ON %I', t);
+      EXECUTE format('CREATE POLICY "allow_app_full_access" ON %I FOR ALL USING (true) WITH CHECK (true)', t);
+    END IF;
   END LOOP;
 END $$;
 
@@ -52,40 +40,42 @@ CREATE TABLE IF NOT EXISTS "PendingConnection" (
 CREATE INDEX IF NOT EXISTS "PendingConnection_userId_idx" ON "PendingConnection"("userId");
 CREATE INDEX IF NOT EXISTS "PendingConnection_userId_platform_idx" ON "PendingConnection"("userId", "platform");
 
-INSERT INTO "PendingConnection" ("id", "userId", "platform", "payload", "expiresAt", "createdAt")
-SELECT "id", "userId", 'FACEBOOK', jsonb_build_object('accessToken', "accessToken", 'pages', "pages"), "expiresAt", "createdAt"
-FROM "PendingFacebookConnection"
-ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO "PendingConnection" ("id", "userId", "platform", "payload", "expiresAt", "createdAt")
-SELECT "id", "userId", 'INSTAGRAM', jsonb_build_object('accessToken', "accessToken", 'accounts', "accounts"), "expiresAt", "createdAt"
-FROM "PendingInstagramConnection"
-ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO "PendingConnection" ("id", "userId", "platform", "payload", "expiresAt", "createdAt")
-SELECT "id", "userId", 'TWITTER', jsonb_build_object('requestToken', "requestToken", 'requestTokenSecret', "requestTokenSecret"), NULL, "createdAt"
-FROM "PendingTwitterOAuth1"
-ON CONFLICT (id) DO NOTHING;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'PendingFacebookConnection') THEN
+    INSERT INTO "PendingConnection" ("id", "userId", "platform", "payload", "expiresAt", "createdAt")
+    SELECT "id", "userId", 'FACEBOOK', jsonb_build_object('accessToken', "accessToken", 'pages', "pages"), "expiresAt", "createdAt"
+    FROM "PendingFacebookConnection" ON CONFLICT (id) DO NOTHING;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'PendingInstagramConnection') THEN
+    INSERT INTO "PendingConnection" ("id", "userId", "platform", "payload", "expiresAt", "createdAt")
+    SELECT "id", "userId", 'INSTAGRAM', jsonb_build_object('accessToken', "accessToken", 'accounts', "accounts"), "expiresAt", "createdAt"
+    FROM "PendingInstagramConnection" ON CONFLICT (id) DO NOTHING;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'PendingTwitterOAuth1') THEN
+    INSERT INTO "PendingConnection" ("id", "userId", "platform", "payload", "expiresAt", "createdAt")
+    SELECT "id", "userId", 'TWITTER', jsonb_build_object('requestToken', "requestToken", 'requestTokenSecret', "requestTokenSecret"), NULL, "createdAt"
+    FROM "PendingTwitterOAuth1" ON CONFLICT (id) DO NOTHING;
+  END IF;
+END $$;
 
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "brandContext" JSONB;
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "automationSettings" JSONB;
 
-UPDATE "User" u SET "brandContext" = (
-  SELECT to_jsonb(b) - 'id' - 'userId' - 'createdAt' - 'updatedAt'
-  FROM "BrandContext" b WHERE b."userId" = u.id LIMIT 1
-)
-WHERE EXISTS (SELECT 1 FROM "BrandContext" b WHERE b."userId" = u.id);
-
-UPDATE "User" u SET "automationSettings" = (
-  SELECT jsonb_build_object(
-    'dmWelcomeEnabled', s."dmWelcomeEnabled",
-    'dmWelcomeMessage', s."dmWelcomeMessage",
-    'dmNewFollowerEnabled', s."dmNewFollowerEnabled",
-    'dmNewFollowerMessage', s."dmNewFollowerMessage"
-  )
-  FROM "AutomationSettings" s WHERE s."userId" = u.id LIMIT 1
-)
-WHERE EXISTS (SELECT 1 FROM "AutomationSettings" s WHERE s."userId" = u.id);
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'BrandContext') THEN
+    UPDATE "User" u SET "brandContext" = (SELECT to_jsonb(b) - 'id' - 'userId' - 'createdAt' - 'updatedAt' FROM "BrandContext" b WHERE b."userId" = u.id LIMIT 1)
+    WHERE EXISTS (SELECT 1 FROM "BrandContext" b WHERE b."userId" = u.id);
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'AutomationSettings') THEN
+    UPDATE "User" u SET "automationSettings" = (
+      SELECT jsonb_build_object('dmWelcomeEnabled', s."dmWelcomeEnabled", 'dmWelcomeMessage', s."dmWelcomeMessage", 'dmNewFollowerEnabled', s."dmNewFollowerEnabled", 'dmNewFollowerMessage', s."dmNewFollowerMessage")
+      FROM "AutomationSettings" s WHERE s."userId" = u.id LIMIT 1
+    )
+    WHERE EXISTS (SELECT 1 FROM "AutomationSettings" s WHERE s."userId" = u.id);
+  END IF;
+END $$;
 
 DROP TABLE IF EXISTS "PendingFacebookConnection";
 DROP TABLE IF EXISTS "PendingInstagramConnection";
