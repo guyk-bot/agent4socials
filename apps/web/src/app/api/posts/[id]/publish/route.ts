@@ -92,14 +92,17 @@ export async function POST(
     thumbnailUrl: (m as { metadata?: { thumbnailUrl?: string } }).metadata?.thumbnailUrl,
   }));
 
-  /** Meta (Instagram/Facebook) must fetch the image URL from their servers. Use our proxy so they get a stable, public URL. */
+  /** Meta (Instagram/Facebook) must fetch the image URL from their servers. Use our proxy so they get a stable URL on our domain. */
   function publicMediaUrlForMeta(fileUrl: string): string {
     if (!fileUrl || !fileUrl.startsWith('http')) return fileUrl;
-    if (fileUrl.includes('r2.dev') || fileUrl.includes('cloudflarestorage.com')) {
-      const base = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '');
-      if (base) return `${base.replace(/\/$/, '')}/api/media/proxy?url=${encodeURIComponent(fileUrl)}`;
-    }
-    return fileUrl;
+    const appBase = (process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')).replace(/\/$/, '');
+    if (!appBase) return fileUrl;
+    try {
+      const parsed = new URL(fileUrl);
+      const appHost = new URL(appBase).hostname;
+      if (parsed.hostname === appHost) return fileUrl;
+    } catch (_) {}
+    return `${appBase}/api/media/proxy?url=${encodeURIComponent(fileUrl)}`;
   }
 
   const results: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[] = [];

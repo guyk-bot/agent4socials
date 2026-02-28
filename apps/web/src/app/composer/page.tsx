@@ -956,7 +956,7 @@ export default function ComposerPage() {
                                 else if (failed.includes('socket hang up') || failed.includes('ECONNRESET')) hint = ' Connection to X dropped (often temporary). Check your X profile to see if the post went through; if not, open the post from History and try Post now again.';
                                 else if (failed.includes('timeout')) hint = ' X took too long (e.g. image upload). Open the post from History and try Post now again, or try a smaller image.';
                             }
-                            if (failed.includes('INSTAGRAM') && (failed.includes('2207082') || failed.includes('Media upload'))) hint = (hint ? hint + ' ' : '') + 'For Instagram: try a different image, keep it under 8MB, and ensure the image URL is publicly accessible (HTTPS).';
+                            if (failed.includes('INSTAGRAM') && (failed.includes('2207082') || failed.includes('2207076') || failed.includes('Media upload'))) hint = (hint ? hint + ' ' : '') + 'For Instagram: try a different image, keep it under 8MB, and ensure the image URL is publicly accessible (HTTPS).';
                             setAlertMessage(`Post updated but some platforms failed: ${failed}. Open the post from History to retry or fix.${hint}`);
                             router.push(`/composer?edit=${editPostId}`);
                             return;
@@ -994,7 +994,7 @@ export default function ComposerPage() {
                                 else if (failed.includes('socket hang up') || failed.includes('ECONNRESET')) hint = ' Connection to X dropped (often temporary). Check your X profile to see if the post went through; if not, open the post from History and try Post now again.';
                                 else if (failed.includes('timeout')) hint = ' X took too long (e.g. image upload). Open the post from History and try Post now again, or try a smaller image.';
                             }
-                            if (failed.includes('INSTAGRAM') && (failed.includes('2207082') || failed.includes('Media upload'))) hint = (hint ? hint + ' ' : '') + 'For Instagram: try a different image, keep it under 8MB, and ensure the image URL is publicly accessible (HTTPS).';
+                            if (failed.includes('INSTAGRAM') && (failed.includes('2207082') || failed.includes('2207076') || failed.includes('Media upload'))) hint = (hint ? hint + ' ' : '') + 'For Instagram: try a different image, keep it under 8MB, and ensure the image URL is publicly accessible (HTTPS).';
                             setAlertMessage(`Post created but some platforms failed: ${failed}. Open the post from History to retry or fix.${hint}`);
                             router.push(`/composer?edit=${postId}`);
                             return;

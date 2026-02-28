@@ -74,6 +74,8 @@ export async function GET(request: NextRequest) {
       'Content-Type': contentType,
       'Cache-Control': 'private, max-age=3600',
     };
+    const contentLength = res.headers.get('content-length');
+    if (contentLength) responseHeaders['Content-Length'] = contentLength;
     if (res.status === 206) {
       const contentRange = res.headers.get('Content-Range');
       const acceptRanges = res.headers.get('Accept-Ranges');
