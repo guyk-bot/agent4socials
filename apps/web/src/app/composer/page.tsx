@@ -1003,9 +1003,9 @@ export default function ComposerPage() {
                     if (t) byPlatform[p] = t;
                 }
                 const hasReply = defaultReply || Object.keys(byPlatform).length > 0;
-                const isInstagramOnly = supportedPlatforms.length === 1 && supportedPlatforms[0] === 'INSTAGRAM';
-                const replyOnComment = isInstagramOnly ? !commentAutomationUsePrivateReply : true;
-                const usePrivateReply = isInstagramOnly && commentAutomationUsePrivateReply;
+                const hasInstagram = supportedPlatforms.includes('INSTAGRAM');
+                const replyOnComment = (supportedPlatforms.length > 1) || !commentAutomationUsePrivateReply;
+                const usePrivateReply = hasInstagram && commentAutomationUsePrivateReply;
                 if (keywords.length > 0 && hasReply) {
                     if (!replyOnComment && !usePrivateReply) {
                         setAlertMessage('Comment automation: add a reply message for your platform.');
@@ -1314,7 +1314,7 @@ export default function ComposerPage() {
                             {sectionOpen.platforms ? <ChevronUp size={20} className="text-neutral-400 shrink-0" /> : <ChevronDown size={20} className="text-neutral-400 shrink-0" />}
                         </button>
                         {sectionOpen.platforms && (
-                        <div className="pt-4 flex flex-wrap gap-3 justify-center">
+                        <div className="pt-4 flex flex-nowrap gap-3 justify-center overflow-x-auto">
                             <PlatformToggle
                                 platform="INSTAGRAM"
                                 label="Instagram"
@@ -1780,7 +1780,7 @@ export default function ComposerPage() {
                                             {platforms.filter((p) => p !== 'LINKEDIN').map((p) => (
                                                 <div key={p} className="space-y-1">
                                                     <span className="text-sm font-medium text-neutral-600">{PLATFORM_LABELS[p] || p}</span>
-                                                    {(platforms.length === 1 && p === 'INSTAGRAM') ? (
+                                                    {p === 'INSTAGRAM' ? (
                                                         <>
                                                             <label className="flex items-center gap-2 cursor-pointer mt-2">
                                                                 <input
