@@ -23,6 +23,8 @@ type CommentAutomation = {
   replyTemplateByPlatform?: Record<string, string>;
   replyOnComment?: boolean;
   usePrivateReply?: boolean;
+  instagramPublicReply?: boolean;
+  instagramPrivateReply?: boolean;
 };
 
 function getReplyText(ca: CommentAutomation, platform: string): string {
@@ -108,8 +110,12 @@ async function runCommentAutomation(request: NextRequest) {
                   data: { postTargetId: target.id, platformCommentId: c.id },
                 });
                 repliedSet.add(c.id);
-                const doPublicReply = ca.replyOnComment === true || (ca.replyOnComment === undefined && !ca.usePrivateReply);
-                const doPrivateReply = ca.usePrivateReply === true;
+                const doPublicReply = typeof ca.instagramPublicReply === 'boolean'
+                  ? ca.instagramPublicReply
+                  : (ca.replyOnComment === true || (ca.replyOnComment === undefined && !ca.usePrivateReply));
+                const doPrivateReply = typeof ca.instagramPrivateReply === 'boolean'
+                  ? ca.instagramPrivateReply
+                  : (ca.usePrivateReply === true);
                 if (doPublicReply) {
                   await axios.post(
                     `https://graph.facebook.com/v18.0/${c.id}/replies`,

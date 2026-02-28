@@ -50,7 +50,8 @@ type ComposerDraft = {
     commentAutomationReplyTemplate: string;
     commentAutomationReplyByPlatform?: Record<string, string>;
     commentAutomationReplyOnComment?: boolean;
-    commentAutomationUsePrivateReply: boolean;
+    commentAutomationInstagramPublicReply: boolean;
+    commentAutomationInstagramPrivateReply: boolean;
 };
 
 function isPersistableMediaUrl(url: string): boolean {
@@ -286,7 +287,8 @@ export default function ComposerPage() {
     const [commentAutomationReplyTemplate, setCommentAutomationReplyTemplate] = useState('');
     const [commentAutomationReplyByPlatform, setCommentAutomationReplyByPlatform] = useState<Record<string, string>>({});
     const [commentAutomationReplyOnComment, setCommentAutomationReplyOnComment] = useState(true);
-    const [commentAutomationUsePrivateReply, setCommentAutomationUsePrivateReply] = useState(false);
+    const [commentAutomationInstagramPublicReply, setCommentAutomationInstagramPublicReply] = useState(true);
+    const [commentAutomationInstagramPrivateReply, setCommentAutomationInstagramPrivateReply] = useState(false);
 
     // AI description (optional): generate copy from brand context
     const [aiModalOpen, setAiModalOpen] = useState(false);
@@ -369,7 +371,8 @@ export default function ComposerPage() {
                 if (typeof d.commentAutomationReplyTemplate === 'string') setCommentAutomationReplyTemplate(d.commentAutomationReplyTemplate);
                 if (d.commentAutomationReplyByPlatform && typeof d.commentAutomationReplyByPlatform === 'object') setCommentAutomationReplyByPlatform(d.commentAutomationReplyByPlatform);
                 if (typeof d.commentAutomationReplyOnComment === 'boolean') setCommentAutomationReplyOnComment(d.commentAutomationReplyOnComment);
-                if (typeof d.commentAutomationUsePrivateReply === 'boolean') setCommentAutomationUsePrivateReply(d.commentAutomationUsePrivateReply);
+                if (typeof d.commentAutomationInstagramPublicReply === 'boolean') setCommentAutomationInstagramPublicReply(d.commentAutomationInstagramPublicReply);
+                if (typeof d.commentAutomationInstagramPrivateReply === 'boolean') setCommentAutomationInstagramPrivateReply(d.commentAutomationInstagramPrivateReply);
             }
         } catch (_) { /* ignore */ }
         setDraftRestored(true);
@@ -394,7 +397,7 @@ export default function ComposerPage() {
                     targets?: { platform: string; socialAccount: { id: string } }[];
                     scheduledAt?: string | null;
                     scheduleDelivery?: string | null;
-                    commentAutomation?: { keywords?: string[]; replyTemplate?: string; replyTemplateByPlatform?: Record<string, string>; usePrivateReply?: boolean } | null;
+                    commentAutomation?: { keywords?: string[]; replyTemplate?: string; replyTemplateByPlatform?: Record<string, string>; instagramPublicReply?: boolean; instagramPrivateReply?: boolean } | null;
                 };
                 setEditPostAlreadyPosted(p.status === 'POSTED');
                 const plats = [...new Set((p.targets ?? []).map((t: { platform: string }) => t.platform))];
@@ -447,10 +450,12 @@ export default function ComposerPage() {
                     }
                     if (typeof (ca as { replyOnComment?: boolean }).replyOnComment === 'boolean') {
                         setCommentAutomationReplyOnComment((ca as { replyOnComment: boolean }).replyOnComment);
-                    } else if ((ca as { usePrivateReply?: boolean }).usePrivateReply) {
-                        setCommentAutomationReplyOnComment(false);
                     }
-                    if ((ca as { usePrivateReply?: boolean }).usePrivateReply) setCommentAutomationUsePrivateReply(true);
+                    const caIg = ca as { instagramPublicReply?: boolean; instagramPrivateReply?: boolean; usePrivateReply?: boolean };
+                    if (typeof caIg.instagramPublicReply === 'boolean') setCommentAutomationInstagramPublicReply(caIg.instagramPublicReply);
+                    else if (caIg.usePrivateReply) setCommentAutomationInstagramPublicReply(false);
+                    if (typeof caIg.instagramPrivateReply === 'boolean') setCommentAutomationInstagramPrivateReply(caIg.instagramPrivateReply);
+                    else if (caIg.usePrivateReply) setCommentAutomationInstagramPrivateReply(true);
                 }
                 // Pre-fill selected hashtags from post content (and contentByPlatform) so "Select up to 5" shows them as selected
                 const tagsFromPost = extractHashtagsFromPost(p);
@@ -603,7 +608,8 @@ export default function ComposerPage() {
                     commentAutomationReplyTemplate,
                     commentAutomationReplyByPlatform,
                     commentAutomationReplyOnComment,
-                    commentAutomationUsePrivateReply,
+                    commentAutomationInstagramPublicReply,
+                    commentAutomationInstagramPrivateReply,
                 };
                 localStorage.setItem(COMPOSER_DRAFT_KEY, JSON.stringify(draft));
             } catch (_) { /* ignore */ }
@@ -632,7 +638,8 @@ export default function ComposerPage() {
         commentAutomationReplyTemplate,
         commentAutomationReplyByPlatform,
         commentAutomationReplyOnComment,
-        commentAutomationUsePrivateReply,
+        commentAutomationInstagramPublicReply,
+        commentAutomationInstagramPrivateReply,
         mediaSignature,
         debounceMs,
     ]);
@@ -1005,10 +1012,11 @@ export default function ComposerPage() {
                 const hasReply = defaultReply || Object.keys(byPlatform).length > 0;
                 const hasInstagram = supportedPlatforms.includes('INSTAGRAM');
                 const replyOnComment = true;
-                const usePrivateReply = hasInstagram && commentAutomationUsePrivateReply;
+                const instagramPublicReply = commentAutomationInstagramPublicReply;
+                const instagramPrivateReply = hasInstagram && commentAutomationInstagramPrivateReply;
                 if (keywords.length > 0 && hasReply) {
-                    if (!replyOnComment && !usePrivateReply) {
-                        setAlertMessage('Comment automation: add a reply message for your platform.');
+                    if (hasInstagram && !instagramPublicReply && !instagramPrivateReply) {
+                        setAlertMessage('Comment automation: enable at least one reply option (public or DM) for Instagram.');
                         setLoading(false);
                         return;
                     }
@@ -1017,7 +1025,7 @@ export default function ComposerPage() {
                         replyTemplate: defaultReply || (byPlatform[supportedPlatforms[0]] ?? ''),
                         ...(Object.keys(byPlatform).length > 0 ? { replyTemplateByPlatform: byPlatform } : {}),
                         replyOnComment,
-                        usePrivateReply,
+                        ...(hasInstagram ? { instagramPublicReply, instagramPrivateReply } : {}),
                     };
                 }
             }
@@ -1789,18 +1797,26 @@ export default function ComposerPage() {
                                                                 rows={2}
                                                                 className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                                                             />
-                                                            <label className="flex items-center gap-2 cursor-pointer mt-2">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={commentAutomationUsePrivateReply}
-                                                                    onChange={(e) => setCommentAutomationUsePrivateReply(e.target.checked)}
-                                                                    className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
-                                                                />
-                                                                <span className="text-sm text-neutral-700">Also send as private reply (DM) on Instagram</span>
-                                                            </label>
-                                                            {commentAutomationUsePrivateReply && (
-                                                                <p className="mt-2 text-xs text-neutral-500">The reply above will also be sent as a private DM.</p>
-                                                            )}
+                                                            <div className="mt-2 space-y-2">
+                                                                <label className="flex items-center gap-2 cursor-pointer">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={commentAutomationInstagramPublicReply}
+                                                                        onChange={(e) => setCommentAutomationInstagramPublicReply(e.target.checked)}
+                                                                        className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                                                                    />
+                                                                    <span className="text-sm text-neutral-700">Send public reply</span>
+                                                                </label>
+                                                                <label className="flex items-center gap-2 cursor-pointer">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={commentAutomationInstagramPrivateReply}
+                                                                        onChange={(e) => setCommentAutomationInstagramPrivateReply(e.target.checked)}
+                                                                        className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                                                                    />
+                                                                    <span className="text-sm text-neutral-700">Send as private reply (DM)</span>
+                                                                </label>
+                                                            </div>
                                                         </>
                                                     ) : (
                                                         <textarea
