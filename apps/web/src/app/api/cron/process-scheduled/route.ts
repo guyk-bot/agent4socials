@@ -43,7 +43,10 @@ async function processScheduled(request: NextRequest) {
   if (!process.env.DATABASE_URL) {
     return NextResponse.json({ message: 'DATABASE_URL required' }, { status: 503 });
   }
-  const cronSecret = request.headers.get('X-Cron-Secret') || request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
+  const cronSecret =
+    request.headers.get('X-Cron-Secret') ||
+    request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ||
+    request.nextUrl.searchParams.get('secret');
   if (!process.env.CRON_SECRET || cronSecret !== process.env.CRON_SECRET) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
