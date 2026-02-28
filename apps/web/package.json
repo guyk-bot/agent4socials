@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "jest",
-    "test:instagram-media": "node scripts/test-instagram-media.mjs"
+    "test:instagram-media": "node scripts/test-instagram-media.mjs",
+    "validate-meta-token": "node scripts/validate-meta-token.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.989.0",
