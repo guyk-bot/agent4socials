@@ -168,7 +168,7 @@ export default function CalendarPage() {
                     <p className="mt-1 text-green-700">The email with the link is sent when the scheduled time is reached. For that to work:</p>
                     <ul className="mt-2 list-disc list-inside text-green-700 space-y-0.5">
                         <li>Set <strong>RESEND_API_KEY</strong> and <strong>CRON_SECRET</strong> in Vercel (Environment Variables).</li>
-                        <li>Set up a cron (e.g. <a href="https://cron-job.org" target="_blank" rel="noopener noreferrer" className="underline">cron-job.org</a>) to call <code className="bg-green-100 px-1 rounded">https://agent4socials.com/api/cron/process-scheduled</code> every 1 minute with header <code className="bg-green-100 px-1 rounded">X-Cron-Secret: your-secret</code> (must match Vercel exactly).</li>
+                        <li>Set up a cron (e.g. <a href="https://cron-job.org" target="_blank" rel="noopener noreferrer" className="underline">cron-job.org</a>) to call <code className="bg-green-100 px-1 rounded">https://agent4socials.com/api/cron/process-scheduled?secret=YOUR_CRON_SECRET</code> every 1 minute (or add header <code className="bg-green-100 px-1 rounded">X-Cron-Secret: your-secret</code>).</li>
                         <li>In Composer, choose &quot;Email me a link when it&apos;s time&quot; for the post.</li>
                     </ul>
                     <p className="mt-2 text-green-700">Without the cron, no email is sent (Resend will show no sent emails).</p>
