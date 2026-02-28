@@ -52,6 +52,7 @@ type ComposerDraft = {
     commentAutomationReplyOnComment?: boolean;
     commentAutomationInstagramPublicReply: boolean;
     commentAutomationInstagramPrivateReply: boolean;
+    commentAutomationInstagramDmMessage?: string;
 };
 
 function isPersistableMediaUrl(url: string): boolean {
@@ -289,6 +290,7 @@ export default function ComposerPage() {
     const [commentAutomationReplyOnComment, setCommentAutomationReplyOnComment] = useState(true);
     const [commentAutomationInstagramPublicReply, setCommentAutomationInstagramPublicReply] = useState(true);
     const [commentAutomationInstagramPrivateReply, setCommentAutomationInstagramPrivateReply] = useState(false);
+    const [commentAutomationInstagramDmMessage, setCommentAutomationInstagramDmMessage] = useState('');
 
     // AI description (optional): generate copy from brand context
     const [aiModalOpen, setAiModalOpen] = useState(false);
@@ -373,6 +375,7 @@ export default function ComposerPage() {
                 if (typeof d.commentAutomationReplyOnComment === 'boolean') setCommentAutomationReplyOnComment(d.commentAutomationReplyOnComment);
                 if (typeof d.commentAutomationInstagramPublicReply === 'boolean') setCommentAutomationInstagramPublicReply(d.commentAutomationInstagramPublicReply);
                 if (typeof d.commentAutomationInstagramPrivateReply === 'boolean') setCommentAutomationInstagramPrivateReply(d.commentAutomationInstagramPrivateReply);
+                if (typeof d.commentAutomationInstagramDmMessage === 'string') setCommentAutomationInstagramDmMessage(d.commentAutomationInstagramDmMessage);
             }
         } catch (_) { /* ignore */ }
         setDraftRestored(true);
@@ -397,7 +400,7 @@ export default function ComposerPage() {
                     targets?: { platform: string; socialAccount: { id: string } }[];
                     scheduledAt?: string | null;
                     scheduleDelivery?: string | null;
-                    commentAutomation?: { keywords?: string[]; replyTemplate?: string; replyTemplateByPlatform?: Record<string, string>; instagramPublicReply?: boolean; instagramPrivateReply?: boolean } | null;
+                    commentAutomation?: { keywords?: string[]; replyTemplate?: string; replyTemplateByPlatform?: Record<string, string>; instagramPublicReply?: boolean; instagramPrivateReply?: boolean; instagramDmTemplate?: string } | null;
                 };
                 setEditPostAlreadyPosted(p.status === 'POSTED');
                 const plats = [...new Set((p.targets ?? []).map((t: { platform: string }) => t.platform))];
@@ -451,11 +454,12 @@ export default function ComposerPage() {
                     if (typeof (ca as { replyOnComment?: boolean }).replyOnComment === 'boolean') {
                         setCommentAutomationReplyOnComment((ca as { replyOnComment: boolean }).replyOnComment);
                     }
-                    const caIg = ca as { instagramPublicReply?: boolean; instagramPrivateReply?: boolean; usePrivateReply?: boolean };
+                    const caIg = ca as { instagramPublicReply?: boolean; instagramPrivateReply?: boolean; instagramDmTemplate?: string; usePrivateReply?: boolean };
                     if (typeof caIg.instagramPublicReply === 'boolean') setCommentAutomationInstagramPublicReply(caIg.instagramPublicReply);
                     else if (caIg.usePrivateReply) setCommentAutomationInstagramPublicReply(false);
                     if (typeof caIg.instagramPrivateReply === 'boolean') setCommentAutomationInstagramPrivateReply(caIg.instagramPrivateReply);
                     else if (caIg.usePrivateReply) setCommentAutomationInstagramPrivateReply(true);
+                    if (typeof caIg.instagramDmTemplate === 'string') setCommentAutomationInstagramDmMessage(caIg.instagramDmTemplate);
                 }
                 // Pre-fill selected hashtags from post content (and contentByPlatform) so "Select up to 5" shows them as selected
                 const tagsFromPost = extractHashtagsFromPost(p);
@@ -610,6 +614,7 @@ export default function ComposerPage() {
                     commentAutomationReplyOnComment,
                     commentAutomationInstagramPublicReply,
                     commentAutomationInstagramPrivateReply,
+                    ...(commentAutomationInstagramDmMessage ? { commentAutomationInstagramDmMessage } : {}),
                 };
                 localStorage.setItem(COMPOSER_DRAFT_KEY, JSON.stringify(draft));
             } catch (_) { /* ignore */ }
@@ -640,6 +645,7 @@ export default function ComposerPage() {
         commentAutomationReplyOnComment,
         commentAutomationInstagramPublicReply,
         commentAutomationInstagramPrivateReply,
+        commentAutomationInstagramDmMessage,
         mediaSignature,
         debounceMs,
     ]);
@@ -1020,12 +1026,15 @@ export default function ComposerPage() {
                         setLoading(false);
                         return;
                     }
+                    const instagramDmTemplate = commentAutomationInstagramPrivateReply
+                        ? (commentAutomationInstagramDmMessage.trim() || (byPlatform['INSTAGRAM'] ?? defaultReply).trim())
+                        : undefined;
                     payload.commentAutomation = {
                         keywords,
                         replyTemplate: defaultReply || (byPlatform[supportedPlatforms[0]] ?? ''),
                         ...(Object.keys(byPlatform).length > 0 ? { replyTemplateByPlatform: byPlatform } : {}),
                         replyOnComment,
-                        ...(hasInstagram ? { instagramPublicReply, instagramPrivateReply } : {}),
+                        ...(hasInstagram ? { instagramPublicReply, instagramPrivateReply, ...(instagramPrivateReply ? { instagramDmTemplate } : {}) } : {}),
                     };
                 }
             }
@@ -1790,14 +1799,7 @@ export default function ComposerPage() {
                                                     <span className="text-sm font-medium text-neutral-600">{PLATFORM_LABELS[p] || p}</span>
                                                     {p === 'INSTAGRAM' ? (
                                                         <>
-                                                            <textarea
-                                                                value={commentAutomationReplyByPlatform[p] ?? ''}
-                                                                onChange={(e) => setCommentAutomationReplyByPlatform((prev) => ({ ...prev, [p]: e.target.value }))}
-                                                                placeholder={commentAutomationReplyTemplate.trim() || 'e.g. Thanks for commenting!'}
-                                                                rows={2}
-                                                                className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                                                            />
-                                                            <div className="mt-2 space-y-2">
+                                                            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
                                                                 <label className="flex items-center gap-2 cursor-pointer">
                                                                     <input
                                                                         type="checkbox"
@@ -1814,9 +1816,51 @@ export default function ComposerPage() {
                                                                         onChange={(e) => setCommentAutomationInstagramPrivateReply(e.target.checked)}
                                                                         className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
                                                                     />
-                                                                    <span className="text-sm text-neutral-700">Send as private reply (DM)</span>
+                                                                    <span className="text-sm text-neutral-700">Send a private reply (DM)</span>
                                                                 </label>
                                                             </div>
+                                                            <textarea
+                                                                value={commentAutomationReplyByPlatform[p] ?? ''}
+                                                                onChange={(e) => setCommentAutomationReplyByPlatform((prev) => ({ ...prev, [p]: e.target.value }))}
+                                                                placeholder={commentAutomationReplyTemplate.trim() || 'e.g. Thanks for commenting!'}
+                                                                rows={2}
+                                                                className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                                            />
+                                                            {commentAutomationInstagramPrivateReply && (
+                                                                <div className="mt-2 space-y-1">
+                                                                    <label className="block text-xs font-medium text-neutral-600">DM message</label>
+                                                                    <div className="flex gap-2">
+                                                                        <textarea
+                                                                            value={commentAutomationInstagramDmMessage}
+                                                                            onChange={(e) => setCommentAutomationInstagramDmMessage(e.target.value)}
+                                                                            placeholder="e.g. Thanks! I'll send you the link via DM."
+                                                                            rows={2}
+                                                                            className="flex-1 p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                                                        />
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={async () => {
+                                                                                try {
+                                                                                    setDmReplyAiLoading(true);
+                                                                                    const res = await api.post<{ content?: string }>('/ai/generate-description', {
+                                                                                        topic: 'Comment reply',
+                                                                                        prompt: 'Short, friendly Instagram DM reply when someone comments with interest. Keep under 200 characters.',
+                                                                                        platform: 'INSTAGRAM',
+                                                                                    });
+                                                                                    const text = res.data?.content?.trim();
+                                                                                    if (text) setCommentAutomationInstagramDmMessage(text);
+                                                                                } catch (_) {}
+                                                                                finally { setDmReplyAiLoading(false); }
+                                                                            }}
+                                                                            disabled={dmReplyAiLoading}
+                                                                            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-sm font-medium disabled:opacity-50"
+                                                                        >
+                                                                            {dmReplyAiLoading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                                                                            Generate with AI
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            )}
                                                         </>
                                                     ) : (
                                                         <textarea

@@ -25,6 +25,7 @@ type CommentAutomation = {
   usePrivateReply?: boolean;
   instagramPublicReply?: boolean;
   instagramPrivateReply?: boolean;
+  instagramDmTemplate?: string;
 };
 
 function getReplyText(ca: CommentAutomation, platform: string): string {
@@ -124,9 +125,12 @@ async function runCommentAutomation(request: NextRequest) {
                   );
                 }
                 if (doPrivateReply) {
+                  const dmText = (typeof ca.instagramDmTemplate === 'string' && ca.instagramDmTemplate.trim())
+                    ? ca.instagramDmTemplate.trim()
+                    : replyText;
                   await axios.post(
                     `https://graph.facebook.com/v18.0/${c.id}/private_reply`,
-                    new URLSearchParams({ message: replyText }),
+                    new URLSearchParams({ message: dmText }),
                     { params: { access_token: token }, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
                   );
                 }
