@@ -6,14 +6,26 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
       {
-        userAgent: ["facebookexternalhit", "Facebot", "facebookcatalog"],
-        allow: "/api/media/",
-        disallow: [],
-      },
-      {
         userAgent: "*",
         allow: "/",
-        disallow: ["/dashboard/", "/accounts", "/calendar", "/composer", "/posts", "/settings", "/api/", "/auth/callback"],
+        disallow: [
+          "/dashboard/",
+          "/accounts",
+          "/calendar",
+          "/composer",
+          "/posts",
+          "/settings",
+          "/api/auth/",
+          "/api/posts",
+          "/api/social/",
+          "/api/ai/",
+          "/api/automation/",
+          "/api/cron/",
+          "/api/create-profile",
+          "/api/debug/",
+          "/api/env-check",
+          "/auth/callback",
+        ],
       },
     ],
     sitemap: `${baseUrl}/sitemap.xml`,
