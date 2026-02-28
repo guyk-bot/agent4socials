@@ -1380,7 +1380,7 @@ export default function ComposerPage() {
                                             </div>
                                         </div>
                                         <div className="shrink-0 sm:pt-0 pt-0">
-                                            <div className={`relative group rounded-lg overflow-hidden border-2 border-neutral-200 bg-neutral-100 shrink-0 ${mediaType === 'reel' ? 'aspect-[9/16] w-44' : 'aspect-video w-52'}`}>
+                                            <div className={`relative group rounded-lg overflow-hidden border-2 border-neutral-200 bg-neutral-100 shrink-0 ${mediaType === 'reel' || mediaType === 'video' ? 'aspect-[9/16] w-44' : 'aspect-video w-52'}`}>
                                                 {(() => {
                                                     const effectiveThumbnail = differentThumbnailPerPlatform && selectedPlatformForThumbnail
                                                         ? (thumbnailByPlatform[selectedPlatformForThumbnail] ?? mediaList[0].thumbnailUrl)
@@ -1433,7 +1433,7 @@ export default function ComposerPage() {
                                     {mediaList.map((m, i) => (
                                         <div
                                             key={i}
-                                            className={`relative group rounded-xl overflow-hidden bg-neutral-100 border-2 ${mediaType === 'reel' ? 'aspect-[9/16]' : 'aspect-square'} ${mediaType === 'carousel' ? 'cursor-grab active:cursor-grabbing border-neutral-300 hover:border-indigo-400' : 'border-neutral-200'} ${carouselDraggingIndex === i ? 'opacity-50 ring-2 ring-indigo-400' : ''}`}
+                                            className={`relative group rounded-xl overflow-hidden bg-neutral-100 border-2 ${mediaType === 'reel' || mediaType === 'video' ? 'aspect-[9/16]' : 'aspect-square'} ${mediaType === 'carousel' ? 'cursor-grab active:cursor-grabbing border-neutral-300 hover:border-indigo-400' : 'border-neutral-200'} ${carouselDraggingIndex === i ? 'opacity-50 ring-2 ring-indigo-400' : ''}`}
                                             onClick={mediaType === 'carousel' ? () => moveCarouselToPosition(i, 0) : undefined}
                                             role={mediaType === 'carousel' ? 'button' : undefined}
                                             draggable={mediaType === 'carousel'}
@@ -1993,7 +1993,7 @@ function PostPreview({
                     <p className={`truncate text-neutral-500 ${compact ? 'text-[9px]' : 'text-xs'}`}>{PLATFORM_LABELS[platform] || platform}</p>
                 </div>
             </div>
-            <div className={`bg-neutral-50 flex items-center justify-center overflow-hidden relative ${mediaType === 'reel' || (mediaType === 'video' && media.length === 1) ? 'aspect-[9/16]' : 'aspect-square'}`}>
+            <div className={`bg-neutral-50 flex items-center justify-center overflow-hidden relative ${mediaType === 'reel' || mediaType === 'video' || (media.length === 1 && media[0]?.type === 'VIDEO') ? 'aspect-[9/16]' : 'aspect-square'}`}>
                 {currentMedia ? (
                     <>
                         {currentMedia.type === 'VIDEO' ? (
