@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyMediaServeToken } from '@/lib/media-serve-token';
+import { convertToJpegIfNeeded } from '@/lib/media-to-jpeg';
 
 // Same MIME and fetch behavior as proxy; short URL for Meta (no long query string).
 
@@ -27,6 +28,7 @@ function contentTypeFromUrl(url: string): string {
 
 export async function GET(request: NextRequest) {
   const tokenParam = request.nextUrl.searchParams.get('t');
+  const formatJpeg = request.nextUrl.searchParams.get('format') === 'jpeg';
   if (!tokenParam || typeof tokenParam !== 'string') {
     return NextResponse.json({ message: 't (token) required' }, { status: 400 });
   }
@@ -76,19 +78,30 @@ export async function GET(request: NextRequest) {
     if (!res.ok) {
       return NextResponse.json({ message: 'Upstream error' }, { status: res.status === 404 ? 404 : 502 });
     }
-    const contentType = res.headers.get('content-type')?.split(';')[0]?.trim()
+    let contentType = res.headers.get('content-type')?.split(';')[0]?.trim()
       || contentTypeFromUrl(targetUrl.href);
+    let body: Buffer | ReadableStream<Uint8Array> = res.body as ReadableStream<Uint8Array>;
+    if (formatJpeg && /^image\/(png|webp|gif)$/i.test(contentType)) {
+      const buf = Buffer.from(await res.arrayBuffer());
+      const converted = await convertToJpegIfNeeded(buf, contentType);
+      body = converted.buffer;
+      contentType = converted.contentType;
+    }
     const responseHeaders: Record<string, string> = {
       'Content-Type': contentType,
       'Cache-Control': 'private, max-age=3600',
     };
-    const contentLength = res.headers.get('content-length');
-    if (contentLength) responseHeaders['Content-Length'] = contentLength;
-    if (res.headers.get('Accept-Ranges')) {
+    if (body instanceof Buffer) {
+      responseHeaders['Content-Length'] = String(body.length);
+    } else {
+      const contentLength = res.headers.get('content-length');
+      if (contentLength) responseHeaders['Content-Length'] = contentLength;
+    }
+    if (!formatJpeg && res.headers.get('Accept-Ranges')) {
       responseHeaders['Accept-Ranges'] = res.headers.get('Accept-Ranges')!;
     }
-    return new NextResponse(res.body, {
-      status: res.status,
+    return new NextResponse(body as BodyInit, {
+      status: 200,
       headers: responseHeaders,
     });
   } catch (err) {

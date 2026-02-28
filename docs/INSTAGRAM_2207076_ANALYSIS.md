@@ -57,15 +57,21 @@ For **Reels/videos**, Meta recommends **Resumable Uploads** (upload bytes to Met
 
 **Fix (implemented)**: The serve and proxy routes **do not forward** the `Range` header. They always fetch the full file from R2 and return `200 OK` with the complete image. This applies to both `/api/media/serve` and `/api/media/proxy`.
 
-### 5. Image size or format
+### 5. Image format (Meta requires JPEG only) – fixed
+
+Meta's official Image Specifications: **Format: JPEG** only. PNG, WebP, and GIF are not supported for feed images.
+
+**Fix (implemented)**: When publishing to Instagram, we append `&format=jpeg` to the media URL. Our serve/proxy routes convert PNG, WebP, and GIF to JPEG on-the-fly before Meta fetches. JPEG sources pass through unchanged.
+
+### 6. Image size or format
 
 - Over **8MB** → Meta rejects
-- **PNG** can sometimes cause 2207076 even when valid; **JPEG is more reliable**
+- Aspect ratio: 4:5 to 1.91:1
 - Unusual formats or corrupted files → Meta may fail
 
-**Fix**: Prefer **JPEG** over PNG. Export/save as JPEG, 1080×1080, under 8MB.
+**Fix**: Keep under 8MB. Use aspect ratio 4:5 to 1.91:1 (e.g. 1080×1080 or 1080×1350).
 
-### 6. Token/secret not set
+### 7. Token/secret not set
 
 If `MEDIA_SERVE_SECRET` and `CRON_SECRET` are both missing:
 

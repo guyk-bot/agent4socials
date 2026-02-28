@@ -93,8 +93,9 @@ export async function POST(
     thumbnailUrl: (m as { metadata?: { thumbnailUrl?: string } }).metadata?.thumbnailUrl,
   }));
 
-  /** Meta (Instagram/Facebook) must fetch the image URL from their servers. Prefer short token URL (serve), else proxy, else raw. */
-  function publicMediaUrlForMeta(fileUrl: string): string {
+  /** Meta (Instagram/Facebook) must fetch the image URL from their servers. Prefer short token URL (serve), else proxy, else raw.
+   * For Instagram: append format=jpeg (Meta requires JPEG only; we convert PNG/WebP on-the-fly). */
+  function publicMediaUrlForMeta(fileUrl: string, opts?: { instagramImage?: boolean }): string {
     if (!fileUrl || !fileUrl.startsWith('http')) return fileUrl;
     const appBase = (process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')).replace(/\/$/, '');
     if (!appBase) return fileUrl;
@@ -103,12 +104,13 @@ export async function POST(
       const appHost = new URL(appBase).hostname;
       if (parsed.hostname === appHost) return fileUrl; // already our domain
     } catch (_) {}
+    const jpegParam = opts?.instagramImage ? '&format=jpeg' : '';
     const serveToken = createMediaServeToken(fileUrl);
     if (serveToken) {
-      return `${appBase}/api/media/serve?t=${serveToken}`;
+      return `${appBase}/api/media/serve?t=${serveToken}${jpegParam}`;
     }
     if (process.env.S3_PUBLIC_URL?.trim()) {
-      return `${appBase}/api/media/proxy?url=${encodeURIComponent(fileUrl)}`;
+      return `${appBase}/api/media/proxy?url=${encodeURIComponent(fileUrl)}${jpegParam}`;
     }
     return fileUrl;
   }
@@ -128,9 +130,11 @@ export async function POST(
     let firstMediaUrl = targetMedia[0]?.fileUrl;
     let videoThumbnailUrl = targetMedia[0] && targetMedia[0].type === 'VIDEO' ? (targetMedia[0] as { thumbnailUrl?: string }).thumbnailUrl : undefined;
     if (platform === 'INSTAGRAM' || platform === 'FACEBOOK') {
-      if (firstImageUrl) firstImageUrl = publicMediaUrlForMeta(firstImageUrl);
-      if (firstMediaUrl) firstMediaUrl = publicMediaUrlForMeta(firstMediaUrl);
-      if (videoThumbnailUrl) videoThumbnailUrl = publicMediaUrlForMeta(videoThumbnailUrl);
+      const isInstagram = platform === 'INSTAGRAM';
+      const firstIsImage = targetMedia[0]?.type === 'IMAGE';
+      if (firstImageUrl) firstImageUrl = publicMediaUrlForMeta(firstImageUrl, { instagramImage: isInstagram });
+      if (firstMediaUrl) firstMediaUrl = publicMediaUrlForMeta(firstMediaUrl, { instagramImage: isInstagram && firstIsImage });
+      if (videoThumbnailUrl) videoThumbnailUrl = publicMediaUrlForMeta(videoThumbnailUrl, { instagramImage: isInstagram });
       if (isDebug && debugInfo.mediaUrlsByPlatform) {
         const url = firstImageUrl || firstMediaUrl || videoThumbnailUrl;
         if (url) debugInfo.mediaUrlsByPlatform[platform] = url;
