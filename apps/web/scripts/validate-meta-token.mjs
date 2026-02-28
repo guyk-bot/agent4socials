@@ -21,18 +21,19 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 function loadEnv() {
-  const dirs = [join(__dirname, '..'), join(__dirname, '..', '..')];
+  const dirs = [join(__dirname, '..'), join(__dirname, '..', '..'), join(__dirname, '..', '..', '..')]; // scripts, apps/web, apps, repo root
+  const files = [];
   for (const dir of dirs) {
-    for (const name of ['.env.local', '.env']) {
+    for (const name of ['.env', '.env.local']) {
       const p = join(dir, name);
-      if (existsSync(p)) {
-        const content = readFileSync(p, 'utf8');
-        for (const line of content.split('\n')) {
-          const m = line.match(/^([^#=]+)=(.*)$/);
-          if (m) process.env[m[1].trim()] = m[2].trim().replace(/^["']|["']$/g, '');
-        }
-        return p;
-      }
+      if (existsSync(p)) files.push(p);
+    }
+  }
+  for (const p of files) {
+    const content = readFileSync(p, 'utf8');
+    for (const line of content.split('\n')) {
+      const m = line.match(/^([^#=]+)=(.*)$/);
+      if (m) process.env[m[1].trim()] = m[2].trim().replace(/^["']|["']$/g, '');
     }
   }
 }
