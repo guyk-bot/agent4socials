@@ -6,6 +6,11 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
       {
+        userAgent: ["facebookexternalhit", "Facebot", "facebookcatalog"],
+        allow: "/api/media/",
+        disallow: [],
+      },
+      {
         userAgent: "*",
         allow: "/",
         disallow: ["/dashboard/", "/accounts", "/calendar", "/composer", "/posts", "/settings", "/api/", "/auth/callback"],
