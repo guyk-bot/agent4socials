@@ -61,6 +61,22 @@ Full steps to create the bucket and token: **SETUP.md**, Step 3 (Object Storage 
 
 **If you get "Error 400: redirect_uri_mismatch":** The redirect URI the app sends must match Google exactly. In **Vercel** (or your host) set **YOUTUBE_REDIRECT_URI** = `https://agent4socials.com/api/social/oauth/youtube/callback` (no trailing slash). Ensure this exact URL is in Google Cloud **Authorized redirect URIs**. Then redeploy. If your site is on a different domain (e.g. a Vercel preview URL), add that full callback URL in Google and set `YOUTUBE_REDIRECT_URI` to that same URL.
 
+**Google verification re-submission (redirect_uri_mismatch in demo video):** If Google rejected your verification because the demo showed "Error 400: redirect_uri_mismatch", do the following before recording a new demo:
+
+1. **Fix the redirect URI (single source of truth):**
+   - In **Google Cloud Console** → **APIs & Services** → **Credentials** → your OAuth 2.0 Client ID → **Authorized redirect URIs**, add exactly (no trailing slash):  
+     `https://agent4socials.com/api/social/oauth/youtube/callback`  
+     If your app is served from a different domain (e.g. `https://www.agent4socials.com`), use that origin instead and add that full callback URL in Google.
+   - In **Vercel** (or your host), set **YOUTUBE_REDIRECT_URI** to that **exact same** URL (e.g. `https://agent4socials.com/api/social/oauth/youtube/callback`). Set **NEXT_PUBLIC_APP_URL** to the same origin (e.g. `https://agent4socials.com`) so the OAuth start flow uses the same base URL.
+   - Redeploy the web app, then test the YouTube connect flow once in production to confirm no redirect_uri_mismatch.
+
+2. **Record the new demo video** on the **same environment** (same domain) you fixed. The video must show:
+   - **Full OAuth flow:** User clicks Connect YouTube → Google consent screen (in **English**, language toggle bottom-left) → user grants → redirect back to your app and successful connection.
+   - **Exact scopes:** The consent screen must show the **same scopes** you requested in the verification request (e.g. YouTube Data API v3: upload, readonly; optionally yt-analytics.readonly).
+   - **App use of scopes:** After connecting, show the app using those scopes (e.g. Composer publishing to YouTube, or Analytics/account info from YouTube).
+
+3. **Reply to Google’s email** with a **link to the new demo video** (e.g. unlisted YouTube link or shared drive link) and a short note that you fixed the redirect URI and re-recorded the demo showing the full OAuth flow and scope usage.
+
 **Publishing and "Google hasn't verified this app":**
 
 - **Verification Center** (Google Cloud → **APIs & Services** → **OAuth consent screen** → **Verification Center** or **Google Auth Platform** → **Verification Center**) shows **Branding** (verified) and **Data access** status. If it says "Verification is not required" for data access, you don't need to submit for app verification.
