@@ -138,6 +138,7 @@ export async function POST(request: NextRequest) {
         profilePicture: igPicture,
         expiresAt,
         status: 'connected',
+        credentialsJson: { linkedPageId: page.id },
       },
       create: {
         userId,
@@ -149,6 +150,7 @@ export async function POST(request: NextRequest) {
         refreshToken: null,
         expiresAt,
         status: 'connected',
+        credentialsJson: { linkedPageId: page.id },
       },
     });
   }

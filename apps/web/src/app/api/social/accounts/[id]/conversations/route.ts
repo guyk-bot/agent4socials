@@ -23,7 +23,7 @@ export async function GET(
   const { id } = await params;
   const account = await prisma.socialAccount.findFirst({
     where: { id, userId },
-    select: { id: true, platform: true, platformUserId: true, accessToken: true },
+    select: { id: true, platform: true, platformUserId: true, accessToken: true, credentialsJson: true },
   });
   if (!account) {
     return NextResponse.json({ message: 'Account not found' }, { status: 404 });
@@ -33,12 +33,34 @@ export async function GET(
     return NextResponse.json({ conversations: [], hint: 'Conversations are only available for Instagram and Facebook.' });
   }
 
+  const token = (account.accessToken || '').trim();
+  if (!token) {
+    return NextResponse.json({
+      conversations: [],
+      error: 'No access token. Reconnect this account from the sidebar (Reconnect Facebook & Instagram) and choose your Page.',
+    }, { status: 200 });
+  }
+
   const isInstagram = account.platform === 'INSTAGRAM';
-  const baseUrlForConversations = isInstagram ? 'https://graph.instagram.com/v18.0' : baseUrl;
-  const conversationsPath = `/${account.platformUserId}/conversations`;
+  // Messenger Platform: Instagram inbox uses graph.facebook.com/PAGE-ID/conversations?platform=instagram with Page token.
+  // When Instagram was connected via Facebook we have linkedPageId; use Page endpoint. Else (Instagram-only) use graph.instagram.com/me/conversations.
+  let linkedPageId = isInstagram && account.credentialsJson && typeof account.credentialsJson === 'object' && (account.credentialsJson as { linkedPageId?: string }).linkedPageId;
+  if (isInstagram && !linkedPageId && token) {
+    // Existing account may have been connected via Facebook before we stored linkedPageId. Resolve Page ID from same user's Facebook account with same token.
+    const fb = await prisma.socialAccount.findFirst({
+      where: { userId, platform: 'FACEBOOK', accessToken: token },
+      select: { platformUserId: true },
+    });
+    if (fb?.platformUserId) linkedPageId = fb.platformUserId;
+  }
+  const conversationsPath = isInstagram && linkedPageId
+    ? `https://graph.facebook.com/v18.0/${linkedPageId}/conversations`
+    : isInstagram
+      ? 'https://graph.instagram.com/v18.0/me/conversations'
+      : `${baseUrl}/${account.platformUserId}/conversations`;
   const queryParams: Record<string, string> = {
     fields: 'id,updated_time,senders',
-    access_token: account.accessToken,
+    access_token: token,
   };
   if (isInstagram) queryParams.platform = 'instagram';
 
@@ -46,7 +68,7 @@ export async function GET(
     const res = await axios.get<{
       data?: Array<{ id: string; updated_time?: string; senders?: { data?: Array<{ username?: string; name?: string }> } }>;
       error?: { message: string };
-    }>(`${baseUrlForConversations}${conversationsPath}`, {
+    }>(conversationsPath, {
       params: queryParams,
       timeout: 60_000,
     });

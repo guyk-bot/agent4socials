@@ -542,6 +542,7 @@ export async function GET(
               profilePicture: igPicture,
               expiresAt: tokenData.expiresAt,
               status: 'connected',
+              credentialsJson: { linkedPageId: firstPage.id },
             },
             create: {
               userId,
@@ -553,6 +554,7 @@ export async function GET(
               refreshToken: null,
               expiresAt: tokenData.expiresAt,
               status: 'connected',
+              credentialsJson: { linkedPageId: firstPage.id },
             },
           });
         }
@@ -630,6 +632,7 @@ export async function GET(
               profilePicture: igPicture,
               expiresAt: tokenData.expiresAt,
               status: 'connected',
+              credentialsJson: { linkedPageId: firstPage.id },
             },
             create: {
               userId,
@@ -641,6 +644,7 @@ export async function GET(
               refreshToken: null,
               expiresAt: tokenData.expiresAt,
               status: 'connected',
+              credentialsJson: { linkedPageId: firstPage.id },
             },
           });
         }
