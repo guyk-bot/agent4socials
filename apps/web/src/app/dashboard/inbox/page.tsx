@@ -31,7 +31,11 @@ const PLATFORMS = [
 ] as const;
 
 type Account = { id: string; platform: string; username?: string | null };
-type Conversation = { id: string; updatedTime: string | null; senders: Array<{ username?: string; name?: string }> };
+type Conversation = {
+  id: string;
+  updatedTime: string | null;
+  senders: Array<{ id?: string; name?: string; username?: string; pictureUrl?: string | null }>;
+};
 type ConversationMessage = {
   id: string;
   fromId: string | null;
@@ -601,7 +605,9 @@ export default function InboxPage() {
               {conversations
                 .filter((c) => !searchQuery || (c.senders?.[0]?.username ?? c.senders?.[0]?.name ?? c.id).toLowerCase().includes(searchQuery.toLowerCase()))
                 .map((c) => {
-                  const name = c.senders?.[0]?.username ?? c.senders?.[0]?.name ?? 'Unknown';
+                  const firstSender = c.senders?.[0];
+                  const name = firstSender?.username ?? firstSender?.name ?? 'Unknown';
+                  const pictureUrl = firstSender?.pictureUrl;
                   const initials = name.slice(0, 2).toUpperCase();
                   const platform = (c as Conversation & { platform?: string }).platform;
                   return (
@@ -616,8 +622,12 @@ export default function InboxPage() {
                         selectedConversationId === c.id ? 'bg-indigo-50 border border-indigo-100' : 'hover:bg-neutral-50'
                       }`}
                     >
-                      <div className="w-10 h-10 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 text-sm font-semibold text-neutral-600">
-                        {initials}
+                      <div className="w-10 h-10 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden">
+                        {pictureUrl ? (
+                          <img src={pictureUrl} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-sm font-semibold text-neutral-600">{initials}</span>
+                        )}
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-neutral-900 truncate">{name}</p>

@@ -59,14 +59,25 @@ export async function GET(
       ? 'https://graph.instagram.com/v18.0/me/conversations'
       : `${baseUrl}/${account.platformUserId}/conversations`;
   const queryParams: Record<string, string> = {
-    fields: 'id,updated_time,senders',
+    fields: 'id,updated_time,senders{id,name,username,picture}',
     access_token: token,
   };
   if (isInstagram) queryParams.platform = 'instagram';
 
   try {
     const res = await axios.get<{
-      data?: Array<{ id: string; updated_time?: string; senders?: { data?: Array<{ username?: string; name?: string }> } }>;
+      data?: Array<{
+        id: string;
+        updated_time?: string;
+        senders?: {
+          data?: Array<{
+            id?: string;
+            name?: string;
+            username?: string;
+            picture?: { data?: { url?: string } } | string;
+          }>;
+        };
+      }>;
       error?: { message: string };
     }>(conversationsPath, {
       params: queryParams,
@@ -82,11 +93,24 @@ export async function GET(
       return NextResponse.json({ conversations: [], error: metaMsg, debug: { rawMessage: metaMsg, code, metaMessage: metaMsg } });
     }
 
-    const list = (res.data?.data ?? []).map((c) => ({
-      id: c.id,
-      updatedTime: c.updated_time ?? null,
-      senders: c.senders?.data ?? [],
-    }));
+    const list = (res.data?.data ?? []).map((c) => {
+      const sendersData = c.senders?.data ?? [];
+      const picUrl = (p: { data?: { url?: string } } | string | undefined): string | null => {
+        if (!p) return null;
+        if (typeof p === 'string') return p;
+        return p?.data?.url ?? null;
+      };
+      return {
+        id: c.id,
+        updatedTime: c.updated_time ?? null,
+        senders: sendersData.map((s) => ({
+          id: s.id,
+          name: s.name,
+          username: s.username,
+          pictureUrl: picUrl(s.picture),
+        })),
+      };
+    });
     return NextResponse.json({ conversations: list });
   } catch (e) {
     const err = e as { message?: string; code?: string; response?: { data?: unknown; status?: number } };

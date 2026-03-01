@@ -51,7 +51,7 @@ export type CachedComment = {
 export type CachedConversation = {
   id: string;
   updatedTime: string | null;
-  senders: Array<{ username?: string; name?: string }>;
+  senders: Array<{ id?: string; username?: string; name?: string; pictureUrl?: string | null }>;
 };
 
 /** Post from GET /posts (scheduled/draft/history) */
