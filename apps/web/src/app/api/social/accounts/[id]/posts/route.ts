@@ -449,91 +449,117 @@ async function syncImportedPosts(
 
   if (platform === 'YOUTUBE') {
     try {
-      type YtVideo = {
-        id?: { videoId?: string };
-        snippet?: { publishedAt?: string; title?: string; description?: string; thumbnails?: { medium?: { url?: string }; default?: { url?: string } }; resourceId?: { videoId?: string } };
+      type YtPlaylistItem = {
+        snippet?: {
+          publishedAt?: string;
+          title?: string;
+          thumbnails?: { medium?: { url?: string }; default?: { url?: string } };
+          resourceId?: { videoId?: string };
+        };
       };
-      // Fetch up to 200 recent uploads from the channel's uploads playlist
-      // First get the uploadsPlaylistId from the channel
+
+      // Derive the uploads playlist ID directly from the channel ID.
+      // YouTube channel IDs start with "UC"; their uploads playlist starts with "UU".
+      // This avoids an extra API call and works even when contentDetails is unavailable.
       let uploadsPlaylistId: string | null = null;
-      try {
-        const chRes = await axios.get<{ items?: Array<{ contentDetails?: { relatedPlaylists?: { uploads?: string } } }> }>(
-          'https://www.googleapis.com/youtube/v3/channels',
-          { params: { part: 'contentDetails', mine: 'true' }, headers: { Authorization: `Bearer ${accessToken}` } }
-        );
-        uploadsPlaylistId = chRes.data?.items?.[0]?.contentDetails?.relatedPlaylists?.uploads ?? null;
-      } catch (e) {
-        console.warn('[YouTube sync] channels.contentDetails:', (e as Error)?.message ?? e);
-      }
-
-      if (uploadsPlaylistId) {
-        const allItems: YtVideo[] = [];
-        let nextPageToken: string | null = null;
-        let pages = 0;
-        do {
-          const params: Record<string, string | number> = {
-            part: 'snippet',
-            playlistId: uploadsPlaylistId,
-            maxResults: 50,
-          };
-          if (nextPageToken) params.pageToken = nextPageToken;
-          const res = await axios.get<{ items?: YtVideo[]; nextPageToken?: string }>(
-            'https://www.googleapis.com/youtube/v3/playlistItems',
-            { params, headers: { Authorization: `Bearer ${accessToken}` } }
+      if (platformUserId.startsWith('UC')) {
+        uploadsPlaylistId = 'UU' + platformUserId.slice(2);
+      } else {
+        // Fallback: fetch via contentDetails if channel ID is in unexpected format
+        try {
+          const chRes = await axios.get<{ items?: Array<{ contentDetails?: { relatedPlaylists?: { uploads?: string } } }> }>(
+            'https://www.googleapis.com/youtube/v3/channels',
+            { params: { part: 'contentDetails', mine: 'true' }, headers: { Authorization: `Bearer ${accessToken}` } }
           );
-          allItems.push(...(res.data?.items ?? []));
-          nextPageToken = res.data?.nextPageToken ?? null;
-          pages++;
-        } while (nextPageToken && allItems.length < 200 && pages < 4);
-
-        // Fetch video statistics in batches of 50
-        const videoIds = allItems.map((v) => v.snippet?.resourceId?.videoId).filter(Boolean) as string[];
-        const statsMap: Record<string, { viewCount?: number; likeCount?: number; commentCount?: number }> = {};
-        for (let i = 0; i < videoIds.length; i += 50) {
-          const batch = videoIds.slice(i, i + 50);
-          try {
-            const statsRes = await axios.get<{
-              items?: Array<{ id: string; statistics?: { viewCount?: string; likeCount?: string; commentCount?: string } }>;
-            }>('https://www.googleapis.com/youtube/v3/videos', {
-              params: { part: 'statistics', id: batch.join(',') },
-              headers: { Authorization: `Bearer ${accessToken}` },
-            });
-            for (const v of statsRes.data?.items ?? []) {
-              statsMap[v.id] = {
-                viewCount: v.statistics?.viewCount ? parseInt(v.statistics.viewCount, 10) : 0,
-                likeCount: v.statistics?.likeCount ? parseInt(v.statistics.likeCount, 10) : 0,
-                commentCount: v.statistics?.commentCount ? parseInt(v.statistics.commentCount, 10) : 0,
-              };
-            }
-          } catch (e) {
-            console.warn('[YouTube sync] videos.statistics:', (e as Error)?.message ?? e);
-          }
-        }
-
-        for (const v of allItems) {
-          const videoId = v.snippet?.resourceId?.videoId;
-          if (!videoId) continue;
-          const publishedAt = v.snippet?.publishedAt ? new Date(v.snippet.publishedAt) : new Date();
-          const title = v.snippet?.title ?? null;
-          const thumbnailUrl = v.snippet?.thumbnails?.medium?.url ?? v.snippet?.thumbnails?.default?.url ?? null;
-          const permalinkUrl = `https://www.youtube.com/watch?v=${videoId}`;
-          const stats = statsMap[videoId] ?? {};
-          const impressions = stats.viewCount ?? 0;
-          const interactions = (stats.likeCount ?? 0) + (stats.commentCount ?? 0);
-          await prisma.importedPost.upsert({
-            where: { socialAccountId_platformPostId: { socialAccountId, platformPostId: videoId } },
-            update: { content: title, thumbnailUrl, permalinkUrl, publishedAt, mediaType: 'VIDEO', impressions, interactions, syncedAt: new Date() },
-            create: { socialAccountId, platformPostId: videoId, platform: 'YOUTUBE', content: title, thumbnailUrl, permalinkUrl, publishedAt, mediaType: 'VIDEO', impressions, interactions },
-          });
+          uploadsPlaylistId = chRes.data?.items?.[0]?.contentDetails?.relatedPlaylists?.uploads ?? null;
+        } catch (e) {
+          console.warn('[YouTube sync] channels.contentDetails fallback failed:', (e as Error)?.message ?? e);
         }
       }
+
+      if (!uploadsPlaylistId) {
+        return 'Could not determine YouTube uploads playlist. Try reconnecting your account.';
+      }
+
+      const allItems: YtPlaylistItem[] = [];
+      let nextPageToken: string | null = null;
+      let pages = 0;
+      do {
+        const params: Record<string, string | number | boolean> = {
+          part: 'snippet',
+          playlistId: uploadsPlaylistId,
+          maxResults: 50,
+        };
+        if (nextPageToken) params.pageToken = nextPageToken;
+        const res = await axios.get<{ items?: YtPlaylistItem[]; nextPageToken?: string }>(
+          'https://www.googleapis.com/youtube/v3/playlistItems',
+          { params, headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        allItems.push(...(res.data?.items ?? []));
+        nextPageToken = res.data?.nextPageToken ?? null;
+        pages++;
+      } while (nextPageToken && allItems.length < 500 && pages < 10);
+
+      // Fetch video statistics in batches of 50
+      const videoIds = allItems
+        .map((v) => v.snippet?.resourceId?.videoId)
+        .filter((id): id is string => Boolean(id));
+
+      const statsMap: Record<string, { viewCount: number; likeCount: number; commentCount: number }> = {};
+      for (let i = 0; i < videoIds.length; i += 50) {
+        const batch = videoIds.slice(i, i + 50);
+        try {
+          const statsRes = await axios.get<{
+            items?: Array<{ id: string; statistics?: { viewCount?: string; likeCount?: string; commentCount?: string } }>;
+          }>('https://www.googleapis.com/youtube/v3/videos', {
+            params: { part: 'statistics', id: batch.join(',') },
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          for (const v of statsRes.data?.items ?? []) {
+            statsMap[v.id] = {
+              viewCount: v.statistics?.viewCount ? parseInt(v.statistics.viewCount, 10) : 0,
+              likeCount: v.statistics?.likeCount ? parseInt(v.statistics.likeCount, 10) : 0,
+              commentCount: v.statistics?.commentCount ? parseInt(v.statistics.commentCount, 10) : 0,
+            };
+          }
+        } catch (e) {
+          console.warn('[YouTube sync] videos.statistics batch failed:', (e as Error)?.message ?? e);
+        }
+      }
+
+      for (const v of allItems) {
+        const videoId = v.snippet?.resourceId?.videoId;
+        if (!videoId) continue;
+        const publishedAt = v.snippet?.publishedAt ? new Date(v.snippet.publishedAt) : new Date();
+        const title = v.snippet?.title ?? null;
+        // Skip YouTube's placeholder titles for deleted/private videos
+        if (title === 'Deleted video' || title === 'Private video') continue;
+        const thumbnailUrl = v.snippet?.thumbnails?.medium?.url ?? v.snippet?.thumbnails?.default?.url
+          ?? `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
+        const permalinkUrl = `https://www.youtube.com/watch?v=${videoId}`;
+        const stats = statsMap[videoId] ?? { viewCount: 0, likeCount: 0, commentCount: 0 };
+        const impressions = stats.viewCount;
+        const interactions = stats.likeCount + stats.commentCount;
+        await prisma.importedPost.upsert({
+          where: { socialAccountId_platformPostId: { socialAccountId, platformPostId: videoId } },
+          update: { content: title, thumbnailUrl, permalinkUrl, publishedAt, mediaType: 'VIDEO', impressions, interactions, syncedAt: new Date() },
+          create: { socialAccountId, platformPostId: videoId, platform: 'YOUTUBE', content: title, thumbnailUrl, permalinkUrl, publishedAt, mediaType: 'VIDEO', impressions, interactions },
+        });
+      }
+
       return undefined;
     } catch (e) {
       const msg = (e as Error)?.message ?? '';
-      if (msg.includes('401') || msg.includes('403') || msg.includes('invalid_grant') || msg.includes('permission')) {
+      const apiErr = (e as { response?: { data?: { error?: { message?: string; status?: string } } } })?.response?.data?.error;
+      if (apiErr?.message) {
+        console.error('[YouTube sync] API error:', apiErr);
+        return `YouTube sync error: ${apiErr.message}`;
+      }
+      if (msg.includes('401') || msg.includes('403') || msg.includes('invalid_grant')) {
         return 'Reconnect your YouTube account to sync videos.';
       }
-      return undefined;
+      console.error('[YouTube sync] unexpected error:', msg);
+      return `YouTube sync failed: ${msg.slice(0, 200)}`;
     }
   }
 
