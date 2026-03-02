@@ -159,20 +159,41 @@ export default function CalendarPage() {
     };
 
     const justScheduled = searchParams.get('scheduled') === '1';
+    const scheduledDelivery = searchParams.get('delivery'); // 'auto' or 'email'
+    const scheduledPlatforms = searchParams.get('platforms'); // comma-separated
+    const scheduledTime = searchParams.get('at'); // ISO string
+
+    const scheduledTimeFormatted = (() => {
+        if (!scheduledTime) return null;
+        try {
+            return new Date(scheduledTime).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        } catch { return null; }
+    })();
+
+    const platformNames: Record<string, string> = { INSTAGRAM: 'Instagram', FACEBOOK: 'Facebook', TWITTER: 'X (Twitter)', LINKEDIN: 'LinkedIn', TIKTOK: 'TikTok', YOUTUBE: 'YouTube' };
+    const platformsLabel = scheduledPlatforms
+        ? scheduledPlatforms.split(',').map((p) => platformNames[p] ?? p).join(', ')
+        : null;
 
     return (
         <div className="space-y-6">
             {justScheduled && (
                 <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-                    <p className="font-medium">Post scheduled.</p>
-                    <p className="mt-1 text-green-700">The email with the link is sent when the scheduled time is reached. For that to work:</p>
-                    <ul className="mt-2 list-disc list-inside text-green-700 space-y-0.5">
-                        <li>Set <strong>RESEND_API_KEY</strong> and <strong>CRON_SECRET</strong> in Vercel (Environment Variables).</li>
-                        <li>Set up a cron (e.g. <a href="https://cron-job.org" target="_blank" rel="noopener noreferrer" className="underline">cron-job.org</a>) to call <code className="bg-green-100 px-1 rounded">https://agent4socials.com/api/cron/process-scheduled?secret=YOUR_CRON_SECRET</code> every 1 minute (or add header <code className="bg-green-100 px-1 rounded">X-Cron-Secret: your-secret</code>).</li>
-                        <li>In Composer, choose &quot;Email me a link when it&apos;s time&quot; for the post.</li>
-                    </ul>
-                    <p className="mt-2 text-green-700">Without the cron, no email is sent (Resend will show no sent emails).</p>
-                    <p className="mt-2 text-green-800 text-xs">Not getting the email? Check: (1) <strong>RESEND_FROM_EMAIL</strong> in Vercel matches your verified domain exactly (e.g. agent4socials.com, not agent4social.com). (2) Post scheduled time has already passed. (3) CRON_SECRET set and external cron (e.g. cron-job.org) calls the endpoint every 1–5 min. (4) Test with: <code className="bg-green-100 px-1 rounded">/api/cron/test-email?to=your@email.com</code> plus X-Cron-Secret header. See <code className="bg-green-100 px-1 rounded">docs/EMAIL_SCHEDULING_SETUP.md</code>.</p>
+                    {scheduledDelivery === 'email' ? (
+                        <>
+                            <p className="font-medium">Your post is scheduled.</p>
+                            <p className="mt-1 text-green-700">
+                                You will receive an email with fast edit and posting options for{platformsLabel ? ` ${platformsLabel}` : ' your platforms'}{scheduledTimeFormatted ? ` at ${scheduledTimeFormatted}` : ' at your scheduled time'}.
+                            </p>
+                        </>
+                    ) : (
+                        <>
+                            <p className="font-medium">Your post is scheduled.</p>
+                            <p className="mt-1 text-green-700">
+                                It will be posted automatically to{platformsLabel ? ` ${platformsLabel}` : ' your platforms'}{scheduledTimeFormatted ? ` at ${scheduledTimeFormatted}` : ' at your scheduled time'}.
+                            </p>
+                        </>
+                    )}
                 </div>
             )}
 

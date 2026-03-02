@@ -158,19 +158,23 @@ export async function POST(request: NextRequest) {
     const parsed = jsonMatch ? (() => { try { return JSON.parse(jsonMatch[0]) as Record<string, unknown>; } catch { return null; } })() : null;
     if (parsed && typeof parsed.content === 'string') {
       let content = cleanGeneratedText(parsed.content);
+      const cta = typeof parsed.cta === 'string' ? cleanGeneratedText(parsed.cta).slice(0, 200) : undefined;
       const platformUpper = platform.toUpperCase();
       if (platformUpper === 'TWITTER' || platformUpper === 'X') {
-        const max = 250;
-        if (content.length > max) content = content.slice(0, max).trim();
+        // Keep content + CTA + newlines within 230 chars to leave room for hashtags
+        const combined = cta ? `${content.trim()}\n\n${cta.trim()}` : content;
+        if (combined.length > 230) {
+          const maxContent = cta ? Math.max(0, 230 - cta.length - 2) : 230;
+          content = content.slice(0, maxContent).trim();
+        }
       }
-      const cta = typeof parsed.cta === 'string' ? cleanGeneratedText(parsed.cta).slice(0, 200) : undefined;
       const keywords = Array.isArray(parsed.keywords)
         ? (parsed.keywords as unknown[]).filter((k): k is string => typeof k === 'string').map((k) => k.trim().toLowerCase()).filter(Boolean).slice(0, 5)
         : undefined;
       const replyTemplate = typeof parsed.replyTemplate === 'string' ? cleanGeneratedText(parsed.replyTemplate).slice(0, 500) : undefined;
       return NextResponse.json({
         content,
-        ...(cta ? { cta } : {}),
+        ...(cta !== undefined ? { cta } : {}),
         ...(keywords?.length ? { keywords } : {}),
         ...(replyTemplate ? { replyTemplate } : {}),
       });

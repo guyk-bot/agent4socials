@@ -397,13 +397,13 @@ export default function ComposerPage() {
                     contentByPlatform?: Record<string, string> | null;
                     media?: { fileUrl: string; type: string }[];
                     mediaByPlatform?: Record<string, { fileUrl: string; type: string }[]>;
-                    targets?: { platform: string; socialAccount: { id: string } }[];
+                    targets?: { platform?: string; socialAccount?: { id: string; platform?: string } }[];
                     scheduledAt?: string | null;
                     scheduleDelivery?: string | null;
                     commentAutomation?: { keywords?: string[]; replyTemplate?: string; replyTemplateByPlatform?: Record<string, string>; instagramPublicReply?: boolean; instagramPrivateReply?: boolean; instagramDmTemplate?: string } | null;
                 };
                 setEditPostAlreadyPosted(p.status === 'POSTED');
-                const plats = [...new Set((p.targets ?? []).map((t: { platform: string }) => t.platform))];
+                const plats = [...new Set((p.targets ?? []).map((t) => t.socialAccount?.platform ?? t.platform ?? '').filter(Boolean))];
                 setPlatforms(plats);
                 const cp = p.contentByPlatform && typeof p.contentByPlatform === 'object' ? p.contentByPlatform : {};
                 const hasPerPlatform = Object.keys(cp).some((k) => (cp[k] ?? '').trim());
@@ -523,7 +523,7 @@ export default function ComposerPage() {
         };
 
         if (differentContentPerPlatform && platforms.length > 0) {
-            // Generate one description per selected platform; first call can include CTA + automation
+            // Generate one description per selected platform; first call includes CTA + automation
             const firstPlatform = platforms[0];
             const rest = platforms.slice(1);
             const firstPromise = api.post<{ content?: string; cta?: string; keywords?: string[]; replyTemplate?: string }>('/ai/generate-description', {
@@ -539,12 +539,13 @@ export default function ComposerPage() {
             Promise.all([firstPromise, ...restPromises])
                 .then((results) => {
                     const first = results[0];
+                    const ctaText = aiIncludeCtaAndAutomation ? (first?.data as { cta?: string })?.cta?.trim() ?? '' : '';
                     setContentByPlatform((prev) => {
                         const next = { ...prev };
                         for (const { platform, data: d } of results) {
                             let text = d?.content ?? '';
-                            if (platform === first?.platform && aiIncludeCtaAndAutomation && (d as { cta?: string })?.cta) {
-                                text = text.trim() + '\n\n' + (d as { cta: string }).cta.trim();
+                            if (aiIncludeCtaAndAutomation && ctaText) {
+                                text = text.trim() + '\n\n' + ctaText;
                             }
                             next[platform] = text;
                         }
@@ -1069,8 +1070,8 @@ export default function ComposerPage() {
                     return;
                 }
                 if (scheduledAt) {
-                    setAlertMessage('Post updated and scheduled.');
-                    router.push('/calendar?scheduled=1');
+                    const schedParams = new URLSearchParams({ scheduled: '1', delivery: scheduleDelivery === 'email_links' ? 'email' : 'auto', platforms: platforms.join(','), at: new Date(scheduledAt).toISOString() });
+                    router.push(`/calendar?${schedParams.toString()}`);
                 } else {
                     // Post now: publish immediately after update (same as create + Post now)
                     try {
@@ -1161,7 +1162,8 @@ export default function ComposerPage() {
                     return;
                 }
                 if (scheduledAt) {
-                    router.push('/calendar?scheduled=1');
+                    const schedParams = new URLSearchParams({ scheduled: '1', delivery: scheduleDelivery === 'email_links' ? 'email' : 'auto', platforms: platforms.join(','), at: new Date(scheduledAt).toISOString() });
+                    router.push(`/calendar?${schedParams.toString()}`);
                 } else {
                     router.push('/posts');
                 }
@@ -1332,48 +1334,29 @@ export default function ComposerPage() {
                         </button>
                         {sectionOpen.platforms && (
                         <div className="pt-4 flex flex-nowrap gap-3 justify-center overflow-x-auto">
-                            <PlatformToggle
-                                platform="INSTAGRAM"
-                                label="Instagram"
-                                icon={<InstagramIcon size={26} />}
-                                active={platforms.includes('INSTAGRAM')}
-                                onClick={() => setPlatforms(prev => prev.includes('INSTAGRAM') ? prev.filter(p => p !== 'INSTAGRAM') : [...prev, 'INSTAGRAM'])}
-                            />
-                            <PlatformToggle
-                                platform="TIKTOK"
-                                label="TikTok"
-                                icon={<TikTokIcon size={26} />}
-                                active={platforms.includes('TIKTOK')}
-                                onClick={() => setPlatforms(prev => prev.includes('TIKTOK') ? prev.filter(p => p !== 'TIKTOK') : [...prev, 'TIKTOK'])}
-                            />
-                            <PlatformToggle
-                                platform="YOUTUBE"
-                                label="YouTube"
-                                icon={<YoutubeIcon size={26} />}
-                                active={platforms.includes('YOUTUBE')}
-                                onClick={() => setPlatforms(prev => prev.includes('YOUTUBE') ? prev.filter(p => p !== 'YOUTUBE') : [...prev, 'YOUTUBE'])}
-                            />
-                            <PlatformToggle
-                                platform="FACEBOOK"
-                                label="Facebook"
-                                icon={<FacebookIcon size={26} />}
-                                active={platforms.includes('FACEBOOK')}
-                                onClick={() => setPlatforms(prev => prev.includes('FACEBOOK') ? prev.filter(p => p !== 'FACEBOOK') : [...prev, 'FACEBOOK'])}
-                            />
-                            <PlatformToggle
-                                platform="TWITTER"
-                                label="Twitter/X"
-                                icon={<XTwitterIcon size={26} className="text-neutral-800" />}
-                                active={platforms.includes('TWITTER')}
-                                onClick={() => setPlatforms(prev => prev.includes('TWITTER') ? prev.filter(p => p !== 'TWITTER') : [...prev, 'TWITTER'])}
-                            />
-                            <PlatformToggle
-                                platform="LINKEDIN"
-                                label="LinkedIn"
-                                icon={<LinkedinIcon size={26} />}
-                                active={platforms.includes('LINKEDIN')}
-                                onClick={() => setPlatforms(prev => prev.includes('LINKEDIN') ? prev.filter(p => p !== 'LINKEDIN') : [...prev, 'LINKEDIN'])}
-                            />
+                            {(['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN'] as const).map((p) => {
+                                const connected = accounts.some((a) => a.platform === p);
+                                const icons: Record<string, React.ReactNode> = {
+                                    INSTAGRAM: <InstagramIcon size={26} />,
+                                    TIKTOK: <TikTokIcon size={26} />,
+                                    YOUTUBE: <YoutubeIcon size={26} />,
+                                    FACEBOOK: <FacebookIcon size={26} />,
+                                    TWITTER: <XTwitterIcon size={26} className="text-neutral-800" />,
+                                    LINKEDIN: <LinkedinIcon size={26} />,
+                                };
+                                const labels: Record<string, string> = { INSTAGRAM: 'Instagram', TIKTOK: 'TikTok', YOUTUBE: 'YouTube', FACEBOOK: 'Facebook', TWITTER: 'Twitter/X', LINKEDIN: 'LinkedIn' };
+                                return (
+                                    <PlatformToggle
+                                        key={p}
+                                        platform={p}
+                                        label={labels[p]}
+                                        icon={icons[p]}
+                                        active={platforms.includes(p)}
+                                        connected={connected}
+                                        onClick={() => setPlatforms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p])}
+                                    />
+                                );
+                            })}
                         </div>
                         )}
                     </div>
@@ -1704,9 +1687,11 @@ export default function ComposerPage() {
                             <div>
                                 <textarea
                                     value={content}
-                                    onChange={(e) => setContent(e.target.value)}
+                                    onChange={(e) => { setContent(e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
+                                    onFocus={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
                                     placeholder="What's on your mind?..."
-                                    className="w-full h-32 p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                    rows={5}
+                                    className="w-full min-h-[7rem] p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none overflow-hidden"
                                 />
                                 {platforms.includes('TWITTER') && (() => {
                                     const withTags = content.trim() + (selectedHashtags.length ? ' ' + selectedHashtags.join(' ') : '');
@@ -1732,9 +1717,11 @@ export default function ComposerPage() {
                                             <label className="text-sm font-medium text-neutral-700">{PLATFORM_LABELS[p] || p}</label>
                                             <textarea
                                                 value={contentByPlatform[p] ?? ''}
-                                                onChange={(e) => setContentByPlatform((prev) => ({ ...prev, [p]: e.target.value }))}
+                                                onChange={(e) => { setContentByPlatform((prev) => ({ ...prev, [p]: e.target.value })); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
+                                                onFocus={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
                                                 placeholder="Content for this platform..."
-                                                className="w-full h-24 p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                                rows={4}
+                                                className="w-full min-h-[6rem] p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm resize-none overflow-hidden"
                                             />
                                             {p === 'TWITTER' && (
                                                 <p className={`text-xs ${fullLength > 280 ? 'text-amber-600 font-medium' : 'text-neutral-500'}`}>
@@ -2090,6 +2077,7 @@ export default function ComposerPage() {
                                             media={effectiveMedia}
                                             mediaType={mediaType}
                                             compact={platforms.length > 1}
+                                            mediaUploading={mediaUploading}
                                         />
                                     );
                                 })}
@@ -2127,6 +2115,7 @@ export default function ComposerPage() {
                                             media={effectiveMedia}
                                             mediaType={mediaType}
                                             compact={platforms.length > 1}
+                                            mediaUploading={mediaUploading}
                                         />
                                     );
                                 })}
@@ -2139,19 +2128,28 @@ export default function ComposerPage() {
     );
 }
 
-function PlatformToggle({ platform, label, icon, active, onClick }: { platform: string; label: string; icon: React.ReactNode; active: boolean; onClick: () => void }) {
+function PlatformToggle({ platform, label, icon, active, onClick, connected }: { platform: string; label: string; icon: React.ReactNode; active: boolean; onClick: () => void; connected: boolean }) {
     return (
-        <button
-            type="button"
-            onClick={onClick}
-            className={`w-24 h-24 rounded-xl border-2 flex flex-col items-center justify-center gap-2 transition-all duration-200 ${active
-                    ? 'border-indigo-600 bg-indigo-50 text-indigo-600 shadow-sm'
-                    : 'border-neutral-200 bg-white text-neutral-500 hover:border-neutral-300 hover:bg-neutral-50'
+        <div className="relative flex flex-col items-center gap-1">
+            <button
+                type="button"
+                onClick={connected ? onClick : undefined}
+                title={connected ? label : `Connect ${label} first in the sidebar`}
+                className={`w-24 h-24 rounded-xl border-2 flex flex-col items-center justify-center gap-2 transition-all duration-200 ${
+                    !connected
+                        ? 'border-neutral-100 bg-neutral-50 text-neutral-300 cursor-not-allowed opacity-50'
+                        : active
+                            ? 'border-indigo-600 bg-indigo-50 text-indigo-600 shadow-sm'
+                            : 'border-neutral-200 bg-white text-neutral-500 hover:border-neutral-300 hover:bg-neutral-50'
                 }`}
-        >
-            <span className="flex items-center justify-center w-10 h-10 shrink-0">{icon}</span>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-center leading-tight">{label}</span>
-        </button>
+            >
+                <span className="flex items-center justify-center w-10 h-10 shrink-0">{icon}</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-center leading-tight">{label}</span>
+            </button>
+            {!connected && (
+                <span className="text-[9px] text-neutral-400 font-medium">Not connected</span>
+            )}
+        </div>
     );
 }
 
@@ -2163,6 +2161,7 @@ function PostPreview({
     media,
     mediaType = 'photo',
     compact = false,
+    mediaUploading = false,
 }: {
     platform: string;
     profileName: string;
@@ -2171,6 +2170,7 @@ function PostPreview({
     media: { fileUrl: string; type: string; thumbnailUrl?: string }[];
     mediaType?: MediaTypeChoice;
     compact?: boolean;
+    mediaUploading?: boolean;
 }) {
     const [currentSlide, setCurrentSlide] = useState(0);
     const slideIndex = media.length > 0 ? Math.min(currentSlide, media.length - 1) : 0;
@@ -2203,7 +2203,12 @@ function PostPreview({
                 </div>
             </div>
             <div className={`bg-neutral-50 flex items-center justify-center overflow-hidden relative ${mediaType === 'reel' || mediaType === 'video' || (media.length === 1 && media[0]?.type === 'VIDEO') ? 'aspect-[9/16]' : 'aspect-square'}`}>
-                {currentMedia ? (
+                {mediaUploading && !currentMedia ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-neutral-100 animate-pulse">
+                        <Loader2 size={compact ? 18 : 28} className="animate-spin text-neutral-400" />
+                        <span className={`text-neutral-400 font-medium ${compact ? 'text-[9px]' : 'text-xs'}`}>Uploading…</span>
+                    </div>
+                ) : currentMedia ? (
                     <>
                         {currentMedia.type === 'VIDEO' ? (
                             (currentMedia as { thumbnailUrl?: string }).thumbnailUrl ? (
@@ -2238,12 +2243,17 @@ function PostPreview({
                             </>
                         )}
                     </>
+                ) : mediaUploading ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-neutral-100 animate-pulse">
+                        <Loader2 size={compact ? 18 : 28} className="animate-spin text-neutral-400" />
+                        <span className={`text-neutral-400 font-medium ${compact ? 'text-[9px]' : 'text-xs'}`}>Uploading…</span>
+                    </div>
                 ) : (
                     <ImageIcon size={compact ? 20 : 36} className="text-neutral-200" strokeWidth={1.5} />
                 )}
             </div>
             <div className={compact ? 'p-1.5' : 'p-3 space-y-2'}>
-                <p className={`text-neutral-800 whitespace-pre-wrap break-words overflow-y-auto ${compact ? 'text-[10px] max-h-12' : 'text-sm max-h-32'}`}>
+                <p className={`text-neutral-800 whitespace-pre-wrap break-words overflow-y-auto ${compact ? 'text-[10px] max-h-16' : 'text-sm max-h-48'}`}>
                     {content || (compact ? '…' : 'Your caption will appear here...')}
                 </p>
             </div>

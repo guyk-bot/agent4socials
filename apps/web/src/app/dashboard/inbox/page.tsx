@@ -330,9 +330,11 @@ export default function InboxPage() {
     return () => { cancelled = true; };
   }, [inboxMode, commentsSupportedPlatforms.join(','), effectiveAccounts, appData]);
 
+  // For engagement, always show all connected IG+FB accounts regardless of platform filter
+  const allEngagementAccounts = effectiveAccounts.filter((a) => a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK');
   const engagementPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK');
   useEffect(() => {
-    if (inboxMode !== 'engagement' || engagementPlatforms.length === 0) {
+    if (inboxMode !== 'engagement' || allEngagementAccounts.length === 0) {
       setEngagement([]);
       setEngagementLoading(false);
       setEngagementError(null);
@@ -341,40 +343,31 @@ export default function InboxPage() {
     }
     let cancelled = false;
     const merge: EngagementItem[] = [];
-    let pending = engagementPlatforms.length;
-    engagementPlatforms.forEach((platform) => {
-      const account = effectiveAccounts.find((a) => a.platform === platform);
-      if (!account) {
-        if (--pending === 0 && !cancelled) {
-          setEngagement(merge);
-          setEngagementLoading(false);
-        }
-        return;
-      }
-      setEngagementLoading(true);
-      setEngagementError(null);
+    let pending = allEngagementAccounts.length;
+    setEngagementLoading(true);
+    setEngagementError(null);
+    allEngagementAccounts.forEach((account) => {
       api.get<{ engagement?: EngagementItem[]; error?: string }>(`/social/accounts/${account.id}/engagement`)
         .then((res) => {
           if (cancelled) return;
           merge.push(...(res.data?.engagement ?? []));
           if (--pending === 0) {
+            merge.sort((a, b) => (b.likeCount + b.commentCount) - (a.likeCount + a.commentCount));
             setEngagement(merge);
-            setEngagementError(res.data?.error ?? null);
+            setEngagementLoading(false);
           }
         })
         .catch(() => {
           if (cancelled) return;
           if (--pending === 0) {
             setEngagement(merge);
-            setEngagementError('Could not load engagement.');
+            setEngagementLoading(false);
+            setEngagementError('Could not load engagement for some platforms.');
           }
-        })
-        .finally(() => {
-          if (pending === 0 && !cancelled) setEngagementLoading(false);
         });
     });
     return () => { cancelled = true; };
-  }, [inboxMode, engagementPlatforms.join(','), effectiveAccounts]);
+  }, [inboxMode, allEngagementAccounts.map((a) => a.id).join(','), effectiveAccounts.length]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {

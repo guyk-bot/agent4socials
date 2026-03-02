@@ -48,7 +48,7 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
       targets: {
         where: { platformPostId: { not: null }, status: PostStatus.POSTED },
         include: {
-          socialAccount: { select: { id: true, platform: true, accessToken: true, platformUserId: true } },
+          socialAccount: { select: { id: true, platform: true, accessToken: true, platformUserId: true, credentialsJson: true } },
         },
       },
     },
@@ -87,9 +87,15 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
 
       try {
         if (platform === 'INSTAGRAM') {
-          const res = await axios.get<{ data?: Array<{ id: string; text?: string }> }>(
+          const creds = target.socialAccount.credentialsJson as Record<string, unknown> | null;
+          // For Instagram messaging, prefer the page access token stored in credentials
+          const pageToken: string = (typeof creds?.pageToken === 'string' && creds.pageToken) ? creds.pageToken : token;
+          const linkedPageId: string | null = typeof creds?.linkedPageId === 'string' ? creds.linkedPageId : null;
+          const igAccountId = (target.socialAccount.platformUserId || '').trim();
+
+          const res = await axios.get<{ data?: Array<{ id: string; text?: string; from?: { id?: string } }> }>(
             `https://graph.facebook.com/v18.0/${platformPostId}/comments`,
-            { params: { fields: 'id,text', access_token: token } }
+            { params: { fields: 'id,text,from', access_token: token }, timeout: 10000 }
           );
           const comments = res.data?.data ?? [];
           for (const c of comments) {
@@ -110,27 +116,27 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
               if (doPublicReply) {
                 await axios.post(
                   `https://graph.facebook.com/v18.0/${c.id}/replies`,
-                  new URLSearchParams({ message: replyText }),
-                  { params: { access_token: token }, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+                  null,
+                  { params: { message: replyText, access_token: token }, timeout: 10000 }
                 );
               }
               if (doPrivateReply) {
                 const dmText = (typeof ca.instagramDmTemplate === 'string' && ca.instagramDmTemplate.trim())
                   ? ca.instagramDmTemplate.trim()
                   : replyText;
-                const igAccountId = (target.socialAccount.platformUserId || '').trim();
-                if (igAccountId) {
+                // Use linkedPageId for the messaging endpoint if available, else igAccountId
+                const msgSenderId = linkedPageId || igAccountId;
+                if (msgSenderId) {
                   await axios.post(
-                    `https://graph.facebook.com/v18.0/${igAccountId}/messages`,
+                    `https://graph.facebook.com/v18.0/${msgSenderId}/messages`,
                     {
                       recipient: { comment_id: c.id },
                       message: { text: dmText },
                     },
                     {
-                      headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${token}`,
-                      },
+                      params: { access_token: pageToken },
+                      headers: { 'Content-Type': 'application/json' },
+                      timeout: 10000,
                     }
                   );
                 }
@@ -140,13 +146,15 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
               await prisma.commentAutomationReply.deleteMany({
                 where: { postTargetId: target.id, platformCommentId: c.id },
               }).catch(() => {});
-              errors.push((e as Error)?.message ?? String(e));
+              const axErr = e as { response?: { data?: unknown; status?: number } };
+              const errMsg = axErr.response?.data ? JSON.stringify(axErr.response.data) : ((e as Error)?.message ?? String(e));
+              errors.push(errMsg.slice(0, 300));
             }
           }
         } else if (platform === 'FACEBOOK') {
           const res = await axios.get<{ data?: Array<{ id: string; message?: string }> }>(
             `https://graph.facebook.com/v18.0/${platformPostId}/comments`,
-            { params: { fields: 'id,message', access_token: token } }
+            { params: { fields: 'id,message', access_token: token }, timeout: 10000 }
           );
           const comments = res.data?.data ?? [];
           for (const c of comments) {
@@ -160,15 +168,17 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
               repliedSet.add(c.id);
               await axios.post(
                 `https://graph.facebook.com/v18.0/${c.id}/comments`,
-                new URLSearchParams({ message: replyText }),
-                { params: { access_token: token }, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+                null,
+                { params: { message: replyText, access_token: token }, timeout: 10000 }
               );
               replied++;
             } catch (e) {
               await prisma.commentAutomationReply.deleteMany({
                 where: { postTargetId: target.id, platformCommentId: c.id },
               }).catch(() => {});
-              errors.push((e as Error)?.message ?? String(e));
+              const axErr = e as { response?: { data?: unknown; status?: number } };
+              const errMsg = axErr.response?.data ? JSON.stringify(axErr.response.data) : ((e as Error)?.message ?? String(e));
+              errors.push(errMsg.slice(0, 300));
             }
           }
         } else if (platform === 'TWITTER') {
