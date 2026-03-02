@@ -225,12 +225,38 @@ async function exchangeCode(
         redirect_uri: callbackUrl,
         grant_type: 'authorization_code',
       }), { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+      const accessToken = r.data.access_token;
+      let platformUserId = 'youtube-' + (accessToken?.slice(-8) || 'id');
+      let username = 'YouTube Channel';
+      let profilePicture: string | null = null;
+      try {
+        const chRes = await axios.get<{
+          items?: Array<{
+            id: string;
+            snippet?: { title?: string; thumbnails?: { default?: { url?: string }; medium?: { url?: string } } };
+            statistics?: { subscriberCount?: string; viewCount?: string; videoCount?: string };
+          }>;
+        }>('https://www.googleapis.com/youtube/v3/channels', {
+          params: { part: 'snippet,statistics', mine: 'true' },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        const channel = chRes.data?.items?.[0];
+        if (channel?.id) {
+          platformUserId = channel.id;
+          if (channel.snippet?.title) username = channel.snippet.title;
+          const thumb = channel.snippet?.thumbnails?.medium?.url ?? channel.snippet?.thumbnails?.default?.url;
+          if (thumb) profilePicture = thumb;
+        }
+      } catch (e) {
+        console.warn('[Social OAuth] YouTube channels.list:', (e as Error)?.message ?? e);
+      }
       return {
-        accessToken: r.data.access_token,
+        accessToken,
         refreshToken: r.data.refresh_token ?? null,
         expiresAt: new Date(Date.now() + (r.data.expires_in || 3600) * 1000),
-        platformUserId: 'youtube-' + (r.data.access_token?.slice(-8) || 'id'),
-        username: 'YouTube Channel',
+        platformUserId,
+        username,
+        profilePicture,
       };
     }
     case 'FACEBOOK': {

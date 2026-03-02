@@ -303,6 +303,32 @@ export async function GET(
       }
       return NextResponse.json({ ...out, tweetCount });
     }
+
+    if (account.platform === 'YOUTUBE') {
+      const token = account.accessToken;
+      try {
+        const chRes = await axios.get<{
+          items?: Array<{
+            id: string;
+            statistics?: { subscriberCount?: string; viewCount?: string; videoCount?: string };
+          }>;
+        }>('https://www.googleapis.com/youtube/v3/channels', {
+          params: { part: 'statistics', mine: 'true' },
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const channel = chRes.data?.items?.[0];
+        if (channel?.statistics) {
+          const sub = channel.statistics.subscriberCount;
+          const views = channel.statistics.viewCount;
+          if (sub != null && sub !== '') out.followers = parseInt(sub, 10) || 0;
+          if (views != null && views !== '') out.impressionsTotal = parseInt(views, 10) || 0;
+        }
+      } catch (e) {
+        console.warn('[Insights] YouTube channels:', (e as Error)?.message ?? e);
+        if (out.followers === 0 && out.impressionsTotal === 0) out.insightsHint = 'Could not load YouTube channel stats. Reconnect from the sidebar if needed.';
+      }
+      return NextResponse.json(out);
+    }
   } catch (e) {
     console.error('[Insights] error:', e);
     return NextResponse.json(emptyOut('UNKNOWN'), { status: 200 });

@@ -736,7 +736,7 @@ export default function DashboardPage() {
             </div>
             <div>
               <p className="font-semibold text-neutral-900">All connected accounts</p>
-              <p className="text-sm text-neutral-500">{accounts.length} account{accounts.length !== 1 ? 's' : ''} · Select one in the sidebar for a single profile</p>
+              <p className="text-sm text-neutral-500">{accounts.length} account{accounts.length !== 1 ? 's' : ''} · Click an account in the left sidebar to see its profile picture, name, and analytics</p>
             </div>
           </div>
         ) : (
