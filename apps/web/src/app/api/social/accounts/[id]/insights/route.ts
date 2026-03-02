@@ -306,6 +306,7 @@ export async function GET(
 
     if (account.platform === 'YOUTUBE') {
       const token = account.accessToken;
+      // Fetch channel-level totals (subscribers + total views)
       try {
         const chRes = await axios.get<{
           items?: Array<{
@@ -327,6 +328,31 @@ export async function GET(
         console.warn('[Insights] YouTube channels:', (e as Error)?.message ?? e);
         if (out.followers === 0 && out.impressionsTotal === 0) out.insightsHint = 'Could not load YouTube channel stats. Reconnect from the sidebar if needed.';
       }
+
+      // Fetch daily views time-series from YouTube Analytics API
+      try {
+        const analyticsRes = await axios.get<{
+          rows?: Array<[string, number]>;
+          columnHeaders?: Array<{ name: string }>;
+        }>('https://youtubeanalytics.googleapis.com/v2/reports', {
+          params: {
+            ids: 'channel==MINE',
+            startDate: sinceParam,
+            endDate: untilParam,
+            metrics: 'views',
+            dimensions: 'day',
+            sort: 'day',
+          },
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const rows = analyticsRes.data?.rows ?? [];
+        if (rows.length > 0) {
+          out.impressionsTimeSeries = rows.map(([date, value]) => ({ date, value: value ?? 0 }));
+        }
+      } catch (e) {
+        console.warn('[Insights] YouTube Analytics:', (e as Error)?.message ?? e);
+      }
+
       return NextResponse.json(out);
     }
   } catch (e) {
