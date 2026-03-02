@@ -87,6 +87,8 @@ export async function GET(
     platform: string;
   }> = [];
 
+  const accountId = account.id;
+
   async function getPostImageUrl(postId: string, plat: string, accessToken: string): Promise<string | null> {
     try {
       if (plat === 'FACEBOOK') {
@@ -104,9 +106,8 @@ export async function GET(
         return r.data?.media_url ?? null;
       }
       if (plat === 'YOUTUBE') {
-        // Return the thumbnail stored in the importedPost DB row
         const imp = await prisma.importedPost.findFirst({
-          where: { platformPostId: postId, socialAccountId: account.id },
+          where: { platformPostId: postId, socialAccountId: accountId },
           select: { thumbnailUrl: true },
         });
         return imp?.thumbnailUrl ?? `https://i.ytimg.com/vi/${postId}/mqdefault.jpg`;
