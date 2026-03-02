@@ -973,7 +973,7 @@ export default function ComposerPage() {
                 targets: { platform: string; socialAccountId: string }[];
                 scheduledAt?: string;
                 scheduleDelivery?: 'auto' | 'email_links';
-                commentAutomation?: { keywords: string[]; replyTemplate: string; replyOnComment?: boolean; usePrivateReply?: boolean } | null;
+                commentAutomation?: { keywords: string[]; replyTemplate: string; replyOnComment?: boolean; usePrivateReply?: boolean; tagCommenter?: boolean } | null;
             } = {
                 content: contentFinal,
                 media: mediaList.map((m, i) => {
