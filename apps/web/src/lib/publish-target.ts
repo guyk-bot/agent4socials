@@ -579,6 +579,74 @@ export async function publishTarget(
       return { ok: true, platformPostId: tweetId, ...(mediaSkipped ? { mediaSkipped: true } : {}) };
     }
 
+    if (platform === 'YOUTUBE') {
+      const videoUrl = firstMediaUrl || firstImageUrl;
+      if (!videoUrl) {
+        return { ok: false, error: 'YouTube: a video file is required to publish.' };
+      }
+
+      // Derive title (first line up to 100 chars) and description from caption
+      const lines = caption.split('\n');
+      const title = (lines[0] || 'Untitled').slice(0, 100);
+      const description = caption.slice(0, 5000);
+
+      // Step 1: Initiate a resumable upload session
+      const initRes = await deps.axios.post(
+        'https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status',
+        {
+          snippet: {
+            title,
+            description,
+            categoryId: '22', // People & Blogs
+          },
+          status: {
+            privacyStatus: 'public',
+          },
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'X-Upload-Content-Type': 'video/mp4',
+          },
+          validateStatus: () => true,
+        }
+      );
+
+      if (initRes.status !== 200) {
+        const errMsg = initRes.data?.error?.message ?? JSON.stringify(initRes.data);
+        return { ok: false, error: `YouTube upload init failed (${initRes.status}): ${errMsg}`.slice(0, 500) };
+      }
+
+      const uploadUri: string = initRes.headers?.location;
+      if (!uploadUri) {
+        return { ok: false, error: 'YouTube upload init did not return an upload URI.' };
+      }
+
+      // Step 2: Fetch the video buffer and upload it
+      const { buffer, contentType } = await fetchMediaBuffer(videoUrl, deps.fetch);
+
+      const uploadRes = await deps.axios.put(uploadUri, buffer, {
+        headers: {
+          'Content-Type': contentType || 'video/mp4',
+          'Content-Length': buffer.length,
+        },
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity,
+        timeout: 300_000, // 5 minutes
+        validateStatus: () => true,
+      });
+
+      if (uploadRes.status === 200 || uploadRes.status === 201) {
+        const videoId = (uploadRes.data as { id?: string })?.id;
+        return { ok: true, platformPostId: videoId };
+      }
+
+      // 308 Resume Incomplete is unexpected here but handle gracefully
+      const uploadErrMsg = (uploadRes.data as { error?: { message?: string } })?.error?.message ?? JSON.stringify(uploadRes.data);
+      return { ok: false, error: `YouTube upload failed (${uploadRes.status}): ${uploadErrMsg}`.slice(0, 500) };
+    }
+
     return { ok: false, error: `Publish not implemented for ${platform}` };
   } catch (err: unknown) {
     const ax = err as { response?: { data?: unknown; status?: number }; message?: string };
