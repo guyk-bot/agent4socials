@@ -288,11 +288,10 @@ export default function InboxPage() {
 
   const commentsSupportedPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK' || p === 'TWITTER');
   useEffect(() => {
-    if (inboxMode !== 'comments' || commentsSupportedPlatforms.length === 0) {
+    if (commentsSupportedPlatforms.length === 0) {
       setComments([]);
       setCommentsLoading(false);
       setCommentsError(null);
-      setSelectedComment(null);
       return;
     }
     let cancelled = false;
@@ -348,17 +347,16 @@ export default function InboxPage() {
       setCommentsError(null);
     }
     return () => { cancelled = true; };
-  }, [inboxMode, commentsSupportedPlatforms.join(','), effectiveAccounts, appData]);
+  }, [commentsSupportedPlatforms.join(','), effectiveAccounts, appData]);
 
   // For engagement, always show all connected IG+FB accounts regardless of platform filter
   const allEngagementAccounts = effectiveAccounts.filter((a) => a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK');
   const engagementPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK');
   useEffect(() => {
-    if (inboxMode !== 'engagement' || allEngagementAccounts.length === 0) {
+    if (allEngagementAccounts.length === 0) {
       setEngagement([]);
       setEngagementLoading(false);
       setEngagementError(null);
-      setSelectedEngagement(null);
       return;
     }
     let cancelled = false;
@@ -387,7 +385,7 @@ export default function InboxPage() {
         });
     });
     return () => { cancelled = true; };
-  }, [inboxMode, allEngagementAccounts.map((a) => a.id).join(','), effectiveAccounts.length]);
+  }, [allEngagementAccounts.map((a) => a.id).join(','), effectiveAccounts.length]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
