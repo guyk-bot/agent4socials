@@ -117,7 +117,6 @@ export async function GET(
           }>(`${baseUrl}/${account.platformUserId}/insights`, {
             params: {
               metric: 'reach,profile_views,views',
-              metric_type: 'total_value',
               period: 'day',
               since: effectiveSinceTs,
               until: effectiveUntilTs,
@@ -147,6 +146,8 @@ export async function GET(
               out.reachTotal = total;
             } else if (d.name === 'profile_views') {
               out.profileViewsTotal = total;
+            } else if (d.name === 'accounts_engaged') {
+              (out as Record<string, unknown>).accountsEngaged = total;
             }
           }
         } catch (e) {
@@ -182,7 +183,7 @@ export async function GET(
             data?: Array<{ name: string; values?: Array<{ value: number; end_time?: string }> }>;
           }>(`${baseUrl}/${account.platformUserId}/insights`, {
             params: {
-              metric: 'page_impressions,page_views_total,page_fan_reach',
+              metric: 'page_impressions_unique,page_views_total,page_fan_adds',
               period: 'day',
               since: effectiveSinceTs,
               until: effectiveUntilTs,
@@ -200,13 +201,13 @@ export async function GET(
               const date = v.end_time ? v.end_time.slice(0, 10) : '';
               if (date) series.push({ date, value: val });
             }
-            if (d.name === 'page_impressions') {
+            if (d.name === 'page_impressions_unique' || d.name === 'page_impressions') {
               out.impressionsTotal = total;
               out.impressionsTimeSeries = series.length ? series.sort((a, b) => a.date.localeCompare(b.date)) : (total ? [{ date: untilParam?.slice(0, 10) || new Date().toISOString().slice(0, 10), value: total }] : []);
             } else if (d.name === 'page_views_total') {
               out.pageViewsTotal = total;
-            } else if (d.name === 'page_fan_reach') {
-              out.reachTotal = total;
+            } else if (d.name === 'page_fan_reach' || d.name === 'page_fan_adds') {
+              out.reachTotal = (out.reachTotal ?? 0) + total;
             }
           }
         } catch (e) {
@@ -222,7 +223,20 @@ export async function GET(
     }
 
     if (account.platform === 'LINKEDIN') {
-      out.insightsHint = "LinkedIn doesn't provide follower or view metrics for personal profiles in our app. You can still schedule and publish posts to LinkedIn from the Composer.";
+      // Try to get basic profile info; followers not exposed via standard LinkedIn API without r_organization_social
+      try {
+        const profileRes = await axios.get<{
+          followersCount?: number;
+          firstDegreeSize?: number;
+          localizedName?: string;
+        }>(`https://api.linkedin.com/v2/networkSizes/urn:li:person:${account.platformUserId}?edgeType=CompanyFollowedByMember`, {
+          headers: { Authorization: `Bearer ${account.accessToken}`, 'X-Restli-Protocol-Version': '2.0.0' },
+        });
+        if (profileRes.data?.firstDegreeSize) out.followers = profileRes.data.firstDegreeSize;
+      } catch {
+        // LinkedIn connections/follower count not accessible without special permissions
+      }
+      out.insightsHint = "LinkedIn analytics (impressions, reach) require LinkedIn Marketing API approval. Connection count and post publishing are available.";
       return NextResponse.json(out);
     }
 

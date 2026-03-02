@@ -558,8 +558,35 @@ export default function InboxPage() {
             ) : engagement.length === 0 ? (
               <div className="p-6 text-center">
                 <BarChart3 size={40} className="mx-auto text-neutral-300 mb-3" />
-                <p className="text-sm font-medium text-neutral-900">Engagement</p>
-                <p className="text-sm text-neutral-500 mt-1">Likes and comments for your posts. Select Instagram or Facebook above, and ensure you have published or synced posts so we can load engagement.</p>
+                <p className="text-sm font-medium text-neutral-900">No engagement data yet</p>
+                <p className="text-sm text-neutral-500 mt-1">Publish posts to Instagram or Facebook, then sync to see likes and comments.</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const igFbAccounts = effectiveAccounts.filter((a) => a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK');
+                    if (igFbAccounts.length === 0) return;
+                    setEngagementLoading(true);
+                    setEngagementError(null);
+                    let pending = igFbAccounts.length;
+                    const merge: EngagementItem[] = [];
+                    igFbAccounts.forEach((account) => {
+                      api.get<{ engagement?: EngagementItem[]; error?: string }>(`/social/accounts/${account.id}/engagement`)
+                        .then((res) => {
+                          merge.push(...(res.data?.engagement ?? []));
+                          if (--pending === 0) {
+                            merge.sort((a, b) => (b.likeCount + b.commentCount) - (a.likeCount + a.commentCount));
+                            setEngagement(merge);
+                            setEngagementLoading(false);
+                          }
+                        })
+                        .catch(() => { if (--pending === 0) { setEngagement(merge); setEngagementLoading(false); } });
+                    });
+                  }}
+                  className="mt-3 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-neutral-200 bg-white text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                >
+                  <RefreshCw size={14} />
+                  Refresh engagement
+                </button>
               </div>
             ) : (
               <div className="p-2 space-y-0">

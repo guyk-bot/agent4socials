@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
-import { Platform } from '@prisma/client';
+import { Platform, PostStatus } from '@prisma/client';
 import axios, { type AxiosResponse } from 'axios';
 
 /** GET: list imported posts for this account. ?sync=1 to sync from platform first then return. */
@@ -40,12 +40,28 @@ export async function GET(
         syncError = metaMsg || msg || 'Sync failed. Try reconnecting your account.';
       }
     }
-    const posts = await prisma.importedPost.findMany({
+
+    // Get posts synced/imported from platform
+    const importedRows = await prisma.importedPost.findMany({
       where: { socialAccountId: account.id },
       orderBy: { publishedAt: 'desc' },
       take: 500,
     });
-    const serialized = posts.map((p) => ({
+    const importedPostIds = new Set(importedRows.map((p) => p.platformPostId));
+
+    // Also include posts published via the app (postTargets) not already in importedPosts
+    const appTargets = await prisma.postTarget.findMany({
+      where: {
+        socialAccountId: account.id,
+        status: PostStatus.POSTED,
+        platformPostId: { not: null },
+      },
+      include: { post: { select: { content: true, media: { select: { fileUrl: true, type: true }, take: 1 } } } },
+      orderBy: { updatedAt: 'desc' },
+      take: 200,
+    });
+
+    const serialized = importedRows.map((p) => ({
       id: p.id,
       content: p.content,
       thumbnailUrl: p.thumbnailUrl,
@@ -56,7 +72,27 @@ export async function GET(
       mediaType: p.mediaType,
       platform: p.platform,
     }));
-    return NextResponse.json({ posts: serialized, syncError });
+
+    // App-published targets not yet in importedPosts
+    const appExtra = appTargets
+      .filter((t) => !importedPostIds.has(t.platformPostId!))
+      .map((t) => ({
+        id: `target-${t.id}`,
+        content: t.post?.content ?? null,
+        thumbnailUrl: t.post?.media[0]?.fileUrl ?? null,
+        permalinkUrl: null,
+        impressions: 0,
+        interactions: 0,
+        publishedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : String(t.updatedAt),
+        mediaType: t.post?.media[0]?.type ?? null,
+        platform: account.platform,
+      }));
+
+    const posts = [...serialized, ...appExtra].sort(
+      (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+    );
+
+    return NextResponse.json({ posts, syncError });
   } catch (e) {
     console.error('[Imported posts] GET error:', e);
     const msg = (e as Error)?.message ?? 'Server error while loading posts.';
@@ -72,12 +108,23 @@ async function syncImportedPosts(
 ): Promise<string | undefined> {
   const baseUrl = 'https://graph.facebook.com/v18.0';
   if (platform === 'INSTAGRAM') {
+    type MediaItem = {
+      id: string;
+      media_type?: string;
+      media_url?: string;
+      permalink?: string;
+      caption?: string;
+      timestamp?: string;
+      thumbnail_url?: string;
+      like_count?: number;
+      comments_count?: number;
+    };
     type MediaPage = {
-      data?: Array<{ id: string; media_type?: string; media_url?: string; permalink?: string; caption?: string; timestamp?: string; thumbnail_url?: string }>;
+      data?: Array<MediaItem>;
       paging?: { next?: string; cursors?: { before?: string; after?: string } };
     };
-    const fields = 'id,media_type,media_url,permalink,caption,timestamp,thumbnail_url';
-    const allItems: Array<{ id: string; media_type?: string; media_url?: string; permalink?: string; caption?: string; timestamp?: string; thumbnail_url?: string }> = [];
+    const fields = 'id,media_type,media_url,permalink,caption,timestamp,thumbnail_url,like_count,comments_count';
+    const allItems: Array<MediaItem> = [];
     const maxMedia = 500;
     const pageLimit = 50;
     const until = Math.floor(Date.now() / 1000);
@@ -136,21 +183,24 @@ async function syncImportedPosts(
           // ignore
         }
       }
+      // Use like_count/comments_count from media fields (replaces deprecated impressions insights)
+      const interactions = (m.like_count ?? 0) + (m.comments_count ?? 0);
       let impressions = 0;
-      let interactions = 0;
       try {
-        const insightsRes = await axios.get<{ data?: Array<{ name: string; values?: Array<{ value: number }> }> }>(
+        // Fetch views metric (replaces deprecated impressions for v22+)
+        const insightsRes = await axios.get<{
+          data?: Array<{ name: string; values?: Array<{ value: number }>; total_value?: { value: number } }>;
+        }>(
           `${baseUrl}/${m.id}/insights`,
-          { params: { metric: 'impressions,reach,engagement', access_token: accessToken } }
+          { params: { metric: 'views,reach', access_token: accessToken } }
         );
         const data = insightsRes.data?.data ?? [];
         for (const d of data) {
-          const val = d.values?.[0]?.value ?? 0;
-          if (d.name === 'impressions' || d.name === 'reach' || d.name === 'views') impressions = val;
-          if (d.name === 'engagement') interactions = val;
+          const val = d.total_value?.value ?? d.values?.[0]?.value ?? 0;
+          if (d.name === 'views' || d.name === 'reach') impressions = Math.max(impressions, val);
         }
       } catch {
-        // insights may not be available for all media
+        // insights may not be available for all media types
       }
       await prisma.importedPost.upsert({
         where: {
@@ -182,12 +232,27 @@ async function syncImportedPosts(
     }
     return undefined;
   }
+
   if (platform === 'FACEBOOK') {
-    let res: { data?: { data?: Array<{ id: string; message?: string; created_time?: string; full_picture?: string; permalink_url?: string }> } };
+    type FbPost = {
+      id: string;
+      message?: string;
+      created_time?: string;
+      full_picture?: string;
+      permalink_url?: string;
+      reactions?: { summary?: { total_count?: number } };
+      comments?: { summary?: { total_count?: number } };
+    };
+    let res: { data?: { data?: Array<FbPost> } };
     try {
       res = await axios.get(
         `${baseUrl}/${platformUserId}/published_posts`,
-        { params: { fields: 'id,message,created_time,full_picture,permalink_url', access_token: accessToken } }
+        {
+          params: {
+            fields: 'id,message,created_time,full_picture,permalink_url,reactions.summary(1),comments.summary(1)',
+            access_token: accessToken,
+          },
+        }
       );
     } catch (e) {
       const msg = (e as Error)?.message ?? '';
@@ -201,6 +266,9 @@ async function syncImportedPosts(
     const items = res.data?.data ?? [];
     for (const p of items) {
       const publishedAt = p.created_time ? new Date(p.created_time) : new Date();
+      const likes = p.reactions?.summary?.total_count ?? 0;
+      const comments = p.comments?.summary?.total_count ?? 0;
+      const interactions = likes + comments;
       await prisma.importedPost.upsert({
         where: {
           socialAccountId_platformPostId: { socialAccountId, platformPostId: p.id },
@@ -212,7 +280,7 @@ async function syncImportedPosts(
           publishedAt,
           mediaType: null,
           impressions: 0,
-          interactions: 0,
+          interactions,
           syncedAt: new Date(),
         },
         create: {
@@ -225,20 +293,32 @@ async function syncImportedPosts(
           publishedAt,
           mediaType: null,
           impressions: 0,
-          interactions: 0,
+          interactions,
         },
       });
     }
     return;
   }
+
   if (platform === 'TWITTER') {
     try {
       const tweetsRes = await axios.get<{
-        data?: Array<{ id: string; text?: string; created_at?: string }>;
+        data?: Array<{
+          id: string;
+          text?: string;
+          created_at?: string;
+          public_metrics?: {
+            like_count?: number;
+            retweet_count?: number;
+            reply_count?: number;
+            impression_count?: number;
+            quote_count?: number;
+          };
+        }>;
       }>(`https://api.twitter.com/2/users/${platformUserId}/tweets`, {
         params: {
           max_results: 50,
-          'tweet.fields': 'created_at',
+          'tweet.fields': 'created_at,public_metrics',
           exclude: 'retweets,replies',
         },
         headers: { Authorization: `Bearer ${accessToken}` },
@@ -247,6 +327,12 @@ async function syncImportedPosts(
       for (const t of items) {
         const publishedAt = t.created_at ? new Date(t.created_at) : new Date();
         const permalinkUrl = `https://x.com/i/status/${t.id}`;
+        const impressions = t.public_metrics?.impression_count ?? 0;
+        const interactions =
+          (t.public_metrics?.like_count ?? 0) +
+          (t.public_metrics?.retweet_count ?? 0) +
+          (t.public_metrics?.reply_count ?? 0) +
+          (t.public_metrics?.quote_count ?? 0);
         await prisma.importedPost.upsert({
           where: {
             socialAccountId_platformPostId: { socialAccountId, platformPostId: t.id },
@@ -255,8 +341,8 @@ async function syncImportedPosts(
             content: t.text ?? null,
             permalinkUrl,
             publishedAt,
-            impressions: 0,
-            interactions: 0,
+            impressions,
+            interactions,
             syncedAt: new Date(),
           },
           create: {
@@ -266,8 +352,8 @@ async function syncImportedPosts(
             content: t.text ?? null,
             permalinkUrl,
             publishedAt,
-            impressions: 0,
-            interactions: 0,
+            impressions,
+            interactions,
           },
         });
       }
@@ -278,6 +364,84 @@ async function syncImportedPosts(
       throw e;
     }
   }
+
+  if (platform === 'LINKEDIN') {
+    try {
+      // Fetch personal LinkedIn posts using the UGC Posts API (requires w_member_social scope)
+      const personUrn = `urn:li:person:${platformUserId}`;
+      const postsRes = await axios.get<{
+        elements?: Array<{
+          id?: string;
+          specificContent?: {
+            'com.linkedin.ugc.ShareContent'?: {
+              shareCommentary?: { text?: string };
+              shareMediaCategory?: string;
+              media?: Array<{ thumbnails?: Array<{ url?: string }> }>;
+            };
+          };
+          firstPublishedAt?: number;
+          lifecycleState?: string;
+        }>;
+      }>('https://api.linkedin.com/v2/ugcPosts', {
+        params: {
+          q: 'authors',
+          authors: `List(${encodeURIComponent(personUrn)})`,
+          count: 50,
+        },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'X-Restli-Protocol-Version': '2.0.0',
+        },
+      });
+      const items = postsRes.data?.elements ?? [];
+      for (const p of items) {
+        if (p.lifecycleState === 'DELETED') continue;
+        const postId = p.id;
+        if (!postId) continue;
+        const publishedAt = p.firstPublishedAt ? new Date(p.firstPublishedAt) : new Date();
+        const shareContent = p.specificContent?.['com.linkedin.ugc.ShareContent'];
+        const content = shareContent?.shareCommentary?.text ?? null;
+        const thumbnailUrl = shareContent?.media?.[0]?.thumbnails?.[0]?.url ?? null;
+        const permalinkUrl = `https://www.linkedin.com/feed/update/${encodeURIComponent(postId)}`;
+        await prisma.importedPost.upsert({
+          where: {
+            socialAccountId_platformPostId: { socialAccountId, platformPostId: postId },
+          },
+          update: {
+            content,
+            thumbnailUrl,
+            permalinkUrl,
+            publishedAt,
+            mediaType: shareContent?.shareMediaCategory ?? null,
+            impressions: 0,
+            interactions: 0,
+            syncedAt: new Date(),
+          },
+          create: {
+            socialAccountId,
+            platformPostId: postId,
+            platform: 'LINKEDIN',
+            content,
+            thumbnailUrl,
+            permalinkUrl,
+            publishedAt,
+            mediaType: shareContent?.shareMediaCategory ?? null,
+            impressions: 0,
+            interactions: 0,
+          },
+        });
+      }
+      return undefined;
+    } catch (e) {
+      const msg = (e as Error)?.message ?? '';
+      if (msg.includes('401') || msg.includes('403') || msg.includes('permission')) {
+        return 'Reconnect your LinkedIn account to sync posts.';
+      }
+      // LinkedIn sync failure is non-fatal
+      return undefined;
+    }
+  }
+
   // Other platforms: no sync for now
   return undefined;
 }

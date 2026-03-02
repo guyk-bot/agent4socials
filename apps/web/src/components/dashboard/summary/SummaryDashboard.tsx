@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useAppData } from '@/context/AppDataContext';
+import { useAccountsCache } from '@/context/AccountsCacheContext';
+import api from '@/lib/api';
 import { SummaryFiltersBar } from './SummaryFiltersBar';
 import { KPICardsGrid } from './KPICardsGrid';
 import { PlatformBreakdownCards } from './PlatformBreakdownCards';
@@ -16,9 +18,29 @@ const DEFAULT_DATE_START = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISO
 
 export function SummaryDashboard() {
   const appData = useAppData();
+  const { cachedAccounts } = useAccountsCache() ?? { cachedAccounts: [] };
   const [dateRange, setDateRange] = useState({ start: DEFAULT_DATE_START, end: DEFAULT_DATE_END });
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [compareEnabled, setCompareEnabled] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+
+  // On first mount, trigger a background sync for all accounts so post counts are fresh
+  useEffect(() => {
+    if (!cachedAccounts || cachedAccounts.length === 0) return;
+    let cancelled = false;
+    setSyncing(true);
+    const accounts = cachedAccounts as { id: string; platform: string }[];
+    Promise.all(
+      accounts.map((acc) =>
+        api.get<{ posts?: { id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; impressions: number; interactions: number; publishedAt: string; mediaType?: string | null; platform: string }[] }>(`/social/accounts/${acc.id}/posts`, { params: { sync: 1 } })
+          .then((r) => { if (!cancelled && r.data?.posts) appData?.setPostsForAccount(acc.id, r.data.posts); })
+          .catch(() => {})
+      )
+    ).finally(() => { if (!cancelled) setSyncing(false); });
+    return () => { cancelled = true; };
+  // Only run once when accounts are first available
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cachedAccounts.length > 0 ? 'loaded' : 'empty']);
 
   const summary = useSummaryData(dateRange, selectedPlatforms);
 
@@ -64,11 +86,15 @@ export function SummaryDashboard() {
 
   return (
     <div className="space-y-8 pb-12">
-      {/* Optional AI Insight Summary */}
+      {/* AI Insight Summary */}
       <div className="rounded-[20px] bg-white/90 border border-slate-200/60 p-4 flex items-start gap-3" style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
         <span className="text-2xl shrink-0" aria-hidden>🧠</span>
         <p className="text-sm text-slate-700">
-          Your reach is {summary.kpis.totalReach > 0 ? 'driven by ' + summary.platforms.length + ' connected account' + (summary.platforms.length !== 1 ? 's' : '') + '.' : 'building up. Connect more accounts and publish content to see growth.'}
+          {syncing
+            ? 'Syncing your latest posts and metrics from all connected accounts...'
+            : summary.kpis.totalReach > 0
+              ? 'Your reach is driven by ' + summary.platforms.length + ' connected account' + (summary.platforms.length !== 1 ? 's' : '') + '.'
+              : 'Your reach is building up. Connect more accounts and publish content to see growth.'}
         </p>
       </div>
 

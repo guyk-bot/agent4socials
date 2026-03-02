@@ -455,7 +455,9 @@ export default function AnalyticsPage() {
                 </div>
                 <div className="flex gap-1.5 mt-3 flex-wrap">
                   {hasInstagram && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{displayPosts.filter((p) => p.platform === 'INSTAGRAM').reduce((s, p) => s + p.interactions, 0)} Instagram</span>}
-                  {hasFacebook && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{displayPosts.filter((p) => p.platform === 'FACEBOOK').reduce((s, p) => s + p.interactions, 0) || '—'} Facebook</span>}
+                  {hasFacebook && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{displayPosts.filter((p) => p.platform === 'FACEBOOK').reduce((s, p) => s + p.interactions, 0)} Facebook</span>}
+                  {connectedPlatforms.includes('TWITTER') && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-neutral-100 text-neutral-800">{displayPosts.filter((p) => p.platform === 'TWITTER').reduce((s, p) => s + p.interactions, 0)} X/Twitter</span>}
+                  {connectedPlatforms.includes('LINKEDIN') && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-sky-100 text-sky-800">{displayPosts.filter((p) => p.platform === 'LINKEDIN').reduce((s, p) => s + p.interactions, 0)} LinkedIn</span>}
                 </div>
                 <div className="mt-4 h-24 rounded-lg bg-neutral-50 border border-neutral-100 relative overflow-hidden">
                   <div className="absolute inset-0 opacity-[0.03] font-semibold text-neutral-400 text-xl" style={{ transform: 'rotate(-15deg)' }}>agent4socials</div>
@@ -472,6 +474,8 @@ export default function AnalyticsPage() {
                 <div className="flex gap-1.5 mt-3 flex-wrap">
                   {hasFacebook && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{displayPosts.filter((p) => p.platform === 'FACEBOOK').length} Facebook</span>}
                   {hasInstagram && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{displayPosts.filter((p) => p.platform === 'INSTAGRAM').length} Instagram</span>}
+                  {connectedPlatforms.includes('TWITTER') && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-neutral-100 text-neutral-800">{displayPosts.filter((p) => p.platform === 'TWITTER').length} X/Twitter</span>}
+                  {connectedPlatforms.includes('LINKEDIN') && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-sky-100 text-sky-800">{displayPosts.filter((p) => p.platform === 'LINKEDIN').length} LinkedIn</span>}
                 </div>
                 <div className="mt-4 h-24 rounded-lg bg-neutral-50 border border-neutral-100 relative overflow-hidden">
                   <div className="absolute inset-0 opacity-[0.03] font-semibold text-neutral-400 text-xl" style={{ transform: 'rotate(-15deg)' }}>agent4socials</div>
