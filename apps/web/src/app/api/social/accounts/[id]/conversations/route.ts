@@ -112,6 +112,112 @@ export async function GET(
       };
     });
 
+    // Best-effort enrichment: if Meta only returned IDs (no name/username),
+    // look up profiles and fill in display name / username / picture.
+    const missingProfileIds = new Set<string>();
+    for (const conv of list) {
+      for (const s of conv.senders) {
+        if (s.id && !s.name && !s.username) {
+          missingProfileIds.add(s.id);
+        }
+      }
+    }
+
+    if (missingProfileIds.size > 0) {
+      try {
+        const profiles = new Map<
+          string,
+          { name?: string; username?: string; pictureUrl?: string | null }
+        >();
+
+        if (isInstagram) {
+          // Instagram User Profile API is served from graph.instagram.com and
+          // works per-ID. Use it to resolve name, username, profile_pic.
+          await Promise.all(
+            Array.from(missingProfileIds).map(async (id) => {
+              try {
+                const profileRes = await axios.get<{
+                  id?: string;
+                  name?: string;
+                  username?: string;
+                  profile_pic?: string;
+                }>(`https://graph.instagram.com/v18.0/${id}`, {
+                  params: {
+                    fields: 'name,username,profile_pic',
+                    access_token: token,
+                  },
+                  timeout: 15_000,
+                });
+                const p = profileRes.data;
+                if (p?.id) {
+                  profiles.set(p.id, {
+                    name: p.name,
+                    username: p.username,
+                    pictureUrl: p.profile_pic ?? null,
+                  });
+                }
+              } catch {
+                // ignore per-profile failures
+              }
+            })
+          );
+        } else {
+          // Facebook Page messaging: we can batch lookup via ids=...
+          const idsParam = Array.from(missingProfileIds).join(',');
+          const profileRes = await axios.get<
+            Record<
+              string,
+              {
+                id?: string;
+                name?: string;
+                first_name?: string;
+                last_name?: string;
+                picture?: { data?: { url?: string } };
+              }
+            >
+          >(baseUrl, {
+            params: {
+              ids: idsParam,
+              fields: 'id,name,first_name,last_name,picture',
+              access_token: token,
+            },
+            timeout: 30_000,
+          });
+          const raw = profileRes.data ?? {};
+          for (const [k, v] of Object.entries(raw)) {
+            const fullName =
+              v.name ||
+              [v.first_name, v.last_name].filter(Boolean).join(' ').trim() ||
+              undefined;
+            profiles.set(k, {
+              name: fullName,
+              username: undefined,
+              pictureUrl: v.picture?.data?.url ?? null,
+            });
+          }
+        }
+
+        if (profiles.size > 0) {
+          list = list.map((conv) => ({
+            ...conv,
+            senders: conv.senders.map((s) => {
+              if (!s.id) return s;
+              const p = profiles.get(s.id);
+              if (!p) return s;
+              return {
+                ...s,
+                name: s.name || p.name || s.name,
+                username: s.username || p.username || s.username,
+                pictureUrl: s.pictureUrl || p.pictureUrl || s.pictureUrl,
+              };
+            }),
+          }));
+        }
+      } catch (e) {
+        console.warn('[Conversations] profile enrichment failed:', (e as Error)?.message);
+      }
+    }
+
     // Best-effort enrichment: if Meta returned sender IDs but no names/usernames/pictures,
     // look up profiles in a second call using the ids=... pattern.
     const missingProfileIds = new Set<string>();
