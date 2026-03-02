@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
   }
 
   const expiresAt = new Date(Date.now() + 3600 * 1000);
-  await prisma.socialAccount.deleteMany({ where: { userId, platform: 'FACEBOOK' } });
+  // Upsert first so reconnecting the same Page updates in place and keeps posts/data
   await prisma.socialAccount.upsert({
     where: {
       userId_platform_platformUserId: {
@@ -110,6 +110,9 @@ export async function POST(request: NextRequest) {
       status: 'connected',
     },
   });
+  await prisma.socialAccount.deleteMany({
+    where: { userId, platform: 'FACEBOOK', platformUserId: { not: page.id } },
+  });
 
   // Auto-connect linked Instagram if this Page has an Instagram Business account. Use the same Page token for IG API calls.
   if (instagramId) {
@@ -123,7 +126,6 @@ export async function POST(request: NextRequest) {
       if (igRes.data?.username) igUsername = igRes.data.username;
       if (igRes.data?.profile_picture_url) igPicture = igRes.data.profile_picture_url;
     } catch (_) {}
-    await prisma.socialAccount.deleteMany({ where: { userId, platform: 'INSTAGRAM' } });
     await prisma.socialAccount.upsert({
       where: {
         userId_platform_platformUserId: {
@@ -152,6 +154,9 @@ export async function POST(request: NextRequest) {
         status: 'connected',
         credentialsJson: { linkedPageId: page.id },
       },
+    });
+    await prisma.socialAccount.deleteMany({
+      where: { userId, platform: 'INSTAGRAM', platformUserId: { not: instagramId } },
     });
   }
   await prisma.pendingConnection.delete({ where: { id: pendingId } }).catch(() => {});

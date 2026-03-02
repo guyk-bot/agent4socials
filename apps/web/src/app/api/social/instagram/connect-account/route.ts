@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
 
   const expiresAt = new Date(Date.now() + 3600 * 1000);
 
-  await prisma.socialAccount.deleteMany({ where: { userId, platform: 'INSTAGRAM' } });
+  // Upsert first so reconnecting the same account updates in place and keeps posts/data
   await prisma.socialAccount.upsert({
     where: {
       userId_platform_platformUserId: {
@@ -140,9 +140,11 @@ export async function POST(request: NextRequest) {
       status: 'connected',
     },
   });
+  await prisma.socialAccount.deleteMany({
+    where: { userId, platform: 'INSTAGRAM', platformUserId: { not: accountId } },
+  });
 
   if (pageId) {
-    await prisma.socialAccount.deleteMany({ where: { userId, platform: 'FACEBOOK' } });
     await prisma.socialAccount.upsert({
       where: {
         userId_platform_platformUserId: {
@@ -169,6 +171,9 @@ export async function POST(request: NextRequest) {
         expiresAt,
         status: 'connected',
       },
+    });
+    await prisma.socialAccount.deleteMany({
+      where: { userId, platform: 'FACEBOOK', platformUserId: { not: pageId } },
     });
   }
 
