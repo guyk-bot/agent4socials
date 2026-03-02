@@ -59,7 +59,8 @@ export async function GET(
       ? 'https://graph.instagram.com/v18.0/me/conversations'
       : `${baseUrl}/${account.platformUserId}/conversations`;
   const queryParams: Record<string, string> = {
-    fields: 'id,updated_time,senders{id,name,username,picture}',
+    // Use participants instead of senders so we can get usernames/names for Instagram Messaging and Page DMs.
+    fields: 'id,updated_time,participants{id,name,username}',
     access_token: token,
   };
   if (isInstagram) queryParams.platform = 'instagram';
@@ -69,12 +70,11 @@ export async function GET(
       data?: Array<{
         id: string;
         updated_time?: string;
-        senders?: {
+        participants?: {
           data?: Array<{
             id?: string;
             name?: string;
             username?: string;
-            picture?: { data?: { url?: string } } | string;
           }>;
         };
       }>;
@@ -94,12 +94,12 @@ export async function GET(
     }
 
     let list = (res.data?.data ?? []).map((c) => {
-      const sendersData = c.senders?.data ?? [];
-      const picUrl = (p: { data?: { url?: string } } | string | undefined): string | null => {
-        if (!p) return null;
-        if (typeof p === 'string') return p;
-        return p?.data?.url ?? null;
-      };
+      const participants = c.participants?.data ?? [];
+      const ourIds = new Set<string>();
+      if (account.platformUserId) ourIds.add(account.platformUserId);
+      if (linkedPageId) ourIds.add(linkedPageId);
+      const others = participants.filter((p) => !p.id || !ourIds.has(p.id));
+      const sendersData = others.length > 0 ? others : participants;
       return {
         id: c.id,
         updatedTime: c.updated_time ?? null,
@@ -107,7 +107,7 @@ export async function GET(
           id: s.id,
           name: s.name,
           username: s.username,
-          pictureUrl: picUrl(s.picture),
+          pictureUrl: null as string | null,
         })),
       };
     });

@@ -128,11 +128,24 @@ async function runCommentAutomation(request: NextRequest) {
                   const dmText = (typeof ca.instagramDmTemplate === 'string' && ca.instagramDmTemplate.trim())
                     ? ca.instagramDmTemplate.trim()
                     : replyText;
-                  await axios.post(
-                    `https://graph.facebook.com/v18.0/${c.id}/private_reply`,
-                    new URLSearchParams({ message: dmText }),
-                    { params: { access_token: token }, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-                  );
+                  // Instagram private reply is sent via the Messaging API on the IG professional account,
+                  // using the comment_id as the recipient identifier.
+                  const igAccountId = (target.socialAccount.platformUserId || '').trim();
+                  if (igAccountId) {
+                    await axios.post(
+                      `https://graph.facebook.com/v18.0/${igAccountId}/messages`,
+                      {
+                        recipient: { comment_id: c.id },
+                        message: { text: dmText },
+                      },
+                      {
+                        headers: {
+                          'Content-Type': 'application/json',
+                          Authorization: `Bearer ${token}`,
+                        },
+                      }
+                    );
+                  }
                 }
                 if (doPublicReply || doPrivateReply) replied++;
               } catch (e) {
