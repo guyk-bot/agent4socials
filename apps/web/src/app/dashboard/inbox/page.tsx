@@ -111,12 +111,9 @@ export default function InboxPage() {
     api.get('/social/accounts').then((res) => {
       const data = Array.isArray(res.data) ? res.data : [];
       setAccounts(data);
-      const first =
-        data.some((a: Account) => a.platform === 'INSTAGRAM') ? 'INSTAGRAM'
-          : data.some((a: Account) => a.platform === 'FACEBOOK') ? 'FACEBOOK'
-          : null;
-      setSelectedPlatform(first);
-      setSelectedPlatforms(first ? [first] : []);
+      const platforms = data.map((a: Account) => a.platform).filter(Boolean);
+      setSelectedPlatform(platforms[0] ?? null);
+      setSelectedPlatforms(platforms.length ? platforms : []);
     }).catch(() => setAccounts([]));
   }, [cachedAccounts.length]);
 
@@ -129,6 +126,14 @@ export default function InboxPage() {
   }, [platformFromUrl]);
 
   const effectiveAccounts = (cachedAccounts as Account[]).length > 0 ? (cachedAccounts as Account[]) : accounts;
+  const connectedPlatformIds = effectiveAccounts.map((a) => a.platform).filter(Boolean);
+  useEffect(() => {
+    if (connectedPlatformIds.length > 0 && selectedPlatforms.length === 0) {
+      setSelectedPlatforms(connectedPlatformIds);
+      setSelectedPlatform(connectedPlatformIds[0] ?? null);
+    }
+  }, [connectedPlatformIds.join(','), selectedPlatforms.length]);
+
   const connectedPlatforms = PLATFORMS.filter((p) => effectiveAccounts.some((a) => a.platform === p.id));
   const unconnectedPlatforms = PLATFORMS.filter((p) => !effectiveAccounts.some((a) => a.platform === p.id));
   const byPlatform = appData?.notifications?.byPlatform ?? notifications.byPlatform ?? {};

@@ -52,7 +52,7 @@ function cleanGeneratedText(text: string): string {
 
 function getPlatformHint(platform: string): string {
   const p = platform.toUpperCase();
-  if (p === 'TWITTER') return 'X (Twitter) non-premium accounts have a 280 character limit (including spaces). Hashtags are added separately (typically 5, about 40-60 chars). Keep the description to 220-250 characters maximum so there is room for hashtags. Be concise. A clear CTA works well.';
+  if (p === 'TWITTER') return 'X (Twitter) has a 280 character limit including spaces. Keep the main post text under 280 characters. Do not include hashtags. Be concise. A clear CTA works well.';
   if (p === 'LINKEDIN') return 'Professional tone. One to three short paragraphs. Suitable for a business audience.';
   if (p === 'INSTAGRAM') return 'Engaging and visual. Line breaks work well.';
   if (p === 'FACEBOOK') return 'Conversational. One or two short paragraphs.';
@@ -106,9 +106,9 @@ export async function POST(request: NextRequest) {
 
   const systemPrompt = buildSystemPrompt(brand);
   const platformHint = platform ? getPlatformHint(platform) : '';
-  let userContent = [topic && `Topic: ${topic}`, prompt && `Instructions: ${prompt}`, platform && `Platform: ${platform}${platformHint ? `. ${platformHint}` : ''}`]
+  let userContent = [topic && `Topic: ${topic}`, prompt && `Instructions: ${prompt}`, platform && `Platform: ${platform}${platformHint ? `. ${platformHint}` : ''}. Do not include any hashtags in the content.`]
     .filter(Boolean)
-    .join('\n') || 'Write a short social post that fits my brand.';
+    .join('\n') || 'Write a short social post that fits my brand. Do not include hashtags.';
   if (includeCtaAndAutomation) {
     userContent += '\n\nAlso provide: (1) a short CTA (call-to-action) line. (2) Comment automation: 1-2 keywords and a short reply template for when someone comments with that keyword. Respond with a JSON object only, no markdown: {"content":"...","cta":"...","keywords":["keyword1","keyword2"],"replyTemplate":"..."}. Use double quotes. Content = main post text; cta = one line; keywords = array of strings; replyTemplate = one short reply sentence.';
     if (ctaAutomationPrompt) {
@@ -161,10 +161,10 @@ export async function POST(request: NextRequest) {
       const cta = typeof parsed.cta === 'string' ? cleanGeneratedText(parsed.cta).slice(0, 200) : undefined;
       const platformUpper = platform.toUpperCase();
       if (platformUpper === 'TWITTER' || platformUpper === 'X') {
-        // Keep content + CTA + newlines within 230 chars to leave room for hashtags
+        // Keep content + CTA within 280 chars (no hashtags in AI output)
         const combined = cta ? `${content.trim()}\n\n${cta.trim()}` : content;
-        if (combined.length > 230) {
-          const maxContent = cta ? Math.max(0, 230 - cta.length - 2) : 230;
+        if (combined.length > 280) {
+          const maxContent = cta ? Math.max(0, 280 - cta.length - 2) : 280;
           content = content.slice(0, maxContent).trim();
         }
       }
@@ -181,10 +181,10 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  let content = cleanGeneratedText(raw);
   const platformUpper = platform.toUpperCase();
   if (platformUpper === 'TWITTER' || platformUpper === 'X') {
-    const max = 250;
+    // Strict 280 character limit for X (no hashtags in generated content)
+    const max = 280;
     if (content.length > max) content = content.slice(0, max).trim();
   }
   return NextResponse.json({ content });

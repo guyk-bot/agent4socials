@@ -53,6 +53,7 @@ type ComposerDraft = {
     commentAutomationInstagramPublicReply: boolean;
     commentAutomationInstagramPrivateReply: boolean;
     commentAutomationInstagramDmMessage?: string;
+    commentAutomationTagCommenter?: boolean;
 };
 
 function isPersistableMediaUrl(url: string): boolean {
@@ -291,6 +292,7 @@ export default function ComposerPage() {
     const [commentAutomationInstagramPublicReply, setCommentAutomationInstagramPublicReply] = useState(true);
     const [commentAutomationInstagramPrivateReply, setCommentAutomationInstagramPrivateReply] = useState(false);
     const [commentAutomationInstagramDmMessage, setCommentAutomationInstagramDmMessage] = useState('');
+    const [commentAutomationTagCommenter, setCommentAutomationTagCommenter] = useState(false);
 
     // AI description (optional): generate copy from brand context
     const [aiModalOpen, setAiModalOpen] = useState(false);
@@ -376,6 +378,7 @@ export default function ComposerPage() {
                 if (typeof d.commentAutomationInstagramPublicReply === 'boolean') setCommentAutomationInstagramPublicReply(d.commentAutomationInstagramPublicReply);
                 if (typeof d.commentAutomationInstagramPrivateReply === 'boolean') setCommentAutomationInstagramPrivateReply(d.commentAutomationInstagramPrivateReply);
                 if (typeof d.commentAutomationInstagramDmMessage === 'string') setCommentAutomationInstagramDmMessage(d.commentAutomationInstagramDmMessage);
+                if (typeof d.commentAutomationTagCommenter === 'boolean') setCommentAutomationTagCommenter(d.commentAutomationTagCommenter);
             }
         } catch (_) { /* ignore */ }
         setDraftRestored(true);
@@ -616,6 +619,7 @@ export default function ComposerPage() {
                     commentAutomationInstagramPublicReply,
                     commentAutomationInstagramPrivateReply,
                     ...(commentAutomationInstagramDmMessage ? { commentAutomationInstagramDmMessage } : {}),
+                    commentAutomationTagCommenter,
                 };
                 localStorage.setItem(COMPOSER_DRAFT_KEY, JSON.stringify(draft));
             } catch (_) { /* ignore */ }
@@ -647,6 +651,7 @@ export default function ComposerPage() {
         commentAutomationInstagramPublicReply,
         commentAutomationInstagramPrivateReply,
         commentAutomationInstagramDmMessage,
+        commentAutomationTagCommenter,
         mediaSignature,
         debounceMs,
     ]);
@@ -1035,6 +1040,7 @@ export default function ComposerPage() {
                         replyTemplate: defaultReply || (byPlatform[supportedPlatforms[0]] ?? ''),
                         ...(Object.keys(byPlatform).length > 0 ? { replyTemplateByPlatform: byPlatform } : {}),
                         replyOnComment,
+                        tagCommenter: commentAutomationTagCommenter,
                         ...(hasInstagram ? { instagramPublicReply, instagramPrivateReply, ...(instagramPrivateReply ? { instagramDmTemplate } : {}) } : {}),
                     };
                 }
@@ -1098,7 +1104,7 @@ export default function ComposerPage() {
                         const mediaSkipped = results?.filter((r) => r.mediaSkipped).map((r) => r.platform);
                         const msg = mediaSkipped?.length ? `Post updated and published. Note: ${mediaSkipped.join(', ')} posted as text only (image upload was not allowed).` : 'Post updated and published.';
                         setAlertMessage(msg);
-                        router.push('/posts');
+                        router.push('/posts?refresh=1');
                     } catch (err: unknown) {
                         const res = err && typeof err === 'object' && 'response' in err ? (err as { response?: { status?: number; data?: { message?: string } } }).response : undefined;
                         const status = res?.status;
@@ -1158,14 +1164,14 @@ export default function ComposerPage() {
                 }
                 if (!postId && !scheduledAt) {
                     setAlertMessage('Post was created but we could not publish it. Open it from History and try Post now.');
-                    router.push('/posts');
+                    router.push('/posts?refresh=1');
                     return;
                 }
                 if (scheduledAt) {
                     const schedParams = new URLSearchParams({ scheduled: '1', delivery: scheduleDelivery === 'email_links' ? 'email' : 'auto', platforms: platforms.join(','), at: new Date(scheduledAt).toISOString() });
                     router.push(`/calendar?${schedParams.toString()}`);
                 } else {
-                    router.push('/posts');
+                    router.push('/posts?refresh=1');
                 }
             }
         } catch (err: unknown) {
@@ -1333,7 +1339,7 @@ export default function ComposerPage() {
                             {sectionOpen.platforms ? <ChevronUp size={20} className="text-neutral-400 shrink-0" /> : <ChevronDown size={20} className="text-neutral-400 shrink-0" />}
                         </button>
                         {sectionOpen.platforms && (
-                        <div className="pt-4 flex flex-nowrap gap-3 justify-center overflow-x-auto">
+                        <div className="pt-4 grid grid-cols-3 sm:grid-cols-6 gap-3">
                             {(['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN'] as const).map((p) => {
                                 const connected = accounts.some((a) => a.platform === p);
                                 const icons: Record<string, React.ReactNode> = {
@@ -1777,6 +1783,15 @@ export default function ComposerPage() {
                                         className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                                     />
                                 </div>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={commentAutomationTagCommenter}
+                                        onChange={(e) => setCommentAutomationTagCommenter(e.target.checked)}
+                                        className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <span className="text-sm text-neutral-700">Tag the commenter in the reply (e.g. &quot;Hi @username, thanks!&quot;)</span>
+                                </label>
                                 {platforms.length > 0 && (
                                     <div>
                                         <label className="block text-sm font-medium text-neutral-700 mb-2">Reply per platform (optional)</label>
@@ -1964,6 +1979,30 @@ export default function ComposerPage() {
                         </button>
                         {sectionOpen.schedule && (
                         <div className="pt-4 space-y-4">
+                        <div className="flex flex-wrap items-center gap-4">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="radio"
+                                    name="scheduleMode"
+                                    checked={!scheduledAt || scheduledAt.trim() === ''}
+                                    onChange={() => setScheduledAt('')}
+                                    className="text-indigo-600 focus:ring-indigo-500"
+                                />
+                                <span className="text-sm font-medium text-neutral-800">Post now</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="radio"
+                                    name="scheduleMode"
+                                    checked={scheduledAt.trim() !== ''}
+                                    onChange={() => { if (!scheduledAt.trim()) setScheduledAt(new Date().toISOString().slice(0, 16)); }}
+                                    className="text-indigo-600 focus:ring-indigo-500"
+                                />
+                                <span className="text-sm font-medium text-neutral-800">Schedule for later</span>
+                            </label>
+                        </div>
+                        {scheduledAt.trim() !== '' && (
+                        <>
                         <div className="flex items-center gap-3">
                             <Calendar size={22} className="text-neutral-400 shrink-0" />
                             <input
@@ -1975,7 +2014,7 @@ export default function ComposerPage() {
                         </div>
                         <div className="space-y-2">
                             <p className="text-sm font-medium text-neutral-700">
-                                {scheduledAt ? 'At scheduled time:' : 'When you set a date above, at that time:'}
+                                At scheduled time:
                             </p>
                             <label className="flex items-center gap-2 cursor-pointer">
                                 <input
@@ -2001,6 +2040,8 @@ export default function ComposerPage() {
                                 <p className="text-xs text-neutral-500 mt-1 ml-6">You will receive the email when the scheduled time is reached (usually within a few minutes).</p>
                             )}
                         </div>
+                        </>
+                        )}
                         </div>
                         )}
                     </div>
@@ -2015,15 +2056,16 @@ export default function ComposerPage() {
                             {loading ? (
                                 <>
                                     <Loader2 size={20} className="animate-spin shrink-0" />
-                                    <span>{saveAsDraftRef.current ? 'Saving…' : scheduledAt ? 'Scheduling…' : 'Posting…'}</span>
+                                    <span>{saveAsDraftRef.current ? 'Saving…' : scheduledAt?.trim() ? 'Scheduling…' : 'Posting…'}</span>
                                 </>
                             ) : (
                                 <>
                                     <Send size={20} />
-                                    <span>{editPostId ? (editPostAlreadyPosted ? (scheduledAt ? 'Create new post & Schedule' : 'Create new post & Post Now') : (scheduledAt ? 'Update & Schedule' : 'Update & Post Now')) : (scheduledAt ? 'Schedule Post' : 'Post Now')}</span>
+                                    <span>{editPostId ? (editPostAlreadyPosted ? (scheduledAt?.trim() ? 'Create new post & Schedule' : 'Create new post & Post Now') : (scheduledAt?.trim() ? 'Update & Schedule' : 'Update & Post Now')) : (scheduledAt?.trim() ? 'Schedule Post' : 'Post Now')}</span>
                                 </>
                             )}
                         </button>
+                        {scheduledAt?.trim() ? (
                         <button
                             type="submit"
                             value="draft"
@@ -2032,6 +2074,7 @@ export default function ComposerPage() {
                         >
                             {loading ? <Loader2 size={20} className="animate-spin" /> : 'Save draft'}
                         </button>
+                        ) : null}
                     </div>
                 </form>
 
@@ -2135,7 +2178,7 @@ function PlatformToggle({ platform, label, icon, active, onClick, connected }: {
                 type="button"
                 onClick={connected ? onClick : undefined}
                 title={connected ? label : `Connect ${label} first in the sidebar`}
-                className={`w-24 h-24 rounded-xl border-2 flex flex-col items-center justify-center gap-2 transition-all duration-200 ${
+                className={`w-full min-w-[72px] max-w-[96px] aspect-square rounded-xl border-2 flex flex-col items-center justify-center gap-1.5 transition-all duration-200 ${
                     !connected
                         ? 'border-neutral-100 bg-neutral-50 text-neutral-300 cursor-not-allowed opacity-50'
                         : active
@@ -2143,8 +2186,8 @@ function PlatformToggle({ platform, label, icon, active, onClick, connected }: {
                             : 'border-neutral-200 bg-white text-neutral-500 hover:border-neutral-300 hover:bg-neutral-50'
                 }`}
             >
-                <span className="flex items-center justify-center w-10 h-10 shrink-0">{icon}</span>
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-center leading-tight">{label}</span>
+                <span className="flex items-center justify-center w-9 h-9 shrink-0">{icon}</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-center leading-tight px-0.5">{label}</span>
             </button>
             {!connected && (
                 <span className="text-[9px] text-neutral-400 font-medium">Not connected</span>

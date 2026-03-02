@@ -77,13 +77,19 @@ export default function PostsPage() {
 
     useEffect(() => {
         const fromCache = appData?.getScheduledPosts?.();
-        if (fromCache !== undefined && Array.isArray(fromCache)) {
+        const cacheIsEmpty = Array.isArray(fromCache) && fromCache.length === 0;
+        const forceRefresh = searchParams.get('draft_saved') === '1' || searchParams.get('refresh') === '1';
+        if (pathname === '/posts' && (forceRefresh || !fromCache || cacheIsEmpty)) {
+            fetchPosts();
+            return;
+        }
+        if (fromCache !== undefined && Array.isArray(fromCache) && fromCache.length > 0) {
             setPosts(fromCache as any[]);
             setLoading(false);
             return;
         }
         if (pathname === '/posts') fetchPosts();
-    }, [pathname, appData, fetchPosts]);
+    }, [pathname, appData, fetchPosts, searchParams.get('draft_saved'), searchParams.get('refresh')]);
 
     const filteredPosts = posts.filter((p: any) => {
         if (filter === 'ALL') return true;

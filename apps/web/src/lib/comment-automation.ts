@@ -11,6 +11,7 @@ export type CommentAutomation = {
   instagramPublicReply?: boolean;
   instagramPrivateReply?: boolean;
   instagramDmTemplate?: string;
+  tagCommenter?: boolean;
 };
 
 function getReplyText(ca: CommentAutomation, platform: string): string {
@@ -93,9 +94,9 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
           const linkedPageId: string | null = typeof creds?.linkedPageId === 'string' ? creds.linkedPageId : null;
           const igAccountId = (target.socialAccount.platformUserId || '').trim();
 
-          const res = await axios.get<{ data?: Array<{ id: string; text?: string; from?: { id?: string } }> }>(
+          const res = await axios.get<{ data?: Array<{ id: string; text?: string; from?: { id?: string; username?: string } }> }>(
             `https://graph.facebook.com/v18.0/${platformPostId}/comments`,
-            { params: { fields: 'id,text,from', access_token: token }, timeout: 10000 }
+            { params: { fields: 'id,text,from{username}', access_token: token }, timeout: 10000 }
           );
           const comments = res.data?.data ?? [];
           for (const c of comments) {
@@ -113,11 +114,13 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
               const doPrivateReply = typeof ca.instagramPrivateReply === 'boolean'
                 ? ca.instagramPrivateReply
                 : (ca.usePrivateReply === true);
+              const mention = (ca.tagCommenter && c.from?.username) ? `@${c.from.username} ` : '';
+              const finalReply = mention ? `${mention}${replyText}` : replyText;
               if (doPublicReply) {
                 await axios.post(
                   `https://graph.facebook.com/v18.0/${c.id}/replies`,
                   null,
-                  { params: { message: replyText, access_token: token }, timeout: 10000 }
+                  { params: { message: finalReply, access_token: token }, timeout: 10000 }
                 );
               }
               if (doPrivateReply) {
@@ -152,9 +155,9 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
             }
           }
         } else if (platform === 'FACEBOOK') {
-          const res = await axios.get<{ data?: Array<{ id: string; message?: string }> }>(
+          const res = await axios.get<{ data?: Array<{ id: string; message?: string; from?: { name?: string } }> }>(
             `https://graph.facebook.com/v18.0/${platformPostId}/comments`,
-            { params: { fields: 'id,message', access_token: token }, timeout: 10000 }
+            { params: { fields: 'id,message,from{name}', access_token: token }, timeout: 10000 }
           );
           const comments = res.data?.data ?? [];
           for (const c of comments) {
@@ -166,10 +169,12 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
                 data: { postTargetId: target.id, platformCommentId: c.id },
               });
               repliedSet.add(c.id);
+              const mention = (ca.tagCommenter && c.from?.name) ? `${c.from.name}, ` : '';
+              const finalReply = mention ? `${mention}${replyText}` : replyText;
               await axios.post(
                 `https://graph.facebook.com/v18.0/${c.id}/comments`,
                 null,
-                { params: { message: replyText, access_token: token }, timeout: 10000 }
+                { params: { message: finalReply, access_token: token }, timeout: 10000 }
               );
               replied++;
             } catch (e) {
