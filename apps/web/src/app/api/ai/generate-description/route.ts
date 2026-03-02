@@ -181,6 +181,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  let content = cleanGeneratedText(raw);
   const platformUpper = platform.toUpperCase();
   if (platformUpper === 'TWITTER' || platformUpper === 'X') {
     // Strict 280 character limit for X (no hashtags in generated content)
