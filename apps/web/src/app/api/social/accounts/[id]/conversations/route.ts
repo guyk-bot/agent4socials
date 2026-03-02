@@ -93,7 +93,7 @@ export async function GET(
       return NextResponse.json({ conversations: [], error: metaMsg, debug: { rawMessage: metaMsg, code, metaMessage: metaMsg } });
     }
 
-    const list = (res.data?.data ?? []).map((c) => {
+    let list = (res.data?.data ?? []).map((c) => {
       const sendersData = c.senders?.data ?? [];
       const picUrl = (p: { data?: { url?: string } } | string | undefined): string | null => {
         if (!p) return null;
@@ -111,6 +111,79 @@ export async function GET(
         })),
       };
     });
+
+    // Best-effort enrichment: if Meta returned sender IDs but no names/usernames/pictures,
+    // look up profiles in a second call using the ids=... pattern.
+    const missingProfileIds = new Set<string>();
+    for (const conv of list) {
+      for (const s of conv.senders) {
+        if (s.id && !s.name && !s.username) {
+          missingProfileIds.add(s.id);
+        }
+      }
+    }
+
+    if (missingProfileIds.size > 0) {
+      try {
+        const idsParam = Array.from(missingProfileIds).join(',');
+        const profileFields = isInstagram
+          ? 'id,name,username,profile_pic,profile_picture_url,picture'
+          : 'id,name,first_name,last_name,profile_pic,picture';
+
+        const profileRes = await axios.get<
+          Record<
+            string,
+            {
+              id?: string;
+              name?: string;
+              username?: string;
+              first_name?: string;
+              last_name?: string;
+              profile_pic?: string;
+              profile_picture_url?: string;
+              picture?: { data?: { url?: string } };
+            }
+          >
+        >(baseUrl, {
+          params: {
+            ids: idsParam,
+            fields: profileFields,
+            access_token: token,
+          },
+          timeout: 30_000,
+        });
+
+        const profiles = profileRes.data ?? {};
+        list = list.map((conv) => ({
+          ...conv,
+          senders: conv.senders.map((s) => {
+            if (!s.id) return s;
+            const profile = profiles[s.id];
+            if (!profile) return s;
+
+            const fullName =
+              profile.name ||
+              [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim() ||
+              undefined;
+            const profilePicture =
+              profile.profile_pic ||
+              profile.profile_picture_url ||
+              profile.picture?.data?.url ||
+              null;
+
+            return {
+              ...s,
+              name: s.name || fullName || s.name,
+              username: s.username || profile.username || s.username,
+              pictureUrl: s.pictureUrl || profilePicture || s.pictureUrl,
+            };
+          }),
+        }));
+      } catch (e) {
+        console.warn('[Conversations] profile enrichment failed:', (e as Error)?.message);
+      }
+    }
+
     return NextResponse.json({ conversations: list });
   } catch (e) {
     const err = e as { message?: string; code?: string; response?: { data?: unknown; status?: number } };
