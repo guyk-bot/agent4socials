@@ -909,6 +909,7 @@ export default function DashboardPage() {
                 {hasInstagram && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{importedPosts.filter((p) => p.platform === 'INSTAGRAM').reduce((s, p) => s + (p.interactions ?? 0), 0)} Instagram</span>}
                 {hasFacebook && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{importedPosts.filter((p) => p.platform === 'FACEBOOK').reduce((s, p) => s + (p.interactions ?? 0), 0)} Facebook</span>}
                 {accounts.some((a) => a.platform === 'TWITTER') && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-neutral-100 text-neutral-800">{importedPosts.filter((p) => p.platform === 'TWITTER').reduce((s, p) => s + (p.interactions ?? 0), 0)} X</span>}
+                {accounts.some((a) => a.platform === 'YOUTUBE') && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-red-100 text-red-800">{importedPosts.filter((p) => p.platform === 'YOUTUBE').reduce((s, p) => s + (p.interactions ?? 0), 0)} YouTube</span>}
               </div>
             </div>
             {/* Number of posts (Metricool-style) */}
@@ -924,6 +925,7 @@ export default function DashboardPage() {
                 {hasFacebook && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{importedPosts.filter((p) => p.platform === 'FACEBOOK').length} Facebook</span>}
                 {hasInstagram && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{importedPosts.filter((p) => p.platform === 'INSTAGRAM').length} Instagram</span>}
                 {accounts.some((a) => a.platform === 'TWITTER') && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-neutral-100 text-neutral-800">{importedPosts.filter((p) => p.platform === 'TWITTER').length} X</span>}
+                {accounts.some((a) => a.platform === 'YOUTUBE') && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-red-100 text-red-800">{importedPosts.filter((p) => p.platform === 'YOUTUBE').length} YouTube</span>}
               </div>
             </div>
             {/* Page visits / Profile views, Reach, Total content */}

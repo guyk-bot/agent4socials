@@ -3,6 +3,7 @@ import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import { Platform, PostStatus } from '@prisma/client';
 import axios, { type AxiosResponse } from 'axios';
+import { getValidYoutubeToken } from '@/lib/youtube-token';
 
 /** GET: list imported posts for this account. ?sync=1 to sync from platform first then return. */
 export async function GET(
@@ -20,13 +21,17 @@ export async function GET(
     const { id } = await params;
     const account = await prisma.socialAccount.findFirst({
       where: { id, userId },
-      select: { id: true, platform: true, platformUserId: true, accessToken: true, username: true },
+      select: { id: true, platform: true, platformUserId: true, accessToken: true, refreshToken: true, expiresAt: true, username: true },
     });
     if (!account) {
       return NextResponse.json({ message: 'Account not found' }, { status: 404 });
     }
     if (!account.accessToken) {
       return NextResponse.json({ posts: [], syncError: 'Reconnect your account to sync posts.' }, { status: 200 });
+    }
+    // Auto-refresh YouTube tokens before sync
+    if (account.platform === 'YOUTUBE') {
+      account.accessToken = await getValidYoutubeToken(account);
     }
     const sync = request.nextUrl.searchParams.get('sync') === '1';
     let syncError: string | undefined;

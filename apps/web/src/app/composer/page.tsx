@@ -933,9 +933,9 @@ export default function ComposerPage() {
             return;
         }
 
-        // Append hashtags after content (per platform when "different hashtags per platform" is on)
-        const hashtagSuffix = (tags: string[]) => (tags.length ? ' ' + tags.join(' ') : '');
-        let contentFinal = content.trim() + hashtagSuffix(selectedHashtags);
+            // Append hashtags after content (per platform when "different hashtags per platform" is on)
+            const hashtagSuffix = (tags: string[]) => (tags.length ? ' ' + tags.join(' ') : '');
+            let contentFinal = content.trim() + hashtagSuffix(selectedHashtags);
 
         setLoading(true);
         try {
@@ -1125,23 +1125,23 @@ export default function ComposerPage() {
                     }
                 }
             } else {
-                const createRes = await api.post<{ id: string }>('/posts', payload);
-                const postId = createRes.data?.id;
+            const createRes = await api.post<{ id: string }>('/posts', payload);
+            const postId = createRes.data?.id;
                 clearComposerDraft();
                 if (saveAsDraft) {
                     router.push('/posts?draft_saved=1');
                     setLoading(false);
                     return;
                 }
-                if (postId && !scheduledAt) {
-                    try {
+            if (postId && !scheduledAt) {
+                try {
                         const debug = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('publish_debug') === '1';
                         if (debug) sessionStorage.removeItem('publish_debug');
                         const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string; debugInfo?: { mediaUrlsByPlatform?: Record<string, string>; fullErrors?: Record<string, string> } }>(`/posts/${postId}/publish${debug ? '?debug=1' : ''}`, undefined, { timeout: 90_000 });
-                        const results = publishRes.data?.results;
+                    const results = publishRes.data?.results;
                         if (publishRes.data?.debugInfo) console.log('[Publish Debug]', publishRes.data.debugInfo);
-                        if (results?.some((r) => !r.ok)) {
-                            const failed = results.filter((r) => !r.ok).map((r) => `${r.platform}: ${r.error || 'failed'}`).join('; ');
+                    if (results?.some((r) => !r.ok)) {
+                        const failed = results.filter((r) => !r.ok).map((r) => `${r.platform}: ${r.error || 'failed'}`).join('; ');
                             let hint = '';
                             if (failed.includes('TWITTER')) {
                                 if (failed.includes('Credits Depleted') || failed.includes('credits')) hint = ' Your X (Twitter) Developer account has no API credits. Add credits in the X Developer Portal (Billing) or upgrade your plan.';
@@ -1224,7 +1224,7 @@ export default function ComposerPage() {
     const composerReady = draftRestored && (!editPostId || editLoaded) && accountsFetched;
 
     if (!composerReady) {
-        return (
+    return (
             <div className="max-w-6xl mx-auto px-2 sm:px-4 flex flex-col items-center justify-center min-h-[60vh]">
                 <div className="flex flex-col items-center gap-4">
                     <Loader2 size={40} className="animate-spin text-indigo-600" aria-hidden />
@@ -1371,7 +1371,7 @@ export default function ComposerPage() {
                                 };
                                 const labels: Record<string, string> = { INSTAGRAM: 'Instagram', TIKTOK: 'TikTok', YOUTUBE: 'YouTube', FACEBOOK: 'Facebook', TWITTER: 'Twitter/X', LINKEDIN: 'LinkedIn' };
                                 return (
-                                    <PlatformToggle
+                            <PlatformToggle
                                         key={p}
                                         platform={p}
                                         label={labels[p]}
@@ -1677,7 +1677,7 @@ export default function ComposerPage() {
                                 {mediaUploadError && <p className="text-sm text-red-600">{mediaUploadError}</p>}
                             </div>
                         )}
-                        </div>
+                            </div>
                         )}
                     </div>
 
@@ -1710,11 +1710,11 @@ export default function ComposerPage() {
                         </div>
                         {!differentContentPerPlatform ? (
                             <div>
-                                <textarea
-                                    value={content}
+                            <textarea
+                                value={content}
                                     onChange={(e) => { setContent(e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
                                     onFocus={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
-                                    placeholder="What's on your mind?..."
+                                placeholder="What's on your mind?..."
                                     rows={5}
                                     className="w-full min-h-[7rem] p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none overflow-hidden"
                                 />
@@ -1738,28 +1738,28 @@ export default function ComposerPage() {
                                     const tags = differentHashtagsPerPlatform ? (selectedHashtagsByPlatform[p] ?? []) : selectedHashtags;
                                     const fullLength = (contentByPlatform[p] ?? '').trim().length + (tags.length ? ' ' + tags.join(' ') : '').length;
                                     return (
-                                        <div key={p} className="space-y-1">
-                                            <label className="text-sm font-medium text-neutral-700">{PLATFORM_LABELS[p] || p}</label>
-                                            <textarea
-                                                value={contentByPlatform[p] ?? ''}
+                                    <div key={p} className="space-y-1">
+                                        <label className="text-sm font-medium text-neutral-700">{PLATFORM_LABELS[p] || p}</label>
+                                        <textarea
+                                            value={contentByPlatform[p] ?? ''}
                                                 onChange={(e) => { setContentByPlatform((prev) => ({ ...prev, [p]: e.target.value })); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
                                                 onFocus={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
-                                                placeholder="Content for this platform..."
+                                            placeholder="Content for this platform..."
                                                 rows={4}
                                                 className="w-full min-h-[6rem] p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm resize-none overflow-hidden"
-                                            />
+                                        />
                                             {p === 'TWITTER' && (
                                                 <p className={`text-xs ${fullLength > 280 ? 'text-amber-600 font-medium' : 'text-neutral-500'}`}>
                                                     X limit: 280 (including spaces). Current (with hashtags): {fullLength}
                                                 </p>
                                             )}
-                                        </div>
+                                    </div>
                                     );
                                 })}
                                 {platforms.length === 0 && <p className="text-sm text-neutral-500">Select platforms above first.</p>}
                             </div>
                         )}
-                        </div>
+                            </div>
                         )}
                     </div>
 
@@ -1905,10 +1905,10 @@ export default function ComposerPage() {
 
                     <div className="card space-y-4">
                         <button type="button" onClick={() => toggleSection('hashtags')} className="w-full flex items-center justify-between text-left">
-                            <h3 className="font-semibold text-neutral-900 flex items-center gap-2">
-                                <Hash size={20} className="text-neutral-500" />
+                        <h3 className="font-semibold text-neutral-900 flex items-center gap-2">
+                            <Hash size={20} className="text-neutral-500" />
                                 Hashtags
-                            </h3>
+                        </h3>
                             {sectionOpen.hashtags ? <ChevronUp size={20} className="text-neutral-400 shrink-0" /> : <ChevronDown size={20} className="text-neutral-400 shrink-0" />}
                         </button>
                         {sectionOpen.hashtags && (
@@ -2066,10 +2066,10 @@ export default function ComposerPage() {
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-2">
-                        <button
-                            type="submit"
+                    <button
+                        type="submit"
                             value="publish"
-                            disabled={loading}
+                        disabled={loading}
                             className="flex-1 btn-primary flex items-center justify-center gap-2 py-3.5 rounded-xl text-base font-medium disabled:opacity-70 disabled:cursor-not-allowed"
                         >
                             {loading ? (
@@ -2079,11 +2079,11 @@ export default function ComposerPage() {
                                 </>
                             ) : (
                                 <>
-                                    <Send size={20} />
+                        <Send size={20} />
                                     <span>{editPostId ? (editPostAlreadyPosted ? (scheduledAt?.trim() ? 'Create new post & Schedule' : 'Create new post & Post Now') : (scheduledAt?.trim() ? 'Update & Schedule' : 'Update & Post Now')) : (scheduledAt?.trim() ? 'Schedule Post' : 'Post Now')}</span>
                                 </>
                             )}
-                        </button>
+                    </button>
                         {scheduledAt?.trim() ? (
                         <button
                             type="submit"
@@ -2121,27 +2121,27 @@ export default function ComposerPage() {
                         ) : (
                             <div className="grid grid-cols-2 gap-2">
                                 {platforms.map(p => {
-                                    const baseContent = differentContentPerPlatform ? (contentByPlatform[p] ?? '') : content;
-                                    const tags = differentHashtagsPerPlatform ? (selectedHashtagsByPlatform[p] ?? []) : selectedHashtags;
-                                    const contentWithHashtags = baseContent.trim() + (tags.length ? ' ' + tags.join(' ') : '');
+                                const baseContent = differentContentPerPlatform ? (contentByPlatform[p] ?? '') : content;
+                                const tags = differentHashtagsPerPlatform ? (selectedHashtagsByPlatform[p] ?? []) : selectedHashtags;
+                                const contentWithHashtags = baseContent.trim() + (tags.length ? ' ' + tags.join(' ') : '');
                                     const accountForPlatform = accounts.find((a: { platform: string }) => a.platform === p) as { username?: string; profilePicture?: string } | undefined;
                                     const mediaForPlatform = differentMediaPerPlatform ? (mediaByPlatform[p] ?? []) : mediaList;
                                     const effectiveMedia = (mediaType === 'video' || mediaType === 'reel') && mediaForPlatform.length === 1 && differentThumbnailPerPlatform
                                         ? mediaForPlatform.map((m, i) => (i === 0 && m.type === 'VIDEO' ? { ...m, thumbnailUrl: thumbnailByPlatform[p] ?? (m as MediaItem).thumbnailUrl } : m))
                                         : mediaForPlatform;
-                                        return (
-                                        <PostPreview
-                                            key={p}
-                                            platform={p}
+                                return (
+                                    <PostPreview
+                                        key={p}
+                                        platform={p}
                                             profileName={accountForPlatform?.username ?? ''}
                                             profilePicture={accountForPlatform?.profilePicture ?? undefined}
-                                            content={contentWithHashtags}
+                                        content={contentWithHashtags}
                                             media={effectiveMedia}
                                             mediaType={mediaType}
                                             compact={platforms.length > 1}
                                             mediaUploading={mediaUploading}
-                                        />
-                                    );
+                                    />
+                                );
                                 })}
                             </div>
                         )}
@@ -2193,21 +2193,21 @@ export default function ComposerPage() {
 function PlatformToggle({ platform, label, icon, active, onClick, connected }: { platform: string; label: string; icon: React.ReactNode; active: boolean; onClick: () => void; connected: boolean }) {
     return (
         <div className="relative flex flex-col items-center gap-1">
-            <button
-                type="button"
+        <button
+            type="button"
                 onClick={connected ? onClick : undefined}
                 title={connected ? label : `Connect ${label} first in the sidebar`}
                 className={`w-full min-w-[72px] max-w-[96px] aspect-square rounded-xl border-2 flex flex-col items-center justify-center gap-1.5 transition-all duration-200 ${
                     !connected
                         ? 'border-neutral-100 bg-neutral-50 text-neutral-300 cursor-not-allowed opacity-50'
                         : active
-                            ? 'border-indigo-600 bg-indigo-50 text-indigo-600 shadow-sm'
-                            : 'border-neutral-200 bg-white text-neutral-500 hover:border-neutral-300 hover:bg-neutral-50'
+                    ? 'border-indigo-600 bg-indigo-50 text-indigo-600 shadow-sm'
+                    : 'border-neutral-200 bg-white text-neutral-500 hover:border-neutral-300 hover:bg-neutral-50'
                 }`}
-            >
+        >
                 <span className="flex items-center justify-center w-9 h-9 shrink-0">{icon}</span>
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-center leading-tight px-0.5">{label}</span>
-            </button>
+        </button>
             {!connected && (
                 <span className="text-[9px] text-neutral-400 font-medium">Not connected</span>
             )}
@@ -2256,7 +2256,7 @@ function PostPreview({
                     {profilePicture ? (
                         <img src={profilePicture} alt="" className="w-full h-full object-cover" />
                     ) : (
-                        <PlatformIcon />
+                    <PlatformIcon />
                     )}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -2309,7 +2309,7 @@ function PostPreview({
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-neutral-100 animate-pulse">
                         <Loader2 size={compact ? 18 : 28} className="animate-spin text-neutral-400" />
                         <span className={`text-neutral-400 font-medium ${compact ? 'text-[9px]' : 'text-xs'}`}>Uploading…</span>
-                    </div>
+            </div>
                 ) : (
                     <ImageIcon size={compact ? 20 : 36} className="text-neutral-200" strokeWidth={1.5} />
                 )}

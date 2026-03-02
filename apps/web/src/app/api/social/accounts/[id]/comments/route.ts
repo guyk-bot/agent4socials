@@ -3,6 +3,7 @@ import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import { PostStatus } from '@prisma/client';
 import axios from 'axios';
+import { getValidYoutubeToken } from '@/lib/youtube-token';
 
 /**
  * GET /api/social/accounts/[id]/comments
@@ -22,15 +23,20 @@ export async function GET(
   const { id } = await params;
   const account = await prisma.socialAccount.findFirst({
     where: { id, userId },
-    select: { id: true, platform: true, platformUserId: true, accessToken: true },
+    select: { id: true, platform: true, platformUserId: true, accessToken: true, refreshToken: true, expiresAt: true },
   });
   if (!account) {
     return NextResponse.json({ comments: [], error: 'Account not found' }, { status: 404 });
   }
 
   const platform = account.platform;
-  if (platform !== 'INSTAGRAM' && platform !== 'FACEBOOK' && platform !== 'TWITTER') {
-    return NextResponse.json({ comments: [], error: 'Comments are only available for Instagram, Facebook, and X.' });
+  if (platform !== 'INSTAGRAM' && platform !== 'FACEBOOK' && platform !== 'TWITTER' && platform !== 'YOUTUBE') {
+    return NextResponse.json({ comments: [], error: 'Comments are only available for Instagram, Facebook, X, and YouTube.' });
+  }
+
+  // Auto-refresh YouTube tokens
+  if (platform === 'YOUTUBE') {
+    account.accessToken = await getValidYoutubeToken(account);
   }
 
   // Posts we published through the app
@@ -97,6 +103,14 @@ export async function GET(
         );
         return r.data?.media_url ?? null;
       }
+      if (plat === 'YOUTUBE') {
+        // Return the thumbnail stored in the importedPost DB row
+        const imp = await prisma.importedPost.findFirst({
+          where: { platformPostId: postId, socialAccountId: account.id },
+          select: { thumbnailUrl: true },
+        });
+        return imp?.thumbnailUrl ?? `https://i.ytimg.com/vi/${postId}/mqdefault.jpg`;
+      }
     } catch (_) {}
     return null;
   }
@@ -146,6 +160,50 @@ export async function GET(
         }
       } catch (_) {
         // skip this post on API error
+      }
+      continue;
+    }
+
+    if (platform === 'YOUTUBE') {
+      try {
+        const ytRes = await axios.get<{
+          items?: Array<{
+            id?: string;
+            snippet?: {
+              topLevelComment?: {
+                id?: string;
+                snippet?: {
+                  authorDisplayName?: string;
+                  authorProfileImageUrl?: string;
+                  textOriginal?: string;
+                  publishedAt?: string;
+                };
+              };
+            };
+          }>;
+        }>('https://www.googleapis.com/youtube/v3/commentThreads', {
+          params: { part: 'snippet', videoId: platformPostId, maxResults: 20 },
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const items = ytRes.data?.items ?? [];
+        for (const item of items) {
+          const top = item.snippet?.topLevelComment?.snippet;
+          if (!top) continue;
+          comments.push({
+            commentId: item.snippet?.topLevelComment?.id ?? item.id ?? String(Math.random()),
+            postTargetId,
+            platformPostId,
+            postPreview,
+            postImageUrl,
+            text: top.textOriginal ?? '',
+            authorName: top.authorDisplayName ?? 'Unknown',
+            authorPictureUrl: top.authorProfileImageUrl ?? null,
+            createdAt: top.publishedAt ?? new Date().toISOString(),
+            platform: 'YOUTUBE',
+          });
+        }
+      } catch (_) {
+        // skip on API error
       }
       continue;
     }

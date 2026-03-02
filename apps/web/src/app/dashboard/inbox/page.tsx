@@ -286,7 +286,7 @@ export default function InboxPage() {
     return () => { cancelled = true; };
   }, [dmOrFbPlatforms.join(','), effectiveAccounts, appData]);
 
-  const commentsSupportedPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK' || p === 'TWITTER');
+  const commentsSupportedPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK' || p === 'TWITTER' || p === 'YOUTUBE');
   useEffect(() => {
     if (commentsSupportedPlatforms.length === 0) {
       setComments([]);
@@ -350,8 +350,8 @@ export default function InboxPage() {
   }, [commentsSupportedPlatforms.join(','), effectiveAccounts, appData]);
 
   // For engagement, always show all connected IG+FB accounts regardless of platform filter
-  const allEngagementAccounts = effectiveAccounts.filter((a) => a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK');
-  const engagementPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK');
+  const allEngagementAccounts = effectiveAccounts.filter((a) => a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK' || a.platform === 'YOUTUBE');
+  const engagementPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK' || p === 'YOUTUBE');
   useEffect(() => {
     if (allEngagementAccounts.length === 0) {
       setEngagement([]);

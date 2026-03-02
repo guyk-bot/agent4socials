@@ -3,6 +3,7 @@ import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import { Platform } from '@prisma/client';
 import axios from 'axios';
+import { getValidYoutubeToken } from '@/lib/youtube-token';
 
 const baseUrl = 'https://graph.facebook.com/v18.0';
 
@@ -32,7 +33,7 @@ export async function GET(
     const { id } = await params;
     const account = await prisma.socialAccount.findFirst({
       where: { id, userId },
-      select: { id: true, platform: true, platformUserId: true, accessToken: true },
+      select: { id: true, platform: true, platformUserId: true, accessToken: true, refreshToken: true, expiresAt: true },
     });
     if (!account) {
       return NextResponse.json({ message: 'Account not found' }, { status: 404 });
@@ -305,7 +306,7 @@ export async function GET(
     }
 
     if (account.platform === 'YOUTUBE') {
-      const token = account.accessToken;
+      const token = await getValidYoutubeToken(account);
       // Fetch channel-level totals (subscribers + total views)
       try {
         const chRes = await axios.get<{

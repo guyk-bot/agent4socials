@@ -28,9 +28,30 @@ export async function GET(
     return NextResponse.json({ engagement: [], error: 'Account not found' }, { status: 404 });
   }
 
-  const platform = account.platform;
-  if (platform !== 'INSTAGRAM' && platform !== 'FACEBOOK') {
-    return NextResponse.json({ engagement: [], error: 'Engagement is only available for Instagram and Facebook.' });
+  const platform = account.platform as string;
+  if (platform !== 'INSTAGRAM' && platform !== 'FACEBOOK' && platform !== 'YOUTUBE') {
+    return NextResponse.json({ engagement: [], error: 'Engagement is only available for Instagram, Facebook, and YouTube.' });
+  }
+
+  // YouTube: pull engagement directly from stored importedPost stats (no extra API calls needed)
+  if (platform === 'YOUTUBE') {
+    const ytPosts = await prisma.importedPost.findMany({
+      where: { socialAccountId: account.id },
+      orderBy: { publishedAt: 'desc' },
+      take: 50,
+    });
+    const ytEngagement = ytPosts.map((p) => ({
+      platformPostId: p.platformPostId,
+      postPreview: (p.content ?? '').slice(0, 80) || 'Video',
+      platform: 'YOUTUBE',
+      likeCount: 0,
+      commentCount: p.interactions ?? 0,
+      mediaUrl: p.thumbnailUrl ?? null,
+      permalink: p.permalinkUrl ?? null,
+      viewCount: p.impressions ?? 0,
+    }));
+    ytEngagement.sort((a, b) => (b.viewCount + b.commentCount) - (a.viewCount + a.commentCount));
+    return NextResponse.json({ engagement: ytEngagement });
   }
 
   const targets = await prisma.postTarget.findMany({
