@@ -335,6 +335,7 @@ export async function GET(
         const analyticsRes = await axios.get<{
           rows?: Array<[string, number]>;
           columnHeaders?: Array<{ name: string }>;
+          error?: { message?: string; status?: string };
         }>('https://youtubeanalytics.googleapis.com/v2/reports', {
           params: {
             ids: 'channel==MINE',
@@ -345,13 +346,22 @@ export async function GET(
             sort: 'day',
           },
           headers: { Authorization: `Bearer ${token}` },
+          validateStatus: () => true,
         });
-        const rows = analyticsRes.data?.rows ?? [];
-        if (rows.length > 0) {
-          out.impressionsTimeSeries = rows.map(([date, value]) => ({ date, value: value ?? 0 }));
+        if (analyticsRes.data?.error) {
+          const apiErr = analyticsRes.data.error;
+          console.warn('[Insights] YouTube Analytics API error:', apiErr);
+          out.insightsHint = `YouTube Analytics: ${apiErr.message ?? apiErr.status ?? 'API error'}. Enable "YouTube Analytics API" in Google Cloud Console (APIs & Services) and reconnect.`;
+        } else {
+          const rows = analyticsRes.data?.rows ?? [];
+          if (rows.length > 0) {
+            out.impressionsTimeSeries = rows.map(([date, value]) => ({ date, value: value ?? 0 }));
+          }
         }
       } catch (e) {
-        console.warn('[Insights] YouTube Analytics:', (e as Error)?.message ?? e);
+        const msg = (e as Error)?.message ?? String(e);
+        console.warn('[Insights] YouTube Analytics:', msg);
+        out.insightsHint = `YouTube Analytics unavailable: ${msg.slice(0, 120)}. Enable "YouTube Analytics API" in Google Cloud Console.`;
       }
 
       return NextResponse.json(out);

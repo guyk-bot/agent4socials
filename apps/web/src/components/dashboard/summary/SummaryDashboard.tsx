@@ -97,6 +97,16 @@ export function SummaryDashboard() {
               : 'Your reach is building up. Connect more accounts and publish content to see growth.'}
         </p>
       </div>
+      {/* Platform-level hints (e.g. YouTube Analytics API not enabled) */}
+      {summary.platforms.some((p) => (p as { insightsHint?: string }).insightsHint) && (
+        <div className="space-y-2">
+          {summary.platforms.filter((p) => (p as { insightsHint?: string }).insightsHint).map((p) => (
+            <div key={p.id} className="rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+              <strong>{p.platform}:</strong> {(p as { insightsHint?: string }).insightsHint}
+            </div>
+          ))}
+        </div>
+      )}
 
       <SummaryFiltersBar
         dateStart={dateRange.start}

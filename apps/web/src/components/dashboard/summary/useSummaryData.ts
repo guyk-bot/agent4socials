@@ -66,6 +66,7 @@ export function useSummaryData(
         posts: posts.length,
         impressions: reach,
         timeSeries: series,
+        insightsHint: insights?.insightsHint,
       });
 
       posts.forEach((p) => {
