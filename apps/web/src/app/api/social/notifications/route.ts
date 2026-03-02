@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
   }
   const accounts = await prisma.socialAccount.findMany({
     where: { userId },
-    select: { id: true, platform: true, platformUserId: true, accessToken: true },
+    select: { id: true, platform: true, platformUserId: true, accessToken: true, credentialsJson: true },
   });
   let commentsTotal = 0;
   let messagesTotal = 0;
@@ -52,11 +52,31 @@ export async function GET(request: NextRequest) {
       }
       let messagesCount = 0;
       try {
-        const convRes = await axios.get<{ data?: unknown[] }>(
-          `https://graph.facebook.com/v18.0/${account.platformUserId}/conversations`,
-          { params: { fields: 'id', access_token: token }, timeout: 5000 }
-        );
-        messagesCount = (convRes.data?.data ?? []).length;
+        if (account.platform === 'INSTAGRAM') {
+          let linkedPageId: string | null = account.credentialsJson && typeof account.credentialsJson === 'object'
+            ? (account.credentialsJson as { linkedPageId?: string }).linkedPageId ?? null
+            : null;
+          if (!linkedPageId && token) {
+            const fb = await prisma.socialAccount.findFirst({
+              where: { userId, platform: 'FACEBOOK', accessToken: token },
+              select: { platformUserId: true },
+            });
+            if (fb?.platformUserId) linkedPageId = fb.platformUserId;
+          }
+          const convPath = linkedPageId
+            ? `https://graph.facebook.com/v18.0/${linkedPageId}/conversations`
+            : 'https://graph.instagram.com/v18.0/me/conversations';
+          const convParams: Record<string, string> = { fields: 'id', access_token: token };
+          if (linkedPageId) convParams.platform = 'instagram';
+          const convRes = await axios.get<{ data?: unknown[] }>(convPath, { params: convParams, timeout: 5000 });
+          messagesCount = (convRes.data?.data ?? []).length;
+        } else {
+          const convRes = await axios.get<{ data?: unknown[] }>(
+            `https://graph.facebook.com/v18.0/${account.platformUserId}/conversations`,
+            { params: { fields: 'id', access_token: token }, timeout: 5000 }
+          );
+          messagesCount = (convRes.data?.data ?? []).length;
+        }
       } catch (_) {
         // skip
       }

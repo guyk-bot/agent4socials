@@ -56,6 +56,15 @@ type PostComment = {
   createdAt: string;
   platform: string;
 };
+type EngagementItem = {
+  platformPostId: string;
+  postPreview: string;
+  platform: string;
+  likeCount: number;
+  commentCount: number;
+  mediaUrl?: string | null;
+  permalink?: string | null;
+};
 
 export default function InboxPage() {
   const router = useRouter();
@@ -92,6 +101,10 @@ export default function InboxPage() {
   const [notifications, setNotifications] = useState<{ comments: number; messages: number; byPlatform?: Record<string, { comments: number; messages: number }> }>({ comments: 0, messages: 0 });
   const connectRef = useRef<HTMLDivElement>(null);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
+  const [engagement, setEngagement] = useState<EngagementItem[]>([]);
+  const [engagementLoading, setEngagementLoading] = useState(false);
+  const [engagementError, setEngagementError] = useState<string | null>(null);
+  const [selectedEngagement, setSelectedEngagement] = useState<EngagementItem | null>(null);
 
   useEffect(() => {
     if ((cachedAccounts as Account[]).length > 0) return;
@@ -317,6 +330,52 @@ export default function InboxPage() {
     return () => { cancelled = true; };
   }, [inboxMode, commentsSupportedPlatforms.join(','), effectiveAccounts, appData]);
 
+  const engagementPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK');
+  useEffect(() => {
+    if (inboxMode !== 'engagement' || engagementPlatforms.length === 0) {
+      setEngagement([]);
+      setEngagementLoading(false);
+      setEngagementError(null);
+      setSelectedEngagement(null);
+      return;
+    }
+    let cancelled = false;
+    const merge: EngagementItem[] = [];
+    let pending = engagementPlatforms.length;
+    engagementPlatforms.forEach((platform) => {
+      const account = effectiveAccounts.find((a) => a.platform === platform);
+      if (!account) {
+        if (--pending === 0 && !cancelled) {
+          setEngagement(merge);
+          setEngagementLoading(false);
+        }
+        return;
+      }
+      setEngagementLoading(true);
+      setEngagementError(null);
+      api.get<{ engagement?: EngagementItem[]; error?: string }>(`/social/accounts/${account.id}/engagement`)
+        .then((res) => {
+          if (cancelled) return;
+          merge.push(...(res.data?.engagement ?? []));
+          if (--pending === 0) {
+            setEngagement(merge);
+            setEngagementError(res.data?.error ?? null);
+          }
+        })
+        .catch(() => {
+          if (cancelled) return;
+          if (--pending === 0) {
+            setEngagement(merge);
+            setEngagementError('Could not load engagement.');
+          }
+        })
+        .finally(() => {
+          if (pending === 0 && !cancelled) setEngagementLoading(false);
+        });
+    });
+    return () => { cancelled = true; };
+  }, [inboxMode, engagementPlatforms.join(','), effectiveAccounts]);
+
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (connectRef.current && !connectRef.current.contains(e.target as Node)) setConnectOpen(false);
@@ -457,7 +516,7 @@ export default function InboxPage() {
           </button>
           <button
             type="button"
-            onClick={() => { setInboxMode('engagement'); setSelectedConversationId(null); setSelectedComment(null); }}
+            onClick={() => { setInboxMode('engagement'); setSelectedConversationId(null); setSelectedComment(null); setSelectedEngagement(null); }}
             className={`flex-1 py-3 text-sm font-medium ${inboxMode === 'engagement' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
           >
             Engagement
@@ -494,11 +553,52 @@ export default function InboxPage() {
         {/* Conversation, comment, or engagement list */}
         <div className="flex-1 overflow-y-auto">
           {inboxMode === 'engagement' ? (
-            <div className="p-6 text-center">
-              <BarChart3 size={40} className="mx-auto text-neutral-300 mb-3" />
-              <p className="text-sm font-medium text-neutral-900">Engagement</p>
-              <p className="text-sm text-neutral-500 mt-1">Likes, shares, and mentions for your posts. Select a platform above to see engagement for that account.</p>
-            </div>
+            engagementLoading ? (
+              <div className="p-6 flex flex-col items-center justify-center gap-3">
+                <Loader2 size={32} className="text-indigo-500 animate-spin" />
+                <p className="text-sm text-neutral-500">Loading engagement…</p>
+              </div>
+            ) : engagementError ? (
+              <div className="p-4">
+                <p className="text-sm text-neutral-700">{engagementError}</p>
+              </div>
+            ) : engagement.length === 0 ? (
+              <div className="p-6 text-center">
+                <BarChart3 size={40} className="mx-auto text-neutral-300 mb-3" />
+                <p className="text-sm font-medium text-neutral-900">Engagement</p>
+                <p className="text-sm text-neutral-500 mt-1">Likes and comments for your posts. Select Instagram or Facebook above, and ensure you have published or synced posts so we can load engagement.</p>
+              </div>
+            ) : (
+              <div className="p-2 space-y-0">
+                {engagement
+                  .filter((e) => !searchQuery || e.postPreview.toLowerCase().includes(searchQuery.toLowerCase()))
+                  .map((e) => (
+                    <button
+                      key={e.platformPostId}
+                      type="button"
+                      onClick={() => setSelectedEngagement(e)}
+                      className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors ${
+                        selectedEngagement?.platformPostId === e.platformPostId ? 'bg-indigo-50 border border-indigo-100' : 'hover:bg-neutral-50'
+                      }`}
+                    >
+                      <div className="w-12 h-12 rounded-lg bg-neutral-100 shrink-0 overflow-hidden flex items-center justify-center">
+                        {e.mediaUrl ? (
+                          <img src={e.mediaUrl} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <BarChart3 size={24} className="text-neutral-400" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-neutral-900 truncate">{e.postPreview || 'Post'}</p>
+                        <p className="text-xs text-neutral-500 mt-0.5">
+                          {e.likeCount} likes · {e.commentCount} comments
+                        </p>
+                        <p className="text-xs text-neutral-400 mt-0.5">{PLATFORMS.find((p) => p.id === e.platform)?.label}</p>
+                      </div>
+                    </button>
+                  ))}
+              </div>
+            )
           ) : inboxMode === 'comments' && commentsSupportedPlatforms.length === 0 ? (
             <div className="p-6 text-center">
               <p className="text-sm text-neutral-500">Comments are available for Instagram, Facebook, and X. Select one or more of those platforms above.</p>
@@ -779,14 +879,47 @@ export default function InboxPage() {
             </div>
           </div>
         ) : inboxMode === 'engagement' ? (
-          <div className="flex-1 flex items-center justify-center p-8">
-            <div className="text-center max-w-sm">
-              <BarChart3 size={48} className="mx-auto text-neutral-300 mb-3" />
-              <h2 className="text-lg font-semibold text-neutral-800">Engagement</h2>
-              <p className="text-sm text-neutral-500 mt-2">
-                View likes, shares, and mentions for your posts. Content for this view is coming soon.
-              </p>
-            </div>
+          <div className="flex-1 flex flex-col p-6 min-h-0 overflow-y-auto">
+            {!selectedEngagement ? (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center max-w-sm">
+                  <BarChart3 size={48} className="mx-auto text-neutral-300 mb-3" />
+                  <p className="text-sm text-neutral-600">Select a post from the list to see likes and comments</p>
+                  <p className="text-xs text-neutral-400 mt-1">{PLATFORMS.find((p) => p.id === selectedPlatform)?.label} engagement</p>
+                </div>
+              </div>
+            ) : (
+              <div className="max-w-2xl mx-auto w-full">
+                <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
+                  <div className="p-4 border-b border-neutral-100 bg-neutral-50/50">
+                    <p className="text-sm font-medium text-neutral-800">Engagement</p>
+                    <p className="text-xs text-neutral-500 mt-0.5">{PLATFORMS.find((p) => p.id === selectedEngagement.platform)?.label}</p>
+                  </div>
+                  <div className="p-4">
+                    {selectedEngagement.mediaUrl && (
+                      <div className="rounded-lg overflow-hidden border border-neutral-100 mb-4 max-w-sm">
+                        <img src={selectedEngagement.mediaUrl} alt="" className="w-full h-auto object-contain" />
+                      </div>
+                    )}
+                    <p className="text-sm text-neutral-700 mb-3">{selectedEngagement.postPreview || 'Post'}</p>
+                    <div className="flex flex-wrap gap-4 text-sm">
+                      <span className="font-medium text-neutral-900">{selectedEngagement.likeCount} likes</span>
+                      <span className="font-medium text-neutral-900">{selectedEngagement.commentCount} comments</span>
+                    </div>
+                    {selectedEngagement.permalink && (
+                      <a
+                        href={selectedEngagement.permalink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-block mt-3 text-sm text-indigo-600 hover:text-indigo-700"
+                      >
+                        View on {selectedEngagement.platform === 'INSTAGRAM' ? 'Instagram' : 'Facebook'}
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ) : !selectedConversationId ? (
           <div className="flex-1 flex items-center justify-center p-8">
@@ -909,6 +1042,14 @@ export default function InboxPage() {
                       setConversationMessages(res.data?.messages ?? []);
                       setConversationRecipientId(res.data?.recipientId ?? null);
                       setConversationMessagesError(res.data?.error ?? null);
+                      api.get<{ inbox?: number; comments?: number; messages?: number; byPlatform?: Record<string, { comments: number; messages: number }> }>('/social/notifications').then((r) => {
+                        if (r.data && appData) appData.setNotifications({
+                          inbox: r.data.inbox ?? 0,
+                          comments: r.data.comments ?? 0,
+                          messages: r.data.messages ?? 0,
+                          byPlatform: r.data.byPlatform ?? {},
+                        });
+                      }).catch(() => {});
                     } catch (e: unknown) {
                       const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
                       alert(msg ?? 'Failed to send message.');

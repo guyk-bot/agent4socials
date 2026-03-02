@@ -67,7 +67,7 @@ export async function GET(
       return NextResponse.json({ messages: [], recipientId: null, error: msg });
     }
 
-    const list = (res.data?.data ?? []).map((m) => ({
+    let list = (res.data?.data ?? []).map((m) => ({
       id: m.id,
       fromId: m.from?.id ?? null,
       fromName: m.from?.name ?? null,
@@ -84,6 +84,13 @@ export async function GET(
         break;
       }
     }
+
+    // Chronological order: oldest at top, newest at bottom.
+    list = list.slice().sort((a, b) => {
+      const tA = a.createdTime ? new Date(a.createdTime).getTime() : 0;
+      const tB = b.createdTime ? new Date(b.createdTime).getTime() : 0;
+      return tA - tB;
+    });
 
     return NextResponse.json({ messages: list, recipientId });
   } catch (e) {
