@@ -2,6 +2,8 @@
 
 Error **2207076** means Meta's servers tried to fetch your media URL and **failed to get a valid image/video**. It is almost never a permission issue when you've reconnected an admin account.
 
+**"Request processing failed" / ProcessingFailedError:** Same root cause as above: Meta's servers could not successfully fetch or process your media URL (e.g. during Reel resumable upload). Fixes below (public URL, format, size) apply. For Reels also ensure 9:16 aspect ratio, 15–90 seconds, MP4.
+
 ---
 
 ## How our publish flow works

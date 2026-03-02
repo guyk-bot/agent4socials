@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useAppData } from '@/context/AppDataContext';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
 
 const COMPOSER_DRAFT_KEY = 'agent4socials_composer_draft';
@@ -149,6 +150,7 @@ function stripTrailingHashtags(text: string): string {
 
 export default function ComposerPage() {
     const router = useRouter();
+    const appData = useAppData();
     const searchParams = useSearchParams();
     const editPostId = searchParams.get('edit');
     const [platforms, setPlatforms] = useState<string[]>([]);
@@ -1097,6 +1099,7 @@ export default function ComposerPage() {
                                 else if (failed.includes('timeout')) hint = ' X took too long (e.g. image upload). Open the post from History and try Post now again, or try a smaller image.';
                             }
                             if (failed.includes('INSTAGRAM') && (failed.includes('2207082') || failed.includes('2207076') || failed.includes('Media upload'))) hint = (hint ? hint + ' ' : '') + 'For Instagram: reconnect from Dashboard → Accounts so the app has publish permission; try a different image, under 8MB, and ensure the image URL is publicly accessible (HTTPS).';
+                            if (failed.includes('INSTAGRAM') && (failed.includes('Request processing failed') || failed.includes('ProcessingFailedError'))) hint = (hint ? hint + ' ' : '') + 'For Instagram: the media URL must be publicly reachable by Meta (HTTPS). For Reels use 9:16, 15-90 sec, MP4. Set S3_PUBLIC_URL and CRON_SECRET in Vercel so media is served correctly; or try a different image/video.';
                             setAlertMessage(`Post updated but some platforms failed: ${failed}. Open the post from History to retry or fix.${hint}`);
                             router.push(`/composer?edit=${editPostId}`);
                             return;
@@ -1104,7 +1107,12 @@ export default function ComposerPage() {
                         const mediaSkipped = results?.filter((r) => r.mediaSkipped).map((r) => r.platform);
                         const msg = mediaSkipped?.length ? `Post updated and published. Note: ${mediaSkipped.join(', ')} posted as text only (image upload was not allowed).` : 'Post updated and published.';
                         setAlertMessage(msg);
-                        router.push('/posts?refresh=1');
+                        try {
+                            const listRes = await api.get('/posts');
+                            const list = Array.isArray(listRes.data) ? listRes.data : [];
+                            appData?.setScheduledPosts?.(list);
+                        } catch (_) {}
+                        router.push(`/posts?highlight=${encodeURIComponent(editPostId)}`);
                     } catch (err: unknown) {
                         const res = err && typeof err === 'object' && 'response' in err ? (err as { response?: { status?: number; data?: { message?: string } } }).response : undefined;
                         const status = res?.status;
@@ -1143,6 +1151,7 @@ export default function ComposerPage() {
                                 else if (failed.includes('timeout')) hint = ' X took too long (e.g. image upload). Open the post from History and try Post now again, or try a smaller image.';
                             }
                             if (failed.includes('INSTAGRAM') && (failed.includes('2207082') || failed.includes('2207076') || failed.includes('Media upload'))) hint = (hint ? hint + ' ' : '') + 'For Instagram: reconnect from Dashboard → Accounts so the app has publish permission; try a different image, under 8MB, and ensure the image URL is publicly accessible (HTTPS).';
+                            if (failed.includes('INSTAGRAM') && (failed.includes('Request processing failed') || failed.includes('ProcessingFailedError'))) hint = (hint ? hint + ' ' : '') + 'For Instagram: the media URL must be publicly reachable by Meta (HTTPS). For Reels use 9:16, 15-90 sec, MP4. Set S3_PUBLIC_URL and CRON_SECRET in Vercel so media is served correctly; or try a different image/video.';
                             setAlertMessage(`Post created but some platforms failed: ${failed}. Open the post from History to retry or fix.${hint}`);
                             router.push(`/composer?edit=${postId}`);
                             return;
@@ -1164,14 +1173,24 @@ export default function ComposerPage() {
                 }
                 if (!postId && !scheduledAt) {
                     setAlertMessage('Post was created but we could not publish it. Open it from History and try Post now.');
-                    router.push('/posts?refresh=1');
+                    try {
+                        const listRes = await api.get('/posts');
+                        const list = Array.isArray(listRes.data) ? listRes.data : [];
+                        appData?.setScheduledPosts?.(list);
+                    } catch (_) {}
+                    router.push('/posts');
                     return;
                 }
                 if (scheduledAt) {
                     const schedParams = new URLSearchParams({ scheduled: '1', delivery: scheduleDelivery === 'email_links' ? 'email' : 'auto', platforms: platforms.join(','), at: new Date(scheduledAt).toISOString() });
                     router.push(`/calendar?${schedParams.toString()}`);
                 } else {
-                    router.push('/posts?refresh=1');
+                    try {
+                        const listRes = await api.get('/posts');
+                        const list = Array.isArray(listRes.data) ? listRes.data : [];
+                        appData?.setScheduledPosts?.(list);
+                    } catch (_) {}
+                    router.push(`/posts?highlight=${encodeURIComponent(postId)}`);
                 }
             }
         } catch (err: unknown) {

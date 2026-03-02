@@ -120,7 +120,11 @@ export async function publishTarget(
           }
         );
         if (uploadRes.status !== 200 && uploadRes.status !== 201) {
-          throw new Error(uploadRes.data?.debug_info?.message ?? JSON.stringify(uploadRes.data));
+          const debugMsg = uploadRes.data?.debug_info?.message ?? JSON.stringify(uploadRes.data);
+          const hint = (uploadRes.data?.debug_info?.type === 'ProcessingFailedError' || (typeof debugMsg === 'string' && debugMsg.includes('processing failed')))
+            ? ' Instagram could not process the media. Ensure the video/image URL is publicly accessible (HTTPS), Reels: 9:16 aspect ratio, 15-90 sec, MP4. See docs/INSTAGRAM_2207076_ANALYSIS.md.'
+            : '';
+          throw new Error(debugMsg + hint);
         }
         const wait = await waitForInstagramContainer(creationId, token, 90_000);
         if (!wait.ok) throw new Error(wait.error ?? 'Reel container not ready');
