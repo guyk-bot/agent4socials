@@ -128,11 +128,26 @@ export default function InboxPage() {
   const effectiveAccounts = (cachedAccounts as Account[]).length > 0 ? (cachedAccounts as Account[]) : accounts;
   const connectedPlatformIds = effectiveAccounts.map((a) => a.platform).filter(Boolean);
   useEffect(() => {
-    if (connectedPlatformIds.length > 0 && selectedPlatforms.length === 0) {
+    if (connectedPlatformIds.length === 0) return;
+    const stored = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('agent4socials_inbox_platforms') : null;
+    const parsed: string[] = stored ? (() => { try { const a = JSON.parse(stored); return Array.isArray(a) ? a : []; } catch { return []; } })() : [];
+    const valid = parsed.filter((p) => connectedPlatformIds.includes(p));
+    if (valid.length > 0) {
+      setSelectedPlatforms(valid);
+      if (!selectedPlatform || !valid.includes(selectedPlatform)) setSelectedPlatform(valid[0] ?? null);
+      return;
+    }
+    if (selectedPlatforms.length === 0) {
       setSelectedPlatforms(connectedPlatformIds);
       setSelectedPlatform(connectedPlatformIds[0] ?? null);
     }
-  }, [connectedPlatformIds.join(','), selectedPlatforms.length]);
+  }, [connectedPlatformIds.join(',')]);
+
+  useEffect(() => {
+    if (selectedPlatforms.length > 0 && typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem('agent4socials_inbox_platforms', JSON.stringify(selectedPlatforms));
+    }
+  }, [selectedPlatforms.join(',')]);
 
   const connectedPlatforms = PLATFORMS.filter((p) => effectiveAccounts.some((a) => a.platform === p.id));
   const unconnectedPlatforms = PLATFORMS.filter((p) => !effectiveAccounts.some((a) => a.platform === p.id));
@@ -381,17 +396,6 @@ export default function InboxPage() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  useEffect(() => {
-    if ((cachedAccounts as Account[]).length > 0 && selectedPlatforms.length === 0) {
-      const accs = cachedAccounts as Account[];
-      const first = accs.some((a) => a.platform === 'INSTAGRAM') ? 'INSTAGRAM' : accs.some((a) => a.platform === 'FACEBOOK') ? 'FACEBOOK' : accs.some((a) => a.platform === 'TWITTER') ? 'TWITTER' : null;
-      if (first) {
-        setSelectedPlatforms([first]);
-        setSelectedPlatform(first);
-      }
-    }
-  }, [cachedAccounts, selectedPlatforms.length]);
 
   const handlePlatformClick = (platformId: string) => {
     setSelectedPlatforms((prev) => {
