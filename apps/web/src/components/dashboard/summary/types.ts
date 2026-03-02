@@ -13,6 +13,7 @@ export type SummaryPlatform = {
   videoViews?: number;
   clicks?: number;
   timeSeries: Array<{ date: string; value: number }>;
+  insightsHint?: string;
 };
 
 export type SummaryPost = {

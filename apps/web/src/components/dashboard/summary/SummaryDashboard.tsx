@@ -98,11 +98,11 @@ export function SummaryDashboard() {
         </p>
       </div>
       {/* Platform-level hints (e.g. YouTube Analytics API not enabled) */}
-      {summary.platforms.some((p) => (p as { insightsHint?: string }).insightsHint) && (
+      {summary.platforms.some((p) => p.insightsHint) && (
         <div className="space-y-2">
-          {summary.platforms.filter((p) => (p as { insightsHint?: string }).insightsHint).map((p) => (
+          {summary.platforms.filter((p) => p.insightsHint).map((p) => (
             <div key={p.id} className="rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
-              <strong>{p.platform}:</strong> {(p as { insightsHint?: string }).insightsHint}
+              <strong>{p.platform}:</strong> {p.insightsHint}
             </div>
           ))}
         </div>
