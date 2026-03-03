@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '@/context/AuthContext';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import api from '@/lib/api';
@@ -1265,12 +1266,13 @@ export default function ComposerPage() {
 
     return (
         <div className="max-w-6xl mx-auto px-2 sm:px-4 space-y-6">
-            {loading && (
-                <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-neutral-900/60 backdrop-blur-sm" role="status" aria-live="polite">
+            {loading && typeof document !== 'undefined' && createPortal(
+                <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-neutral-900/70" role="status" aria-live="polite">
                     <Loader2 size={48} className="animate-spin text-white mb-4" aria-hidden />
                     <p className="text-white font-medium text-lg">Publishing to {platforms.map((p) => PLATFORM_LABELS[p] ?? p).join(', ')}…</p>
                     <p className="text-neutral-300 text-sm mt-1">Do not close this page. This may take a minute.</p>
-                </div>
+                </div>,
+                document.body,
             )}
             <ConfirmModal
                 open={alertMessage !== null}

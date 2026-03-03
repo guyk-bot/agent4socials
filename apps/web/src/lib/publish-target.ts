@@ -684,7 +684,10 @@ export async function publishTarget(
       // 2) Fetch video and get size for FILE_UPLOAD init
       const { buffer, contentType } = await fetchMediaBuffer(videoUrl, fetchFn);
       const videoSize = buffer.length;
-      const CHUNK_SIZE = 10 * 1024 * 1024; // 10 MB per TikTok chunk
+      // chunk_size must equal the actual bytes per chunk we upload.
+      // For videos smaller than 10 MB the whole file is one chunk; use videoSize.
+      const MAX_CHUNK = 10 * 1024 * 1024;
+      const CHUNK_SIZE = Math.min(MAX_CHUNK, videoSize);
       const totalChunkCount = Math.ceil(videoSize / CHUNK_SIZE);
 
       // 3) Initialize direct post (video.publish), fallback to inbox upload (video.upload) if scope missing
