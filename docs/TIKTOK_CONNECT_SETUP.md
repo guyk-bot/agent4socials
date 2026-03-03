@@ -28,4 +28,4 @@ After your app is approved and in **Live** mode, any TikTok account can connect 
    - `TIKTOK_CLIENT_SECRET` = Client Secret from the portal.
    - `TIKTOK_REDIRECT_URI` = `https://agent4socials.com/api/social/oauth/tiktok/callback` (must match portal exactly; used in both authorize and token exchange).
 
-3. **Scopes**: App uses `user.info.basic`, `video.upload`, `video.publish`. Ensure these are enabled for your app in the portal.
+3. **Scopes**: The app requests `user.info.basic` (profile + avatar), `video.upload`, `video.publish`, and `video.list` (to sync your videos to the dashboard). For follower count in analytics, add **user.info.stats** in the TikTok Developer Portal and reconnect.

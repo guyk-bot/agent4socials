@@ -228,12 +228,36 @@ async function exchangeCode(
         console.warn('[Social OAuth] TikTok token error:', msg);
         throw new Error(msg);
       }
+      let username = 'TikTok User';
+      let profilePicture: string | null = null;
+      try {
+        const userRes = await axios.get<{
+          data?: { user?: { display_name?: string; avatar_url?: string; avatar_large_url?: string } };
+          error?: { code?: string };
+        }>('https://open.tiktokapis.com/v2/user/info/', {
+          params: { fields: 'open_id,display_name,avatar_url,avatar_large_url' },
+          headers: {
+            Authorization: `Bearer ${data.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        const user = userRes.data?.data?.user;
+        if (userRes.data?.error?.code !== 'ok' && userRes.data?.error?.code) {
+          // non-ok error, skip profile
+        } else if (user) {
+          if (user.display_name) username = user.display_name;
+          profilePicture = user.avatar_large_url || user.avatar_url || null;
+        }
+      } catch (e) {
+        console.warn('[Social OAuth] TikTok user/info:', (e as Error)?.message ?? e);
+      }
       return {
         accessToken: data.access_token,
         refreshToken: data.refresh_token ?? null,
         expiresAt: new Date(Date.now() + (data.expires_in || 86400) * 1000),
         platformUserId: data.open_id || 'tiktok-id',
-        username: 'TikTok User',
+        username,
+        profilePicture,
       };
     }
     case 'YOUTUBE': {

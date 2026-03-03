@@ -27,7 +27,8 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
       return `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.META_APP_ID}&redirect_uri=${encodeURIComponent(process.env.META_REDIRECT_URI || callbackUrl)}&state=${state}&scope=instagram_content_publish,instagram_basic,pages_read_engagement,pages_show_list,pages_manage_posts,instagram_manage_messages,instagram_manage_insights,instagram_manage_comments,pages_manage_engagement,pages_messaging,pages_read_user_content,business_management`;
     case 'TIKTOK': {
       const tiktokRedirect = (process.env.TIKTOK_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
-      return `https://www.tiktok.com/v2/auth/authorize/?client_key=${encodeURIComponent(process.env.TIKTOK_CLIENT_KEY || '')}&scope=user.info.basic,video.upload,video.publish&response_type=code&redirect_uri=${encodeURIComponent(tiktokRedirect)}&state=${encodeURIComponent(state)}`;
+      // video.list = list user's videos for sync; user.info.basic = profile/avatar; user.info.stats = follower count
+      return `https://www.tiktok.com/v2/auth/authorize/?client_key=${encodeURIComponent(process.env.TIKTOK_CLIENT_KEY || '')}&scope=user.info.basic,user.info.stats,video.upload,video.publish,video.list&response_type=code&redirect_uri=${encodeURIComponent(tiktokRedirect)}&state=${encodeURIComponent(state)}`;
     }
     case 'YOUTUBE': {
       const ytRedirect = (process.env.YOUTUBE_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');

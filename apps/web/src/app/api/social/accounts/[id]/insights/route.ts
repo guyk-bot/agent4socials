@@ -305,6 +305,31 @@ export async function GET(
       return NextResponse.json({ ...out, tweetCount });
     }
 
+    if (account.platform === 'TIKTOK') {
+      try {
+        const userRes = await axios.get<{
+          data?: { user?: { follower_count?: number } };
+          error?: { code?: string };
+        }>('https://open.tiktokapis.com/v2/user/info/', {
+          params: { fields: 'open_id,follower_count' },
+          headers: {
+            Authorization: `Bearer ${account.accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        const user = userRes.data?.data?.user;
+        if (userRes.data?.error?.code === 'ok' || !userRes.data?.error?.code) {
+          if (user?.follower_count != null) out.followers = user.follower_count;
+        }
+      } catch (e) {
+        console.warn('[Insights] TikTok user/info:', (e as Error)?.message ?? e);
+      }
+      if (out.followers === 0) {
+        out.insightsHint = 'Add user.info.stats scope in TikTok Developer Portal and reconnect to see follower count.';
+      }
+      return NextResponse.json(out);
+    }
+
     if (account.platform === 'YOUTUBE') {
       const token = await getValidYoutubeToken(account);
       // Fetch channel-level totals (subscribers + total views)

@@ -447,6 +447,77 @@ async function syncImportedPosts(
     }
   }
 
+  if (platform === 'TIKTOK') {
+    try {
+      type TikTokVideo = {
+        id?: string;
+        title?: string;
+        cover_image_url?: string;
+        create_time?: number;
+        share_url?: string;
+        like_count?: number;
+        comment_count?: number;
+        view_count?: number;
+      };
+      const fields = 'cover_image_url,id,title,create_time,share_url,like_count,comment_count,view_count';
+      const allVideos: TikTokVideo[] = [];
+      let cursor: number | undefined;
+      let hasMore = true;
+      let pages = 0;
+      while (hasMore && pages < 10) {
+        const body: { max_count: number; cursor?: number } = { max_count: 20 };
+        if (cursor != null) body.cursor = cursor;
+        const res = await axios.post<{
+          data?: { videos?: TikTokVideo[]; cursor?: number; has_more?: boolean };
+          error?: { code?: string; message?: string };
+        }>(
+          `https://open.tiktokapis.com/v2/video/list/?fields=${encodeURIComponent(fields)}`,
+          body,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+        const list = res.data?.data?.videos ?? [];
+        allVideos.push(...list);
+        if (res.data?.error?.code && res.data.error.code !== 'ok') {
+          const msg = res.data.error.message || res.data.error.code;
+          if (msg.includes('scope') || msg.includes('video.list')) return 'Add video.list scope in TikTok Developer Portal and reconnect to sync videos.';
+          return msg;
+        }
+        cursor = res.data?.data?.cursor;
+        hasMore = res.data?.data?.has_more === true && list.length >= 20;
+        pages++;
+      }
+
+      for (const v of allVideos) {
+        const videoId = v.id;
+        if (!videoId) continue;
+        const publishedAt = v.create_time ? new Date(v.create_time * 1000) : new Date();
+        const title = v.title ?? null;
+        const thumbnailUrl = v.cover_image_url ?? null;
+        const permalinkUrl = v.share_url ?? `https://www.tiktok.com/@user/video/${videoId}`;
+        const impressions = v.view_count ?? 0;
+        const interactions = (v.like_count ?? 0) + (v.comment_count ?? 0);
+        await prisma.importedPost.upsert({
+          where: { socialAccountId_platformPostId: { socialAccountId, platformPostId: videoId } },
+          update: { content: title, thumbnailUrl, permalinkUrl, publishedAt, mediaType: 'VIDEO', impressions, interactions, syncedAt: new Date() },
+          create: { socialAccountId, platformPostId: videoId, platform: 'TIKTOK', content: title, thumbnailUrl, permalinkUrl, publishedAt, mediaType: 'VIDEO', impressions, interactions },
+        });
+      }
+      return undefined;
+    } catch (e) {
+      const ax = e as { response?: { data?: { error?: { message?: string; code?: string } } } };
+      const msg = (e as Error)?.message ?? '';
+      const apiMsg = ax?.response?.data?.error?.message;
+      if (msg.includes('403') || apiMsg?.toLowerCase().includes('scope')) return 'Add video.list scope and reconnect to sync TikTok videos.';
+      if (msg.includes('401')) return 'Reconnect your TikTok account to sync videos.';
+      return undefined;
+    }
+  }
+
   if (platform === 'YOUTUBE') {
     try {
       type YtPlaylistItem = {
