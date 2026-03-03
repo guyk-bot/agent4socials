@@ -647,6 +647,135 @@ export async function publishTarget(
       return { ok: false, error: `YouTube upload failed (${uploadRes.status}): ${uploadErrMsg}`.slice(0, 500) };
     }
 
+    if (platform === 'TIKTOK') {
+      const videoUrl = firstMediaUrl;
+      if (!videoUrl) {
+        return { ok: false, error: 'TikTok requires a video file to publish.' };
+      }
+      const tiktokBase = 'https://open.tiktokapis.com';
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json; charset=UTF-8',
+      };
+
+      // 1) Creator info to get allowed privacy_level (required for post_info)
+      let privacyLevel = 'SELF_ONLY';
+      try {
+        const creatorRes = await axiosInstance.post<{ data?: { privacy_level_options?: string[] }; error?: { code?: string; message?: string } }>(
+          `${tiktokBase}/v2/post/publish/creator_info/query/`,
+          {},
+          { headers, timeout: 15_000, validateStatus: () => true }
+        );
+        const err = creatorRes.data?.error;
+        if (err && err.code !== 'ok') {
+          const msg = err.message || err.code || 'Creator info failed';
+          return { ok: false, error: `TikTok: ${msg}`.slice(0, 300) };
+        }
+        const options = creatorRes.data?.data?.privacy_level_options;
+        if (Array.isArray(options) && options.length > 0) {
+          privacyLevel = options.includes('PUBLIC_TO_EVERYONE') ? 'PUBLIC_TO_EVERYONE' : options[0];
+        }
+      } catch (e) {
+        const msg = (e as Error)?.message ?? String(e);
+        return { ok: false, error: `TikTok creator info: ${msg}`.slice(0, 300) };
+      }
+
+      // 2) Fetch video and get size for FILE_UPLOAD init
+      const { buffer, contentType } = await fetchMediaBuffer(videoUrl, fetchFn);
+      const videoSize = buffer.length;
+      const CHUNK_SIZE = 10 * 1024 * 1024; // 10 MB per TikTok chunk
+      const totalChunkCount = Math.ceil(videoSize / CHUNK_SIZE);
+
+      // 3) Initialize direct post (video.publish)
+      const initRes = await axiosInstance.post<{
+        data?: { publish_id?: string; upload_url?: string };
+        error?: { code?: string; message?: string };
+      }>(
+        `${tiktokBase}/v2/post/publish/video/init/`,
+        {
+          post_info: {
+            title: caption.slice(0, 2200) || undefined,
+            privacy_level: privacyLevel,
+            brand_content_toggle: false,
+            disable_duet: false,
+            disable_comment: false,
+            disable_stitch: false,
+          },
+          source_info: {
+            source: 'FILE_UPLOAD',
+            video_size: videoSize,
+            chunk_size: CHUNK_SIZE,
+            total_chunk_count: totalChunkCount,
+          },
+        },
+        { headers, timeout: 30_000, validateStatus: () => true }
+      );
+
+      const initErr = initRes.data?.error;
+      if (initErr && initErr.code !== 'ok') {
+        const msg = initErr.message || initErr.code || 'Init failed';
+        return { ok: false, error: `TikTok: ${msg}`.slice(0, 300) };
+      }
+      const publishId = initRes.data?.data?.publish_id;
+      const uploadUrl = initRes.data?.data?.upload_url;
+      if (!publishId || !uploadUrl) {
+        return { ok: false, error: 'TikTok init did not return publish_id or upload_url.' };
+      }
+
+      // 4) Upload video in chunks via PUT
+      const videoContentType = contentType && /video\/(mp4|webm|quicktime)/i.test(contentType) ? contentType : 'video/mp4';
+      for (let offset = 0; offset < videoSize; offset += CHUNK_SIZE) {
+        const end = Math.min(offset + CHUNK_SIZE, videoSize);
+        const chunk = buffer.subarray(offset, end);
+        const putRes = await axiosInstance.put(uploadUrl, chunk, {
+          headers: {
+            'Content-Type': videoContentType,
+            'Content-Length': String(chunk.length),
+            'Content-Range': `bytes ${offset}-${end - 1}/${videoSize}`,
+          },
+          maxBodyLength: Infinity,
+          maxContentLength: Infinity,
+          timeout: 120_000,
+          validateStatus: () => true,
+        });
+        if (putRes.status !== 200 && putRes.status !== 201) {
+          const errMsg = (putRes.data as { error?: { message?: string } })?.error?.message ?? JSON.stringify(putRes.data);
+          return { ok: false, error: `TikTok upload: ${putRes.status} ${errMsg}`.slice(0, 300) };
+        }
+      }
+
+      // 5) Poll status until PUBLISH_COMPLETE or FAILED
+      let platformPostId: string | undefined;
+      for (let wait = 0; wait < 300_000; wait += 3000) {
+        await new Promise((r) => setTimeout(r, 3000));
+        const statusRes = await axiosInstance.post<{
+          data?: { status?: string; fail_reason?: string; publicly_available_post_id?: string };
+          error?: { code?: string; message?: string };
+        }>(
+          `${tiktokBase}/v2/post/publish/status/fetch/`,
+          { publish_id: publishId },
+          { headers, timeout: 15_000, validateStatus: () => true }
+        );
+        const statusErr = statusRes.data?.error;
+        if (statusErr && statusErr.code !== 'ok') {
+          return { ok: false, error: `TikTok status: ${statusErr.message || statusErr.code}`.slice(0, 300) };
+        }
+        const status = statusRes.data?.data?.status;
+        if (status === 'PUBLISH_COMPLETE') {
+          platformPostId = statusRes.data?.data?.publicly_available_post_id;
+          break;
+        }
+        if (status === 'FAILED') {
+          const reason = statusRes.data?.data?.fail_reason ?? 'Publish failed';
+          return { ok: false, error: `TikTok: ${reason}`.slice(0, 300) };
+        }
+      }
+      if (!platformPostId) {
+        return { ok: false, error: 'TikTok publish timed out. Check your TikTok app for the post.' };
+      }
+      return { ok: true, platformPostId };
+    }
+
     return { ok: false, error: `Publish not implemented for ${platform}` };
   } catch (err: unknown) {
     const ax = err as { response?: { data?: unknown; status?: number }; message?: string };

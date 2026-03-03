@@ -938,6 +938,7 @@ export default function ComposerPage() {
             let contentFinal = content.trim() + hashtagSuffix(selectedHashtags);
 
         setLoading(true);
+        if (typeof window !== 'undefined') sessionStorage.removeItem('composer_alert');
         try {
             let contentByPlatformFinal: Record<string, string> | undefined;
 
@@ -1100,7 +1101,9 @@ export default function ComposerPage() {
                             }
                             if (failed.includes('INSTAGRAM') && (failed.includes('2207082') || failed.includes('2207076') || failed.includes('Media upload'))) hint = (hint ? hint + ' ' : '') + 'For Instagram: reconnect from Dashboard → Accounts so the app has publish permission; try a different image, under 8MB, and ensure the image URL is publicly accessible (HTTPS).';
                             if (failed.includes('INSTAGRAM') && (failed.includes('Request processing failed') || failed.includes('ProcessingFailedError'))) hint = (hint ? hint + ' ' : '') + 'For Instagram: the media URL must be publicly reachable by Meta (HTTPS). For Reels use 9:16, 15-90 sec, MP4. Set S3_PUBLIC_URL and CRON_SECRET in Vercel so media is served correctly; or try a different image/video.';
-                            setAlertMessage(`Post updated but some platforms failed: ${failed}. Open the post from History to retry or fix.${hint}`);
+                            if (failed.includes('TIKTOK')) hint = (hint ? hint + ' ' : '') + 'For TikTok: ensure your app has Content Posting API access and the video meets requirements (e.g. format, length). Reconnect the account from Dashboard if needed.';
+                            const message = `Post updated but some platforms failed: ${failed}. Open the post from History to retry or fix.${hint}`;
+                            sessionStorage.setItem('composer_alert', message);
                             router.push(`/composer?edit=${editPostId}`);
                             return;
                         }
@@ -1112,14 +1115,14 @@ export default function ComposerPage() {
                             const list = Array.isArray(listRes.data) ? listRes.data : [];
                             appData?.setScheduledPosts?.(list);
                         } catch (_) {}
-                        router.push(`/posts?highlight=${encodeURIComponent(editPostId)}`);
+                        router.push(`/posts?published=1&highlight=${encodeURIComponent(editPostId)}`);
                     } catch (err: unknown) {
                         const res = err && typeof err === 'object' && 'response' in err ? (err as { response?: { status?: number; data?: { message?: string } } }).response : undefined;
                         const status = res?.status;
                         const code = err && typeof err === 'object' && 'code' in err ? (err as { code?: string }).code : undefined;
                         const isTimeout = code === 'ECONNABORTED' || (typeof (err as Error)?.message === 'string' && (err as Error).message.includes('timeout'));
                         const msg = res?.data?.message ?? (status === 401 ? 'Session expired. Sign in again, then open the post from History and try Post now.' : isTimeout ? 'Publish is taking longer than usual (e.g. uploading media). Open the post from History and try Post now again; it may have already gone through.' : 'Publish failed. Open the post from History and try Post now again.');
-                        setAlertMessage(msg);
+                        sessionStorage.setItem('composer_alert', msg);
                         router.push(`/composer?edit=${editPostId}`);
                         return;
                     }
@@ -1152,7 +1155,9 @@ export default function ComposerPage() {
                             }
                             if (failed.includes('INSTAGRAM') && (failed.includes('2207082') || failed.includes('2207076') || failed.includes('Media upload'))) hint = (hint ? hint + ' ' : '') + 'For Instagram: reconnect from Dashboard → Accounts so the app has publish permission; try a different image, under 8MB, and ensure the image URL is publicly accessible (HTTPS).';
                             if (failed.includes('INSTAGRAM') && (failed.includes('Request processing failed') || failed.includes('ProcessingFailedError'))) hint = (hint ? hint + ' ' : '') + 'For Instagram: the media URL must be publicly reachable by Meta (HTTPS). For Reels use 9:16, 15-90 sec, MP4. Set S3_PUBLIC_URL and CRON_SECRET in Vercel so media is served correctly; or try a different image/video.';
-                            setAlertMessage(`Post created but some platforms failed: ${failed}. Open the post from History to retry or fix.${hint}`);
+                            if (failed.includes('TIKTOK')) hint = (hint ? hint + ' ' : '') + 'For TikTok: ensure your app has Content Posting API access and the video meets requirements (e.g. format, length). Reconnect the account from Dashboard if needed.';
+                            const message = `Post created but some platforms failed: ${failed}. Open the post from History to retry or fix.${hint}`;
+                            sessionStorage.setItem('composer_alert', message);
                             router.push(`/composer?edit=${postId}`);
                             return;
                         }
@@ -1166,7 +1171,7 @@ export default function ComposerPage() {
                         const code = err && typeof err === 'object' && 'code' in err ? (err as { code?: string }).code : undefined;
                         const isTimeout = code === 'ECONNABORTED' || (typeof (err as Error)?.message === 'string' && (err as Error).message.includes('timeout'));
                         const msg = res?.data?.message ?? (status === 401 ? 'Session expired. Sign in again, then open the post from History and try Post now.' : isTimeout ? 'Publish is taking longer than usual (e.g. uploading media). Open the post from History and try Post now again; it may have already gone through.' : 'Publish failed. Open the post from History and try Post now again.');
-                        setAlertMessage(msg);
+                        sessionStorage.setItem('composer_alert', msg);
                         router.push(`/composer?edit=${postId}`);
                         return;
                     }
@@ -1190,7 +1195,7 @@ export default function ComposerPage() {
                         const list = Array.isArray(listRes.data) ? listRes.data : [];
                         appData?.setScheduledPosts?.(list);
                     } catch (_) {}
-                    router.push(`/posts?highlight=${encodeURIComponent(postId)}`);
+                    router.push(`/posts?published=1&highlight=${encodeURIComponent(postId)}`);
                 }
             }
         } catch (err: unknown) {
@@ -1223,6 +1228,16 @@ export default function ComposerPage() {
 
     const composerReady = draftRestored && (!editPostId || editLoaded) && accountsFetched;
 
+    // After load: show any alert passed from a redirect (e.g. publish failure) so user always sees status
+    useEffect(() => {
+        if (!composerReady || typeof window === 'undefined') return;
+        const stored = sessionStorage.getItem('composer_alert');
+        if (stored) {
+            sessionStorage.removeItem('composer_alert');
+            setAlertMessage(stored);
+        }
+    }, [composerReady]);
+
     if (!composerReady) {
     return (
             <div className="max-w-6xl mx-auto px-2 sm:px-4 flex flex-col items-center justify-center min-h-[60vh]">
@@ -1237,6 +1252,13 @@ export default function ComposerPage() {
 
     return (
         <div className="max-w-6xl mx-auto px-2 sm:px-4 space-y-6">
+            {loading && (
+                <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-neutral-900/60 backdrop-blur-sm" role="status" aria-live="polite">
+                    <Loader2 size={48} className="animate-spin text-white mb-4" aria-hidden />
+                    <p className="text-white font-medium text-lg">Publishing to {platforms.map((p) => PLATFORM_LABELS[p] ?? p).join(', ')}…</p>
+                    <p className="text-neutral-300 text-sm mt-1">Do not close this page. This may take a minute.</p>
+                </div>
+            )}
             <ConfirmModal
                 open={alertMessage !== null}
                 onClose={() => setAlertMessage(null)}

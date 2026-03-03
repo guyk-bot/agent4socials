@@ -112,6 +112,7 @@ export default function PostsPage() {
 
     const [showDraftSavedBanner, setShowDraftSavedBanner] = useState(false);
     const draftSaved = searchParams.get('draft_saved') === '1';
+    const published = searchParams.get('published') === '1';
     useEffect(() => {
         if (draftSaved) {
             setShowDraftSavedBanner(true);
@@ -119,12 +120,27 @@ export default function PostsPage() {
         }
     }, [draftSaved, router]);
 
+    const [showPublishedBanner, setShowPublishedBanner] = useState(false);
+    useEffect(() => {
+        if (published) {
+            setShowPublishedBanner(true);
+            const keepHighlight = highlightId ? `?highlight=${encodeURIComponent(highlightId)}` : '';
+            router.replace(`/posts${keepHighlight}`, { scroll: false });
+        }
+    }, [published, router, highlightId]);
+
     return (
         <div className="space-y-8">
             {showDraftSavedBanner && (
                 <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 flex items-center justify-between">
                     <span>Draft saved. Find it in History below.</span>
                     <button type="button" onClick={() => setShowDraftSavedBanner(false)} className="text-green-600 hover:text-green-800 font-medium">Dismiss</button>
+                </div>
+            )}
+            {showPublishedBanner && (
+                <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 flex items-center justify-between">
+                    <span>Post published. Find it in History below.</span>
+                    <button type="button" onClick={() => setShowPublishedBanner(false)} className="text-green-600 hover:text-green-800 font-medium">Dismiss</button>
                 </div>
             )}
             <div className="flex items-center justify-between">

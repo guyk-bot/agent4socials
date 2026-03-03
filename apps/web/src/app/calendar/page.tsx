@@ -8,8 +8,9 @@ import {
     Clock,
     Calendar as CalendarIcon,
     LayoutGrid,
+    X,
 } from 'lucide-react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { PlatformIcon, PLATFORM_ICON_MAP } from '@/components/SocialPlatformIcons';
 import { useAppData } from '@/context/AppDataContext';
@@ -74,6 +75,7 @@ const HOURS_END = 24;
 
 export default function CalendarPage() {
     const searchParams = useSearchParams();
+    const router = useRouter();
     const appData = useAppData();
     const [view, setView] = useState<'week' | 'month'>('week');
     const [currentDate, setCurrentDate] = useState(new Date());
@@ -163,6 +165,9 @@ export default function CalendarPage() {
     const scheduledPlatforms = searchParams.get('platforms'); // comma-separated
     const scheduledTime = searchParams.get('at'); // ISO string
 
+    const [dismissScheduledBanner, setDismissScheduledBanner] = useState(false);
+    const showScheduledBanner = justScheduled && !dismissScheduledBanner;
+
     const scheduledTimeFormatted = (() => {
         if (!scheduledTime) return null;
         try {
@@ -177,8 +182,9 @@ export default function CalendarPage() {
 
     return (
         <div className="space-y-6">
-            {justScheduled && (
-                <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+            {showScheduledBanner && (
+                <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
                     {scheduledDelivery === 'email' ? (
                         <>
                             <p className="font-medium">Your post is scheduled.</p>
@@ -194,6 +200,8 @@ export default function CalendarPage() {
                             </p>
                         </>
                     )}
+                    </div>
+                    <button type="button" onClick={() => { setDismissScheduledBanner(true); router.replace('/calendar', { scroll: false }); }} className="shrink-0 p-1 text-green-600 hover:text-green-800 rounded" aria-label="Dismiss"><X size={18} /></button>
                 </div>
             )}
 
