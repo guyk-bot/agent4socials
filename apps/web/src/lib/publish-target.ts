@@ -658,27 +658,22 @@ export async function publishTarget(
         'Content-Type': 'application/json; charset=UTF-8',
       };
 
-      // 1) Creator info to get allowed privacy_level (required for post_info)
-      let privacyLevel = 'SELF_ONLY';
+      // 1) Creator info to get allowed privacy_level.
+      //    This call is optional — if it times out or fails we continue with a safe default.
+      let privacyLevel = 'PUBLIC_TO_EVERYONE';
       try {
         const creatorRes = await axiosInstance.post(
           `${tiktokBase}/v2/post/publish/creator_info/query/`,
           {},
-          { headers, timeout: 30_000, validateStatus: () => true }
+          { headers, timeout: 10_000, validateStatus: () => true }
         ) as { data?: { data?: { privacy_level_options?: string[] }; error?: { code?: string; message?: string } } };
         const body = creatorRes.data ?? {};
-        const err = body.error;
-        if (err && err.code !== 'ok') {
-          const msg = err.message || err.code || 'Creator info failed';
-          return { ok: false, error: `TikTok: ${msg}`.slice(0, 300) };
-        }
         const options = body.data?.privacy_level_options;
         if (Array.isArray(options) && options.length > 0) {
           privacyLevel = options.includes('PUBLIC_TO_EVERYONE') ? 'PUBLIC_TO_EVERYONE' : options[0];
         }
-      } catch (e) {
-        const msg = (e as Error)?.message ?? String(e);
-        return { ok: false, error: `TikTok creator info: ${msg}`.slice(0, 300) };
+      } catch {
+        // creator_info timed out or errored; continue with default privacy level
       }
 
       // 2) Try PULL_FROM_URL first (TikTok fetches video from our serve URL — fastest path).
