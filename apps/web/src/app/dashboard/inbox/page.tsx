@@ -628,7 +628,7 @@ export default function InboxPage() {
             )
           ) : inboxMode === 'comments' && commentsSupportedPlatforms.length === 0 ? (
             <div className="p-6 text-center">
-              <p className="text-sm text-neutral-500">Comments are available for Instagram, Facebook, and X. Select one or more of those platforms above.</p>
+              <p className="text-sm text-neutral-500">Comments are available for Instagram, Facebook, X, and YouTube. TikTok comments are not supported in Inbox yet. Select one or more of the supported platforms above.</p>
             </div>
           ) : selectedPlatforms.length === 0 ? (
             <div className="p-6 text-center">
@@ -721,7 +721,12 @@ export default function InboxPage() {
               <MessageCircle size={40} className="mx-auto text-neutral-300 mb-3" />
               <p className="text-sm text-neutral-500">No conversations yet.</p>
               <p className="text-xs text-neutral-400 mt-1">Messages will appear here when you receive them.</p>
-              {dmOrFbPlatforms.includes('INSTAGRAM') && (
+              {selectedPlatform === 'TIKTOK' && (
+                <p className="text-xs text-amber-700 mt-3 max-w-sm mx-auto bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  TikTok inbox (DMs) are not available in the app. Use Instagram or Facebook to view and reply to messages here.
+                </p>
+              )}
+              {dmOrFbPlatforms.includes('INSTAGRAM') && selectedPlatform !== 'TIKTOK' && (
                 <p className="text-xs text-amber-700 mt-3 max-w-sm mx-auto bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                   If you see Instagram DMs in Metricool but not here, Meta is only granting inbox access to apps with <strong>Advanced Access</strong>. Complete App Review for instagram_manage_messages to enable it in A4S.
                 </p>
