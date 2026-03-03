@@ -661,17 +661,18 @@ export async function publishTarget(
       // 1) Creator info to get allowed privacy_level (required for post_info)
       let privacyLevel = 'SELF_ONLY';
       try {
-        const creatorRes = await axiosInstance.post<{ data?: { privacy_level_options?: string[] }; error?: { code?: string; message?: string } }>(
+        const creatorRes = await axiosInstance.post(
           `${tiktokBase}/v2/post/publish/creator_info/query/`,
           {},
           { headers, timeout: 15_000, validateStatus: () => true }
-        );
-        const err = creatorRes.data?.error;
+        ) as { data?: { data?: { privacy_level_options?: string[] }; error?: { code?: string; message?: string } } };
+        const body = creatorRes.data ?? {};
+        const err = body.error;
         if (err && err.code !== 'ok') {
           const msg = err.message || err.code || 'Creator info failed';
           return { ok: false, error: `TikTok: ${msg}`.slice(0, 300) };
         }
-        const options = creatorRes.data?.data?.privacy_level_options;
+        const options = body.data?.privacy_level_options;
         if (Array.isArray(options) && options.length > 0) {
           privacyLevel = options.includes('PUBLIC_TO_EVERYONE') ? 'PUBLIC_TO_EVERYONE' : options[0];
         }
@@ -687,10 +688,7 @@ export async function publishTarget(
       const totalChunkCount = Math.ceil(videoSize / CHUNK_SIZE);
 
       // 3) Initialize direct post (video.publish)
-      const initRes = await axiosInstance.post<{
-        data?: { publish_id?: string; upload_url?: string };
-        error?: { code?: string; message?: string };
-      }>(
+      const initRes = await axiosInstance.post(
         `${tiktokBase}/v2/post/publish/video/init/`,
         {
           post_info: {
@@ -709,15 +707,15 @@ export async function publishTarget(
           },
         },
         { headers, timeout: 30_000, validateStatus: () => true }
-      );
-
-      const initErr = initRes.data?.error;
+      ) as { data?: { data?: { publish_id?: string; upload_url?: string }; error?: { code?: string; message?: string } } };
+      const initBody = initRes.data ?? {};
+      const initErr = initBody.error;
       if (initErr && initErr.code !== 'ok') {
         const msg = initErr.message || initErr.code || 'Init failed';
         return { ok: false, error: `TikTok: ${msg}`.slice(0, 300) };
       }
-      const publishId = initRes.data?.data?.publish_id;
-      const uploadUrl = initRes.data?.data?.upload_url;
+      const publishId = initBody.data?.publish_id;
+      const uploadUrl = initBody.data?.upload_url;
       if (!publishId || !uploadUrl) {
         return { ok: false, error: 'TikTok init did not return publish_id or upload_url.' };
       }
@@ -748,25 +746,23 @@ export async function publishTarget(
       let platformPostId: string | undefined;
       for (let wait = 0; wait < 300_000; wait += 3000) {
         await new Promise((r) => setTimeout(r, 3000));
-        const statusRes = await axiosInstance.post<{
-          data?: { status?: string; fail_reason?: string; publicly_available_post_id?: string };
-          error?: { code?: string; message?: string };
-        }>(
+        const statusRes = await axiosInstance.post(
           `${tiktokBase}/v2/post/publish/status/fetch/`,
           { publish_id: publishId },
           { headers, timeout: 15_000, validateStatus: () => true }
-        );
-        const statusErr = statusRes.data?.error;
+        ) as { data?: { data?: { status?: string; fail_reason?: string; publicly_available_post_id?: string }; error?: { code?: string; message?: string } } };
+        const statusBody = statusRes.data ?? {};
+        const statusErr = statusBody.error;
         if (statusErr && statusErr.code !== 'ok') {
           return { ok: false, error: `TikTok status: ${statusErr.message || statusErr.code}`.slice(0, 300) };
         }
-        const status = statusRes.data?.data?.status;
+        const status = statusBody.data?.status;
         if (status === 'PUBLISH_COMPLETE') {
-          platformPostId = statusRes.data?.data?.publicly_available_post_id;
+          platformPostId = statusBody.data?.publicly_available_post_id;
           break;
         }
         if (status === 'FAILED') {
-          const reason = statusRes.data?.data?.fail_reason ?? 'Publish failed';
+          const reason = statusBody.data?.fail_reason ?? 'Publish failed';
           return { ok: false, error: `TikTok: ${reason}`.slice(0, 300) };
         }
       }
