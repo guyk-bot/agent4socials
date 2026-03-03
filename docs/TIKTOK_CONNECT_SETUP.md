@@ -24,8 +24,8 @@ After your app is approved and in **Live** mode, any TikTok account can connect 
    - Under **Redirect URI**, add exactly: `https://agent4socials.com/api/social/oauth/tiktok/callback` (no trailing slash).
 
 2. **Vercel (or your host) env**:
-   - `TIKTOK_CLIENT_KEY` = Client Key from step 1.
+   - `TIKTOK_CLIENT_KEY` = Client Key from step 1 (sandbox key if testing).
    - `TIKTOK_CLIENT_SECRET` = Client Secret from the portal.
-   - `TIKTOK_REDIRECT_URI` = `https://agent4socials.com/api/social/oauth/tiktok/callback` (must match portal exactly).
+   - `TIKTOK_REDIRECT_URI` = `https://agent4socials.com/api/social/oauth/tiktok/callback` (must match portal exactly; used in both authorize and token exchange).
 
 3. **Scopes**: App uses `user.info.basic`, `video.upload`, `video.publish`. Ensure these are enabled for your app in the portal.

@@ -202,18 +202,37 @@ async function exchangeCode(
       return result;
     }
     case 'TIKTOK': {
-      const r = await axios.post('https://open-api.tiktok.com/oauth/access_token/', {
-        client_key: process.env.TIKTOK_CLIENT_KEY,
-        client_secret: process.env.TIKTOK_CLIENT_SECRET,
-        code,
-        grant_type: 'authorization_code',
-      });
-      const d = r.data?.data;
+      // TikTok OAuth v2: endpoint, redirect_uri in body, and top-level response (no .data wrapper)
+      const tiktokRedirect = (process.env.TIKTOK_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
+      const r = await axios.post<{
+        access_token?: string;
+        open_id?: string;
+        refresh_token?: string;
+        expires_in?: number;
+        error?: string;
+        error_description?: string;
+      }>(
+        'https://open.tiktokapis.com/v2/oauth/token/',
+        new URLSearchParams({
+          client_key: process.env.TIKTOK_CLIENT_KEY || '',
+          client_secret: process.env.TIKTOK_CLIENT_SECRET || '',
+          code,
+          grant_type: 'authorization_code',
+          redirect_uri: tiktokRedirect,
+        }).toString(),
+        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+      );
+      const data = r.data;
+      if (data?.error || !data?.access_token) {
+        const msg = data?.error_description || data?.error || 'TikTok did not return an access token';
+        console.warn('[Social OAuth] TikTok token error:', msg);
+        throw new Error(msg);
+      }
       return {
-        accessToken: d.access_token,
-        refreshToken: d.refresh_token ?? null,
-        expiresAt: new Date(Date.now() + (d.expires_in || 86400) * 1000),
-        platformUserId: d.open_id || 'tiktok-id',
+        accessToken: data.access_token,
+        refreshToken: data.refresh_token ?? null,
+        expiresAt: new Date(Date.now() + (data.expires_in || 86400) * 1000),
+        platformUserId: data.open_id || 'tiktok-id',
         username: 'TikTok User',
       };
     }
@@ -457,6 +476,8 @@ export async function GET(
     callbackUrl = process.env.FACEBOOK_REDIRECT_URI.replace(/\/+$/, '');
   } else if (plat === 'YOUTUBE' && process.env.YOUTUBE_REDIRECT_URI) {
     callbackUrl = process.env.YOUTUBE_REDIRECT_URI.replace(/\/+$/, '');
+  } else if (plat === 'TIKTOK' && process.env.TIKTOK_REDIRECT_URI) {
+    callbackUrl = process.env.TIKTOK_REDIRECT_URI.replace(/\/+$/, '');
   }
 
   let tokenData: TokenResult;
