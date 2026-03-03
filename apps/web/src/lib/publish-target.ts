@@ -772,7 +772,7 @@ export async function publishTarget(
         const statusRes = await axiosInstance.post(
           `${tiktokBase}/v2/post/publish/status/fetch/`,
           { publish_id: publishId },
-          { headers, timeout: 15_000, validateStatus: () => true }
+          { headers, timeout: 30_000, validateStatus: () => true }
         ) as { data?: { data?: { status?: string; fail_reason?: string; publicly_available_post_id?: string }; error?: { code?: string; message?: string } } };
         const statusBody = statusRes.data ?? {};
         const statusErr = statusBody.error;

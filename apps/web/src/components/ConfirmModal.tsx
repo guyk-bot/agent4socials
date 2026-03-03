@@ -54,14 +54,14 @@ export function ConfirmModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+      style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="confirm-modal-title"
       aria-describedby="confirm-modal-desc"
     >
       <div
-        className="absolute inset-0 bg-neutral-900/60"
+        style={{ position: 'absolute', inset: 0, background: 'rgba(23,23,23,0.75)' }}
         onClick={onClose}
         aria-hidden="true"
       />
