@@ -29,3 +29,11 @@ After your app is approved and in **Live** mode, any TikTok account can connect 
    - `TIKTOK_REDIRECT_URI` = `https://agent4socials.com/api/social/oauth/tiktok/callback` (must match portal exactly; used in both authorize and token exchange).
 
 3. **Scopes**: The app requests `user.info.basic` (profile + avatar), `video.upload`, `video.publish`, and `video.list` (to sync your videos to the dashboard). For follower count in analytics, add **user.info.stats** in the TikTok Developer Portal and reconnect.
+
+---
+
+## What analytics we show for TikTok
+
+- **Account level:** Followers (from user.info.stats), **Views** = sum of view counts from your synced videos (after you click Sync posts). The chart placeholders (e.g. over time) are empty because TikTok's public API does not provide historical time-series for account-level views or followers.
+- **Per post:** For each synced video we show view count, likes + comments as "Interactions". TikTok's API does not expose separate reach, shares, or comments in the same way as Meta; we show what the API returns (views, like_count, comment_count).
+- **Limitation:** TikTok's API does not offer the same depth as Meta (e.g. no daily views/followers over time, no demographics). For deeper analytics you'd need TikTok's Research API or official analytics products.

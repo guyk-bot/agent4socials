@@ -320,13 +320,21 @@ export async function GET(
         const user = userRes.data?.data?.user;
         if (userRes.data?.error?.code === 'ok' || !userRes.data?.error?.code) {
           if (user?.follower_count != null) out.followers = user.follower_count;
-          if (user?.likes_count != null) out.impressionsTotal = user.likes_count;
         }
       } catch (e) {
         console.warn('[Insights] TikTok user/info:', (e as Error)?.message ?? e);
       }
+      // Account-level "Views" = sum of view counts from synced videos (not likes_count)
+      try {
+        const posts = await prisma.importedPost.findMany({
+          where: { socialAccountId: account.id, platform: 'TIKTOK' },
+          select: { impressions: true },
+        });
+        const totalViews = posts.reduce((s, p) => s + (p.impressions ?? 0), 0);
+        if (totalViews > 0) out.impressionsTotal = totalViews;
+      } catch (_) {}
       if (out.followers === 0 && out.impressionsTotal === 0) {
-        out.insightsHint = 'Add user.info.stats scope in TikTok Developer Portal and reconnect to see follower count and likes.';
+        out.insightsHint = 'Add user.info.stats scope and reconnect to see followers. Sync posts to see total views.';
       }
       return NextResponse.json(out);
     }
