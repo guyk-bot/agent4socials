@@ -25,11 +25,8 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
       // Instagram via Facebook Login: Page token is used for publish. Put publish scopes first so they are requested.
       // In Meta App Dashboard add instagram_content_publish under App Review → Permissions and features, then reconnect.
       return `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.META_APP_ID}&redirect_uri=${encodeURIComponent(process.env.META_REDIRECT_URI || callbackUrl)}&state=${state}&scope=instagram_content_publish,instagram_basic,pages_read_engagement,pages_show_list,pages_manage_posts,instagram_manage_messages,instagram_manage_insights,instagram_manage_comments,pages_manage_engagement,pages_messaging,pages_read_user_content,business_management`;
-    case 'TIKTOK': {
-      const tkRedirect = (process.env.TIKTOK_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
-      const clientKey = process.env.TIKTOK_CLIENT_KEY ?? '';
-      return `https://www.tiktok.com/v2/auth/authorize/?client_key=${encodeURIComponent(clientKey)}&scope=user.info.basic,video.upload,video.publish&response_type=code&redirect_uri=${encodeURIComponent(tkRedirect)}&state=${encodeURIComponent(state)}`;
-    }
+    case 'TIKTOK':
+      return `https://www.tiktok.com/v2/auth/authorize/?client_key=${encodeURIComponent(process.env.TIKTOK_CLIENT_KEY || '')}&scope=user.info.basic,video.upload,video.publish&response_type=code&redirect_uri=${encodeURIComponent(process.env.TIKTOK_REDIRECT_URI || callbackUrl)}&state=${encodeURIComponent(state)}`;
     case 'YOUTUBE': {
       const ytRedirect = (process.env.YOUTUBE_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
       // youtube.readonly = channel details, list comments/videos; youtube.upload = publish videos; youtube.force-ssl = reply to comments; yt-analytics.readonly = Analytics reports
