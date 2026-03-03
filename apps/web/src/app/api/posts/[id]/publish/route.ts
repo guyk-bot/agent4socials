@@ -288,6 +288,9 @@ export async function POST(
       if (platform === 'INSTAGRAM') {
         console.error('[Instagram publish failed]', { postId, error: result.error, mediaUrl: firstImageUrl || firstMediaUrl });
       }
+      if (platform === 'TIKTOK') {
+        console.error('[TikTok publish failed]', { postId, error: result.error });
+      }
       await prisma.postTarget.update({
         where: { id: target.id },
         data: { status: PostStatus.FAILED, error: result.error?.slice(0, 500) },

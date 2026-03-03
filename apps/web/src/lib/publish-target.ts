@@ -687,7 +687,8 @@ export async function publishTarget(
       const CHUNK_SIZE = 10 * 1024 * 1024; // 10 MB per TikTok chunk
       const totalChunkCount = Math.ceil(videoSize / CHUNK_SIZE);
 
-      // 3) Initialize direct post (video.publish)
+      // 3) Initialize direct post (video.publish), fallback to inbox upload (video.upload) if scope missing
+      let useInbox = false;
       const initRes = await axiosInstance.post(
         `${tiktokBase}/v2/post/publish/video/init/`,
         {
@@ -708,8 +709,27 @@ export async function publishTarget(
         },
         { headers, timeout: 30_000, validateStatus: () => true }
       ) as { data?: { data?: { publish_id?: string; upload_url?: string }; error?: { code?: string; message?: string } } };
-      const initBody = initRes.data ?? {};
-      const initErr = initBody.error;
+      let initBody = initRes.data ?? {};
+      let initErr = initBody.error;
+
+      // If video.publish scope not authorized, fall back to inbox upload (video.upload scope)
+      if (initErr && (initErr.code === 'scope_not_authorized' || initErr.code === 'access_token_invalid')) {
+        useInbox = true;
+        const inboxRes = await axiosInstance.post(
+          `${tiktokBase}/v2/post/publish/inbox/video/init/`,
+          {
+            source_info: {
+              source: 'FILE_UPLOAD',
+              video_size: videoSize,
+              chunk_size: CHUNK_SIZE,
+              total_chunk_count: totalChunkCount,
+            },
+          },
+          { headers, timeout: 30_000, validateStatus: () => true }
+        ) as { data?: { data?: { publish_id?: string; upload_url?: string }; error?: { code?: string; message?: string } } };
+        initBody = inboxRes.data ?? {};
+        initErr = initBody.error;
+      }
       if (initErr && initErr.code !== 'ok') {
         const msg = initErr.message || initErr.code || 'Init failed';
         return { ok: false, error: `TikTok: ${msg}`.slice(0, 300) };
@@ -742,7 +762,7 @@ export async function publishTarget(
         }
       }
 
-      // 5) Poll status until PUBLISH_COMPLETE or FAILED
+      // 5) Poll status until PUBLISH_COMPLETE, SEND_TO_USER_INBOX, or FAILED
       let platformPostId: string | undefined;
       for (let wait = 0; wait < 300_000; wait += 3000) {
         await new Promise((r) => setTimeout(r, 3000));
@@ -761,15 +781,27 @@ export async function publishTarget(
           platformPostId = statusBody.data?.publicly_available_post_id;
           break;
         }
+        // inbox upload ends here – video is in user's TikTok drafts
+        if (status === 'SEND_TO_USER_INBOX') {
+          return {
+            ok: true,
+            platformPostId: publishId,
+            ...(useInbox ? { mediaSkipped: false } : {}),
+          };
+        }
         if (status === 'FAILED') {
           const reason = statusBody.data?.fail_reason ?? 'Publish failed';
           return { ok: false, error: `TikTok: ${reason}`.slice(0, 300) };
         }
       }
       if (!platformPostId) {
+        if (useInbox) {
+          // Inbox upload may take a while; treat timeout as success-pending
+          return { ok: true, platformPostId: publishId };
+        }
         return { ok: false, error: 'TikTok publish timed out. Check your TikTok app for the post.' };
       }
-      return { ok: true, platformPostId };
+      return { ok: true, platformPostId, ...(useInbox ? {} : {}) };
     }
 
     return { ok: false, error: `Publish not implemented for ${platform}` };

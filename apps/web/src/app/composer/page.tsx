@@ -402,11 +402,22 @@ export default function ComposerPage() {
                     contentByPlatform?: Record<string, string> | null;
                     media?: { fileUrl: string; type: string }[];
                     mediaByPlatform?: Record<string, { fileUrl: string; type: string }[]>;
-                    targets?: { platform?: string; socialAccount?: { id: string; platform?: string } }[];
+                    targets?: { platform?: string; status?: string; error?: string | null; socialAccount?: { id: string; platform?: string } }[];
                     scheduledAt?: string | null;
                     scheduleDelivery?: string | null;
                     commentAutomation?: { keywords?: string[]; replyTemplate?: string; replyTemplateByPlatform?: Record<string, string>; instagramPublicReply?: boolean; instagramPrivateReply?: boolean; instagramDmTemplate?: string } | null;
                 };
+                // Show stored publish errors from previous attempt so user knows why it failed
+                if (p.status === 'FAILED' && Array.isArray(p.targets)) {
+                    const failedTargets = p.targets.filter((t) => t.status === 'FAILED' && t.error);
+                    if (failedTargets.length > 0) {
+                        const errLines = failedTargets.map((t) => `${t.platform ?? 'Platform'}: ${t.error}`).join('\n');
+                        const hint = failedTargets.some((t) => t.platform === 'TIKTOK' && typeof t.error === 'string' && (t.error.includes('scope_not_authorized') || t.error.includes('not implemented') || t.error.includes('Publish not implemented')))
+                            ? '\n\nFor TikTok: reconnect your TikTok account from the Dashboard (Accounts page) so the new video.publish permission is granted, then try Post now again.'
+                            : '';
+                        setAlertMessage(`This post failed to publish. Errors from last attempt:\n\n${errLines}${hint}`);
+                    }
+                }
                 setEditPostAlreadyPosted(p.status === 'POSTED');
                 const plats = [...new Set((p.targets ?? []).map((t) => t.socialAccount?.platform ?? t.platform ?? '').filter(Boolean))];
                 setPlatforms(plats);
