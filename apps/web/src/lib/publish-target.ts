@@ -681,10 +681,12 @@ export async function publishTarget(
         return { ok: false, error: `TikTok creator info: ${msg}`.slice(0, 300) };
       }
 
-      // 2) Initialize post using PULL_FROM_URL — TikTok fetches the video directly.
-      //    Fallback to inbox (video.upload scope) if video.publish scope is not authorized.
+      // 2) Try PULL_FROM_URL first (TikTok fetches video from our serve URL — fastest path).
+      //    Falls back to FILE_UPLOAD (chunked PUT) if URL ownership is not verified.
       let useInbox = false;
-      const initRes = await axiosInstance.post(
+      let publishId: string | undefined;
+
+      const pullInitRes = await axiosInstance.post(
         `${tiktokBase}/v2/post/publish/video/init/`,
         {
           post_info: {
@@ -695,39 +697,119 @@ export async function publishTarget(
             disable_comment: false,
             disable_stitch: false,
           },
-          source_info: {
-            source: 'PULL_FROM_URL',
-            video_url: videoUrl,
-          },
+          source_info: { source: 'PULL_FROM_URL', video_url: videoUrl },
         },
         { headers, timeout: 30_000, validateStatus: () => true }
       ) as { data?: { data?: { publish_id?: string }; error?: { code?: string; message?: string } } };
-      let initBody = initRes.data ?? {};
-      let initErr = initBody.error;
+      const pullBody = pullInitRes.data ?? {};
+      const pullErr = pullBody.error;
 
-      // If video.publish scope not authorized, fall back to inbox upload (video.upload scope)
-      if (initErr && (initErr.code === 'scope_not_authorized' || initErr.code === 'access_token_invalid' || initErr.code === 'unaudited_client_can_only_post_to_private_accounts')) {
+      const urlOwnershipError = pullErr && (
+        pullErr.code === 'url_ownership_unverified' ||
+        (pullErr.message ?? '').toLowerCase().includes('ownership')
+      );
+      const scopeError = pullErr && (
+        pullErr.code === 'scope_not_authorized' ||
+        pullErr.code === 'access_token_invalid' ||
+        pullErr.code === 'unaudited_client_can_only_post_to_private_accounts'
+      );
+
+      if (!pullErr || pullErr.code === 'ok') {
+        // PULL_FROM_URL succeeded
+        publishId = pullBody.data?.publish_id;
+      } else if (scopeError) {
+        // video.publish scope missing — try inbox via PULL_FROM_URL
         useInbox = true;
-        const inboxRes = await axiosInstance.post(
+        const inboxPullRes = await axiosInstance.post(
           `${tiktokBase}/v2/post/publish/inbox/video/init/`,
-          {
-            source_info: {
-              source: 'PULL_FROM_URL',
-              video_url: videoUrl,
-            },
-          },
+          { source_info: { source: 'PULL_FROM_URL', video_url: videoUrl } },
           { headers, timeout: 30_000, validateStatus: () => true }
         ) as { data?: { data?: { publish_id?: string }; error?: { code?: string; message?: string } } };
-        initBody = inboxRes.data ?? {};
-        initErr = initBody.error;
+        const inboxPullBody = inboxPullRes.data ?? {};
+        const inboxPullErr = inboxPullBody.error;
+        if (!inboxPullErr || inboxPullErr.code === 'ok') {
+          publishId = inboxPullBody.data?.publish_id;
+        } else if ((inboxPullErr.message ?? '').toLowerCase().includes('ownership') || inboxPullErr.code === 'url_ownership_unverified') {
+          // Fall through to FILE_UPLOAD below
+        } else {
+          return { ok: false, error: `TikTok: ${inboxPullErr.message || inboxPullErr.code || 'Init failed'}`.slice(0, 300) };
+        }
+      } else if (!urlOwnershipError) {
+        // Some other error from TikTok
+        return { ok: false, error: `TikTok: ${pullErr.message || pullErr.code || 'Init failed'}`.slice(0, 300) };
       }
-      if (initErr && initErr.code !== 'ok') {
-        const msg = initErr.message || initErr.code || 'Init failed';
-        return { ok: false, error: `TikTok: ${msg}`.slice(0, 300) };
-      }
-      const publishId = initBody.data?.publish_id;
+
+      // 3) FILE_UPLOAD fallback when PULL_FROM_URL is blocked by URL ownership verification.
+      //    Uses native fetch (not axios) to reliably send raw binary.
       if (!publishId) {
-        return { ok: false, error: 'TikTok init did not return publish_id.' };
+        const { buffer, contentType: videoContentType } = await fetchMediaBuffer(videoUrl, fetchFn);
+        const videoSize = buffer.length;
+        const MAX_CHUNK = 10 * 1024 * 1024;
+        const CHUNK_SIZE = Math.min(MAX_CHUNK, videoSize);
+        const totalChunkCount = Math.ceil(videoSize / CHUNK_SIZE);
+        const mimeType = videoContentType && /video\/(mp4|webm|quicktime)/i.test(videoContentType) ? videoContentType : 'video/mp4';
+
+        const fileInitRes = await axiosInstance.post(
+          `${tiktokBase}/v2/post/publish/video/init/`,
+          {
+            post_info: {
+              title: caption.slice(0, 2200) || undefined,
+              privacy_level: privacyLevel,
+              brand_content_toggle: false,
+              disable_duet: false,
+              disable_comment: false,
+              disable_stitch: false,
+            },
+            source_info: { source: 'FILE_UPLOAD', video_size: videoSize, chunk_size: CHUNK_SIZE, total_chunk_count: totalChunkCount },
+          },
+          { headers, timeout: 30_000, validateStatus: () => true }
+        ) as { data?: { data?: { publish_id?: string; upload_url?: string }; error?: { code?: string; message?: string } } };
+        let fileInitBody = fileInitRes.data ?? {};
+        let fileInitErr = fileInitBody.error;
+
+        if (fileInitErr && (fileInitErr.code === 'scope_not_authorized' || fileInitErr.code === 'access_token_invalid' || fileInitErr.code === 'unaudited_client_can_only_post_to_private_accounts')) {
+          useInbox = true;
+          const inboxFileRes = await axiosInstance.post(
+            `${tiktokBase}/v2/post/publish/inbox/video/init/`,
+            { source_info: { source: 'FILE_UPLOAD', video_size: videoSize, chunk_size: CHUNK_SIZE, total_chunk_count: totalChunkCount } },
+            { headers, timeout: 30_000, validateStatus: () => true }
+          ) as { data?: { data?: { publish_id?: string; upload_url?: string }; error?: { code?: string; message?: string } } };
+          fileInitBody = inboxFileRes.data ?? {};
+          fileInitErr = fileInitBody.error;
+        }
+        if (fileInitErr && fileInitErr.code !== 'ok') {
+          return { ok: false, error: `TikTok: ${fileInitErr.message || fileInitErr.code || 'Init failed'}`.slice(0, 300) };
+        }
+        publishId = fileInitBody.data?.publish_id;
+        const uploadUrl = fileInitBody.data?.upload_url;
+        if (!publishId || !uploadUrl) {
+          return { ok: false, error: 'TikTok init did not return publish_id or upload_url.' };
+        }
+
+        // Upload chunks using native fetch (avoids axios binary-serialisation issues)
+        for (let offset = 0; offset < videoSize; offset += CHUNK_SIZE) {
+          const end = Math.min(offset + CHUNK_SIZE, videoSize);
+          const chunk = buffer.subarray(offset, end);
+          const putRes = await fetchFn(uploadUrl, {
+            method: 'PUT',
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            body: chunk as any,
+            headers: {
+              'Content-Type': mimeType,
+              'Content-Range': `bytes ${offset}-${end - 1}/${videoSize}`,
+            },
+            signal: AbortSignal.timeout(120_000),
+          });
+          // 200, 201, or 206 (partial) are all success
+          if (putRes.status !== 200 && putRes.status !== 201 && putRes.status !== 206) {
+            const errText = await putRes.text().catch(() => `status ${putRes.status}`);
+            return { ok: false, error: `TikTok upload: ${putRes.status} ${errText}`.slice(0, 300) };
+          }
+        }
+      }
+
+      if (!publishId) {
+        return { ok: false, error: 'TikTok: could not obtain publish_id.' };
       }
 
       // 5) Poll status until PUBLISH_COMPLETE, SEND_TO_USER_INBOX, or FAILED

@@ -152,6 +152,11 @@ export async function POST(
     let firstMediaUrl = targetMedia[0]?.fileUrl;
     let videoThumbnailUrl = targetMedia[0] && targetMedia[0].type === 'VIDEO' ? (targetMedia[0] as { thumbnailUrl?: string }).thumbnailUrl : undefined;
     let imageUrls: string[] | undefined;
+    // For TikTok PULL_FROM_URL: pass video via our own domain so TikTok can fetch it.
+    // (Requires agent4socials.com to be verified in TikTok Developer Portal.)
+    if (platform === 'TIKTOK' && firstMediaUrl) {
+      firstMediaUrl = publicMediaUrlForMeta(firstMediaUrl);
+    }
     if (platform === 'INSTAGRAM' || platform === 'FACEBOOK') {
       const isInstagram = platform === 'INSTAGRAM';
       const firstIsImage = targetMedia[0]?.type === 'IMAGE';
