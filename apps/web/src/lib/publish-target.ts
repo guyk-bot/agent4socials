@@ -713,7 +713,7 @@ export async function publishTarget(
       let initErr = initBody.error;
 
       // If video.publish scope not authorized, fall back to inbox upload (video.upload scope)
-      if (initErr && (initErr.code === 'scope_not_authorized' || initErr.code === 'access_token_invalid')) {
+      if (initErr && (initErr.code === 'scope_not_authorized' || initErr.code === 'access_token_invalid' || initErr.code === 'unaudited_client_can_only_post_to_private_accounts')) {
         useInbox = true;
         const inboxRes = await axiosInstance.post(
           `${tiktokBase}/v2/post/publish/inbox/video/init/`,

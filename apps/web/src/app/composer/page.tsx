@@ -1112,10 +1112,12 @@ export default function ComposerPage() {
                             }
                             if (failed.includes('INSTAGRAM') && (failed.includes('2207082') || failed.includes('2207076') || failed.includes('Media upload'))) hint = (hint ? hint + ' ' : '') + 'For Instagram: reconnect from Dashboard → Accounts so the app has publish permission; try a different image, under 8MB, and ensure the image URL is publicly accessible (HTTPS).';
                             if (failed.includes('INSTAGRAM') && (failed.includes('Request processing failed') || failed.includes('ProcessingFailedError'))) hint = (hint ? hint + ' ' : '') + 'For Instagram: the media URL must be publicly reachable by Meta (HTTPS). For Reels use 9:16, 15-90 sec, MP4. Set S3_PUBLIC_URL and CRON_SECRET in Vercel so media is served correctly; or try a different image/video.';
-                            if (failed.includes('TIKTOK')) hint = (hint ? hint + ' ' : '') + 'For TikTok: ensure your app has Content Posting API access and the video meets requirements (e.g. format, length). Reconnect the account from Dashboard if needed.';
-                            const message = `Post updated but some platforms failed: ${failed}. Open the post from History to retry or fix.${hint}`;
-                            sessionStorage.setItem('composer_alert', message);
-                            router.push(`/composer?edit=${editPostId}`);
+                            if (failed.includes('TIKTOK')) {
+                                if (failed.includes('unaudited_client_can_only_post_to_private_accounts')) hint = (hint ? hint + ' ' : '') + 'For TikTok: your app has not passed TikTok\'s content posting audit, so it cannot post to public accounts. Apply for the Content Posting API audit in the TikTok Developer Portal.';
+                                else if (failed.includes('scope_not_authorized')) hint = (hint ? hint + ' ' : '') + 'For TikTok: reconnect your TikTok account from the Dashboard to grant the video.publish permission.';
+                                else hint = (hint ? hint + ' ' : '') + 'For TikTok: ensure your app has Content Posting API access and the video meets requirements (MP4, under 10 min). Reconnect the account from Dashboard if needed.';
+                            }
+                            setAlertMessage(`Post updated but some platforms failed: ${failed}. ${hint}`);
                             return;
                         }
                         const mediaSkipped = results?.filter((r) => r.mediaSkipped).map((r) => r.platform);
@@ -1133,8 +1135,7 @@ export default function ComposerPage() {
                         const code = err && typeof err === 'object' && 'code' in err ? (err as { code?: string }).code : undefined;
                         const isTimeout = code === 'ECONNABORTED' || (typeof (err as Error)?.message === 'string' && (err as Error).message.includes('timeout'));
                         const msg = res?.data?.message ?? (status === 401 ? 'Session expired. Sign in again, then open the post from History and try Post now.' : isTimeout ? 'Publish is taking longer than usual (e.g. uploading media). Open the post from History and try Post now again; it may have already gone through.' : 'Publish failed. Open the post from History and try Post now again.');
-                        sessionStorage.setItem('composer_alert', msg);
-                        router.push(`/composer?edit=${editPostId}`);
+                        setAlertMessage(msg);
                         return;
                     }
                 }
@@ -1166,10 +1167,12 @@ export default function ComposerPage() {
                             }
                             if (failed.includes('INSTAGRAM') && (failed.includes('2207082') || failed.includes('2207076') || failed.includes('Media upload'))) hint = (hint ? hint + ' ' : '') + 'For Instagram: reconnect from Dashboard → Accounts so the app has publish permission; try a different image, under 8MB, and ensure the image URL is publicly accessible (HTTPS).';
                             if (failed.includes('INSTAGRAM') && (failed.includes('Request processing failed') || failed.includes('ProcessingFailedError'))) hint = (hint ? hint + ' ' : '') + 'For Instagram: the media URL must be publicly reachable by Meta (HTTPS). For Reels use 9:16, 15-90 sec, MP4. Set S3_PUBLIC_URL and CRON_SECRET in Vercel so media is served correctly; or try a different image/video.';
-                            if (failed.includes('TIKTOK')) hint = (hint ? hint + ' ' : '') + 'For TikTok: ensure your app has Content Posting API access and the video meets requirements (e.g. format, length). Reconnect the account from Dashboard if needed.';
-                            const message = `Post created but some platforms failed: ${failed}. Open the post from History to retry or fix.${hint}`;
-                            sessionStorage.setItem('composer_alert', message);
-                            router.push(`/composer?edit=${postId}`);
+                            if (failed.includes('TIKTOK')) {
+                                if (failed.includes('unaudited_client_can_only_post_to_private_accounts')) hint = (hint ? hint + ' ' : '') + 'For TikTok: your app has not passed TikTok\'s content posting audit, so it cannot post to public accounts. Apply for the Content Posting API audit in the TikTok Developer Portal.';
+                                else if (failed.includes('scope_not_authorized')) hint = (hint ? hint + ' ' : '') + 'For TikTok: reconnect your TikTok account from the Dashboard to grant the video.publish permission.';
+                                else hint = (hint ? hint + ' ' : '') + 'For TikTok: ensure your app has Content Posting API access and the video meets requirements (MP4, under 10 min). Reconnect the account from Dashboard if needed.';
+                            }
+                            setAlertMessage(`Post created but TikTok or some platforms failed: ${failed}. ${hint}`);
                             return;
                         }
                         const mediaSkippedCreate = results?.filter((r) => r.mediaSkipped).map((r) => r.platform);
@@ -1182,8 +1185,7 @@ export default function ComposerPage() {
                         const code = err && typeof err === 'object' && 'code' in err ? (err as { code?: string }).code : undefined;
                         const isTimeout = code === 'ECONNABORTED' || (typeof (err as Error)?.message === 'string' && (err as Error).message.includes('timeout'));
                         const msg = res?.data?.message ?? (status === 401 ? 'Session expired. Sign in again, then open the post from History and try Post now.' : isTimeout ? 'Publish is taking longer than usual (e.g. uploading media). Open the post from History and try Post now again; it may have already gone through.' : 'Publish failed. Open the post from History and try Post now again.');
-                        sessionStorage.setItem('composer_alert', msg);
-                        router.push(`/composer?edit=${postId}`);
+                        setAlertMessage(msg);
                         return;
                     }
                 }
