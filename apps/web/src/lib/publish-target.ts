@@ -681,16 +681,8 @@ export async function publishTarget(
         return { ok: false, error: `TikTok creator info: ${msg}`.slice(0, 300) };
       }
 
-      // 2) Fetch video and get size for FILE_UPLOAD init
-      const { buffer, contentType } = await fetchMediaBuffer(videoUrl, fetchFn);
-      const videoSize = buffer.length;
-      // chunk_size must equal the actual bytes per chunk we upload.
-      // For videos smaller than 10 MB the whole file is one chunk; use videoSize.
-      const MAX_CHUNK = 10 * 1024 * 1024;
-      const CHUNK_SIZE = Math.min(MAX_CHUNK, videoSize);
-      const totalChunkCount = Math.ceil(videoSize / CHUNK_SIZE);
-
-      // 3) Initialize direct post (video.publish), fallback to inbox upload (video.upload) if scope missing
+      // 2) Initialize post using PULL_FROM_URL — TikTok fetches the video directly.
+      //    Fallback to inbox (video.upload scope) if video.publish scope is not authorized.
       let useInbox = false;
       const initRes = await axiosInstance.post(
         `${tiktokBase}/v2/post/publish/video/init/`,
@@ -704,14 +696,12 @@ export async function publishTarget(
             disable_stitch: false,
           },
           source_info: {
-            source: 'FILE_UPLOAD',
-            video_size: videoSize,
-            chunk_size: CHUNK_SIZE,
-            total_chunk_count: totalChunkCount,
+            source: 'PULL_FROM_URL',
+            video_url: videoUrl,
           },
         },
         { headers, timeout: 30_000, validateStatus: () => true }
-      ) as { data?: { data?: { publish_id?: string; upload_url?: string }; error?: { code?: string; message?: string } } };
+      ) as { data?: { data?: { publish_id?: string }; error?: { code?: string; message?: string } } };
       let initBody = initRes.data ?? {};
       let initErr = initBody.error;
 
@@ -722,14 +712,12 @@ export async function publishTarget(
           `${tiktokBase}/v2/post/publish/inbox/video/init/`,
           {
             source_info: {
-              source: 'FILE_UPLOAD',
-              video_size: videoSize,
-              chunk_size: CHUNK_SIZE,
-              total_chunk_count: totalChunkCount,
+              source: 'PULL_FROM_URL',
+              video_url: videoUrl,
             },
           },
           { headers, timeout: 30_000, validateStatus: () => true }
-        ) as { data?: { data?: { publish_id?: string; upload_url?: string }; error?: { code?: string; message?: string } } };
+        ) as { data?: { data?: { publish_id?: string }; error?: { code?: string; message?: string } } };
         initBody = inboxRes.data ?? {};
         initErr = initBody.error;
       }
@@ -738,31 +726,8 @@ export async function publishTarget(
         return { ok: false, error: `TikTok: ${msg}`.slice(0, 300) };
       }
       const publishId = initBody.data?.publish_id;
-      const uploadUrl = initBody.data?.upload_url;
-      if (!publishId || !uploadUrl) {
-        return { ok: false, error: 'TikTok init did not return publish_id or upload_url.' };
-      }
-
-      // 4) Upload video in chunks via PUT
-      const videoContentType = contentType && /video\/(mp4|webm|quicktime)/i.test(contentType) ? contentType : 'video/mp4';
-      for (let offset = 0; offset < videoSize; offset += CHUNK_SIZE) {
-        const end = Math.min(offset + CHUNK_SIZE, videoSize);
-        const chunk = buffer.subarray(offset, end);
-        const putRes = await axiosInstance.put(uploadUrl, chunk, {
-          headers: {
-            'Content-Type': videoContentType,
-            'Content-Length': String(chunk.length),
-            'Content-Range': `bytes ${offset}-${end - 1}/${videoSize}`,
-          },
-          maxBodyLength: Infinity,
-          maxContentLength: Infinity,
-          timeout: 120_000,
-          validateStatus: () => true,
-        });
-        if (putRes.status !== 200 && putRes.status !== 201) {
-          const errMsg = (putRes.data as { error?: { message?: string } })?.error?.message ?? JSON.stringify(putRes.data);
-          return { ok: false, error: `TikTok upload: ${putRes.status} ${errMsg}`.slice(0, 300) };
-        }
+      if (!publishId) {
+        return { ok: false, error: 'TikTok init did not return publish_id.' };
       }
 
       // 5) Poll status until PUBLISH_COMPLETE, SEND_TO_USER_INBOX, or FAILED
