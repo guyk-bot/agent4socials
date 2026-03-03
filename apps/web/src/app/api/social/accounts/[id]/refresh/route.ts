@@ -22,8 +22,8 @@ export async function PATCH(
   if (!account) {
     return NextResponse.json({ message: 'Account not found' }, { status: 404 });
   }
-  if (account.platform !== 'INSTAGRAM' && account.platform !== 'FACEBOOK' && account.platform !== 'TWITTER') {
-    return NextResponse.json({ message: 'Refresh supported for Instagram, Facebook, and Twitter only' }, { status: 400 });
+  if (account.platform !== 'INSTAGRAM' && account.platform !== 'FACEBOOK' && account.platform !== 'TWITTER' && account.platform !== 'TIKTOK') {
+    return NextResponse.json({ message: 'Refresh supported for Instagram, Facebook, Twitter, and TikTok only' }, { status: 400 });
   }
   const token = account.accessToken;
   let username: string | undefined;
@@ -136,6 +136,25 @@ export async function PATCH(
         if (u?.username) username = u.username;
         else if (u?.name) username = u.name;
         if (u?.profile_image_url) profilePicture = u.profile_image_url.replace(/_normal\./, '_400x400.');
+      } catch (_) {}
+    } else if (account.platform === 'TIKTOK') {
+      try {
+        const userRes = await axios.get<{
+          data?: { user?: { display_name?: string; avatar_url?: string; avatar_large_url?: string } };
+          error?: { code?: string };
+        }>('https://open.tiktokapis.com/v2/user/info/', {
+          params: { fields: 'open_id,display_name,avatar_url,avatar_large_url' },
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        const user = userRes.data?.data?.user;
+        if (!userRes.data?.error?.code || userRes.data.error.code === 'ok') {
+          if (user?.display_name) username = user.display_name;
+          if (user?.avatar_large_url) profilePicture = user.avatar_large_url;
+          else if (user?.avatar_url) profilePicture = user.avatar_url;
+        }
       } catch (_) {}
     }
     const data: { username?: string; profilePicture?: string; platformUserId?: string } = {};
