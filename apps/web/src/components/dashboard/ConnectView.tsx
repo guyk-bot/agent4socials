@@ -146,20 +146,20 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
         <div className="space-y-3">
           <button
             type="button"
-            onClick={() => onConnect('tiktok')}
+            onClick={() => onConnect('tiktok', 'personal')}
             disabled={connecting}
             className="w-full flex items-center justify-center gap-3 p-4 rounded-xl border-2 border-neutral-200 hover:border-neutral-400 hover:bg-neutral-50 transition-all font-medium text-neutral-900 card"
           >
-            {connecting ? <Loader2 size={24} className="animate-spin" /> : <TikTokIcon size={24} />}
+            {connecting && connectingMethod === 'personal' ? <Loader2 size={24} className="animate-spin" /> : <TikTokIcon size={24} />}
             Connect a TikTok personal account
           </button>
           <button
             type="button"
-            onClick={() => onConnect('tiktok')}
+            onClick={() => onConnect('tiktok', 'business')}
             disabled={connecting}
             className="w-full flex items-center justify-center gap-3 p-4 rounded-xl border-2 border-neutral-200 hover:border-neutral-400 hover:bg-neutral-50 transition-all font-medium text-neutral-900 card"
           >
-            {connecting ? <Loader2 size={24} className="animate-spin" /> : <TikTokIcon size={24} />}
+            {connecting && connectingMethod === 'business' ? <Loader2 size={24} className="animate-spin" /> : <TikTokIcon size={24} />}
             Connect a TikTok business account
           </button>
         </div>
