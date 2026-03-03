@@ -664,7 +664,7 @@ export async function publishTarget(
         const creatorRes = await axiosInstance.post(
           `${tiktokBase}/v2/post/publish/creator_info/query/`,
           {},
-          { headers, timeout: 15_000, validateStatus: () => true }
+          { headers, timeout: 30_000, validateStatus: () => true }
         ) as { data?: { data?: { privacy_level_options?: string[] }; error?: { code?: string; message?: string } } };
         const body = creatorRes.data ?? {};
         const err = body.error;
