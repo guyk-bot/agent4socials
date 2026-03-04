@@ -936,8 +936,13 @@ export async function GET(
     return oauthErrorHtml(baseUrl, 'Could not save account. Check database connection and schema.', 500);
   }
 
+  const mainAccount = await prisma.socialAccount.findFirst({
+    where: { userId, platform: plat, platformUserId: tokenData.platformUserId },
+    select: { id: true },
+  });
+  const accountIdParam = mainAccount?.id ? `&accountId=${encodeURIComponent(mainAccount.id)}` : '';
   const twitter1oaNext = plat === 'TWITTER' && process.env.TWITTER_API_KEY && process.env.TWITTER_API_SECRET ? '&twitter_1oa_next=1' : '';
-  const dashboardUrl = `${baseUrl}/dashboard?connecting=1${twitter1oaNext}`;
+  const dashboardUrl = `${baseUrl}/dashboard?connecting=1${accountIdParam}${twitter1oaNext}`;
   const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Agent4Socials – Account connected</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;"><p><strong>Agent4Socials</strong> – Account connected.</p><script>
 (function(){
   if (window.opener) {

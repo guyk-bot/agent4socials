@@ -64,7 +64,7 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const { cachedAccounts, setCachedAccounts } = useAccountsCache() ?? { cachedAccounts: [], setCachedAccounts: () => {} };
   const appData = useAppData();
-  const { selectedPlatformForConnect, clearSelection } = useSelectedAccount() ?? { selectedPlatformForConnect: null, clearSelection: () => {} };
+  const { selectedPlatformForConnect, clearSelection, setSelectedAccountId } = useSelectedAccount() ?? { selectedPlatformForConnect: null, clearSelection: () => {}, setSelectedAccountId: () => {} };
   const selectedAccount = useResolvedSelectedAccount(cachedAccounts as SocialAccount[]);
   const [justConnected, setJustConnected] = useState(false);
   const connectingParam = searchParams.get('connecting');
@@ -138,13 +138,21 @@ export default function DashboardPage() {
     if (connectingParam !== '1') return;
     if (twitter1oaNext === '1') return;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const accountIdFromUrl = searchParams.get('accountId');
     fetchAccounts().then(() => {
+      if (accountIdFromUrl) {
+        setSelectedAccountId(accountIdFromUrl);
+        delete postsCacheRef.current[accountIdFromUrl];
+        Object.keys(insightsCacheRef.current).forEach((k) => {
+          if (k.startsWith(accountIdFromUrl + '-')) delete insightsCacheRef.current[k];
+        });
+      }
       router.replace('/dashboard', { scroll: false });
       setJustConnected(true);
       timeoutId = setTimeout(() => setJustConnected(false), 5000);
     }).catch(() => router.replace('/dashboard', { scroll: false }));
     return () => { if (timeoutId) clearTimeout(timeoutId); };
-  }, [connectingParam, twitter1oaNext, router]);
+  }, [connectingParam, twitter1oaNext, router, setSelectedAccountId, searchParams]);
 
   useEffect(() => {
     if (twitter1oaNext !== '1') return;
