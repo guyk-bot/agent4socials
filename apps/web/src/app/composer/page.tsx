@@ -73,16 +73,15 @@ function mediaDisplayUrl(fileUrl: string): string {
 
 /**
  * URL suitable for canvas readback (frame picker).
- * R2 videos must go through our same-origin proxy; Supabase public storage
- * already sends Access-Control-Allow-Origin: * so direct URL is fine.
+ * R2/Cloudflare URLs go through our same-origin proxy so the canvas is not tainted (CORS).
+ * The proxy supports Range requests for video so seeking works when moving the slider.
  * Use together with crossOrigin="anonymous" on the <video> element.
  */
 function mediaCanvasUrl(fileUrl: string): string {
     if (typeof fileUrl !== 'string' || !fileUrl.startsWith('http')) return fileUrl;
-    // Return the direct URL for canvas use. Both R2 public buckets (pub-*.r2.dev) and
-    // Supabase serve Access-Control-Allow-Origin: * so crossOrigin="anonymous" works directly.
-    // Using the direct URL also gives the browser full Range-request support for seeking,
-    // which is critical for the frame-picker slider.
+    if (fileUrl.includes('r2.dev') || fileUrl.includes('cloudflarestorage.com')) {
+        return `/api/media/proxy?url=${encodeURIComponent(fileUrl)}`;
+    }
     return fileUrl;
 }
 
@@ -900,19 +899,17 @@ export default function ComposerPage() {
         ignoreTimeUpdateUntilRef.current = Date.now() + 800;
         const v = videoThumbnailRef.current;
         if (!v) return;
-        // Imperative seeked listener — fires exactly once after the seek completes,
-        // even if the React onSeeked prop misses rapid consecutive seeks.
         const onSeekedOnce = () => {
             v.removeEventListener('seeked', onSeekedOnce);
             drawVideoFrameToCanvas();
         };
         v.addEventListener('seeked', onSeekedOnce);
         v.currentTime = t;
-        // If the video is already at this time (readyState >= 2 and same frame),
-        // seeked may not fire — draw immediately as a fallback.
         if (v.readyState >= 2) {
             drawVideoFrameToCanvas();
         }
+        setTimeout(() => drawVideoFrameToCanvas(), 200);
+        setTimeout(() => drawVideoFrameToCanvas(), 500);
     }, [drawVideoFrameToCanvas]);
 
     const handleRemoveMediaForPlatform = (platform: string, index: number) => {
