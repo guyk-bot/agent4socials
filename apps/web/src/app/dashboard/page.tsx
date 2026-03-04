@@ -323,61 +323,86 @@ export default function DashboardPage() {
     const defaultRange = getDefaultDateRange();
     const usePrefetchedInsights = dateRange.start === defaultRange.start && dateRange.end === defaultRange.end && appData?.getInsights(selectedAccount.id);
     const cached = usePrefetchedInsights ?? insightsCacheRef.current[cacheKey];
+    const postsCached = postsCacheRef.current[accountId] ?? appData?.getPosts(accountId);
+
     if (cached) {
       setInsights(cached);
       setInsightsLoading(false);
+      if (postsCached !== undefined && postsCached !== null) {
+        setImportedPosts(postsCached);
+        setImportedPostsLoading(false);
+      } else {
+        setImportedPostsLoading(true);
+        api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: { sync: 1 } })
+          .then((postsRes) => {
+            const list = postsRes.data?.posts ?? [];
+            postsCacheRef.current[accountId] = list;
+            appData?.setPostsForAccount(accountId, list);
+            if (selectedAccountIdRef.current === accountId) setImportedPosts(list);
+            setPostsSyncError(postsRes.data?.syncError ?? null);
+          })
+          .catch(() => setPostsSyncError(null))
+          .finally(() => setImportedPostsLoading(false));
+      }
       return;
     }
+
     setInsights(null);
     setInsightsLoading(true);
-    api.get(`/social/accounts/${selectedAccount.id}/insights`, { params: { since: dateRange.start, until: dateRange.end } })
+    setImportedPostsLoading(true);
+
+    // All platforms: fetch insights and posts in parallel so data appears as soon as you connect
+    const insightsPromise = api.get(`/social/accounts/${selectedAccount.id}/insights`, { params: { since: dateRange.start, until: dateRange.end } });
+    const postsPromise = api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: { sync: 1 } });
+
+    insightsPromise
       .then((res) => {
         const data = res.data ?? null;
         if (data) {
           insightsCacheRef.current[cacheKey] = data;
           appData?.setInsightsForAccount(selectedAccount.id, data);
         }
-        setInsights(data);
-        // TikTok (and YouTube) views come from synced posts. Auto-sync in background then refresh insights.
-        if (selectedAccount.platform === 'TIKTOK' || selectedAccount.platform === 'YOUTUBE') {
-          api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: { sync: 1 } })
-            .then((postsRes) => {
-              const list = postsRes.data?.posts ?? [];
-              postsCacheRef.current[accountId] = list;
-              appData?.setPostsForAccount(accountId, list);
-              if (selectedAccountIdRef.current === accountId) setImportedPosts(list);
-              setPostsSyncError(postsRes.data?.syncError ?? null);
-              delete insightsCacheRef.current[cacheKey];
-              return api.get(`/social/accounts/${selectedAccount.id}/insights`, { params: { since: dateRange.start, until: dateRange.end } });
-            })
-            .then((insightsRes) => {
-              if (selectedAccountIdRef.current !== accountId) return;
-              const next = insightsRes.data ?? null;
-              if (next) {
-                insightsCacheRef.current[cacheKey] = next;
-                appData?.setInsightsForAccount(accountId, next);
-                setInsights(next);
-              }
-            })
-            .catch(() => {});
+        if (selectedAccountIdRef.current === accountId) setInsights(data);
+      })
+      .catch(() => { if (selectedAccountIdRef.current === accountId) setInsights(null); })
+      .finally(() => setInsightsLoading(false));
+
+    postsPromise
+      .then((postsRes) => {
+        const list = postsRes.data?.posts ?? [];
+        postsCacheRef.current[accountId] = list;
+        appData?.setPostsForAccount(accountId, list);
+        if (selectedAccountIdRef.current === accountId) setImportedPosts(list);
+        setPostsSyncError(postsRes.data?.syncError ?? null);
+        // TikTok/YouTube: views come from synced posts, refetch insights to update
+        if ((selectedAccount.platform === 'TIKTOK' || selectedAccount.platform === 'YOUTUBE') && selectedAccountIdRef.current === accountId) {
+          delete insightsCacheRef.current[cacheKey];
+          return api.get(`/social/accounts/${selectedAccount.id}/insights`, { params: { since: dateRange.start, until: dateRange.end } });
         }
       })
-      .catch(() => setInsights(null))
-      .finally(() => setInsightsLoading(false));
+      .then((insightsRes) => {
+        if (!insightsRes?.data || selectedAccountIdRef.current !== accountId) return;
+        const next = insightsRes.data;
+        insightsCacheRef.current[cacheKey] = next;
+        appData?.setInsightsForAccount(accountId, next);
+        setInsights(next);
+      })
+      .catch(() => {})
+      .finally(() => setImportedPostsLoading(false));
   }, [analyticsTab, selectedAccount?.id, selectedAccount?.platform, dateRange.start, dateRange.end, appData]);
 
-  // Aggregated insights: always fetch when we have accounts (provides fallback for single-account view)
+  // Aggregated insights: fetch for all connected platforms so Summary shows everything instantly
   useEffect(() => {
     if (!hasAccounts || analyticsTab !== 'account' || !dateRange.start || !dateRange.end) {
       if (!hasAccounts) setAggregatedInsights(null);
       return;
     }
-    const insightAccounts = accounts.filter((a) => a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK' || a.platform === 'TWITTER');
+    const insightAccounts = accounts;
     if (insightAccounts.length === 0) {
       setAggregatedInsights(null);
       return;
     }
-    const aggCacheKey = `agg-${dateRange.start}-${dateRange.end}-${insightAccounts.map((a) => a.id).join(',')}`;
+    const aggCacheKey = `agg-${dateRange.start}-${dateRange.end}-${insightAccounts.map((a) => a.id).sort().join(',')}`;
     const cachedAgg = aggregatedCacheRef.current;
     if (cachedAgg && cachedAgg.key === aggCacheKey) {
       setAggregatedInsights(cachedAgg.data);
