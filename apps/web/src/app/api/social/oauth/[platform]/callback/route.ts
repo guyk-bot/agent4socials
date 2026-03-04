@@ -945,10 +945,12 @@ export async function GET(
   const dashboardUrl = `${baseUrl}/dashboard?connecting=1${accountIdParam}${twitter1oaNext}`;
   const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Agent4Socials – Account connected</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;"><p><strong>Agent4Socials</strong> – Account connected.</p><script>
 (function(){
+  var url = ${JSON.stringify(dashboardUrl)};
   if (window.opener) {
+    try { window.opener.location.href = url; } catch (e) {}
     try { window.close(); } catch (e) {}
   } else {
-    window.location.href = ${JSON.stringify(dashboardUrl)};
+    window.location.href = url;
   }
 })();
 </script><p>Redirecting to <a href="${dashboardUrl}">Dashboard</a>…</p></body></html>`;
