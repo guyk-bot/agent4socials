@@ -320,21 +320,49 @@ export default function DashboardPage() {
     if (!selectedAccount?.id || analyticsTab !== 'account' || !dateRange.start || !dateRange.end) return;
     selectedAccountIdRef.current = selectedAccount.id;
     const accountId = selectedAccount.id;
-    const cacheKey = `${selectedAccount.id}-${dateRange.start}-${dateRange.end}`;
+    const platform = selectedAccount.platform;
+    const cacheKey = `${accountId}-${dateRange.start}-${dateRange.end}`;
     const defaultRange = getDefaultDateRange();
-    const usePrefetchedInsights = dateRange.start === defaultRange.start && dateRange.end === defaultRange.end && appData?.getInsights(selectedAccount.id);
+    const usePrefetchedInsights = dateRange.start === defaultRange.start && dateRange.end === defaultRange.end && appData?.getInsights(accountId);
     const cached = usePrefetchedInsights ?? insightsCacheRef.current[cacheKey];
     const postsCached = postsCacheRef.current[accountId] ?? appData?.getPosts(accountId);
 
+    // Helper: run background sync (posts + re-fetch insights) without blocking the UI
+    const runBackgroundSync = () => {
+      api.get(`/social/accounts/${accountId}/posts`, { params: { sync: 1 } })
+        .then((postsRes) => {
+          const list = postsRes.data?.posts ?? [];
+          postsCacheRef.current[accountId] = list;
+          appData?.setPostsForAccount(accountId, list);
+          if (selectedAccountIdRef.current === accountId) setImportedPosts(list);
+          setPostsSyncError(postsRes.data?.syncError ?? null);
+          if ((platform === 'TIKTOK' || platform === 'YOUTUBE') && selectedAccountIdRef.current === accountId) {
+            delete insightsCacheRef.current[cacheKey];
+            return api.get(`/social/accounts/${accountId}/insights`, { params: { since: dateRange.start, until: dateRange.end } });
+          }
+        })
+        .then((insightsRes) => {
+          if (!insightsRes?.data || selectedAccountIdRef.current !== accountId) return;
+          const next = insightsRes.data;
+          insightsCacheRef.current[cacheKey] = next;
+          appData?.setInsightsForAccount(accountId, next);
+          setInsights(next);
+        })
+        .catch(() => {});
+    };
+
+    // If we already have cached data, show it immediately and sync in background
     if (cached) {
       setInsights(cached);
       setInsightsLoading(false);
       if (postsCached !== undefined && postsCached !== null) {
         setImportedPosts(postsCached);
         setImportedPostsLoading(false);
+        // Still refresh in background so posts/views stay up to date
+        runBackgroundSync();
       } else {
         setImportedPostsLoading(true);
-        api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: { sync: 1 } })
+        api.get(`/social/accounts/${accountId}/posts`, { params: { sync: 1 } })
           .then((postsRes) => {
             const list = postsRes.data?.posts ?? [];
             postsCacheRef.current[accountId] = list;
@@ -352,44 +380,34 @@ export default function DashboardPage() {
     setInsightsLoading(true);
     setImportedPostsLoading(true);
 
-    // All platforms: fetch insights and posts in parallel so data appears as soon as you connect
-    const insightsPromise = api.get(`/social/accounts/${selectedAccount.id}/insights`, { params: { since: dateRange.start, until: dateRange.end } });
-    const postsPromise = api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: { sync: 1 } });
+    // Step 1: fetch insights + posts from DB quickly (no sync) so UI shows data in ~1s
+    const insightsPromise = api.get(`/social/accounts/${accountId}/insights`, { params: { since: dateRange.start, until: dateRange.end } });
+    const fastPostsPromise = api.get(`/social/accounts/${accountId}/posts`);
 
     insightsPromise
       .then((res) => {
         const data = res.data ?? null;
         if (data) {
           insightsCacheRef.current[cacheKey] = data;
-          appData?.setInsightsForAccount(selectedAccount.id, data);
+          appData?.setInsightsForAccount(accountId, data);
         }
         if (selectedAccountIdRef.current === accountId) setInsights(data);
       })
       .catch(() => { if (selectedAccountIdRef.current === accountId) setInsights(null); })
       .finally(() => setInsightsLoading(false));
 
-    postsPromise
+    fastPostsPromise
       .then((postsRes) => {
         const list = postsRes.data?.posts ?? [];
         postsCacheRef.current[accountId] = list;
         appData?.setPostsForAccount(accountId, list);
         if (selectedAccountIdRef.current === accountId) setImportedPosts(list);
-        setPostsSyncError(postsRes.data?.syncError ?? null);
-        // TikTok/YouTube: views come from synced posts, refetch insights to update
-        if ((selectedAccount.platform === 'TIKTOK' || selectedAccount.platform === 'YOUTUBE') && selectedAccountIdRef.current === accountId) {
-          delete insightsCacheRef.current[cacheKey];
-          return api.get(`/social/accounts/${selectedAccount.id}/insights`, { params: { since: dateRange.start, until: dateRange.end } });
-        }
-      })
-      .then((insightsRes) => {
-        if (!insightsRes?.data || selectedAccountIdRef.current !== accountId) return;
-        const next = insightsRes.data;
-        insightsCacheRef.current[cacheKey] = next;
-        appData?.setInsightsForAccount(accountId, next);
-        setInsights(next);
       })
       .catch(() => {})
       .finally(() => setImportedPostsLoading(false));
+
+    // Step 2: sync in background to pull latest from platform, then update silently
+    runBackgroundSync();
   }, [analyticsTab, selectedAccount?.id, selectedAccount?.platform, dateRange.start, dateRange.end, appData]);
 
   // Aggregated insights: fetch for all connected platforms so Summary shows everything instantly

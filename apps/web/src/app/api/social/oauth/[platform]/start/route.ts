@@ -32,12 +32,13 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
     }
     case 'YOUTUBE': {
       const ytRedirect = (process.env.YOUTUBE_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
-      // youtube.readonly = channel details, list comments/videos; youtube.upload = publish videos; youtube.force-ssl = reply to comments; yt-analytics.readonly = Analytics reports
+      // youtube.readonly = channel details, list comments/videos; youtube.upload = publish videos; youtube.force-ssl = reply to comments; yt-analytics.readonly = Analytics reports; youtube.download = download own public videos
       const ytScopes = [
         'https://www.googleapis.com/auth/youtube.readonly',
         'https://www.googleapis.com/auth/youtube.upload',
         'https://www.googleapis.com/auth/youtube.force-ssl',
         'https://www.googleapis.com/auth/yt-analytics.readonly',
+        'https://www.googleapis.com/auth/youtube.download',
       ].map((s) => encodeURIComponent(s)).join('%20');
       return `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.YOUTUBE_CLIENT_ID}&redirect_uri=${encodeURIComponent(ytRedirect)}&response_type=code&scope=${ytScopes}&access_type=offline&state=${state}&prompt=consent`;
     }
