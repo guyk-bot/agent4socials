@@ -683,6 +683,7 @@ export async function publishTarget(
       let useInbox = false;
       let publishId: string | undefined;
 
+      console.log('[TikTok] Starting PULL_FROM_URL init', { videoUrl: videoUrl?.slice(0, 120) });
       const pullInitRes = await axiosInstance.post(
         `${tiktokBase}/v2/post/publish/video/init/`,
         {
@@ -710,6 +711,8 @@ export async function publishTarget(
         pullErr.code === 'access_token_invalid' ||
         pullErr.code === 'unaudited_client_can_only_post_to_private_accounts'
       );
+
+      console.log('[TikTok] PULL_FROM_URL init response', { error: pullErr, publishId: pullBody.data?.publish_id });
 
       if (!pullErr || pullErr.code === 'ok') {
         // PULL_FROM_URL succeeded
@@ -833,6 +836,7 @@ export async function publishTarget(
           return { ok: false, error: `TikTok status: ${statusErr.message || statusErr.code}`.slice(0, 300) };
         }
         const status = statusBody.data?.status;
+        console.log('[TikTok] status poll', { publishId, status, fail_reason: statusBody.data?.fail_reason, error: statusErr });
         if (status === 'PUBLISH_COMPLETE') {
           platformPostId = statusBody.data?.publicly_available_post_id;
           break;

@@ -54,8 +54,30 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
   }
 
-  // Do NOT forward Range to R2. Meta/Instagram fetches image_url and may send Range;
-  // R2 would return 206 Partial Content, causing corrupt image and error 2207076.
+  // For video files: redirect directly to R2 instead of proxying through Vercel.
+  // This is critical for TikTok PULL_FROM_URL: TikTok fetches our URL to download the video,
+  // and streaming through Vercel's serverless function times out on large files (Hobby: 5s limit).
+  // A 302 redirect lets TikTok download directly from R2, bypassing Vercel's time limit entirely.
+  // TikTok verifies domain ownership on the initial URL (agent4socials.com) and follows redirects.
+  const isVideoPath = /\.(mp4|webm|mov|avi|mkv)(\?|$)/i.test(targetUrl.pathname);
+  if (isVideoPath && !formatJpeg) {
+    // Resolve the correct R2 URL (handles r2.dev path quirks)
+    let videoUrl = targetUrl.href;
+    if (publicBase.includes('r2.dev')) {
+      // Verify the key exists at the standard path; if not, try key-only path
+      const pathParts = targetUrl.pathname.replace(/^\/+/, '').split('/');
+      if (pathParts.length >= 2) {
+        const keyOnly = pathParts.slice(1).join('/');
+        const keyOnlyUrl = `${publicBase.replace(/\/$/, '')}/${keyOnly}`;
+        // Use key-only URL if the original might have a bucket-name prefix
+        videoUrl = keyOnlyUrl;
+      }
+    }
+    return NextResponse.redirect(videoUrl, { status: 302 });
+  }
+
+  // For images: proxy through Vercel (do NOT forward Range — Meta sends Range headers which
+  // cause R2 to return 206, corrupting the image with error 2207076).
   const fetchHeaders: HeadersInit = {
     Accept: '*/*',
     'User-Agent': 'Mozilla/5.0 (compatible; InstagramBot/1.0; +https://www.instagram.com)',
