@@ -287,11 +287,18 @@ export async function POST(
     }
 
     if (result.ok) {
+      const inboxNote = result.sentToInbox
+        ? 'Sent to TikTok inbox — open TikTok app to find and publish the video.'
+        : undefined;
       await prisma.postTarget.update({
         where: { id: target.id },
-        data: { status: PostStatus.POSTED, ...(result.platformPostId ? { platformPostId: result.platformPostId } : {}) },
+        data: {
+          status: PostStatus.POSTED,
+          ...(result.platformPostId ? { platformPostId: result.platformPostId } : {}),
+          ...(inboxNote ? { error: inboxNote } : {}),
+        },
       });
-      results.push({ platform, ok: true, ...(result.mediaSkipped ? { mediaSkipped: true } : {}) });
+      results.push({ platform, ok: true, ...(result.mediaSkipped ? { mediaSkipped: true } : {}), ...(result.sentToInbox ? { sentToInbox: true } : {}) });
     } else {
       if (platform === 'INSTAGRAM') {
         console.error('[Instagram publish failed]', { postId, error: result.error, mediaUrl: firstImageUrl || firstMediaUrl });

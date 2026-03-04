@@ -27,6 +27,8 @@ export type PublishTargetResult = {
   error?: string;
   /** True when the post was published but media (e.g. image) was skipped (e.g. Twitter 403 on upload). */
   mediaSkipped?: boolean;
+  /** True when TikTok accepted the video but sent it to the creator's inbox instead of publishing directly (unaudited app). */
+  sentToInbox?: boolean;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -829,13 +831,10 @@ export async function publishTarget(
           platformPostId = statusBody.data?.publicly_available_post_id;
           break;
         }
-        // inbox upload ends here – video is in user's TikTok drafts
+        // TikTok accepted the video but queued it in the creator's inbox
+        // (happens when the app hasn't passed Content Posting API audit)
         if (status === 'SEND_TO_USER_INBOX') {
-          return {
-            ok: true,
-            platformPostId: publishId,
-            ...(useInbox ? { mediaSkipped: false } : {}),
-          };
+          return { ok: true, platformPostId: publishId, sentToInbox: true };
         }
         if (status === 'FAILED') {
           const reason = statusBody.data?.fail_reason ?? 'Publish failed';
@@ -843,11 +842,8 @@ export async function publishTarget(
         }
       }
       if (!platformPostId) {
-        if (useInbox) {
-          // Inbox upload may take a while; treat timeout as success-pending
-          return { ok: true, platformPostId: publishId };
-        }
-        return { ok: false, error: 'TikTok publish timed out. Check your TikTok app for the post.' };
+        // Still processing after poll window — treat as inbox (user can check TikTok app)
+        return { ok: true, platformPostId: publishId, sentToInbox: true };
       }
       return { ok: true, platformPostId, ...(useInbox ? {} : {}) };
     }
