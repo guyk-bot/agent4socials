@@ -288,7 +288,7 @@ export async function POST(
 
     if (result.ok) {
       const inboxNote = result.sentToInbox
-        ? 'Sent to TikTok Drafts — open TikTok app, go to Profile > Drafts to publish the video.'
+        ? 'Posted as Private on TikTok (unaudited app). Open TikTok app, tap the video on your Profile and change visibility to Public.'
         : undefined;
       await prisma.postTarget.update({
         where: { id: target.id },

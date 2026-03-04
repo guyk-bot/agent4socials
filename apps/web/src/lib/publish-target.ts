@@ -717,7 +717,35 @@ export async function publishTarget(
       if (!pullErr || pullErr.code === 'ok') {
         // PULL_FROM_URL succeeded
         publishId = pullBody.data?.publish_id;
-      } else if (scopeError) {
+      } else if (pullErr.code === 'unaudited_client_can_only_post_to_private_accounts') {
+        // App not yet audited: TikTok only allows SELF_ONLY (private) posts in development mode.
+        // Retry the main endpoint with SELF_ONLY privacy — video IS posted to TikTok (privately).
+        // The user can change visibility to public in the TikTok app after posting.
+        console.log('[TikTok] Unaudited app — retrying with SELF_ONLY privacy');
+        const selfOnlyRes = await axiosInstance.post(
+          `${tiktokBase}/v2/post/publish/video/init/`,
+          {
+            post_info: {
+              title: caption.slice(0, 2200) || undefined,
+              privacy_level: 'SELF_ONLY',
+              brand_content_toggle: false,
+              disable_duet: false,
+              disable_comment: false,
+              disable_stitch: false,
+            },
+            source_info: { source: 'PULL_FROM_URL', video_url: videoUrl },
+          },
+          { headers, timeout: 30_000, validateStatus: () => true }
+        ) as { data?: { data?: { publish_id?: string }; error?: { code?: string; message?: string } } };
+        const selfOnlyBody = selfOnlyRes.data ?? {};
+        const selfOnlyErr = selfOnlyBody.error;
+        console.log('[TikTok] SELF_ONLY retry response', { error: selfOnlyErr, publishId: selfOnlyBody.data?.publish_id });
+        if (!selfOnlyErr || selfOnlyErr.code === 'ok') {
+          publishId = selfOnlyBody.data?.publish_id;
+        } else {
+          return { ok: false, error: `TikTok: ${selfOnlyErr.message || selfOnlyErr.code || 'Init failed'}`.slice(0, 300) };
+        }
+      } else if (pullErr && (pullErr.code === 'scope_not_authorized' || pullErr.code === 'access_token_invalid')) {
         // video.publish scope missing — try inbox via PULL_FROM_URL
         useInbox = true;
         const inboxPullRes = await axiosInstance.post(

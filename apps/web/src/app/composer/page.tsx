@@ -1145,7 +1145,7 @@ export default function ComposerPage() {
                         const inboxPlatforms = (results as any[])?.filter((r) => r.sentToInbox).map((r) => r.platform as string);
                         let msg = 'Post updated and published.';
                         if (mediaSkipped?.length) msg += ` Note: ${mediaSkipped.join(', ')} posted as text only (image upload was not allowed).`;
-                        if (inboxPlatforms?.length) msg += ` TikTok: video submitted. Open TikTok app, go to Profile, then Drafts to find and publish it (unaudited apps require manual approval).`;
+                        if (inboxPlatforms?.length) msg += ` TikTok: video posted as Private. Open TikTok app, go to your Profile, tap the video and change visibility to Public (required until app audit is complete).`;
                         setAlertMessage(msg);
                         try {
                             const listRes = await api.get('/posts');
@@ -1206,7 +1206,7 @@ export default function ComposerPage() {
                         const inboxCreate = (results as any[])?.filter((r) => r.sentToInbox).map((r) => r.platform as string);
                         let createMsg = 'Post published.';
                         if (mediaSkippedCreate?.length) createMsg += ` Note: ${mediaSkippedCreate.join(', ')} posted as text only (image upload was not allowed).`;
-                        if (inboxCreate?.length) createMsg += ` TikTok: video submitted. Open TikTok app, go to Profile, then Drafts to find and publish it (unaudited apps require manual approval).`;
+                        if (inboxCreate?.length) createMsg += ` TikTok: video posted as Private. Open TikTok app, go to your Profile, tap the video and change visibility to Public (required until app audit is complete).`;
                         setAlertMessage(createMsg);
                     } catch (err: unknown) {
                         const res = err && typeof err === 'object' && 'response' in err ? (err as { response?: { status?: number; data?: { message?: string } } }).response : undefined;

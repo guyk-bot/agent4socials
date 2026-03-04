@@ -61,19 +61,7 @@ export async function GET(request: NextRequest) {
   // TikTok verifies domain ownership on the initial URL (agent4socials.com) and follows redirects.
   const isVideoPath = /\.(mp4|webm|mov|avi|mkv)(\?|$)/i.test(targetUrl.pathname);
   if (isVideoPath && !formatJpeg) {
-    // Resolve the correct R2 URL (handles r2.dev path quirks)
-    let videoUrl = targetUrl.href;
-    if (publicBase.includes('r2.dev')) {
-      // Verify the key exists at the standard path; if not, try key-only path
-      const pathParts = targetUrl.pathname.replace(/^\/+/, '').split('/');
-      if (pathParts.length >= 2) {
-        const keyOnly = pathParts.slice(1).join('/');
-        const keyOnlyUrl = `${publicBase.replace(/\/$/, '')}/${keyOnly}`;
-        // Use key-only URL if the original might have a bucket-name prefix
-        videoUrl = keyOnlyUrl;
-      }
-    }
-    return NextResponse.redirect(videoUrl, { status: 302 });
+    return NextResponse.redirect(targetUrl.href, { status: 302 });
   }
 
   // For images: proxy through Vercel (do NOT forward Range — Meta sends Range headers which
