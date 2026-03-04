@@ -80,6 +80,9 @@ const PLATFORM_LABELS: Record<string, string> = {
     LINKEDIN: 'LinkedIn',
 };
 
+// Platforms that support comment-automation (replies to keyword comments)
+const COMMENT_AUTOMATION_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER']);
+
 const HASHTAG_POOL_KEY = 'agent4socials_hashtag_pool';
 const MAX_HASHTAGS_PER_POST = 5;
 
@@ -1030,7 +1033,7 @@ export default function ComposerPage() {
                     .map((k) => k.trim().toLowerCase())
                     .filter(Boolean);
                 const defaultReply = commentAutomationReplyTemplate.trim();
-                const supportedPlatforms = platforms.filter((p) => p !== 'LINKEDIN');
+                const supportedPlatforms = platforms.filter((p) => COMMENT_AUTOMATION_PLATFORMS.has(p));
                 const byPlatform: Record<string, string> = {};
                 for (const p of supportedPlatforms) {
                     const t = (commentAutomationReplyByPlatform[p] ?? defaultReply).trim();
@@ -1116,6 +1119,7 @@ export default function ComposerPage() {
                             if (failed.includes('TIKTOK')) {
                                 if (failed.includes('unaudited_client_can_only_post_to_private_accounts')) hint = (hint ? hint + ' ' : '') + 'For TikTok: your app has not passed TikTok\'s content posting audit, so it cannot post to public accounts. Apply for the Content Posting API audit in the TikTok Developer Portal.';
                                 else if (failed.includes('scope_not_authorized')) hint = (hint ? hint + ' ' : '') + 'For TikTok: reconnect your TikTok account from the Dashboard to grant the video.publish permission.';
+                                else if (failed.includes('spam_risk_too_many_pending_share')) hint = (hint ? hint + ' ' : '') + 'For TikTok: too many pending posts from previous failed attempts. Open the TikTok app, delete any pending/draft posts, and wait a few minutes before trying again.';
                                 else hint = (hint ? hint + ' ' : '') + 'For TikTok: ensure your app has Content Posting API access and the video meets requirements (MP4, under 10 min). Reconnect the account from Dashboard if needed.';
                             }
                             setAlertMessage(`Post updated but some platforms failed: ${failed}. ${hint}`);
@@ -1171,6 +1175,7 @@ export default function ComposerPage() {
                             if (failed.includes('TIKTOK')) {
                                 if (failed.includes('unaudited_client_can_only_post_to_private_accounts')) hint = (hint ? hint + ' ' : '') + 'For TikTok: your app has not passed TikTok\'s content posting audit, so it cannot post to public accounts. Apply for the Content Posting API audit in the TikTok Developer Portal.';
                                 else if (failed.includes('scope_not_authorized')) hint = (hint ? hint + ' ' : '') + 'For TikTok: reconnect your TikTok account from the Dashboard to grant the video.publish permission.';
+                                else if (failed.includes('spam_risk_too_many_pending_share')) hint = (hint ? hint + ' ' : '') + 'For TikTok: too many pending posts from previous failed attempts. Open the TikTok app, delete any pending/draft posts, and wait a few minutes before trying again.';
                                 else hint = (hint ? hint + ' ' : '') + 'For TikTok: ensure your app has Content Posting API access and the video meets requirements (MP4, under 10 min). Reconnect the account from Dashboard if needed.';
                             }
                             setAlertMessage(`Post created but TikTok or some platforms failed: ${failed}. ${hint}`);
@@ -1800,7 +1805,7 @@ export default function ComposerPage() {
                         )}
                     </div>
 
-                    <div className="card space-y-4">
+                    {platforms.some((p) => COMMENT_AUTOMATION_PLATFORMS.has(p)) && <div className="card space-y-4">
                         <button type="button" onClick={() => toggleSection('commentAutomation')} className="w-full flex items-center justify-between text-left">
                             <h3 className="font-semibold text-neutral-900">Comment automation</h3>
                             {sectionOpen.commentAutomation ? <ChevronUp size={20} className="text-neutral-400 shrink-0" /> : <ChevronDown size={20} className="text-neutral-400 shrink-0" />}
@@ -1848,11 +1853,11 @@ export default function ComposerPage() {
                                     />
                                     <span className="text-sm text-neutral-700">Tag the commenter in the reply (e.g. &quot;Hi @username, thanks!&quot;)</span>
                                 </label>
-                                {platforms.length > 0 && (
+                                {platforms.some((p) => COMMENT_AUTOMATION_PLATFORMS.has(p)) && (
                                     <div>
                                         <label className="block text-sm font-medium text-neutral-700 mb-2">Reply per platform (optional)</label>
                                         <div className="space-y-3">
-                                            {platforms.filter((p) => p !== 'LINKEDIN').map((p) => (
+                                            {platforms.filter((p) => COMMENT_AUTOMATION_PLATFORMS.has(p)).map((p) => (
                                                 <div key={p} className="space-y-1">
                                                     <span className="text-sm font-medium text-neutral-600">{PLATFORM_LABELS[p] || p}</span>
                                                     {p === 'INSTAGRAM' ? (
@@ -1938,7 +1943,7 @@ export default function ComposerPage() {
                         )}
                         </div>
                         )}
-                    </div>
+                    </div>}
 
                     <div className="card space-y-4">
                         <button type="button" onClick={() => toggleSection('hashtags')} className="w-full flex items-center justify-between text-left">
