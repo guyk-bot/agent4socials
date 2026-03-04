@@ -71,6 +71,20 @@ function mediaDisplayUrl(fileUrl: string): string {
     return fileUrl;
 }
 
+/**
+ * URL suitable for canvas readback (frame picker).
+ * R2 videos must go through our same-origin proxy; Supabase public storage
+ * already sends Access-Control-Allow-Origin: * so direct URL is fine.
+ * Use together with crossOrigin="anonymous" on the <video> element.
+ */
+function mediaCanvasUrl(fileUrl: string): string {
+    if (typeof fileUrl !== 'string' || !fileUrl.startsWith('http')) return fileUrl;
+    if (fileUrl.includes('r2.dev') || fileUrl.includes('cloudflarestorage.com')) {
+        return `/api/media/proxy?url=${encodeURIComponent(fileUrl)}`;
+    }
+    return fileUrl; // Supabase + other hosts return CORS headers on public buckets
+}
+
 const PLATFORM_LABELS: Record<string, string> = {
     INSTAGRAM: 'Instagram',
     TIKTOK: 'TikTok',
@@ -242,11 +256,11 @@ export default function ComposerPage() {
         video.muted = true;
         video.playsInline = true;
         video.crossOrigin = 'anonymous';
-        const src = item.fileUrl.startsWith('http')
-            ? (item.fileUrl.includes('r2.dev') || item.fileUrl.includes('cloudflarestorage.com')
-                ? `${typeof window !== 'undefined' ? window.location.origin : ''}/api/media/proxy?url=${encodeURIComponent(item.fileUrl)}`
-                : item.fileUrl)
-            : `${typeof window !== 'undefined' ? window.location.origin : ''}${item.fileUrl}`;
+        const canvasUrl = mediaCanvasUrl(item.fileUrl);
+        const src = canvasUrl.startsWith('http') ? canvasUrl
+            : canvasUrl.startsWith('/')
+                ? `${typeof window !== 'undefined' ? window.location.origin : ''}${canvasUrl}`
+                : canvasUrl;
         video.src = src;
         const onCanPlay = async () => {
             if (autoThumbnailDoneForRef.current === item.fileUrl) return;
@@ -1587,9 +1601,10 @@ export default function ComposerPage() {
                                                     <div className="absolute inset-0 w-full h-full bg-black">
                                                         <video
                                                             ref={videoThumbnailRef}
-                                                            src={mediaDisplayUrl(mediaList[0].fileUrl)}
+                                                            src={mediaCanvasUrl(mediaList[0].fileUrl)}
                                                             className="absolute inset-0 w-full h-full object-contain pointer-events-none opacity-0"
                                                             style={{ zIndex: 0 }}
+                                                            crossOrigin="anonymous"
                                                             muted
                                                             playsInline
                                                             preload="auto"
