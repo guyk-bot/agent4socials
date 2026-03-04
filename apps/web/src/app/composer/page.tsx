@@ -224,6 +224,7 @@ export default function ComposerPage() {
 
     // Thumbnail source: which single option is selected (none = use video default, upload = custom image, frame = pick from video)
     const [thumbnailChoice, setThumbnailChoice] = useState<'none' | 'upload' | 'frame'>('none');
+    const [thumbnailVideoLoadState, setThumbnailVideoLoadState] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle');
     const [differentThumbnailPerPlatform, setDifferentThumbnailPerPlatform] = useState(false);
     const [thumbnailByPlatform, setThumbnailByPlatform] = useState<Record<string, string>>({});
     const [selectedPlatformForThumbnail, setSelectedPlatformForThumbnail] = useState<string>('');
@@ -242,6 +243,11 @@ export default function ComposerPage() {
             setThumbnailChoice('upload');
         }
     }, [mediaList.length, mediaList[0]?.type, mediaList[0]?.thumbnailUrl, mediaList[0]?.fileUrl, thumbnailChoice]);
+
+    // Reset thumbnail video load state when source changes or user switches to/from frame picker
+    useEffect(() => {
+        setThumbnailVideoLoadState('idle');
+    }, [thumbnailChoice, mediaList[0]?.fileUrl]);
 
     // Auto-capture video frame for thumbnail when user chose "No custom thumbnail" (for History display only; publish uses video default)
     useEffect(() => {
@@ -1612,30 +1618,46 @@ export default function ComposerPage() {
                                                         <a href={mediaList[0].fileUrl} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="absolute bottom-1 right-1 p-1.5 bg-black/60 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow" title="Download"><Download size={12} /></a>
                                                     </>
                                                 ) : thumbnailChoice === 'frame' ? (
-                                                    <div className="absolute inset-0 w-full h-full bg-black">
+                                                    <div className="absolute inset-0 w-full h-full bg-neutral-900 flex items-center justify-center">
                                                         <video
                                                             ref={videoThumbnailRef}
                                                             src={mediaCanvasUrl(mediaList[0].fileUrl)}
                                                             className="absolute inset-0 w-full h-full object-contain pointer-events-none"
                                                             style={{ zIndex: 1 }}
-                                                            crossOrigin="anonymous"
+                                                            crossOrigin={mediaList[0].fileUrl.startsWith('blob:') ? undefined : 'anonymous'}
                                                             muted
                                                             playsInline
                                                             preload="auto"
                                                             key={mediaList[0].fileUrl}
+                                                            onLoadStart={() => setThumbnailVideoLoadState('loading')}
                                                             onLoadedMetadata={(e) => {
                                                                 const v = e.currentTarget;
                                                                 const d = v.duration;
                                                                 setThumbnailVideoDuration(Number.isFinite(d) ? d : 1);
                                                                 setThumbnailPickerTime(0);
                                                             }}
-                                                            onLoadedData={drawVideoFrameToCanvas}
+                                                            onLoadedData={() => {
+                                                                setThumbnailVideoLoadState('loaded');
+                                                                drawVideoFrameToCanvas();
+                                                            }}
                                                             onSeeked={drawVideoFrameToCanvas}
                                                             onTimeUpdate={(e) => {
                                                                 if (Date.now() < ignoreTimeUpdateUntilRef.current) return;
                                                                 setThumbnailPickerTime(e.currentTarget.currentTime);
                                                             }}
+                                                            onError={() => setThumbnailVideoLoadState('error')}
                                                         />
+                                                        {thumbnailVideoLoadState === 'loading' && (
+                                                            <div className="absolute inset-0 flex items-center justify-center bg-neutral-900/80 z-10">
+                                                                <Loader2 size={28} className="animate-spin text-white" />
+                                                            </div>
+                                                        )}
+                                                        {thumbnailVideoLoadState === 'error' && (
+                                                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-neutral-900/95 z-10 p-3 text-center">
+                                                                <p className="text-sm text-white font-medium">Video failed to load</p>
+                                                                <p className="text-xs text-neutral-400 mt-1">Try re-uploading or choose another thumbnail option.</p>
+                                                            </div>
+                                                        )}
                                                         <canvas ref={thumbnailCanvasRef} className="absolute inset-0 w-full h-full object-contain opacity-0 pointer-events-none" style={{ width: '100%', height: '100%', zIndex: 0 }} aria-hidden />
                                                     </div>
                                                 ) : (

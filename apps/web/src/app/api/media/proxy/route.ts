@@ -92,6 +92,7 @@ export async function GET(request: NextRequest) {
     const responseHeaders: Record<string, string> = {
       'Content-Type': contentType,
       'Cache-Control': 'private, max-age=3600',
+      'Access-Control-Allow-Origin': '*',
     };
     if (body instanceof Buffer) {
       responseHeaders['Content-Length'] = String(body.length);
