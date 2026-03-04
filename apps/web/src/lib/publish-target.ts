@@ -718,9 +718,10 @@ export async function publishTarget(
         // PULL_FROM_URL succeeded
         publishId = pullBody.data?.publish_id;
       } else if (pullErr.code === 'unaudited_client_can_only_post_to_private_accounts') {
-        // App not yet audited. TikTok blocks PULL_FROM_URL entirely for unaudited apps.
-        // Use FILE_UPLOAD with SELF_ONLY privacy — posts privately to TikTok.
-        // The user can change visibility to public in the TikTok app.
+        // Official TikTok policy: "All content posted by unaudited clients will be restricted to
+        // private viewing mode." (Content Posting API - Direct Post). We use FILE_UPLOAD with
+        // SELF_ONLY so the video posts to TikTok (privately). User can change visibility in app.
+        // See: https://developers.tiktok.com/doc/content-posting-api-reference-direct-post
         console.log('[TikTok] Unaudited app — switching to FILE_UPLOAD with SELF_ONLY privacy');
         const { buffer: unauditedBuf, contentType: unauditedCt } = await fetchMediaBuffer(videoUrl, fetchFn);
         const unauditedSize = unauditedBuf.length;
