@@ -69,7 +69,7 @@ export function PlatformBreakdownCards({ platforms }: PlatformBreakdownCardsProp
                 </div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                   <div>
-                    <p className="text-slate-500">Followers</p>
+                    <p className="text-slate-500">{p.platform === 'YOUTUBE' ? 'Subscribers' : 'Followers'}</p>
                     <p className="font-semibold text-slate-900">{p.followers.toLocaleString()}</p>
                   </div>
                   <div>

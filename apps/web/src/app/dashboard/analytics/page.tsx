@@ -324,7 +324,7 @@ export default function AnalyticsPage() {
               )}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
-                  <p className="text-sm font-medium text-neutral-500">Followers</p>
+                  <p className="text-sm font-medium text-neutral-500">{selectedAccount?.platform === 'YOUTUBE' ? 'Subscribers' : 'Followers'}</p>
                   <div className="flex items-center gap-3 mt-1">
                     <span className="text-3xl font-bold text-neutral-900">{displayInsights?.followers ?? 0}</span>
                     <div className="flex-1 h-2 max-w-[120px] rounded-full bg-neutral-200 overflow-hidden">
