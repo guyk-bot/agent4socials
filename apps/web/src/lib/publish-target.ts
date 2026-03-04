@@ -729,6 +729,9 @@ export async function publishTarget(
         } else {
           return { ok: false, error: `TikTok: ${inboxPullErr.message || inboxPullErr.code || 'Init failed'}`.slice(0, 300) };
         }
+      } else if (pullErr && pullErr.code === 'spam_risk_too_many_pending_share') {
+        // TikTok's pending-post limit hit from previous failed attempts — do not retry.
+        return { ok: false, error: 'TikTok: spam_risk_too_many_pending_share' };
       } else if (!urlOwnershipError) {
         // Some other error from TikTok
         return { ok: false, error: `TikTok: ${pullErr.message || pullErr.code || 'Init failed'}`.slice(0, 300) };
