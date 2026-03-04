@@ -79,10 +79,11 @@ function mediaDisplayUrl(fileUrl: string): string {
  */
 function mediaCanvasUrl(fileUrl: string): string {
     if (typeof fileUrl !== 'string' || !fileUrl.startsWith('http')) return fileUrl;
-    if (fileUrl.includes('r2.dev') || fileUrl.includes('cloudflarestorage.com')) {
-        return `/api/media/proxy?url=${encodeURIComponent(fileUrl)}`;
-    }
-    return fileUrl; // Supabase + other hosts return CORS headers on public buckets
+    // Return the direct URL for canvas use. Both R2 public buckets (pub-*.r2.dev) and
+    // Supabase serve Access-Control-Allow-Origin: * so crossOrigin="anonymous" works directly.
+    // Using the direct URL also gives the browser full Range-request support for seeking,
+    // which is critical for the frame-picker slider.
+    return fileUrl;
 }
 
 const PLATFORM_LABELS: Record<string, string> = {
@@ -880,7 +881,6 @@ export default function ComposerPage() {
         const video = videoThumbnailRef.current;
         const canvas = thumbnailCanvasRef.current;
         if (!video || !canvas) return;
-        if (video.readyState < 2) return;
         const w = video.videoWidth;
         const h = video.videoHeight;
         if (!w || !h) return;
@@ -888,7 +888,11 @@ export default function ComposerPage() {
         canvas.height = h;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
-        ctx.drawImage(video, 0, 0);
+        try {
+            ctx.drawImage(video, 0, 0);
+        } catch (_) {
+            // drawImage can throw if canvas is tainted or video not ready — ignore
+        }
     }, []);
 
     const handleThumbnailSliderChange = useCallback((t: number) => {
@@ -896,15 +900,19 @@ export default function ComposerPage() {
         ignoreTimeUpdateUntilRef.current = Date.now() + 800;
         const v = videoThumbnailRef.current;
         if (!v) return;
-        v.currentTime = t;
-        drawVideoFrameToCanvas();
-        const drawAfterSeek = () => {
+        // Imperative seeked listener — fires exactly once after the seek completes,
+        // even if the React onSeeked prop misses rapid consecutive seeks.
+        const onSeekedOnce = () => {
+            v.removeEventListener('seeked', onSeekedOnce);
             drawVideoFrameToCanvas();
         };
-        requestAnimationFrame(() => drawAfterSeek());
-        setTimeout(drawAfterSeek, 50);
-        setTimeout(drawAfterSeek, 150);
-        setTimeout(drawAfterSeek, 400);
+        v.addEventListener('seeked', onSeekedOnce);
+        v.currentTime = t;
+        // If the video is already at this time (readyState >= 2 and same frame),
+        // seeked may not fire — draw immediately as a fallback.
+        if (v.readyState >= 2) {
+            drawVideoFrameToCanvas();
+        }
     }, [drawVideoFrameToCanvas]);
 
     const handleRemoveMediaForPlatform = (platform: string, index: number) => {
