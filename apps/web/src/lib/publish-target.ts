@@ -718,11 +718,15 @@ export async function publishTarget(
         // PULL_FROM_URL succeeded
         publishId = pullBody.data?.publish_id;
       } else if (pullErr.code === 'unaudited_client_can_only_post_to_private_accounts') {
-        // App not yet audited: TikTok only allows SELF_ONLY (private) posts in development mode.
-        // Retry the main endpoint with SELF_ONLY privacy — video IS posted to TikTok (privately).
-        // The user can change visibility to public in the TikTok app after posting.
-        console.log('[TikTok] Unaudited app — retrying with SELF_ONLY privacy');
-        const selfOnlyRes = await axiosInstance.post(
+        // App not yet audited. TikTok blocks PULL_FROM_URL entirely for unaudited apps.
+        // Use FILE_UPLOAD with SELF_ONLY privacy — posts privately to TikTok.
+        // The user can change visibility to public in the TikTok app.
+        console.log('[TikTok] Unaudited app — switching to FILE_UPLOAD with SELF_ONLY privacy');
+        const { buffer: unauditedBuf, contentType: unauditedCt } = await fetchMediaBuffer(videoUrl, fetchFn);
+        const unauditedSize = unauditedBuf.length;
+        const unauditedChunk = Math.min(10 * 1024 * 1024, unauditedSize);
+        const unauditedMime = unauditedCt && /video\/(mp4|webm|quicktime)/i.test(unauditedCt) ? unauditedCt : 'video/mp4';
+        const uaInitRes = await axiosInstance.post(
           `${tiktokBase}/v2/post/publish/video/init/`,
           {
             post_info: {
@@ -733,17 +737,41 @@ export async function publishTarget(
               disable_comment: false,
               disable_stitch: false,
             },
-            source_info: { source: 'PULL_FROM_URL', video_url: videoUrl },
+            source_info: {
+              source: 'FILE_UPLOAD',
+              video_size: unauditedSize,
+              chunk_size: unauditedChunk,
+              total_chunk_count: Math.ceil(unauditedSize / unauditedChunk),
+            },
           },
           { headers, timeout: 30_000, validateStatus: () => true }
-        ) as { data?: { data?: { publish_id?: string }; error?: { code?: string; message?: string } } };
-        const selfOnlyBody = selfOnlyRes.data ?? {};
-        const selfOnlyErr = selfOnlyBody.error;
-        console.log('[TikTok] SELF_ONLY retry response', { error: selfOnlyErr, publishId: selfOnlyBody.data?.publish_id });
-        if (!selfOnlyErr || selfOnlyErr.code === 'ok') {
-          publishId = selfOnlyBody.data?.publish_id;
-        } else {
-          return { ok: false, error: `TikTok: ${selfOnlyErr.message || selfOnlyErr.code || 'Init failed'}`.slice(0, 300) };
+        ) as { data?: { data?: { publish_id?: string; upload_url?: string }; error?: { code?: string; message?: string } } };
+        const uaBody = uaInitRes.data ?? {};
+        const uaErr = uaBody.error;
+        console.log('[TikTok] FILE_UPLOAD SELF_ONLY init response', { error: uaErr, publishId: uaBody.data?.publish_id });
+        if (uaErr && uaErr.code !== 'ok') {
+          return { ok: false, error: `TikTok: ${uaErr.message || uaErr.code || 'Init failed'}`.slice(0, 300) };
+        }
+        publishId = uaBody.data?.publish_id;
+        const uaUploadUrl = uaBody.data?.upload_url;
+        if (!publishId || !uaUploadUrl) {
+          return { ok: false, error: 'TikTok: SELF_ONLY init did not return publish_id or upload_url.' };
+        }
+        // Upload in chunks
+        for (let off = 0; off < unauditedSize; off += unauditedChunk) {
+          const end = Math.min(off + unauditedChunk, unauditedSize);
+          const chunk = unauditedBuf.subarray(off, end);
+          const putRes = await fetchFn(uaUploadUrl, {
+            method: 'PUT',
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            body: chunk as any,
+            headers: { 'Content-Type': unauditedMime, 'Content-Range': `bytes ${off}-${end - 1}/${unauditedSize}` },
+            signal: AbortSignal.timeout(120_000),
+          });
+          if (putRes.status !== 200 && putRes.status !== 201 && putRes.status !== 206) {
+            const errText = await putRes.text().catch(() => `status ${putRes.status}`);
+            return { ok: false, error: `TikTok upload: ${putRes.status} ${errText}`.slice(0, 300) };
+          }
         }
       } else if (pullErr && (pullErr.code === 'scope_not_authorized' || pullErr.code === 'access_token_invalid')) {
         // video.publish scope missing — try inbox via PULL_FROM_URL
@@ -798,7 +826,20 @@ export async function publishTarget(
         let fileInitBody = fileInitRes.data ?? {};
         let fileInitErr = fileInitBody.error;
 
-        if (fileInitErr && (fileInitErr.code === 'scope_not_authorized' || fileInitErr.code === 'access_token_invalid' || fileInitErr.code === 'unaudited_client_can_only_post_to_private_accounts')) {
+        if (fileInitErr && fileInitErr.code === 'unaudited_client_can_only_post_to_private_accounts') {
+          // Retry with SELF_ONLY privacy
+          console.log('[TikTok] FILE_UPLOAD fallback: retrying with SELF_ONLY');
+          const selfFileRes = await axiosInstance.post(
+            `${tiktokBase}/v2/post/publish/video/init/`,
+            {
+              post_info: { title: caption.slice(0, 2200) || undefined, privacy_level: 'SELF_ONLY', brand_content_toggle: false, disable_duet: false, disable_comment: false, disable_stitch: false },
+              source_info: { source: 'FILE_UPLOAD', video_size: videoSize, chunk_size: CHUNK_SIZE, total_chunk_count: totalChunkCount },
+            },
+            { headers, timeout: 30_000, validateStatus: () => true }
+          ) as { data?: { data?: { publish_id?: string; upload_url?: string }; error?: { code?: string; message?: string } } };
+          fileInitBody = selfFileRes.data ?? {};
+          fileInitErr = fileInitBody.error;
+        } else if (fileInitErr && (fileInitErr.code === 'scope_not_authorized' || fileInitErr.code === 'access_token_invalid')) {
           useInbox = true;
           const inboxFileRes = await axiosInstance.post(
             `${tiktokBase}/v2/post/publish/inbox/video/init/`,
@@ -847,9 +888,11 @@ export async function publishTarget(
       // PULL_FROM_URL is async: TikTok fetches the video in the background — we do a few quick
       // checks to catch immediate failures, then return sentToInbox if still processing.
       // FILE_UPLOAD is synchronous so we poll longer.
-      const isPullFromUrl = !useInbox && !publishId.startsWith('inbox'); // rough heuristic
-      const maxWait = isPullFromUrl ? 6_000 : 60_000;   // 6s for pull, 60s for upload
-      const pollInterval = isPullFromUrl ? 1_500 : 3_000;
+      // Poll longer for FILE_UPLOAD (TikTok processes synchronously after upload)
+      // and shorter for PULL_FROM_URL (async — TikTok fetches on its own schedule).
+      const isPullFromUrl = !useInbox && !publishId.startsWith('v_inbox') && !publishId.startsWith('inbox');
+      const maxWait = isPullFromUrl ? 8_000 : 55_000;
+      const pollInterval = isPullFromUrl ? 2_000 : 3_000;
       let platformPostId: string | undefined;
       for (let elapsed = 0; elapsed < maxWait; elapsed += pollInterval) {
         await new Promise((r) => setTimeout(r, pollInterval));
