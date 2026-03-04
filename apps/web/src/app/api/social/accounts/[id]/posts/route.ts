@@ -461,14 +461,14 @@ async function syncImportedPosts(
       };
       const fields = 'cover_image_url,id,title,create_time,share_url,like_count,comment_count,view_count';
       const allVideos: TikTokVideo[] = [];
-      let cursor: number | undefined;
+      let cursor: number | string | undefined;
       let hasMore = true;
       let pages = 0;
       while (hasMore && pages < 10) {
-        const body: { max_count: number; cursor?: number } = { max_count: 20 };
+        const body: { max_count: number; cursor?: number | string } = { max_count: 20 };
         if (cursor != null) body.cursor = cursor;
         const res = await axios.post<{
-          data?: { videos?: TikTokVideo[]; cursor?: number; has_more?: boolean };
+          data?: { videos?: TikTokVideo[]; cursor?: number | string; has_more?: boolean };
           error?: { code?: string; message?: string };
         }>(
           `https://open.tiktokapis.com/v2/video/list/?fields=${encodeURIComponent(fields)}`,
@@ -488,7 +488,8 @@ async function syncImportedPosts(
           return msg;
         }
         cursor = res.data?.data?.cursor;
-        hasMore = res.data?.data?.has_more === true && list.length >= 20;
+        // Rely on has_more only: TikTok can return fewer than 20 per page (e.g. 1 or 10), so don't require list.length >= 20
+        hasMore = res.data?.data?.has_more === true;
         pages++;
       }
 
