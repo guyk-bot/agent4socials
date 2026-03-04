@@ -1139,8 +1139,10 @@ export default function ComposerPage() {
                             setAlertMessage(`Post updated but some platforms failed: ${failed}. ${hint}`);
                             return;
                         }
-                        const mediaSkipped = results?.filter((r: { mediaSkipped?: boolean }) => r.mediaSkipped).map((r: { platform: string }) => r.platform);
-                        const inboxPlatforms = results?.filter((r: { sentToInbox?: boolean }) => r.sentToInbox).map((r: { platform: string }) => r.platform);
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        const mediaSkipped = (results as any[])?.filter((r) => r.mediaSkipped).map((r) => r.platform as string);
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        const inboxPlatforms = (results as any[])?.filter((r) => r.sentToInbox).map((r) => r.platform as string);
                         let msg = 'Post updated and published.';
                         if (mediaSkipped?.length) msg += ` Note: ${mediaSkipped.join(', ')} posted as text only (image upload was not allowed).`;
                         if (inboxPlatforms?.length) msg += ` TikTok: video sent to your TikTok inbox — open the TikTok app to find and publish it to your feed.`;
@@ -1198,8 +1200,10 @@ export default function ComposerPage() {
                             setAlertMessage(`Post created but TikTok or some platforms failed: ${failed}. ${hint}`);
                             return;
                         }
-                        const mediaSkippedCreate = results?.filter((r: { mediaSkipped?: boolean }) => r.mediaSkipped).map((r: { platform: string }) => r.platform);
-                        const inboxCreate = results?.filter((r: { sentToInbox?: boolean }) => r.sentToInbox).map((r: { platform: string }) => r.platform);
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        const mediaSkippedCreate = (results as any[])?.filter((r) => r.mediaSkipped).map((r) => r.platform as string);
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        const inboxCreate = (results as any[])?.filter((r) => r.sentToInbox).map((r) => r.platform as string);
                         let createMsg = 'Post published.';
                         if (mediaSkippedCreate?.length) createMsg += ` Note: ${mediaSkippedCreate.join(', ')} posted as text only (image upload was not allowed).`;
                         if (inboxCreate?.length) createMsg += ` TikTok: video sent to your TikTok inbox — open the TikTok app to find and publish it to your feed.`;
