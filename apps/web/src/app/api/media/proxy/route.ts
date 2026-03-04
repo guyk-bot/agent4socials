@@ -49,11 +49,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
   }
 
-  // Do NOT forward Range to R2. Meta/Instagram fetches image_url and may send Range;
-  // R2 would return 206 Partial Content, causing corrupt image and error 2207076.
+  const isVideoUrl = /\.(mp4|webm|mov|avi|mkv)(\?|$)/i.test(targetUrl.pathname);
+  const rangeHeader = request.headers.get('range');
+
+  // For images: do NOT forward Range (Meta/Instagram sends Range and R2 returning 206 causes corrupt uploads).
+  // For videos: forward Range so the browser can seek (required for the frame-picker canvas feature).
   const fetchHeaders: HeadersInit = {
     Accept: '*/*',
     'User-Agent': 'Mozilla/5.0 (compatible; Meta-Instagram/1.0; +https://www.instagram.com)',
+    ...(isVideoUrl && rangeHeader ? { Range: rangeHeader } : {}),
   };
 
   try {
@@ -63,7 +67,7 @@ export async function GET(request: NextRequest) {
       cache: 'no-store',
     });
     // R2 dev URL: path may have been built as /bucket/key but R2 expects /key only; retry with key only
-    if (res.status === 404 && targetUrl.pathname.includes('/') && publicBase.includes('r2.dev')) {
+    if ((res.status === 404 || res.status === 403) && targetUrl.pathname.includes('/') && publicBase.includes('r2.dev')) {
       const pathParts = targetUrl.pathname.replace(/^\/+/, '').split('/');
       if (pathParts.length >= 2) {
         const keyOnly = pathParts.slice(1).join('/');
@@ -71,7 +75,7 @@ export async function GET(request: NextRequest) {
         res = await fetch(fallbackUrl, { method: 'GET', headers: fetchHeaders, cache: 'no-store' });
       }
     }
-    if (!res.ok) {
+    if (!res.ok && res.status !== 206) {
       return NextResponse.json({ message: 'Upstream error' }, { status: res.status === 404 ? 404 : 502 });
     }
     let contentType = res.headers.get('content-type')?.split(';')[0]?.trim()
@@ -95,11 +99,15 @@ export async function GET(request: NextRequest) {
       const contentLength = res.headers.get('content-length');
       if (contentLength) responseHeaders['Content-Length'] = contentLength;
     }
-    if (!formatJpeg && res.headers.get('Accept-Ranges')) {
-      responseHeaders['Accept-Ranges'] = res.headers.get('Accept-Ranges')!;
-    }
+    // Forward range-related headers from upstream
+    const acceptRanges = res.headers.get('Accept-Ranges');
+    if (acceptRanges) responseHeaders['Accept-Ranges'] = acceptRanges;
+    const contentRange = res.headers.get('Content-Range');
+    if (contentRange) responseHeaders['Content-Range'] = contentRange;
+
+    const statusCode = res.status === 206 ? 206 : 200;
     return new NextResponse(body as BodyInit, {
-      status: 200,
+      status: statusCode,
       headers: responseHeaders,
     });
   } catch (err) {

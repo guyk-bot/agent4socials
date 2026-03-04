@@ -288,7 +288,7 @@ export async function POST(
 
     if (result.ok) {
       const inboxNote = result.sentToInbox
-        ? 'Sent to TikTok inbox — open TikTok app to find and publish the video.'
+        ? 'Sent to TikTok Drafts — open TikTok app, go to Profile > Drafts to publish the video.'
         : undefined;
       await prisma.postTarget.update({
         where: { id: target.id },

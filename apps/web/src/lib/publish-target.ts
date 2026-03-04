@@ -812,14 +812,20 @@ export async function publishTarget(
         return { ok: false, error: 'TikTok: could not obtain publish_id.' };
       }
 
-      // 5) Poll status until PUBLISH_COMPLETE, SEND_TO_USER_INBOX, or FAILED
+      // 5) Poll status.
+      // PULL_FROM_URL is async: TikTok fetches the video in the background — we do a few quick
+      // checks to catch immediate failures, then return sentToInbox if still processing.
+      // FILE_UPLOAD is synchronous so we poll longer.
+      const isPullFromUrl = !useInbox && !publishId.startsWith('inbox'); // rough heuristic
+      const maxWait = isPullFromUrl ? 6_000 : 60_000;   // 6s for pull, 60s for upload
+      const pollInterval = isPullFromUrl ? 1_500 : 3_000;
       let platformPostId: string | undefined;
-      for (let wait = 0; wait < 300_000; wait += 3000) {
-        await new Promise((r) => setTimeout(r, 3000));
+      for (let elapsed = 0; elapsed < maxWait; elapsed += pollInterval) {
+        await new Promise((r) => setTimeout(r, pollInterval));
         const statusRes = await axiosInstance.post(
           `${tiktokBase}/v2/post/publish/status/fetch/`,
           { publish_id: publishId },
-          { headers, timeout: 30_000, validateStatus: () => true }
+          { headers, timeout: 10_000, validateStatus: () => true }
         ) as { data?: { data?: { status?: string; fail_reason?: string; publicly_available_post_id?: string }; error?: { code?: string; message?: string } } };
         const statusBody = statusRes.data ?? {};
         const statusErr = statusBody.error;
@@ -840,12 +846,13 @@ export async function publishTarget(
           const reason = statusBody.data?.fail_reason ?? 'Publish failed';
           return { ok: false, error: `TikTok: ${reason}`.slice(0, 300) };
         }
+        // status === 'PROCESSING_UPLOAD' or 'PROCESSING_DOWNLOAD' — keep polling
       }
       if (!platformPostId) {
-        // Still processing after poll window — treat as inbox (user can check TikTok app)
+        // Still processing after poll window — TikTok will complete async; check TikTok app
         return { ok: true, platformPostId: publishId, sentToInbox: true };
       }
-      return { ok: true, platformPostId, ...(useInbox ? {} : {}) };
+      return { ok: true, platformPostId };
     }
 
     return { ok: false, error: `Publish not implemented for ${platform}` };
