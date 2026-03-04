@@ -774,6 +774,36 @@ export default function DashboardPage() {
               {(selectedAccount?.platform === 'INSTAGRAM' || selectedAccount?.platform === 'FACEBOOK') && (
                 <p className="mt-2 text-xs text-amber-700">Use the Reconnect button above for this account, then choose your Page when asked.</p>
               )}
+              {selectedAccount?.platform === 'TIKTOK' && insights.insightsHint.includes('Sync posts') && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!selectedAccount?.id || importedPostsLoading) return;
+                    setImportedPostsLoading(true);
+                    try {
+                      const res = await api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: { sync: 1 } });
+                      const list = res.data?.posts ?? [];
+                      postsCacheRef.current[selectedAccount.id] = list;
+                      appData?.setPostsForAccount(selectedAccount.id, list);
+                      setImportedPosts(list);
+                      setPostsSyncError(res.data?.syncError ?? null);
+                      const cacheKey = `${selectedAccount.id}-${dateRange.start}-${dateRange.end}`;
+                      delete insightsCacheRef.current[cacheKey];
+                      const insightsRes = await api.get(`/social/accounts/${selectedAccount.id}/insights`, { params: { since: dateRange.start, until: dateRange.end } });
+                      const data = insightsRes.data ?? null;
+                      if (data) {
+                        insightsCacheRef.current[cacheKey] = data;
+                        appData?.setInsightsForAccount(selectedAccount.id, data);
+                      }
+                      setInsights(data);
+                    } catch (_) {}
+                    setImportedPostsLoading(false);
+                  }}
+                  className="mt-2 px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-medium hover:bg-amber-700 disabled:opacity-50"
+                >
+                  {importedPostsLoading ? 'Syncing…' : 'Sync posts'}
+                </button>
+              )}
             </div>
           )}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

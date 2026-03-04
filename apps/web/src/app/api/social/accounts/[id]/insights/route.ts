@@ -335,6 +335,8 @@ export async function GET(
       } catch (_) {}
       if (out.followers === 0 && out.impressionsTotal === 0) {
         out.insightsHint = 'Add user.info.stats scope and reconnect to see followers. Sync posts to see total views.';
+      } else if (out.followers > 0 && out.impressionsTotal === 0) {
+        out.insightsHint = 'Views come from your synced TikTok videos. Open the Posts tab and click "Sync posts" to load your videos and view counts.';
       }
       return NextResponse.json(out);
     }
