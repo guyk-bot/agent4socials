@@ -44,8 +44,8 @@ function AuthenticatedContent({
         >
             <AppHeader sidebarOpen={sidebarOpen} onSidebarToggle={onSidebarToggle} />
             <Sidebar sidebarOpen={sidebarOpen} onSidebarToggle={onSidebarToggle} />
-            <main className={`min-h-screen pt-14 transition-[padding] duration-200 ${sidebarOpen ? 'pl-64' : 'pl-0'} md:pl-64`}>
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6 md:py-8">
+            <main className={`min-h-[calc(100vh-3.5rem)] min-h-[calc(100dvh-3.5rem)] pt-14 transition-[padding] duration-200 ${sidebarOpen ? 'pl-64' : 'pl-0'} md:pl-64`}>
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6 md:py-8 min-h-[calc(100vh-3.5rem-3rem)] min-h-[calc(100dvh-3.5rem-3rem)]">
                     {children}
                 </div>
             </main>
