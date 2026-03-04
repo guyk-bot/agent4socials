@@ -146,13 +146,14 @@ export default function DashboardPage() {
         Object.keys(insightsCacheRef.current).forEach((k) => {
           if (k.startsWith(accountIdFromUrl + '-')) delete insightsCacheRef.current[k];
         });
+        appData?.clearAccountData(accountIdFromUrl);
       }
       router.replace('/dashboard', { scroll: false });
       setJustConnected(true);
       timeoutId = setTimeout(() => setJustConnected(false), 5000);
     }).catch(() => router.replace('/dashboard', { scroll: false }));
     return () => { if (timeoutId) clearTimeout(timeoutId); };
-  }, [connectingParam, twitter1oaNext, router, setSelectedAccountId, searchParams]);
+  }, [connectingParam, twitter1oaNext, router, setSelectedAccountId, searchParams, appData]);
 
   useEffect(() => {
     if (twitter1oaNext !== '1') return;

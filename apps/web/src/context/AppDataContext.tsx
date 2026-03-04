@@ -73,6 +73,7 @@ type AppDataContextType = {
   getScheduledPosts: () => CachedScheduledPost[];
   setPostsForAccount: (accountId: string, posts: CachedPost[]) => void;
   setInsightsForAccount: (accountId: string, insights: CachedInsights) => void;
+  clearAccountData: (accountId: string) => void;
   setCommentsForAccount: (accountId: string, comments: CachedComment[]) => void;
   setConversationsForAccount: (accountId: string, conversations: CachedConversation[]) => void;
   setScheduledPosts: (posts: CachedScheduledPost[]) => void;
@@ -111,6 +112,19 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
   const setInsightsForAccount = useCallback((accountId: string, insights: CachedInsights) => {
     setInsightsByAccountId((prev) => ({ ...prev, [accountId]: insights }));
+  }, []);
+
+  const clearAccountData = useCallback((accountId: string) => {
+    setPostsByAccountId((prev) => {
+      const next = { ...prev };
+      delete next[accountId];
+      return next;
+    });
+    setInsightsByAccountId((prev) => {
+      const next = { ...prev };
+      delete next[accountId];
+      return next;
+    });
   }, []);
 
   const setCommentsForAccount = useCallback((accountId: string, comments: CachedComment[]) => {
@@ -243,6 +257,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     getScheduledPosts,
     setPostsForAccount,
     setInsightsForAccount,
+    clearAccountData,
     setCommentsForAccount,
     setConversationsForAccount,
     setScheduledPosts,
