@@ -1600,14 +1600,14 @@ export default function ComposerPage() {
                                             </div>
                                         </div>
                                         <div className="shrink-0 sm:pt-0 pt-0">
-                                            <div className={`relative group rounded-lg overflow-hidden border-2 border-neutral-200 bg-neutral-100 shrink-0 ${mediaType === 'reel' || mediaType === 'video' ? 'aspect-[9/16] w-44' : 'aspect-video w-52'}`}>
+                                            <div className={`relative group rounded-lg overflow-hidden border-2 border-neutral-200 bg-neutral-100 shrink-0 ${mediaType === 'video' ? 'aspect-video w-64 max-w-full' : (mediaType === 'reel' ? 'aspect-[9/16] w-44' : 'aspect-video w-52')}`}>
                                                 {(() => {
                                                     const effectiveThumbnail = differentThumbnailPerPlatform && selectedPlatformForThumbnail
                                                         ? (thumbnailByPlatform[selectedPlatformForThumbnail] ?? mediaList[0].thumbnailUrl)
                                                         : mediaList[0].thumbnailUrl;
                                                     return effectiveThumbnail ? (
                                                     <>
-                                                        <img src={mediaDisplayUrl(effectiveThumbnail)} alt="Thumbnail" className="w-full h-full object-cover" />
+                                                        <img src={mediaDisplayUrl(effectiveThumbnail)} alt="Thumbnail" className="w-full h-full object-contain" />
                                                         <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveMedia(0); }} className="absolute top-1 right-1 p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow"><X size={12} /></button>
                                                         <a href={mediaList[0].fileUrl} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="absolute bottom-1 right-1 p-1.5 bg-black/60 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow" title="Download"><Download size={12} /></a>
                                                     </>
@@ -1616,8 +1616,8 @@ export default function ComposerPage() {
                                                         <video
                                                             ref={videoThumbnailRef}
                                                             src={mediaCanvasUrl(mediaList[0].fileUrl)}
-                                                            className="absolute inset-0 w-full h-full object-contain pointer-events-none opacity-0"
-                                                            style={{ zIndex: 0 }}
+                                                            className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+                                                            style={{ zIndex: 1 }}
                                                             crossOrigin="anonymous"
                                                             muted
                                                             playsInline
@@ -1636,11 +1636,11 @@ export default function ComposerPage() {
                                                                 setThumbnailPickerTime(e.currentTarget.currentTime);
                                                             }}
                                                         />
-                                                        <canvas ref={thumbnailCanvasRef} className="absolute inset-0 w-full h-full object-contain" style={{ width: '100%', height: '100%', zIndex: 1 }} />
+                                                        <canvas ref={thumbnailCanvasRef} className="absolute inset-0 w-full h-full object-contain opacity-0 pointer-events-none" style={{ width: '100%', height: '100%', zIndex: 0 }} aria-hidden />
                                                     </div>
                                                 ) : (
                                                     <>
-                                                        <video src={mediaDisplayUrl(mediaList[0].fileUrl)} className="w-full h-full object-cover" muted playsInline />
+                                                        <video src={mediaDisplayUrl(mediaList[0].fileUrl)} className="w-full h-full object-contain" muted playsInline />
                                                         <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveMedia(0); }} className="absolute top-1 right-1 p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow"><X size={12} /></button>
                                                         <a href={mediaList[0].fileUrl} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="absolute bottom-1 right-1 p-1.5 bg-black/60 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow" title="Download"><Download size={12} /></a>
                                                     </>
@@ -2186,8 +2186,27 @@ export default function ComposerPage() {
                     <div className="sticky top-6 space-y-3 overflow-y-auto max-h-[calc(100vh-8rem)]">
                         {platforms.length === 0 ? (
                             <div className="rounded-xl border-2 border-dashed border-neutral-200 bg-neutral-50/50 flex flex-col items-center justify-center py-8 text-neutral-400">
-                                <ImageIcon size={28} strokeWidth={1.5} className="text-neutral-300" />
-                                <p className="mt-2 text-xs font-medium">Select platforms</p>
+                                {mediaList.length > 0 ? (
+                                    <>
+                                        <div className={`w-full max-w-[320px] mx-auto rounded-lg overflow-hidden border border-neutral-200 bg-neutral-100 ${(mediaType === 'video' && mediaList[0].type === 'VIDEO') ? 'aspect-video' : (mediaType === 'reel' && mediaList[0].type === 'VIDEO') ? 'aspect-[9/16]' : 'aspect-square'}`}>
+                                            {mediaList[0].type === 'VIDEO' ? (
+                                                (mediaList[0] as MediaItem).thumbnailUrl ? (
+                                                    <img src={mediaDisplayUrl((mediaList[0] as MediaItem).thumbnailUrl!)} alt="Video" className="w-full h-full object-contain" />
+                                                ) : (
+                                                    <video src={mediaDisplayUrl(mediaList[0].fileUrl)} className="w-full h-full object-contain" muted playsInline />
+                                                )
+                                            ) : (
+                                                <img src={mediaDisplayUrl(mediaList[0].fileUrl)} alt="Preview" className="w-full h-full object-contain" />
+                                            )}
+                                        </div>
+                                        <p className="mt-3 text-xs font-medium text-neutral-500">Select platforms above to see per-platform preview</p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <ImageIcon size={28} strokeWidth={1.5} className="text-neutral-300" />
+                                        <p className="mt-2 text-xs font-medium">Select platforms</p>
+                                    </>
+                                )}
                             </div>
                         ) : (
                             <div className="grid grid-cols-2 gap-2">
@@ -2224,8 +2243,27 @@ export default function ComposerPage() {
                     <div className="space-y-3">
                         {platforms.length === 0 ? (
                             <div className="rounded-xl border-2 border-dashed border-neutral-200 bg-neutral-50/50 flex flex-col items-center justify-center py-8 text-neutral-400">
-                                <ImageIcon size={28} strokeWidth={1.5} className="text-neutral-300" />
-                                <p className="mt-2 text-xs font-medium">Select platforms</p>
+                                {mediaList.length > 0 ? (
+                                    <>
+                                        <div className={`w-full max-w-[320px] mx-auto rounded-lg overflow-hidden border border-neutral-200 bg-neutral-100 ${(mediaType === 'video' && mediaList[0].type === 'VIDEO') ? 'aspect-video' : (mediaType === 'reel' && mediaList[0].type === 'VIDEO') ? 'aspect-[9/16]' : 'aspect-square'}`}>
+                                            {mediaList[0].type === 'VIDEO' ? (
+                                                (mediaList[0] as MediaItem).thumbnailUrl ? (
+                                                    <img src={mediaDisplayUrl((mediaList[0] as MediaItem).thumbnailUrl!)} alt="Video" className="w-full h-full object-contain" />
+                                                ) : (
+                                                    <video src={mediaDisplayUrl(mediaList[0].fileUrl)} className="w-full h-full object-contain" muted playsInline />
+                                                )
+                                            ) : (
+                                                <img src={mediaDisplayUrl(mediaList[0].fileUrl)} alt="Preview" className="w-full h-full object-contain" />
+                                            )}
+                                        </div>
+                                        <p className="mt-3 text-xs font-medium text-neutral-500">Select platforms above to see per-platform preview</p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <ImageIcon size={28} strokeWidth={1.5} className="text-neutral-300" />
+                                        <p className="mt-2 text-xs font-medium">Select platforms</p>
+                                    </>
+                                )}
                             </div>
                         ) : (
                             <div className="grid grid-cols-2 gap-2">
@@ -2335,7 +2373,7 @@ function PostPreview({
                     <p className={`truncate text-neutral-500 ${compact ? 'text-[9px]' : 'text-xs'}`}>{PLATFORM_LABELS[platform] || platform}</p>
                 </div>
             </div>
-            <div className={`bg-neutral-50 flex items-center justify-center overflow-hidden relative ${mediaType === 'reel' || mediaType === 'video' || (media.length === 1 && media[0]?.type === 'VIDEO') ? 'aspect-[9/16]' : 'aspect-square'}`}>
+            <div className={`bg-neutral-50 flex items-center justify-center overflow-hidden relative ${mediaType === 'video' ? 'aspect-video' : mediaType === 'reel' || (media.length === 1 && media[0]?.type === 'VIDEO') ? 'aspect-[9/16]' : 'aspect-square'}`}>
                 {mediaUploading && !currentMedia ? (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-neutral-100 animate-pulse">
                         <Loader2 size={compact ? 18 : 28} className="animate-spin text-neutral-400" />
@@ -2345,9 +2383,9 @@ function PostPreview({
                     <>
                         {currentMedia.type === 'VIDEO' ? (
                             (currentMedia as { thumbnailUrl?: string }).thumbnailUrl ? (
-                                <img src={mediaDisplayUrl((currentMedia as { thumbnailUrl?: string }).thumbnailUrl!)} alt="Video cover" className="w-full h-full object-cover" />
+                                <img src={mediaDisplayUrl((currentMedia as { thumbnailUrl?: string }).thumbnailUrl!)} alt="Video cover" className="w-full h-full object-contain" />
                             ) : (
-                                <video src={mediaDisplayUrl(currentMedia.fileUrl)} className="w-full h-full object-cover" muted playsInline />
+                                <video src={mediaDisplayUrl(currentMedia.fileUrl)} className="w-full h-full object-contain" muted playsInline />
                             )
                         ) : (
                             <img src={mediaDisplayUrl(currentMedia.fileUrl)} alt="preview" className="w-full h-full object-cover" />
