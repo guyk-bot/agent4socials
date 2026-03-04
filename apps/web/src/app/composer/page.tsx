@@ -1133,7 +1133,7 @@ export default function ComposerPage() {
                             if (failed.includes('TIKTOK')) {
                                 if (failed.includes('unaudited_client_can_only_post_to_private_accounts')) hint = (hint ? hint + ' ' : '') + 'For TikTok: your app has not passed TikTok\'s content posting audit, so it cannot post to public accounts. Apply for the Content Posting API audit in the TikTok Developer Portal.';
                                 else if (failed.includes('scope_not_authorized')) hint = (hint ? hint + ' ' : '') + 'For TikTok: reconnect your TikTok account from the Dashboard to grant the video.publish permission.';
-                                else if (failed.includes('spam_risk_too_many_pending_share')) hint = (hint ? hint + ' ' : '') + 'For TikTok: too many pending posts from previous failed attempts. Open the TikTok app, delete any pending/draft posts, and wait a few minutes before trying again.';
+                                else if (failed.includes('spam_risk_too_many_pending_share')) hint = (hint ? hint + ' ' : '') + 'For TikTok: too many pending posts. Fix: go to TikTok Developer Portal, remove your sandbox test user, re-add them, then reconnect TikTok in Dashboard.';
                                 else hint = (hint ? hint + ' ' : '') + 'For TikTok: ensure your app has Content Posting API access and the video meets requirements (MP4, under 10 min). Reconnect the account from Dashboard if needed.';
                             }
                             setAlertMessage(`Post updated but some platforms failed: ${failed}. ${hint}`);
@@ -1189,7 +1189,7 @@ export default function ComposerPage() {
                             if (failed.includes('TIKTOK')) {
                                 if (failed.includes('unaudited_client_can_only_post_to_private_accounts')) hint = (hint ? hint + ' ' : '') + 'For TikTok: your app has not passed TikTok\'s content posting audit, so it cannot post to public accounts. Apply for the Content Posting API audit in the TikTok Developer Portal.';
                                 else if (failed.includes('scope_not_authorized')) hint = (hint ? hint + ' ' : '') + 'For TikTok: reconnect your TikTok account from the Dashboard to grant the video.publish permission.';
-                                else if (failed.includes('spam_risk_too_many_pending_share')) hint = (hint ? hint + ' ' : '') + 'For TikTok: too many pending posts from previous failed attempts. Open the TikTok app, delete any pending/draft posts, and wait a few minutes before trying again.';
+                                else if (failed.includes('spam_risk_too_many_pending_share')) hint = (hint ? hint + ' ' : '') + 'For TikTok: too many pending posts. Fix: go to TikTok Developer Portal, remove your sandbox test user, re-add them, then reconnect TikTok in Dashboard.';
                                 else hint = (hint ? hint + ' ' : '') + 'For TikTok: ensure your app has Content Posting API access and the video meets requirements (MP4, under 10 min). Reconnect the account from Dashboard if needed.';
                             }
                             setAlertMessage(`Post created but TikTok or some platforms failed: ${failed}. ${hint}`);
