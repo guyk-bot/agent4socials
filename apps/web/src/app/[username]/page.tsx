@@ -1,14 +1,17 @@
 import { notFound } from 'next/navigation';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/db';
 import { LinkPageRenderer } from '@/components/smart-links/LinkPageRenderer';
 import type { LinkPageDesign } from '@/components/smart-links/themes';
 import type { Metadata } from 'next';
 
-type Params = { slug: string };
+type Params = Promise<{ username: string }>;
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
+  const { username } = await params;
+  const slug = username.replace(/^@/, '').toLowerCase();
+  
   const linkPage = await prisma.linkPage.findUnique({
-    where: { slug: params.slug.toLowerCase() },
+    where: { slug },
     select: { title: true, bio: true, avatarUrl: true },
   });
 
@@ -17,10 +20,10 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   }
 
   return {
-    title: linkPage.title || `@${params.slug}`,
-    description: linkPage.bio || `Check out ${linkPage.title || params.slug}'s links`,
+    title: linkPage.title || `@${slug}`,
+    description: linkPage.bio || `Check out ${linkPage.title || slug}'s links`,
     openGraph: {
-      title: linkPage.title || `@${params.slug}`,
+      title: linkPage.title || `@${slug}`,
       description: linkPage.bio || undefined,
       images: linkPage.avatarUrl ? [linkPage.avatarUrl] : undefined,
     },
@@ -28,8 +31,11 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 }
 
 export default async function SmartLinkPublicPage({ params }: { params: Params }) {
+  const { username } = await params;
+  const slug = username.replace(/^@/, '').toLowerCase();
+  
   const linkPage = await prisma.linkPage.findUnique({
-    where: { slug: params.slug.toLowerCase() },
+    where: { slug },
     include: {
       links: {
         where: { isVisible: true },
