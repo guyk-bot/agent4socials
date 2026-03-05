@@ -9,6 +9,7 @@ export type LinkPageDesign = {
   buttonStyle?: 'rounded' | 'pill' | 'square' | 'outline' | 'filled' | 'shadow' | 'glass';
   buttonColor?: string;
   buttonTextColor?: string;
+  buttonSize?: 'small' | 'medium' | 'large';
   textColor?: string;
   animation?: 'none' | 'fade' | 'slide' | 'scale' | 'stagger';
 };

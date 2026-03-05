@@ -37,8 +37,14 @@ const SOCIAL_ICONS: Record<string, React.ReactNode> = {
   phone: <Phone size={20} />,
 };
 
-function getButtonClasses(style?: string, isGlass?: boolean): string {
-  const base = 'w-full py-3.5 px-6 font-medium transition-all duration-200 flex items-center justify-center gap-3 text-center';
+function getButtonClasses(style?: string, isGlass?: boolean, size?: 'small' | 'medium' | 'large'): string {
+  const sizeClasses =
+    size === 'small'
+      ? 'py-2.5 px-4 text-sm'
+      : size === 'large'
+        ? 'py-4 px-6 text-lg'
+        : 'py-3.5 px-6 text-base';
+  const base = `w-full ${sizeClasses} font-medium transition-all duration-200 flex items-center justify-center gap-3 text-center`;
   switch (style) {
     case 'pill':
       return `${base} rounded-full`;
@@ -90,13 +96,14 @@ export function LinkPageRenderer({
     bgStyle.backgroundImage = `url(${design.bgImageUrl})`;
     bgStyle.backgroundSize = 'cover';
     bgStyle.backgroundPosition = 'center';
+    bgStyle.backgroundRepeat = 'no-repeat';
   } else if (design.bgColor) {
     bgStyle.backgroundColor = design.bgColor;
   }
 
   const buttonStyle: React.CSSProperties = {
     backgroundColor: design.buttonStyle === 'outline' ? 'transparent' : design.buttonColor,
-    color: design.buttonTextColor,
+    color: design.buttonTextColor ?? '#ffffff',
     borderColor: design.buttonStyle === 'outline' ? design.buttonColor : undefined,
   };
 
@@ -169,7 +176,42 @@ export function LinkPageRenderer({
               );
             }
 
-            const icon = link.icon ? SOCIAL_ICONS[link.icon.toLowerCase()] : null;
+            if (link.type === 'image') {
+              const imageUrl = link.icon || link.url;
+              return (
+                <a
+                  key={link.id}
+                  href={link.url || '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`block w-full overflow-hidden rounded-xl ${getAnimationClass(design.animation, idx + 2)}`}
+                  style={{ animationDelay: design.animation === 'stagger' ? `${(idx + 2) * 80}ms` : undefined }}
+                  onClick={(e) => {
+                    if (isPreview) e.preventDefault();
+                  }}
+                >
+                  {imageUrl ? (
+                    <img
+                      src={imageUrl}
+                      alt={link.label || 'Link'}
+                      className="w-full aspect-video object-cover hover:scale-[1.02] transition-transform"
+                    />
+                  ) : (
+                    <div className="w-full aspect-video bg-white/20 flex items-center justify-center text-sm">
+                      Add image URL
+                    </div>
+                  )}
+                  {link.label && (
+                    <p className="text-sm font-medium mt-1.5 text-center opacity-90">{link.label}</p>
+                  )}
+                </a>
+              );
+            }
+
+            const isCustomIconUrl = link.icon?.startsWith('http');
+            const icon = isCustomIconUrl ? (
+              <img src={link.icon!} alt="" className="w-5 h-5 object-contain shrink-0" />
+            ) : link.icon ? SOCIAL_ICONS[link.icon.toLowerCase()] : null;
 
             return (
               <a
@@ -177,7 +219,7 @@ export function LinkPageRenderer({
                 href={link.url || '#'}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`${getButtonClasses(design.buttonStyle, design.buttonStyle === 'glass')} ${getAnimationClass(design.animation, idx + 2)}`}
+                className={`${getButtonClasses(design.buttonStyle, design.buttonStyle === 'glass', design.buttonSize)} ${getAnimationClass(design.animation, idx + 2)}`}
                 style={{
                   ...buttonStyle,
                   animationDelay: design.animation === 'stagger' ? `${(idx + 2) * 80}ms` : undefined,

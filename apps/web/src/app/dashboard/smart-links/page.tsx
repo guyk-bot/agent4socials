@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Link2, Plus, Trash2, GripVertical, Eye, Copy, Check, 
-  Image as ImageIcon, Palette, Type, ExternalLink, Save, Loader2,
+  Image as ImageIcon, Palette, Type, ExternalLink, Save, Loader2, Upload,
   Instagram, Facebook, Youtube, Twitter, Linkedin, Github, Globe, Mail
 } from 'lucide-react';
 import api from '@/lib/api';
@@ -71,6 +71,52 @@ export default function SmartLinksPage() {
     }
     load();
   }, []);
+
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [bgUploading, setBgUploading] = useState(false);
+  const [uploadingIconFor, setUploadingIconFor] = useState<string | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const bgInputRef = useRef<HTMLInputElement>(null);
+  const iconInputRef = useRef<HTMLInputElement>(null);
+
+  async function uploadFile(file: File): Promise<string> {
+    const res = await api.post<{ uploadUrl: string; fileUrl: string }>('/media/upload-url', {
+      fileName: file.name,
+      contentType: file.type || 'application/octet-stream',
+    });
+    const { uploadUrl, fileUrl } = res.data;
+    await fetch(uploadUrl, {
+      method: 'PUT',
+      body: file,
+      headers: { 'Content-Type': file.type || 'application/octet-stream' },
+    });
+    return fileUrl;
+  }
+
+  // Load selected font in preview (Google Fonts)
+  useEffect(() => {
+    const family = data.design?.fontFamily ?? FONT_OPTIONS[0].family;
+    const name = family.split(',')[0].trim().replace(/^["']|["']$/g, '');
+    if (!name) return;
+    const id = 'smart-links-font';
+    let link = document.getElementById(id) as HTMLLinkElement | null;
+    const fontParam = name.replace(/\s+/g, '+');
+    const href = `https://fonts.googleapis.com/css2?family=${fontParam}:wght@400;600;700&display=swap`;
+    if (link) {
+      if (link.getAttribute('href') !== href) {
+        link.href = href;
+      }
+      return;
+    }
+    link = document.createElement('link');
+    link.id = id;
+    link.rel = 'stylesheet';
+    link.href = href;
+    document.head.appendChild(link);
+    return () => {
+      link?.parentNode?.removeChild(link);
+    };
+  }, [data.design?.fontFamily]);
 
   const handleSave = useCallback(async () => {
     setSaving(true);
@@ -247,22 +293,52 @@ export default function SmartLinksPage() {
                   <h3 className="text-sm font-semibold text-slate-700">Profile</h3>
                   <div className="flex items-start gap-4">
                     <div className="relative">
-                      <div className="w-16 h-16 rounded-full bg-slate-100 overflow-hidden border-2 border-slate-200">
+                      <div className="w-20 h-20 rounded-full bg-slate-100 overflow-hidden border-2 border-slate-200 flex-shrink-0">
                         {data.avatarUrl ? (
                           <img src={data.avatarUrl} alt="" className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-slate-400">
-                            <ImageIcon className="w-6 h-6" />
+                            <ImageIcon className="w-8 h-8" />
                           </div>
                         )}
                       </div>
+                      <input
+                        ref={avatarInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          setAvatarUploading(true);
+                          try {
+                            const url = await uploadFile(file);
+                            setData((prev) => ({ ...prev, avatarUrl: url }));
+                          } catch {
+                            console.error('Avatar upload failed');
+                          } finally {
+                            setAvatarUploading(false);
+                            e.target.value = '';
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => avatarInputRef.current?.click()}
+                        disabled={avatarUploading}
+                        className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow hover:bg-indigo-700 disabled:opacity-50"
+                        title="Upload profile photo"
+                      >
+                        {avatarUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                      </button>
                     </div>
-                    <div className="flex-1 space-y-3">
+                    <div className="flex-1 space-y-3 min-w-0">
+                      <p className="text-xs text-slate-500">Recommended: 400×400px square. Upload above or paste URL below.</p>
                       <input
                         type="text"
                         value={data.avatarUrl || ''}
                         onChange={(e) => setData((prev) => ({ ...prev, avatarUrl: e.target.value }))}
-                        placeholder="Avatar URL"
+                        placeholder="Avatar image URL (or upload above)"
                         className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-200"
                       />
                       <input
@@ -285,6 +361,26 @@ export default function SmartLinksPage() {
 
                 {/* Links List */}
                 <div className="space-y-3">
+                  <input
+                    ref={iconInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      const linkId = uploadingIconFor;
+                      if (!file || !linkId) return;
+                      try {
+                        const url = await uploadFile(file);
+                        updateLink(linkId, { icon: url });
+                      } catch {
+                        console.error('Upload failed');
+                      } finally {
+                        setUploadingIconFor(null);
+                        e.target.value = '';
+                      }
+                    }}
+                  />
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-slate-700">Links</h3>
                     <div className="flex gap-2">
@@ -293,6 +389,12 @@ export default function SmartLinksPage() {
                         className="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-medium hover:bg-indigo-100 transition-colors flex items-center gap-1"
                       >
                         <Plus className="w-3 h-3" /> Link
+                      </button>
+                      <button
+                        onClick={() => addLink('image')}
+                        className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-200 transition-colors flex items-center gap-1"
+                      >
+                        <ImageIcon className="w-3 h-3" /> Image
                       </button>
                       <button
                         onClick={() => addLink('header')}
@@ -314,7 +416,7 @@ export default function SmartLinksPage() {
                           key={link.id}
                           className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100 group"
                         >
-                          <GripVertical className="w-4 h-4 text-slate-300 cursor-grab" />
+                          <GripVertical className="w-4 h-4 text-slate-300 cursor-grab shrink-0" />
                           {link.type === 'header' ? (
                             <input
                               type="text"
@@ -323,37 +425,89 @@ export default function SmartLinksPage() {
                               placeholder="Section title"
                               className="flex-1 px-2 py-1 bg-transparent text-sm font-semibold text-slate-700 focus:outline-none"
                             />
+                          ) : link.type === 'image' ? (
+                            <div className="flex-1 flex flex-wrap items-center gap-2 min-w-0">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setUploadingIconFor(link.id);
+                                  iconInputRef.current?.click();
+                                }}
+                                disabled={uploadingIconFor === link.id}
+                                className="shrink-0 px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs hover:bg-slate-50 flex items-center gap-1"
+                              >
+                                {uploadingIconFor === link.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                                Photo
+                              </button>
+                              <input
+                                type="text"
+                                value={link.label || ''}
+                                onChange={(e) => updateLink(link.id, { label: e.target.value })}
+                                placeholder="Caption (optional)"
+                                className="flex-1 min-w-[80px] px-2 py-1 bg-white border border-slate-200 rounded-lg text-sm"
+                              />
+                              <input
+                                type="text"
+                                value={link.url || ''}
+                                onChange={(e) => updateLink(link.id, { url: e.target.value })}
+                                placeholder="Link URL"
+                                className="flex-1 min-w-[80px] px-2 py-1 bg-white border border-slate-200 rounded-lg text-sm"
+                              />
+                            </div>
                           ) : (
-                            <div className="flex-1 flex items-center gap-2">
+                            <div className="flex-1 flex flex-wrap items-center gap-2 min-w-0">
                               <select
-                                value={link.icon || ''}
-                                onChange={(e) => updateLink(link.id, { icon: e.target.value || null })}
-                                className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs"
+                                value={link.icon?.startsWith('http') ? 'custom' : (link.icon || '')}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  if (v === 'custom') {
+                                    setUploadingIconFor(link.id);
+                                    setTimeout(() => iconInputRef.current?.click(), 0);
+                                  } else {
+                                    updateLink(link.id, { icon: v || null });
+                                  }
+                                }}
+                                className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs shrink-0"
                               >
                                 <option value="">No icon</option>
                                 {SOCIAL_OPTIONS.map((s) => (
                                   <option key={s.id} value={s.id}>{s.name}</option>
                                 ))}
+                                <option value="custom">Custom (upload)</option>
                               </select>
+                              {link.icon?.startsWith('http') && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setUploadingIconFor(link.id);
+                                    iconInputRef.current?.click();
+                                  }}
+                                  disabled={uploadingIconFor === link.id}
+                                  className="shrink-0 p-1 rounded hover:bg-slate-200"
+                                  title="Change custom icon"
+                                >
+                                  {uploadingIconFor === link.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                                </button>
+                              )}
                               <input
                                 type="text"
                                 value={link.label || ''}
                                 onChange={(e) => updateLink(link.id, { label: e.target.value })}
                                 placeholder="Label"
-                                className="flex-1 px-2 py-1 bg-white border border-slate-200 rounded-lg text-sm"
+                                className="flex-1 min-w-[60px] px-2 py-1 bg-white border border-slate-200 rounded-lg text-sm"
                               />
                               <input
                                 type="text"
                                 value={link.url || ''}
                                 onChange={(e) => updateLink(link.id, { url: e.target.value })}
                                 placeholder="https://..."
-                                className="flex-1 px-2 py-1 bg-white border border-slate-200 rounded-lg text-sm"
+                                className="flex-1 min-w-[60px] px-2 py-1 bg-white border border-slate-200 rounded-lg text-sm"
                               />
                             </div>
                           )}
                           <button
                             onClick={() => deleteLink(link.id)}
-                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100 shrink-0"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -394,11 +548,121 @@ export default function SmartLinksPage() {
                     value={data.design?.fontFamily || FONT_OPTIONS[0].family}
                     onChange={(e) => updateDesign({ fontFamily: e.target.value })}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                    style={{ fontFamily: data.design?.fontFamily || FONT_OPTIONS[0].family }}
                   >
                     {FONT_OPTIONS.map((f) => (
-                      <option key={f.id} value={f.family}>{f.name}</option>
+                      <option key={f.id} value={f.family} style={{ fontFamily: f.family }}>{f.name}</option>
                     ))}
                   </select>
+                </div>
+
+                {/* Background */}
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold text-slate-700">Background</h3>
+                  <div className="grid grid-cols-4 gap-2">
+                    {(['solid', 'gradient', 'image', 'video'] as const).map((bg) => (
+                      <button
+                        key={bg}
+                        onClick={() => updateDesign({ bgType: bg })}
+                        className={`px-2 py-1.5 rounded-lg text-xs font-medium capitalize ${data.design?.bgType === bg ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                      >
+                        {bg}
+                      </button>
+                    ))}
+                  </div>
+                  {data.design?.bgType === 'image' && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          ref={bgInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            setBgUploading(true);
+                            try {
+                              const url = await uploadFile(file);
+                              updateDesign({ bgImageUrl: url });
+                            } catch {
+                              console.error('Background upload failed');
+                            } finally {
+                              setBgUploading(false);
+                              if (e.target) (e.target as HTMLInputElement).value = '';
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => bgInputRef.current?.click()}
+                          disabled={bgUploading}
+                          className="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-xs font-medium hover:bg-slate-200 flex items-center gap-1.5 disabled:opacity-50"
+                        >
+                          {bgUploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                          Upload photo/GIF
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        value={data.design?.bgImageUrl || ''}
+                        onChange={(e) => updateDesign({ bgImageUrl: e.target.value })}
+                        placeholder="Or paste image URL"
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                      />
+                    </div>
+                  )}
+                  {data.design?.bgType === 'video' && (
+                    <input
+                      type="text"
+                      value={data.design?.bgVideoUrl || ''}
+                      onChange={(e) => updateDesign({ bgVideoUrl: e.target.value })}
+                      placeholder="Video URL (MP4)"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                    />
+                  )}
+                  {data.design?.bgType === 'solid' && (
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-slate-600">Color</label>
+                      <input
+                        type="color"
+                        value={data.design?.bgColor || '#ffffff'}
+                        onChange={(e) => updateDesign({ bgColor: e.target.value })}
+                        className="h-10 w-14 rounded cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={data.design?.bgColor || '#ffffff'}
+                        onChange={(e) => updateDesign({ bgColor: e.target.value })}
+                        className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono"
+                      />
+                    </div>
+                  )}
+                  {data.design?.bgType === 'gradient' && (
+                    <input
+                      type="text"
+                      value={data.design?.bgGradient || ''}
+                      onChange={(e) => updateDesign({ bgGradient: e.target.value })}
+                      placeholder="e.g. linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono"
+                    />
+                  )}
+                </div>
+
+                {/* Button Size */}
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-slate-700">Button Size</h3>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['small', 'medium', 'large'] as const).map((sz) => (
+                      <button
+                        key={sz}
+                        onClick={() => updateDesign({ buttonSize: sz })}
+                        className={`px-3 py-2 rounded-lg text-xs font-medium capitalize ${(data.design?.buttonSize ?? 'medium') === sz ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                      >
+                        {sz}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Button Style */}
@@ -429,7 +693,16 @@ export default function SmartLinksPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-700">Text Color</label>
+                    <label className="text-sm font-semibold text-slate-700">Button Text Color</label>
+                    <input
+                      type="color"
+                      value={data.design?.buttonTextColor ?? '#ffffff'}
+                      onChange={(e) => updateDesign({ buttonTextColor: e.target.value })}
+                      className="w-full h-10 rounded-lg cursor-pointer"
+                    />
+                  </div>
+                  <div className="space-y-2 col-span-2">
+                    <label className="text-sm font-semibold text-slate-700">Page Text Color</label>
                     <input
                       type="color"
                       value={data.design?.textColor || '#0f172a'}
@@ -463,12 +736,16 @@ export default function SmartLinksPage() {
       {/* Preview Panel */}
       <div className="w-full lg:w-80 xl:w-96 flex-shrink-0">
         <div className="sticky top-6">
+          <p className="text-center text-xs font-medium text-slate-500 mb-3">Live Preview</p>
           <div className="bg-slate-900 rounded-[2.5rem] p-3 shadow-2xl">
-            <div className="bg-white rounded-[2rem] overflow-hidden" style={{ height: 580 }}>
+            <div
+              key={`preview-${data.design?.fontFamily ?? ''}-${data.design?.buttonSize ?? 'medium'}`}
+              className="bg-white rounded-[2rem] overflow-hidden"
+              style={{ height: 580 }}
+            >
               <LinkPageRenderer data={data} isPreview />
             </div>
           </div>
-          <p className="text-center text-xs text-slate-400 mt-3">Live Preview</p>
         </div>
       </div>
     </div>
