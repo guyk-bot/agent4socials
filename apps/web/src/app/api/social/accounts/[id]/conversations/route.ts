@@ -1,9 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
-import axios from 'axios';
+import axios, { AxiosResponse } from 'axios';
 
 const baseUrl = 'https://graph.facebook.com/v18.0';
+
+type ConvParticipant = {
+  id?: string;
+  name?: string;
+  username?: string;
+  profile_pic?: string;
+  picture?: { data?: { url?: string } };
+};
+
+type ConvItem = {
+  id: string;
+  updated_time?: string;
+  participants?: { data?: ConvParticipant[] };
+};
+
+type ConvApiResponse = {
+  data?: ConvItem[];
+  paging?: { next?: string; cursors?: { after?: string } };
+  error?: { message: string; code?: number };
+};
 
 /**
  * GET /api/social/accounts/[id]/conversations
@@ -87,34 +107,14 @@ export async function GET(
   // For graph.instagram.com (Instagram Business Login) it is not required and may cause errors.
   if (isInstagram && !isInstagramBusinessLogin) queryParams.platform = 'instagram';
 
-  type ConvItem = {
-    id: string;
-    updated_time?: string;
-    participants?: {
-      data?: Array<{
-        id?: string;
-        name?: string;
-        username?: string;
-        profile_pic?: string;
-        picture?: { data?: { url?: string } };
-      }>;
-    };
-  };
-
-  type ConvApiResponse = {
-    data?: ConvItem[];
-    paging?: { next?: string; cursors?: { after?: string } };
-    error?: { message: string; code?: number };
-  };
-
   // Fetch all pages of conversations (follow paging.next up to 5 pages).
-  async function fetchAllConversations(url: string, params: Record<string, string>): Promise<ConvItem[]> {
+  async function fetchAllConversations(url: string, params: Record<string, string>, token: string): Promise<ConvItem[]> {
     const all: ConvItem[] = [];
     let nextUrl: string | null = null;
     let pageCount = 0;
     do {
-      const res = await axios.get<ConvApiResponse>(nextUrl ?? url, {
-        params: nextUrl ? { access_token: activeToken } : params,
+      const res: AxiosResponse<ConvApiResponse> = await axios.get(nextUrl ?? url, {
+        params: nextUrl ? { access_token: token } : params,
         timeout: 60_000,
       });
       if (res.data?.error) {
@@ -130,7 +130,7 @@ export async function GET(
   try {
     let rawConversations: ConvItem[];
     try {
-      rawConversations = await fetchAllConversations(conversationsPath, queryParams);
+      rawConversations = await fetchAllConversations(conversationsPath, queryParams, activeToken);
     } catch (innerErr) {
       const metaErr = (innerErr as { metaError?: { message?: string; code?: number } }).metaError;
       if (metaErr) {
