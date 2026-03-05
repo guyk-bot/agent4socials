@@ -51,8 +51,11 @@ export function ContentActivityPanels({ dailyPublishing, dailyEngagement }: Cont
     new Set(dailyPublishing.flatMap((d) => Object.keys(d.byPlatform)))
   );
 
+  type SafeTooltipProps = { active?: boolean; payload?: Array<{ name?: string; value?: number; color?: string }>; label?: string };
+
   const PublishTooltip = useCallback(
-    ({ active, payload, label }: TooltipProps<number, string>) => {
+    (rawProps: TooltipProps<number, string>) => {
+      const { active, payload, label } = rawProps as unknown as SafeTooltipProps;
       if (!active || !payload?.length || !label) return null;
       const row = dailyPublishing.find((d) => d.date === label);
       return (
@@ -72,7 +75,8 @@ export function ContentActivityPanels({ dailyPublishing, dailyEngagement }: Cont
   );
 
   const EngageTooltip = useCallback(
-    ({ active, payload, label }: TooltipProps<number, string>) => {
+    (rawProps: TooltipProps<number, string>) => {
+      const { active, payload, label } = rawProps as unknown as SafeTooltipProps;
       if (!active || !payload?.length || !label) return null;
       return (
         <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-xl text-sm">

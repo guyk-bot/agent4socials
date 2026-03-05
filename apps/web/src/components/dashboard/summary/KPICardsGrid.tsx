@@ -24,7 +24,8 @@ function Sparkline({ values, color }: { values: number[]; color: string }) {
             </linearGradient>
           </defs>
           <Tooltip
-            content={({ active, payload }: TooltipProps<number, string>) => {
+            content={(rawProps: TooltipProps<number, string>) => {
+              const { active, payload } = rawProps as unknown as { active?: boolean; payload?: Array<{ value?: number }> };
               if (!active || !payload?.length) return null;
               return (
                 <div className="bg-white border border-neutral-200 rounded-lg px-2 py-1 text-xs shadow">
