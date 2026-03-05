@@ -4,27 +4,42 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
-const PROFILE_FETCH_TIMEOUT_MS = 12_000;
 const FALLBACK_TIMEOUT_MS = 15_000;
+const SHOW_ESCAPE_MS = 5_000;
 
-function parseHashParams(hash: string): Record<string, string> {
+function parseFragmentParams(fragment: string): Record<string, string> {
   const params: Record<string, string> = {};
-  if (!hash || !hash.startsWith('#')) return params;
-  const search = hash.slice(1);
+  const search = fragment.startsWith('#') ? fragment.slice(1) : fragment.startsWith('?') ? fragment.slice(1) : fragment;
+  if (!search) return params;
   for (const part of search.split('&')) {
-    const [key, value] = part.split('=');
-    if (key && value) params[key] = decodeURIComponent(value);
+    const eq = part.indexOf('=');
+    if (eq === -1) continue;
+    const key = decodeURIComponent(part.slice(0, eq));
+    const value = decodeURIComponent(part.slice(eq + 1));
+    if (key && value !== undefined) params[key] = value;
   }
   return params;
+}
+
+/** Get OAuth params from hash (preferred) or query string (fallback if redirect stripped hash). */
+function getCallbackParams(): Record<string, string> {
+  if (typeof window === 'undefined') return {};
+  const hash = window.location.hash;
+  const search = window.location.search;
+  const fromHash = parseFragmentParams(hash);
+  if (fromHash.access_token) return fromHash;
+  return parseFragmentParams(search);
 }
 
 export default function AuthCallbackPage() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [showEscape, setShowEscape] = useState(false);
   const doneRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
+    const escapeTimer = setTimeout(() => setShowEscape(true), SHOW_ESCAPE_MS);
 
     const redirectToDashboard = () => {
       if (doneRef.current) return;
@@ -32,7 +47,7 @@ export default function AuthCallbackPage() {
       window.location.href = '/dashboard';
     };
 
-    // Safety: if we're still on this page after FALLBACK_TIMEOUT_MS, redirect if session exists
+    // Safety: if still on this page after FALLBACK_TIMEOUT_MS, redirect if session exists
     const fallbackTimer = setTimeout(() => {
       if (cancelled || doneRef.current) return;
       supabase.auth.getSession().then(({ data: { session } }) => {
@@ -44,8 +59,7 @@ export default function AuthCallbackPage() {
 
     async function handleCallback() {
       try {
-        const hash = typeof window !== 'undefined' ? window.location.hash : '';
-        const params = parseHashParams(hash);
+        const params = getCallbackParams();
 
         if (params.access_token) {
           const { error: setErrorResult } = await supabase.auth.setSession({
@@ -64,32 +78,7 @@ export default function AuthCallbackPage() {
             }
             return;
           }
-          // Load profile with timeout so we don't hang if API is slow/down
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), PROFILE_FETCH_TIMEOUT_MS);
-          let profileRes: Response;
-          try {
-            profileRes = await fetch('/api/auth/profile', {
-              headers: { Authorization: `Bearer ${params.access_token}` },
-              signal: controller.signal,
-            });
-          } catch (fetchErr) {
-            clearTimeout(timeoutId);
-            if (cancelled) return;
-            // Timeout or network error: session is set, redirect so user can use the app
-            if ((fetchErr as Error)?.name === 'AbortError' || /abort|aborted/i.test((fetchErr as Error)?.message ?? '')) {
-              redirectToDashboard();
-              return;
-            }
-            setError('Could not load profile. Try again.');
-            return;
-          }
-          clearTimeout(timeoutId);
-          if (cancelled) return;
-          if (!profileRes.ok) {
-            setError('Could not load profile. Try again.');
-            return;
-          }
+          // Redirect immediately; dashboard will load profile. Avoids hanging on slow profile API.
           redirectToDashboard();
           return;
         }
@@ -99,7 +88,7 @@ export default function AuthCallbackPage() {
           return;
         }
 
-        // No token in hash: maybe fragment was stripped or page opened without it. Check for existing session (or brief delay for redirect with hash).
+        // No token in hash/query: maybe fragment was stripped or page opened without it. Check for existing session (or brief delay for redirect with hash).
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         if (cancelled) return;
         if (sessionError) {
@@ -113,30 +102,14 @@ export default function AuthCallbackPage() {
         // Give a moment for hash to be available (e.g. client-side redirect from / with hash)
         await new Promise((r) => setTimeout(r, 800));
         if (cancelled) return;
-        const hash2 = typeof window !== 'undefined' ? window.location.hash : '';
-        const params2 = parseHashParams(hash2);
+        const params2 = getCallbackParams();
         if (params2.access_token) {
           const { error: setErr } = await supabase.auth.setSession({
             access_token: params2.access_token,
             refresh_token: params2.refresh_token || '',
           });
           if (!cancelled && !setErr) {
-            const controller2 = new AbortController();
-            const t2 = setTimeout(() => controller2.abort(), PROFILE_FETCH_TIMEOUT_MS);
-            try {
-              const profileRes = await fetch('/api/auth/profile', {
-                headers: { Authorization: `Bearer ${params2.access_token}` },
-                signal: controller2.signal,
-              });
-              clearTimeout(t2);
-              if (profileRes.ok) redirectToDashboard();
-              else setError('Could not load profile. Try again.');
-            } catch (fetchErr) {
-              clearTimeout(t2);
-              if ((fetchErr as Error)?.name === 'AbortError' || /abort|aborted/i.test((fetchErr as Error)?.message ?? ''))
-                redirectToDashboard();
-              else setError('Could not load profile. Try again.');
-            }
+            redirectToDashboard();
           } else if (!cancelled && setErr) setError(setErr.message);
           return;
         }
@@ -164,6 +137,7 @@ export default function AuthCallbackPage() {
     return () => {
       cancelled = true;
       clearTimeout(fallbackTimer);
+      clearTimeout(escapeTimer);
     };
   }, [router]);
 
@@ -183,6 +157,11 @@ export default function AuthCallbackPage() {
     <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-4 bg-gray-50">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
       <p className="text-gray-600">Signing you in…</p>
+      {showEscape && (
+        <a href="/dashboard" className="text-indigo-600 hover:underline text-sm mt-2">
+          Taking a while? Go to dashboard
+        </a>
+      )}
     </div>
   );
 }
