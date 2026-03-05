@@ -177,8 +177,8 @@ export async function GET(
       });
       const sendersData = others.length > 0 ? others : participants;
       return {
-        id: c.id,
-        updatedTime: c.updated_time ?? null,
+      id: c.id,
+      updatedTime: c.updated_time ?? null,
         senders: sendersData.map((s) => ({
           id: s.id,
           name: s.name,

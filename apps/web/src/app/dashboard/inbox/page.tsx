@@ -465,14 +465,14 @@ export default function InboxPage() {
                     <p className="px-3 py-3 text-sm text-neutral-500">All inbox platforms connected.</p>
                   ) : (
                     unconnectedPlatforms.map((p) => {
-                      const Icon = p.icon;
-                      return (
+                    const Icon = p.icon;
+                    return (
                         <button
-                          key={p.id}
+                        key={p.id}
                           type="button"
                           onClick={() => {
                             setSelectedPlatformForConnect(p.id);
-                            setConnectOpen(false);
+                          setConnectOpen(false);
                             router.push('/dashboard');
                           }}
                           className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 text-left"
@@ -1090,9 +1090,9 @@ export default function InboxPage() {
                   <p className="text-sm text-amber-700 mb-2">{aiReplyError}</p>
                 )}
                 <div className="flex items-end gap-2">
-                  <textarea
-                    placeholder="Type a reply..."
-                    rows={2}
+                <textarea
+                  placeholder="Type a reply..."
+                  rows={2}
                     value={dmReplyText}
                     onChange={(e) => setDmReplyText(e.target.value)}
                     disabled={dmReplySending}
@@ -1127,7 +1127,7 @@ export default function InboxPage() {
                   >
                     {aiReplyLoading ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
                   </button>
-                  <button
+                <button
                   type="button"
                   disabled={dmReplySending || !dmReplyText.trim()}
                   onClick={async () => {
@@ -1177,7 +1177,7 @@ export default function InboxPage() {
               )}
               <p className="text-xs text-neutral-400 mt-2 text-center">Send a message to this conversation. Use the sparkle button to generate a reply with AI.</p>
             </div>
-          </div>
+            </div>
           </>
         )}
       </div>

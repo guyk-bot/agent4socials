@@ -26,18 +26,18 @@ export async function GET(
     insightsHint: 'Could not load insights. Try reconnecting from the sidebar.',
   });
   try {
-    const userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
-    if (!userId) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-    }
-    const { id } = await params;
-    const account = await prisma.socialAccount.findFirst({
-      where: { id, userId },
+  const userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
+  if (!userId) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
+  const { id } = await params;
+  const account = await prisma.socialAccount.findFirst({
+    where: { id, userId },
       select: { id: true, platform: true, platformUserId: true, accessToken: true, refreshToken: true, expiresAt: true },
-    });
-    if (!account) {
-      return NextResponse.json({ message: 'Account not found' }, { status: 404 });
-    }
+  });
+  if (!account) {
+    return NextResponse.json({ message: 'Account not found' }, { status: 404 });
+  }
   const since = request.nextUrl.searchParams.get('since') ?? '';
   const until = request.nextUrl.searchParams.get('until') ?? '';
   let sinceParam = since;
@@ -120,22 +120,22 @@ export async function GET(
         let insightsOk = false;
         for (const metricSet of metricSets) {
           if (insightsOk) break;
-          try {
-            const insightsRes = await axios.get<{
+        try {
+          const insightsRes = await axios.get<{
               data?: Array<{
                 name: string;
                 values?: Array<{ value: number; end_time?: string }>;
                 total_value?: { value: number; breakdowns?: unknown[] };
               }>;
               error?: { message?: string; code?: number };
-            }>(`${baseUrl}/${account.platformUserId}/insights`, {
-              params: {
+          }>(`${baseUrl}/${account.platformUserId}/insights`, {
+            params: {
                 metric: metricSet,
-                period: 'day',
+              period: 'day',
                 since: effectiveSinceTs,
                 until: effectiveUntilTs,
-                access_token: token,
-              },
+              access_token: token,
+            },
               timeout: 10_000,
             });
 
@@ -162,18 +162,18 @@ export async function GET(
                       .filter((x) => x.date)
                       .sort((a, b) => a.date.localeCompare(b.date))
                   : [];
-              if (d.name === 'impressions') {
-                out.impressionsTotal = total;
+            if (d.name === 'impressions') {
+              out.impressionsTotal = total;
                 out.impressionsTimeSeries = series.length ? series : (total ? [{ date: untilParam?.slice(0, 10) || new Date().toISOString().slice(0, 10), value: total }] : []);
-              } else if (d.name === 'reach') {
-                out.reachTotal = total;
+            } else if (d.name === 'reach') {
+              out.reachTotal = total;
                 // Use reach as fallback time series when impressions are empty
                 if (!out.impressionsTimeSeries?.length && series.length) {
                   out.impressionsTimeSeries = series;
                   if (!out.impressionsTotal) out.impressionsTotal = total;
                 }
-              } else if (d.name === 'profile_views') {
-                out.profileViewsTotal = total;
+            } else if (d.name === 'profile_views') {
+              out.profileViewsTotal = total;
               } else if (d.name === 'accounts_engaged') {
                 (out as Record<string, unknown>).accountsEngaged = total;
               }

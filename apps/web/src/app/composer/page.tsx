@@ -2220,7 +2220,7 @@ export default function ComposerPage() {
                                             ) : (
                                                 <img src={mediaDisplayUrl(mediaList[0].fileUrl)} alt="Preview" className="w-full h-full object-contain" />
                                             )}
-                                        </div>
+                            </div>
                                         <p className="mt-3 text-xs font-medium text-neutral-500">Select platforms above to see per-platform preview</p>
                                     </>
                                 ) : (
@@ -2277,7 +2277,7 @@ export default function ComposerPage() {
                                             ) : (
                                                 <img src={mediaDisplayUrl(mediaList[0].fileUrl)} alt="Preview" className="w-full h-full object-contain" />
                                             )}
-                                        </div>
+            </div>
                                         <p className="mt-3 text-xs font-medium text-neutral-500">Select platforms above to see per-platform preview</p>
                                     </>
                                 ) : (

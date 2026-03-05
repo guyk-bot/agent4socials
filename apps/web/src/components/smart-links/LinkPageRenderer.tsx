@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { Instagram, Facebook, Youtube, Twitter, Linkedin, Github, Globe, Mail, Phone } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Instagram, Facebook, Youtube, Twitter, Linkedin, Github, Globe, Mail, Phone, ChevronLeft, ChevronRight, Music2 } from 'lucide-react';
 import type { LinkPageDesign } from './themes';
 import { getDefaultDesign } from './themes';
 
@@ -30,6 +30,7 @@ const SOCIAL_ICONS: Record<string, React.ReactNode> = {
   youtube: <Youtube size={20} />,
   twitter: <Twitter size={20} />,
   x: <Twitter size={20} />,
+  tiktok: <Music2 size={20} />,
   linkedin: <Linkedin size={20} />,
   github: <Github size={20} />,
   website: <Globe size={20} />,
@@ -79,6 +80,114 @@ function getAnimationClass(animation?: string, index?: number): string {
   }
 }
 
+function Carousel({
+  imageUrls,
+  linkUrl,
+  label,
+  animationClass,
+  animationDelay,
+  isPreview,
+}: {
+  imageUrls: string[];
+  linkUrl?: string | null;
+  label?: string | null;
+  animationClass: string;
+  animationDelay?: string;
+  isPreview: boolean;
+}) {
+  const [index, setIndex] = useState(0);
+  const n = Math.max(1, imageUrls.length);
+
+  useEffect(() => {
+    if (n <= 1 || isPreview) return;
+    const t = setInterval(() => setIndex((i) => (i + 1) % n), 4000);
+    return () => clearInterval(t);
+  }, [n, isPreview]);
+
+  if (imageUrls.length === 0) {
+    return (
+      <div className={`w-full aspect-video rounded-xl bg-white/20 flex items-center justify-center text-sm ${animationClass}`} style={{ animationDelay }}>
+        Add images to carousel
+      </div>
+    );
+  }
+
+  const current = imageUrls[index % imageUrls.length];
+  const content = (
+    <div className="relative w-full aspect-video rounded-xl overflow-hidden">
+      <img
+        src={current}
+        alt={label || `Slide ${index + 1}`}
+        className="w-full h-full object-cover"
+      />
+      {imageUrls.length > 1 && (
+        <>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIndex((i) => (i - 1 + n) % n);
+            }}
+            className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 transition-colors"
+            aria-label="Previous"
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIndex((i) => (i + 1) % n);
+            }}
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 transition-colors"
+            aria-label="Next"
+          >
+            <ChevronRight size={20} />
+          </button>
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
+            {imageUrls.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIndex(i);
+                }}
+                className={`w-2 h-2 rounded-full transition-colors ${i === index % imageUrls.length ? 'bg-white' : 'bg-white/50'}`}
+                aria-label={`Go to slide ${i + 1}`}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  if (linkUrl && !isPreview) {
+    return (
+      <a
+        href={linkUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`block w-full ${animationClass}`}
+        style={{ animationDelay }}
+      >
+        {content}
+        {label && <p className="text-sm font-medium mt-1.5 text-center opacity-90">{label}</p>}
+      </a>
+    );
+  }
+  return (
+    <div className={`block w-full ${animationClass}`} style={{ animationDelay }}>
+      {content}
+      {label && <p className="text-sm font-medium mt-1.5 text-center opacity-90">{label}</p>}
+    </div>
+  );
+}
+
 export function LinkPageRenderer({
   data,
   isPreview = false,
@@ -90,8 +199,15 @@ export function LinkPageRenderer({
   const visibleLinks = data.links.filter((l) => l.isVisible).sort((a, b) => a.order - b.order);
 
   const bgStyle: React.CSSProperties = {};
-  if (design.bgType === 'gradient' && design.bgGradient) {
-    bgStyle.background = design.bgGradient;
+  if (design.bgType === 'gradient') {
+    if (design.bgGradientColors && design.bgGradientColors.length >= 2) {
+      const [c1, c2, c3] = design.bgGradientColors;
+      bgStyle.background = c3
+        ? `linear-gradient(135deg, ${c1} 0%, ${c2} 50%, ${c3} 100%)`
+        : `linear-gradient(135deg, ${c1} 0%, ${c2} 100%)`;
+    } else if (design.bgGradient) {
+      bgStyle.background = design.bgGradient;
+    }
   } else if (design.bgType === 'image' && design.bgImageUrl) {
     bgStyle.backgroundImage = `url(${design.bgImageUrl})`;
     bgStyle.backgroundSize = 'cover';
@@ -131,12 +247,15 @@ export function LinkPageRenderer({
         {/* Avatar */}
         {data.avatarUrl && (
           <div
-            className={`w-24 h-24 rounded-full overflow-hidden border-4 border-white/30 shadow-xl ${getAnimationClass(design.animation, 0)}`}
+            className={`w-24 h-24 rounded-full overflow-hidden shadow-lg ${getAnimationClass(design.animation, 0)}`}
           >
             <img
               src={data.avatarUrl}
               alt={data.title || 'Profile'}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover object-center"
+              style={{
+                transform: `scale(${Math.max(0.5, Math.min(2, design.avatarScale ?? 1))})`,
+              }}
             />
           </div>
         )}
@@ -205,6 +324,63 @@ export function LinkPageRenderer({
                     <p className="text-sm font-medium mt-1.5 text-center opacity-90">{link.label}</p>
                   )}
                 </a>
+              );
+            }
+
+            if (link.type === 'carousel') {
+              let urls: string[] = [];
+              try {
+                if (typeof link.icon === 'string' && link.icon.startsWith('[')) {
+                  urls = JSON.parse(link.icon) as string[];
+                }
+              } catch {
+                urls = [];
+              }
+              return (
+                <Carousel
+                  key={link.id}
+                  imageUrls={urls}
+                  linkUrl={link.url}
+                  label={link.label}
+                  animationClass={getAnimationClass(design.animation, idx + 2)}
+                  animationDelay={design.animation === 'stagger' ? `${(idx + 2) * 80}ms` : undefined}
+                  isPreview={isPreview}
+                />
+              );
+            }
+
+            if (link.type === 'socials') {
+              let socialUrls: Record<string, string> = {};
+              try {
+                if (typeof link.url === 'string' && link.url.startsWith('{')) {
+                  socialUrls = JSON.parse(link.url) as Record<string, string>;
+                }
+              } catch {
+                socialUrls = {};
+              }
+              const entries = Object.entries(socialUrls).filter(([, u]) => u && u.trim());
+              return (
+                <div
+                  key={link.id}
+                  className={`flex flex-wrap justify-center gap-3 py-2 ${getAnimationClass(design.animation, idx + 2)}`}
+                  style={{ animationDelay: design.animation === 'stagger' ? `${(idx + 2) * 80}ms` : undefined }}
+                >
+                  {entries.map(([platform, url]) => (
+                    <a
+                      key={platform}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-11 h-11 rounded-full flex items-center justify-center bg-white/20 hover:bg-white/30 text-current transition-colors"
+                      onClick={(e) => {
+                        if (isPreview) e.preventDefault();
+                      }}
+                      aria-label={platform}
+                    >
+                      {SOCIAL_ICONS[platform.toLowerCase()] ?? <Globe size={20} />}
+                    </a>
+                  ))}
+                </div>
               );
             }
 

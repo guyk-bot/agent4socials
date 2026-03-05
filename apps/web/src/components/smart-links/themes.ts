@@ -3,6 +3,8 @@ export type LinkPageDesign = {
   bgType?: 'solid' | 'gradient' | 'image' | 'video';
   bgColor?: string;
   bgGradient?: string;
+  /** When set, gradient is built from these colors (e.g. 2–3 hex values). */
+  bgGradientColors?: [string, string, string?];
   bgImageUrl?: string;
   bgVideoUrl?: string;
   fontFamily?: string;
@@ -12,6 +14,8 @@ export type LinkPageDesign = {
   buttonSize?: 'small' | 'medium' | 'large';
   textColor?: string;
   animation?: 'none' | 'fade' | 'slide' | 'scale' | 'stagger';
+  /** Avatar zoom to fit (1 = default, 1.2 = zoom in 20%) */
+  avatarScale?: number;
 };
 
 export type ThemePreset = {
@@ -71,6 +75,7 @@ export const THEME_PRESETS: ThemePreset[] = [
       theme: 'sunset',
       bgType: 'gradient',
       bgGradient: 'linear-gradient(135deg, #f97316 0%, #ec4899 50%, #8b5cf6 100%)',
+      bgGradientColors: ['#f97316', '#ec4899', '#8b5cf6'],
       fontFamily: 'Poppins, sans-serif',
       buttonStyle: 'pill',
       buttonColor: '#ffffff',
@@ -87,6 +92,7 @@ export const THEME_PRESETS: ThemePreset[] = [
       theme: 'ocean',
       bgType: 'gradient',
       bgGradient: 'linear-gradient(135deg, #0ea5e9 0%, #06b6d4 50%, #14b8a6 100%)',
+      bgGradientColors: ['#0ea5e9', '#06b6d4', '#14b8a6'],
       fontFamily: 'Montserrat, sans-serif',
       buttonStyle: 'pill',
       buttonColor: '#ffffff',
@@ -119,6 +125,7 @@ export const THEME_PRESETS: ThemePreset[] = [
       theme: 'glass',
       bgType: 'gradient',
       bgGradient: 'linear-gradient(135deg, #c7d2fe 0%, #ddd6fe 50%, #fbcfe8 100%)',
+      bgGradientColors: ['#c7d2fe', '#ddd6fe', '#fbcfe8'],
       fontFamily: 'Inter, system-ui, sans-serif',
       buttonStyle: 'glass',
       buttonColor: 'rgba(255,255,255,0.25)',
@@ -135,6 +142,7 @@ export const THEME_PRESETS: ThemePreset[] = [
       theme: 'retro',
       bgType: 'gradient',
       bgGradient: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+      bgGradientColors: ['#fef3c7', '#fde68a'],
       fontFamily: 'Playfair Display, serif',
       buttonStyle: 'rounded',
       buttonColor: '#92400e',
@@ -151,6 +159,7 @@ export const THEME_PRESETS: ThemePreset[] = [
       theme: 'professional',
       bgType: 'gradient',
       bgGradient: 'linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%)',
+      bgGradientColors: ['#1e3a5f', '#0f172a'],
       fontFamily: 'Roboto, sans-serif',
       buttonStyle: 'outline',
       buttonColor: '#ffffff',

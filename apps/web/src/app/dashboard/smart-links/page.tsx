@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Link2, Plus, Trash2, GripVertical, Eye, Copy, Check, 
   Image as ImageIcon, Palette, Type, ExternalLink, Save, Loader2, Upload,
-  Instagram, Facebook, Youtube, Twitter, Linkedin, Github, Globe, Mail
+  Instagram, Facebook, Youtube, Twitter, Linkedin, Github, Globe, Mail, Music2
 } from 'lucide-react';
 import api from '@/lib/api';
 import { LinkPageRenderer } from '@/components/smart-links/LinkPageRenderer';
@@ -36,6 +36,7 @@ const SOCIAL_OPTIONS = [
   { id: 'facebook', name: 'Facebook', icon: Facebook },
   { id: 'youtube', name: 'YouTube', icon: Youtube },
   { id: 'twitter', name: 'X (Twitter)', icon: Twitter },
+  { id: 'tiktok', name: 'TikTok', icon: Music2 },
   { id: 'linkedin', name: 'LinkedIn', icon: Linkedin },
   { id: 'github', name: 'GitHub', icon: Github },
   { id: 'website', name: 'Website', icon: Globe },
@@ -152,8 +153,8 @@ export default function SmartLinksPage() {
       id: `new-${Date.now()}`,
       type,
       label: type === 'header' ? 'Section Title' : '',
-      url: '',
-      icon: null,
+      url: type === 'socials' ? '{}' : '',
+      icon: type === 'carousel' ? '[]' : null,
       order: data.links.length,
       isVisible: true,
     };
@@ -333,14 +334,7 @@ export default function SmartLinksPage() {
                       </button>
                     </div>
                     <div className="flex-1 space-y-3 min-w-0">
-                      <p className="text-xs text-slate-500">Recommended: 400×400px square. Upload above or paste URL below.</p>
-                      <input
-                        type="text"
-                        value={data.avatarUrl || ''}
-                        onChange={(e) => setData((prev) => ({ ...prev, avatarUrl: e.target.value }))}
-                        placeholder="Avatar image URL (or upload above)"
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-200"
-                      />
+                      <p className="text-xs text-slate-500">Recommended: 400×400px square. Upload above.</p>
                       <input
                         type="text"
                         value={data.title || ''}
@@ -355,6 +349,23 @@ export default function SmartLinksPage() {
                         rows={2}
                         className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm resize-none focus:ring-2 focus:ring-indigo-200"
                       />
+                      {data.avatarUrl && (
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-slate-600">Resize to fit</label>
+                          <input
+                            type="range"
+                            min={0.5}
+                            max={2}
+                            step={0.1}
+                            value={data.design?.avatarScale ?? 1}
+                            onChange={(e) => updateDesign({ avatarScale: parseFloat(e.target.value) })}
+                            className="w-full h-2 rounded-lg appearance-none bg-slate-200 accent-indigo-600"
+                          />
+                          <p className="text-xs text-slate-400">
+                            {(Math.round((data.design?.avatarScale ?? 1) * 100)).toString()}%
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -372,7 +383,17 @@ export default function SmartLinksPage() {
                       if (!file || !linkId) return;
                       try {
                         const url = await uploadFile(file);
-                        updateLink(linkId, { icon: url });
+                        const link = data.links.find((l) => l.id === linkId);
+                        if (link?.type === 'carousel') {
+                          let arr: string[] = [];
+                          try {
+                            if (link.icon && link.icon.startsWith('[')) arr = JSON.parse(link.icon) as string[];
+                          } catch {}
+                          arr.push(url);
+                          updateLink(linkId, { icon: JSON.stringify(arr) });
+                        } else {
+                          updateLink(linkId, { icon: url });
+                        }
                       } catch {
                         console.error('Upload failed');
                       } finally {
@@ -383,7 +404,7 @@ export default function SmartLinksPage() {
                   />
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-slate-700">Links</h3>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       <button
                         onClick={() => addLink('link')}
                         className="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-medium hover:bg-indigo-100 transition-colors flex items-center gap-1"
@@ -395,6 +416,18 @@ export default function SmartLinksPage() {
                         className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-200 transition-colors flex items-center gap-1"
                       >
                         <ImageIcon className="w-3 h-3" /> Image
+                      </button>
+                      <button
+                        onClick={() => addLink('carousel')}
+                        className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-200 transition-colors flex items-center gap-1"
+                      >
+                        <ImageIcon className="w-3 h-3" /> Carousel
+                      </button>
+                      <button
+                        onClick={() => addLink('socials')}
+                        className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-200 transition-colors flex items-center gap-1"
+                      >
+                        <Globe className="w-3 h-3" /> Social icons
                       </button>
                       <button
                         onClick={() => addLink('header')}
@@ -453,6 +486,92 @@ export default function SmartLinksPage() {
                                 placeholder="Link URL"
                                 className="flex-1 min-w-[80px] px-2 py-1 bg-white border border-slate-200 rounded-lg text-sm"
                               />
+                            </div>
+                          ) : link.type === 'carousel' ? (
+                            <div className="flex-1 space-y-2 min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setUploadingIconFor(link.id);
+                                    iconInputRef.current?.click();
+                                  }}
+                                  disabled={uploadingIconFor === link.id}
+                                  className="shrink-0 px-2 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-medium hover:bg-indigo-100 flex items-center gap-1"
+                                >
+                                  {uploadingIconFor === link.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                                  Add image
+                                </button>
+                                <input
+                                  type="text"
+                                  value={link.label || ''}
+                                  onChange={(e) => updateLink(link.id, { label: e.target.value })}
+                                  placeholder="Caption (optional)"
+                                  className="flex-1 min-w-[100px] px-2 py-1 bg-white border border-slate-200 rounded-lg text-sm"
+                                />
+                                <input
+                                  type="text"
+                                  value={link.url || ''}
+                                  onChange={(e) => updateLink(link.id, { url: e.target.value })}
+                                  placeholder="Link URL (optional)"
+                                  className="flex-1 min-w-[100px] px-2 py-1 bg-white border border-slate-200 rounded-lg text-sm"
+                                />
+                              </div>
+                              {(() => {
+                                let urls: string[] = [];
+                                try {
+                                  if (link.icon && link.icon.startsWith('[')) urls = JSON.parse(link.icon) as string[];
+                                } catch {}
+                                return urls.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {urls.map((url, i) => (
+                                      <div key={i} className="relative group/img">
+                                        <img src={url} alt="" className="w-12 h-12 rounded object-cover border border-slate-200" />
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const next = urls.filter((_, j) => j !== i);
+                                            updateLink(link.id, { icon: JSON.stringify(next) });
+                                          }}
+                                          className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 group-hover/img:opacity-100"
+                                        >
+                                          ×
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : null;
+                              })()}
+                            </div>
+                          ) : link.type === 'socials' ? (
+                            <div className="flex-1 space-y-2 min-w-0">
+                              {(() => {
+                                let obj: Record<string, string> = {};
+                                try {
+                                  if (link.url && link.url.startsWith('{')) obj = JSON.parse(link.url) as Record<string, string>;
+                                } catch {}
+                                const updateSocial = (platform: string, value: string) => {
+                                  const next = { ...obj, [platform]: value || undefined };
+                                  Object.keys(next).forEach((k) => { if (!next[k]) delete next[k]; });
+                                  updateLink(link.id, { url: JSON.stringify(next) });
+                                };
+                                return (
+                                  <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+                                    {SOCIAL_OPTIONS.map((s) => (
+                                      <div key={s.id} className="flex items-center gap-1.5">
+                                        <s.icon className="w-4 h-4 text-slate-500 shrink-0" />
+                                        <input
+                                          type="url"
+                                          value={obj[s.id] ?? ''}
+                                          onChange={(e) => updateSocial(s.id, e.target.value)}
+                                          placeholder={s.name}
+                                          className="flex-1 min-w-0 px-2 py-1 bg-white border border-slate-200 rounded text-xs"
+                                        />
+                                      </div>
+                                    ))}
+                                  </div>
+                                );
+                              })()}
                             </div>
                           ) : (
                             <div className="flex-1 flex flex-wrap items-center gap-2 min-w-0">
@@ -639,13 +758,36 @@ export default function SmartLinksPage() {
                     </div>
                   )}
                   {data.design?.bgType === 'gradient' && (
-                    <input
-                      type="text"
-                      value={data.design?.bgGradient || ''}
-                      onChange={(e) => updateDesign({ bgGradient: e.target.value })}
-                      placeholder="e.g. linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono"
-                    />
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-slate-600">Gradient colors</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[0, 1, 2].map((i) => {
+                          const colors = data.design?.bgGradientColors ?? ['#667eea', '#764ba2', '#f093fb'];
+                          const value = colors[i] ?? (i === 2 ? '' : '#667eea');
+                          return (
+                            <div key={i} className="flex items-center gap-2">
+                              <input
+                                type="color"
+                                value={value || '#cccccc'}
+                                onChange={(e) => {
+                                  const next: [string, string, string?] = [
+                                    data.design?.bgGradientColors?.[0] ?? '#667eea',
+                                    data.design?.bgGradientColors?.[1] ?? '#764ba2',
+                                    data.design?.bgGradientColors?.[2],
+                                  ];
+                                  next[i] = e.target.value;
+                                  if (i === 2 && !e.target.value) next.pop();
+                                  updateDesign({ bgGradientColors: next });
+                                }}
+                                className="h-10 w-full min-w-0 rounded cursor-pointer"
+                              />
+                              <span className="text-xs text-slate-500">Color {i + 1}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <p className="text-xs text-slate-400">Optional third color for a 3-stop gradient.</p>
+                    </div>
                   )}
                 </div>
 
