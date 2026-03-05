@@ -556,8 +556,9 @@ export default function DashboardPage() {
   }
 
   const connectedPlatforms = (cachedAccounts as SocialAccount[]).map((a) => a.platform);
-  const hasFacebook = connectedPlatforms.includes('FACEBOOK');
-  const hasInstagram = connectedPlatforms.includes('INSTAGRAM');
+  // For tabs in the posts list, only show a platform tab when posts actually exist for it.
+  const hasFacebook = importedPosts.some((p) => p.platform === 'FACEBOOK');
+  const hasInstagram = importedPosts.some((p) => p.platform === 'INSTAGRAM');
   const totalInteractions = importedPosts.reduce((s, p) => s + (p.interactions || 0), 0);
   const filteredPosts = importedPosts
     .filter((p) => !postsSearch || (p.content?.toLowerCase().includes(postsSearch.toLowerCase())))
@@ -1290,11 +1291,11 @@ export default function DashboardPage() {
                                 </div>
                               </div>
                             </td>
-                            <td className="px-4 py-3 text-sm text-neutral-600">{post.impressions}</td>
-                            <td className="px-4 py-3 text-sm text-neutral-600">{post.impressions}</td>
-                            <td className="px-4 py-3 text-sm text-neutral-500">{(post as { reactions?: number }).reactions ?? '—'}</td>
-                            <td className="px-4 py-3 text-sm text-neutral-500">{(post as { comments?: number }).comments ?? '—'}</td>
-                            <td className="px-4 py-3 text-sm text-neutral-500">{(post as { shares?: number }).shares ?? '—'}</td>
+                            <td className="px-4 py-3 text-sm text-neutral-600">{post.impressions ?? 0}</td>
+                            <td className="px-4 py-3 text-sm text-neutral-600">{post.impressions ?? 0}</td>
+                            <td className="px-4 py-3 text-sm text-neutral-500">{(post as { likeCount?: number }).likeCount ?? 0}</td>
+                            <td className="px-4 py-3 text-sm text-neutral-500">{(post as { commentsCount?: number }).commentsCount ?? 0}</td>
+                            <td className="px-4 py-3 text-sm text-neutral-500">{(post as { sharesCount?: number }).sharesCount ?? 0}</td>
                             <td className="px-4 py-3 text-sm text-neutral-600">{post.interactions}</td>
                             <td className="px-4 py-3">{PLATFORM_ICON[post.platform]}</td>
                             <td className="px-4 py-3 text-sm text-neutral-600">{new Date(post.publishedAt).toLocaleString()}</td>

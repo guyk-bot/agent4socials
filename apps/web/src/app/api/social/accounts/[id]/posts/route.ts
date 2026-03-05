@@ -73,6 +73,9 @@ export async function GET(
       permalinkUrl: p.permalinkUrl,
       impressions: p.impressions ?? 0,
       interactions: p.interactions ?? 0,
+      likeCount: (p as { likeCount?: number }).likeCount ?? 0,
+      commentsCount: (p as { commentsCount?: number }).commentsCount ?? 0,
+      sharesCount: (p as { sharesCount?: number }).sharesCount ?? 0,
       publishedAt: p.publishedAt instanceof Date ? p.publishedAt.toISOString() : String(p.publishedAt),
       mediaType: p.mediaType,
       platform: p.platform,
@@ -132,14 +135,12 @@ async function syncImportedPosts(
     const allItems: Array<MediaItem> = [];
     const maxMedia = 500;
     const pageLimit = 50;
-    const until = Math.floor(Date.now() / 1000);
-    const since = until - 2 * 365 * 24 * 60 * 60;
+    // Do NOT use since/until timestamps — they can incorrectly restrict results when the Instagram
+    // Media API interprets them as time-window filters. Use pure cursor-based pagination instead.
     const firstParams: Record<string, string | number> = {
       fields,
       access_token: accessToken,
       limit: pageLimit,
-      since,
-      until,
     };
     let nextUrl: string | null = `${baseUrl}/${platformUserId}/media`;
     try {
@@ -158,7 +159,7 @@ async function syncImportedPosts(
         if (nextFromMeta && allItems.length < maxMedia) {
           nextUrl = nextFromMeta;
         } else if (!nextFromMeta && afterCursor && gotFullPage && allItems.length < maxMedia) {
-          nextUrl = `${baseUrl}/${platformUserId}/media?fields=${encodeURIComponent(fields)}&access_token=${encodeURIComponent(accessToken)}&limit=${pageLimit}&after=${encodeURIComponent(afterCursor)}&since=${since}&until=${until}`;
+          nextUrl = `${baseUrl}/${platformUserId}/media?fields=${encodeURIComponent(fields)}&access_token=${encodeURIComponent(accessToken)}&limit=${pageLimit}&after=${encodeURIComponent(afterCursor)}`;
         } else {
           nextUrl = null;
         }
@@ -188,24 +189,25 @@ async function syncImportedPosts(
           // ignore
         }
       }
-      // Use like_count/comments_count from media fields (replaces deprecated impressions insights)
-      const interactions = (m.like_count ?? 0) + (m.comments_count ?? 0);
+      const likeCount = m.like_count ?? 0;
+      const commentsCount = m.comments_count ?? 0;
+      const interactions = likeCount + commentsCount;
       let impressions = 0;
       try {
-        // Fetch views metric (replaces deprecated impressions for v22+)
+        // Fetch reach metric for each post (impressions deprecated; reach is the preferred metric)
         const insightsRes = await axios.get<{
           data?: Array<{ name: string; values?: Array<{ value: number }>; total_value?: { value: number } }>;
         }>(
           `${baseUrl}/${m.id}/insights`,
-          { params: { metric: 'views,reach', access_token: accessToken } }
+          { params: { metric: 'reach', access_token: accessToken } }
         );
         const data = insightsRes.data?.data ?? [];
         for (const d of data) {
           const val = d.total_value?.value ?? d.values?.[0]?.value ?? 0;
-          if (d.name === 'views' || d.name === 'reach') impressions = Math.max(impressions, val);
+          if (d.name === 'reach') impressions = val;
         }
       } catch {
-        // insights may not be available for all media types
+        // insights not available for all media types (e.g. stories)
       }
       await prisma.importedPost.upsert({
         where: {
@@ -219,6 +221,8 @@ async function syncImportedPosts(
           mediaType: m.media_type ?? null,
           impressions,
           interactions,
+          likeCount,
+          commentsCount,
           syncedAt: new Date(),
         },
         create: {
@@ -232,6 +236,8 @@ async function syncImportedPosts(
           mediaType: m.media_type ?? null,
           impressions,
           interactions,
+          likeCount,
+          commentsCount,
         },
       });
     }
@@ -271,9 +277,9 @@ async function syncImportedPosts(
     const items = res.data?.data ?? [];
     for (const p of items) {
       const publishedAt = p.created_time ? new Date(p.created_time) : new Date();
-      const likes = p.reactions?.summary?.total_count ?? 0;
-      const comments = p.comments?.summary?.total_count ?? 0;
-      const interactions = likes + comments;
+      const likeCount = p.reactions?.summary?.total_count ?? 0;
+      const commentsCount = p.comments?.summary?.total_count ?? 0;
+      const interactions = likeCount + commentsCount;
       await prisma.importedPost.upsert({
         where: {
           socialAccountId_platformPostId: { socialAccountId, platformPostId: p.id },
@@ -286,6 +292,8 @@ async function syncImportedPosts(
           mediaType: null,
           impressions: 0,
           interactions,
+          likeCount,
+          commentsCount,
           syncedAt: new Date(),
         },
         create: {
@@ -299,6 +307,8 @@ async function syncImportedPosts(
           mediaType: null,
           impressions: 0,
           interactions,
+          likeCount,
+          commentsCount,
         },
       });
     }

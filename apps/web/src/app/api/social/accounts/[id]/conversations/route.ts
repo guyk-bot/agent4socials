@@ -160,30 +160,35 @@ export async function GET(
         >();
 
         if (isInstagram) {
-          // Instagram User Profile API: get name, username, profile_pic for all senders.
-          // Use igUserToken for Instagram Business Login accounts (graph.instagram.com requires it).
-          const profileToken = isInstagramBusinessLogin ? igUserToken! : activeToken;
+          // For Instagram Business Login: use graph.instagram.com with the IG User token.
+          // For Facebook Login: use graph.facebook.com with the Page token — sender IDs are
+          // Instagram-Scoped IDs (IGSID) which are accessible on graph.facebook.com too.
           await Promise.all(
             Array.from(idsToEnrich).map(async (id) => {
               try {
-                const profileRes = await axios.get<{
-                  id?: string;
-                  name?: string;
-                  username?: string;
-                  profile_pic?: string;
-                }>(`https://graph.instagram.com/v25.0/${id}`, {
-                  params: {
-                    fields: 'name,username,profile_pic',
-                    access_token: profileToken,
-                  },
-                  timeout: 15_000,
-                });
-                const p = profileRes.data;
-                if (p?.id) {
-                  profiles.set(p.id, {
+                if (isInstagramBusinessLogin) {
+                  const profileRes = await axios.get<{
+                    id?: string; name?: string; username?: string; profile_pic?: string;
+                  }>(`https://graph.instagram.com/v25.0/${id}`, {
+                    params: { fields: 'name,username,profile_pic', access_token: igUserToken! },
+                    timeout: 15_000,
+                  });
+                  const p = profileRes.data;
+                  if (p?.id) profiles.set(p.id, { name: p.name, username: p.username, pictureUrl: p.profile_pic ?? null });
+                } else {
+                  // Facebook Login: look up IGSID profile via graph.facebook.com with Page token
+                  const profileRes = await axios.get<{
+                    id?: string; name?: string; username?: string; profile_pic?: string;
+                    picture?: { data?: { url?: string } };
+                  }>(`${baseUrl}/${id}`, {
+                    params: { fields: 'id,name,username,profile_pic,picture', access_token: activeToken },
+                    timeout: 15_000,
+                  });
+                  const p = profileRes.data;
+                  if (p?.id) profiles.set(p.id, {
                     name: p.name,
                     username: p.username,
-                    pictureUrl: p.profile_pic ?? null,
+                    pictureUrl: p.profile_pic ?? p.picture?.data?.url ?? null,
                   });
                 }
               } catch {

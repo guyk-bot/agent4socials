@@ -324,16 +324,16 @@ export async function POST(
         }
       );
     } else {
-      // Facebook Login: POST graph.facebook.com/v18.0/{PAGE_ID}/messages
+      // Facebook Login Instagram: POST graph.facebook.com/v18.0/{IG_BUSINESS_ACCOUNT_ID}/messages
+      // Use JSON body (not form-encoded) and include platform=instagram so Meta routes this as an IG DM.
       await axios.post<{ message_id?: string; error?: { message: string } }>(
         `${fbBaseUrl}/${account.platformUserId}/messages`,
-        new URLSearchParams({
-          recipient: JSON.stringify({ id: recipientId }),
-          messaging_type: 'RESPONSE',
-          message: JSON.stringify({ text: text.slice(0, 2000) }),
-        }),
         {
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          recipient: { id: recipientId },
+          message: { text: text.slice(0, 2000) },
+        },
+        {
+          headers: { 'Content-Type': 'application/json' },
           params: { access_token: activeToken },
           timeout: 15_000,
         }
