@@ -158,30 +158,6 @@ export async function GET(
       throw innerErr;
     }
 
-    // The old `if (res.data?.error)` block is now handled inside fetchAllConversations above.
-    if (false as boolean) {
-      const msg = res.data.error.message ?? '';
-      const code = (res.data as { error?: { code?: number } }).error?.code;
-      const metaMsg = typeof msg === 'string' ? msg : '';
-      if (msg.includes('permission') || msg.includes('OAuth') || msg.includes('access'))
-        return NextResponse.json({
-          conversations: [],
-          error: isInstagramBusinessLogin
-            ? 'Your Instagram session has expired. Reconnect your Instagram account to refresh it.'
-            : 'Reconnect from the sidebar and choose your Page when asked to grant messaging permission.',
-          debug: { rawMessage: metaMsg, code, metaMessage: metaMsg },
-        });
-      if (code === 3 || /capability|does not have the capability/i.test(metaMsg))
-        return NextResponse.json({
-          conversations: [],
-          error: isInstagramBusinessLogin
-            ? 'Instagram inbox needs Standard or Advanced Access for instagram_business_manage_messages. In Meta for Developers: App Dashboard, go to App Review, Permissions and features, find instagram_business_manage_messages and add your Instagram account as a tester under Roles. Then reconnect your Instagram account.'
-            : 'Instagram inbox needs Advanced Access. In Meta for Developers: App Dashboard, App Review, Permissions and features, find instagram_manage_messages and Request Advanced Access. Add test users under Roles if the app is in Development mode. Then reconnect Facebook and Instagram from the sidebar and choose your Page.',
-          debug: { rawMessage: metaMsg, code, metaMessage: metaMsg },
-        });
-      return NextResponse.json({ conversations: [], error: metaMsg, debug: { rawMessage: metaMsg, code, metaMessage: metaMsg } });
-    }
-
     // Build the set of IDs and usernames that belong to "us" so we can exclude our account
     // from the conversation sender list. We check both ID and username because Instagram's
     // participants API sometimes returns a different ID format than what is stored in the DB.
