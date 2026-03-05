@@ -56,7 +56,7 @@ export function SummaryDashboard() {
       api.get<{ posts?: unknown[] }>(`/social/accounts/${acc.id}/posts`, { params: { sync: 1 } })
         .then((r) => {
           tick();
-          if (!cancelled && r.data?.posts) appData?.setPostsForAccount(acc.id, r.data.posts);
+          if (!cancelled && r.data?.posts) appData?.setPostsForAccount(acc.id, r.data.posts as Parameters<typeof appData.setPostsForAccount>[1]);
         })
         .catch(() => tick())
     );
