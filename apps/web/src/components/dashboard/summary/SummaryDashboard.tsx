@@ -24,19 +24,24 @@ export function SummaryDashboard() {
   const [compareEnabled, setCompareEnabled] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
-  // On first mount, trigger a background sync for all accounts so post counts are fresh
+  // On first mount, trigger a background sync for all accounts (posts + insights) so Summary has full data
   useEffect(() => {
     if (!cachedAccounts || cachedAccounts.length === 0) return;
     let cancelled = false;
     setSyncing(true);
     const accounts = cachedAccounts as { id: string; platform: string }[];
-    Promise.all(
-      accounts.map((acc) =>
-        api.get<{ posts?: { id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; impressions: number; interactions: number; publishedAt: string; mediaType?: string | null; platform: string }[] }>(`/social/accounts/${acc.id}/posts`, { params: { sync: 1 } })
-          .then((r) => { if (!cancelled && r.data?.posts) appData?.setPostsForAccount(acc.id, r.data.posts); })
-          .catch(() => {})
-      )
-    ).finally(() => { if (!cancelled) setSyncing(false); });
+    const range = { start: DEFAULT_DATE_START, end: DEFAULT_DATE_END };
+    const postPromises = accounts.map((acc) =>
+      api.get<{ posts?: unknown[] }>(`/social/accounts/${acc.id}/posts`, { params: { sync: 1 } })
+        .then((r) => { if (!cancelled && r.data?.posts) appData?.setPostsForAccount(acc.id, r.data.posts); })
+        .catch(() => {})
+    );
+    const insightsPromises = accounts.map((acc) =>
+      api.get(`/social/accounts/${acc.id}/insights`, { params: { since: range.start, until: range.end } })
+        .then((r) => { if (!cancelled && r.data) appData?.setInsightsForAccount(acc.id, r.data); })
+        .catch(() => {})
+    );
+    Promise.all([...postPromises, ...insightsPromises]).finally(() => { if (!cancelled) setSyncing(false); });
     return () => { cancelled = true; };
   // Only run once when accounts are first available
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -74,35 +79,46 @@ export function SummaryDashboard() {
   if (!summary) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center rounded-[20px] bg-white border border-slate-200/60 p-12" style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
-        <p className="text-slate-600 text-center max-w-md">
-          Connect at least one social account from the sidebar to see your Summary Dashboard.
+        <div className="text-4xl mb-4">📊</div>
+        <p className="text-slate-700 font-semibold text-lg">No data yet</p>
+        <p className="text-slate-500 text-center max-w-sm mt-2">
+          Connect a social account from the left sidebar to start tracking your analytics.
         </p>
-        <a href="/dashboard" className="mt-6 px-5 py-2.5 rounded-xl bg-[#22FF88] text-slate-900 font-medium hover:opacity-90 transition-opacity">
-          Go to Dashboard
+        <a href="/dashboard" className="mt-6 px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors">
+          Connect an account
         </a>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 pb-12">
-      {/* AI Insight Summary */}
-      <div className="rounded-[20px] bg-white/90 border border-slate-200/60 p-4 flex items-start gap-3" style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
-        <span className="text-2xl shrink-0" aria-hidden>🧠</span>
-        <p className="text-sm text-slate-700">
-          {syncing
-            ? 'Syncing your latest posts and metrics from all connected accounts...'
-            : summary.kpis.totalReach > 0
-              ? 'Your reach is driven by ' + summary.platforms.length + ' connected account' + (summary.platforms.length !== 1 ? 's' : '') + '.'
-              : 'Your reach is building up. Connect more accounts and publish content to see growth.'}
-        </p>
-      </div>
+    <div className="space-y-8 pb-12" style={{ animation: 'fade-in 0.4s ease-out both' }}>
+      {/* Syncing banner or AI insight */}
+      {syncing ? (
+        <div className="rounded-2xl bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200/60 p-4 flex items-center gap-3">
+          <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shrink-0" />
+          <p className="text-sm text-indigo-800 font-medium">Syncing your latest posts and metrics from all connected accounts…</p>
+        </div>
+      ) : summary.kpis.totalReach > 0 || summary.kpis.totalAudience > 0 ? (
+        <div className="rounded-2xl bg-gradient-to-r from-slate-50 to-indigo-50/50 border border-slate-200/60 p-4 flex items-start gap-3">
+          <span className="text-xl shrink-0" aria-hidden>🧠</span>
+          <p className="text-sm text-slate-700">
+            <strong>Overview:</strong>{' '}
+            {summary.kpis.totalAudience.toLocaleString()} total followers across{' '}
+            {summary.platforms.length} platform{summary.platforms.length !== 1 ? 's' : ''},{' '}
+            {summary.kpis.totalReach.toLocaleString()} total reach, and{' '}
+            {summary.kpis.contentPublished} posts published.
+          </p>
+        </div>
+      ) : null}
+
       {/* Platform-level hints (e.g. YouTube Analytics API not enabled) */}
       {summary.platforms.some((p) => p.insightsHint) && (
         <div className="space-y-2">
           {summary.platforms.filter((p) => p.insightsHint).map((p) => (
-            <div key={p.id} className="rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
-              <strong>{p.platform}:</strong> {p.insightsHint}
+            <div key={p.id} className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex items-start gap-2">
+              <span className="shrink-0 mt-0.5">⚠</span>
+              <p><strong>{p.platform}:</strong> {p.insightsHint}</p>
             </div>
           ))}
         </div>

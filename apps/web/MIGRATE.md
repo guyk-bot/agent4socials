@@ -117,9 +117,19 @@ The app now uses consolidated tables. Two options:
 
 ### If you get "The column 'ImportedPost.likeCount' does not exist"
 
-This error means a previous deployment was built with a schema version that temporarily included `likeCount`, `commentsCount`, and `sharesCount` columns, but those columns were removed from the schema before the migration could run. The currently running Vercel Prisma client references columns that don't exist in the DB.
+The app expects `likeCount` and `commentsCount` on `ImportedPost`. If `prisma migrate deploy` didn't run during build (e.g. database connection error), add the columns manually:
 
-**Fix:** Trigger a fresh redeploy. The build will re-run `prisma generate` from the current schema (which does NOT include those columns), and the error disappears automatically. No SQL changes needed.
+1. **Supabase Dashboard** → your project → **SQL Editor**
+2. Run:
+
+```sql
+ALTER TABLE "ImportedPost" ADD COLUMN IF NOT EXISTS "likeCount" INTEGER DEFAULT 0;
+ALTER TABLE "ImportedPost" ADD COLUMN IF NOT EXISTS "commentsCount" INTEGER DEFAULT 0;
+```
+
+3. Save. Then refresh the dashboard and click **Sync posts** to load posts again.
+
+To avoid this in future, set **`DATABASE_DIRECT_URL`** in Vercel (see above) so migrations run on each deploy.
 
 ### If you get "The column 'targetPlatforms' does not exist"
 

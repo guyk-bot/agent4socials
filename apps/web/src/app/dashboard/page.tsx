@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
+import { InteractiveLineChart } from '@/components/charts/InteractiveLineChart';
 
 function Skeleton({ className = '', style }: { className?: string; style?: React.CSSProperties }) {
   return (
@@ -239,7 +240,6 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
   const [connectingMethod, setConnectingMethod] = useState<string | undefined>(undefined);
-  const [oauthRedirectUrl, setOauthRedirectUrl] = useState<string | null>(null);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const [analyticsTab, setAnalyticsTab] = useState('account');
   const [importedPosts, setImportedPosts] = useState<Array<{ id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; impressions: number; interactions: number; publishedAt: string; mediaType?: string | null; platform: string }>>([]);
@@ -665,10 +665,7 @@ export default function DashboardPage() {
       const url = res?.data?.url;
       if (url && typeof url === 'string') {
         redirecting = true;
-        setOauthRedirectUrl(url);
-        setTimeout(() => {
-          window.location.href = url;
-        }, 200);
+        window.location.href = url;
         return;
       }
       setAlertMessage('Invalid response from server. Check server logs.');
@@ -689,7 +686,6 @@ export default function DashboardPage() {
       if (!redirecting) {
         setConnectingPlatform(null);
         setConnectingMethod(undefined);
-        setOauthRedirectUrl(null);
       }
     }
   };
@@ -721,7 +717,7 @@ export default function DashboardPage() {
           onConnect={handleConnect}
           connecting={connectingPlatform !== null}
           connectingMethod={connectingMethod}
-          oauthRedirectUrl={oauthRedirectUrl}
+
           connectError={alertMessage}
         />
       </>
@@ -1040,239 +1036,160 @@ export default function DashboardPage() {
               )}
             </div>
           )}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Followers / Subscribers card */}
-            <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
-              <p className="text-sm font-medium text-neutral-500">{selectedAccount?.platform === 'YOUTUBE' ? 'Subscribers' : 'Followers'}</p>
-              <div className="flex items-center gap-3 mt-1">
-                <span className="text-3xl font-bold text-neutral-900">{effectiveFollowers}</span>
-                <div className="flex-1 h-2 max-w-[120px] rounded-full bg-neutral-200 overflow-hidden">
-                  <div className="h-full rounded-full bg-indigo-500" style={{ width: `${Math.min(100, (effectiveFollowers / 2000) * 100)}%` }} />
-                </div>
-              </div>
-              <div className="flex gap-1.5 mt-3 flex-wrap">
-                {selectedAccount ? (
-                  <>
-                    {selectedAccount.platform === 'INSTAGRAM' && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{effectiveFollowers} Instagram</span>}
-                    {selectedAccount.platform === 'FACEBOOK' && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{effectiveFollowers} Facebook</span>}
-                    {selectedAccount.platform && selectedAccount.platform !== 'INSTAGRAM' && selectedAccount.platform !== 'FACEBOOK' && (
-                      <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-neutral-100 text-neutral-700">{effectiveFollowers} {selectedAccount.platform}</span>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    {Array.from(new Set(accounts.map((a) => a.platform))).map((platform) => {
-                      const data = aggregatedInsights?.byPlatform?.[platform];
-                      const value = data != null ? data.followers : null;
-                      const label = platform === 'TWITTER' ? 'X' : platform.charAt(0) + platform.slice(1).toLowerCase();
-                      const cls =
-                        platform === 'INSTAGRAM' ? 'bg-pink-100 text-pink-800' :
-                        platform === 'FACEBOOK' ? 'bg-blue-100 text-blue-800' :
-                        platform === 'TWITTER' ? 'bg-neutral-100 text-neutral-800' :
-                        platform === 'TIKTOK' ? 'bg-black/10 text-neutral-800' :
-                        platform === 'YOUTUBE' ? 'bg-red-100 text-red-800' :
-                        platform === 'LINKEDIN' ? 'bg-blue-50 text-blue-800' :
-                        'bg-neutral-100 text-neutral-700';
-                      return (
-                        <span key={platform} className={`px-2.5 py-1 rounded-md text-xs font-medium ${cls}`}>
-                          {value != null ? value : '—'} {label}
-                        </span>
-                      );
-                    })}
-                  </>
-                )}
-              </div>
-              <div className="mt-4 h-40 rounded-lg bg-neutral-50 border border-neutral-100 flex items-center justify-center relative overflow-hidden">
-                <div className="absolute inset-0 opacity-[0.03] font-semibold text-neutral-400 text-2xl flex items-center justify-center" style={{ transform: 'rotate(-20deg)' }}>agent4socials</div>
-                {displayTimeSeries.length ? (
-                  <div className="flex items-end gap-0.5 h-full w-full p-4 pb-2">
-                    {displayTimeSeries.map((d) => (
-                      <div key={d.date} className="flex-1 bg-indigo-200/80 rounded-t min-h-[4px]" style={{ height: `${(d.value / maxImpressions) * 100}%` }} title={`${d.date}: ${d.value}`} />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex items-end gap-1 h-full w-full p-4 pb-2">
-                    {[28, 35, 42, 38, 45].map((pct, i) => (
-                      <div key={i} className="flex-1 bg-neutral-200/60 rounded-t min-h-[20%]" style={{ height: `${pct}%` }} />
-                    ))}
-                  </div>
-                )}
-              </div>
-              <p className="text-xs text-neutral-400 mt-1 px-1">{dateRange.start} – {dateRange.end}</p>
-            </div>
-            {/* Impressions / Tweets card */}
-            <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
-              <p className="text-sm font-medium text-neutral-500">{isTwitter ? 'Tweets' : 'Views'}</p>
-              <div className="flex items-center gap-3 mt-1">
-                <span className="text-3xl font-bold text-neutral-900">{isTwitter ? effectiveTweets : effectiveImpressions}</span>
-                <div className="flex-1 h-2 max-w-[120px] rounded-full bg-neutral-200 overflow-hidden">
-                  <div className="h-full rounded-full bg-indigo-500" style={{ width: (isTwitter ? effectiveTweets : effectiveImpressions) ? `${Math.min(100, (isTwitter ? effectiveTweets : effectiveImpressions) / 50)}%` : '0%' }} />
-                </div>
-              </div>
-              <div className="flex gap-1.5 mt-3 flex-wrap">
-                {selectedAccount ? (
-                  <>
-                    {selectedAccount.platform === 'FACEBOOK' && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{effectiveImpressions} Facebook</span>}
-                    {selectedAccount.platform === 'INSTAGRAM' && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{effectiveImpressions} Instagram</span>}
-                    {selectedAccount.platform === 'TWITTER' && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-neutral-100 text-neutral-800">{effectiveTweets} Twitter/X</span>}
-                    {selectedAccount.platform && selectedAccount.platform !== 'INSTAGRAM' && selectedAccount.platform !== 'FACEBOOK' && selectedAccount.platform !== 'TWITTER' && (
-                      <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-neutral-100 text-neutral-700">{effectiveImpressions} {selectedAccount.platform}</span>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    {Array.from(new Set(accounts.map((a) => a.platform))).map((platform) => {
-                      const data = aggregatedInsights?.byPlatform?.[platform];
-                      const value = data != null ? data.impressions : null;
-                      const label = platform === 'TWITTER' ? 'X (Tweets)' : platform === 'INSTAGRAM' ? 'Instagram (Views)' : platform === 'FACEBOOK' ? 'Facebook (Views)' : platform.charAt(0) + platform.slice(1).toLowerCase();
-                      const cls =
-                        platform === 'INSTAGRAM' ? 'bg-pink-100 text-pink-800' :
-                        platform === 'FACEBOOK' ? 'bg-blue-100 text-blue-800' :
-                        platform === 'TWITTER' ? 'bg-neutral-100 text-neutral-800' :
-                        platform === 'TIKTOK' ? 'bg-black/10 text-neutral-800' :
-                        platform === 'YOUTUBE' ? 'bg-red-100 text-red-800' :
-                        platform === 'LINKEDIN' ? 'bg-blue-50 text-blue-800' :
-                        'bg-neutral-100 text-neutral-700';
-                      return (
-                        <span key={platform} className={`px-2.5 py-1 rounded-md text-xs font-medium ${cls}`}>
-                          {value != null && value > 0 ? value : '—'} {label}
-                        </span>
-                      );
-                    })}
-                  </>
-                )}
-              </div>
-              <div className="mt-4 h-40 rounded-lg bg-neutral-50 border border-neutral-100 flex items-center justify-center relative overflow-hidden">
-                <div className="absolute inset-0 opacity-[0.03] font-semibold text-neutral-400 text-2xl flex items-center justify-center" style={{ transform: 'rotate(-20deg)' }}>agent4socials</div>
-                {displayTimeSeries.length ? (
-                  <div className="flex items-end gap-0.5 h-full w-full p-4 pb-2">
-                    {displayTimeSeries.map((d) => (
-                      <div key={d.date} className="flex-1 bg-indigo-200/80 rounded-t min-h-[4px]" style={{ height: `${(d.value / maxImpressions) * 100}%` }} title={`${d.date}: ${d.value}`} />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex items-end gap-1 h-full w-full p-4 pb-2">
-                    {[32, 40, 35, 48, 42].map((pct, i) => (
-                      <div key={i} className="flex-1 bg-neutral-200/60 rounded-t min-h-[20%]" style={{ height: `${pct}%` }} />
-                    ))}
-                  </div>
-                )}
-              </div>
-                <p className="text-xs text-neutral-400 mt-1 px-1">{dateRange.start} – {dateRange.end}</p>
-            </div>
-            {/* Interactions (Metricool-style) */}
-            <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm lg:col-span-2">
-              <p className="text-sm font-medium text-neutral-500">Interactions</p>
-              <div className="flex items-center gap-3 mt-1">
-                <span className="text-3xl font-bold text-neutral-900">{totalInteractions}</span>
-                <div className="flex-1 h-2 max-w-[120px] rounded-full bg-pink-200 overflow-hidden">
-                  <div className="h-full bg-pink-500 rounded-full" style={{ width: `${Math.min(100, totalInteractions * 25)}%` }} />
-                </div>
-              </div>
-              <div className="flex gap-1.5 mt-3 flex-wrap">
-                {hasInstagram && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{importedPosts.filter((p) => p.platform === 'INSTAGRAM').reduce((s, p) => s + (p.interactions ?? 0), 0)} Instagram</span>}
-                {hasFacebook && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{importedPosts.filter((p) => p.platform === 'FACEBOOK').reduce((s, p) => s + (p.interactions ?? 0), 0)} Facebook</span>}
-                {importedPosts.some((p) => p.platform === 'TWITTER') && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-neutral-100 text-neutral-800">{importedPosts.filter((p) => p.platform === 'TWITTER').reduce((s, p) => s + (p.interactions ?? 0), 0)} X</span>}
-                {importedPosts.some((p) => p.platform === 'YOUTUBE') && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-red-100 text-red-800">{importedPosts.filter((p) => p.platform === 'YOUTUBE').reduce((s, p) => s + (p.interactions ?? 0), 0)} YouTube</span>}
-              </div>
-            </div>
-            {/* Number of posts (Metricool-style) */}
-            <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm lg:col-span-2">
-              <p className="text-sm font-medium text-neutral-500">Number of posts</p>
-              <div className="flex items-center gap-3 mt-1">
-                <span className="text-3xl font-bold text-neutral-900">{importedPosts.length}</span>
-                <div className="flex-1 h-2 max-w-[120px] rounded-full bg-neutral-200 overflow-hidden">
-                  <div className="h-full rounded-full bg-indigo-500" style={{ width: importedPosts.length ? `${Math.min(100, importedPosts.length * 20)}%` : '0%' }} />
-                </div>
-              </div>
-              <div className="flex gap-1.5 mt-3 flex-wrap">
-                {hasFacebook && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{importedPosts.filter((p) => p.platform === 'FACEBOOK').length} Facebook</span>}
-                {hasInstagram && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{importedPosts.filter((p) => p.platform === 'INSTAGRAM').length} Instagram</span>}
-                {importedPosts.some((p) => p.platform === 'TWITTER') && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-neutral-100 text-neutral-800">{importedPosts.filter((p) => p.platform === 'TWITTER').length} X</span>}
-                {importedPosts.some((p) => p.platform === 'YOUTUBE') && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-red-100 text-red-800">{importedPosts.filter((p) => p.platform === 'YOUTUBE').length} YouTube</span>}
-              </div>
-            </div>
-            {/* Page visits / Profile views, Reach, Total content */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:col-span-2">
-              {!selectedAccount ? (
-                <>
-                  <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
-                    <p className="text-xs font-medium text-neutral-500">Profile views</p>
-                    <p className="text-xl font-bold text-neutral-900 mt-0.5">{effectiveProfileViews || '—'}</p>
-                  </div>
-                  <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
-                    <p className="text-xs font-medium text-neutral-500">Page visits</p>
-                    <p className="text-xl font-bold text-neutral-900 mt-0.5">{effectivePageVisits || '—'}</p>
-                  </div>
-                </>
-              ) : selectedAccount.platform === 'INSTAGRAM' ? (
-                <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
-                  <p className="text-xs font-medium text-neutral-500">Profile views</p>
-                  <p className="text-xl font-bold text-neutral-900 mt-0.5">{effectiveProfileViews || '—'}</p>
-                </div>
-              ) : (
-                <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
-                  <p className="text-xs font-medium text-neutral-500">Page visits</p>
-                  <p className="text-xl font-bold text-neutral-900 mt-0.5">{effectivePageVisits || '—'}</p>
-                </div>
-              )}
-              <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
-                <p className="text-xs font-medium text-neutral-500">Reach</p>
-                <p className="text-xl font-bold text-neutral-900 mt-0.5">{effectiveReach || '—'}</p>
-              </div>
-              <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
-                <p className="text-xs font-medium text-neutral-500">Total content</p>
-                <p className="text-xl font-bold text-neutral-900 mt-0.5">{isTwitter ? (recentTweets.length > 0 ? effectiveTweets : importedPosts.length) : importedPosts.length}</p>
-              </div>
-            </div>
-            {isTwitter && recentTweets.length > 0 && (
-              <div className="lg:col-span-2 bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
-                <p className="text-sm font-medium text-neutral-500 mb-3">Recent tweets</p>
-                <ul className="space-y-3 max-h-64 overflow-y-auto">
-                  {recentTweets.slice(0, 10).map((t) => (
-                    <li key={t.id} className="flex flex-col gap-1 text-sm border-b border-neutral-100 pb-2 last:border-0">
-                      <p className="text-neutral-800 line-clamp-2">{t.text || '—'}</p>
-                      <div className="flex gap-3 text-xs text-neutral-500">
-                        <span>{t.like_count} likes</span>
-                        <span>{t.retweet_count} retweets</span>
-                        <span>{t.reply_count} replies</span>
-                        {t.impression_count > 0 && <span>{t.impression_count} impressions</span>}
-                        {t.created_at && <span>{new Date(t.created_at).toLocaleDateString()}</span>}
-                      </div>
-                      <a href={`https://x.com/i/status/${t.id}`} target="_blank" rel="noopener noreferrer" className="text-indigo-600 text-xs hover:underline">View on X</a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {/* Derived: daily page views, daily posts, posts per week */}
-            {(() => {
-              const start = dateRange.start ? new Date(dateRange.start) : null;
-              const end = dateRange.end ? new Date(dateRange.end) : null;
-              const days = start && end ? Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000))) : 0;
-              const weeks = days ? days / 7 : 0;
+          {/* ── Analytics cards (Metricool-style) ──────────────────────────── */}
+          {(() => {
+            const platColor =
+              selectedAccount?.platform === 'INSTAGRAM' ? '#E1306C' :
+              selectedAccount?.platform === 'FACEBOOK' ? '#1877F2' :
+              selectedAccount?.platform === 'YOUTUBE' ? '#FF0000' :
+              selectedAccount?.platform === 'TIKTOK' ? '#010101' :
+              selectedAccount?.platform === 'TWITTER' ? '#1D9BF0' :
+              selectedAccount?.platform === 'LINKEDIN' ? '#0A66C2' :
+              '#6366f1';
+            const start = dateRange.start ? new Date(dateRange.start) : null;
+            const end = dateRange.end ? new Date(dateRange.end) : null;
+            const days = start && end ? Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000))) : 0;
+            const weeks = days ? days / 7 : 0;
+
+            const platformBadge = (platform: string, value: number | null, suffix?: string) => {
+              const cls =
+                platform === 'INSTAGRAM' ? 'bg-pink-100 text-pink-800' :
+                platform === 'FACEBOOK' ? 'bg-blue-100 text-blue-800' :
+                platform === 'TWITTER' ? 'bg-sky-100 text-sky-800' :
+                platform === 'TIKTOK' ? 'bg-neutral-900/10 text-neutral-800' :
+                platform === 'YOUTUBE' ? 'bg-red-100 text-red-800' :
+                platform === 'LINKEDIN' ? 'bg-blue-50 text-blue-800' :
+                'bg-neutral-100 text-neutral-700';
+              const label = platform === 'TWITTER' ? 'X' : platform.charAt(0) + platform.slice(1).toLowerCase();
               return (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 lg:col-span-2">
-                  <div className="bg-neutral-50 border border-neutral-100 rounded-xl p-4 shadow-sm">
-                    <p className="text-xs font-medium text-neutral-500">Average daily new followers</p>
-                    <p className="text-lg font-semibold text-neutral-700 mt-0.5">—</p>
+                <span key={platform} className={`px-2.5 py-1 rounded-md text-xs font-medium ${cls}`}>
+                  {value != null ? value.toLocaleString() : '—'} {label}{suffix ?? ''}
+                </span>
+              );
+            };
+
+            return (
+              <div className="space-y-4">
+                {/* Row 1: Followers + Views — full charts */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* Followers card */}
+                  <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
+                    style={{ borderLeft: `4px solid ${platColor}` }}>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
+                      {selectedAccount?.platform === 'YOUTUBE' ? 'Subscribers' : 'Followers'}
+                    </p>
+                    <p className="text-3xl font-bold text-neutral-900 mt-1 tabular-nums">{effectiveFollowers.toLocaleString()}</p>
+                    <div className="flex gap-1.5 mt-2 flex-wrap">
+                      {selectedAccount
+                        ? platformBadge(selectedAccount.platform, effectiveFollowers)
+                        : Array.from(new Set(accounts.map((a) => a.platform))).map((pl) => {
+                            const v = aggregatedInsights?.byPlatform?.[pl]?.followers ?? null;
+                            return platformBadge(pl, v);
+                          })}
+                    </div>
+                    <div className="mt-3 rounded-xl overflow-hidden bg-neutral-50" style={{ height: 140 }}>
+                      {displayTimeSeries.length ? (
+                        <InteractiveLineChart data={displayTimeSeries} height={140} valueLabel={selectedAccount?.platform === 'YOUTUBE' ? 'Subscribers' : 'Followers'} color={platColor} crosshair />
+                      ) : (
+                        <div className="h-full flex items-end gap-1 px-3 pb-3 pt-4">
+                          {[28,35,42,38,45,40,50].map((pct, i) => (
+                            <div key={i} className="flex-1 rounded-t animate-pulse" style={{ height: `${pct}%`, backgroundColor: platColor + '33' }} />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs text-neutral-400 mt-1">{dateRange.start} – {dateRange.end}</p>
                   </div>
-                  <div className="bg-neutral-50 border border-neutral-100 rounded-xl p-4 shadow-sm">
-                    <p className="text-xs font-medium text-neutral-500">Daily page views</p>
-                    <p className="text-lg font-semibold text-neutral-700 mt-0.5">{days ? (effectivePageVisits / days).toFixed(2) : '—'}</p>
-                  </div>
-                  <div className="bg-neutral-50 border border-neutral-100 rounded-xl p-4 shadow-sm">
-                    <p className="text-xs font-medium text-neutral-500">Daily posts</p>
-                    <p className="text-lg font-semibold text-neutral-700 mt-0.5">{days ? (importedPosts.length / days).toFixed(2) : '—'}</p>
-                  </div>
-                  <div className="bg-neutral-50 border border-neutral-100 rounded-xl p-4 shadow-sm">
-                    <p className="text-xs font-medium text-neutral-500">Posts per week</p>
-                    <p className="text-lg font-semibold text-neutral-700 mt-0.5">{weeks ? (importedPosts.length / weeks).toFixed(2) : '—'}</p>
+
+                  {/* Views / Impressions card */}
+                  <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
+                    style={{ borderLeft: `4px solid #6366f1` }}>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
+                      {isTwitter ? 'Tweets' : 'Views'}
+                    </p>
+                    <p className="text-3xl font-bold text-neutral-900 mt-1 tabular-nums">
+                      {(isTwitter ? effectiveTweets : effectiveImpressions).toLocaleString()}
+                    </p>
+                    <div className="flex gap-1.5 mt-2 flex-wrap">
+                      {selectedAccount
+                        ? platformBadge(selectedAccount.platform, isTwitter ? effectiveTweets : effectiveImpressions)
+                        : Array.from(new Set(accounts.map((a) => a.platform))).map((pl) => {
+                            const v = pl === 'TWITTER'
+                              ? (aggregatedInsights?.byPlatform?.[pl]?.impressions ?? null)
+                              : (aggregatedInsights?.byPlatform?.[pl]?.impressions ?? null);
+                            return platformBadge(pl, v);
+                          })}
+                    </div>
+                    <div className="mt-3 rounded-xl overflow-hidden bg-neutral-50" style={{ height: 140 }}>
+                      {displayTimeSeries.length ? (
+                        <InteractiveLineChart data={displayTimeSeries} height={140} valueLabel={isTwitter ? 'Tweets' : 'Views'} color="#6366f1" crosshair />
+                      ) : (
+                        <div className="h-full flex items-end gap-1 px-3 pb-3 pt-4">
+                          {[32,40,35,48,42,38,52].map((pct, i) => (
+                            <div key={i} className="flex-1 rounded-t animate-pulse bg-indigo-200/60" style={{ height: `${pct}%` }} />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs text-neutral-400 mt-1">{dateRange.start} – {dateRange.end}</p>
                   </div>
                 </div>
-              );
-            })()}
-          </div>
+
+                {/* Row 2: stat tiles */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[
+                    { label: 'Interactions', value: totalInteractions.toLocaleString(), sub: `${importedPosts.length} posts` },
+                    { label: 'Reach', value: effectiveReach ? effectiveReach.toLocaleString() : '—', sub: selectedAccount?.platform === 'INSTAGRAM' ? 'Unique viewers' : 'Engaged users' },
+                    { label: effectiveProfileViews > 0 ? 'Profile views' : 'Page visits', value: (effectiveProfileViews || effectivePageVisits) ? (effectiveProfileViews || effectivePageVisits).toLocaleString() : '—', sub: 'Last 28 days' },
+                    { label: 'Total content', value: importedPosts.length.toLocaleString(), sub: `${days ? (importedPosts.length / days).toFixed(1) : 0} per day` },
+                  ].map((tile, i) => (
+                    <div key={i} className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-150">
+                      <p className="text-xs font-medium text-neutral-500">{tile.label}</p>
+                      <p className="text-2xl font-bold text-neutral-900 mt-0.5 tabular-nums">{tile.value}</p>
+                      <p className="text-xs text-neutral-400 mt-0.5">{tile.sub}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Row 3: derived stats */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[
+                    { label: 'Daily page views', value: days && effectivePageVisits ? (effectivePageVisits / days).toFixed(1) : '—' },
+                    { label: 'Daily posts', value: days ? (importedPosts.length / days).toFixed(2) : '—' },
+                    { label: 'Posts per week', value: weeks ? (importedPosts.length / weeks).toFixed(1) : '—' },
+                    { label: 'Avg. interactions / post', value: importedPosts.length ? (totalInteractions / importedPosts.length).toFixed(1) : '—' },
+                  ].map((tile, i) => (
+                    <div key={i} className="bg-neutral-50 border border-neutral-100 rounded-xl p-4">
+                      <p className="text-xs font-medium text-neutral-500">{tile.label}</p>
+                      <p className="text-xl font-semibold text-neutral-800 mt-0.5 tabular-nums">{tile.value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Twitter recent tweets */}
+                {isTwitter && recentTweets.length > 0 && (
+                  <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-sm">
+                    <p className="text-sm font-semibold text-neutral-700 mb-3">Recent posts on X</p>
+                    <ul className="space-y-3 max-h-64 overflow-y-auto">
+                      {recentTweets.slice(0, 10).map((t) => (
+                        <li key={t.id} className="flex flex-col gap-1 text-sm border-b border-neutral-100 pb-2 last:border-0">
+                          <p className="text-neutral-800 line-clamp-2">{t.text || '—'}</p>
+                          <div className="flex gap-3 text-xs text-neutral-500">
+                            <span>❤️ {t.like_count}</span>
+                            <span>🔁 {t.retweet_count}</span>
+                            <span>💬 {t.reply_count}</span>
+                            {t.impression_count > 0 && <span>👁 {t.impression_count.toLocaleString()}</span>}
+                            {t.created_at && <span>{new Date(t.created_at).toLocaleDateString()}</span>}
+                          </div>
+                          <a href={`https://x.com/i/status/${t.id}`} target="_blank" rel="noopener noreferrer" className="text-sky-600 text-xs hover:underline w-fit">View on X →</a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
           </>
           )}
         </div>

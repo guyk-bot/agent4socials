@@ -74,11 +74,10 @@ type ConnectViewProps = {
   onConnect: (platform: string, method?: string) => void;
   connecting: boolean;
   connectingMethod?: string;
-  oauthRedirectUrl?: string | null;
   connectError?: string | null;
 };
 
-export default function ConnectView({ platform, onConnect, connecting, connectingMethod, oauthRedirectUrl, connectError }: ConnectViewProps) {
+export default function ConnectView({ platform, onConnect, connecting, connectingMethod, connectError }: ConnectViewProps) {
   const info = PLATFORM_INFO[platform];
   if (!info) return null;
 
