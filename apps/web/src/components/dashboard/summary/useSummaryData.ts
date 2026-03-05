@@ -84,6 +84,8 @@ export function useSummaryData(
             reach: p.impressions ?? 0,
             impressions: p.impressions ?? 0,
             engagement: p.interactions ?? 0,
+            likes: (p as { likeCount?: number }).likeCount ?? 0,
+            comments: (p as { commentsCount?: number }).commentsCount ?? 0,
             engagementRate: 0,
             mediaType: p.mediaType,
             permalinkUrl: (p as { permalinkUrl?: string | null }).permalinkUrl ?? null,

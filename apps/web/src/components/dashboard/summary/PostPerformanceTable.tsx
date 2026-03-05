@@ -175,7 +175,7 @@ export function PostPerformanceTable({ posts }: PostPerformanceTableProps) {
                     </div>
                   </td>
                   <td className="py-3 px-4 font-medium text-slate-900">{post.reach.toLocaleString()}</td>
-                  <td className="py-3 px-4 font-medium text-slate-900">{post.engagement.toLocaleString()}</td>
+                  <td className="py-3 px-4 font-medium text-slate-900">{(post.likes ?? post.engagement).toLocaleString()}</td>
                   <td className="py-3 px-4 text-slate-600">{(post.comments ?? 0).toLocaleString()}</td>
                   <td className="py-3 px-4 text-slate-600 whitespace-nowrap">{new Date(post.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</td>
                 </tr>

@@ -72,6 +72,8 @@ model ImportedPost {
   permalinkUrl   String?
   impressions     Int      @default(0)
   interactions    Int      @default(0)
+  likeCount       Int?     @default(0)
+  commentsCount   Int?     @default(0)
   publishedAt     DateTime
   mediaType       String?  // IMAGE, VIDEO, etc.
   syncedAt        DateTime @default(now())

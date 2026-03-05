@@ -73,6 +73,8 @@ export async function GET(
       permalinkUrl: p.permalinkUrl,
       impressions: p.impressions ?? 0,
       interactions: p.interactions ?? 0,
+      likeCount: p.likeCount ?? 0,
+      commentsCount: p.commentsCount ?? 0,
       publishedAt: p.publishedAt instanceof Date ? p.publishedAt.toISOString() : String(p.publishedAt),
       mediaType: p.mediaType,
       platform: p.platform,
@@ -194,8 +196,6 @@ async function syncImportedPosts(
       const likeCount = m.like_count ?? 0;
       const commentsCount = m.comments_count ?? 0;
       const interactions = likeCount + commentsCount;
-      // Note: likeCount and commentsCount are not stored separately in DB (schema only has interactions).
-      // They are passed in the sync response for live display only.
       let impressions = 0;
       try {
         // Fetch both impressions (total views) and reach (unique viewers).
@@ -231,6 +231,8 @@ async function syncImportedPosts(
           mediaType: m.media_type ?? null,
           impressions,
           interactions,
+          likeCount,
+          commentsCount,
           syncedAt: new Date(),
         },
         create: {
@@ -244,6 +246,8 @@ async function syncImportedPosts(
           mediaType: m.media_type ?? null,
           impressions,
           interactions,
+          likeCount,
+          commentsCount,
         },
       });
     }
@@ -286,6 +290,23 @@ async function syncImportedPosts(
       const likeCount = p.reactions?.summary?.total_count ?? 0;
       const commentsCount = p.comments?.summary?.total_count ?? 0;
       const interactions = likeCount + commentsCount;
+
+      // Fetch post-level impressions (total views) from the Page Insights API.
+      // Requires pages_read_engagement scope on the Page token.
+      let impressions = 0;
+      try {
+        const insightsRes = await axios.get<{
+          data?: Array<{ name: string; values?: Array<{ value: number }> }>;
+        }>(
+          `${baseUrl}/${p.id}/insights`,
+          { params: { metric: 'post_impressions', access_token: accessToken }, timeout: 8_000 }
+        );
+        const row = insightsRes.data?.data?.find((d) => d.name === 'post_impressions');
+        impressions = row?.values?.[0]?.value ?? 0;
+      } catch {
+        // Insights may not be available for all post types or permission levels; silently skip.
+      }
+
       await prisma.importedPost.upsert({
         where: {
           socialAccountId_platformPostId: { socialAccountId, platformPostId: p.id },
@@ -296,8 +317,10 @@ async function syncImportedPosts(
           permalinkUrl: p.permalink_url ?? null,
           publishedAt,
           mediaType: null,
-          impressions: 0,
+          impressions,
           interactions,
+          likeCount,
+          commentsCount,
           syncedAt: new Date(),
         },
         create: {
@@ -309,8 +332,10 @@ async function syncImportedPosts(
           permalinkUrl: p.permalink_url ?? null,
           publishedAt,
           mediaType: null,
-          impressions: 0,
+          impressions,
           interactions,
+          likeCount,
+          commentsCount,
         },
       });
     }
@@ -513,11 +538,13 @@ async function syncImportedPosts(
         const thumbnailUrl = v.cover_image_url ?? null;
         const permalinkUrl = v.share_url ?? `https://www.tiktok.com/@user/video/${videoId}`;
         const impressions = v.view_count ?? 0;
-        const interactions = (v.like_count ?? 0) + (v.comment_count ?? 0);
+        const likeCount = v.like_count ?? 0;
+        const commentsCount = v.comment_count ?? 0;
+        const interactions = likeCount + commentsCount;
         await prisma.importedPost.upsert({
           where: { socialAccountId_platformPostId: { socialAccountId, platformPostId: videoId } },
-          update: { content: title, thumbnailUrl, permalinkUrl, publishedAt, mediaType: 'VIDEO', impressions, interactions, syncedAt: new Date() },
-          create: { socialAccountId, platformPostId: videoId, platform: 'TIKTOK', content: title, thumbnailUrl, permalinkUrl, publishedAt, mediaType: 'VIDEO', impressions, interactions },
+          update: { content: title, thumbnailUrl, permalinkUrl, publishedAt, mediaType: 'VIDEO', impressions, interactions, likeCount, commentsCount, syncedAt: new Date() },
+          create: { socialAccountId, platformPostId: videoId, platform: 'TIKTOK', content: title, thumbnailUrl, permalinkUrl, publishedAt, mediaType: 'VIDEO', impressions, interactions, likeCount, commentsCount },
         });
       }
       return undefined;
@@ -623,11 +650,13 @@ async function syncImportedPosts(
         const permalinkUrl = `https://www.youtube.com/watch?v=${videoId}`;
         const stats = statsMap[videoId] ?? { viewCount: 0, likeCount: 0, commentCount: 0 };
         const impressions = stats.viewCount;
-        const interactions = stats.likeCount + stats.commentCount;
+        const likeCount = stats.likeCount;
+        const commentsCount = stats.commentCount;
+        const interactions = likeCount + commentsCount;
         await prisma.importedPost.upsert({
           where: { socialAccountId_platformPostId: { socialAccountId, platformPostId: videoId } },
-          update: { content: title, thumbnailUrl, permalinkUrl, publishedAt, mediaType: 'VIDEO', impressions, interactions, syncedAt: new Date() },
-          create: { socialAccountId, platformPostId: videoId, platform: 'YOUTUBE', content: title, thumbnailUrl, permalinkUrl, publishedAt, mediaType: 'VIDEO', impressions, interactions },
+          update: { content: title, thumbnailUrl, permalinkUrl, publishedAt, mediaType: 'VIDEO', impressions, interactions, likeCount, commentsCount, syncedAt: new Date() },
+          create: { socialAccountId, platformPostId: videoId, platform: 'YOUTUBE', content: title, thumbnailUrl, permalinkUrl, publishedAt, mediaType: 'VIDEO', impressions, interactions, likeCount, commentsCount },
         });
       }
 

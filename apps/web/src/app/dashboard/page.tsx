@@ -1499,8 +1499,8 @@ export default function DashboardPage() {
                                 </div>
                               </div>
                             </td>
-                            <td className="px-4 py-3 text-sm text-neutral-600">{post.impressions ?? 0}</td>
-                            <td className="px-4 py-3 text-sm text-neutral-600">{post.interactions ?? 0}</td>
+                            <td className="px-4 py-3 text-sm text-neutral-600">{(post as { impressions?: number }).impressions ?? 0}</td>
+                            <td className="px-4 py-3 text-sm text-neutral-600">{(post as { likeCount?: number }).likeCount ?? 0}</td>
                             <td className="px-4 py-3 text-sm text-neutral-500">{(post as { commentsCount?: number }).commentsCount ?? 0}</td>
                             <td className="px-4 py-3 text-sm text-neutral-500">{(post as { sharesCount?: number }).sharesCount ?? 0}</td>
                             <td className="px-4 py-3 text-sm text-neutral-500">{(post as { repostsCount?: number }).repostsCount ?? 0}</td>
