@@ -227,7 +227,8 @@ export async function GET(
     const status = err?.response?.status;
     const axiosData = err?.response?.data;
     const metaErrorMsg = axiosData && typeof axiosData === 'object' && (axiosData as { error?: { message?: string } }).error?.message;
-    const isCapabilityError = status === 400 && (metaErrorMsg && (/(#3)|capability|does not have the capability/i.test(metaErrorMsg)));
+    const metaErrorStr = typeof metaErrorMsg === 'string' ? metaErrorMsg : '';
+    const isCapabilityError = status === 400 && (/(#3)|capability|does not have the capability/i.test(metaErrorStr));
     if (isCapabilityError)
       return NextResponse.json({
         conversations: [],
