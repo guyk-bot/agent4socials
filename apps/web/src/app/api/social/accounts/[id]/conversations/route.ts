@@ -90,6 +90,12 @@ export async function GET(
       const metaMsg = typeof msg === 'string' ? msg : '';
       if (msg.includes('permission') || msg.includes('OAuth') || msg.includes('access'))
         return NextResponse.json({ conversations: [], error: 'Reconnect from the sidebar and choose your Page when asked to grant messaging permission.', debug: { rawMessage: metaMsg, code, metaMessage: metaMsg } });
+      if (code === 3 || /capability|does not have the capability/i.test(metaMsg))
+        return NextResponse.json({
+          conversations: [],
+          error: 'Instagram inbox needs Advanced Access. In Meta for Developers: App Dashboard → App Review → Permissions and features → instagram_manage_messages → Request Advanced Access. Use a Page-linked Instagram Business account and add test users if the app is in Development mode. Then reconnect Facebook & Instagram from the sidebar and choose your Page.',
+          debug: { rawMessage: metaMsg, code, metaMessage: metaMsg },
+        });
       return NextResponse.json({ conversations: [], error: metaMsg, debug: { rawMessage: metaMsg, code, metaMessage: metaMsg } });
     }
 
@@ -112,18 +118,15 @@ export async function GET(
       };
     });
 
-    // Best-effort enrichment: if Meta only returned IDs (no name/username),
-    // look up profiles and fill in display name / username / picture.
-    const missingProfileIds = new Set<string>();
+    // Enrich senders with profile picture (and name/username if missing).
+    // For Instagram we always fetch profiles so we get profile_pic; participants API often doesn't include it.
+    const idsToEnrich = new Set<string>();
     for (const conv of list) {
       for (const s of conv.senders) {
-        if (s.id && !s.name && !s.username) {
-          missingProfileIds.add(s.id);
-        }
+        if (s.id) idsToEnrich.add(s.id);
       }
     }
-
-    if (missingProfileIds.size > 0) {
+    if (idsToEnrich.size > 0) {
       try {
         const profiles = new Map<
           string,
@@ -131,10 +134,9 @@ export async function GET(
         >();
 
         if (isInstagram) {
-          // Instagram User Profile API is served from graph.instagram.com and
-          // works per-ID. Use it to resolve name, username, profile_pic.
+          // Instagram User Profile API: get name, username, profile_pic for all senders.
           await Promise.all(
-            Array.from(missingProfileIds).map(async (id) => {
+            Array.from(idsToEnrich).map(async (id) => {
               try {
                 const profileRes = await axios.get<{
                   id?: string;
@@ -162,8 +164,8 @@ export async function GET(
             })
           );
         } else {
-          // Facebook Page messaging: we can batch lookup via ids=...
-          const idsParam = Array.from(missingProfileIds).join(',');
+          // Facebook Page messaging: batch lookup for name and picture.
+          const idsParam = Array.from(idsToEnrich).join(',');
           const profileRes = await axios.get<
             Record<
               string,
@@ -224,6 +226,14 @@ export async function GET(
     const msg = err?.message ?? '';
     const status = err?.response?.status;
     const axiosData = err?.response?.data;
+    const metaErrorMsg = axiosData && typeof axiosData === 'object' && (axiosData as { error?: { message?: string } }).error?.message;
+    const isCapabilityError = status === 400 && (metaErrorMsg && (/(#3)|capability|does not have the capability/i.test(metaErrorMsg)));
+    if (isCapabilityError)
+      return NextResponse.json({
+        conversations: [],
+        error: 'Instagram inbox needs Advanced Access. In Meta for Developers: App Dashboard → App Review → Permissions and features → instagram_manage_messages → Request Advanced Access. Use a Page-linked Instagram Business account and add test users if the app is in Development mode. Then reconnect Facebook & Instagram from the sidebar and choose your Page.',
+        debug: { rawMessage: msg, responseData: axiosData, metaMessage: metaErrorMsg },
+      });
     const isTimeout = err?.code === 'ECONNABORTED' || /timeout|408/i.test(msg);
     if (status === 400) {
       const metaMsg = axiosData && typeof axiosData === 'object' && (axiosData as { error?: { message?: string } }).error?.message;
