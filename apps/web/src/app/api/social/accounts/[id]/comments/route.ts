@@ -77,10 +77,10 @@ export async function GET(
     ? account.credentialsJson
     : {}) as { loginMethod?: string; igUserToken?: string };
 
-  // Instagram Business Login accounts must use graph.instagram.com with the Instagram User token.
+  // Instagram Business Login: account.accessToken IS the long-lived Instagram User token.
   const isInstagramBusinessLogin =
     platform === 'INSTAGRAM' && credJson.loginMethod === 'instagram_business';
-  const igUserToken = isInstagramBusinessLogin ? (credJson.igUserToken ?? account.accessToken) : null;
+  const igUserToken = isInstagramBusinessLogin ? account.accessToken : null;
 
   const token = account.accessToken;
   const comments: Array<{

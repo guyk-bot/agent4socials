@@ -690,32 +690,44 @@ export default function InboxPage() {
             </div>
           ) : conversationsError ? (
             <div className="p-4">
-              <div className="rounded-xl border-2 border-indigo-200 bg-indigo-50 px-4 py-4">
-                <p className="text-sm font-medium text-indigo-900">Instagram and Facebook inbox need permission from Meta.</p>
-                <p className="text-xs text-indigo-700 mt-1">{conversationsError}</p>
+              <div className="rounded-xl border-2 border-red-200 bg-red-50 px-4 py-4">
+                <p className="text-sm font-medium text-red-900">Could not load messages</p>
+                <p className="text-xs text-red-700 mt-1">{conversationsError}</p>
                 {conversationsDebug?.metaMessage && (
-                  <p className="text-xs text-indigo-800 mt-1 font-mono bg-indigo-100/80 px-2 py-1 rounded mt-2">Meta: {conversationsDebug.metaMessage}</p>
+                  <p className="text-xs text-red-800 mt-1 font-mono bg-red-100/80 px-2 py-1 rounded mt-2">{conversationsDebug.metaMessage}</p>
                 )}
-                {conversationsDebug?.responseData != null && typeof conversationsDebug.responseData === 'object' && (conversationsDebug.responseData as { error?: { message?: string } }).error?.message && !conversationsDebug.metaMessage && (
-                  <p className="text-xs text-indigo-800 mt-1 font-mono bg-indigo-100/80 px-2 py-1 rounded mt-2">Meta: {(conversationsDebug.responseData as { error: { message: string } }).error.message}</p>
-                )}
-                {conversationsDebug && (conversationsDebug.rawMessage || conversationsDebug.code != null) && !conversationsDebug.metaMessage && (
-                  <p className="text-xs text-neutral-500 mt-1 font-mono">API: {conversationsDebug.rawMessage ?? ''} {conversationsDebug.code != null ? `(code ${conversationsDebug.code})` : ''}</p>
-                )}
-                <p className="text-xs text-indigo-700 mt-3">Tools like Metricool show inbox because their app has <strong>Advanced Access</strong> for instagram_manage_messages. To get the same in A4S, complete Meta App Review (see docs in the repo).</p>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      const res = await api.get('/social/oauth/facebook/start');
-                      const url = res?.data?.url;
-                      if (url && typeof url === 'string') window.location.href = url;
-                    } catch (_) {}
-                  }}
-                  className="mt-3 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700"
-                >
-                  Reconnect Facebook & Instagram
-                </button>
+                <div className="mt-3 flex flex-col gap-2">
+                  {effectiveAccounts.some((a) => a.platform === 'INSTAGRAM') && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const res = await api.get('/social/oauth/INSTAGRAM/start?method=instagram');
+                          const url = res?.data?.url;
+                          if (url && typeof url === 'string') window.location.href = url;
+                        } catch (_) {}
+                      }}
+                      className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-medium hover:opacity-90"
+                    >
+                      Reconnect Instagram
+                    </button>
+                  )}
+                  {effectiveAccounts.some((a) => a.platform === 'FACEBOOK') && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const res = await api.get('/social/oauth/facebook/start');
+                          const url = res?.data?.url;
+                          if (url && typeof url === 'string') window.location.href = url;
+                        } catch (_) {}
+                      }}
+                      className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
+                    >
+                      Reconnect Facebook
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ) : conversations.length === 0 ? (

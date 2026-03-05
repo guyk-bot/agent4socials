@@ -49,9 +49,8 @@ export async function GET(
 
   const isInstagramBusinessLogin =
     account.platform === 'INSTAGRAM' && credJson.loginMethod === 'instagram_business';
-  const activeToken = isInstagramBusinessLogin
-    ? (credJson.igUserToken || account.accessToken || '')
-    : (account.accessToken || '');
+  // For Instagram Business Login, account.accessToken IS the long-lived Instagram User token.
+  const activeToken = account.accessToken || '';
 
   try {
     if (isInstagramBusinessLogin) {

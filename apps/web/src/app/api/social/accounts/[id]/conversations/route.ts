@@ -46,10 +46,11 @@ export async function GET(
     ? account.credentialsJson
     : {}) as { loginMethod?: string; linkedPageId?: string; igUserToken?: string };
 
-  // Instagram Business Login (via instagram_business_manage_messages scope) must use graph.instagram.com
-  // with the Instagram User Access Token — NOT a Page token with graph.facebook.com.
+  // Instagram Business Login: accessToken IS the long-lived Instagram User token.
+  // Route through graph.instagram.com — no Page token needed.
   const isInstagramBusinessLogin = isInstagram && credJson.loginMethod === 'instagram_business';
-  const igUserToken = isInstagramBusinessLogin ? (credJson.igUserToken ?? token) : null;
+  // igUserToken is account.accessToken itself (the long-lived IG User token saved at connect-time)
+  const igUserToken = isInstagramBusinessLogin ? token : null;
 
   // For Facebook Login path: find linked Page ID to build the graph.facebook.com endpoint.
   let linkedPageId: string | false = false;
@@ -106,7 +107,13 @@ export async function GET(
       const code = (res.data as { error?: { code?: number } }).error?.code;
       const metaMsg = typeof msg === 'string' ? msg : '';
       if (msg.includes('permission') || msg.includes('OAuth') || msg.includes('access'))
-        return NextResponse.json({ conversations: [], error: 'Reconnect from the sidebar and choose your Page when asked to grant messaging permission.', debug: { rawMessage: metaMsg, code, metaMessage: metaMsg } });
+        return NextResponse.json({
+          conversations: [],
+          error: isInstagramBusinessLogin
+            ? 'Your Instagram session has expired. Reconnect your Instagram account to refresh it.'
+            : 'Reconnect from the sidebar and choose your Page when asked to grant messaging permission.',
+          debug: { rawMessage: metaMsg, code, metaMessage: metaMsg },
+        });
       if (code === 3 || /capability|does not have the capability/i.test(metaMsg))
         return NextResponse.json({
           conversations: [],

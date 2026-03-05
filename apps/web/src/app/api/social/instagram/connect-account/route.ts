@@ -112,12 +112,12 @@ export async function POST(request: NextRequest) {
 
   const expiresAt = new Date(Date.now() + 3600 * 1000);
 
-  // Store the original Instagram User token so we can use graph.instagram.com endpoints
-  // (instagram_business_manage_messages / instagram_business_manage_comments) when needed.
+  // This path is the Facebook Login select flow — the Page access token is stored as the main
+  // accessToken. Do NOT mark as instagram_business (which uses graph.instagram.com IG User tokens);
+  // instead this is the standard Facebook Login path that uses graph.facebook.com Page tokens.
   const igCredentials = {
-    loginMethod: 'instagram_business' as const,
+    loginMethod: 'facebook_login' as const,
     linkedPageId: pageId ?? null,
-    igUserToken: payload.accessToken ?? null,
   };
 
   // Upsert first so reconnecting the same account updates in place and keeps posts/data

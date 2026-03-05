@@ -831,6 +831,11 @@ export async function GET(
   }
 
   const profilePicture = tokenData.profilePicture ?? undefined;
+  // When Instagram is connected via Instagram Business Login (method=instagram), the accessToken
+  // IS the long-lived Instagram User Access Token. Mark it so inbox/comments route through graph.instagram.com.
+  const igBusinessCreds = (plat === 'INSTAGRAM' && isInstagramLogin)
+    ? { loginMethod: 'instagram_business' as const }
+    : undefined;
   try {
     // Upsert first so reconnecting the same account updates in place and keeps posts/data
     await prisma.socialAccount.upsert({
@@ -848,6 +853,7 @@ export async function GET(
         username: tokenData.username,
         ...(profilePicture !== undefined && { profilePicture }),
         status: 'connected',
+        ...(igBusinessCreds && { credentialsJson: igBusinessCreds }),
       },
       create: {
         userId,
@@ -859,6 +865,7 @@ export async function GET(
         refreshToken: tokenData.refreshToken,
         expiresAt: tokenData.expiresAt,
         status: 'connected',
+        ...(igBusinessCreds && { credentialsJson: igBusinessCreds }),
       },
     });
     await prisma.socialAccount.deleteMany({
