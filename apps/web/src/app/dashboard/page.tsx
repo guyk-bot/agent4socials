@@ -1264,7 +1264,7 @@ export default function DashboardPage() {
                         <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} allowDecimals={false} />
                         <RechartTooltip
                           content={(props) => {
-                            const { active, payload, label } = props as { active?: boolean; payload?: Array<{ value?: number }>; label?: string };
+                            const { active, payload, label } = props as unknown as { active?: boolean; payload?: Array<{ value?: number }>; label?: string };
                             if (!active || !payload?.length || !label) return null;
                             return (
                               <div className="rounded-xl border border-neutral-200 bg-white px-3 py-2 shadow-xl text-xs">
@@ -1312,7 +1312,7 @@ export default function DashboardPage() {
                         <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} allowDecimals={false} />
                         <RechartTooltip
                           content={(props) => {
-                            const { active, payload, label } = props as { active?: boolean; payload?: Array<{ value?: number }>; label?: string };
+                            const { active, payload, label } = props as unknown as { active?: boolean; payload?: Array<{ value?: number }>; label?: string };
                             if (!active || !payload?.length || !label) return null;
                             return (
                               <div className="rounded-xl border border-neutral-200 bg-white px-3 py-2 shadow-xl text-xs">
