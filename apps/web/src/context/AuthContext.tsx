@@ -108,7 +108,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         await syncUserFromApi(session.access_token, fallback);
         if (event === 'SIGNED_IN') {
           const path = typeof window !== 'undefined' ? window.location.pathname : '';
-          const isFunnel = path === '/' || path === '/login' || path === '/signup' || path.startsWith('/auth/');
+          // Let /auth/callback own the redirect after setSession so its profile fetch is not aborted
+          const isFunnel = path === '/' || path === '/login' || path === '/signup' || (path.startsWith('/auth/') && path !== '/auth/callback');
           if (isFunnel) router.push('/dashboard');
         }
       } else {

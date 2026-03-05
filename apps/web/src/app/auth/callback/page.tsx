@@ -99,7 +99,16 @@ export default function AuthCallbackPage() {
         }
         setError('Sign-in link may have expired or the session was lost. Try signing in again.');
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Something went wrong');
+        if (cancelled) return;
+        const msg = e instanceof Error ? e.message : 'Something went wrong';
+        // Navigation or unmount can abort in-flight fetch; session may still be valid
+        if (/abort|aborted/i.test(msg)) {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) window.location.href = '/dashboard';
+          else setError('Sign-in was interrupted. Please try again or go to the dashboard.');
+        } else {
+          setError(msg);
+        }
       }
     }
 
