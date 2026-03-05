@@ -4,62 +4,60 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 /**
- * Auth callback for the Supabase implicit-flow OAuth (Google, etc.).
+ * Auth callback for Supabase PKCE OAuth (Google, etc.).
  *
- * Supabase JS (detectSessionInUrl: true by default) automatically reads
- * the #access_token from the URL and fires onAuthStateChange('SIGNED_IN').
- * We just listen and redirect. No manual setSession call needed (that was
- * causing "signal is aborted without reason" errors).
+ * With flowType: 'pkce', Google redirects back with ?code=...
+ * We call supabase.auth.exchangeCodeForSession(href) to trade the code for tokens.
+ * This avoids all the implicit-flow hash-fragment issues that caused "signal is aborted".
  */
 export default function AuthCallbackPage() {
   const [status, setStatus] = useState<'loading' | 'error'>('loading');
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
-    // Check if there's an error in the URL first
-    const hash = window.location.hash || window.location.search;
-    if (hash.includes('error_description')) {
-      const params = new URLSearchParams(hash.replace('#', '?'));
-      const desc = params.get('error_description') ?? 'Sign-in failed';
-      setErrorMsg(desc);
-      setStatus('error');
-      return;
-    }
+    async function handleCallback() {
+      try {
+        // Check for OAuth errors returned in the query string
+        const params = new URLSearchParams(window.location.search);
+        const oauthError = params.get('error_description') ?? params.get('error');
+        if (oauthError) {
+          setErrorMsg(oauthError);
+          setStatus('error');
+          return;
+        }
 
-    // Supabase automatically parses #access_token from the URL.
-    // Listen for the resulting SIGNED_IN event and redirect.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        subscription.unsubscribe();
-        window.location.href = '/dashboard';
-      }
-    });
+        const code = params.get('code');
 
-    // Also check immediately in case the session was already set
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        subscription.unsubscribe();
-        window.location.href = '/dashboard';
-      }
-    });
+        if (code) {
+          // PKCE flow: exchange the code for a session
+          const { error } = await supabase.auth.exchangeCodeForSession(window.location.href);
+          if (error) {
+            setErrorMsg(error.message);
+            setStatus('error');
+            return;
+          }
+          window.location.href = '/dashboard';
+          return;
+        }
 
-    // Fallback: after 20s if still no redirect, show error
-    const timer = setTimeout(async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        subscription.unsubscribe();
-        window.location.href = '/dashboard';
-      } else {
-        subscription.unsubscribe();
-        setErrorMsg('Sign-in timed out. Please try again.');
+        // No code in the URL — could be a legacy implicit-flow redirect with #access_token
+        // or a direct navigation. Check for an existing session.
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          window.location.href = '/dashboard';
+          return;
+        }
+
+        // Nothing we can use
+        setErrorMsg('Sign-in failed: no authorization code in the URL. Please try signing in again.');
+        setStatus('error');
+      } catch (e) {
+        setErrorMsg(e instanceof Error ? e.message : 'Unexpected error during sign-in.');
         setStatus('error');
       }
-    }, 20_000);
+    }
 
-    return () => {
-      subscription.unsubscribe();
-      clearTimeout(timer);
-    };
+    handleCallback();
   }, []);
 
   if (status === 'error') {
