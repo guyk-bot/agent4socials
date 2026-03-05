@@ -125,6 +125,16 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       delete next[accountId];
       return next;
     });
+    setCommentsByAccountId((prev) => {
+      const next = { ...prev };
+      delete next[accountId];
+      return next;
+    });
+    setConversationsByAccountId((prev) => {
+      const next = { ...prev };
+      delete next[accountId];
+      return next;
+    });
   }, []);
 
   const setCommentsForAccount = useCallback((accountId: string, comments: CachedComment[]) => {

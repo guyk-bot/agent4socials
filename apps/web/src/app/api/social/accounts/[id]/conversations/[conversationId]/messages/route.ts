@@ -266,22 +266,44 @@ export async function POST(
   if (!recipientId) {
     try {
       if (isInstagramBusinessLogin) {
-        // Derive recipientId from the conversation participants via graph.instagram.com
-        const convoRes = await axios.get<{
-          messages?: { data?: Array<{ id: string }> };
-          id?: string;
-        }>(`${igBaseUrl}/${conversationId}`, {
-          params: { fields: 'messages', access_token: activeToken },
-          timeout: 10_000,
-        });
-        const firstMsgId = convoRes.data?.messages?.data?.[0]?.id;
-        if (firstMsgId) {
-          const msgRes = await axios.get<{ from?: { id?: string } }>(`${igBaseUrl}/${firstMsgId}`, {
-            params: { fields: 'from', access_token: activeToken },
+        // Step 1: Try to get recipientId from conversation participants (faster, no per-message fetches)
+        try {
+          const participantsRes = await axios.get<{
+            participants?: { data?: Array<{ id?: string; username?: string }> };
+          }>(`${igBaseUrl}/${conversationId}`, {
+            params: { fields: 'participants', access_token: activeToken },
             timeout: 10_000,
           });
-          if (msgRes.data?.from?.id && !ourIds.has(msgRes.data.from.id)) {
-            recipientId = msgRes.data.from.id;
+          const participants = participantsRes.data?.participants?.data ?? [];
+          for (const p of participants) {
+            if (p.id && !ourIds.has(p.id)) {
+              recipientId = p.id;
+              break;
+            }
+          }
+        } catch { /* fall through to message scanning */ }
+
+        // Step 2: If participants didn't work, scan ALL messages (not just the newest)
+        // The newest message may be from US, so we must iterate until we find an incoming message.
+        if (!recipientId) {
+          const convoRes = await axios.get<{
+            messages?: { data?: Array<{ id: string }> };
+          }>(`${igBaseUrl}/${conversationId}`, {
+            params: { fields: 'messages', access_token: activeToken },
+            timeout: 10_000,
+          });
+          const allMsgIds = convoRes.data?.messages?.data ?? [];
+          for (const msgObj of allMsgIds) {
+            try {
+              const msgRes = await axios.get<{ from?: { id?: string } }>(`${igBaseUrl}/${msgObj.id}`, {
+                params: { fields: 'from', access_token: activeToken },
+                timeout: 8_000,
+              });
+              if (msgRes.data?.from?.id && !ourIds.has(msgRes.data.from.id)) {
+                recipientId = msgRes.data.from.id;
+                break;
+              }
+            } catch { /* skip this message, try next */ }
           }
         }
       } else {

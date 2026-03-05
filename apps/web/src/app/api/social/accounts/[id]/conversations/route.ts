@@ -23,7 +23,7 @@ export async function GET(
   const { id } = await params;
   const account = await prisma.socialAccount.findFirst({
     where: { id, userId },
-    select: { id: true, platform: true, platformUserId: true, accessToken: true, credentialsJson: true },
+    select: { id: true, platform: true, platformUserId: true, username: true, accessToken: true, credentialsJson: true },
   });
   if (!account) {
     return NextResponse.json({ message: 'Account not found' }, { status: 404 });
@@ -129,12 +129,23 @@ export async function GET(
       return NextResponse.json({ conversations: [], error: metaMsg, debug: { rawMessage: metaMsg, code, metaMessage: metaMsg } });
     }
 
+    // Build the set of IDs and usernames that belong to "us" so we can exclude our account
+    // from the conversation sender list. We check both ID and username because Instagram's
+    // participants API sometimes returns a different ID format than what is stored in the DB.
+    const ourIds = new Set<string>();
+    if (account.platformUserId) ourIds.add(account.platformUserId);
+    if (linkedPageId) ourIds.add(linkedPageId as string);
+    const ourUsernames = new Set<string>();
+    if (account.username) ourUsernames.add(account.username.toLowerCase());
+
     let list = (res.data?.data ?? []).map((c) => {
       const participants = c.participants?.data ?? [];
-      const ourIds = new Set<string>();
-      if (account.platformUserId) ourIds.add(account.platformUserId);
-      if (linkedPageId) ourIds.add(linkedPageId);
-      const others = participants.filter((p) => !p.id || !ourIds.has(p.id));
+      const others = participants.filter((p) => {
+        if (!p.id) return true; // no ID = unknown participant, include it
+        if (ourIds.has(p.id)) return false; // matched by ID
+        if (p.username && ourUsernames.has(p.username.toLowerCase())) return false; // matched by username
+        return true;
+      });
       const sendersData = others.length > 0 ? others : participants;
       return {
         id: c.id,
@@ -181,7 +192,10 @@ export async function GET(
                   });
                   const p = profileRes.data;
                   const pictureUrl = p.profile_pic ?? p.profile_picture_url ?? p.picture?.data?.url ?? null;
-                  if (p?.id) profiles.set(p.id, { name: p.name, username: p.username, pictureUrl });
+                  // Always use the query `id` as the map key so the lookup in conv.senders always works,
+                  // even if the API returns a slightly different id format in the response body.
+                  profiles.set(id, { name: p.name, username: p.username, pictureUrl });
+                  if (p?.id && p.id !== id) profiles.set(p.id, { name: p.name, username: p.username, pictureUrl });
                 } else {
                   // Facebook Login: look up IGSID profile via graph.facebook.com with Page token
                   const profileRes = await axios.get<{
@@ -192,11 +206,9 @@ export async function GET(
                     timeout: 15_000,
                   });
                   const p = profileRes.data;
-                  if (p?.id) profiles.set(p.id, {
-                    name: p.name,
-                    username: p.username,
-                    pictureUrl: p.profile_pic ?? p.picture?.data?.url ?? null,
-                  });
+                  const pictureUrl = p.profile_pic ?? p.picture?.data?.url ?? null;
+                  profiles.set(id, { name: p.name, username: p.username, pictureUrl });
+                  if (p?.id && p.id !== id) profiles.set(p.id, { name: p.name, username: p.username, pictureUrl });
                 }
               } catch {
                 // ignore per-profile failures
