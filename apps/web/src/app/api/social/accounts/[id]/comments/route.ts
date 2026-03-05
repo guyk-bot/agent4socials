@@ -23,7 +23,7 @@ export async function GET(
   const { id } = await params;
   const account = await prisma.socialAccount.findFirst({
     where: { id, userId },
-    select: { id: true, platform: true, platformUserId: true, accessToken: true, refreshToken: true, expiresAt: true },
+    select: { id: true, platform: true, platformUserId: true, accessToken: true, refreshToken: true, expiresAt: true, credentialsJson: true },
   });
   if (!account) {
     return NextResponse.json({ comments: [], error: 'Account not found' }, { status: 404 });
@@ -73,6 +73,15 @@ export async function GET(
       postTargetId: `imported-${p.id}`,
     })),
   ];
+  const credJson = (account.credentialsJson && typeof account.credentialsJson === 'object'
+    ? account.credentialsJson
+    : {}) as { loginMethod?: string; igUserToken?: string };
+
+  // Instagram Business Login accounts must use graph.instagram.com with the Instagram User token.
+  const isInstagramBusinessLogin =
+    platform === 'INSTAGRAM' && credJson.loginMethod === 'instagram_business';
+  const igUserToken = isInstagramBusinessLogin ? (credJson.igUserToken ?? account.accessToken) : null;
+
   const token = account.accessToken;
   const comments: Array<{
     commentId: string;
@@ -121,43 +130,77 @@ export async function GET(
     const postImageUrl = await getPostImageUrl(platformPostId, platform, token);
 
     if (platform === 'INSTAGRAM' || platform === 'FACEBOOK') {
-      const fields =
-        platform === 'INSTAGRAM'
-          ? 'id,from{id,username,profile_picture_url},text,created_time'
-          : 'id,from{id,name,picture},message,created_time';
       try {
-        const res = await axios.get<{
-          data?: Array<{
-            id: string;
-            from?: { id?: string; username?: string; name?: string; profile_picture_url?: string; picture?: { data?: { url?: string } } };
-            text?: string;
-            message?: string;
-            created_time?: string;
-          }>;
-        }>(`https://graph.facebook.com/v18.0/${platformPostId}/comments`, {
-          params: { fields, access_token: token },
-        });
-        const list = res.data?.data ?? [];
-        for (const c of list) {
-          const from = c.from;
-          const authorName = (platform === 'INSTAGRAM' ? from?.username : from?.name) ?? 'Unknown';
-          const authorPictureUrl =
-            platform === 'INSTAGRAM'
-              ? (from as { profile_picture_url?: string })?.profile_picture_url ?? null
-              : (from as { picture?: { data?: { url?: string } } })?.picture?.data?.url ?? null;
-          const text = (platform === 'INSTAGRAM' ? c.text : c.message) ?? '';
-          comments.push({
-            commentId: c.id,
-            postTargetId,
-            platformPostId,
-            postPreview,
-            postImageUrl,
-            text,
-            authorName,
-            authorPictureUrl: authorPictureUrl || null,
-            createdAt: c.created_time ?? new Date().toISOString(),
-            platform,
+        if (isInstagramBusinessLogin && igUserToken) {
+          // Instagram Business Login: use graph.instagram.com with the Instagram User token.
+          // Comments endpoint: GET /v25.0/{IG_MEDIA_ID}/comments?fields=id,from{id,username},text,timestamp
+          const res = await axios.get<{
+            data?: Array<{
+              id: string;
+              from?: { id?: string; username?: string };
+              text?: string;
+              timestamp?: string;
+            }>;
+          }>(`https://graph.instagram.com/v25.0/${platformPostId}/comments`, {
+            params: {
+              fields: 'id,from{id,username},text,timestamp',
+              access_token: igUserToken,
+            },
           });
+          const list = res.data?.data ?? [];
+          for (const c of list) {
+            comments.push({
+              commentId: c.id,
+              postTargetId,
+              platformPostId,
+              postPreview,
+              postImageUrl,
+              text: c.text ?? '',
+              authorName: c.from?.username ?? 'Unknown',
+              authorPictureUrl: null,
+              createdAt: c.timestamp ?? new Date().toISOString(),
+              platform,
+            });
+          }
+        } else {
+          // Facebook Login flow: use graph.facebook.com with the Page token.
+          const fields =
+            platform === 'INSTAGRAM'
+              ? 'id,from{id,username,profile_picture_url},text,created_time'
+              : 'id,from{id,name,picture},message,created_time';
+          const res = await axios.get<{
+            data?: Array<{
+              id: string;
+              from?: { id?: string; username?: string; name?: string; profile_picture_url?: string; picture?: { data?: { url?: string } } };
+              text?: string;
+              message?: string;
+              created_time?: string;
+            }>;
+          }>(`https://graph.facebook.com/v18.0/${platformPostId}/comments`, {
+            params: { fields, access_token: token },
+          });
+          const list = res.data?.data ?? [];
+          for (const c of list) {
+            const from = c.from;
+            const authorName = (platform === 'INSTAGRAM' ? from?.username : from?.name) ?? 'Unknown';
+            const authorPictureUrl =
+              platform === 'INSTAGRAM'
+                ? (from as { profile_picture_url?: string })?.profile_picture_url ?? null
+                : (from as { picture?: { data?: { url?: string } } })?.picture?.data?.url ?? null;
+            const text = (platform === 'INSTAGRAM' ? c.text : c.message) ?? '';
+            comments.push({
+              commentId: c.id,
+              postTargetId,
+              platformPostId,
+              postPreview,
+              postImageUrl,
+              text,
+              authorName,
+              authorPictureUrl: authorPictureUrl || null,
+              createdAt: c.created_time ?? new Date().toISOString(),
+              platform,
+            });
+          }
         }
       } catch (_) {
         // skip this post on API error

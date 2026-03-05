@@ -42,26 +42,44 @@ export async function GET(
   }
 
   const isInstagram = account.platform === 'INSTAGRAM';
-  // Messenger Platform: Instagram inbox uses graph.facebook.com/PAGE-ID/conversations?platform=instagram with Page token.
-  // When Instagram was connected via Facebook we have linkedPageId; use Page endpoint. Else (Instagram-only) use graph.instagram.com/me/conversations.
-  let linkedPageId = isInstagram && account.credentialsJson && typeof account.credentialsJson === 'object' && (account.credentialsJson as { linkedPageId?: string }).linkedPageId;
-  if (isInstagram && !linkedPageId && token) {
-    // Existing account may have been connected via Facebook before we stored linkedPageId. Resolve Page ID from same user's Facebook account with same token.
-    const fb = await prisma.socialAccount.findFirst({
-      where: { userId, platform: 'FACEBOOK', accessToken: token },
-      select: { platformUserId: true },
-    });
-    if (fb?.platformUserId) linkedPageId = fb.platformUserId;
+  const credJson = (account.credentialsJson && typeof account.credentialsJson === 'object'
+    ? account.credentialsJson
+    : {}) as { loginMethod?: string; linkedPageId?: string; igUserToken?: string };
+
+  // Instagram Business Login (via instagram_business_manage_messages scope) must use graph.instagram.com
+  // with the Instagram User Access Token — NOT a Page token with graph.facebook.com.
+  const isInstagramBusinessLogin = isInstagram && credJson.loginMethod === 'instagram_business';
+  const igUserToken = isInstagramBusinessLogin ? (credJson.igUserToken ?? token) : null;
+
+  // For Facebook Login path: find linked Page ID to build the graph.facebook.com endpoint.
+  let linkedPageId: string | false = false;
+  if (isInstagram && !isInstagramBusinessLogin) {
+    linkedPageId = credJson.linkedPageId || false;
+    if (!linkedPageId && token) {
+      // Existing account may have been connected via Facebook before we stored linkedPageId.
+      const fb = await prisma.socialAccount.findFirst({
+        where: { userId, platform: 'FACEBOOK', accessToken: token },
+        select: { platformUserId: true },
+      });
+      if (fb?.platformUserId) linkedPageId = fb.platformUserId;
+    }
   }
-  const conversationsPath = isInstagram && linkedPageId
-    ? `https://graph.facebook.com/v18.0/${linkedPageId}/conversations`
-    : isInstagram
-      ? 'https://graph.instagram.com/v18.0/me/conversations'
-      : `${baseUrl}/${account.platformUserId}/conversations`;
+
+  // Route to the correct API based on login method:
+  // - Instagram Business Login → graph.instagram.com/v25.0/me/conversations (Instagram User token)
+  // - Facebook Login           → graph.facebook.com/v18.0/{PAGE_ID}/conversations (Page token)
+  const conversationsPath = isInstagramBusinessLogin
+    ? 'https://graph.instagram.com/v25.0/me/conversations'
+    : isInstagram && linkedPageId
+      ? `https://graph.facebook.com/v18.0/${linkedPageId}/conversations`
+      : isInstagram
+        ? 'https://graph.instagram.com/v25.0/me/conversations'
+        : `${baseUrl}/${account.platformUserId}/conversations`;
+
+  const activeToken = isInstagramBusinessLogin ? igUserToken! : token;
   const queryParams: Record<string, string> = {
-    // Use participants instead of senders so we can get usernames/names for Instagram Messaging and Page DMs.
     fields: 'id,updated_time,participants{id,name,username}',
-    access_token: token,
+    access_token: activeToken,
   };
   if (isInstagram) queryParams.platform = 'instagram';
 
@@ -83,7 +101,6 @@ export async function GET(
       params: queryParams,
       timeout: 60_000,
     });
-
     if (res.data?.error) {
       const msg = res.data.error.message ?? '';
       const code = (res.data as { error?: { code?: number } }).error?.code;
@@ -93,7 +110,9 @@ export async function GET(
       if (code === 3 || /capability|does not have the capability/i.test(metaMsg))
         return NextResponse.json({
           conversations: [],
-          error: 'Instagram inbox needs Advanced Access. In Meta for Developers: App Dashboard → App Review → Permissions and features → instagram_manage_messages → Request Advanced Access. Use a Page-linked Instagram Business account and add test users if the app is in Development mode. Then reconnect Facebook & Instagram from the sidebar and choose your Page.',
+          error: isInstagramBusinessLogin
+            ? 'Instagram inbox needs Standard or Advanced Access for instagram_business_manage_messages. In Meta for Developers: App Dashboard, go to App Review, Permissions and features, find instagram_business_manage_messages and add your Instagram account as a tester under Roles. Then reconnect your Instagram account.'
+            : 'Instagram inbox needs Advanced Access. In Meta for Developers: App Dashboard, App Review, Permissions and features, find instagram_manage_messages and Request Advanced Access. Add test users under Roles if the app is in Development mode. Then reconnect Facebook and Instagram from the sidebar and choose your Page.',
           debug: { rawMessage: metaMsg, code, metaMessage: metaMsg },
         });
       return NextResponse.json({ conversations: [], error: metaMsg, debug: { rawMessage: metaMsg, code, metaMessage: metaMsg } });
@@ -135,6 +154,8 @@ export async function GET(
 
         if (isInstagram) {
           // Instagram User Profile API: get name, username, profile_pic for all senders.
+          // Use igUserToken for Instagram Business Login accounts (graph.instagram.com requires it).
+          const profileToken = isInstagramBusinessLogin ? igUserToken! : activeToken;
           await Promise.all(
             Array.from(idsToEnrich).map(async (id) => {
               try {
@@ -143,10 +164,10 @@ export async function GET(
                   name?: string;
                   username?: string;
                   profile_pic?: string;
-                }>(`https://graph.instagram.com/v18.0/${id}`, {
+                }>(`https://graph.instagram.com/v25.0/${id}`, {
                   params: {
                     fields: 'name,username,profile_pic',
-                    access_token: token,
+                    access_token: profileToken,
                   },
                   timeout: 15_000,
                 });
@@ -232,15 +253,19 @@ export async function GET(
     if (isCapabilityError)
       return NextResponse.json({
         conversations: [],
-        error: 'Instagram inbox needs Advanced Access. In Meta for Developers: App Dashboard → App Review → Permissions and features → instagram_manage_messages → Request Advanced Access. Use a Page-linked Instagram Business account and add test users if the app is in Development mode. Then reconnect Facebook & Instagram from the sidebar and choose your Page.',
+        error: isInstagramBusinessLogin
+          ? 'Instagram inbox needs Standard or Advanced Access for instagram_business_manage_messages. In Meta for Developers: App Dashboard, go to App Review, Permissions and features, find instagram_business_manage_messages and add your Instagram account as a tester under Roles. Then reconnect your Instagram account.'
+          : 'Instagram inbox needs Advanced Access. In Meta for Developers: App Dashboard, App Review, Permissions and features, find instagram_manage_messages and Request Advanced Access. Add test users under Roles if the app is in Development mode. Then reconnect Facebook and Instagram from the sidebar and choose your Page.',
         debug: { rawMessage: msg, responseData: axiosData, metaMessage: metaErrorMsg },
       });
     const isTimeout = err?.code === 'ECONNABORTED' || /timeout|408/i.test(msg);
     if (status === 400) {
       const metaMsg = axiosData && typeof axiosData === 'object' && (axiosData as { error?: { message?: string } }).error?.message;
-      const hint = account.platform === 'INSTAGRAM'
-        ? 'Instagram returned 400. Ensure instagram_manage_messages is granted: reconnect from the sidebar and choose your Page, or request Advanced Access in Meta App Dashboard.'
-        : 'Reconnect from the sidebar and choose your Page when asked to grant messaging permission.';
+      const hint = isInstagramBusinessLogin
+        ? 'Instagram returned 400. Ensure instagram_business_manage_messages is granted and your account is added as a tester in Meta App Dashboard under Roles. Reconnect your Instagram account and try again.'
+        : account.platform === 'INSTAGRAM'
+          ? 'Instagram returned 400. Ensure instagram_manage_messages is granted: reconnect from the sidebar and choose your Page, or request Advanced Access in Meta App Dashboard.'
+          : 'Reconnect from the sidebar and choose your Page when asked to grant messaging permission.';
       return NextResponse.json({
         conversations: [],
         error: hint,

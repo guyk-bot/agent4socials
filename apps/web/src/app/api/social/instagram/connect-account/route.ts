@@ -112,6 +112,14 @@ export async function POST(request: NextRequest) {
 
   const expiresAt = new Date(Date.now() + 3600 * 1000);
 
+  // Store the original Instagram User token so we can use graph.instagram.com endpoints
+  // (instagram_business_manage_messages / instagram_business_manage_comments) when needed.
+  const igCredentials = {
+    loginMethod: 'instagram_business' as const,
+    linkedPageId: pageId ?? null,
+    igUserToken: payload.accessToken ?? null,
+  };
+
   // Upsert first so reconnecting the same account updates in place and keeps posts/data
   await prisma.socialAccount.upsert({
     where: {
@@ -127,6 +135,7 @@ export async function POST(request: NextRequest) {
       profilePicture: igPicture,
       expiresAt,
       status: 'connected',
+      credentialsJson: igCredentials,
     },
     create: {
       userId,
@@ -138,6 +147,7 @@ export async function POST(request: NextRequest) {
       refreshToken: null,
       expiresAt,
       status: 'connected',
+      credentialsJson: igCredentials,
     },
   });
   await prisma.socialAccount.deleteMany({
