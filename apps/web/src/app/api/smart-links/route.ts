@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
+import { Prisma } from '@prisma/client';
 
 const RESERVED_SLUGS = new Set([
   'admin', 'api', 'app', 'auth', 'dashboard', 'login', 'signup', 'settings',
@@ -104,24 +105,38 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const linkPageData = {
-    slug: slug || existing?.slug || 'user',
-    title: body.title ?? existing?.title ?? user.name ?? null,
-    bio: body.bio ?? existing?.bio ?? null,
-    avatarUrl: body.avatarUrl ?? existing?.avatarUrl ?? null,
-    design: body.design ?? existing?.design ?? null,
-    isPublished: body.isPublished ?? existing?.isPublished ?? true,
-  };
+  const designValue = body.design ?? existing?.design ?? null;
+  const finalSlug = slug || existing?.slug || 'user';
+  const finalTitle = body.title ?? existing?.title ?? user.name ?? null;
+  const finalBio = body.bio ?? existing?.bio ?? null;
+  const finalAvatarUrl = body.avatarUrl ?? existing?.avatarUrl ?? null;
+  const finalDesign = designValue === null ? Prisma.JsonNull : (designValue as Prisma.InputJsonValue);
+  const finalIsPublished = body.isPublished ?? existing?.isPublished ?? true;
 
   let linkPage;
   if (existing) {
     linkPage = await prisma.linkPage.update({
       where: { id: existing.id },
-      data: linkPageData,
+      data: {
+        slug: finalSlug,
+        title: finalTitle,
+        bio: finalBio,
+        avatarUrl: finalAvatarUrl,
+        design: finalDesign,
+        isPublished: finalIsPublished,
+      },
     });
   } else {
     linkPage = await prisma.linkPage.create({
-      data: { userId, ...linkPageData },
+      data: {
+        userId,
+        slug: finalSlug,
+        title: finalTitle,
+        bio: finalBio,
+        avatarUrl: finalAvatarUrl,
+        design: finalDesign,
+        isPublished: finalIsPublished,
+      },
     });
   }
 
