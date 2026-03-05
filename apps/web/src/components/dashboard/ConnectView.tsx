@@ -86,7 +86,6 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
 
   // ── INSTAGRAM (two options: IG-only vs Facebook) ──────────────────────────
   if (platform === 'INSTAGRAM') {
-    const isRedirecting = connecting && oauthRedirectUrl && !connectingMethod;
     return (
       <div className="max-w-2xl mx-auto space-y-6 px-4">
         {/* Header — icon only, no background */}
@@ -99,19 +98,6 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
         {connectError && (
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{connectError}</div>
         )}
-        {isRedirecting && (
-          <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-4 text-center">
-            <Loader2 size={26} className="animate-spin text-blue-600 mx-auto mb-2" />
-            <p className="font-medium text-neutral-900">Redirecting to Facebook…</p>
-            <p className="text-sm text-neutral-600 mt-1">If nothing happened, use the link below.</p>
-            {oauthRedirectUrl && (
-              <a href={oauthRedirectUrl} className="mt-3 inline-block text-blue-600 font-medium hover:underline text-sm" target="_blank" rel="noopener noreferrer">
-                Open Facebook to connect →
-              </a>
-            )}
-          </div>
-        )}
-
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Instagram-only */}
           <button
