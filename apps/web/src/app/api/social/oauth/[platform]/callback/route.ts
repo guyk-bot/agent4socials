@@ -615,7 +615,7 @@ export async function GET(
               profilePicture: igPicture,
               expiresAt: tokenData.expiresAt,
               status: 'connected',
-              credentialsJson: { linkedPageId: firstPage.id },
+              credentialsJson: { loginMethod: 'facebook_login' as const, linkedPageId: firstPage.id },
             },
             create: {
               userId,
@@ -627,7 +627,7 @@ export async function GET(
               refreshToken: null,
               expiresAt: tokenData.expiresAt,
               status: 'connected',
-              credentialsJson: { linkedPageId: firstPage.id },
+              credentialsJson: { loginMethod: 'facebook_login' as const, linkedPageId: firstPage.id },
             },
           });
           await prisma.socialAccount.deleteMany({
@@ -709,7 +709,7 @@ export async function GET(
               profilePicture: igPicture,
               expiresAt: tokenData.expiresAt,
               status: 'connected',
-              credentialsJson: { linkedPageId: firstPage.id },
+              credentialsJson: { loginMethod: 'facebook_login' as const, linkedPageId: firstPage.id },
             },
             create: {
               userId,
@@ -721,7 +721,7 @@ export async function GET(
               refreshToken: null,
               expiresAt: tokenData.expiresAt,
               status: 'connected',
-              credentialsJson: { linkedPageId: firstPage.id },
+              credentialsJson: { loginMethod: 'facebook_login' as const, linkedPageId: firstPage.id },
             },
           });
           await prisma.socialAccount.deleteMany({
@@ -915,6 +915,9 @@ export async function GET(
       });
     }
     if (plat === 'FACEBOOK' && tokenData.linkedInstagram) {
+      // When Instagram is auto-created from a Facebook connection, store loginMethod and linkedPageId
+      // so inbox/comments/messages routing works correctly for this account.
+      const fbLinkedIgCreds = { loginMethod: 'facebook_login' as const, linkedPageId: tokenData.platformUserId };
       await prisma.socialAccount.upsert({
         where: {
           userId_platform_platformUserId: {
@@ -930,6 +933,7 @@ export async function GET(
           username: tokenData.linkedInstagram.username ?? 'Instagram',
           profilePicture: tokenData.linkedInstagram.profilePicture ?? null,
           status: 'connected',
+          credentialsJson: fbLinkedIgCreds,
         },
         create: {
           userId,
@@ -941,6 +945,7 @@ export async function GET(
           refreshToken: tokenData.refreshToken,
           expiresAt: tokenData.expiresAt,
           status: 'connected',
+          credentialsJson: fbLinkedIgCreds,
         },
       });
       await prisma.socialAccount.deleteMany({

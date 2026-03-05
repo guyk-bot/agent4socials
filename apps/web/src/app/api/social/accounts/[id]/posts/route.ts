@@ -198,18 +198,24 @@ async function syncImportedPosts(
       // They are passed in the sync response for live display only.
       let impressions = 0;
       try {
-        // Fetch reach metric for each post (impressions deprecated; reach is the preferred metric)
+        // Fetch both impressions (total views) and reach (unique viewers).
+        // Prefer impressions for the "Views" column — it matches what Instagram shows in-app.
+        // Fall back to reach if impressions is unavailable (older accounts, Reels, Stories).
         const insightsRes = await axios.get<{
           data?: Array<{ name: string; values?: Array<{ value: number }>; total_value?: { value: number } }>;
         }>(
           `${baseUrl}/${m.id}/insights`,
-          { params: { metric: 'reach', access_token: accessToken } }
+          { params: { metric: 'impressions,reach', access_token: accessToken } }
         );
         const data = insightsRes.data?.data ?? [];
+        let reachVal = 0;
         for (const d of data) {
           const val = d.total_value?.value ?? d.values?.[0]?.value ?? 0;
-          if (d.name === 'reach') impressions = val;
+          if (d.name === 'impressions') impressions = val;
+          if (d.name === 'reach') reachVal = val;
         }
+        // If impressions was not returned (e.g. Reels/Stories only return reach), use reach
+        if (impressions === 0 && reachVal > 0) impressions = reachVal;
       } catch {
         // insights not available for all media types (e.g. stories)
       }

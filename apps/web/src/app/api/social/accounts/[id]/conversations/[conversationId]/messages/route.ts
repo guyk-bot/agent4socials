@@ -251,12 +251,15 @@ export async function POST(
 
   const credJson = (account.credentialsJson && typeof account.credentialsJson === 'object'
     ? account.credentialsJson
-    : {}) as { loginMethod?: string; igUserToken?: string };
+    : {}) as { loginMethod?: string; igUserToken?: string; linkedPageId?: string };
 
   const isInstagramBusinessLogin =
     account.platform === 'INSTAGRAM' && credJson.loginMethod === 'instagram_business';
   // account.accessToken is always the correct token for both login methods.
   const activeToken = account.accessToken || '';
+  // ourIds contains both the IG Business Account ID and the linked Facebook Page ID.
+  // Messages from either of those IDs are "from us" and should NOT be treated as the recipient.
+  const ourIds = new Set<string>([account.platformUserId, credJson.linkedPageId].filter((x): x is string => !!x));
 
   let recipientId = typeof body.recipientId === 'string' ? body.recipientId.trim() : null;
 
@@ -277,7 +280,7 @@ export async function POST(
             params: { fields: 'from', access_token: activeToken },
             timeout: 10_000,
           });
-          if (msgRes.data?.from?.id && msgRes.data.from.id !== account.platformUserId) {
+          if (msgRes.data?.from?.id && !ourIds.has(msgRes.data.from.id)) {
             recipientId = msgRes.data.from.id;
           }
         }
@@ -291,7 +294,8 @@ export async function POST(
         );
         const messages = msgRes.data?.data ?? [];
         for (const m of messages) {
-          if (m.from?.id && m.from.id !== account.platformUserId) {
+          // Use ourIds (IG account + linked Page) so we never pick the Page ID as recipient
+          if (m.from?.id && !ourIds.has(m.from.id)) {
             recipientId = m.from.id;
             break;
           }
