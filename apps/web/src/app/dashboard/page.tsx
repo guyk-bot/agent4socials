@@ -29,6 +29,172 @@ import {
 import Link from 'next/link';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
 
+function Skeleton({ className = '' }: { className?: string }) {
+  return (
+    <div
+      className={`rounded-lg ${className}`}
+      style={{
+        background: 'linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%)',
+        backgroundSize: '200% 100%',
+        animation: 'shimmer 1.6s ease-in-out infinite',
+      }}
+    />
+  );
+}
+
+function DataSyncBanner({
+  platform,
+  insightsLoading,
+  postsLoading,
+}: {
+  platform?: string | null;
+  insightsLoading: boolean;
+  postsLoading: boolean;
+}) {
+  const platformIcons: Record<string, React.ReactNode> = {
+    INSTAGRAM: <InstagramIcon size={20} />,
+    FACEBOOK: <FacebookIcon size={20} />,
+    TIKTOK: <TikTokIcon size={20} />,
+    YOUTUBE: <YoutubeIcon size={20} />,
+    TWITTER: <XTwitterIcon size={20} className="text-white" />,
+    LINKEDIN: <LinkedinIcon size={20} />,
+  };
+  const platformColors: Record<string, string> = {
+    INSTAGRAM: 'from-pink-500 to-purple-600',
+    FACEBOOK: 'from-blue-500 to-blue-700',
+    TIKTOK: 'from-neutral-800 to-pink-600',
+    YOUTUBE: 'from-red-500 to-red-700',
+    TWITTER: 'from-neutral-700 to-neutral-900',
+    LINKEDIN: 'from-blue-600 to-blue-800',
+    DEFAULT: 'from-indigo-500 to-violet-600',
+  };
+  const grad = platformColors[platform ?? ''] ?? platformColors.DEFAULT;
+  const icon = platform ? platformIcons[platform] : null;
+  const analyticsStep = insightsLoading ? 'loading' : 'done';
+  const postsStep = postsLoading ? 'loading' : 'done';
+  const allDone = !insightsLoading && !postsLoading;
+
+  const Step = ({ state, label }: { state: 'done' | 'loading' | 'pending'; label: string }) => (
+    <div className="flex items-center gap-1.5 min-w-0">
+      <div className={`shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+        state === 'done' ? 'bg-emerald-500 text-white' :
+        state === 'loading' ? 'bg-white text-indigo-600' : 'bg-white/30 text-white/60'
+      }`}>
+        {state === 'done' ? '✓' : state === 'loading' ? (
+          <span className="inline-block w-3 h-3 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        ) : '○'}
+      </div>
+      <span className={`text-xs font-medium truncate ${
+        state === 'done' ? 'text-emerald-100' : state === 'loading' ? 'text-white' : 'text-white/50'
+      }`}>{label}</span>
+    </div>
+  );
+
+  return (
+    <div className={`mb-5 rounded-2xl overflow-hidden shadow-lg bg-gradient-to-r ${grad}`}>
+      {/* indeterminate progress bar */}
+      {!allDone && (
+        <div className="h-1 bg-black/10 overflow-hidden">
+          <div
+            className="h-full w-1/3 rounded-full bg-white/50"
+            style={{ animation: 'indeterminate-bar 1.4s ease-in-out infinite' }}
+          />
+        </div>
+      )}
+      <div className="px-5 py-4 flex items-center gap-4">
+        {/* icon with ping ring */}
+        {icon && (
+          <div className="relative shrink-0">
+            {!allDone && <div className="absolute inset-0 rounded-full bg-white/30 animate-ping" />}
+            <div className="relative w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white">
+              {icon}
+            </div>
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-white text-sm leading-tight">
+            {allDone ? 'Data loaded! Your account is ready.' : 'Loading your data…'}
+          </p>
+          <p className="text-white/70 text-xs mt-0.5">
+            {allDone ? 'Scroll down to see analytics and posts.' : 'This takes a few seconds. The page will update automatically.'}
+          </p>
+          {/* steps */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-3">
+            <Step state="done" label="Account connected" />
+            <Step state={analyticsStep} label="Analytics" />
+            <Step state={postsStep} label="Syncing posts" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SkeletonAnalyticsCards() {
+  return (
+    <div className="space-y-6">
+      {/* metric cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {[0, 1].map((i) => (
+          <div key={i} className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm space-y-3">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-9 w-20" />
+            <div className="flex gap-2">
+              <Skeleton className="h-6 w-24 rounded-full" />
+              <Skeleton className="h-6 w-20 rounded-full" />
+            </div>
+          </div>
+        ))}
+      </div>
+      {/* chart card */}
+      <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
+        <Skeleton className="h-4 w-32 mb-4" />
+        <div className="flex items-end gap-1 h-24">
+          {Array.from({ length: 14 }).map((_, i) => (
+            <Skeleton key={i} className="flex-1 rounded-sm" style={{ height: `${20 + Math.sin(i) * 15 + 20}px` }} />
+          ))}
+        </div>
+      </div>
+      {/* stat row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm space-y-2">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-7 w-14" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SkeletonPostsTable() {
+  return (
+    <div className="bg-white border border-neutral-200 rounded-xl shadow-sm overflow-hidden">
+      <div className="p-3 border-b border-neutral-200 flex gap-2">
+        <Skeleton className="h-8 w-44" />
+        <Skeleton className="h-8 w-20 rounded-full" />
+        <Skeleton className="h-8 w-16 rounded-full" />
+      </div>
+      <div className="divide-y divide-neutral-100">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="px-4 py-3 flex items-center gap-3">
+            <Skeleton className="w-12 h-12 rounded shrink-0" />
+            <div className="flex-1 min-w-0 space-y-1.5">
+              <Skeleton className="h-3.5 w-48" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+            <Skeleton className="h-4 w-8 shrink-0" />
+            <Skeleton className="h-4 w-8 shrink-0" />
+            <Skeleton className="h-4 w-8 shrink-0" />
+            <Skeleton className="h-4 w-16 shrink-0" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const PLATFORM_ICON: Record<string, React.ReactNode> = {
   INSTAGRAM: <InstagramIcon size={22} />,
   FACEBOOK: <FacebookIcon size={22} />,
@@ -630,10 +796,12 @@ export default function DashboardPage() {
   return (
     <div className="space-y-0">
       <ConfirmModal open={alertMessage !== null} onClose={() => setAlertMessage(null)} message={alertMessage ?? ''} variant="alert" confirmLabel="OK" />
-      {(connectingParam === '1' || justConnected) && (
-        <div className={`mb-4 rounded-xl border px-4 py-3 text-sm ${justConnected ? 'border-green-200 bg-green-50 text-green-800' : 'border-indigo-200 bg-indigo-50 text-indigo-800'}`}>
-          {justConnected ? 'Account connected. You can select it from the sidebar.' : 'Connecting your account…'}
-        </div>
+      {(connectingParam === '1' || justConnected || insightsLoading || importedPostsLoading) && (
+        <DataSyncBanner
+          platform={selectedAccount?.platform}
+          insightsLoading={insightsLoading || connectingParam === '1'}
+          postsLoading={importedPostsLoading || connectingParam === '1'}
+        />
       )}
       {showReconnectBanner && (
         <div className="mb-4 rounded-xl border-2 border-indigo-200 bg-indigo-50 px-4 py-4">
@@ -833,7 +1001,9 @@ export default function DashboardPage() {
       {analyticsTab === 'account' && (
         <div className="mt-6 space-y-6">
           <h2 className="text-lg font-semibold text-neutral-900">Account</h2>
-          {effectiveInsightsLoading && <p className="text-sm text-neutral-500">Loading analytics…</p>}
+          {effectiveInsightsLoading && <SkeletonAnalyticsCards />}
+          {!effectiveInsightsLoading && (
+          <>{/* analytics content */}
           {!selectedAccount && hasAccounts && (importedPosts.length === 0 || allPostsSyncError) && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
               {importedPosts.length === 0 && <p>No posts in this period yet. Sync to load posts from Instagram and Facebook (and see interactions, number of posts, and total content).</p>}
@@ -1098,6 +1268,32 @@ export default function DashboardPage() {
 
       {analyticsTab === 'posts' && (
           <div className="mt-6 space-y-6">
+            {importedPostsLoading && (
+              <div className="space-y-6">
+                {/* widget skeletons */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {[0, 1].map((i) => (
+                    <div key={i} className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm space-y-3">
+                      <Skeleton className="h-4 w-28" />
+                      <Skeleton className="h-9 w-16" />
+                      <div className="flex gap-2">
+                        <Skeleton className="h-6 w-24 rounded-full" />
+                        <Skeleton className="h-6 w-20 rounded-full" />
+                      </div>
+                      <div className="h-24 rounded-lg overflow-hidden">
+                        <div className="flex items-end gap-1 h-full p-2">
+                          {Array.from({ length: 12 }).map((_, j) => (
+                            <Skeleton key={j} className="flex-1 rounded-sm" style={{ height: `${25 + Math.sin(j * 0.8) * 20 + 20}px` }} />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <SkeletonPostsTable />
+              </div>
+            )}
+            <div className={importedPostsLoading ? 'hidden' : undefined}>
             {/* Interactions widget (Metricool Summary: title, number + bar, platform buttons with count) */}
             <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
               <p className="text-sm font-medium text-neutral-700">Interactions</p>
@@ -1329,6 +1525,7 @@ export default function DashboardPage() {
                 )}
               </div>
             </div>
+            </div>{/* end importedPostsLoading hide wrapper */}
           </div>
         )}
       </div>

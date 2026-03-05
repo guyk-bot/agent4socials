@@ -27,6 +27,18 @@
     50% { transform: translateY(-6px) scale(1.08); }
   }
   --animate-hero-logo: hero-logo-float 3s ease-in-out infinite;
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+
+  @keyframes indeterminate-bar {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(400%); }
+  }
+  --animate-indeterminate: indeterminate-bar 1.4s ease-in-out infinite;
 }
 
 :root {
