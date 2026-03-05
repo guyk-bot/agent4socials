@@ -1,4 +1,5 @@
--- Add separate like/comment/share counts to ImportedPost
-ALTER TABLE "ImportedPost" ADD COLUMN IF NOT EXISTS "likeCount" INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE "ImportedPost" ADD COLUMN IF NOT EXISTS "commentsCount" INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE "ImportedPost" ADD COLUMN IF NOT EXISTS "sharesCount" INTEGER NOT NULL DEFAULT 0;
+-- This migration is intentionally empty.
+-- The likeCount/commentsCount/sharesCount columns were removed from the Prisma schema
+-- to avoid breaking queries when the migration hasn't run yet.
+-- These metrics are now computed and returned in the API response without DB storage.
+SELECT 1;

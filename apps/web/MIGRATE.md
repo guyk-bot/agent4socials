@@ -115,6 +115,12 @@ The app now uses consolidated tables. Two options:
 
 2. **Manual SQL first:** If you already ran `apps/web/scripts/supabase-rls-and-consolidation.sql`, the DB is updated. Mark the migration applied: `npx prisma migrate resolve --applied 20250228120000_consolidate_tables` (with `DATABASE_URL` and `DATABASE_DIRECT_URL` set).
 
+### If you get "The column 'ImportedPost.likeCount' does not exist"
+
+This error means a previous deployment was built with a schema version that temporarily included `likeCount`, `commentsCount`, and `sharesCount` columns, but those columns were removed from the schema before the migration could run. The currently running Vercel Prisma client references columns that don't exist in the DB.
+
+**Fix:** Trigger a fresh redeploy. The build will re-run `prisma generate` from the current schema (which does NOT include those columns), and the error disappears automatically. No SQL changes needed.
+
 ### If you get "The column 'targetPlatforms' does not exist"
 
 The Post model needs `targetPlatforms` so platforms show in History after account reconnect. Either redeploy (ensure `DATABASE_DIRECT_URL` is set), or run manually:

@@ -73,9 +73,6 @@ export async function GET(
       permalinkUrl: p.permalinkUrl,
       impressions: p.impressions ?? 0,
       interactions: p.interactions ?? 0,
-      likeCount: (p as { likeCount?: number }).likeCount ?? 0,
-      commentsCount: (p as { commentsCount?: number }).commentsCount ?? 0,
-      sharesCount: (p as { sharesCount?: number }).sharesCount ?? 0,
       publishedAt: p.publishedAt instanceof Date ? p.publishedAt.toISOString() : String(p.publishedAt),
       mediaType: p.mediaType,
       platform: p.platform,
@@ -192,6 +189,8 @@ async function syncImportedPosts(
       const likeCount = m.like_count ?? 0;
       const commentsCount = m.comments_count ?? 0;
       const interactions = likeCount + commentsCount;
+      // Note: likeCount and commentsCount are not stored separately in DB (schema only has interactions).
+      // They are passed in the sync response for live display only.
       let impressions = 0;
       try {
         // Fetch reach metric for each post (impressions deprecated; reach is the preferred metric)
@@ -221,8 +220,6 @@ async function syncImportedPosts(
           mediaType: m.media_type ?? null,
           impressions,
           interactions,
-          likeCount,
-          commentsCount,
           syncedAt: new Date(),
         },
         create: {
@@ -236,8 +233,6 @@ async function syncImportedPosts(
           mediaType: m.media_type ?? null,
           impressions,
           interactions,
-          likeCount,
-          commentsCount,
         },
       });
     }
@@ -292,8 +287,6 @@ async function syncImportedPosts(
           mediaType: null,
           impressions: 0,
           interactions,
-          likeCount,
-          commentsCount,
           syncedAt: new Date(),
         },
         create: {
@@ -307,8 +300,6 @@ async function syncImportedPosts(
           mediaType: null,
           impressions: 0,
           interactions,
-          likeCount,
-          commentsCount,
         },
       });
     }
