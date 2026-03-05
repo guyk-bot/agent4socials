@@ -10,6 +10,7 @@ const PLATFORM_INFO: Record<string, {
   name: string;
   description: string;
   icon: React.ReactNode;
+  largeIcon: React.ReactNode;
   bgGradient: string;    // gradient for the icon halo
   buttonGradient: string; // gradient for primary button
   buttonHover: string;
@@ -20,6 +21,7 @@ const PLATFORM_INFO: Record<string, {
     name: 'Instagram',
     description: 'Connect a Business or Creator account to access analytics, posts, messages, and comments.',
     icon: <InstagramIcon size={44} />,
+    largeIcon: <InstagramIcon size={36} className="text-white" />,
     bgGradient: 'from-pink-400 via-fuchsia-500 to-purple-600',
     buttonGradient: 'from-pink-500 to-purple-600',
     buttonHover: 'hover:from-pink-600 hover:to-purple-700',
@@ -30,6 +32,7 @@ const PLATFORM_INFO: Record<string, {
     name: 'Facebook',
     description: 'Connect the Facebook account that manages your Page to get posts, insights and inbox.',
     icon: <FacebookIcon size={44} />,
+    largeIcon: <FacebookIcon size={36} className="text-white" />,
     bgGradient: 'from-blue-500 to-blue-700',
     buttonGradient: 'from-blue-500 to-blue-700',
     buttonHover: 'hover:from-blue-600 hover:to-blue-800',
@@ -40,6 +43,7 @@ const PLATFORM_INFO: Record<string, {
     name: 'TikTok',
     description: 'Pull analytics and video stats from your TikTok account to improve your strategy.',
     icon: <TikTokIcon size={44} />,
+    largeIcon: <TikTokIcon size={36} className="text-white" />,
     bgGradient: 'from-neutral-900 to-neutral-700',
     buttonGradient: 'from-neutral-800 to-neutral-900',
     buttonHover: 'hover:from-neutral-900 hover:to-black',
@@ -50,6 +54,7 @@ const PLATFORM_INFO: Record<string, {
     name: 'YouTube',
     description: 'Connect with the Google account that owns your channel to get views, subscribers and video analytics.',
     icon: <YoutubeIcon size={44} />,
+    largeIcon: <YoutubeIcon size={36} className="text-white" />,
     bgGradient: 'from-red-500 to-red-700',
     buttonGradient: 'from-red-500 to-red-700',
     buttonHover: 'hover:from-red-600 hover:to-red-800',
@@ -60,6 +65,7 @@ const PLATFORM_INFO: Record<string, {
     name: 'X (Twitter)',
     description: 'Authorize with the X account you want to publish from and track impressions.',
     icon: <XTwitterIcon size={44} className="text-white" />,
+    largeIcon: <XTwitterIcon size={36} className="text-white" />,
     bgGradient: 'from-sky-400 to-sky-600',
     buttonGradient: 'from-sky-400 to-sky-600',
     buttonHover: 'hover:from-sky-500 hover:to-sky-700',
@@ -70,6 +76,7 @@ const PLATFORM_INFO: Record<string, {
     name: 'LinkedIn',
     description: 'Sign in with the LinkedIn account you want to publish from and view professional analytics.',
     icon: <LinkedinIcon size={44} />,
+    largeIcon: <LinkedinIcon size={36} className="text-white" />,
     bgGradient: 'from-blue-600 to-blue-800',
     buttonGradient: 'from-blue-600 to-blue-800',
     buttonHover: 'hover:from-blue-700 hover:to-blue-900',
@@ -269,7 +276,7 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
 
       <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm flex flex-col items-center gap-4">
         <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${info.bgGradient} flex items-center justify-center shadow-md`}>
-          {React.cloneElement(info.icon as React.ReactElement, { size: 36, className: 'text-white' })}
+          {info.largeIcon}
         </div>
         <div className="text-center">
           <p className="font-semibold text-neutral-900">{info.name}</p>
