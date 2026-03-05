@@ -29,7 +29,7 @@ import {
 import Link from 'next/link';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
 
-function Skeleton({ className = '' }: { className?: string }) {
+function Skeleton({ className = '', style }: { className?: string; style?: React.CSSProperties }) {
   return (
     <div
       className={`rounded-lg ${className}`}
@@ -37,6 +37,7 @@ function Skeleton({ className = '' }: { className?: string }) {
         background: 'linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%)',
         backgroundSize: '200% 100%',
         animation: 'shimmer 1.6s ease-in-out infinite',
+        ...style,
       }}
     />
   );
