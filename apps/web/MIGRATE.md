@@ -143,3 +143,48 @@ ALTER TABLE "Post" ADD COLUMN IF NOT EXISTS "targetPlatforms" TEXT[] DEFAULT ARR
 ```
 
 3. Save. Create/post and History will work.
+
+### Smart Links tables (LinkPage, LinkItem)
+
+The Smart Links feature requires `LinkPage` and `LinkItem` tables. If the automatic migration doesn't run, create them manually:
+
+1. **Supabase Dashboard** → your project → **SQL Editor**
+2. Run:
+
+```sql
+CREATE TABLE IF NOT EXISTS "LinkPage" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "slug" TEXT NOT NULL,
+    "title" TEXT,
+    "bio" TEXT,
+    "avatarUrl" TEXT,
+    "design" JSONB,
+    "isPublished" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "LinkPage_pkey" PRIMARY KEY ("id")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "LinkPage_userId_key" ON "LinkPage"("userId");
+CREATE UNIQUE INDEX IF NOT EXISTS "LinkPage_slug_key" ON "LinkPage"("slug");
+CREATE INDEX IF NOT EXISTS "LinkPage_slug_idx" ON "LinkPage"("slug");
+ALTER TABLE "LinkPage" ADD CONSTRAINT "LinkPage_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+CREATE TABLE IF NOT EXISTS "LinkItem" (
+    "id" TEXT NOT NULL,
+    "linkPageId" TEXT NOT NULL,
+    "type" TEXT NOT NULL DEFAULT 'link',
+    "label" TEXT,
+    "url" TEXT,
+    "icon" TEXT,
+    "order" INTEGER NOT NULL DEFAULT 0,
+    "isVisible" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "LinkItem_pkey" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "LinkItem_linkPageId_idx" ON "LinkItem"("linkPageId");
+ALTER TABLE "LinkItem" ADD CONSTRAINT "LinkItem_linkPageId_fkey" FOREIGN KEY ("linkPageId") REFERENCES "LinkPage"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+```
+
+3. Save. Smart Links will be available in the dashboard.

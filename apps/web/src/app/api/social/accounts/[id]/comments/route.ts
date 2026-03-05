@@ -328,7 +328,7 @@ export async function GET(
 
   let error: string | undefined;
   if (comments.length === 0 && firstError) {
-    const msg = firstError.toLowerCase();
+    const msg = (firstError as string).toLowerCase();
     if (msg.includes('permission') || msg.includes('oauth') || msg.includes('scope') || msg.includes('capability') || msg.includes('code 10') || msg.includes('code 200') || msg.includes('#10') || msg.includes('#200')) {
       error = 'Instagram comment permission required. Reconnect your Instagram account from the sidebar to grant the comments permission.';
     } else if (msg.includes('token') || msg.includes('expired') || msg.includes('session')) {

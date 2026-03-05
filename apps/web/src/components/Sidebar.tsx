@@ -15,6 +15,7 @@ import {
     Zap,
     Sparkles,
     PanelLeftClose,
+    Link2,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -201,6 +202,14 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
         >
           <Sparkles size={18} className="shrink-0" />
           <span>AI Assistant</span>
+        </Link>
+        <Link
+          href="/dashboard/smart-links"
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${pathname === '/dashboard/smart-links' ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
+          style={pathname === '/dashboard/smart-links' ? { color: accent } : undefined}
+        >
+          <Link2 size={18} className="shrink-0" />
+          <span>Smart Links</span>
         </Link>
         <Link
           href="/dashboard/settings"

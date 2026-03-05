@@ -27,6 +27,7 @@ model User {
   socialAccounts         SocialAccount[]
   posts                  Post[]
   automationFollowerWelcomes AutomationFollowerWelcome[]
+  linkPage               LinkPage?
 }
 
 enum Platform {
@@ -186,4 +187,37 @@ model DeployTriggerState {
   id            String    @id @default("default")
   lastCommitSha String?
   updatedAt     DateTime  @updatedAt
+}
+
+model LinkPage {
+  id          String     @id @default(cuid())
+  userId      String     @unique
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slug        String     @unique
+  title       String?
+  bio         String?
+  avatarUrl   String?
+  design      Json?
+  links       LinkItem[]
+  isPublished Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([slug])
+}
+
+model LinkItem {
+  id          String    @id @default(cuid())
+  linkPageId  String
+  linkPage    LinkPage  @relation(fields: [linkPageId], references: [id], onDelete: Cascade)
+  type        String    @default("link")
+  label       String?
+  url         String?
+  icon        String?
+  order       Int       @default(0)
+  isVisible   Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([linkPageId])
 }
