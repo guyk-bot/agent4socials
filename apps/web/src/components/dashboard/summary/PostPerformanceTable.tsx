@@ -57,7 +57,8 @@ export function PostPerformanceTable({ posts }: PostPerformanceTableProps) {
     if (platform === 'FACEBOOK') return active ? 'bg-blue-100 border-blue-300 text-blue-800' : 'border-slate-200 text-slate-600 hover:bg-blue-50';
     if (platform === 'YOUTUBE') return active ? 'bg-red-100 border-red-300 text-red-800' : 'border-slate-200 text-slate-600 hover:bg-red-50';
     if (platform === 'TIKTOK') return active ? 'bg-neutral-900 border-neutral-900 text-white' : 'border-slate-200 text-slate-600 hover:bg-neutral-100';
-    if (platform === 'TWITTER') return active ? 'bg-neutral-100 border-neutral-400 text-neutral-900' : 'border-slate-200 text-slate-600 hover:bg-neutral-100';
+    if (platform === 'TWITTER') return active ? 'bg-sky-100 border-sky-300 text-sky-800' : 'border-slate-200 text-slate-600 hover:bg-sky-50';
+    if (platform === 'LINKEDIN') return active ? 'bg-blue-100 border-blue-400 text-blue-900' : 'border-slate-200 text-slate-600 hover:bg-blue-50';
     return active ? 'bg-indigo-100 border-indigo-300 text-indigo-800' : 'border-slate-200 text-slate-600 hover:bg-indigo-50';
   };
 

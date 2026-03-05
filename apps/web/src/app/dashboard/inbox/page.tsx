@@ -90,6 +90,8 @@ export default function InboxPage() {
   const [selectedComment, setSelectedComment] = useState<PostComment | null>(null);
   const [replyText, setReplyText] = useState('');
   const [replySending, setReplySending] = useState(false);
+  const [replySendError, setReplySendError] = useState<string | null>(null);
+  const [dmSendError, setDmSendError] = useState<string | null>(null);
   const [conversationMessages, setConversationMessages] = useState<ConversationMessage[]>([]);
   const [conversationRecipientId, setConversationRecipientId] = useState<string | null>(null);
   const [conversationMessagesLoading, setConversationMessagesLoading] = useState(false);
@@ -948,7 +950,7 @@ export default function InboxPage() {
                       setSelectedComment(null);
                     } catch (e: unknown) {
                       const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
-                      alert(msg ?? 'Failed to send reply.');
+                      setReplySendError(msg ?? 'Failed to send reply. Please try again.');
                     } finally {
                       setReplySending(false);
                     }
@@ -959,6 +961,13 @@ export default function InboxPage() {
                     {replySending ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
                   </button>
                 </div>
+                {replySendError && (
+                  <div className="mt-2 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                    <span className="shrink-0 mt-0.5">⚠</span>
+                    <span>{replySendError}</span>
+                    <button type="button" onClick={() => setReplySendError(null)} className="ml-auto shrink-0 text-red-400 hover:text-red-600">✕</button>
+                  </div>
+                )}
                 <p className="text-xs text-neutral-400 mt-2">Use the sparkle button to generate a reply with AI, then edit or send.</p>
               </div>
             </div>
@@ -1144,8 +1153,11 @@ export default function InboxPage() {
                         });
                       }).catch(() => {});
                     } catch (e: unknown) {
-                      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
-                      alert(msg ?? 'Failed to send message.');
+                      const errMsg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Failed to send message.';
+                      const isDevMode = errMsg.toLowerCase().includes('does not exist') || errMsg.toLowerCase().includes('missing permissions') || errMsg.toLowerCase().includes('unsupported');
+                      setDmSendError(isDevMode
+                        ? 'Could not send: Instagram may be in Development Mode. Only users added as Testers in your Meta App can receive messages while the app is not published.'
+                        : errMsg);
                     } finally {
                       setDmReplySending(false);
                     }
@@ -1156,6 +1168,13 @@ export default function InboxPage() {
                   {dmReplySending ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
                 </button>
               </div>
+              {dmSendError && (
+                <div className="mt-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  <span className="shrink-0 mt-0.5">⚠</span>
+                  <span>{dmSendError}</span>
+                  <button type="button" onClick={() => setDmSendError(null)} className="ml-auto shrink-0 text-amber-500 hover:text-amber-700">✕</button>
+                </div>
+              )}
               <p className="text-xs text-neutral-400 mt-2 text-center">Send a message to this conversation. Use the sparkle button to generate a reply with AI.</p>
             </div>
           </div>

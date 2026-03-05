@@ -61,11 +61,11 @@ function DataSyncBanner({
     LINKEDIN: <LinkedinIcon size={20} />,
   };
   const platformColors: Record<string, string> = {
-    INSTAGRAM: 'from-pink-500 to-purple-600',
+    INSTAGRAM: 'from-pink-500 via-fuchsia-500 to-purple-600',
     FACEBOOK: 'from-blue-500 to-blue-700',
-    TIKTOK: 'from-neutral-800 to-pink-600',
+    TIKTOK: 'from-neutral-900 to-neutral-800',
     YOUTUBE: 'from-red-500 to-red-700',
-    TWITTER: 'from-neutral-700 to-neutral-900',
+    TWITTER: 'from-sky-400 to-sky-600',
     LINKEDIN: 'from-blue-600 to-blue-800',
     DEFAULT: 'from-indigo-500 to-violet-600',
   };
@@ -283,6 +283,7 @@ export default function DashboardPage() {
   } | null>(null);
   const [aggregatedLoading, setAggregatedLoading] = useState(false);
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
+  const [disconnectConfirmOpen, setDisconnectConfirmOpen] = useState(false);
   const [reconnectingId, setReconnectingId] = useState<string | null>(null);
   const [enablingTwitter1oa, setEnablingTwitter1oa] = useState(false);
   const [tokenDebugLoading, setTokenDebugLoading] = useState<string | null>(null);
@@ -956,9 +957,21 @@ export default function DashboardPage() {
               )}
               <button
                 type="button"
-                onClick={async () => {
-                  if (disconnectingId) return;
-                  if (!window.confirm(`Disconnect ${selectedAccount.username || selectedAccount.platform}? You can connect again anytime from the sidebar.`)) return;
+                onClick={() => { if (!disconnectingId) setDisconnectConfirmOpen(true); }}
+                disabled={!!disconnectingId}
+                className="shrink-0 px-4 py-2 rounded-lg border border-red-200 bg-white text-red-700 text-sm font-medium hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {disconnectingId === selectedAccount.id ? 'Disconnecting…' : 'Disconnect account'}
+              </button>
+              <ConfirmModal
+                open={disconnectConfirmOpen}
+                onClose={() => setDisconnectConfirmOpen(false)}
+                title="Disconnect account?"
+                message={`Disconnect @${selectedAccount.username || selectedAccount.platform}? All synced posts and insights for this account will be removed. You can reconnect anytime from the sidebar.`}
+                confirmLabel="Disconnect"
+                cancelLabel="Keep connected"
+                variant="danger"
+                onConfirm={async () => {
                   setDisconnectingId(selectedAccount.id);
                   try {
                     await api.delete(`/social/accounts/${selectedAccount.id}`);
@@ -971,11 +984,7 @@ export default function DashboardPage() {
                   } catch (_) {}
                   setDisconnectingId(null);
                 }}
-                disabled={!!disconnectingId}
-                className="shrink-0 px-4 py-2 rounded-lg border border-red-200 bg-white text-red-700 text-sm font-medium hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {disconnectingId === selectedAccount.id ? 'Disconnecting…' : 'Disconnect account'}
-              </button>
+              />
             </div>
           </>
         ) : hasAccounts ? (
@@ -1407,7 +1416,8 @@ export default function DashboardPage() {
                       platform === 'FACEBOOK' ? (isActive ? 'bg-blue-100 border-blue-300 text-blue-800' : 'border-neutral-200 text-neutral-600 hover:bg-blue-50') :
                       platform === 'YOUTUBE' ? (isActive ? 'bg-red-100 border-red-300 text-red-800' : 'border-neutral-200 text-neutral-600 hover:bg-red-50') :
                       platform === 'TIKTOK' ? (isActive ? 'bg-neutral-900 border-neutral-900 text-white' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-100') :
-                      platform === 'TWITTER' ? (isActive ? 'bg-neutral-100 border-neutral-400 text-neutral-900' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-100') :
+                      platform === 'TWITTER' ? (isActive ? 'bg-sky-100 border-sky-300 text-sky-800' : 'border-neutral-200 text-neutral-600 hover:bg-sky-50') :
+                      platform === 'LINKEDIN' ? (isActive ? 'bg-blue-100 border-blue-400 text-blue-900' : 'border-neutral-200 text-neutral-600 hover:bg-blue-50') :
                       (isActive ? 'bg-indigo-100 border-indigo-300 text-indigo-800' : 'border-neutral-200 text-neutral-600 hover:bg-indigo-50');
                     return (
                       <button

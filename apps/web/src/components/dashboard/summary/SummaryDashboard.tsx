@@ -62,7 +62,7 @@ export function SummaryDashboard() {
       a.click();
       URL.revokeObjectURL(url);
     } else {
-      window.alert('PDF export coming soon.');
+      // PDF export coming soon - silently ignore
     }
   }, [summary, dateRange]);
 

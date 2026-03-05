@@ -9,16 +9,16 @@ const PLATFORM_ICON: Record<string, React.ReactNode> = {
   FACEBOOK: <FacebookIcon size={24} />,
   TIKTOK: <TikTokIcon size={24} />,
   YOUTUBE: <YoutubeIcon size={24} />,
-  TWITTER: <XTwitterIcon size={24} className="text-neutral-800" />,
+  TWITTER: <XTwitterIcon size={24} className="text-sky-500" />,
   LINKEDIN: <LinkedinIcon size={24} />,
 };
 
 const PLATFORM_STYLES: Record<string, { gradient: string; bg: string }> = {
   INSTAGRAM: { gradient: 'from-pink-400/20 to-purple-500/20', bg: 'bg-pink-50/80' },
   FACEBOOK: { gradient: 'from-blue-400/20 to-blue-600/20', bg: 'bg-blue-50/80' },
-  TIKTOK: { gradient: 'from-slate-700/20 to-pink-500/20', bg: 'bg-slate-100/80' },
+  TIKTOK: { gradient: 'from-neutral-800/10 to-neutral-600/10', bg: 'bg-neutral-100/80' },
   YOUTUBE: { gradient: 'from-red-500/20 to-red-700/20', bg: 'bg-red-50/80' },
-  TWITTER: { gradient: 'from-slate-400/20 to-slate-600/20', bg: 'bg-slate-100/80' },
+  TWITTER: { gradient: 'from-sky-400/20 to-sky-600/20', bg: 'bg-sky-50/80' },
   LINKEDIN: { gradient: 'from-blue-600/20 to-blue-800/20', bg: 'bg-blue-50/80' },
 };
 

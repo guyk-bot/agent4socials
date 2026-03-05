@@ -11,12 +11,12 @@ type ContentActivityPanelsProps = {
 };
 
 const PLATFORM_COLORS: Record<string, string> = {
-  INSTAGRAM: '#e879f9',
-  FACEBOOK: '#60a5fa',
-  TIKTOK: '#64748b',
-  YOUTUBE: '#f87171',
-  TWITTER: '#94a3b8',
-  LINKEDIN: '#3b82f6',
+  INSTAGRAM: '#E1306C',
+  FACEBOOK: '#1877F2',
+  TIKTOK: '#010101',
+  YOUTUBE: '#FF0000',
+  TWITTER: '#1D9BF0',
+  LINKEDIN: '#0A66C2',
 };
 
 export function ContentActivityPanels({ dailyPublishing, dailyEngagement }: ContentActivityPanelsProps) {
