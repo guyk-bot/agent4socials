@@ -43,14 +43,22 @@ type PlatformBreakdownCardsProps = {
   platforms: SummaryPlatform[];
 };
 
+const PLATFORM_ORDER = ['INSTAGRAM', 'FACEBOOK', 'YOUTUBE', 'TIKTOK', 'TWITTER', 'LINKEDIN'];
+
 export function PlatformBreakdownCards({ platforms }: PlatformBreakdownCardsProps) {
   if (platforms.length === 0) return null;
+
+  const sorted = [...platforms].sort((a, b) => {
+    const ai = PLATFORM_ORDER.indexOf(a.platform);
+    const bi = PLATFORM_ORDER.indexOf(b.platform);
+    return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+  });
 
   return (
     <section>
       <h2 className="text-lg font-semibold text-slate-900 mb-4">Platform Breakdown</h2>
       <div className="flex gap-4 overflow-x-auto pb-2 -mx-1 scrollbar-thin">
-        {platforms.map((p) => {
+        {sorted.map((p) => {
           const style = PLATFORM_STYLES[p.platform] ?? { gradient: 'from-slate-400/20 to-slate-600/20', bg: 'bg-slate-100/80' };
           const icon = PLATFORM_ICON[p.platform];
           const trendValues = p.timeSeries.slice(-7).map((d) => d.value);

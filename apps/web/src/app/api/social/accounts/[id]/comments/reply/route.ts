@@ -5,8 +5,8 @@ import axios from 'axios';
 
 /**
  * POST /api/social/accounts/[id]/comments/reply
- * Body: { commentId: string, message: string }
- * Replies to a comment (Instagram, Facebook, or X).
+ * Reply to a comment on Instagram or Facebook.
+ * Body: { commentId: string; message: string }
  */
 export async function POST(
   request: NextRequest,
@@ -19,59 +19,61 @@ export async function POST(
   if (!userId) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
+
   const { id } = await params;
+  const body = await request.json() as { commentId?: string; message?: string };
+  const { commentId, message } = body;
+
+  if (!commentId || !message?.trim()) {
+    return NextResponse.json({ message: 'commentId and message are required' }, { status: 400 });
+  }
+
   const account = await prisma.socialAccount.findFirst({
     where: { id, userId },
-    select: { id: true, platform: true, accessToken: true },
+    select: { id: true, platform: true, platformUserId: true, accessToken: true, credentialsJson: true },
   });
   if (!account) {
     return NextResponse.json({ message: 'Account not found' }, { status: 404 });
   }
 
-  let body: { commentId?: string; message?: string };
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ message: 'Invalid JSON body' }, { status: 400 });
-  }
-  const commentId = typeof body.commentId === 'string' ? body.commentId.trim() : '';
-  const message = typeof body.message === 'string' ? body.message.trim() : '';
-  if (!commentId || !message) {
-    return NextResponse.json({ message: 'commentId and message are required' }, { status: 400 });
-  }
-
   const platform = account.platform;
-  const token = account.accessToken;
+  if (platform !== 'INSTAGRAM' && platform !== 'FACEBOOK') {
+    return NextResponse.json({ message: 'Comment replies are only supported for Instagram and Facebook.' }, { status: 400 });
+  }
+
+  const credJson = (account.credentialsJson && typeof account.credentialsJson === 'object'
+    ? account.credentialsJson
+    : {}) as { loginMethod?: string };
+
+  const isInstagramBusinessLogin = platform === 'INSTAGRAM' && credJson.loginMethod === 'instagram_business';
+  const accessToken = account.accessToken ?? '';
 
   try {
-    if (platform === 'INSTAGRAM') {
+    if (isInstagramBusinessLogin) {
+      // Instagram Business Login: reply via graph.instagram.com
       await axios.post(
-        `https://graph.facebook.com/v18.0/${commentId}/replies`,
-        new URLSearchParams({ message: message.slice(0, 1000) }),
-        { params: { access_token: token }, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+        `https://graph.instagram.com/v25.0/${commentId}/replies`,
+        null,
+        {
+          params: { message: message.trim(), access_token: accessToken },
+          timeout: 15_000,
+        }
       );
-      return NextResponse.json({ ok: true });
-    }
-    if (platform === 'FACEBOOK') {
+    } else {
+      // Facebook Login (Instagram or Facebook): reply via graph.facebook.com
       await axios.post(
         `https://graph.facebook.com/v18.0/${commentId}/comments`,
-        new URLSearchParams({ message: message.slice(0, 8000) }),
-        { params: { access_token: token }, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+        null,
+        {
+          params: { message: message.trim(), access_token: accessToken },
+          timeout: 15_000,
+        }
       );
-      return NextResponse.json({ ok: true });
     }
-    if (platform === 'TWITTER') {
-      await axios.post(
-        'https://api.twitter.com/2/tweets',
-        { text: message.slice(0, 280), reply: { in_reply_to_tweet_id: commentId } },
-        { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
-      );
-      return NextResponse.json({ ok: true });
-    }
-    return NextResponse.json({ message: 'Replies only supported for Instagram, Facebook, and X' }, { status: 400 });
-  } catch (e: unknown) {
-    const err = e as { response?: { status?: number; data?: unknown }; message?: string };
-    const msg = err.response?.data != null ? JSON.stringify(err.response.data) : err.message ?? 'Reply failed';
-    return NextResponse.json({ message: msg.slice(0, 300) }, { status: err.response?.status ?? 500 });
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const axErr = err as { response?: { data?: { error?: { message?: string; code?: number } } } };
+    const msg = axErr?.response?.data?.error?.message ?? 'Failed to send reply';
+    return NextResponse.json({ message: msg }, { status: 400 });
   }
 }

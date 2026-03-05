@@ -95,6 +95,7 @@ export async function GET(
     createdAt: string;
     platform: string;
   }> = [];
+  let firstError: string | null = null;
 
   const accountId = account.id;
 
@@ -202,8 +203,12 @@ export async function GET(
             });
           }
         }
-      } catch (_) {
-        // skip this post on API error
+      } catch (err) {
+        if (!firstError) {
+          const axErr = err as { response?: { data?: { error?: { message?: string; code?: number } } } };
+          const msg = axErr?.response?.data?.error?.message ?? String(err);
+          firstError = msg;
+        }
       }
       continue;
     }
@@ -297,5 +302,16 @@ export async function GET(
   }
 
   comments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  return NextResponse.json({ comments: comments.slice(0, 50) });
+
+  let error: string | undefined;
+  if (comments.length === 0 && firstError) {
+    const msg = firstError.toLowerCase();
+    if (msg.includes('permission') || msg.includes('oauth') || msg.includes('scope') || msg.includes('capability')) {
+      error = 'Instagram comment permissions are not fully granted. Reconnect your Instagram account from the sidebar to refresh permissions.';
+    } else {
+      error = firstError;
+    }
+  }
+
+  return NextResponse.json({ comments: comments.slice(0, 50), ...(error ? { error } : {}) });
 }

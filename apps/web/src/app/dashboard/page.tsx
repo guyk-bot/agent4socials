@@ -23,8 +23,6 @@ import {
   Image,
   RefreshCw,
   ExternalLink,
-  Star,
-  MoreVertical,
   HelpCircle,
   ArrowUpDown,
 } from 'lucide-react';
@@ -1260,13 +1258,14 @@ export default function DashboardPage() {
                             </span>
                           </th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Comments</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Shares</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Reposts</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                             <span className="inline-flex items-center gap-1">
                               Date
                               <button type="button" onClick={() => { setSortBy('date'); setSortDesc(!sortDesc); setPostsPage(1); }} className="p-0.5 rounded hover:bg-neutral-200" title="Sort by date"><ArrowUpDown size={14} /></button>
                             </span>
                           </th>
-                          <th className="px-4 py-3 w-16" />
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-neutral-200">
@@ -1304,13 +1303,9 @@ export default function DashboardPage() {
                             <td className="px-4 py-3 text-sm text-neutral-600">{post.impressions ?? 0}</td>
                             <td className="px-4 py-3 text-sm text-neutral-600">{post.interactions ?? 0}</td>
                             <td className="px-4 py-3 text-sm text-neutral-500">{(post as { commentsCount?: number }).commentsCount ?? 0}</td>
+                            <td className="px-4 py-3 text-sm text-neutral-500">{(post as { sharesCount?: number }).sharesCount ?? 0}</td>
+                            <td className="px-4 py-3 text-sm text-neutral-500">{(post as { repostsCount?: number }).repostsCount ?? 0}</td>
                             <td className="px-4 py-3 text-sm text-neutral-500 whitespace-nowrap">{new Date(post.publishedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</td>
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-1">
-                                <button type="button" className="p-1.5 rounded hover:bg-neutral-100 text-neutral-400 hover:text-amber-500" title="Save"><Star size={16} /></button>
-                                <button type="button" className="p-1.5 rounded hover:bg-neutral-100 text-neutral-400 hover:text-neutral-600" title="More"><MoreVertical size={16} /></button>
-                              </div>
-                            </td>
                           </tr>
                         ))}
                       </tbody>

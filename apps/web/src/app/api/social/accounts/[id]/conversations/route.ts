@@ -79,7 +79,7 @@ export async function GET(
 
   const activeToken = isInstagramBusinessLogin ? igUserToken! : token;
   const queryParams: Record<string, string> = {
-    fields: 'id,updated_time,participants{id,name,username}',
+    fields: 'id,updated_time,participants{id,name,username,profile_pic,picture}',
     access_token: activeToken,
   };
   // platform=instagram is only needed for graph.facebook.com Page token path (Facebook Login).
@@ -96,6 +96,8 @@ export async function GET(
             id?: string;
             name?: string;
             username?: string;
+            profile_pic?: string;
+            picture?: { data?: { url?: string } };
           }>;
         };
       }>;
@@ -141,7 +143,7 @@ export async function GET(
           id: s.id,
           name: s.name,
           username: s.username,
-          pictureUrl: null as string | null,
+          pictureUrl: (s.profile_pic ?? s.picture?.data?.url ?? null) as string | null,
         })),
       };
     });
@@ -186,7 +188,7 @@ export async function GET(
                     id?: string; name?: string; username?: string; profile_pic?: string;
                     picture?: { data?: { url?: string } };
                   }>(`${baseUrl}/${id}`, {
-                    params: { fields: 'id,name,username,profile_pic,picture', access_token: activeToken },
+                    params: { fields: 'id,name,username,profile_pic,picture.type(large)', access_token: activeToken },
                     timeout: 15_000,
                   });
                   const p = profileRes.data;

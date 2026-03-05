@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Search, ArrowUpDown, Sparkles, Copy } from 'lucide-react';
+import { Search, ArrowUpDown } from 'lucide-react';
 import type { SummaryPost } from './types';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
 
@@ -85,9 +85,10 @@ export function PostPerformanceTable({ posts }: PostPerformanceTableProps) {
               type="button"
               onClick={() => setPlatformFilter(isActive ? 'all' : platform)}
               className={`px-2.5 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 transition-colors ${platformColorCls(platform, isActive)}`}
+              title={PLATFORM_LABEL[platform] ?? platform}
             >
               {PLATFORM_ICON[platform]}
-              {count} {PLATFORM_LABEL[platform] ?? platform}
+              {count}
             </button>
           );
         })}
@@ -129,13 +130,12 @@ export function PostPerformanceTable({ posts }: PostPerformanceTableProps) {
               >
                 <span className="inline-flex items-center gap-1">Date {sortKey === 'date' && <ArrowUpDown className="w-3.5 h-3.5" />}</span>
               </th>
-              <th className="text-left py-3 px-4 font-medium text-slate-600 w-20">Actions</th>
             </tr>
           </thead>
           <tbody>
             {displayPosts.length === 0 ? (
               <tr>
-                <td colSpan={6} className="py-12 text-center text-slate-500">
+                <td colSpan={5} className="py-12 text-center text-slate-500">
                   No posts in this period or no data yet. Connect accounts and sync posts from Analytics.
                 </td>
               </tr>
@@ -178,12 +178,6 @@ export function PostPerformanceTable({ posts }: PostPerformanceTableProps) {
                   <td className="py-3 px-4 font-medium text-slate-900">{post.engagement.toLocaleString()}</td>
                   <td className="py-3 px-4 text-slate-600">{(post.comments ?? 0).toLocaleString()}</td>
                   <td className="py-3 px-4 text-slate-600 whitespace-nowrap">{new Date(post.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</td>
-                  <td className="py-3 px-4">
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button type="button" className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500" title="Boost"><Sparkles className="w-4 h-4" /></button>
-                      <button type="button" className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500" title="Duplicate"><Copy className="w-4 h-4" /></button>
-                    </div>
-                  </td>
                 </tr>
               ))
             )}
