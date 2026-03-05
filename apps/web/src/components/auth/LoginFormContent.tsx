@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useAuthModal } from '@/context/AuthModalContext';
 import { Lock, Mail, ArrowRight } from 'lucide-react';
@@ -22,7 +23,8 @@ export default function LoginFormContent({ profileFailedMessage }: Props) {
     }
   }, [profileFailedMessage]);
   const { signInWithEmail, signInWithGoogle } = useAuth();
-  const { openSignup } = useAuthModal();
+  const { openSignup, closeModal } = useAuthModal();
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,6 +32,8 @@ export default function LoginFormContent({ profileFailedMessage }: Props) {
     setLoading(true);
     try {
       await signInWithEmail(email, password);
+      closeModal();
+      router.push('/dashboard');
     } catch (err: unknown) {
       setError(err && typeof err === 'object' && 'message' in err ? String((err as { message: string }).message) : 'Failed to log in');
     } finally {
@@ -42,6 +46,8 @@ export default function LoginFormContent({ profileFailedMessage }: Props) {
     setLoading(true);
     try {
       await signInWithGoogle();
+      closeModal();
+      router.push('/dashboard');
     } catch (err: unknown) {
       setError(err && typeof err === 'object' && 'message' in err ? String((err as { message: string }).message) : 'Failed to sign in with Google');
     } finally {

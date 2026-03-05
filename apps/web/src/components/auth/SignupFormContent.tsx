@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useAuthModal } from '@/context/AuthModalContext';
 import { Lock, Mail, User, ArrowRight, KeyRound } from 'lucide-react';
@@ -15,7 +16,8 @@ export default function SignupFormContent() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { signInWithEmail, signInWithGoogle } = useAuth();
-  const { openLogin } = useAuthModal();
+  const { openLogin, closeModal } = useAuthModal();
+  const router = useRouter();
 
   const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,6 +63,8 @@ export default function SignupFormContent() {
         return;
       }
       await signInWithEmail(email.trim().toLowerCase(), password);
+      closeModal();
+      router.push('/dashboard');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Verification failed');
     } finally {

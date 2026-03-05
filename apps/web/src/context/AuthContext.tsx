@@ -106,11 +106,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           name: session.user.user_metadata?.full_name ?? session.user.user_metadata?.name ?? undefined,
         };
         await syncUserFromApi(session.access_token, fallback);
+        // Redirect to dashboard only when user just signed in from /login or /signup (not from homepage /).
+        // Visiting / with an existing session was incorrectly redirecting because some clients fire SIGNED_IN on session restore.
         if (event === 'SIGNED_IN') {
           const path = typeof window !== 'undefined' ? window.location.pathname : '';
-          // Let /auth/callback own the redirect after setSession so its profile fetch is not aborted
-          const isFunnel = path === '/' || path === '/login' || path === '/signup' || (path.startsWith('/auth/') && path !== '/auth/callback');
-          if (isFunnel) router.push('/dashboard');
+          const isLoginOrSignupPage = path === '/login' || path === '/signup' || (path.startsWith('/auth/') && path !== '/auth/callback');
+          if (isLoginOrSignupPage) router.push('/dashboard');
         }
       } else {
         setUser(null);
