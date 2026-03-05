@@ -1,51 +1,82 @@
 'use client';
 
 import React from 'react';
+import {
+  AreaChart, Area, ResponsiveContainer, Tooltip,
+} from 'recharts';
 import type { SummaryPlatform } from './types';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
 
 const PLATFORM_ICON: Record<string, React.ReactNode> = {
-  INSTAGRAM: <InstagramIcon size={24} />,
-  FACEBOOK: <FacebookIcon size={24} />,
-  TIKTOK: <TikTokIcon size={24} />,
-  YOUTUBE: <YoutubeIcon size={24} />,
-  TWITTER: <XTwitterIcon size={24} className="text-sky-500" />,
-  LINKEDIN: <LinkedinIcon size={24} />,
+  INSTAGRAM: <InstagramIcon size={20} />,
+  FACEBOOK: <FacebookIcon size={20} />,
+  TIKTOK: <TikTokIcon size={20} />,
+  YOUTUBE: <YoutubeIcon size={20} />,
+  TWITTER: <XTwitterIcon size={20} className="text-sky-500" />,
+  LINKEDIN: <LinkedinIcon size={20} />,
 };
 
-const PLATFORM_STYLES: Record<string, { gradient: string; bg: string }> = {
-  INSTAGRAM: { gradient: 'from-pink-400/20 to-purple-500/20', bg: 'bg-pink-50/80' },
-  FACEBOOK: { gradient: 'from-blue-400/20 to-blue-600/20', bg: 'bg-blue-50/80' },
-  TIKTOK: { gradient: 'from-neutral-800/10 to-neutral-600/10', bg: 'bg-neutral-100/80' },
-  YOUTUBE: { gradient: 'from-red-500/20 to-red-700/20', bg: 'bg-red-50/80' },
-  TWITTER: { gradient: 'from-sky-400/20 to-sky-600/20', bg: 'bg-sky-50/80' },
-  LINKEDIN: { gradient: 'from-blue-600/20 to-blue-800/20', bg: 'bg-blue-50/80' },
+const PLATFORM_HEX: Record<string, string> = {
+  INSTAGRAM: '#E1306C',
+  FACEBOOK: '#1877F2',
+  TIKTOK: '#010101',
+  YOUTUBE: '#FF0000',
+  TWITTER: '#1D9BF0',
+  LINKEDIN: '#0A66C2',
 };
 
-function MiniTrend({ values }: { values: number[] }) {
-  if (values.length < 2) return null;
-  const max = Math.max(...values, 1);
-  const w = 80;
-  const h = 32;
-  const path = values.map((v, i) => {
-    const x = (i / (values.length - 1)) * w;
-    const y = h - (v / max) * (h - 4) - 2;
-    return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
-  }).join(' ');
+const PLATFORM_BG: Record<string, string> = {
+  INSTAGRAM: 'bg-pink-50',
+  FACEBOOK: 'bg-blue-50',
+  TIKTOK: 'bg-neutral-100',
+  YOUTUBE: 'bg-red-50',
+  TWITTER: 'bg-sky-50',
+  LINKEDIN: 'bg-blue-50',
+};
+
+const PLATFORM_LABEL: Record<string, string> = {
+  INSTAGRAM: 'Instagram', FACEBOOK: 'Facebook', TIKTOK: 'TikTok',
+  YOUTUBE: 'YouTube', TWITTER: 'X (Twitter)', LINKEDIN: 'LinkedIn',
+};
+
+function Sparkline({ values, color }: { values: number[]; color: string }) {
+  if (values.length < 2) {
+    return <div className="h-10 w-20" />;
+  }
+  const data = values.map((v, i) => ({ i, v }));
   return (
-    <svg width={w} height={h} className="opacity-70">
-      <path d={path} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    <div style={{ width: 80, height: 40 }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
+          <defs>
+            <linearGradient id={`spark-${color.replace('#', '')}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity={0.4} />
+              <stop offset="100%" stopColor={color} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <Tooltip
+            content={(props) => {
+              const { active, payload } = props as { active?: boolean; payload?: Array<{ value?: number }> };
+              if (!active || !payload?.length) return null;
+              return (
+                <div className="bg-white border border-neutral-200 rounded-lg px-2 py-1 text-xs shadow-lg font-medium">
+                  {(payload[0]?.value ?? 0).toLocaleString()}
+                </div>
+              );
+            }}
+            cursor={{ stroke: color, strokeWidth: 1, strokeDasharray: '3 3' }}
+          />
+          <Area type="monotone" dataKey="v" stroke={color} strokeWidth={2}
+            fill={`url(#spark-${color.replace('#', '')})`} dot={false} />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
   );
 }
 
-type PlatformBreakdownCardsProps = {
-  platforms: SummaryPlatform[];
-};
-
 const PLATFORM_ORDER = ['INSTAGRAM', 'FACEBOOK', 'YOUTUBE', 'TIKTOK', 'TWITTER', 'LINKEDIN'];
 
-export function PlatformBreakdownCards({ platforms }: PlatformBreakdownCardsProps) {
+export function PlatformBreakdownCards({ platforms }: { platforms: SummaryPlatform[] }) {
   if (platforms.length === 0) return null;
 
   const sorted = [...platforms].sort((a, b) => {
@@ -57,45 +88,57 @@ export function PlatformBreakdownCards({ platforms }: PlatformBreakdownCardsProp
   return (
     <section>
       <h2 className="text-lg font-semibold text-slate-900 mb-4">Platform Breakdown</h2>
-      <div className="flex gap-4 overflow-x-auto pb-2 -mx-1 scrollbar-thin">
-        {sorted.map((p) => {
-          const style = PLATFORM_STYLES[p.platform] ?? { gradient: 'from-slate-400/20 to-slate-600/20', bg: 'bg-slate-100/80' };
-          const icon = PLATFORM_ICON[p.platform];
-          const trendValues = p.timeSeries.slice(-7).map((d) => d.value);
-          if (trendValues.length === 0 && p.reach > 0) trendValues.push(p.reach);
+      <div className="flex gap-4 overflow-x-auto pb-3 -mx-1 px-1" style={{ scrollbarWidth: 'thin' }}>
+        {sorted.map((p, idx) => {
+          const color = PLATFORM_HEX[p.platform] ?? '#6366f1';
+          const bg = PLATFORM_BG[p.platform] ?? 'bg-slate-100';
+          const trendValues = p.timeSeries.slice(-14).map((d) => d.value);
+          if (trendValues.length < 2 && p.reach > 0) {
+            trendValues.push(0, p.reach);
+          }
           return (
             <div
               key={p.id}
-              className={`flex-shrink-0 w-[220px] rounded-[20px] p-5 ${style.bg} border border-slate-200/60 relative overflow-hidden`}
-              style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}
+              className={`flex-shrink-0 w-[210px] rounded-2xl p-4 ${bg} border border-slate-200/60 relative overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200`}
+              style={{
+                boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+                animation: `slide-up 0.4s ease-out ${idx * 60}ms both`,
+              }}
             >
-              <div className={`absolute inset-0 bg-gradient-to-br ${style.gradient} opacity-50 pointer-events-none`} />
-              <div className="relative">
-                <div className="flex items-center gap-2 mb-3 text-slate-700">
-                  {icon}
-                  <span className="font-semibold text-slate-900">{p.platform}</span>
+              {/* Colored top bar */}
+              <div className="absolute top-0 left-0 right-0 h-0.5 rounded-t-2xl" style={{ backgroundColor: color }} />
+
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-1.5">
+                  {PLATFORM_ICON[p.platform]}
+                  <span className="text-sm font-semibold text-slate-800">{PLATFORM_LABEL[p.platform] ?? p.platform}</span>
                 </div>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                  <div>
-                    <p className="text-slate-500">{p.platform === 'YOUTUBE' ? 'Subscribers' : 'Followers'}</p>
-                    <p className="font-semibold text-slate-900">{p.followers.toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500">Reach</p>
-                    <p className="font-semibold text-slate-900">{p.reach.toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500">Posts</p>
-                    <p className="font-semibold text-slate-900">{p.posts}</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500">Engagement</p>
-                    <p className="font-semibold text-slate-900">{p.engagement.toLocaleString()}</p>
-                  </div>
+                {p.username && (
+                  <span className="text-xs text-slate-400 truncate max-w-[80px]">@{p.username}</span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm mb-3">
+                <div>
+                  <p className="text-xs text-slate-500">{p.platform === 'YOUTUBE' ? 'Subscribers' : 'Followers'}</p>
+                  <p className="font-bold text-slate-900 tabular-nums" style={{ color }}>{p.followers.toLocaleString()}</p>
                 </div>
-                <div className="mt-3 flex justify-end text-slate-500">
-                  <MiniTrend values={trendValues} />
+                <div>
+                  <p className="text-xs text-slate-500">Reach</p>
+                  <p className="font-bold text-slate-900 tabular-nums">{p.reach.toLocaleString()}</p>
                 </div>
+                <div>
+                  <p className="text-xs text-slate-500">Posts</p>
+                  <p className="font-semibold text-slate-900">{p.posts}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Engagement</p>
+                  <p className="font-semibold text-slate-900">{p.engagement.toLocaleString()}</p>
+                </div>
+              </div>
+
+              <div className="flex justify-end" style={{ color }}>
+                <Sparkline values={trendValues} color={color} />
               </div>
             </div>
           );

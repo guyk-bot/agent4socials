@@ -51,7 +51,8 @@ export function GrowthLineChart({ data, metric, height = 320, className = '' }: 
   }, [data, metric, config.dataKey]);
 
   const CustomTooltip = useCallback(
-    ({ active, payload, label }: TooltipProps<number, string>) => {
+    (props: TooltipProps<number, string>) => {
+      const { active, payload, label } = props as { active?: boolean; payload?: Array<{ value?: number }>; label?: string };
       if (!active || !payload?.length || !label) return null;
       const value = payload[0]?.value;
       return (

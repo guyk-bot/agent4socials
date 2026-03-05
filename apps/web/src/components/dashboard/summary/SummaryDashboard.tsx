@@ -16,6 +16,18 @@ import { useSummaryData } from './useSummaryData';
 const DEFAULT_DATE_END = new Date().toISOString().slice(0, 10);
 const DEFAULT_DATE_START = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
+function SectionFade({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
+  return (
+    <div
+      style={{
+        animation: `slide-up 0.5s ease-out ${delay}ms both`,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 export function SummaryDashboard() {
   const appData = useAppData();
   const { cachedAccounts } = useAccountsCache() ?? { cachedAccounts: [] };
@@ -23,25 +35,42 @@ export function SummaryDashboard() {
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [compareEnabled, setCompareEnabled] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState(0);
 
-  // On first mount, trigger a background sync for all accounts (posts + insights) so Summary has full data
+  // On first mount, trigger a background sync for all accounts
   useEffect(() => {
     if (!cachedAccounts || cachedAccounts.length === 0) return;
     let cancelled = false;
     setSyncing(true);
+    setSyncProgress(0);
     const accounts = cachedAccounts as { id: string; platform: string }[];
-    const range = { start: DEFAULT_DATE_START, end: DEFAULT_DATE_END };
+    const total = accounts.length * 2;
+    let done = 0;
+
+    const tick = () => {
+      done++;
+      if (!cancelled) setSyncProgress(Math.round((done / total) * 100));
+    };
+
     const postPromises = accounts.map((acc) =>
       api.get<{ posts?: unknown[] }>(`/social/accounts/${acc.id}/posts`, { params: { sync: 1 } })
-        .then((r) => { if (!cancelled && r.data?.posts) appData?.setPostsForAccount(acc.id, r.data.posts); })
-        .catch(() => {})
+        .then((r) => {
+          tick();
+          if (!cancelled && r.data?.posts) appData?.setPostsForAccount(acc.id, r.data.posts);
+        })
+        .catch(() => tick())
     );
     const insightsPromises = accounts.map((acc) =>
-      api.get(`/social/accounts/${acc.id}/insights`, { params: { since: range.start, until: range.end } })
-        .then((r) => { if (!cancelled && r.data) appData?.setInsightsForAccount(acc.id, r.data); })
-        .catch(() => {})
+      api.get(`/social/accounts/${acc.id}/insights`, { params: { since: dateRange.start, until: dateRange.end } })
+        .then((r) => {
+          tick();
+          if (!cancelled && r.data) appData?.setInsightsForAccount(acc.id, r.data);
+        })
+        .catch(() => tick())
     );
-    Promise.all([...postPromises, ...insightsPromises]).finally(() => { if (!cancelled) setSyncing(false); });
+    Promise.all([...postPromises, ...insightsPromises]).finally(() => {
+      if (!cancelled) { setSyncing(false); setSyncProgress(100); }
+    });
     return () => { cancelled = true; };
   // Only run once when accounts are first available
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -66,9 +95,8 @@ export function SummaryDashboard() {
       a.download = `summary-${dateRange.start}-${dateRange.end}.csv`;
       a.click();
       URL.revokeObjectURL(url);
-    } else {
-      // PDF export coming soon - silently ignore
     }
+    // PDF: silently ignore
   }, [summary, dateRange]);
 
   const handleRefresh = useCallback(() => {
@@ -78,70 +106,101 @@ export function SummaryDashboard() {
 
   if (!summary) {
     return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center rounded-[20px] bg-white border border-slate-200/60 p-12" style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
-        <div className="text-4xl mb-4">📊</div>
-        <p className="text-slate-700 font-semibold text-lg">No data yet</p>
-        <p className="text-slate-500 text-center max-w-sm mt-2">
-          Connect a social account from the left sidebar to start tracking your analytics.
+      <div
+        className="min-h-[60vh] flex flex-col items-center justify-center rounded-[20px] bg-white border border-slate-200/60 p-12"
+        style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.04)', animation: 'slide-up 0.4s ease-out both' }}
+      >
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center mb-5 shadow-lg">
+          <span className="text-2xl">📊</span>
+        </div>
+        <h2 className="text-xl font-bold text-slate-900 mb-2">No data yet</h2>
+        <p className="text-slate-500 text-center max-w-sm text-sm">
+          Connect at least one social account from the sidebar to see your Summary Dashboard.
         </p>
-        <a href="/dashboard" className="mt-6 px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors">
-          Connect an account
+        <a
+          href="/dashboard"
+          className="mt-6 px-6 py-2.5 rounded-xl bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 transition-colors shadow-sm"
+        >
+          Go to Dashboard
         </a>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 pb-12" style={{ animation: 'fade-in 0.4s ease-out both' }}>
-      {/* Syncing banner or AI insight */}
-      {syncing ? (
-        <div className="rounded-2xl bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200/60 p-4 flex items-center gap-3">
-          <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shrink-0" />
-          <p className="text-sm text-indigo-800 font-medium">Syncing your latest posts and metrics from all connected accounts…</p>
-        </div>
-      ) : summary.kpis.totalReach > 0 || summary.kpis.totalAudience > 0 ? (
-        <div className="rounded-2xl bg-gradient-to-r from-slate-50 to-indigo-50/50 border border-slate-200/60 p-4 flex items-start gap-3">
-          <span className="text-xl shrink-0" aria-hidden>🧠</span>
-          <p className="text-sm text-slate-700">
-            <strong>Overview:</strong>{' '}
-            {summary.kpis.totalAudience.toLocaleString()} total followers across{' '}
-            {summary.platforms.length} platform{summary.platforms.length !== 1 ? 's' : ''},{' '}
-            {summary.kpis.totalReach.toLocaleString()} total reach, and{' '}
-            {summary.kpis.contentPublished} posts published.
-          </p>
-        </div>
-      ) : null}
-
-      {/* Platform-level hints (e.g. YouTube Analytics API not enabled) */}
-      {summary.platforms.some((p) => p.insightsHint) && (
-        <div className="space-y-2">
-          {summary.platforms.filter((p) => p.insightsHint).map((p) => (
-            <div key={p.id} className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex items-start gap-2">
-              <span className="shrink-0 mt-0.5">⚠</span>
-              <p><strong>{p.platform}:</strong> {p.insightsHint}</p>
+    <div className="space-y-8 pb-12">
+      {/* Sync progress bar */}
+      {syncing && (
+        <div className="rounded-2xl bg-gradient-to-r from-indigo-500 to-violet-600 px-5 py-3 flex items-center gap-3 shadow-md">
+          <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-white text-sm font-medium">Syncing data from all connected accounts…</p>
+            <div className="mt-1.5 h-1.5 rounded-full bg-white/20 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-white transition-all duration-500"
+                style={{ width: `${syncProgress}%` }}
+              />
             </div>
-          ))}
+          </div>
+          <span className="text-white/70 text-xs tabular-nums shrink-0">{syncProgress}%</span>
         </div>
       )}
 
-      <SummaryFiltersBar
-        dateStart={dateRange.start}
-        dateEnd={dateRange.end}
-        onDateChange={(start, end) => setDateRange({ start, end })}
-        selectedPlatforms={selectedPlatforms}
-        onPlatformsChange={setSelectedPlatforms}
-        compareEnabled={compareEnabled}
-        onCompareToggle={setCompareEnabled}
-        onExport={handleExport}
-        onRefresh={handleRefresh}
-      />
+      {/* Platform-level hints */}
+      {summary.platforms.some((p) => p.insightsHint) && (
+        <SectionFade delay={0}>
+          <div className="space-y-2">
+            {summary.platforms.filter((p) => p.insightsHint).map((p) => (
+              <div key={p.id} className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <strong>{p.platform}:</strong> {p.insightsHint}
+              </div>
+            ))}
+          </div>
+        </SectionFade>
+      )}
 
-      <KPICardsGrid kpis={summary.kpis} />
-      <PlatformBreakdownCards platforms={summary.platforms} />
-      <GrowthChartTabs timeSeries={summary.timeSeries} compareEnabled={compareEnabled} />
-      <ContentActivityPanels dailyPublishing={summary.dailyPublishing} dailyEngagement={summary.dailyEngagement} />
-      <PostPerformanceTable posts={summary.posts} />
-      <ContentTypeDistribution data={summary.contentTypeDistribution} />
+      <SectionFade delay={0}>
+        <SummaryFiltersBar
+          dateStart={dateRange.start}
+          dateEnd={dateRange.end}
+          onDateChange={(start, end) => setDateRange({ start, end })}
+          selectedPlatforms={selectedPlatforms}
+          onPlatformsChange={setSelectedPlatforms}
+          compareEnabled={compareEnabled}
+          onCompareToggle={setCompareEnabled}
+          onExport={handleExport}
+          onRefresh={handleRefresh}
+        />
+      </SectionFade>
+
+      <SectionFade delay={60}>
+        <KPICardsGrid kpis={summary.kpis} />
+      </SectionFade>
+
+      <SectionFade delay={120}>
+        <PlatformBreakdownCards platforms={summary.platforms} />
+      </SectionFade>
+
+      <SectionFade delay={180}>
+        <GrowthChartTabs timeSeries={summary.timeSeries} compareEnabled={compareEnabled} />
+      </SectionFade>
+
+      <SectionFade delay={240}>
+        <ContentActivityPanels
+          dailyPublishing={summary.dailyPublishing}
+          dailyEngagement={summary.dailyEngagement}
+        />
+      </SectionFade>
+
+      <SectionFade delay={300}>
+        <PostPerformanceTable posts={summary.posts} />
+      </SectionFade>
+
+      {summary.contentTypeDistribution.length > 0 && (
+        <SectionFade delay={360}>
+          <ContentTypeDistribution data={summary.contentTypeDistribution} />
+        </SectionFade>
+      )}
     </div>
   );
 }

@@ -29,6 +29,10 @@ import {
 import Link from 'next/link';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
 import { InteractiveLineChart } from '@/components/charts/InteractiveLineChart';
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip as RechartTooltip,
+  ResponsiveContainer, CartesianGrid,
+} from 'recharts';
 
 function Skeleton({ className = '', style }: { className?: string; style?: React.CSSProperties }) {
   return (
@@ -751,6 +755,7 @@ export default function DashboardPage() {
   const interactionsTabDisplaySeries = interactionsByDateSeries.length > 0 ? interactionsByDateSeries : (totalInteractions > 0 ? [{ date: dateRange.end || new Date().toISOString().slice(0, 10), value: totalInteractions }] : []);
   const maxPostsTabValue = Math.max(...postsTabDisplaySeries.map((d) => d.value), 1);
   const maxInteractionsTabValue = Math.max(...interactionsTabDisplaySeries.map((d) => d.value), 1);
+  void maxPostsTabValue; void maxInteractionsTabValue;
 
   const plat = selectedAccount ? aggregatedInsights?.byPlatform[selectedAccount.platform] : null;
   const effectiveFollowers = selectedAccount
@@ -1087,9 +1092,9 @@ export default function DashboardPage() {
                             return platformBadge(pl, v);
                           })}
                     </div>
-                    <div className="mt-3 rounded-xl overflow-hidden bg-neutral-50" style={{ height: 140 }}>
+                    <div className="mt-3 rounded-xl overflow-hidden bg-neutral-50" style={{ height: 180 }}>
                       {displayTimeSeries.length ? (
-                        <InteractiveLineChart data={displayTimeSeries} height={140} valueLabel={selectedAccount?.platform === 'YOUTUBE' ? 'Subscribers' : 'Followers'} color={platColor} crosshair />
+                        <InteractiveLineChart data={displayTimeSeries} height={180} valueLabel={selectedAccount?.platform === 'YOUTUBE' ? 'Subscribers' : 'Followers'} color={platColor} crosshair />
                       ) : (
                         <div className="h-full flex items-end gap-1 px-3 pb-3 pt-4">
                           {[28,35,42,38,45,40,50].map((pct, i) => (
@@ -1114,15 +1119,13 @@ export default function DashboardPage() {
                       {selectedAccount
                         ? platformBadge(selectedAccount.platform, isTwitter ? effectiveTweets : effectiveImpressions)
                         : Array.from(new Set(accounts.map((a) => a.platform))).map((pl) => {
-                            const v = pl === 'TWITTER'
-                              ? (aggregatedInsights?.byPlatform?.[pl]?.impressions ?? null)
-                              : (aggregatedInsights?.byPlatform?.[pl]?.impressions ?? null);
+                            const v = aggregatedInsights?.byPlatform?.[pl]?.impressions ?? null;
                             return platformBadge(pl, v);
                           })}
                     </div>
-                    <div className="mt-3 rounded-xl overflow-hidden bg-neutral-50" style={{ height: 140 }}>
+                    <div className="mt-3 rounded-xl overflow-hidden bg-neutral-50" style={{ height: 180 }}>
                       {displayTimeSeries.length ? (
-                        <InteractiveLineChart data={displayTimeSeries} height={140} valueLabel={isTwitter ? 'Tweets' : 'Views'} color="#6366f1" crosshair />
+                        <InteractiveLineChart data={displayTimeSeries} height={180} valueLabel={isTwitter ? 'Tweets' : 'Views'} color="#6366f1" crosshair />
                       ) : (
                         <div className="h-full flex items-end gap-1 px-3 pb-3 pt-4">
                           {[32,40,35,48,42,38,52].map((pct, i) => (
@@ -1138,14 +1141,18 @@ export default function DashboardPage() {
                 {/* Row 2: stat tiles */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {[
-                    { label: 'Interactions', value: totalInteractions.toLocaleString(), sub: `${importedPosts.length} posts` },
-                    { label: 'Reach', value: effectiveReach ? effectiveReach.toLocaleString() : '—', sub: selectedAccount?.platform === 'INSTAGRAM' ? 'Unique viewers' : 'Engaged users' },
-                    { label: effectiveProfileViews > 0 ? 'Profile views' : 'Page visits', value: (effectiveProfileViews || effectivePageVisits) ? (effectiveProfileViews || effectivePageVisits).toLocaleString() : '—', sub: 'Last 28 days' },
-                    { label: 'Total content', value: importedPosts.length.toLocaleString(), sub: `${days ? (importedPosts.length / days).toFixed(1) : 0} per day` },
+                    { label: 'Interactions', value: totalInteractions.toLocaleString(), sub: `${importedPosts.length} posts`, accent: platColor },
+                    { label: 'Reach', value: effectiveReach ? effectiveReach.toLocaleString() : '—', sub: selectedAccount?.platform === 'INSTAGRAM' ? 'Unique viewers' : 'Engaged users', accent: '#22c55e' },
+                    { label: effectiveProfileViews > 0 ? 'Profile views' : 'Page visits', value: (effectiveProfileViews || effectivePageVisits) ? (effectiveProfileViews || effectivePageVisits).toLocaleString() : '—', sub: 'Last 28 days', accent: '#a855f7' },
+                    { label: 'Total content', value: importedPosts.length.toLocaleString(), sub: `${days ? (importedPosts.length / days).toFixed(1) : 0} per day`, accent: '#0ea5e9' },
                   ].map((tile, i) => (
-                    <div key={i} className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-150">
-                      <p className="text-xs font-medium text-neutral-500">{tile.label}</p>
-                      <p className="text-2xl font-bold text-neutral-900 mt-0.5 tabular-nums">{tile.value}</p>
+                    <div
+                      key={i}
+                      className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5"
+                      style={{ borderLeft: `3px solid ${tile.accent}`, animation: `slide-up 0.4s ease-out ${i * 60}ms both` }}
+                    >
+                      <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">{tile.label}</p>
+                      <p className="text-2xl font-bold text-neutral-900 mt-1 tabular-nums">{tile.value}</p>
                       <p className="text-xs text-neutral-400 mt-0.5">{tile.sub}</p>
                     </div>
                   ))}
@@ -1159,9 +1166,13 @@ export default function DashboardPage() {
                     { label: 'Posts per week', value: weeks ? (importedPosts.length / weeks).toFixed(1) : '—' },
                     { label: 'Avg. interactions / post', value: importedPosts.length ? (totalInteractions / importedPosts.length).toFixed(1) : '—' },
                   ].map((tile, i) => (
-                    <div key={i} className="bg-neutral-50 border border-neutral-100 rounded-xl p-4">
-                      <p className="text-xs font-medium text-neutral-500">{tile.label}</p>
-                      <p className="text-xl font-semibold text-neutral-800 mt-0.5 tabular-nums">{tile.value}</p>
+                    <div
+                      key={i}
+                      className="bg-neutral-50 border border-neutral-100 rounded-xl p-4 hover:bg-white hover:shadow-sm transition-all duration-150"
+                      style={{ animation: `slide-up 0.4s ease-out ${(i + 4) * 60}ms both` }}
+                    >
+                      <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">{tile.label}</p>
+                      <p className="text-xl font-bold text-neutral-800 mt-1 tabular-nums">{tile.value}</p>
                     </div>
                   ))}
                 </div>
@@ -1223,54 +1234,102 @@ export default function DashboardPage() {
               </div>
             )}
             <div className={importedPostsLoading ? 'hidden' : undefined}>
-            {/* Interactions widget (Metricool Summary: title, number + bar, platform buttons with count) */}
-            <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
-              <p className="text-sm font-medium text-neutral-700">Interactions</p>
-              <div className="flex items-center gap-3 mt-1">
-                <span className="text-2xl font-bold text-neutral-900">{totalInteractions}</span>
-                <div className="flex-1 h-2 max-w-[100px] rounded-full bg-pink-200 overflow-hidden">
-                  <div className="h-full bg-pink-500 rounded-full" style={{ width: `${Math.min(100, totalInteractions * 25)}%` }} />
+            {/* Interactions + Posts charts row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Interactions card */}
+              <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-sm hover:shadow-lg transition-all duration-200"
+                style={{ borderLeft: '4px solid #E1306C' }}>
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Interactions</p>
+                    <p className="text-3xl font-bold text-neutral-900 mt-0.5 tabular-nums" style={{ animation: 'count-up 0.4s cubic-bezier(0.34,1.56,0.64,1) both' }}>
+                      {totalInteractions.toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="flex gap-1.5 flex-wrap justify-end max-w-[160px]">
+                    {Array.from(new Set(importedPosts.map((p) => p.platform))).map((pl) => {
+                      const count = importedPosts.filter((p) => p.platform === pl).reduce((s, p) => s + p.interactions, 0);
+                      const cls = pl === 'INSTAGRAM' ? 'bg-pink-100 text-pink-800' : pl === 'FACEBOOK' ? 'bg-blue-100 text-blue-800' : pl === 'YOUTUBE' ? 'bg-red-100 text-red-800' : pl === 'TIKTOK' ? 'bg-neutral-100 text-neutral-800' : pl === 'TWITTER' ? 'bg-sky-100 text-sky-800' : 'bg-neutral-100 text-neutral-700';
+                      return <span key={pl} className={`px-2 py-0.5 rounded text-xs font-medium ${cls}`}>{count.toLocaleString()}</span>;
+                    })}
+                  </div>
+                </div>
+                <div className="h-28 -mx-1">
+                  {interactionsTabDisplaySeries.length > 1 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={interactionsTabDisplaySeries} margin={{ top: 4, right: 4, left: -24, bottom: 0 }} barSize={10}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                        <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false}
+                          tickFormatter={(v) => { try { return new Date(v).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); } catch { return v; } }} />
+                        <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                        <RechartTooltip
+                          content={(props) => {
+                            const { active, payload, label } = props as { active?: boolean; payload?: Array<{ value?: number }>; label?: string };
+                            if (!active || !payload?.length || !label) return null;
+                            return (
+                              <div className="rounded-xl border border-neutral-200 bg-white px-3 py-2 shadow-xl text-xs">
+                                <p className="text-neutral-500 mb-1">{label}</p>
+                                <p className="font-bold text-neutral-900">{(payload[0]?.value ?? 0).toLocaleString()} interactions</p>
+                              </div>
+                            );
+                          }}
+                          cursor={{ fill: 'rgba(225,48,108,0.06)' }}
+                        />
+                        <Bar dataKey="value" name="Interactions" radius={[3, 3, 0, 0]} fill="#E1306C" fillOpacity={0.85} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-neutral-300 text-xs">No chart data yet</div>
+                  )}
                 </div>
               </div>
-              <div className="flex gap-1.5 mt-3 flex-wrap">
-                {hasInstagram && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{importedPosts.filter((p) => p.platform === 'INSTAGRAM').reduce((s, p) => s + p.interactions, 0)} Instagram</span>}
-                {hasFacebook && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{importedPosts.filter((p) => p.platform === 'FACEBOOK').reduce((s, p) => s + p.interactions, 0)} Facebook</span>}
-                {importedPosts.some((p) => p.platform === 'TIKTOK') && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-neutral-100 text-neutral-800">{importedPosts.filter((p) => p.platform === 'TIKTOK').reduce((s, p) => s + p.interactions, 0)} TikTok</span>}
-                {importedPosts.some((p) => p.platform === 'YOUTUBE') && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-red-100 text-red-800">{importedPosts.filter((p) => p.platform === 'YOUTUBE').reduce((s, p) => s + p.interactions, 0)} YouTube</span>}
-                {importedPosts.some((p) => p.platform === 'TWITTER') && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-neutral-100 text-neutral-800">{importedPosts.filter((p) => p.platform === 'TWITTER').reduce((s, p) => s + p.interactions, 0)} X</span>}
-              </div>
-              <div className="mt-4 h-24 rounded-lg bg-neutral-50 border border-neutral-100 flex items-end gap-0.5 p-3 pb-2 relative overflow-hidden">
-                <div className="absolute inset-0 opacity-[0.03] font-semibold text-neutral-400 text-xl" style={{ transform: 'rotate(-15deg)' }}>agent4socials</div>
-                {interactionsTabDisplaySeries.length > 0 ? (
-                  interactionsTabDisplaySeries.map((d) => (
-                    <div key={d.date} className="flex-1 bg-pink-300/80 rounded-t min-h-[4px]" style={{ height: `${(d.value / maxInteractionsTabValue) * 100}%` }} title={`${d.date}: ${d.value}`} />
-                  ))
-                ) : null}
-              </div>
-            </div>
-            {/* Number of posts widget */}
-            <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
-              <p className="text-sm font-medium text-neutral-700">Number of posts</p>
-              <div className="flex items-center gap-3 mt-1">
-                <span className="text-2xl font-bold text-neutral-900">{importedPosts.length}</span>
-                <div className="flex-1 h-2 max-w-[100px] rounded-full bg-neutral-200 overflow-hidden">
-                  <div className="h-full rounded-full bg-indigo-500" style={{ width: importedPosts.length ? `${Math.min(100, importedPosts.length * 20)}%` : '0%' }} />
+
+              {/* Number of posts card */}
+              <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-sm hover:shadow-lg transition-all duration-200"
+                style={{ borderLeft: '4px solid #6366f1' }}>
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Number of Posts</p>
+                    <p className="text-3xl font-bold text-neutral-900 mt-0.5 tabular-nums" style={{ animation: 'count-up 0.4s cubic-bezier(0.34,1.56,0.64,1) 80ms both' }}>
+                      {importedPosts.length.toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="flex gap-1.5 flex-wrap justify-end max-w-[160px]">
+                    {Array.from(new Set(importedPosts.map((p) => p.platform))).map((pl) => {
+                      const count = importedPosts.filter((p) => p.platform === pl).length;
+                      const cls = pl === 'INSTAGRAM' ? 'bg-pink-100 text-pink-800' : pl === 'FACEBOOK' ? 'bg-blue-100 text-blue-800' : pl === 'YOUTUBE' ? 'bg-red-100 text-red-800' : pl === 'TIKTOK' ? 'bg-neutral-100 text-neutral-800' : pl === 'TWITTER' ? 'bg-sky-100 text-sky-800' : 'bg-neutral-100 text-neutral-700';
+                      return <span key={pl} className={`px-2 py-0.5 rounded text-xs font-medium ${cls}`}>{count}</span>;
+                    })}
+                  </div>
                 </div>
-              </div>
-              <div className="flex gap-1.5 mt-3 flex-wrap">
-                {hasFacebook && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{importedPosts.filter((p) => p.platform === 'FACEBOOK').length} Facebook</span>}
-                {hasInstagram && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{importedPosts.filter((p) => p.platform === 'INSTAGRAM').length} Instagram</span>}
-                {importedPosts.some((p) => p.platform === 'TIKTOK') && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-neutral-100 text-neutral-800">{importedPosts.filter((p) => p.platform === 'TIKTOK').length} TikTok</span>}
-                {importedPosts.some((p) => p.platform === 'YOUTUBE') && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-red-100 text-red-800">{importedPosts.filter((p) => p.platform === 'YOUTUBE').length} YouTube</span>}
-                {importedPosts.some((p) => p.platform === 'TWITTER') && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-neutral-100 text-neutral-800">{importedPosts.filter((p) => p.platform === 'TWITTER').length} X</span>}
-              </div>
-              <div className="mt-4 h-24 rounded-lg bg-neutral-50 border border-neutral-100 flex items-end gap-0.5 p-3 pb-2 relative overflow-hidden">
-                <div className="absolute inset-0 opacity-[0.03] font-semibold text-neutral-400 text-xl" style={{ transform: 'rotate(-15deg)' }}>agent4socials</div>
-                {postsTabDisplaySeries.length > 0 ? (
-                  postsTabDisplaySeries.map((d) => (
-                    <div key={d.date} className="flex-1 bg-indigo-300/80 rounded-t min-h-[4px]" style={{ height: `${(d.value / maxPostsTabValue) * 100}%` }} title={`${d.date}: ${d.value}`} />
-                  ))
-                ) : null}
+                <div className="h-28 -mx-1">
+                  {postsTabDisplaySeries.length > 1 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={postsTabDisplaySeries} margin={{ top: 4, right: 4, left: -24, bottom: 0 }} barSize={10}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                        <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false}
+                          tickFormatter={(v) => { try { return new Date(v).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); } catch { return v; } }} />
+                        <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                        <RechartTooltip
+                          content={(props) => {
+                            const { active, payload, label } = props as { active?: boolean; payload?: Array<{ value?: number }>; label?: string };
+                            if (!active || !payload?.length || !label) return null;
+                            return (
+                              <div className="rounded-xl border border-neutral-200 bg-white px-3 py-2 shadow-xl text-xs">
+                                <p className="text-neutral-500 mb-1">{label}</p>
+                                <p className="font-bold text-neutral-900">{(payload[0]?.value ?? 0).toLocaleString()} posts</p>
+                              </div>
+                            );
+                          }}
+                          cursor={{ fill: 'rgba(99,102,241,0.06)' }}
+                        />
+                        <Bar dataKey="value" name="Posts" radius={[3, 3, 0, 0]} fill="#6366f1" fillOpacity={0.85} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-neutral-300 text-xs">No chart data yet</div>
+                  )}
+                </div>
               </div>
             </div>
 
