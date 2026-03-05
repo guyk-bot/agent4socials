@@ -105,6 +105,7 @@ export default function InboxPage() {
   const [engagementLoading, setEngagementLoading] = useState(false);
   const [engagementError, setEngagementError] = useState<string | null>(null);
   const [selectedEngagement, setSelectedEngagement] = useState<EngagementItem | null>(null);
+  const [commentsRefreshKey, setCommentsRefreshKey] = useState(0);
 
   useEffect(() => {
     if ((cachedAccounts as Account[]).length > 0) return;
@@ -302,6 +303,7 @@ export default function InboxPage() {
     const merge: PostComment[] = [];
     let pending = commentsSupportedPlatforms.length;
     let needsFetch = false;
+    const errorsFound: string[] = [];
 
     commentsSupportedPlatforms.forEach((platform) => {
       const account = effectiveAccounts.find((a) => a.platform === platform);
@@ -312,7 +314,8 @@ export default function InboxPage() {
         }
         return;
       }
-      const fromCache = appData?.getComments(account.id);
+      // Only use cache when not doing a forced refresh (commentsRefreshKey > 0 clears and re-fetches)
+      const fromCache = commentsRefreshKey === 0 ? appData?.getComments(account.id) : undefined;
       if (fromCache !== undefined && fromCache !== null) {
         merge.push(...fromCache);
         if (--pending === 0 && !cancelled) {
@@ -326,23 +329,26 @@ export default function InboxPage() {
       api.get(`/social/accounts/${account.id}/comments`)
         .then((res) => {
           if (cancelled) return;
-          const list = res.data?.comments ?? [];
+          const list: PostComment[] = res.data?.comments ?? [];
+          const apiError: string | null = res.data?.error ?? null;
           merge.push(...list);
-          appData?.setCommentsForAccount(account.id, list);
+          // Only cache if there was no error — a cached empty list would hide errors on next load
+          if (!apiError) appData?.setCommentsForAccount(account.id, list);
+          if (apiError) errorsFound.push(apiError);
           if (--pending === 0) {
             setComments(merge.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-            setCommentsError(res.data?.error ?? null);
+            setCommentsError(errorsFound.length > 0 ? errorsFound[0] : null);
+            setCommentsLoading(false);
           }
         })
         .catch(() => {
           if (cancelled) return;
+          errorsFound.push('Could not load comments.');
           if (--pending === 0) {
             setComments(merge.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-            setCommentsError('Could not load comments.');
+            setCommentsError(errorsFound[0] ?? 'Could not load comments.');
+            setCommentsLoading(false);
           }
-        })
-        .finally(() => {
-          if (pending === 0 && !cancelled) setCommentsLoading(false);
         });
     });
 
@@ -351,7 +357,8 @@ export default function InboxPage() {
       setCommentsError(null);
     }
     return () => { cancelled = true; };
-  }, [commentsSupportedPlatforms.join(','), effectiveAccounts, appData]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [commentsSupportedPlatforms.join(','), effectiveAccounts, appData, commentsRefreshKey]);
 
   // For engagement, always show all connected IG+FB accounts regardless of platform filter
   const allEngagementAccounts = effectiveAccounts.filter((a) => a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK' || a.platform === 'YOUTUBE');
@@ -648,14 +655,50 @@ export default function InboxPage() {
                 <p className="text-sm text-neutral-500">Loading comments…</p>
               </div>
             ) : commentsError ? (
-              <div className="p-4">
-                <p className="text-sm text-neutral-700">{commentsError}</p>
+              <div className="p-4 space-y-3">
+                <div className="rounded-xl border-2 border-amber-200 bg-amber-50 px-4 py-4">
+                  <p className="text-sm font-medium text-amber-900">Could not load comments</p>
+                  <p className="text-xs text-amber-700 mt-1">{commentsError}</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCommentsRefreshKey((k) => k + 1)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-neutral-200 bg-white text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                  >
+                    <RefreshCw size={14} />
+                    Retry
+                  </button>
+                  {effectiveAccounts.some((a) => a.platform === 'INSTAGRAM') && (commentsError.toLowerCase().includes('permission') || commentsError.toLowerCase().includes('reconnect') || commentsError.toLowerCase().includes('expired')) && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const res = await api.get('/social/oauth/INSTAGRAM/start?method=instagram');
+                          const url = res?.data?.url;
+                          if (url) window.location.href = url;
+                        } catch { /* ignore */ }
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-medium hover:opacity-90"
+                    >
+                      Reconnect Instagram
+                    </button>
+                  )}
+                </div>
               </div>
             ) : comments.length === 0 ? (
               <div className="p-6 text-center">
                 <MessageCircle size={40} className="mx-auto text-neutral-300 mb-3" />
                 <p className="text-sm text-neutral-500">No comments yet.</p>
-                <p className="text-xs text-neutral-400 mt-1">Comments on your posts will appear here. Sync posts from the Dashboard (Analytics, then POSTS or Summary) so we can load your existing posts; comments on those will then show here.</p>
+                <p className="text-xs text-neutral-400 mt-1">Comments on your posts will appear here. Make sure to sync your posts first from the Dashboard.</p>
+                <button
+                  type="button"
+                  onClick={() => setCommentsRefreshKey((k) => k + 1)}
+                  className="mt-3 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-neutral-200 bg-white text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                >
+                  <RefreshCw size={14} />
+                  Refresh comments
+                </button>
               </div>
             ) : (
               <div className="p-2 space-y-0">

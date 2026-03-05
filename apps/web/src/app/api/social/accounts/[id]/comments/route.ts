@@ -134,7 +134,7 @@ export async function GET(
       try {
         if (isInstagramBusinessLogin && igUserToken) {
           // Instagram Business Login: use graph.instagram.com with the Instagram User token.
-          // Comments endpoint: GET /v25.0/{IG_MEDIA_ID}/comments?fields=id,from{id,username},text,timestamp
+          // Requires instagram_business_manage_comments permission.
           const res = await axios.get<{
             data?: Array<{
               id: string;
@@ -147,6 +147,7 @@ export async function GET(
               fields: 'id,from{id,username},text,timestamp',
               access_token: igUserToken,
             },
+            timeout: 15_000,
           });
           const list = res.data?.data ?? [];
           for (const c of list) {
@@ -306,8 +307,10 @@ export async function GET(
   let error: string | undefined;
   if (comments.length === 0 && firstError) {
     const msg = firstError.toLowerCase();
-    if (msg.includes('permission') || msg.includes('oauth') || msg.includes('scope') || msg.includes('capability')) {
-      error = 'Instagram comment permissions are not fully granted. Reconnect your Instagram account from the sidebar to refresh permissions.';
+    if (msg.includes('permission') || msg.includes('oauth') || msg.includes('scope') || msg.includes('capability') || msg.includes('code 10') || msg.includes('code 200') || msg.includes('#10') || msg.includes('#200')) {
+      error = 'Instagram comment permission required. Reconnect your Instagram account from the sidebar to grant the comments permission.';
+    } else if (msg.includes('token') || msg.includes('expired') || msg.includes('session')) {
+      error = 'Your Instagram session has expired. Reconnect from the sidebar.';
     } else {
       error = firstError;
     }
