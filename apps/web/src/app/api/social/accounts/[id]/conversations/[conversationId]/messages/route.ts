@@ -308,9 +308,10 @@ export async function POST(
 
   try {
     if (isInstagramBusinessLogin) {
-      // Instagram Business Login: POST graph.instagram.com/v25.0/me/messages
-      await axios.post<{ message_id?: string; error?: { message: string } }>(
-        `${igBaseUrl}/me/messages`,
+      // Instagram API with Instagram Login: POST to /{IG_PROFESSIONAL_ACCOUNT_ID}/messages
+      // (not /me/messages). See https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/messaging-api/
+      await axios.post<{ recipient_id?: string; message_id?: string; error?: { message: string } }>(
+        `${igBaseUrl}/${account.platformUserId}/messages`,
         {
           recipient: { id: recipientId },
           message: { text: text.slice(0, 1000) },
@@ -339,8 +340,20 @@ export async function POST(
     }
     return NextResponse.json({ ok: true, message: 'Message sent.' });
   } catch (e) {
-    const err = e as { response?: { data?: { error?: { message?: string } }; status?: number } };
+    const err = e as { response?: { data?: { error?: { message?: string; code?: number } }; status?: number } };
     const apiMsg = err?.response?.data?.error?.message ?? (e as Error)?.message ?? 'Send failed';
+    const code = err?.response?.data?.error?.code;
+    const isCapability = code === 3 || /capability|does not have the capability/i.test(String(apiMsg));
+    if (isCapability) {
+      return NextResponse.json(
+        {
+          message: isInstagramBusinessLogin
+            ? 'Sending requires Standard or Advanced Access for instagram_business_manage_messages. In Meta for Developers: App Dashboard → App Review → Permissions and features → add your account as Instagram Tester under Roles, then reconnect Instagram.'
+            : 'Sending requires Advanced Access for instagram_manage_messages. In Meta for Developers request Advanced Access, add test users, then reconnect Facebook & Instagram from the Dashboard.',
+        },
+        { status: 400 }
+      );
+    }
     if (err?.response?.status === 400 || String(apiMsg).includes('permission') || String(apiMsg).includes('24 hour')) {
       return NextResponse.json(
         { message: apiMsg || 'Cannot send. The user may need to message your account first, or reconnect and grant messaging permission.' },

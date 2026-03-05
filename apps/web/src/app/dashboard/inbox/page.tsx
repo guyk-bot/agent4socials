@@ -416,6 +416,7 @@ export default function InboxPage() {
       <div className="w-full md:w-80 border-r border-neutral-200 flex flex-col shrink-0 bg-white">
         {/* Platform icons + Connect */}
         <div className="p-3 border-b border-neutral-100">
+          <p className="text-xs text-neutral-500 mb-2">Uses the same accounts you connected on the Dashboard.</p>
           <div className="flex items-center gap-2 flex-wrap">
             {connectedPlatforms.map((p) => {
               const Icon = p.icon;
@@ -438,14 +439,15 @@ export default function InboxPage() {
               <button
                 type="button"
                 onClick={() => setConnectOpen((o) => !o)}
-                className="w-10 h-10 rounded-lg flex items-center justify-center border-2 border-dashed border-red-300 bg-red-50/50 text-red-600 hover:bg-red-50 hover:border-red-400 transition-colors"
-                title="Connect account"
+                className="w-10 h-10 rounded-lg flex items-center justify-center border-2 border-dashed border-neutral-300 bg-neutral-50 text-neutral-500 hover:bg-neutral-100 hover:border-neutral-400 transition-colors"
+                title="Add another platform"
               >
                 <Plus size={22} />
               </button>
               {connectOpen && (
-                <div className="absolute top-full left-0 mt-1 w-64 py-1 bg-white border border-neutral-200 rounded-xl shadow-lg z-50">
-                  <p className="px-3 py-2 text-xs font-semibold text-neutral-500 uppercase tracking-wider">Connect account</p>
+                <div className="absolute top-full left-0 mt-1 w-72 py-1 bg-white border border-neutral-200 rounded-xl shadow-lg z-50">
+                  <p className="px-3 py-2 text-xs font-semibold text-neutral-500 uppercase tracking-wider">Add platform</p>
+                  <p className="px-3 py-1 text-xs text-neutral-500">Connect more accounts from the Dashboard. Inbox will show them here automatically.</p>
                   {unconnectedPlatforms.length === 0 ? (
                     <p className="px-3 py-3 text-sm text-neutral-500">All inbox platforms connected.</p>
                   ) : (
@@ -463,7 +465,7 @@ export default function InboxPage() {
                           className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 text-left"
                         >
                           <Icon size={20} className={'color' in p && p.color ? `shrink-0 ${p.color}` : 'shrink-0'} />
-                          <span className="flex-1">Connect a {p.label} account</span>
+                          <span className="flex-1">Connect {p.label} (opens Dashboard)</span>
                         </button>
                       );
                     })
