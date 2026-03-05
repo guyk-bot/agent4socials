@@ -81,32 +81,84 @@ export async function GET(
   const queryParams: Record<string, string> = {
     fields: 'id,updated_time,participants{id,name,username,profile_pic,picture}',
     access_token: activeToken,
+    limit: '100',
   };
   // platform=instagram is only needed for graph.facebook.com Page token path (Facebook Login).
   // For graph.instagram.com (Instagram Business Login) it is not required and may cause errors.
   if (isInstagram && !isInstagramBusinessLogin) queryParams.platform = 'instagram';
 
-  try {
-    const res = await axios.get<{
+  type ConvItem = {
+    id: string;
+    updated_time?: string;
+    participants?: {
       data?: Array<{
-        id: string;
-        updated_time?: string;
-        participants?: {
-          data?: Array<{
-            id?: string;
-            name?: string;
-            username?: string;
-            profile_pic?: string;
-            picture?: { data?: { url?: string } };
-          }>;
-        };
+        id?: string;
+        name?: string;
+        username?: string;
+        profile_pic?: string;
+        picture?: { data?: { url?: string } };
       }>;
-      error?: { message: string };
-    }>(conversationsPath, {
-      params: queryParams,
-      timeout: 60_000,
-    });
-    if (res.data?.error) {
+    };
+  };
+
+  // Fetch all pages of conversations (follow paging.next up to 5 pages).
+  async function fetchAllConversations(url: string, params: Record<string, string>): Promise<ConvItem[]> {
+    const all: ConvItem[] = [];
+    let nextUrl: string | null = null;
+    let pageCount = 0;
+    do {
+      const res = await axios.get<{
+        data?: ConvItem[];
+        paging?: { next?: string; cursors?: { after?: string } };
+        error?: { message: string; code?: number };
+      }>(nextUrl ?? url, {
+        params: nextUrl ? { access_token: activeToken } : params,
+        timeout: 60_000,
+      });
+      if (res.data?.error) {
+        // surface the error to the outer handler by throwing a shaped object
+        throw Object.assign(new Error(res.data.error.message ?? 'Meta API error'), { metaError: res.data.error });
+      }
+      all.push(...(res.data?.data ?? []));
+      nextUrl = res.data?.paging?.next ?? null;
+      pageCount++;
+    } while (nextUrl && pageCount < 5);
+    return all;
+  }
+
+  try {
+    let rawConversations: ConvItem[];
+    try {
+      rawConversations = await fetchAllConversations(conversationsPath, queryParams);
+    } catch (innerErr) {
+      const metaErr = (innerErr as { metaError?: { message?: string; code?: number } }).metaError;
+      if (metaErr) {
+        const msg = metaErr.message ?? '';
+        const code = metaErr.code;
+        const metaMsg = typeof msg === 'string' ? msg : '';
+        if (msg.includes('permission') || msg.includes('OAuth') || msg.includes('access'))
+          return NextResponse.json({
+            conversations: [],
+            error: isInstagramBusinessLogin
+              ? 'Your Instagram session has expired. Reconnect your Instagram account to refresh it.'
+              : 'Reconnect from the sidebar and choose your Page when asked to grant messaging permission.',
+            debug: { rawMessage: metaMsg, code, metaMessage: metaMsg },
+          });
+        if (code === 3 || /capability|does not have the capability/i.test(metaMsg))
+          return NextResponse.json({
+            conversations: [],
+            error: isInstagramBusinessLogin
+              ? 'Instagram inbox needs Standard or Advanced Access for instagram_business_manage_messages. In Meta for Developers: App Dashboard, go to App Review, Permissions and features, find instagram_business_manage_messages and add your Instagram account as a tester under Roles. Then reconnect your Instagram account.'
+              : 'Instagram inbox needs Advanced Access. In Meta for Developers: App Dashboard, App Review, Permissions and features, find instagram_manage_messages and Request Advanced Access. Add test users under Roles if the app is in Development mode. Then reconnect Facebook and Instagram from the sidebar and choose your Page.',
+            debug: { rawMessage: metaMsg, code, metaMessage: metaMsg },
+          });
+        return NextResponse.json({ conversations: [], error: metaMsg, debug: { rawMessage: metaMsg, code, metaMessage: metaMsg } });
+      }
+      throw innerErr;
+    }
+
+    // The old `if (res.data?.error)` block is now handled inside fetchAllConversations above.
+    if (false as boolean) {
       const msg = res.data.error.message ?? '';
       const code = (res.data as { error?: { code?: number } }).error?.code;
       const metaMsg = typeof msg === 'string' ? msg : '';
@@ -138,7 +190,7 @@ export async function GET(
     const ourUsernames = new Set<string>();
     if (account.username) ourUsernames.add(account.username.toLowerCase());
 
-    let list = (res.data?.data ?? []).map((c) => {
+    let list = rawConversations.map((c) => {
       const participants = c.participants?.data ?? [];
       const others = participants.filter((p) => {
         if (!p.id) return true; // no ID = unknown participant, include it

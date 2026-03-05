@@ -48,7 +48,7 @@ export async function GET(
     },
     include: { post: { select: { id: true, content: true } } },
     orderBy: { updatedAt: 'desc' },
-    take: 15,
+    take: 20,
   });
   const targetPostIds = new Set(targets.map((t) => t.platformPostId!));
 
@@ -56,12 +56,12 @@ export async function GET(
   const imported = await prisma.importedPost.findMany({
     where: { socialAccountId: account.id },
     orderBy: { publishedAt: 'desc' },
-    take: 25,
+    take: 30,
   });
   const importedPostsToFetch = imported.filter((p) => !targetPostIds.has(p.platformPostId));
 
   type PostSource = { platformPostId: string; postPreview: string; postTargetId: string };
-  const sources: PostSource[] = [
+  const dbSources: PostSource[] = [
     ...targets.map((t) => ({
       platformPostId: t.platformPostId!,
       postPreview: (t.post?.content ?? '').slice(0, 80) || 'Post',
@@ -73,13 +73,50 @@ export async function GET(
       postTargetId: `imported-${p.id}`,
     })),
   ];
-  const credJson = (account.credentialsJson && typeof account.credentialsJson === 'object'
+
+  const credJsonEarly = (account.credentialsJson && typeof account.credentialsJson === 'object'
     ? account.credentialsJson
-    : {}) as { loginMethod?: string; igUserToken?: string };
+    : {}) as { loginMethod?: string };
+  const isInstagramBizEarly = platform === 'INSTAGRAM' && credJsonEarly.loginMethod === 'instagram_business';
+
+  // If we have no DB posts to check, try fetching recent posts directly from the platform API
+  // so the user sees comments even before they manually sync.
+  let liveSources: PostSource[] = [];
+  if (dbSources.length === 0 && (platform === 'INSTAGRAM' || platform === 'FACEBOOK')) {
+    try {
+      const liveToken = account.accessToken;
+      if (platform === 'INSTAGRAM') {
+        const mediaUrl = isInstagramBizEarly
+          ? 'https://graph.instagram.com/v25.0/me/media'
+          : `https://graph.facebook.com/v18.0/${account.platformUserId}/media`;
+        const mediaRes = await axios.get<{ data?: Array<{ id: string; caption?: string }> }>(mediaUrl, {
+          params: { fields: 'id,caption', limit: 20, access_token: liveToken },
+          timeout: 15_000,
+        });
+        liveSources = (mediaRes.data?.data ?? []).map((m, i) => ({
+          platformPostId: m.id,
+          postPreview: (m.caption ?? '').slice(0, 80) || `Post ${i + 1}`,
+          postTargetId: `live-${m.id}`,
+        }));
+      } else if (platform === 'FACEBOOK') {
+        const fbRes = await axios.get<{ data?: Array<{ id: string; message?: string; story?: string }> }>(
+          `https://graph.facebook.com/v18.0/${account.platformUserId}/posts`,
+          { params: { fields: 'id,message,story', limit: 20, access_token: liveToken }, timeout: 15_000 }
+        );
+        liveSources = (fbRes.data?.data ?? []).map((m, i) => ({
+          platformPostId: m.id,
+          postPreview: (m.message ?? m.story ?? '').slice(0, 80) || `Post ${i + 1}`,
+          postTargetId: `live-${m.id}`,
+        }));
+      }
+    } catch { /* if live fetch fails, proceed with empty sources */ }
+  }
+
+  const sources: PostSource[] = dbSources.length > 0 ? dbSources : liveSources;
+  const credJson = credJsonEarly as { loginMethod?: string; igUserToken?: string };
 
   // Instagram Business Login: account.accessToken IS the long-lived Instagram User token.
-  const isInstagramBusinessLogin =
-    platform === 'INSTAGRAM' && credJson.loginMethod === 'instagram_business';
+  const isInstagramBusinessLogin = isInstagramBizEarly;
   const igUserToken = isInstagramBusinessLogin ? account.accessToken : null;
 
   const token = account.accessToken;
@@ -126,93 +163,78 @@ export async function GET(
     return null;
   }
 
+  // Fetch comments for Instagram / Facebook in parallel (up to 6 at a time) for speed
+  if (platform === 'INSTAGRAM' || platform === 'FACEBOOK') {
+    const igFbSources = sources.filter(() => true); // all sources
+    const CHUNK = 6;
+    for (let i = 0; i < igFbSources.length; i += CHUNK) {
+      const chunk = igFbSources.slice(i, i + CHUNK);
+      await Promise.all(chunk.map(async ({ platformPostId, postPreview, postTargetId }) => {
+        const postImageUrl = await getPostImageUrl(platformPostId, platform, token);
+        try {
+          if (isInstagramBusinessLogin && igUserToken) {
+            const res = await axios.get<{
+              data?: Array<{
+                id: string;
+                from?: { id?: string; username?: string };
+                text?: string;
+                timestamp?: string;
+              }>;
+            }>(`https://graph.instagram.com/v25.0/${platformPostId}/comments`, {
+              params: { fields: 'id,from{id,username},text,timestamp', access_token: igUserToken, limit: 50 },
+              timeout: 15_000,
+            });
+            for (const c of res.data?.data ?? []) {
+              comments.push({
+                commentId: c.id, postTargetId, platformPostId, postPreview, postImageUrl,
+                text: c.text ?? '', authorName: c.from?.username ?? 'Unknown',
+                authorPictureUrl: null, createdAt: c.timestamp ?? new Date().toISOString(), platform,
+              });
+            }
+          } else {
+            const fields =
+              platform === 'INSTAGRAM'
+                ? 'id,from{id,username},text,created_time'
+                : 'id,from{id,name,picture},message,created_time';
+            const res = await axios.get<{
+              data?: Array<{
+                id: string;
+                from?: { id?: string; username?: string; name?: string; picture?: { data?: { url?: string } } };
+                text?: string;
+                message?: string;
+                created_time?: string;
+              }>;
+            }>(`https://graph.facebook.com/v18.0/${platformPostId}/comments`, {
+              params: { fields, access_token: token, limit: 50 },
+              timeout: 15_000,
+            });
+            for (const c of res.data?.data ?? []) {
+              const from = c.from;
+              const authorName = (platform === 'INSTAGRAM' ? from?.username : from?.name) ?? 'Unknown';
+              const authorPictureUrl = (from as { picture?: { data?: { url?: string } } })?.picture?.data?.url ?? null;
+              const text = (platform === 'INSTAGRAM' ? c.text : c.message) ?? '';
+              comments.push({
+                commentId: c.id, postTargetId, platformPostId, postPreview, postImageUrl,
+                text, authorName, authorPictureUrl: authorPictureUrl || null,
+                createdAt: c.created_time ?? new Date().toISOString(), platform,
+              });
+            }
+          }
+        } catch (err) {
+          if (!firstError) {
+            const axErr = err as { response?: { data?: { error?: { message?: string; code?: number } } } };
+            const msg = axErr?.response?.data?.error?.message ?? String(err);
+            firstError = msg;
+          }
+        }
+      }));
+    }
+  }
+
   for (const source of sources) {
     const { platformPostId, postPreview, postTargetId } = source;
+    if (platform === 'INSTAGRAM' || platform === 'FACEBOOK') continue; // handled above in parallel block
     const postImageUrl = await getPostImageUrl(platformPostId, platform, token);
-
-    if (platform === 'INSTAGRAM' || platform === 'FACEBOOK') {
-      try {
-        if (isInstagramBusinessLogin && igUserToken) {
-          // Instagram Business Login: use graph.instagram.com with the Instagram User token.
-          // Requires instagram_business_manage_comments permission.
-          const res = await axios.get<{
-            data?: Array<{
-              id: string;
-              from?: { id?: string; username?: string };
-              text?: string;
-              timestamp?: string;
-            }>;
-          }>(`https://graph.instagram.com/v25.0/${platformPostId}/comments`, {
-            params: {
-              fields: 'id,from{id,username},text,timestamp',
-              access_token: igUserToken,
-            },
-            timeout: 15_000,
-          });
-          const list = res.data?.data ?? [];
-          for (const c of list) {
-            comments.push({
-              commentId: c.id,
-              postTargetId,
-              platformPostId,
-              postPreview,
-              postImageUrl,
-              text: c.text ?? '',
-              authorName: c.from?.username ?? 'Unknown',
-              authorPictureUrl: null,
-              createdAt: c.timestamp ?? new Date().toISOString(),
-              platform,
-            });
-          }
-        } else {
-          // Facebook Login flow: use graph.facebook.com with the Page token.
-          const fields =
-            platform === 'INSTAGRAM'
-              ? 'id,from{id,username,profile_picture_url},text,created_time'
-              : 'id,from{id,name,picture},message,created_time';
-          const res = await axios.get<{
-            data?: Array<{
-              id: string;
-              from?: { id?: string; username?: string; name?: string; profile_picture_url?: string; picture?: { data?: { url?: string } } };
-              text?: string;
-              message?: string;
-              created_time?: string;
-            }>;
-          }>(`https://graph.facebook.com/v18.0/${platformPostId}/comments`, {
-            params: { fields, access_token: token },
-          });
-          const list = res.data?.data ?? [];
-          for (const c of list) {
-            const from = c.from;
-            const authorName = (platform === 'INSTAGRAM' ? from?.username : from?.name) ?? 'Unknown';
-            const authorPictureUrl =
-              platform === 'INSTAGRAM'
-                ? (from as { profile_picture_url?: string })?.profile_picture_url ?? null
-                : (from as { picture?: { data?: { url?: string } } })?.picture?.data?.url ?? null;
-            const text = (platform === 'INSTAGRAM' ? c.text : c.message) ?? '';
-            comments.push({
-              commentId: c.id,
-              postTargetId,
-              platformPostId,
-              postPreview,
-              postImageUrl,
-              text,
-              authorName,
-              authorPictureUrl: authorPictureUrl || null,
-              createdAt: c.created_time ?? new Date().toISOString(),
-              platform,
-            });
-          }
-        }
-      } catch (err) {
-        if (!firstError) {
-          const axErr = err as { response?: { data?: { error?: { message?: string; code?: number } } } };
-          const msg = axErr?.response?.data?.error?.message ?? String(err);
-          firstError = msg;
-        }
-      }
-      continue;
-    }
 
     if (platform === 'YOUTUBE') {
       try {
