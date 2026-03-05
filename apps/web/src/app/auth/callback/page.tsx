@@ -35,7 +35,35 @@ export default function AuthCallbackPage() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [showEscape, setShowEscape] = useState(false);
+  const [escaping, setEscaping] = useState(false);
   const doneRef = useRef(false);
+
+  const goToDashboardWithToken = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (doneRef.current || escaping) return;
+    const params = getCallbackParams();
+    if (!params.access_token) {
+      window.location.href = '/dashboard';
+      return;
+    }
+    setEscaping(true);
+    try {
+      const { error: err } = await supabase.auth.setSession({
+        access_token: params.access_token,
+        refresh_token: params.refresh_token || '',
+      });
+      if (!err) {
+        doneRef.current = true;
+        window.location.href = '/dashboard';
+      } else {
+        setError(err.message);
+        setEscaping(false);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to set session');
+      setEscaping(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -146,7 +174,9 @@ export default function AuthCallbackPage() {
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-4 bg-gray-50 max-w-md text-center">
         <p className="text-red-600 font-medium">{error}</p>
         <div className="flex flex-col gap-2">
-          <a href="/dashboard" className="text-indigo-600 hover:underline">Go to dashboard</a>
+          <button type="button" onClick={goToDashboardWithToken} className="text-indigo-600 hover:underline">
+            Set session and go to dashboard
+          </button>
           <a href="/" className="text-indigo-600 hover:underline">Back to home</a>
         </div>
       </div>
@@ -158,9 +188,14 @@ export default function AuthCallbackPage() {
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
       <p className="text-gray-600">Signing you in…</p>
       {showEscape && (
-        <a href="/dashboard" className="text-indigo-600 hover:underline text-sm mt-2">
-          Taking a while? Go to dashboard
-        </a>
+        <button
+          type="button"
+          onClick={goToDashboardWithToken}
+          disabled={escaping}
+          className="text-indigo-600 hover:underline text-sm mt-2 disabled:opacity-70"
+        >
+          {escaping ? 'Setting session…' : 'Taking a while? Go to dashboard'}
+        </button>
       )}
     </div>
   );
