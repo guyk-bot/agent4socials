@@ -45,12 +45,14 @@ export async function GET(
 
   const credJson = (account.credentialsJson && typeof account.credentialsJson === 'object'
     ? account.credentialsJson
-    : {}) as { loginMethod?: string; igUserToken?: string };
+    : {}) as { loginMethod?: string; igUserToken?: string; linkedPageId?: string };
 
   const isInstagramBusinessLogin =
     account.platform === 'INSTAGRAM' && credJson.loginMethod === 'instagram_business';
   // For Instagram Business Login, account.accessToken IS the long-lived Instagram User token.
   const activeToken = account.accessToken || '';
+  // The IDs that belong to "us" (our account or linked Page) for isFromPage detection.
+  const ourIds = new Set<string>([account.platformUserId, credJson.linkedPageId].filter((x): x is string => !!x));
 
   try {
     if (isInstagramBusinessLogin) {
@@ -104,7 +106,7 @@ export async function GET(
           fromName: m.from?.username ?? null,
           message: m.message ?? '',
           createdTime: m.created_time ?? null,
-          isFromPage: m.from?.id === account.platformUserId,
+          isFromPage: !!(m.from?.id && ourIds.has(m.from.id)),
         }));
 
       // Chronological order: oldest first
@@ -117,7 +119,7 @@ export async function GET(
       // Recipient is the first sender that is not us
       let recipientId: string | null = null;
       for (const m of list) {
-        if (m.fromId && m.fromId !== account.platformUserId) {
+        if (m.fromId && !ourIds.has(m.fromId)) {
           recipientId = m.fromId;
           break;
         }
@@ -164,12 +166,12 @@ export async function GET(
       fromName: m.from?.name ?? null,
       message: m.message ?? '',
       createdTime: m.created_time ?? null,
-      isFromPage: m.from?.id === account.platformUserId,
+      isFromPage: !!(m.from?.id && ourIds.has(m.from.id)),
     }));
 
     let recipientId: string | null = null;
     for (const m of list) {
-      if (m.fromId && m.fromId !== account.platformUserId) {
+      if (m.fromId && !ourIds.has(m.fromId)) {
         recipientId = m.fromId;
         break;
       }

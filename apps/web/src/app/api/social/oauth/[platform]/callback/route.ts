@@ -741,45 +741,83 @@ export async function GET(
   }
 
   if (plat === 'INSTAGRAM' && tokenData.instagramAccounts && tokenData.instagramAccounts.length >= 1) {
+    // When there is exactly 1 account (the most common case), skip the select page and connect immediately.
+    // Only show the select page if the user has 2+ Instagram Business accounts linked to their Facebook.
+    if (tokenData.instagramAccounts.length > 1) {
+      try {
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+        const accountsJson = JSON.parse(JSON.stringify(tokenData.instagramAccounts)) as object;
+        const pending = await prisma.pendingConnection.create({
+          data: {
+            userId,
+            platform: 'INSTAGRAM',
+            payload: { accessToken: tokenData.accessToken, accounts: accountsJson },
+            expiresAt,
+          },
+        });
+        const selectUrl = `${baseUrl}/accounts/instagram/select?pendingId=${pending.id}`;
+        const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Agent4Socials – Choose Instagram account</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;"><p><strong>Agent4Socials</strong> – Choose one Instagram account to connect.</p><script>window.location.href = ${JSON.stringify(selectUrl)};</script><p>Redirecting to <a href="${selectUrl}">Choose account</a>…</p></body></html>`;
+        return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
+      } catch (e) {
+        console.error('[Social OAuth] pending Instagram create error (multi-account):', e);
+        // fall through to auto-connect first account below
+      }
+    }
+    // Auto-connect: either there is only 1 account, or the pending connection create failed.
     try {
-      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-      const accountsJson = JSON.parse(JSON.stringify(tokenData.instagramAccounts)) as object;
-      const pending = await prisma.pendingConnection.create({
-        data: {
-          userId,
-          platform: 'INSTAGRAM',
-          payload: { accessToken: tokenData.accessToken, accounts: accountsJson },
-          expiresAt,
-        },
-      });
-      const selectUrl = `${baseUrl}/accounts/instagram/select?pendingId=${pending.id}`;
-      const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Agent4Socials – Choose Instagram account</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;"><p><strong>Agent4Socials</strong> – Choose one Instagram account to connect.</p><script>window.location.href = ${JSON.stringify(selectUrl)};</script><p>Redirecting to <a href="${selectUrl}">Choose account</a>…</p></body></html>`;
-      return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
-    } catch (e) {
-      console.error('[Social OAuth] pending Instagram create error:', e);
-      // Fallback: connect the first Instagram account (and linked Page). Use Page token when available so insights/posts/inbox work.
+      // Auto-connect the first (or only) Instagram account.
       const first = tokenData.instagramAccounts![0];
       const pageToken = first.pageAccessToken || tokenData.accessToken;
       const linkedPage = tokenData.linkedPage ?? (first.pageId ? { id: first.pageId, name: first.pageName ?? 'Facebook Page', picture: first.pagePicture ?? null } : undefined);
-      try {
+      const fbLoginCreds = { loginMethod: 'facebook_login' as const, linkedPageId: first.pageId ?? null };
+      await prisma.socialAccount.upsert({
+        where: {
+          userId_platform_platformUserId: { userId, platform: 'INSTAGRAM', platformUserId: first.id },
+        },
+        update: {
+          accessToken: pageToken,
+          refreshToken: tokenData.refreshToken,
+          expiresAt: tokenData.expiresAt,
+          username: first.username ?? 'Instagram',
+          profilePicture: first.profilePicture ?? null,
+          status: 'connected',
+          credentialsJson: fbLoginCreds,
+        },
+        create: {
+          userId,
+          platform: 'INSTAGRAM',
+          platformUserId: first.id,
+          username: first.username ?? 'Instagram',
+          profilePicture: first.profilePicture ?? null,
+          accessToken: pageToken,
+          refreshToken: tokenData.refreshToken,
+          expiresAt: tokenData.expiresAt,
+          status: 'connected',
+          credentialsJson: fbLoginCreds,
+        },
+      });
+      await prisma.socialAccount.deleteMany({
+        where: { userId, platform: 'INSTAGRAM', platformUserId: { not: first.id } },
+      });
+      if (linkedPage) {
         await prisma.socialAccount.upsert({
           where: {
-            userId_platform_platformUserId: { userId, platform: 'INSTAGRAM', platformUserId: first.id },
+            userId_platform_platformUserId: { userId, platform: 'FACEBOOK', platformUserId: linkedPage.id },
           },
           update: {
             accessToken: pageToken,
             refreshToken: tokenData.refreshToken,
             expiresAt: tokenData.expiresAt,
-            username: first.username ?? 'Instagram',
-            profilePicture: first.profilePicture ?? null,
+            username: linkedPage.name,
+            profilePicture: linkedPage.picture,
             status: 'connected',
           },
           create: {
             userId,
-            platform: 'INSTAGRAM',
-            platformUserId: first.id,
-            username: first.username ?? 'Instagram',
-            profilePicture: first.profilePicture ?? null,
+            platform: 'FACEBOOK',
+            platformUserId: linkedPage.id,
+            username: linkedPage.name,
+            profilePicture: linkedPage.picture,
             accessToken: pageToken,
             refreshToken: tokenData.refreshToken,
             expiresAt: tokenData.expiresAt,
@@ -787,46 +825,17 @@ export async function GET(
           },
         });
         await prisma.socialAccount.deleteMany({
-          where: { userId, platform: 'INSTAGRAM', platformUserId: { not: first.id } },
+          where: { userId, platform: 'FACEBOOK', platformUserId: { not: linkedPage.id } },
         });
-        if (linkedPage) {
-          await prisma.socialAccount.upsert({
-            where: {
-              userId_platform_platformUserId: { userId, platform: 'FACEBOOK', platformUserId: linkedPage.id },
-            },
-            update: {
-              accessToken: pageToken,
-              refreshToken: tokenData.refreshToken,
-              expiresAt: tokenData.expiresAt,
-              username: linkedPage.name,
-              profilePicture: linkedPage.picture,
-              status: 'connected',
-            },
-            create: {
-              userId,
-              platform: 'FACEBOOK',
-              platformUserId: linkedPage.id,
-              username: linkedPage.name,
-              profilePicture: linkedPage.picture,
-              accessToken: pageToken,
-              refreshToken: tokenData.refreshToken,
-              expiresAt: tokenData.expiresAt,
-              status: 'connected',
-            },
-          });
-          await prisma.socialAccount.deleteMany({
-            where: { userId, platform: 'FACEBOOK', platformUserId: { not: linkedPage.id } },
-          });
-        }
-        const dashboardUrl = `${baseUrl}/dashboard?connecting=1`;
-        const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Agent4Socials – Account connected</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;"><p><strong>Agent4Socials</strong> – Account connected.</p><script>window.location.href = ${JSON.stringify(dashboardUrl)};</script><p><a href="${dashboardUrl}">Go to Dashboard</a></p></body></html>`;
-        return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
-      } catch (fallbackErr) {
-        console.error('[Social OAuth] Instagram fallback connect error:', fallbackErr);
-        const msg = (fallbackErr as Error)?.message ?? '';
-        const hint = msg.includes('does not exist') || msg.includes('relation') ? ' Run database migrations (e.g. npx prisma migrate deploy) and try again.' : '';
-        return oauthErrorHtml(baseUrl, `Could not save. Try again.${hint}`, 500);
       }
+      const dashboardUrl = `${baseUrl}/dashboard?connecting=1`;
+      const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Agent4Socials – Account connected</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;"><p><strong>Agent4Socials</strong> – Account connected.</p><script>window.location.href = ${JSON.stringify(dashboardUrl)};</script><p><a href="${dashboardUrl}">Go to Dashboard</a></p></body></html>`;
+      return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
+    } catch (autoConnectErr) {
+      console.error('[Social OAuth] Instagram auto-connect error:', autoConnectErr);
+      const msg = (autoConnectErr as Error)?.message ?? '';
+      const hint = msg.includes('does not exist') || msg.includes('relation') ? ' Run database migrations (e.g. npx prisma migrate deploy) and try again.' : '';
+      return oauthErrorHtml(baseUrl, `Could not save. Try again.${hint}`, 500);
     }
   }
 

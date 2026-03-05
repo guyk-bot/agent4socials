@@ -171,15 +171,19 @@ export default function InboxPage() {
     }
     setConversationMessagesLoading(true);
     setConversationMessagesError(null);
+    // Derive recipient from the already-loaded conversations list as a reliable fallback.
+    const convForRecipient = conversations.find((c) => c.id === selectedConversationId);
+    const recipientFromConv = convForRecipient?.senders?.[0]?.id ?? null;
     api.get(`/social/accounts/${currentAccountForMessages.id}/conversations/${selectedConversationId}/messages`)
       .then((res) => {
         setConversationMessages(res.data?.messages ?? []);
-        setConversationRecipientId(res.data?.recipientId ?? null);
+        // Prefer recipientId from messages route; fall back to participant from conversations list.
+        setConversationRecipientId(res.data?.recipientId ?? recipientFromConv ?? null);
         setConversationMessagesError(res.data?.error ?? null);
       })
       .catch(() => {
         setConversationMessages([]);
-        setConversationRecipientId(null);
+        setConversationRecipientId(recipientFromConv ?? null);
         setConversationMessagesError('Could not load messages.');
       })
       .finally(() => setConversationMessagesLoading(false));

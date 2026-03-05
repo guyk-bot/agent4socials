@@ -117,7 +117,7 @@ export async function GET(
             }>;
           }>(`${baseUrl}/${account.platformUserId}/insights`, {
             params: {
-              metric: 'reach,profile_views,views',
+              metric: 'impressions,reach,profile_views',
               period: 'day',
               since: effectiveSinceTs,
               until: effectiveUntilTs,
@@ -140,7 +140,7 @@ export async function GET(
                     .filter((x) => x.date)
                     .sort((a, b) => a.date.localeCompare(b.date))
                 : [];
-            if (d.name === 'impressions' || d.name === 'views') {
+            if (d.name === 'impressions') {
               out.impressionsTotal = total;
               out.impressionsTimeSeries = series.length ? series : (total ? [{ date: untilParam?.slice(0, 10) || new Date().toISOString().slice(0, 10), value: total }] : []);
             } else if (d.name === 'reach') {
@@ -158,7 +158,7 @@ export async function GET(
           if (!out.insightsHint && out.followers === 0 && !out.impressionsTotal && !out.reachTotal) {
             out.insightsHint = apiMsg && apiMsg.length < 200
               ? apiMsg
-              : 'Reconnect from the sidebar and choose your Page when asked to see followers, views, reach, and profile views.';
+              : 'Instagram insights temporarily unavailable. Try reconnecting from the sidebar.';
           }
         }
       }

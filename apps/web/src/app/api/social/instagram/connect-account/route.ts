@@ -188,5 +188,5 @@ export async function POST(request: NextRequest) {
   }
 
   await prisma.pendingConnection.delete({ where: { id: pendingId } }).catch(() => {});
-  return NextResponse.json({ ok: true, redirect: '/dashboard' });
+  return NextResponse.json({ ok: true, redirect: '/dashboard?connecting=1' });
 }
