@@ -101,22 +101,23 @@ export async function GET(
     };
   };
 
+  type ConvApiResponse = {
+    data?: ConvItem[];
+    paging?: { next?: string; cursors?: { after?: string } };
+    error?: { message: string; code?: number };
+  };
+
   // Fetch all pages of conversations (follow paging.next up to 5 pages).
   async function fetchAllConversations(url: string, params: Record<string, string>): Promise<ConvItem[]> {
     const all: ConvItem[] = [];
     let nextUrl: string | null = null;
     let pageCount = 0;
     do {
-      const res = await axios.get<{
-        data?: ConvItem[];
-        paging?: { next?: string; cursors?: { after?: string } };
-        error?: { message: string; code?: number };
-      }>(nextUrl ?? url, {
+      const res = await axios.get<ConvApiResponse>(nextUrl ?? url, {
         params: nextUrl ? { access_token: activeToken } : params,
         timeout: 60_000,
       });
       if (res.data?.error) {
-        // surface the error to the outer handler by throwing a shaped object
         throw Object.assign(new Error(res.data.error.message ?? 'Meta API error'), { metaError: res.data.error });
       }
       all.push(...(res.data?.data ?? []));
