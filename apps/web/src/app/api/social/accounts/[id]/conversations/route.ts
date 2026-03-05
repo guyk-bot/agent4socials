@@ -82,7 +82,9 @@ export async function GET(
     fields: 'id,updated_time,participants{id,name,username}',
     access_token: activeToken,
   };
-  if (isInstagram) queryParams.platform = 'instagram';
+  // platform=instagram is only needed for graph.facebook.com Page token path (Facebook Login).
+  // For graph.instagram.com (Instagram Business Login) it is not required and may cause errors.
+  if (isInstagram && !isInstagramBusinessLogin) queryParams.platform = 'instagram';
 
   try {
     const res = await axios.get<{
@@ -168,13 +170,16 @@ export async function GET(
               try {
                 if (isInstagramBusinessLogin) {
                   const profileRes = await axios.get<{
-                    id?: string; name?: string; username?: string; profile_pic?: string;
+                    id?: string; name?: string; username?: string;
+                    profile_pic?: string; profile_picture_url?: string;
+                    picture?: { data?: { url?: string } };
                   }>(`https://graph.instagram.com/v25.0/${id}`, {
-                    params: { fields: 'name,username,profile_pic', access_token: igUserToken! },
+                    params: { fields: 'name,username,profile_pic,profile_picture_url,picture', access_token: igUserToken! },
                     timeout: 15_000,
                   });
                   const p = profileRes.data;
-                  if (p?.id) profiles.set(p.id, { name: p.name, username: p.username, pictureUrl: p.profile_pic ?? null });
+                  const pictureUrl = p.profile_pic ?? p.profile_picture_url ?? p.picture?.data?.url ?? null;
+                  if (p?.id) profiles.set(p.id, { name: p.name, username: p.username, pictureUrl });
                 } else {
                   // Facebook Login: look up IGSID profile via graph.facebook.com with Page token
                   const profileRes = await axios.get<{

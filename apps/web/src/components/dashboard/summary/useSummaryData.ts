@@ -86,6 +86,7 @@ export function useSummaryData(
             engagement: p.interactions ?? 0,
             engagementRate: 0,
             mediaType: p.mediaType,
+            permalinkUrl: (p as { permalinkUrl?: string | null }).permalinkUrl ?? null,
           });
         }
       });

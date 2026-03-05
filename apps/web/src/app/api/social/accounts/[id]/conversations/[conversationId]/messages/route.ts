@@ -255,9 +255,8 @@ export async function POST(
 
   const isInstagramBusinessLogin =
     account.platform === 'INSTAGRAM' && credJson.loginMethod === 'instagram_business';
-  const activeToken = isInstagramBusinessLogin
-    ? (credJson.igUserToken || account.accessToken || '')
-    : (account.accessToken || '');
+  // account.accessToken is always the correct token for both login methods.
+  const activeToken = account.accessToken || '';
 
   let recipientId = typeof body.recipientId === 'string' ? body.recipientId.trim() : null;
 

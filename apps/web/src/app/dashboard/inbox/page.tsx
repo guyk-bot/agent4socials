@@ -1043,12 +1043,12 @@ export default function InboxPage() {
                     rows={2}
                     value={dmReplyText}
                     onChange={(e) => setDmReplyText(e.target.value)}
-                    disabled={dmReplySending || !conversationRecipientId}
+                    disabled={dmReplySending}
                     className="flex-1 px-4 py-3 border border-neutral-200 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                   <button
                     type="button"
-                    disabled={dmReplySending || !conversationRecipientId || aiReplyLoading}
+                    disabled={dmReplySending || aiReplyLoading}
                     onClick={async () => {
                       const lastFromUser = [...conversationMessages].reverse().find((m) => !m.isFromPage && m.message);
                       const textToReplyTo = (lastFromUser?.message ?? conversationMessages.filter((m) => !m.isFromPage).map((m) => m.message).join('\n')) || 'Hello';
@@ -1077,7 +1077,7 @@ export default function InboxPage() {
                   </button>
                   <button
                   type="button"
-                  disabled={dmReplySending || !dmReplyText.trim() || !conversationRecipientId}
+                  disabled={dmReplySending || !dmReplyText.trim()}
                   onClick={async () => {
                     const account = currentAccountForMessages;
                     if (!account || !selectedConversationId || !dmReplyText.trim()) return;

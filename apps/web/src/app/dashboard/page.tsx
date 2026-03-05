@@ -106,7 +106,7 @@ export default function DashboardPage() {
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [sortBy, setSortBy] = useState<'date' | 'impressions' | 'interactions'>('date');
   const [sortDesc, setSortDesc] = useState(true);
-  const [postsPlatformFilter, setPostsPlatformFilter] = useState<'all' | 'FACEBOOK' | 'INSTAGRAM'>('all');
+  const [postsPlatformFilter, setPostsPlatformFilter] = useState<string>('all');
   const [aggregatedInsights, setAggregatedInsights] = useState<{
     totalFollowers: number;
     totalImpressions: number;
@@ -217,6 +217,13 @@ export default function DashboardPage() {
 
   const postsCacheRef = useRef<Record<string, Array<{ id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; impressions: number; interactions: number; publishedAt: string; mediaType?: string | null; platform: string }>>>({});
   const syncAllRequestedRef = useRef<string | null>(null);
+
+  // Auto-select the platform filter when switching accounts (or reset to 'all' for Summary)
+  useEffect(() => {
+    setPostsPlatformFilter(selectedAccount ? selectedAccount.platform : 'all');
+    setPostsPage(1);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAccount?.id]);
 
   useEffect(() => {
     if (selectedAccount?.id) {
@@ -1104,7 +1111,10 @@ export default function DashboardPage() {
               </div>
               <div className="flex gap-1.5 mt-3 flex-wrap">
                 {hasInstagram && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{importedPosts.filter((p) => p.platform === 'INSTAGRAM').reduce((s, p) => s + p.interactions, 0)} Instagram</span>}
-                {hasFacebook && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{importedPosts.filter((p) => p.platform === 'FACEBOOK').reduce((s, p) => s + p.interactions, 0) || '—'} Facebook</span>}
+                {hasFacebook && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{importedPosts.filter((p) => p.platform === 'FACEBOOK').reduce((s, p) => s + p.interactions, 0)} Facebook</span>}
+                {importedPosts.some((p) => p.platform === 'TIKTOK') && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-neutral-100 text-neutral-800">{importedPosts.filter((p) => p.platform === 'TIKTOK').reduce((s, p) => s + p.interactions, 0)} TikTok</span>}
+                {importedPosts.some((p) => p.platform === 'YOUTUBE') && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-red-100 text-red-800">{importedPosts.filter((p) => p.platform === 'YOUTUBE').reduce((s, p) => s + p.interactions, 0)} YouTube</span>}
+                {importedPosts.some((p) => p.platform === 'TWITTER') && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-neutral-100 text-neutral-800">{importedPosts.filter((p) => p.platform === 'TWITTER').reduce((s, p) => s + p.interactions, 0)} X</span>}
               </div>
               <div className="mt-4 h-24 rounded-lg bg-neutral-50 border border-neutral-100 flex items-end gap-0.5 p-3 pb-2 relative overflow-hidden">
                 <div className="absolute inset-0 opacity-[0.03] font-semibold text-neutral-400 text-xl" style={{ transform: 'rotate(-15deg)' }}>agent4socials</div>
@@ -1127,6 +1137,9 @@ export default function DashboardPage() {
               <div className="flex gap-1.5 mt-3 flex-wrap">
                 {hasFacebook && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">{importedPosts.filter((p) => p.platform === 'FACEBOOK').length} Facebook</span>}
                 {hasInstagram && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-pink-100 text-pink-800">{importedPosts.filter((p) => p.platform === 'INSTAGRAM').length} Instagram</span>}
+                {importedPosts.some((p) => p.platform === 'TIKTOK') && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-neutral-100 text-neutral-800">{importedPosts.filter((p) => p.platform === 'TIKTOK').length} TikTok</span>}
+                {importedPosts.some((p) => p.platform === 'YOUTUBE') && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-red-100 text-red-800">{importedPosts.filter((p) => p.platform === 'YOUTUBE').length} YouTube</span>}
+                {importedPosts.some((p) => p.platform === 'TWITTER') && <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-neutral-100 text-neutral-800">{importedPosts.filter((p) => p.platform === 'TWITTER').length} X</span>}
               </div>
               <div className="mt-4 h-24 rounded-lg bg-neutral-50 border border-neutral-100 flex items-end gap-0.5 p-3 pb-2 relative overflow-hidden">
                 <div className="absolute inset-0 opacity-[0.03] font-semibold text-neutral-400 text-xl" style={{ transform: 'rotate(-15deg)' }}>agent4socials</div>
@@ -1186,43 +1199,40 @@ export default function DashboardPage() {
                     placeholder="Search"
                     value={postsSearch}
                     onChange={(e) => { setPostsSearch(e.target.value); setPostsPage(1); }}
-                    className="px-3 py-2 border border-neutral-200 rounded-lg text-sm w-48"
+                    className="px-3 py-2 border border-neutral-200 rounded-lg text-sm w-44"
                   />
-                  {hasFacebook && (
-                    <button
-                      type="button"
-                      onClick={() => { setPostsPlatformFilter(postsPlatformFilter === 'FACEBOOK' ? 'all' : 'FACEBOOK'); setPostsPage(1); }}
-                      className={`px-3 py-2 rounded-lg border text-sm font-medium inline-flex items-center gap-1.5 ${postsPlatformFilter === 'FACEBOOK' ? 'bg-blue-100 border-blue-200 text-blue-800' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-50'}`}
-                    >
-                      {PLATFORM_ICON['FACEBOOK']}
-                      {importedPosts.filter((p) => p.platform === 'FACEBOOK').length} Facebook
-                    </button>
-                  )}
-                  {hasInstagram && (
-                    <button
-                      type="button"
-                      onClick={() => { setPostsPlatformFilter(postsPlatformFilter === 'INSTAGRAM' ? 'all' : 'INSTAGRAM'); setPostsPage(1); }}
-                      className={`px-3 py-2 rounded-lg border text-sm font-medium inline-flex items-center gap-1.5 ${postsPlatformFilter === 'INSTAGRAM' ? 'bg-pink-100 border-pink-200 text-pink-800' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-50'}`}
-                    >
-                      {PLATFORM_ICON['INSTAGRAM']}
-                      {importedPosts.filter((p) => p.platform === 'INSTAGRAM').length} Instagram
-                    </button>
-                  )}
-                  {(hasFacebook || hasInstagram) && (
+                  {/* Dynamic platform tabs — one per platform that has posts */}
+                  {Array.from(new Set(importedPosts.map((p) => p.platform))).map((platform) => {
+                    const count = importedPosts.filter((p) => p.platform === platform).length;
+                    const isActive = postsPlatformFilter === platform;
+                    const colorCls =
+                      platform === 'INSTAGRAM' ? (isActive ? 'bg-pink-100 border-pink-300 text-pink-800' : 'border-neutral-200 text-neutral-600 hover:bg-pink-50') :
+                      platform === 'FACEBOOK' ? (isActive ? 'bg-blue-100 border-blue-300 text-blue-800' : 'border-neutral-200 text-neutral-600 hover:bg-blue-50') :
+                      platform === 'YOUTUBE' ? (isActive ? 'bg-red-100 border-red-300 text-red-800' : 'border-neutral-200 text-neutral-600 hover:bg-red-50') :
+                      platform === 'TIKTOK' ? (isActive ? 'bg-neutral-900 border-neutral-900 text-white' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-100') :
+                      platform === 'TWITTER' ? (isActive ? 'bg-neutral-100 border-neutral-400 text-neutral-900' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-100') :
+                      (isActive ? 'bg-indigo-100 border-indigo-300 text-indigo-800' : 'border-neutral-200 text-neutral-600 hover:bg-indigo-50');
+                    return (
+                      <button
+                        key={platform}
+                        type="button"
+                        onClick={() => { setPostsPlatformFilter(isActive ? 'all' : platform); setPostsPage(1); }}
+                        className={`px-3 py-1.5 rounded-lg border text-sm font-medium inline-flex items-center gap-1.5 transition-colors ${colorCls}`}
+                      >
+                        {PLATFORM_ICON[platform]}
+                        {count}
+                      </button>
+                    );
+                  })}
+                  {importedPosts.length > 0 && (
                     <button
                       type="button"
                       onClick={() => { setPostsPlatformFilter('all'); setPostsPage(1); }}
-                      className={`px-3 py-2 rounded-lg border text-sm font-medium ${postsPlatformFilter === 'all' ? 'bg-neutral-100 border-neutral-300 text-neutral-800' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-50'}`}
+                      className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors ${postsPlatformFilter === 'all' ? 'bg-neutral-100 border-neutral-400 text-neutral-900' : 'border-neutral-200 text-neutral-500 hover:bg-neutral-50'}`}
                     >
                       All ({importedPosts.length})
                     </button>
                   )}
-                  <button type="button" className="px-3 py-2 rounded-lg border border-neutral-200 text-sm font-medium text-neutral-600 hover:bg-neutral-50 inline-flex items-center gap-1.5">
-                    Download CSV
-                  </button>
-                  <button type="button" className="px-3 py-2 rounded-lg border border-neutral-200 text-sm font-medium text-neutral-600 hover:bg-neutral-50 inline-flex items-center gap-1.5">
-                    Columns
-                  </button>
                 </div>
                 {importedPosts.length === 0 && !importedPostsLoading ? (
                   <div className="p-12 text-center">
@@ -1239,36 +1249,24 @@ export default function DashboardPage() {
                           <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Content</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                             <span className="inline-flex items-center gap-1">
-                              Reach
-                              <span title="Impressions (times post was shown)" className="text-neutral-400 cursor-help"><HelpCircle size={14} /></span>
-                              <button type="button" onClick={() => { setSortBy('impressions'); setSortDesc(!sortDesc); setPostsPage(1); }} className="p-0.5 rounded hover:bg-neutral-200" title="Sort"><ArrowUpDown size={14} /></button>
-                            </span>
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                            <span className="inline-flex items-center gap-1">
                               Views
-                              <span title="Impressions (times post was shown)" className="text-neutral-400 cursor-help"><HelpCircle size={14} /></span>
                               <button type="button" onClick={() => { setSortBy('impressions'); setSortDesc(!sortDesc); setPostsPage(1); }} className="p-0.5 rounded hover:bg-neutral-200" title="Sort"><ArrowUpDown size={14} /></button>
                             </span>
                           </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Reactions</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Comments</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Shares</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                             <span className="inline-flex items-center gap-1">
-                              Interactions
+                              Likes
                               <button type="button" onClick={() => { setSortBy('interactions'); setSortDesc(!sortDesc); setPostsPage(1); }} className="p-0.5 rounded hover:bg-neutral-200" title="Sort"><ArrowUpDown size={14} /></button>
                             </span>
                           </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Network</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Comments</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                             <span className="inline-flex items-center gap-1">
                               Date
                               <button type="button" onClick={() => { setSortBy('date'); setSortDesc(!sortDesc); setPostsPage(1); }} className="p-0.5 rounded hover:bg-neutral-200" title="Sort by date"><ArrowUpDown size={14} /></button>
                             </span>
                           </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Type</th>
-                          <th className="px-4 py-3 w-20" />
+                          <th className="px-4 py-3 w-16" />
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-neutral-200">
@@ -1277,12 +1275,24 @@ export default function DashboardPage() {
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-3">
                                 {post.thumbnailUrl ? (
-                                  <img src={post.thumbnailUrl} alt="" className="w-12 h-12 rounded object-cover shrink-0" />
-                                ) : (
-                                  <div className="w-12 h-12 rounded bg-neutral-100 flex items-center justify-center shrink-0">{PLATFORM_ICON[post.platform]}</div>
-                                )}
-                                <div className="min-w-0 max-w-xs">
-                                  <p className="text-sm text-neutral-900 truncate">{post.content || 'Without text'}</p>
+                                  <img
+                                    src={post.thumbnailUrl}
+                                    alt=""
+                                    className="w-12 h-12 rounded object-cover shrink-0"
+                                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.nextElementSibling as HTMLElement | null)?.style.removeProperty('display'); }}
+                                  />
+                                ) : null}
+                                <div
+                                  className="w-12 h-12 rounded bg-neutral-100 flex items-center justify-center shrink-0"
+                                  style={{ display: post.thumbnailUrl ? 'none' : 'flex' }}
+                                >
+                                  {PLATFORM_ICON[post.platform]}
+                                </div>
+                                <div className="min-w-0 max-w-[220px]">
+                                  <div className="flex items-center gap-1.5 mb-0.5">
+                                    <span className="shrink-0 [&>svg]:w-3.5 [&>svg]:h-3.5 text-neutral-400">{PLATFORM_ICON[post.platform]}</span>
+                                    <p className="text-sm text-neutral-900 truncate">{post.content || 'No caption'}</p>
+                                  </div>
                                   {post.permalinkUrl && (
                                     <a href={post.permalinkUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-600 hover:underline inline-flex items-center gap-0.5">
                                       Open <ExternalLink size={12} />
@@ -1292,14 +1302,9 @@ export default function DashboardPage() {
                               </div>
                             </td>
                             <td className="px-4 py-3 text-sm text-neutral-600">{post.impressions ?? 0}</td>
-                            <td className="px-4 py-3 text-sm text-neutral-600">{post.impressions ?? 0}</td>
-                            <td className="px-4 py-3 text-sm text-neutral-500">{(post as { likeCount?: number }).likeCount ?? 0}</td>
+                            <td className="px-4 py-3 text-sm text-neutral-600">{post.interactions ?? 0}</td>
                             <td className="px-4 py-3 text-sm text-neutral-500">{(post as { commentsCount?: number }).commentsCount ?? 0}</td>
-                            <td className="px-4 py-3 text-sm text-neutral-500">{(post as { sharesCount?: number }).sharesCount ?? 0}</td>
-                            <td className="px-4 py-3 text-sm text-neutral-600">{post.interactions}</td>
-                            <td className="px-4 py-3">{PLATFORM_ICON[post.platform]}</td>
-                            <td className="px-4 py-3 text-sm text-neutral-600">{new Date(post.publishedAt).toLocaleString()}</td>
-                            <td className="px-4 py-3 text-sm text-neutral-500">{post.mediaType || '–'}</td>
+                            <td className="px-4 py-3 text-sm text-neutral-500 whitespace-nowrap">{new Date(post.publishedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</td>
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-1">
                                 <button type="button" className="p-1.5 rounded hover:bg-neutral-100 text-neutral-400 hover:text-amber-500" title="Save"><Star size={16} /></button>

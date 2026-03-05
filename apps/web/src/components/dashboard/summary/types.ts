@@ -34,6 +34,7 @@ export type SummaryPost = {
   watchTime?: number;
   performanceScore?: number;
   mediaType?: string | null;
+  permalinkUrl?: string | null;
 };
 
 export type SummaryKPIs = {

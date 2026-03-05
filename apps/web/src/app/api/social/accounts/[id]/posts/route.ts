@@ -173,7 +173,12 @@ async function syncImportedPosts(
     const items = allItems;
     for (const m of items) {
       const publishedAt = m.timestamp ? new Date(m.timestamp) : new Date();
-      let thumbnailUrl: string | null = m.media_url ?? m.thumbnail_url ?? null;
+      // For VIDEO posts, thumbnail_url is the poster frame; media_url is the video file itself.
+      // Always prefer thumbnail_url for videos so we get an image, not a playable file URL.
+      let thumbnailUrl: string | null =
+        m.media_type === 'VIDEO'
+          ? (m.thumbnail_url ?? m.media_url ?? null)
+          : (m.media_url ?? m.thumbnail_url ?? null);
       if (!thumbnailUrl && m.media_type === 'CAROUSEL_ALBUM') {
         try {
           const childRes = await axios.get<{ data?: Array<{ media_url?: string }> }>(
