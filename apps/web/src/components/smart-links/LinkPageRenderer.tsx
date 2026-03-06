@@ -54,9 +54,9 @@ function getButtonClasses(style?: string, isGlass?: boolean, size?: 'small' | 'm
     case 'outline':
       return `${base} rounded-xl border-2 bg-transparent hover:scale-[1.02]`;
     case 'shadow':
-      return `${base} rounded-xl shadow-lg shadow-current/20 hover:shadow-xl hover:scale-[1.02]`;
+      return `${base} rounded-xl hover:scale-[1.02] [box-shadow:0_10px_40px_-10px_rgba(0,0,0,0.35)]`;
     case 'glass':
-      return `${base} rounded-xl backdrop-blur-md border border-white/20 hover:scale-[1.02]`;
+      return `${base} rounded-xl backdrop-blur-md border border-white/30 hover:scale-[1.02]`;
     case 'filled':
     case 'rounded':
     default:
@@ -176,14 +176,22 @@ function Carousel({
         style={{ animationDelay }}
       >
         {content}
-        {label && <p className="text-sm font-medium mt-1.5 text-center opacity-90">{label}</p>}
+        {label ? (
+          <p className="text-sm font-medium mt-1.5 text-center opacity-95" style={{ color: 'inherit' }}>
+            {label}
+          </p>
+        ) : null}
       </a>
     );
   }
   return (
     <div className={`block w-full ${animationClass}`} style={{ animationDelay }}>
       {content}
-      {label && <p className="text-sm font-medium mt-1.5 text-center opacity-90">{label}</p>}
+      {label ? (
+        <p className="text-sm font-medium mt-1.5 text-center opacity-95" style={{ color: 'inherit' }}>
+          {label}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -195,8 +203,13 @@ export function LinkPageRenderer({
   data: LinkPageData;
   isPreview?: boolean;
 }) {
-  const design: LinkPageDesign = data.design ?? getDefaultDesign();
-  const visibleLinks = data.links.filter((l) => l.isVisible).sort((a, b) => a.order - b.order);
+  const design: LinkPageDesign = (data.design && typeof data.design === 'object')
+    ? { ...getDefaultDesign(), ...data.design }
+    : getDefaultDesign();
+  const linksArray = Array.isArray(data.links) ? data.links : [];
+  const visibleLinks = linksArray
+    .filter((l) => l && typeof l === 'object' && l.isVisible !== false)
+    .sort((a, b) => (Number(a.order) ?? 0) - (Number(b.order) ?? 0));
 
   const bgStyle: React.CSSProperties = {};
   if (design.bgType === 'gradient') {
@@ -218,9 +231,20 @@ export function LinkPageRenderer({
   }
 
   const buttonStyle: React.CSSProperties = {
-    backgroundColor: design.buttonStyle === 'outline' ? 'transparent' : design.buttonColor,
+    backgroundColor:
+      design.buttonStyle === 'outline'
+        ? 'transparent'
+        : design.buttonStyle === 'glass'
+          ? 'rgba(255,255,255,0.25)'
+          : design.buttonColor,
     color: design.buttonTextColor ?? '#ffffff',
     borderColor: design.buttonStyle === 'outline' ? design.buttonColor : undefined,
+    ...(design.buttonStyle === 'shadow' && design.buttonColor
+      ? { boxShadow: `0 10px 40px ${design.buttonColor}40, 0 4px 12px rgba(0,0,0,0.15)` }
+      : {}),
+    ...(design.buttonStyle === 'glass'
+      ? { border: '1px solid rgba(255,255,255,0.3)', backdropFilter: 'blur(12px)' }
+      : {}),
   };
 
   const containerClasses = isPreview
@@ -273,10 +297,12 @@ export function LinkPageRenderer({
         {/* Links */}
         <div className="w-full flex flex-col gap-3 mt-4">
           {visibleLinks.map((link, idx) => {
-            if (link.type === 'header') {
+            const linkId = (link && typeof link === 'object' && link.id) ? String(link.id) : `link-${idx}`;
+            const linkType = (link && typeof link === 'object' && link.type) ? String(link.type) : 'link';
+            if (linkType === 'header') {
               return (
                 <div
-                  key={link.id}
+                  key={linkId}
                   className={`text-center py-2 text-sm font-semibold opacity-70 ${getAnimationClass(design.animation, idx + 2)}`}
                   style={{ animationDelay: design.animation === 'stagger' ? `${(idx + 2) * 80}ms` : undefined }}
                 >
@@ -285,21 +311,21 @@ export function LinkPageRenderer({
               );
             }
 
-            if (link.type === 'divider') {
+            if (linkType === 'divider') {
               return (
                 <div
-                  key={link.id}
+                  key={linkId}
                   className={`w-full h-px bg-current opacity-20 my-2 ${getAnimationClass(design.animation, idx + 2)}`}
                   style={{ animationDelay: design.animation === 'stagger' ? `${(idx + 2) * 80}ms` : undefined }}
                 />
               );
             }
 
-            if (link.type === 'image') {
+            if (linkType === 'image') {
               const imageUrl = link.icon || link.url;
               return (
                 <a
-                  key={link.id}
+                  key={linkId}
                   href={link.url || '#'}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -327,7 +353,7 @@ export function LinkPageRenderer({
               );
             }
 
-            if (link.type === 'carousel') {
+            if (linkType === 'carousel') {
               let urls: string[] = [];
               try {
                 if (typeof link.icon === 'string' && link.icon.startsWith('[')) {
@@ -338,7 +364,7 @@ export function LinkPageRenderer({
               }
               return (
                 <Carousel
-                  key={link.id}
+                  key={linkId}
                   imageUrls={urls}
                   linkUrl={link.url}
                   label={link.label}
@@ -349,8 +375,9 @@ export function LinkPageRenderer({
               );
             }
 
-            if (link.type === 'socials') {
+            if (linkType === 'socials') {
               let socialUrls: Record<string, string> = {};
+              let customIcons: Record<string, string> = {};
               try {
                 if (typeof link.url === 'string' && link.url.startsWith('{')) {
                   socialUrls = JSON.parse(link.url) as Record<string, string>;
@@ -358,28 +385,42 @@ export function LinkPageRenderer({
               } catch {
                 socialUrls = {};
               }
-              const entries = Object.entries(socialUrls).filter(([, u]) => u && u.trim());
+              try {
+                if (typeof link.icon === 'string' && link.icon.startsWith('{')) {
+                  customIcons = JSON.parse(link.icon) as Record<string, string>;
+                }
+              } catch {
+                customIcons = {};
+              }
+              const entries = Object.entries(socialUrls).filter(([, u]) => u && String(u).trim());
               return (
                 <div
-                  key={link.id}
+                  key={linkId}
                   className={`flex flex-wrap justify-center gap-3 py-2 ${getAnimationClass(design.animation, idx + 2)}`}
                   style={{ animationDelay: design.animation === 'stagger' ? `${(idx + 2) * 80}ms` : undefined }}
                 >
-                  {entries.map(([platform, url]) => (
-                    <a
-                      key={platform}
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-11 h-11 rounded-full flex items-center justify-center bg-white/20 hover:bg-white/30 text-current transition-colors"
-                      onClick={(e) => {
-                        if (isPreview) e.preventDefault();
-                      }}
-                      aria-label={platform}
-                    >
-                      {SOCIAL_ICONS[platform.toLowerCase()] ?? <Globe size={20} />}
-                    </a>
-                  ))}
+                  {entries.map(([platform, url]) => {
+                    const customIconUrl = customIcons[platform];
+                    return (
+                      <a
+                        key={platform}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-11 h-11 rounded-full flex items-center justify-center bg-white/20 hover:bg-white/30 text-current transition-colors overflow-hidden"
+                        onClick={(e) => {
+                          if (isPreview) e.preventDefault();
+                        }}
+                        aria-label={platform}
+                      >
+                        {customIconUrl ? (
+                          <img src={customIconUrl} alt="" className="w-6 h-6 object-contain" />
+                        ) : (
+                          SOCIAL_ICONS[platform.toLowerCase()] ?? <Globe size={20} />
+                        )}
+                      </a>
+                    );
+                  })}
                 </div>
               );
             }

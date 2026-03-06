@@ -79,6 +79,7 @@ export default function SmartLinksPage() {
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bgInputRef = useRef<HTMLInputElement>(null);
   const iconInputRef = useRef<HTMLInputElement>(null);
+  const uploadTargetRef = useRef<{ linkId: string; type: 'carousel' | 'image' | 'icon' | 'social'; platform?: string } | null>(null);
 
   async function uploadFile(file: File): Promise<string> {
     const res = await api.post<{ uploadUrl: string; fileUrl: string }>('/media/upload-url', {
@@ -140,6 +141,48 @@ export default function SmartLinksPage() {
     }
   }, [data]);
 
+  const dataRef = useRef(data);
+  dataRef.current = data;
+
+  // Auto-save when data changes (debounced) so refresh/exit preserves progress
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      const d = dataRef.current;
+      if (d.slug && (d.title !== undefined || d.bio !== undefined || d.avatarUrl !== undefined || d.links.length > 0 || d.design)) {
+        api.post<{ linkPage: LinkPageData }>('/smart-links', {
+          slug: d.slug,
+          title: d.title,
+          bio: d.bio,
+          avatarUrl: d.avatarUrl,
+          design: d.design,
+          links: d.links,
+        }).then((res) => {
+          if (res.data.linkPage) setData(res.data.linkPage);
+        }).catch(() => {});
+      }
+    }, 1200);
+    return () => clearTimeout(timeout);
+  }, [data.slug, data.title, data.bio, data.avatarUrl, data.design, data.links]);
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        const d = dataRef.current;
+        if (!d.slug) return;
+        api.post<{ linkPage: LinkPageData }>('/smart-links', {
+          slug: d.slug,
+          title: d.title,
+          bio: d.bio,
+          avatarUrl: d.avatarUrl,
+          design: d.design,
+          links: d.links,
+        }).catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, []);
+
   const handleCopyLink = useCallback(() => {
     if (data.slug) {
       navigator.clipboard.writeText(`https://agent4socials.com/@${data.slug}`);
@@ -183,6 +226,29 @@ export default function SmartLinksPage() {
       const newIdx = direction === 'up' ? idx - 1 : idx + 1;
       if (newIdx < 0 || newIdx >= links.length) return prev;
       [links[idx], links[newIdx]] = [links[newIdx], links[idx]];
+      return { ...prev, links: links.map((l, i) => ({ ...l, order: i })) };
+    });
+  }, []);
+
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+
+  const handleDragStart = useCallback((e: React.DragEvent, linkId: string) => {
+    e.dataTransfer.setData('text/plain', linkId);
+    e.dataTransfer.effectAllowed = 'move';
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, toLinkId: string) => {
+    e.preventDefault();
+    setDragOverId(null);
+    const fromId = e.dataTransfer.getData('text/plain');
+    if (!fromId || fromId === toLinkId) return;
+    setData((prev) => {
+      const links = [...prev.links].sort((a, b) => a.order - b.order);
+      const fromIdx = links.findIndex((l) => l.id === fromId);
+      const toIdx = links.findIndex((l) => l.id === toLinkId);
+      if (fromIdx === -1 || toIdx === -1) return prev;
+      const [removed] = links.splice(fromIdx, 1);
+      links.splice(toIdx, 0, removed);
       return { ...prev, links: links.map((l, i) => ({ ...l, order: i })) };
     });
   }, []);
@@ -379,25 +445,54 @@ export default function SmartLinksPage() {
                     className="hidden"
                     onChange={async (e) => {
                       const file = e.target.files?.[0];
-                      const linkId = uploadingIconFor;
-                      if (!file || !linkId) return;
+                      const target = uploadTargetRef.current;
+                      if (!file || !target) return;
                       try {
                         const url = await uploadFile(file);
-                        const link = data.links.find((l) => l.id === linkId);
-                        if (link?.type === 'carousel') {
-                          let arr: string[] = [];
-                          try {
-                            if (link.icon && link.icon.startsWith('[')) arr = JSON.parse(link.icon) as string[];
-                          } catch {}
-                          arr.push(url);
-                          updateLink(linkId, { icon: JSON.stringify(arr) });
+                        if (target.type === 'carousel') {
+                          setData((prev) => {
+                            const link = prev.links.find((l) => l.id === target.linkId);
+                            if (!link || link.type !== 'carousel') return prev;
+                            let arr: string[] = [];
+                            try {
+                              if (link.icon && typeof link.icon === 'string' && link.icon.startsWith('[')) {
+                                arr = JSON.parse(link.icon) as string[];
+                              }
+                            } catch {}
+                            arr.push(url);
+                            return {
+                              ...prev,
+                              links: prev.links.map((l) =>
+                                l.id === target.linkId ? { ...l, icon: JSON.stringify(arr) } : l
+                              ),
+                            };
+                          });
+                        } else if (target.type === 'social') {
+                          setData((prev) => {
+                            const link = prev.links.find((l) => l.id === target.linkId);
+                            if (!link || link.type !== 'socials' || !target.platform) return prev;
+                            let iconJson: Record<string, string> = {};
+                            try {
+                              if (link.icon && typeof link.icon === 'string' && link.icon.startsWith('{')) {
+                                iconJson = JSON.parse(link.icon) as Record<string, string>;
+                              }
+                            } catch {}
+                            iconJson[target.platform] = url;
+                            return {
+                              ...prev,
+                              links: prev.links.map((l) =>
+                                l.id === target.linkId ? { ...l, icon: JSON.stringify(iconJson) } : l
+                              ),
+                            };
+                          });
                         } else {
-                          updateLink(linkId, { icon: url });
+                          updateLink(target.linkId, { icon: url });
                         }
                       } catch {
                         console.error('Upload failed');
                       } finally {
                         setUploadingIconFor(null);
+                        uploadTargetRef.current = null;
                         e.target.value = '';
                       }
                     }}
@@ -447,7 +542,12 @@ export default function SmartLinksPage() {
                       {data.links.sort((a, b) => a.order - b.order).map((link) => (
                         <div
                           key={link.id}
-                          className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100 group"
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, link.id)}
+                          onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverId(link.id); }}
+                          onDragLeave={() => setDragOverId(null)}
+                          onDrop={(e) => handleDrop(e, link.id)}
+                          className={`flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100 group transition-colors ${dragOverId === link.id ? 'ring-2 ring-indigo-400 bg-indigo-50/50' : ''}`}
                         >
                           <GripVertical className="w-4 h-4 text-slate-300 cursor-grab shrink-0" />
                           {link.type === 'header' ? (
@@ -464,6 +564,7 @@ export default function SmartLinksPage() {
                                 type="button"
                                 onClick={() => {
                                   setUploadingIconFor(link.id);
+                                  uploadTargetRef.current = { linkId: link.id, type: 'image' };
                                   iconInputRef.current?.click();
                                 }}
                                 disabled={uploadingIconFor === link.id}
@@ -494,6 +595,7 @@ export default function SmartLinksPage() {
                                   type="button"
                                   onClick={() => {
                                     setUploadingIconFor(link.id);
+                                    uploadTargetRef.current = { linkId: link.id, type: 'carousel' };
                                     iconInputRef.current?.click();
                                   }}
                                   disabled={uploadingIconFor === link.id}
@@ -581,6 +683,7 @@ export default function SmartLinksPage() {
                                   const v = e.target.value;
                                   if (v === 'custom') {
                                     setUploadingIconFor(link.id);
+                                    uploadTargetRef.current = { linkId: link.id, type: 'icon' };
                                     setTimeout(() => iconInputRef.current?.click(), 0);
                                   } else {
                                     updateLink(link.id, { icon: v || null });
@@ -599,6 +702,7 @@ export default function SmartLinksPage() {
                                   type="button"
                                   onClick={() => {
                                     setUploadingIconFor(link.id);
+                                    uploadTargetRef.current = { linkId: link.id, type: 'icon' };
                                     iconInputRef.current?.click();
                                   }}
                                   disabled={uploadingIconFor === link.id}
@@ -882,8 +986,8 @@ export default function SmartLinksPage() {
           <div className="bg-slate-900 rounded-[2.5rem] p-3 shadow-2xl">
             <div
               key={`preview-${data.design?.fontFamily ?? ''}-${data.design?.buttonSize ?? 'medium'}`}
-              className="bg-white rounded-[2rem] overflow-hidden"
-              style={{ height: 580 }}
+              className="bg-white rounded-[2rem] overflow-hidden flex flex-col"
+              style={{ height: 'min(720px, 80vh)' }}
             >
               <LinkPageRenderer data={data} isPreview />
             </div>
