@@ -65,7 +65,18 @@ export default function SmartLinksPage() {
           setData(res.data.linkPage);
         }
       } catch (e) {
-        console.error('Failed to load smart links:', e);
+        const status = (e as { response?: { status?: number } })?.response?.status;
+        if (status === 401) {
+          await new Promise((r) => setTimeout(r, 400));
+          try {
+            const retry = await api.get<{ linkPage: LinkPageData | null }>('/smart-links');
+            if (retry.data.linkPage) setData(retry.data.linkPage);
+          } catch {
+            console.error('Failed to load smart links:', e);
+          }
+        } else {
+          console.error('Failed to load smart links:', e);
+        }
       } finally {
         setLoading(false);
       }
@@ -148,18 +159,18 @@ export default function SmartLinksPage() {
   useEffect(() => {
     const timeout = setTimeout(() => {
       const d = dataRef.current;
-      if (d.slug && (d.title !== undefined || d.bio !== undefined || d.avatarUrl !== undefined || d.links.length > 0 || d.design)) {
-        api.post<{ linkPage: LinkPageData }>('/smart-links', {
-          slug: d.slug,
-          title: d.title,
-          bio: d.bio,
-          avatarUrl: d.avatarUrl,
-          design: d.design,
-          links: d.links,
-        }).then((res) => {
-          if (res.data.linkPage) setData(res.data.linkPage);
-        }).catch(() => {});
-      }
+      const hasContent = d.title || d.bio || d.avatarUrl || (d.links && d.links.length > 0) || (d.design && Object.keys(d.design).length > 0);
+      if (!hasContent) return;
+      api.post<{ linkPage: LinkPageData }>('/smart-links', {
+        slug: d.slug || undefined,
+        title: d.title,
+        bio: d.bio,
+        avatarUrl: d.avatarUrl,
+        design: d.design,
+        links: d.links,
+      }).then((res) => {
+        if (res.data.linkPage) setData(res.data.linkPage);
+      }).catch(() => {});
     }, 1200);
     return () => clearTimeout(timeout);
   }, [data.slug, data.title, data.bio, data.avatarUrl, data.design, data.links]);
@@ -168,14 +179,17 @@ export default function SmartLinksPage() {
     const onVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         const d = dataRef.current;
-        if (!d.slug) return;
+        const hasContent = d.title || d.bio || d.avatarUrl || (d.links && d.links.length > 0) || (d.design && Object.keys(d.design).length > 0);
+        if (!hasContent) return;
         api.post<{ linkPage: LinkPageData }>('/smart-links', {
-          slug: d.slug,
+          slug: d.slug || undefined,
           title: d.title,
           bio: d.bio,
           avatarUrl: d.avatarUrl,
           design: d.design,
           links: d.links,
+        }).then((res) => {
+          if (res.data.linkPage) setData(res.data.linkPage);
         }).catch(() => {});
       }
     };
