@@ -927,6 +927,34 @@ export default function SmartLinksPage() {
                   </div>
                 </div>
 
+                {/* Bold button text */}
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-semibold text-slate-700">Bold button text</label>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={data.design?.buttonTextBold ?? false}
+                    onClick={() => updateDesign({ buttonTextBold: !(data.design?.buttonTextBold ?? false) })}
+                    className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors ${data.design?.buttonTextBold ? 'bg-indigo-600' : 'bg-slate-200'}`}
+                  >
+                    <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${data.design?.buttonTextBold ? 'translate-x-5' : 'translate-x-0.5'} mt-0.5`} />
+                  </button>
+                </div>
+
+                {/* Carousel autoplay */}
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-semibold text-slate-700">Carousel auto-advance</label>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={data.design?.carouselAutoplay !== false}
+                    onClick={() => updateDesign({ carouselAutoplay: data.design?.carouselAutoplay === false })}
+                    className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors ${data.design?.carouselAutoplay !== false ? 'bg-indigo-600' : 'bg-slate-200'}`}
+                  >
+                    <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${data.design?.carouselAutoplay !== false ? 'translate-x-5' : 'translate-x-0.5'} mt-0.5`} />
+                  </button>
+                </div>
+
                 {/* Colors */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">

@@ -37,13 +37,13 @@ function sanitizeDesign(design: unknown): LinkPageDesign | null {
   const keys = [
     'theme', 'bgType', 'bgColor', 'bgGradient', 'bgGradientColors', 'bgImageUrl', 'bgVideoUrl',
     'fontFamily', 'buttonStyle', 'buttonColor', 'buttonTextColor', 'buttonSize', 'textColor',
-    'animation', 'avatarScale',
+    'animation', 'avatarScale', 'carouselAutoplay', 'buttonTextBold',
   ];
   for (const k of keys) {
     if (d[k] !== undefined && d[k] !== null) {
       if (k === 'bgGradientColors' && Array.isArray(d[k])) {
         out[k] = (d[k] as unknown[]).filter((x) => typeof x === 'string') as [string, string, string?];
-      } else if (typeof d[k] === 'string' || typeof d[k] === 'number' || Array.isArray(d[k])) {
+      } else if (typeof d[k] === 'string' || typeof d[k] === 'number' || typeof d[k] === 'boolean' || Array.isArray(d[k])) {
         out[k] = d[k];
       }
     }

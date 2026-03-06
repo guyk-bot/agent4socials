@@ -16,6 +16,10 @@ export type LinkPageDesign = {
   animation?: 'none' | 'fade' | 'slide' | 'scale' | 'stagger';
   /** Avatar zoom to fit (1 = default, 1.2 = zoom in 20%) */
   avatarScale?: number;
+  /** Carousel auto-advance (default true) */
+  carouselAutoplay?: boolean;
+  /** Bold button text */
+  buttonTextBold?: boolean;
 };
 
 export type ThemePreset = {

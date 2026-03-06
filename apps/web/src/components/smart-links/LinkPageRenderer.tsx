@@ -87,6 +87,7 @@ function Carousel({
   animationClass,
   animationDelay,
   isPreview,
+  autoplay = true,
 }: {
   imageUrls: string[];
   linkUrl?: string | null;
@@ -94,15 +95,16 @@ function Carousel({
   animationClass: string;
   animationDelay?: string;
   isPreview: boolean;
+  autoplay?: boolean;
 }) {
   const [index, setIndex] = useState(0);
   const n = Math.max(1, imageUrls.length);
 
   useEffect(() => {
-    if (n <= 1 || isPreview) return;
+    if (!autoplay || n <= 1 || isPreview) return;
     const t = setInterval(() => setIndex((i) => (i + 1) % n), 4000);
     return () => clearInterval(t);
-  }, [n, isPreview]);
+  }, [autoplay, n, isPreview]);
 
   if (imageUrls.length === 0) {
     return (
@@ -239,8 +241,9 @@ export function LinkPageRenderer({
           : design.buttonColor,
     color: design.buttonTextColor ?? '#ffffff',
     borderColor: design.buttonStyle === 'outline' ? design.buttonColor : undefined,
-    ...(design.buttonStyle === 'shadow' && design.buttonColor
-      ? { boxShadow: `0 10px 40px ${design.buttonColor}40, 0 4px 12px rgba(0,0,0,0.15)` }
+    fontWeight: design.buttonTextBold ? 700 : undefined,
+    ...(design.buttonStyle === 'shadow'
+      ? { boxShadow: '0 10px 30px rgba(0,0,0,0.35), 0 6px 16px rgba(0,0,0,0.2)' }
       : {}),
     ...(design.buttonStyle === 'glass'
       ? { border: '1px solid rgba(255,255,255,0.3)', backdropFilter: 'blur(12px)' }
@@ -371,6 +374,7 @@ export function LinkPageRenderer({
                   animationClass={getAnimationClass(design.animation, idx + 2)}
                   animationDelay={design.animation === 'stagger' ? `${(idx + 2) * 80}ms` : undefined}
                   isPreview={isPreview}
+                  autoplay={design.carouselAutoplay !== false}
                 />
               );
             }
