@@ -67,6 +67,19 @@ function dedupeLinksById(links: LinkItem[]): LinkItem[] {
   });
 }
 
+/** Dedupe links by content (type, label, url, icon) and re-assign order. Use when applying server data so we never show duplicate elements. */
+function dedupeLinksByContent(links: LinkItem[]): LinkItem[] {
+  const seen = new Set<string>();
+  return links
+    .filter((l) => {
+      const key = `${l.type}\t${l.label ?? ''}\t${l.url ?? ''}\t${(l.icon ?? '')}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map((l, i) => ({ ...l, order: i }));
+}
+
 function getDefaultData(): LinkPageData {
   return {
     slug: '',
@@ -128,7 +141,8 @@ export default function SmartLinksPage() {
           const server = res.data.linkPage;
           const serverLinks = Array.isArray(server.links) ? server.links : [];
           const localNewLinks = dataRef.current.links.filter((l) => String(l.id).startsWith('new-'));
-          const mergedLinks = [...dedupeLinksById(serverLinks), ...localNewLinks];
+          const uniqueServerLinks = dedupeLinksByContent(dedupeLinksById(serverLinks));
+          const mergedLinks = [...uniqueServerLinks, ...localNewLinks];
           setData({
             ...server,
             design: server.design && Object.keys(server.design).length > 0 ? { ...THEME_PRESETS[0].design, ...server.design } : THEME_PRESETS[0].design,
@@ -152,7 +166,8 @@ export default function SmartLinksPage() {
               const server = retry.data.linkPage;
               const serverLinks = Array.isArray(server.links) ? server.links : [];
               const localNewLinks = dataRef.current.links.filter((l) => String(l.id).startsWith('new-'));
-              const mergedLinks = [...dedupeLinksById(serverLinks), ...localNewLinks];
+              const uniqueServerLinks = dedupeLinksByContent(dedupeLinksById(serverLinks));
+              const mergedLinks = [...uniqueServerLinks, ...localNewLinks];
               setData({ ...server, design: server.design && Object.keys(server.design).length > 0 ? { ...THEME_PRESETS[0].design, ...server.design } : THEME_PRESETS[0].design, links: mergedLinks });
               clearDraft();
               setSaveError(null);
@@ -245,7 +260,7 @@ export default function SmartLinksPage() {
         setData({
           ...server,
           design: server.design && Object.keys(server.design).length > 0 ? { ...THEME_PRESETS[0].design, ...server.design } : THEME_PRESETS[0].design,
-          links: dedupeLinksById(serverLinks),
+          links: dedupeLinksByContent(dedupeLinksById(serverLinks)),
         });
         clearDraft();
       }
