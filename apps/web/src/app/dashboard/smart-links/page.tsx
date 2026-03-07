@@ -517,7 +517,7 @@ export default function SmartLinksPage() {
                         onClick={() => avatarInputRef.current?.click()}
                         disabled={avatarUploading}
                         className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow hover:bg-indigo-700 disabled:opacity-50"
-                        title="Upload profile photo"
+                        title="Upload profile photo (recommended: 400×400px square)"
                       >
                         {avatarUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                       </button>
@@ -632,12 +632,14 @@ export default function SmartLinksPage() {
                       <button
                         onClick={() => addLink('image')}
                         className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-200 transition-colors flex items-center gap-1"
+                        title="Recommended: 1080×1080px (square) or 1080×1350px (portrait)"
                       >
                         <ImageIcon className="w-3 h-3" /> Image
                       </button>
                       <button
                         onClick={() => addLink('carousel')}
                         className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-200 transition-colors flex items-center gap-1"
+                        title="Recommended: 1080×1080px per image"
                       >
                         <ImageIcon className="w-3 h-3" /> Carousel
                       </button>
@@ -697,37 +699,41 @@ export default function SmartLinksPage() {
                               className="flex-1 px-2 py-1 bg-transparent text-sm font-semibold text-slate-700 focus:outline-none"
                             />
                           ) : link.type === 'image' ? (
-                            <div className="flex-1 flex flex-wrap items-center gap-2 min-w-0">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setUploadingIconFor(link.id);
-                                  uploadTargetRef.current = { linkId: link.id, type: 'image' };
-                                  iconInputRef.current?.click();
-                                }}
-                                disabled={uploadingIconFor === link.id}
-                                className="shrink-0 px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs hover:bg-slate-50 flex items-center gap-1"
-                              >
-                                {uploadingIconFor === link.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
-                                Photo
-                              </button>
-                              <input
-                                type="text"
-                                value={link.label || ''}
-                                onChange={(e) => updateLink(link.id, { label: e.target.value })}
-                                placeholder="Caption (optional)"
-                                className="flex-1 min-w-[80px] px-2 py-1 bg-white border border-slate-200 rounded-lg text-sm"
-                              />
-                              <input
-                                type="text"
-                                value={link.url || ''}
-                                onChange={(e) => updateLink(link.id, { url: e.target.value })}
-                                placeholder="Link URL"
-                                className="flex-1 min-w-[80px] px-2 py-1 bg-white border border-slate-200 rounded-lg text-sm"
-                              />
+                            <div className="flex-1 space-y-1 min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setUploadingIconFor(link.id);
+                                    uploadTargetRef.current = { linkId: link.id, type: 'image' };
+                                    iconInputRef.current?.click();
+                                  }}
+                                  disabled={uploadingIconFor === link.id}
+                                  className="shrink-0 px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs hover:bg-slate-50 flex items-center gap-1"
+                                >
+                                  {uploadingIconFor === link.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                                  Photo
+                                </button>
+                                <input
+                                  type="text"
+                                  value={link.label || ''}
+                                  onChange={(e) => updateLink(link.id, { label: e.target.value })}
+                                  placeholder="Caption (optional)"
+                                  className="flex-1 min-w-[80px] px-2 py-1 bg-white border border-slate-200 rounded-lg text-sm"
+                                />
+                                <input
+                                  type="text"
+                                  value={link.url || ''}
+                                  onChange={(e) => updateLink(link.id, { url: e.target.value })}
+                                  placeholder="Link URL"
+                                  className="flex-1 min-w-[80px] px-2 py-1 bg-white border border-slate-200 rounded-lg text-sm"
+                                />
+                              </div>
+                              <p className="text-xs text-slate-500">Recommended: 1080×1080px (square) or 1080×1350px (portrait).</p>
                             </div>
                           ) : link.type === 'carousel' ? (
                             <div className="flex-1 space-y-2 min-w-0">
+                              <p className="text-xs text-slate-500">Recommended: 1080×1080px per image for best quality.</p>
                               <div className="flex flex-wrap items-center gap-2">
                                 <button
                                   type="button"
