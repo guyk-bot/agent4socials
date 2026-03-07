@@ -632,14 +632,14 @@ export default function SmartLinksPage() {
                       <button
                         onClick={() => addLink('image')}
                         className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-200 transition-colors flex items-center gap-1"
-                        title="Recommended: 1080×1080px (square) or 1080×1350px (portrait)"
+                        title="Recommended: 16:9 ratio (e.g. 1920×1080px or 1080×608px)"
                       >
                         <ImageIcon className="w-3 h-3" /> Image
                       </button>
                       <button
                         onClick={() => addLink('carousel')}
                         className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-200 transition-colors flex items-center gap-1"
-                        title="Recommended: 1080×1080px per image"
+                        title="Recommended: 16:9 ratio per image (e.g. 1920×1080px or 1080×608px)"
                       >
                         <ImageIcon className="w-3 h-3" /> Carousel
                       </button>
@@ -729,11 +729,11 @@ export default function SmartLinksPage() {
                                   className="flex-1 min-w-[80px] px-2 py-1 bg-white border border-slate-200 rounded-lg text-sm"
                                 />
                               </div>
-                              <p className="text-xs text-slate-500">Recommended: 1080×1080px (square) or 1080×1350px (portrait).</p>
+                              <p className="text-xs text-slate-500">Recommended: 16:9 ratio, e.g. 1920×1080px or 1080×608px.</p>
                             </div>
                           ) : link.type === 'carousel' ? (
                             <div className="flex-1 space-y-2 min-w-0">
-                              <p className="text-xs text-slate-500">Recommended: 1080×1080px per image for best quality.</p>
+                              <p className="text-xs text-slate-500">Recommended: 16:9 ratio per image, e.g. 1920×1080px or 1080×608px.</p>
                               <div className="flex flex-wrap items-center gap-2">
                                 <button
                                   type="button"
