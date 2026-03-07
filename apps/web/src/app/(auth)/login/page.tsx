@@ -7,11 +7,15 @@ function LoginRedirect() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const reason = searchParams.get('reason');
+  const error = searchParams.get('error');
 
   useEffect(() => {
-    const q = reason ? `auth=login&reason=${encodeURIComponent(reason)}` : 'auth=login';
-    router.replace(`/?${q}`);
-  }, [router, reason]);
+    const params = new URLSearchParams();
+    params.set('auth', 'login');
+    if (reason) params.set('reason', reason);
+    if (error) params.set('error', error);
+    router.replace(`/?${params.toString()}`);
+  }, [router, reason, error]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-950">

@@ -8,14 +8,19 @@ import { Lock, Mail, ArrowRight } from 'lucide-react';
 
 interface Props {
   profileFailedMessage?: string | null;
+  authError?: string;
 }
 
-export default function LoginFormContent({ profileFailedMessage }: Props) {
+export default function LoginFormContent({ profileFailedMessage, authError }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState(authError ?? '');
   const [loading, setLoading] = useState(false);
   const [profileErrorDetail, setProfileErrorDetail] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (authError) setError(authError);
+  }, [authError]);
 
   React.useEffect(() => {
     if (profileFailedMessage && typeof window !== 'undefined') {

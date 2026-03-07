@@ -11,6 +11,7 @@ function AuthModalInner() {
   const { modal, closeModal } = useAuthModal();
   const searchParams = useSearchParams();
   const reason = searchParams.get('reason');
+  const error = searchParams.get('error');
   const profileFailedMessage =
     reason === 'profile_failed'
       ? 'Sign-in worked, but the app could not load your profile. Check that NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set in Vercel (web project) and redeploy.'
@@ -48,7 +49,7 @@ function AuthModalInner() {
           <Image src="/logo.svg" alt="Agent4Socials" width={48} height={48} className="h-12 w-12 mx-auto" />
         </div>
         {modal === 'login' && (
-          <LoginFormContent profileFailedMessage={profileFailedMessage} />
+          <LoginFormContent profileFailedMessage={profileFailedMessage} authError={error ?? undefined} />
         )}
         {modal === 'signup' && <SignupFormContent />}
       </div>

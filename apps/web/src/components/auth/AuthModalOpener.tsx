@@ -12,9 +12,13 @@ function AuthModalOpenerInner() {
   useEffect(() => {
     const auth = searchParams.get('auth');
     const reason = searchParams.get('reason');
+    const error = searchParams.get('error');
     if (auth === 'login') {
       openLogin();
-      router.replace(reason ? `/?reason=${reason}` : '/');
+      const params = new URLSearchParams();
+      if (reason) params.set('reason', reason);
+      if (error) params.set('error', error);
+      router.replace(params.toString() ? `/?${params.toString()}` : '/');
     } else if (auth === 'signup') {
       openSignup();
       router.replace('/');
