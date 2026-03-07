@@ -43,50 +43,111 @@ const SOCIAL_OPTIONS = [
   { id: 'email', name: 'Email', icon: Mail },
 ];
 
-export default function SmartLinksPage() {
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<'links' | 'design'>('links');
-  const [data, setData] = useState<LinkPageData>({
+const DRAFT_KEY = 'smart-links-draft';
+
+function getDefaultData(): LinkPageData {
+  return {
     slug: '',
     title: '',
     bio: '',
     avatarUrl: '',
     design: THEME_PRESETS[0].design,
     links: [],
-  });
+  };
+}
+
+function readDraft(): LinkPageData | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as LinkPageData;
+    if (!parsed || typeof parsed !== 'object') return null;
+    return {
+      ...getDefaultData(),
+      ...parsed,
+      design: parsed.design && Object.keys(parsed.design).length > 0 ? { ...THEME_PRESETS[0].design, ...parsed.design } : THEME_PRESETS[0].design,
+      links: Array.isArray(parsed.links) ? parsed.links : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeDraft(data: LinkPageData) {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(data));
+  } catch {}
+}
+
+function clearDraft() {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.removeItem(DRAFT_KEY);
+  } catch {}
+}
+
+export default function SmartLinksPage() {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [activeTab, setActiveTab] = useState<'links' | 'design'>('links');
+  const [data, setData] = useState<LinkPageData>(() => readDraft() || getDefaultData());
 
   useEffect(() => {
+    let cancelled = false;
     async function load() {
       try {
         const res = await api.get<{ linkPage: LinkPageData | null }>('/smart-links');
+        if (cancelled) return;
         if (res.data.linkPage) {
-          setData(res.data.linkPage);
+          const server = res.data.linkPage;
+          setData({
+            ...server,
+            design: server.design && Object.keys(server.design).length > 0 ? { ...THEME_PRESETS[0].design, ...server.design } : THEME_PRESETS[0].design,
+            links: Array.isArray(server.links) ? server.links : [],
+          });
+          clearDraft();
           setSaveError(null);
+        } else {
+          const draft = readDraft();
+          if (draft && (draft.title || draft.bio || draft.slug || (draft.links && draft.links.length > 0))) setData(draft);
         }
       } catch (e) {
+        if (cancelled) return;
         const status = (e as { response?: { status?: number } })?.response?.status;
         if (status === 401) {
           await new Promise((r) => setTimeout(r, 400));
           try {
             const retry = await api.get<{ linkPage: LinkPageData | null }>('/smart-links');
+            if (cancelled) return;
             if (retry.data.linkPage) {
-              setData(retry.data.linkPage);
+              const server = retry.data.linkPage;
+              setData({ ...server, design: server.design && Object.keys(server.design).length > 0 ? { ...THEME_PRESETS[0].design, ...server.design } : THEME_PRESETS[0].design, links: Array.isArray(server.links) ? server.links : [] });
+              clearDraft();
               setSaveError(null);
+            } else {
+              const draft = readDraft();
+              if (draft && (draft.title || draft.bio || draft.slug || (draft.links && draft.links.length > 0))) setData(draft);
             }
           } catch {
+            const draft = readDraft();
+            if (draft && (draft.title || draft.bio || draft.slug || (draft.links && draft.links.length > 0))) setData(draft);
             console.error('Failed to load smart links:', e);
           }
         } else {
+          const draft = readDraft();
+          if (draft && (draft.title || draft.bio || draft.slug || (draft.links && draft.links.length > 0))) setData(draft);
           console.error('Failed to load smart links:', e);
         }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
     load();
+    return () => { cancelled = true; };
   }, []);
 
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -149,7 +210,13 @@ export default function SmartLinksPage() {
         links: data.links,
       });
       if (res.data.linkPage) {
-        setData(res.data.linkPage);
+        const server = res.data.linkPage;
+        setData({
+          ...server,
+          design: server.design && Object.keys(server.design).length > 0 ? { ...THEME_PRESETS[0].design, ...server.design } : THEME_PRESETS[0].design,
+          links: Array.isArray(server.links) ? server.links : [],
+        });
+        clearDraft();
       }
     } catch (e: unknown) {
       const ax = e as { response?: { status?: number; data?: { message?: string; error?: string } }; message?: string };
@@ -173,6 +240,12 @@ export default function SmartLinksPage() {
   const dataRef = useRef(data);
   dataRef.current = data;
 
+  // Persist draft to sessionStorage so edits survive refresh/remount until save
+  useEffect(() => {
+    const t = setTimeout(() => writeDraft(dataRef.current), 500);
+    return () => clearTimeout(t);
+  }, [data.slug, data.title, data.bio, data.avatarUrl, data.design, data.links]);
+
   // Auto-save when data changes (debounced) so refresh/exit preserves progress
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -187,7 +260,15 @@ export default function SmartLinksPage() {
         design: d.design,
         links: d.links,
       }).then((res) => {
-        if (res.data.linkPage) setData(res.data.linkPage);
+        if (res.data.linkPage) {
+          const server = res.data.linkPage;
+          setData({
+            ...server,
+            design: server.design && Object.keys(server.design).length > 0 ? { ...THEME_PRESETS[0].design, ...server.design } : THEME_PRESETS[0].design,
+            links: Array.isArray(server.links) ? server.links : [],
+          });
+          clearDraft();
+        }
       }).catch((err) => {
         const ax = err as { response?: { status?: number; data?: { message?: string } } };
         const msg = ax?.response?.data?.message || (ax?.response?.status === 401 && 'Please log in again.') || 'Save failed. Try again.';
@@ -211,7 +292,15 @@ export default function SmartLinksPage() {
           design: d.design,
           links: d.links,
         }).then((res) => {
-          if (res.data.linkPage) setData(res.data.linkPage);
+          if (res.data.linkPage) {
+            const server = res.data.linkPage;
+            setData({
+              ...server,
+              design: server.design && Object.keys(server.design).length > 0 ? { ...THEME_PRESETS[0].design, ...server.design } : THEME_PRESETS[0].design,
+              links: Array.isArray(server.links) ? server.links : [],
+            });
+            clearDraft();
+          }
         }).catch((err) => {
           const msg = err?.response?.data?.message;
           if (msg) setSaveError(msg);
