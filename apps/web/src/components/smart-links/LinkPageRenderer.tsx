@@ -54,9 +54,9 @@ function getButtonClasses(style?: string, isGlass?: boolean, size?: 'small' | 'm
     case 'outline':
       return `${base} rounded-xl border-2 bg-transparent hover:scale-[1.02]`;
     case 'shadow':
-      return `${base} rounded-xl hover:scale-[1.02] [box-shadow:0_10px_40px_-10px_rgba(0,0,0,0.35)]`;
+      return `${base} rounded-xl hover:scale-[1.02] [box-shadow:0_12px_40px_-8px_rgba(0,0,0,0.45),0_4px_16px_-4px_rgba(0,0,0,0.3)]`;
     case 'glass':
-      return `${base} rounded-xl backdrop-blur-md border border-white/30 hover:scale-[1.02]`;
+      return `${base} rounded-xl backdrop-blur-md border border-white/40 hover:scale-[1.02] [background:rgba(255,255,255,0.2)]`;
     case 'filled':
     case 'rounded':
     default:
@@ -243,10 +243,10 @@ export function LinkPageRenderer({
     borderColor: design.buttonStyle === 'outline' ? design.buttonColor : undefined,
     fontWeight: design.buttonTextBold ? 700 : undefined,
     ...(design.buttonStyle === 'shadow'
-      ? { boxShadow: '0 10px 30px rgba(0,0,0,0.35), 0 6px 16px rgba(0,0,0,0.2)' }
+      ? { boxShadow: '0 12px 40px -8px rgba(0,0,0,0.45), 0 4px 16px -4px rgba(0,0,0,0.3)' }
       : {}),
     ...(design.buttonStyle === 'glass'
-      ? { border: '1px solid rgba(255,255,255,0.3)', backdropFilter: 'blur(12px)' }
+      ? { border: '1px solid rgba(255,255,255,0.4)', backdropFilter: 'blur(12px)', background: 'rgba(255,255,255,0.2)' }
       : {}),
   };
 
