@@ -65,107 +65,113 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'Invalid JSON' }, { status: 400 });
   }
 
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, name: true } });
-  if (!user) {
-    return NextResponse.json({ message: 'User not found' }, { status: 404 });
-  }
+  try {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, name: true } });
+    if (!user) {
+      return NextResponse.json({ message: 'User not found' }, { status: 404 });
+    }
 
-  const existing = await prisma.linkPage.findUnique({ where: { userId } });
+    const existing = await prisma.linkPage.findUnique({ where: { userId } });
 
-  let slug = body.slug?.toLowerCase().trim();
-  if (slug && !isValidSlug(slug)) {
-    return NextResponse.json({ message: 'Invalid slug. Use 2-30 lowercase letters, numbers, or underscores.' }, { status: 400 });
-  }
+    let slug = body.slug?.toLowerCase().trim();
+    if (slug && !isValidSlug(slug)) {
+      return NextResponse.json({ message: 'Invalid slug. Use 2-30 lowercase letters, numbers, or underscores.' }, { status: 400 });
+    }
 
-  if (!slug && !existing) {
-    const baseSlug = user.name
-      ? user.name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20)
-      : generateSlugFromEmail(user.email);
-    slug = baseSlug || 'user';
-    let counter = 0;
-    while (true) {
-      const candidate = counter === 0 ? slug : `${slug}${counter}`;
-      const taken = await prisma.linkPage.findUnique({ where: { slug: candidate } });
-      if (!taken && isValidSlug(candidate)) {
-        slug = candidate;
-        break;
-      }
-      counter++;
-      if (counter > 100) {
-        slug = `user${Date.now().toString(36)}`;
-        break;
+    if (!slug && !existing) {
+      const baseSlug = user.name
+        ? user.name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20)
+        : generateSlugFromEmail(user.email);
+      slug = baseSlug || 'user';
+      let counter = 0;
+      while (true) {
+        const candidate = counter === 0 ? slug : `${slug}${counter}`;
+        const taken = await prisma.linkPage.findUnique({ where: { slug: candidate } });
+        if (!taken && isValidSlug(candidate)) {
+          slug = candidate;
+          break;
+        }
+        counter++;
+        if (counter > 100) {
+          slug = `user${Date.now().toString(36)}`;
+          break;
+        }
       }
     }
-  }
 
-  if (slug && slug !== existing?.slug) {
-    const taken = await prisma.linkPage.findUnique({ where: { slug } });
-    if (taken && taken.userId !== userId) {
-      return NextResponse.json({ message: 'This username is already taken.' }, { status: 409 });
+    if (slug && slug !== existing?.slug) {
+      const taken = await prisma.linkPage.findUnique({ where: { slug } });
+      if (taken && taken.userId !== userId) {
+        return NextResponse.json({ message: 'This username is already taken.' }, { status: 409 });
+      }
     }
-  }
 
-  const designValue = body.design ?? existing?.design ?? null;
-  const finalSlug = slug || existing?.slug || 'user';
-  const finalTitle = body.title ?? existing?.title ?? user.name ?? null;
-  const finalBio = body.bio ?? existing?.bio ?? null;
-  const finalAvatarUrl = body.avatarUrl ?? existing?.avatarUrl ?? null;
-  const finalDesign = designValue === null ? Prisma.JsonNull : (designValue as Prisma.InputJsonValue);
-  const finalIsPublished = body.isPublished ?? existing?.isPublished ?? true;
+    const designValue = body.design ?? existing?.design ?? null;
+    const finalSlug = slug || existing?.slug || 'user';
+    const finalTitle = body.title ?? existing?.title ?? user.name ?? null;
+    const finalBio = body.bio ?? existing?.bio ?? null;
+    const finalAvatarUrl = body.avatarUrl ?? existing?.avatarUrl ?? null;
+    const finalDesign = designValue === null ? Prisma.JsonNull : (designValue as Prisma.InputJsonValue);
+    const finalIsPublished = body.isPublished ?? existing?.isPublished ?? true;
 
-  let linkPage;
-  if (existing) {
-    linkPage = await prisma.linkPage.update({
-      where: { id: existing.id },
-      data: {
-        slug: finalSlug,
-        title: finalTitle,
-        bio: finalBio,
-        avatarUrl: finalAvatarUrl,
-        design: finalDesign,
-        isPublished: finalIsPublished,
-      },
+    let linkPage;
+    if (existing) {
+      linkPage = await prisma.linkPage.update({
+        where: { id: existing.id },
+        data: {
+          slug: finalSlug,
+          title: finalTitle,
+          bio: finalBio,
+          avatarUrl: finalAvatarUrl,
+          design: finalDesign,
+          isPublished: finalIsPublished,
+        },
+      });
+    } else {
+      linkPage = await prisma.linkPage.create({
+        data: {
+          userId,
+          slug: finalSlug,
+          title: finalTitle,
+          bio: finalBio,
+          avatarUrl: finalAvatarUrl,
+          design: finalDesign,
+          isPublished: finalIsPublished,
+        },
+      });
+    }
+
+    if (body.links !== undefined) {
+      const hasLinks = Array.isArray(body.links) && body.links.length > 0;
+      if (hasLinks || !existing) {
+        await prisma.linkItem.deleteMany({ where: { linkPageId: linkPage.id } });
+        if (hasLinks) {
+          await prisma.linkItem.createMany({
+            data: body.links.map((link, idx) => ({
+              linkPageId: linkPage.id,
+              type: link.type ?? 'link',
+              label: link.label ?? null,
+              url: link.url ?? null,
+              icon: link.icon ?? null,
+              order: link.order ?? idx,
+              isVisible: link.isVisible ?? true,
+            })),
+          });
+        }
+      }
+    }
+
+    const result = await prisma.linkPage.findUnique({
+      where: { id: linkPage.id },
+      include: { links: { orderBy: { order: 'asc' } } },
     });
-  } else {
-    linkPage = await prisma.linkPage.create({
-      data: {
-        userId,
-        slug: finalSlug,
-        title: finalTitle,
-        bio: finalBio,
-        avatarUrl: finalAvatarUrl,
-        design: finalDesign,
-        isPublished: finalIsPublished,
-      },
-    });
+
+    return NextResponse.json({ linkPage: result });
+  } catch (err) {
+    console.error('Smart Links POST error:', err);
+    const msg = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
+    return NextResponse.json({ message: msg }, { status: 500 });
   }
-
-  if (body.links !== undefined) {
-    const hasLinks = Array.isArray(body.links) && body.links.length > 0;
-    if (hasLinks || !existing) {
-      await prisma.linkItem.deleteMany({ where: { linkPageId: linkPage.id } });
-      if (hasLinks) {
-        await prisma.linkItem.createMany({
-          data: body.links.map((link, idx) => ({
-            linkPageId: linkPage.id,
-            type: link.type ?? 'link',
-            label: link.label ?? null,
-            url: link.url ?? null,
-            icon: link.icon ?? null,
-            order: link.order ?? idx,
-            isVisible: link.isVisible ?? true,
-          })),
-        });
-      }
-    }
-  }
-
-  const result = await prisma.linkPage.findUnique({
-    where: { id: linkPage.id },
-    include: { links: { orderBy: { order: 'asc' } } },
-  });
-
-  return NextResponse.json({ linkPage: result });
 }
 
 export async function DELETE(request: NextRequest) {

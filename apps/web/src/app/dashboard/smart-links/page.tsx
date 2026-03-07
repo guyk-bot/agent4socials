@@ -151,10 +151,20 @@ export default function SmartLinksPage() {
       if (res.data.linkPage) {
         setData(res.data.linkPage);
       }
-    } catch (e) {
-      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setSaveError(msg || 'Failed to save');
-      console.error('Failed to save:', e);
+    } catch (e: unknown) {
+      const ax = e as { response?: { status?: number; data?: { message?: string; error?: string } }; message?: string };
+      const body = ax.response?.data;
+      const msg =
+        (typeof body?.message === 'string' && body.message) ||
+        (typeof body?.error === 'string' && body.error) ||
+        (ax.response?.status === 401 && 'Please log in again.') ||
+        (ax.response?.status === 409 && 'This username is already taken.') ||
+        (ax.response?.status === 400 && 'Invalid username or request. Check the username (2–30 letters, numbers, underscores).') ||
+        (ax.response?.status && `Save failed (${ax.response.status}). Try again.`) ||
+        ax.message ||
+        'Failed to save';
+      setSaveError(msg);
+      console.error('Smart Links save error:', ax.response?.data ?? e);
     } finally {
       setSaving(false);
     }
@@ -179,8 +189,9 @@ export default function SmartLinksPage() {
       }).then((res) => {
         if (res.data.linkPage) setData(res.data.linkPage);
       }).catch((err) => {
-        const msg = err?.response?.data?.message;
-        if (msg) setSaveError(msg);
+        const ax = err as { response?: { status?: number; data?: { message?: string } } };
+        const msg = ax?.response?.data?.message || (ax?.response?.status === 401 && 'Please log in again.') || 'Save failed. Try again.';
+        setSaveError(msg);
       });
     }, 1200);
     return () => clearTimeout(timeout);
