@@ -104,10 +104,13 @@ export default function SmartLinksPage() {
         if (cancelled) return;
         if (res.data.linkPage) {
           const server = res.data.linkPage;
+          const serverLinks = Array.isArray(server.links) ? server.links : [];
+          const localNewLinks = dataRef.current.links.filter((l) => String(l.id).startsWith('new-'));
+          const mergedLinks = [...serverLinks, ...localNewLinks];
           setData({
             ...server,
             design: server.design && Object.keys(server.design).length > 0 ? { ...THEME_PRESETS[0].design, ...server.design } : THEME_PRESETS[0].design,
-            links: Array.isArray(server.links) ? server.links : [],
+            links: mergedLinks,
           });
           clearDraft();
           setSaveError(null);
@@ -125,7 +128,10 @@ export default function SmartLinksPage() {
             if (cancelled) return;
             if (retry.data.linkPage) {
               const server = retry.data.linkPage;
-              setData({ ...server, design: server.design && Object.keys(server.design).length > 0 ? { ...THEME_PRESETS[0].design, ...server.design } : THEME_PRESETS[0].design, links: Array.isArray(server.links) ? server.links : [] });
+              const serverLinks = Array.isArray(server.links) ? server.links : [];
+              const localNewLinks = dataRef.current.links.filter((l) => String(l.id).startsWith('new-'));
+              const mergedLinks = [...serverLinks, ...localNewLinks];
+              setData({ ...server, design: server.design && Object.keys(server.design).length > 0 ? { ...THEME_PRESETS[0].design, ...server.design } : THEME_PRESETS[0].design, links: mergedLinks });
               clearDraft();
               setSaveError(null);
             } else {
@@ -650,6 +656,21 @@ export default function SmartLinksPage() {
                     </div>
                   </div>
 
+                  {data.links.some((l) => l.type === 'carousel') && (
+                    <div className="flex items-center justify-between py-2 px-3 bg-indigo-50/50 rounded-xl border border-indigo-100">
+                      <label className="text-sm font-semibold text-slate-700">Carousel auto-advance</label>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={data.design?.carouselAutoplay !== false}
+                        onClick={() => updateDesign({ carouselAutoplay: data.design?.carouselAutoplay === false })}
+                        className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors ${data.design?.carouselAutoplay !== false ? 'bg-indigo-600' : 'bg-slate-200'}`}
+                      >
+                        <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${data.design?.carouselAutoplay !== false ? 'translate-x-5' : 'translate-x-0.5'} mt-0.5`} />
+                      </button>
+                    </div>
+                  )}
+
                   {data.links.length === 0 ? (
                     <div className="text-center py-8 text-slate-400 text-sm">
                       No links yet. Add your first link above.
@@ -1055,20 +1076,6 @@ export default function SmartLinksPage() {
                     className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors ${data.design?.buttonTextBold ? 'bg-indigo-600' : 'bg-slate-200'}`}
                   >
                     <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${data.design?.buttonTextBold ? 'translate-x-5' : 'translate-x-0.5'} mt-0.5`} />
-                  </button>
-                </div>
-
-                {/* Carousel autoplay */}
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-semibold text-slate-700">Carousel auto-advance</label>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={data.design?.carouselAutoplay !== false}
-                    onClick={() => updateDesign({ carouselAutoplay: data.design?.carouselAutoplay === false })}
-                    className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors ${data.design?.carouselAutoplay !== false ? 'bg-indigo-600' : 'bg-slate-200'}`}
-                  >
-                    <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${data.design?.carouselAutoplay !== false ? 'translate-x-5' : 'translate-x-0.5'} mt-0.5`} />
                   </button>
                 </div>
 
