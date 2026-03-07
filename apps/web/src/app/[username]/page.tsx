@@ -12,7 +12,7 @@ type Params = Promise<{ username: string }>;
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   try {
     const { username } = await params;
-    const slug = username.replace(/^@/, '').toLowerCase();
+    const slug = decodeURIComponent(username).replace(/^@/, '').toLowerCase();
     const linkPage = await prisma.linkPage.findUnique({
       where: { slug },
       select: { title: true, bio: true, avatarUrl: true },
@@ -57,7 +57,7 @@ function sanitizeDesign(design: unknown): LinkPageDesign | null {
 export default async function SmartLinkPublicPage({ params }: { params: Params }) {
   try {
     const { username } = await params;
-    const slug = username.replace(/^@/, '').toLowerCase();
+    const slug = decodeURIComponent(username).replace(/^@/, '').toLowerCase();
 
     let linkPage = null;
     try {
