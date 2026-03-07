@@ -143,21 +143,19 @@ export async function POST(request: NextRequest) {
 
     if (body.links !== undefined) {
       const hasLinks = Array.isArray(body.links) && body.links.length > 0;
-      if (hasLinks || !existing) {
-        await prisma.linkItem.deleteMany({ where: { linkPageId: linkPage.id } });
-        if (hasLinks) {
-          await prisma.linkItem.createMany({
-            data: body.links.map((link, idx) => ({
-              linkPageId: linkPage.id,
-              type: link.type ?? 'link',
-              label: link.label ?? null,
-              url: link.url ?? null,
-              icon: link.icon ?? null,
-              order: link.order ?? idx,
-              isVisible: link.isVisible ?? true,
-            })),
-          });
-        }
+      await prisma.linkItem.deleteMany({ where: { linkPageId: linkPage.id } });
+      if (hasLinks) {
+        await prisma.linkItem.createMany({
+          data: body.links.map((link, idx) => ({
+            linkPageId: linkPage.id,
+            type: link.type ?? 'link',
+            label: link.label ?? null,
+            url: link.url ?? null,
+            icon: link.icon ?? null,
+            order: link.order ?? idx,
+            isVisible: link.isVisible ?? true,
+          })),
+        });
       }
     }
 
