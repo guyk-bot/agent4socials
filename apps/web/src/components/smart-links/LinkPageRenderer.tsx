@@ -102,7 +102,7 @@ function Carousel({
 
   useEffect(() => {
     if (!autoplay || n <= 1 || isPreview) return;
-    const t = setInterval(() => setIndex((i) => (i + 1) % n), 2500);
+    const t = setInterval(() => setIndex((i) => (i + 1) % n), 1500);
     return () => clearInterval(t);
   }, [autoplay, n, isPreview]);
 
