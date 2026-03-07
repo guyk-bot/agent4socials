@@ -208,6 +208,7 @@ export default function SmartLinksPage() {
         avatarUrl: data.avatarUrl,
         design: data.design,
         links: data.links,
+        isPublished: true,
       });
       if (res.data.linkPage) {
         const server = res.data.linkPage;
@@ -263,6 +264,7 @@ export default function SmartLinksPage() {
         avatarUrl: d.avatarUrl,
         design: d.design,
         links: d.links,
+        isPublished: true,
       }).then((res) => {
         if (res.data.linkPage) {
           const server = res.data.linkPage;
@@ -295,6 +297,7 @@ export default function SmartLinksPage() {
           avatarUrl: d.avatarUrl,
           design: d.design,
           links: d.links,
+          isPublished: true,
         }).then((res) => {
           if (res.data.linkPage) {
             const server = res.data.linkPage;

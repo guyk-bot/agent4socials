@@ -4,6 +4,8 @@ import { LinkPageRenderer } from '@/components/smart-links/LinkPageRenderer';
 import type { LinkPageDesign } from '@/components/smart-links/themes';
 import type { Metadata } from 'next';
 
+export const dynamic = 'force-dynamic';
+
 type Params = Promise<{ username: string }>;
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
