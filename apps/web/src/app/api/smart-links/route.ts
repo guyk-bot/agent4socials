@@ -11,7 +11,7 @@ const RESERVED_SLUGS = new Set([
 ]);
 
 function isValidSlug(slug: string): boolean {
-  if (!slug || slug.length < 3 || slug.length > 30) return false;
+  if (!slug || slug.length < 2 || slug.length > 30) return false;
   if (!/^[a-z0-9_]+$/.test(slug)) return false;
   if (RESERVED_SLUGS.has(slug)) return false;
   return true;
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
 
   let slug = body.slug?.toLowerCase().trim();
   if (slug && !isValidSlug(slug)) {
-    return NextResponse.json({ message: 'Invalid slug. Use 3-30 lowercase letters, numbers, or underscores.' }, { status: 400 });
+    return NextResponse.json({ message: 'Invalid slug. Use 2-30 lowercase letters, numbers, or underscores.' }, { status: 400 });
   }
 
   if (!slug && !existing) {

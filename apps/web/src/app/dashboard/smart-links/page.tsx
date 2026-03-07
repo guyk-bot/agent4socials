@@ -46,6 +46,7 @@ const SOCIAL_OPTIONS = [
 export default function SmartLinksPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'links' | 'design'>('links');
   const [data, setData] = useState<LinkPageData>({
@@ -63,6 +64,7 @@ export default function SmartLinksPage() {
         const res = await api.get<{ linkPage: LinkPageData | null }>('/smart-links');
         if (res.data.linkPage) {
           setData(res.data.linkPage);
+          setSaveError(null);
         }
       } catch (e) {
         const status = (e as { response?: { status?: number } })?.response?.status;
@@ -70,7 +72,10 @@ export default function SmartLinksPage() {
           await new Promise((r) => setTimeout(r, 400));
           try {
             const retry = await api.get<{ linkPage: LinkPageData | null }>('/smart-links');
-            if (retry.data.linkPage) setData(retry.data.linkPage);
+            if (retry.data.linkPage) {
+              setData(retry.data.linkPage);
+              setSaveError(null);
+            }
           } catch {
             console.error('Failed to load smart links:', e);
           }
@@ -132,6 +137,7 @@ export default function SmartLinksPage() {
   }, [data.design?.fontFamily]);
 
   const handleSave = useCallback(async () => {
+    setSaveError(null);
     setSaving(true);
     try {
       const res = await api.post<{ linkPage: LinkPageData }>('/smart-links', {
@@ -146,6 +152,8 @@ export default function SmartLinksPage() {
         setData(res.data.linkPage);
       }
     } catch (e) {
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setSaveError(msg || 'Failed to save');
       console.error('Failed to save:', e);
     } finally {
       setSaving(false);
@@ -170,7 +178,10 @@ export default function SmartLinksPage() {
         links: d.links,
       }).then((res) => {
         if (res.data.linkPage) setData(res.data.linkPage);
-      }).catch(() => {});
+      }).catch((err) => {
+        const msg = err?.response?.data?.message;
+        if (msg) setSaveError(msg);
+      });
     }, 1200);
     return () => clearTimeout(timeout);
   }, [data.slug, data.title, data.bio, data.avatarUrl, data.design, data.links]);
@@ -190,7 +201,10 @@ export default function SmartLinksPage() {
           links: d.links,
         }).then((res) => {
           if (res.data.linkPage) setData(res.data.linkPage);
-        }).catch(() => {});
+        }).catch((err) => {
+          const msg = err?.response?.data?.message;
+          if (msg) setSaveError(msg);
+        });
       }
     };
     document.addEventListener('visibilitychange', onVisibilityChange);
@@ -322,7 +336,10 @@ export default function SmartLinksPage() {
               <input
                 type="text"
                 value={data.slug}
-                onChange={(e) => setData((prev) => ({ ...prev, slug: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') }))}
+                onChange={(e) => {
+                  setSaveError(null);
+                  setData((prev) => ({ ...prev, slug: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') }));
+                }}
                 placeholder="username"
                 className="flex-1 px-3 py-1.5 border border-slate-200 rounded-lg text-sm font-medium focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
               />
@@ -345,6 +362,11 @@ export default function SmartLinksPage() {
                 </a>
               )}
             </div>
+            {saveError && (
+              <p className="mt-2 text-sm text-red-600" role="alert">
+                {saveError}
+              </p>
+            )}
           </div>
 
           {/* Tabs */}
