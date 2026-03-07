@@ -45,6 +45,28 @@ const SOCIAL_OPTIONS = [
 
 const DRAFT_KEY = 'smart-links-draft';
 
+/** Dedupe links by (order, type, label, url, icon) when sending to server. */
+function dedupeLinksForSend(links: LinkItem[]): LinkItem[] {
+  const seen = new Set<string>();
+  return links.filter((l) => {
+    const key = `${l.order}\t${l.type}\t${l.label ?? ''}\t${l.url ?? ''}\t${(l.icon ?? '')}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/** Dedupe links by id when applying server response. */
+function dedupeLinksById(links: LinkItem[]): LinkItem[] {
+  const seen = new Set<string>();
+  return links.filter((l) => {
+    const id = String(l.id ?? '');
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+}
+
 function getDefaultData(): LinkPageData {
   return {
     slug: '',
@@ -106,7 +128,7 @@ export default function SmartLinksPage() {
           const server = res.data.linkPage;
           const serverLinks = Array.isArray(server.links) ? server.links : [];
           const localNewLinks = dataRef.current.links.filter((l) => String(l.id).startsWith('new-'));
-          const mergedLinks = [...serverLinks, ...localNewLinks];
+          const mergedLinks = [...dedupeLinksById(serverLinks), ...localNewLinks];
           setData({
             ...server,
             design: server.design && Object.keys(server.design).length > 0 ? { ...THEME_PRESETS[0].design, ...server.design } : THEME_PRESETS[0].design,
@@ -130,7 +152,7 @@ export default function SmartLinksPage() {
               const server = retry.data.linkPage;
               const serverLinks = Array.isArray(server.links) ? server.links : [];
               const localNewLinks = dataRef.current.links.filter((l) => String(l.id).startsWith('new-'));
-              const mergedLinks = [...serverLinks, ...localNewLinks];
+              const mergedLinks = [...dedupeLinksById(serverLinks), ...localNewLinks];
               setData({ ...server, design: server.design && Object.keys(server.design).length > 0 ? { ...THEME_PRESETS[0].design, ...server.design } : THEME_PRESETS[0].design, links: mergedLinks });
               clearDraft();
               setSaveError(null);
@@ -207,21 +229,23 @@ export default function SmartLinksPage() {
     setSaveError(null);
     setSaving(true);
     try {
+      const linksToSend = dedupeLinksForSend(data.links);
       const res = await api.post<{ linkPage: LinkPageData }>('/smart-links', {
         slug: data.slug,
         title: data.title,
         bio: data.bio,
         avatarUrl: data.avatarUrl,
         design: data.design,
-        links: data.links,
+        links: linksToSend,
         isPublished: true,
       });
       if (res.data.linkPage) {
         const server = res.data.linkPage;
+        const serverLinks = Array.isArray(server.links) ? server.links : [];
         setData({
           ...server,
           design: server.design && Object.keys(server.design).length > 0 ? { ...THEME_PRESETS[0].design, ...server.design } : THEME_PRESETS[0].design,
-          links: Array.isArray(server.links) ? server.links : [],
+          links: dedupeLinksById(serverLinks),
         });
         clearDraft();
       }
@@ -270,7 +294,7 @@ export default function SmartLinksPage() {
         bio: d.bio,
         avatarUrl: d.avatarUrl,
         design: d.design,
-        links: d.links,
+        links: dedupeLinksForSend(d.links),
         isPublished: true,
       }).catch(() => {});
     }, 1500);
@@ -289,7 +313,7 @@ export default function SmartLinksPage() {
           bio: d.bio,
           avatarUrl: d.avatarUrl,
           design: d.design,
-          links: d.links,
+          links: dedupeLinksForSend(d.links),
           isPublished: true,
         }).catch(() => {});
       }
@@ -679,7 +703,7 @@ export default function SmartLinksPage() {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {data.links.sort((a, b) => a.order - b.order).map((link, index) => (
+                      {[...data.links].sort((a, b) => a.order - b.order).map((link, index) => (
                         <div
                           key={`link-${index}`}
                           draggable
