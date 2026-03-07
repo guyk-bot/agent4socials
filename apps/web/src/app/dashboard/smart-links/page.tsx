@@ -683,17 +683,37 @@ export default function SmartLinksPage() {
                   </div>
 
                   {data.links.some((l) => l.type === 'carousel') && (
-                    <div className="flex items-center justify-between py-2 px-3 bg-indigo-50/50 rounded-xl border border-indigo-100">
-                      <label className="text-sm font-semibold text-slate-700">Carousel auto-advance</label>
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={data.design?.carouselAutoplay !== false}
-                        onClick={() => updateDesign({ carouselAutoplay: data.design?.carouselAutoplay === false })}
-                        className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors ${data.design?.carouselAutoplay !== false ? 'bg-indigo-600' : 'bg-slate-200'}`}
-                      >
-                        <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${data.design?.carouselAutoplay !== false ? 'translate-x-5' : 'translate-x-0.5'} mt-0.5`} />
-                      </button>
+                    <div className="space-y-2 py-2 px-3 bg-indigo-50/50 rounded-xl border border-indigo-100">
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-semibold text-slate-700">Carousel auto-advance</label>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={data.design?.carouselAutoplay !== false}
+                          onClick={() => updateDesign({ carouselAutoplay: data.design?.carouselAutoplay === false })}
+                          className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors ${data.design?.carouselAutoplay !== false ? 'bg-indigo-600' : 'bg-slate-200'}`}
+                        >
+                          <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${data.design?.carouselAutoplay !== false ? 'translate-x-5' : 'translate-x-0.5'} mt-0.5`} />
+                        </button>
+                      </div>
+                      {data.design?.carouselAutoplay !== false && (
+                        <div className="flex items-center gap-2">
+                          <label className="text-xs font-medium text-slate-600">Advance every</label>
+                          <select
+                            value={String(data.design?.carouselIntervalSeconds ?? 1.5)}
+                            onChange={(e) => updateDesign({ carouselIntervalSeconds: parseFloat(e.target.value) })}
+                            className="px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-sm"
+                          >
+                            <option value="1">1 sec</option>
+                            <option value="1.5">1.5 sec</option>
+                            <option value="2">2 sec</option>
+                            <option value="2.5">2.5 sec</option>
+                            <option value="3">3 sec</option>
+                            <option value="4">4 sec</option>
+                            <option value="5">5 sec</option>
+                          </select>
+                        </div>
+                      )}
                     </div>
                   )}
 

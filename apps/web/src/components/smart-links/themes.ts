@@ -18,6 +18,8 @@ export type LinkPageDesign = {
   avatarScale?: number;
   /** Carousel auto-advance (default true) */
   carouselAutoplay?: boolean;
+  /** Carousel advance interval in seconds (default 1.5). Only used when carouselAutoplay is true. */
+  carouselIntervalSeconds?: number;
   /** Bold button text */
   buttonTextBold?: boolean;
 };

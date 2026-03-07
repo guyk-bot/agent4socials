@@ -88,6 +88,7 @@ function Carousel({
   animationDelay,
   isPreview,
   autoplay = true,
+  autoplayIntervalMs = 1500,
 }: {
   imageUrls: string[];
   linkUrl?: string | null;
@@ -96,15 +97,18 @@ function Carousel({
   animationDelay?: string;
   isPreview: boolean;
   autoplay?: boolean;
+  /** Auto-advance interval in milliseconds (default 1500). */
+  autoplayIntervalMs?: number;
 }) {
   const [index, setIndex] = useState(0);
   const n = Math.max(1, imageUrls.length);
 
   useEffect(() => {
     if (!autoplay || n <= 1 || isPreview) return;
-    const t = setInterval(() => setIndex((i) => (i + 1) % n), 1500);
+    const ms = Math.max(500, Math.min(15000, autoplayIntervalMs));
+    const t = setInterval(() => setIndex((i) => (i + 1) % n), ms);
     return () => clearInterval(t);
-  }, [autoplay, n, isPreview]);
+  }, [autoplay, n, isPreview, autoplayIntervalMs]);
 
   if (imageUrls.length === 0) {
     return (
@@ -376,6 +380,7 @@ export function LinkPageRenderer({
                   animationDelay={design.animation === 'stagger' ? `${(idx + 2) * 80}ms` : undefined}
                   isPreview={isPreview}
                   autoplay={design.carouselAutoplay !== false}
+                  autoplayIntervalMs={((design.carouselIntervalSeconds ?? 1.5) * 1000)}
                 />
               );
             }
