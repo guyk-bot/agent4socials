@@ -348,7 +348,6 @@ export default function DashboardPage() {
     const twitter1oa = searchParams.get('twitter_1oa');
     const err = searchParams.get('error');
     if (twitter1oa === 'ok') {
-      setAlertMessage('Image upload for X is now enabled. Your next posts with images will attach media to tweets.');
       fetchAccounts().catch(() => {});
       router.replace('/dashboard', { scroll: false });
     } else if (err?.startsWith('twitter_1oa_')) {
