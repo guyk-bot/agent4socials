@@ -240,13 +240,17 @@ export default function SmartLinksPage() {
   const dataRef = useRef(data);
   dataRef.current = data;
 
-  // Persist draft to sessionStorage so edits survive refresh/remount until save
+  // Serialized signatures so effects only re-run when content actually changes (not on new object refs from setData(server)).
+  const designSig = JSON.stringify(data.design ?? {});
+  const linksSig = JSON.stringify(data.links ?? []);
+
+  // Persist draft to sessionStorage so edits survive refresh/remount until save.
   useEffect(() => {
     const t = setTimeout(() => writeDraft(dataRef.current), 500);
     return () => clearTimeout(t);
-  }, [data.slug, data.title, data.bio, data.avatarUrl, data.design, data.links]);
+  }, [data.slug, data.title, data.bio, data.avatarUrl, designSig, linksSig]);
 
-  // Auto-save when data changes (debounced) so refresh/exit preserves progress
+  // Auto-save when data changes (debounced) so refresh/exit preserves progress.
   useEffect(() => {
     const timeout = setTimeout(() => {
       const d = dataRef.current;
@@ -276,7 +280,7 @@ export default function SmartLinksPage() {
       });
     }, 1200);
     return () => clearTimeout(timeout);
-  }, [data.slug, data.title, data.bio, data.avatarUrl, data.design, data.links]);
+  }, [data.slug, data.title, data.bio, data.avatarUrl, designSig, linksSig]);
 
   useEffect(() => {
     const onVisibilityChange = () => {
