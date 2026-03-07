@@ -251,13 +251,14 @@ export default function SmartLinksPage() {
     return () => clearTimeout(t);
   }, [data.slug, data.title, data.bio, data.avatarUrl, designSig, linksSig]);
 
-  // Auto-save when data changes (debounced) so refresh/exit preserves progress.
+  // Auto-save when data changes (debounced) — fire and forget, NEVER updates local state.
+  // Only the Save button applies server responses so editing is never interrupted.
   useEffect(() => {
     const timeout = setTimeout(() => {
       const d = dataRef.current;
       const hasContent = d.title || d.bio || d.avatarUrl || (d.links && d.links.length > 0) || (d.design && Object.keys(d.design).length > 0);
       if (!hasContent) return;
-      api.post<{ linkPage: LinkPageData }>('/smart-links', {
+      api.post('/smart-links', {
         slug: d.slug || undefined,
         title: d.title,
         bio: d.bio,
@@ -265,25 +266,8 @@ export default function SmartLinksPage() {
         design: d.design,
         links: d.links,
         isPublished: true,
-      }).then((res) => {
-        if (res.data.linkPage) {
-          const server = res.data.linkPage;
-          const current = dataRef.current;
-          const serverLinks = Array.isArray(server.links) ? server.links : [];
-          if (serverLinks.length > current.links.length) return;
-          setData({
-            ...server,
-            design: server.design && Object.keys(server.design).length > 0 ? { ...THEME_PRESETS[0].design, ...server.design } : THEME_PRESETS[0].design,
-            links: serverLinks,
-          });
-          clearDraft();
-        }
-      }).catch((err) => {
-        const ax = err as { response?: { status?: number; data?: { message?: string } } };
-        const msg = ax?.response?.data?.message || (ax?.response?.status === 401 && 'Please log in again.') || 'Save failed. Try again.';
-        setSaveError(msg);
-      });
-    }, 1200);
+      }).catch(() => {});
+    }, 1500);
     return () => clearTimeout(timeout);
   }, [data.slug, data.title, data.bio, data.avatarUrl, designSig, linksSig]);
 
@@ -293,7 +277,7 @@ export default function SmartLinksPage() {
         const d = dataRef.current;
         const hasContent = d.title || d.bio || d.avatarUrl || (d.links && d.links.length > 0) || (d.design && Object.keys(d.design).length > 0);
         if (!hasContent) return;
-        api.post<{ linkPage: LinkPageData }>('/smart-links', {
+        api.post('/smart-links', {
           slug: d.slug || undefined,
           title: d.title,
           bio: d.bio,
@@ -301,23 +285,7 @@ export default function SmartLinksPage() {
           design: d.design,
           links: d.links,
           isPublished: true,
-        }).then((res) => {
-          if (res.data.linkPage) {
-            const server = res.data.linkPage;
-            const current = dataRef.current;
-            const serverLinks = Array.isArray(server.links) ? server.links : [];
-            if (serverLinks.length > current.links.length) return;
-            setData({
-              ...server,
-              design: server.design && Object.keys(server.design).length > 0 ? { ...THEME_PRESETS[0].design, ...server.design } : THEME_PRESETS[0].design,
-              links: serverLinks,
-            });
-            clearDraft();
-          }
-        }).catch((err) => {
-          const msg = err?.response?.data?.message;
-          if (msg) setSaveError(msg);
-        });
+        }).catch(() => {});
       }
     };
     document.addEventListener('visibilitychange', onVisibilityChange);

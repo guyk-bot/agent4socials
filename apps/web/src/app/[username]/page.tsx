@@ -59,17 +59,28 @@ export default async function SmartLinkPublicPage({ params }: { params: Params }
     const { username } = await params;
     const slug = username.replace(/^@/, '').toLowerCase();
 
-    const linkPage = await prisma.linkPage.findUnique({
-      where: { slug },
-      include: {
-        links: {
-          where: { isVisible: true },
-          orderBy: { order: 'asc' },
+    let linkPage = null;
+    try {
+      linkPage = await prisma.linkPage.findUnique({
+        where: { slug },
+        include: {
+          links: {
+            where: { isVisible: true },
+            orderBy: { order: 'asc' },
+          },
         },
-      },
-    });
+      });
+    } catch (dbErr) {
+      console.error(`[SmartLinks] DB error for slug "${slug}":`, dbErr);
+      notFound();
+    }
 
-    if (!linkPage || !linkPage.isPublished) {
+    if (!linkPage) {
+      console.error(`[SmartLinks] No row found for slug: "${slug}"`);
+      notFound();
+    }
+    if (!linkPage.isPublished) {
+      console.error(`[SmartLinks] Row found but isPublished=false for slug: "${slug}"`);
       notFound();
     }
 
