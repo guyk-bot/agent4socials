@@ -5,6 +5,7 @@ import type { LinkPageDesign } from '@/components/smart-links/themes';
 import type { Metadata } from 'next';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 type Params = Promise<{ username: string }>;
 

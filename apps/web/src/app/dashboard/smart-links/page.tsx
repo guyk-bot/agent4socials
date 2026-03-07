@@ -268,10 +268,13 @@ export default function SmartLinksPage() {
       }).then((res) => {
         if (res.data.linkPage) {
           const server = res.data.linkPage;
+          const current = dataRef.current;
+          const serverLinks = Array.isArray(server.links) ? server.links : [];
+          if (serverLinks.length > current.links.length) return;
           setData({
             ...server,
             design: server.design && Object.keys(server.design).length > 0 ? { ...THEME_PRESETS[0].design, ...server.design } : THEME_PRESETS[0].design,
-            links: Array.isArray(server.links) ? server.links : [],
+            links: serverLinks,
           });
           clearDraft();
         }
@@ -301,10 +304,13 @@ export default function SmartLinksPage() {
         }).then((res) => {
           if (res.data.linkPage) {
             const server = res.data.linkPage;
+            const current = dataRef.current;
+            const serverLinks = Array.isArray(server.links) ? server.links : [];
+            if (serverLinks.length > current.links.length) return;
             setData({
               ...server,
               design: server.design && Object.keys(server.design).length > 0 ? { ...THEME_PRESETS[0].design, ...server.design } : THEME_PRESETS[0].design,
-              links: Array.isArray(server.links) ? server.links : [],
+              links: serverLinks,
             });
             clearDraft();
           }
