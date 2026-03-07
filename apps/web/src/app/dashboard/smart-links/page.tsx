@@ -682,9 +682,9 @@ export default function SmartLinksPage() {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {data.links.sort((a, b) => a.order - b.order).map((link) => (
+                      {data.links.sort((a, b) => a.order - b.order).map((link, index) => (
                         <div
-                          key={link.id}
+                          key={`link-${index}`}
                           draggable
                           onDragStart={(e) => handleDragStart(e, link.id)}
                           onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverId(link.id); }}

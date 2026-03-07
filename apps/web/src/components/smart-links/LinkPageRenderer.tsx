@@ -302,10 +302,11 @@ export function LinkPageRenderer({
           {visibleLinks.map((link, idx) => {
             const linkId = (link && typeof link === 'object' && link.id) ? String(link.id) : `link-${idx}`;
             const linkType = (link && typeof link === 'object' && link.type) ? String(link.type) : 'link';
+            const stableKey = `link-${idx}`;
             if (linkType === 'header') {
               return (
                 <div
-                  key={linkId}
+                  key={stableKey}
                   className={`text-center py-2 text-sm font-semibold opacity-70 ${getAnimationClass(design.animation, idx + 2)}`}
                   style={{ animationDelay: design.animation === 'stagger' ? `${(idx + 2) * 80}ms` : undefined }}
                 >
@@ -317,7 +318,7 @@ export function LinkPageRenderer({
             if (linkType === 'divider') {
               return (
                 <div
-                  key={linkId}
+                  key={stableKey}
                   className={`w-full h-px bg-current opacity-20 my-2 ${getAnimationClass(design.animation, idx + 2)}`}
                   style={{ animationDelay: design.animation === 'stagger' ? `${(idx + 2) * 80}ms` : undefined }}
                 />
@@ -328,7 +329,7 @@ export function LinkPageRenderer({
               const imageUrl = link.icon || link.url;
               return (
                 <a
-                  key={linkId}
+                  key={stableKey}
                   href={link.url || '#'}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -367,7 +368,7 @@ export function LinkPageRenderer({
               }
               return (
                 <Carousel
-                  key={linkId}
+                  key={stableKey}
                   imageUrls={urls}
                   linkUrl={link.url}
                   label={link.label}
@@ -399,7 +400,7 @@ export function LinkPageRenderer({
               const entries = Object.entries(socialUrls).filter(([, u]) => u && String(u).trim());
               return (
                 <div
-                  key={linkId}
+                  key={stableKey}
                   className={`flex flex-wrap justify-center gap-3 py-2 ${getAnimationClass(design.animation, idx + 2)}`}
                   style={{ animationDelay: design.animation === 'stagger' ? `${(idx + 2) * 80}ms` : undefined }}
                 >
@@ -436,7 +437,7 @@ export function LinkPageRenderer({
 
             return (
               <a
-                key={link.id}
+                key={stableKey}
                 href={link.url || '#'}
                 target="_blank"
                 rel="noopener noreferrer"
