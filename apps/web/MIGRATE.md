@@ -2,6 +2,8 @@
 
 The app runs `prisma migrate deploy` on every Vercel build so the production database stays in sync.
 
+**If you see "The table 'public.LinkPage' does not exist"** (Smart Links save error), see **[Smart Links tables (LinkPage, LinkItem)](#smart-links-tables-linkpage-linkitem)** below to create the tables (manual SQL or run `npm run db:migrate` in `apps/web` with `DATABASE_URL` and `DATABASE_DIRECT_URL` set).
+
 **Vercel build:** If the build failed with a TypeScript error in `posts/route.ts`, that is fixed. Ensure `DATABASE_DIRECT_URL` is set in Vercel (see below) so `prisma migrate deploy` can run.
 
 ## You only have DATABASE_URL (Supabase pooler)
