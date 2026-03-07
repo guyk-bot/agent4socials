@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseBrowser } from '@/lib/supabase/client';
 
 const raw = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
 // If no external API URL is set, use same-origin (/api)
@@ -11,6 +11,7 @@ const api = axios.create({
 
 api.interceptors.request.use(async (config) => {
   if (typeof window === 'undefined') return config;
+  const supabase = getSupabaseBrowser();
   const { data: { session } } = await supabase.auth.getSession();
   if (session?.access_token) {
     config.headers.Authorization = `Bearer ${session.access_token}`;

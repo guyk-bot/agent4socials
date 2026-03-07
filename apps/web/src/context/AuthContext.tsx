@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseBrowser } from '@/lib/supabase/client';
 import type { Session } from '@supabase/supabase-js';
 import api from '@/lib/api';
 
@@ -77,6 +77,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       return;
     }
 
+    const supabase = getSupabaseBrowser();
     const init = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -122,6 +123,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [router]);
 
   const signUpWithEmail = async (email: string, password: string, name?: string) => {
+    const supabase = getSupabaseBrowser();
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -131,11 +133,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signInWithEmail = async (email: string, password: string) => {
+    const supabase = getSupabaseBrowser();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
   };
 
   const signInWithGoogle = async () => {
+    const supabase = getSupabaseBrowser();
     const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : undefined;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -145,6 +149,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const logout = async () => {
+    const supabase = getSupabaseBrowser();
     await supabase.auth.signOut();
     setUser(null);
     router.push('/');

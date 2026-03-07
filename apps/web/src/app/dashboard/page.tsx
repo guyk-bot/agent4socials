@@ -9,7 +9,7 @@ import { useAppData, getDefaultDateRange } from '@/context/AppDataContext';
 import { useSelectedAccount, useResolvedSelectedAccount } from '@/context/SelectedAccountContext';
 import type { SocialAccount } from '@/context/SelectedAccountContext';
 import api from '@/lib/api';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseBrowser } from '@/lib/supabase/client';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import ConnectView from '@/components/dashboard/ConnectView';
 import {
@@ -652,6 +652,7 @@ export default function DashboardPage() {
     setConnectingMethod(method);
     let redirecting = false;
     try {
+      const supabase = getSupabaseBrowser();
       await supabase.auth.getSession();
       await api.get('/auth/profile').catch(() => null);
       let res;

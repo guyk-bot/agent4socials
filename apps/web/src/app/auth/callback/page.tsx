@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseBrowser } from '@/lib/supabase/client';
 
 /**
  * Auth callback for Supabase PKCE OAuth (Google, etc.).
@@ -29,7 +29,8 @@ export default function AuthCallbackPage() {
         const code = params.get('code');
 
         if (code) {
-          // PKCE flow: exchange the code for a session
+          // PKCE flow: exchange the code for a session (code verifier is in cookies via @supabase/ssr)
+          const supabase = getSupabaseBrowser();
           const { error } = await supabase.auth.exchangeCodeForSession(window.location.href);
           if (error) {
             setErrorMsg(error.message);
@@ -42,6 +43,7 @@ export default function AuthCallbackPage() {
 
         // No code in the URL — could be a legacy implicit-flow redirect with #access_token
         // or a direct navigation. Check for an existing session.
+        const supabase = getSupabaseBrowser();
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
           window.location.href = '/dashboard';
