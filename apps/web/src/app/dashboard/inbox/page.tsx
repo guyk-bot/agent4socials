@@ -637,7 +637,18 @@ export default function InboxPage() {
                         <p className="text-xs text-neutral-500 mt-0.5">
                           {e.likeCount} likes · {e.commentCount} comments
                         </p>
-                        <p className="text-xs text-neutral-400 mt-0.5">{PLATFORMS.find((p) => p.id === e.platform)?.label}</p>
+                        <p className="text-xs text-neutral-500 mt-0.5 flex items-center gap-1.5">
+                          {(() => {
+                            const plat = PLATFORMS.find((p) => p.id === e.platform);
+                            const Icon = plat?.icon;
+                            return (
+                              <>
+                                {Icon && <Icon size={12} className="shrink-0 opacity-70" />}
+                                <span>{plat?.label ?? e.platform}</span>
+                              </>
+                            );
+                          })()}
+                        </p>
                       </div>
                     </button>
                   ))}
@@ -841,7 +852,18 @@ export default function InboxPage() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-neutral-900 truncate">{name}</p>
-                        <p className="text-xs text-neutral-500 truncate">Conversation</p>
+                        <p className="text-xs text-neutral-500 truncate flex items-center gap-1.5">
+                          {platform ? (() => {
+                            const plat = PLATFORMS.find((p) => p.id === platform);
+                            const Icon = plat?.icon;
+                            return (
+                              <>
+                                {Icon && <Icon size={12} className="shrink-0 opacity-70" />}
+                                <span>{plat?.label ?? platform}</span>
+                              </>
+                            );
+                          })() : 'Conversation'}
+                        </p>
                       </div>
                       <div className="shrink-0 flex items-center gap-1">
                         {c.updatedTime && <span className="text-xs text-neutral-400">{new Date(c.updatedTime).toLocaleDateString()}</span>}
@@ -1053,7 +1075,18 @@ export default function InboxPage() {
                 <div className="text-center max-w-sm">
                   <BarChart3 size={48} className="mx-auto text-neutral-300 mb-3" />
                   <p className="text-sm text-neutral-600">Select a post from the list to see likes and comments</p>
-                  <p className="text-xs text-neutral-400 mt-1">{PLATFORMS.find((p) => p.id === selectedPlatform)?.label} engagement</p>
+                  <p className="text-xs text-neutral-400 mt-1 flex items-center justify-center gap-1.5">
+                    {selectedPlatform && (() => {
+                      const plat = PLATFORMS.find((p) => p.id === selectedPlatform);
+                      const Icon = plat?.icon;
+                      return (
+                        <>
+                          {Icon && <Icon size={14} />}
+                          <span>{plat?.label ?? selectedPlatform} engagement</span>
+                        </>
+                      );
+                    })()}
+                  </p>
                 </div>
               </div>
             ) : (
@@ -1061,14 +1094,30 @@ export default function InboxPage() {
                 <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
                   <div className="p-4 border-b border-neutral-100 bg-neutral-50/50">
                     <p className="text-sm font-medium text-neutral-800">Engagement</p>
-                    <p className="text-xs text-neutral-500 mt-0.5">{PLATFORMS.find((p) => p.id === selectedEngagement.platform)?.label}</p>
+                    <p className="text-xs text-neutral-500 mt-0.5 flex items-center gap-1.5">
+                      {(() => {
+                        const plat = PLATFORMS.find((p) => p.id === selectedEngagement.platform);
+                        const Icon = plat?.icon;
+                        return (
+                          <span className="inline-flex items-center gap-1 font-medium text-neutral-600">
+                            {Icon && <Icon size={14} />}
+                            {plat?.label ?? selectedEngagement.platform}
+                          </span>
+                        );
+                      })()}
+                    </p>
                   </div>
                   <div className="p-4">
-                    {selectedEngagement.mediaUrl && (
-                      <div className="rounded-lg overflow-hidden border border-neutral-100 mb-4 max-w-sm">
+                    <div className="rounded-lg overflow-hidden border border-neutral-100 mb-4 max-w-sm min-h-[120px] flex items-center justify-center bg-neutral-50">
+                      {selectedEngagement.mediaUrl ? (
                         <img src={selectedEngagement.mediaUrl} alt="" className="w-full h-auto object-contain" />
-                      </div>
-                    )}
+                      ) : (
+                        <div className="flex flex-col items-center justify-center gap-2 p-4 text-neutral-400">
+                          <ImageIcon size={40} strokeWidth={1.5} />
+                          <span className="text-xs">No image</span>
+                        </div>
+                      )}
+                    </div>
                     <p className="text-sm text-neutral-700 mb-3">{selectedEngagement.postPreview || 'Post'}</p>
                     <div className="flex flex-wrap gap-4 text-sm">
                       <span className="font-medium text-neutral-900">{selectedEngagement.likeCount} likes</span>
@@ -1094,8 +1143,17 @@ export default function InboxPage() {
             <div className="text-center max-w-sm">
               <MessageCircle size={48} className="mx-auto text-neutral-300 mb-3" />
               <p className="text-sm text-neutral-600">Select a conversation from the list</p>
-              <p className="text-xs text-neutral-400 mt-1">
-                {PLATFORMS.find((p) => p.id === selectedPlatform)?.label} inbox
+              <p className="text-xs text-neutral-400 mt-1 flex items-center justify-center gap-1.5">
+                {selectedPlatform && (() => {
+                  const plat = PLATFORMS.find((p) => p.id === selectedPlatform);
+                  const Icon = plat?.icon;
+                  return (
+                    <>
+                      {Icon && <Icon size={14} />}
+                      <span>{plat?.label ?? selectedPlatform} inbox</span>
+                    </>
+                  );
+                })()}
               </p>
             </div>
           </div>
@@ -1106,7 +1164,18 @@ export default function InboxPage() {
                 <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
                   <div className="p-4 border-b border-neutral-100 bg-neutral-50/50">
                     <p className="text-sm font-medium text-neutral-800">Conversation</p>
-                    <p className="text-xs text-neutral-500 mt-0.5">{PLATFORMS.find((p) => p.id === selectedPlatform)?.label} inbox</p>
+                    <p className="text-xs text-neutral-500 mt-0.5 flex items-center gap-1.5">
+                      {selectedPlatform && (() => {
+                        const plat = PLATFORMS.find((p) => p.id === selectedPlatform);
+                        const Icon = plat?.icon;
+                        return (
+                          <span className="inline-flex items-center gap-1 font-medium text-neutral-600">
+                            {Icon && <Icon size={14} />}
+                            {plat?.label ?? selectedPlatform} inbox
+                          </span>
+                        );
+                      })()}
+                    </p>
                   </div>
                   <div className="p-6 min-h-[200px]">
                     {conversationMessagesLoading ? (
