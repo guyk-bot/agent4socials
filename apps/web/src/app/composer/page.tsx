@@ -25,6 +25,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAppData } from '@/context/AppDataContext';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
+import { ReelAnalyzer } from '@/components/ReelAnalyzer';
 
 const COMPOSER_DRAFT_KEY = 'agent4socials_composer_draft';
 
@@ -198,7 +199,7 @@ export default function ComposerPage() {
     const [accountsFetched, setAccountsFetched] = useState(false);
     const [loading, setLoading] = useState(false);
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
-    const [sectionOpen, setSectionOpen] = useState({ platforms: true, media: true, content: false, commentAutomation: false, hashtags: false, schedule: false });
+    const [sectionOpen, setSectionOpen] = useState({ platforms: true, media: true, reelAnalyzer: true, content: false, commentAutomation: false, hashtags: false, schedule: false });
     const toggleSection = (key: keyof typeof sectionOpen) => setSectionOpen((s) => ({ ...s, [key]: !s[key] }));
 
     // Resizable right preview panel (px); min 280, max 720
@@ -228,6 +229,16 @@ export default function ComposerPage() {
     const [differentThumbnailPerPlatform, setDifferentThumbnailPerPlatform] = useState(false);
     const [thumbnailByPlatform, setThumbnailByPlatform] = useState<Record<string, string>>({});
     const [selectedPlatformForThumbnail, setSelectedPlatformForThumbnail] = useState<string>('');
+
+    // Reel Analyzer: metadata from video element (duration, dimensions) for analysis
+    const [reelAnalysisMetadata, setReelAnalysisMetadata] = useState<{ durationSec: number; width: number; height: number } | null>(null);
+    const reelMetadataVideoRef = useRef<HTMLVideoElement>(null);
+
+    useEffect(() => {
+        if (!(mediaType === 'reel' && mediaList.length === 1 && mediaList[0].type === 'VIDEO')) {
+            setReelAnalysisMetadata(null);
+        }
+    }, [mediaType, mediaList.length, mediaList[0]?.fileUrl]);
 
     // When platforms change, keep selected platform for thumbnail in sync
     useEffect(() => {
@@ -1773,6 +1784,39 @@ export default function ComposerPage() {
                             </div>
                         )}
                     </div>
+
+                    {mediaType === 'reel' && mediaList.length === 1 && mediaList[0].type === 'VIDEO' && (
+                        <>
+                            <video
+                                ref={reelMetadataVideoRef}
+                                src={mediaCanvasUrl(mediaList[0].fileUrl)}
+                                className="hidden"
+                                crossOrigin="anonymous"
+                                preload="metadata"
+                                onLoadedMetadata={(e) => {
+                                    const v = e.currentTarget;
+                                    const d = v.duration;
+                                    if (Number.isFinite(d) && v.videoWidth > 0 && v.videoHeight > 0) {
+                                        setReelAnalysisMetadata({ durationSec: d, width: v.videoWidth, height: v.videoHeight });
+                                    }
+                                }}
+                                onError={() => setReelAnalysisMetadata(null)}
+                            />
+                            <div className="card space-y-4">
+                                {reelAnalysisMetadata ? (
+                                    <ReelAnalyzer
+                                        videoUrl={mediaList[0].fileUrl}
+                                        caption={differentContentPerPlatform && platforms[0] ? (contentByPlatform[platforms[0]] ?? content) : content}
+                                        targetPlatform={platforms.length === 1 ? platforms[0].toLowerCase() : undefined}
+                                        metadata={reelAnalysisMetadata}
+                                        videoPreviewUrl={mediaDisplayUrl(mediaList[0].fileUrl)}
+                                    />
+                                ) : (
+                                    <p className="text-sm text-neutral-500 py-2">Loading video metadata to enable &quot;Analyze Reel Before Posting&quot;…</p>
+                                )}
+                            </div>
+                        </>
+                    )}
 
                     <div className="card space-y-4">
                         <button type="button" onClick={() => toggleSection('content')} className="w-full flex items-center justify-between text-left">
