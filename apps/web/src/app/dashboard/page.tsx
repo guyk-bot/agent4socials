@@ -291,6 +291,9 @@ export default function DashboardPage() {
   const [reconnectingId, setReconnectingId] = useState<string | null>(null);
   const [enablingTwitter1oa, setEnablingTwitter1oa] = useState(false);
   const [tokenDebugLoading, setTokenDebugLoading] = useState<string | null>(null);
+  const [pageReviews, setPageReviews] = useState<Array<{ created_time: string | null; rating: number | null; recommendation_type: string | null; review_text: string | null; has_rating: boolean; has_review: boolean }>>([]);
+  const [pageReviewsLoading, setPageReviewsLoading] = useState(false);
+  const [pageReviewsError, setPageReviewsError] = useState<string | null>(null);
   const accounts = (cachedAccounts as SocialAccount[]) ?? [];
   const hasAccounts = accounts.length > 0;
 
@@ -585,6 +588,28 @@ export default function DashboardPage() {
     // Step 2: sync in background to pull latest from platform, then update silently
     runBackgroundSync();
   }, [analyticsTab, selectedAccount?.id, selectedAccount?.platform, dateRange.start, dateRange.end, appData]);
+
+  // Facebook Page reviews (pages_read_user_content)
+  useEffect(() => {
+    if (selectedAccount?.platform !== 'FACEBOOK' || !selectedAccount?.id || analyticsTab !== 'account') {
+      setPageReviews([]);
+      setPageReviewsError(null);
+      return;
+    }
+    setPageReviewsLoading(true);
+    setPageReviewsError(null);
+    api.get(`/social/accounts/${selectedAccount.id}/page-reviews`)
+      .then((res) => {
+        const list = res.data?.reviews ?? [];
+        setPageReviews(Array.isArray(list) ? list : []);
+        if (res.data?.error) setPageReviewsError(res.data.error);
+      })
+      .catch(() => {
+        setPageReviews([]);
+        setPageReviewsError('Could not load Page reviews.');
+      })
+      .finally(() => setPageReviewsLoading(false));
+  }, [selectedAccount?.id, selectedAccount?.platform, analyticsTab]);
 
   // Aggregated insights: fetch for all connected platforms so Summary shows everything instantly
   useEffect(() => {
@@ -1176,6 +1201,48 @@ export default function DashboardPage() {
                     </div>
                   ))}
                 </div>
+
+                {/* Facebook Page reviews (pages_read_user_content) */}
+                {selectedAccount?.platform === 'FACEBOOK' && (
+                  <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-sm" style={{ borderLeft: '4px solid #1877F2' }}>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-1">Page reviews</p>
+                    <p className="text-sm text-neutral-600 mb-4">Ratings and reviews from your Facebook Page (pages_read_user_content).</p>
+                    {pageReviewsLoading && (
+                      <div className="flex items-center gap-2 text-neutral-500 text-sm py-4">
+                        <RefreshCw size={18} className="animate-spin" />
+                        Loading reviews…
+                      </div>
+                    )}
+                    {pageReviewsError && !pageReviewsLoading && (
+                      <p className="text-amber-700 text-sm py-2">{pageReviewsError}</p>
+                    )}
+                    {!pageReviewsLoading && pageReviews.length === 0 && !pageReviewsError && (
+                      <p className="text-neutral-500 text-sm py-4">No reviews yet. Reviews appear here when people rate your Page.</p>
+                    )}
+                    {!pageReviewsLoading && pageReviews.length > 0 && (
+                      <ul className="space-y-4 max-h-80 overflow-y-auto">
+                        {pageReviews.map((r, i) => (
+                          <li key={i} className="border-b border-neutral-100 pb-4 last:border-0 last:pb-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {r.rating != null && (
+                                <span className="text-amber-500 font-medium" title="Rating">{"★".repeat(Math.min(5, Math.max(0, r.rating)))}{"☆".repeat(5 - Math.min(5, Math.max(0, r.rating)))} {r.rating}/5</span>
+                              )}
+                              {r.recommendation_type && (
+                                <span className={`px-2 py-0.5 rounded text-xs font-medium ${r.recommendation_type === 'positive' ? 'bg-green-100 text-green-800' : 'bg-neutral-100 text-neutral-700'}`}>
+                                  {r.recommendation_type}
+                                </span>
+                              )}
+                              {r.created_time && (
+                                <span className="text-xs text-neutral-400">{new Date(r.created_time).toLocaleDateString(undefined, { dateStyle: 'medium' })}</span>
+                              )}
+                            </div>
+                            {r.review_text && <p className="text-sm text-neutral-800 mt-2">{r.review_text}</p>}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
 
                 {/* Twitter recent tweets */}
                 {isTwitter && recentTweets.length > 0 && (
