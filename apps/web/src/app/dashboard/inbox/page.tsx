@@ -775,11 +775,6 @@ export default function InboxPage() {
                             </div>
                           )}
                           <p className="text-sm text-neutral-800 line-clamp-2 flex-1 min-w-0">{group.postPreview}</p>
-                          {(() => {
-                            const plat = PLATFORMS.find((p) => p.id === group.platform);
-                            const Icon = plat?.icon;
-                            return Icon ? <Icon size={16} className="shrink-0 opacity-70 text-neutral-500" /> : null;
-                          })()}
                         </div>
                       </div>
                       <div className="divide-y divide-neutral-100">
@@ -800,22 +795,20 @@ export default function InboxPage() {
                               )}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium text-neutral-900 truncate">{c.authorName}</p>
-                              <p className="text-xs text-neutral-600 line-clamp-2">{c.text}</p>
-                              <p className="text-xs text-neutral-400 mt-0.5 flex items-center gap-1.5">
+                              <p className="text-xs text-neutral-400 flex items-center gap-1.5 mb-1">
                                 {(() => {
                                   const plat = PLATFORMS.find((p) => p.id === c.platform);
                                   const Icon = plat?.icon;
                                   return (
                                     <>
                                       {Icon && <Icon size={12} className="shrink-0 opacity-70" />}
-                                      <span>{plat?.label ?? c.platform}</span>
-                                      <span>·</span>
                                       <span>{new Date(c.createdAt).toLocaleString()}</span>
                                     </>
                                   );
                                 })()}
                               </p>
+                              <p className="text-sm font-medium text-neutral-900 truncate">{c.authorName}</p>
+                              <p className="text-xs text-neutral-600 line-clamp-2">{c.text}</p>
                             </div>
                           </button>
                         ))}
@@ -973,22 +966,21 @@ export default function InboxPage() {
                         </span>
                       )}
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-neutral-800">Comment on your post</p>
-                      <p className="text-xs text-neutral-500 flex items-center gap-1.5 mt-0.5">
-                        {selectedComment.authorName}
-                        <span>·</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs text-neutral-500 flex items-center gap-1.5">
                         {(() => {
                           const plat = PLATFORMS.find((p) => p.id === selectedComment.platform);
                           const Icon = plat?.icon;
                           return (
-                            <span className="inline-flex items-center gap-1 font-medium text-neutral-600">
-                              {Icon && <Icon size={14} />}
-                              {plat?.label ?? selectedComment.platform}
-                            </span>
+                            <>
+                              {Icon && <Icon size={12} className="shrink-0 opacity-70" />}
+                              <span>{new Date(selectedComment.createdAt).toLocaleString()}</span>
+                            </>
                           );
                         })()}
                       </p>
+                      <p className="text-sm font-medium text-neutral-800 mt-0.5">Comment on your post</p>
+                      <p className="text-xs text-neutral-500 mt-0.5">{selectedComment.authorName}</p>
                     </div>
                   </div>
                   <div className="p-4 space-y-3">
