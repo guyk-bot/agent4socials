@@ -758,15 +758,6 @@ export default function InboxPage() {
                   return groups.map((group) => (
                     <div key={group.key} className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
                       <div className="p-3 border-b border-neutral-100 bg-neutral-50/70">
-                        {(() => {
-                          const preview = (group.postPreview || 'Post').slice(0, 15);
-                          const shortPreview = (group.postPreview || 'Post').length > 15 ? `${preview}…` : preview;
-                          const dateStr = group.postPublishedAt ? new Date(group.postPublishedAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : '';
-                          const label = dateStr ? `${dateStr} · ${shortPreview}` : shortPreview;
-                          return (
-                            <p className="text-xs font-medium text-neutral-500 mb-2">{label}</p>
-                          );
-                        })()}
                         <div className="flex gap-3">
                           {group.postImageUrl ? (
                             <img src={group.postImageUrl} alt="Post" className="w-16 h-16 rounded-lg object-cover shrink-0" />
@@ -775,7 +766,19 @@ export default function InboxPage() {
                               <ImageIcon size={20} className="text-neutral-400" />
                             </div>
                           )}
-                          <p className="text-sm text-neutral-800 line-clamp-2 flex-1 min-w-0">{group.postPreview}</p>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <p className="text-sm text-neutral-800 line-clamp-2 flex-1 min-w-0">{group.postPreview}</p>
+                              <p className="text-xs text-neutral-400 flex items-center gap-1 shrink-0 ml-2">
+                                {(() => {
+                                  const plat = PLATFORMS.find((p) => p.id === group.platform);
+                                  const Icon = plat?.icon;
+                                  return Icon ? <Icon size={12} className="opacity-70" /> : null;
+                                })()}
+                                <span>{group.postPublishedAt ? new Date(group.postPublishedAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : ''}</span>
+                              </p>
+                            </div>
+                          </div>
                         </div>
                       </div>
                       <div className="divide-y divide-neutral-100">
