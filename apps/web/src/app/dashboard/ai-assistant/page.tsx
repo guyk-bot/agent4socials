@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Sparkles, Loader2 } from 'lucide-react';
+import { Sparkles, Loader2, MessageCircle, MessagesSquare } from 'lucide-react';
 import api from '@/lib/api';
 
 type BrandContextPayload = {
@@ -11,6 +11,8 @@ type BrandContextPayload = {
   toneExamples: string | null;
   productDescription: string | null;
   additionalContext: string | null;
+  inboxReplyExamples: string | null;
+  commentReplyExamples: string | null;
 };
 
 const defaultForm: BrandContextPayload = {
@@ -19,6 +21,8 @@ const defaultForm: BrandContextPayload = {
   toneExamples: null,
   productDescription: null,
   additionalContext: null,
+  inboxReplyExamples: null,
+  commentReplyExamples: null,
 };
 
 const MAX_LENGTH = {
@@ -27,6 +31,8 @@ const MAX_LENGTH = {
   toneExamples: 1500,
   productDescription: 2000,
   additionalContext: 1000,
+  inboxReplyExamples: 2000,
+  commentReplyExamples: 2000,
 } as const;
 
 export default function AIAssistantPage() {
@@ -47,6 +53,8 @@ export default function AIAssistantPage() {
             toneExamples: data.toneExamples ?? null,
             productDescription: data.productDescription ?? null,
             additionalContext: data.additionalContext ?? null,
+            inboxReplyExamples: (data as { inboxReplyExamples?: string | null }).inboxReplyExamples ?? null,
+            commentReplyExamples: (data as { commentReplyExamples?: string | null }).commentReplyExamples ?? null,
           });
         }
       })
@@ -66,6 +74,8 @@ export default function AIAssistantPage() {
     toneExamples: form.toneExamples || null,
     productDescription: form.productDescription || null,
     additionalContext: form.additionalContext || null,
+    inboxReplyExamples: form.inboxReplyExamples || null,
+    commentReplyExamples: form.commentReplyExamples || null,
   });
 
   const handleSave = () => {
@@ -109,7 +119,7 @@ export default function AIAssistantPage() {
   }
 
   return (
-    <div className="w-full min-h-[calc(100vh-5.5rem)] flex flex-col -mx-8 -my-8 px-8 py-8">
+      <div className="w-full min-h-[calc(100vh-5.5rem)] flex flex-col -mx-8 -my-8 px-8 py-8">
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
@@ -117,7 +127,7 @@ export default function AIAssistantPage() {
             AI Writing Assistant
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Set your brand context once. Then in the Composer use &quot;Generate with AI&quot; for post descriptions.
+            Set your brand context once. Then in the Composer use &quot;Generate with AI&quot; for post descriptions, and use the sparkle button in the Inbox to draft replies.
           </p>
         </div>
       </div>
@@ -247,6 +257,98 @@ export default function AIAssistantPage() {
           >
             {saving ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
             Save brand context
+          </button>
+        </div>
+      </div>
+
+      {/* Inbox reply examples */}
+      <div className="card p-6 mt-6">
+        <div className="flex items-start gap-3 mb-4">
+          <MessageCircle size={22} className="text-indigo-500 shrink-0 mt-0.5" />
+          <div>
+            <h2 className="font-semibold text-gray-900">Inbox reply examples</h2>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Paste 2-5 example DM replies you would send to customers. The AI will match your style when drafting inbox replies. <strong className="text-gray-700">Required</strong> to enable the AI draft button in the Inbox.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-col">
+          <label className="flex items-center justify-between text-sm font-medium text-gray-700 mb-2">
+            Example inbox replies
+            <span className="text-xs font-normal text-gray-500">{(form.inboxReplyExamples ?? '').length}/{MAX_LENGTH.inboxReplyExamples}</span>
+          </label>
+          <textarea
+            value={form.inboxReplyExamples ?? ''}
+            onChange={(e) => {
+              const v = e.target.value.slice(0, MAX_LENGTH.inboxReplyExamples);
+              setForm((f) => ({ ...f, inboxReplyExamples: v || null }));
+            }}
+            placeholder={"Example 1: Hi! Thanks for reaching out. We ship within 2-3 business days.\nExample 2: Hey, so glad you love it! Let us know if you need anything else.\nExample 3: Thanks for your message! We'll get back to you shortly."}
+            rows={7}
+            maxLength={MAX_LENGTH.inboxReplyExamples}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm min-h-[160px]"
+          />
+        </div>
+        {!(form.inboxReplyExamples?.trim()) && (
+          <p className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            AI draft replies in the Inbox are disabled until you add examples here and save.
+          </p>
+        )}
+        <div className="pt-4 mt-2 border-t border-gray-100">
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
+          >
+            {saving ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+            Save
+          </button>
+        </div>
+      </div>
+
+      {/* Comment reply examples */}
+      <div className="card p-6 mt-6">
+        <div className="flex items-start gap-3 mb-4">
+          <MessagesSquare size={22} className="text-indigo-500 shrink-0 mt-0.5" />
+          <div>
+            <h2 className="font-semibold text-gray-900">Comment reply examples</h2>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Paste 2-5 example comment replies you would post. The AI will match your style when drafting comment replies in the Inbox. <strong className="text-gray-700">Required</strong> to enable AI drafts for comments.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-col">
+          <label className="flex items-center justify-between text-sm font-medium text-gray-700 mb-2">
+            Example comment replies
+            <span className="text-xs font-normal text-gray-500">{(form.commentReplyExamples ?? '').length}/{MAX_LENGTH.commentReplyExamples}</span>
+          </label>
+          <textarea
+            value={form.commentReplyExamples ?? ''}
+            onChange={(e) => {
+              const v = e.target.value.slice(0, MAX_LENGTH.commentReplyExamples);
+              setForm((f) => ({ ...f, commentReplyExamples: v || null }));
+            }}
+            placeholder={"Example 1: Thank you so much! We're really happy to hear that.\nExample 2: Great question! Feel free to DM us for details.\nExample 3: Love the support! Stay tuned for more updates."}
+            rows={7}
+            maxLength={MAX_LENGTH.commentReplyExamples}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm min-h-[160px]"
+          />
+        </div>
+        {!(form.commentReplyExamples?.trim()) && (
+          <p className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            AI draft replies for comments are disabled until you add examples here and save.
+          </p>
+        )}
+        <div className="pt-4 mt-2 border-t border-gray-100">
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
+          >
+            {saving ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+            Save
           </button>
         </div>
       </div>

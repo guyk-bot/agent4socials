@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
   }
 
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { brandContext: true } });
-  const brand = user?.brandContext as { toneOfVoice?: string; toneExamples?: string } | null;
+  const brand = user?.brandContext as { toneOfVoice?: string; toneExamples?: string; inboxReplyExamples?: string; commentReplyExamples?: string } | null;
   const systemParts: string[] = [
     'You are a helpful assistant that writes short, natural replies for social media inbox messages and comments.',
     'Output only the reply text, nothing else. No quotes, no "Reply:", no meta-commentary.',
@@ -58,7 +58,14 @@ export async function POST(request: NextRequest) {
     systemParts.push(`Tone to match: ${brand.toneOfVoice.trim()}`);
   }
   if (brand?.toneExamples?.trim()) {
-    systemParts.push(`Example phrases: ${brand.toneExamples.trim().slice(0, 200)}`);
+    systemParts.push(`Example phrases for general tone: ${brand.toneExamples.trim().slice(0, 200)}`);
+  }
+  // Use type-specific examples if available
+  if (type === 'message' && brand?.inboxReplyExamples?.trim()) {
+    systemParts.push(`Example inbox reply messages to match style and tone:\n${brand.inboxReplyExamples.trim().slice(0, 500)}`);
+  }
+  if (type === 'comment' && brand?.commentReplyExamples?.trim()) {
+    systemParts.push(`Example comment replies to match style and tone:\n${brand.commentReplyExamples.trim().slice(0, 500)}`);
   }
   const systemPrompt = systemParts.join('\n');
 

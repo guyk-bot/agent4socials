@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
   MessageCircle,
   Plus,
   Search,
   Check,
+  CheckSquare,
+  Square,
   Send,
   Image as ImageIcon,
   Smile,
@@ -132,6 +134,39 @@ export default function InboxPage() {
   const previousConversationIdsRef = useRef<Set<string>>(new Set());
   const previousEngagementIdsRef = useRef<Set<string>>(new Set());
 
+  // Multi-select state for conversations
+  const [selectedConversationIds, setSelectedConversationIds] = useState<Set<string>>(new Set());
+  const [selectMode, setSelectMode] = useState(false);
+
+  // AI inbox examples from AI Assistant (for gating AI draft feature)
+  const [inboxReplyExamples, setInboxReplyExamples] = useState<string | null>(null);
+  const [inboxExamplesLoaded, setInboxExamplesLoaded] = useState(false);
+
+  const hasInboxExamples = !!(inboxReplyExamples?.trim());
+
+  const toggleSelectMode = useCallback(() => {
+    setSelectMode((v) => {
+      if (v) setSelectedConversationIds(new Set());
+      return !v;
+    });
+  }, []);
+
+  const markSelectedAsRead = useCallback(() => {
+    setUnreadConversationIds((prev) => {
+      const next = new Set(prev);
+      selectedConversationIds.forEach((id) => next.delete(id));
+      return next;
+    });
+    setSelectedConversationIds(new Set());
+    setSelectMode(false);
+  }, [selectedConversationIds]);
+
+  const markAllAsRead = useCallback(() => {
+    setUnreadConversationIds(new Set());
+    setSelectedConversationIds(new Set());
+    setSelectMode(false);
+  }, []);
+
   useEffect(() => {
     if ((cachedAccounts as Account[]).length > 0) return;
     api.get('/social/accounts').then((res) => {
@@ -142,6 +177,21 @@ export default function InboxPage() {
       setSelectedPlatforms(platforms.length ? platforms : []);
     }).catch(() => setAccounts([]));
   }, [cachedAccounts.length]);
+
+  // Load inbox/comment reply examples from AI Assistant to gate AI draft features
+  const [commentReplyExamples, setCommentReplyExamples] = useState<string | null>(null);
+  const hasCommentExamples = !!(commentReplyExamples?.trim());
+
+  useEffect(() => {
+    if (inboxExamplesLoaded) return;
+    api.get('/ai/brand-context').then((res) => {
+      const d = res.data;
+      if (d && typeof d === 'object') {
+        setInboxReplyExamples((d as { inboxReplyExamples?: string | null }).inboxReplyExamples ?? null);
+        setCommentReplyExamples((d as { commentReplyExamples?: string | null }).commentReplyExamples ?? null);
+      }
+    }).catch(() => {}).finally(() => setInboxExamplesLoaded(true));
+  }, [inboxExamplesLoaded]);
 
   useEffect(() => {
     if (platformFromUrl && PLATFORMS.some((p) => p.id === platformFromUrl)) {
@@ -619,7 +669,8 @@ export default function InboxPage() {
         </div>
 
         {inboxMode === 'messages' && (
-          <div className="flex border-b border-neutral-200">
+          <div className="flex flex-col border-b border-neutral-200">
+            <div className="flex">
             <button
               type="button"
               onClick={() => setInboxFilter('unresolved')}
@@ -642,6 +693,51 @@ export default function InboxPage() {
             >
               <RefreshCw size={16} />
             </button>
+            </div>
+            {/* Select toolbar */}
+            <div className="flex items-center gap-2 px-2 py-1.5 bg-neutral-50/70 border-t border-neutral-100">
+              <button
+                type="button"
+                onClick={toggleSelectMode}
+                className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${selectMode ? 'bg-indigo-100 text-indigo-700' : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100'}`}
+              >
+                {selectMode ? <CheckSquare size={13} /> : <Square size={13} />}
+                {selectMode ? 'Cancel' : 'Select'}
+              </button>
+              {selectMode && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allIds = new Set(conversations.map((c) => c.id));
+                      setSelectedConversationIds((prev) => prev.size === conversations.length ? new Set() : allIds);
+                    }}
+                    className="text-xs text-neutral-600 hover:text-neutral-900 underline"
+                  >
+                    {selectedConversationIds.size === conversations.length ? 'Deselect all' : 'Select all'}
+                  </button>
+                  {selectedConversationIds.size > 0 && (
+                    <button
+                      type="button"
+                      onClick={markSelectedAsRead}
+                      className="ml-auto inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-neutral-800 text-white hover:bg-neutral-700"
+                    >
+                      <Check size={12} />
+                      Mark {selectedConversationIds.size} as read
+                    </button>
+                  )}
+                  {unreadConversationIds.size > 0 && selectedConversationIds.size === 0 && (
+                    <button
+                      type="button"
+                      onClick={markAllAsRead}
+                      className="ml-auto text-xs text-indigo-600 hover:text-indigo-800 underline"
+                    >
+                      Mark all as read
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         )}
 
@@ -951,6 +1047,14 @@ export default function InboxPage() {
                       key={platform ? `${platform}-${c.id}` : c.id}
                       type="button"
                       onClick={() => {
+                        if (selectMode) {
+                          setSelectedConversationIds((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
+                            return next;
+                          });
+                          return;
+                        }
                         if (platform) setSelectedPlatform(platform);
                         setSelectedConversationId(c.id);
                         setUnreadConversationIds((prev) => {
@@ -960,9 +1064,15 @@ export default function InboxPage() {
                         });
                       }}
                       className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors ${
+                        selectMode && selectedConversationIds.has(c.id) ? 'bg-indigo-50 border border-indigo-200' :
                         selectedConversationId === c.id ? 'bg-indigo-50 border border-indigo-100' : unreadConversationIds.has(c.id) ? 'bg-sky-50/80 hover:bg-sky-100/80' : 'hover:bg-neutral-50'
                       }`}
                     >
+                      {selectMode ? (
+                        <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border-2 ${selectedConversationIds.has(c.id) ? 'bg-indigo-600 border-indigo-600' : 'border-neutral-300'}`}>
+                          {selectedConversationIds.has(c.id) && <Check size={12} className="text-white" />}
+                        </div>
+                      ) : (
                       <div className="w-10 h-10 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden">
                         {pictureUrl ? (
                           <img src={pictureUrl} alt="" className="w-full h-full object-cover" />
@@ -970,6 +1080,7 @@ export default function InboxPage() {
                           <span className="text-sm font-semibold text-neutral-600">{initials}</span>
                         )}
                       </div>
+                      )}
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-neutral-900 truncate">{name}</p>
                         <p className="text-xs text-neutral-500 truncate flex items-center gap-1.5">
@@ -1162,7 +1273,7 @@ export default function InboxPage() {
                   />
                   <button
                     type="button"
-                    disabled={aiReplyLoading}
+                    disabled={aiReplyLoading || !hasCommentExamples}
                     onClick={async () => {
                       if (!selectedComment) return;
                       setAiReplyError(null);
@@ -1184,8 +1295,8 @@ export default function InboxPage() {
                         setAiReplyLoading(false);
                       }
                     }}
-                    className="p-3 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 disabled:opacity-50 shrink-0 border border-indigo-200"
-                    title="Generate reply with AI"
+                    className="p-3 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 border border-indigo-200"
+                    title={hasCommentExamples ? 'Generate reply with AI' : 'Add comment reply examples in AI Assistant to enable AI drafts'}
                   >
                     {aiReplyLoading ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
                   </button>
@@ -1246,6 +1357,11 @@ export default function InboxPage() {
                     <span>{replySendError}</span>
                     <button type="button" onClick={() => setReplySendError(null)} className="ml-auto shrink-0 text-red-400 hover:text-red-600">✕</button>
                   </div>
+                )}
+                {!hasCommentExamples && inboxExamplesLoaded && (
+                  <p className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                    AI comment drafts are disabled. <a href="/dashboard/ai-assistant" className="font-medium underline">Add comment reply examples in AI Assistant</a> to enable them.
+                  </p>
                 )}
                 {(selectedPlatform === 'INSTAGRAM' || selectedPlatform === 'FACEBOOK') && (
                   <div className="mt-3 pt-3 border-t border-neutral-100">
@@ -1371,18 +1487,6 @@ export default function InboxPage() {
             <div className="text-center max-w-sm">
               <MessageCircle size={48} className="mx-auto text-neutral-300 mb-3" />
               <p className="text-sm text-neutral-600">Select a conversation from the list</p>
-              <p className="text-xs text-neutral-400 mt-1 flex items-center justify-center gap-1.5">
-                {selectedPlatform && (() => {
-                  const plat = PLATFORMS.find((p) => p.id === selectedPlatform);
-                  const Icon = plat?.icon;
-                  return (
-                    <>
-                      {Icon && <Icon size={14} />}
-                      <span>{plat?.label ?? selectedPlatform} inbox</span>
-                    </>
-                  );
-                })()}
-              </p>
             </div>
           </div>
         ) : (
@@ -1463,7 +1567,7 @@ export default function InboxPage() {
                   />
                   <button
                     type="button"
-                    disabled={dmReplySending || aiReplyLoading}
+                    disabled={dmReplySending || aiReplyLoading || !hasInboxExamples}
                     onClick={async () => {
                       const lastFromUser = [...conversationMessages].reverse().find((m) => !m.isFromPage && m.message);
                       const textToReplyTo = (lastFromUser?.message ?? conversationMessages.filter((m) => !m.isFromPage).map((m) => m.message).join('\n')) || 'Hello';
@@ -1485,11 +1589,16 @@ export default function InboxPage() {
                         setAiReplyLoading(false);
                       }
                     }}
-                    className="p-3 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 disabled:opacity-50 shrink-0 border border-indigo-200"
-                    title="Generate reply with AI"
+                    className="p-3 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 border border-indigo-200"
+                    title={hasInboxExamples ? 'Generate reply with AI' : 'Add inbox reply examples in AI Assistant to enable AI drafts'}
                   >
                     {aiReplyLoading ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
                   </button>
+                  {!hasInboxExamples && inboxExamplesLoaded && (
+                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap px-2.5 py-1.5 rounded-lg bg-neutral-800 text-white text-xs pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                      Add reply examples in AI Assistant to unlock
+                    </div>
+                  )}
                 <button
                   type="button"
                   disabled={dmReplySending || !dmReplyText.trim()}
@@ -1551,6 +1660,11 @@ export default function InboxPage() {
                 </div>
               )}
               <p className="text-xs text-neutral-400 mt-2 text-center">Send a message to this conversation. Use the sparkle button to generate a reply with AI. When sending is enabled, replies are only allowed within 24 hours of the customer&apos;s last message (Facebook/Instagram policy). If you see an error above about Advanced Access, Meta must approve your app for sending before replies will work.</p>
+              {!hasInboxExamples && inboxExamplesLoaded && (
+                <p className="text-xs text-amber-700 mt-1.5 text-center bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                  AI reply drafts are disabled. <a href="/dashboard/ai-assistant" className="font-medium underline">Add inbox reply examples in AI Assistant</a> to enable them.
+                </p>
+              )}
             </div>
             </div>
           </>

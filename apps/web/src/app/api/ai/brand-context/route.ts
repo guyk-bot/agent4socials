@@ -33,6 +33,8 @@ const MAX_LENGTH = {
   toneExamples: 1500,
   productDescription: 2000,
   additionalContext: 1000,
+  inboxReplyExamples: 2000,
+  commentReplyExamples: 2000,
 } as const;
 
 function truncate(s: string | null | undefined, max: number): string | null {
@@ -47,6 +49,8 @@ const bodySchema = {
   toneExamples: undefined as string | null | undefined,
   productDescription: undefined as string | null | undefined,
   additionalContext: undefined as string | null | undefined,
+  inboxReplyExamples: undefined as string | null | undefined,
+  commentReplyExamples: undefined as string | null | undefined,
 };
 
 export async function PUT(request: NextRequest) {
@@ -69,6 +73,8 @@ export async function PUT(request: NextRequest) {
     toneExamples: truncate(body.toneExamples, MAX_LENGTH.toneExamples),
     productDescription: truncate(body.productDescription, MAX_LENGTH.productDescription),
     additionalContext: truncate(body.additionalContext, MAX_LENGTH.additionalContext),
+    inboxReplyExamples: truncate(body.inboxReplyExamples, MAX_LENGTH.inboxReplyExamples),
+    commentReplyExamples: truncate(body.commentReplyExamples, MAX_LENGTH.commentReplyExamples),
   };
   try {
     await prisma.user.update({
