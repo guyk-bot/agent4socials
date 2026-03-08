@@ -64,12 +64,12 @@ export async function GET(
   const dbSources: PostSource[] = [
     ...targets.map((t) => ({
       platformPostId: t.platformPostId!,
-      postPreview: (t.post?.content ?? '').slice(0, 80) || 'Post',
+      postPreview: (t.post?.content ?? '').trim() || 'Post',
       postTargetId: t.id,
     })),
     ...importedPostsToFetch.map((p) => ({
       platformPostId: p.platformPostId,
-      postPreview: (p.content ?? '').slice(0, 80) || 'Post',
+      postPreview: (p.content ?? '').trim() || 'Post',
       postTargetId: `imported-${p.id}`,
       postPublishedAt: p.publishedAt?.toISOString(),
       postImageUrl: p.thumbnailUrl ?? null,
@@ -98,7 +98,7 @@ export async function GET(
         });
         liveSources = (mediaRes.data?.data ?? []).map((m, i) => ({
           platformPostId: m.id,
-          postPreview: (m.caption ?? '').slice(0, 80) || `Post ${i + 1}`,
+          postPreview: (m.caption ?? '').trim() || `Post ${i + 1}`,
           postTargetId: `live-${m.id}`,
           postImageUrl: m.media_url ?? m.thumbnail_url ?? null,
         }));
@@ -109,7 +109,7 @@ export async function GET(
         );
         liveSources = (fbRes.data?.data ?? []).map((m, i) => ({
           platformPostId: m.id,
-          postPreview: (m.message ?? m.story ?? '').slice(0, 80) || `Post ${i + 1}`,
+          postPreview: (m.message ?? m.story ?? '').trim() || `Post ${i + 1}`,
           postTargetId: `live-${m.id}`,
         }));
       }

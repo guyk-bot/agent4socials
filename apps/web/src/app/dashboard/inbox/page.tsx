@@ -1017,7 +1017,7 @@ export default function InboxPage() {
             <div className="flex-1 overflow-y-auto p-6 min-h-0">
               <div className="max-w-2xl mx-auto">
                 <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
-                  <div className="p-4 border-b border-neutral-100 bg-neutral-50/50 flex items-center gap-3">
+                  <div className="p-4 border-b border-neutral-100 flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-neutral-200 shrink-0 overflow-hidden">
                       {selectedComment.authorPictureUrl ? (
                         <img src={selectedComment.authorPictureUrl} alt="" className="w-full h-full object-cover" />
@@ -1062,37 +1062,44 @@ export default function InboxPage() {
                           </a>
                         )}
                       </div>
-                      <div className="rounded-lg overflow-hidden max-w-xl">
-                        {(selectedComment.platform === 'INSTAGRAM' || selectedComment.platform === 'FACEBOOK' || selectedComment.platform === 'YOUTUBE') && selectedComment.accountId ? (
-                          <img
-                            src={freshPostImageUrl(selectedComment)}
-                            alt="Post"
-                            className="w-full h-auto object-contain max-h-[32rem]"
-                            onError={(e) => {
-                              const el = e.currentTarget;
-                              if (selectedComment.postImageUrl && !el.src.includes('/api/proxy-image')) {
-                                el.src = proxyImageUrl(selectedComment.postImageUrl)!;
-                              } else {
-                                el.style.display = 'none';
-                              }
-                            }}
-                          />
-                        ) : selectedComment.postImageUrl ? (
-                          <img
-                            src={proxyImageUrl(selectedComment.postImageUrl)!}
-                            alt="Post"
-                            className="w-full h-auto object-contain max-h-[32rem]"
-                          />
-                        ) : (
-                          <div className="flex flex-col items-center justify-center gap-2 p-8 text-neutral-400 min-h-[200px]">
-                            <ImageIcon size={48} strokeWidth={1.5} />
-                            <span className="text-sm text-center">No image</span>
-                          </div>
-                        )}
+                      <div className="flex gap-4 items-start">
+                        <div className="rounded-lg overflow-hidden shrink-0 w-[min(200px,100%)] max-w-[200px]">
+                          {(selectedComment.platform === 'INSTAGRAM' || selectedComment.platform === 'FACEBOOK' || selectedComment.platform === 'YOUTUBE') && selectedComment.accountId ? (
+                            <img
+                              src={freshPostImageUrl(selectedComment)}
+                              alt="Post"
+                              className="w-full h-auto object-contain max-h-[18rem]"
+                              onError={(e) => {
+                                const el = e.currentTarget;
+                                if (selectedComment.postImageUrl && !el.src.includes('/api/proxy-image')) {
+                                  el.src = proxyImageUrl(selectedComment.postImageUrl)!;
+                                } else {
+                                  el.style.display = 'none';
+                                }
+                              }}
+                            />
+                          ) : selectedComment.postImageUrl ? (
+                            <img
+                              src={proxyImageUrl(selectedComment.postImageUrl)!}
+                              alt="Post"
+                              className="w-full h-auto object-contain max-h-[18rem]"
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center justify-center gap-2 p-8 text-neutral-400 min-h-[200px] bg-neutral-50 rounded-lg">
+                              <ImageIcon size={48} strokeWidth={1.5} />
+                              <span className="text-sm text-center">No image</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-1">Post description</p>
+                          {selectedComment.postPreview ? (
+                            <p className="text-sm text-neutral-800 whitespace-pre-wrap break-words">{selectedComment.postPreview}</p>
+                          ) : (
+                            <p className="text-sm text-neutral-500 italic">No description</p>
+                          )}
+                        </div>
                       </div>
-                      {selectedComment.postPreview && (
-                        <p className="text-sm text-neutral-800 mt-3 whitespace-pre-wrap break-words">{selectedComment.postPreview}</p>
-                      )}
                     </div>
                     <div>
                       <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Comment</p>
