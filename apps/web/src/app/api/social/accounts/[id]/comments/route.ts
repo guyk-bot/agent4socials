@@ -152,12 +152,23 @@ export async function GET(
         return imp?.thumbnailUrl ?? null;
       }
       if (plat === 'INSTAGRAM') {
-        const r = await axios.get<{ media_url?: string }>(
-          `https://graph.facebook.com/v18.0/${postId}`,
-          { params: { fields: 'media_url', access_token: accessToken } }
-        );
-        const url = r.data?.media_url ?? null;
-        if (url) return url;
+        // Prefer graph.facebook.com (works with Page/Facebook token). Fallback to graph.instagram.com for Instagram token.
+        try {
+          const r = await axios.get<{ media_url?: string; thumbnail_url?: string }>(
+            `https://graph.facebook.com/v18.0/${postId}`,
+            { params: { fields: 'media_url,thumbnail_url', access_token: accessToken } }
+          );
+          const url = r.data?.media_url ?? r.data?.thumbnail_url ?? null;
+          if (url) return url;
+        } catch (_) {}
+        try {
+          const r = await axios.get<{ media_url?: string; thumbnail_url?: string }>(
+            `https://graph.instagram.com/v25.0/${postId}`,
+            { params: { fields: 'media_url,thumbnail_url', access_token: accessToken } }
+          );
+          const url = r.data?.media_url ?? r.data?.thumbnail_url ?? null;
+          if (url) return url;
+        } catch (_) {}
         const imp = await prisma.importedPost.findFirst({
           where: { platformPostId: postId, socialAccountId: accountId },
           select: { thumbnailUrl: true },
