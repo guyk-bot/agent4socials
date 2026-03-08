@@ -110,3 +110,48 @@ export async function sendScheduledPostLinksEmail(to: string, openLink: string):
     return { ok: false, error: errMsg };
   }
 }
+
+const SUPPORT_EMAIL_TO = process.env.SUPPORT_EMAIL || 'support@agent4socials.com';
+
+/**
+ * Sends a support ticket from a user to the support inbox and optionally sends an auto-reply.
+ * Returns { ok: true } on success, { ok: false, error: string } on failure.
+ */
+export async function sendSupportTicketEmail(
+  senderEmail: string,
+  subject: string,
+  message: string,
+  senderName?: string | null
+): Promise<{ ok: boolean; error?: string }> {
+  if (!resend) {
+    return { ok: false, error: 'Email service is not configured' };
+  }
+  const from = process.env.RESEND_FROM_EMAIL || process.env.RESEND_FROM || DEFAULT_FROM;
+  const displayName = senderName || senderEmail;
+  const safeSubject = subject.slice(0, 200).trim() || 'Support request | Agent4Socials';
+  const safeMessage = message.slice(0, 10000).replace(/\n/g, '<br>');
+  try {
+    const { error } = await resend.emails.send({
+      from,
+      to: [SUPPORT_EMAIL_TO],
+      replyTo: senderEmail,
+      subject: `[Support] ${safeSubject}`,
+      html: `
+        <p><strong>From:</strong> ${displayName} &lt;${senderEmail}&gt;</p>
+        <p><strong>Subject:</strong> ${safeSubject}</p>
+        <hr style="border:0;border-top:1px solid #eee;margin:1em 0"/>
+        <div>${safeMessage}</div>
+        <hr style="border:0;border-top:1px solid #eee;margin:1em 0"/>
+        <p style="color:#666;font-size:12px">Sent via Agent4Socials Help → Support ticket form.</p>
+      `,
+    });
+    if (error) {
+      const errMsg = typeof error === 'object' && error !== null && 'message' in error ? String((error as { message?: unknown }).message) : String(error);
+      return { ok: false, error: errMsg };
+    }
+    return { ok: true };
+  } catch (e) {
+    const errMsg = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: errMsg };
+  }
+}

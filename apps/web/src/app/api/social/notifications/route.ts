@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
     }
   }
   const inbox = Math.min(commentsTotal + messagesTotal, 99);
-  return NextResponse.json({
+  const res = NextResponse.json({
     inbox,
     comments: Math.min(commentsTotal, 99),
     messages: Math.min(messagesTotal, 99),
@@ -130,4 +130,6 @@ export async function GET(request: NextRequest) {
       Object.entries(byPlatform).map(([p, v]) => [p, { comments: Math.min(v.comments, 99), messages: Math.min(v.messages, 99) }])
     ),
   });
+  res.headers.set('Cache-Control', 'private, max-age=30');
+  return res;
 }

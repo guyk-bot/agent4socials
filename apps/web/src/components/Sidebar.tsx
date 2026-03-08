@@ -226,12 +226,12 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
           <HelpCircle size={18} className="shrink-0" />
           <span>Need help?</span>
         </Link>
-        <a
-          href="mailto:support@agent4socials.com?subject=Support%20request%20%7C%20Agent4Socials"
+        <Link
+          href="/help#support-ticket"
           className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-100 mt-0.5"
         >
           <span className="text-xs">Open a support ticket</span>
-        </a>
+        </Link>
       </div>
     </>
   );

@@ -51,6 +51,7 @@ export async function GET(request: NextRequest) {
         createdAt: existing.created_at,
       });
       res.headers.set('X-Profile-Sync', 'ok');
+      res.headers.set('Cache-Control', 'private, max-age=60');
       return res;
     }
 
@@ -94,6 +95,7 @@ export async function GET(request: NextRequest) {
         createdAt: profile.created_at,
       });
       res.headers.set('X-Profile-Sync', 'ok');
+      res.headers.set('Cache-Control', 'private, max-age=60');
       return res;
     }
   }
@@ -101,6 +103,7 @@ export async function GET(request: NextRequest) {
   if (!hasDbUrl) {
     const res = NextResponse.json(payload);
     res.headers.set('X-Profile-Sync', 'skipped');
+    res.headers.set('Cache-Control', 'private, max-age=60');
     return res;
   }
 
@@ -136,6 +139,7 @@ export async function GET(request: NextRequest) {
       createdAt: dbUser.createdAt?.toISOString(),
     });
     res.headers.set('X-Profile-Sync', 'ok');
+    res.headers.set('Cache-Control', 'private, max-age=60');
     return res;
   } catch (e) {
     const err = e as Error;

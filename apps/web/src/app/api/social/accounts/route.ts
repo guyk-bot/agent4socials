@@ -22,5 +22,7 @@ export async function GET(request: NextRequest) {
     }
     return out;
   });
-  return NextResponse.json(accounts);
+  const res = NextResponse.json(accounts);
+  res.headers.set('Cache-Control', 'private, max-age=30');
+  return res;
 }
