@@ -13,7 +13,7 @@ export const topNavItems = [
   { icon: MessageCircle, label: 'Inbox', href: '/dashboard/inbox', badgeKey: 'inbox' as const },
   { icon: PlusSquare, label: 'Composer', href: '/composer' },
   { icon: Calendar, label: 'Calendar', href: '/calendar' },
-  { icon: Video, label: 'Reel Analyzer', href: '/composer?analyze=reel' },
+  { icon: Video, label: 'Reel Analyzer', href: '/reel-analyzer' },
 ];
 
 type AppHeaderProps = {
@@ -71,9 +71,9 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
         </Link>
         <nav className="hidden md:flex items-center gap-1">
           {topNavItems.map((item) => {
-            const isReelAnalyzer = item.href.startsWith('/composer') && item.href.includes('analyze=reel');
+            const isReelAnalyzer = item.href === '/reel-analyzer';
             const isActive = isReelAnalyzer
-              ? pathname === '/composer' && searchParams.get('analyze') === 'reel'
+              ? pathname === '/reel-analyzer'
               : item.href === '/composer'
                 ? pathname === '/composer' && searchParams.get('analyze') !== 'reel'
                 : pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href.split('?')[0]));
@@ -142,9 +142,9 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
               <span className="flex-1">Account</span>
             </Link>
             {topNavItems.map((item) => {
-              const isReelAnalyzer = item.href.startsWith('/composer') && item.href.includes('analyze=reel');
+              const isReelAnalyzer = item.href === '/reel-analyzer';
               const isActive = isReelAnalyzer
-                ? pathname === '/composer' && searchParams.get('analyze') === 'reel'
+                ? pathname === '/reel-analyzer'
                 : item.href === '/composer'
                   ? pathname === '/composer' && searchParams.get('analyze') !== 'reel'
                   : pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href.split('?')[0]));
