@@ -1062,12 +1062,12 @@ export default function InboxPage() {
                           </a>
                         )}
                       </div>
-                      <div className="rounded-lg overflow-hidden border border-neutral-100 bg-neutral-50 max-w-xs min-h-[120px] flex items-center justify-center">
+                      <div className="rounded-lg overflow-hidden max-w-xl">
                         {(selectedComment.platform === 'INSTAGRAM' || selectedComment.platform === 'FACEBOOK' || selectedComment.platform === 'YOUTUBE') && selectedComment.accountId ? (
                           <img
                             src={freshPostImageUrl(selectedComment)}
                             alt="Post"
-                            className="w-full h-auto object-contain max-h-48"
+                            className="w-full h-auto object-contain max-h-[32rem]"
                             onError={(e) => {
                               const el = e.currentTarget;
                               if (selectedComment.postImageUrl && !el.src.includes('/api/proxy-image')) {
@@ -1081,15 +1081,18 @@ export default function InboxPage() {
                           <img
                             src={proxyImageUrl(selectedComment.postImageUrl)!}
                             alt="Post"
-                            className="w-full h-auto object-contain max-h-48"
+                            className="w-full h-auto object-contain max-h-[32rem]"
                           />
                         ) : (
-                          <div className="flex flex-col items-center justify-center gap-2 p-4 text-neutral-400">
-                            <ImageIcon size={40} strokeWidth={1.5} />
-                            <span className="text-xs text-center">No image</span>
+                          <div className="flex flex-col items-center justify-center gap-2 p-8 text-neutral-400 min-h-[200px]">
+                            <ImageIcon size={48} strokeWidth={1.5} />
+                            <span className="text-sm text-center">No image</span>
                           </div>
                         )}
                       </div>
+                      {selectedComment.postPreview && (
+                        <p className="text-sm text-neutral-800 mt-3 whitespace-pre-wrap break-words">{selectedComment.postPreview}</p>
+                      )}
                     </div>
                     <div>
                       <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Comment</p>
