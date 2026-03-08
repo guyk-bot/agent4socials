@@ -193,7 +193,18 @@ export async function GET(
     for (let i = 0; i < igFbSources.length; i += CHUNK) {
       const chunk = igFbSources.slice(i, i + CHUNK);
       await Promise.all(chunk.map(async ({ platformPostId, postPreview, postTargetId }) => {
-        const postImageUrl = await getPostImageUrl(platformPostId, platform, token);
+        let postImageUrl = await getPostImageUrl(platformPostId, platform, token);
+        // Instagram: fallback to ImportedPost by caption match when ID lookup fails (e.g. different ID format)
+        if (platform === 'INSTAGRAM' && !postImageUrl && postPreview) {
+          const snippet = postPreview.slice(0, 50).trim();
+          if (snippet.length > 0) {
+            const byCaption = await prisma.importedPost.findFirst({
+              where: { socialAccountId: accountId, platform: 'INSTAGRAM', content: { not: null, contains: snippet } },
+              select: { thumbnailUrl: true },
+            });
+            if (byCaption?.thumbnailUrl) postImageUrl = byCaption.thumbnailUrl;
+          }
+        }
         try {
           if (isInstagramBusinessLogin && igUserToken) {
             const res = await axios.get<{

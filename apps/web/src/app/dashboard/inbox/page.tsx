@@ -730,46 +730,89 @@ export default function InboxPage() {
                 </button>
               </div>
             ) : (
-              <div className="p-2 space-y-0">
-                {comments
-                  .filter((c) => !searchQuery || c.text.toLowerCase().includes(searchQuery.toLowerCase()) || c.authorName.toLowerCase().includes(searchQuery.toLowerCase()))
-                  .map((c) => (
-                    <button
-                      key={c.commentId}
-                      type="button"
-                      onClick={() => setSelectedComment(c)}
-                      className={`w-full flex items-start gap-3 px-3 py-3 rounded-lg text-left transition-colors ${
-                        selectedComment?.commentId === c.commentId ? 'bg-indigo-50 border border-indigo-100' : 'hover:bg-neutral-50'
-                      }`}
-                    >
-                      <div className="w-9 h-9 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden">
-                        {c.authorPictureUrl ? (
-                          <img src={c.authorPictureUrl} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-xs font-semibold text-neutral-600">{(c.authorName || '?').slice(0, 2).toUpperCase()}</span>
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-neutral-900 truncate">{c.authorName}</p>
-                        <p className="text-xs text-neutral-600 line-clamp-2">{c.text}</p>
-                        <p className="text-xs text-neutral-400 mt-0.5 truncate">{c.postPreview}</p>
-                        <p className="text-xs text-neutral-400 mt-0.5 flex items-center gap-1.5">
+              <div className="p-2 space-y-4">
+                {(() => {
+                  const filtered = comments.filter(
+                    (c) => !searchQuery || c.text.toLowerCase().includes(searchQuery.toLowerCase()) || c.authorName.toLowerCase().includes(searchQuery.toLowerCase())
+                  );
+                  const byPost = new Map<string, PostComment[]>();
+                  for (const c of filtered) {
+                    const key = `${c.platform}-${c.platformPostId}`;
+                    if (!byPost.has(key)) byPost.set(key, []);
+                    byPost.get(key)!.push(c);
+                  }
+                  const groups = Array.from(byPost.entries()).map(([key, groupComments]) => {
+                    const newest = groupComments.reduce((a, b) => (new Date(b.createdAt).getTime() > new Date(a.createdAt).getTime() ? b : a));
+                    return {
+                      key,
+                      postPreview: newest.postPreview,
+                      postImageUrl: newest.postImageUrl,
+                      platform: newest.platform,
+                      comments: groupComments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+                    };
+                  });
+                  groups.sort((a, b) => new Date(b.comments[0].createdAt).getTime() - new Date(a.comments[0].createdAt).getTime());
+                  return groups.map((group) => (
+                    <div key={group.key} className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
+                      <div className="p-3 border-b border-neutral-100 bg-neutral-50/70">
+                        <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2">Your post</p>
+                        <div className="flex gap-3">
+                          {group.postImageUrl ? (
+                            <img src={group.postImageUrl} alt="Post" className="w-16 h-16 rounded-lg object-cover shrink-0" />
+                          ) : (
+                            <div className="w-16 h-16 rounded-lg bg-neutral-200 flex items-center justify-center shrink-0">
+                              <ImageIcon size={20} className="text-neutral-400" />
+                            </div>
+                          )}
+                          <p className="text-sm text-neutral-800 line-clamp-2 flex-1 min-w-0">{group.postPreview}</p>
                           {(() => {
-                            const plat = PLATFORMS.find((p) => p.id === c.platform);
+                            const plat = PLATFORMS.find((p) => p.id === group.platform);
                             const Icon = plat?.icon;
-                            return (
-                              <>
-                                {Icon && <Icon size={12} className="shrink-0 opacity-70" />}
-                                <span>{plat?.label ?? c.platform}</span>
-                                <span>·</span>
-                                <span>{new Date(c.createdAt).toLocaleString()}</span>
-                              </>
-                            );
+                            return Icon ? <Icon size={16} className="shrink-0 opacity-70 text-neutral-500" /> : null;
                           })()}
-                        </p>
+                        </div>
                       </div>
-                    </button>
-                  ))}
+                      <div className="divide-y divide-neutral-100">
+                        {group.comments.map((c) => (
+                          <button
+                            key={c.commentId}
+                            type="button"
+                            onClick={() => setSelectedComment(c)}
+                            className={`w-full flex items-start gap-3 px-3 py-3 text-left transition-colors ${
+                              selectedComment?.commentId === c.commentId ? 'bg-indigo-50 border-l-2 border-l-indigo-500' : 'hover:bg-neutral-50'
+                            }`}
+                          >
+                            <div className="w-9 h-9 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden">
+                              {c.authorPictureUrl ? (
+                                <img src={c.authorPictureUrl} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-xs font-semibold text-neutral-600">{(c.authorName || '?').slice(0, 2).toUpperCase()}</span>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-neutral-900 truncate">{c.authorName}</p>
+                              <p className="text-xs text-neutral-600 line-clamp-2">{c.text}</p>
+                              <p className="text-xs text-neutral-400 mt-0.5 flex items-center gap-1.5">
+                                {(() => {
+                                  const plat = PLATFORMS.find((p) => p.id === c.platform);
+                                  const Icon = plat?.icon;
+                                  return (
+                                    <>
+                                      {Icon && <Icon size={12} className="shrink-0 opacity-70" />}
+                                      <span>{plat?.label ?? c.platform}</span>
+                                      <span>·</span>
+                                      <span>{new Date(c.createdAt).toLocaleString()}</span>
+                                    </>
+                                  );
+                                })()}
+                              </p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ));
+                })()}
               </div>
             )
           ) : conversationsLoading ? (
