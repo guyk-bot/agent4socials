@@ -14,6 +14,7 @@ import {
   BarChart3,
   Sparkles,
   RefreshCw,
+  Trash2,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
@@ -108,6 +109,7 @@ export default function InboxPage() {
   const [engagementError, setEngagementError] = useState<string | null>(null);
   const [selectedEngagement, setSelectedEngagement] = useState<EngagementItem | null>(null);
   const [commentsRefreshKey, setCommentsRefreshKey] = useState(0);
+  const [deleteCommentLoading, setDeleteCommentLoading] = useState(false);
 
   useEffect(() => {
     if ((cachedAccounts as Account[]).length > 0) return;
@@ -966,6 +968,39 @@ export default function InboxPage() {
                     <span className="shrink-0 mt-0.5">⚠</span>
                     <span>{replySendError}</span>
                     <button type="button" onClick={() => setReplySendError(null)} className="ml-auto shrink-0 text-red-400 hover:text-red-600">✕</button>
+                  </div>
+                )}
+                {(selectedPlatform === 'INSTAGRAM' || selectedPlatform === 'FACEBOOK') && (
+                  <div className="mt-3 pt-3 border-t border-neutral-100">
+                    <button
+                      type="button"
+                      disabled={deleteCommentLoading}
+                      onClick={async () => {
+                        const account = effectiveAccounts.find((a) => a.platform === selectedPlatform);
+                        if (!account || !selectedComment) return;
+                        if (!confirm('Delete this comment? It will be removed from your post.')) return;
+                        setDeleteCommentLoading(true);
+                        setReplySendError(null);
+                        try {
+                          await api.post(`/social/accounts/${account.id}/comments/delete`, {
+                            commentId: selectedComment.commentId,
+                          });
+                          setComments((prev) => prev.filter((c) => c.commentId !== selectedComment.commentId));
+                          setSelectedComment(null);
+                          setReplyText('');
+                        } catch (e: unknown) {
+                          const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+                          setReplySendError(msg ?? 'Failed to delete comment.');
+                        } finally {
+                          setDeleteCommentLoading(false);
+                        }
+                      }}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-red-200 text-red-700 text-sm font-medium hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Delete this comment"
+                    >
+                      {deleteCommentLoading ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                      Delete comment
+                    </button>
                   </div>
                 )}
                 <p className="text-xs text-neutral-400 mt-2">Use the sparkle button to generate a reply with AI, then edit or send.</p>
