@@ -636,9 +636,9 @@ export default function InboxPage() {
             className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-1.5 ${inboxMode === 'messages' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
           >
             Messages
-            {(inboxMode !== 'messages' && (unreadConversationIds.size > 0 || effectiveNotifications.messages > 0)) ? (
+            {inboxMode !== 'messages' && unreadConversationIds.size > 0 ? (
               <span className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
-                {unreadConversationIds.size > 0 ? (unreadConversationIds.size > 99 ? '99' : unreadConversationIds.size) : (effectiveNotifications.messages > 99 ? '99' : effectiveNotifications.messages)}
+                {unreadConversationIds.size > 99 ? '99' : unreadConversationIds.size}
               </span>
             ) : null}
           </button>
@@ -648,9 +648,9 @@ export default function InboxPage() {
             className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-1.5 ${inboxMode === 'comments' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
           >
             Comments
-            {(inboxMode !== 'comments' && unreadCommentIds.size > 0) || (inboxMode !== 'comments' && effectiveNotifications.comments > 0 && unreadCommentIds.size === 0) ? (
+            {inboxMode !== 'comments' && unreadCommentIds.size > 0 ? (
               <span className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
-                {unreadCommentIds.size > 0 ? (unreadCommentIds.size > 99 ? '99' : unreadCommentIds.size) : (effectiveNotifications.comments > 99 ? '99' : effectiveNotifications.comments)}
+                {unreadCommentIds.size > 99 ? '99' : unreadCommentIds.size}
               </span>
             ) : null}
           </button>
@@ -694,7 +694,7 @@ export default function InboxPage() {
               <RefreshCw size={16} />
             </button>
             </div>
-            {/* Select toolbar */}
+            {/* Select toolbar: select conversations then mark as read */}
             <div className="flex items-center gap-2 px-2 py-1.5 bg-neutral-50/70 border-t border-neutral-100">
               <button
                 type="button"
@@ -704,6 +704,7 @@ export default function InboxPage() {
                 {selectMode ? <CheckSquare size={13} /> : <Square size={13} />}
                 {selectMode ? 'Cancel' : 'Select'}
               </button>
+              {!selectMode && <span className="text-xs text-neutral-400">Select conversations to mark as read</span>}
               {selectMode && (
                 <>
                   <button
