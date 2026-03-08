@@ -156,9 +156,9 @@ export async function GET(
         if (url) igMediaImageMap.set(m.id, url);
       }
     } catch { /* ignore, fallback to other methods */ }
-    // Enrich sources with pre-fetched images so every comment gets the image upfront
+    // Always override with fresh URLs (DB thumbnailUrls may be expired CDN links)
     for (const src of sources) {
-      if (!src.postImageUrl && igMediaImageMap.has(src.platformPostId)) {
+      if (igMediaImageMap.has(src.platformPostId)) {
         src.postImageUrl = igMediaImageMap.get(src.platformPostId)!;
       }
     }

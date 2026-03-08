@@ -68,6 +68,11 @@ type EngagementItem = {
   permalink?: string | null;
 };
 
+function proxyImageUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+}
+
 export default function InboxPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -760,7 +765,7 @@ export default function InboxPage() {
                       <div className="p-3 border-b border-neutral-100 bg-neutral-50/70">
                         <div className="flex gap-3">
                           {group.postImageUrl ? (
-                            <img src={group.postImageUrl} alt="Post" className="w-16 h-16 rounded-lg object-cover shrink-0" />
+                            <img src={proxyImageUrl(group.postImageUrl)!} alt="Post" className="w-16 h-16 rounded-lg object-cover shrink-0" />
                           ) : (
                             <div className="w-16 h-16 rounded-lg bg-neutral-200 flex items-center justify-center shrink-0">
                               <ImageIcon size={20} className="text-neutral-400" />
@@ -1000,7 +1005,7 @@ export default function InboxPage() {
                       })()}
                       <div className="mt-2 rounded-lg overflow-hidden border border-neutral-100 bg-neutral-50 max-w-xs min-h-[120px] flex items-center justify-center">
                         {selectedComment.postImageUrl ? (
-                          <img src={selectedComment.postImageUrl} alt="Post" className="w-full h-auto object-contain max-h-48" />
+                          <img src={proxyImageUrl(selectedComment.postImageUrl)!} alt="Post" className="w-full h-auto object-contain max-h-48" />
                         ) : (
                           <div className="flex flex-col items-center justify-center gap-2 p-4 text-neutral-400">
                             <ImageIcon size={40} strokeWidth={1.5} />
