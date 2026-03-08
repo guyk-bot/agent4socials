@@ -10,6 +10,7 @@ interface User {
   id: string;
   email: string;
   name?: string;
+  avatarUrl?: string;
   createdAt?: string;
 }
 
@@ -29,7 +30,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  const syncUserFromApi = async (accessToken: string, fallbackUser?: { id: string; email?: string; name?: string } | null) => {
+  const syncUserFromApi = async (accessToken: string, fallbackUser?: { id: string; email?: string; name?: string; avatarUrl?: string } | null) => {
     try {
       const res = await fetch('/api/auth/profile', {
         headers: { Authorization: `Bearer ${accessToken}` },
@@ -59,6 +60,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           id: fallbackUser.id,
           email: fallbackUser.email ?? '',
           name: fallbackUser.name,
+          avatarUrl: fallbackUser.avatarUrl,
         });
       } else {
         setUser(null);
@@ -82,11 +84,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.access_token) {
-          const fallback = {
-            id: session.user.id,
-            email: session.user.email ?? '',
-            name: session.user.user_metadata?.full_name ?? session.user.user_metadata?.name ?? undefined,
-          };
+        const fallback = {
+          id: session.user.id,
+          email: session.user.email ?? '',
+          name: session.user.user_metadata?.full_name ?? session.user.user_metadata?.name ?? undefined,
+          avatarUrl: (session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture) ?? undefined,
+        };
           await syncUserFromApi(session.access_token, fallback);
         } else {
           setUser(null);
@@ -105,6 +108,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           id: session.user.id,
           email: session.user.email ?? '',
           name: session.user.user_metadata?.full_name ?? session.user.user_metadata?.name ?? undefined,
+          avatarUrl: (session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture) ?? undefined,
         };
         await syncUserFromApi(session.access_token, fallback);
         // Redirect to dashboard only when user just signed in from /login or /signup (not from homepage /).

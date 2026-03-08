@@ -2,7 +2,6 @@
 
 import React, { useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import {
     ListChecks,
@@ -17,7 +16,6 @@ import {
     Link2,
 } from 'lucide-react';
 import api from '@/lib/api';
-import { useAuth } from '@/context/AuthContext';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
@@ -52,8 +50,7 @@ type SidebarProps = {
 export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {} }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user } = useAuth();
-  const { logoUrl, primaryColor, textColor, appName } = useWhiteLabel();
+  const { primaryColor, textColor } = useWhiteLabel();
   const { cachedAccounts, setCachedAccounts } = useAccountsCache() ?? { cachedAccounts: [], setCachedAccounts: () => {} };
   const ctx = useSelectedAccount();
   const selectedAccountId = ctx?.selectedAccountId ?? null;
@@ -77,7 +74,6 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
 
   const accent = primaryColor || '#6366f1';
   const text = textColor || '#171717';
-  const isAccountPage = pathname === '/dashboard/account';
   const isSummaryView = pathname === '/dashboard/summary';
   const isDashboardOverview = pathname === '/dashboard/summary' && !selectedAccountId && !selectedPlatformForConnect;
 
@@ -217,23 +213,6 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
         >
           <Settings size={18} className="shrink-0" />
           <span>Brand settings</span>
-        </Link>
-      </div>
-
-      <div className="mt-auto p-4 border-t border-neutral-200 shrink-0">
-        <Link
-          href="/dashboard/account"
-          className={`w-full flex items-center p-2 rounded-lg transition-colors ${isAccountPage ? '' : 'hover:bg-white/70'}`}
-          style={isAccountPage ? { backgroundColor: `${accent}20`, color: accent } : undefined}
-        >
-          <div className="w-8 h-8 rounded-full flex items-center justify-center font-semibold text-xs border border-neutral-200 shrink-0 bg-white" style={{ color: accent }}>
-            {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
-          </div>
-          <div className="ml-3 flex-1 min-w-0">
-            <p className="text-sm font-medium truncate" style={{ color: text }}>{user?.name || 'User'}</p>
-            <p className="text-xs truncate opacity-70" style={{ color: text }}>{user?.email}</p>
-          </div>
-          <ChevronRight size={16} className="text-neutral-400 shrink-0" />
         </Link>
       </div>
     </>

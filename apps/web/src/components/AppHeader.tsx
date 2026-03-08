@@ -3,16 +3,17 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { MessageCircle, PlusSquare, Calendar, Menu, PanelLeft, PanelLeftClose, Video, User } from 'lucide-react';
+import { MessageCircle, PlusSquare, Calendar, Menu, PanelLeft, PanelLeftClose, Video } from 'lucide-react';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
 import { useAppData } from '@/context/AppDataContext';
+import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 
 export const topNavItems = [
   { icon: MessageCircle, label: 'Inbox', href: '/dashboard/inbox', badgeKey: 'inbox' as const },
   { icon: PlusSquare, label: 'Composer', href: '/composer' },
-  { icon: Video, label: 'Reel Analyzer', href: '/composer?analyze=reel' },
   { icon: Calendar, label: 'Calendar', href: '/calendar' },
+  { icon: Video, label: 'Reel Analyzer', href: '/composer?analyze=reel' },
 ];
 
 type AppHeaderProps = {
@@ -23,6 +24,7 @@ type AppHeaderProps = {
 export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHeaderProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { user } = useAuth();
   const { logoUrl, appName } = useWhiteLabel();
   const appData = useAppData();
   const [topNavOpen, setTopNavOpen] = useState(false);
@@ -98,14 +100,21 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
         </nav>
       </div>
 
-      {/* Account link (top right) + mobile menu */}
+      {/* Profile/account (top right) + mobile menu */}
       <div className="flex items-center gap-1 relative" ref={dropdownRef}>
         <Link
           href="/dashboard/account"
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-neutral-300 hover:text-white hover:bg-white/10 transition-colors"
+          className="flex items-center justify-center w-9 h-9 rounded-full overflow-hidden border-2 border-neutral-600 text-neutral-300 hover:text-white hover:border-neutral-500 hover:bg-white/10 transition-colors shrink-0"
+          title="Account"
+          aria-label="Account"
         >
-          <User size={18} className="shrink-0" />
-          <span className="hidden sm:inline">Account</span>
+          {user?.avatarUrl ? (
+            <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-sm font-semibold">
+              {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
+            </span>
+          )}
         </Link>
         <button
           type="button"
@@ -123,7 +132,13 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
               onClick={() => setTopNavOpen(false)}
               className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors ${pathname === '/dashboard/account' ? 'bg-white/15 text-white' : 'text-neutral-300 hover:text-white hover:bg-white/10'}`}
             >
-              <User size={18} className="shrink-0" />
+              {user?.avatarUrl ? (
+                <img src={user.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
+              ) : (
+                <span className="w-8 h-8 rounded-full bg-neutral-600 flex items-center justify-center text-sm font-semibold shrink-0">
+                  {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
+                </span>
+              )}
               <span className="flex-1">Account</span>
             </Link>
             {topNavItems.map((item) => {

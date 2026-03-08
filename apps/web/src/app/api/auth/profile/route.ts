@@ -23,10 +23,12 @@ export async function GET(request: NextRequest) {
 
   const email = user.email ?? '';
   const name = user.user_metadata?.full_name || user.user_metadata?.name || null;
+  const avatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture || null;
   const payload = {
     id: user.id,
     email: user.email,
     name: name ?? undefined,
+    avatarUrl: avatarUrl ?? undefined,
     createdAt: (user as { created_at?: string }).created_at ?? undefined,
   };
 
@@ -45,6 +47,7 @@ export async function GET(request: NextRequest) {
         id: existing.user_id,
         email: existing.email,
         name: existing.full_name ?? undefined,
+        avatarUrl: payload.avatarUrl,
         createdAt: existing.created_at,
       });
       res.headers.set('X-Profile-Sync', 'ok');
@@ -87,6 +90,7 @@ export async function GET(request: NextRequest) {
         id: profile.user_id,
         email: profile.email,
         name: profile.full_name ?? undefined,
+        avatarUrl: payload.avatarUrl,
         createdAt: profile.created_at,
       });
       res.headers.set('X-Profile-Sync', 'ok');
@@ -128,6 +132,7 @@ export async function GET(request: NextRequest) {
       id: dbUser.id,
       email: dbUser.email,
       name: dbUser.name ?? undefined,
+      avatarUrl: (user.user_metadata?.avatar_url || user.user_metadata?.picture) ?? undefined,
       createdAt: dbUser.createdAt?.toISOString(),
     });
     res.headers.set('X-Profile-Sync', 'ok');
