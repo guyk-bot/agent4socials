@@ -380,6 +380,16 @@ export async function POST(
         { status: 400 }
       );
     }
+    // Meta 24-hour messaging window: free-form messages only within 24h of the user's last message (error #10 / "outside of allowed window")
+    const isOutsideWindow = code === 10 || /outside of allowed window|#10|24 hour|messaging window/i.test(String(apiMsg));
+    if (isOutsideWindow) {
+      return NextResponse.json(
+        {
+          message: 'This conversation is outside the 24-hour messaging window. Facebook and Instagram only allow free-form replies within 24 hours of the customer\'s last message. Ask the customer to send a new message to reopen the window, or use approved message templates in Meta for Developers.',
+        },
+        { status: 400 }
+      );
+    }
     if (err?.response?.status === 400 || String(apiMsg).includes('permission') || String(apiMsg).includes('24 hour')) {
       return NextResponse.json(
         { message: apiMsg || 'Cannot send. The user may need to message your account first, or reconnect and grant messaging permission.' },
