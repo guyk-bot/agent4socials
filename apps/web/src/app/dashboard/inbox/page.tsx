@@ -1015,6 +1015,7 @@ export default function InboxPage() {
                     <p className="mt-1 text-xs text-amber-700">For YouTube and X (Twitter) comments, reply on the platform.</p>
                   </div>
                 ) : (
+                <>
                 <div className="flex items-end gap-2">
                   <textarea
                     placeholder="Type your reply..."
@@ -1119,6 +1120,7 @@ export default function InboxPage() {
                     </button>
                   </div>
                 )}
+                </>
                 )}
                 {selectedComment.platform === 'INSTAGRAM' || selectedComment.platform === 'FACEBOOK' ? (
                   <p className="text-xs text-neutral-400 mt-2">Use the sparkle button to generate a reply with AI, then edit or send.</p>
