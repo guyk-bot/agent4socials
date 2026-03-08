@@ -364,6 +364,20 @@ export default function InboxPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [commentsSupportedPlatforms.join(','), effectiveAccounts, appData, commentsRefreshKey]);
 
+  // Auto-refresh comments so new comments appear at top (every 60s when Comments tab is active, and when user returns to tab)
+  useEffect(() => {
+    if (inboxMode !== 'comments' || commentsSupportedPlatforms.length === 0) return;
+    const interval = setInterval(() => setCommentsRefreshKey((k) => k + 1), 60_000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') setCommentsRefreshKey((k) => k + 1);
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [inboxMode, commentsSupportedPlatforms.length]);
+
   // For engagement, always show all connected IG+FB accounts regardless of platform filter
   const allEngagementAccounts = effectiveAccounts.filter((a) => a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK' || a.platform === 'YOUTUBE');
   const engagementPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK' || p === 'YOUTUBE');
@@ -952,6 +966,12 @@ export default function InboxPage() {
                 {aiReplyError && (
                   <p className="text-sm text-amber-700 mb-2">{aiReplyError}</p>
                 )}
+                {selectedComment.platform !== 'INSTAGRAM' && selectedComment.platform !== 'FACEBOOK' ? (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    <p className="font-medium">Reply from the app is only available for Instagram and Facebook.</p>
+                    <p className="mt-1 text-xs text-amber-700">For YouTube and X (Twitter) comments, reply on the platform.</p>
+                  </div>
+                ) : (
                 <div className="flex items-end gap-2">
                   <textarea
                     placeholder="Type your reply..."
@@ -993,7 +1013,7 @@ export default function InboxPage() {
                   type="button"
                   disabled={replySending || !replyText.trim()}
                   onClick={async () => {
-                    const account = effectiveAccounts.find((a) => a.platform === selectedPlatform);
+                    const account = effectiveAccounts.find((a) => a.platform === selectedComment.platform);
                     if (!account || !selectedComment) return;
                     setReplySending(true);
                     try {
@@ -1029,7 +1049,7 @@ export default function InboxPage() {
                       type="button"
                       disabled={deleteCommentLoading}
                       onClick={async () => {
-                        const account = effectiveAccounts.find((a) => a.platform === selectedPlatform);
+                        const account = effectiveAccounts.find((a) => a.platform === selectedComment.platform);
                         if (!account || !selectedComment) return;
                         if (!confirm('Delete this comment? It will be removed from your post.')) return;
                         setDeleteCommentLoading(true);
@@ -1056,7 +1076,10 @@ export default function InboxPage() {
                     </button>
                   </div>
                 )}
-                <p className="text-xs text-neutral-400 mt-2">Use the sparkle button to generate a reply with AI, then edit or send.</p>
+                )}
+                {selectedComment.platform === 'INSTAGRAM' || selectedComment.platform === 'FACEBOOK' ? (
+                  <p className="text-xs text-neutral-400 mt-2">Use the sparkle button to generate a reply with AI, then edit or send.</p>
+                ) : null}
               </div>
             </div>
           </>
