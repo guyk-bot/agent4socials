@@ -294,7 +294,8 @@ export default function InboxPage() {
       setConversationsDebug(null);
     }
     return () => { cancelled = true; };
-  }, [dmOrFbPlatforms.join(','), effectiveAccounts, appData]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dmOrFbPlatforms.join(','), effectiveAccounts.map((a) => a.id).join(',')]);
 
   const commentsSupportedPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK' || p === 'TWITTER' || p === 'YOUTUBE');
   useEffect(() => {
@@ -363,7 +364,7 @@ export default function InboxPage() {
     }
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [commentsSupportedPlatforms.join(','), effectiveAccounts, appData, commentsRefreshKey]);
+  }, [commentsSupportedPlatforms.join(','), effectiveAccounts.map((a) => a.id).join(','), commentsRefreshKey]);
 
   // Auto-refresh comments so new comments appear at top (every 60s when Comments tab is active, and when user returns to tab)
   useEffect(() => {
