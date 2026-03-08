@@ -43,11 +43,9 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
       return `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.YOUTUBE_CLIENT_ID}&redirect_uri=${encodeURIComponent(ytRedirect)}&response_type=code&scope=${ytScopes}&access_type=offline&state=${state}&prompt=consent`;
     }
     case 'FACEBOOK': {
-      // Full set for admin testing and App Review: posts, engagement, messaging, read Page content.
-      // If you see "Invalid Scopes: pages_manage_posts, pages_manage_engagement": add those permissions in
-      // Meta for Developers → Your App → App Review → Permissions and features (search for the permission and add it).
-      // Optional: set FACEBOOK_OAUTH_SCOPES in env to override (e.g. omit the two above until they're added in the app).
-      const defaultFbScope = 'pages_read_engagement,pages_show_list,pages_manage_posts,pages_manage_engagement,pages_messaging,pages_read_user_content,read_insights,business_management';
+      // Default scope omits pages_manage_posts and pages_manage_engagement so Connect works without adding them in Meta first.
+      // For Page posting and comment management, add those permissions in Meta → App Review → Permissions and features, then set FACEBOOK_OAUTH_SCOPES to the full list (see OAUTH_SETUP.md).
+      const defaultFbScope = 'pages_read_engagement,pages_show_list,pages_messaging,pages_read_user_content,read_insights,business_management';
       const fbScope = (typeof process.env.FACEBOOK_OAUTH_SCOPES === 'string' && process.env.FACEBOOK_OAUTH_SCOPES.trim())
         ? process.env.FACEBOOK_OAUTH_SCOPES.trim()
         : defaultFbScope;
