@@ -1048,12 +1048,32 @@ export default function InboxPage() {
                     if (!account || !selectedComment) return;
                     setReplySending(true);
                     try {
+                      const sentMessage = replyText.trim();
                       await api.post(`/social/accounts/${account.id}/comments/reply`, {
                         commentId: selectedComment.commentId,
-                        message: replyText.trim(),
+                        message: sentMessage,
                       });
+                      // Add the sent reply optimistically to the top of the list
+                      const myReply: PostComment = {
+                        commentId: `local-reply-${Date.now()}`,
+                        postTargetId: selectedComment.postTargetId,
+                        platformPostId: selectedComment.platformPostId,
+                        accountId: selectedComment.accountId,
+                        postPreview: selectedComment.postPreview,
+                        postImageUrl: selectedComment.postImageUrl,
+                        postPublishedAt: selectedComment.postPublishedAt,
+                        postUrl: selectedComment.postUrl,
+                        text: sentMessage,
+                        authorName: 'You',
+                        authorPictureUrl: null,
+                        createdAt: new Date().toISOString(),
+                        platform: selectedComment.platform,
+                      };
+                      setComments((prev) => [myReply, ...prev]);
                       setReplyText('');
-                      setSelectedComment(null);
+                      setReplySendError(null);
+                      // Refresh after a short delay so the API-side reply appears
+                      setTimeout(() => setCommentsRefreshKey((k) => k + 1), 3000);
                     } catch (e: unknown) {
                       const err = e as { response?: { data?: unknown }; message?: string };
                       const data = err?.response?.data;

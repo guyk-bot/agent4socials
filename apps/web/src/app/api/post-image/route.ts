@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import axios from 'axios';
 
@@ -7,6 +6,7 @@ import axios from 'axios';
  * GET /api/post-image?accountId=xxx&postId=yyy
  * Fetches a fresh image URL from the platform API (bypassing cached/expired CDN URLs)
  * then proxies the image bytes to the client.
+ * No user auth required — img tags can't send auth headers, and post images are public.
  */
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -17,13 +17,8 @@ export async function GET(request: NextRequest) {
     return new NextResponse('Missing accountId or postId', { status: 400 });
   }
 
-  const userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
-  if (!userId) {
-    return new NextResponse('Unauthorized', { status: 401 });
-  }
-
-  const account = await prisma.socialAccount.findFirst({
-    where: { id: accountId, userId },
+  const account = await prisma.socialAccount.findUnique({
+    where: { id: accountId },
     select: { platform: true, accessToken: true, platformUserId: true, credentialsJson: true },
   });
   if (!account) {
