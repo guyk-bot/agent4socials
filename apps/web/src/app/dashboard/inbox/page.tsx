@@ -15,6 +15,7 @@ import {
   Sparkles,
   RefreshCw,
   Trash2,
+  ExternalLink,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
@@ -52,6 +53,7 @@ type PostComment = {
   postPreview: string;
   postImageUrl?: string | null;
   postPublishedAt?: string | null;
+  postUrl?: string | null;
   text: string;
   authorName: string;
   authorPictureUrl?: string | null;
@@ -755,6 +757,7 @@ export default function InboxPage() {
                       postPreview: newest.postPreview,
                       postImageUrl: newest.postImageUrl,
                       postPublishedAt: newest.postPublishedAt,
+                      postUrl: groupComments.find((c) => c.postUrl)?.postUrl ?? null,
                       platform: newest.platform,
                       comments: groupComments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
                     };
@@ -783,6 +786,18 @@ export default function InboxPage() {
                                 <span>{group.postPublishedAt ? new Date(group.postPublishedAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : ''}</span>
                               </p>
                             </div>
+                            {group.postUrl && (
+                              <a
+                                href={group.postUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-700 hover:underline mt-0.5"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <ExternalLink size={10} />
+                                Open in {PLATFORMS.find((p) => p.id === group.platform)?.name ?? group.platform.charAt(0) + group.platform.slice(1).toLowerCase()}
+                              </a>
+                            )}
                           </div>
                         </div>
                       </div>

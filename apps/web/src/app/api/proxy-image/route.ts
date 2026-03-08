@@ -29,7 +29,6 @@ export async function GET(request: NextRequest) {
         'User-Agent': 'Mozilla/5.0 (compatible; Agent4Socials/1.0)',
         'Accept': 'image/*,*/*',
       },
-      // @ts-expect-error - next fetch options
       cache: 'no-store',
     });
 
