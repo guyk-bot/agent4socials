@@ -60,7 +60,7 @@ export async function GET(
   });
   const importedPostsToFetch = imported.filter((p) => !targetPostIds.has(p.platformPostId));
 
-  type PostSource = { platformPostId: string; postPreview: string; postTargetId: string };
+  type PostSource = { platformPostId: string; postPreview: string; postTargetId: string; postPublishedAt?: string; postImageUrl?: string | null };
   const dbSources: PostSource[] = [
     ...targets.map((t) => ({
       platformPostId: t.platformPostId!,
@@ -71,6 +71,8 @@ export async function GET(
       platformPostId: p.platformPostId,
       postPreview: (p.content ?? '').slice(0, 80) || 'Post',
       postTargetId: `imported-${p.id}`,
+      postPublishedAt: p.publishedAt?.toISOString(),
+      postImageUrl: p.thumbnailUrl ?? null,
     })),
   ];
 
@@ -89,14 +91,15 @@ export async function GET(
         const mediaUrl = isInstagramBizEarly
           ? 'https://graph.instagram.com/v25.0/me/media'
           : `https://graph.facebook.com/v18.0/${account.platformUserId}/media`;
-        const mediaRes = await axios.get<{ data?: Array<{ id: string; caption?: string }> }>(mediaUrl, {
-          params: { fields: 'id,caption', limit: 20, access_token: liveToken },
+        const mediaRes = await axios.get<{ data?: Array<{ id: string; caption?: string; media_url?: string; thumbnail_url?: string }> }>(mediaUrl, {
+          params: { fields: 'id,caption,media_url,thumbnail_url', limit: 20, access_token: liveToken },
           timeout: 15_000,
         });
         liveSources = (mediaRes.data?.data ?? []).map((m, i) => ({
           platformPostId: m.id,
           postPreview: (m.caption ?? '').slice(0, 80) || `Post ${i + 1}`,
           postTargetId: `live-${m.id}`,
+          postImageUrl: m.media_url ?? m.thumbnail_url ?? null,
         }));
       } else if (platform === 'FACEBOOK') {
         const fbRes = await axios.get<{ data?: Array<{ id: string; message?: string; story?: string }> }>(
@@ -126,6 +129,7 @@ export async function GET(
     platformPostId: string;
     postPreview: string;
     postImageUrl?: string | null;
+    postPublishedAt?: string | null;
     text: string;
     authorName: string;
     authorPictureUrl?: string | null;
@@ -192,17 +196,21 @@ export async function GET(
     const CHUNK = 6;
     for (let i = 0; i < igFbSources.length; i += CHUNK) {
       const chunk = igFbSources.slice(i, i + CHUNK);
-      await Promise.all(chunk.map(async ({ platformPostId, postPreview, postTargetId }) => {
-        let postImageUrl = await getPostImageUrl(platformPostId, platform, token);
+      await Promise.all(chunk.map(async ({ platformPostId, postPreview, postTargetId, postPublishedAt, postImageUrl: sourceImageUrl }) => {
+        let postImageUrl = sourceImageUrl ?? (await getPostImageUrl(platformPostId, platform, token));
+        let postPublishedAtResolved = postPublishedAt;
         // Instagram: fallback to ImportedPost by caption match when ID lookup fails (e.g. different ID format)
         if (platform === 'INSTAGRAM' && !postImageUrl && postPreview) {
           const snippet = postPreview.slice(0, 50).trim();
           if (snippet.length > 0) {
             const byCaption = await prisma.importedPost.findFirst({
               where: { socialAccountId: accountId, platform: 'INSTAGRAM', content: { not: null, contains: snippet } },
-              select: { thumbnailUrl: true },
+              select: { thumbnailUrl: true, publishedAt: true },
             });
-            if (byCaption?.thumbnailUrl) postImageUrl = byCaption.thumbnailUrl;
+            if (byCaption?.thumbnailUrl) {
+              postImageUrl = byCaption.thumbnailUrl;
+              if (byCaption.publishedAt) postPublishedAtResolved = byCaption.publishedAt.toISOString();
+            }
           }
         }
         try {
@@ -221,6 +229,7 @@ export async function GET(
             for (const c of res.data?.data ?? []) {
               comments.push({
                 commentId: c.id, postTargetId, platformPostId, postPreview, postImageUrl,
+                postPublishedAt: postPublishedAtResolved ?? null,
                 text: c.text ?? '', authorName: c.from?.username ?? 'Unknown',
                 authorPictureUrl: null, createdAt: c.timestamp ?? new Date().toISOString(), platform,
               });
@@ -249,6 +258,7 @@ export async function GET(
               const text = (platform === 'INSTAGRAM' ? c.text : c.message) ?? '';
               comments.push({
                 commentId: c.id, postTargetId, platformPostId, postPreview, postImageUrl,
+                postPublishedAt: postPublishedAtResolved ?? null,
                 text, authorName, authorPictureUrl: authorPictureUrl || null,
                 createdAt: c.created_time ?? new Date().toISOString(), platform,
               });
@@ -266,9 +276,9 @@ export async function GET(
   }
 
   for (const source of sources) {
-    const { platformPostId, postPreview, postTargetId } = source;
+    const { platformPostId, postPreview, postTargetId, postPublishedAt, postImageUrl: sourceImageUrl } = source as PostSource;
     if (platform === 'INSTAGRAM' || platform === 'FACEBOOK') continue; // handled above in parallel block
-    const postImageUrl = await getPostImageUrl(platformPostId, platform, token);
+    const postImageUrl = sourceImageUrl ?? (await getPostImageUrl(platformPostId, platform, token));
 
     if (platform === 'YOUTUBE') {
       try {
@@ -301,6 +311,7 @@ export async function GET(
             platformPostId,
             postPreview,
             postImageUrl,
+            postPublishedAt: postPublishedAt ?? null,
             text: top.textOriginal ?? '',
             authorName: top.authorDisplayName ?? 'Unknown',
             authorPictureUrl: top.authorProfileImageUrl ?? null,
@@ -345,6 +356,7 @@ export async function GET(
             platformPostId,
             postPreview,
             postImageUrl: null,
+            postPublishedAt: postPublishedAt ?? null,
             text: t.text ?? '',
             authorName,
             authorPictureUrl,

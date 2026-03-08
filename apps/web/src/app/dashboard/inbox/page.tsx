@@ -51,6 +51,7 @@ type PostComment = {
   platformPostId: string;
   postPreview: string;
   postImageUrl?: string | null;
+  postPublishedAt?: string | null;
   text: string;
   authorName: string;
   authorPictureUrl?: string | null;
@@ -747,6 +748,7 @@ export default function InboxPage() {
                       key,
                       postPreview: newest.postPreview,
                       postImageUrl: newest.postImageUrl,
+                      postPublishedAt: newest.postPublishedAt,
                       platform: newest.platform,
                       comments: groupComments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
                     };
@@ -755,7 +757,15 @@ export default function InboxPage() {
                   return groups.map((group) => (
                     <div key={group.key} className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
                       <div className="p-3 border-b border-neutral-100 bg-neutral-50/70">
-                        <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2">Your post</p>
+                        {(() => {
+                          const preview = (group.postPreview || 'Post').slice(0, 15);
+                          const shortPreview = (group.postPreview || 'Post').length > 15 ? `${preview}…` : preview;
+                          const dateStr = group.postPublishedAt ? new Date(group.postPublishedAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : '';
+                          const label = dateStr ? `${dateStr} · ${shortPreview}` : shortPreview;
+                          return (
+                            <p className="text-xs font-medium text-neutral-500 mb-2">{label}</p>
+                          );
+                        })()}
                         <div className="flex gap-3">
                           {group.postImageUrl ? (
                             <img src={group.postImageUrl} alt="Post" className="w-16 h-16 rounded-lg object-cover shrink-0" />
@@ -987,7 +997,13 @@ export default function InboxPage() {
                       <p className="text-sm text-neutral-800 mt-1">{selectedComment.text}</p>
                     </div>
                     <div>
-                      <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Your post</p>
+                      {(() => {
+                        const preview = (selectedComment.postPreview || 'Post').slice(0, 15);
+                        const shortPreview = (selectedComment.postPreview || 'Post').length > 15 ? `${preview}…` : preview;
+                        const dateStr = selectedComment.postPublishedAt ? new Date(selectedComment.postPublishedAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : '';
+                        const label = dateStr ? `${dateStr} · ${shortPreview}` : shortPreview;
+                        return <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2">{label}</p>;
+                      })()}
                       <div className="mt-2 rounded-lg overflow-hidden border border-neutral-100 bg-neutral-50 max-w-xs min-h-[120px] flex items-center justify-center">
                         {selectedComment.postImageUrl ? (
                           <img src={selectedComment.postImageUrl} alt="Post" className="w-full h-auto object-contain max-h-48" />
