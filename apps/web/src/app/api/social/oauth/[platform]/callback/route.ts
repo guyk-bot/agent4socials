@@ -970,10 +970,10 @@ export async function GET(
   });
   const accountIdParam = mainAccount?.id ? `&accountId=${encodeURIComponent(mainAccount.id)}` : '';
   const twitter1oaNext = plat === 'TWITTER' && process.env.TWITTER_API_KEY && process.env.TWITTER_API_SECRET ? '&twitter_1oa_next=1' : '';
-  const dashboardUrl = `${baseUrl}/dashboard?connecting=1${accountIdParam}${twitter1oaNext}`;
+  const successRedirectUrl = `${baseUrl}/dashboard?connecting=1${accountIdParam}${twitter1oaNext}`;
   const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Agent4Socials – Account connected</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;"><p><strong>Agent4Socials</strong> – Account connected.</p><script>
 (function(){
-  var url = ${JSON.stringify(dashboardUrl)};
+  var url = ${JSON.stringify(successRedirectUrl)};
   if (window.opener) {
     try { window.opener.location.href = url; } catch (e) {}
     try { window.close(); } catch (e) {}
@@ -981,6 +981,6 @@ export async function GET(
     window.location.href = url;
   }
 })();
-</script><p>Redirecting to <a href="${dashboardUrl}">Dashboard</a>…</p></body></html>`;
+</script><p>Redirecting to <a href="${successRedirectUrl}">Dashboard</a>…</p></body></html>`;
   return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
 }
