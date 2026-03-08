@@ -63,7 +63,7 @@ export async function POST(
     }
     return NextResponse.json({ ok: true });
   } catch (err) {
-    const axErr = err as { response?: { data?: { error?: { message?: string; code?: number } } } };
+    const axErr = err as { response?: { status?: number; data?: { error?: { message?: string; code?: number } } } };
     const msg = axErr?.response?.data?.error?.message ?? 'Failed to delete comment';
     const code = axErr?.response?.status;
     return NextResponse.json({ message: msg }, { status: code === 401 ? 401 : 400 });
