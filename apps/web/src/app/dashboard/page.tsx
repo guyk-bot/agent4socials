@@ -737,6 +737,35 @@ export default function DashboardPage() {
     return Object.entries(map).map(([date, value]) => ({ date, value })).sort((a, b) => a.date.localeCompare(b.date));
   }, [importedPosts]);
 
+  const hasFbOrIg = accounts.some((a) => a.platform === 'FACEBOOK' || a.platform === 'INSTAGRAM');
+  const reconnectCondition = hasFbOrIg && (insights?.insightsHint || postsSyncError || (allPostsSyncError && (allPostsSyncError.includes('Reconnect') || allPostsSyncError.includes('Session expired') || allPostsSyncError.includes('log back in'))));
+  const autoSyncAttemptedRef = useRef(false);
+
+  // Auto-sync when we would have shown the reconnect banner: refresh FB/IG accounts in background, then refetch data (no user button).
+  useEffect(() => {
+    if (!reconnectCondition || autoSyncAttemptedRef.current) return;
+    const fbIgAccounts = accounts.filter((a) => a.platform === 'FACEBOOK' || a.platform === 'INSTAGRAM');
+    if (fbIgAccounts.length === 0) return;
+    autoSyncAttemptedRef.current = true;
+    Promise.allSettled(fbIgAccounts.map((acc) => api.patch(`/social/accounts/${acc.id}/refresh`)))
+      .then(() => fetchAccounts())
+      .then(() => {
+        fbIgAccounts.forEach((acc) => {
+          appData?.clearAccountData(acc.id);
+          delete postsCacheRef.current[acc.id];
+          Object.keys(insightsCacheRef.current).forEach((k) => { if (k.startsWith(acc.id + '-')) delete insightsCacheRef.current[k]; });
+        });
+        syncAllRequestedRef.current = null;
+        setSyncAllTrigger((t) => t + 1);
+        setPostsSyncError(null);
+        setAllPostsSyncError(null);
+        if (insights?.insightsHint) {
+          setInsights((prev) => (prev ? { ...prev, insightsHint: undefined } : null));
+        }
+      })
+      .catch(() => {});
+  }, [reconnectCondition, accounts, appData, insights?.insightsHint]);
+
   if (selectedPlatformForConnect) {
     return (
       <>
@@ -816,35 +845,6 @@ export default function DashboardPage() {
         ? [{ date: dateRange.end || new Date().toISOString().slice(0, 10), value: fallbackSeriesValue }]
         : [];
   const maxImpressions = displayTimeSeries.length ? Math.max(...displayTimeSeries.map((d) => d.value), 1) : 1;
-  const hasFbOrIg = accounts.some((a) => a.platform === 'FACEBOOK' || a.platform === 'INSTAGRAM');
-  const reconnectCondition = hasFbOrIg && (insights?.insightsHint || postsSyncError || (allPostsSyncError && (allPostsSyncError.includes('Reconnect') || allPostsSyncError.includes('Session expired') || allPostsSyncError.includes('log back in'))));
-  const autoSyncAttemptedRef = useRef(false);
-
-  // Auto-sync when we would have shown the reconnect banner: refresh FB/IG accounts in background, then refetch data (no user button).
-  useEffect(() => {
-    if (!reconnectCondition || autoSyncAttemptedRef.current) return;
-    const fbIgAccounts = accounts.filter((a) => a.platform === 'FACEBOOK' || a.platform === 'INSTAGRAM');
-    if (fbIgAccounts.length === 0) return;
-    autoSyncAttemptedRef.current = true;
-    Promise.allSettled(fbIgAccounts.map((acc) => api.patch(`/social/accounts/${acc.id}/refresh`)))
-      .then(() => fetchAccounts())
-      .then(() => {
-        fbIgAccounts.forEach((acc) => {
-          appData?.clearAccountData(acc.id);
-          delete postsCacheRef.current[acc.id];
-          Object.keys(insightsCacheRef.current).forEach((k) => { if (k.startsWith(acc.id + '-')) delete insightsCacheRef.current[k]; });
-        });
-        syncAllRequestedRef.current = null;
-        setSyncAllTrigger((t) => t + 1);
-        setPostsSyncError(null);
-        setAllPostsSyncError(null);
-        if (insights?.insightsHint) {
-          setInsights((prev) => (prev ? { ...prev, insightsHint: undefined } : null));
-        }
-      })
-      .catch(() => {});
-  }, [reconnectCondition, accounts, appData, insights?.insightsHint]);
-
   const showViewsHint = hasFbOrIg && effectiveFollowers > 0 && effectiveImpressions === 0 && !effectiveTimeSeries.some((d) => d.value > 0) && (selectedAccount?.platform === 'INSTAGRAM' || selectedAccount?.platform === 'FACEBOOK' || !selectedAccount);
 
   return (
