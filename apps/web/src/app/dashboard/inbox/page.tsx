@@ -1532,10 +1532,24 @@ export default function InboxPage() {
                 </button>
               </div>
               {dmSendError && (
-                <div className="mt-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                  <span className="shrink-0 mt-0.5">⚠</span>
-                  <span>{dmSendError}</span>
-                  <button type="button" onClick={() => setDmSendError(null)} className="ml-auto shrink-0 text-amber-500 hover:text-amber-700">✕</button>
+                <div className="mt-2 space-y-2">
+                  <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    <span className="shrink-0 mt-0.5">&#x26a0;</span>
+                    <span>{dmSendError}</span>
+                    <button type="button" onClick={() => setDmSendError(null)} className="ml-auto shrink-0 text-amber-500 hover:text-amber-700">&#x2715;</button>
+                  </div>
+                  {(dmSendError.includes('Advanced Access') || dmSendError.includes('instagram_manage_messages') || dmSendError.includes('instagram_business_manage_messages')) && (
+                    <div className="rounded-lg border border-indigo-200 bg-indigo-50/80 px-3 py-2.5 text-xs text-indigo-900">
+                      <p className="font-semibold mb-1.5">How to enable sending</p>
+                      <ol className="list-decimal list-inside space-y-1 text-indigo-800">
+                        <li>Open <a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener noreferrer" className="underline font-medium">Meta for Developers</a> and select your app (e.g. agent4socials).</li>
+                        <li>Go to <strong>App Review</strong> &rarr; <strong>Permissions and features</strong>.</li>
+                        <li>Find <strong>Instagram Manage Messages</strong> (or <strong>Instagram Business Manage Messages</strong> if you use &quot;Connect with Instagram only&quot;).</li>
+                        <li>Click <strong>Request Advanced Access</strong> and complete the steps, or in Development mode add your Instagram account as a <strong>Tester</strong> under <strong>Roles</strong> &rarr; Test users.</li>
+                        <li>Return here and <strong>reconnect</strong> Facebook &amp; Instagram from the left sidebar (click your account, then reconnect, or add Instagram again) so the new permission is applied.</li>
+                      </ol>
+                    </div>
+                  )}
                 </div>
               )}
               <p className="text-xs text-neutral-400 mt-2 text-center">Send a message to this conversation. Use the sparkle button to generate a reply with AI. When sending is enabled, replies are only allowed within 24 hours of the customer&apos;s last message (Facebook/Instagram policy). If you see an error above about Advanced Access, Meta must approve your app for sending before replies will work.</p>
