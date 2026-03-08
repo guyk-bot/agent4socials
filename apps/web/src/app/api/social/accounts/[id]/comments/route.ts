@@ -128,6 +128,7 @@ export async function GET(
     commentId: string;
     postTargetId: string;
     platformPostId: string;
+    accountId: string;
     postPreview: string;
     postImageUrl?: string | null;
     postPublishedAt?: string | null;
@@ -262,7 +263,7 @@ export async function GET(
             });
             for (const c of res.data?.data ?? []) {
               comments.push({
-                commentId: c.id, postTargetId, platformPostId, postPreview, postImageUrl,
+                commentId: c.id, postTargetId, platformPostId, accountId, postPreview, postImageUrl,
                 postPublishedAt: postPublishedAtResolved ?? null, postUrl,
                 text: c.text ?? '', authorName: c.from?.username ?? 'Unknown',
                 authorPictureUrl: null, createdAt: c.timestamp ?? new Date().toISOString(), platform,
@@ -291,7 +292,7 @@ export async function GET(
               const authorPictureUrl = (from as { picture?: { data?: { url?: string } } })?.picture?.data?.url ?? null;
               const text = (platform === 'INSTAGRAM' ? c.text : c.message) ?? '';
               comments.push({
-                commentId: c.id, postTargetId, platformPostId, postPreview, postImageUrl,
+                commentId: c.id, postTargetId, platformPostId, accountId, postPreview, postImageUrl,
                 postPublishedAt: postPublishedAtResolved ?? null, postUrl,
                 text, authorName, authorPictureUrl: authorPictureUrl || null,
                 createdAt: c.created_time ?? new Date().toISOString(), platform,
@@ -343,6 +344,7 @@ export async function GET(
             commentId: item.snippet?.topLevelComment?.id ?? item.id ?? String(Math.random()),
             postTargetId,
             platformPostId,
+            accountId,
             postPreview,
             postImageUrl,
             postPublishedAt: postPublishedAt ?? null,
@@ -389,6 +391,7 @@ export async function GET(
             commentId: t.id,
             postTargetId,
             platformPostId,
+            accountId,
             postPreview,
             postImageUrl: null,
             postPublishedAt: postPublishedAt ?? null,

@@ -50,6 +50,7 @@ type PostComment = {
   commentId: string;
   postTargetId: string;
   platformPostId: string;
+  accountId: string;
   postPreview: string;
   postImageUrl?: string | null;
   postPublishedAt?: string | null;
@@ -73,6 +74,10 @@ type EngagementItem = {
 function proxyImageUrl(url: string | null | undefined): string | null {
   if (!url) return null;
   return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+}
+
+function freshPostImageUrl(comment: Pick<PostComment, 'accountId' | 'platformPostId' | 'platform'>): string {
+  return `/api/post-image?accountId=${encodeURIComponent(comment.accountId)}&postId=${encodeURIComponent(comment.platformPostId)}`;
 }
 
 export default function InboxPage() {
@@ -957,7 +962,14 @@ export default function InboxPage() {
                         )}
                       </div>
                       <div className="rounded-lg overflow-hidden border border-neutral-100 bg-neutral-50 max-w-xs min-h-[120px] flex items-center justify-center">
-                        {selectedComment.postImageUrl ? (
+                        {(selectedComment.platform === 'INSTAGRAM' || selectedComment.platform === 'FACEBOOK' || selectedComment.platform === 'YOUTUBE') && selectedComment.accountId ? (
+                          <img
+                            src={freshPostImageUrl(selectedComment)}
+                            alt="Post"
+                            className="w-full h-auto object-contain max-h-48"
+                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                          />
+                        ) : selectedComment.postImageUrl ? (
                           <img
                             src={proxyImageUrl(selectedComment.postImageUrl)!}
                             alt="Post"
