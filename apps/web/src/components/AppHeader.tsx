@@ -3,17 +3,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { LayoutGrid, MessageCircle, PlusSquare, Calendar, Zap, Menu, PanelLeft, PanelLeftClose, Sparkles } from 'lucide-react';
+import { MessageCircle, PlusSquare, Calendar, Menu, PanelLeft, PanelLeftClose, Video, User } from 'lucide-react';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
 import { useAppData } from '@/context/AppDataContext';
 import api from '@/lib/api';
 
 export const topNavItems = [
-  { icon: LayoutGrid, label: 'Analytics', href: '/dashboard/summary' },
   { icon: MessageCircle, label: 'Inbox', href: '/dashboard/inbox', badgeKey: 'inbox' as const },
   { icon: PlusSquare, label: 'Composer', href: '/composer' },
-  { icon: Sparkles, label: 'Reel Analyzer', href: '/composer?analyze=reel' },
-  { icon: Zap, label: 'Automation', href: '/dashboard/automation' },
+  { icon: Video, label: 'Reel Analyzer', href: '/composer?analyze=reel' },
   { icon: Calendar, label: 'Calendar', href: '/calendar' },
 ];
 
@@ -100,19 +98,34 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
         </nav>
       </div>
 
-      {/* Mobile: hamburger on the right, dropdown with only top nav items */}
-      <div className="md:hidden relative" ref={dropdownRef}>
+      {/* Account link (top right) + mobile menu */}
+      <div className="flex items-center gap-1 relative" ref={dropdownRef}>
+        <Link
+          href="/dashboard/account"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-neutral-300 hover:text-white hover:bg-white/10 transition-colors"
+        >
+          <User size={18} className="shrink-0" />
+          <span className="hidden sm:inline">Account</span>
+        </Link>
         <button
           type="button"
           onClick={() => setTopNavOpen((v) => !v)}
-          className="p-2 rounded-lg text-neutral-300 hover:text-white hover:bg-white/10"
+          className="md:hidden p-2 rounded-lg text-neutral-300 hover:text-white hover:bg-white/10"
           aria-label="Open menu"
           aria-expanded={topNavOpen}
         >
           <Menu size={24} />
         </button>
         {topNavOpen && (
-          <div className="absolute right-0 top-full mt-1 py-1 w-52 rounded-lg bg-neutral-800 border border-neutral-700 shadow-xl z-50">
+          <div className="absolute right-0 top-full mt-1 py-1 w-52 rounded-lg bg-neutral-800 border border-neutral-700 shadow-xl z-50 md:hidden">
+            <Link
+              href="/dashboard/account"
+              onClick={() => setTopNavOpen(false)}
+              className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors ${pathname === '/dashboard/account' ? 'bg-white/15 text-white' : 'text-neutral-300 hover:text-white hover:bg-white/10'}`}
+            >
+              <User size={18} className="shrink-0" />
+              <span className="flex-1">Account</span>
+            </Link>
             {topNavItems.map((item) => {
               const isReelAnalyzer = item.href.startsWith('/composer') && item.href.includes('analyze=reel');
               const isActive = isReelAnalyzer

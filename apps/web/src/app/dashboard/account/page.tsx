@@ -17,6 +17,7 @@ import {
   Check,
   Copy,
   FileText,
+  LogOut,
 } from 'lucide-react';
 
 const TRIAL_DAYS = 7;
@@ -276,6 +277,28 @@ export default function AccountPage() {
             <p className="font-semibold text-neutral-900 truncate">{user?.name || 'User'}</p>
             <p className="text-sm text-neutral-500 truncate">{user?.email}</p>
           </div>
+        </div>
+      </div>
+
+      {/* Log out */}
+      <div className="card rounded-2xl border border-neutral-200 shadow-sm">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-neutral-100 shrink-0">
+              <LogOut className="w-5 h-5 text-neutral-600" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-neutral-900">Log out</h2>
+              <p className="text-sm text-neutral-500">Sign out of your account on this device.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={logout}
+            className="shrink-0 px-4 py-2.5 rounded-xl text-sm font-medium text-neutral-700 border border-neutral-200 hover:bg-neutral-50 hover:border-neutral-300 transition-colors"
+          >
+            Log out
+          </button>
         </div>
       </div>
 

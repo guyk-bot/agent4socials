@@ -9,7 +9,6 @@ import {
     FileText,
     Hash,
     Settings,
-    LogOut,
     ChevronRight,
     Plus,
     Zap,
@@ -53,7 +52,7 @@ type SidebarProps = {
 export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {} }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { logoUrl, primaryColor, textColor, appName } = useWhiteLabel();
   const { cachedAccounts, setCachedAccounts } = useAccountsCache() ?? { cachedAccounts: [], setCachedAccounts: () => {} };
   const ctx = useSelectedAccount();
@@ -99,7 +98,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
           style={isSummaryView ? { color: accent } : undefined}
         >
           <ListChecks size={18} className="shrink-0" />
-          Summary
+          Analytics
           {isSummaryView && <ChevronRight size={14} className="ml-auto opacity-70" />}
         </button>
       </div>
@@ -224,7 +223,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
       <div className="mt-auto p-4 border-t border-neutral-200 shrink-0">
         <Link
           href="/dashboard/account"
-          className={`w-full flex items-center p-2 rounded-lg transition-colors mb-2 ${isAccountPage ? '' : 'hover:bg-white/70'}`}
+          className={`w-full flex items-center p-2 rounded-lg transition-colors ${isAccountPage ? '' : 'hover:bg-white/70'}`}
           style={isAccountPage ? { backgroundColor: `${accent}20`, color: accent } : undefined}
         >
           <div className="w-8 h-8 rounded-full flex items-center justify-center font-semibold text-xs border border-neutral-200 shrink-0 bg-white" style={{ color: accent }}>
@@ -236,14 +235,6 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
           </div>
           <ChevronRight size={16} className="text-neutral-400 shrink-0" />
         </Link>
-        <button
-          type="button"
-          onClick={logout}
-          className="w-full flex items-center px-3 py-2 text-sm font-medium text-neutral-600 hover:bg-white/70 hover:text-red-600 rounded-lg transition-colors"
-        >
-          <LogOut size={20} className="mr-3 shrink-0" />
-          Logout
-        </button>
       </div>
     </>
   );
