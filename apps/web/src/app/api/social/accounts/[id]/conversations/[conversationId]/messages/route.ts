@@ -261,6 +261,20 @@ export async function POST(
   // Messages from either of those IDs are "from us" and should NOT be treated as the recipient.
   const ourIds = new Set<string>([account.platformUserId, credJson.linkedPageId].filter((x): x is string => !!x));
 
+  // For Facebook Login Instagram, also look up the linked Page ID from the FACEBOOK social account
+  // (same access token stored there), in case credJson.linkedPageId is not set (older accounts).
+  let resolvedPageId: string | null = credJson.linkedPageId ?? null;
+  if (account.platform === 'INSTAGRAM' && !isInstagramBusinessLogin && !resolvedPageId) {
+    try {
+      const fb = await prisma.socialAccount.findFirst({
+        where: { userId, platform: 'FACEBOOK', accessToken: activeToken },
+        select: { platformUserId: true },
+      });
+      if (fb?.platformUserId) resolvedPageId = fb.platformUserId;
+    } catch { /* ignore */ }
+  }
+  if (resolvedPageId) ourIds.add(resolvedPageId);
+
   let recipientId = typeof body.recipientId === 'string' ? body.recipientId.trim() : null;
 
   if (!recipientId) {
@@ -349,13 +363,16 @@ export async function POST(
         }
       );
     } else {
-      // Facebook Login Instagram: POST graph.facebook.com/v18.0/{IG_BUSINESS_ACCOUNT_ID}/messages
-      // Use JSON body (not form-encoded) and include platform=instagram so Meta routes this as an IG DM.
+      // Facebook Login Instagram: the Messenger Platform endpoint requires the FACEBOOK PAGE ID
+      // (not the IG Business Account ID). Use linkedPageId if available, fall back to platformUserId.
+      // Requires pages_messaging + instagram_manage_messages in the page access token.
+      const senderId = resolvedPageId || account.platformUserId;
       await axios.post<{ message_id?: string; error?: { message: string } }>(
-        `${fbBaseUrl}/${account.platformUserId}/messages`,
+        `${fbBaseUrl}/${senderId}/messages`,
         {
           recipient: { id: recipientId },
           message: { text: text.slice(0, 2000) },
+          messaging_type: 'RESPONSE',
         },
         {
           headers: { 'Content-Type': 'application/json' },
@@ -366,42 +383,37 @@ export async function POST(
     }
     return NextResponse.json({ ok: true, message: 'Message sent.' });
   } catch (e) {
-    const err = e as { response?: { data?: { error?: { message?: string; code?: number } }; status?: number } };
-    const apiMsg = err?.response?.data?.error?.message ?? (e as Error)?.message ?? 'Send failed';
-    const code = err?.response?.data?.error?.code;
-    const isCapability = code === 3 || /capability|does not have the capability|advanced access|does not have permission/i.test(String(apiMsg));
-    if (isCapability) {
-      const baseMsg = isInstagramBusinessLogin
-        ? 'Sending requires Standard or Advanced Access for instagram_business_manage_messages. In Meta for Developers: App Dashboard → App Review → Permissions and features → add your account as Instagram Tester under Roles, then reconnect Instagram.'
-        : 'Sending requires Advanced Access for instagram_manage_messages (or in Development mode, both sender and recipient must be Instagram Testers who have accepted the invite). In Meta: App roles → Roles → add both accounts as Instagram Testers; accept any Pending invite in Instagram (Settings → Apps and websites → Tester invitations). Then reconnect Facebook & Instagram from the Dashboard.';
-      return NextResponse.json(
-        {
-          message: baseMsg,
-          debug: process.env.NODE_ENV === 'development' ? apiMsg : undefined,
-        },
-        { status: 400 }
-      );
-    }
-    // Meta 24-hour messaging window: free-form messages only within 24h of the user's last message (error #10 / "outside of allowed window")
-    const isOutsideWindow = code === 10 || /outside of allowed window|#10|24 hour|messaging window/i.test(String(apiMsg));
+    const err = e as { response?: { data?: { error?: { message?: string; code?: number; error_subcode?: number } }; status?: number } };
+    const metaError = err?.response?.data?.error;
+    const apiMsg: string = metaError?.message ?? (e as Error)?.message ?? 'Send failed';
+    const code = metaError?.code;
+    console.error('[Conversation messages] send error — code:', code, 'msg:', apiMsg);
+
+    // Meta 24-hour messaging window (error code 10 or "outside of allowed window")
+    const isOutsideWindow = code === 10 || /outside of allowed window|messaging window/i.test(apiMsg);
     if (isOutsideWindow) {
       return NextResponse.json(
+        { message: 'This conversation is outside the 24-hour messaging window. Instagram and Facebook only allow free-form replies within 24 hours of the customer\'s last message. Ask them to send a new message to reopen the window.' },
+        { status: 400 }
+      );
+    }
+
+    // Capability error (code 3): missing permission on the token or account not a tester in dev mode.
+    // Always include the raw Meta message so the user knows exactly what Meta says.
+    const isCapability = code === 3 || /does not have the capability/i.test(apiMsg);
+    if (isCapability) {
+      return NextResponse.json(
         {
-          message: 'This conversation is outside the 24-hour messaging window. Facebook and Instagram only allow free-form replies within 24 hours of the customer\'s last message. Ask the customer to send a new message to reopen the window, or use approved message templates in Meta for Developers.',
+          message: `Meta error: "${apiMsg}". To fix this: reconnect Facebook & Instagram from the sidebar so the app gets a fresh token with the instagram_manage_messages permission. If the app is in Development mode in Meta, the person you are messaging must also have a role on the app (App roles → Roles → Instagram Tester).`,
         },
         { status: 400 }
       );
     }
-    if (err?.response?.status === 400 || String(apiMsg).includes('permission') || String(apiMsg).includes('24 hour')) {
-      return NextResponse.json(
-        { message: apiMsg || 'Cannot send. The user may need to message your account first, or reconnect and grant messaging permission.' },
-        { status: 400 }
-      );
-    }
-    console.error('[Conversation messages] send error:', e);
+
+    // For all other errors, return the actual Meta message so the user sees what went wrong.
     return NextResponse.json(
-      { message: apiMsg || 'Failed to send message.' },
-      { status: 500 }
+      { message: apiMsg || 'Failed to send message. Try reconnecting Instagram from the sidebar.' },
+      { status: err?.response?.status && err.response.status >= 400 ? err.response.status : 500 }
     );
   }
 }

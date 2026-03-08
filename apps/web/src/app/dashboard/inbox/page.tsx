@@ -1538,14 +1538,13 @@ export default function InboxPage() {
                     <span>{dmSendError}</span>
                     <button type="button" onClick={() => setDmSendError(null)} className="ml-auto shrink-0 text-amber-500 hover:text-amber-700">&#x2715;</button>
                   </div>
-                  {(dmSendError.includes('Advanced Access') || dmSendError.includes('instagram_manage_messages') || dmSendError.includes('instagram_business_manage_messages')) && (
+                  {(dmSendError.includes('capability') || dmSendError.includes('instagram_manage_messages') || dmSendError.includes('instagram_business_manage_messages')) && (
                     <div className="rounded-lg border border-indigo-200 bg-indigo-50/80 px-3 py-2.5 text-xs text-indigo-900">
-                      <p className="font-semibold mb-1.5">How to enable sending</p>
+                      <p className="font-semibold mb-1.5">How to fix this</p>
                       <ol className="list-decimal list-inside space-y-1 text-indigo-800">
-                        <li>In Development mode, <strong>both</strong> the account you send from (e.g. agent4socials) and the <strong>person you reply to</strong> must be added as <strong>Instagram Testers</strong> in Meta, and any &quot;Pending&quot; invite must be accepted in Instagram (Settings &rarr; Apps and websites &rarr; Tester invitations).</li>
-                        <li>Open <a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener noreferrer" className="underline font-medium">Meta for Developers</a> &rarr; your app &rarr; <strong>App roles</strong> &rarr; <strong>Roles</strong>. Add both Instagram accounts as <strong>Instagram Tester</strong>.</li>
-                        <li>For full access (any recipient): go to <strong>App Review</strong> &rarr; <strong>Permissions and features</strong>, find <strong>Instagram Manage Messages</strong>, and use the option there to request access and complete App Review.</li>
-                        <li>After roles are active (no Pending), <strong>reconnect</strong> Facebook &amp; Instagram from the left sidebar so the new permission is applied.</li>
+                        <li><strong>Reconnect</strong> Facebook &amp; Instagram from the left sidebar: click your Instagram or Facebook account icon, choose reconnect (or remove and add again). This refreshes the token and scopes.</li>
+                        <li>If the app is in <strong>Development mode</strong> in Meta: go to <a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener noreferrer" className="underline">Meta for Developers</a> &rarr; <strong>App roles</strong> &rarr; <strong>Roles</strong> and add the Instagram account you want to message as an <strong>Instagram Tester</strong>. They must accept the invite (Instagram &rarr; Settings &rarr; Apps and websites &rarr; Tester invitations).</li>
+                        <li>For full access with any recipient: complete <strong>App Review</strong> for Instagram Manage Messages in Meta for Developers.</li>
                       </ol>
                     </div>
                   )}
