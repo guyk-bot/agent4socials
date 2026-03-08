@@ -587,7 +587,7 @@ export default function DashboardPage() {
 
     // Step 2: sync in background to pull latest from platform, then update silently
     runBackgroundSync();
-  }, [analyticsTab, selectedAccount?.id, selectedAccount?.platform, dateRange.start, dateRange.end, appData]);
+  }, [analyticsTab, selectedAccount?.id, selectedAccount?.platform, dateRange.start, dateRange.end, appData, syncAllTrigger]);
 
   // Facebook Page reviews (pages_read_user_content)
   useEffect(() => {
@@ -817,9 +817,35 @@ export default function DashboardPage() {
         : [];
   const maxImpressions = displayTimeSeries.length ? Math.max(...displayTimeSeries.map((d) => d.value), 1) : 1;
   const hasFbOrIg = accounts.some((a) => a.platform === 'FACEBOOK' || a.platform === 'INSTAGRAM');
-  const showReconnectBanner = hasFbOrIg && (insights?.insightsHint || postsSyncError || (allPostsSyncError && (allPostsSyncError.includes('Reconnect') || allPostsSyncError.includes('Session expired') || allPostsSyncError.includes('log back in'))));
-  const hasFollowersOnly = hasFbOrIg && effectiveFollowers > 0 && effectiveImpressions === 0 && !effectiveTimeSeries.some((d) => d.value > 0);
-  const showViewsHint = hasFollowersOnly && (selectedAccount?.platform === 'INSTAGRAM' || selectedAccount?.platform === 'FACEBOOK' || !selectedAccount);
+  const reconnectCondition = hasFbOrIg && (insights?.insightsHint || postsSyncError || (allPostsSyncError && (allPostsSyncError.includes('Reconnect') || allPostsSyncError.includes('Session expired') || allPostsSyncError.includes('log back in'))));
+  const autoSyncAttemptedRef = useRef(false);
+
+  // Auto-sync when we would have shown the reconnect banner: refresh FB/IG accounts in background, then refetch data (no user button).
+  useEffect(() => {
+    if (!reconnectCondition || autoSyncAttemptedRef.current) return;
+    const fbIgAccounts = accounts.filter((a) => a.platform === 'FACEBOOK' || a.platform === 'INSTAGRAM');
+    if (fbIgAccounts.length === 0) return;
+    autoSyncAttemptedRef.current = true;
+    Promise.allSettled(fbIgAccounts.map((acc) => api.patch(`/social/accounts/${acc.id}/refresh`)))
+      .then(() => fetchAccounts())
+      .then(() => {
+        fbIgAccounts.forEach((acc) => {
+          appData?.clearAccountData(acc.id);
+          delete postsCacheRef.current[acc.id];
+          Object.keys(insightsCacheRef.current).forEach((k) => { if (k.startsWith(acc.id + '-')) delete insightsCacheRef.current[k]; });
+        });
+        syncAllRequestedRef.current = null;
+        setSyncAllTrigger((t) => t + 1);
+        setPostsSyncError(null);
+        setAllPostsSyncError(null);
+        if (insights?.insightsHint) {
+          setInsights((prev) => (prev ? { ...prev, insightsHint: undefined } : null));
+        }
+      })
+      .catch(() => {});
+  }, [reconnectCondition, accounts, appData, insights?.insightsHint]);
+
+  const showViewsHint = hasFbOrIg && effectiveFollowers > 0 && effectiveImpressions === 0 && !effectiveTimeSeries.some((d) => d.value > 0) && (selectedAccount?.platform === 'INSTAGRAM' || selectedAccount?.platform === 'FACEBOOK' || !selectedAccount);
 
   return (
     <div className="space-y-0">
@@ -831,29 +857,10 @@ export default function DashboardPage() {
           postsLoading={importedPostsLoading || connectingParam === '1'}
         />
       )}
-      {showReconnectBanner && (
-        <div className="mb-4 rounded-xl border-2 border-indigo-200 bg-indigo-50 px-4 py-4">
-          <p className="text-sm font-medium text-indigo-900">To see analytics, posts, and inbox like Metricool, reconnect and choose your Page.</p>
-          <p className="text-xs text-indigo-700 mt-1">Click the button below, sign in with Facebook when asked, then select your Page. This loads all data for that Page and its linked Instagram.</p>
-          <button
-            type="button"
-            onClick={async () => {
-              try {
-                const res = await api.get('/social/oauth/facebook/start');
-                const url = res?.data?.url;
-                if (url && typeof url === 'string') window.location.href = url;
-              } catch (_) {}
-            }}
-            className="mt-3 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700"
-          >
-            Reconnect Facebook & Instagram
-          </button>
-        </div>
-      )}
-      {showViewsHint && !showReconnectBanner && (
+      {showViewsHint && (
         <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <p className="font-medium">You're seeing follower counts. Views, reach, and trend graphs need Page/Instagram insights.</p>
-          <p className="mt-1 text-xs text-amber-700">Use <strong>Reconnect</strong> in the sidebar for Instagram or Facebook, then choose your Page when asked, to load full analytics and sync posts.</p>
+          <p className="mt-1 text-xs text-amber-700">Data will sync automatically when your Page is linked.</p>
         </div>
       )}
       {/* Top row: ACCOUNT | POSTS tabs + date range (Metricool-style) */}
@@ -1062,7 +1069,7 @@ export default function DashboardPage() {
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
               <p>{insights.insightsHint}</p>
               {(selectedAccount?.platform === 'INSTAGRAM' || selectedAccount?.platform === 'FACEBOOK') && (
-                <p className="mt-2 text-xs text-amber-700">Use the Reconnect button above for this account, then choose your Page when asked.</p>
+                <p className="mt-2 text-xs text-amber-700">Data will sync automatically when your Page is linked for this account.</p>
               )}
             </div>
           )}
@@ -1438,7 +1445,7 @@ export default function DashboardPage() {
               {postsSyncError && (
                 <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                   <p>{postsSyncError}</p>
-                  <p className="mt-2 text-xs text-amber-700">Use Reconnect in the left sidebar for Instagram or Facebook, then choose your Page when asked.</p>
+                  <p className="mt-2 text-xs text-amber-700">Data will sync automatically when your Page is linked.</p>
                 </div>
               )}
               <div className="bg-white border border-neutral-200 rounded-xl shadow-sm overflow-hidden">
