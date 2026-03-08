@@ -959,13 +959,9 @@ export default function InboxPage() {
                       <div className="rounded-lg overflow-hidden border border-neutral-100 bg-neutral-50 max-w-xs min-h-[120px] flex items-center justify-center">
                         {selectedComment.postImageUrl ? (
                           <img
-                            src={selectedComment.postImageUrl}
+                            src={proxyImageUrl(selectedComment.postImageUrl)!}
                             alt="Post"
                             className="w-full h-auto object-contain max-h-48"
-                            onError={(e) => {
-                              const fallback = proxyImageUrl(selectedComment.postImageUrl);
-                              if (fallback && e.currentTarget.src !== fallback) e.currentTarget.src = fallback;
-                            }}
                           />
                         ) : (
                           <div className="flex flex-col items-center justify-center gap-2 p-4 text-neutral-400">
@@ -1047,8 +1043,10 @@ export default function InboxPage() {
                       setReplyText('');
                       setSelectedComment(null);
                     } catch (e: unknown) {
-                      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
-                      setReplySendError(msg ?? 'Failed to send reply. Please try again.');
+                      const err = e as { response?: { data?: unknown }; message?: string };
+                      const data = err?.response?.data;
+                      const msg = (data as { message?: string })?.message ?? err?.message ?? 'Failed to send reply. Please try again.';
+                      setReplySendError(msg);
                     } finally {
                       setReplySending(false);
                     }

@@ -75,12 +75,14 @@ export async function POST(
     }
     return NextResponse.json({ ok: true });
   } catch (err) {
-    const axErr = err as { response?: { data?: { error?: { message?: string; code?: number } } } };
-    const errData = axErr?.response?.data?.error;
-    let msg = errData?.message ?? 'Failed to send reply';
+    const axErr = err as { response?: { data?: unknown; status?: number }; message?: string };
+    const rawData = axErr?.response?.data;
+    const errData = (rawData as { error?: { message?: string; code?: number } })?.error;
+    let msg = errData?.message ?? (rawData as { message?: string })?.message ?? axErr?.message ?? 'Failed to send reply';
+    console.error('[reply] error:', JSON.stringify(rawData ?? err));
     // Provide a clearer message for permission errors
-    if (errData?.code === 200 || errData?.code === 10 || msg.toLowerCase().includes('permission') || msg.toLowerCase().includes('does not support')) {
-      msg = 'Reply failed: your Instagram/Facebook app needs the "pages_manage_engagement" permission. Try reconnecting your account or reply directly on the platform.';
+    if (errData?.code === 200 || errData?.code === 10 || msg.toLowerCase().includes('permission') || msg.toLowerCase().includes('does not support') || msg.toLowerCase().includes('not exist')) {
+      msg = `Reply failed: Meta API permission error. Try reconnecting your account from the sidebar, or reply directly on ${platform === 'INSTAGRAM' ? 'Instagram' : 'Facebook'}.`;
     }
     return NextResponse.json({ message: msg }, { status: 400 });
   }
