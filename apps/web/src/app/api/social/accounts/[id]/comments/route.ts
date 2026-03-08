@@ -140,6 +140,24 @@ export async function GET(
 
   const accountId = account.id;
 
+  // Pre-fetch Instagram media images in bulk so we have them regardless of individual API calls
+  const igMediaImageMap = new Map<string, string>();
+  if (platform === 'INSTAGRAM') {
+    try {
+      const mediaUrl = isInstagramBusinessLogin
+        ? 'https://graph.instagram.com/v25.0/me/media'
+        : `https://graph.facebook.com/v18.0/${account.platformUserId}/media`;
+      const mediaRes = await axios.get<{ data?: Array<{ id: string; media_url?: string; thumbnail_url?: string }> }>(mediaUrl, {
+        params: { fields: 'id,media_url,thumbnail_url', limit: 50, access_token: token },
+        timeout: 15_000,
+      });
+      for (const m of mediaRes.data?.data ?? []) {
+        const url = m.media_url ?? m.thumbnail_url;
+        if (url) igMediaImageMap.set(m.id, url);
+      }
+    } catch { /* ignore, fallback to other methods */ }
+  }
+
   async function getPostImageUrl(postId: string, plat: string, accessToken: string): Promise<string | null> {
     try {
       if (plat === 'FACEBOOK') {
@@ -156,7 +174,9 @@ export async function GET(
         return imp?.thumbnailUrl ?? null;
       }
       if (plat === 'INSTAGRAM') {
-        // Prefer graph.facebook.com (works with Page/Facebook token). Fallback to graph.instagram.com for Instagram token.
+        // First check pre-fetched media map (most reliable)
+        if (igMediaImageMap.has(postId)) return igMediaImageMap.get(postId)!;
+        // Fallback to individual API calls
         try {
           const r = await axios.get<{ media_url?: string; thumbnail_url?: string }>(
             `https://graph.facebook.com/v18.0/${postId}`,

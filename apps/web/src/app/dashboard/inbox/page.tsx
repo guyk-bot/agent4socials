@@ -795,20 +795,18 @@ export default function InboxPage() {
                               )}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="text-xs text-neutral-400 flex items-center gap-1.5 mb-1">
-                                {(() => {
-                                  const plat = PLATFORMS.find((p) => p.id === c.platform);
-                                  const Icon = plat?.icon;
-                                  return (
-                                    <>
-                                      {Icon && <Icon size={12} className="shrink-0 opacity-70" />}
-                                      <span>{new Date(c.createdAt).toLocaleString()}</span>
-                                    </>
-                                  );
-                                })()}
-                              </p>
-                              <p className="text-sm font-medium text-neutral-900 truncate">{c.authorName}</p>
-                              <p className="text-xs text-neutral-600 line-clamp-2">{c.text}</p>
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="text-sm font-medium text-neutral-900 truncate">{c.authorName}</p>
+                                <p className="text-xs text-neutral-400 flex items-center gap-1 shrink-0">
+                                  {(() => {
+                                    const plat = PLATFORMS.find((p) => p.id === c.platform);
+                                    const Icon = plat?.icon;
+                                    return Icon ? <Icon size={12} className="opacity-70" /> : null;
+                                  })()}
+                                  <span>{new Date(c.createdAt).toLocaleString()}</span>
+                                </p>
+                              </div>
+                              <p className="text-xs text-neutral-600 line-clamp-2 mt-0.5">{c.text}</p>
                             </div>
                           </button>
                         ))}
