@@ -39,8 +39,11 @@ export type CachedComment = {
   commentId: string;
   postTargetId: string;
   platformPostId: string;
+  accountId: string;
   postPreview: string;
   postImageUrl?: string | null;
+  postPublishedAt?: string | null;
+  postUrl?: string | null;
   text: string;
   authorName: string;
   authorPictureUrl?: string | null;
