@@ -483,6 +483,15 @@ export async function GET(
   const code = searchParams.get('code');
   const stateRaw = searchParams.get('state'); // Prisma userId or "userId:instagram"
 
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
+  const dashboardUrl = `${baseUrl}/dashboard`;
+
+  // User clicked "Not now" or denied permission: redirect to dashboard instead of showing an error
+  const oauthError = searchParams.get('error');
+  if (!code && (oauthError === 'access_denied' || oauthError === 'user_denied' || searchParams.has('error'))) {
+    return NextResponse.redirect(dashboardUrl);
+  }
+
   if (!code || !stateRaw) {
     return NextResponse.json({ error: 'Missing code or state' }, { status: 400 });
   }
@@ -490,8 +499,6 @@ export async function GET(
   const isInstagramLogin = stateRaw.includes(':instagram');
   const isLinkedInPage = stateRaw.includes(':linkedin_page');
   const userId = isInstagramLogin ? stateRaw.replace(/:instagram$/, '') : isLinkedInPage ? stateRaw.replace(/:linkedin_page$/, '') : stateRaw;
-
-  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
   const defaultCallbackUrl = `${baseUrl}/api/social/oauth/${platform}/callback`;
   let callbackUrl = defaultCallbackUrl;
   if (plat === 'INSTAGRAM' && isInstagramLogin && process.env.INSTAGRAM_REDIRECT_URI) {
