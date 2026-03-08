@@ -143,14 +143,26 @@ export async function GET(
           `https://graph.facebook.com/v18.0/${postId}`,
           { params: { fields: 'full_picture,picture', access_token: accessToken } }
         );
-        return r.data?.full_picture ?? r.data?.picture ?? null;
+        const url = r.data?.full_picture ?? r.data?.picture ?? null;
+        if (url) return url;
+        const imp = await prisma.importedPost.findFirst({
+          where: { platformPostId: postId, socialAccountId: accountId },
+          select: { thumbnailUrl: true },
+        });
+        return imp?.thumbnailUrl ?? null;
       }
       if (plat === 'INSTAGRAM') {
         const r = await axios.get<{ media_url?: string }>(
           `https://graph.facebook.com/v18.0/${postId}`,
           { params: { fields: 'media_url', access_token: accessToken } }
         );
-        return r.data?.media_url ?? null;
+        const url = r.data?.media_url ?? null;
+        if (url) return url;
+        const imp = await prisma.importedPost.findFirst({
+          where: { platformPostId: postId, socialAccountId: accountId },
+          select: { thumbnailUrl: true },
+        });
+        return imp?.thumbnailUrl ?? null;
       }
       if (plat === 'YOUTUBE') {
         const imp = await prisma.importedPost.findFirst({

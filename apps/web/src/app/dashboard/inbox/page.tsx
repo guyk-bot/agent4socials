@@ -883,11 +883,16 @@ export default function InboxPage() {
                     </div>
                     <div>
                       <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Your post</p>
-                      {selectedComment.postImageUrl && (
-                        <div className="mt-2 rounded-lg overflow-hidden border border-neutral-100 bg-neutral-50 max-w-xs">
+                      <div className="mt-2 rounded-lg overflow-hidden border border-neutral-100 bg-neutral-50 max-w-xs min-h-[120px] flex items-center justify-center">
+                        {selectedComment.postImageUrl ? (
                           <img src={selectedComment.postImageUrl} alt="Post" className="w-full h-auto object-contain max-h-48" />
-                        </div>
-                      )}
+                        ) : (
+                          <div className="flex flex-col items-center justify-center gap-2 p-4 text-neutral-400">
+                            <ImageIcon size={40} strokeWidth={1.5} />
+                            <span className="text-xs text-center">No image</span>
+                          </div>
+                        )}
+                      </div>
                       <p className="text-sm text-neutral-600 mt-1 line-clamp-2">{selectedComment.postPreview}</p>
                     </div>
                   </div>
