@@ -10,7 +10,6 @@ const SUBSCORE_KEYS: { key: keyof ReelAnalysisResult['scores']; label: string }[
   { key: 'first3Seconds', label: 'First 3 Seconds' },
   { key: 'pacing', label: 'Pacing' },
   { key: 'lengthFit', label: 'Length Fit' },
-  { key: 'captionQuality', label: 'Caption Quality' },
   { key: 'ctaStrength', label: 'CTA Strength' },
 ];
 
@@ -22,9 +21,9 @@ const OPTIONAL_SUBSCORE_KEYS: { key: 'visualClarity' | 'subtitlePresence'; label
 export interface ReelAnalyzerProps {
   /** Public URL of the video (e.g. from R2 or proxy). */
   videoUrl: string;
-  /** Caption for the post. */
-  caption: string;
-  /** Optional: instagram | tiktok | youtube | facebook */
+  /** Caption for the post (optional; omit for video-only analysis). */
+  caption?: string;
+  /** Optional: instagram | tiktok | youtube | facebook (only used when caption is provided, e.g. in Composer). */
   targetPlatform?: string;
   /** Metadata from video element (required for analysis). */
   metadata: {
@@ -75,8 +74,8 @@ export function ReelAnalyzer({
     try {
       const res = await api.post<ReelAnalysisResult & { warnings?: string[] }>('/reels/analyze', {
         videoUrl,
-        caption,
-        targetPlatform: targetPlatform || undefined,
+        caption: caption ?? '',
+        ...(targetPlatform ? { targetPlatform } : {}),
         metadata: {
           durationSec: metadata.durationSec,
           width: metadata.width,

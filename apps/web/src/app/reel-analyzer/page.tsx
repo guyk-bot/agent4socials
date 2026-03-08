@@ -13,21 +13,12 @@ function displayUrl(fileUrl: string): string {
   return fileUrl;
 }
 
-const PLATFORMS = [
-  { id: 'instagram', label: 'Instagram' },
-  { id: 'tiktok', label: 'TikTok' },
-  { id: 'youtube', label: 'YouTube Shorts' },
-  { id: 'facebook', label: 'Facebook Reels' },
-] as const;
-
 export default function ReelAnalyzerPage() {
   const [file, setFile] = useState<File | null>(null);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [metadata, setMetadata] = useState<{ durationSec: number; width: number; height: number } | null>(null);
-  const [caption, setCaption] = useState('');
-  const [targetPlatform, setTargetPlatform] = useState<string>('instagram');
   const videoRef = useRef<HTMLVideoElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -192,36 +183,10 @@ export default function ReelAnalyzerPage() {
                 </button>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-1.5">Caption (optional)</label>
-                  <textarea
-                    value={caption}
-                    onChange={(e) => setCaption(e.target.value)}
-                    placeholder="Paste or type the caption you plan to use…"
-                    rows={3}
-                    className="w-full rounded-lg border border-neutral-200 px-3 py-2.5 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-1.5">Target platform</label>
-                  <select
-                    value={targetPlatform}
-                    onChange={(e) => setTargetPlatform(e.target.value)}
-                    className="w-full rounded-lg border border-neutral-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white"
-                  >
-                    {PLATFORMS.map((p) => (
-                      <option key={p.id} value={p.id}>{p.label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
               {metadata ? (
                 <ReelAnalyzer
                   videoUrl={fileUrl}
-                  caption={caption}
-                  targetPlatform={targetPlatform}
+                  caption=""
                   metadata={{
                     durationSec: metadata.durationSec,
                     width: metadata.width,
