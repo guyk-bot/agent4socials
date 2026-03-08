@@ -49,31 +49,39 @@ export async function POST(
   const accessToken = account.accessToken ?? '';
 
   try {
-    if (isInstagramBusinessLogin) {
-      // Instagram Business Login: reply via graph.instagram.com
-      await axios.post(
-        `https://graph.instagram.com/v25.0/${commentId}/replies`,
-        null,
-        {
-          params: { message: message.trim(), access_token: accessToken },
-          timeout: 15_000,
-        }
-      );
+    if (platform === 'INSTAGRAM') {
+      if (isInstagramBusinessLogin) {
+        // Instagram Business Login: reply via graph.instagram.com
+        await axios.post(
+          `https://graph.instagram.com/v25.0/${commentId}/replies`,
+          null,
+          { params: { message: message.trim(), access_token: accessToken }, timeout: 15_000 }
+        );
+      } else {
+        // Instagram via Facebook Login: use replies endpoint on graph.facebook.com
+        await axios.post(
+          `https://graph.facebook.com/v18.0/${commentId}/replies`,
+          null,
+          { params: { message: message.trim(), access_token: accessToken }, timeout: 15_000 }
+        );
+      }
     } else {
-      // Facebook Login (Instagram or Facebook): reply via graph.facebook.com
+      // Facebook page comment: reply as nested comment
       await axios.post(
         `https://graph.facebook.com/v18.0/${commentId}/comments`,
         null,
-        {
-          params: { message: message.trim(), access_token: accessToken },
-          timeout: 15_000,
-        }
+        { params: { message: message.trim(), access_token: accessToken }, timeout: 15_000 }
       );
     }
     return NextResponse.json({ ok: true });
   } catch (err) {
     const axErr = err as { response?: { data?: { error?: { message?: string; code?: number } } } };
-    const msg = axErr?.response?.data?.error?.message ?? 'Failed to send reply';
+    const errData = axErr?.response?.data?.error;
+    let msg = errData?.message ?? 'Failed to send reply';
+    // Provide a clearer message for permission errors
+    if (errData?.code === 200 || errData?.code === 10 || msg.toLowerCase().includes('permission') || msg.toLowerCase().includes('does not support')) {
+      msg = 'Reply failed: your Instagram/Facebook app needs the "pages_manage_engagement" permission. Try reconnecting your account or reply directly on the platform.';
+    }
     return NextResponse.json({ message: msg }, { status: 400 });
   }
 }

@@ -373,18 +373,11 @@ export default function InboxPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [commentsSupportedPlatforms.join(','), effectiveAccounts.map((a) => a.id).join(','), commentsRefreshKey]);
 
-  // Auto-refresh comments so new comments appear at top (every 60s when Comments tab is active, and when user returns to tab)
+  // Auto-refresh comments every 5 minutes when Comments tab is active
   useEffect(() => {
     if (inboxMode !== 'comments' || commentsSupportedPlatforms.length === 0) return;
-    const interval = setInterval(() => setCommentsRefreshKey((k) => k + 1), 60_000);
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') setCommentsRefreshKey((k) => k + 1);
-    };
-    document.addEventListener('visibilitychange', onVisible);
-    return () => {
-      clearInterval(interval);
-      document.removeEventListener('visibilitychange', onVisible);
-    };
+    const interval = setInterval(() => setCommentsRefreshKey((k) => k + 1), 5 * 60_000);
+    return () => clearInterval(interval);
   }, [inboxMode, commentsSupportedPlatforms.length]);
 
   // For engagement, always show all connected IG+FB accounts regardless of platform filter
@@ -947,20 +940,33 @@ export default function InboxPage() {
                   </div>
                   <div className="p-4 space-y-3">
                     <div>
-                      <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Comment</p>
-                      <p className="text-sm text-neutral-800 mt-1">{selectedComment.text}</p>
-                    </div>
-                    <div>
-                      {(() => {
-                        const preview = (selectedComment.postPreview || 'Post').slice(0, 15);
-                        const shortPreview = (selectedComment.postPreview || 'Post').length > 15 ? `${preview}…` : preview;
-                        const dateStr = selectedComment.postPublishedAt ? new Date(selectedComment.postPublishedAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : '';
-                        const label = dateStr ? `${dateStr} · ${shortPreview}` : shortPreview;
-                        return <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2">{label}</p>;
-                      })()}
-                      <div className="mt-2 rounded-lg overflow-hidden border border-neutral-100 bg-neutral-50 max-w-xs min-h-[120px] flex items-center justify-center">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                          {selectedComment.postPublishedAt ? new Date(selectedComment.postPublishedAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : 'Post'}
+                        </p>
+                        {selectedComment.postUrl && (
+                          <a
+                            href={selectedComment.postUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-700 hover:underline"
+                          >
+                            <ExternalLink size={10} />
+                            Open in {PLATFORMS.find((p) => p.id === selectedComment.platform)?.label ?? selectedComment.platform.charAt(0) + selectedComment.platform.slice(1).toLowerCase()}
+                          </a>
+                        )}
+                      </div>
+                      <div className="rounded-lg overflow-hidden border border-neutral-100 bg-neutral-50 max-w-xs min-h-[120px] flex items-center justify-center">
                         {selectedComment.postImageUrl ? (
-                          <img src={proxyImageUrl(selectedComment.postImageUrl)!} alt="Post" className="w-full h-auto object-contain max-h-48" />
+                          <img
+                            src={selectedComment.postImageUrl}
+                            alt="Post"
+                            className="w-full h-auto object-contain max-h-48"
+                            onError={(e) => {
+                              const fallback = proxyImageUrl(selectedComment.postImageUrl);
+                              if (fallback && e.currentTarget.src !== fallback) e.currentTarget.src = fallback;
+                            }}
+                          />
                         ) : (
                           <div className="flex flex-col items-center justify-center gap-2 p-4 text-neutral-400">
                             <ImageIcon size={40} strokeWidth={1.5} />
@@ -968,18 +974,10 @@ export default function InboxPage() {
                           </div>
                         )}
                       </div>
-                      <p className="text-sm text-neutral-600 mt-1 line-clamp-2">{selectedComment.postPreview}</p>
-                      {selectedComment.postUrl && (
-                        <a
-                          href={selectedComment.postUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-700 hover:underline mt-1"
-                        >
-                          <ExternalLink size={10} />
-                          Open in {PLATFORMS.find((p) => p.id === selectedComment.platform)?.label ?? selectedComment.platform.charAt(0) + selectedComment.platform.slice(1).toLowerCase()}
-                        </a>
-                      )}
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Comment</p>
+                      <p className="text-sm text-neutral-800 mt-1">{selectedComment.text}</p>
                     </div>
                   </div>
                 </div>
