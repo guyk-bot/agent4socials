@@ -29,6 +29,12 @@ export interface ReelAnalysisResult {
   scores: ReelAnalysisScores;
   recommendations: string[];
   riskFactors: string[];
+  /** Optional: suggestions for hooks, tone/emotions, vocals and sound. */
+  creativeAdvice?: {
+    hooks?: string[];
+    toneEmotions?: string[];
+    vocalsAndSound?: string[];
+  };
 }
 
 /** Client or server-provided metadata for a short video. */

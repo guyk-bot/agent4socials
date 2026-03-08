@@ -47,7 +47,7 @@ export async function analyzeReel(
         { role: 'system', content: system },
         { role: 'user', content: user },
       ],
-      max_tokens: 1200,
+      max_tokens: 1600,
       response_format: { type: 'json_object' },
     }),
   });
@@ -99,6 +99,7 @@ export async function analyzeReel(
     },
     recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations : [],
     riskFactors,
+    creativeAdvice: parsed.creativeAdvice,
   };
 }
 
@@ -109,6 +110,7 @@ function parseAiJson(raw: string): {
   scores: Record<string, { score: number; reason: string }>;
   recommendations?: string[];
   riskFactors?: string[];
+  creativeAdvice?: { hooks?: string[]; toneEmotions?: string[]; vocalsAndSound?: string[] };
 } {
   const stripped = raw.replace(/^```json\s*/i, '').replace(/\s*```\s*$/i, '').trim();
   try {
@@ -123,6 +125,15 @@ function parseAiJson(raw: string): {
         };
       }
     }
+    const rawAdvice = o.creativeAdvice as Record<string, unknown> | undefined;
+    const creativeAdvice =
+      rawAdvice && typeof rawAdvice === 'object'
+        ? {
+            hooks: Array.isArray(rawAdvice.hooks) ? (rawAdvice.hooks as unknown[]).filter((x): x is string => typeof x === 'string') : undefined,
+            toneEmotions: Array.isArray(rawAdvice.toneEmotions) ? (rawAdvice.toneEmotions as unknown[]).filter((x): x is string => typeof x === 'string') : undefined,
+            vocalsAndSound: Array.isArray(rawAdvice.vocalsAndSound) ? (rawAdvice.vocalsAndSound as unknown[]).filter((x): x is string => typeof x === 'string') : undefined,
+          }
+        : undefined;
     return {
       overallScore: typeof o.overallScore === 'number' ? o.overallScore : undefined,
       label: typeof o.label === 'string' ? o.label : undefined,
@@ -134,6 +145,7 @@ function parseAiJson(raw: string): {
       riskFactors: Array.isArray(o.riskFactors)
         ? (o.riskFactors as unknown[]).filter((x): x is string => typeof x === 'string')
         : undefined,
+      creativeAdvice,
     };
   } catch {
     return {

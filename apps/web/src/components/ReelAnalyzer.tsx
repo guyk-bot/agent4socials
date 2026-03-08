@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Loader2, Sparkles, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Loader2, Sparkles, AlertTriangle, ChevronDown, ChevronUp, Zap, Heart, Mic } from 'lucide-react';
 import api from '@/lib/api';
 import type { ReelAnalysisResult } from '@/lib/reel-analysis/types';
 
@@ -10,6 +10,8 @@ const SUBSCORE_KEYS: { key: keyof ReelAnalysisResult['scores']; label: string }[
   { key: 'first3Seconds', label: 'First 3 Seconds' },
   { key: 'pacing', label: 'Pacing' },
   { key: 'lengthFit', label: 'Length Fit' },
+  { key: 'captionQuality', label: 'Caption Quality' },
+  { key: 'ctaStrength', label: 'CTA Strength' },
 ];
 
 const OPTIONAL_SUBSCORE_KEYS: { key: 'visualClarity' | 'subtitlePresence'; label: string }[] = [
@@ -100,14 +102,14 @@ export function ReelAnalyzer({
   const displayUrl = videoPreviewUrl || videoUrl;
 
   const analysisContent = (
-    <div className="p-4">
-      <p className="text-sm text-neutral-500 mb-3">
+    <div className="p-5 sm:p-6">
+      <p className="text-sm text-neutral-500 mb-4">
         Get a Short Video Score and optimization tips before publishing. This is a pre-publish tool, not a virality predictor.
       </p>
 
-      <div className="flex flex-col lg:flex-row gap-4 items-start">
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
         {/* Video preview */}
-        <div className="w-full lg:w-[min(280px,100%)] shrink-0 rounded-lg overflow-hidden bg-neutral-100 border border-neutral-200 aspect-[9/16] max-h-[320px] lg:max-h-[400px]">
+        <div className="w-full lg:w-[min(280px,100%)] shrink-0 rounded-xl overflow-hidden bg-neutral-100 border border-neutral-200 aspect-[9/16] max-h-[320px] lg:max-h-[400px] shadow-inner">
           <video
             src={displayUrl}
             controls
@@ -123,7 +125,7 @@ export function ReelAnalyzer({
             <button
               type="button"
               onClick={runAnalysis}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm"
             >
               <Sparkles size={18} />
               Analyze for growth potential
@@ -131,14 +133,14 @@ export function ReelAnalyzer({
           )}
 
           {loading && (
-            <div className="flex items-center gap-2 text-neutral-500 py-4">
+            <div className="flex items-center gap-2 text-neutral-500 py-5">
               <Loader2 size={20} className="animate-spin" />
               <span className="text-sm">Analyzing your reel…</span>
             </div>
           )}
 
           {error && (
-            <div className="flex items-start gap-2 mt-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+            <div className="flex items-start gap-2 mt-2 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm">
               <AlertTriangle size={18} className="shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
@@ -153,38 +155,38 @@ export function ReelAnalyzer({
           )}
 
           {result && (
-            <div className="mt-4 space-y-4">
+            <div className="mt-5 space-y-5">
               {/* Main card: overall score, label, summary */}
-              <div className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-4">
+              <div className="rounded-xl border border-neutral-200 bg-gradient-to-br from-neutral-50 to-white p-5 shadow-sm">
                 <div className="flex flex-wrap items-baseline gap-2">
-                  <span className="text-3xl font-bold text-neutral-900">{result.overallScore}</span>
+                  <span className="text-4xl font-bold text-neutral-900">{result.overallScore}</span>
                   <span className="text-neutral-500">/ 100</span>
-                  <span className="text-sm font-medium text-neutral-600">Short Video Score</span>
+                  <span className="text-sm font-medium text-neutral-600 ml-1">Short Video Score</span>
                 </div>
-                <p className="mt-1 text-sm font-medium text-indigo-600">{result.label}</p>
+                <p className="mt-2 text-sm font-semibold text-indigo-600">{result.label}</p>
                 <p className="mt-2 text-sm text-neutral-700 leading-relaxed">{result.summary}</p>
               </div>
 
               {/* Sub-scores */}
               <div>
-                <h4 className="text-sm font-semibold text-neutral-700 mb-2">Performance breakdown</h4>
+                <h4 className="text-sm font-semibold text-neutral-800 mb-3">Performance breakdown</h4>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {SUBSCORE_KEYS.map(({ key, label }) => {
                     const sub = result.scores[key];
                     if (!sub || typeof sub.score !== 'number') return null;
                     return (
-                      <div key={key} className="rounded-lg border border-neutral-200 p-3 bg-white">
+                      <div key={key} className="rounded-xl border border-neutral-200 p-3.5 bg-white shadow-sm">
                         <div className="flex justify-between items-baseline gap-2">
                           <span className="text-sm font-medium text-neutral-800">{label}</span>
                           <span className="text-sm font-semibold text-neutral-700">{sub.score}/100</span>
                         </div>
-                        <div className="h-1.5 mt-1.5 rounded-full bg-neutral-200 overflow-hidden">
+                        <div className="h-2 mt-2 rounded-full bg-neutral-200 overflow-hidden">
                           <div
                             className="h-full rounded-full bg-indigo-500 transition-all"
                             style={{ width: `${Math.min(100, sub.score)}%` }}
                           />
                         </div>
-                        {sub.reason && <p className="text-xs text-neutral-500 mt-1">{sub.reason}</p>}
+                        {sub.reason && <p className="text-xs text-neutral-500 mt-1.5">{sub.reason}</p>}
                       </div>
                     );
                   })}
@@ -192,29 +194,75 @@ export function ReelAnalyzer({
                     const sub = result.scores[key];
                     if (!sub || typeof sub.score !== 'number') return null;
                     return (
-                      <div key={key} className="rounded-lg border border-neutral-200 p-3 bg-white">
+                      <div key={key} className="rounded-xl border border-neutral-200 p-3.5 bg-white shadow-sm">
                         <div className="flex justify-between items-baseline gap-2">
                           <span className="text-sm font-medium text-neutral-800">{label}</span>
                           <span className="text-sm font-semibold text-neutral-700">{sub.score}/100</span>
                         </div>
-                        <div className="h-1.5 mt-1.5 rounded-full bg-neutral-200 overflow-hidden">
+                        <div className="h-2 mt-2 rounded-full bg-neutral-200 overflow-hidden">
                           <div
                             className="h-full rounded-full bg-indigo-500 transition-all"
                             style={{ width: `${Math.min(100, sub.score)}%` }}
                           />
                         </div>
-                        {sub.reason && <p className="text-xs text-neutral-500 mt-1">{sub.reason}</p>}
+                        {sub.reason && <p className="text-xs text-neutral-500 mt-1.5">{sub.reason}</p>}
                       </div>
                     );
                   })}
                 </div>
               </div>
 
+              {/* Creative advice: hooks, tone/emotions, vocals & sound */}
+              {result.creativeAdvice && (result.creativeAdvice.hooks?.length || result.creativeAdvice.toneEmotions?.length || result.creativeAdvice.vocalsAndSound?.length) ? (
+                <div className="space-y-4">
+                  <h4 className="text-sm font-semibold text-neutral-800">Suggestions to improve</h4>
+                  {result.creativeAdvice.hooks && result.creativeAdvice.hooks.length > 0 && (
+                    <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Zap size={18} className="text-amber-500" />
+                        <span className="text-sm font-medium text-neutral-800">Better hooks</span>
+                      </div>
+                      <ul className="list-disc list-inside text-sm text-neutral-700 space-y-1">
+                        {result.creativeAdvice.hooks.map((s, i) => (
+                          <li key={i}>{s}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {result.creativeAdvice.toneEmotions && result.creativeAdvice.toneEmotions.length > 0 && (
+                    <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Heart size={18} className="text-rose-500" />
+                        <span className="text-sm font-medium text-neutral-800">Tone & emotions</span>
+                      </div>
+                      <ul className="list-disc list-inside text-sm text-neutral-700 space-y-1">
+                        {result.creativeAdvice.toneEmotions.map((s, i) => (
+                          <li key={i}>{s}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {result.creativeAdvice.vocalsAndSound && result.creativeAdvice.vocalsAndSound.length > 0 && (
+                    <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Mic size={18} className="text-indigo-500" />
+                        <span className="text-sm font-medium text-neutral-800">Vocals & sound</span>
+                      </div>
+                      <ul className="list-disc list-inside text-sm text-neutral-700 space-y-1">
+                        {result.creativeAdvice.vocalsAndSound.map((s, i) => (
+                          <li key={i}>{s}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
               {/* Optimization tips */}
               {result.recommendations.length > 0 && (
                 <div>
-                  <h4 className="text-sm font-semibold text-neutral-700 mb-2">Optimization tips</h4>
-                  <ul className="list-disc list-inside text-sm text-neutral-700 space-y-1">
+                  <h4 className="text-sm font-semibold text-neutral-800 mb-2">Optimization tips</h4>
+                  <ul className="list-disc list-inside text-sm text-neutral-700 space-y-1.5">
                     {result.recommendations.map((rec, i) => (
                       <li key={i}>{rec}</li>
                     ))}
@@ -225,12 +273,12 @@ export function ReelAnalyzer({
               {/* Risk factors */}
               {result.riskFactors.length > 0 && (
                 <div>
-                  <h4 className="text-sm font-semibold text-neutral-700 mb-2">What to improve before publishing</h4>
+                  <h4 className="text-sm font-semibold text-neutral-800 mb-2">What to improve before publishing</h4>
                   <div className="flex flex-wrap gap-2">
                     {result.riskFactors.map((risk, i) => (
                       <span
                         key={i}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium"
                       >
                         <AlertTriangle size={12} />
                         {risk}

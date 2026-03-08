@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { Video, Upload, Loader2, X } from 'lucide-react';
+import { Video, Upload, Loader2, X, Sparkles } from 'lucide-react';
 import api from '@/lib/api';
 import { ReelAnalyzer } from '@/components/ReelAnalyzer';
 
@@ -13,12 +13,23 @@ function displayUrl(fileUrl: string): string {
   return fileUrl;
 }
 
+const PLATFORMS = [
+  { id: 'instagram', label: 'Instagram' },
+  { id: 'tiktok', label: 'TikTok' },
+  { id: 'youtube', label: 'YouTube Shorts' },
+  { id: 'facebook', label: 'Facebook Reels' },
+] as const;
+
 export default function ReelAnalyzerPage() {
   const [file, setFile] = useState<File | null>(null);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [metadata, setMetadata] = useState<{ durationSec: number; width: number; height: number } | null>(null);
+  const [caption, setCaption] = useState('');
+  const [targetPlatform, setTargetPlatform] = useState<string>('instagram');
+  const [generatingCaption, setGeneratingCaption] = useState(false);
+  const [generateCaptionError, setGenerateCaptionError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -31,6 +42,8 @@ export default function ReelAnalyzerPage() {
     setFile(selectedFile);
     setFileUrl(null);
     setMetadata(null);
+    setCaption('');
+    setGenerateCaptionError(null);
     setUploading(true);
     try {
       const res = await api.post<{ uploadUrl: string; fileUrl: string }>('/media/upload-url', {
@@ -68,7 +81,28 @@ export default function ReelAnalyzerPage() {
     setFile(null);
     setFileUrl(null);
     setMetadata(null);
+    setCaption('');
     setUploadError(null);
+    setGenerateCaptionError(null);
+  };
+
+  const handleGenerateCaption = async () => {
+    setGenerateCaptionError(null);
+    setGeneratingCaption(true);
+    try {
+      const res = await api.post<{ content: string }>('/reels/generate-caption', {
+        transcript: '',
+        durationSec: metadata?.durationSec,
+      });
+      const text = res.data?.content?.trim();
+      if (text) setCaption(text);
+      else setGenerateCaptionError('No caption was generated. Try again.');
+    } catch (e) {
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Failed to generate caption. Set up AI Assistant (Dashboard > AI Assistant) and try again.';
+      setGenerateCaptionError(msg);
+    } finally {
+      setGeneratingCaption(false);
+    }
   };
 
   const preventDefault = (e: React.DragEvent) => {
@@ -83,25 +117,26 @@ export default function ReelAnalyzerPage() {
   };
 
   return (
-    <div className="w-full min-h-[calc(100vh-3.5rem)] flex flex-col">
-      <div className="border-b border-neutral-200 bg-white px-4 py-6 sm:px-6">
+    <div className="w-full min-h-[calc(100vh-3.5rem)] flex flex-col bg-neutral-50/50">
+      {/* Header */}
+      <div className="border-b border-neutral-200 bg-white px-4 py-8 sm:px-6 shadow-sm">
         <div className="max-w-4xl mx-auto">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-indigo-100">
-              <Video className="w-7 h-7 text-indigo-600" />
+          <div className="flex items-start gap-4">
+            <div className="p-3 rounded-2xl bg-indigo-100 shrink-0">
+              <Video className="w-8 h-8 text-indigo-600" />
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">Reel Analyzer</h1>
-              <p className="text-sm text-neutral-500 mt-0.5">
-                Upload a short-form video to get a performance score, breakdown, and optimization tips. Best for 9:16 vertical reels, 5–90 seconds.
+            <div className="min-w-0">
+              <h1 className="text-2xl sm:text-3xl font-bold text-neutral-900 tracking-tight">Reel Analyzer</h1>
+              <p className="text-neutral-600 text-sm mt-1.5 max-w-xl">
+                Upload a short-form video to get a performance score, breakdown, and optimization tips. Add a caption or generate one with AI. Best for 9:16 vertical reels, 5–90 seconds.
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 px-4 py-6 sm:px-6">
-        <div className="max-w-4xl mx-auto space-y-6">
+      <div className="flex-1 px-4 py-8 sm:px-6">
+        <div className="max-w-4xl mx-auto space-y-8">
           {!fileUrl ? (
             <>
               <div
@@ -109,7 +144,7 @@ export default function ReelAnalyzerPage() {
                 onDragLeave={preventDefault}
                 onDrop={onDrop}
                 onClick={() => inputRef.current?.click()}
-                className="relative rounded-2xl border-2 border-dashed border-neutral-200 bg-neutral-50/80 hover:bg-neutral-100/80 transition-colors cursor-pointer flex flex-col items-center justify-center py-16 px-6 min-h-[280px]"
+                className="relative rounded-2xl border-2 border-dashed border-neutral-300 bg-white hover:border-indigo-300 hover:bg-indigo-50/30 transition-all cursor-pointer flex flex-col items-center justify-center py-20 px-6 min-h-[320px] shadow-sm"
               >
                 <input
                   ref={inputRef}
@@ -124,14 +159,16 @@ export default function ReelAnalyzerPage() {
                 />
                 {uploading ? (
                   <>
-                    <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-3" />
+                    <Loader2 className="w-14 h-14 text-indigo-500 animate-spin mb-4" />
                     <p className="text-sm font-medium text-neutral-700">Uploading video…</p>
                   </>
                 ) : (
                   <>
-                    <Upload className="w-12 h-12 text-neutral-400 mb-3" />
-                    <p className="text-sm font-medium text-neutral-700">Drop your reel here or click to upload</p>
-                    <p className="text-xs text-neutral-500 mt-1">MP4, MOV, or other video. Vertical 9:16 works best.</p>
+                    <div className="rounded-2xl bg-neutral-100 p-4 mb-4">
+                      <Upload className="w-12 h-12 text-neutral-500" />
+                    </div>
+                    <p className="text-base font-semibold text-neutral-800">Drop your reel here or click to upload</p>
+                    <p className="text-sm text-neutral-500 mt-1">MP4, MOV, or other video. Vertical 9:16 works best.</p>
                   </>
                 )}
               </div>
@@ -143,7 +180,6 @@ export default function ReelAnalyzerPage() {
             </>
           ) : (
             <>
-              {/* Hidden video to read metadata */}
               <video
                 ref={videoRef}
                 src={displayUrl(fileUrl)}
@@ -153,9 +189,10 @@ export default function ReelAnalyzerPage() {
                 className="hidden"
               />
 
+              {/* Video card + remove */}
               <div className="flex items-start justify-between gap-4">
-                <div className="rounded-xl border border-neutral-200 bg-white p-4 flex items-center gap-4 min-w-0">
-                  <div className="w-20 h-28 rounded-lg bg-neutral-100 overflow-hidden shrink-0 aspect-[9/16]">
+                <div className="rounded-xl border border-neutral-200 bg-white p-4 flex items-center gap-4 min-w-0 shadow-sm">
+                  <div className="w-24 h-32 rounded-lg bg-neutral-100 overflow-hidden shrink-0 aspect-[9/16]">
                     <video
                       src={displayUrl(fileUrl)}
                       className="w-full h-full object-contain"
@@ -176,17 +213,62 @@ export default function ReelAnalyzerPage() {
                 <button
                   type="button"
                   onClick={clearVideo}
-                  className="p-2 rounded-lg text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 shrink-0"
+                  className="p-2.5 rounded-xl text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 shrink-0 transition-colors"
                   title="Remove video"
                 >
-                  <X size={20} />
+                  <X size={22} />
                 </button>
+              </div>
+
+              {/* Caption + platform + Generate caption */}
+              <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-neutral-700 mb-1.5">Caption (optional)</label>
+                    <textarea
+                      value={caption}
+                      onChange={(e) => setCaption(e.target.value)}
+                      placeholder="Paste or type the caption you plan to use, or generate one below…"
+                      rows={3}
+                      className="w-full rounded-lg border border-neutral-200 px-3 py-2.5 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleGenerateCaption}
+                      disabled={generatingCaption}
+                      className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium text-indigo-600 hover:bg-indigo-50 disabled:opacity-50 transition-colors"
+                    >
+                      {generatingCaption ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <Sparkles size={16} />
+                      )}
+                      {generatingCaption ? 'Generating…' : 'Generate caption'}
+                    </button>
+                    {generateCaptionError && (
+                      <p className="mt-2 text-sm text-amber-600">{generateCaptionError}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1.5">Target platform</label>
+                    <select
+                      value={targetPlatform}
+                      onChange={(e) => setTargetPlatform(e.target.value)}
+                      className="w-full rounded-lg border border-neutral-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white"
+                    >
+                      {PLATFORMS.map((p) => (
+                        <option key={p.id} value={p.id}>{p.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               </div>
 
               {metadata ? (
                 <ReelAnalyzer
                   videoUrl={fileUrl}
-                  caption=""
+                  caption={caption}
+                  targetPlatform={targetPlatform}
                   metadata={{
                     durationSec: metadata.durationSec,
                     width: metadata.width,
@@ -194,10 +276,10 @@ export default function ReelAnalyzerPage() {
                   }}
                   videoPreviewUrl={displayUrl(fileUrl)}
                   standalone
-                  className="border-0 shadow-sm"
+                  className="border-0 shadow-md"
                 />
               ) : (
-                <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-6 text-center">
+                <div className="rounded-xl border border-neutral-200 bg-white px-4 py-8 text-center shadow-sm">
                   <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mx-auto mb-2" />
                   <p className="text-sm text-neutral-600">Loading video metadata to enable analysis…</p>
                 </div>

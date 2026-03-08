@@ -35,9 +35,15 @@ Output this exact structure (use double quotes for strings):
     "ctaStrength": { "score": <0-100>, "reason": "<short reason>" }
   },
   "recommendations": [ "<actionable tip 1>", "<tip 2>", ... ],
-  "riskFactors": [ "<risk 1>", "<risk 2>", ... ]
+  "riskFactors": [ "<risk 1>", "<risk 2>", ... ],
+  "creativeAdvice": {
+    "hooks": [ "<suggestion for a stronger hook>", ... ],
+    "toneEmotions": [ "<suggestion about tone or emotional delivery>", ... ],
+    "vocalsAndSound": [ "<suggestion about vocals, vocal quality, or sound/music>", ... ]
+  }
 }
-Guidelines: overallScore and each score 0-100. Give 3-6 recommendations. riskFactors: only include clear issues (e.g. "No clear CTA", "Weak opening hook", "No subtitles detected", "Caption is too generic"). Do not use viral or guarantee language. Use "Growth Potential" style wording.`;
+Guidelines: overallScore and each score 0-100. Give 3-6 recommendations. riskFactors: only include clear issues (e.g. "No clear CTA", "Weak opening hook", "No subtitles detected", "Caption is too generic"). Do not use viral or guarantee language. Use "Growth Potential" style wording.
+For creativeAdvice: give 1-3 concrete suggestions per category when relevant. hooks = how to improve the opening to grab attention. toneEmotions = delivery tone, emotion, energy. vocalsAndSound = voice clarity, vocal quality, background music or sound design. Base these on caption, transcript, and metadata (e.g. duration, hasAudio). If no transcript, infer from context or say "Add a transcript for vocal/sound advice."`;
 
   const metaDesc = [
     `Duration: ${metadata.durationSec} seconds`,
