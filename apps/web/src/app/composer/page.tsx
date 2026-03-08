@@ -172,6 +172,7 @@ export default function ComposerPage() {
     const appData = useAppData();
     const searchParams = useSearchParams();
     const editPostId = searchParams.get('edit');
+    const analyzeReelParam = searchParams.get('analyze') === 'reel';
     const [platforms, setPlatforms] = useState<string[]>([]);
     const [content, setContent] = useState('');
     const [contentByPlatform, setContentByPlatform] = useState<Record<string, string>>({});
@@ -201,6 +202,12 @@ export default function ComposerPage() {
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [sectionOpen, setSectionOpen] = useState({ platforms: true, media: true, reelAnalyzer: true, content: false, commentAutomation: false, hashtags: false, schedule: false });
     const toggleSection = (key: keyof typeof sectionOpen) => setSectionOpen((s) => ({ ...s, [key]: !s[key] }));
+
+    useEffect(() => {
+        if (analyzeReelParam) {
+            setSectionOpen((s) => ({ ...s, media: true, reelAnalyzer: true }));
+        }
+    }, [analyzeReelParam]);
 
     // Resizable right preview panel (px); min 280, max 720
     const [previewWidthPx, setPreviewWidthPx] = useState(480);
@@ -1784,6 +1791,13 @@ export default function ComposerPage() {
                             </div>
                         )}
                     </div>
+
+                    {analyzeReelParam && !(mediaType === 'reel' && mediaList.length === 1 && mediaList[0].type === 'VIDEO') && (
+                        <div className="card space-y-4 rounded-xl border-2 border-dashed border-indigo-200 bg-indigo-50/50 p-4">
+                            <p className="text-sm font-medium text-indigo-900">Reel Analyzer</p>
+                            <p className="text-sm text-indigo-700">Add a <strong>Reel / Short</strong> video in the Media section above (choose &quot;Reel / Short&quot;, then upload one video). The analyzer will appear here so you can get a Short Video Score and optimization tips before posting.</p>
+                        </div>
+                    )}
 
                     {mediaType === 'reel' && mediaList.length === 1 && mediaList[0].type === 'VIDEO' && (
                         <>

@@ -369,13 +369,15 @@ export async function POST(
     const err = e as { response?: { data?: { error?: { message?: string; code?: number } }; status?: number } };
     const apiMsg = err?.response?.data?.error?.message ?? (e as Error)?.message ?? 'Send failed';
     const code = err?.response?.data?.error?.code;
-    const isCapability = code === 3 || /capability|does not have the capability/i.test(String(apiMsg));
+    const isCapability = code === 3 || /capability|does not have the capability|advanced access|does not have permission/i.test(String(apiMsg));
     if (isCapability) {
+      const baseMsg = isInstagramBusinessLogin
+        ? 'Sending requires Standard or Advanced Access for instagram_business_manage_messages. In Meta for Developers: App Dashboard → App Review → Permissions and features → add your account as Instagram Tester under Roles, then reconnect Instagram.'
+        : 'Sending requires Advanced Access for instagram_manage_messages (or in Development mode, both sender and recipient must be Instagram Testers who have accepted the invite). In Meta: App roles → Roles → add both accounts as Instagram Testers; accept any Pending invite in Instagram (Settings → Apps and websites → Tester invitations). Then reconnect Facebook & Instagram from the Dashboard.';
       return NextResponse.json(
         {
-          message: isInstagramBusinessLogin
-            ? 'Sending requires Standard or Advanced Access for instagram_business_manage_messages. In Meta for Developers: App Dashboard → App Review → Permissions and features → add your account as Instagram Tester under Roles, then reconnect Instagram.'
-            : 'Sending requires Advanced Access for instagram_manage_messages. In Meta for Developers request Advanced Access, add test users, then reconnect Facebook & Instagram from the Dashboard.',
+          message: baseMsg,
+          debug: process.env.NODE_ENV === 'development' ? apiMsg : undefined,
         },
         { status: 400 }
       );
@@ -397,6 +399,9 @@ export async function POST(
       );
     }
     console.error('[Conversation messages] send error:', e);
-    return NextResponse.json({ message: 'Failed to send message.' }, { status: 500 });
+    return NextResponse.json(
+      { message: apiMsg || 'Failed to send message.' },
+      { status: 500 }
+    );
   }
 }

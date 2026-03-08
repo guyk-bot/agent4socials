@@ -2,8 +2,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { LayoutGrid, MessageCircle, PlusSquare, Calendar, Zap, Menu, PanelLeft, PanelLeftClose } from 'lucide-react';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { LayoutGrid, MessageCircle, PlusSquare, Calendar, Zap, Menu, PanelLeft, PanelLeftClose, Sparkles } from 'lucide-react';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
 import { useAppData } from '@/context/AppDataContext';
 import api from '@/lib/api';
@@ -12,6 +12,7 @@ export const topNavItems = [
   { icon: LayoutGrid, label: 'Analytics', href: '/dashboard/summary' },
   { icon: MessageCircle, label: 'Inbox', href: '/dashboard/inbox', badgeKey: 'inbox' as const },
   { icon: PlusSquare, label: 'Composer', href: '/composer' },
+  { icon: Sparkles, label: 'Reel Analyzer', href: '/composer?analyze=reel' },
   { icon: Zap, label: 'Automation', href: '/dashboard/automation' },
   { icon: Calendar, label: 'Calendar', href: '/calendar' },
 ];
@@ -23,6 +24,7 @@ type AppHeaderProps = {
 
 export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHeaderProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { logoUrl, appName } = useWhiteLabel();
   const appData = useAppData();
   const [topNavOpen, setTopNavOpen] = useState(false);
@@ -69,7 +71,12 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
         </Link>
         <nav className="hidden md:flex items-center gap-1">
           {topNavItems.map((item) => {
-            const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+            const isReelAnalyzer = item.href.startsWith('/composer') && item.href.includes('analyze=reel');
+            const isActive = isReelAnalyzer
+              ? pathname === '/composer' && searchParams.get('analyze') === 'reel'
+              : item.href === '/composer'
+                ? pathname === '/composer' && searchParams.get('analyze') !== 'reel'
+                : pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href.split('?')[0]));
             const inboxRaw = appData?.notifications?.inbox ?? inboxCount;
             const badge = item.badgeKey === 'inbox' ? (isActive && item.href === '/dashboard/inbox' ? 0 : inboxRaw) : 0;
             return (
@@ -107,7 +114,12 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
         {topNavOpen && (
           <div className="absolute right-0 top-full mt-1 py-1 w-52 rounded-lg bg-neutral-800 border border-neutral-700 shadow-xl z-50">
             {topNavItems.map((item) => {
-              const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+              const isReelAnalyzer = item.href.startsWith('/composer') && item.href.includes('analyze=reel');
+              const isActive = isReelAnalyzer
+                ? pathname === '/composer' && searchParams.get('analyze') === 'reel'
+                : item.href === '/composer'
+                  ? pathname === '/composer' && searchParams.get('analyze') !== 'reel'
+                  : pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href.split('?')[0]));
               const inboxRaw = appData?.notifications?.inbox ?? inboxCount;
               const badge = item.badgeKey === 'inbox' ? (isActive && item.href === '/dashboard/inbox' ? 0 : inboxRaw) : 0;
               return (
