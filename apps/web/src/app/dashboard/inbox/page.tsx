@@ -1538,7 +1538,7 @@ export default function InboxPage() {
                   <button type="button" onClick={() => setDmSendError(null)} className="ml-auto shrink-0 text-amber-500 hover:text-amber-700">✕</button>
                 </div>
               )}
-              <p className="text-xs text-neutral-400 mt-2 text-center">Send a message to this conversation. Use the sparkle button to generate a reply with AI. Replies are only allowed within 24 hours of the customer&apos;s last message (Facebook/Instagram policy).</p>
+              <p className="text-xs text-neutral-400 mt-2 text-center">Send a message to this conversation. Use the sparkle button to generate a reply with AI. When sending is enabled, replies are only allowed within 24 hours of the customer&apos;s last message (Facebook/Instagram policy). If you see an error above about Advanced Access, Meta must approve your app for sending before replies will work.</p>
             </div>
             </div>
           </>
