@@ -10,7 +10,6 @@ const SUBSCORE_KEYS: { key: keyof ReelAnalysisResult['scores']; label: string }[
   { key: 'first3Seconds', label: 'First 3 Seconds' },
   { key: 'pacing', label: 'Pacing' },
   { key: 'lengthFit', label: 'Length Fit' },
-  { key: 'ctaStrength', label: 'CTA Strength' },
 ];
 
 const OPTIONAL_SUBSCORE_KEYS: { key: 'visualClarity' | 'subtitlePresence'; label: string }[] = [
