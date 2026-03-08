@@ -22,9 +22,14 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
         const redirectUri = (process.env.INSTAGRAM_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
         return `https://www.instagram.com/oauth/authorize?client_id=${igClientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&state=${encodeURIComponent(state)}`;
       }
-      // Instagram via Facebook Login: Page token is used for publish. Put publish scopes first so they are requested.
-      // In Meta App Dashboard add instagram_content_publish under App Review → Permissions and features, then reconnect.
-      return `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.META_APP_ID}&redirect_uri=${encodeURIComponent(process.env.META_REDIRECT_URI || callbackUrl)}&state=${state}&scope=instagram_content_publish,instagram_basic,pages_read_engagement,pages_show_list,pages_manage_posts,instagram_manage_messages,instagram_manage_insights,instagram_manage_comments,pages_manage_engagement,pages_messaging,pages_read_user_content,business_management`;
+      // Instagram via Facebook Login: default scope omits pages_manage_posts and pages_manage_engagement so Connect works
+      // without adding them in Meta first. For Page posting and comment management, add those in Meta → App Review, then set
+      // INSTAGRAM_VIA_FACEBOOK_OAUTH_SCOPES to the full list including pages_manage_posts,pages_manage_engagement.
+      const defaultIgFbScope = 'instagram_content_publish,instagram_basic,pages_read_engagement,pages_show_list,instagram_manage_messages,instagram_manage_insights,instagram_manage_comments,pages_messaging,pages_read_user_content,business_management';
+      const igFbScope = (typeof process.env.INSTAGRAM_VIA_FACEBOOK_OAUTH_SCOPES === 'string' && process.env.INSTAGRAM_VIA_FACEBOOK_OAUTH_SCOPES.trim())
+        ? process.env.INSTAGRAM_VIA_FACEBOOK_OAUTH_SCOPES.trim()
+        : defaultIgFbScope;
+      return `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.META_APP_ID}&redirect_uri=${encodeURIComponent(process.env.META_REDIRECT_URI || callbackUrl)}&state=${state}&scope=${encodeURIComponent(igFbScope)}`;
     case 'TIKTOK': {
       const tiktokRedirect = (process.env.TIKTOK_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
       // video.list = list user's videos for sync; user.info.basic = profile/avatar; user.info.stats = follower count
