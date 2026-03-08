@@ -739,70 +739,12 @@ export default function InboxPage() {
                 </button>
               </div>
             ) : (
-              <div className="p-2 space-y-4">
+              <div className="divide-y divide-neutral-100">
                 {(() => {
-                  const filtered = comments.filter(
-                    (c) => !searchQuery || c.text.toLowerCase().includes(searchQuery.toLowerCase()) || c.authorName.toLowerCase().includes(searchQuery.toLowerCase())
-                  );
-                  const byPost = new Map<string, PostComment[]>();
-                  for (const c of filtered) {
-                    const key = `${c.platform}-${c.platformPostId}`;
-                    if (!byPost.has(key)) byPost.set(key, []);
-                    byPost.get(key)!.push(c);
-                  }
-                  const groups = Array.from(byPost.entries()).map(([key, groupComments]) => {
-                    const newest = groupComments.reduce((a, b) => (new Date(b.createdAt).getTime() > new Date(a.createdAt).getTime() ? b : a));
-                    return {
-                      key,
-                      postPreview: newest.postPreview,
-                      postImageUrl: newest.postImageUrl,
-                      postPublishedAt: newest.postPublishedAt,
-                      postUrl: groupComments.find((c) => c.postUrl)?.postUrl ?? null,
-                      platform: newest.platform,
-                      comments: groupComments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
-                    };
-                  });
-                  groups.sort((a, b) => new Date(b.comments[0].createdAt).getTime() - new Date(a.comments[0].createdAt).getTime());
-                  return groups.map((group) => (
-                    <div key={group.key} className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
-                      <div className="p-3 border-b border-neutral-100 bg-neutral-50/70">
-                        <div className="flex gap-3">
-                          {group.postImageUrl ? (
-                            <img src={proxyImageUrl(group.postImageUrl)!} alt="Post" className="w-16 h-16 rounded-lg object-cover shrink-0" />
-                          ) : (
-                            <div className="w-16 h-16 rounded-lg bg-neutral-200 flex items-center justify-center shrink-0">
-                              <ImageIcon size={20} className="text-neutral-400" />
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-1">
-                              <p className="text-sm text-neutral-800 line-clamp-2 flex-1 min-w-0">{group.postPreview}</p>
-                              <p className="text-xs text-neutral-400 flex items-center gap-1 shrink-0 ml-2">
-                                {(() => {
-                                  const plat = PLATFORMS.find((p) => p.id === group.platform);
-                                  const Icon = plat?.icon;
-                                  return Icon ? <Icon size={12} className="opacity-70" /> : null;
-                                })()}
-                                <span>{group.postPublishedAt ? new Date(group.postPublishedAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : ''}</span>
-                              </p>
-                            </div>
-                            {group.postUrl && (
-                              <a
-                                href={group.postUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-700 hover:underline mt-0.5"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <ExternalLink size={10} />
-                                Open in {PLATFORMS.find((p) => p.id === group.platform)?.name ?? group.platform.charAt(0) + group.platform.slice(1).toLowerCase()}
-                              </a>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="divide-y divide-neutral-100">
-                        {group.comments.map((c) => (
+                  const filtered = comments
+                    .filter((c) => !searchQuery || c.text.toLowerCase().includes(searchQuery.toLowerCase()) || c.authorName.toLowerCase().includes(searchQuery.toLowerCase()))
+                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+                  return filtered.map((c) => (
                           <button
                             key={c.commentId}
                             type="button"
@@ -829,14 +771,12 @@ export default function InboxPage() {
                               </div>
                               <div className="min-w-0 flex-1">
                                 <p className="text-sm font-medium text-neutral-900 truncate">{c.authorName}</p>
+                                <p className="text-xs text-neutral-500 truncate mt-0.5">{(c.postPreview || '').slice(0, 20)}{(c.postPreview?.length ?? 0) > 20 ? '…' : ''}</p>
                                 <p className="text-xs text-neutral-600 line-clamp-2 mt-0.5">{c.text}</p>
                               </div>
                             </div>
                           </button>
-                        ))}
-                      </div>
-                    </div>
-                  ));
+                        ));
                 })()}
               </div>
             )
@@ -1029,6 +969,17 @@ export default function InboxPage() {
                         )}
                       </div>
                       <p className="text-sm text-neutral-600 mt-1 line-clamp-2">{selectedComment.postPreview}</p>
+                      {selectedComment.postUrl && (
+                        <a
+                          href={selectedComment.postUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-700 hover:underline mt-1"
+                        >
+                          <ExternalLink size={10} />
+                          Open in {PLATFORMS.find((p) => p.id === selectedComment.platform)?.label ?? selectedComment.platform.charAt(0) + selectedComment.platform.slice(1).toLowerCase()}
+                        </a>
+                      )}
                     </div>
                   </div>
                 </div>
