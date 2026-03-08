@@ -14,6 +14,7 @@ import {
     Sparkles,
     PanelLeftClose,
     Link2,
+    HelpCircle,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
@@ -214,6 +215,23 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
           <Settings size={18} className="shrink-0" />
           <span>Brand settings</span>
         </Link>
+      </div>
+
+      <div className="mt-auto p-3 border-t border-neutral-200 shrink-0">
+        <Link
+          href="/help"
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${pathname === '/help' ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
+          style={pathname === '/help' ? { color: accent } : undefined}
+        >
+          <HelpCircle size={18} className="shrink-0" />
+          <span>Need help?</span>
+        </Link>
+        <a
+          href="mailto:support@agent4socials.com?subject=Support%20request%20%7C%20Agent4Socials"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-100 mt-0.5"
+        >
+          <span className="text-xs">Open a support ticket</span>
+        </a>
       </div>
     </>
   );

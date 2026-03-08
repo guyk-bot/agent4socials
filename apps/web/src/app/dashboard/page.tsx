@@ -1065,14 +1065,6 @@ export default function DashboardPage() {
               </button>
             </div>
           )}
-          {insights?.insightsHint && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              <p>{insights.insightsHint}</p>
-              {(selectedAccount?.platform === 'INSTAGRAM' || selectedAccount?.platform === 'FACEBOOK') && (
-                <p className="mt-2 text-xs text-amber-700">Data will sync automatically when your Page is linked for this account.</p>
-              )}
-            </div>
-          )}
           {/* ── Analytics cards (Metricool-style) ──────────────────────────── */}
           {(() => {
             const platColor =

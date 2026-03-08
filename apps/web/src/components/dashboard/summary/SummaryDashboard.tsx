@@ -146,19 +146,6 @@ export function SummaryDashboard() {
         </div>
       )}
 
-      {/* Platform-level hints */}
-      {summary.platforms.some((p) => p.insightsHint) && (
-        <SectionFade delay={0}>
-          <div className="space-y-2">
-            {summary.platforms.filter((p) => p.insightsHint).map((p) => (
-              <div key={p.id} className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                <strong>{p.platform}:</strong> {p.insightsHint}
-              </div>
-            ))}
-          </div>
-        </SectionFade>
-      )}
-
       <SectionFade delay={0}>
         <SummaryFiltersBar
           dateStart={dateRange.start}
