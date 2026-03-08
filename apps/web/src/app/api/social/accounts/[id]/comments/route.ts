@@ -156,6 +156,12 @@ export async function GET(
         if (url) igMediaImageMap.set(m.id, url);
       }
     } catch { /* ignore, fallback to other methods */ }
+    // Enrich sources with pre-fetched images so every comment gets the image upfront
+    for (const src of sources) {
+      if (!src.postImageUrl && igMediaImageMap.has(src.platformPostId)) {
+        src.postImageUrl = igMediaImageMap.get(src.platformPostId)!;
+      }
+    }
   }
 
   async function getPostImageUrl(postId: string, plat: string, accessToken: string): Promise<string | null> {

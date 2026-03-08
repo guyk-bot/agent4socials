@@ -783,30 +783,30 @@ export default function InboxPage() {
                             key={c.commentId}
                             type="button"
                             onClick={() => setSelectedComment(c)}
-                            className={`w-full flex items-start gap-3 px-3 py-3 text-left transition-colors ${
+                            className={`w-full px-3 py-3 text-left transition-colors ${
                               selectedComment?.commentId === c.commentId ? 'bg-indigo-50 border-l-2 border-l-indigo-500' : 'hover:bg-neutral-50'
                             }`}
                           >
-                            <div className="w-9 h-9 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden">
-                              {c.authorPictureUrl ? (
-                                <img src={c.authorPictureUrl} alt="" className="w-full h-full object-cover" />
-                              ) : (
-                                <span className="text-xs font-semibold text-neutral-600">{(c.authorName || '?').slice(0, 2).toUpperCase()}</span>
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-start justify-between gap-2">
-                                <p className="text-sm font-medium text-neutral-900 truncate">{c.authorName}</p>
-                                <p className="text-xs text-neutral-400 flex items-center gap-1 shrink-0">
-                                  {(() => {
-                                    const plat = PLATFORMS.find((p) => p.id === c.platform);
-                                    const Icon = plat?.icon;
-                                    return Icon ? <Icon size={12} className="opacity-70" /> : null;
-                                  })()}
-                                  <span>{new Date(c.createdAt).toLocaleString()}</span>
-                                </p>
+                            <p className="text-xs text-neutral-400 flex items-center gap-1 mb-1">
+                              {(() => {
+                                const plat = PLATFORMS.find((p) => p.id === c.platform);
+                                const Icon = plat?.icon;
+                                return Icon ? <Icon size={12} className="opacity-70" /> : null;
+                              })()}
+                              <span>{new Date(c.createdAt).toLocaleString()}</span>
+                            </p>
+                            <div className="flex items-start gap-3">
+                              <div className="w-9 h-9 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden">
+                                {c.authorPictureUrl ? (
+                                  <img src={c.authorPictureUrl} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="text-xs font-semibold text-neutral-600">{(c.authorName || '?').slice(0, 2).toUpperCase()}</span>
+                                )}
                               </div>
-                              <p className="text-xs text-neutral-600 line-clamp-2 mt-0.5">{c.text}</p>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium text-neutral-900 truncate">{c.authorName}</p>
+                                <p className="text-xs text-neutral-600 line-clamp-2 mt-0.5">{c.text}</p>
+                              </div>
                             </div>
                           </button>
                         ))}
