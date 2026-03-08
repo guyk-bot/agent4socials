@@ -728,7 +728,20 @@ export default function InboxPage() {
                         <p className="text-sm font-medium text-neutral-900 truncate">{c.authorName}</p>
                         <p className="text-xs text-neutral-600 line-clamp-2">{c.text}</p>
                         <p className="text-xs text-neutral-400 mt-0.5 truncate">{c.postPreview}</p>
-                        <p className="text-xs text-neutral-400 mt-0.5">{new Date(c.createdAt).toLocaleString()}</p>
+                        <p className="text-xs text-neutral-400 mt-0.5 flex items-center gap-1.5">
+                          {(() => {
+                            const plat = PLATFORMS.find((p) => p.id === c.platform);
+                            const Icon = plat?.icon;
+                            return (
+                              <>
+                                {Icon && <Icon size={12} className="shrink-0 opacity-70" />}
+                                <span>{plat?.label ?? c.platform}</span>
+                                <span>·</span>
+                                <span>{new Date(c.createdAt).toLocaleString()}</span>
+                              </>
+                            );
+                          })()}
+                        </p>
                       </div>
                     </button>
                   ))}
@@ -873,7 +886,20 @@ export default function InboxPage() {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-neutral-800">Comment on your post</p>
-                      <p className="text-xs text-neutral-500">{selectedComment.authorName} · {PLATFORMS.find((p) => p.id === selectedPlatform)?.label}</p>
+                      <p className="text-xs text-neutral-500 flex items-center gap-1.5 mt-0.5">
+                        {selectedComment.authorName}
+                        <span>·</span>
+                        {(() => {
+                          const plat = PLATFORMS.find((p) => p.id === selectedComment.platform);
+                          const Icon = plat?.icon;
+                          return (
+                            <span className="inline-flex items-center gap-1 font-medium text-neutral-600">
+                              {Icon && <Icon size={14} />}
+                              {plat?.label ?? selectedComment.platform}
+                            </span>
+                          );
+                        })()}
+                      </p>
                     </div>
                   </div>
                   <div className="p-4 space-y-3">
