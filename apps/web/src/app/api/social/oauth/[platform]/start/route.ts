@@ -44,9 +44,15 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
     }
     case 'FACEBOOK': {
       // Full set for admin testing and App Review: posts, engagement, messaging, read Page content.
-      // If you see "Invalid Scopes" for a permission, add it in Meta app → App Review → Permissions and features first, then reconnect.
+      // If you see "Invalid Scopes: pages_manage_posts, pages_manage_engagement": add those permissions in
+      // Meta for Developers → Your App → App Review → Permissions and features (search for the permission and add it).
+      // Optional: set FACEBOOK_OAUTH_SCOPES in env to override (e.g. omit the two above until they're added in the app).
+      const defaultFbScope = 'pages_read_engagement,pages_show_list,pages_manage_posts,pages_manage_engagement,pages_messaging,pages_read_user_content,read_insights,business_management';
+      const fbScope = (typeof process.env.FACEBOOK_OAUTH_SCOPES === 'string' && process.env.FACEBOOK_OAUTH_SCOPES.trim())
+        ? process.env.FACEBOOK_OAUTH_SCOPES.trim()
+        : defaultFbScope;
       const fbRedirectUri = (process.env.FACEBOOK_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
-      return `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.META_APP_ID}&redirect_uri=${encodeURIComponent(fbRedirectUri)}&state=${state}&scope=pages_read_engagement,pages_show_list,pages_manage_posts,pages_manage_engagement,pages_messaging,pages_read_user_content,read_insights,business_management`;
+      return `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.META_APP_ID}&redirect_uri=${encodeURIComponent(fbRedirectUri)}&state=${state}&scope=${encodeURIComponent(fbScope)}`;
     }
     case 'TWITTER':
       return `https://twitter.com/i/oauth2/authorize?client_id=${process.env.TWITTER_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.TWITTER_REDIRECT_URI || callbackUrl)}&response_type=code&scope=tweet.read%20tweet.write%20users.read%20dm.read%20dm.write%20offline.access&state=${state}&code_challenge=challenge&code_challenge_method=plain`;
