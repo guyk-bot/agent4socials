@@ -139,6 +139,7 @@ export async function GET(
     createdAt: string;
     platform: string;
     isFromMe?: boolean;
+    parentCommentId?: string | null;
   }> = [];
   let firstError: string | null = null;
 
@@ -289,7 +290,7 @@ export async function GET(
                     postPublishedAt: postPublishedAtResolved ?? null, postUrl,
                     text: r.text ?? '', authorName: rIsFromMe ? 'You' : (r.from?.username ?? 'Unknown'),
                     authorPictureUrl: null, createdAt: r.timestamp ?? new Date().toISOString(), platform,
-                    isFromMe: rIsFromMe,
+                    isFromMe: rIsFromMe, parentCommentId: commentId,
                   });
                 }
               } catch { /* ignore */ }
@@ -329,8 +330,9 @@ export async function GET(
             // Fetch replies so user sees their own replies in the list
             const topLevelIds = (res.data?.data ?? []).map((x) => x.id).slice(0, 8);
             const replyFields = platform === 'INSTAGRAM'
-              ? 'id,from{id,username},text,created_time'
+              ? 'id,from{id,username},text,timestamp'
               : 'id,from{id,name,picture},message,created_time';
+            const replyEndpoint = platform === 'INSTAGRAM' ? 'replies' : 'comments';
             await Promise.all(topLevelIds.map(async (commentId) => {
               try {
                 const replyRes = await axios.get<{
@@ -340,8 +342,9 @@ export async function GET(
                     text?: string;
                     message?: string;
                     created_time?: string;
+                    timestamp?: string;
                   }>;
-                }>(`https://graph.facebook.com/v18.0/${commentId}/comments`, {
+                }>(`https://graph.facebook.com/v18.0/${commentId}/${replyEndpoint}`, {
                   params: { fields: replyFields, access_token: token, limit: 25 },
                   timeout: 8_000,
                 });
@@ -352,12 +355,13 @@ export async function GET(
                   const rText = (platform === 'INSTAGRAM' ? r.text : r.message) ?? '';
                   const rFromId = (rFrom as { id?: string })?.id;
                   const rIsFromMe = rFromId === account.platformUserId;
+                  const rCreated = r.created_time ?? (r as { timestamp?: string }).timestamp ?? new Date().toISOString();
                   comments.push({
                     commentId: r.id, postTargetId, platformPostId, accountId, postPreview, postImageUrl,
                     postPublishedAt: postPublishedAtResolved ?? null, postUrl,
                     text: rText, authorName: rIsFromMe ? 'You' : rAuthorName, authorPictureUrl: rAuthorPictureUrl || null,
-                    createdAt: r.created_time ?? new Date().toISOString(), platform,
-                    isFromMe: rIsFromMe,
+                    createdAt: rCreated, platform,
+                    isFromMe: rIsFromMe, parentCommentId: commentId,
                   });
                 }
               } catch { /* ignore */ }

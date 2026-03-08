@@ -50,6 +50,7 @@ export type CachedComment = {
   createdAt: string;
   platform: string;
   isFromMe?: boolean;
+  parentCommentId?: string | null;
 };
 
 export type CachedConversation = {

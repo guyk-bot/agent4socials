@@ -61,6 +61,7 @@ type PostComment = {
   createdAt: string;
   platform: string;
   isFromMe?: boolean;
+  parentCommentId?: string | null;
 };
 type EngagementItem = {
   platformPostId: string;
@@ -124,6 +125,12 @@ export default function InboxPage() {
   const [selectedEngagement, setSelectedEngagement] = useState<EngagementItem | null>(null);
   const [commentsRefreshKey, setCommentsRefreshKey] = useState(0);
   const [deleteCommentLoading, setDeleteCommentLoading] = useState(false);
+  const [unreadCommentIds, setUnreadCommentIds] = useState<Set<string>>(new Set());
+  const [unreadConversationIds, setUnreadConversationIds] = useState<Set<string>>(new Set());
+  const [unreadEngagementIds, setUnreadEngagementIds] = useState<Set<string>>(new Set());
+  const previousTopLevelCommentIdsRef = useRef<Set<string>>(new Set());
+  const previousConversationIdsRef = useRef<Set<string>>(new Set());
+  const previousEngagementIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if ((cachedAccounts as Account[]).length > 0) return;
@@ -380,6 +387,21 @@ export default function InboxPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [commentsSupportedPlatforms.join(','), effectiveAccounts.map((a) => a.id).join(','), commentsRefreshKey]);
 
+  // Track unread comment ids: add new top-level comment ids when comments load; user removes by clicking
+  useEffect(() => {
+    const topLevel = comments.filter((c) => !c.parentCommentId);
+    const topLevelIds = new Set(topLevel.map((c) => c.commentId));
+    const newIds = [...topLevelIds].filter((id) => !previousTopLevelCommentIdsRef.current.has(id));
+    previousTopLevelCommentIdsRef.current = topLevelIds;
+    if (newIds.length > 0) {
+      setUnreadCommentIds((prev) => {
+        const next = new Set(prev);
+        newIds.forEach((id) => next.add(id));
+        return next;
+      });
+    }
+  }, [comments]);
+
   // Auto-refresh comments every 5 minutes when Comments tab is active
   useEffect(() => {
     if (inboxMode !== 'comments' || commentsSupportedPlatforms.length === 0) return;
@@ -424,6 +446,34 @@ export default function InboxPage() {
     });
     return () => { cancelled = true; };
   }, [allEngagementAccounts.map((a) => a.id).join(','), effectiveAccounts.length]);
+
+  // Track unread conversation ids for Messages tab
+  useEffect(() => {
+    const ids = new Set(conversations.map((c) => c.id));
+    const newIds = [...ids].filter((id) => !previousConversationIdsRef.current.has(id));
+    previousConversationIdsRef.current = ids;
+    if (newIds.length > 0) {
+      setUnreadConversationIds((prev) => {
+        const next = new Set(prev);
+        newIds.forEach((id) => next.add(id));
+        return next;
+      });
+    }
+  }, [conversations]);
+
+  // Track unread engagement ids for Engagement tab (engagement items use platform+platformPostId as key)
+  useEffect(() => {
+    const ids = new Set(engagement.map((e) => `${e.platform}-${e.platformPostId}`));
+    const newIds = [...ids].filter((id) => !previousEngagementIdsRef.current.has(id));
+    previousEngagementIdsRef.current = ids;
+    if (newIds.length > 0) {
+      setUnreadEngagementIds((prev) => {
+        const next = new Set(prev);
+        newIds.forEach((id) => next.add(id));
+        return next;
+      });
+    }
+  }, [engagement]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -536,11 +586,11 @@ export default function InboxPage() {
             className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-1.5 ${inboxMode === 'messages' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
           >
             Messages
-            {inboxMode !== 'messages' && effectiveNotifications.messages > 0 && (
+            {(inboxMode !== 'messages' && (unreadConversationIds.size > 0 || effectiveNotifications.messages > 0)) ? (
               <span className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
-                {effectiveNotifications.messages > 99 ? '99' : effectiveNotifications.messages}
+                {unreadConversationIds.size > 0 ? (unreadConversationIds.size > 99 ? '99' : unreadConversationIds.size) : (effectiveNotifications.messages > 99 ? '99' : effectiveNotifications.messages)}
               </span>
-            )}
+            ) : null}
           </button>
           <button
             type="button"
@@ -548,18 +598,23 @@ export default function InboxPage() {
             className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-1.5 ${inboxMode === 'comments' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
           >
             Comments
-            {inboxMode !== 'comments' && effectiveNotifications.comments > 0 && (
+            {(inboxMode !== 'comments' && unreadCommentIds.size > 0) || (inboxMode !== 'comments' && effectiveNotifications.comments > 0 && unreadCommentIds.size === 0) ? (
               <span className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
-                {effectiveNotifications.comments > 99 ? '99' : effectiveNotifications.comments}
+                {unreadCommentIds.size > 0 ? (unreadCommentIds.size > 99 ? '99' : unreadCommentIds.size) : (effectiveNotifications.comments > 99 ? '99' : effectiveNotifications.comments)}
               </span>
-            )}
+            ) : null}
           </button>
           <button
             type="button"
             onClick={() => { setInboxMode('engagement'); setSelectedConversationId(null); setSelectedComment(null); setSelectedEngagement(null); }}
-            className={`flex-1 py-3 text-sm font-medium ${inboxMode === 'engagement' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
+            className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-1.5 ${inboxMode === 'engagement' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
           >
             Engagement
+            {inboxMode !== 'engagement' && unreadEngagementIds.size > 0 ? (
+              <span className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
+                {unreadEngagementIds.size > 99 ? '99' : unreadEngagementIds.size}
+              </span>
+            ) : null}
           </button>
         </div>
 
@@ -639,13 +694,23 @@ export default function InboxPage() {
               <div className="p-2 space-y-0">
                 {engagement
                   .filter((e) => !searchQuery || e.postPreview.toLowerCase().includes(searchQuery.toLowerCase()))
-                  .map((e) => (
+                  .map((e) => {
+                    const engagementKey = `${e.platform}-${e.platformPostId}`;
+                    const isUnread = unreadEngagementIds.has(engagementKey);
+                    return (
                     <button
-                      key={e.platformPostId}
+                      key={engagementKey}
                       type="button"
-                      onClick={() => setSelectedEngagement(e)}
+                      onClick={() => {
+                        setSelectedEngagement(e);
+                        setUnreadEngagementIds((prev) => {
+                          const next = new Set(prev);
+                          next.delete(engagementKey);
+                          return next;
+                        });
+                      }}
                       className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors ${
-                        selectedEngagement?.platformPostId === e.platformPostId ? 'bg-indigo-50 border border-indigo-100' : 'hover:bg-neutral-50'
+                        selectedEngagement?.platformPostId === e.platformPostId ? 'bg-indigo-50 border border-indigo-100' : isUnread ? 'bg-sky-50/80 hover:bg-sky-100/80' : 'hover:bg-neutral-50'
                       }`}
                     >
                       <div className="w-12 h-12 rounded-lg bg-neutral-100 shrink-0 overflow-hidden flex items-center justify-center">
@@ -666,15 +731,17 @@ export default function InboxPage() {
                             const Icon = plat?.icon;
                             return (
                               <>
-                                {Icon && <Icon size={12} className="shrink-0 opacity-70" />}
+                                {Icon && <Icon size={12} className="opacity-70 shrink-0" />}
                                 <span>{plat?.label ?? e.platform}</span>
                               </>
                             );
                           })()}
                         </p>
                       </div>
+                      {isUnread && <span className="shrink-0 w-2 h-2 rounded-full bg-red-500" aria-hidden />}
                     </button>
-                  ))}
+                    );
+                  })}
               </div>
             )
           ) : inboxMode === 'comments' && commentsSupportedPlatforms.length === 0 ? (
@@ -741,42 +808,68 @@ export default function InboxPage() {
             ) : (
               <div className="divide-y divide-neutral-100">
                 {(() => {
-                  const filtered = comments
+                  const topLevelOnly = comments.filter((c) => !c.parentCommentId);
+                  const filtered = topLevelOnly
                     .filter((c) => !searchQuery || c.text.toLowerCase().includes(searchQuery.toLowerCase()) || c.authorName.toLowerCase().includes(searchQuery.toLowerCase()))
                     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-                  return filtered.map((c) => (
+                  const hasRepliedByParent = new Set(
+                    comments.filter((r) => r.isFromMe && r.parentCommentId).map((r) => r.parentCommentId)
+                  );
+                  return filtered.map((c) => {
+                    const isUnread = unreadCommentIds.has(c.commentId);
+                    const hasReplied = hasRepliedByParent.has(c.commentId);
+                    return (
                           <button
                             key={c.commentId}
                             type="button"
-                            onClick={() => setSelectedComment(c)}
-                            className={`w-full px-3 py-3 text-left transition-colors ${
-                              selectedComment?.commentId === c.commentId ? 'bg-indigo-50 border-l-2 border-l-indigo-500' : 'hover:bg-neutral-50'
+                            onClick={() => {
+                              setSelectedComment(c);
+                              setUnreadCommentIds((prev) => {
+                                const next = new Set(prev);
+                                next.delete(c.commentId);
+                                return next;
+                              });
+                            }}
+                            className={`w-full px-3 py-3 text-left transition-colors flex items-center gap-2 ${
+                              selectedComment?.commentId === c.commentId ? 'bg-indigo-50 border-l-2 border-l-indigo-500' : isUnread ? 'bg-sky-50/80 hover:bg-sky-100/80' : 'hover:bg-neutral-50'
                             }`}
                           >
-                            <p className="text-xs text-neutral-400 flex items-center gap-1 mb-1">
-                              {(() => {
-                                const plat = PLATFORMS.find((p) => p.id === c.platform);
-                                const Icon = plat?.icon;
-                                return Icon ? <Icon size={12} className="opacity-70" /> : null;
-                              })()}
-                              <span>{new Date(c.createdAt).toLocaleString()}</span>
-                            </p>
-                            <div className="flex items-start gap-3">
-                              <div className="w-9 h-9 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden">
-                                {c.authorPictureUrl ? (
-                                  <img src={c.authorPictureUrl} alt="" className="w-full h-full object-cover" />
-                                ) : (
-                                  <span className="text-xs font-semibold text-neutral-600">{(c.authorName || '?').slice(0, 2).toUpperCase()}</span>
-                                )}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm font-medium text-neutral-900 truncate">{c.authorName}</p>
-                                <p className="text-xs text-neutral-500 truncate mt-0.5">{(c.postPreview || '').slice(0, 20)}{(c.postPreview?.length ?? 0) > 20 ? '…' : ''}</p>
-                                <p className="text-xs text-neutral-600 line-clamp-2 mt-0.5">{c.text}</p>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-neutral-400 flex items-center gap-1 mb-1">
+                                {(() => {
+                                  const plat = PLATFORMS.find((p) => p.id === c.platform);
+                                  const Icon = plat?.icon;
+                                  return Icon ? <Icon size={12} className="opacity-70" /> : null;
+                                })()}
+                                <span>{new Date(c.createdAt).toLocaleString()}</span>
+                              </p>
+                              <div className="flex items-start gap-3">
+                                <div className="w-9 h-9 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden">
+                                  {c.authorPictureUrl ? (
+                                    <img src={c.authorPictureUrl} alt="" className="w-full h-full object-cover" />
+                                  ) : (
+                                    <span className="text-xs font-semibold text-neutral-600">{(c.authorName || '?').slice(0, 2).toUpperCase()}</span>
+                                  )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-medium text-neutral-900 truncate">{c.authorName}</p>
+                                  <p className="text-xs text-neutral-500 truncate mt-0.5">{(c.postPreview || '').slice(0, 20)}{(c.postPreview?.length ?? 0) > 20 ? '…' : ''}</p>
+                                  <p className="text-xs text-neutral-600 line-clamp-2 mt-0.5">{c.text}</p>
+                                </div>
                               </div>
                             </div>
+                            {hasReplied && (
+                              <span className="shrink-0 flex items-center gap-0.5 text-xs text-emerald-600 font-medium" title="You replied">
+                                <Check size={12} />
+                                Replied
+                              </span>
+                            )}
+                            {isUnread && (
+                              <span className="shrink-0 w-2 h-2 rounded-full bg-red-500" aria-hidden />
+                            )}
                           </button>
-                        ));
+                    );
+                  });
                 })()}
               </div>
             )
@@ -860,9 +953,14 @@ export default function InboxPage() {
                       onClick={() => {
                         if (platform) setSelectedPlatform(platform);
                         setSelectedConversationId(c.id);
+                        setUnreadConversationIds((prev) => {
+                          const next = new Set(prev);
+                          next.delete(c.id);
+                          return next;
+                        });
                       }}
                       className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors ${
-                        selectedConversationId === c.id ? 'bg-indigo-50 border border-indigo-100' : 'hover:bg-neutral-50'
+                        selectedConversationId === c.id ? 'bg-indigo-50 border border-indigo-100' : unreadConversationIds.has(c.id) ? 'bg-sky-50/80 hover:bg-sky-100/80' : 'hover:bg-neutral-50'
                       }`}
                     >
                       <div className="w-10 h-10 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden">
@@ -888,6 +986,7 @@ export default function InboxPage() {
                         </p>
                       </div>
                       <div className="shrink-0 flex items-center gap-1">
+                        {unreadConversationIds.has(c.id) && <span className="w-2 h-2 rounded-full bg-red-500" aria-hidden />}
                         {c.updatedTime && <span className="text-xs text-neutral-400">{new Date(c.updatedTime).toLocaleDateString()}</span>}
                         <button type="button" className="p-1 rounded hover:bg-neutral-200" title="Mark resolved">
                           <Check size={14} className="text-neutral-400" />
@@ -996,6 +1095,37 @@ export default function InboxPage() {
                       <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Comment</p>
                       <p className="text-sm text-neutral-800 mt-1">{selectedComment.text}</p>
                     </div>
+                    {(() => {
+                      const replies = comments
+                        .filter((r) => r.parentCommentId === selectedComment.commentId)
+                        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+                      if (replies.length === 0) return null;
+                      return (
+                        <div className="border-t border-neutral-100 pt-3 mt-3">
+                          <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2">Replies</p>
+                          <div className="space-y-2">
+                            {replies.map((r) => (
+                              <div key={r.commentId} className="flex gap-2 rounded-lg bg-neutral-50 p-2">
+                                <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden">
+                                  {r.authorPictureUrl ? (
+                                    <img src={r.authorPictureUrl} alt="" className="w-full h-full object-cover" />
+                                  ) : (
+                                    <span className="text-xs font-semibold text-neutral-600">{(r.authorName || '?').slice(0, 2).toUpperCase()}</span>
+                                  )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs text-neutral-500">
+                                    {r.authorName}
+                                    <span className="ml-1">{new Date(r.createdAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}</span>
+                                  </p>
+                                  <p className="text-sm text-neutral-800 mt-0.5">{r.text}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -1078,6 +1208,7 @@ export default function InboxPage() {
                         createdAt: new Date().toISOString(),
                         platform: selectedComment.platform,
                         isFromMe: true,
+                        parentCommentId: selectedComment.commentId,
                       };
                       setComments((prev) => [myReply, ...prev]);
                       setReplyText('');
