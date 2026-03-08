@@ -33,9 +33,16 @@ export async function GET(request: NextRequest) {
 
   let freshImageUrl: string | null = null;
 
+  // Try ImportedPost first (fast, often has thumbnail)
+  const imp = await prisma.importedPost.findFirst({
+    where: { platformPostId: postId, socialAccountId: accountId },
+    select: { thumbnailUrl: true },
+  });
+  if (imp?.thumbnailUrl) freshImageUrl = imp.thumbnailUrl;
+
+  if (!freshImageUrl)
   try {
     if (platform === 'INSTAGRAM') {
-      // Fetch fresh media URL directly for this specific post
       const apiBase = isBusinessLogin
         ? `https://graph.instagram.com/v25.0/${postId}`
         : `https://graph.facebook.com/v18.0/${postId}`;
@@ -45,25 +52,24 @@ export async function GET(request: NextRequest) {
       });
       freshImageUrl = res.data?.media_url ?? res.data?.thumbnail_url ?? null;
     } else if (platform === 'FACEBOOK') {
-      const res = await axios.get<{ full_picture?: string; picture?: string }>(
+      const res = await axios.get<{
+        full_picture?: string;
+        picture?: string;
+        attachments?: { data?: Array<{ media?: { image?: { src?: string } }; subattachments?: { data?: Array<{ media?: { image?: { src?: string } } }> } }> };
+      }>(
         `https://graph.facebook.com/v18.0/${postId}`,
-        { params: { fields: 'full_picture,picture', access_token: token }, timeout: 10_000 }
+        { params: { fields: 'full_picture,picture,attachments{media{image{src}},subattachments{data{media{image{src}}}}}', access_token: token }, timeout: 10_000 }
       );
       freshImageUrl = res.data?.full_picture ?? res.data?.picture ?? null;
+      if (!freshImageUrl && res.data?.attachments?.data?.[0]) {
+        const att = res.data.attachments.data[0];
+        freshImageUrl = att.media?.image?.src ?? att.subattachments?.data?.[0]?.media?.image?.src ?? null;
+      }
     } else if (platform === 'YOUTUBE') {
       freshImageUrl = `https://i.ytimg.com/vi/${postId}/mqdefault.jpg`;
     }
   } catch {
-    // Fall through to DB fallback
-  }
-
-  // Fallback: check ImportedPost in DB
-  if (!freshImageUrl) {
-    const imp = await prisma.importedPost.findFirst({
-      where: { platformPostId: postId, socialAccountId: accountId },
-      select: { thumbnailUrl: true },
-    });
-    freshImageUrl = imp?.thumbnailUrl ?? null;
+    // keep freshImageUrl from ImportedPost or null
   }
 
   if (!freshImageUrl) {

@@ -60,6 +60,7 @@ type PostComment = {
   authorPictureUrl?: string | null;
   createdAt: string;
   platform: string;
+  isFromMe?: boolean;
 };
 type EngagementItem = {
   platformPostId: string;
@@ -335,7 +336,8 @@ export default function InboxPage() {
       // Only use cache when not doing a forced refresh (commentsRefreshKey > 0 clears and re-fetches)
       const fromCache = commentsRefreshKey === 0 ? appData?.getComments(account.id) : undefined;
       if (fromCache !== undefined && fromCache !== null) {
-        merge.push(...fromCache);
+        const withAccountId = fromCache.map((c) => ({ ...c, accountId: (c as PostComment).accountId ?? account.id }));
+        merge.push(...withAccountId);
         if (--pending === 0 && !cancelled) {
           setComments(merge.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
           setCommentsError(null);
@@ -967,7 +969,14 @@ export default function InboxPage() {
                             src={freshPostImageUrl(selectedComment)}
                             alt="Post"
                             className="w-full h-auto object-contain max-h-48"
-                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                            onError={(e) => {
+                              const el = e.currentTarget;
+                              if (selectedComment.postImageUrl && !el.src.includes('/api/proxy-image')) {
+                                el.src = proxyImageUrl(selectedComment.postImageUrl)!;
+                              } else {
+                                el.style.display = 'none';
+                              }
+                            }}
                           />
                         ) : selectedComment.postImageUrl ? (
                           <img
@@ -1068,6 +1077,7 @@ export default function InboxPage() {
                         authorPictureUrl: null,
                         createdAt: new Date().toISOString(),
                         platform: selectedComment.platform,
+                        isFromMe: true,
                       };
                       setComments((prev) => [myReply, ...prev]);
                       setReplyText('');

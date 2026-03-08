@@ -49,6 +49,7 @@ export type CachedComment = {
   authorPictureUrl?: string | null;
   createdAt: string;
   platform: string;
+  isFromMe?: boolean;
 };
 
 export type CachedConversation = {
