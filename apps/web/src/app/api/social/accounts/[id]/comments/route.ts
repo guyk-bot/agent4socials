@@ -92,17 +92,17 @@ export async function GET(
         const mediaUrl = isInstagramBizEarly
           ? 'https://graph.instagram.com/v25.0/me/media'
           : `https://graph.facebook.com/v18.0/${account.platformUserId}/media`;
-        const allMedia: Array<{ id: string; caption?: string; media_url?: string; thumbnail_url?: string }> = [];
+        type InstagramMediaItem = { id: string; caption?: string; media_url?: string; thumbnail_url?: string };
+        type InstagramMediaResponse = { data?: InstagramMediaItem[]; paging?: { next?: string } };
+        const allMedia: InstagramMediaItem[] = [];
         let nextUrl: string | null = null;
         for (let page = 0; page < 2; page++) {
-          const mediaRes = await axios.get<{
-            data?: Array<{ id: string; caption?: string; media_url?: string; thumbnail_url?: string }>;
-            paging?: { next?: string };
-          }>(nextUrl || mediaUrl, {
-            params: page === 0 ? { fields: 'id,caption,media_url,thumbnail_url', limit: 50, access_token: liveToken } : undefined,
-            timeout: 15_000,
-          });
-          const data = mediaRes.data?.data ?? [];
+          const requestUrl: string = nextUrl !== null ? nextUrl : mediaUrl;
+          const requestConfig = page === 0
+            ? { params: { fields: 'id,caption,media_url,thumbnail_url', limit: 50, access_token: liveToken }, timeout: 15_000 as const }
+            : { timeout: 15_000 as const };
+          const mediaRes = await axios.get<InstagramMediaResponse>(requestUrl, requestConfig);
+          const data: InstagramMediaItem[] = mediaRes.data?.data ?? [];
           allMedia.push(...data);
           nextUrl = (data.length === 50 && mediaRes.data?.paging?.next) ? mediaRes.data.paging.next : null;
           if (!nextUrl) break;
