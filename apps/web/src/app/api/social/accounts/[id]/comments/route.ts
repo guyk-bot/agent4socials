@@ -136,6 +136,32 @@ export async function GET(
     } catch { /* if live fetch fails, proceed with dbSources only */ }
   }
 
+  // For Twitter: fetch recent tweets from the API so we have post sources for reply search
+  // (otherwise comments only show if user has synced posts from Dashboard or published via app).
+  if (platform === 'TWITTER') {
+    try {
+      const tweetsRes = await axios.get<{
+        data?: Array<{ id: string; text?: string; created_at?: string }>;
+      }>(`https://api.twitter.com/2/users/${account.platformUserId}/tweets`, {
+        params: {
+          max_results: 50,
+          'tweet.fields': 'text,created_at',
+          exclude: 'retweets,replies',
+        },
+        headers: { Authorization: `Bearer ${account.accessToken}` },
+        timeout: 15_000,
+      });
+      const tweets = tweetsRes.data?.data ?? [];
+      liveSources = tweets.map((t, i) => ({
+        platformPostId: t.id,
+        postPreview: (t.text ?? '').trim() || `Tweet ${i + 1}`,
+        postTargetId: `live-${t.id}`,
+        postPublishedAt: t.created_at ?? undefined,
+        postUrl: `https://twitter.com/i/web/status/${t.id}`,
+      }));
+    } catch { /* if live fetch fails, proceed with dbSources only */ }
+  }
+
   // Merge: use DB sources first, then add live media that aren't already in DB (so comments on
   // old/synced posts and on recent platform-only posts both show up). Cap total to avoid too many API calls.
   const existingPostIds = new Set(dbSources.map((s) => s.platformPostId));
