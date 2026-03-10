@@ -10,7 +10,6 @@ import {
   CheckSquare,
   Square,
   Send,
-  Pencil,
   Image as ImageIcon,
   Smile,
   Loader2,
@@ -130,6 +129,7 @@ export default function InboxPage() {
   const [conversationRecipientId, setConversationRecipientId] = useState<string | null>(null);
   const [conversationMessagesLoading, setConversationMessagesLoading] = useState(false);
   const [conversationMessagesError, setConversationMessagesError] = useState<string | null>(null);
+  const [conversationMessagesCache, setConversationMessagesCache] = useState<Record<string, { messages: ConversationMessage[]; recipientId: string | null; error: string | null }>>({});
   const [dmReplyText, setDmReplyText] = useState('');
   const [dmReplySending, setDmReplySending] = useState(false);
   // Per-conversation batch replies
@@ -283,25 +283,44 @@ export default function InboxPage() {
       setConversationMessagesError(null);
       return;
     }
+    const convId = selectedConversationId;
+    const cached = conversationMessagesCache[convId];
+    if (cached) {
+      setConversationMessages(cached.messages);
+      setConversationRecipientId(cached.recipientId);
+      setConversationMessagesError(cached.error);
+      setConversationMessagesLoading(false);
+      return;
+    }
     setConversationMessagesLoading(true);
     setConversationMessagesError(null);
-    // Derive recipient from the already-loaded conversations list as a reliable fallback.
-    const convForRecipient = conversations.find((c) => c.id === selectedConversationId);
+    const convForRecipient = conversations.find((c) => c.id === convId);
     const recipientFromConv = convForRecipient?.senders?.[0]?.id ?? null;
-    api.get(`/social/accounts/${currentAccountForMessages.id}/conversations/${selectedConversationId}/messages`)
+    api.get(`/social/accounts/${currentAccountForMessages.id}/conversations/${convId}/messages`)
       .then((res) => {
         const messages = res.data?.messages ?? [];
-        setConversationMessages(messages);
-        setConversationLastReadCount(selectedConversationId, messages.length, user?.id);
-        setConversationRecipientId(res.data?.recipientId ?? recipientFromConv ?? null);
-        setConversationMessagesError(res.data?.error ?? null);
+        const recipientId = res.data?.recipientId ?? recipientFromConv ?? null;
+        const error = res.data?.error ?? null;
+        setConversationMessagesCache((prev) => ({ ...prev, [convId]: { messages, recipientId, error } }));
+        if (selectedConversationId === convId) {
+          setConversationMessages(messages);
+          setConversationLastReadCount(convId, messages.length, user?.id);
+          setConversationRecipientId(recipientId);
+          setConversationMessagesError(error);
+        }
       })
       .catch(() => {
-        setConversationMessages([]);
-        setConversationRecipientId(recipientFromConv ?? null);
-        setConversationMessagesError('Could not load messages.');
+        const fallback = { messages: [] as ConversationMessage[], recipientId: recipientFromConv ?? null, error: 'Could not load messages.' as string | null };
+        setConversationMessagesCache((prev) => ({ ...prev, [convId]: fallback }));
+        if (selectedConversationId === convId) {
+          setConversationMessages([]);
+          setConversationRecipientId(recipientFromConv ?? null);
+          setConversationMessagesError('Could not load messages.');
+        }
       })
-      .finally(() => setConversationMessagesLoading(false));
+      .finally(() => {
+        if (selectedConversationId === convId) setConversationMessagesLoading(false);
+      });
   }, [selectedConversationId, currentAccountForMessages?.id, selectedPlatform, user?.id]);
 
   useEffect(() => {
@@ -1338,7 +1357,7 @@ export default function InboxPage() {
             </div>
           </div>
         ) : inboxMode === 'comments' && selectMode && selectedCommentIds.size > 0 ? (
-          /* Batch reply to selected comments: show each in a card + Generate with AI / Write manually */
+          /* Batch reply to selected comments: show each in a card + Generate with AI */
           (() => {
             const selectedComments = comments.filter((c) => !c.parentCommentId && selectedCommentIds.has(c.commentId));
             const canReplyPlatforms = new Set(['INSTAGRAM', 'FACEBOOK']);
@@ -1382,14 +1401,6 @@ export default function InboxPage() {
                     })}
                   </div>
                   <div className="pt-4 border-t border-neutral-200">
-                    {replyable[0] && (
-                      <>
-                        <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">Comment they wrote</p>
-                        <p className="text-sm text-neutral-700 mb-3 rounded-lg bg-neutral-50 px-3 py-2 border border-neutral-100">
-                          {replyable[0].text}
-                        </p>
-                      </>
-                    )}
                     <div className="flex flex-wrap gap-2 mb-3">
                       <button
                         type="button"
@@ -1420,14 +1431,6 @@ export default function InboxPage() {
                       >
                         {aiReplyLoading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
                         Generate with AI
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setReplyText('')}
-                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-neutral-100 text-neutral-700 hover:bg-neutral-200 border border-neutral-200 text-sm font-medium"
-                      >
-                        <Pencil size={18} />
-                        Write manually
                       </button>
                     </div>
                     <textarea
@@ -1526,9 +1529,6 @@ export default function InboxPage() {
                             </div>
                           </div>
                           <div className="pt-2 border-t border-neutral-100">
-                            <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">
-                              Message they sent
-                            </p>
                             <p className="text-sm text-neutral-700 mb-2 rounded-lg bg-neutral-50 px-3 py-2 border border-neutral-100 min-h-[2.5rem]">
                               {batchConversationLastMessage[c.id] !== undefined
                                 ? (batchConversationLastMessage[c.id] || 'No message preview')
@@ -1566,16 +1566,6 @@ export default function InboxPage() {
                               >
                                 {aiReplyLoading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
                                 Generate with AI
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setBatchDmTexts((prev) => ({ ...prev, [c.id]: '' }));
-                                }}
-                                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-neutral-100 text-neutral-700 hover:bg-neutral-200 border border-neutral-200 text-xs font-medium"
-                              >
-                                <Pencil size={16} />
-                                Write manually
                               </button>
                             </div>
                             <textarea
@@ -2030,7 +2020,7 @@ export default function InboxPage() {
                       })()}
                     </p>
                   </div>
-                  <div className="p-6 min-h-[200px]">
+                  <div className="p-6 min-h-[200px] overflow-y-auto max-h-[60vh]">
                     {conversationMessagesLoading ? (
                       <div className="flex flex-col items-center justify-center gap-3 py-8">
                         <Loader2 size={32} className="text-indigo-500 animate-spin" />
@@ -2134,9 +2124,18 @@ export default function InboxPage() {
                       );
                       setDmReplyText('');
                       const res = await api.get(`/social/accounts/${account.id}/conversations/${selectedConversationId}/messages`);
-                      setConversationMessages(res.data?.messages ?? []);
+                      const messages = res.data?.messages ?? [];
+                      setConversationMessages(messages);
                       setConversationRecipientId(res.data?.recipientId ?? null);
                       setConversationMessagesError(res.data?.error ?? null);
+                      setConversationMessagesCache((prev) => ({
+                        ...prev,
+                        [selectedConversationId]: {
+                          messages,
+                          recipientId: res.data?.recipientId ?? null,
+                          error: res.data?.error ?? null,
+                        },
+                      }));
                       api.get<{ inbox?: number; comments?: number; messages?: number; byPlatform?: Record<string, { comments: number; messages: number }> }>('/social/notifications').then((r) => {
                         if (r.data && appData) appData.setNotifications({
                           inbox: r.data.inbox ?? 0,
