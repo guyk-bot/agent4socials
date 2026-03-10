@@ -107,10 +107,12 @@ export default function InboxPage() {
   const { cachedAccounts } = useAccountsCache() ?? { cachedAccounts: [] };
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
-  const [inboxFilter, setInboxFilter] = useState<'unresolved' | 'unread'>('unresolved');
+  const [inboxFilter, setInboxFilter] = useState<'read' | 'unread'>('unread');
+  const [commentsFilter, setCommentsFilter] = useState<'replied' | 'didnt_reply'>('didnt_reply');
   const [searchQuery, setSearchQuery] = useState('');
   const [connectOpen, setConnectOpen] = useState(false);
   const [inboxMode, setInboxMode] = useState<'messages' | 'comments' | 'engagement'>('messages');
+  const [batchConversationLastMessage, setBatchConversationLastMessage] = useState<Record<string, string>>({});
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [conversationsLoading, setConversationsLoading] = useState(false);
@@ -305,6 +307,42 @@ export default function InboxPage() {
   useEffect(() => {
     setAiReplyError(null);
   }, [selectedComment?.commentId, selectedConversationId]);
+
+  // Fetch last message per selected conversation for batch reply cards (show "message user sent" instead of "How do you want to reply?")
+  useEffect(() => {
+    if (!currentAccountForMessages || selectedConversationIds.size === 0) {
+      setBatchConversationLastMessage({});
+      return;
+    }
+    const accountId = currentAccountForMessages.id;
+    const ids = Array.from(selectedConversationIds);
+    const next: Record<string, string> = {};
+    let cancelled = false;
+    Promise.all(
+      ids.map(async (convId) => {
+        if (cancelled) return;
+        try {
+          const res = await api.get<{ messages?: Array<{ message?: string; isFromPage?: boolean }> }>(
+            `/social/accounts/${accountId}/conversations/${convId}/messages`
+          );
+          const messages = res.data?.messages ?? [];
+          const lastFromOther = [...messages].reverse().find((m) => !m.isFromPage && m.message);
+          return { convId, text: lastFromOther?.message?.trim() ?? '' };
+        } catch {
+          return { convId, text: '' };
+        }
+      })
+    ).then((results) => {
+      if (cancelled) return;
+      results.forEach(({ convId, text }) => {
+        next[convId] = text;
+      });
+      setBatchConversationLastMessage(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentAccountForMessages?.id, Array.from(selectedConversationIds).sort().join(',')]);
 
   useEffect(() => {
     if (appData) return;
@@ -743,7 +781,6 @@ export default function InboxPage() {
                 {selectMode ? <CheckSquare size={13} /> : <Square size={13} />}
                 {selectMode ? 'Cancel' : 'Select'}
               </button>
-              {!selectMode && <span className="text-xs text-neutral-400">Select conversations to mark as read</span>}
               {selectMode && (
                 <>
                   <button
@@ -1293,7 +1330,14 @@ export default function InboxPage() {
                     })}
                   </div>
                   <div className="pt-4 border-t border-neutral-200">
-                    <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">How do you want to reply?</p>
+                    {replyable[0] && (
+                      <>
+                        <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">Comment they wrote</p>
+                        <p className="text-sm text-neutral-700 mb-3 rounded-lg bg-neutral-50 px-3 py-2 border border-neutral-100">
+                          {replyable[0].text}
+                        </p>
+                      </>
+                    )}
                     <div className="flex flex-wrap gap-2 mb-3">
                       <button
                         type="button"
@@ -1430,8 +1474,13 @@ export default function InboxPage() {
                             </div>
                           </div>
                           <div className="pt-2 border-t border-neutral-100">
-                            <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">
-                              How do you want to reply?
+                            <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">
+                              Message they sent
+                            </p>
+                            <p className="text-sm text-neutral-700 mb-2 rounded-lg bg-neutral-50 px-3 py-2 border border-neutral-100 min-h-[2.5rem]">
+                              {batchConversationLastMessage[c.id] !== undefined
+                                ? (batchConversationLastMessage[c.id] || 'No message preview')
+                                : 'Loading…'}
                             </p>
                             <div className="flex flex-wrap gap-2 mb-2">
                               <button
