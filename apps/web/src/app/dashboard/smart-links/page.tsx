@@ -339,7 +339,7 @@ export default function SmartLinksPage() {
 
   const handleCopyLink = useCallback(() => {
     if (data.slug) {
-      navigator.clipboard.writeText(`https://agent4socials.com/@${data.slug}`);
+      navigator.clipboard.writeText(`https://a4s.bio/@${data.slug}`);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -458,7 +458,7 @@ export default function SmartLinksPage() {
           {/* URL Bar */}
           <div className="p-4 border-b border-slate-100 bg-slate-50">
             <div className="flex items-center gap-2">
-              <span className="text-sm text-slate-500">agent4socials.com/@</span>
+              <span className="text-sm text-slate-500">a4s.bio/@</span>
               <input
                 type="text"
                 value={data.slug}

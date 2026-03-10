@@ -96,7 +96,7 @@ function freshPostImageUrl(comment: Pick<PostComment, 'accountId' | 'platformPos
   return `/api/post-image?accountId=${encodeURIComponent(comment.accountId)}&postId=${encodeURIComponent(comment.platformPostId)}`;
 }
 
-export default function InboxPage() {
+function InboxPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
@@ -2197,5 +2197,13 @@ export default function InboxPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function InboxPageWrapper() {
+  return (
+    <React.Suspense>
+      <InboxPage />
+    </React.Suspense>
   );
 }
