@@ -25,6 +25,8 @@ import {
   getReadCommentIds,
   getReadConversationIds,
   getReadEngagementIds,
+  getConversationLastReadCounts,
+  setConversationLastReadCount,
   markCommentsAsRead,
   markConversationsAsRead,
   markEngagementAsRead,
@@ -48,6 +50,7 @@ type Conversation = {
   id: string;
   updatedTime: string | null;
   senders: Array<{ id?: string; name?: string; username?: string; pictureUrl?: string | null }>;
+  messageCount?: number;
 };
 type ConversationMessage = {
   id: string;
@@ -139,6 +142,7 @@ export default function InboxPage() {
   const [deleteCommentLoading, setDeleteCommentLoading] = useState(false);
   const [unreadCommentIds, setUnreadCommentIds] = useState<Set<string>>(new Set());
   const [unreadConversationIds, setUnreadConversationIds] = useState<Set<string>>(new Set());
+  const [totalUnreadMessages, setTotalUnreadMessages] = useState(0); // sum of unread message counts when messageCount is available
   const [unreadEngagementIds, setUnreadEngagementIds] = useState<Set<string>>(new Set());
   const previousTopLevelCommentIdsRef = useRef<Set<string>>(new Set());
   const previousConversationIdsRef = useRef<Set<string>>(new Set());
@@ -281,8 +285,9 @@ export default function InboxPage() {
     const recipientFromConv = convForRecipient?.senders?.[0]?.id ?? null;
     api.get(`/social/accounts/${currentAccountForMessages.id}/conversations/${selectedConversationId}/messages`)
       .then((res) => {
-        setConversationMessages(res.data?.messages ?? []);
-        // Prefer recipientId from messages route; fall back to participant from conversations list.
+        const messages = res.data?.messages ?? [];
+        setConversationMessages(messages);
+        setConversationLastReadCount(selectedConversationId, messages.length, user?.id);
         setConversationRecipientId(res.data?.recipientId ?? recipientFromConv ?? null);
         setConversationMessagesError(res.data?.error ?? null);
       })
@@ -292,7 +297,7 @@ export default function InboxPage() {
         setConversationMessagesError('Could not load messages.');
       })
       .finally(() => setConversationMessagesLoading(false));
-  }, [selectedConversationId, currentAccountForMessages?.id, selectedPlatform]);
+  }, [selectedConversationId, currentAccountForMessages?.id, selectedPlatform, user?.id]);
 
   useEffect(() => {
     setAiReplyError(null);
@@ -348,7 +353,7 @@ export default function InboxPage() {
         return;
       }
       needsFetch = true;
-    api.get(`/social/accounts/${account.id}/conversations`)
+    api.get(`/social/accounts/${account.id}/conversations?includeMessageCounts=1`)
       .then((res) => {
           if (cancelled) return;
           const list = (res.data?.conversations ?? []).map((c: Conversation) => ({ ...c, platform }));
@@ -521,12 +526,31 @@ export default function InboxPage() {
     return () => { cancelled = true; };
   }, [allEngagementAccounts.map((a) => a.id).join(','), effectiveAccounts.length]);
 
-  // Track unread conversation ids: conversations not in persisted read set
+  // Track unread conversation ids and total unread messages: use messageCount + lastRead when available
   useEffect(() => {
     const ids = new Set(conversations.map((c) => c.id));
     const readSet = getReadConversationIds(user?.id);
-    const unreadIds = [...ids].filter((id) => !readSet.has(id));
-    setUnreadConversationIds(new Set(unreadIds));
+    const lastRead = getConversationLastReadCounts(user?.id);
+    const hasAnyMessageCount = conversations.some((c) => typeof c.messageCount === 'number');
+    if (hasAnyMessageCount) {
+      let total = 0;
+      const unreadIds = new Set<string>();
+      for (const c of conversations) {
+        const count = c.messageCount ?? 0;
+        const read = lastRead[c.id] ?? 0;
+        const unread = Math.max(0, count - read);
+        if (unread > 0) {
+          unreadIds.add(c.id);
+          total += unread;
+        }
+      }
+      setUnreadConversationIds(unreadIds);
+      setTotalUnreadMessages(total);
+    } else {
+      const unreadIds = [...ids].filter((id) => !readSet.has(id));
+      setUnreadConversationIds(new Set(unreadIds));
+      setTotalUnreadMessages(unreadIds.length);
+    }
     previousConversationIdsRef.current = ids;
   }, [conversations, user?.id]);
 
@@ -541,12 +565,13 @@ export default function InboxPage() {
 
   // Sync total unread to appData so header shows comments + messages + engagement
   useEffect(() => {
-    const total = unreadCommentIds.size + unreadConversationIds.size + unreadEngagementIds.size;
+    const messagesCount = totalUnreadMessages > 0 ? totalUnreadMessages : unreadConversationIds.size;
+    const total = unreadCommentIds.size + messagesCount + unreadEngagementIds.size;
     appData?.setNotifications({
       ...(appData.notifications ?? { inbox: 0, comments: 0, messages: 0 }),
       inbox: Math.min(total, 99),
     });
-  }, [unreadCommentIds.size, unreadConversationIds.size, unreadEngagementIds.size, appData]);
+  }, [unreadCommentIds.size, unreadConversationIds.size, totalUnreadMessages, unreadEngagementIds.size, appData]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -659,9 +684,9 @@ export default function InboxPage() {
             className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-1.5 ${inboxMode === 'messages' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
           >
             Messages
-            {unreadConversationIds.size > 0 ? (
+            {(totalUnreadMessages > 0 || unreadConversationIds.size > 0) ? (
               <span className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
-                {unreadConversationIds.size > 99 ? '99' : unreadConversationIds.size}
+                {totalUnreadMessages > 0 ? (totalUnreadMessages > 99 ? '99' : totalUnreadMessages) : (unreadConversationIds.size > 99 ? '99' : unreadConversationIds.size)}
               </span>
             ) : null}
           </button>

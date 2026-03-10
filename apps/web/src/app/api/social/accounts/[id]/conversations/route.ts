@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import axios, { AxiosResponse } from 'axios';
 
 const baseUrl = 'https://graph.facebook.com/v18.0';
+const igBaseUrl = 'https://graph.instagram.com/v25.0';
 
 type ConvParticipant = {
   id?: string;
@@ -41,6 +42,8 @@ export async function GET(
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
   const { id } = await params;
+  const { searchParams } = new URL(request.url);
+  const includeMessageCounts = searchParams.get('includeMessageCounts') === '1' || searchParams.get('includeMessageCounts') === 'true';
   const account = await prisma.socialAccount.findFirst({
     where: { id, userId },
     select: { id: true, platform: true, platformUserId: true, username: true, accessToken: true, credentialsJson: true },
@@ -185,6 +188,7 @@ export async function GET(
           username: s.username,
           pictureUrl: (s.profile_pic ?? s.picture?.data?.url ?? null) as string | null,
         })),
+        messageCount: undefined as number | undefined,
       };
     });
 
@@ -299,6 +303,37 @@ export async function GET(
       } catch (e) {
         console.warn('[Conversations] profile enrichment failed:', (e as Error)?.message);
       }
+    }
+
+    // Optional: fetch message count per conversation for unread badge (limit 25 to avoid timeout)
+    if (includeMessageCounts && list.length > 0) {
+      const toFetch = list.slice(0, 25);
+      const counts = await Promise.all(
+        toFetch.map(async (conv): Promise<number> => {
+          try {
+            if (isInstagram) {
+              const res = await axios.get<{ messages?: { data?: unknown[] }; error?: { message?: string } }>(
+                `${igBaseUrl}/${conv.id}`,
+                { params: { fields: 'messages', access_token: activeToken }, timeout: 8_000 }
+              );
+              if (res.data?.error) return 0;
+              return (res.data?.messages?.data ?? []).length;
+            } else {
+              const res = await axios.get<{ data?: unknown[] }>(
+                `${baseUrl}/${conv.id}/messages`,
+                { params: { fields: 'id', access_token: token }, timeout: 8_000 }
+              );
+              return (res.data?.data ?? []).length;
+            }
+          } catch {
+            return 0;
+          }
+        })
+      );
+      list = list.map((c, i) => ({
+        ...c,
+        messageCount: i < counts.length ? counts[i] : undefined,
+      }));
     }
 
     return NextResponse.json({ conversations: list });

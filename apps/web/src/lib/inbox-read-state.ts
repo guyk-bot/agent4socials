@@ -6,6 +6,7 @@
 const KEY_COMMENTS = 'agent4socials_read_comments';
 const KEY_CONVERSATIONS = 'agent4socials_read_conversations';
 const KEY_ENGAGEMENT = 'agent4socials_read_engagement';
+const KEY_CONVERSATION_LAST_READ = 'agent4socials_conversation_last_read';
 const MAX_STORED = 2000; // cap to avoid localStorage bloat
 
 function getKey(base: string, userId?: string | null): string {
@@ -67,4 +68,36 @@ export function markEngagementAsRead(ids: Iterable<string>, userId?: string | nu
   const set = loadSet(key);
   for (const id of ids) set.add(id);
   saveSet(key, set);
+}
+
+/** Last read message count per conversation id (for unread message badge). */
+export function getConversationLastReadCounts(userId?: string | null): Record<string, number> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const key = getKey(KEY_CONVERSATION_LAST_READ, userId);
+    const raw = localStorage.getItem(key);
+    if (!raw) return {};
+    const obj = JSON.parse(raw) as unknown;
+    if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) return {};
+    return obj as Record<string, number>;
+  } catch {
+    return {};
+  }
+}
+
+export function setConversationLastReadCount(conversationId: string, count: number, userId?: string | null): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const key = getKey(KEY_CONVERSATION_LAST_READ, userId);
+    const prev = getConversationLastReadCounts(userId);
+    if (count <= 0) {
+      const next = { ...prev };
+      delete next[conversationId];
+      localStorage.setItem(key, JSON.stringify(next));
+      return;
+    }
+    localStorage.setItem(key, JSON.stringify({ ...prev, [conversationId]: count }));
+  } catch {
+    // ignore
+  }
 }
