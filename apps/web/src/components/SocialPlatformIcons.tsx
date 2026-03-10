@@ -17,14 +17,16 @@ function SocialIconImg({ name, size = 24, className = '' }: { name: keyof typeof
   const src = SOCIAL_ICON_SRC[name];
   if (!src) return null;
   return (
-    <img
-      src={src}
-      alt=""
-      width={size}
-      height={size}
-      className={className}
-      style={{ width: size, height: size, display: 'block' }}
-    />
+    <span className="inline-flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
+      <img
+        src={src}
+        alt=""
+        width={size}
+        height={size}
+        className={className}
+        style={{ width: size, height: size, maxWidth: size, maxHeight: size, display: 'block', objectFit: 'contain' }}
+      />
+    </span>
   );
 }
 
