@@ -10,6 +10,7 @@ import {
   CheckSquare,
   Square,
   Send,
+  Pencil,
   Image as ImageIcon,
   Smile,
   Loader2,
@@ -1247,42 +1248,198 @@ export default function InboxPage() {
             </div>
           </div>
         ) : inboxMode === 'comments' && selectMode && selectedCommentIds.size > 0 ? (
-          /* Batch reply to selected comments */
+          /* Batch reply to selected comments: show each in a card + Generate with AI / Write manually */
           (() => {
             const selectedComments = comments.filter((c) => !c.parentCommentId && selectedCommentIds.has(c.commentId));
             const canReplyPlatforms = new Set(['INSTAGRAM', 'FACEBOOK']);
             const replyable = selectedComments.filter((c) => canReplyPlatforms.has(c.platform));
             return (
-              <div className="flex-1 flex flex-col p-6 min-h-0">
-                <div className="max-w-2xl mx-auto w-full flex flex-col gap-4">
+              <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                <div className="p-4 border-b border-neutral-200 bg-white">
                   <h2 className="text-lg font-semibold text-neutral-900">Reply to {selectedComments.length} comment{selectedComments.length !== 1 ? 's' : ''}</h2>
                   {replyable.length < selectedComments.length && (
-                    <p className="text-sm text-amber-700">Only Instagram and Facebook comments can be replied to from the app. Others will be skipped.</p>
+                    <p className="text-sm text-amber-700 mt-1">Only Instagram and Facebook comments can be replied to from the app. Others will be skipped.</p>
                   )}
-                  <div className="flex items-end gap-2">
+                </div>
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Selected comments</p>
+                  <div className="space-y-3">
+                    {selectedComments.map((c) => {
+                      const plat = PLATFORMS.find((p) => p.id === c.platform);
+                      const Icon = plat?.icon;
+                      return (
+                        <div key={c.commentId} className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-full bg-neutral-200 shrink-0 overflow-hidden flex items-center justify-center">
+                              {c.authorPictureUrl ? (
+                                <img src={c.authorPictureUrl} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-sm font-semibold text-neutral-600">{(c.authorName || '?').slice(0, 2).toUpperCase()}</span>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-medium text-neutral-900">{c.authorName}</span>
+                                {Icon && <Icon size={14} className="opacity-70" />}
+                                <span className="text-xs text-neutral-500">{new Date(c.createdAt).toLocaleString()}</span>
+                              </div>
+                              <p className="text-sm text-neutral-700 mt-1 line-clamp-2">{c.text}</p>
+                              {c.postPreview && <p className="text-xs text-neutral-500 mt-1 truncate">Post: {c.postPreview.slice(0, 50)}…</p>}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="pt-4 border-t border-neutral-200">
+                    <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">How do you want to reply?</p>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      <button
+                        type="button"
+                        disabled={aiReplyLoading || !hasCommentExamples}
+                        onClick={async () => {
+                          setAiReplyError(null);
+                          setAiReplyLoading(true);
+                          try {
+                            const first = replyable[0];
+                            const res = await api.post<{ reply?: string }>('/ai/generate-inbox-reply', {
+                              type: 'comment',
+                              text: first?.text ?? 'Comment',
+                              context: first?.postPreview ?? undefined,
+                              platform: selectedPlatform ?? undefined,
+                            });
+                            const reply = res.data?.reply?.trim();
+                            if (reply) setReplyText(reply);
+                            else setAiReplyError('No reply generated. Try again.');
+                          } catch (e: unknown) {
+                            const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+                            setAiReplyError(msg ?? 'Could not generate reply.');
+                          } finally {
+                            setAiReplyLoading(false);
+                          }
+                        }}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 disabled:opacity-40 border border-indigo-200 text-sm font-medium"
+                        title={hasCommentExamples ? 'Generate reply with AI' : 'Add examples in AI Assistant'}
+                      >
+                        {aiReplyLoading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+                        Generate with AI
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setReplyText('')}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-neutral-100 text-neutral-700 hover:bg-neutral-200 border border-neutral-200 text-sm font-medium"
+                      >
+                        <Pencil size={18} />
+                        Write manually
+                      </button>
+                    </div>
                     <textarea
-                      placeholder="Type a reply to send to all selected..."
+                      placeholder="Type a reply to send to all selected (or generate with AI above)..."
                       rows={3}
                       value={replyText}
                       onChange={(e) => setReplyText(e.target.value)}
-                      className="flex-1 px-4 py-3 border border-neutral-200 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none"
+                      className="w-full px-4 py-3 border border-neutral-200 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none"
                     />
+                    {aiReplyError && <p className="text-sm text-amber-700 mt-2">{aiReplyError}</p>}
                     <button
                       type="button"
-                      disabled={aiReplyLoading || !hasCommentExamples}
+                      disabled={replySending || !replyText.trim() || replyable.length === 0}
+                      onClick={async () => {
+                        const msg = replyText.trim();
+                        setReplySending(true);
+                        setReplySendError(null);
+                        const failed: string[] = [];
+                        for (const c of replyable) {
+                          const account = effectiveAccounts.find((a) => a.platform === c.platform);
+                          if (!account) continue;
+                          try {
+                            await api.post(`/social/accounts/${account.id}/comments/reply`, { commentId: c.commentId, message: msg });
+                            markCommentsAsRead([c.commentId], user?.id);
+                            setUnreadCommentIds((prev) => { const next = new Set(prev); next.delete(c.commentId); return next; });
+                          } catch {
+                            failed.push(c.authorName || c.commentId);
+                          }
+                        }
+                        setReplySending(false);
+                        if (failed.length > 0) setReplySendError(`Failed for: ${failed.slice(0, 3).join(', ')}${failed.length > 3 ? '...' : ''}`);
+                        else {
+                          setReplyText('');
+                          setSelectedCommentIds(new Set());
+                          setSelectMode(false);
+                          setCommentsRefreshKey((k) => k + 1);
+                        }
+                      }}
+                      className="mt-3 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                    >
+                      {replySending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                      Send to all ({replyable.length})
+                    </button>
+                    {replySendError && <p className="text-sm text-red-600 mt-2">{replySendError}</p>}
+                  </div>
+                </div>
+              </div>
+            );
+          })()
+        ) : inboxMode === 'messages' && selectMode && selectedConversationIds.size > 0 ? (
+          /* Batch reply to selected conversations: show each in a card + Generate with AI / Write manually */
+          currentAccountForMessages ? (
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <div className="p-4 border-b border-neutral-200 bg-white">
+                <h2 className="text-lg font-semibold text-neutral-900">Reply to {selectedConversationIds.size} conversation{selectedConversationIds.size !== 1 ? 's' : ''}</h2>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Selected conversations</p>
+                <div className="space-y-3">
+                  {conversations
+                    .filter((c) => selectedConversationIds.has(c.id))
+                    .map((c) => {
+                      const name = c.senders?.map((s) => s.name || s.username || 'Unknown').filter(Boolean).join(', ') || 'Conversation';
+                      const pictureUrl = c.senders?.[0]?.pictureUrl;
+                      const platform = (c as Conversation & { platform?: string }).platform ?? selectedPlatform;
+                      const plat = PLATFORMS.find((p) => p.id === platform);
+                      const Icon = plat?.icon;
+                      return (
+                        <div key={c.id} className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-neutral-200 shrink-0 overflow-hidden flex items-center justify-center">
+                              {pictureUrl ? (
+                                <img src={pictureUrl} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-sm font-semibold text-neutral-600">{(name || '?').slice(0, 2).toUpperCase()}</span>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-neutral-900 truncate">{name}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                {Icon && <Icon size={14} className="opacity-70" />}
+                                <span className="text-xs text-neutral-500">
+                                  {c.updatedTime ? new Date(c.updatedTime).toLocaleString() : 'Conversation'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+                <div className="pt-4 border-t border-neutral-200">
+                  <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">How do you want to reply?</p>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    <button
+                      type="button"
+                      disabled={aiReplyLoading || !hasInboxExamples}
                       onClick={async () => {
                         setAiReplyError(null);
                         setAiReplyLoading(true);
                         try {
-                          const first = replyable[0];
                           const res = await api.post<{ reply?: string }>('/ai/generate-inbox-reply', {
-                            type: 'comment',
-                            text: first?.text ?? 'Comment',
-                            context: first?.postPreview ?? undefined,
+                            type: 'message',
+                            text: 'Incoming message from customer',
+                            context: 'Direct message conversation',
                             platform: selectedPlatform ?? undefined,
                           });
                           const reply = res.data?.reply?.trim();
-                          if (reply) setReplyText(reply);
+                          if (reply) setDmReplyText(reply);
                           else setAiReplyError('No reply generated. Try again.');
                         } catch (e: unknown) {
                           const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
@@ -1291,96 +1448,62 @@ export default function InboxPage() {
                           setAiReplyLoading(false);
                         }
                       }}
-                      className="p-3 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 disabled:opacity-40 shrink-0 border border-indigo-200"
-                      title={hasCommentExamples ? 'Generate reply with AI' : 'Add examples in AI Assistant'}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 disabled:opacity-40 border border-indigo-200 text-sm font-medium"
+                      title={hasInboxExamples ? 'Generate reply with AI' : 'Add inbox examples in AI Assistant'}
                     >
-                      {aiReplyLoading ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
+                      {aiReplyLoading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+                      Generate with AI
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDmReplyText('')}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-neutral-100 text-neutral-700 hover:bg-neutral-200 border border-neutral-200 text-sm font-medium"
+                    >
+                      <Pencil size={18} />
+                      Write manually
                     </button>
                   </div>
-                  {aiReplyError && <p className="text-sm text-amber-700">{aiReplyError}</p>}
+                  <textarea
+                    placeholder="Type a message to send to all selected (or generate with AI above)..."
+                    rows={3}
+                    value={dmReplyText}
+                    onChange={(e) => setDmReplyText(e.target.value)}
+                    className="w-full px-4 py-3 border border-neutral-200 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none"
+                  />
+                  {dmSendError && <p className="text-sm text-red-600 mt-2">{dmSendError}</p>}
+                  {aiReplyError && <p className="text-sm text-amber-700 mt-2">{aiReplyError}</p>}
                   <button
                     type="button"
-                    disabled={replySending || !replyText.trim() || replyable.length === 0}
+                    disabled={dmReplySending || !dmReplyText.trim()}
                     onClick={async () => {
-                      const msg = replyText.trim();
-                      setReplySending(true);
-                      setReplySendError(null);
+                      const text = dmReplyText.trim();
+                      setDmReplySending(true);
+                      setDmSendError(null);
                       const failed: string[] = [];
-                      for (const c of replyable) {
-                        const account = effectiveAccounts.find((a) => a.platform === c.platform);
-                        if (!account) continue;
+                      for (const convId of selectedConversationIds) {
                         try {
-                          await api.post(`/social/accounts/${account.id}/comments/reply`, { commentId: c.commentId, message: msg });
-                          markCommentsAsRead([c.commentId], user?.id);
-                          setUnreadCommentIds((prev) => { const next = new Set(prev); next.delete(c.commentId); return next; });
+                          await api.post(`/social/accounts/${currentAccountForMessages.id}/conversations/${convId}/messages`, { text });
+                          markConversationsAsRead([convId], user?.id);
+                          setUnreadConversationIds((prev) => { const next = new Set(prev); next.delete(convId); return next; });
                         } catch {
-                          failed.push(c.authorName || c.commentId);
+                          failed.push(convId);
                         }
                       }
-                      setReplySending(false);
-                      if (failed.length > 0) setReplySendError(`Failed for: ${failed.slice(0, 3).join(', ')}${failed.length > 3 ? '...' : ''}`);
+                      setDmReplySending(false);
+                      if (failed.length > 0) setDmSendError(`Failed to send to ${failed.length} conversation(s).`);
                       else {
-                        setReplyText('');
-                        setSelectedCommentIds(new Set());
+                        setDmReplyText('');
+                        setSelectedConversationIds(new Set());
                         setSelectMode(false);
-                        setCommentsRefreshKey((k) => k + 1);
+                        appData?.invalidateConversations?.();
                       }
                     }}
-                    className="self-start px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                    className="mt-3 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
                   >
-                    {replySending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-                    Send to all ({replyable.length})
+                    {dmReplySending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                    Send to all ({selectedConversationIds.size})
                   </button>
-                  {replySendError && <p className="text-sm text-red-600">{replySendError}</p>}
                 </div>
-              </div>
-            );
-          })()
-        ) : inboxMode === 'messages' && selectMode && selectedConversationIds.size > 0 ? (
-          /* Batch reply to selected conversations */
-          currentAccountForMessages ? (
-            <div className="flex-1 flex flex-col p-6 min-h-0">
-              <div className="max-w-2xl mx-auto w-full flex flex-col gap-4">
-                <h2 className="text-lg font-semibold text-neutral-900">Reply to {selectedConversationIds.size} conversation{selectedConversationIds.size !== 1 ? 's' : ''}</h2>
-                <textarea
-                  placeholder="Type a message to send to all selected..."
-                  rows={3}
-                  value={dmReplyText}
-                  onChange={(e) => setDmReplyText(e.target.value)}
-                  className="w-full px-4 py-3 border border-neutral-200 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none"
-                />
-                <button
-                  type="button"
-                  disabled={dmReplySending || !dmReplyText.trim()}
-                  onClick={async () => {
-                    const text = dmReplyText.trim();
-                    setDmReplySending(true);
-                    setDmSendError(null);
-                    const failed: string[] = [];
-                    for (const convId of selectedConversationIds) {
-                      try {
-                        await api.post(`/social/accounts/${currentAccountForMessages.id}/conversations/${convId}/messages`, { text });
-                        markConversationsAsRead([convId], user?.id);
-                        setUnreadConversationIds((prev) => { const next = new Set(prev); next.delete(convId); return next; });
-                      } catch {
-                        failed.push(convId);
-                      }
-                    }
-                    setDmReplySending(false);
-                    if (failed.length > 0) setDmSendError(`Failed to send to ${failed.length} conversation(s).`);
-                    else {
-                      setDmReplyText('');
-                      setSelectedConversationIds(new Set());
-                      setSelectMode(false);
-                      appData?.invalidateConversations?.();
-                    }
-                  }}
-                  className="self-start px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
-                >
-                  {dmReplySending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-                  Send to all ({selectedConversationIds.size})
-                </button>
-                {dmSendError && <p className="text-sm text-red-600">{dmSendError}</p>}
               </div>
             </div>
           ) : (
