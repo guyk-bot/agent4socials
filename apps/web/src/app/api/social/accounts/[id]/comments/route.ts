@@ -34,11 +34,12 @@ export async function GET(
     return NextResponse.json({ comments: [], error: 'Comments are only available for Instagram, Facebook, X, YouTube, and TikTok.' });
   }
 
-  // TikTok Display API does not support reading comment text; only comment counts are available (e.g. in Analytics).
+  // TikTok: Comment *reading* exists in TikTok's Research API, but that API is only for approved
+  // researchers. The Display API (what we use: video.list, user.info, etc.) does not expose comment text.
   if (platform === 'TIKTOK') {
     return NextResponse.json({
       comments: [],
-      error: "TikTok's API doesn't support reading comments for third-party apps. You can see comment counts in Analytics.",
+      error: "TikTok's Display API (used by this app) doesn't include comment text. Comment reading is available only in TikTok's Research API for approved researchers. You can see comment counts in Analytics.",
     });
   }
 

@@ -1036,7 +1036,7 @@ export default function InboxPage() {
             )
           ) : inboxMode === 'comments' && commentsSupportedPlatforms.length === 0 ? (
             <div className="p-6 text-center">
-              <p className="text-sm text-neutral-500">Comments are available for Instagram, Facebook, X, and YouTube. Select one or more platforms above. TikTok comments cannot be read via TikTok&apos;s API yet; you can see comment counts in Analytics.</p>
+              <p className="text-sm text-neutral-500">Comments are available for Instagram, Facebook, X, and YouTube. Select one or more platforms above. TikTok comment text is only available via TikTok&apos;s Research API (for researchers), not the Display API this app uses. You can see TikTok comment counts in Analytics.</p>
             </div>
           ) : selectedPlatforms.length === 0 ? (
             <div className="p-6 text-center">
