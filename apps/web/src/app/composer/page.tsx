@@ -1816,7 +1816,7 @@ export default function ComposerPage() {
                                 }}
                                 onError={() => setReelAnalysisMetadata(null)}
                             />
-                            <div className="card space-y-4">
+                    <div className="card space-y-4">
                                 {reelAnalysisMetadata ? (
                                     <ReelAnalyzer
                                         videoUrl={mediaList[0].fileUrl}

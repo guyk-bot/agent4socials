@@ -78,7 +78,7 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
                 ? pathname === '/composer' && searchParams.get('analyze') !== 'reel'
                 : pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href.split('?')[0]));
             const inboxRaw = appData?.notifications?.inbox ?? inboxCount;
-            const badge = item.badgeKey === 'inbox' ? (isActive && item.href === '/dashboard/inbox' ? 0 : inboxRaw) : 0;
+            const badge = item.badgeKey === 'inbox' ? inboxRaw : 0;
             return (
               <Link
                 key={item.href}
@@ -149,7 +149,7 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
                   ? pathname === '/composer' && searchParams.get('analyze') !== 'reel'
                   : pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href.split('?')[0]));
               const inboxRaw = appData?.notifications?.inbox ?? inboxCount;
-              const badge = item.badgeKey === 'inbox' ? (isActive && item.href === '/dashboard/inbox' ? 0 : inboxRaw) : 0;
+              const badge = item.badgeKey === 'inbox' ? inboxRaw : 0;
               return (
                 <Link
                   key={item.href}

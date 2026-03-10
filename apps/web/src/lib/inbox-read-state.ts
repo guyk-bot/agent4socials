@@ -1,0 +1,70 @@
+/**
+ * Persist inbox read state in localStorage so refresh keeps read/unread.
+ * Keys are scoped per user by optional userId to avoid cross-account leakage.
+ */
+
+const KEY_COMMENTS = 'agent4socials_read_comments';
+const KEY_CONVERSATIONS = 'agent4socials_read_conversations';
+const KEY_ENGAGEMENT = 'agent4socials_read_engagement';
+const MAX_STORED = 2000; // cap to avoid localStorage bloat
+
+function getKey(base: string, userId?: string | null): string {
+  if (userId) return `${base}_${userId}`;
+  return base;
+}
+
+function loadSet(key: string): Set<string> {
+  if (typeof window === 'undefined') return new Set();
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw) as unknown;
+    if (!Array.isArray(arr)) return new Set();
+    return new Set(arr.filter((x): x is string => typeof x === 'string').slice(-MAX_STORED));
+  } catch {
+    return new Set();
+  }
+}
+
+function saveSet(key: string, set: Set<string>): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const arr = [...set].slice(-MAX_STORED);
+    localStorage.setItem(key, JSON.stringify(arr));
+  } catch {
+    // ignore quota or parse errors
+  }
+}
+
+export function getReadCommentIds(userId?: string | null): Set<string> {
+  return loadSet(getKey(KEY_COMMENTS, userId));
+}
+
+export function getReadConversationIds(userId?: string | null): Set<string> {
+  return loadSet(getKey(KEY_CONVERSATIONS, userId));
+}
+
+export function getReadEngagementIds(userId?: string | null): Set<string> {
+  return loadSet(getKey(KEY_ENGAGEMENT, userId));
+}
+
+export function markCommentsAsRead(ids: Iterable<string>, userId?: string | null): void {
+  const key = getKey(KEY_COMMENTS, userId);
+  const set = loadSet(key);
+  for (const id of ids) set.add(id);
+  saveSet(key, set);
+}
+
+export function markConversationsAsRead(ids: Iterable<string>, userId?: string | null): void {
+  const key = getKey(KEY_CONVERSATIONS, userId);
+  const set = loadSet(key);
+  for (const id of ids) set.add(id);
+  saveSet(key, set);
+}
+
+export function markEngagementAsRead(ids: Iterable<string>, userId?: string | null): void {
+  const key = getKey(KEY_ENGAGEMENT, userId);
+  const set = loadSet(key);
+  for (const id of ids) set.add(id);
+  saveSet(key, set);
+}

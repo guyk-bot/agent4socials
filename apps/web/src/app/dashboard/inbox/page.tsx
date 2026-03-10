@@ -20,6 +20,15 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import api from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
+import {
+  getReadCommentIds,
+  getReadConversationIds,
+  getReadEngagementIds,
+  markCommentsAsRead,
+  markConversationsAsRead,
+  markEngagementAsRead,
+} from '@/lib/inbox-read-state';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import { useAppData } from '@/context/AppDataContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
@@ -87,6 +96,7 @@ function freshPostImageUrl(comment: Pick<PostComment, 'accountId' | 'platformPos
 export default function InboxPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user } = useAuth();
   const platformFromUrl = searchParams.get('platform')?.toUpperCase();
   const setSelectedPlatformForConnect = useSelectedAccount()?.setSelectedPlatformForConnect ?? (() => {});
   const appData = useAppData();
@@ -157,6 +167,7 @@ export default function InboxPage() {
   }, [inboxMode]);
 
   const markSelectedCommentsAsRead = useCallback(() => {
+    markCommentsAsRead(selectedCommentIds, user?.id);
     setUnreadCommentIds((prev) => {
       const next = new Set(prev);
       selectedCommentIds.forEach((id) => next.delete(id));
@@ -164,9 +175,10 @@ export default function InboxPage() {
     });
     setSelectedCommentIds(new Set());
     setSelectMode(false);
-  }, [selectedCommentIds]);
+  }, [selectedCommentIds, user?.id]);
 
   const markSelectedAsRead = useCallback(() => {
+    markConversationsAsRead(selectedConversationIds, user?.id);
     setUnreadConversationIds((prev) => {
       const next = new Set(prev);
       selectedConversationIds.forEach((id) => next.delete(id));
@@ -174,13 +186,15 @@ export default function InboxPage() {
     });
     setSelectedConversationIds(new Set());
     setSelectMode(false);
-  }, [selectedConversationIds]);
+  }, [selectedConversationIds, user?.id]);
 
   const markAllAsRead = useCallback(() => {
+    const allConvIds = conversations.map((c) => c.id);
+    markConversationsAsRead(allConvIds, user?.id);
     setUnreadConversationIds(new Set());
     setSelectedConversationIds(new Set());
     setSelectMode(false);
-  }, []);
+  }, [conversations, user?.id]);
 
   useEffect(() => {
     if ((cachedAccounts as Account[]).length > 0) return;
@@ -452,20 +466,15 @@ export default function InboxPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [commentsSupportedPlatforms.join(','), effectiveAccounts.map((a) => a.id).join(','), commentsRefreshKey]);
 
-  // Track unread comment ids: add new top-level comment ids when comments load; user removes by clicking
+  // Track unread comment ids: top-level comments not in persisted read set; new loads add to unread only if not read
   useEffect(() => {
     const topLevel = comments.filter((c) => !c.parentCommentId);
     const topLevelIds = new Set(topLevel.map((c) => c.commentId));
-    const newIds = [...topLevelIds].filter((id) => !previousTopLevelCommentIdsRef.current.has(id));
+    const readSet = getReadCommentIds(user?.id);
+    const unreadIds = [...topLevelIds].filter((id) => !readSet.has(id));
+    setUnreadCommentIds(new Set(unreadIds));
     previousTopLevelCommentIdsRef.current = topLevelIds;
-    if (newIds.length > 0) {
-      setUnreadCommentIds((prev) => {
-        const next = new Set(prev);
-        newIds.forEach((id) => next.add(id));
-        return next;
-      });
-    }
-  }, [comments]);
+  }, [comments, user?.id]);
 
   // Auto-refresh comments every 5 minutes when Comments tab is active
   useEffect(() => {
@@ -512,36 +521,34 @@ export default function InboxPage() {
     return () => { cancelled = true; };
   }, [allEngagementAccounts.map((a) => a.id).join(','), effectiveAccounts.length]);
 
-  // Track unread conversation ids for Messages tab
+  // Track unread conversation ids: conversations not in persisted read set
   useEffect(() => {
     const ids = new Set(conversations.map((c) => c.id));
-    const newIds = [...ids].filter((id) => !previousConversationIdsRef.current.has(id));
+    const readSet = getReadConversationIds(user?.id);
+    const unreadIds = [...ids].filter((id) => !readSet.has(id));
+    setUnreadConversationIds(new Set(unreadIds));
     previousConversationIdsRef.current = ids;
-    if (newIds.length > 0) {
-      setUnreadConversationIds((prev) => {
-        const next = new Set(prev);
-        newIds.forEach((id) => next.add(id));
-        return next;
-      });
-    }
-  }, [conversations]);
+  }, [conversations, user?.id]);
 
-  // Track unread engagement ids for Engagement tab (engagement items use platform+platformPostId as key)
+  // Track unread engagement ids: engagement items not in persisted read set
   useEffect(() => {
     const ids = new Set(engagement.map((e) => `${e.platform}-${e.platformPostId}`));
-    const newIds = [...ids].filter((id) => !previousEngagementIdsRef.current.has(id));
+    const readSet = getReadEngagementIds(user?.id);
+    const unreadIds = [...ids].filter((id) => !readSet.has(id));
+    setUnreadEngagementIds(new Set(unreadIds));
     previousEngagementIdsRef.current = ids;
-    if (newIds.length > 0) {
-      setUnreadEngagementIds((prev) => {
-        const next = new Set(prev);
-        newIds.forEach((id) => next.add(id));
-        return next;
-      });
-    }
-  }, [engagement]);
+  }, [engagement, user?.id]);
+
+  // Sync total unread to appData so header shows comments + messages + engagement
+  useEffect(() => {
+    const total = unreadCommentIds.size + unreadConversationIds.size + unreadEngagementIds.size;
+    appData?.setNotifications({
+      ...(appData.notifications ?? { inbox: 0, comments: 0, messages: 0 }),
+      inbox: Math.min(total, 99),
+    });
+  }, [unreadCommentIds.size, unreadConversationIds.size, unreadEngagementIds.size, appData]);
 
   useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
       if (connectRef.current && !connectRef.current.contains(e.target as Node)) setConnectOpen(false);
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -651,7 +658,7 @@ export default function InboxPage() {
             className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-1.5 ${inboxMode === 'messages' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
           >
             Messages
-            {inboxMode !== 'messages' && unreadConversationIds.size > 0 ? (
+            {unreadConversationIds.size > 0 ? (
               <span className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
                 {unreadConversationIds.size > 99 ? '99' : unreadConversationIds.size}
               </span>
@@ -663,7 +670,7 @@ export default function InboxPage() {
             className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-1.5 ${inboxMode === 'comments' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
           >
             Comments
-            {inboxMode !== 'comments' && unreadCommentIds.size > 0 ? (
+            {unreadCommentIds.size > 0 ? (
               <span className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
                 {unreadCommentIds.size > 99 ? '99' : unreadCommentIds.size}
               </span>
@@ -675,7 +682,7 @@ export default function InboxPage() {
             className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-1.5 ${inboxMode === 'engagement' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
           >
             Engagement
-            {inboxMode !== 'engagement' && unreadEngagementIds.size > 0 ? (
+            {unreadEngagementIds.size > 0 ? (
               <span className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
                 {unreadEngagementIds.size > 99 ? '99' : unreadEngagementIds.size}
               </span>
@@ -795,7 +802,12 @@ export default function InboxPage() {
                   {unreadCommentIds.size > 0 && selectedCommentIds.size === 0 && (
                     <button
                       type="button"
-                      onClick={() => { setUnreadCommentIds(new Set()); setSelectedCommentIds(new Set()); setSelectMode(false); }}
+                      onClick={() => {
+                        markCommentsAsRead(unreadCommentIds, user?.id);
+                        setUnreadCommentIds(new Set());
+                        setSelectedCommentIds(new Set());
+                        setSelectMode(false);
+                      }}
                       className="ml-auto text-xs text-indigo-600 hover:text-indigo-800 underline"
                     >
                       Mark all as read
@@ -865,6 +877,7 @@ export default function InboxPage() {
                       type="button"
                       onClick={() => {
                         setSelectedEngagement(e);
+                        markEngagementAsRead([engagementKey], user?.id);
                         setUnreadEngagementIds((prev) => {
                           const next = new Set(prev);
                           next.delete(engagementKey);
@@ -995,6 +1008,7 @@ export default function InboxPage() {
                                 });
                                 return;
                               }
+                              markCommentsAsRead([c.commentId], user?.id);
                               setSelectedComment(c);
                               setUnreadCommentIds((prev) => {
                                 const next = new Set(prev);
@@ -1139,6 +1153,7 @@ export default function InboxPage() {
                         }
                         if (platform) setSelectedPlatform(platform);
                         setSelectedConversationId(c.id);
+                        markConversationsAsRead([c.id], user?.id);
                         setUnreadConversationIds((prev) => {
                           const next = new Set(prev);
                           next.delete(c.id);
@@ -1205,6 +1220,148 @@ export default function InboxPage() {
               </p>
             </div>
           </div>
+        ) : inboxMode === 'comments' && selectMode && selectedCommentIds.size > 0 ? (
+          /* Batch reply to selected comments */
+          (() => {
+            const selectedComments = comments.filter((c) => !c.parentCommentId && selectedCommentIds.has(c.commentId));
+            const canReplyPlatforms = new Set(['INSTAGRAM', 'FACEBOOK']);
+            const replyable = selectedComments.filter((c) => canReplyPlatforms.has(c.platform));
+            return (
+              <div className="flex-1 flex flex-col p-6 min-h-0">
+                <div className="max-w-2xl mx-auto w-full flex flex-col gap-4">
+                  <h2 className="text-lg font-semibold text-neutral-900">Reply to {selectedComments.length} comment{selectedComments.length !== 1 ? 's' : ''}</h2>
+                  {replyable.length < selectedComments.length && (
+                    <p className="text-sm text-amber-700">Only Instagram and Facebook comments can be replied to from the app. Others will be skipped.</p>
+                  )}
+                  <div className="flex items-end gap-2">
+                    <textarea
+                      placeholder="Type a reply to send to all selected..."
+                      rows={3}
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      className="flex-1 px-4 py-3 border border-neutral-200 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none"
+                    />
+                    <button
+                      type="button"
+                      disabled={aiReplyLoading || !hasCommentExamples}
+                      onClick={async () => {
+                        setAiReplyError(null);
+                        setAiReplyLoading(true);
+                        try {
+                          const first = replyable[0];
+                          const res = await api.post<{ reply?: string }>('/ai/generate-inbox-reply', {
+                            type: 'comment',
+                            text: first?.text ?? 'Comment',
+                            context: first?.postPreview ?? undefined,
+                            platform: selectedPlatform ?? undefined,
+                          });
+                          const reply = res.data?.reply?.trim();
+                          if (reply) setReplyText(reply);
+                          else setAiReplyError('No reply generated. Try again.');
+                        } catch (e: unknown) {
+                          const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+                          setAiReplyError(msg ?? 'Could not generate reply.');
+                        } finally {
+                          setAiReplyLoading(false);
+                        }
+                      }}
+                      className="p-3 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 disabled:opacity-40 shrink-0 border border-indigo-200"
+                      title={hasCommentExamples ? 'Generate reply with AI' : 'Add examples in AI Assistant'}
+                    >
+                      {aiReplyLoading ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
+                    </button>
+                  </div>
+                  {aiReplyError && <p className="text-sm text-amber-700">{aiReplyError}</p>}
+                  <button
+                    type="button"
+                    disabled={replySending || !replyText.trim() || replyable.length === 0}
+                    onClick={async () => {
+                      const msg = replyText.trim();
+                      setReplySending(true);
+                      setReplySendError(null);
+                      const failed: string[] = [];
+                      for (const c of replyable) {
+                        const account = effectiveAccounts.find((a) => a.platform === c.platform);
+                        if (!account) continue;
+                        try {
+                          await api.post(`/social/accounts/${account.id}/comments/reply`, { commentId: c.commentId, message: msg });
+                          markCommentsAsRead([c.commentId], user?.id);
+                          setUnreadCommentIds((prev) => { const next = new Set(prev); next.delete(c.commentId); return next; });
+                        } catch {
+                          failed.push(c.authorName || c.commentId);
+                        }
+                      }
+                      setReplySending(false);
+                      if (failed.length > 0) setReplySendError(`Failed for: ${failed.slice(0, 3).join(', ')}${failed.length > 3 ? '...' : ''}`);
+                      else {
+                        setReplyText('');
+                        setSelectedCommentIds(new Set());
+                        setSelectMode(false);
+                        setCommentsRefreshKey((k) => k + 1);
+                      }
+                    }}
+                    className="self-start px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                  >
+                    {replySending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                    Send to all ({replyable.length})
+                  </button>
+                  {replySendError && <p className="text-sm text-red-600">{replySendError}</p>}
+                </div>
+              </div>
+            );
+          })()
+        ) : inboxMode === 'messages' && selectMode && selectedConversationIds.size > 0 ? (
+          /* Batch reply to selected conversations */
+          currentAccountForMessages ? (
+            <div className="flex-1 flex flex-col p-6 min-h-0">
+              <div className="max-w-2xl mx-auto w-full flex flex-col gap-4">
+                <h2 className="text-lg font-semibold text-neutral-900">Reply to {selectedConversationIds.size} conversation{selectedConversationIds.size !== 1 ? 's' : ''}</h2>
+                <textarea
+                  placeholder="Type a message to send to all selected..."
+                  rows={3}
+                  value={dmReplyText}
+                  onChange={(e) => setDmReplyText(e.target.value)}
+                  className="w-full px-4 py-3 border border-neutral-200 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none"
+                />
+                <button
+                  type="button"
+                  disabled={dmReplySending || !dmReplyText.trim()}
+                  onClick={async () => {
+                    const text = dmReplyText.trim();
+                    setDmReplySending(true);
+                    setDmSendError(null);
+                    const failed: string[] = [];
+                    for (const convId of selectedConversationIds) {
+                      try {
+                        await api.post(`/social/accounts/${currentAccountForMessages.id}/conversations/${convId}/messages`, { text });
+                        markConversationsAsRead([convId], user?.id);
+                        setUnreadConversationIds((prev) => { const next = new Set(prev); next.delete(convId); return next; });
+                      } catch {
+                        failed.push(convId);
+                      }
+                    }
+                    setDmReplySending(false);
+                    if (failed.length > 0) setDmSendError(`Failed to send to ${failed.length} conversation(s).`);
+                    else {
+                      setDmReplyText('');
+                      setSelectedConversationIds(new Set());
+                      setSelectMode(false);
+                      appData?.invalidateConversations?.();
+                    }
+                  }}
+                  className="self-start px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                >
+                  {dmReplySending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                  Send to all ({selectedConversationIds.size})
+                </button>
+                {dmSendError && <p className="text-sm text-red-600">{dmSendError}</p>}
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center p-8">
+              <p className="text-sm text-neutral-500">Select an account (Instagram or Facebook) to send messages.</p>
+            </div>
+          )
         ) : inboxMode === 'comments' && selectedComment ? (
           <>
             <div className="flex-1 overflow-y-auto p-6 min-h-0">

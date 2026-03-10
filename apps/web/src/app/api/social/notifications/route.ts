@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
   });
   let commentsTotal = 0;
   let messagesTotal = 0;
+  let engagementTotal = 0;
   const byPlatform: Record<string, { comments: number; messages: number }> = {};
 
   for (const account of accounts) {
@@ -121,7 +122,24 @@ export async function GET(request: NextRequest) {
       byPlatform['TWITTER'].comments += commentsCount;
     }
   }
-  const inbox = Math.min(commentsTotal + messagesTotal, 99);
+
+  // Engagement tab count: posts with engagement data (ImportedPost or PostTarget for IG/FB/YT)
+  const engagementAccounts = accounts.filter((a) => a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK' || a.platform === 'YOUTUBE');
+  for (const account of engagementAccounts) {
+    const importedCount = await prisma.importedPost.count({
+      where: { socialAccountId: account.id },
+    });
+    const targetCount = await prisma.postTarget.count({
+      where: {
+        socialAccountId: account.id,
+        platformPostId: { not: null },
+        status: PostStatus.POSTED,
+      },
+    });
+    engagementTotal += Math.max(importedCount, targetCount, 0);
+  }
+
+  const inbox = Math.min(commentsTotal + messagesTotal + engagementTotal, 99);
   const res = NextResponse.json({
     inbox,
     comments: Math.min(commentsTotal, 99),
