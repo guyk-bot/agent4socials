@@ -19,7 +19,10 @@ function AuthenticatedContent({
 }) {
     const appData = useAppData();
     const { backgroundColor, primaryColor, textColor } = useWhiteLabel();
-    const showFullScreenLoader = appData?.prefetchStatus === 'loading' && !appData?.prefetchHasLoadedOnce;
+    const showFullScreenLoader =
+      appData?.prefetchStatus === 'loading' &&
+      !appData?.prefetchHasLoadedOnce &&
+      (typeof sessionStorage === 'undefined' || !sessionStorage.getItem('appDataPhase1Done'));
 
     if (showFullScreenLoader) {
         return (

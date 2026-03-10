@@ -227,6 +227,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         if (cancelled) return;
         setPrefetchStatus('done');
         setPrefetchHasLoadedOnce(true);
+        if (typeof sessionStorage !== 'undefined') sessionStorage.setItem('appDataPhase1Done', '1');
 
         // Phase 2: load per-account data in background (shell already visible)
         await Promise.all([

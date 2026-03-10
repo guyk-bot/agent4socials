@@ -156,6 +156,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const supabase = getSupabaseBrowser();
     await supabase.auth.signOut();
     setUser(null);
+    if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem('appDataPhase1Done');
     router.push('/');
   };
 
