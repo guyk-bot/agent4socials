@@ -1858,8 +1858,10 @@ function InboxPage() {
                       setComments((prev) => [myReply, ...prev]);
                       setReplyText('');
                       setReplySendError(null);
-                      // Refresh after a short delay so the API-side reply appears
-                      setTimeout(() => setCommentsRefreshKey((k) => k + 1), 3000);
+                      // Refresh so the API-side reply appears. Skip for YouTube: API returns only top-level comments, so refetch would remove the reply from the list.
+                      if (selectedComment.platform !== 'YOUTUBE') {
+                        setTimeout(() => setCommentsRefreshKey((k) => k + 1), 3000);
+                      }
                     } catch (e: unknown) {
                       const err = e as { response?: { data?: unknown }; message?: string };
                       const data = err?.response?.data;
