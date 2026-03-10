@@ -334,8 +334,8 @@ export default function InboxPage() {
       })
     ).then((results) => {
       if (cancelled) return;
-      results.forEach(({ convId, text }) => {
-        next[convId] = text;
+      results.forEach((r) => {
+        if (r) next[r.convId] = r.text;
       });
       setBatchConversationLastMessage(next);
     });
