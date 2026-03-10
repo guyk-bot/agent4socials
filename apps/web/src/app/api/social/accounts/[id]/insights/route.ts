@@ -328,6 +328,21 @@ export async function GET(
           retweet_count: t.public_metrics?.retweet_count ?? 0,
           impression_count: t.public_metrics?.impression_count ?? 0,
         }));
+        // Build impressions time series and total from recent tweets (Twitter has no historical time-series API)
+        const impressionsByDate: Record<string, number> = {};
+        let totalImpressions = 0;
+        for (const t of recentTweets) {
+          const imp = t.impression_count ?? 0;
+          totalImpressions += imp;
+          if (t.created_at) {
+            const date = t.created_at.slice(0, 10);
+            impressionsByDate[date] = (impressionsByDate[date] ?? 0) + imp;
+          }
+        }
+        out.impressionsTotal = totalImpressions;
+        out.impressionsTimeSeries = Object.entries(impressionsByDate)
+          .map(([date, value]) => ({ date, value }))
+          .sort((a, b) => a.date.localeCompare(b.date));
         return NextResponse.json({ ...out, recentTweets, tweetCount });
       } catch (e) {
         const status = (e as { response?: { status?: number } })?.response?.status;

@@ -75,6 +75,8 @@ export async function GET(
       interactions: p.interactions ?? 0,
       likeCount: p.likeCount ?? 0,
       commentsCount: p.commentsCount ?? 0,
+      repostsCount: p.repostsCount ?? 0,
+      sharesCount: p.sharesCount ?? 0,
       publishedAt: p.publishedAt instanceof Date ? p.publishedAt.toISOString() : String(p.publishedAt),
       mediaType: p.mediaType,
       platform: p.platform,
@@ -90,6 +92,10 @@ export async function GET(
         permalinkUrl: null,
         impressions: 0,
         interactions: 0,
+        likeCount: 0,
+        commentsCount: 0,
+        repostsCount: 0,
+        sharesCount: 0,
         publishedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : String(t.updatedAt),
         mediaType: t.post?.media[0]?.type ?? null,
         platform: account.platform,
@@ -349,6 +355,7 @@ async function syncImportedPosts(
           id: string;
           text?: string;
           created_at?: string;
+          attachments?: { media_keys?: string[] };
           public_metrics?: {
             like_count?: number;
             retweet_count?: number;
@@ -357,24 +364,32 @@ async function syncImportedPosts(
             quote_count?: number;
           };
         }>;
+        includes?: { media?: Array<{ media_key: string; url?: string; preview_image_url?: string }> };
       }>(`https://api.twitter.com/2/users/${platformUserId}/tweets`, {
         params: {
           max_results: 50,
-          'tweet.fields': 'created_at,public_metrics',
+          'tweet.fields': 'created_at,public_metrics,attachments',
+          expansions: 'attachments.media_keys',
+          'media.fields': 'url,preview_image_url',
           exclude: 'retweets,replies',
         },
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       const items = tweetsRes.data?.data ?? [];
+      const mediaList = tweetsRes.data?.includes?.media ?? [];
+      const mediaByKey = new Map(mediaList.map((m) => [m.media_key, m]));
       for (const t of items) {
         const publishedAt = t.created_at ? new Date(t.created_at) : new Date();
         const permalinkUrl = `https://x.com/i/status/${t.id}`;
         const impressions = t.public_metrics?.impression_count ?? 0;
-        const interactions =
-          (t.public_metrics?.like_count ?? 0) +
-          (t.public_metrics?.retweet_count ?? 0) +
-          (t.public_metrics?.reply_count ?? 0) +
-          (t.public_metrics?.quote_count ?? 0);
+        const likeCount = t.public_metrics?.like_count ?? 0;
+        const replyCount = t.public_metrics?.reply_count ?? 0;
+        const retweetCount = t.public_metrics?.retweet_count ?? 0;
+        const quoteCount = t.public_metrics?.quote_count ?? 0;
+        const interactions = likeCount + replyCount + retweetCount + quoteCount;
+        const firstMediaKey = t.attachments?.media_keys?.[0];
+        const firstMedia = firstMediaKey ? mediaByKey.get(firstMediaKey) : undefined;
+        const thumbnailUrl = firstMedia?.preview_image_url ?? firstMedia?.url ?? null;
         await prisma.importedPost.upsert({
           where: {
             socialAccountId_platformPostId: { socialAccountId, platformPostId: t.id },
@@ -385,6 +400,11 @@ async function syncImportedPosts(
             publishedAt,
             impressions,
             interactions,
+            likeCount,
+            commentsCount: replyCount,
+            repostsCount: retweetCount,
+            sharesCount: 0,
+            thumbnailUrl,
             syncedAt: new Date(),
           },
           create: {
@@ -396,6 +416,11 @@ async function syncImportedPosts(
             publishedAt,
             impressions,
             interactions,
+            likeCount,
+            commentsCount: replyCount,
+            repostsCount: retweetCount,
+            sharesCount: 0,
+            thumbnailUrl,
           },
         });
       }
