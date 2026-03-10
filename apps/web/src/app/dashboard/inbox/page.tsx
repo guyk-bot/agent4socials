@@ -442,7 +442,7 @@ export default function InboxPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dmOrFbPlatforms.join(','), effectiveAccounts.map((a) => a.id).join(',')]);
 
-  const commentsSupportedPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK' || p === 'TWITTER' || p === 'YOUTUBE');
+  const commentsSupportedPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK' || p === 'TWITTER' || p === 'YOUTUBE' || p === 'TIKTOK');
   useEffect(() => {
     if (commentsSupportedPlatforms.length === 0) {
       setComments([]);
@@ -1017,7 +1017,7 @@ export default function InboxPage() {
             )
           ) : inboxMode === 'comments' && commentsSupportedPlatforms.length === 0 ? (
             <div className="p-6 text-center">
-              <p className="text-sm text-neutral-500">Comments are available for Instagram, Facebook, X, and YouTube. TikTok comments are not supported in Inbox yet. Select one or more of the supported platforms above.</p>
+              <p className="text-sm text-neutral-500">Comments are available for Instagram, Facebook, X, and YouTube. Select one or more platforms above. TikTok comments cannot be read via TikTok&apos;s API yet; you can see comment counts in Analytics.</p>
             </div>
           ) : selectedPlatforms.length === 0 ? (
             <div className="p-6 text-center">

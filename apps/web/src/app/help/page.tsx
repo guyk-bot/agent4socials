@@ -127,6 +127,7 @@ export default function HelpPage() {
               <ul className="list-disc list-inside text-neutral-600 text-sm space-y-2">
                 <li><strong>Instagram:</strong> Insights are limited to the last 28 days by Instagram&apos;s API. Older ranges are capped to 28 days.</li>
                 <li><strong>Comments (Inbox):</strong> New comments on posts older than 28 days cannot be accessed; only comments on posts from the last 28 days are available. This is a platform API limitation.</li>
+                <li><strong>TikTok (Inbox):</strong> TikTok&apos;s API does not support reading comment text for third-party apps. You can see comment counts in Analytics; the Inbox Comments tab shows an explanation when TikTok is selected.</li>
                 <li><strong>Messages (Inbox):</strong> You may not see all messages in a conversation; unread/notification counts may be approximate or show as one (e.g. &quot;1&quot;) due to platform API limits. See <a href="#inbox-dms" className="text-indigo-600 hover:underline">Inbox & DMs</a> for details.</li>
                 <li><strong>Facebook:</strong> Page insights depend on Meta&apos;s API; date ranges and metrics may be limited.</li>
                 <li><strong>X (Twitter):</strong> Reconnect the account if follower or tweet counts are missing.</li>

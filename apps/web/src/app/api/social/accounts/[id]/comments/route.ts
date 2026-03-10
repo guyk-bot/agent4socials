@@ -30,8 +30,16 @@ export async function GET(
   }
 
   const platform = account.platform;
-  if (platform !== 'INSTAGRAM' && platform !== 'FACEBOOK' && platform !== 'TWITTER' && platform !== 'YOUTUBE') {
-    return NextResponse.json({ comments: [], error: 'Comments are only available for Instagram, Facebook, X, and YouTube.' });
+  if (platform !== 'INSTAGRAM' && platform !== 'FACEBOOK' && platform !== 'TWITTER' && platform !== 'YOUTUBE' && platform !== 'TIKTOK') {
+    return NextResponse.json({ comments: [], error: 'Comments are only available for Instagram, Facebook, X, YouTube, and TikTok.' });
+  }
+
+  // TikTok Display API does not support reading comment text; only comment counts are available (e.g. in Analytics).
+  if (platform === 'TIKTOK') {
+    return NextResponse.json({
+      comments: [],
+      error: "TikTok's API doesn't support reading comments for third-party apps. You can see comment counts in Analytics.",
+    });
   }
 
   // Auto-refresh YouTube tokens
