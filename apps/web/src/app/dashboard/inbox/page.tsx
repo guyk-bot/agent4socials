@@ -657,7 +657,7 @@ function InboxPage() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] bg-white flex-col md:flex-row">
+    <div className="flex h-[calc(100vh-3.5rem-3rem)] md:h-[calc(100vh-3.5rem-4rem)] bg-white flex-col md:flex-row -mx-4 sm:-mx-6 md:-mx-8 -my-6 md:-my-8">
       {/* Left sidebar - Metricool style */}
       <div className="w-full md:w-80 border-r border-neutral-200 flex flex-col shrink-0 bg-white">
         {/* Platform icons + Connect */}
