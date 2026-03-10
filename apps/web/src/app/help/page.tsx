@@ -126,6 +126,7 @@ export default function HelpPage() {
             { id: 'analytics-limitations', title: 'Analytics limitations', children: (
               <ul className="list-disc list-inside text-neutral-600 text-sm space-y-2">
                 <li><strong>Instagram:</strong> Insights are limited to the last 28 days by Instagram&apos;s API. Older ranges are capped to 28 days.</li>
+                <li><strong>Comments (Inbox):</strong> New comments on posts older than 28 days cannot be accessed; only comments on posts from the last 28 days are available. This is a platform API limitation.</li>
                 <li><strong>Facebook:</strong> Page insights depend on Meta&apos;s API; date ranges and metrics may be limited.</li>
                 <li><strong>X (Twitter):</strong> Reconnect the account if follower or tweet counts are missing.</li>
                 <li><strong>YouTube:</strong> Enable YouTube Analytics API in Google Cloud and reconnect for full channel stats.</li>
@@ -137,6 +138,9 @@ export default function HelpPage() {
               <>
                 <p className="text-neutral-600 text-sm leading-relaxed mb-3">
                   The Inbox shows <strong>comments</strong> (Instagram, Facebook, X, YouTube) and <strong>direct messages</strong> (Instagram and Facebook only). You can reply to comments and DMs from the app. <strong>24-hour rule:</strong> For Instagram and Facebook DMs, you can only send messages within 24 hours of the customer&apos;s last message unless your app has Advanced Access for messaging.
+                </p>
+                <p className="text-neutral-600 text-sm leading-relaxed mb-3">
+                  <strong>Comments on older posts:</strong> New comments on posts that are <strong>older than 28 days</strong> cannot be accessed. This is a platform API limitation (e.g. Instagram/Meta). Only comments on posts from the last 28 days are available in the Inbox; older posts will not show new comments.
                 </p>
                 <p className="text-neutral-600 text-sm leading-relaxed">
                   If you see an error about &quot;capability&quot; or &quot;Advanced Access&quot;, Meta requires your app to be approved for the instagram_manage_messages (and related) permission. In <strong>Development mode</strong>, both the sender and the recipient must be added as <strong>Instagram Testers</strong> in Meta for Developers (App roles → Roles), and the recipient must accept the tester invitation in Instagram (Settings → Apps and websites → Tester invitations). Reconnecting Facebook and Instagram from the sidebar after that refreshes tokens.
