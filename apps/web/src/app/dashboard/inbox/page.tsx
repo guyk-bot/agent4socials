@@ -663,7 +663,6 @@ function InboxPage() {
       <div className="w-full md:w-80 border-r border-neutral-200 flex flex-col shrink-0 bg-white">
         {/* Platform icons + Connect */}
         <div className="p-3 border-b border-neutral-100">
-          <p className="text-xs text-neutral-500 mb-2">Uses the same accounts you connected on the Dashboard.</p>
           <div className="flex items-center gap-2 flex-wrap">
             {connectedPlatforms.map((p) => {
               const Icon = p.icon;
