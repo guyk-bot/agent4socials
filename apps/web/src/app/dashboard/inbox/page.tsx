@@ -1780,10 +1780,10 @@ function InboxPage() {
                 {aiReplyError && (
                   <p className="text-sm text-amber-700 mb-2">{aiReplyError}</p>
                 )}
-                {selectedComment.platform !== 'INSTAGRAM' && selectedComment.platform !== 'FACEBOOK' ? (
+                {selectedComment.platform !== 'INSTAGRAM' && selectedComment.platform !== 'FACEBOOK' && selectedComment.platform !== 'YOUTUBE' ? (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                    <p className="font-medium">Reply from the app is only available for Instagram and Facebook.</p>
-                    <p className="mt-1 text-xs text-amber-700">For YouTube and X (Twitter) comments, reply on the platform.</p>
+                    <p className="font-medium">Reply from the app is available for Instagram, Facebook, and YouTube.</p>
+                    <p className="mt-1 text-xs text-amber-700">For X (Twitter) comments, reply on the platform.</p>
                   </div>
                 ) : (
                 <>

@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import axios from 'axios';
+import { getValidYoutubeToken } from '@/lib/youtube-token';
 
 /**
  * POST /api/social/accounts/[id]/comments/reply
- * Reply to a comment on Instagram or Facebook.
+ * Reply to a comment on Instagram, Facebook, or YouTube.
  * Body: { commentId: string; message: string }
  */
 export async function POST(
@@ -30,15 +31,15 @@ export async function POST(
 
   const account = await prisma.socialAccount.findFirst({
     where: { id, userId },
-    select: { id: true, platform: true, platformUserId: true, accessToken: true, credentialsJson: true },
+    select: { id: true, platform: true, platformUserId: true, accessToken: true, credentialsJson: true, refreshToken: true, expiresAt: true },
   });
   if (!account) {
     return NextResponse.json({ message: 'Account not found' }, { status: 404 });
   }
 
   const platform = account.platform;
-  if (platform !== 'INSTAGRAM' && platform !== 'FACEBOOK') {
-    return NextResponse.json({ message: 'Comment replies are only supported for Instagram and Facebook.' }, { status: 400 });
+  if (platform !== 'INSTAGRAM' && platform !== 'FACEBOOK' && platform !== 'YOUTUBE') {
+    return NextResponse.json({ message: 'Comment replies are only supported for Instagram, Facebook, and YouTube.' }, { status: 400 });
   }
 
   const credJson = (account.credentialsJson && typeof account.credentialsJson === 'object'
@@ -49,6 +50,21 @@ export async function POST(
   const accessToken = account.accessToken ?? '';
 
   try {
+    if (platform === 'YOUTUBE') {
+      const token = await getValidYoutubeToken({
+        id: account.id,
+        accessToken: account.accessToken ?? '',
+        refreshToken: account.refreshToken ?? null,
+        expiresAt: account.expiresAt ?? null,
+      });
+      await axios.post<{ id?: string }>(
+        'https://www.googleapis.com/youtube/v3/comments',
+        { snippet: { parentId: commentId, textOriginal: message.trim() } },
+        { params: { part: 'snippet' }, headers: { Authorization: `Bearer ${token}` }, timeout: 15_000 }
+      );
+      return NextResponse.json({ ok: true });
+    }
+
     if (platform === 'INSTAGRAM') {
       if (isInstagramBusinessLogin) {
         // Instagram Business Login: reply via graph.instagram.com
@@ -82,7 +98,8 @@ export async function POST(
     console.error('[reply] error:', JSON.stringify(rawData ?? err));
     // Provide a clearer message for permission errors
     if (errData?.code === 200 || errData?.code === 10 || msg.toLowerCase().includes('permission') || msg.toLowerCase().includes('does not support') || msg.toLowerCase().includes('not exist')) {
-      msg = `Reply failed: Meta API permission error. Try reconnecting your account from the sidebar, or reply directly on ${platform === 'INSTAGRAM' ? 'Instagram' : 'Facebook'}.`;
+      const platformLabel = platform === 'INSTAGRAM' ? 'Instagram' : platform === 'FACEBOOK' ? 'Facebook' : 'YouTube';
+      msg = `Reply failed: API permission error. Try reconnecting your account from the sidebar, or reply directly on ${platformLabel}.`;
     }
     return NextResponse.json({ message: msg }, { status: 400 });
   }
