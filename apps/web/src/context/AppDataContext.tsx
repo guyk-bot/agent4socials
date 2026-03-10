@@ -210,6 +210,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
         const dateRange = getDefaultDateRange();
 
+        // Phase 1: minimal data needed to show the shell (notifications, scheduled posts)
         await Promise.all([
           api.get<{ inbox?: number; comments?: number; messages?: number; byPlatform?: Record<string, { comments: number; messages: number }> }>('/social/notifications').then((r) => {
             if (!cancelled) setNotificationsState({
@@ -222,6 +223,13 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           api.get<CachedScheduledPost[]>('/posts').then((r) => {
             if (!cancelled && Array.isArray(r.data)) setScheduledPostsState(r.data);
           }).catch(() => {}),
+        ]);
+        if (cancelled) return;
+        setPrefetchStatus('done');
+        setPrefetchHasLoadedOnce(true);
+
+        // Phase 2: load per-account data in background (shell already visible)
+        await Promise.all([
           ...accounts.map((acc) =>
             api.get<{ posts?: CachedPost[] }>(`/social/accounts/${acc.id}/posts`).then((r) => {
               if (!cancelled && r.data?.posts) setPostsByAccountId((prev) => ({ ...prev, [acc.id]: r.data!.posts! }));
@@ -245,8 +253,6 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
             }).catch(() => {})
           ),
         ]);
-        if (!cancelled) setPrefetchStatus('done');
-        if (!cancelled) setPrefetchHasLoadedOnce(true);
       } catch {
         if (!cancelled) setPrefetchStatus('done');
         if (!cancelled) setPrefetchHasLoadedOnce(true);
