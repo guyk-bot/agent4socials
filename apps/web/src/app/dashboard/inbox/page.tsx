@@ -1605,8 +1605,9 @@ export default function InboxPage() {
                                       next.delete(c.id);
                                       return next;
                                     });
-                                  } catch {
-                                    setDmSendError('Failed to send reply to this conversation.');
+                                  } catch (e: unknown) {
+                                    const errMsg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Failed to send reply to this conversation.';
+                                    setDmSendError(errMsg);
                                   } finally {
                                     setDmReplySending(false);
                                   }
@@ -2178,12 +2179,6 @@ export default function InboxPage() {
                     </div>
                   )}
                 </div>
-              )}
-              <p className="text-xs text-neutral-400 mt-2 text-center">Send a message to this conversation. Use the sparkle button to generate a reply with AI. When sending is enabled, replies are only allowed within 24 hours of the customer&apos;s last message (Facebook/Instagram policy). If you see an error above about Advanced Access, Meta must approve your app for sending before replies will work.</p>
-              {!hasInboxExamples && inboxExamplesLoaded && (
-                <p className="text-xs text-amber-700 mt-1.5 text-center bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-                  AI reply drafts are disabled. <a href="/dashboard/ai-assistant" className="font-medium underline">Add inbox reply examples in AI Assistant</a> to enable them.
-                </p>
               )}
             </div>
             </div>

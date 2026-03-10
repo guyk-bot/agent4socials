@@ -393,7 +393,7 @@ export async function POST(
     const isOutsideWindow = code === 10 || /outside of allowed window|messaging window/i.test(apiMsg);
     if (isOutsideWindow) {
       return NextResponse.json(
-        { message: 'This conversation is outside the 24-hour messaging window. Instagram and Facebook only allow free-form replies within 24 hours of the customer\'s last message. Ask them to send a new message to reopen the window.' },
+        { message: 'FB & IG allow sending messages only within 24 hours of the customer\'s last message.' },
         { status: 400 }
       );
     }

@@ -49,7 +49,7 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
   }, [topNavOpen]);
 
   return (
-    <header className="h-14 flex items-center justify-between px-4 sm:px-6 bg-neutral-900 text-white border-b border-neutral-800 fixed top-0 left-0 right-0 z-40">
+    <header className="h-14 flex items-center justify-between px-4 sm:px-6 bg-neutral-900 text-white border-b border-neutral-800 fixed top-0 left-0 right-0 z-[100]">
       <div className="flex items-center gap-2 md:gap-8 min-w-0">
         {onSidebarToggle && (
           <button
