@@ -6,7 +6,6 @@ import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
-import { useAppData } from '@/context/AppDataContext';
 
 function AuthenticatedContent({
     sidebarOpen,
@@ -17,21 +16,7 @@ function AuthenticatedContent({
     onSidebarToggle: () => void;
     children: React.ReactNode;
 }) {
-    const appData = useAppData();
     const { backgroundColor, primaryColor, textColor } = useWhiteLabel();
-    const showFullScreenLoader =
-      appData?.prefetchStatus === 'loading' &&
-      !appData?.prefetchHasLoadedOnce &&
-      (typeof sessionStorage === 'undefined' || !sessionStorage.getItem('appDataPhase1Done'));
-
-    if (showFullScreenLoader) {
-        return (
-            <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-neutral-100">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
-                <p className="text-sm text-neutral-500">Loading your data…</p>
-            </div>
-        );
-    }
 
     return (
         <div
