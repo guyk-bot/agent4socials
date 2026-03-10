@@ -92,11 +92,22 @@ export async function GET(
         const mediaUrl = isInstagramBizEarly
           ? 'https://graph.instagram.com/v25.0/me/media'
           : `https://graph.facebook.com/v18.0/${account.platformUserId}/media`;
-        const mediaRes = await axios.get<{ data?: Array<{ id: string; caption?: string; media_url?: string; thumbnail_url?: string }> }>(mediaUrl, {
-          params: { fields: 'id,caption,media_url,thumbnail_url', limit: 30, access_token: liveToken },
-          timeout: 15_000,
-        });
-        liveSources = (mediaRes.data?.data ?? []).map((m, i) => ({
+        const allMedia: Array<{ id: string; caption?: string; media_url?: string; thumbnail_url?: string }> = [];
+        let nextUrl: string | null = null;
+        for (let page = 0; page < 2; page++) {
+          const mediaRes = await axios.get<{
+            data?: Array<{ id: string; caption?: string; media_url?: string; thumbnail_url?: string }>;
+            paging?: { next?: string };
+          }>(nextUrl || mediaUrl, {
+            params: page === 0 ? { fields: 'id,caption,media_url,thumbnail_url', limit: 50, access_token: liveToken } : undefined,
+            timeout: 15_000,
+          });
+          const data = mediaRes.data?.data ?? [];
+          allMedia.push(...data);
+          nextUrl = (data.length === 50 && mediaRes.data?.paging?.next) ? mediaRes.data.paging.next : null;
+          if (!nextUrl) break;
+        }
+        liveSources = allMedia.map((m, i) => ({
           platformPostId: m.id,
           postPreview: (m.caption ?? '').trim() || `Post ${i + 1}`,
           postTargetId: `live-${m.id}`,
@@ -105,7 +116,7 @@ export async function GET(
       } else if (platform === 'FACEBOOK') {
         const fbRes = await axios.get<{ data?: Array<{ id: string; message?: string; story?: string }> }>(
           `https://graph.facebook.com/v18.0/${account.platformUserId}/posts`,
-          { params: { fields: 'id,message,story', limit: 30, access_token: liveToken }, timeout: 15_000 }
+          { params: { fields: 'id,message,story', limit: 50, access_token: liveToken }, timeout: 15_000 }
         );
         liveSources = (fbRes.data?.data ?? []).map((m, i) => ({
           platformPostId: m.id,
@@ -120,7 +131,7 @@ export async function GET(
   // old/synced posts and on recent platform-only posts both show up). Cap total to avoid too many API calls.
   const existingPostIds = new Set(dbSources.map((s) => s.platformPostId));
   const extraLive = liveSources.filter((s) => !existingPostIds.has(s.platformPostId));
-  const MAX_SOURCES = 45;
+  const MAX_SOURCES = 50;
   const sources: PostSource[] = [
     ...dbSources,
     ...extraLive.slice(0, Math.max(0, MAX_SOURCES - dbSources.length)),

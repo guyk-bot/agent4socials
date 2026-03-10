@@ -137,6 +137,8 @@ export default function InboxPage() {
   // Multi-select state for conversations
   const [selectedConversationIds, setSelectedConversationIds] = useState<Set<string>>(new Set());
   const [selectMode, setSelectMode] = useState(false);
+  // Multi-select state for comments (when Comments tab is active)
+  const [selectedCommentIds, setSelectedCommentIds] = useState<Set<string>>(new Set());
 
   // AI inbox examples from AI Assistant (for gating AI draft feature)
   const [inboxReplyExamples, setInboxReplyExamples] = useState<string | null>(null);
@@ -146,10 +148,23 @@ export default function InboxPage() {
 
   const toggleSelectMode = useCallback(() => {
     setSelectMode((v) => {
-      if (v) setSelectedConversationIds(new Set());
+      if (v) {
+        if (inboxMode === 'messages') setSelectedConversationIds(new Set());
+        else if (inboxMode === 'comments') setSelectedCommentIds(new Set());
+      }
       return !v;
     });
-  }, []);
+  }, [inboxMode]);
+
+  const markSelectedCommentsAsRead = useCallback(() => {
+    setUnreadCommentIds((prev) => {
+      const next = new Set(prev);
+      selectedCommentIds.forEach((id) => next.delete(id));
+      return next;
+    });
+    setSelectedCommentIds(new Set());
+    setSelectMode(false);
+  }, [selectedCommentIds]);
 
   const markSelectedAsRead = useCallback(() => {
     setUnreadConversationIds((prev) => {
@@ -298,29 +313,29 @@ export default function InboxPage() {
 
     dmOrFbPlatforms.forEach((platform) => {
       const account = effectiveAccounts.find((a) => a.platform === platform);
-      if (!account) {
+    if (!account) {
         if (--pending === 0 && !cancelled) {
           setConversations(merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? '')));
           setConversationsError(errors[0] ?? null);
           setConversationsDebug(debugs[0] ?? null);
           setConversationsLoading(false);
         }
-        return;
-      }
+      return;
+    }
       const fromCache = appData?.getConversations(account.id);
       if (fromCache !== undefined && fromCache !== null) {
         merge.push(...fromCache.map((c) => ({ ...c, platform })));
         if (--pending === 0 && !cancelled) {
           setConversations(merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? '')));
-          setConversationsError(null);
+    setConversationsError(null);
           setConversationsDebug(null);
           setConversationsLoading(false);
         }
         return;
       }
       needsFetch = true;
-      api.get(`/social/accounts/${account.id}/conversations`)
-        .then((res) => {
+    api.get(`/social/accounts/${account.id}/conversations`)
+      .then((res) => {
           if (cancelled) return;
           const list = (res.data?.conversations ?? []).map((c: Conversation) => ({ ...c, platform }));
           merge.push(...list);
@@ -417,8 +432,8 @@ export default function InboxPage() {
             setCommentsError(errorsFound.length > 0 ? errorsFound[0] : null);
             setCommentsLoading(false);
           }
-        })
-        .catch(() => {
+      })
+      .catch(() => {
           if (cancelled) return;
           errorsFound.push('Could not load comments.');
           if (--pending === 0) {
@@ -538,7 +553,7 @@ export default function InboxPage() {
       const next = prev.includes(platformId) ? prev.filter((p) => p !== platformId) : [...prev, platformId];
       if (selectedPlatform != null && !next.includes(selectedPlatform)) {
         setSelectedPlatform(next[0] ?? null);
-        setSelectedConversationId(null);
+    setSelectedConversationId(null);
         setSelectedComment(null);
       }
       return next;
@@ -632,7 +647,7 @@ export default function InboxPage() {
         <div className="flex border-b border-neutral-200">
           <button
             type="button"
-            onClick={() => { setInboxMode('messages'); setSelectedComment(null); }}
+            onClick={() => { setInboxMode('messages'); setSelectedComment(null); setSelectMode(false); setSelectedConversationIds(new Set()); setSelectedCommentIds(new Set()); }}
             className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-1.5 ${inboxMode === 'messages' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
           >
             Messages
@@ -644,7 +659,7 @@ export default function InboxPage() {
           </button>
           <button
             type="button"
-            onClick={() => { setInboxMode('comments'); setSelectedConversationId(null); }}
+            onClick={() => { setInboxMode('comments'); setSelectedConversationId(null); setSelectMode(false); setSelectedConversationIds(new Set()); setSelectedCommentIds(new Set()); }}
             className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-1.5 ${inboxMode === 'comments' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
           >
             Comments
@@ -656,7 +671,7 @@ export default function InboxPage() {
           </button>
           <button
             type="button"
-            onClick={() => { setInboxMode('engagement'); setSelectedConversationId(null); setSelectedComment(null); setSelectedEngagement(null); }}
+            onClick={() => { setInboxMode('engagement'); setSelectedConversationId(null); setSelectedComment(null); setSelectedEngagement(null); setSelectMode(false); setSelectedConversationIds(new Set()); setSelectedCommentIds(new Set()); }}
             className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-1.5 ${inboxMode === 'engagement' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
           >
             Engagement
@@ -671,20 +686,20 @@ export default function InboxPage() {
         {inboxMode === 'messages' && (
           <div className="flex flex-col border-b border-neutral-200">
             <div className="flex">
-            <button
-              type="button"
-              onClick={() => setInboxFilter('unresolved')}
+          <button
+            type="button"
+            onClick={() => setInboxFilter('unresolved')}
               className={`flex-1 py-2 text-xs font-medium ${inboxFilter === 'unresolved' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
-            >
-              Unresolved
-            </button>
-            <button
-              type="button"
-              onClick={() => setInboxFilter('unread')}
+          >
+            Unresolved
+          </button>
+          <button
+            type="button"
+            onClick={() => setInboxFilter('unread')}
               className={`flex-1 py-2 text-xs font-medium ${inboxFilter === 'unread' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
-            >
-              Unread
-            </button>
+          >
+            Unread
+          </button>
             <button
               type="button"
               onClick={() => { appData?.invalidateConversations?.(); }}
@@ -693,7 +708,7 @@ export default function InboxPage() {
             >
               <RefreshCw size={16} />
             </button>
-            </div>
+        </div>
             {/* Select toolbar: select conversations then mark as read */}
             <div className="flex items-center gap-2 px-2 py-1.5 bg-neutral-50/70 border-t border-neutral-100">
               <button
@@ -731,6 +746,56 @@ export default function InboxPage() {
                     <button
                       type="button"
                       onClick={markAllAsRead}
+                      className="ml-auto text-xs text-indigo-600 hover:text-indigo-800 underline"
+                    >
+                      Mark all as read
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {inboxMode === 'comments' && commentsSupportedPlatforms.length > 0 && (
+          <div className="flex flex-col border-b border-neutral-200">
+            <div className="flex items-center gap-2 px-2 py-1.5 bg-neutral-50/70 border-t border-neutral-100">
+              <button
+                type="button"
+                onClick={toggleSelectMode}
+                className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${selectMode ? 'bg-indigo-100 text-indigo-700' : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100'}`}
+              >
+                {selectMode ? <CheckSquare size={13} /> : <Square size={13} />}
+                {selectMode ? 'Cancel' : 'Select'}
+              </button>
+              {!selectMode && <span className="text-xs text-neutral-400">Select comments to mark as read</span>}
+              {selectMode && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const topLevel = comments.filter((c) => !c.parentCommentId);
+                      const allIds = new Set(topLevel.map((c) => c.commentId));
+                      setSelectedCommentIds((prev) => prev.size === allIds.size ? new Set() : allIds);
+                    }}
+                    className="text-xs text-neutral-600 hover:text-neutral-900 underline"
+                  >
+                    {selectedCommentIds.size === comments.filter((c) => !c.parentCommentId).length ? 'Deselect all' : 'Select all'}
+                  </button>
+                  {selectedCommentIds.size > 0 && (
+                    <button
+                      type="button"
+                      onClick={markSelectedCommentsAsRead}
+                      className="ml-auto inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-neutral-800 text-white hover:bg-neutral-700"
+                    >
+                      <Check size={12} />
+                      Mark {selectedCommentIds.size} as read
+                    </button>
+                  )}
+                  {unreadCommentIds.size > 0 && selectedCommentIds.size === 0 && (
+                    <button
+                      type="button"
+                      onClick={() => { setUnreadCommentIds(new Set()); setSelectedCommentIds(new Set()); setSelectMode(false); }}
                       className="ml-auto text-xs text-indigo-600 hover:text-indigo-800 underline"
                     >
                       Mark all as read
@@ -915,11 +980,21 @@ export default function InboxPage() {
                   return filtered.map((c) => {
                     const isUnread = unreadCommentIds.has(c.commentId);
                     const hasReplied = hasRepliedByParent.has(c.commentId);
+                    const isSelected = selectMode && selectedCommentIds.has(c.commentId);
                     return (
                           <button
                             key={c.commentId}
                             type="button"
                             onClick={() => {
+                              if (selectMode) {
+                                setSelectedCommentIds((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(c.commentId)) next.delete(c.commentId);
+                                  else next.add(c.commentId);
+                                  return next;
+                                });
+                                return;
+                              }
                               setSelectedComment(c);
                               setUnreadCommentIds((prev) => {
                                 const next = new Set(prev);
@@ -928,9 +1003,15 @@ export default function InboxPage() {
                               });
                             }}
                             className={`w-full px-3 py-3 text-left transition-colors flex items-center gap-2 ${
+                              isSelected ? 'bg-indigo-50 border-l-2 border-l-indigo-500' :
                               selectedComment?.commentId === c.commentId ? 'bg-indigo-50 border-l-2 border-l-indigo-500' : isUnread ? 'bg-sky-50/80 hover:bg-sky-100/80' : 'hover:bg-neutral-50'
                             }`}
                           >
+                            {selectMode ? (
+                              <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border-2 ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-neutral-300'}`}>
+                                {isSelected && <Check size={12} className="text-white" />}
+                              </div>
+                            ) : null}
                             <div className="flex-1 min-w-0">
                               <p className="text-xs text-neutral-400 flex items-center gap-1 mb-1">
                                 {(() => {
@@ -1014,7 +1095,7 @@ export default function InboxPage() {
                       Reconnect Facebook
                     </button>
                   )}
-                </div>
+              </div>
               </div>
             </div>
           ) : conversations.length === 0 ? (
@@ -1072,7 +1153,7 @@ export default function InboxPage() {
                       {selectMode ? (
                         <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border-2 ${selectedConversationIds.has(c.id) ? 'bg-indigo-600 border-indigo-600' : 'border-neutral-300'}`}>
                           {selectedConversationIds.has(c.id) && <Check size={12} className="text-white" />}
-                        </div>
+                      </div>
                       ) : (
                       <div className="w-10 h-10 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden">
                         {pictureUrl ? (
@@ -1515,7 +1596,7 @@ export default function InboxPage() {
                       <div className="flex flex-col items-center justify-center gap-3 py-8">
                         <Loader2 size={32} className="text-indigo-500 animate-spin" />
                         <p className="text-sm text-neutral-500">Loading messages…</p>
-                      </div>
+                  </div>
                     ) : conversationMessagesError ? (
                       <p className="text-sm text-amber-700">{conversationMessagesError}</p>
                     ) : conversationMessages.length === 0 ? (
@@ -1543,10 +1624,10 @@ export default function InboxPage() {
                                   {new Date(msg.createdTime).toLocaleString()}
                                 </p>
                               )}
-                            </div>
-                          </div>
+                </div>
+              </div>
                         ))}
-                      </div>
+            </div>
                     )}
                   </div>
                 </div>
@@ -1565,9 +1646,9 @@ export default function InboxPage() {
                     onChange={(e) => setDmReplyText(e.target.value)}
                     disabled={dmReplySending}
                     className="flex-1 px-4 py-3 border border-neutral-200 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none disabled:opacity-60 disabled:cursor-not-allowed"
-                  />
-                  <button
-                    type="button"
+                />
+                <button
+                  type="button"
                     disabled={dmReplySending || aiReplyLoading || !hasInboxExamples}
                     onClick={async () => {
                       const lastFromUser = [...conversationMessages].reverse().find((m) => !m.isFromPage && m.message);
@@ -1594,11 +1675,11 @@ export default function InboxPage() {
                     title={hasInboxExamples ? 'Generate reply with AI' : 'Add inbox reply examples in AI Assistant to enable AI drafts'}
                   >
                     {aiReplyLoading ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
-                  </button>
+                </button>
                   {!hasInboxExamples && inboxExamplesLoaded && (
                     <div className="absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap px-2.5 py-1.5 rounded-lg bg-neutral-800 text-white text-xs pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-10">
                       Add reply examples in AI Assistant to unlock
-                    </div>
+              </div>
                   )}
                 <button
                   type="button"
