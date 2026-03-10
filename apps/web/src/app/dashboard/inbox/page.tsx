@@ -1186,6 +1186,17 @@ export default function InboxPage() {
                           next.delete(c.id);
                           return next;
                         });
+                        // Reduce Messages tab badge immediately (same as comments/engagement)
+                        const lastRead = getConversationLastReadCounts(user?.id);
+                        const count = (c as Conversation).messageCount;
+                        if (typeof count === 'number') {
+                          const readUpTo = lastRead[c.id] ?? 0;
+                          const unreadForThis = Math.max(0, count - readUpTo);
+                          setTotalUnreadMessages((prev) => Math.max(0, prev - unreadForThis));
+                          setConversationLastReadCount(c.id, count, user?.id);
+                        } else {
+                          setTotalUnreadMessages((prev) => Math.max(0, prev - 1));
+                        }
                       }}
                       className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors ${
                         selectMode && selectedConversationIds.has(c.id) ? 'bg-indigo-50 border border-indigo-200' :
