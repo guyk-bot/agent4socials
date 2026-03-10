@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import {
     ListChecks,
     FileText,
@@ -50,7 +49,6 @@ type SidebarProps = {
 
 export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {} }: SidebarProps) {
   const pathname = usePathname();
-  const router = useRouter();
   const { primaryColor, textColor } = useWhiteLabel();
   const { cachedAccounts, setCachedAccounts } = useAccountsCache() ?? { cachedAccounts: [], setCachedAccounts: () => {} };
   const ctx = useSelectedAccount();
@@ -80,7 +78,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
 
   const handleSummaryClick = () => {
     clearSelection();
-    router.push('/dashboard/summary');
+    window.location.href = '/dashboard/summary';
   };
 
   const sidebarContent = (
@@ -112,7 +110,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                 type="button"
                 onClick={() => {
                   setSelectedPlatformForConnect(platform);
-                  router.push('/dashboard');
+                  window.location.href = '/dashboard';
                 }}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors ${
                   isPlatformSelected ? 'bg-white shadow-sm ring-1 ring-neutral-200' : 'hover:bg-white/70'
@@ -140,7 +138,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                     type="button"
                     onClick={() => {
                       setSelectedAccount(acc);
-                      router.push('/dashboard');
+                      window.location.href = '/dashboard';
                     }}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors min-w-0 ${
                       isSelected ? 'bg-white shadow-sm ring-1 ring-neutral-200' : 'hover:bg-white/70'
@@ -167,71 +165,71 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
       </div>
 
       <div className="p-3 space-y-0.5 border-t border-neutral-200 shrink-0">
-        <Link
+        <a
           href="/posts"
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${pathname === '/posts' ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
           style={pathname === '/posts' ? { color: accent } : undefined}
         >
           <FileText size={18} className="shrink-0" />
           <span>History</span>
-        </Link>
-        <Link
+        </a>
+        <a
           href="/dashboard/automation"
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${pathname === '/dashboard/automation' ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
           style={pathname === '/dashboard/automation' ? { color: accent } : undefined}
         >
           <Zap size={18} className="shrink-0" />
           <span>Automation</span>
-        </Link>
-        <Link
+        </a>
+        <a
           href="/dashboard/hashtag-pool"
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${pathname === '/dashboard/hashtag-pool' ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
           style={pathname === '/dashboard/hashtag-pool' ? { color: accent } : undefined}
         >
           <Hash size={18} className="shrink-0" />
           <span>Hashtag Pool</span>
-        </Link>
-        <Link
+        </a>
+        <a
           href="/dashboard/ai-assistant"
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${pathname === '/dashboard/ai-assistant' ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
           style={pathname === '/dashboard/ai-assistant' ? { color: accent } : undefined}
         >
           <Sparkles size={18} className="shrink-0" />
           <span>AI Assistant</span>
-        </Link>
-        <Link
+        </a>
+        <a
           href="/dashboard/smart-links"
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${pathname === '/dashboard/smart-links' ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
           style={pathname === '/dashboard/smart-links' ? { color: accent } : undefined}
         >
           <Link2 size={18} className="shrink-0" />
           <span>Smart Links</span>
-        </Link>
-        <Link
+        </a>
+        <a
           href="/dashboard/settings"
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${pathname === '/dashboard/settings' ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
           style={pathname === '/dashboard/settings' ? { color: accent } : undefined}
         >
           <Settings size={18} className="shrink-0" />
           <span>Brand settings</span>
-        </Link>
+        </a>
       </div>
 
       <div className="mt-auto p-3 border-t border-neutral-200 shrink-0">
-        <Link
+        <a
           href="/help"
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${pathname === '/help' ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
           style={pathname === '/help' ? { color: accent } : undefined}
         >
           <HelpCircle size={18} className="shrink-0" />
           <span>Need help?</span>
-        </Link>
-        <Link
+        </a>
+        <a
           href="/help/support"
           className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-100 mt-0.5"
         >
           <span className="text-xs">Open a support ticket</span>
-        </Link>
+        </a>
       </div>
     </>
   );
