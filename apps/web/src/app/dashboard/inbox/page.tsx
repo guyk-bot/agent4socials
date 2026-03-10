@@ -281,6 +281,7 @@ function InboxPage() {
       setConversationMessages([]);
       setConversationRecipientId(null);
       setConversationMessagesError(null);
+      setConversationMessagesLoading(false);
       return;
     }
     const convId = selectedConversationId;
@@ -2034,10 +2035,10 @@ function InboxPage() {
                   </div>
                   <div className="p-6 min-h-[200px] overflow-y-auto max-h-[60vh]">
                     {conversationMessagesLoading ? (
-                      <div className="flex flex-col items-center justify-center gap-3 py-8">
-                        <Loader2 size={32} className="text-indigo-500 animate-spin" />
-                        <p className="text-sm text-neutral-500">Loading messages…</p>
-                  </div>
+                      <div className="flex flex-col items-center justify-center gap-2 py-6">
+                        <Loader2 size={24} className="text-indigo-500 animate-spin" />
+                        <p className="text-xs text-neutral-500">Loading messages…</p>
+                      </div>
                     ) : conversationMessagesError ? (
                       <p className="text-sm text-amber-700">{conversationMessagesError}</p>
                     ) : conversationMessages.length === 0 ? (
