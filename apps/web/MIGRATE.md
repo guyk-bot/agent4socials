@@ -117,6 +117,22 @@ The app now uses consolidated tables. Two options:
 
 2. **Manual SQL first:** If you already ran `apps/web/scripts/supabase-rls-and-consolidation.sql`, the DB is updated. Mark the migration applied: `npx prisma migrate resolve --applied 20250228120000_consolidate_tables` (with `DATABASE_URL` and `DATABASE_DIRECT_URL` set).
 
+### If you get "The column 'ImportedPost.repostsCount' does not exist"
+
+X/Twitter analytics (reposts, shares, post thumbnails) need `repostsCount` and `sharesCount` on `ImportedPost`. If `prisma migrate deploy` didn't run during build, add the columns manually:
+
+1. **Supabase Dashboard** → your project → **SQL Editor**
+2. Run:
+
+```sql
+ALTER TABLE "ImportedPost" ADD COLUMN IF NOT EXISTS "repostsCount" INTEGER DEFAULT 0;
+ALTER TABLE "ImportedPost" ADD COLUMN IF NOT EXISTS "sharesCount" INTEGER DEFAULT 0;
+```
+
+3. Save. Refresh the dashboard and click **Sync posts** for your X account to load likes, comments, reposts, and post images.
+
+To avoid this in future, set **`DATABASE_DIRECT_URL`** in Vercel (see above) so migrations run on each deploy.
+
 ### If you get "The column 'ImportedPost.likeCount' does not exist"
 
 The app expects `likeCount` and `commentsCount` on `ImportedPost`. If `prisma migrate deploy` didn't run during build (e.g. database connection error), add the columns manually:
