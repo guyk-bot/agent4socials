@@ -6,6 +6,7 @@ The site favicon is the Agent4Socials "A4" logo.
 
 - **Tab and Apple icon:** `apps/web/src/app/layout.tsx` sets `metadata.icons` to `/logo.svg?v=2`. Bump the version (e.g. `?v=3`) when you change the logo so browsers fetch the new favicon.
 - **Source file:** `apps/web/public/logo.svg` is the 4S logo. Keep `app/icon.svg` in sync if needed; the live favicon is served from `public/logo.svg`.
+- **`/favicon.ico`:** Next.js rewrites `/favicon.ico` to `/logo.svg` (`next.config.ts`) so Google and clients that request `favicon.ico` get our logo instead of Vercel's default.
 
 ## Why the favicon might not change right away
 

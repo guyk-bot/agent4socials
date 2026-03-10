@@ -106,8 +106,8 @@ export default function InboxPage() {
   const { cachedAccounts } = useAccountsCache() ?? { cachedAccounts: [] };
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
-  const [inboxFilter, setInboxFilter] = useState<'read' | 'unread'>('unread');
-  const [commentsFilter, setCommentsFilter] = useState<'replied' | 'didnt_reply'>('didnt_reply');
+  const [inboxFilter, setInboxFilter] = useState<'all' | 'read' | 'unread'>('all');
+  const [commentsFilter, setCommentsFilter] = useState<'all' | 'replied' | 'didnt_reply'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [connectOpen, setConnectOpen] = useState(false);
   const [inboxMode, setInboxMode] = useState<'messages' | 'comments' | 'engagement'>('messages');
@@ -769,6 +769,13 @@ export default function InboxPage() {
             <div className="flex">
           <button
             type="button"
+            onClick={() => setInboxFilter('all')}
+            className={`flex-1 py-2 text-xs font-medium ${inboxFilter === 'all' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
+          >
+            All
+          </button>
+          <button
+            type="button"
             onClick={() => setInboxFilter('read')}
             className={`flex-1 py-2 text-xs font-medium ${inboxFilter === 'read' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
           >
@@ -781,14 +788,6 @@ export default function InboxPage() {
           >
             Unread
           </button>
-            <button
-              type="button"
-              onClick={() => { appData?.invalidateConversations?.(); }}
-              className="p-2 text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 border-b-2 border-transparent"
-              title="Refresh inbox"
-            >
-              <RefreshCw size={16} />
-            </button>
         </div>
             {/* Select toolbar: select conversations then mark as read */}
             <div className="flex items-center gap-2 px-2 py-1.5 bg-neutral-50/70 border-t border-neutral-100">
@@ -806,6 +805,7 @@ export default function InboxPage() {
                     type="button"
                     onClick={() => {
                       const filtered = conversations.filter((c) => {
+                        if (inboxFilter === 'all') return true;
                         if (inboxFilter === 'read') return !unreadConversationIds.has(c.id);
                         if (inboxFilter === 'unread') return unreadConversationIds.has(c.id);
                         return true;
@@ -817,6 +817,7 @@ export default function InboxPage() {
                   >
                     {(() => {
                       const filtered = conversations.filter((c) => {
+                        if (inboxFilter === 'all') return true;
                         if (inboxFilter === 'read') return !unreadConversationIds.has(c.id);
                         if (inboxFilter === 'unread') return unreadConversationIds.has(c.id);
                         return true;
@@ -854,6 +855,13 @@ export default function InboxPage() {
             <div className="flex border-b border-neutral-100">
               <button
                 type="button"
+                onClick={() => setCommentsFilter('all')}
+                className={`flex-1 py-2 text-xs font-medium ${commentsFilter === 'all' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
+              >
+                All
+              </button>
+              <button
+                type="button"
                 onClick={() => setCommentsFilter('replied')}
                 className={`flex-1 py-2 text-xs font-medium ${commentsFilter === 'replied' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
               >
@@ -886,7 +894,7 @@ export default function InboxPage() {
                         comments.filter((r) => r.isFromMe && r.parentCommentId).map((r) => r.parentCommentId)
                       );
                       const filtered = topLevel.filter((c) =>
-                        commentsFilter === 'replied' ? hasRepliedByParent.has(c.commentId) : !hasRepliedByParent.has(c.commentId)
+                        commentsFilter === 'all' ? true : commentsFilter === 'replied' ? hasRepliedByParent.has(c.commentId) : !hasRepliedByParent.has(c.commentId)
                       );
                       const allIds = new Set(filtered.map((c) => c.commentId));
                       setSelectedCommentIds((prev) => prev.size === allIds.size ? new Set() : allIds);
@@ -899,7 +907,7 @@ export default function InboxPage() {
                         comments.filter((r) => r.isFromMe && r.parentCommentId).map((r) => r.parentCommentId)
                       );
                       const filtered = topLevel.filter((c) =>
-                        commentsFilter === 'replied' ? hasRepliedByParent.has(c.commentId) : !hasRepliedByParent.has(c.commentId)
+                        commentsFilter === 'all' ? true : commentsFilter === 'replied' ? hasRepliedByParent.has(c.commentId) : !hasRepliedByParent.has(c.commentId)
                       );
                       return selectedCommentIds.size === filtered.length ? 'Deselect all' : 'Select all';
                     })()}
@@ -1104,9 +1112,11 @@ export default function InboxPage() {
                   );
                   const filtered = topLevelOnly
                     .filter((c) =>
-                      commentsFilter === 'replied'
-                        ? hasRepliedByParent.has(c.commentId)
-                        : !hasRepliedByParent.has(c.commentId)
+                      commentsFilter === 'all'
+                        ? true
+                        : commentsFilter === 'replied'
+                          ? hasRepliedByParent.has(c.commentId)
+                          : !hasRepliedByParent.has(c.commentId)
                     )
                     .filter((c) => !searchQuery || c.text.toLowerCase().includes(searchQuery.toLowerCase()) || c.authorName.toLowerCase().includes(searchQuery.toLowerCase()))
                     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -1252,6 +1262,7 @@ export default function InboxPage() {
             <div className="p-2 space-y-0">
               {conversations
                 .filter((c) => {
+                  if (inboxFilter === 'all') return true;
                   if (inboxFilter === 'read') return !unreadConversationIds.has(c.id);
                   if (inboxFilter === 'unread') return unreadConversationIds.has(c.id);
                   return true;
