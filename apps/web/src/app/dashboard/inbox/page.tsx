@@ -549,6 +549,7 @@ export default function InboxPage() {
   }, [unreadCommentIds.size, unreadConversationIds.size, unreadEngagementIds.size, appData]);
 
   useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
       if (connectRef.current && !connectRef.current.contains(e.target as Node)) setConnectOpen(false);
     }
     document.addEventListener('mousedown', handleClickOutside);
