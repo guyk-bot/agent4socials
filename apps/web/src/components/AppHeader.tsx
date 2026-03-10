@@ -49,6 +49,7 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
   }, [topNavOpen]);
 
   const isInboxPage = pathname === '/dashboard/inbox';
+  const isAccountPage = pathname === '/dashboard/account';
 
   const navLinkClass = (active: boolean) =>
     `relative flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -169,7 +170,7 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
               <a
                 href="/dashboard/account"
                 onClick={() => setTopNavOpen(false)}
-                className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors ${pathname === '/dashboard/account' ? 'bg-white/15 text-white' : 'text-neutral-300 hover:text-white hover:bg-white/10'}`}
+                className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors ${isAccountPage ? 'bg-white/15 text-white' : 'text-neutral-300 hover:text-white hover:bg-white/10'}`}
               >
                 {user?.avatarUrl ? (
                   <img src={user.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
@@ -184,7 +185,7 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
             <Link
               href="/dashboard/account"
               onClick={() => setTopNavOpen(false)}
-              className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors ${pathname === '/dashboard/account' ? 'bg-white/15 text-white' : 'text-neutral-300 hover:text-white hover:bg-white/10'}`}
+              className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors ${isAccountPage ? 'bg-white/15 text-white' : 'text-neutral-300 hover:text-white hover:bg-white/10'}`}
             >
               {user?.avatarUrl ? (
                 <img src={user.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
