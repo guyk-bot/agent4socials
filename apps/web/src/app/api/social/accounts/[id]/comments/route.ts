@@ -82,10 +82,10 @@ export async function GET(
     : {}) as { loginMethod?: string };
   const isInstagramBizEarly = platform === 'INSTAGRAM' && credJsonEarly.loginMethod === 'instagram_business';
 
-  // If we have no DB posts to check, try fetching recent posts directly from the platform API
-  // so the user sees comments even before they manually sync.
+  // For Instagram/Facebook: also fetch recent media from the platform API so we show comments on
+  // posts that weren't published through the app or synced yet (e.g. old posts the user commented on).
   let liveSources: PostSource[] = [];
-  if (dbSources.length === 0 && (platform === 'INSTAGRAM' || platform === 'FACEBOOK')) {
+  if (platform === 'INSTAGRAM' || platform === 'FACEBOOK') {
     try {
       const liveToken = account.accessToken;
       if (platform === 'INSTAGRAM') {
@@ -93,7 +93,7 @@ export async function GET(
           ? 'https://graph.instagram.com/v25.0/me/media'
           : `https://graph.facebook.com/v18.0/${account.platformUserId}/media`;
         const mediaRes = await axios.get<{ data?: Array<{ id: string; caption?: string; media_url?: string; thumbnail_url?: string }> }>(mediaUrl, {
-          params: { fields: 'id,caption,media_url,thumbnail_url', limit: 20, access_token: liveToken },
+          params: { fields: 'id,caption,media_url,thumbnail_url', limit: 30, access_token: liveToken },
           timeout: 15_000,
         });
         liveSources = (mediaRes.data?.data ?? []).map((m, i) => ({
@@ -105,7 +105,7 @@ export async function GET(
       } else if (platform === 'FACEBOOK') {
         const fbRes = await axios.get<{ data?: Array<{ id: string; message?: string; story?: string }> }>(
           `https://graph.facebook.com/v18.0/${account.platformUserId}/posts`,
-          { params: { fields: 'id,message,story', limit: 20, access_token: liveToken }, timeout: 15_000 }
+          { params: { fields: 'id,message,story', limit: 30, access_token: liveToken }, timeout: 15_000 }
         );
         liveSources = (fbRes.data?.data ?? []).map((m, i) => ({
           platformPostId: m.id,
@@ -113,10 +113,18 @@ export async function GET(
           postTargetId: `live-${m.id}`,
         }));
       }
-    } catch { /* if live fetch fails, proceed with empty sources */ }
+    } catch { /* if live fetch fails, proceed with dbSources only */ }
   }
 
-  const sources: PostSource[] = dbSources.length > 0 ? dbSources : liveSources;
+  // Merge: use DB sources first, then add live media that aren't already in DB (so comments on
+  // old/synced posts and on recent platform-only posts both show up). Cap total to avoid too many API calls.
+  const existingPostIds = new Set(dbSources.map((s) => s.platformPostId));
+  const extraLive = liveSources.filter((s) => !existingPostIds.has(s.platformPostId));
+  const MAX_SOURCES = 45;
+  const sources: PostSource[] = [
+    ...dbSources,
+    ...extraLive.slice(0, Math.max(0, MAX_SOURCES - dbSources.length)),
+  ];
   const credJson = credJsonEarly as { loginMethod?: string; igUserToken?: string };
 
   // Instagram Business Login: account.accessToken IS the long-lived Instagram User token.
