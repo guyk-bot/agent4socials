@@ -96,7 +96,7 @@ export async function GET(
         type InstagramMediaResponse = { data?: InstagramMediaItem[]; paging?: { next?: string } };
         const allMedia: InstagramMediaItem[] = [];
         let nextUrl: string | null = null;
-        for (let page = 0; page < 2; page++) {
+        for (let page = 0; page < 3; page++) {
           const requestUrl: string = nextUrl !== null ? nextUrl : mediaUrl;
           const requestConfig = page === 0
             ? { params: { fields: 'id,caption,media_url,thumbnail_url', limit: 50, access_token: liveToken }, timeout: 15_000 as const }
@@ -131,7 +131,7 @@ export async function GET(
   // old/synced posts and on recent platform-only posts both show up). Cap total to avoid too many API calls.
   const existingPostIds = new Set(dbSources.map((s) => s.platformPostId));
   const extraLive = liveSources.filter((s) => !existingPostIds.has(s.platformPostId));
-  const MAX_SOURCES = 50;
+  const MAX_SOURCES = 60;
   const sources: PostSource[] = [
     ...dbSources,
     ...extraLive.slice(0, Math.max(0, MAX_SOURCES - dbSources.length)),
