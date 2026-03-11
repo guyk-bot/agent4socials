@@ -78,14 +78,14 @@ export async function GET(
       type TwitterConvItem = { id: string; updatedTime: string | null; senders: TwitterSender[]; messageCount: number | undefined };
 
       do {
-        const searchParams = new URLSearchParams({
+        const params: Record<string, string> = {
           'dm_event.fields': 'dm_conversation_id,created_at,sender_id,participant_ids',
           expansions: 'sender_id,participant_ids',
           'user.fields': 'id,name,username,profile_image_url',
           max_results: '100',
-        });
-        ['MessageCreate', 'ParticipantsJoin', 'ParticipantsLeave'].forEach((et) => searchParams.append('event_types', et));
-        if (nextToken) searchParams.set('pagination_token', nextToken);
+          event_types: 'MessageCreate',
+        };
+        if (nextToken) params.pagination_token = nextToken;
         const res = await axios.get<{
           data?: Array<{
             id: string;
@@ -99,7 +99,7 @@ export async function GET(
           meta?: { next_token?: string };
           error?: { message?: string };
         }>('https://api.x.com/2/dm_events', {
-          params: searchParams,
+          params,
           headers: { Authorization: `Bearer ${token}` },
           timeout: 15_000,
         });
