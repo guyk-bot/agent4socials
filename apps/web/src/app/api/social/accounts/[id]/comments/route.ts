@@ -510,13 +510,13 @@ export async function GET(
       try {
         const searchRes = await axios.get<{
           data?: Array<{ id: string; text?: string; author_id?: string; created_at?: string }>;
-          includes?: { users?: Array<{ id: string; username?: string; name?: string }> };
+          includes?: { users?: Array<{ id: string; username?: string; name?: string; profile_image_url?: string }> };
           errors?: Array<{ message?: string }>;
         }>('https://api.twitter.com/2/tweets/search/recent', {
           params: {
             query: `conversation_id:${platformPostId} is:reply`,
             'tweet.fields': 'text,author_id,created_at',
-            'user.fields': 'username,name',
+            'user.fields': 'username,name,profile_image_url',
             expansions: 'author_id',
             max_results: 25,
           },

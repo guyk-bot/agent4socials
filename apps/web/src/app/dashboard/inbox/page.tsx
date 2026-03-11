@@ -1748,11 +1748,15 @@ function InboxPage() {
                         <div className="border-t border-neutral-100 pt-3 mt-3">
                           <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2">Replies</p>
                           <div className="space-y-2">
-                            {replies.map((r) => (
+                            {replies.map((r) => {
+                              const avatarUrl = (r.authorName === 'You' || r.isFromMe) && !r.authorPictureUrl
+                                ? (user?.avatarUrl ?? r.authorPictureUrl)
+                                : r.authorPictureUrl;
+                              return (
                               <div key={r.commentId} className="flex gap-2 rounded-lg bg-neutral-50 p-2">
                                 <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden">
-                                  {r.authorPictureUrl ? (
-                                    <img src={r.authorPictureUrl} alt="" className="w-full h-full object-cover" />
+                                  {avatarUrl ? (
+                                    <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
                                   ) : (
                                     <span className="text-xs font-semibold text-neutral-600">{(r.authorName || '?').slice(0, 2).toUpperCase()}</span>
                                   )}
@@ -1765,7 +1769,8 @@ function InboxPage() {
                                   <p className="text-sm text-neutral-800 mt-0.5">{r.text}</p>
                                 </div>
                               </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       );
@@ -1848,7 +1853,7 @@ function InboxPage() {
                         postUrl: selectedComment.postUrl,
                         text: sentMessage,
                         authorName: 'You',
-                        authorPictureUrl: null,
+                        authorPictureUrl: user?.avatarUrl ?? null,
                         createdAt: new Date().toISOString(),
                         platform: selectedComment.platform,
                         isFromMe: true,

@@ -4,12 +4,13 @@ import { prisma } from '@/lib/db';
 import { Platform } from '@prisma/client';
 import axios from 'axios';
 import { getValidYoutubeToken } from '@/lib/youtube-token';
+import { fetchInstagramDemographics, fetchFacebookDemographics, fetchYouTubeExtended } from '@/lib/analytics/extended-fetchers';
 
 const baseUrl = 'https://graph.facebook.com/v18.0';
 
 /**
- * GET /api/social/accounts/[id]/insights?since=YYYY-MM-DD&until=YYYY-MM-DD
- * Returns account-level analytics (followers, impressions over time) for Metricool-style Summary.
+ * GET /api/social/accounts/[id]/insights?since=YYYY-MM-DD&until=YYYY-MM-DD&extended=1
+ * Returns account-level analytics. If extended=1, also fetches demographics, traffic sources, and growth where available.
  */
 export async function GET(
   request: NextRequest,
@@ -85,6 +86,11 @@ export async function GET(
     profileViewsTotal?: number;
     followersTimeSeries?: Array<{ date: string; value: number }>;
     insightsHint?: string;
+    demographics?: import('@/types/analytics').Demographics;
+    trafficSources?: import('@/types/analytics').TrafficSourceItem[];
+    growthTimeSeries?: import('@/types/analytics').GrowthDataPoint[];
+    extra?: Record<string, number | number[] | Array<{ date: string; value: number }>>;
+    raw?: Record<string, unknown>;
   } = {
     platform: account.platform,
     followers: 0,
@@ -191,6 +197,20 @@ export async function GET(
           out.insightsHint = 'Instagram insights temporarily unavailable. Try reconnecting your account from the sidebar.';
         }
       }
+      const extended = request.nextUrl.searchParams.get('extended') === '1';
+      if (extended) {
+        try {
+          const { demographics, raw: igRaw } = await fetchInstagramDemographics(
+            account.platformUserId,
+            account.accessToken ?? '',
+            'last_30_days'
+          );
+          out.demographics = demographics;
+          if (igRaw && typeof igRaw === 'object') out.raw = { ...(out.raw ?? {}), instagram: igRaw };
+        } catch (e) {
+          console.warn('[Insights] Instagram extended demographics:', (e as Error)?.message ?? e);
+        }
+      }
       return NextResponse.json(out);
     }
 
@@ -249,6 +269,19 @@ export async function GET(
           if (!out.insightsHint && out.followers === 0 && !out.impressionsTotal) {
             out.insightsHint = 'Reconnect from the sidebar and choose your Page when asked to see Page analytics.';
           }
+        }
+      }
+      const extended = request.nextUrl.searchParams.get('extended') === '1';
+      if (extended) {
+        try {
+          const { demographics, raw: fbRaw } = await fetchFacebookDemographics(
+            account.platformUserId,
+            account.accessToken ?? ''
+          );
+          out.demographics = demographics;
+          if (fbRaw && typeof fbRaw === 'object') out.raw = { ...(out.raw ?? {}), facebook: fbRaw };
+        } catch (e) {
+          console.warn('[Insights] Facebook extended demographics:', (e as Error)?.message ?? e);
         }
       }
       return NextResponse.json(out);
@@ -443,6 +476,25 @@ export async function GET(
         const msg = (e as Error)?.message ?? String(e);
         console.warn('[Insights] YouTube Analytics:', msg);
         out.insightsHint = `YouTube Analytics unavailable: ${msg.slice(0, 120)}. Enable "YouTube Analytics API" in Google Cloud Console.`;
+      }
+
+      const extended = request.nextUrl.searchParams.get('extended') === '1';
+      if (extended) {
+        try {
+          const token = await getValidYoutubeToken(account);
+          const { demographics, trafficSources, growthTimeSeries, extra: ytExtra, raw: ytRaw } = await fetchYouTubeExtended(
+            token,
+            sinceParam,
+            untilParam
+          );
+          out.demographics = demographics;
+          out.trafficSources = trafficSources;
+          out.growthTimeSeries = growthTimeSeries;
+          out.extra = ytExtra;
+          if (ytRaw && typeof ytRaw === 'object') out.raw = { ...(out.raw ?? {}), youtube: ytRaw };
+        } catch (e) {
+          console.warn('[Insights] YouTube extended analytics:', (e as Error)?.message ?? e);
+        }
       }
 
       return NextResponse.json(out);

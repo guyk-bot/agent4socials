@@ -1520,13 +1520,18 @@ export default function DashboardPage() {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-neutral-200">
-                        {currentPagePosts.map((post) => (
+                        {currentPagePosts.map((post) => {
+                          const postAny = post as { platformPostId?: string };
+                          const thumbnailSrc = post.platform === 'TWITTER' && postAny.platformPostId && selectedAccount?.id
+                            ? `/api/post-image?accountId=${encodeURIComponent(selectedAccount.id)}&postId=${encodeURIComponent(postAny.platformPostId)}`
+                            : post.thumbnailUrl;
+                          return (
                           <tr key={post.id} className="hover:bg-neutral-50">
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-3">
-                                {post.thumbnailUrl ? (
+                                {thumbnailSrc ? (
                                   <img
-                                    src={post.thumbnailUrl}
+                                    src={thumbnailSrc}
                                     alt=""
                                     className="w-12 h-12 rounded object-cover shrink-0"
                                     onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.nextElementSibling as HTMLElement | null)?.style.removeProperty('display'); }}
@@ -1534,7 +1539,7 @@ export default function DashboardPage() {
                                 ) : null}
                                 <div
                                   className="w-12 h-12 rounded bg-neutral-100 flex items-center justify-center shrink-0"
-                                  style={{ display: post.thumbnailUrl ? 'none' : 'flex' }}
+                                  style={{ display: thumbnailSrc ? 'none' : 'flex' }}
                                 >
                                   {PLATFORM_ICON[post.platform]}
                                 </div>
@@ -1558,7 +1563,8 @@ export default function DashboardPage() {
                             <td className="px-4 py-3 text-sm text-neutral-500">{(post as { repostsCount?: number }).repostsCount ?? 0}</td>
                             <td className="px-4 py-3 text-sm text-neutral-500 whitespace-nowrap">{new Date(post.publishedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                     <div className="flex items-center justify-between px-4 py-3 border-t border-neutral-200 bg-neutral-50/50 text-sm text-neutral-600 flex-wrap gap-2">

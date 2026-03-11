@@ -111,6 +111,7 @@ export async function GET(
       const enrich = account.platform === 'TWITTER' ? twitterEnrich[p.platformPostId] : undefined;
       return {
         id: p.id,
+        platformPostId: p.platformPostId,
         content: p.content,
         thumbnailUrl: enrich?.thumbnailUrl ?? p.thumbnailUrl ?? null,
         permalinkUrl: p.permalinkUrl,
@@ -131,6 +132,7 @@ export async function GET(
       .filter((t) => !importedPostIds.has(t.platformPostId!))
       .map((t) => ({
         id: `target-${t.id}`,
+        platformPostId: t.platformPostId ?? null,
         content: t.post?.content ?? null,
         thumbnailUrl: t.post?.media[0]?.fileUrl ?? null,
         permalinkUrl: null,
