@@ -83,6 +83,7 @@ export async function GET(
           expansions: 'sender_id,participant_ids',
           'user.fields': 'id,name,username,profile_image_url',
           max_results: '100',
+          event_types: 'MessageCreate',
         };
         if (nextToken) params.pagination_token = nextToken;
         const res = await axios.get<{
@@ -97,7 +98,7 @@ export async function GET(
           includes?: { users?: Array<{ id: string; name?: string; username?: string; profile_image_url?: string }> };
           meta?: { next_token?: string };
           error?: { message?: string };
-        }>('https://api.twitter.com/2/dm_events', {
+        }>('https://api.x.com/2/dm_events', {
           params,
           headers: { Authorization: `Bearer ${token}` },
           timeout: 15_000,
@@ -167,7 +168,7 @@ export async function GET(
           const usersRes = await axios.get<{
             data?: Array<{ id: string; name?: string; username?: string; profile_image_url?: string }>;
             error?: { message?: string };
-          }>('https://api.twitter.com/2/users', {
+          }>('https://api.x.com/2/users', {
             params: { ids: idsArr.join(','), 'user.fields': 'id,name,username,profile_image_url' },
             headers: { Authorization: `Bearer ${token}` },
             timeout: 15_000,
@@ -213,7 +214,7 @@ export async function GET(
         let tokenCheck = 'not_checked';
         try {
           const meRes = await axios.get<{ data?: { id?: string; username?: string }; error?: { message?: string } }>(
-            'https://api.twitter.com/2/users/me',
+            'https://api.x.com/2/users/me',
             { params: { 'user.fields': 'id,username' }, headers: { Authorization: `Bearer ${token}` }, timeout: 8_000 }
           );
           if (meRes.data?.error) tokenCheck = `token_error: ${meRes.data.error.message ?? 'unknown'}`;

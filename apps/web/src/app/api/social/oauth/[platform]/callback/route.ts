@@ -509,6 +509,8 @@ export async function GET(
     callbackUrl = process.env.YOUTUBE_REDIRECT_URI.replace(/\/+$/, '');
   } else if (plat === 'TIKTOK' && process.env.TIKTOK_REDIRECT_URI) {
     callbackUrl = process.env.TIKTOK_REDIRECT_URI.replace(/\/+$/, '');
+  } else if (plat === 'TWITTER' && process.env.TWITTER_REDIRECT_URI) {
+    callbackUrl = process.env.TWITTER_REDIRECT_URI.replace(/\/+$/, '');
   }
 
   let tokenData: TokenResult;

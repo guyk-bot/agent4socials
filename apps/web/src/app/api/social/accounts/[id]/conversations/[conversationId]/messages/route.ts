@@ -74,7 +74,7 @@ export async function GET(
           includes?: { users?: Array<{ id: string; name?: string; username?: string; profile_image_url?: string }> };
           meta?: { next_token?: string };
           error?: { message?: string };
-        }>(`https://api.twitter.com/2/dm_conversations/${conversationId}/dm_events`, {
+        }>(`https://api.x.com/2/dm_conversations/${conversationId}/dm_events`, {
           params,
           headers: { Authorization: `Bearer ${token}` },
           timeout: 15_000,
@@ -386,7 +386,7 @@ export async function POST(
     }
     try {
       await axios.post<{ data?: { dm_conversation_id?: string; dm_event_id?: string }; error?: { message?: string } }>(
-        `https://api.twitter.com/2/dm_conversations/with/${encodeURIComponent(recipientId)}/messages`,
+        `https://api.x.com/2/dm_conversations/with/${encodeURIComponent(recipientId)}/messages`,
         { text: text.slice(0, 10000) },
         {
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${account.accessToken}` },

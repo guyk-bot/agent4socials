@@ -124,7 +124,7 @@ export async function GET(request: NextRequest) {
       try {
         type TwitterDmResponse = { data?: Array<{ dm_conversation_id?: string }>; meta?: { result_count?: number } };
         const dmRes = await axios.get<TwitterDmResponse>(
-          'https://api.twitter.com/2/dm_events',
+          'https://api.x.com/2/dm_events',
           {
             params: { 'dm_event.fields': 'dm_conversation_id', max_results: 100 },
             headers: { Authorization: `Bearer ${token}` },
