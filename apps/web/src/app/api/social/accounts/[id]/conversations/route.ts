@@ -73,6 +73,9 @@ export async function GET(
       let pageCount = 0;
       const userMap = new Map<string, { id: string; name?: string; username?: string; profile_image_url?: string }>();
 
+      type TwitterSender = { id: string | undefined; name: string | undefined; username: string | undefined; pictureUrl: string | null };
+      type TwitterConvItem = { id: string; updatedTime: string | null; senders: TwitterSender[]; messageCount: number | undefined };
+
       do {
         const params: Record<string, string> = {
           'dm_event.fields': 'dm_conversation_id,created_at,sender_id,participant_ids',
@@ -132,8 +135,8 @@ export async function GET(
         pageCount++;
       } while (nextToken && pageCount < 5);
 
-      const list = Array.from(convosById.entries()).map(([id, { updatedTime, otherParticipantIds }]) => {
-        const senders = Array.from(otherParticipantIds).map((uid) => {
+      const list: TwitterConvItem[] = Array.from(convosById.entries()).map(([id, { updatedTime, otherParticipantIds }]) => {
+        const senders: TwitterSender[] = Array.from(otherParticipantIds).map((uid) => {
           const u = userMap.get(uid);
           return {
             id: uid,
@@ -171,9 +174,9 @@ export async function GET(
             for (const u of usersRes.data.data) {
               userMap.set(u.id, u);
             }
-            const enrichedList = list.map((conv) => ({
+            const enrichedList: TwitterConvItem[] = list.map((conv) => ({
               ...conv,
-              senders: conv.senders.map((s) => {
+              senders: conv.senders.map((s): TwitterSender => {
                 if (!s.id) return s;
                 const u = userMap.get(s.id);
                 if (!u) return s;
