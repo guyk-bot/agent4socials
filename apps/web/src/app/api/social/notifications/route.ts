@@ -122,7 +122,8 @@ export async function GET(request: NextRequest) {
       byPlatform['TWITTER'].comments += commentsCount;
       let messagesCount = 0;
       try {
-        const dmRes = await axios.get<{ data?: Array<{ dm_conversation_id?: string }> }; meta?: { result_count?: number }>(
+        type TwitterDmResponse = { data?: Array<{ dm_conversation_id?: string }>; meta?: { result_count?: number } };
+        const dmRes = await axios.get<TwitterDmResponse>(
           'https://api.twitter.com/2/dm_events',
           {
             params: { 'dm_event.fields': 'dm_conversation_id', max_results: 100 },

@@ -373,7 +373,7 @@ export async function POST(
       return NextResponse.json({ ok: true, message: 'Message sent.' });
     } catch (e) {
       const err = e as { response?: { data?: { error?: { message?: string } }; status?: number } };
-      const msg = err?.response?.data?.error?.message ?? err?.message ?? 'Failed to send X message.';
+      const msg = err?.response?.data?.error?.message ?? (e as Error)?.message ?? 'Failed to send X message.';
       return NextResponse.json(
         { message: msg || 'Failed to send message. Reconnect your X account from the sidebar.' },
         { status: err?.response?.status && err.response.status >= 400 ? err.response.status : 500 }

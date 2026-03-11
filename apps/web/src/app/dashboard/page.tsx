@@ -1281,7 +1281,7 @@ export default function DashboardPage() {
                         <ul className="space-y-1.5">
                           {sorted.map((item, i) => (
                             <li key={i} className="flex items-center justify-between gap-2 text-sm">
-                              <span className="text-neutral-700 truncate">{item.label ?? item.dimensionValue || '—'}</span>
+                              <span className="text-neutral-700 truncate">{(item.label ?? item.dimensionValue) || '—'}</span>
                               <span className="text-neutral-900 font-medium tabular-nums shrink-0">{item.value.toLocaleString()}</span>
                             </li>
                           ))}

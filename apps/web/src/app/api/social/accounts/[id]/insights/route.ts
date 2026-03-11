@@ -26,7 +26,6 @@ export async function GET(
     impressionsTimeSeries: [] as Array<{ date: string; value: number }>,
     insightsHint: 'Could not load insights. Try reconnecting from the sidebar.',
   });
-  try {
   const userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
   if (!userId) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
@@ -268,6 +267,7 @@ export async function GET(
                 net: value,
               }));
             }
+          }
         } catch (e) {
           const status = (e as { response?: { status?: number } })?.response?.status;
           if (status !== 400) console.warn('[Insights] Facebook insights:', (e as Error)?.message ?? e);
@@ -509,8 +509,4 @@ export async function GET(
     return NextResponse.json(emptyOut('UNKNOWN'), { status: 200 });
   }
   return NextResponse.json(out);
-} catch (e) {
-  console.error('[Insights] error:', e);
-  return NextResponse.json(emptyOut('UNKNOWN'), { status: 200 });
-}
 }
