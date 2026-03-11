@@ -23,6 +23,20 @@ function getMetadataBase(): URL {
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://agent4socials.com";
 
+// Organization JSON-LD so Google can show the correct logo in search results (favicon + optional Knowledge Panel).
+const organizationJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "Agent4Socials",
+  url: siteUrl,
+  logo: {
+    "@type": "ImageObject",
+    url: `${siteUrl.replace(/\/+$/, "")}/logo.svg`,
+    width: 512,
+    height: 512,
+  },
+};
+
 export const metadata: Metadata = {
   metadataBase: getMetadataBase(),
   title: {
@@ -78,6 +92,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${outfit.variable}`}>
       <body className="antialiased min-h-screen min-h-dvh">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){var p=window.location.pathname,h=window.location.hash;if(p==='/'&&h&&h.indexOf('access_token')!==-1){window.location.replace('/auth/callback'+h);}})();`,

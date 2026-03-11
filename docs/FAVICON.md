@@ -27,3 +27,7 @@ The site favicon is the Agent4Socials "A4" logo.
 ## Optional: favicon.ico
 
 Some tools and older clients request `/favicon.ico` specifically. Next.js only uses a file at `app/favicon.ico` (in the app root). If you add one (e.g. export your logo as a 32×32 or 48×48 `.ico` and put it in `apps/web/src/app/favicon.ico`), Next.js will serve it automatically.
+
+## Google search logo
+
+The root layout includes **Organization** JSON-LD with a `logo` (ImageObject) so Google can show the correct logo in search results and Knowledge Panel. After deploying, use [Google Search Console](https://search.google.com/search-console) → URL Inspection for your homepage and request indexing so Google picks up the structured data. Logo updates in search can still take days or weeks.
