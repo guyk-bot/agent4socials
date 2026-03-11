@@ -130,7 +130,7 @@ export async function GET(
         }
       }
       const recipientUser = recipientId ? userObjMap.get(recipientId) : null;
-      const recipientName = recipientUser?.name ?? recipientUser?.username ?? null;
+      const recipientName = recipientUser?.name ?? recipientUser?.username ?? (recipientId ? 'Private account' : null);
       const recipientPictureUrl = recipientUser?.profile_image_url?.replace(/_normal\./, '_400x400.') ?? null;
       return NextResponse.json({
         messages: allMessages,
@@ -397,8 +397,9 @@ export async function POST(
     } catch (e) {
       const err = e as { response?: { data?: { error?: { message?: string } }; status?: number } };
       const msg = err?.response?.data?.error?.message ?? (e as Error)?.message ?? 'Failed to send X message.';
+      const isPrivateAccount = /private|protected|cannot send|not allowed|can't send|unable to send|message.*restricted/i.test(msg);
       return NextResponse.json(
-        { message: msg || 'Failed to send message. Reconnect your X account from the sidebar.' },
+        { message: isPrivateAccount ? 'X (Twitter) API does not allow sending messages to private accounts.' : (msg || 'Failed to send message. Reconnect your X account from the sidebar.') },
         { status: err?.response?.status && err.response.status >= 400 ? err.response.status : 500 }
       );
     }

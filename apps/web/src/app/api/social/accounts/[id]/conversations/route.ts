@@ -196,6 +196,15 @@ export async function GET(
         }
       }
 
+      // Show "Private account" for senders we have an id for but no name/username (e.g. protected/private accounts)
+      for (const conv of list) {
+        for (const s of conv.senders) {
+          if (s.id && s.name === undefined && s.username === undefined) {
+            (s as { name?: string }).name = 'Private account';
+          }
+        }
+      }
+
       list.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
       return NextResponse.json({ conversations: list });
     } catch (e) {

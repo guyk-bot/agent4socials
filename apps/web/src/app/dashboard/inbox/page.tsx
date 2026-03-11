@@ -1291,7 +1291,7 @@ function InboxPage() {
               )}
               {selectedPlatform === 'TWITTER' && (
                 <p className="text-xs text-neutral-500 mt-3 max-w-sm mx-auto">
-                  X (Twitter) DMs from the last 30 days will appear here. Reconnect your X account from the sidebar if you have dm.read scope.
+                  X (Twitter) DMs from the last 30 days will appear here. Make sure the X icon is selected in the filter above. Reconnect your X account from the sidebar if you have dm.read scope and still see nothing.
                 </p>
               )}
               {dmOrFbPlatforms.includes('INSTAGRAM') && selectedPlatform !== 'TIKTOK' && (
