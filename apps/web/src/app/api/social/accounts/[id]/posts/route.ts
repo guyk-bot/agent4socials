@@ -66,21 +66,65 @@ export async function GET(
       take: 200,
     });
 
-    const serialized = importedRows.map((p) => ({
-      id: p.id,
-      content: p.content,
-      thumbnailUrl: p.thumbnailUrl,
-      permalinkUrl: p.permalinkUrl,
-      impressions: p.impressions ?? 0,
-      interactions: p.interactions ?? 0,
-      likeCount: p.likeCount ?? 0,
-      commentsCount: p.commentsCount ?? 0,
-      repostsCount: p.repostsCount ?? 0,
-      sharesCount: p.sharesCount ?? 0,
-      publishedAt: p.publishedAt instanceof Date ? p.publishedAt.toISOString() : String(p.publishedAt),
-      mediaType: p.mediaType,
-      platform: p.platform,
-    }));
+    // For Twitter: live-enrich from API so we show likes/comments/reposts/images even if sync failed or is stale
+    let twitterEnrich: Record<string, { likeCount: number; commentsCount: number; repostsCount: number; thumbnailUrl: string | null }> = {};
+    if (account.platform === 'TWITTER' && importedRows.length > 0) {
+      try {
+        const tweetsRes = await axios.get<{
+          data?: Array<{
+            id: string;
+            attachments?: { media_keys?: string[] };
+            public_metrics?: { like_count?: number; reply_count?: number; retweet_count?: number };
+          }>;
+          includes?: { media?: Array<{ media_key: string; url?: string; preview_image_url?: string }> };
+        }>(`https://api.twitter.com/2/users/${account.platformUserId}/tweets`, {
+          params: {
+            max_results: 50,
+            'tweet.fields': 'public_metrics,attachments',
+            expansions: 'attachments.media_keys',
+            'media.fields': 'url,preview_image_url',
+            exclude: 'retweets,replies',
+          },
+          headers: { Authorization: `Bearer ${account.accessToken}` },
+          timeout: 12_000,
+        });
+        const items = tweetsRes.data?.data ?? [];
+        const mediaList = tweetsRes.data?.includes?.media ?? [];
+        const mediaByKey = new Map(mediaList.map((m) => [m.media_key, m]));
+        for (const t of items) {
+          const firstMediaKey = t.attachments?.media_keys?.[0];
+          const firstMedia = firstMediaKey ? mediaByKey.get(firstMediaKey) : undefined;
+          const thumbnailUrl = firstMedia?.preview_image_url ?? firstMedia?.url ?? null;
+          twitterEnrich[t.id] = {
+            likeCount: t.public_metrics?.like_count ?? 0,
+            commentsCount: t.public_metrics?.reply_count ?? 0,
+            repostsCount: t.public_metrics?.retweet_count ?? 0,
+            thumbnailUrl,
+          };
+        }
+      } catch (_) {
+        // ignore; use DB values
+      }
+    }
+
+    const serialized = importedRows.map((p) => {
+      const enrich = account.platform === 'TWITTER' ? twitterEnrich[p.platformPostId] : undefined;
+      return {
+        id: p.id,
+        content: p.content,
+        thumbnailUrl: enrich?.thumbnailUrl ?? p.thumbnailUrl ?? null,
+        permalinkUrl: p.permalinkUrl,
+        impressions: p.impressions ?? 0,
+        interactions: p.interactions ?? 0,
+        likeCount: enrich?.likeCount ?? p.likeCount ?? 0,
+        commentsCount: enrich?.commentsCount ?? p.commentsCount ?? 0,
+        repostsCount: enrich?.repostsCount ?? p.repostsCount ?? 0,
+        sharesCount: p.sharesCount ?? 0,
+        publishedAt: p.publishedAt instanceof Date ? p.publishedAt.toISOString() : String(p.publishedAt),
+        mediaType: p.mediaType,
+        platform: p.platform,
+      };
+    });
 
     // App-published targets not yet in importedPosts
     const appExtra = appTargets
