@@ -147,6 +147,7 @@ function InboxPage() {
   const [engagementError, setEngagementError] = useState<string | null>(null);
   const [selectedEngagement, setSelectedEngagement] = useState<EngagementItem | null>(null);
   const [commentsRefreshKey, setCommentsRefreshKey] = useState(0);
+  const [conversationsRefreshKey, setConversationsRefreshKey] = useState(0);
   const [deleteCommentLoading, setDeleteCommentLoading] = useState(false);
   const [unreadCommentIds, setUnreadCommentIds] = useState<Set<string>>(new Set());
   const [unreadConversationIds, setUnreadConversationIds] = useState<Set<string>>(new Set());
@@ -410,7 +411,9 @@ function InboxPage() {
       return;
     }
       const fromCache = appData?.getConversations(account.id);
-      if (fromCache !== undefined && fromCache !== null) {
+      // Don't use cached empty for X (Twitter) so we always refetch and pick up new DMs
+      const useCache = fromCache !== undefined && fromCache !== null && !(platform === 'TWITTER' && Array.isArray(fromCache) && fromCache.length === 0);
+      if (useCache) {
         merge.push(...fromCache.map((c) => ({ ...c, platform })));
         if (--pending === 0 && !cancelled) {
           setConversations(merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? '')));
@@ -467,7 +470,7 @@ function InboxPage() {
     }
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dmOrFbPlatforms.join(','), effectiveAccounts.map((a) => a.id).join(',')]);
+  }, [dmOrFbPlatforms.join(','), effectiveAccounts.map((a) => a.id).join(','), conversationsRefreshKey]);
 
   const commentsSupportedPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK' || p === 'TWITTER' || p === 'YOUTUBE' || p === 'TIKTOK');
   // When only TikTok is selected, TikTok's API doesn't return comment text — so also fetch other platforms so the list doesn't go empty
@@ -1284,6 +1287,18 @@ function InboxPage() {
               <MessageCircle size={40} className="mx-auto text-neutral-300 mb-3" />
               <p className="text-sm text-neutral-500">No conversations yet.</p>
               <p className="text-xs text-neutral-400 mt-1">Messages will appear here when you receive them.</p>
+              <button
+                type="button"
+                onClick={() => {
+                  appData?.invalidateConversations?.();
+                  setConversationsRefreshKey((k) => k + 1);
+                  setConversationsLoading(true);
+                }}
+                className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-neutral-200 bg-white text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+              >
+                <RefreshCw size={16} />
+                Refresh conversations
+              </button>
               {selectedPlatform === 'TIKTOK' && (
                 <p className="text-xs text-amber-700 mt-3 max-w-sm mx-auto bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                   TikTok inbox (DMs) are not available in the app. Use Instagram, Facebook, or X to view and reply to messages here.
