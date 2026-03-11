@@ -67,7 +67,7 @@ export async function GET(
   // --- Twitter (X) DMs: GET /2/dm_events, group by dm_conversation_id ---
   if (account.platform === 'TWITTER') {
     try {
-      const ourId = account.platformUserId;
+      const ourId = String(account.platformUserId ?? '');
       const convosById = new Map<string, { updatedTime: string; otherParticipantIds: Set<string> }>();
       let nextToken: string | null = null;
       let pageCount = 0;
@@ -79,7 +79,7 @@ export async function GET(
       do {
         const params: Record<string, string> = {
           'dm_event.fields': 'dm_conversation_id,created_at,sender_id,participant_ids',
-          expansions: 'sender_id',
+          expansions: 'sender_id,participant_ids',
           'user.fields': 'id,name,username,profile_image_url',
           max_results: '100',
         };

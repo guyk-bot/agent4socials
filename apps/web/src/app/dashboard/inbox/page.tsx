@@ -129,7 +129,7 @@ function InboxPage() {
   const [conversationRecipientId, setConversationRecipientId] = useState<string | null>(null);
   const [conversationMessagesLoading, setConversationMessagesLoading] = useState(false);
   const [conversationMessagesError, setConversationMessagesError] = useState<string | null>(null);
-  const [conversationMessagesCache, setConversationMessagesCache] = useState<Record<string, { messages: ConversationMessage[]; recipientId: string | null; error: string | null }>>({});
+  const [conversationMessagesCache, setConversationMessagesCache] = useState<Record<string, { messages: ConversationMessage[]; recipientId: string | null; recipientName?: string | null; recipientPictureUrl?: string | null; error: string | null }>>({});
   const [dmReplyText, setDmReplyText] = useState('');
   const [dmReplySending, setDmReplySending] = useState(false);
   // Per-conversation batch replies
@@ -302,7 +302,9 @@ function InboxPage() {
         const messages = res.data?.messages ?? [];
         const recipientId = res.data?.recipientId ?? recipientFromConv ?? null;
         const error = res.data?.error ?? null;
-        setConversationMessagesCache((prev) => ({ ...prev, [convId]: { messages, recipientId, error } }));
+        const recipientName = res.data?.recipientName ?? null;
+        const recipientPictureUrl = res.data?.recipientPictureUrl ?? null;
+        setConversationMessagesCache((prev) => ({ ...prev, [convId]: { messages, recipientId, recipientName, recipientPictureUrl, error } }));
         if (selectedConversationId === convId) {
           setConversationMessages(messages);
           setConversationLastReadCount(convId, messages.length, user?.id);
@@ -311,7 +313,7 @@ function InboxPage() {
         }
       })
       .catch(() => {
-        const fallback = { messages: [] as ConversationMessage[], recipientId: recipientFromConv ?? null, error: 'Could not load messages.' as string | null };
+        const fallback = { messages: [] as ConversationMessage[], recipientId: recipientFromConv ?? null, recipientName: null, recipientPictureUrl: null, error: 'Could not load messages.' as string | null };
         setConversationMessagesCache((prev) => ({ ...prev, [convId]: fallback }));
         if (selectedConversationId === convId) {
           setConversationMessages([]);
@@ -2064,9 +2066,12 @@ function InboxPage() {
                   <div className="p-4 border-b border-neutral-100 bg-neutral-50/50">
                     {(() => {
                       const selectedConv = conversations.find((c) => c.id === selectedConversationId);
+                      const cached = selectedConversationId ? conversationMessagesCache[selectedConversationId] : undefined;
+                      const recipientNameFromCache = cached?.recipientName;
                       const senderNames = selectedConv?.senders?.map((s) => s.username ?? s.name).filter(Boolean).join(', ') || null;
-                      const chatWithLabel = senderNames
-                        ? `Chat with ${senderNames}`
+                      const displayName = senderNames || (selectedPlatform === 'TWITTER' ? recipientNameFromCache : null) || null;
+                      const chatWithLabel = displayName
+                        ? `Chat with ${displayName}`
                         : selectedPlatform === 'TWITTER'
                           ? 'Chat with X (Twitter) user'
                           : 'Conversation';
@@ -2204,6 +2209,8 @@ function InboxPage() {
                         [selectedConversationId]: {
                           messages,
                           recipientId: res.data?.recipientId ?? null,
+                          recipientName: res.data?.recipientName ?? null,
+                          recipientPictureUrl: res.data?.recipientPictureUrl ?? null,
                           error: res.data?.error ?? null,
                         },
                       }));

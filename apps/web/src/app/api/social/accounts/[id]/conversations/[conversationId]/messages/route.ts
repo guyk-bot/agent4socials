@@ -46,18 +46,19 @@ export async function GET(
   // --- Twitter (X) DMs: GET /2/dm_conversations/:dm_conversation_id/dm_events ---
   if (account.platform === 'TWITTER') {
     const token = account.accessToken ?? '';
-    const ourId = account.platformUserId;
+    const ourId = String(account.platformUserId ?? '');
     try {
       const allMessages: Array<{ id: string; fromId: string | null; fromName: string | null; message: string; createdTime: string | null; isFromPage: boolean }> = [];
       const allEventParticipantIds = new Set<string>();
       let nextToken: string | null = null;
       const userMap = new Map<string, string>();
+      const userObjMap = new Map<string, { name?: string; username?: string; profile_image_url?: string }>();
 
       do {
         const params: Record<string, string> = {
           'dm_event.fields': 'created_at,sender_id,text,participant_ids',
-          expansions: 'sender_id',
-          'user.fields': 'id,name,username',
+          expansions: 'sender_id,participant_ids',
+          'user.fields': 'id,name,username,profile_image_url',
           max_results: '100',
         };
         if (nextToken) params.pagination_token = nextToken;
@@ -70,7 +71,7 @@ export async function GET(
             text?: string;
             participant_ids?: string[];
           }>;
-          includes?: { users?: Array<{ id: string; name?: string; username?: string }> };
+          includes?: { users?: Array<{ id: string; name?: string; username?: string; profile_image_url?: string }> };
           meta?: { next_token?: string };
           error?: { message?: string };
         }>(`https://api.twitter.com/2/dm_conversations/${conversationId}/dm_events`, {
@@ -87,6 +88,7 @@ export async function GET(
         }
         for (const u of res.data?.includes?.users ?? []) {
           userMap.set(u.id, u.username ?? u.name ?? u.id);
+          userObjMap.set(u.id, { name: u.name, username: u.username, profile_image_url: u.profile_image_url });
         }
         for (const ev of res.data?.data ?? []) {
           if (Array.isArray(ev.participant_ids)) {
@@ -127,7 +129,15 @@ export async function GET(
           }
         }
       }
-      return NextResponse.json({ messages: allMessages, recipientId });
+      const recipientUser = recipientId ? userObjMap.get(recipientId) : null;
+      const recipientName = recipientUser?.name ?? recipientUser?.username ?? null;
+      const recipientPictureUrl = recipientUser?.profile_image_url?.replace(/_normal\./, '_400x400.') ?? null;
+      return NextResponse.json({
+        messages: allMessages,
+        recipientId,
+        ...(recipientName && { recipientName: recipientName }),
+        ...(recipientPictureUrl && { recipientPictureUrl: recipientPictureUrl }),
+      });
     } catch (e) {
       const err = e as { response?: { data?: { error?: { message?: string } } }; message?: string };
       const msg = err?.response?.data?.error?.message ?? err?.message ?? 'Could not load X messages.';
