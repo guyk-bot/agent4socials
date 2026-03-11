@@ -1274,7 +1274,7 @@ function InboxPage() {
           ) : conversationsLoading ? (
             <div className="p-6 flex flex-col items-center justify-center gap-3">
               <Loader2 size={32} className="text-indigo-500 animate-spin" />
-              <p className="text-sm text-neutral-500">Loading conversations…</p>
+              <p className="text-sm text-neutral-500">{selectedPlatform === 'TWITTER' ? 'Loading X (Twitter) messages…' : 'Loading conversations…'}</p>
             </div>
           ) : conversationsError ? (
             <div className="p-4">

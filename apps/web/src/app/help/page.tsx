@@ -139,7 +139,7 @@ export default function HelpPage() {
             { id: 'inbox-dms', title: 'Inbox & DMs', children: (
               <>
                 <p className="text-neutral-600 text-sm leading-relaxed mb-3">
-                  The Inbox shows <strong>comments</strong> (Instagram, Facebook, X, YouTube) and <strong>direct messages</strong> (Instagram and Facebook only). You can reply to comments and DMs from the app. <strong>24-hour rule:</strong> For Instagram and Facebook DMs, you can only send messages within 24 hours of the customer&apos;s last message unless your app has Advanced Access for messaging.
+                  The Inbox shows <strong>comments</strong> (Instagram, Facebook, X, YouTube) and <strong>direct messages</strong> (Instagram, Facebook, and X). You can reply to comments and DMs from the app. <strong>24-hour rule:</strong> For Instagram and Facebook DMs, you can only send messages within 24 hours of the customer&apos;s last message unless your app has Advanced Access for messaging.
                 </p>
                 <p className="text-neutral-600 text-sm leading-relaxed mb-3">
                   <strong>Comments on older posts:</strong> New comments on posts that are <strong>older than 28 days</strong> cannot be accessed. This is a platform API limitation (e.g. Instagram/Meta). Only comments on posts from the last 28 days are available in the Inbox; older posts will not show new comments.

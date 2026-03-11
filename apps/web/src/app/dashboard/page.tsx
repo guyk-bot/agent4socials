@@ -1079,7 +1079,7 @@ export default function DashboardPage() {
           <>{/* analytics content */}
           {!selectedAccount && hasAccounts && (importedPosts.length === 0 || allPostsSyncError) && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              {importedPosts.length === 0 && <p>No posts in this period yet. Sync to load posts from Instagram and Facebook (and see interactions, number of posts, and total content).</p>}
+              {importedPosts.length === 0 && <p>No posts in this period yet. Sync to load posts from your connected accounts (Instagram, Facebook, X, etc.) and see interactions, number of posts, and total content.</p>}
               {allPostsSyncError && <p className="mt-1 font-medium">{allPostsSyncError}</p>}
               <p className="mt-2 text-xs text-amber-700">Tip: If syncing all accounts fails or times out, select one account in the sidebar and click Sync there.</p>
               <button
