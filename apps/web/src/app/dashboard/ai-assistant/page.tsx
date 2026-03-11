@@ -31,8 +31,8 @@ const MAX_LENGTH = {
   toneExamples: 1500,
   productDescription: 2000,
   additionalContext: 1000,
-  inboxReplyExamples: 2000,
-  commentReplyExamples: 2000,
+  inboxReplyExamples: 1000,
+  commentReplyExamples: 1000,
 } as const;
 
 export default function AIAssistantPage() {
