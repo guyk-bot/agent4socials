@@ -29,6 +29,7 @@ import {
 import Link from 'next/link';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
 import { InteractiveLineChart } from '@/components/charts/InteractiveLineChart';
+import type { Demographics, GrowthDataPoint, TrafficSourceItem } from '@/types/analytics';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip as RechartTooltip,
   ResponsiveContainer, CartesianGrid,
@@ -269,6 +270,10 @@ export default function DashboardPage() {
     reachTotal?: number;
     profileViewsTotal?: number;
     insightsHint?: string;
+    demographics?: Demographics;
+    growthTimeSeries?: GrowthDataPoint[];
+    trafficSources?: TrafficSourceItem[];
+    extra?: Record<string, number | number[] | Array<{ date: string; value: number }>>;
     tweetCount?: number;
     recentTweets?: Array<{ id: string; text: string; created_at: string | null; like_count: number; reply_count: number; retweet_count: number; impression_count: number }>;
   } | null>(null);
@@ -517,7 +522,7 @@ export default function DashboardPage() {
           setPostsSyncError(postsRes.data?.syncError ?? null);
           if ((platform === 'TIKTOK' || platform === 'YOUTUBE') && selectedAccountIdRef.current === accountId) {
             delete insightsCacheRef.current[cacheKey];
-            return api.get(`/social/accounts/${accountId}/insights`, { params: { since: dateRange.start, until: dateRange.end } });
+            return api.get(`/social/accounts/${accountId}/insights`, { params: { since: dateRange.start, until: dateRange.end, extended: 1 } });
           }
         })
         .then((insightsRes) => {
@@ -560,7 +565,7 @@ export default function DashboardPage() {
     setImportedPostsLoading(true);
 
     // Step 1: fetch insights + posts from DB quickly (no sync) so UI shows data in ~1s
-    const insightsPromise = api.get(`/social/accounts/${accountId}/insights`, { params: { since: dateRange.start, until: dateRange.end } });
+    const insightsPromise = api.get(`/social/accounts/${accountId}/insights`, { params: { since: dateRange.start, until: dateRange.end, extended: 1 } });
     const fastPostsPromise = api.get(`/social/accounts/${accountId}/posts`);
 
     insightsPromise
@@ -632,7 +637,7 @@ export default function DashboardPage() {
     }
     Promise.all(
       insightAccounts.map((acc) =>
-        api.get(`/social/accounts/${acc.id}/insights`, { params: { since: dateRange.start, until: dateRange.end } }).then((r) => ({ platform: acc.platform, data: r.data }))
+        api.get(`/social/accounts/${acc.id}/insights`, { params: { since: dateRange.start, until: dateRange.end, extended: 1 } }).then((r) => ({ platform: acc.platform, data: r.data }))
       )
     )
       .then((results) => {
@@ -838,14 +843,28 @@ export default function DashboardPage() {
     : aggregatedLoading;
   const fallbackSeriesValue = effectiveImpressions || effectiveFollowers || 0;
   const hasNonZeroSeries = effectiveTimeSeries.length > 0 && effectiveTimeSeries.some((d) => d.value > 0);
+  const endDate = dateRange.end || new Date().toISOString().slice(0, 10);
+  const startDate = dateRange.start || endDate;
+  // Views/impressions chart: use only impressions time series or fallback to views (never mix in followers)
   const displayTimeSeries =
     hasNonZeroSeries
       ? effectiveTimeSeries
-      : fallbackSeriesValue > 0
-        ? [{ date: dateRange.end || new Date().toISOString().slice(0, 10), value: fallbackSeriesValue }]
+      : effectiveImpressions > 0
+        ? [{ date: startDate, value: effectiveImpressions }, { date: endDate, value: effectiveImpressions }]
         : [];
+  // Followers chart: use its own series so it never shows views. When we have no historical data, show flat line at current follower count.
+  const followersTimeSeries = (insights as { followersTimeSeries?: Array<{ date: string; value: number }> })?.followersTimeSeries;
+  const displayFollowersTimeSeries =
+    followersTimeSeries?.length
+      ? followersTimeSeries
+      : selectedAccount && (effectiveFollowers > 0 || effectiveImpressions > 0)
+        ? [{ date: startDate, value: effectiveFollowers }, { date: endDate, value: effectiveFollowers }]
+        : !selectedAccount && aggregatedInsights
+          ? [{ date: startDate, value: effectiveFollowers }, { date: endDate, value: effectiveFollowers }]
+          : [];
   const maxImpressions = displayTimeSeries.length ? Math.max(...displayTimeSeries.map((d) => d.value), 1) : 1;
   const showViewsHint = hasFbOrIg && effectiveFollowers > 0 && effectiveImpressions === 0 && !effectiveTimeSeries.some((d) => d.value > 0) && (selectedAccount?.platform === 'INSTAGRAM' || selectedAccount?.platform === 'FACEBOOK' || !selectedAccount);
+  const showTikTokFollowersHint = selectedAccount?.platform === 'TIKTOK' && effectiveFollowers === 0 && effectiveImpressions > 0;
 
   return (
     <div className="space-y-0">
@@ -861,6 +880,12 @@ export default function DashboardPage() {
         <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <p className="font-medium">You're seeing follower counts. Views, reach, and trend graphs need Page/Instagram insights.</p>
           <p className="mt-1 text-xs text-amber-700">Data will sync automatically when your Page is linked.</p>
+        </div>
+      )}
+      {showTikTokFollowersHint && (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <p className="font-medium">TikTok follower count needs the user.info.stats scope.</p>
+          <p className="mt-1 text-xs text-amber-700">Use Reconnect in the sidebar and approve all requested permissions to see your follower count here. Views are from your synced videos.</p>
         </div>
       )}
       {/* Top row: ACCOUNT | POSTS tabs + date range (Metricool-style) */}
@@ -1117,8 +1142,8 @@ export default function DashboardPage() {
                           })}
                     </div>
                     <div className="mt-3 rounded-xl overflow-hidden bg-neutral-50" style={{ height: 180 }}>
-                      {displayTimeSeries.length ? (
-                        <InteractiveLineChart data={displayTimeSeries} height={180} valueLabel={selectedAccount?.platform === 'YOUTUBE' ? 'Subscribers' : 'Followers'} color={platColor} crosshair />
+                      {displayFollowersTimeSeries.length ? (
+                        <InteractiveLineChart data={displayFollowersTimeSeries} height={180} valueLabel={selectedAccount?.platform === 'YOUTUBE' ? 'Subscribers' : 'Followers'} color={platColor} crosshair />
                       ) : (
                         <div className="h-full flex items-end gap-1 px-3 pb-3 pt-4">
                           {[28,35,42,38,45,40,50].map((pct, i) => (
@@ -1134,7 +1159,7 @@ export default function DashboardPage() {
                   <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
                     style={{ borderLeft: `4px solid #6366f1` }}>
                     <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
-                      {isTwitter ? 'Tweets' : 'Views'}
+                      {isTwitter ? 'Tweets' : 'Impressions / views'}
                     </p>
                     <p className="text-3xl font-bold text-neutral-900 mt-1 tabular-nums">
                       {(isTwitter ? effectiveTweets : effectiveImpressions).toLocaleString()}
@@ -1149,7 +1174,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="mt-3 rounded-xl overflow-hidden bg-neutral-50" style={{ height: 180 }}>
                       {displayTimeSeries.length ? (
-                        <InteractiveLineChart data={displayTimeSeries} height={180} valueLabel={isTwitter ? 'Tweets' : 'Views'} color="#6366f1" crosshair />
+                        <InteractiveLineChart data={displayTimeSeries} height={180} valueLabel={isTwitter ? 'Tweets' : 'Impressions / views'} color="#6366f1" crosshair />
                       ) : (
                         <div className="h-full flex items-end gap-1 px-3 pb-3 pt-4">
                           {[32,40,35,48,42,38,52].map((pct, i) => (
@@ -1167,7 +1192,7 @@ export default function DashboardPage() {
                   {[
                     { label: 'Interactions', value: totalInteractions.toLocaleString(), sub: `${importedPosts.length} posts`, accent: platColor },
                     { label: 'Reach', value: effectiveReach ? effectiveReach.toLocaleString() : '—', sub: selectedAccount?.platform === 'INSTAGRAM' ? 'Unique viewers' : 'Engaged users', accent: '#22c55e' },
-                    { label: effectiveProfileViews > 0 ? 'Profile views' : 'Page visits', value: (effectiveProfileViews || effectivePageVisits) ? (effectiveProfileViews || effectivePageVisits).toLocaleString() : '—', sub: 'Last 28 days', accent: '#a855f7' },
+                    { label: effectiveProfileViews > 0 ? 'Profile views' : 'Page visitors', value: (effectiveProfileViews || effectivePageVisits) ? (effectiveProfileViews || effectivePageVisits).toLocaleString() : '—', sub: selectedAccount?.platform === 'INSTAGRAM' ? 'Profile visits' : selectedAccount?.platform === 'FACEBOOK' ? 'Page visits in period' : 'Profile or page visits', accent: '#a855f7' },
                     { label: 'Total content', value: importedPosts.length.toLocaleString(), sub: `${days ? (importedPosts.length / days).toFixed(1) : 0} per day`, accent: '#0ea5e9' },
                   ].map((tile, i) => (
                     <div
@@ -1181,6 +1206,44 @@ export default function DashboardPage() {
                     </div>
                   ))}
                 </div>
+
+                {/* Row 2b: Watch time (YT) and Follower growth when available */}
+                {(() => {
+                  const watchTimeMinutes = selectedAccount?.platform === 'YOUTUBE' && typeof insights?.extra?.estimatedMinutesWatched === 'number' ? insights.extra.estimatedMinutesWatched : 0;
+                  const growthSeries = insights?.growthTimeSeries ?? [];
+                  const netGrowth = growthSeries.reduce((s, p) => s + (p.net ?? p.gained - p.lost), 0);
+                  const hasWatchTime = watchTimeMinutes > 0;
+                  const hasGrowth = growthSeries.length > 0;
+                  if (!hasWatchTime && !hasGrowth) return null;
+                  return (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {hasWatchTime && (
+                        <div
+                          className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200"
+                          style={{ borderLeft: '3px solid #FF0000' }}
+                        >
+                          <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Watch time (YT)</p>
+                          <p className="text-2xl font-bold text-neutral-900 mt-1 tabular-nums">
+                            {watchTimeMinutes >= 60 ? `${(watchTimeMinutes / 60).toFixed(1)} hrs` : `${Math.round(watchTimeMinutes)} min`}
+                          </p>
+                          <p className="text-xs text-neutral-400 mt-0.5">Total minutes watched in period</p>
+                        </div>
+                      )}
+                      {hasGrowth && (
+                        <div
+                          className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200"
+                          style={{ borderLeft: '3px solid #22c55e' }}
+                        >
+                          <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Follower growth</p>
+                          <p className="text-2xl font-bold text-neutral-900 mt-1 tabular-nums">
+                            {netGrowth >= 0 ? `+${netGrowth.toLocaleString()}` : netGrowth.toLocaleString()}
+                          </p>
+                          <p className="text-xs text-neutral-400 mt-0.5">{selectedAccount?.platform === 'YOUTUBE' ? 'Subscribers gained minus lost' : 'Page fans added in period'}</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Row 3: derived stats */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -1200,6 +1263,47 @@ export default function DashboardPage() {
                     </div>
                   ))}
                 </div>
+
+                {/* Demographics: Country, Age, Gender */}
+                {(() => {
+                  const demo = insights?.demographics;
+                  const hasCountry = (demo?.byCountry?.length ?? 0) > 0;
+                  const hasAge = (demo?.byAge?.length ?? 0) > 0;
+                  const hasGender = (demo?.byGender?.length ?? 0) > 0;
+                  if (!hasCountry && !hasAge && !hasGender) return null;
+                  const renderBreakdown = (title: string, items: Array<{ dimensionValue: string; label?: string; value: number }> | undefined, maxItems = 8) => {
+                    if (!items?.length) return null;
+                    const sorted = [...items].sort((a, b) => b.value - a.value).slice(0, maxItems);
+                    const total = items.reduce((s, i) => s + i.value, 0);
+                    return (
+                      <div key={title} className="space-y-2">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">{title}</p>
+                        <ul className="space-y-1.5">
+                          {sorted.map((item, i) => (
+                            <li key={i} className="flex items-center justify-between gap-2 text-sm">
+                              <span className="text-neutral-700 truncate">{item.label ?? item.dimensionValue || '—'}</span>
+                              <span className="text-neutral-900 font-medium tabular-nums shrink-0">{item.value.toLocaleString()}</span>
+                            </li>
+                          ))}
+                        </ul>
+                        {total > 0 && sorted.length < items.length && (
+                          <p className="text-xs text-neutral-400">Top {maxItems} of {items.length} (total {total.toLocaleString()})</p>
+                        )}
+                      </div>
+                    );
+                  };
+                  return (
+                    <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-sm" style={{ borderLeft: '4px solid #6366f1' }}>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-3">Audience demographics</p>
+                      {demo?.hint && <p className="text-xs text-neutral-500 mb-3">{demo.hint}</p>}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                        {renderBreakdown('Country', demo?.byCountry)}
+                        {renderBreakdown('Age', demo?.byAge)}
+                        {renderBreakdown('Gender', demo?.byGender)}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Facebook Page reviews (pages_read_user_content) */}
                 {selectedAccount?.platform === 'FACEBOOK' && (

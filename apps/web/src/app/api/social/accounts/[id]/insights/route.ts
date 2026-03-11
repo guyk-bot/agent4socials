@@ -260,9 +260,14 @@ export async function GET(
               out.pageViewsTotal = total;
             } else if (d.name === 'page_engaged_users') {
               out.reachTotal = total;
+            } else if (d.name === 'page_fan_adds' && sortedSeries.length > 0) {
+              out.growthTimeSeries = sortedSeries.map(({ date, value }) => ({
+                date,
+                gained: value,
+                lost: 0,
+                net: value,
+              }));
             }
-            // page_fan_adds = net new fans (not stored separately currently)
-          }
         } catch (e) {
           const status = (e as { response?: { status?: number } })?.response?.status;
           if (status !== 400) console.warn('[Insights] Facebook insights:', (e as Error)?.message ?? e);

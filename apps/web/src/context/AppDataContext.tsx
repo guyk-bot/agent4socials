@@ -237,7 +237,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
             }).catch(() => {})
           ),
           ...accounts.map((acc) =>
-            api.get<CachedInsights>(`/social/accounts/${acc.id}/insights`, { params: { since: dateRange.start, until: dateRange.end } }).then((r) => {
+            api.get<CachedInsights>(`/social/accounts/${acc.id}/insights`, { params: { since: dateRange.start, until: dateRange.end, extended: 1 } }).then((r) => {
               if (!cancelled && r.data) setInsightsByAccountId((prev) => ({ ...prev, [acc.id]: r.data as CachedInsights }));
             }).catch(() => {})
           ),

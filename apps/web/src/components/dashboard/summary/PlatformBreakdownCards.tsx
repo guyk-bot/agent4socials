@@ -88,7 +88,7 @@ export function PlatformBreakdownCards({ platforms }: { platforms: SummaryPlatfo
   return (
     <section>
       <h2 className="text-lg font-semibold text-slate-900 mb-4">Platform Breakdown</h2>
-      <div className="flex gap-4 overflow-x-auto pb-3 -mx-1 px-1" style={{ scrollbarWidth: 'thin' }}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {sorted.map((p, idx) => {
           const color = PLATFORM_HEX[p.platform] ?? '#6366f1';
           const bg = PLATFORM_BG[p.platform] ?? 'bg-slate-100';
@@ -99,7 +99,7 @@ export function PlatformBreakdownCards({ platforms }: { platforms: SummaryPlatfo
           return (
             <div
               key={p.id}
-              className={`flex-shrink-0 w-[210px] rounded-2xl p-4 ${bg} border border-slate-200/60 relative overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200`}
+              className={`min-w-0 rounded-2xl p-4 ${bg} border border-slate-200/60 relative overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200`}
               style={{
                 boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
                 animation: `slide-up 0.4s ease-out ${idx * 60}ms both`,
