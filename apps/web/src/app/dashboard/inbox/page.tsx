@@ -1070,7 +1070,7 @@ function InboxPage() {
                 <Loader2 size={32} className="text-indigo-500 animate-spin" />
                 <p className="text-sm text-neutral-500">Loading comments…</p>
               </div>
-            ) : commentsError ? (
+            ) : commentsError && !(commentsSupportedPlatforms.length === 1 && commentsSupportedPlatforms[0] === 'TIKTOK') ? (
               <div className="p-4 space-y-3">
                 <div className="rounded-xl border-2 border-amber-200 bg-amber-50 px-4 py-4">
                   <p className="text-sm font-medium text-amber-900">Could not load comments</p>
@@ -1103,6 +1103,15 @@ function InboxPage() {
                 </div>
               </div>
             ) : comments.length === 0 ? (
+              commentsSupportedPlatforms.length === 1 && commentsSupportedPlatforms[0] === 'TIKTOK' ? (
+                <div className="p-6 text-center">
+                  <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-4 mb-4">
+                    <p className="text-sm font-medium text-sky-900">TikTok comment text isn&apos;t available</p>
+                    <p className="text-xs text-sky-700 mt-1">TikTok&apos;s Display API doesn&apos;t include comment text. You can see comment counts in Analytics.</p>
+                  </div>
+                  <p className="text-sm text-neutral-600">Select Instagram, Facebook, X, or YouTube above to see comments from those platforms.</p>
+                </div>
+              ) : (
               <div className="p-6 text-center">
                 <MessageCircle size={40} className="mx-auto text-neutral-300 mb-3" />
                 <p className="text-sm text-neutral-500">No comments yet.</p>
@@ -1116,6 +1125,7 @@ function InboxPage() {
                   Refresh comments
                 </button>
               </div>
+              )
             ) : (
               <>
                 {tiktokOnlyFallback && (
@@ -1295,10 +1305,12 @@ function InboxPage() {
                 .filter((c) => !searchQuery || (c.senders?.[0]?.username ?? c.senders?.[0]?.name ?? c.id).toLowerCase().includes(searchQuery.toLowerCase()))
                 .map((c) => {
                   const firstSender = c.senders?.[0];
-                  const name = firstSender?.username ?? firstSender?.name ?? 'Unknown';
+                  const rawName = firstSender?.username ?? firstSender?.name;
+                  const convPlatform = (c as Conversation & { platform?: string }).platform ?? (dmOrFbPlatforms.length === 1 ? dmOrFbPlatforms[0] : undefined);
+                  const name = rawName && rawName.trim() ? rawName : (convPlatform === 'TWITTER' ? 'X (Twitter) user' : 'Unknown');
                   const pictureUrl = firstSender?.pictureUrl;
-                  const initials = name.slice(0, 2).toUpperCase();
-                  const platform = (c as Conversation & { platform?: string }).platform;
+                  const initials = (name === 'X (Twitter) user' ? 'X' : name).slice(0, 2).toUpperCase();
+                  const platform = convPlatform ?? (c as Conversation & { platform?: string }).platform;
                   return (
                     <button
                       key={platform ? `${platform}-${c.id}` : c.id}
@@ -2050,19 +2062,32 @@ function InboxPage() {
               <div className="max-w-2xl mx-auto">
                 <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
                   <div className="p-4 border-b border-neutral-100 bg-neutral-50/50">
-                    <p className="text-sm font-medium text-neutral-800">Conversation</p>
-                    <p className="text-xs text-neutral-500 mt-0.5 flex items-center gap-1.5">
-                      {selectedPlatform && (() => {
-                        const plat = PLATFORMS.find((p) => p.id === selectedPlatform);
-                        const Icon = plat?.icon;
-                        return (
-                          <span className="inline-flex items-center gap-1 font-medium text-neutral-600">
-                            {Icon && <Icon size={14} />}
-                            {plat?.label ?? selectedPlatform} inbox
-                          </span>
-                        );
-                      })()}
-                    </p>
+                    {(() => {
+                      const selectedConv = conversations.find((c) => c.id === selectedConversationId);
+                      const senderNames = selectedConv?.senders?.map((s) => s.username ?? s.name).filter(Boolean).join(', ') || null;
+                      const chatWithLabel = senderNames
+                        ? `Chat with ${senderNames}`
+                        : selectedPlatform === 'TWITTER'
+                          ? 'Chat with X (Twitter) user'
+                          : 'Conversation';
+                      return (
+                        <>
+                          <p className="text-sm font-medium text-neutral-800">{chatWithLabel}</p>
+                          <p className="text-xs text-neutral-500 mt-0.5 flex items-center gap-1.5">
+                            {selectedPlatform && (() => {
+                              const plat = PLATFORMS.find((p) => p.id === selectedPlatform);
+                              const Icon = plat?.icon;
+                              return (
+                                <span className="inline-flex items-center gap-1 font-medium text-neutral-600">
+                                  {Icon && <Icon size={14} />}
+                                  {plat?.label ?? selectedPlatform} inbox
+                                </span>
+                              );
+                            })()}
+                          </p>
+                        </>
+                      );
+                    })()}
                   </div>
                   <div className="p-6 min-h-[200px] overflow-y-auto max-h-[60vh]">
                     {conversationMessagesLoading ? (
@@ -2088,8 +2113,10 @@ function InboxPage() {
                                   : 'bg-neutral-100 text-neutral-900 rounded-bl-md'
                               }`}
                             >
-                              {!msg.isFromPage && msg.fromName && (
-                                <p className="text-xs font-medium text-neutral-500 mb-0.5">{msg.fromName}</p>
+                              {!msg.isFromPage && (
+                                <p className="text-xs font-medium text-neutral-500 mb-0.5">
+                                  {msg.fromName || (selectedPlatform === 'TWITTER' ? 'X (Twitter) user' : 'Unknown')}
+                                </p>
                               )}
                               <p className="text-sm whitespace-pre-wrap break-words">{msg.message || '—'}</p>
                               {msg.createdTime && (

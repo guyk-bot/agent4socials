@@ -49,12 +49,13 @@ export async function GET(
     const ourId = account.platformUserId;
     try {
       const allMessages: Array<{ id: string; fromId: string | null; fromName: string | null; message: string; createdTime: string | null; isFromPage: boolean }> = [];
+      const allEventParticipantIds = new Set<string>();
       let nextToken: string | null = null;
       const userMap = new Map<string, string>();
 
       do {
         const params: Record<string, string> = {
-          'dm_event.fields': 'created_at,sender_id,text',
+          'dm_event.fields': 'created_at,sender_id,text,participant_ids',
           expansions: 'sender_id',
           'user.fields': 'id,name,username',
           max_results: '100',
@@ -67,6 +68,7 @@ export async function GET(
             created_at?: string;
             sender_id?: string;
             text?: string;
+            participant_ids?: string[];
           }>;
           includes?: { users?: Array<{ id: string; name?: string; username?: string }> };
           meta?: { next_token?: string };
@@ -87,6 +89,9 @@ export async function GET(
           userMap.set(u.id, u.username ?? u.name ?? u.id);
         }
         for (const ev of res.data?.data ?? []) {
+          if (Array.isArray(ev.participant_ids)) {
+            for (const pid of ev.participant_ids) if (pid) allEventParticipantIds.add(pid);
+          }
           if (ev.event_type !== 'MessageCreate') continue;
           const fromId = ev.sender_id ?? null;
           const isFromPage = fromId === ourId;
@@ -112,6 +117,14 @@ export async function GET(
         if (m.fromId && m.fromId !== ourId) {
           recipientId = m.fromId;
           break;
+        }
+      }
+      if (!recipientId && ourId) {
+        for (const pid of allEventParticipantIds) {
+          if (pid !== ourId) {
+            recipientId = pid;
+            break;
+          }
         }
       }
       return NextResponse.json({ messages: allMessages, recipientId });

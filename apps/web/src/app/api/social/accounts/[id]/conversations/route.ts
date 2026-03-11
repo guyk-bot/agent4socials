@@ -75,7 +75,7 @@ export async function GET(
 
       do {
         const params: Record<string, string> = {
-          'dm_event.fields': 'dm_conversation_id,created_at,sender_id',
+          'dm_event.fields': 'dm_conversation_id,created_at,sender_id,participant_ids',
           expansions: 'sender_id',
           'user.fields': 'id,name,username,profile_image_url',
           max_results: '100',
@@ -88,6 +88,7 @@ export async function GET(
             dm_conversation_id?: string;
             created_at?: string;
             sender_id?: string;
+            participant_ids?: string[];
           }>;
           includes?: { users?: Array<{ id: string; name?: string; username?: string; profile_image_url?: string }> };
           meta?: { next_token?: string };
@@ -112,15 +113,20 @@ export async function GET(
           userMap.set(u.id, u);
         }
         for (const ev of events) {
-          if (ev.event_type !== 'MessageCreate' || !ev.dm_conversation_id) continue;
+          if (!ev.dm_conversation_id) continue;
           const cid = ev.dm_conversation_id;
-          const updated = ev.created_at ?? '';
           if (!convosById.has(cid)) {
-            convosById.set(cid, { updatedTime: updated, otherParticipantIds: new Set() });
+            convosById.set(cid, { updatedTime: '', otherParticipantIds: new Set() });
           }
           const cur = convosById.get(cid)!;
-          if (updated.localeCompare(cur.updatedTime) > 0) cur.updatedTime = updated;
-          if (ev.sender_id && ev.sender_id !== ourId) cur.otherParticipantIds.add(ev.sender_id);
+          if (ev.event_type === 'MessageCreate') {
+            const updated = ev.created_at ?? '';
+            if (updated.localeCompare(cur.updatedTime) > 0) cur.updatedTime = updated;
+            if (ev.sender_id && ev.sender_id !== ourId) cur.otherParticipantIds.add(ev.sender_id);
+          }
+          if (Array.isArray(ev.participant_ids)) {
+            for (const pid of ev.participant_ids) if (pid && pid !== ourId) cur.otherParticipantIds.add(pid);
+          }
         }
         nextToken = res.data?.meta?.next_token ?? null;
         pageCount++;
@@ -143,6 +149,49 @@ export async function GET(
           messageCount: undefined as number | undefined,
         };
       });
+
+      const missingUserIds = new Set<string>();
+      for (const conv of list) {
+        for (const s of conv.senders) {
+          if (s.id && (s.name === undefined || s.username === undefined)) missingUserIds.add(s.id);
+        }
+      }
+      if (missingUserIds.size > 0) {
+        const idsArr = Array.from(missingUserIds).slice(0, 100);
+        try {
+          const usersRes = await axios.get<{
+            data?: Array<{ id: string; name?: string; username?: string; profile_image_url?: string }>;
+            error?: { message?: string };
+          }>('https://api.twitter.com/2/users', {
+            params: { ids: idsArr.join(','), 'user.fields': 'id,name,username,profile_image_url' },
+            headers: { Authorization: `Bearer ${token}` },
+            timeout: 15_000,
+          });
+          if (usersRes.data?.data) {
+            for (const u of usersRes.data.data) {
+              userMap.set(u.id, u);
+            }
+            const enrichedList = list.map((conv) => ({
+              ...conv,
+              senders: conv.senders.map((s) => {
+                if (!s.id) return s;
+                const u = userMap.get(s.id);
+                if (!u) return s;
+                return {
+                  id: s.id,
+                  name: s.name ?? u.name ?? undefined,
+                  username: s.username ?? u.username ?? undefined,
+                  pictureUrl: s.pictureUrl ?? (u.profile_image_url?.replace(/_normal\./, '_400x400.') ?? null),
+                };
+              }),
+            }));
+            list.length = 0;
+            list.push(...enrichedList);
+          }
+        } catch (e) {
+          console.warn('[Conversations] Twitter user enrichment failed:', (e as Error)?.message);
+        }
+      }
 
       list.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
       return NextResponse.json({ conversations: list });

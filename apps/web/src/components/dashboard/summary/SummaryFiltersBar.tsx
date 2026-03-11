@@ -86,8 +86,8 @@ export function SummaryFiltersBar({
           </button>
           {platformDropdownOpen && (
             <>
-              <div className="fixed inset-0 z-10" onClick={() => setPlatformDropdownOpen(false)} />
-              <div className="absolute top-full left-0 mt-1 py-2 w-48 bg-white rounded-xl border border-slate-200 shadow-lg z-20">
+              <div className="fixed inset-0 z-[100]" onClick={() => setPlatformDropdownOpen(false)} />
+              <div className="absolute top-full left-0 mt-1 py-2 w-48 bg-white rounded-xl border border-slate-200 shadow-lg z-[101]">
                 {PLATFORM_OPTIONS.map((p) => (
                   <label key={p.id} className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 cursor-pointer">
                     <input
