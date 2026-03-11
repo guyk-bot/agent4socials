@@ -166,6 +166,8 @@ function InboxPage() {
   // AI inbox examples from AI Assistant (for gating AI draft feature)
   const [inboxReplyExamples, setInboxReplyExamples] = useState<string | null>(null);
   const [inboxExamplesLoaded, setInboxExamplesLoaded] = useState(false);
+  const [xDmDebugResult, setXDmDebugResult] = useState<unknown>(null);
+  const [xDmDebugLoading, setXDmDebugLoading] = useState(false);
 
   const hasInboxExamples = !!(inboxReplyExamples?.trim());
 
@@ -1350,6 +1352,36 @@ function InboxPage() {
                 <RefreshCw size={16} />
                 Refresh conversations
               </button>
+              {selectedPlatform === 'TWITTER' && currentAccountForMessages && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setXDmDebugLoading(true);
+                    setXDmDebugResult(null);
+                    try {
+                      const res = await api.get(`/social/accounts/${currentAccountForMessages.id}/x-dm-debug`);
+                      setXDmDebugResult(res.data);
+                    } catch (e) {
+                      const err = e as { response?: { data?: unknown }; message?: string };
+                      setXDmDebugResult({ error: err?.message ?? 'Request failed', response: err?.response?.data });
+                    }
+                    setXDmDebugLoading(false);
+                  }}
+                  disabled={xDmDebugLoading}
+                  className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-neutral-300 bg-neutral-100 text-sm font-medium text-neutral-700 hover:bg-neutral-200 disabled:opacity-50"
+                >
+                  {xDmDebugLoading ? <Loader2 size={16} className="animate-spin" /> : <ExternalLink size={16} />}
+                  Diagnose X DMs
+                </button>
+              )}
+              {selectedPlatform === 'TWITTER' && xDmDebugResult != null && (
+                <div className="mt-4 text-left max-w-2xl mx-auto rounded-lg border border-neutral-200 bg-neutral-50 p-3 overflow-auto max-h-80">
+                  <p className="text-xs font-semibold text-neutral-600 mb-2">X DM debug result</p>
+                  <pre className="text-xs text-neutral-700 whitespace-pre-wrap break-words font-mono">
+                    {JSON.stringify(xDmDebugResult, null, 2)}
+                  </pre>
+                </div>
+              )}
               {selectedPlatform === 'TIKTOK' && (
                 <p className="text-xs text-amber-700 mt-3 max-w-sm mx-auto bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                   TikTok inbox (DMs) are not available in the app. Use Instagram, Facebook, or X to view and reply to messages here.
