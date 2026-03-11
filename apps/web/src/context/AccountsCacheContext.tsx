@@ -6,7 +6,7 @@ type CachedAccount = { id: string; platform: string; username?: string; profileP
 
 type AccountsCacheContextType = {
   cachedAccounts: CachedAccount[];
-  setCachedAccounts: (accounts: CachedAccount[]) => void;
+  setCachedAccounts: React.Dispatch<React.SetStateAction<CachedAccount[]>>;
 };
 
 const AccountsCacheContext = createContext<AccountsCacheContextType | undefined>(undefined);

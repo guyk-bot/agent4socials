@@ -1031,14 +1031,19 @@ export default function DashboardPage() {
                 variant="danger"
                 onConfirm={async () => {
                   setDisconnectingId(selectedAccount.id);
+                  const accountIdToRemove = selectedAccount.id;
                   try {
-                    await api.delete(`/social/accounts/${selectedAccount.id}`);
+                    await api.delete(`/social/accounts/${accountIdToRemove}`);
                     clearSelection();
+                    // Update cache immediately so sidebar and counts update without refresh
+                    setCachedAccounts((prev) => prev.filter((a) => a.id !== accountIdToRemove));
+                    setInsights(null);
+                    setAggregatedInsights(null);
+                    setDisconnectConfirmOpen(false);
+                    // Refetch to stay in sync with server
                     const res = await api.get('/social/accounts');
                     const data = Array.isArray(res.data) ? res.data : [];
                     setCachedAccounts(data);
-                    setInsights(null);
-                    setAggregatedInsights(null);
                   } catch (_) {}
                   setDisconnectingId(null);
                 }}
