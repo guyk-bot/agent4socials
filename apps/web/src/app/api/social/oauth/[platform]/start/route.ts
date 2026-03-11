@@ -57,8 +57,15 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
       const fbRedirectUri = (process.env.FACEBOOK_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
       return `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.META_APP_ID}&redirect_uri=${encodeURIComponent(fbRedirectUri)}&state=${state}&scope=${encodeURIComponent(fbScope)}`;
     }
-    case 'TWITTER':
-      return `https://twitter.com/i/oauth2/authorize?client_id=${process.env.TWITTER_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.TWITTER_REDIRECT_URI || callbackUrl)}&response_type=code&scope=tweet.read%20tweet.write%20users.read%20dm.read%20dm.write%20offline.access&state=${state}&code_challenge=challenge&code_challenge_method=plain`;
+    case 'TWITTER': {
+      // Full "Send and manage Direct Messages" consent (group conversations, delete, react) requires dm.read + dm.write.
+      // Ensure the app has "Read and write" Direct Messages in X Developer Portal → App → Settings → User authentication settings.
+      const defaultTwitterScope = 'tweet.read tweet.write users.read dm.read dm.write offline.access';
+      const twitterScope = (typeof process.env.TWITTER_OAUTH_SCOPES === 'string' && process.env.TWITTER_OAUTH_SCOPES.trim())
+        ? process.env.TWITTER_OAUTH_SCOPES.trim()
+        : defaultTwitterScope;
+      return `https://twitter.com/i/oauth2/authorize?client_id=${process.env.TWITTER_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.TWITTER_REDIRECT_URI || callbackUrl)}&response_type=code&scope=${encodeURIComponent(twitterScope)}&state=${state}&code_challenge=challenge&code_challenge_method=plain`;
+    }
     case 'LINKEDIN': {
       // r_organization_social / w_organization_social require Marketing/Community Management product approval.
       // Request them only when explicitly enabled so the Page flow doesn't fail with "Bummer, something went wrong".
