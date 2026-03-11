@@ -463,8 +463,16 @@ function InboxPage() {
   }, [dmOrFbPlatforms.join(','), effectiveAccounts.map((a) => a.id).join(',')]);
 
   const commentsSupportedPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK' || p === 'TWITTER' || p === 'YOUTUBE' || p === 'TIKTOK');
+  // When only TikTok is selected, TikTok's API doesn't return comment text — so also fetch other platforms so the list doesn't go empty
+  const platformsToFetchComments =
+    commentsSupportedPlatforms.length === 1 && commentsSupportedPlatforms[0] === 'TIKTOK'
+      ? (effectiveAccounts
+          .map((a) => a.platform)
+          .filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK' || p === 'TWITTER' || p === 'YOUTUBE' || p === 'TIKTOK') as string[])
+      : commentsSupportedPlatforms;
+  const tiktokOnlyFallback = platformsToFetchComments.length > 1 && commentsSupportedPlatforms.length === 1 && commentsSupportedPlatforms[0] === 'TIKTOK';
   useEffect(() => {
-    if (commentsSupportedPlatforms.length === 0) {
+    if (platformsToFetchComments.length === 0) {
       setComments([]);
       setCommentsLoading(false);
       setCommentsError(null);
@@ -472,16 +480,17 @@ function InboxPage() {
     }
     let cancelled = false;
     const merge: PostComment[] = [];
-    let pending = commentsSupportedPlatforms.length;
+    let pending = platformsToFetchComments.length;
     let needsFetch = false;
     const errorsFound: string[] = [];
 
-    commentsSupportedPlatforms.forEach((platform) => {
+    platformsToFetchComments.forEach((platform) => {
       const account = effectiveAccounts.find((a) => a.platform === platform);
       if (!account) {
         if (--pending === 0 && !cancelled) {
           setComments(merge.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
           setCommentsLoading(false);
+          setCommentsError(tiktokOnlyFallback && merge.length > 0 ? null : errorsFound[0] ?? null);
         }
         return;
       }
@@ -492,7 +501,7 @@ function InboxPage() {
         merge.push(...withAccountId);
         if (--pending === 0 && !cancelled) {
           setComments(merge.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-          setCommentsError(null);
+          setCommentsError(tiktokOnlyFallback ? null : null);
           setCommentsLoading(false);
         }
         return;
@@ -509,7 +518,9 @@ function InboxPage() {
           if (apiError) errorsFound.push(apiError);
           if (--pending === 0) {
             setComments(merge.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-            setCommentsError(errorsFound.length > 0 ? errorsFound[0] : null);
+            setCommentsError(
+              tiktokOnlyFallback && merge.length > 0 ? null : (errorsFound.length > 0 ? errorsFound[0] : null)
+            );
             setCommentsLoading(false);
           }
       })
@@ -518,7 +529,9 @@ function InboxPage() {
           errorsFound.push('Could not load comments.');
           if (--pending === 0) {
             setComments(merge.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-            setCommentsError(errorsFound[0] ?? 'Could not load comments.');
+            setCommentsError(
+              tiktokOnlyFallback && merge.length > 0 ? null : (errorsFound[0] ?? 'Could not load comments.')
+            );
             setCommentsLoading(false);
           }
         });
@@ -530,7 +543,7 @@ function InboxPage() {
     }
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [commentsSupportedPlatforms.join(','), effectiveAccounts.map((a) => a.id).join(','), commentsRefreshKey]);
+  }, [platformsToFetchComments.join(','), effectiveAccounts.map((a) => a.id).join(','), commentsRefreshKey, tiktokOnlyFallback]);
 
   // Track unread comment ids: top-level comments not in persisted read set; new loads add to unread only if not read
   useEffect(() => {
@@ -1104,7 +1117,13 @@ function InboxPage() {
                 </button>
               </div>
             ) : (
-              <div className="divide-y divide-neutral-100">
+              <>
+                {tiktokOnlyFallback && (
+                  <div className="px-4 py-2.5 bg-sky-50 border-b border-sky-100 text-sm text-sky-800">
+                    TikTok comment text isn&apos;t available in the API. Showing comments from your other platforms.
+                  </div>
+                )}
+                <div className="divide-y divide-neutral-100">
                 {(() => {
                   const topLevelOnly = comments.filter((c) => !c.parentCommentId);
                   const hasRepliedByParent = new Set(
@@ -1194,6 +1213,7 @@ function InboxPage() {
                   });
                 })()}
               </div>
+              </>
             )
           ) : conversationsLoading ? (
             <div className="p-6 flex flex-col items-center justify-center gap-3">
