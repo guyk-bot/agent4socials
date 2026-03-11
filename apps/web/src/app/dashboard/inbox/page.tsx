@@ -1332,7 +1332,37 @@ function InboxPage() {
                       Reconnect Facebook
                     </button>
                   )}
+                  {selectedPlatform === 'TWITTER' && currentAccountForMessages && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setXDmDebugLoading(true);
+                        setXDmDebugResult(null);
+                        try {
+                          const res = await api.get(`/social/accounts/${currentAccountForMessages.id}/x-dm-debug`);
+                          setXDmDebugResult(res.data);
+                        } catch (e) {
+                          const err = e as { response?: { data?: unknown }; message?: string };
+                          setXDmDebugResult({ error: err?.message ?? 'Request failed', response: err?.response?.data });
+                        }
+                        setXDmDebugLoading(false);
+                      }}
+                      disabled={xDmDebugLoading}
+                      className="px-4 py-2 rounded-lg border border-neutral-300 bg-neutral-100 text-neutral-700 text-sm font-medium hover:bg-neutral-200 disabled:opacity-50 inline-flex items-center gap-2"
+                    >
+                      {xDmDebugLoading ? <Loader2 size={16} className="animate-spin" /> : <ExternalLink size={16} />}
+                      Diagnose X DMs
+                    </button>
+                  )}
               </div>
+              {selectedPlatform === 'TWITTER' && xDmDebugResult != null && (
+                <div className="mt-3 text-left rounded-lg border border-neutral-200 bg-neutral-50 p-3 overflow-auto max-h-64">
+                  <p className="text-xs font-semibold text-neutral-600 mb-2">X DM debug result</p>
+                  <pre className="text-xs text-neutral-700 whitespace-pre-wrap break-words font-mono">
+                    {JSON.stringify(xDmDebugResult, null, 2)}
+                  </pre>
+                </div>
+              )}
               </div>
             </div>
           ) : conversations.length === 0 ? (
