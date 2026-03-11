@@ -277,7 +277,7 @@ function InboxPage() {
 
   const currentAccountForMessages = selectedPlatform ? effectiveAccounts.find((a) => a.platform === selectedPlatform) : null;
   useEffect(() => {
-    if (!selectedConversationId || !currentAccountForMessages || (selectedPlatform !== 'INSTAGRAM' && selectedPlatform !== 'FACEBOOK')) {
+    if (!selectedConversationId || !currentAccountForMessages || (selectedPlatform !== 'INSTAGRAM' && selectedPlatform !== 'FACEBOOK' && selectedPlatform !== 'TWITTER')) {
       setConversationMessages([]);
       setConversationRecipientId(null);
       setConversationMessagesError(null);
@@ -375,7 +375,7 @@ function InboxPage() {
       .catch(() => setNotifications({ comments: 0, messages: 0 }));
   }, [selectedPlatform, inboxMode, appData]);
 
-  const dmOrFbPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK');
+  const dmOrFbPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK' || p === 'TWITTER');
   useEffect(() => {
     if (dmOrFbPlatforms.length === 0) {
       setConversations([]);
@@ -1249,7 +1249,12 @@ function InboxPage() {
               <p className="text-xs text-neutral-400 mt-1">Messages will appear here when you receive them.</p>
               {selectedPlatform === 'TIKTOK' && (
                 <p className="text-xs text-amber-700 mt-3 max-w-sm mx-auto bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                  TikTok inbox (DMs) are not available in the app. Use Instagram or Facebook to view and reply to messages here.
+                  TikTok inbox (DMs) are not available in the app. Use Instagram, Facebook, or X to view and reply to messages here.
+                </p>
+              )}
+              {selectedPlatform === 'TWITTER' && (
+                <p className="text-xs text-neutral-500 mt-3 max-w-sm mx-auto">
+                  X (Twitter) DMs from the last 30 days will appear here. Reconnect your X account from the sidebar if you have dm.read scope.
                 </p>
               )}
               {dmOrFbPlatforms.includes('INSTAGRAM') && selectedPlatform !== 'TIKTOK' && (
@@ -1371,7 +1376,7 @@ function InboxPage() {
           /* Batch reply to selected comments: show each in a card + Generate with AI */
           (() => {
             const selectedComments = comments.filter((c) => !c.parentCommentId && selectedCommentIds.has(c.commentId));
-            const canReplyPlatforms = new Set(['INSTAGRAM', 'FACEBOOK']);
+            const canReplyPlatforms = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER']);
             const replyable = selectedComments.filter((c) => canReplyPlatforms.has(c.platform));
             return (
               <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -1643,7 +1648,7 @@ function InboxPage() {
             </div>
           ) : (
             <div className="flex-1 flex items-center justify-center p-8">
-              <p className="text-sm text-neutral-500">Select an account (Instagram or Facebook) to send messages.</p>
+              <p className="text-sm text-neutral-500">Select an account (Instagram, Facebook, or X) to send messages.</p>
             </div>
           )
         ) : inboxMode === 'comments' && selectedComment ? (
@@ -1893,7 +1898,7 @@ function InboxPage() {
                     AI comment drafts are disabled. <a href="/dashboard/ai-assistant" className="font-medium underline">Add comment reply examples in AI Assistant</a> to enable them.
                   </p>
                 )}
-                {(selectedPlatform === 'INSTAGRAM' || selectedPlatform === 'FACEBOOK') && (
+                {(selectedPlatform === 'INSTAGRAM' || selectedPlatform === 'FACEBOOK' || selectedPlatform === 'TWITTER') && (
                   <div className="mt-3 pt-3 border-t border-neutral-100">
                     <button
                       type="button"

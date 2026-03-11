@@ -36,11 +36,90 @@ export async function GET(
   if (!account) {
     return NextResponse.json({ message: 'Account not found' }, { status: 404 });
   }
-  if (account.platform !== 'INSTAGRAM' && account.platform !== 'FACEBOOK') {
-    return NextResponse.json({ messages: [], error: 'Conversations are only available for Instagram and Facebook.' });
+  if (account.platform !== 'INSTAGRAM' && account.platform !== 'FACEBOOK' && account.platform !== 'TWITTER') {
+    return NextResponse.json({ messages: [], error: 'Conversations are only available for Instagram, Facebook, and X (Twitter).' });
   }
   if (!conversationId) {
     return NextResponse.json({ messages: [], error: 'conversationId required' }, { status: 400 });
+  }
+
+  // --- Twitter (X) DMs: GET /2/dm_conversations/:dm_conversation_id/dm_events ---
+  if (account.platform === 'TWITTER') {
+    const token = account.accessToken ?? '';
+    const ourId = account.platformUserId;
+    try {
+      const allMessages: Array<{ id: string; fromId: string | null; fromName: string | null; message: string; createdTime: string | null; isFromPage: boolean }> = [];
+      let nextToken: string | null = null;
+      const userMap = new Map<string, string>();
+
+      do {
+        const params: Record<string, string> = {
+          'dm_event.fields': 'created_at,sender_id,text',
+          expansions: 'sender_id',
+          'user.fields': 'id,name,username',
+          max_results: '100',
+        };
+        if (nextToken) params.pagination_token = nextToken;
+        const res = await axios.get<{
+          data?: Array<{
+            id: string;
+            event_type?: string;
+            created_at?: string;
+            sender_id?: string;
+            text?: string;
+          }>;
+          includes?: { users?: Array<{ id: string; name?: string; username?: string }> };
+          meta?: { next_token?: string };
+          error?: { message?: string };
+        }>(`https://api.twitter.com/2/dm_conversations/${conversationId}/dm_events`, {
+          params,
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 15_000,
+        });
+        if (res.data?.error) {
+          return NextResponse.json({
+            messages: [],
+            recipientId: null,
+            error: res.data.error.message ?? 'Could not load X messages.',
+          });
+        }
+        for (const u of res.data?.includes?.users ?? []) {
+          userMap.set(u.id, u.username ?? u.name ?? u.id);
+        }
+        for (const ev of res.data?.data ?? []) {
+          if (ev.event_type !== 'MessageCreate') continue;
+          const fromId = ev.sender_id ?? null;
+          const isFromPage = fromId === ourId;
+          allMessages.push({
+            id: ev.id,
+            fromId,
+            fromName: fromId ? (userMap.get(fromId) ?? null) : null,
+            message: ev.text ?? '',
+            createdTime: ev.created_at ?? null,
+            isFromPage,
+          });
+        }
+        nextToken = res.data?.meta?.next_token ?? null;
+      } while (nextToken);
+
+      allMessages.sort((a, b) => {
+        const tA = a.createdTime ? new Date(a.createdTime).getTime() : 0;
+        const tB = b.createdTime ? new Date(b.createdTime).getTime() : 0;
+        return tA - tB;
+      });
+      let recipientId: string | null = null;
+      for (const m of allMessages) {
+        if (m.fromId && m.fromId !== ourId) {
+          recipientId = m.fromId;
+          break;
+        }
+      }
+      return NextResponse.json({ messages: allMessages, recipientId });
+    } catch (e) {
+      const err = e as { response?: { data?: { error?: { message?: string } } }; message?: string };
+      const msg = err?.response?.data?.error?.message ?? err?.message ?? 'Could not load X messages.';
+      return NextResponse.json({ messages: [], recipientId: null, error: msg });
+    }
   }
 
   const credJson = (account.credentialsJson && typeof account.credentialsJson === 'object'
@@ -231,8 +310,8 @@ export async function POST(
   if (!account) {
     return NextResponse.json({ message: 'Account not found' }, { status: 404 });
   }
-  if (account.platform !== 'INSTAGRAM' && account.platform !== 'FACEBOOK') {
-    return NextResponse.json({ message: 'Sending is only available for Instagram and Facebook.' }, { status: 400 });
+  if (account.platform !== 'INSTAGRAM' && account.platform !== 'FACEBOOK' && account.platform !== 'TWITTER') {
+    return NextResponse.json({ message: 'Sending is only available for Instagram, Facebook, and X (Twitter).' }, { status: 400 });
   }
   if (!conversationId) {
     return NextResponse.json({ message: 'conversationId required' }, { status: 400 });
@@ -276,6 +355,31 @@ export async function POST(
   if (resolvedPageId) ourIds.add(resolvedPageId);
 
   let recipientId = typeof body.recipientId === 'string' ? body.recipientId.trim() : null;
+
+  // X (Twitter): recipientId is required (the other participant's user id)
+  if (account.platform === 'TWITTER') {
+    if (!recipientId) {
+      return NextResponse.json({ message: 'recipientId is required to send an X (Twitter) DM.' }, { status: 400 });
+    }
+    try {
+      await axios.post<{ data?: { dm_conversation_id?: string; dm_event_id?: string }; error?: { message?: string } }>(
+        `https://api.twitter.com/2/dm_conversations/with/${encodeURIComponent(recipientId)}/messages`,
+        { text: text.slice(0, 10000) },
+        {
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${account.accessToken}` },
+          timeout: 15_000,
+        }
+      );
+      return NextResponse.json({ ok: true, message: 'Message sent.' });
+    } catch (e) {
+      const err = e as { response?: { data?: { error?: { message?: string } }; status?: number } };
+      const msg = err?.response?.data?.error?.message ?? err?.message ?? 'Failed to send X message.';
+      return NextResponse.json(
+        { message: msg || 'Failed to send message. Reconnect your X account from the sidebar.' },
+        { status: err?.response?.status && err.response.status >= 400 ? err.response.status : 500 }
+      );
+    }
+  }
 
   if (!recipientId) {
     try {

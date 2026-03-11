@@ -28,7 +28,7 @@ type ConvApiResponse = {
 
 /**
  * GET /api/social/accounts/[id]/conversations
- * Returns list of conversations (DMs) for this Instagram or Facebook account.
+ * Returns list of conversations (DMs) for this Instagram, Facebook, or X (Twitter) account.
  */
 export async function GET(
   request: NextRequest,
@@ -52,8 +52,8 @@ export async function GET(
     return NextResponse.json({ message: 'Account not found' }, { status: 404 });
   }
 
-  if (account.platform !== 'INSTAGRAM' && account.platform !== 'FACEBOOK') {
-    return NextResponse.json({ conversations: [], hint: 'Conversations are only available for Instagram and Facebook.' });
+  if (account.platform !== 'INSTAGRAM' && account.platform !== 'FACEBOOK' && account.platform !== 'TWITTER') {
+    return NextResponse.json({ conversations: [], hint: 'Conversations are only available for Instagram, Facebook, and X (Twitter).' });
   }
 
   const token = (account.accessToken || '').trim();
@@ -62,6 +62,102 @@ export async function GET(
       conversations: [],
       error: 'No access token. Reconnect this account from the sidebar (Reconnect Facebook & Instagram) and choose your Page.',
     }, { status: 200 });
+  }
+
+  // --- Twitter (X) DMs: GET /2/dm_events, group by dm_conversation_id ---
+  if (account.platform === 'TWITTER') {
+    try {
+      const ourId = account.platformUserId;
+      const convosById = new Map<string, { updatedTime: string; otherParticipantIds: Set<string> }>();
+      let nextToken: string | null = null;
+      let pageCount = 0;
+      const userMap = new Map<string, { id: string; name?: string; username?: string; profile_image_url?: string }>();
+
+      do {
+        const params: Record<string, string> = {
+          'dm_event.fields': 'dm_conversation_id,created_at,sender_id',
+          expansions: 'sender_id',
+          'user.fields': 'id,name,username,profile_image_url',
+          max_results: '100',
+        };
+        if (nextToken) params.pagination_token = nextToken;
+        const res = await axios.get<{
+          data?: Array<{
+            id: string;
+            event_type?: string;
+            dm_conversation_id?: string;
+            created_at?: string;
+            sender_id?: string;
+          }>;
+          includes?: { users?: Array<{ id: string; name?: string; username?: string; profile_image_url?: string }> };
+          meta?: { next_token?: string };
+          error?: { message?: string };
+        }>('https://api.twitter.com/2/dm_events', {
+          params,
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 15_000,
+        });
+        if (res.data?.error) {
+          const msg = res.data.error.message ?? '';
+          if (msg.toLowerCase().includes('dm.read') || msg.toLowerCase().includes('scope') || msg.toLowerCase().includes('403')) {
+            return NextResponse.json({
+              conversations: [],
+              error: 'X (Twitter) DMs require dm.read scope. Reconnect your X account from the sidebar and grant access to read messages.',
+            });
+          }
+          return NextResponse.json({ conversations: [], error: msg || 'Could not load X conversations.' });
+        }
+        const events = res.data?.data ?? [];
+        for (const u of res.data?.includes?.users ?? []) {
+          userMap.set(u.id, u);
+        }
+        for (const ev of events) {
+          if (ev.event_type !== 'MessageCreate' || !ev.dm_conversation_id) continue;
+          const cid = ev.dm_conversation_id;
+          const updated = ev.created_at ?? '';
+          if (!convosById.has(cid)) {
+            convosById.set(cid, { updatedTime: updated, otherParticipantIds: new Set() });
+          }
+          const cur = convosById.get(cid)!;
+          if (updated.localeCompare(cur.updatedTime) > 0) cur.updatedTime = updated;
+          if (ev.sender_id && ev.sender_id !== ourId) cur.otherParticipantIds.add(ev.sender_id);
+        }
+        nextToken = res.data?.meta?.next_token ?? null;
+        pageCount++;
+      } while (nextToken && pageCount < 5);
+
+      const list = Array.from(convosById.entries()).map(([id, { updatedTime, otherParticipantIds }]) => {
+        const senders = Array.from(otherParticipantIds).map((uid) => {
+          const u = userMap.get(uid);
+          return {
+            id: uid,
+            name: u?.name ?? undefined,
+            username: u?.username ?? undefined,
+            pictureUrl: u?.profile_image_url?.replace(/_normal\./, '_400x400.') ?? null,
+          };
+        });
+        return {
+          id,
+          updatedTime: updatedTime || null,
+          senders: senders.length > 0 ? senders : [{ id: undefined, name: undefined, username: undefined, pictureUrl: null }],
+          messageCount: undefined as number | undefined,
+        };
+      });
+
+      list.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
+      return NextResponse.json({ conversations: list });
+    } catch (e) {
+      const err = e as { response?: { data?: { error?: { message?: string } }; status?: number }; message?: string };
+      const msg = err?.response?.data?.error?.message ?? err?.message ?? 'Could not load X conversations.';
+      if (err?.response?.status === 403 || /dm\.read|scope|permission/i.test(msg)) {
+        return NextResponse.json({
+          conversations: [],
+          error: 'X (Twitter) DMs require dm.read scope. Reconnect your X account from the sidebar.',
+        });
+      }
+      console.warn('[Conversations] Twitter error:', msg);
+      return NextResponse.json({ conversations: [], error: msg });
+    }
   }
 
   const isInstagram = account.platform === 'INSTAGRAM';

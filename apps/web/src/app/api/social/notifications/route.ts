@@ -120,6 +120,24 @@ export async function GET(request: NextRequest) {
       commentsTotal += commentsCount;
       if (!byPlatform['TWITTER']) byPlatform['TWITTER'] = { comments: 0, messages: 0 };
       byPlatform['TWITTER'].comments += commentsCount;
+      let messagesCount = 0;
+      try {
+        const dmRes = await axios.get<{ data?: Array<{ dm_conversation_id?: string }> }; meta?: { result_count?: number }>(
+          'https://api.twitter.com/2/dm_events',
+          {
+            params: { 'dm_event.fields': 'dm_conversation_id', max_results: 100 },
+            headers: { Authorization: `Bearer ${token}` },
+            timeout: 8000,
+          }
+        );
+        const events = dmRes.data?.data ?? [];
+        const convIds = new Set(events.map((e) => e.dm_conversation_id).filter(Boolean));
+        messagesCount = convIds.size;
+      } catch (_) {
+        // skip
+      }
+      messagesTotal += messagesCount;
+      byPlatform['TWITTER'].messages += messagesCount;
     }
   }
 
