@@ -71,6 +71,7 @@ export async function GET(
       const convosById = new Map<string, { updatedTime: string; otherParticipantIds: Set<string> }>();
       let nextToken: string | null = null;
       let pageCount = 0;
+      let totalEventsFetched = 0;
       const userMap = new Map<string, { id: string; name?: string; username?: string; profile_image_url?: string }>();
 
       type TwitterSender = { id: string | undefined; name: string | undefined; username: string | undefined; pictureUrl: string | null };
@@ -112,6 +113,7 @@ export async function GET(
           return NextResponse.json({ conversations: [], error: msg || 'Could not load X conversations.' });
         }
         const events = res.data?.data ?? [];
+        totalEventsFetched += events.length;
         for (const u of res.data?.includes?.users ?? []) {
           userMap.set(u.id, u);
         }
@@ -206,7 +208,24 @@ export async function GET(
       }
 
       list.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
-      return NextResponse.json({ conversations: list });
+      let debug: { eventCount?: number; conversationCount?: number; tokenCheck?: string } | undefined;
+      if (list.length === 0) {
+        let tokenCheck = 'not_checked';
+        try {
+          const meRes = await axios.get<{ data?: { id?: string; username?: string }; error?: { message?: string } }>(
+            'https://api.twitter.com/2/users/me',
+            { params: { 'user.fields': 'id,username' }, headers: { Authorization: `Bearer ${token}` }, timeout: 8_000 }
+          );
+          if (meRes.data?.error) tokenCheck = `token_error: ${meRes.data.error.message ?? 'unknown'}`;
+          else if (meRes.data?.data?.id) tokenCheck = `ok (user ${meRes.data.data.username ?? meRes.data.data.id})`;
+          else tokenCheck = 'ok (no user id)';
+        } catch (meErr) {
+          const meMsg = (meErr as { response?: { data?: { error?: { message?: string } }; status?: number } })?.response?.data?.error?.message ?? (meErr as Error)?.message;
+          tokenCheck = `check_failed: ${String(meMsg ?? 'unknown').slice(0, 80)}`;
+        }
+        debug = { eventCount: totalEventsFetched, conversationCount: 0, tokenCheck };
+      }
+      return NextResponse.json({ conversations: list, ...(debug && { debug }) });
     } catch (e) {
       const err = e as { response?: { data?: { error?: { message?: string } }; status?: number }; message?: string };
       const msg = err?.response?.data?.error?.message ?? err?.message ?? 'Could not load X conversations.';

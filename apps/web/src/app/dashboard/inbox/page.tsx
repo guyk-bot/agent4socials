@@ -430,7 +430,14 @@ function InboxPage() {
           const list = (res.data?.conversations ?? []).map((c: Conversation) => ({ ...c, platform }));
           merge.push(...list);
           if (res.data?.error) errors.push(res.data.error);
-          if (res.data?.debug) debugs.push(res.data.debug);
+          if (res.data?.debug) {
+            if (platform === 'TWITTER' && list.length === 0) {
+              const d = res.data.debug as { tokenCheck?: string; eventCount?: number };
+              debugs.push({ metaMessage: `X API: ${d.tokenCheck ?? 'unknown'}. DM events returned: ${d.eventCount ?? 0}.` });
+            } else {
+              debugs.push(res.data.debug as { rawMessage?: string; code?: number; responseData?: unknown; metaMessage?: string });
+            }
+          }
           if (!res.data?.error) appData?.setConversationsForAccount(account.id, res.data?.conversations ?? []);
           if (--pending === 0) {
             setConversations(merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? '')));
@@ -1307,6 +1314,11 @@ function InboxPage() {
               {selectedPlatform === 'TWITTER' && (
                 <p className="text-xs text-neutral-500 mt-3 max-w-sm mx-auto">
                   X (Twitter) DMs from the last 30 days will appear here. Make sure the X icon is selected in the filter above. Reconnect your X account from the sidebar if you have dm.read scope and still see nothing.
+                </p>
+              )}
+              {conversationsDebug?.metaMessage && (
+                <p className="text-xs text-neutral-600 mt-2 max-w-sm mx-auto font-mono bg-neutral-100 px-2 py-1.5 rounded">
+                  {conversationsDebug.metaMessage}
                 </p>
               )}
               {dmOrFbPlatforms.includes('INSTAGRAM') && selectedPlatform !== 'TIKTOK' && (
