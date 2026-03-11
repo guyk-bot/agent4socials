@@ -1698,7 +1698,7 @@ function InboxPage() {
                       </div>
                       <div className="flex gap-4 items-start">
                         <div className="rounded-lg overflow-hidden shrink-0 w-[min(200px,100%)] max-w-[200px]">
-                          {(selectedComment.platform === 'INSTAGRAM' || selectedComment.platform === 'FACEBOOK' || selectedComment.platform === 'YOUTUBE') && selectedComment.accountId ? (
+                          {(selectedComment.platform === 'INSTAGRAM' || selectedComment.platform === 'FACEBOOK' || selectedComment.platform === 'YOUTUBE' || selectedComment.platform === 'TWITTER') && selectedComment.accountId ? (
                             <img
                               src={freshPostImageUrl(selectedComment)}
                               alt="Post"
@@ -1779,10 +1779,10 @@ function InboxPage() {
                 {aiReplyError && (
                   <p className="text-sm text-amber-700 mb-2">{aiReplyError}</p>
                 )}
-                {selectedComment.platform !== 'INSTAGRAM' && selectedComment.platform !== 'FACEBOOK' && selectedComment.platform !== 'YOUTUBE' ? (
+                {selectedComment.platform !== 'INSTAGRAM' && selectedComment.platform !== 'FACEBOOK' && selectedComment.platform !== 'YOUTUBE' && selectedComment.platform !== 'TWITTER' ? (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                    <p className="font-medium">Reply from the app is available for Instagram, Facebook, and YouTube.</p>
-                    <p className="mt-1 text-xs text-amber-700">For X (Twitter) comments, reply on the platform.</p>
+                    <p className="font-medium">Reply from the app is available for Instagram, Facebook, YouTube, and X (Twitter).</p>
+                    <p className="mt-1 text-xs text-amber-700">For other platforms, reply on the platform.</p>
                   </div>
                 ) : (
                 <>
@@ -1858,7 +1858,7 @@ function InboxPage() {
                       setReplyText('');
                       setReplySendError(null);
                       // Refresh so the API-side reply appears. Skip for YouTube: API returns only top-level comments, so refetch would remove the reply from the list.
-                      if (selectedComment.platform !== 'YOUTUBE') {
+                      if (selectedComment.platform !== 'YOUTUBE' && selectedComment.platform !== 'TWITTER') {
                         setTimeout(() => setCommentsRefreshKey((k) => k + 1), 3000);
                       }
                     } catch (e: unknown) {

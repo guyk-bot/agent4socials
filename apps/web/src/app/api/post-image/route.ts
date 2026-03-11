@@ -67,6 +67,25 @@ export async function GET(request: NextRequest) {
       }
     } else if (platform === 'YOUTUBE') {
       freshImageUrl = `https://i.ytimg.com/vi/${postId}/mqdefault.jpg`;
+    } else if (platform === 'TWITTER') {
+      if (imp?.thumbnailUrl) freshImageUrl = imp.thumbnailUrl;
+      else {
+        try {
+          const tr = await axios.get<{
+            data?: { attachments?: { media_keys?: string[] } };
+            includes?: { media?: Array<{ media_key: string; url?: string; preview_image_url?: string }> };
+          }>(`https://api.twitter.com/2/tweets/${postId}`, {
+            params: { 'tweet.fields': 'attachments', expansions: 'attachments.media_keys', 'media.fields': 'url,preview_image_url' },
+            headers: { Authorization: `Bearer ${token}` },
+            timeout: 8_000,
+          });
+          const firstKey = tr.data?.data?.attachments?.media_keys?.[0];
+          const media = firstKey ? (tr.data?.includes?.media ?? []).find((m: { media_key: string }) => m.media_key === firstKey) : undefined;
+          freshImageUrl = media?.preview_image_url ?? media?.url ?? null;
+        } catch (_) {
+          // keep null
+        }
+      }
     }
   } catch {
     // keep freshImageUrl from ImportedPost or null

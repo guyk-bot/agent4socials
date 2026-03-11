@@ -276,6 +276,28 @@ export async function GET(
         });
         return imp?.thumbnailUrl ?? `https://i.ytimg.com/vi/${postId}/mqdefault.jpg`;
       }
+      if (plat === 'TWITTER') {
+        const imp = await prisma.importedPost.findFirst({
+          where: { platformPostId: postId, socialAccountId: accountId },
+          select: { thumbnailUrl: true },
+        });
+        if (imp?.thumbnailUrl) return imp.thumbnailUrl;
+        try {
+          const tr = await axios.get<{
+            data?: { attachments?: { media_keys?: string[] } };
+            includes?: { media?: Array<{ media_key: string; url?: string; preview_image_url?: string }> };
+          }>(`https://api.twitter.com/2/tweets/${postId}`, {
+            params: { 'tweet.fields': 'attachments', expansions: 'attachments.media_keys', 'media.fields': 'url,preview_image_url' },
+            headers: { Authorization: `Bearer ${accessToken}` },
+            timeout: 8_000,
+          });
+          const firstKey = tr.data?.data?.attachments?.media_keys?.[0];
+          const media = firstKey ? (tr.data?.includes?.media ?? []).find((m) => m.media_key === firstKey) : undefined;
+          return media?.preview_image_url ?? media?.url ?? null;
+        } catch (_) {
+          return null;
+        }
+      }
     } catch (_) {}
     return null;
   }
@@ -515,7 +537,7 @@ export async function GET(
             platformPostId,
             accountId,
             postPreview,
-            postImageUrl: null,
+            postImageUrl: sourceImageUrl ?? (await getPostImageUrl(platformPostId, platform, token)),
             postPublishedAt: postPublishedAt ?? null,
             postUrl: sourcePostUrl ?? `https://twitter.com/i/web/status/${platformPostId}`,
             text: t.text ?? '',

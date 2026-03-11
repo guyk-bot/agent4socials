@@ -38,8 +38,8 @@ export async function POST(
   }
 
   const platform = account.platform;
-  if (platform !== 'INSTAGRAM' && platform !== 'FACEBOOK' && platform !== 'YOUTUBE') {
-    return NextResponse.json({ message: 'Comment replies are only supported for Instagram, Facebook, and YouTube.' }, { status: 400 });
+  if (platform !== 'INSTAGRAM' && platform !== 'FACEBOOK' && platform !== 'YOUTUBE' && platform !== 'TWITTER') {
+    return NextResponse.json({ message: 'Comment replies are only supported for Instagram, Facebook, YouTube, and X (Twitter).' }, { status: 400 });
   }
 
   const credJson = (account.credentialsJson && typeof account.credentialsJson === 'object'
@@ -50,6 +50,15 @@ export async function POST(
   const accessToken = account.accessToken ?? '';
 
   try {
+    if (platform === 'TWITTER') {
+      await axios.post<{ data?: { id?: string } }>(
+        'https://api.twitter.com/2/tweets',
+        { text: message.trim(), reply: { in_reply_to_tweet_id: commentId } },
+        { headers: { Authorization: `Bearer ${account.accessToken}`, 'Content-Type': 'application/json' }, timeout: 15_000 }
+      );
+      return NextResponse.json({ ok: true });
+    }
+
     if (platform === 'YOUTUBE') {
       const token = await getValidYoutubeToken({
         id: account.id,
@@ -98,7 +107,7 @@ export async function POST(
     console.error('[reply] error:', JSON.stringify(rawData ?? err));
     // Provide a clearer message for permission errors
     if (errData?.code === 200 || errData?.code === 10 || msg.toLowerCase().includes('permission') || msg.toLowerCase().includes('does not support') || msg.toLowerCase().includes('not exist')) {
-      const platformLabel = platform === 'INSTAGRAM' ? 'Instagram' : platform === 'FACEBOOK' ? 'Facebook' : 'YouTube';
+      const platformLabel = platform === 'INSTAGRAM' ? 'Instagram' : platform === 'FACEBOOK' ? 'Facebook' : platform === 'YOUTUBE' ? 'YouTube' : 'X (Twitter)';
       msg = `Reply failed: API permission error. Try reconnecting your account from the sidebar, or reply directly on ${platformLabel}.`;
     }
     return NextResponse.json({ message: msg }, { status: 400 });
