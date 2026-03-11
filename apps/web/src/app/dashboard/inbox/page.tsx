@@ -103,7 +103,7 @@ function InboxPage() {
   const platformFromUrl = searchParams.get('platform')?.toUpperCase();
   const setSelectedPlatformForConnect = useSelectedAccount()?.setSelectedPlatformForConnect ?? (() => {});
   const appData = useAppData();
-  const { cachedAccounts } = useAccountsCache() ?? { cachedAccounts: [] };
+  const { cachedAccounts, setCachedAccounts } = useAccountsCache() ?? { cachedAccounts: [], setCachedAccounts: () => {} };
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
   const [inboxFilter, setInboxFilter] = useState<'all' | 'read' | 'unread'>('all');
@@ -447,8 +447,16 @@ function InboxPage() {
         })
         .catch((err: { message?: string; response?: { status?: number; data?: unknown } }) => {
           if (cancelled) return;
+          const status = err?.response?.status;
+          // 404 usually means the account was disconnected; refresh account list so we don't keep using a stale id
+          if (status === 404 && setCachedAccounts) {
+            api.get('/social/accounts').then((res) => {
+              const data = Array.isArray(res?.data) ? res.data : [];
+              setCachedAccounts(data);
+            }).catch(() => {});
+          }
           const msg = err?.message ?? 'Could not load conversations.';
-          const isTimeout = err?.response?.status === 408 || /timeout|408/i.test(msg);
+          const isTimeout = status === 408 || /timeout|408/i.test(msg);
           errors.push(isTimeout ? 'Request timed out. Try again or reconnect and choose your Page.' : msg);
           type MetaErr = { message?: string; code?: number };
           const metaError: MetaErr | undefined = err?.response?.data && typeof err.response.data === 'object'
@@ -541,9 +549,15 @@ function InboxPage() {
             setCommentsLoading(false);
           }
       })
-      .catch(() => {
+      .catch((err: { response?: { status?: number } }) => {
           if (cancelled) return;
           errorsFound.push('Could not load comments.');
+          if (err?.response?.status === 404 && setCachedAccounts) {
+            api.get('/social/accounts').then((res) => {
+              const data = Array.isArray(res?.data) ? res.data : [];
+              setCachedAccounts(data);
+            }).catch(() => {});
+          }
           if (--pending === 0) {
             setComments(merge.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
             setCommentsError(
@@ -1102,6 +1116,21 @@ function InboxPage() {
                     <RefreshCw size={14} />
                     Retry
                   </button>
+                  {effectiveAccounts.some((a) => a.platform === 'TWITTER') && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const res = await api.get('/social/oauth/TWITTER/start');
+                          const url = res?.data?.url;
+                          if (url) window.location.href = url;
+                        } catch { /* ignore */ }
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-neutral-800 text-white text-sm font-medium hover:opacity-90"
+                    >
+                      Reconnect X (Twitter)
+                    </button>
+                  )}
                   {effectiveAccounts.some((a) => a.platform === 'INSTAGRAM') && (commentsError.toLowerCase().includes('permission') || commentsError.toLowerCase().includes('reconnect') || commentsError.toLowerCase().includes('expired')) && (
                     <button
                       type="button"
@@ -1256,6 +1285,21 @@ function InboxPage() {
                   <p className="text-xs text-red-800 mt-1 font-mono bg-red-100/80 px-2 py-1 rounded mt-2">{conversationsDebug.metaMessage}</p>
                 )}
                 <div className="mt-3 flex flex-col gap-2">
+                  {effectiveAccounts.some((a) => a.platform === 'TWITTER') && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const res = await api.get('/social/oauth/TWITTER/start');
+                          const url = res?.data?.url;
+                          if (url && typeof url === 'string') window.location.href = url;
+                        } catch (_) {}
+                      }}
+                      className="px-4 py-2 rounded-lg bg-neutral-800 text-white text-sm font-medium hover:bg-neutral-900"
+                    >
+                      Reconnect X (Twitter)
+                    </button>
+                  )}
                   {effectiveAccounts.some((a) => a.platform === 'INSTAGRAM') && (
                     <button
                       type="button"
