@@ -89,7 +89,7 @@ export async function GET(
             params: v11Params, headers: { ...v11Auth }, timeout: 15_000,
           });
 
-          if (Array.isArray(v11Res.data?.events)) {
+          if (Array.isArray(v11Res.data?.events) && v11Res.data.events.length > 0) {
             const convMap = new Map<string, { updatedTime: string; partnerId: string }>();
             for (const ev of v11Res.data.events!) {
               if (ev.type !== 'message_create') continue;
@@ -149,18 +149,19 @@ export async function GET(
       let nextToken: string | null = null;
       let pageCount = 0;
       let totalEventsFetched = 0;
+      let lastRawResponse: unknown;
       const userMap = new Map<string, { id: string; name?: string; username?: string; profile_image_url?: string }>();
 
       type TwitterSender = { id: string | undefined; name: string | undefined; username: string | undefined; pictureUrl: string | null };
       type TwitterConvItem = { id: string; updatedTime: string | null; senders: TwitterSender[]; messageCount: number | undefined };
 
       do {
+        // No event_types filter — the original working code had none; the filter was added later and causes 0 results
         const params: Record<string, string> = {
           'dm_event.fields': 'dm_conversation_id,created_at,sender_id,participant_ids',
           expansions: 'sender_id,participant_ids',
           'user.fields': 'id,name,username,profile_image_url',
           max_results: '100',
-          event_types: 'MessageCreate',
         };
         if (nextToken) params.pagination_token = nextToken;
         const res = await axios.get<{
@@ -181,6 +182,7 @@ export async function GET(
           headers: { Authorization: `Bearer ${token}` },
           timeout: 15_000,
         });
+        lastRawResponse = { status: res.status, keys: Object.keys(res.data ?? {}), dataLen: res.data?.data?.length ?? null, error: res.data?.error, errors: res.data?.errors };
         // X API v2 returns errors as EITHER error (singular) or errors (plural array)
         const apiErr = res.data?.error ?? (res.data?.errors?.[0]
           ? { message: res.data.errors[0].detail ?? res.data.errors[0].title ?? 'X API error' }
@@ -291,7 +293,7 @@ export async function GET(
       }
 
       list.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
-      let debug: { eventCount?: number; conversationCount?: number; tokenCheck?: string; rawErrors?: unknown } | undefined;
+      let debug: { eventCount?: number; conversationCount?: number; tokenCheck?: string; rawErrors?: unknown; dmEventsResponse?: unknown } | undefined;
       if (list.length === 0) {
         let tokenCheck = 'not_checked';
         let rawErrors: unknown;
@@ -308,7 +310,7 @@ export async function GET(
           const meMsg = (meErr as { response?: { data?: { error?: { message?: string } }; status?: number } })?.response?.data?.error?.message ?? (meErr as Error)?.message;
           tokenCheck = `check_failed: ${String(meMsg ?? 'unknown').slice(0, 80)}`;
         }
-        debug = { eventCount: totalEventsFetched, conversationCount: 0, tokenCheck, ...(rawErrors ? { rawErrors } : {}) };
+        debug = { eventCount: totalEventsFetched, conversationCount: 0, tokenCheck, dmEventsResponse: lastRawResponse, ...(rawErrors ? { rawErrors } : {}) };
       }
       return NextResponse.json({ conversations: list, ...(debug && { debug }) });
     } catch (e) {

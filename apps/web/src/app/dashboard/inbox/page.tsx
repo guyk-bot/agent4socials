@@ -434,9 +434,10 @@ function InboxPage() {
           if (res.data?.error) errors.push(res.data.error);
           if (res.data?.debug) {
             if (platform === 'TWITTER' && list.length === 0) {
-              const d = res.data.debug as { tokenCheck?: string; eventCount?: number; rawErrors?: unknown };
+              const d = res.data.debug as { tokenCheck?: string; eventCount?: number; rawErrors?: unknown; dmEventsResponse?: unknown };
               const errStr = d.rawErrors ? ` Errors: ${JSON.stringify(d.rawErrors).slice(0, 120)}` : '';
-              debugs.push({ metaMessage: `X API: ${d.tokenCheck ?? 'unknown'}. DM events returned: ${d.eventCount ?? 0}.${errStr}` });
+              const apiStr = d.dmEventsResponse ? ` dm_events API: ${JSON.stringify(d.dmEventsResponse).slice(0, 200)}` : '';
+              debugs.push({ metaMessage: `X API: ${d.tokenCheck ?? 'unknown'}. DM events returned: ${d.eventCount ?? 0}.${errStr}${apiStr}` });
             } else {
               debugs.push(res.data.debug as { rawMessage?: string; code?: number; responseData?: unknown; metaMessage?: string });
             }
