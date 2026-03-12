@@ -175,17 +175,22 @@ export async function GET(
           includes?: { users?: Array<{ id: string; name?: string; username?: string; profile_image_url?: string }> };
           meta?: { next_token?: string };
           error?: { message?: string };
+          errors?: Array<{ title?: string; detail?: string; type?: string; status?: number }>;
         }>('https://api.x.com/2/dm_events', {
           params,
           headers: { Authorization: `Bearer ${token}` },
           timeout: 15_000,
         });
-        if (res.data?.error) {
-          const msg = res.data.error.message ?? '';
-          if (msg.toLowerCase().includes('dm.read') || msg.toLowerCase().includes('scope') || msg.toLowerCase().includes('403')) {
+        // X API v2 returns errors as EITHER error (singular) or errors (plural array)
+        const apiErr = res.data?.error ?? (res.data?.errors?.[0]
+          ? { message: res.data.errors[0].detail ?? res.data.errors[0].title ?? 'X API error' }
+          : null);
+        if (apiErr) {
+          const msg = apiErr.message ?? '';
+          if (/dm\.read|scope|403|forbidden|permission|not authorized/i.test(msg)) {
             return NextResponse.json({
               conversations: [],
-              error: 'X (Twitter) DMs require dm.read scope. Reconnect your X account from the sidebar and grant access to read messages.',
+              error: 'X DMs: permission denied. Reconnect your X account from the sidebar.',
             });
           }
           return NextResponse.json({ conversations: [], error: msg || 'Could not load X conversations.' });
@@ -286,22 +291,24 @@ export async function GET(
       }
 
       list.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
-      let debug: { eventCount?: number; conversationCount?: number; tokenCheck?: string } | undefined;
+      let debug: { eventCount?: number; conversationCount?: number; tokenCheck?: string; rawErrors?: unknown } | undefined;
       if (list.length === 0) {
         let tokenCheck = 'not_checked';
+        let rawErrors: unknown;
         try {
-          const meRes = await axios.get<{ data?: { id?: string; username?: string }; error?: { message?: string } }>(
+          const meRes = await axios.get<{ data?: { id?: string; username?: string }; error?: { message?: string }; errors?: unknown }>(
             'https://api.x.com/2/users/me',
             { params: { 'user.fields': 'id,username' }, headers: { Authorization: `Bearer ${token}` }, timeout: 8_000 }
           );
           if (meRes.data?.error) tokenCheck = `token_error: ${meRes.data.error.message ?? 'unknown'}`;
           else if (meRes.data?.data?.id) tokenCheck = `ok (user ${meRes.data.data.username ?? meRes.data.data.id})`;
           else tokenCheck = 'ok (no user id)';
+          rawErrors = meRes.data?.errors;
         } catch (meErr) {
           const meMsg = (meErr as { response?: { data?: { error?: { message?: string } }; status?: number } })?.response?.data?.error?.message ?? (meErr as Error)?.message;
           tokenCheck = `check_failed: ${String(meMsg ?? 'unknown').slice(0, 80)}`;
         }
-        debug = { eventCount: totalEventsFetched, conversationCount: 0, tokenCheck };
+        debug = { eventCount: totalEventsFetched, conversationCount: 0, tokenCheck, ...(rawErrors ? { rawErrors } : {}) };
       }
       return NextResponse.json({ conversations: list, ...(debug && { debug }) });
     } catch (e) {
