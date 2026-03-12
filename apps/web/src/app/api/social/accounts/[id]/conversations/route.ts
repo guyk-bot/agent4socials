@@ -224,7 +224,7 @@ export async function GET(
           const meMsg = (meErr as { response?: { data?: { error?: { message?: string } }; status?: number } })?.response?.data?.error?.message ?? (meErr as Error)?.message;
           tokenCheck = `check_failed: ${String(meMsg ?? 'unknown').slice(0, 80)}`;
         }
-        debug = { eventCount: totalEventsFetched, conversationCount: 0, tokenCheck };
+        debug = { eventCount: totalEventsFetched, conversationCount: 0, tokenCheck, hint: 'If token is ok but events = 0, the X Developer App likely needs "Read and write and Direct Messages" in App permissions (developer.twitter.com > your app > User authentication settings). Reconnect after updating.' };
       }
       return NextResponse.json({ conversations: list, ...(debug && { debug }) });
     } catch (e) {
