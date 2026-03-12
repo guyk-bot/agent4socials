@@ -25,7 +25,7 @@ cd apps/web && npm run generate-favicons
 - **Layout:** `apps/web/src/app/layout.tsx`  
   - `metadata.icons`: primary icon is `logo-48.png` (48×48), with `logo.svg?v=3` as SVG fallback; Apple icon is `logo-192.png`.  
   - Bump the `?v=` on the SVG when you change the logo so caches refresh.
-- **Favicon.ico:** `apps/web/next.config.ts` rewrites `/favicon.ico` to `/logo-48.png` so Google and legacy clients get the correct icon.
+- **Favicon.ico:** `apps/web/next.config.ts` rewrites `/favicon.ico` to `/api/favicon`, which serves `logo-48.png`. There is no static `public/favicon.ico` (removing it ensures the rewrite is used and the 4S logo is shown).
 - **Organization JSON-LD:** In `layout.tsx`, `organizationJsonLd.logo` points to `logo-192.png` (absolute URL) so Google can show the right brand in search and Knowledge Panel.
 - **Manifest:** `apps/web/public/manifest.json` lists `logo-48.png`, `logo-192.png`, and `logo.svg?v=3`.
 
