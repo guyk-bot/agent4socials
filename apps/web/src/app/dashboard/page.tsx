@@ -235,7 +235,7 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const { cachedAccounts, setCachedAccounts } = useAccountsCache() ?? { cachedAccounts: [], setCachedAccounts: () => {} };
   const appData = useAppData();
-  const { selectedPlatformForConnect, clearSelection, setSelectedAccountId } = useSelectedAccount() ?? { selectedPlatformForConnect: null, clearSelection: () => {}, setSelectedAccountId: () => {} };
+  const { selectedPlatformForConnect, clearSelection, setSelectedAccountId, setSelectedPlatformForConnect } = useSelectedAccount() ?? { selectedPlatformForConnect: null, clearSelection: () => {}, setSelectedAccountId: () => {}, setSelectedPlatformForConnect: () => {} };
   const selectedAccount = useResolvedSelectedAccount(cachedAccounts as SocialAccount[]);
   const [justConnected, setJustConnected] = useState(false);
   const connectingParam = searchParams.get('connecting');
@@ -1032,9 +1032,11 @@ export default function DashboardPage() {
                 onConfirm={async () => {
                   setDisconnectingId(selectedAccount.id);
                   const accountIdToRemove = selectedAccount.id;
+                  const platformJustDisconnected = selectedAccount.platform;
                   try {
                     await api.delete(`/social/accounts/${accountIdToRemove}`);
-                    clearSelection();
+                    // Stay on the same platform's connection page (show Connect view for this platform)
+                    setSelectedPlatformForConnect(platformJustDisconnected);
                     // Update cache immediately so sidebar and counts update without refresh
                     setCachedAccounts((prev) => prev.filter((a) => a.id !== accountIdToRemove));
                     setInsights(null);
