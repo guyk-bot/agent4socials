@@ -1283,11 +1283,14 @@ function InboxPage() {
               <div className="rounded-xl border-2 border-red-200 bg-red-50 px-4 py-4">
                 <p className="text-sm font-medium text-red-900">Could not load messages</p>
                 <p className="text-xs text-red-700 mt-1">{conversationsError}</p>
+                {conversationsError?.includes('401') && (
+                  <p className="text-xs text-amber-800 mt-1 bg-amber-100/80 px-2 py-1 rounded">Your session or the platform token may have expired. Try reconnecting the selected platform below, or sign out and sign back in.</p>
+                )}
                 {conversationsDebug?.metaMessage && (
                   <p className="text-xs text-red-800 mt-1 font-mono bg-red-100/80 px-2 py-1 rounded mt-2">{conversationsDebug.metaMessage}</p>
                 )}
                 <div className="mt-3 flex flex-col gap-2">
-                  {effectiveAccounts.some((a) => a.platform === 'TWITTER') && (
+                  {dmOrFbPlatforms.includes('TWITTER') && effectiveAccounts.some((a) => a.platform === 'TWITTER') && (
                     <button
                       type="button"
                       onClick={async () => {
@@ -1302,7 +1305,7 @@ function InboxPage() {
                       Reconnect X (Twitter)
                     </button>
                   )}
-                  {effectiveAccounts.some((a) => a.platform === 'INSTAGRAM') && (
+                  {dmOrFbPlatforms.includes('INSTAGRAM') && effectiveAccounts.some((a) => a.platform === 'INSTAGRAM') && (
                     <button
                       type="button"
                       onClick={async () => {
@@ -1317,7 +1320,7 @@ function InboxPage() {
                       Reconnect Instagram
                     </button>
                   )}
-                  {effectiveAccounts.some((a) => a.platform === 'FACEBOOK') && (
+                  {dmOrFbPlatforms.includes('FACEBOOK') && effectiveAccounts.some((a) => a.platform === 'FACEBOOK') && (
                     <button
                       type="button"
                       onClick={async () => {
