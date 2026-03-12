@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Check, Minus, Star, Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { Check, Minus, Star, Loader2, BookOpen } from 'lucide-react';
 import { InstagramIcon, FacebookIcon, YoutubeIcon, LinkedinIcon, TikTokIcon, XTwitterIcon } from '@/components/SocialPlatformIcons';
 
 const PLATFORM_INFO: Record<string, {
@@ -12,6 +13,9 @@ const PLATFORM_INFO: Record<string, {
   buttonHover: string;
   accentBorder: string;
   accentHover: string;
+  functionalities: string[];
+  limitations: string[];
+  helpAnchor: string;
 }> = {
   INSTAGRAM: {
     name: 'Instagram',
@@ -21,6 +25,18 @@ const PLATFORM_INFO: Record<string, {
     buttonHover: 'hover:from-pink-600 hover:to-purple-700',
     accentBorder: 'border-pink-200',
     accentHover: 'hover:border-pink-400 hover:bg-pink-50/40',
+    functionalities: [
+      'Schedule posts, carousels, and reels',
+      'Analytics: followers, reach, impressions (last 28 days)',
+      'Inbox: DMs and comments, reply from the app',
+      'Automation and AI reply drafts',
+    ],
+    limitations: [
+      'Business or Creator accounts only; personal accounts not supported',
+      'Full DMs require Meta Advanced Access (or test users in Development mode)',
+      'Insights limited to last 28 days; comments on posts older than 28 days not available',
+    ],
+    helpAnchor: 'instagram',
   },
   FACEBOOK: {
     name: 'Facebook',
@@ -30,6 +46,16 @@ const PLATFORM_INFO: Record<string, {
     buttonHover: 'hover:from-blue-600 hover:to-blue-800',
     accentBorder: 'border-blue-200',
     accentHover: 'hover:border-blue-400 hover:bg-blue-50/40',
+    functionalities: [
+      'Publish as your Page and manage Page inbox',
+      'Insights: followers, reach, impressions',
+      'Comments in Inbox and reply from the app',
+    ],
+    limitations: [
+      'Page required (not a personal profile)',
+      'Insights depend on Meta API; some metrics may be limited or delayed',
+    ],
+    helpAnchor: 'facebook',
   },
   TIKTOK: {
     name: 'TikTok',
@@ -39,6 +65,15 @@ const PLATFORM_INFO: Record<string, {
     buttonHover: 'hover:from-neutral-900 hover:to-black',
     accentBorder: 'border-neutral-300',
     accentHover: 'hover:border-neutral-500 hover:bg-neutral-100/40',
+    functionalities: [
+      'Publish videos and basic analytics (followers, views)',
+      'Reel Analyzer for performance tips',
+    ],
+    limitations: [
+      'Inbox DMs not available; comment text not exposed by TikTok Display API',
+      'Some metrics may require additional API approval from TikTok',
+    ],
+    helpAnchor: 'tiktok',
   },
   YOUTUBE: {
     name: 'YouTube',
@@ -48,6 +83,15 @@ const PLATFORM_INFO: Record<string, {
     buttonHover: 'hover:from-red-600 hover:to-red-800',
     accentBorder: 'border-red-200',
     accentHover: 'hover:border-red-400 hover:bg-red-50/40',
+    functionalities: [
+      'Publish videos and subscriber count',
+      'View stats; detailed analytics when YouTube Analytics API is enabled',
+    ],
+    limitations: [
+      'YouTube Analytics API must be enabled in Google Cloud for full channel stats',
+      'Reconnect after enabling new scopes if data is missing',
+    ],
+    helpAnchor: 'youtube',
   },
   TWITTER: {
     name: 'X (Twitter)',
@@ -57,6 +101,17 @@ const PLATFORM_INFO: Record<string, {
     buttonHover: 'hover:from-sky-500 hover:to-sky-700',
     accentBorder: 'border-sky-200',
     accentHover: 'hover:border-sky-400 hover:bg-sky-50/40',
+    functionalities: [
+      'Post tweets and sync existing posts',
+      'Follower and tweet counts in analytics',
+      'DMs in Inbox (with Read and write + dm permissions)',
+    ],
+    limitations: [
+      'App must have Read and write and dm.read/dm.write in X Developer Portal for DMs',
+      'Cannot send DMs to private accounts (X API restriction)',
+      'Image upload requires appropriate app permissions',
+    ],
+    helpAnchor: 'twitter-x',
   },
   LINKEDIN: {
     name: 'LinkedIn',
@@ -66,6 +121,14 @@ const PLATFORM_INFO: Record<string, {
     buttonHover: 'hover:from-blue-700 hover:to-blue-900',
     accentBorder: 'border-blue-200',
     accentHover: 'hover:border-blue-400 hover:bg-blue-50/40',
+    functionalities: [
+      'Publish posts and schedule content',
+      'Connection count and basic profile data',
+    ],
+    limitations: [
+      'Impressions and reach require LinkedIn Marketing API approval',
+    ],
+    helpAnchor: 'linkedin',
   },
 };
 
@@ -76,6 +139,52 @@ type ConnectViewProps = {
   connectingMethod?: string;
   connectError?: string | null;
 };
+
+function ConnectPageSections({
+  functionalities,
+  limitations,
+  helpAnchor,
+}: {
+  functionalities: string[];
+  limitations: string[];
+  helpAnchor: string;
+}) {
+  return (
+    <div className="space-y-4 text-left">
+      <div>
+        <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">What you get</h2>
+        <ul className="space-y-1.5 text-sm text-neutral-600">
+          {functionalities.map((item, i) => (
+            <li key={i} className="flex items-start gap-2">
+              <Check size={14} className="text-green-600 shrink-0 mt-0.5" />
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div>
+        <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">Limitations</h2>
+        <ul className="space-y-1.5 text-sm text-neutral-600">
+          {limitations.map((item, i) => (
+            <li key={i} className="flex items-start gap-2">
+              <span className="text-amber-600 shrink-0">•</span>
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div className="pt-1">
+        <Link
+          href={`/help#${helpAnchor}`}
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-700 hover:underline"
+        >
+          <BookOpen size={16} />
+          Learn more in the Knowledge Base
+        </Link>
+      </div>
+    </div>
+  );
+}
 
 export default function ConnectView({ platform, onConnect, connecting, connectingMethod, connectError }: ConnectViewProps) {
   const info = PLATFORM_INFO[platform];
@@ -93,6 +202,12 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
           <h1 className="text-2xl font-bold text-neutral-900">Connect Instagram</h1>
           <p className="text-neutral-500 mt-1 max-w-sm mx-auto text-sm">{info.description}</p>
         </div>
+
+        <ConnectPageSections
+          functionalities={info.functionalities}
+          limitations={info.limitations}
+          helpAnchor={info.helpAnchor}
+        />
 
         {connectError && (
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{connectError}</div>
@@ -152,12 +267,19 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
   // ── TIKTOK (two account type buttons) ─────────────────────────────────────
   if (platform === 'TIKTOK') {
     return (
-      <div className="max-w-sm mx-auto space-y-6 px-4">
+      <div className="max-w-lg mx-auto space-y-6 px-4">
         <div className="text-center pt-2">
           <div className="inline-flex mb-3">{info.headerIcon}</div>
           <h1 className="text-2xl font-bold text-neutral-900">Connect TikTok</h1>
           <p className="text-neutral-500 mt-1 text-sm">{info.description}</p>
         </div>
+
+        <ConnectPageSections
+          functionalities={info.functionalities}
+          limitations={info.limitations}
+          helpAnchor={info.helpAnchor}
+        />
+
         {connectError && (
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{connectError}</div>
         )}
@@ -184,12 +306,18 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
 
   // ── GENERIC (Facebook, YouTube, Twitter, LinkedIn) ────────────────────────
   return (
-    <div className="max-w-sm mx-auto space-y-6 px-4">
+    <div className="max-w-lg mx-auto space-y-6 px-4">
       <div className="text-center pt-2">
         <div className="inline-flex mb-3">{info.headerIcon}</div>
         <h1 className="text-2xl font-bold text-neutral-900">Connect {info.name}</h1>
         <p className="text-neutral-500 mt-1 text-sm max-w-xs mx-auto">{info.description}</p>
       </div>
+
+      <ConnectPageSections
+        functionalities={info.functionalities}
+        limitations={info.limitations}
+        helpAnchor={info.helpAnchor}
+      />
 
       {connectError && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{connectError}</div>
