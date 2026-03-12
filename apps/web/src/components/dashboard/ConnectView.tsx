@@ -305,6 +305,7 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
           ))}
         </div>
         </div>
+        </div>
       </div>
     );
   }
