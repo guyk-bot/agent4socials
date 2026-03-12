@@ -104,12 +104,11 @@ const PLATFORM_INFO: Record<string, {
     functionalities: [
       'Post tweets and sync existing posts',
       'Follower and tweet counts in analytics',
-      'DMs in Inbox (with Read and write + dm permissions)',
+      'DMs in Inbox when your account has message access',
     ],
     limitations: [
-      'App must have Read and write and dm.read/dm.write in X Developer Portal for DMs',
-      'Cannot send DMs to private accounts (X API restriction)',
-      'Image upload requires appropriate app permissions',
+      'Cannot send DMs to private accounts',
+      'Image upload may need to be enabled from the Dashboard',
     ],
     helpAnchor: 'twitter-x',
   },
@@ -195,23 +194,24 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
   // ── INSTAGRAM (two options: IG-only vs Facebook) ──────────────────────────
   if (platform === 'INSTAGRAM') {
     return (
-      <div className="max-w-2xl mx-auto space-y-6 px-4">
-        {/* Header — icon only, no background */}
-        <div className="text-center pt-2">
-          <div className="inline-flex mb-3">{info.headerIcon}</div>
-          <h1 className="text-2xl font-bold text-neutral-900">Connect Instagram</h1>
-          <p className="text-neutral-500 mt-1 max-w-sm mx-auto text-sm">{info.description}</p>
+      <div className="max-w-2xl mx-auto px-4">
+        <div className={`rounded-2xl border-2 p-6 sm:p-8 ${info.accentBorder} bg-gradient-to-b from-white to-pink-50/30 shadow-sm mb-6`}>
+          <div className="text-center pt-2 pb-4">
+            <div className="inline-flex mb-3">{info.headerIcon}</div>
+            <h1 className="text-2xl font-bold text-neutral-900">Connect Instagram</h1>
+            <p className="text-neutral-500 mt-1 max-w-sm mx-auto text-sm">{info.description}</p>
+          </div>
+
+          <ConnectPageSections
+            functionalities={info.functionalities}
+            limitations={info.limitations}
+            helpAnchor={info.helpAnchor}
+          />
+
+          {connectError && (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 mt-4">{connectError}</div>
+          )}
         </div>
-
-        <ConnectPageSections
-          functionalities={info.functionalities}
-          limitations={info.limitations}
-          helpAnchor={info.helpAnchor}
-        />
-
-        {connectError && (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{connectError}</div>
-        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Instagram-only */}
           <button
@@ -267,23 +267,24 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
   // ── TIKTOK (two account type buttons) ─────────────────────────────────────
   if (platform === 'TIKTOK') {
     return (
-      <div className="max-w-lg mx-auto space-y-6 px-4">
-        <div className="text-center pt-2">
-          <div className="inline-flex mb-3">{info.headerIcon}</div>
-          <h1 className="text-2xl font-bold text-neutral-900">Connect TikTok</h1>
-          <p className="text-neutral-500 mt-1 text-sm">{info.description}</p>
-        </div>
+      <div className="max-w-lg mx-auto px-4">
+        <div className={`rounded-2xl border-2 p-6 sm:p-8 ${info.accentBorder} bg-gradient-to-b from-white to-neutral-100/80 shadow-sm`}>
+          <div className="text-center pt-2 pb-4">
+            <div className="inline-flex mb-3">{info.headerIcon}</div>
+            <h1 className="text-2xl font-bold text-neutral-900">Connect TikTok</h1>
+            <p className="text-neutral-500 mt-1 text-sm">{info.description}</p>
+          </div>
 
-        <ConnectPageSections
-          functionalities={info.functionalities}
-          limitations={info.limitations}
-          helpAnchor={info.helpAnchor}
-        />
+          <ConnectPageSections
+            functionalities={info.functionalities}
+            limitations={info.limitations}
+            helpAnchor={info.helpAnchor}
+          />
 
-        {connectError && (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{connectError}</div>
-        )}
-        <div className="space-y-3">
+          {connectError && (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 mt-4">{connectError}</div>
+          )}
+          <div className="space-y-3 mt-6">
           {[
             { method: 'personal', label: 'Personal account' },
             { method: 'business', label: 'Business account' },
@@ -300,38 +301,41 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
             </button>
           ))}
         </div>
+        </div>
       </div>
     );
   }
 
   // ── GENERIC (Facebook, YouTube, Twitter, LinkedIn) ────────────────────────
   return (
-    <div className="max-w-lg mx-auto space-y-6 px-4">
-      <div className="text-center pt-2">
-        <div className="inline-flex mb-3">{info.headerIcon}</div>
-        <h1 className="text-2xl font-bold text-neutral-900">Connect {info.name}</h1>
-        <p className="text-neutral-500 mt-1 text-sm max-w-xs mx-auto">{info.description}</p>
+    <div className="max-w-lg mx-auto px-4">
+      <div className={`rounded-2xl border-2 p-6 sm:p-8 ${info.accentBorder} bg-gradient-to-b from-white to-neutral-50/80 shadow-sm`}>
+        <div className="text-center pt-2 pb-4">
+          <div className="inline-flex mb-3">{info.headerIcon}</div>
+          <h1 className="text-2xl font-bold text-neutral-900">Connect {info.name}</h1>
+          <p className="text-neutral-500 mt-1 text-sm max-w-xs mx-auto">{info.description}</p>
+        </div>
+
+        <ConnectPageSections
+          functionalities={info.functionalities}
+          limitations={info.limitations}
+          helpAnchor={info.helpAnchor}
+        />
+
+        {connectError && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 mt-4">{connectError}</div>
+        )}
+
+        <button
+          type="button"
+          onClick={() => onConnect(platformLower)}
+          disabled={connecting}
+          className={`mt-6 w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl text-sm font-semibold text-white bg-gradient-to-r ${info.buttonGradient} ${info.buttonHover} transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed`}
+        >
+          {connecting ? <Loader2 size={18} className="animate-spin" /> : null}
+          Connect {info.name}
+        </button>
       </div>
-
-      <ConnectPageSections
-        functionalities={info.functionalities}
-        limitations={info.limitations}
-        helpAnchor={info.helpAnchor}
-      />
-
-      {connectError && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{connectError}</div>
-      )}
-
-      <button
-        type="button"
-        onClick={() => onConnect(platformLower)}
-        disabled={connecting}
-        className={`w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl text-sm font-semibold text-white bg-gradient-to-r ${info.buttonGradient} ${info.buttonHover} transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed`}
-      >
-        {connecting ? <Loader2 size={18} className="animate-spin" /> : null}
-        Connect {info.name}
-      </button>
     </div>
   );
 }

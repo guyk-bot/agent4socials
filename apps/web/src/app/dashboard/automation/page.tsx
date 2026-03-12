@@ -93,7 +93,7 @@ export default function AutomationPage() {
           <strong>LinkedIn:</strong> Keyword comment automation is not supported for LinkedIn. Replies run only on Instagram, Facebook, and X.
         </p>
         <p className="text-xs text-neutral-500 mt-2">
-          <strong>X (Twitter):</strong> If keyword replies on X don’t run, your X app may need access to the Search API (e.g. Basic or Pro tier in the X Developer Portal). Check that your app is in a Project with &quot;Read and write&quot; and that you have not hit rate or usage limits.
+          <strong>X (Twitter):</strong> If keyword replies on X don’t run, check that your X app has the right access and that you have not hit rate or usage limits. Reconnect X from the Dashboard if needed.
         </p>
         <div className="mt-3 p-3 rounded-lg bg-green-50 border border-green-200 text-sm text-green-900">
           <p className="font-medium mb-2">Setup checklist (do all steps)</p>
@@ -109,7 +109,7 @@ export default function AutomationPage() {
         <div className="mt-2 p-2.5 rounded-lg bg-white border border-neutral-200 text-xs">
           <p className="font-medium text-neutral-700 mb-1.5">Platform capabilities</p>
           <ul className="space-y-1 text-neutral-600">
-            <li><strong>Keyword reply:</strong> Instagram (public or DM), Facebook, X, LinkedIn (public). X uses the Search API; if you see an error when running, ensure your X app is attached to a Project in the Developer Portal.</li>
+            <li><strong>Keyword reply:</strong> Instagram (public or DM), Facebook, X, LinkedIn (public). For X, if you see an error when running, reconnect X from the Dashboard.</li>
             <li><strong>Welcome DM:</strong> Instagram, Facebook, X (when someone messages you first)</li>
             <li><strong>New-follower DM:</strong> X only</li>
           </ul>

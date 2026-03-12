@@ -104,7 +104,7 @@ export default function HelpPage() {
                   Connect your X (Twitter) account via OAuth. The app can post tweets and sync existing posts. <strong>Follower and tweet counts</strong> appear in analytics when the connection is valid. If you see zero or missing data, <strong>reconnect your X account</strong> from the Dashboard (click the account in the sidebar and use reconnect), or log in again when prompted.
                 </p>
                 <p className="text-neutral-600 text-sm leading-relaxed">
-                  For posting with images, the app must have Read and write permissions in the X Developer Portal. Enable image upload from the Dashboard if needed.
+                  For posting with images, enable image upload from the Dashboard if needed.
                 </p>
               </>
             )},

@@ -1422,12 +1422,12 @@ function InboxPage() {
               )}
               {selectedPlatform === 'TWITTER' && (
                 <p className="text-xs text-neutral-500 mt-3 max-w-sm mx-auto">
-                  X (Twitter) DMs from the last 30 days will appear here. Make sure the X icon is selected in the filter above. Reconnect your X account from the sidebar if you have dm.read scope and still see nothing.
+                  X (Twitter) DMs from the last 30 days will appear here. Make sure the X icon is selected in the filter above. Reconnect your X account from the sidebar if you still see nothing.
                 </p>
               )}
               {selectedPlatform === 'TWITTER' && conversationsDebug?.metaMessage?.includes('DM events returned: 0') && (
                 <p className="text-xs text-amber-700 mt-2 max-w-sm mx-auto bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                  Your app is connected but no DMs were returned. In the <strong>X Developer Portal</strong>, open your app → <strong>Settings</strong> (or <strong>Products</strong> / <strong>App permissions</strong>) and ensure <strong>Direct Messages</strong> is enabled for the app. Then disconnect and reconnect X in the sidebar.
+                  Your app is connected but no DMs were returned. Reconnect your X account from the sidebar and ensure you grant access to read messages.
                 </p>
               )}
               {conversationsDebug?.metaMessage && (
