@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import axios, { AxiosResponse } from 'axios';
+import { signTwitterRequest } from '@/lib/twitter-oauth1';
 
 const baseUrl = 'https://graph.facebook.com/v18.0';
 const igBaseUrl = 'https://graph.instagram.com/v25.0';
@@ -64,10 +65,86 @@ export async function GET(
     }, { status: 200 });
   }
 
-  // --- Twitter (X) DMs: GET /2/dm_events, group by dm_conversation_id ---
+  // --- Twitter (X) DMs: try v1.1 API first (uses OAuth 1.0a stored creds), fall back to v2 ---
   if (account.platform === 'TWITTER') {
     try {
       const ourId = String(account.platformUserId ?? '');
+
+      // ── v1.1 path (OAuth 1.0a) ───────────────────────────────────────────
+      const credJson1oa = (account.credentialsJson && typeof account.credentialsJson === 'object'
+        ? account.credentialsJson : {}) as Record<string, unknown>;
+      const oauth1Token = credJson1oa.twitterOAuth1AccessToken as string | undefined;
+      const oauth1Secret = credJson1oa.twitterOAuth1AccessTokenSecret as string | undefined;
+
+      if (oauth1Token && oauth1Secret) {
+        try {
+          type V11DmEvent = {
+            type: string; id: string; created_timestamp: string;
+            message_create: { target: { recipient_id: string }; sender_id: string };
+          };
+          const v11Url = 'https://api.twitter.com/1.1/direct_messages/events/list.json';
+          const v11Params = { count: '50' };
+          const v11Auth = signTwitterRequest('GET', v11Url, { key: oauth1Token, secret: oauth1Secret }, v11Params);
+          const v11Res = await axios.get<{ events?: V11DmEvent[] }>(v11Url, {
+            params: v11Params, headers: { ...v11Auth }, timeout: 15_000,
+          });
+
+          if (Array.isArray(v11Res.data?.events)) {
+            const convMap = new Map<string, { updatedTime: string; partnerId: string }>();
+            for (const ev of v11Res.data.events!) {
+              if (ev.type !== 'message_create') continue;
+              const senderId = ev.message_create.sender_id;
+              const recipientId = ev.message_create.target.recipient_id;
+              const partnerId = senderId === ourId ? recipientId : senderId;
+              // Match X API v2 dm_conversation_id format: smaller numeric user ID first
+              const convId = BigInt(ourId) < BigInt(partnerId)
+                ? `${ourId}-${partnerId}` : `${partnerId}-${ourId}`;
+              const ts = parseInt(ev.created_timestamp, 10);
+              const updatedTime = isNaN(ts) ? '' : new Date(ts).toISOString();
+              if (!convMap.has(convId) || updatedTime > convMap.get(convId)!.updatedTime) {
+                convMap.set(convId, { updatedTime, partnerId });
+              }
+            }
+
+            // Look up user info for conversation partners
+            const partnerIds = Array.from(new Set(Array.from(convMap.values()).map(c => c.partnerId)));
+            const userInfoMap = new Map<string, { name?: string; username?: string; pictureUrl?: string | null }>();
+            if (partnerIds.length > 0) {
+              try {
+                const usersUrl = 'https://api.twitter.com/1.1/users/lookup.json';
+                const usersParams = { user_id: partnerIds.slice(0, 100).join(',') };
+                const usersAuth = signTwitterRequest('POST', usersUrl, { key: oauth1Token, secret: oauth1Secret }, usersParams);
+                const usersRes = await axios.post<Array<{
+                  id_str: string; name?: string; screen_name?: string; profile_image_url_https?: string;
+                }>>(usersUrl, new URLSearchParams(usersParams).toString(), {
+                  headers: { ...usersAuth, 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: 10_000,
+                });
+                for (const u of usersRes.data ?? []) {
+                  userInfoMap.set(u.id_str, {
+                    name: u.name, username: u.screen_name,
+                    pictureUrl: u.profile_image_url_https?.replace(/_normal\./, '_400x400.') ?? null,
+                  });
+                }
+              } catch (e) {
+                console.warn('[Conversations] Twitter v1.1 users lookup failed:', (e as Error)?.message);
+              }
+            }
+
+            const list = Array.from(convMap.entries())
+              .map(([id, { updatedTime, partnerId }]) => {
+                const u = userInfoMap.get(partnerId);
+                return { id, updatedTime: updatedTime || null, senders: [{ id: partnerId, name: u?.name ?? undefined, username: u?.username ?? undefined, pictureUrl: u?.pictureUrl ?? null }], messageCount: undefined as number | undefined };
+              })
+              .sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
+
+            return NextResponse.json({ conversations: list });
+          }
+        } catch (v11Err) {
+          console.warn('[Conversations] Twitter v1.1 DM path failed, falling back to v2:', (v11Err as Error)?.message);
+          // Fall through to v2 API below
+        }
+      }
+      // ── end v1.1 path ────────────────────────────────────────────────────
       const convosById = new Map<string, { updatedTime: string; otherParticipantIds: Set<string> }>();
       let nextToken: string | null = null;
       let pageCount = 0;
@@ -224,7 +301,7 @@ export async function GET(
           const meMsg = (meErr as { response?: { data?: { error?: { message?: string } }; status?: number } })?.response?.data?.error?.message ?? (meErr as Error)?.message;
           tokenCheck = `check_failed: ${String(meMsg ?? 'unknown').slice(0, 80)}`;
         }
-        debug = { eventCount: totalEventsFetched, conversationCount: 0, tokenCheck, hint: 'If token is ok but events = 0, the X Developer App likely needs "Read and write and Direct Messages" in App permissions (developer.twitter.com > your app > User authentication settings). Reconnect after updating.' };
+        debug = { eventCount: totalEventsFetched, conversationCount: 0, tokenCheck };
       }
       return NextResponse.json({ conversations: list, ...(debug && { debug }) });
     } catch (e) {
