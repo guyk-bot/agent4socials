@@ -31,9 +31,9 @@ const organizationJsonLd = {
   url: siteUrl,
   logo: {
     "@type": "ImageObject",
-    url: `${siteUrl.replace(/\/+$/, "")}/logo.svg`,
-    width: 512,
-    height: 512,
+    url: `${siteUrl.replace(/\/+$/, "")}/logo-192.png`,
+    width: 192,
+    height: 192,
   },
 };
 
@@ -54,23 +54,26 @@ export const metadata: Metadata = {
     siteName: "Agent4Socials",
     title: "Agent4Socials | Schedule Posts & Analytics for All Major Social Platforms",
     description: "Schedule posts and get analytics across Instagram, YouTube, TikTok, Facebook, Twitter and LinkedIn. 7-day free trial.",
-    images: [{ url: "/logo.svg", width: 512, height: 512, alt: "Agent4Socials" }],
+    images: [{ url: "/logo-192.png", width: 192, height: 192, alt: "Agent4Socials" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Agent4Socials | Schedule Posts & Analytics",
     description: "One dashboard for scheduling and analytics. 7-day free trial.",
-    images: ["/logo.svg"],
+    images: ["/logo-192.png"],
   },
   robots: {
     index: true,
     follow: true,
     googleBot: { index: true, follow: true },
   },
-  // Favicon: explicit URL with version so browsers don't use cached old icon. Bump v= when you change the logo.
+  // Favicon: use 48x48 PNG for Google Search / Search Console; SVG and 192 PNG for browsers. Bump v= when you change the logo.
   icons: {
-    icon: "/logo.svg?v=2",
-    apple: "/logo.svg?v=2",
+    icon: [
+      { url: "/logo-48.png", sizes: "48x48", type: "image/png" },
+      { url: "/logo.svg?v=3", type: "image/svg+xml" },
+    ],
+    apple: [{ url: "/logo-192.png", sizes: "192x192", type: "image/png" }],
   },
   manifest: "/manifest.json",
   appleWebApp: {

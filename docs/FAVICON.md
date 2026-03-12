@@ -1,33 +1,51 @@
-# Favicon
+# Favicon and logo for Google Search
 
-The site favicon is the Agent4Socials "A4" logo.
+The site uses the Agent4Socials **4S logo** (black background, magenta/cyan/white “4S”) for the favicon, app icon, and Google Search.
+
+## Source files
+
+- **Logo SVG:** `apps/web/public/logo.svg` — canonical logo. Use your design file (e.g. “4s logo 2.svg”) and copy it here when you update the logo.
+- **App icon (Next):** `apps/web/src/app/icon.svg` — keep in sync with `public/logo.svg` if you use Next’s file-based icon.
+
+## Generated PNGs (for Google and devices)
+
+Google Search and Search Console work best with **PNG** favicons (48×48 recommended). The project generates:
+
+- `apps/web/public/logo-48.png` — used as favicon and for `/favicon.ico` rewrite (Google, browsers).
+- `apps/web/public/logo-192.png` — used for Apple touch icon, Open Graph, and Organization JSON-LD.
+
+**Regenerate PNGs after changing the logo:**
+
+```bash
+cd apps/web && npm run generate-favicons
+```
 
 ## Where it’s set
 
-- **Tab and Apple icon:** `apps/web/src/app/layout.tsx` sets `metadata.icons` to `/logo.svg?v=2`. Bump the version (e.g. `?v=3`) when you change the logo so browsers fetch the new favicon.
-- **Source file:** `apps/web/public/logo.svg` is the 4S logo. Keep `app/icon.svg` in sync if needed; the live favicon is served from `public/logo.svg`.
-- **`/favicon.ico`:** Next.js rewrites `/favicon.ico` to `/logo.svg` (`next.config.ts`) so Google and clients that request `favicon.ico` get our logo instead of Vercel's default.
+- **Layout:** `apps/web/src/app/layout.tsx`  
+  - `metadata.icons`: primary icon is `logo-48.png` (48×48), with `logo.svg?v=3` as SVG fallback; Apple icon is `logo-192.png`.  
+  - Bump the `?v=` on the SVG when you change the logo so caches refresh.
+- **Favicon.ico:** `apps/web/next.config.ts` rewrites `/favicon.ico` to `/logo-48.png` so Google and legacy clients get the correct icon.
+- **Organization JSON-LD:** In `layout.tsx`, `organizationJsonLd.logo` points to `logo-192.png` (absolute URL) so Google can show the right brand in search and Knowledge Panel.
+- **Manifest:** `apps/web/public/manifest.json` lists `logo-48.png`, `logo-192.png`, and `logo.svg?v=3`.
 
-## Why the favicon might not change right away
+## Why the logo might not change right away
 
 1. **Browser cache**  
-   Browsers cache favicons for a long time. To see an update:
-   - Hard refresh: Cmd+Shift+R (Mac) or Ctrl+Shift+R (Windows).
-   - Or open the site in an incognito/private window.
+   Hard refresh (Cmd+Shift+R / Ctrl+Shift+R) or use an incognito/private window.
 
-2. **Google search results**  
-   Google caches favicons and can take days or weeks to refresh. To speed it up:
-   - Use [Google Search Console](https://search.google.com/search-console) and request indexing for your homepage, and/or use “URL Inspection” for the site URL.
+2. **Google Search and Search Console**  
+   Google caches favicons and can take days or weeks to update. To encourage a refresh:
+   - [Google Search Console](https://search.google.com/search-console) → URL Inspection for your homepage (and for `https://yoursite.com/favicon.ico` if needed) → **Request indexing**.
+   - Ensure the homepage and `/logo-48.png` (and `/favicon.ico`) are crawlable and return 200.
 
-3. **After changing the icon**  
-   - Update `apps/web/public/logo.svg` (and `app/icon.svg` if you keep it in sync).
-   - In `layout.tsx`, bump the query param in `icons.icon` and `icons.apple` (e.g. `?v=3`).
-   - Redeploy so the new icon URL is used and caches are bypassed.
+3. **After changing the logo**  
+   - Replace `apps/web/public/logo.svg` with your new logo.
+   - Regenerate `logo-48.png` and `logo-192.png` (see above).
+   - In `layout.tsx`, bump the query param on the SVG (e.g. `?v=4`).
+   - In `manifest.json`, bump the SVG `?v=` as well.
+   - Redeploy so the new assets and metadata are live.
 
-## Optional: favicon.ico
+## Optional: favicon.ico as ICO
 
-Some tools and older clients request `/favicon.ico` specifically. Next.js only uses a file at `app/favicon.ico` (in the app root). If you add one (e.g. export your logo as a 32×32 or 48×48 `.ico` and put it in `apps/web/src/app/favicon.ico`), Next.js will serve it automatically.
-
-## Google search logo
-
-The root layout includes **Organization** JSON-LD with a `logo` (ImageObject) so Google can show the correct logo in search results and Knowledge Panel. After deploying, use [Google Search Console](https://search.google.com/search-console) → URL Inspection for your homepage and request indexing so Google picks up the structured data. Logo updates in search can still take days or weeks.
+Some very old clients expect a real `.ico` file. The rewrite to `logo-48.png` is valid and works with Google; if you need a true ICO, export a 48×48 (or 32×32) `.ico` from your logo and add it to `apps/web/public/favicon.ico`, then adjust the rewrite in `next.config.ts` if desired.

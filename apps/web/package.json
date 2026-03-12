@@ -10,7 +10,8 @@
     "lint": "eslint",
     "test": "jest",
     "test:instagram-media": "node scripts/test-instagram-media.mjs",
-    "validate-meta-token": "node scripts/validate-meta-token.mjs"
+    "validate-meta-token": "node scripts/validate-meta-token.mjs",
+    "generate-favicons": "node scripts/generate-favicons.cjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.989.0",
