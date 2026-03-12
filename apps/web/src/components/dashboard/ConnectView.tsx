@@ -194,7 +194,8 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
   // ── INSTAGRAM (two options: IG-only vs Facebook) ──────────────────────────
   if (platform === 'INSTAGRAM') {
     return (
-      <div className="max-w-2xl mx-auto px-4">
+      <div className="min-h-[calc(100vh-6rem)] flex items-center justify-center">
+        <div className="max-w-2xl mx-auto px-4 w-full">
         <div className={`rounded-2xl border-2 p-6 sm:p-8 ${info.accentBorder} bg-gradient-to-b from-white to-pink-50/30 shadow-sm mb-6`}>
           <div className="text-center pt-2 pb-4">
             <div className="inline-flex mb-3">{info.headerIcon}</div>
@@ -261,13 +262,15 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
           </button>
         </div>
       </div>
+      </div>
     );
   }
 
   // ── TIKTOK (two account type buttons) ─────────────────────────────────────
   if (platform === 'TIKTOK') {
     return (
-      <div className="max-w-lg mx-auto px-4">
+      <div className="min-h-[calc(100vh-6rem)] flex items-center justify-center">
+        <div className="max-w-lg mx-auto px-4 w-full">
         <div className={`rounded-2xl border-2 p-6 sm:p-8 ${info.accentBorder} bg-gradient-to-b from-white to-neutral-100/80 shadow-sm`}>
           <div className="text-center pt-2 pb-4">
             <div className="inline-flex mb-3">{info.headerIcon}</div>
@@ -308,7 +311,8 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
 
   // ── GENERIC (Facebook, YouTube, Twitter, LinkedIn) ────────────────────────
   return (
-    <div className="max-w-lg mx-auto px-4">
+    <div className="min-h-[calc(100vh-6rem)] flex items-center justify-center">
+      <div className="max-w-lg mx-auto px-4 w-full">
       <div className={`rounded-2xl border-2 p-6 sm:p-8 ${info.accentBorder} bg-gradient-to-b from-white to-neutral-50/80 shadow-sm`}>
         <div className="text-center pt-2 pb-4">
           <div className="inline-flex mb-3">{info.headerIcon}</div>
@@ -337,5 +341,6 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
         </button>
       </div>
     </div>
+  </div>
   );
 }
