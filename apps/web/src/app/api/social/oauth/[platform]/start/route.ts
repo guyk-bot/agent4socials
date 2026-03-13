@@ -125,11 +125,15 @@ export async function GET(
         );
       }
     } else if (plat === 'TWITTER') {
+      // Prefer OAuth 2.0 PKCE (recommended for DMs: Bearer token for GET /2/dm_events and POST send).
+      const twitterClientId = process.env.TWITTER_CLIENT_ID?.trim();
       const apiKey = process.env.TWITTER_API_KEY?.trim();
       const apiSecret = process.env.TWITTER_API_SECRET?.trim();
-      const twitterClientId = process.env.TWITTER_CLIENT_ID?.trim();
-      if (apiKey && apiSecret) {
-        // Use only OAuth 1.0 Keys: one authorization screen, DMs and posting use the same token.
+      if (twitterClientId) {
+        // OAuth 2.0: one screen, then Bearer token with dm.read, dm.write, tweet.read, users.read.
+        // No branch here; fall through to getOAuthUrl(plat, userId, method) below.
+      } else if (apiKey && apiSecret) {
+        // Fallback: OAuth 1.0a when only API Key/Secret are set.
         const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
         const callbackUrl = `${baseUrl}/api/social/oauth/twitter-1oa/callback`;
         const oauth = getTwitterOAuth1();
@@ -149,7 +153,7 @@ export async function GET(
           const body = typeof res.data === 'string' ? res.data : JSON.stringify(res.data ?? '');
           console.error('[Twitter OAuth 1.0a] request_token failed', res.status, body);
           return NextResponse.json(
-            { message: 'Twitter request token failed (HTTP ' + res.status + '). Add TWITTER_API_KEY and TWITTER_API_SECRET (OAuth 1.0 Consumer Key/Secret). In X Developer Portal add Callback URL: ' + callbackUrl },
+            { message: 'Twitter request token failed (HTTP ' + res.status + '). Add Callback URL in X Developer Portal: ' + callbackUrl },
             { status: 502 }
           );
         }
@@ -164,12 +168,11 @@ export async function GET(
         });
         const authorizeUrl = `https://api.twitter.com/oauth/authorize?oauth_token=${encodeURIComponent(requestToken)}`;
         return NextResponse.json({ url: authorizeUrl });
-      }
-      if (!twitterClientId) {
+      } else {
         return NextResponse.json(
           {
             message:
-              'X (Twitter) Connect requires either TWITTER_API_KEY + TWITTER_API_SECRET (OAuth 1.0 Keys) or TWITTER_CLIENT_ID (OAuth 2.0) in Vercel.',
+              'X (Twitter) Connect requires TWITTER_CLIENT_ID (OAuth 2.0, recommended for DMs) or TWITTER_API_KEY + TWITTER_API_SECRET (OAuth 1.0a) in Vercel.',
           },
           { status: 503 }
         );
