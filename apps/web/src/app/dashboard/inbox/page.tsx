@@ -1429,16 +1429,17 @@ function InboxPage() {
               )}
               {dmOrFbPlatforms.includes('TWITTER') && conversationsDebug?.metaMessage?.includes('DM events returned: 0') && conversationsDebug.metaMessage.includes('ok (user') ? (
                 <div className="mt-3 max-w-sm mx-auto bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-left">
-                  <p className="text-xs font-semibold text-amber-800 mb-1">X connected but 0 DMs returned</p>
-                  <p className="text-xs text-amber-700 mb-2">The token is valid and working, but X reports 0 DM events. The most common reason is <strong>Message Requests</strong>: DMs from accounts you don&apos;t mutually follow are hidden in a separate folder and are NOT returned by the API until accepted.</p>
-                  <p className="text-xs text-amber-800 font-semibold mb-1">Fix: allow DMs from everyone</p>
+                  <p className="text-xs font-semibold text-amber-800 mb-1">X is connected, but DMs may be in Message Requests</p>
+                  <p className="text-xs text-amber-700 mb-2">Your token is valid. X&apos;s API only returns <strong>accepted</strong> DMs. DMs from accounts you don&apos;t mutually follow go to a separate <strong>Message Requests</strong> folder and are invisible to the API until you accept them.</p>
+                  <p className="text-xs text-amber-800 font-semibold mb-1">Step 1: Accept pending requests on x.com</p>
                   <ol className="text-xs text-amber-700 list-decimal list-inside space-y-1 mb-2">
-                    <li>On x.com, go to <strong>Settings &rarr; Privacy and safety &rarr; Direct Messages</strong></li>
-                    <li>Enable <strong>&quot;Allow message requests from everyone&quot;</strong></li>
-                    <li>Also check <strong>Message requests</strong> in your X inbox and accept any pending ones</li>
-                    <li>Then click <strong>Refresh conversations</strong> here</li>
+                    <li>Go to <a href="https://x.com/messages" target="_blank" rel="noopener noreferrer" className="underline font-medium">x.com/messages</a> and log in as your connected account</li>
+                    <li>Look for a <strong>Message requests</strong> tab or section at the top</li>
+                    <li>Accept all pending DMs</li>
+                    <li>Come back and click <strong>Refresh conversations</strong></li>
                   </ol>
-                  <p className="text-xs text-amber-600">Once accepted or settings updated, those DMs will appear here automatically.</p>
+                  <p className="text-xs text-amber-800 font-semibold mb-1">Step 2: Allow DMs from everyone (prevents future requests)</p>
+                  <p className="text-xs text-amber-700">On x.com: <strong>Settings &rarr; Privacy and safety &rarr; Direct Messages &rarr; Allow message requests from: Everyone</strong></p>
                 </div>
               ) : dmOrFbPlatforms.includes('TWITTER') && conversationsDebug?.metaMessage && (
                 <div className="mt-3 max-w-sm mx-auto space-y-2 text-left">
