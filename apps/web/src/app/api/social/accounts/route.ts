@@ -6,14 +6,26 @@ export async function GET(request: NextRequest) {
   if (!process.env.DATABASE_URL) {
     return NextResponse.json({ message: 'Social accounts require DATABASE_URL' }, { status: 503 });
   }
-  const userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
+  let userId: string | null;
+  try {
+    userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
+  } catch (e) {
+    console.error('[GET /social/accounts] getPrismaUserIdFromRequest failed:', (e as Error)?.message);
+    return NextResponse.json({ message: 'Database error. Try again later.' }, { status: 503 });
+  }
   if (!userId) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
-  const rows = await prisma.socialAccount.findMany({
-    where: { userId },
-    select: { id: true, platform: true, username: true, profilePicture: true, platformUserId: true, status: true, updatedAt: true, credentialsJson: true },
-  });
+  let rows: Awaited<ReturnType<typeof prisma.socialAccount.findMany>>;
+  try {
+    rows = await prisma.socialAccount.findMany({
+      where: { userId },
+      select: { id: true, platform: true, username: true, profilePicture: true, platformUserId: true, status: true, updatedAt: true, credentialsJson: true },
+    });
+  } catch (e) {
+    console.error('[GET /social/accounts] findMany failed:', (e as Error)?.message);
+    return NextResponse.json({ message: 'Database error. Try again later.' }, { status: 503 });
+  }
   const accounts = rows.map(({ credentialsJson, ...rest }) => {
     const out = { ...rest };
     if (rest.platform === 'TWITTER') {

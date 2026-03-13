@@ -233,7 +233,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
-  const { cachedAccounts, setCachedAccounts } = useAccountsCache() ?? { cachedAccounts: [], setCachedAccounts: () => {} };
+  const { cachedAccounts, setCachedAccounts, accountsLoadError, setAccountsLoadError } = useAccountsCache() ?? { cachedAccounts: [], setCachedAccounts: () => {}, accountsLoadError: null, setAccountsLoadError: () => {} };
   const appData = useAppData();
   const { selectedPlatformForConnect, clearSelection, setSelectedAccountId, setSelectedPlatformForConnect } = useSelectedAccount() ?? { selectedPlatformForConnect: null, clearSelection: () => {}, setSelectedAccountId: () => {}, setSelectedPlatformForConnect: () => {} };
   const selectedAccount = useResolvedSelectedAccount(cachedAccounts as SocialAccount[]);
@@ -1066,8 +1066,23 @@ export default function DashboardPage() {
             </div>
           </div>
         ) : (
-          <div className="flex gap-3 p-4 bg-neutral-50 rounded-xl border border-neutral-200 w-full max-w-md">
-            <p className="text-sm text-neutral-600">Connect a platform from the left sidebar to see your analytics and posts here.</p>
+          <div className="space-y-3 w-full max-w-md">
+            {accountsLoadError && (
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                <p className="text-sm text-amber-800 font-medium">Accounts could not be loaded</p>
+                <p className="text-sm text-amber-700 mt-1">{accountsLoadError}</p>
+                <button
+                  type="button"
+                  onClick={() => { setAccountsLoadError(null); setCachedAccounts([]); }}
+                  className="mt-3 px-3 py-1.5 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700"
+                >
+                  Refresh
+                </button>
+              </div>
+            )}
+            <div className="flex gap-3 p-4 bg-neutral-50 rounded-xl border border-neutral-200 w-full max-w-md">
+              <p className="text-sm text-neutral-600">Connect a platform from the left sidebar to see your analytics and posts here.</p>
+            </div>
           </div>
         )}
       </div>

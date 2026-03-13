@@ -52,7 +52,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
   const pathname = usePathname();
   const router = useRouter();
   const { primaryColor, textColor } = useWhiteLabel();
-  const { cachedAccounts, setCachedAccounts } = useAccountsCache() ?? { cachedAccounts: [], setCachedAccounts: () => {} };
+  const { cachedAccounts, setCachedAccounts, setAccountsLoadError } = useAccountsCache() ?? { cachedAccounts: [], setCachedAccounts: () => {}, setAccountsLoadError: () => {} };
   const ctx = useSelectedAccount();
   const selectedAccountId = ctx?.selectedAccountId ?? null;
   const selectedPlatformForConnect = ctx?.selectedPlatformForConnect ?? null;
@@ -62,11 +62,28 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
 
   useEffect(() => {
     if (cachedAccounts.length > 0) return;
-    api.get('/social/accounts').then((res) => {
-      const data = Array.isArray(res.data) ? res.data : [];
-      setCachedAccounts(data);
-    }).catch(() => {});
-  }, [cachedAccounts.length, setCachedAccounts]);
+    let cancelled = false;
+    const fetchAccounts = (retry = false) => {
+      api.get('/social/accounts')
+        .then((res) => {
+          if (cancelled) return;
+          const data = Array.isArray(res.data) ? res.data : [];
+          setCachedAccounts(data);
+          setAccountsLoadError(null);
+        })
+        .catch((err: { response?: { status?: number }; message?: string }) => {
+          if (cancelled) return;
+          const status = err?.response?.status;
+          const msg = status === 401
+            ? 'Session may have expired. Sign out and sign in again.'
+            : 'Could not load accounts. Check your connection and refresh the page.';
+          setAccountsLoadError(msg);
+          if (!retry) setTimeout(() => fetchAccounts(true), 2500);
+        });
+    };
+    fetchAccounts();
+    return () => { cancelled = true; };
+  }, [cachedAccounts.length, setCachedAccounts, setAccountsLoadError]);
 
   const accountsByPlatform = PLATFORM_ORDER.reduce<Record<string, SocialAccount[]>>((acc, p) => {
     acc[p] = (cachedAccounts as SocialAccount[]).filter((a) => a.platform === p);
