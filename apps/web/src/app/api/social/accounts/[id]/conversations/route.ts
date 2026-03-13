@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
-import axios from 'axios';
+import axios, { AxiosResponse } from 'axios';
 import { signTwitterRequest } from '@/lib/twitter-oauth1';
 import { refreshTwitterToken } from '@/lib/twitter-refresh';
 
