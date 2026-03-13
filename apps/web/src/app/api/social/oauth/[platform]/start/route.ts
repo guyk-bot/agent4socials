@@ -204,6 +204,16 @@ export async function GET(
         { status: 503 }
       );
     }
+    // Max connections: use pooler so serverless does not exhaust DB connections
+    if (msg.includes('max client connections') || msg.includes('max_client_connections') || msg.includes('too many clients')) {
+      return NextResponse.json(
+        {
+          message:
+            'Database: max connections reached. Use the Supabase Transaction pooler for DATABASE_URL: Project → Settings → Database → Connection string → "Transaction" (port 6543). Replace DATABASE_URL in Vercel with that URI, add ?pgbouncer=true if needed, then redeploy.',
+        },
+        { status: 503 }
+      );
+    }
     // Real connection failures only (not every Prisma error)
     if (
       msg.includes("can't reach database") ||
