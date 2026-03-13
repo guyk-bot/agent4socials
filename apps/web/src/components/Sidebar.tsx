@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -60,8 +60,10 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
   const setSelectedPlatformForConnect = ctx?.setSelectedPlatformForConnect ?? (() => {});
   const clearSelection = ctx?.clearSelection ?? (() => {});
 
+  const initialFetchDone = useRef(false);
   useEffect(() => {
-    if (cachedAccounts.length > 0) return;
+    if (initialFetchDone.current) return;
+    initialFetchDone.current = true;
     let cancelled = false;
     const fetchAccounts = (retry = false) => {
       api.get('/social/accounts')
@@ -83,7 +85,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
     };
     fetchAccounts();
     return () => { cancelled = true; };
-  }, [cachedAccounts.length, setCachedAccounts, setAccountsLoadError]);
+  }, [setCachedAccounts, setAccountsLoadError]);
 
   const accountsByPlatform = PLATFORM_ORDER.reduce<Record<string, SocialAccount[]>>((acc, p) => {
     acc[p] = (cachedAccounts as SocialAccount[]).filter((a) => a.platform === p);

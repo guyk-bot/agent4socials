@@ -1444,8 +1444,8 @@ function InboxPage() {
                   {(conversationsDebug.metaMessage.includes('Invalid or expired token') || conversationsDebug.metaMessage.includes('code":89') || conversationsDebug.metaMessage.includes('code": 89')) && (
                     <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2">
                       <p className="text-xs font-semibold text-red-800 mb-1">X token expired or invalid (code 89)</p>
-                      <p className="text-xs text-red-700 mb-1">The <strong>Access Token</strong> in Vercel (TWITTER_ACCESS_TOKEN / TWITTER_ACCESS_TOKEN_SECRET) is no longer valid.</p>
-                      <p className="text-xs text-red-700">Fix: In X Developer Portal (developer.x.com) go to your app → <strong>OAuth 1.0 Keys</strong> → <strong>Regenerate</strong> the Access Token and Access Token Secret. Copy the new values into Vercel (Settings → Environment Variables), then redeploy.</p>
+                      <p className="text-xs text-red-700 mb-1">Use the <strong>Access Token</strong> and <strong>Access Token Secret</strong>, not the Consumer Key / Consumer Key Secret.</p>
+                      <p className="text-xs text-red-700 mb-1">In X Developer Portal (developer.x.com): your app → <strong>OAuth 1.0 Keys</strong>. There are two pairs: (1) <strong>Consumer Key</strong> and <strong>Consumer Key Secret</strong> (API keys) and (2) <strong>Access Token</strong> and <strong>Access Token Secret</strong> (the row that says &quot;For @agent4socials&quot; and &quot;Read and write and Direct message&quot;). For <strong>TWITTER_ACCESS_TOKEN</strong> and <strong>TWITTER_ACCESS_TOKEN_SECRET</strong> in Vercel you must use pair (2). Regenerate that pair if needed, copy into Vercel, then redeploy.</p>
                     </div>
                   )}
                   {conversationsDebug.metaMessage.includes('source=env') && conversationsDebug.metaMessage.includes('events=0') && !conversationsDebug.metaMessage.includes('error=') && (
