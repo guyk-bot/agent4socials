@@ -73,8 +73,9 @@ export async function GET(
       // ── v1.1 path (OAuth 1.0a) ───────────────────────────────────────────
       const credJson1oa = (account.credentialsJson && typeof account.credentialsJson === 'object'
         ? account.credentialsJson : {}) as Record<string, unknown>;
-      const oauth1Token = credJson1oa.twitterOAuth1AccessToken as string | undefined;
-      const oauth1Secret = credJson1oa.twitterOAuth1AccessTokenSecret as string | undefined;
+      // Use stored user tokens first; fall back to env-var access tokens (app owner's tokens from X Developer Portal)
+      const oauth1Token = (credJson1oa.twitterOAuth1AccessToken as string | undefined) || process.env.TWITTER_ACCESS_TOKEN;
+      const oauth1Secret = (credJson1oa.twitterOAuth1AccessTokenSecret as string | undefined) || process.env.TWITTER_ACCESS_TOKEN_SECRET;
 
       if (oauth1Token && oauth1Secret) {
         try {

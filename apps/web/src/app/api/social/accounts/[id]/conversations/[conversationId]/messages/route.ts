@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import axios from 'axios';
+import { signTwitterRequest } from '@/lib/twitter-oauth1';
 
 const fbBaseUrl = 'https://graph.facebook.com/v18.0';
 const igBaseUrl = 'https://graph.instagram.com/v25.0';
@@ -43,10 +44,99 @@ export async function GET(
     return NextResponse.json({ messages: [], error: 'conversationId required' }, { status: 400 });
   }
 
-  // --- Twitter (X) DMs: GET /2/dm_conversations/:dm_conversation_id/dm_events ---
+  // --- Twitter (X) DMs ---
   if (account.platform === 'TWITTER') {
     const token = account.accessToken ?? '';
     const ourId = String(account.platformUserId ?? '');
+
+    // ── Try v1.1 first (more reliable for Pay Per Use tier) ──────────────
+    const credJson1oa = (account.credentialsJson && typeof account.credentialsJson === 'object'
+      ? account.credentialsJson : {}) as Record<string, unknown>;
+    const oauth1Token = (credJson1oa.twitterOAuth1AccessToken as string | undefined) || process.env.TWITTER_ACCESS_TOKEN;
+    const oauth1Secret = (credJson1oa.twitterOAuth1AccessTokenSecret as string | undefined) || process.env.TWITTER_ACCESS_TOKEN_SECRET;
+
+    if (oauth1Token && oauth1Secret) {
+      try {
+        type V11DmEvent = {
+          type: string; id: string; created_timestamp: string;
+          message_create: { target: { recipient_id: string }; sender_id: string; message_data: { text: string } };
+        };
+        const v11Url = 'https://api.twitter.com/1.1/direct_messages/events/list.json';
+        const v11Params = { count: '50' };
+        const v11Auth = signTwitterRequest('GET', v11Url, { key: oauth1Token, secret: oauth1Secret }, v11Params);
+        const v11Res = await axios.get<{ events?: V11DmEvent[] }>(v11Url, {
+          params: v11Params, headers: { ...v11Auth }, timeout: 15_000,
+        });
+
+        if (Array.isArray(v11Res.data?.events) && v11Res.data.events.length > 0) {
+          // Derive partner ID from conversationId (format: {smallerId}-{largerId})
+          const convParts = conversationId.split('-');
+          const partnerId = convParts.find(p => p !== ourId) ?? '';
+
+          // Lookup user info for partner and ourself
+          const userInfoMap = new Map<string, { name?: string; username?: string; pictureUrl?: string | null }>();
+          if (partnerId) {
+            try {
+              const usersUrl = 'https://api.twitter.com/1.1/users/lookup.json';
+              const usersParams = { user_id: [ourId, partnerId].filter(Boolean).join(',') };
+              const usersAuth = signTwitterRequest('POST', usersUrl, { key: oauth1Token, secret: oauth1Secret }, usersParams);
+              const usersRes = await axios.post<Array<{
+                id_str: string; name?: string; screen_name?: string; profile_image_url_https?: string;
+              }>>(usersUrl, new URLSearchParams(usersParams).toString(), {
+                headers: { ...usersAuth, 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: 10_000,
+              });
+              for (const u of usersRes.data ?? []) {
+                userInfoMap.set(u.id_str, {
+                  name: u.name, username: u.screen_name,
+                  pictureUrl: u.profile_image_url_https?.replace(/_normal\./, '_400x400.') ?? null,
+                });
+              }
+            } catch {
+              // Proceed without user info
+            }
+          }
+
+          // Filter events to this conversation (between ourId and partnerId)
+          const msgs = v11Res.data.events
+            .filter(ev => {
+              if (ev.type !== 'message_create') return false;
+              const s = ev.message_create.sender_id;
+              const r = ev.message_create.target.recipient_id;
+              return (s === ourId && r === partnerId) || (s === partnerId && r === ourId);
+            })
+            .map(ev => {
+              const ts = parseInt(ev.created_timestamp, 10);
+              const fromId = ev.message_create.sender_id;
+              const u = userInfoMap.get(fromId);
+              return {
+                id: ev.id,
+                fromId,
+                fromName: u?.name ?? u?.username ?? null,
+                message: ev.message_create.message_data?.text ?? '',
+                createdTime: isNaN(ts) ? null : new Date(ts).toISOString(),
+                isFromPage: fromId === ourId,
+              };
+            })
+            .sort((a, b) => {
+              const tA = a.createdTime ? new Date(a.createdTime).getTime() : 0;
+              const tB = b.createdTime ? new Date(b.createdTime).getTime() : 0;
+              return tA - tB;
+            });
+
+          const partnerInfo = partnerId ? userInfoMap.get(partnerId) : null;
+          return NextResponse.json({
+            messages: msgs,
+            recipientId: partnerId || null,
+            recipientName: partnerInfo?.name ?? partnerInfo?.username ?? (partnerId ? 'Private account' : null),
+            recipientPictureUrl: partnerInfo?.pictureUrl ?? null,
+          });
+        }
+      } catch (v11Err) {
+        console.warn('[Messages] Twitter v1.1 messages path failed, falling back to v2:', (v11Err as Error)?.message);
+      }
+    }
+    // ── end v1.1 path ─────────────────────────────────────────────────────
+
     try {
       const allMessages: Array<{ id: string; fromId: string | null; fromName: string | null; message: string; createdTime: string | null; isFromPage: boolean }> = [];
       const allEventParticipantIds = new Set<string>();
