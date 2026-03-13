@@ -54,10 +54,10 @@ export async function GET(
     dmEvents: { status: 0, url: 'https://api.x.com/2/dm_events', params: {}, auth: useOAuth1ForDm ? 'OAuth 1.0a' : 'Bearer' },
   };
 
-  // 1) GET users/me to verify token
+  // 1) GET users/me to verify token and granted scopes (Twitter docs: user.fields=scope shows dm.read, etc.)
   try {
     const meRes = await axios.get('https://api.x.com/2/users/me', {
-      params: { 'user.fields': 'id,username,name' },
+      params: { 'user.fields': 'id,username,name,scope' },
       headers: { Authorization: `Bearer ${token}` },
       timeout: 10_000,
       validateStatus: () => true,

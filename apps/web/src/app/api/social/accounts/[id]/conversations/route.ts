@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
-import axios, { AxiosResponse } from 'axios';
+import axios from 'axios';
 import { signTwitterRequest } from '@/lib/twitter-oauth1';
+import { refreshTwitterToken } from '@/lib/twitter-refresh';
 
 const baseUrl = 'https://graph.facebook.com/v18.0';
 const igBaseUrl = 'https://graph.instagram.com/v25.0';
@@ -47,7 +48,7 @@ export async function GET(
   const includeMessageCounts = searchParams.get('includeMessageCounts') === '1' || searchParams.get('includeMessageCounts') === 'true';
   const account = await prisma.socialAccount.findFirst({
     where: { id, userId },
-    select: { id: true, platform: true, platformUserId: true, username: true, accessToken: true, credentialsJson: true },
+    select: { id: true, platform: true, platformUserId: true, username: true, accessToken: true, refreshToken: true, credentialsJson: true },
   });
   if (!account) {
     return NextResponse.json({ message: 'Account not found' }, { status: 404 });
@@ -85,6 +86,7 @@ export async function GET(
       let totalEventsFetched = 0;
       let lastRawResponse: unknown;
       const userMap = new Map<string, { id: string; name?: string; username?: string; profile_image_url?: string }>();
+      let tokenForTwitter = token;
 
       do {
         const params: Record<string, string> = {
@@ -101,14 +103,16 @@ export async function GET(
               params,
               headers: signTwitterRequest('GET', dmEventsUrl, { key: oauth1UserToken!, secret: oauth1UserSecret! }, params),
               timeout: 15_000,
+              validateStatus: () => true,
             }
           : {
               params,
-              headers: { Authorization: `Bearer ${token}` },
+              headers: { Authorization: `Bearer ${tokenForTwitter}` },
               timeout: 15_000,
+              validateStatus: () => true,
             };
 
-        const res = await axios.get<{
+        let res = await axios.get<{
           data?: Array<{
             id: string;
             event_type?: string;
@@ -120,11 +124,53 @@ export async function GET(
           includes?: { users?: Array<{ id: string; name?: string; username?: string; profile_image_url?: string }> };
           meta?: { next_token?: string };
           error?: { message?: string };
-          errors?: Array<{ title?: string; detail?: string; type?: string; status?: number }>;
+          errors?: Array<{ code?: number; title?: string; detail?: string; type?: string; status?: number }>;
         }>(dmEventsUrl, requestConfig);
+
+        // 401: token expired (89) or missing DM permission (220). Per Twitter docs: 89 = refresh or reconnect, 220 = app must have Read+Write+Direct Messages.
+        if (res.status === 401 && !useOAuth1ForDm) {
+          const firstErr = (res.data as { errors?: Array<{ code?: number; message?: string }> })?.errors?.[0];
+          const code = firstErr?.code;
+          if (code === 89 && account.refreshToken && process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET) {
+            try {
+              const { accessToken: newAccess, refreshToken: newRefresh } = await refreshTwitterToken(account.refreshToken);
+              await prisma.socialAccount.update({
+                where: { id: account.id },
+                data: { accessToken: newAccess, ...(newRefresh ? { refreshToken: newRefresh } : {}) },
+              });
+              (account as { accessToken: string }).accessToken = newAccess;
+              tokenForTwitter = newAccess;
+              res = await axios.get(dmEventsUrl, { ...requestConfig, headers: { Authorization: `Bearer ${newAccess}` } });
+            } catch {
+              return NextResponse.json({
+                conversations: [],
+                error: 'X token expired (code 89). Reconnect your X account from the sidebar.',
+              });
+            }
+          }
+          if (res.status === 401) {
+            const retryFirstErr = (res.data as { errors?: Array<{ code?: number }> })?.errors?.[0];
+            if (retryFirstErr?.code === 220) {
+              return NextResponse.json({
+                conversations: [],
+                error: 'X app does not have DM access (code 220). In X Developer Portal → your app → User authentication settings, set App permissions to "Read + Write + Direct Messages", then reconnect X.',
+              });
+            }
+            return NextResponse.json({
+              conversations: [],
+              error: 'X authorization failed (401). Reconnect your X account from the sidebar.',
+            });
+          }
+        } else if (res.status === 401 && useOAuth1ForDm) {
+          return NextResponse.json({
+            conversations: [],
+            error: 'X OAuth 1.0a authorization failed (401). Reconnect X or check TWITTER_ACCESS_TOKEN and TWITTER_ACCESS_TOKEN_SECRET in Vercel.',
+          });
+        }
+
         lastRawResponse = { status: res.status, keys: Object.keys(res.data ?? {}), dataLen: res.data?.data?.length ?? null, error: res.data?.error, errors: res.data?.errors };
         const apiErr = res.data?.error ?? (res.data?.errors?.[0]
-          ? { message: res.data.errors[0].detail ?? res.data.errors[0].title ?? 'X API error' }
+          ? { message: (res.data.errors[0] as { detail?: string; title?: string }).detail ?? (res.data.errors[0] as { title?: string }).title ?? 'X API error' }
           : null);
         if (apiErr) {
           const msg = apiErr.message ?? '';
