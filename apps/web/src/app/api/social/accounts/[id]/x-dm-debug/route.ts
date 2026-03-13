@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import axios from 'axios';
+import { signTwitterRequest } from '@/lib/twitter-oauth1';
 
 /**
  * GET /api/social/accounts/[id]/x-dm-debug
@@ -19,7 +20,7 @@ export async function GET(
   const { id } = await params;
   const account = await prisma.socialAccount.findFirst({
     where: { id, userId },
-    select: { id: true, platform: true, platformUserId: true, username: true, accessToken: true },
+    select: { id: true, platform: true, platformUserId: true, username: true, accessToken: true, credentialsJson: true },
   });
   if (!account) {
     return NextResponse.json({ message: 'Account not found' }, { status: 404 });
@@ -28,21 +29,29 @@ export async function GET(
     return NextResponse.json({ message: 'x-dm-debug is only for X (Twitter) accounts' }, { status: 400 });
   }
   const token = (account.accessToken || '').trim();
-  if (!token) {
+  const credJson = (account.credentialsJson && typeof account.credentialsJson === 'object'
+    ? account.credentialsJson : {}) as Record<string, unknown>;
+  const oauth1UserToken = (credJson.twitterOAuth1AccessToken as string | undefined) || process.env.TWITTER_ACCESS_TOKEN;
+  const oauth1UserSecret = (credJson.twitterOAuth1AccessTokenSecret as string | undefined) || process.env.TWITTER_ACCESS_TOKEN_SECRET;
+  const useOAuth1ForDm = Boolean(oauth1UserToken && oauth1UserSecret && process.env.TWITTER_API_KEY && process.env.TWITTER_API_SECRET);
+
+  if (!token && !useOAuth1ForDm) {
     return NextResponse.json({
-      error: 'No access token',
-      hint: 'Reconnect X from the sidebar so we have a token to test with.',
+      error: 'No token for X',
+      hint: 'Set TWITTER_ACCESS_TOKEN and TWITTER_ACCESS_TOKEN_SECRET (OAuth 1.0 user keys) and TWITTER_API_KEY, TWITTER_API_SECRET (consumer keys), or reconnect X.',
     });
   }
 
   const out: {
     account: { id: string; username: string | null; platformUserId: string | null };
+    authUsed: string;
     usersMe: { status: number; data?: unknown; error?: unknown; message?: string };
-    dmEvents: { status: number; url: string; params: Record<string, string>; data?: unknown; meta?: unknown; error?: unknown; message?: string; fullResponse?: unknown };
+    dmEvents: { status: number; url: string; params: Record<string, string>; auth: string; data?: unknown; meta?: unknown; error?: unknown; message?: string; fullResponse?: unknown };
   } = {
     account: { id: account.id, username: account.username, platformUserId: account.platformUserId },
+    authUsed: useOAuth1ForDm ? 'OAuth 1.0a (user Access Token + Secret)' : 'Bearer (OAuth 2 app token)',
     usersMe: { status: 0 },
-    dmEvents: { status: 0, url: 'https://api.x.com/2/dm_events', params: {} },
+    dmEvents: { status: 0, url: 'https://api.x.com/2/dm_events', params: {}, auth: useOAuth1ForDm ? 'OAuth 1.0a' : 'Bearer' },
   };
 
   // 1) GET users/me to verify token
@@ -66,18 +75,22 @@ export async function GET(
     out.usersMe.error = err?.response?.data ?? null;
   }
 
-  // 2) GET dm_events with same params as conversations route (no event_types — it can cause 0 results on some tiers)
+  // 2) GET dm_events — official docs use event_types: MessageCreate and Bearer user token
   const dmParams: Record<string, string> = {
-    'dm_event.fields': 'dm_conversation_id,created_at,sender_id,participant_ids',
+    'dm_event.fields': 'id,text,sender_id,dm_conversation_id,created_at,participant_ids',
+    event_types: 'MessageCreate',
     expansions: 'sender_id,participant_ids',
     'user.fields': 'id,name,username,profile_image_url',
     max_results: '100',
   };
   out.dmEvents.params = dmParams;
   try {
+    const dmHeaders = useOAuth1ForDm
+      ? signTwitterRequest('GET', 'https://api.x.com/2/dm_events', { key: oauth1UserToken!, secret: oauth1UserSecret! }, dmParams)
+      : { Authorization: `Bearer ${token}` };
     const dmRes = await axios.get('https://api.x.com/2/dm_events', {
       params: dmParams,
-      headers: { Authorization: `Bearer ${token}` },
+      headers: dmHeaders,
       timeout: 15_000,
       validateStatus: () => true,
     });

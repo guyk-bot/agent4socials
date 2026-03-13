@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import axios from 'axios';
+import { signTwitterRequest } from '@/lib/twitter-oauth1';
+
 const fbBaseUrl = 'https://graph.facebook.com/v18.0';
 const igBaseUrl = 'https://graph.instagram.com/v25.0';
 
@@ -42,9 +44,14 @@ export async function GET(
     return NextResponse.json({ messages: [], error: 'conversationId required' }, { status: 400 });
   }
 
-  // --- Twitter (X) DMs: v2 only (GET /2/dm_conversations/:id/dm_events with Bearer token). No v1.1. ---
+  // --- Twitter (X) DMs: GET /2/dm_conversations/:id/dm_events with OAuth 1.0a user token. App-Only Bearer cannot read DMs. ---
   if (account.platform === 'TWITTER') {
     const token = account.accessToken ?? '';
+    const credJson = (account.credentialsJson && typeof account.credentialsJson === 'object'
+      ? account.credentialsJson : {}) as Record<string, unknown>;
+    const oauth1UserToken = (credJson.twitterOAuth1AccessToken as string | undefined) || process.env.TWITTER_ACCESS_TOKEN;
+    const oauth1UserSecret = (credJson.twitterOAuth1AccessTokenSecret as string | undefined) || process.env.TWITTER_ACCESS_TOKEN_SECRET;
+    const useOAuth1ForDm = Boolean(oauth1UserToken && oauth1UserSecret && process.env.TWITTER_API_KEY && process.env.TWITTER_API_SECRET);
     const ourId = String(account.platformUserId ?? '');
 
     try {
@@ -53,15 +60,30 @@ export async function GET(
       let nextToken: string | null = null;
       const userMap = new Map<string, string>();
       const userObjMap = new Map<string, { name?: string; username?: string; profile_image_url?: string }>();
+      const dmConversationUrl = `https://api.x.com/2/dm_conversations/${conversationId}/dm_events`;
 
       do {
         const params: Record<string, string> = {
-          'dm_event.fields': 'created_at,sender_id,text,participant_ids',
+          'dm_event.fields': 'id,text,sender_id,created_at,participant_ids',
+          event_types: 'MessageCreate',
           expansions: 'sender_id,participant_ids',
           'user.fields': 'id,name,username,profile_image_url',
           max_results: '100',
         };
         if (nextToken) params.pagination_token = nextToken;
+
+        const requestConfig = useOAuth1ForDm
+          ? {
+              params,
+              headers: signTwitterRequest('GET', dmConversationUrl, { key: oauth1UserToken!, secret: oauth1UserSecret! }, params),
+              timeout: 15_000,
+            }
+          : {
+              params,
+              headers: { Authorization: `Bearer ${token}` },
+              timeout: 15_000,
+            };
+
         const res = await axios.get<{
           data?: Array<{
             id: string;
@@ -74,11 +96,7 @@ export async function GET(
           includes?: { users?: Array<{ id: string; name?: string; username?: string; profile_image_url?: string }> };
           meta?: { next_token?: string };
           error?: { message?: string };
-        }>(`https://api.x.com/2/dm_conversations/${conversationId}/dm_events`, {
-          params,
-          headers: { Authorization: `Bearer ${token}` },
-          timeout: 15_000,
-        });
+        }>(dmConversationUrl, requestConfig);
         if (res.data?.error) {
           return NextResponse.json({
             messages: [],
@@ -379,19 +397,25 @@ export async function POST(
 
   let recipientId = typeof body.recipientId === 'string' ? body.recipientId.trim() : null;
 
-  // X (Twitter): recipientId is required (the other participant's user id)
+  // X (Twitter): recipientId is required (the other participant's user id). Use OAuth 1.0a when set (same as read).
   if (account.platform === 'TWITTER') {
     if (!recipientId) {
       return NextResponse.json({ message: 'recipientId is required to send an X (Twitter) DM.' }, { status: 400 });
     }
+    const credJsonX = (account.credentialsJson && typeof account.credentialsJson === 'object'
+      ? account.credentialsJson : {}) as Record<string, unknown>;
+    const oauth1UserToken = (credJsonX.twitterOAuth1AccessToken as string | undefined) || process.env.TWITTER_ACCESS_TOKEN;
+    const oauth1UserSecret = (credJsonX.twitterOAuth1AccessTokenSecret as string | undefined) || process.env.TWITTER_ACCESS_TOKEN_SECRET;
+    const useOAuth1ForDm = Boolean(oauth1UserToken && oauth1UserSecret && process.env.TWITTER_API_KEY && process.env.TWITTER_API_SECRET);
+    const postUrl = `https://api.x.com/2/dm_conversations/with/${encodeURIComponent(recipientId)}/messages`;
+    const postHeaders = useOAuth1ForDm
+      ? { ...signTwitterRequest('POST', postUrl, { key: oauth1UserToken!, secret: oauth1UserSecret! }, {}), 'Content-Type': 'application/json' }
+      : { Authorization: `Bearer ${account.accessToken}`, 'Content-Type': 'application/json' };
     try {
       await axios.post<{ data?: { dm_conversation_id?: string; dm_event_id?: string }; error?: { message?: string } }>(
-        `https://api.x.com/2/dm_conversations/with/${encodeURIComponent(recipientId)}/messages`,
+        postUrl,
         { text: text.slice(0, 10000) },
-        {
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${account.accessToken}` },
-          timeout: 15_000,
-        }
+        { headers: postHeaders, timeout: 15_000 }
       );
       return NextResponse.json({ ok: true, message: 'Message sent.' });
     } catch (e) {

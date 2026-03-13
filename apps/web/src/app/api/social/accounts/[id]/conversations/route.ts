@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import axios, { AxiosResponse } from 'axios';
+import { signTwitterRequest } from '@/lib/twitter-oauth1';
+
 const baseUrl = 'https://graph.facebook.com/v18.0';
 const igBaseUrl = 'https://graph.instagram.com/v25.0';
 
@@ -63,15 +65,20 @@ export async function GET(
     }, { status: 200 });
   }
 
-  // --- Twitter (X) DMs: v2 only (GET /2/dm_events with OAuth 2 user token). No v1.1 — X returns "limited v1.1 endpoints" for DM list. ---
+  // --- Twitter (X) DMs: GET /2/dm_events with OAuth 1.0a user token (Access Token + Secret). App-Only Bearer cannot read DMs. ---
   if (account.platform === 'TWITTER') {
     try {
       const ourId = String(account.platformUserId ?? '');
+      const credJson = (account.credentialsJson && typeof account.credentialsJson === 'object'
+        ? account.credentialsJson : {}) as Record<string, unknown>;
+      const oauth1UserToken = (credJson.twitterOAuth1AccessToken as string | undefined) || process.env.TWITTER_ACCESS_TOKEN;
+      const oauth1UserSecret = (credJson.twitterOAuth1AccessTokenSecret as string | undefined) || process.env.TWITTER_ACCESS_TOKEN_SECRET;
+      const useOAuth1ForDm = Boolean(oauth1UserToken && oauth1UserSecret && process.env.TWITTER_API_KEY && process.env.TWITTER_API_SECRET);
 
       type TwitterSender = { id: string | undefined; name: string | undefined; username: string | undefined; pictureUrl: string | null };
       type TwitterConvItem = { id: string; updatedTime: string | null; senders: TwitterSender[]; messageCount: number | undefined };
 
-      // ── v2 only: GET /2/dm_events (Bearer token, dm.read scope) ─────────
+      const dmEventsUrl = 'https://api.x.com/2/dm_events';
       const convosById = new Map<string, { updatedTime: string; otherParticipantIds: Set<string> }>();
       let nextToken: string | null = null;
       let pageCount = 0;
@@ -81,12 +88,26 @@ export async function GET(
 
       do {
         const params: Record<string, string> = {
-          'dm_event.fields': 'dm_conversation_id,created_at,sender_id,participant_ids',
+          'dm_event.fields': 'id,text,sender_id,dm_conversation_id,created_at,participant_ids',
+          event_types: 'MessageCreate',
           expansions: 'sender_id,participant_ids',
           'user.fields': 'id,name,username,profile_image_url',
           max_results: '100',
         };
         if (nextToken) params.pagination_token = nextToken;
+
+        const requestConfig = useOAuth1ForDm
+          ? {
+              params,
+              headers: signTwitterRequest('GET', dmEventsUrl, { key: oauth1UserToken!, secret: oauth1UserSecret! }, params),
+              timeout: 15_000,
+            }
+          : {
+              params,
+              headers: { Authorization: `Bearer ${token}` },
+              timeout: 15_000,
+            };
+
         const res = await axios.get<{
           data?: Array<{
             id: string;
@@ -100,11 +121,7 @@ export async function GET(
           meta?: { next_token?: string };
           error?: { message?: string };
           errors?: Array<{ title?: string; detail?: string; type?: string; status?: number }>;
-        }>('https://api.x.com/2/dm_events', {
-          params,
-          headers: { Authorization: `Bearer ${token}` },
-          timeout: 15_000,
-        });
+        }>(dmEventsUrl, requestConfig);
         lastRawResponse = { status: res.status, keys: Object.keys(res.data ?? {}), dataLen: res.data?.data?.length ?? null, error: res.data?.error, errors: res.data?.errors };
         const apiErr = res.data?.error ?? (res.data?.errors?.[0]
           ? { message: res.data.errors[0].detail ?? res.data.errors[0].title ?? 'X API error' }
