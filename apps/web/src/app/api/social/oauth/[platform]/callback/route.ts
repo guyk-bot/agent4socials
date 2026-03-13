@@ -971,8 +971,8 @@ export async function GET(
     select: { id: true },
   });
   const accountIdParam = mainAccount?.id ? `&accountId=${encodeURIComponent(mainAccount.id)}` : '';
-  const twitter1oaNext = plat === 'TWITTER' && process.env.TWITTER_API_KEY && process.env.TWITTER_API_SECRET ? '&twitter_1oa_next=1' : '';
-  const successRedirectUrl = `${baseUrl}/dashboard?connecting=1${accountIdParam}${twitter1oaNext}`;
+  // Do not auto-redirect to OAuth 1.0a after OAuth 2.0; that forced users to authorize twice. They can click "Enable image upload" on the dashboard if needed.
+  const successRedirectUrl = `${baseUrl}/dashboard?connecting=1${accountIdParam}`;
   const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Agent4Socials – Account connected</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;"><p><strong>Agent4Socials</strong> – Account connected.</p><script>
 (function(){
   var url = ${JSON.stringify(successRedirectUrl)};
