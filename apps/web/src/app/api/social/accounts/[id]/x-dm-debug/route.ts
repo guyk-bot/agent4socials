@@ -51,15 +51,15 @@ export async function GET(
     dmEvents: { status: number; url: string; params: Record<string, string>; auth: string; data?: unknown; meta?: unknown; error?: unknown; message?: string; fullResponse?: unknown };
   } = {
     account: { id: account.id, username: account.username, platformUserId: account.platformUserId },
-    authUsed: useOAuth1ForDm ? 'OAuth 1.0a (user Access Token + Secret)' : 'Bearer (OAuth 2 app token)',
+    authUsed: useOAuth1ForDm ? 'OAuth 1.0a (user Access Token + Secret)' : 'Bearer (OAuth 2.0 user token via PKCE)',
     usersMe: { status: 0 },
     dmEvents: { status: 0, url: 'https://api.x.com/2/dm_events', params: {}, auth: useOAuth1ForDm ? 'OAuth 1.0a' : 'Bearer' },
   };
 
-  // 1) GET users/me to verify token and granted scopes (Twitter docs: user.fields=scope shows dm.read, etc.)
+  // 1) GET users/me to verify token (scope is not a valid user.fields value in X API v2)
   try {
     const meRes = await axios.get('https://api.x.com/2/users/me', {
-      params: { 'user.fields': 'id,username,name,scope' },
+      params: { 'user.fields': 'id,username,name,public_metrics' },
       headers: { Authorization: `Bearer ${token}` },
       timeout: 10_000,
       validateStatus: () => true,

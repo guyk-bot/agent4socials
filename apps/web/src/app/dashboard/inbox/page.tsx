@@ -1428,10 +1428,17 @@ function InboxPage() {
                 </p>
               )}
               {dmOrFbPlatforms.includes('TWITTER') && conversationsDebug?.metaMessage?.includes('DM events returned: 0') && conversationsDebug.metaMessage.includes('ok (user') ? (
-                <div className="mt-3 max-w-sm mx-auto bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-left">
-                  <p className="text-xs font-semibold text-green-800 mb-1">X is connected and working</p>
-                  <p className="text-xs text-green-700 mb-1">Your token and permissions are valid. X returned 0 DMs because there are <strong>no Direct Messages in the last 30 days</strong> on this account.</p>
-                  <p className="text-xs text-green-700">To test: send a DM to the connected X account from another account on x.com, then click <strong>Refresh conversations</strong> and it will appear here. If you already sent one and still see nothing, click <strong>Diagnose X DMs</strong> above for a full diagnosis.</p>
+                <div className="mt-3 max-w-sm mx-auto bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-left">
+                  <p className="text-xs font-semibold text-amber-800 mb-1">X connected but 0 DMs returned</p>
+                  <p className="text-xs text-amber-700 mb-2">The token is valid and working, but X reports 0 DM events. The most common reason is <strong>Message Requests</strong>: DMs from accounts you don&apos;t mutually follow are hidden in a separate folder and are NOT returned by the API until accepted.</p>
+                  <p className="text-xs text-amber-800 font-semibold mb-1">Fix: allow DMs from everyone</p>
+                  <ol className="text-xs text-amber-700 list-decimal list-inside space-y-1 mb-2">
+                    <li>On x.com, go to <strong>Settings &rarr; Privacy and safety &rarr; Direct Messages</strong></li>
+                    <li>Enable <strong>&quot;Allow message requests from everyone&quot;</strong></li>
+                    <li>Also check <strong>Message requests</strong> in your X inbox and accept any pending ones</li>
+                    <li>Then click <strong>Refresh conversations</strong> here</li>
+                  </ol>
+                  <p className="text-xs text-amber-600">Once accepted or settings updated, those DMs will appear here automatically.</p>
                 </div>
               ) : dmOrFbPlatforms.includes('TWITTER') && conversationsDebug?.metaMessage && (
                 <div className="mt-3 max-w-sm mx-auto space-y-2 text-left">
