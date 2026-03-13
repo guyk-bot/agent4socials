@@ -1441,6 +1441,13 @@ function InboxPage() {
                       <p className="text-xs text-sky-700">Add <strong>TWITTER_ACCESS_TOKEN</strong> and <strong>TWITTER_ACCESS_TOKEN_SECRET</strong> in Vercel: Project → Settings → Environment Variables. Select <strong>Production</strong> (and Preview if you use it). Values: X Developer Console → your app → OAuth 1.0 Keys → Access Token and Access Token Secret (for @agent4socials). Then trigger a new <strong>Redeploy</strong> from the Deployments tab so the new vars are loaded.</p>
                     </div>
                   )}
+                  {(conversationsDebug.metaMessage.includes('Invalid or expired token') || conversationsDebug.metaMessage.includes('code":89') || conversationsDebug.metaMessage.includes('code": 89')) && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                      <p className="text-xs font-semibold text-red-800 mb-1">X token expired or invalid (code 89)</p>
+                      <p className="text-xs text-red-700 mb-1">The <strong>Access Token</strong> in Vercel (TWITTER_ACCESS_TOKEN / TWITTER_ACCESS_TOKEN_SECRET) is no longer valid.</p>
+                      <p className="text-xs text-red-700">Fix: In X Developer Portal (developer.x.com) go to your app → <strong>OAuth 1.0 Keys</strong> → <strong>Regenerate</strong> the Access Token and Access Token Secret. Copy the new values into Vercel (Settings → Environment Variables), then redeploy.</p>
+                    </div>
+                  )}
                   {conversationsDebug.metaMessage.includes('source=env') && conversationsDebug.metaMessage.includes('events=0') && !conversationsDebug.metaMessage.includes('error=') && (
                     <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                       <p className="text-xs font-semibold text-amber-800 mb-1">v1.1 returned 0 messages</p>
