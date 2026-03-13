@@ -436,14 +436,10 @@ function InboxPage() {
             if (platform === 'TWITTER' && list.length === 0) {
               const d = res.data.debug as {
                 tokenCheck?: string; eventCount?: number; rawErrors?: unknown; dmEventsResponse?: unknown;
-                v11Source?: string; v11Tried?: boolean; v11Events?: number; v11Error?: string;
               };
               const errStr = d.rawErrors ? ` Errors: ${JSON.stringify(d.rawErrors).slice(0, 120)}` : '';
               const apiStr = d.dmEventsResponse ? ` dm_events API: ${JSON.stringify(d.dmEventsResponse).slice(0, 200)}` : '';
-              const v11Str = d.v11Source != null
-                ? `v1.1: source=${d.v11Source} tried=${d.v11Tried ?? false} events=${d.v11Events ?? 0}${d.v11Error ? ` error=${String(d.v11Error).slice(0, 150)}` : ''}. `
-                : '';
-              debugs.push({ metaMessage: `${v11Str}X API: ${d.tokenCheck ?? 'unknown'}. DM events returned: ${d.eventCount ?? 0}.${errStr}${apiStr}` });
+              debugs.push({ metaMessage: `X API (v2 only): ${d.tokenCheck ?? 'unknown'}. DM events returned: ${d.eventCount ?? 0}.${errStr}${apiStr}` });
             } else {
               debugs.push(res.data.debug as { rawMessage?: string; code?: number; responseData?: unknown; metaMessage?: string });
             }
@@ -1444,8 +1440,8 @@ function InboxPage() {
                   {(conversationsDebug.metaMessage.includes('subset of X API') || conversationsDebug.metaMessage.includes('limited v1.1 endpoints')) && (
                     <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                       <p className="text-xs font-semibold text-amber-800 mb-1">X API tier does not include Direct Messages</p>
-                      <p className="text-xs text-amber-700 mb-1">Your app has access only to a subset of v2 and limited v1.1 endpoints (e.g. media, OAuth). <strong>DM read/list is not included</strong> on the Free tier.</p>
-                      <p className="text-xs text-amber-700">To see DMs here you need an X API plan that includes Direct Messages (e.g. Basic or higher). In <strong>developer.x.com</strong> go to your project → <strong>Products</strong> / <strong>Subscription</strong> and check which products and tier you have; upgrade or add the product that includes Direct Message API access if needed.</p>
+                      <p className="text-xs text-amber-700 mb-1">Your app has access only to a subset of v2 and limited v1.1 endpoints (e.g. media, OAuth). <strong>DM read/list is not included</strong> on the Free tier. Reconnecting or regenerating tokens will not fix this.</p>
+                      <p className="text-xs text-amber-700 mb-1">To see DMs here you need an X API plan that includes Direct Messages (e.g. Basic or higher). Open <a href="https://developer.x.com/en/portal/dashboard" target="_blank" rel="noopener noreferrer" className="underline font-medium text-amber-900">developer.x.com</a>, select your project, then look for <strong>Products</strong>, <strong>Subscription</strong>, or <strong>Add product</strong> and enable or request the Direct Message API. If you don’t see those options, check X’s pricing page or contact X developer support.</p>
                     </div>
                   )}
                   {(conversationsDebug.metaMessage.includes('Invalid or expired token') || conversationsDebug.metaMessage.includes('code":89') || conversationsDebug.metaMessage.includes('code": 89')) && (

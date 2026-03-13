@@ -38,7 +38,7 @@ export async function GET(
   const out: {
     account: { id: string; username: string | null; platformUserId: string | null };
     usersMe: { status: number; data?: unknown; error?: unknown; message?: string };
-    dmEvents: { status: number; url: string; params: Record<string, string>; data?: unknown; meta?: unknown; error?: unknown; message?: string };
+    dmEvents: { status: number; url: string; params: Record<string, string>; data?: unknown; meta?: unknown; error?: unknown; message?: string; fullResponse?: unknown };
   } = {
     account: { id: account.id, username: account.username, platformUserId: account.platformUserId },
     usersMe: { status: 0 },
@@ -66,13 +66,12 @@ export async function GET(
     out.usersMe.error = err?.response?.data ?? null;
   }
 
-  // 2) GET dm_events with same params as conversations route
+  // 2) GET dm_events with same params as conversations route (no event_types — it can cause 0 results on some tiers)
   const dmParams: Record<string, string> = {
     'dm_event.fields': 'dm_conversation_id,created_at,sender_id,participant_ids',
     expansions: 'sender_id,participant_ids',
     'user.fields': 'id,name,username,profile_image_url',
     max_results: '100',
-    event_types: 'MessageCreate',
   };
   out.dmEvents.params = dmParams;
   try {
@@ -86,6 +85,7 @@ export async function GET(
     out.dmEvents.data = dmRes.data?.data ?? null;
     out.dmEvents.meta = dmRes.data?.meta ?? null;
     out.dmEvents.error = dmRes.data?.errors ?? dmRes.data?.error ?? null;
+    out.dmEvents.fullResponse = dmRes.data ?? null;
     if (dmRes.status !== 200) {
       out.dmEvents.message = dmRes.data?.detail ?? dmRes.data?.title ?? (dmRes.data?.error?.message ?? (typeof dmRes.data === 'object' ? JSON.stringify(dmRes.data) : String(dmRes.data)));
     } else if (Array.isArray(dmRes.data?.data)) {

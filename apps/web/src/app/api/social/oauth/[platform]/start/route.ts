@@ -121,6 +121,17 @@ export async function GET(
           { status: 503 }
         );
       }
+    } else if (plat === 'TWITTER') {
+      const twitterClientId = process.env.TWITTER_CLIENT_ID?.trim();
+      if (!twitterClientId) {
+        return NextResponse.json(
+          {
+            message:
+              'X (Twitter) Connect requires TWITTER_CLIENT_ID in Vercel. Add it under Settings → Environment Variables (OAuth 2.0 Client ID from X Developer Portal), enable for Production, then redeploy.',
+          },
+          { status: 503 }
+        );
+      }
     }
     const url = getOAuthUrl(plat, userId, method);
     return NextResponse.json({ url });
