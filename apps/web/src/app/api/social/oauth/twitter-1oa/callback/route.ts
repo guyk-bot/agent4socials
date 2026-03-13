@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { getTwitterOAuth1 } from '@/lib/twitter-oauth1';
+import { getTwitterOAuth1, signTwitterRequest } from '@/lib/twitter-oauth1';
 import axios from 'axios';
 
 export async function GET(request: NextRequest) {
   const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
   const dashboardUrl = `${baseUrl}/dashboard`;
-  const accountsUrl = `${baseUrl}/dashboard/accounts`;
   const oauthToken = request.nextUrl.searchParams.get('oauth_token');
   const oauthVerifier = request.nextUrl.searchParams.get('oauth_verifier');
 
@@ -67,24 +66,63 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${dashboardUrl}?error=twitter_1oa_no_tokens`);
   }
 
-  const account = await prisma.socialAccount.findFirst({
-    where: { userId: pending.userId, platform: 'TWITTER' },
-  });
-  if (!account) {
-    return NextResponse.redirect(`${dashboardUrl}?error=twitter_1oa_no_account`);
+  // Fetch X user id and username with OAuth 1.0a so we can create or update the account
+  const usersMeUrl = 'https://api.x.com/2/users/me';
+  const userFields = { 'user.fields': 'id,username,name' };
+  let platformUserId: string;
+  let username: string | null = null;
+  try {
+    const meHeaders = signTwitterRequest('GET', usersMeUrl, { key: accessToken, secret: accessTokenSecret }, userFields);
+    const meRes = await axios.get<{ data?: { id?: string; username?: string; name?: string }; errors?: unknown[] }>(usersMeUrl, {
+      params: userFields,
+      headers: meHeaders,
+      timeout: 10_000,
+      validateStatus: () => true,
+    });
+    if (meRes.status !== 200 || !meRes.data?.data?.id) {
+      console.error('[Twitter OAuth 1.0a] users/me failed', meRes.status, meRes.data);
+      return NextResponse.redirect(`${dashboardUrl}?error=twitter_1oa_user_lookup_failed`);
+    }
+    platformUserId = String(meRes.data.data.id);
+    username = meRes.data.data.username ?? null;
+  } catch (e) {
+    console.error('[Twitter OAuth 1.0a] users/me error', e);
+    return NextResponse.redirect(`${dashboardUrl}?error=twitter_1oa_user_lookup_failed`);
   }
 
-  const credentialsJson = (account.credentialsJson as Record<string, unknown>) ?? {};
-  await prisma.socialAccount.update({
-    where: { id: account.id },
-    data: {
-      credentialsJson: {
-        ...credentialsJson,
-        twitterOAuth1AccessToken: accessToken,
-        twitterOAuth1AccessTokenSecret: accessTokenSecret,
-      },
-    },
+  const credentialsJson = {
+    twitterOAuth1AccessToken: accessToken,
+    twitterOAuth1AccessTokenSecret: accessTokenSecret,
+  };
+
+  const existing = await prisma.socialAccount.findFirst({
+    where: { userId: pending.userId, platform: 'TWITTER' },
+    select: { id: true },
   });
 
-  return NextResponse.redirect(`${dashboardUrl}?twitter_1oa=ok`);
+  if (existing) {
+    await prisma.socialAccount.update({
+      where: { id: existing.id },
+      data: {
+        platformUserId,
+        username: username ?? platformUserId ?? '',
+        credentialsJson,
+        accessToken: 'oauth1',
+      },
+    });
+    return NextResponse.redirect(`${dashboardUrl}?connecting=1&accountId=${encodeURIComponent(existing.id)}`);
+  }
+
+  const created = await prisma.socialAccount.create({
+    data: {
+      userId: pending.userId,
+      platform: 'TWITTER',
+      platformUserId,
+      username: username ?? platformUserId ?? '',
+      credentialsJson,
+      accessToken: 'oauth1',
+    },
+    select: { id: true },
+  });
+  return NextResponse.redirect(`${dashboardUrl}?connecting=1&accountId=${encodeURIComponent(created.id)}`);
 }

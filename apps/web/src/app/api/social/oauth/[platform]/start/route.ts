@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
+import { prisma } from '@/lib/db';
+import { getTwitterOAuth1 } from '@/lib/twitter-oauth1';
+import axios from 'axios';
 import { Platform } from '@prisma/client';
 
 const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN'] as const;
@@ -122,12 +125,51 @@ export async function GET(
         );
       }
     } else if (plat === 'TWITTER') {
+      const apiKey = process.env.TWITTER_API_KEY?.trim();
+      const apiSecret = process.env.TWITTER_API_SECRET?.trim();
       const twitterClientId = process.env.TWITTER_CLIENT_ID?.trim();
+      if (apiKey && apiSecret) {
+        // Use only OAuth 1.0 Keys: one authorization screen, DMs and posting use the same token.
+        const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
+        const callbackUrl = `${baseUrl}/api/social/oauth/twitter-1oa/callback`;
+        const oauth = getTwitterOAuth1();
+        if (!oauth) return NextResponse.json({ message: 'Twitter OAuth 1.0a not configured' }, { status: 503 });
+        const requestTokenUrl = 'https://api.twitter.com/oauth/request_token';
+        const authHeader = oauth.toHeader(
+          oauth.authorize(
+            { url: requestTokenUrl, method: 'POST', data: { oauth_callback: callbackUrl } },
+            undefined as any
+          ) as any
+        );
+        const res = await axios.post(requestTokenUrl, new URLSearchParams({ oauth_callback: callbackUrl }).toString(), {
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', ...authHeader },
+          validateStatus: () => true,
+        });
+        if (res.status !== 200) {
+          const body = typeof res.data === 'string' ? res.data : JSON.stringify(res.data ?? '');
+          console.error('[Twitter OAuth 1.0a] request_token failed', res.status, body);
+          return NextResponse.json(
+            { message: 'Twitter request token failed (HTTP ' + res.status + '). Add TWITTER_API_KEY and TWITTER_API_SECRET (OAuth 1.0 Consumer Key/Secret). In X Developer Portal add Callback URL: ' + callbackUrl },
+            { status: 502 }
+          );
+        }
+        const params = Object.fromEntries(new URLSearchParams(res.data as string));
+        const requestToken = params.oauth_token;
+        const requestTokenSecret = params.oauth_token_secret;
+        if (!requestToken || !requestTokenSecret) {
+          return NextResponse.json({ message: 'Twitter did not return a request token' }, { status: 502 });
+        }
+        await prisma.pendingConnection.create({
+          data: { userId, platform: 'TWITTER', payload: { requestToken, requestTokenSecret } },
+        });
+        const authorizeUrl = `https://api.twitter.com/oauth/authorize?oauth_token=${encodeURIComponent(requestToken)}`;
+        return NextResponse.json({ url: authorizeUrl });
+      }
       if (!twitterClientId) {
         return NextResponse.json(
           {
             message:
-              'X (Twitter) Connect requires TWITTER_CLIENT_ID in Vercel. Add it under Settings → Environment Variables (OAuth 2.0 Client ID from X Developer Portal), enable for Production, then redeploy.',
+              'X (Twitter) Connect requires either TWITTER_API_KEY + TWITTER_API_SECRET (OAuth 1.0 Keys) or TWITTER_CLIENT_ID (OAuth 2.0) in Vercel.',
           },
           { status: 503 }
         );
