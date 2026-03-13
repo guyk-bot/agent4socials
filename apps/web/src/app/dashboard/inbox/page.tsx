@@ -434,10 +434,16 @@ function InboxPage() {
           if (res.data?.error) errors.push(res.data.error);
           if (res.data?.debug) {
             if (platform === 'TWITTER' && list.length === 0) {
-              const d = res.data.debug as { tokenCheck?: string; eventCount?: number; rawErrors?: unknown; dmEventsResponse?: unknown };
+              const d = res.data.debug as {
+                tokenCheck?: string; eventCount?: number; rawErrors?: unknown; dmEventsResponse?: unknown;
+                v11Source?: string; v11Tried?: boolean; v11Events?: number; v11Error?: string;
+              };
               const errStr = d.rawErrors ? ` Errors: ${JSON.stringify(d.rawErrors).slice(0, 120)}` : '';
               const apiStr = d.dmEventsResponse ? ` dm_events API: ${JSON.stringify(d.dmEventsResponse).slice(0, 200)}` : '';
-              debugs.push({ metaMessage: `X API: ${d.tokenCheck ?? 'unknown'}. DM events returned: ${d.eventCount ?? 0}.${errStr}${apiStr}` });
+              const v11Str = d.v11Source != null
+                ? `v1.1: source=${d.v11Source} tried=${d.v11Tried ?? false} events=${d.v11Events ?? 0}${d.v11Error ? ` error=${String(d.v11Error).slice(0, 150)}` : ''}. `
+                : '';
+              debugs.push({ metaMessage: `${v11Str}X API: ${d.tokenCheck ?? 'unknown'}. DM events returned: ${d.eventCount ?? 0}.${errStr}${apiStr}` });
             } else {
               debugs.push(res.data.debug as { rawMessage?: string; code?: number; responseData?: unknown; metaMessage?: string });
             }
@@ -1428,15 +1434,29 @@ function InboxPage() {
                 </p>
               )}
               {selectedPlatform === 'TWITTER' && conversationsDebug?.metaMessage?.includes('DM events returned: 0') && (
-                <div className="mt-3 max-w-sm mx-auto bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-left">
-                  <p className="text-xs font-semibold text-amber-800 mb-1">X DMs not loading?</p>
-                  <p className="text-xs text-amber-700 mb-1">Your account is connected but the X app needs <strong>Direct Messages</strong> permission enabled in the X Developer Portal:</p>
-                  <ol className="text-xs text-amber-700 list-decimal list-inside space-y-0.5 mb-2">
-                    <li>Go to <strong>developer.twitter.com</strong>, open your app</li>
-                    <li>Under <strong>User authentication settings</strong>, set App permissions to <strong>&quot;Read and write and Direct Messages&quot;</strong></li>
-                    <li>Save, then reconnect X from the sidebar</li>
-                  </ol>
-                  <p className="text-xs text-amber-600">Without this setting, X silently ignores the DM permission request.</p>
+                <div className="mt-3 max-w-sm mx-auto space-y-2 text-left">
+                  {conversationsDebug.metaMessage.includes('source=none') && (
+                    <div className="bg-sky-50 border border-sky-200 rounded-lg px-3 py-2">
+                      <p className="text-xs font-semibold text-sky-800 mb-1">Use v1.1 DMs (recommended)</p>
+                      <p className="text-xs text-sky-700">Add <strong>TWITTER_ACCESS_TOKEN</strong> and <strong>TWITTER_ACCESS_TOKEN_SECRET</strong> in Vercel: Project → Settings → Environment Variables. Select <strong>Production</strong> (and Preview if you use it). Values: X Developer Console → your app → OAuth 1.0 Keys → Access Token and Access Token Secret (for @agent4socials). Then trigger a new <strong>Redeploy</strong> from the Deployments tab so the new vars are loaded.</p>
+                    </div>
+                  )}
+                  {conversationsDebug.metaMessage.includes('source=env') && conversationsDebug.metaMessage.includes('events=0') && !conversationsDebug.metaMessage.includes('error=') && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                      <p className="text-xs font-semibold text-amber-800 mb-1">v1.1 returned 0 messages</p>
+                      <p className="text-xs text-amber-700">The env tokens were used but X returned no DMs. Check: (1) Access Token in the portal is for the same account you connect here (@agent4socials). (2) X only returns DMs from the last 30 days. (3) You have at least one DM in that window on x.com.</p>
+                    </div>
+                  )}
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    <p className="text-xs font-semibold text-amber-800 mb-1">X DMs not loading?</p>
+                    <p className="text-xs text-amber-700 mb-1">Your account is connected but the X app needs <strong>Direct Messages</strong> permission enabled in the X Developer Portal:</p>
+                    <ol className="text-xs text-amber-700 list-decimal list-inside space-y-0.5 mb-2">
+                      <li>Go to <strong>developer.twitter.com</strong>, open your app</li>
+                      <li>Under <strong>User authentication settings</strong>, set App permissions to <strong>&quot;Read and write and Direct Messages&quot;</strong></li>
+                      <li>Save, then reconnect X from the sidebar</li>
+                    </ol>
+                    <p className="text-xs text-amber-600">Without this setting, X silently ignores the DM permission request.</p>
+                  </div>
                 </div>
               )}
               {conversationsDebug?.metaMessage && (

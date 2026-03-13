@@ -76,23 +76,41 @@ export async function GET(
       // Use stored user tokens first; fall back to env-var access tokens (app owner's tokens from X Developer Portal)
       const oauth1Token = (credJson1oa.twitterOAuth1AccessToken as string | undefined) || process.env.TWITTER_ACCESS_TOKEN;
       const oauth1Secret = (credJson1oa.twitterOAuth1AccessTokenSecret as string | undefined) || process.env.TWITTER_ACCESS_TOKEN_SECRET;
+      const v11Source = credJson1oa.twitterOAuth1AccessToken ? 'db' : (process.env.TWITTER_ACCESS_TOKEN ? 'env' : 'none');
+
+      let v11Tried = false;
+      let v11Events = 0;
+      let v11Error: string | undefined;
 
       if (oauth1Token && oauth1Secret) {
         try {
+          v11Tried = true;
           type V11DmEvent = {
             type: string; id: string; created_timestamp: string;
             message_create: { target: { recipient_id: string }; sender_id: string };
           };
+          type V11ListResponse = { events?: V11DmEvent[]; next_cursor?: string };
           const v11Url = 'https://api.twitter.com/1.1/direct_messages/events/list.json';
-          const v11Params = { count: '50' };
-          const v11Auth = signTwitterRequest('GET', v11Url, { key: oauth1Token, secret: oauth1Secret }, v11Params);
-          const v11Res = await axios.get<{ events?: V11DmEvent[] }>(v11Url, {
-            params: v11Params, headers: { ...v11Auth }, timeout: 15_000,
-          });
+          const allV11Events: V11DmEvent[] = [];
+          let v11Cursor: string | undefined;
+          let v11Pages = 0;
+          do {
+            const v11Params: Record<string, string> = { count: '50' };
+            if (v11Cursor) v11Params.cursor = v11Cursor;
+            const v11Auth = signTwitterRequest('GET', v11Url, { key: oauth1Token, secret: oauth1Secret }, v11Params);
+            const v11Res = await axios.get<V11ListResponse>(v11Url, {
+              params: v11Params, headers: { ...v11Auth }, timeout: 15_000,
+            });
+            const pageEvents = Array.isArray(v11Res.data?.events) ? v11Res.data.events : [];
+            allV11Events.push(...pageEvents);
+            v11Cursor = v11Res.data?.next_cursor && v11Res.data.next_cursor !== v11Cursor ? v11Res.data.next_cursor : undefined;
+            v11Pages++;
+          } while (v11Cursor && v11Pages < 5);
+          v11Events = allV11Events.length;
 
-          if (Array.isArray(v11Res.data?.events) && v11Res.data.events.length > 0) {
+          if (allV11Events.length > 0) {
             const convMap = new Map<string, { updatedTime: string; partnerId: string }>();
-            for (const ev of v11Res.data.events!) {
+            for (const ev of allV11Events) {
               if (ev.type !== 'message_create') continue;
               const senderId = ev.message_create.sender_id;
               const recipientId = ev.message_create.target.recipient_id;
@@ -141,7 +159,11 @@ export async function GET(
             return NextResponse.json({ conversations: list });
           }
         } catch (v11Err) {
-          console.warn('[Conversations] Twitter v1.1 DM path failed, falling back to v2:', (v11Err as Error)?.message);
+          const errMsg = (v11Err as { response?: { data?: unknown; status?: number }; message?: string })?.response?.data
+            ? JSON.stringify((v11Err as { response: { data: unknown } }).response.data).slice(0, 200)
+            : (v11Err as Error)?.message ?? String(v11Err);
+          v11Error = errMsg;
+          console.warn('[Conversations] Twitter v1.1 DM path failed, falling back to v2:', errMsg);
           // Fall through to v2 API below
         }
       }
@@ -294,7 +316,7 @@ export async function GET(
       }
 
       list.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
-      let debug: { eventCount?: number; conversationCount?: number; tokenCheck?: string; rawErrors?: unknown; dmEventsResponse?: unknown } | undefined;
+      let debug: { eventCount?: number; conversationCount?: number; tokenCheck?: string; rawErrors?: unknown; dmEventsResponse?: unknown; v11Source?: string; v11Tried?: boolean; v11Events?: number; v11Error?: string } | undefined;
       if (list.length === 0) {
         let tokenCheck = 'not_checked';
         let rawErrors: unknown;
@@ -311,7 +333,17 @@ export async function GET(
           const meMsg = (meErr as { response?: { data?: { error?: { message?: string } }; status?: number } })?.response?.data?.error?.message ?? (meErr as Error)?.message;
           tokenCheck = `check_failed: ${String(meMsg ?? 'unknown').slice(0, 80)}`;
         }
-        debug = { eventCount: totalEventsFetched, conversationCount: 0, tokenCheck, dmEventsResponse: lastRawResponse, ...(rawErrors ? { rawErrors } : {}) };
+        debug = {
+          eventCount: totalEventsFetched,
+          conversationCount: 0,
+          tokenCheck,
+          dmEventsResponse: lastRawResponse,
+          v11Source,
+          v11Tried,
+          v11Events,
+          ...(v11Error ? { v11Error } : {}),
+          ...(rawErrors ? { rawErrors } : {}),
+        };
       }
       return NextResponse.json({ conversations: list, ...(debug && { debug }) });
     } catch (e) {
