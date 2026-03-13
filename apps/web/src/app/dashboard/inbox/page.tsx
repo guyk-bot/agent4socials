@@ -1339,14 +1339,14 @@ function InboxPage() {
                       Reconnect Facebook
                     </button>
                   )}
-                  {selectedPlatform === 'TWITTER' && currentAccountForMessages && (
+                  {(() => { const twitterAccount = dmOrFbPlatforms.includes('TWITTER') ? effectiveAccounts.find((a) => a.platform === 'TWITTER') : null; return twitterAccount ? (
                     <button
                       type="button"
                       onClick={async () => {
                         setXDmDebugLoading(true);
                         setXDmDebugResult(null);
                         try {
-                          const res = await api.get(`/social/accounts/${currentAccountForMessages.id}/x-dm-debug`);
+                          const res = await api.get(`/social/accounts/${twitterAccount.id}/x-dm-debug`);
                           setXDmDebugResult(res.data);
                         } catch (e) {
                           const err = e as { response?: { data?: unknown }; message?: string };
@@ -1360,9 +1360,9 @@ function InboxPage() {
                       {xDmDebugLoading ? <Loader2 size={16} className="animate-spin" /> : <ExternalLink size={16} />}
                       Diagnose X DMs
                     </button>
-                  )}
+                  ) : null; })()}
               </div>
-              {selectedPlatform === 'TWITTER' && xDmDebugResult != null && (
+              {dmOrFbPlatforms.includes('TWITTER') && xDmDebugResult != null && (
                 <div className="mt-3 text-left rounded-lg border border-neutral-200 bg-neutral-50 p-3 overflow-auto max-h-64">
                   <p className="text-xs font-semibold text-neutral-600 mb-2">X DM debug result</p>
                   <pre className="text-xs text-neutral-700 whitespace-pre-wrap break-words font-mono">
@@ -1389,29 +1389,32 @@ function InboxPage() {
                 <RefreshCw size={16} />
                 Refresh conversations
               </button>
-              {selectedPlatform === 'TWITTER' && currentAccountForMessages && (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    setXDmDebugLoading(true);
-                    setXDmDebugResult(null);
-                    try {
-                      const res = await api.get(`/social/accounts/${currentAccountForMessages.id}/x-dm-debug`);
-                      setXDmDebugResult(res.data);
-                    } catch (e) {
-                      const err = e as { response?: { data?: unknown }; message?: string };
-                      setXDmDebugResult({ error: err?.message ?? 'Request failed', response: err?.response?.data });
-                    }
-                    setXDmDebugLoading(false);
-                  }}
-                  disabled={xDmDebugLoading}
-                  className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-neutral-300 bg-neutral-100 text-sm font-medium text-neutral-700 hover:bg-neutral-200 disabled:opacity-50"
-                >
-                  {xDmDebugLoading ? <Loader2 size={16} className="animate-spin" /> : <ExternalLink size={16} />}
-                  Diagnose X DMs
-                </button>
-              )}
-              {selectedPlatform === 'TWITTER' && xDmDebugResult != null && (
+              {(() => {
+                const twitterAcct = dmOrFbPlatforms.includes('TWITTER') ? effectiveAccounts.find((a) => a.platform === 'TWITTER') : null;
+                return twitterAcct ? (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setXDmDebugLoading(true);
+                      setXDmDebugResult(null);
+                      try {
+                        const res = await api.get(`/social/accounts/${twitterAcct.id}/x-dm-debug`);
+                        setXDmDebugResult(res.data);
+                      } catch (e) {
+                        const err = e as { response?: { data?: unknown }; message?: string };
+                        setXDmDebugResult({ error: err?.message ?? 'Request failed', response: err?.response?.data });
+                      }
+                      setXDmDebugLoading(false);
+                    }}
+                    disabled={xDmDebugLoading}
+                    className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-neutral-300 bg-neutral-100 text-sm font-medium text-neutral-700 hover:bg-neutral-200 disabled:opacity-50"
+                  >
+                    {xDmDebugLoading ? <Loader2 size={16} className="animate-spin" /> : <ExternalLink size={16} />}
+                    Diagnose X DMs
+                  </button>
+                ) : null;
+              })()}
+              {dmOrFbPlatforms.includes('TWITTER') && xDmDebugResult != null && (
                 <div className="mt-4 text-left max-w-2xl mx-auto rounded-lg border border-neutral-200 bg-neutral-50 p-3 overflow-auto max-h-80">
                   <p className="text-xs font-semibold text-neutral-600 mb-2">X DM debug result</p>
                   <pre className="text-xs text-neutral-700 whitespace-pre-wrap break-words font-mono">
@@ -1424,13 +1427,13 @@ function InboxPage() {
                   TikTok inbox (DMs) are not available in the app. Use Instagram, Facebook, or X to view and reply to messages here.
                 </p>
               )}
-              {selectedPlatform === 'TWITTER' && conversationsDebug?.metaMessage?.includes('DM events returned: 0') && conversationsDebug.metaMessage.includes('ok (user') ? (
+              {dmOrFbPlatforms.includes('TWITTER') && conversationsDebug?.metaMessage?.includes('DM events returned: 0') && conversationsDebug.metaMessage.includes('ok (user') ? (
                 <div className="mt-3 max-w-sm mx-auto bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-left">
                   <p className="text-xs font-semibold text-green-800 mb-1">X is connected and working</p>
                   <p className="text-xs text-green-700 mb-1">Your token and permissions are valid. X returned 0 DMs because there are <strong>no Direct Messages in the last 30 days</strong> on this account.</p>
-                  <p className="text-xs text-green-700">To test: send a DM to the connected X account from another account on x.com, then click <strong>Refresh conversations</strong> and it will appear here. If you already sent one and still see nothing, try disconnecting and reconnecting X from the sidebar.</p>
+                  <p className="text-xs text-green-700">To test: send a DM to the connected X account from another account on x.com, then click <strong>Refresh conversations</strong> and it will appear here. If you already sent one and still see nothing, click <strong>Diagnose X DMs</strong> above for a full diagnosis.</p>
                 </div>
-              ) : selectedPlatform === 'TWITTER' && conversationsDebug?.metaMessage && (
+              ) : dmOrFbPlatforms.includes('TWITTER') && conversationsDebug?.metaMessage && (
                 <div className="mt-3 max-w-sm mx-auto space-y-2 text-left">
                   {(conversationsDebug.metaMessage.includes('Invalid or expired token') || conversationsDebug.metaMessage.includes('code":89') || conversationsDebug.metaMessage.includes('code": 89') || conversationsDebug.metaMessage.includes('401')) && (
                     <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2">
