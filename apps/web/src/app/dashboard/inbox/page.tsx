@@ -1441,6 +1441,13 @@ function InboxPage() {
                       <p className="text-xs text-sky-700">Add <strong>TWITTER_ACCESS_TOKEN</strong> and <strong>TWITTER_ACCESS_TOKEN_SECRET</strong> in Vercel: Project → Settings → Environment Variables. Select <strong>Production</strong> (and Preview if you use it). Values: X Developer Console → your app → OAuth 1.0 Keys → Access Token and Access Token Secret (for @agent4socials). Then trigger a new <strong>Redeploy</strong> from the Deployments tab so the new vars are loaded.</p>
                     </div>
                   )}
+                  {(conversationsDebug.metaMessage.includes('subset of X API') || conversationsDebug.metaMessage.includes('limited v1.1 endpoints')) && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                      <p className="text-xs font-semibold text-amber-800 mb-1">X API tier does not include Direct Messages</p>
+                      <p className="text-xs text-amber-700 mb-1">Your app has access only to a subset of v2 and limited v1.1 endpoints (e.g. media, OAuth). <strong>DM read/list is not included</strong> on the Free tier.</p>
+                      <p className="text-xs text-amber-700">To see DMs here you need an X API plan that includes Direct Messages (e.g. Basic or higher). In <strong>developer.x.com</strong> go to your project → <strong>Products</strong> / <strong>Subscription</strong> and check which products and tier you have; upgrade or add the product that includes Direct Message API access if needed.</p>
+                    </div>
+                  )}
                   {(conversationsDebug.metaMessage.includes('Invalid or expired token') || conversationsDebug.metaMessage.includes('code":89') || conversationsDebug.metaMessage.includes('code": 89')) && (
                     <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2">
                       <p className="text-xs font-semibold text-red-800 mb-1">X token expired or invalid (code 89)</p>
