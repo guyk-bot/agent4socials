@@ -63,7 +63,7 @@ function DataSyncBanner({
     FACEBOOK: <FacebookIcon size={20} />,
     TIKTOK: <TikTokIcon size={20} />,
     YOUTUBE: <YoutubeIcon size={20} />,
-    TWITTER: <XTwitterIcon size={20} className="text-white" />,
+    TWITTER: <XTwitterIcon size={20} className="text-neutral-800" />,
     LINKEDIN: <LinkedinIcon size={20} />,
   };
   const platformColors: Record<string, string> = {
@@ -113,7 +113,7 @@ function DataSyncBanner({
         {icon && (
           <div className="relative shrink-0">
             {!allDone && <div className="absolute inset-0 rounded-full bg-white/30 animate-ping" />}
-            <div className="relative w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white">
+            <div className="relative w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm">
               {icon}
             </div>
           </div>
