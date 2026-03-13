@@ -1431,6 +1431,13 @@ function InboxPage() {
               )}
               {selectedPlatform === 'TWITTER' && conversationsDebug?.metaMessage?.includes('DM events returned: 0') && (
                 <div className="mt-3 max-w-sm mx-auto space-y-2 text-left">
+                  {conversationsDebug.metaMessage.includes('ok (user') && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                      <p className="text-xs font-semibold text-green-800 mb-1">No DMs in the last 30 days</p>
+                      <p className="text-xs text-green-700 mb-1">A 200 response with empty data is normal: it means no DM events in that window. Your token and scopes are valid (missing <code className="bg-green-100 px-1 rounded">dm.read</code> would return 401/403).</p>
+                      <p className="text-xs text-green-700">Use <strong>Diagnose X DMs</strong> below to confirm granted scopes (e.g. dm.read, users.read).</p>
+                    </div>
+                  )}
                   {conversationsDebug.metaMessage.includes('source=none') && (
                     <div className="bg-sky-50 border border-sky-200 rounded-lg px-3 py-2">
                       <p className="text-xs font-semibold text-sky-800 mb-1">Use v1.1 DMs (recommended)</p>
