@@ -72,8 +72,11 @@ export async function GET(
       const ourId = String(account.platformUserId ?? '');
       const credJson = (account.credentialsJson && typeof account.credentialsJson === 'object'
         ? account.credentialsJson : {}) as Record<string, unknown>;
-      const oauth1UserToken = (credJson.twitterOAuth1AccessToken as string | undefined) || process.env.TWITTER_ACCESS_TOKEN;
-      const oauth1UserSecret = (credJson.twitterOAuth1AccessTokenSecret as string | undefined) || process.env.TWITTER_ACCESS_TOKEN_SECRET;
+      // Only use OAuth 1.0a if THIS account was explicitly connected via OAuth 1.0a (credentialsJson tokens).
+      // Do NOT fall back to TWITTER_ACCESS_TOKEN env vars — those may belong to a different X account
+      // (the developer's account) and would silently return 0 DMs for the wrong account.
+      const oauth1UserToken = credJson.twitterOAuth1AccessToken as string | undefined;
+      const oauth1UserSecret = credJson.twitterOAuth1AccessTokenSecret as string | undefined;
       const useOAuth1ForDm = Boolean(oauth1UserToken && oauth1UserSecret && process.env.TWITTER_API_KEY && process.env.TWITTER_API_SECRET);
 
       type TwitterSender = { id: string | undefined; name: string | undefined; username: string | undefined; pictureUrl: string | null };

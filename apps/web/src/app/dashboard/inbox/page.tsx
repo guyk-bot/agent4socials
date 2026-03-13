@@ -1428,7 +1428,7 @@ function InboxPage() {
                 <div className="mt-3 max-w-sm mx-auto bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-left">
                   <p className="text-xs font-semibold text-green-800 mb-1">X is connected and working</p>
                   <p className="text-xs text-green-700 mb-1">Your token and permissions are valid. X returned 0 DMs because there are <strong>no Direct Messages in the last 30 days</strong> on this account.</p>
-                  <p className="text-xs text-green-700">To test: send a DM to @agent4socials from another account on x.com, then refresh this page and it will appear here.</p>
+                  <p className="text-xs text-green-700">To test: send a DM to the connected X account from another account on x.com, then click <strong>Refresh conversations</strong> and it will appear here. If you already sent one and still see nothing, try disconnecting and reconnecting X from the sidebar.</p>
                 </div>
               ) : selectedPlatform === 'TWITTER' && conversationsDebug?.metaMessage && (
                 <div className="mt-3 max-w-sm mx-auto space-y-2 text-left">

@@ -31,8 +31,10 @@ export async function GET(
   const token = (account.accessToken || '').trim();
   const credJson = (account.credentialsJson && typeof account.credentialsJson === 'object'
     ? account.credentialsJson : {}) as Record<string, unknown>;
-  const oauth1UserToken = (credJson.twitterOAuth1AccessToken as string | undefined) || process.env.TWITTER_ACCESS_TOKEN;
-  const oauth1UserSecret = (credJson.twitterOAuth1AccessTokenSecret as string | undefined) || process.env.TWITTER_ACCESS_TOKEN_SECRET;
+  // Only use OAuth 1.0a if THIS account was explicitly connected via OAuth 1.0a.
+  // Env var TWITTER_ACCESS_TOKEN may belong to a different X account (dev account).
+  const oauth1UserToken = credJson.twitterOAuth1AccessToken as string | undefined;
+  const oauth1UserSecret = credJson.twitterOAuth1AccessTokenSecret as string | undefined;
   const useOAuth1ForDm = Boolean(oauth1UserToken && oauth1UserSecret && process.env.TWITTER_API_KEY && process.env.TWITTER_API_SECRET);
 
   if (!token && !useOAuth1ForDm) {

@@ -49,8 +49,10 @@ export async function GET(
     const token = account.accessToken ?? '';
     const credJson = (account.credentialsJson && typeof account.credentialsJson === 'object'
       ? account.credentialsJson : {}) as Record<string, unknown>;
-    const oauth1UserToken = (credJson.twitterOAuth1AccessToken as string | undefined) || process.env.TWITTER_ACCESS_TOKEN;
-    const oauth1UserSecret = (credJson.twitterOAuth1AccessTokenSecret as string | undefined) || process.env.TWITTER_ACCESS_TOKEN_SECRET;
+    // Only use OAuth 1.0a if THIS account was connected via OAuth 1.0a (credentialsJson).
+    // Env var TWITTER_ACCESS_TOKEN may belong to a different X account (dev account).
+    const oauth1UserToken = credJson.twitterOAuth1AccessToken as string | undefined;
+    const oauth1UserSecret = credJson.twitterOAuth1AccessTokenSecret as string | undefined;
     const useOAuth1ForDm = Boolean(oauth1UserToken && oauth1UserSecret && process.env.TWITTER_API_KEY && process.env.TWITTER_API_SECRET);
     const ourId = String(account.platformUserId ?? '');
 
@@ -404,8 +406,8 @@ export async function POST(
     }
     const credJsonX = (account.credentialsJson && typeof account.credentialsJson === 'object'
       ? account.credentialsJson : {}) as Record<string, unknown>;
-    const oauth1UserToken = (credJsonX.twitterOAuth1AccessToken as string | undefined) || process.env.TWITTER_ACCESS_TOKEN;
-    const oauth1UserSecret = (credJsonX.twitterOAuth1AccessTokenSecret as string | undefined) || process.env.TWITTER_ACCESS_TOKEN_SECRET;
+    const oauth1UserToken = credJsonX.twitterOAuth1AccessToken as string | undefined;
+    const oauth1UserSecret = credJsonX.twitterOAuth1AccessTokenSecret as string | undefined;
     const useOAuth1ForDm = Boolean(oauth1UserToken && oauth1UserSecret && process.env.TWITTER_API_KEY && process.env.TWITTER_API_SECRET);
     const postUrl = `https://api.x.com/2/dm_conversations/with/${encodeURIComponent(recipientId)}/messages`;
     const postHeaders = useOAuth1ForDm
