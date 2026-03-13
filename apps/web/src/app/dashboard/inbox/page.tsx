@@ -1424,62 +1424,33 @@ function InboxPage() {
                   TikTok inbox (DMs) are not available in the app. Use Instagram, Facebook, or X to view and reply to messages here.
                 </p>
               )}
-              {selectedPlatform === 'TWITTER' && (
-                <p className="text-xs text-neutral-500 mt-3 max-w-sm mx-auto">
-                  X (Twitter) DMs from the last 30 days will appear here. Make sure the X icon is selected in the filter above. Reconnect your X account from the sidebar if you still see nothing.
-                </p>
-              )}
-              {selectedPlatform === 'TWITTER' && conversationsDebug?.metaMessage?.includes('DM events returned: 0') && (
-                <div className="mt-3 max-w-sm mx-auto space-y-2 text-left">
-                  {conversationsDebug.metaMessage.includes('ok (user') && (
-                    <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2">
-                      <p className="text-xs font-semibold text-green-800 mb-1">No DMs in the last 30 days</p>
-                      <p className="text-xs text-green-700 mb-1">A 200 response with empty data is normal: it means no DM events in that window. Your token and scopes are valid (missing <code className="bg-green-100 px-1 rounded">dm.read</code> would return 401/403).</p>
-                      <p className="text-xs text-green-700">Use <strong>Diagnose X DMs</strong> below to confirm granted scopes (e.g. dm.read, users.read).</p>
-                    </div>
-                  )}
-                  {conversationsDebug.metaMessage.includes('source=none') && (
-                    <div className="bg-sky-50 border border-sky-200 rounded-lg px-3 py-2">
-                      <p className="text-xs font-semibold text-sky-800 mb-1">Use v1.1 DMs (recommended)</p>
-                      <p className="text-xs text-sky-700">Add <strong>TWITTER_ACCESS_TOKEN</strong> and <strong>TWITTER_ACCESS_TOKEN_SECRET</strong> in Vercel: Project → Settings → Environment Variables. Select <strong>Production</strong> (and Preview if you use it). Values: X Developer Console → your app → OAuth 1.0 Keys → Access Token and Access Token Secret (for @agent4socials). Then trigger a new <strong>Redeploy</strong> from the Deployments tab so the new vars are loaded.</p>
-                    </div>
-                  )}
-                  {(conversationsDebug.metaMessage.includes('subset of X API') || conversationsDebug.metaMessage.includes('limited v1.1 endpoints')) && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                      <p className="text-xs font-semibold text-amber-800 mb-1">X API tier does not include Direct Messages</p>
-                      <p className="text-xs text-amber-700 mb-1">Your app has access only to a subset of v2 and limited v1.1 endpoints (e.g. media, OAuth). <strong>DM read/list is not included</strong> on the Free tier. Reconnecting or regenerating tokens will not fix this.</p>
-                      <p className="text-xs text-amber-700 mb-1">To see DMs here you need an X API plan that includes Direct Messages (e.g. Basic or higher). Open <a href="https://developer.x.com/en/portal/dashboard" target="_blank" rel="noopener noreferrer" className="underline font-medium text-amber-900">developer.x.com</a>, select your project, then look for <strong>Products</strong>, <strong>Subscription</strong>, or <strong>Add product</strong> and enable or request the Direct Message API. If you don’t see those options, check X’s pricing page or contact X developer support.</p>
-                    </div>
-                  )}
-                  {(conversationsDebug.metaMessage.includes('Invalid or expired token') || conversationsDebug.metaMessage.includes('code":89') || conversationsDebug.metaMessage.includes('code": 89')) && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                      <p className="text-xs font-semibold text-red-800 mb-1">X token expired or invalid (code 89)</p>
-                      <p className="text-xs text-red-700 mb-1">Use the <strong>Access Token</strong> and <strong>Access Token Secret</strong>, not the Consumer Key / Consumer Key Secret.</p>
-                      <p className="text-xs text-red-700 mb-1">In X Developer Portal (developer.x.com): your app → <strong>OAuth 1.0 Keys</strong>. There are two pairs: (1) <strong>Consumer Key</strong> and <strong>Consumer Key Secret</strong> (API keys) and (2) <strong>Access Token</strong> and <strong>Access Token Secret</strong> (the row that says &quot;For @agent4socials&quot; and &quot;Read and write and Direct message&quot;). For <strong>TWITTER_ACCESS_TOKEN</strong> and <strong>TWITTER_ACCESS_TOKEN_SECRET</strong> in Vercel you must use pair (2). Regenerate that pair if needed, copy into Vercel, then redeploy.</p>
-                    </div>
-                  )}
-                  {conversationsDebug.metaMessage.includes('source=env') && conversationsDebug.metaMessage.includes('events=0') && !conversationsDebug.metaMessage.includes('error=') && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                      <p className="text-xs font-semibold text-amber-800 mb-1">v1.1 returned 0 messages</p>
-                      <p className="text-xs text-amber-700">The env tokens were used but X returned no DMs. Check: (1) Access Token in the portal is for the same account you connect here (@agent4socials). (2) X only returns DMs from the last 30 days. (3) You have at least one DM in that window on x.com.</p>
-                    </div>
-                  )}
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                    <p className="text-xs font-semibold text-amber-800 mb-1">X DMs not loading?</p>
-                    <p className="text-xs text-amber-700 mb-1">Your account is connected but the X app needs <strong>Direct Messages</strong> permission enabled in the X Developer Portal:</p>
-                    <ol className="text-xs text-amber-700 list-decimal list-inside space-y-0.5 mb-2">
-                      <li>Go to <strong>developer.twitter.com</strong>, open your app</li>
-                      <li>Under <strong>User authentication settings</strong>, set App permissions to <strong>&quot;Read and write and Direct Messages&quot;</strong></li>
-                      <li>Save, then reconnect X from the sidebar</li>
-                    </ol>
-                    <p className="text-xs text-amber-600">Without this setting, X silently ignores the DM permission request.</p>
-                  </div>
+              {selectedPlatform === 'TWITTER' && conversationsDebug?.metaMessage?.includes('DM events returned: 0') && conversationsDebug.metaMessage.includes('ok (user') ? (
+                <div className="mt-3 max-w-sm mx-auto bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-left">
+                  <p className="text-xs font-semibold text-green-800 mb-1">X is connected and working</p>
+                  <p className="text-xs text-green-700 mb-1">Your token and permissions are valid. X returned 0 DMs because there are <strong>no Direct Messages in the last 30 days</strong> on this account.</p>
+                  <p className="text-xs text-green-700">To test: send a DM to @agent4socials from another account on x.com, then refresh this page and it will appear here.</p>
                 </div>
-              )}
-              {conversationsDebug?.metaMessage && (
-                <p className="text-xs text-neutral-600 mt-2 max-w-sm mx-auto font-mono bg-neutral-100 px-2 py-1.5 rounded">
-                  {conversationsDebug.metaMessage}
-                </p>
+              ) : selectedPlatform === 'TWITTER' && conversationsDebug?.metaMessage && (
+                <div className="mt-3 max-w-sm mx-auto space-y-2 text-left">
+                  {(conversationsDebug.metaMessage.includes('Invalid or expired token') || conversationsDebug.metaMessage.includes('code":89') || conversationsDebug.metaMessage.includes('code": 89') || conversationsDebug.metaMessage.includes('401')) && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                      <p className="text-xs font-semibold text-red-800 mb-1">X token expired or invalid</p>
+                      <p className="text-xs text-red-700">Reconnect your X account from the sidebar. If it keeps failing, regenerate your Access Token in X Developer Portal.</p>
+                    </div>
+                  )}
+                  {(conversationsDebug.metaMessage.includes('code 220') || conversationsDebug.metaMessage.includes('credentials do not allow')) && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                      <p className="text-xs font-semibold text-red-800 mb-1">X app missing DM permission</p>
+                      <p className="text-xs text-red-700">In X Developer Portal: your app &rarr; <strong>User authentication settings</strong> &rarr; set App permissions to <strong>&quot;Read + Write + Direct Messages&quot;</strong>, save, then reconnect X from the sidebar.</p>
+                    </div>
+                  )}
+                  {!conversationsDebug.metaMessage.includes('401') && !conversationsDebug.metaMessage.includes('code":89') && !conversationsDebug.metaMessage.includes('code 220') && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                      <p className="text-xs font-semibold text-amber-800 mb-1">Could not load X DMs</p>
+                      <p className="text-xs text-amber-700 font-mono break-all">{conversationsDebug.metaMessage}</p>
+                    </div>
+                  )}
+                </div>
               )}
               {dmOrFbPlatforms.includes('INSTAGRAM') && selectedPlatform !== 'TIKTOK' && (
                 <p className="text-xs text-amber-700 mt-3 max-w-sm mx-auto bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
