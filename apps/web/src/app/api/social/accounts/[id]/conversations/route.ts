@@ -205,6 +205,13 @@ export async function GET(
           if (Array.isArray(ev.participant_ids)) {
             for (const pid of ev.participant_ids) if (pid && pid !== ourId) cur.otherParticipantIds.add(pid);
           }
+          // X API doesn't return participant_ids for MessageCreate events.
+          // Parse the conversation ID (format: {numericId1}-{numericId2}) to find the other participant.
+          if (ourId) {
+            for (const part of cid.split('-')) {
+              if (part && part !== ourId) cur.otherParticipantIds.add(part);
+            }
+          }
         }
         nextToken = res.data?.meta?.next_token ?? null;
         pageCount++;
@@ -242,7 +249,7 @@ export async function GET(
             error?: { message?: string };
           }>('https://api.x.com/2/users', {
             params: { ids: idsArr.join(','), 'user.fields': 'id,name,username,profile_image_url' },
-            headers: { Authorization: `Bearer ${token}` },
+            headers: { Authorization: `Bearer ${tokenForTwitter}` },
             timeout: 15_000,
           });
           if (usersRes.data?.data) {

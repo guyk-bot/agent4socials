@@ -149,11 +149,47 @@ export async function GET(
           }
         }
       }
+      // X API doesn't return participant_ids for MessageCreate. Parse conversationId as fallback.
+      // Conversation ID format: {numericId1}-{numericId2}
+      if (!recipientId && ourId) {
+        for (const part of conversationId.split('-')) {
+          if (part && part !== ourId) {
+            recipientId = part;
+            break;
+          }
+        }
+      }
+
+      // If we still don't have user info for the recipient, fetch it from the X API.
+      if (recipientId && !userObjMap.has(recipientId)) {
+        try {
+          const recipientRes = await axios.get<{
+            data?: { id: string; name?: string; username?: string; profile_image_url?: string };
+          }>(`https://api.x.com/2/users/${recipientId}`, {
+            params: { 'user.fields': 'id,name,username,profile_image_url' },
+            headers: { Authorization: `Bearer ${token}` },
+            timeout: 8_000,
+          });
+          if (recipientRes.data?.data) {
+            const u = recipientRes.data.data;
+            userObjMap.set(u.id, { name: u.name, username: u.username, profile_image_url: u.profile_image_url });
+            userMap.set(u.id, u.username ?? u.name ?? u.id);
+          }
+        } catch {
+          // ignore - we'll fall back to "Private account"
+        }
+      }
+
       const recipientUser = recipientId ? userObjMap.get(recipientId) : null;
       const recipientName = recipientUser?.name ?? recipientUser?.username ?? (recipientId ? 'Private account' : null);
       const recipientPictureUrl = recipientUser?.profile_image_url?.replace(/_normal\./, '_400x400.') ?? null;
+      // Enrich allMessages with proper fromName now that userMap may have been updated
+      const enrichedMessages = allMessages.map((m) => ({
+        ...m,
+        fromName: m.fromId ? (userMap.get(m.fromId) ?? m.fromName) : m.fromName,
+      }));
       return NextResponse.json({
-        messages: allMessages,
+        messages: enrichedMessages,
         recipientId,
         ...(recipientName && { recipientName: recipientName }),
         ...(recipientPictureUrl && { recipientPictureUrl: recipientPictureUrl }),

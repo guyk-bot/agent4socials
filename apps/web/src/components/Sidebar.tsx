@@ -78,7 +78,9 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
           const status = err?.response?.status;
           const msg = status === 401
             ? 'Session may have expired. Sign out and sign in again.'
-            : 'Could not load accounts. Check your connection and refresh the page.';
+            : status === 503
+              ? 'Database connection issue. If you use Supabase: use the Transaction pooler (port 6543), then redeploy.'
+              : 'Could not load accounts. Check your connection and refresh the page.';
           setAccountsLoadError(msg);
           if (!retry) setTimeout(() => fetchAccounts(true), 2500);
         });

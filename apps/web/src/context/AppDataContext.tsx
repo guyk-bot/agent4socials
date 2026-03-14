@@ -203,7 +203,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
     (async () => {
       try {
-        const accountsRes = await api.get<{ id: string; platform: string; username?: string; profilePicture?: string | null; platformUserId?: string }[]>('/social/accounts').catch(() => ({ data: [] }));
+        const accountsRes = await api.get<{ id: string; platform: string; username?: string; profilePicture?: string | null; platformUserId?: string }[]>('/social/accounts');
         const accounts = Array.isArray(accountsRes.data) ? accountsRes.data : [];
         if (cancelled) return;
         setCachedAccounts(accounts);
