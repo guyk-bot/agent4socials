@@ -1035,9 +1035,7 @@ export default function DashboardPage() {
                   const platformJustDisconnected = selectedAccount.platform;
                   setDisconnectingId(selectedAccount.id);
                   setDisconnectConfirmOpen(false);
-                  // Update UI immediately: show Connect view and remove account from sidebar
                   setSelectedPlatformForConnect(platformJustDisconnected);
-                  setCachedAccounts((prev) => prev.filter((a) => a.id !== accountIdToRemove));
                   setInsights(null);
                   setAggregatedInsights(null);
                   router.replace('/dashboard', { scroll: false });
@@ -1045,9 +1043,13 @@ export default function DashboardPage() {
                     await api.delete(`/social/accounts/${accountIdToRemove}`);
                     const res = await api.get('/social/accounts');
                     const data = Array.isArray(res.data) ? res.data : [];
-                    setCachedAccounts(data.filter((a) => a.id !== accountIdToRemove));
-                  } catch (_) {}
-                  setDisconnectingId(null);
+                    setCachedAccounts(data);
+                  } catch (e) {
+                    const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Could not disconnect. Try again.';
+                    setAlertMessage(msg);
+                  } finally {
+                    setDisconnectingId(null);
+                  }
                 }}
               />
             </div>
