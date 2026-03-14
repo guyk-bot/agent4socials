@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
-import { prisma } from '@/lib/db';
+import { prisma, databaseUrlLooksDirect } from '@/lib/db';
+
+const POOLER_MESSAGE =
+  'Database: use the Supabase Transaction pooler (port 6543) to avoid max connections. Set DATABASE_URL in Vercel to the Transaction pooler URI, add ?pgbouncer=true if needed, then redeploy. https://supabase.com/docs/guides/database/connecting-to-postgres#connection-pooler';
 
 export async function GET(request: NextRequest) {
   if (!process.env.DATABASE_URL) {
     return NextResponse.json({ message: 'Social accounts require DATABASE_URL' }, { status: 503 });
+  }
+  if (databaseUrlLooksDirect) {
+    return NextResponse.json({ message: POOLER_MESSAGE }, { status: 503 });
   }
   let userId: string | null;
   try {
@@ -33,6 +39,10 @@ export async function GET(request: NextRequest) {
     res.headers.set('Cache-Control', 'private, max-age=30');
     return res;
   } catch (e) {
+    const msg = (e as Error)?.message?.toLowerCase() ?? '';
+    if (msg.includes('max client connections') || msg.includes('too many clients')) {
+      return NextResponse.json({ message: POOLER_MESSAGE }, { status: 503 });
+    }
     console.error('[GET /social/accounts] findMany failed:', (e as Error)?.message);
     return NextResponse.json({ message: 'Database error. Try again later.' }, { status: 503 });
   }

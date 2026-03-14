@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
-import { prisma } from '@/lib/db';
+import { prisma, databaseUrlLooksDirect } from '@/lib/db';
 import { getTwitterOAuth1 } from '@/lib/twitter-oauth1';
 import axios from 'axios';
 import { Platform } from '@prisma/client';
@@ -90,6 +90,15 @@ export async function GET(
   try {
     if (!process.env.DATABASE_URL) {
       return NextResponse.json({ message: 'Social OAuth requires DATABASE_URL' }, { status: 503 });
+    }
+    if (databaseUrlLooksDirect) {
+      return NextResponse.json(
+        {
+          message:
+            'Database: use the Supabase Transaction pooler to avoid "max connections" errors. In Supabase: Project → Settings → Database → Connection string → choose "Transaction" (port 6543). Set that URI as DATABASE_URL in Vercel (URL-encode the password, e.g. @ → %40). Add ?pgbouncer=true if not in the string. Redeploy. See: https://supabase.com/docs/guides/database/connecting-to-postgres#connection-pooler',
+        },
+        { status: 503 }
+      );
     }
     const userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
     if (!userId) {
@@ -209,7 +218,7 @@ export async function GET(
       return NextResponse.json(
         {
           message:
-            'Database: max connections reached. Use the Supabase Transaction pooler for DATABASE_URL: Project → Settings → Database → Connection string → "Transaction" (port 6543). Replace DATABASE_URL in Vercel with that URI, add ?pgbouncer=true if needed, then redeploy.',
+            'Database: max connections reached. Use the Supabase Transaction pooler: Project → Settings → Database → Connection string → "Transaction" (port 6543). Set that as DATABASE_URL in Vercel (URL-encode password), add ?pgbouncer=true if needed, then redeploy. https://supabase.com/docs/guides/database/connecting-to-postgres#connection-pooler',
         },
         { status: 503 }
       );
