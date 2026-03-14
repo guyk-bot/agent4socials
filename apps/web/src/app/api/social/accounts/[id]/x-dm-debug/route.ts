@@ -44,13 +44,14 @@ export async function GET(
     });
   }
 
+  const grantedScope = (credJson.grantedScope as string | undefined) ?? null;
   const out: {
-    account: { id: string; username: string | null; platformUserId: string | null };
+    account: { id: string; username: string | null; platformUserId: string | null; grantedScope: string | null };
     authUsed: string;
     usersMe: { status: number; data?: unknown; error?: unknown; message?: string };
     dmEvents: { status: number; url: string; params: Record<string, string>; auth: string; data?: unknown; meta?: unknown; error?: unknown; message?: string; fullResponse?: unknown };
   } = {
-    account: { id: account.id, username: account.username, platformUserId: account.platformUserId },
+    account: { id: account.id, username: account.username, platformUserId: account.platformUserId, grantedScope },
     authUsed: useOAuth1ForDm ? 'OAuth 1.0a (user Access Token + Secret)' : 'Bearer (OAuth 2.0 user token via PKCE)',
     usersMe: { status: 0 },
     dmEvents: { status: 0, url: 'https://api.x.com/2/dm_events', params: {}, auth: useOAuth1ForDm ? 'OAuth 1.0a' : 'Bearer' },

@@ -27,6 +27,8 @@ type TokenResult = {
   platformUserId: string;
   username: string;
   profilePicture?: string | null;
+  /** OAuth 2.0 scopes actually granted by X (captured at token exchange time) */
+  twitterGrantedScope?: string;
   /** When multiple Facebook Pages, list for user to pick one (access_token is the Page token) */
   pages?: Array<{ id: string; name?: string; picture?: string; instagram_business_account_id?: string; access_token?: string }>;
   /** When multiple Instagram Business accounts (via Facebook), list for user to pick one */
@@ -403,6 +405,8 @@ async function exchangeCode(
         },
       });
       const accessToken = r.data.access_token;
+      const grantedScope: string = typeof r.data.scope === 'string' ? r.data.scope : (Array.isArray(r.data.scope) ? r.data.scope.join(' ') : '');
+      console.log('[Twitter OAuth2] granted scope:', grantedScope || '(none returned)');
       let username = 'X User';
       let profilePicture: string | null = null;
       let platformUserId = 'twitter-' + (accessToken?.slice(-8) || 'id');
@@ -427,6 +431,7 @@ async function exchangeCode(
         platformUserId,
         username,
         profilePicture,
+        twitterGrantedScope: grantedScope || undefined,
       };
     }
     case 'LINKEDIN': {
@@ -854,6 +859,10 @@ export async function GET(
   const igBusinessCreds = (plat === 'INSTAGRAM' && isInstagramLogin)
     ? { loginMethod: 'instagram_business' as const }
     : undefined;
+  const twitterCreds = plat === 'TWITTER' && tokenData.twitterGrantedScope
+    ? { grantedScope: tokenData.twitterGrantedScope }
+    : undefined;
+  const credentialsJsonToSet = igBusinessCreds ?? twitterCreds ?? undefined;
   try {
     // Upsert first so reconnecting the same account updates in place and keeps posts/data
     await prisma.socialAccount.upsert({
@@ -871,7 +880,7 @@ export async function GET(
         username: tokenData.username,
         ...(profilePicture !== undefined && { profilePicture }),
         status: 'connected',
-        ...(igBusinessCreds && { credentialsJson: igBusinessCreds }),
+        ...(credentialsJsonToSet && { credentialsJson: credentialsJsonToSet }),
       },
       create: {
         userId,
@@ -883,7 +892,7 @@ export async function GET(
         refreshToken: tokenData.refreshToken,
         expiresAt: tokenData.expiresAt,
         status: 'connected',
-        ...(igBusinessCreds && { credentialsJson: igBusinessCreds }),
+        ...(credentialsJsonToSet && { credentialsJson: credentialsJsonToSet }),
       },
     });
     await prisma.socialAccount.deleteMany({
