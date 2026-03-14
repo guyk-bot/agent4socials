@@ -271,6 +271,8 @@ function InboxPage() {
 
   const connectedPlatforms = PLATFORMS.filter((p) => effectiveAccounts.some((a) => a.platform === p.id));
   const unconnectedPlatforms = PLATFORMS.filter((p) => !effectiveAccounts.some((a) => a.platform === p.id));
+  const platformsForMessages = connectedPlatforms.filter((p) => p.id === 'INSTAGRAM' || p.id === 'FACEBOOK');
+  const platformsToShow = inboxMode === 'messages' ? platformsForMessages : connectedPlatforms;
   const byPlatform = appData?.notifications?.byPlatform ?? notifications.byPlatform ?? {};
   const effectiveNotifications = selectedPlatforms.length > 0
     ? {
@@ -283,7 +285,7 @@ function InboxPage() {
 
   const currentAccountForMessages = selectedPlatform ? effectiveAccounts.find((a) => a.platform === selectedPlatform) : null;
   useEffect(() => {
-    if (!selectedConversationId || !currentAccountForMessages || (selectedPlatform !== 'INSTAGRAM' && selectedPlatform !== 'FACEBOOK' && selectedPlatform !== 'TWITTER')) {
+    if (!selectedConversationId || !currentAccountForMessages || (selectedPlatform !== 'INSTAGRAM' && selectedPlatform !== 'FACEBOOK')) {
       setConversationMessages([]);
       setConversationRecipientId(null);
       setConversationMessagesError(null);
@@ -386,7 +388,8 @@ function InboxPage() {
       .catch(() => setNotifications({ comments: 0, messages: 0 }));
   }, [selectedPlatform, inboxMode, appData]);
 
-  const dmOrFbPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK' || p === 'TWITTER');
+  // Messages tab: only Instagram and Facebook (no X/Twitter DMs for now)
+  const dmOrFbPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK');
   useEffect(() => {
     if (dmOrFbPlatforms.length === 0) {
       setConversations([]);
@@ -414,8 +417,7 @@ function InboxPage() {
       return;
     }
       const fromCache = appData?.getConversations(account.id);
-      // Don't use cached empty for X (Twitter) so we always refetch and pick up new DMs
-      const useCache = fromCache !== undefined && fromCache !== null && !(platform === 'TWITTER' && Array.isArray(fromCache) && fromCache.length === 0);
+      const useCache = fromCache !== undefined && fromCache !== null;
       if (useCache) {
         merge.push(...fromCache.map((c) => ({ ...c, platform })));
         if (--pending === 0 && !cancelled) {
@@ -434,16 +436,7 @@ function InboxPage() {
           merge.push(...list);
           if (res.data?.error) errors.push(res.data.error);
           if (res.data?.debug) {
-            if (platform === 'TWITTER' && list.length === 0) {
-              const d = res.data.debug as {
-                tokenCheck?: string; eventCount?: number; rawErrors?: unknown; dmEventsResponse?: unknown;
-              };
-              const errStr = d.rawErrors ? ` Errors: ${JSON.stringify(d.rawErrors).slice(0, 120)}` : '';
-              const apiStr = d.dmEventsResponse ? ` dm_events API: ${JSON.stringify(d.dmEventsResponse).slice(0, 200)}` : '';
-              debugs.push({ metaMessage: `X API (v2 only): ${d.tokenCheck ?? 'unknown'}. DM events returned: ${d.eventCount ?? 0}.${errStr}${apiStr}` });
-            } else {
-              debugs.push(res.data.debug as { rawMessage?: string; code?: number; responseData?: unknown; metaMessage?: string });
-            }
+            debugs.push(res.data.debug as { rawMessage?: string; code?: number; responseData?: unknown; metaMessage?: string });
           }
           if (!res.data?.error) appData?.setConversationsForAccount(account.id, res.data?.conversations ?? []);
           if (--pending === 0) {
@@ -495,6 +488,14 @@ function InboxPage() {
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dmOrFbPlatforms.join(','), effectiveAccounts.map((a) => a.id).join(','), conversationsRefreshKey]);
+
+  // When in Messages mode, do not keep Twitter selected (Messages are IG + FB only)
+  useEffect(() => {
+    if (inboxMode === 'messages' && selectedPlatform === 'TWITTER') {
+      const first = platformsForMessages[0];
+      setSelectedPlatform(first?.id ?? null);
+    }
+  }, [inboxMode, selectedPlatform, platformsForMessages]);
 
   // Auto-open the first conversation when the list loads (messages mode) so all conversations are one click away
   useEffect(() => {
@@ -726,7 +727,7 @@ function InboxPage() {
         {/* Platform icons + Connect */}
         <div className="p-3 border-b border-neutral-100">
           <div className="flex items-center gap-2 flex-wrap">
-            {connectedPlatforms.map((p) => {
+            {platformsToShow.map((p) => {
               const Icon = p.icon;
               const isSelected = selectedPlatforms.includes(p.id);
               return (
@@ -1292,7 +1293,7 @@ function InboxPage() {
           ) : conversationsLoading ? (
             <div className="p-6 flex flex-col items-center justify-center gap-3">
               <Loader2 size={32} className="text-indigo-500 animate-spin" />
-              <p className="text-sm text-neutral-500">{selectedPlatform === 'TWITTER' ? 'Loading X (Twitter) messages…' : 'Loading conversations…'}</p>
+              <p className="text-sm text-neutral-500">Loading conversations…</p>
             </div>
           ) : conversationsError ? (
             <div className="p-4">
@@ -1306,21 +1307,6 @@ function InboxPage() {
                   <p className="text-xs text-red-800 mt-1 font-mono bg-red-100/80 px-2 py-1 rounded mt-2">{conversationsDebug.metaMessage}</p>
                 )}
                 <div className="mt-3 flex flex-col gap-2">
-                  {dmOrFbPlatforms.includes('TWITTER') && effectiveAccounts.some((a) => a.platform === 'TWITTER') && (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          const res = await api.get('/social/oauth/TWITTER/start');
-                          const url = res?.data?.url;
-                          if (url && typeof url === 'string') window.location.href = url;
-                        } catch (_) {}
-                      }}
-                      className="px-4 py-2 rounded-lg bg-neutral-800 text-white text-sm font-medium hover:bg-neutral-900"
-                    >
-                      Reconnect X (Twitter)
-                    </button>
-                  )}
                   {dmOrFbPlatforms.includes('INSTAGRAM') && effectiveAccounts.some((a) => a.platform === 'INSTAGRAM') && (
                     <button
                       type="button"
@@ -1351,37 +1337,6 @@ function InboxPage() {
                       Reconnect Facebook
                     </button>
                   )}
-                  {(() => { const twitterAccount = dmOrFbPlatforms.includes('TWITTER') ? effectiveAccounts.find((a) => a.platform === 'TWITTER') : null; return twitterAccount ? (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        setXDmDebugLoading(true);
-                        setXDmDebugResult(null);
-                        try {
-                          const res = await api.get(`/social/accounts/${twitterAccount.id}/x-dm-debug`);
-                          setXDmDebugResult(res.data);
-                        } catch (e) {
-                          const err = e as { response?: { data?: unknown }; message?: string };
-                          setXDmDebugResult({ error: err?.message ?? 'Request failed', response: err?.response?.data });
-                        }
-                        setXDmDebugLoading(false);
-                      }}
-                      disabled={xDmDebugLoading}
-                      className="px-4 py-2 rounded-lg border border-neutral-300 bg-neutral-100 text-neutral-700 text-sm font-medium hover:bg-neutral-200 disabled:opacity-50 inline-flex items-center gap-2"
-                    >
-                      {xDmDebugLoading ? <Loader2 size={16} className="animate-spin" /> : <ExternalLink size={16} />}
-                      Diagnose X DMs
-                    </button>
-                  ) : null; })()}
-              </div>
-              {dmOrFbPlatforms.includes('TWITTER') && xDmDebugResult != null && (
-                <div className="mt-3 text-left rounded-lg border border-neutral-200 bg-neutral-50 p-3 overflow-auto max-h-64">
-                  <p className="text-xs font-semibold text-neutral-600 mb-2">X DM debug result</p>
-                  <pre className="text-xs text-neutral-700 whitespace-pre-wrap break-words font-mono">
-                    {JSON.stringify(xDmDebugResult, null, 2)}
-                  </pre>
-                </div>
-              )}
               </div>
             </div>
           ) : conversations.length === 0 ? (
@@ -1401,83 +1356,10 @@ function InboxPage() {
                 <RefreshCw size={16} />
                 Refresh conversations
               </button>
-              {(() => {
-                const twitterAcct = dmOrFbPlatforms.includes('TWITTER') ? effectiveAccounts.find((a) => a.platform === 'TWITTER') : null;
-                return twitterAcct ? (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setXDmDebugLoading(true);
-                      setXDmDebugResult(null);
-                      try {
-                        const res = await api.get(`/social/accounts/${twitterAcct.id}/x-dm-debug`);
-                        setXDmDebugResult(res.data);
-                      } catch (e) {
-                        const err = e as { response?: { data?: unknown }; message?: string };
-                        setXDmDebugResult({ error: err?.message ?? 'Request failed', response: err?.response?.data });
-                      }
-                      setXDmDebugLoading(false);
-                    }}
-                    disabled={xDmDebugLoading}
-                    className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-neutral-300 bg-neutral-100 text-sm font-medium text-neutral-700 hover:bg-neutral-200 disabled:opacity-50"
-                  >
-                    {xDmDebugLoading ? <Loader2 size={16} className="animate-spin" /> : <ExternalLink size={16} />}
-                    Diagnose X DMs
-                  </button>
-                ) : null;
-              })()}
-              {dmOrFbPlatforms.includes('TWITTER') && xDmDebugResult != null && (
-                <div className="mt-4 text-left max-w-2xl mx-auto rounded-lg border border-neutral-200 bg-neutral-50 p-3 overflow-auto max-h-80">
-                  <p className="text-xs font-semibold text-neutral-600 mb-2">X DM debug result</p>
-                  <pre className="text-xs text-neutral-700 whitespace-pre-wrap break-words font-mono">
-                    {JSON.stringify(xDmDebugResult, null, 2)}
-                  </pre>
-                </div>
-              )}
               {selectedPlatform === 'TIKTOK' && (
                 <p className="text-xs text-amber-700 mt-3 max-w-sm mx-auto bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                  TikTok inbox (DMs) are not available in the app. Use Instagram, Facebook, or X to view and reply to messages here.
+                  TikTok inbox (DMs) are not available in the app. Use Instagram or Facebook to view and reply to messages here.
                 </p>
-              )}
-              {dmOrFbPlatforms.includes('TWITTER') && conversationsDebug?.metaMessage?.includes('DM events returned: 0') && conversationsDebug.metaMessage.includes('ok (user') ? (
-                <div className="mt-3 max-w-sm mx-auto bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-left">
-                  <p className="text-xs font-semibold text-amber-800 mb-1">X is connected, but DMs may be in Message Requests</p>
-                  <p className="text-xs text-amber-700 mb-2">Your token is valid. X&apos;s API only returns <strong>accepted</strong> DMs. DMs from accounts you don&apos;t mutually follow go to a separate <strong>Message Requests</strong> folder and are invisible to the API until you accept them.</p>
-                  <p className="text-xs text-amber-800 font-semibold mb-1">Step 1: Accept pending requests on x.com</p>
-                  <ol className="text-xs text-amber-700 list-decimal list-inside space-y-1 mb-2">
-                    <li>Go to <a href="https://x.com/messages" target="_blank" rel="noopener noreferrer" className="underline font-medium">x.com/messages</a> and log in as your connected account</li>
-                    <li>Look for a <strong>Message requests</strong> tab or section at the top</li>
-                    <li>Accept all pending DMs</li>
-                    <li>Come back and click <strong>Refresh conversations</strong></li>
-                  </ol>
-                  <p className="text-xs text-amber-800 font-semibold mb-1">Step 2: Allow DMs from everyone (prevents future requests)</p>
-                  <p className="text-xs text-amber-700">On x.com: <strong>Settings &rarr; Privacy and safety &rarr; Direct Messages &rarr; Allow message requests from: Everyone</strong></p>
-                </div>
-              ) : null}
-              {dmOrFbPlatforms.includes('TWITTER') && selectedPlatform === 'TWITTER' && (
-                <p className="text-xs text-neutral-500 mt-2">Conversations are loaded from the last 30 days. Opening one only loads messages; no message is sent until you click Send.</p>
-              )}
-              {dmOrFbPlatforms.includes('TWITTER') && conversationsDebug?.metaMessage && !conversationsDebug?.metaMessage?.includes('DM events returned: 0') && (
-                <div className="mt-3 max-w-sm mx-auto space-y-2 text-left">
-                  {(conversationsDebug.metaMessage.includes('Invalid or expired token') || conversationsDebug.metaMessage.includes('code":89') || conversationsDebug.metaMessage.includes('code": 89') || conversationsDebug.metaMessage.includes('401')) && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                      <p className="text-xs font-semibold text-red-800 mb-1">X token expired or invalid</p>
-                      <p className="text-xs text-red-700">Reconnect your X account from the sidebar. If it keeps failing, regenerate your Access Token in X Developer Portal.</p>
-                    </div>
-                  )}
-                  {(conversationsDebug.metaMessage.includes('code 220') || conversationsDebug.metaMessage.includes('credentials do not allow')) && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                      <p className="text-xs font-semibold text-red-800 mb-1">X app missing DM permission</p>
-                      <p className="text-xs text-red-700">In X Developer Portal: your app &rarr; <strong>User authentication settings</strong> &rarr; set App permissions to <strong>&quot;Read + Write + Direct Messages&quot;</strong>, save, then reconnect X from the sidebar.</p>
-                    </div>
-                  )}
-                  {!conversationsDebug.metaMessage.includes('401') && !conversationsDebug.metaMessage.includes('code":89') && !conversationsDebug.metaMessage.includes('code 220') && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                      <p className="text-xs font-semibold text-amber-800 mb-1">Could not load X DMs</p>
-                      <p className="text-xs text-amber-700 font-mono break-all">{conversationsDebug.metaMessage}</p>
-                    </div>
-                  )}
-                </div>
               )}
               {dmOrFbPlatforms.includes('INSTAGRAM') && selectedPlatform !== 'TIKTOK' && (
                 <p className="text-xs text-amber-700 mt-3 max-w-sm mx-auto bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
@@ -1592,7 +1474,7 @@ function InboxPage() {
               <MessageCircle size={64} className="mx-auto text-neutral-300 mb-4" />
               <h2 className="text-lg font-semibold text-neutral-800">Open an inbox</h2>
               <p className="text-sm text-neutral-500 mt-2">
-                Click an Instagram, Facebook, TikTok, YouTube, or X icon in the left sidebar to view that platform&apos;s conversations and comments.
+                Click Instagram or Facebook to view direct messages, or any connected platform to view comments.
               </p>
             </div>
           </div>

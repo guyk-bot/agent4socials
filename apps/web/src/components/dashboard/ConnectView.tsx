@@ -95,7 +95,7 @@ const PLATFORM_INFO: Record<string, {
   },
   TWITTER: {
     name: 'X (Twitter)',
-    description: 'Authorize with the X account you want to publish from and track impressions.',
+    description: 'Authorize with the X account you want to publish from and track impressions. Comments on your posts appear in the Inbox; direct messages are not currently supported.',
     headerIcon: <XTwitterIcon size={40} className="text-neutral-900" />,
     buttonGradient: 'from-sky-400 to-sky-600',
     buttonHover: 'hover:from-sky-500 hover:to-sky-700',
@@ -104,10 +104,10 @@ const PLATFORM_INFO: Record<string, {
     functionalities: [
       'Post tweets and sync existing posts',
       'Follower and tweet counts in analytics',
-      'DMs in Inbox when your account has message access',
+      'Comments on your posts in the Inbox',
     ],
     limitations: [
-      'Cannot send DMs to private accounts',
+      'Direct messages (DMs) are not available in the Inbox; support may be added in a future update',
       'Image upload may need to be enabled from the Dashboard',
     ],
     helpAnchor: 'twitter-x',

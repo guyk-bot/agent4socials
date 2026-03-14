@@ -101,7 +101,10 @@ export default function HelpPage() {
             { id: 'twitter-x', title: 'X (Twitter)', children: (
               <>
                 <p className="text-neutral-600 text-sm leading-relaxed mb-3">
-                  Connect your X (Twitter) account via OAuth. The app can post tweets and sync existing posts. <strong>Follower and tweet counts</strong> appear in analytics when the connection is valid. If you see zero or missing data, <strong>reconnect your X account</strong> from the Dashboard (click the account in the sidebar and use reconnect), or log in again when prompted.
+                  Connect your X (Twitter) account via OAuth. The app can post tweets and sync existing posts. <strong>Follower and tweet counts</strong> appear in analytics when the connection is valid. You can view and reply to <strong>comments</strong> on your posts in the Inbox. If you see zero or missing data, <strong>reconnect your X account</strong> from the Dashboard (click the account in the sidebar and use reconnect), or log in again when prompted.
+                </p>
+                <p className="text-neutral-600 text-sm leading-relaxed mb-3">
+                  <strong>Direct messages (DMs):</strong> There is currently no access to X (Twitter) direct messages in the Inbox. DM support may be added in a future update.
                 </p>
                 <p className="text-neutral-600 text-sm leading-relaxed">
                   For posting with images, enable image upload from the Dashboard if needed.
@@ -130,7 +133,7 @@ export default function HelpPage() {
                 <li><strong>TikTok (Inbox):</strong> TikTok&apos;s <strong>Research API</strong> can read comment text but is only for approved researchers. The <strong>Display API</strong> (used by this app for video list, publish, etc.) does not expose comment text. You can see comment counts in Analytics; we&apos;ll support TikTok comments in Inbox if TikTok adds them to an API available to developer apps.</li>
                 <li><strong>Messages (Inbox):</strong> You may not see all messages in a conversation; unread/notification counts may be approximate or show as one (e.g. &quot;1&quot;) due to platform API limits. See <a href="#inbox-dms" className="text-indigo-600 hover:underline">Inbox & DMs</a> for details.</li>
                 <li><strong>Facebook:</strong> Page insights depend on Meta&apos;s API; date ranges and metrics may be limited.</li>
-                <li><strong>X (Twitter):</strong> Reconnect the account if follower or tweet counts are missing.</li>
+                <li><strong>X (Twitter):</strong> Reconnect the account if follower or tweet counts are missing. Direct messages are not available in the Inbox; only comments are shown. DM support may be added in a future update.</li>
                 <li><strong>YouTube:</strong> Enable YouTube Analytics API in Google Cloud and reconnect for full channel stats.</li>
                 <li><strong>LinkedIn:</strong> Impressions and reach require LinkedIn Marketing API approval.</li>
                 <li><strong>TikTok:</strong> Some metrics require additional API approval from TikTok.</li>
@@ -139,7 +142,7 @@ export default function HelpPage() {
             { id: 'inbox-dms', title: 'Inbox & DMs', children: (
               <>
                 <p className="text-neutral-600 text-sm leading-relaxed mb-3">
-                  The Inbox shows <strong>comments</strong> (Instagram, Facebook, X, YouTube) and <strong>direct messages</strong> (Instagram, Facebook, and X). You can reply to comments and DMs from the app. <strong>24-hour rule:</strong> For Instagram and Facebook DMs, you can only send messages within 24 hours of the customer&apos;s last message unless your app has Advanced Access for messaging.
+                  The Inbox shows <strong>comments</strong> (Instagram, Facebook, X, YouTube, TikTok) and <strong>direct messages</strong> (Instagram and Facebook only). X (Twitter) DMs are not currently available; only Twitter comments appear in the Inbox. You can reply to comments and DMs from the app. <strong>24-hour rule:</strong> For Instagram and Facebook DMs, you can only send messages within 24 hours of the customer&apos;s last message unless your app has Advanced Access for messaging.
                 </p>
                 <p className="text-neutral-600 text-sm leading-relaxed mb-3">
                   <strong>Comments on older posts:</strong> New comments on posts that are <strong>older than 28 days</strong> cannot be accessed. This is a platform API limitation (e.g. Instagram/Meta). Only comments on posts from the last 28 days are available in the Inbox; older posts will not show new comments.
