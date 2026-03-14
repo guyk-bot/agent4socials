@@ -131,6 +131,13 @@ export async function GET(
           errors?: Array<{ code?: number; title?: string; detail?: string; type?: string; status?: number }>;
         }>(dmEventsUrl, requestConfig);
 
+        if (res.status === 429) {
+          return NextResponse.json(
+            { conversations: [], error: 'X is limiting requests (too many). Wait a few minutes and try again.' },
+            { status: 429 }
+          );
+        }
+
         // 401: token expired (89) or missing DM permission (220). Per Twitter docs: 89 = refresh or reconnect, 220 = app must have Read+Write+Direct Messages.
         if (res.status === 401 && !useOAuth1ForDm) {
           const firstErr = (res.data as { errors?: Array<{ code?: number; message?: string }> })?.errors?.[0];
@@ -216,7 +223,7 @@ export async function GET(
         }
         nextToken = res.data?.meta?.next_token ?? null;
         pageCount++;
-      } while (nextToken && pageCount < 15);
+      } while (nextToken && pageCount < 5);
 
       const ourUsername = (account.username ?? '').trim() || undefined;
       let list: TwitterConvItem[] = Array.from(convosById.entries()).map(([id, { updatedTime, otherParticipantIds }]) => {

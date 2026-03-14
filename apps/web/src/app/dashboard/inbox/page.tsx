@@ -320,13 +320,14 @@ function InboxPage() {
           setConversationMessagesError(error);
         }
       })
-      .catch(() => {
-        const fallback = { messages: [] as ConversationMessage[], recipientId: recipientFromConv ?? null, recipientName: null, recipientPictureUrl: null, error: 'Could not load messages.' as string | null };
+      .catch((e: { response?: { data?: { error?: string } }; message?: string }) => {
+        const apiError = e?.response?.data?.error ?? e?.message ?? 'Could not load messages.';
+        const fallback = { messages: [] as ConversationMessage[], recipientId: recipientFromConv ?? null, recipientName: null, recipientPictureUrl: null, error: apiError as string | null };
         setConversationMessagesCache((prev) => ({ ...prev, [convId]: fallback }));
         if (selectedConversationId === convId) {
           setConversationMessages([]);
           setConversationRecipientId(recipientFromConv ?? null);
-          setConversationMessagesError('Could not load messages.');
+          setConversationMessagesError(apiError);
         }
       })
       .finally(() => {
@@ -451,7 +452,7 @@ function InboxPage() {
             setConversationsDebug(debugs[0] ?? null);
           }
         })
-        .catch((err: { message?: string; response?: { status?: number; data?: unknown } }) => {
+        .catch((err: { message?: string; response?: { status?: number; data?: { error?: string } } }) => {
           if (cancelled) return;
           const status = err?.response?.status;
           // 404 usually means the account was disconnected; refresh account list so we don't keep using a stale id
@@ -461,9 +462,11 @@ function InboxPage() {
               setCachedAccounts(data);
             }).catch(() => {});
           }
-          const msg = err?.message ?? 'Could not load conversations.';
+          const apiError = typeof err?.response?.data?.error === 'string' ? err.response.data.error : null;
+          const msg = apiError ?? err?.message ?? 'Could not load conversations.';
           const isTimeout = status === 408 || /timeout|408/i.test(msg);
-          errors.push(isTimeout ? 'Request timed out. Try again or reconnect and choose your Page.' : msg);
+          const isRateLimit = status === 429;
+          errors.push(isRateLimit ? msg : isTimeout ? 'Request timed out. Try again or reconnect and choose your Page.' : msg);
           type MetaErr = { message?: string; code?: number };
           const metaError: MetaErr | undefined = err?.response?.data && typeof err.response.data === 'object'
             ? (err.response.data as { error?: MetaErr }).error

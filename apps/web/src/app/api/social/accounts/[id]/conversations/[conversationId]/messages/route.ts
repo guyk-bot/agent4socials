@@ -61,7 +61,7 @@ export async function GET(
       const allEventParticipantIds = new Set<string>();
       let nextToken: string | null = null;
       let pageCount = 0;
-      const maxPages = 10;
+      const maxPages = 5;
       const userMap = new Map<string, string>();
       const userObjMap = new Map<string, { name?: string; username?: string; profile_image_url?: string }>();
       const dmConversationUrl = `https://api.x.com/2/dm_conversations/${conversationId}/dm_events`;
@@ -81,11 +81,13 @@ export async function GET(
               params,
               headers: signTwitterRequest('GET', dmConversationUrl, { key: oauth1UserToken!, secret: oauth1UserSecret! }, params),
               timeout: 15_000,
+              validateStatus: () => true,
             }
           : {
               params,
               headers: { Authorization: `Bearer ${token}` },
               timeout: 15_000,
+              validateStatus: () => true,
             };
 
         const res = await axios.get<{
@@ -101,6 +103,12 @@ export async function GET(
           meta?: { next_token?: string };
           error?: { message?: string };
         }>(dmConversationUrl, requestConfig);
+        if (res.status === 429) {
+          return NextResponse.json(
+            { messages: [], recipientId: null, error: 'X is limiting requests. Wait a few minutes and try again.' },
+            { status: 429 }
+          );
+        }
         if (res.data?.error) {
           return NextResponse.json({
             messages: [],
@@ -166,8 +174,9 @@ export async function GET(
                 ? signTwitterRequest('GET', withUrl, { key: oauth1UserToken!, secret: oauth1UserSecret! }, withParams)
                 : { Authorization: `Bearer ${token}` },
               timeout: 15_000,
+              validateStatus: () => true,
             });
-            if (withRes.data?.error) break;
+            if (withRes.status === 429 || withRes.data?.error) break;
             for (const u of withRes.data?.includes?.users ?? []) {
               userMap.set(u.id, u.username ?? u.name ?? u.id);
               userObjMap.set(u.id, { name: u.name, username: u.username, profile_image_url: u.profile_image_url });
@@ -259,8 +268,18 @@ export async function GET(
         ...(recipientPictureUrl && { recipientPictureUrl: recipientPictureUrl }),
       });
     } catch (e) {
-      const err = e as { response?: { data?: { error?: { message?: string } } }; message?: string };
-      const msg = err?.response?.data?.error?.message ?? err?.message ?? 'Could not load X messages.';
+      const err = e as { response?: { status?: number; data?: { error?: string | { message?: string } } }; message?: string };
+      const status = err?.response?.status;
+      const bodyError = err?.response?.data?.error;
+      const msg = typeof bodyError === 'string'
+        ? bodyError
+        : bodyError?.message ?? err?.message ?? 'Could not load X messages.';
+      if (status === 429) {
+        return NextResponse.json(
+          { messages: [], recipientId: null, error: 'X is limiting requests. Wait a few minutes and try again.' },
+          { status: 429 }
+        );
+      }
       return NextResponse.json({ messages: [], recipientId: null, error: msg });
     }
   }
