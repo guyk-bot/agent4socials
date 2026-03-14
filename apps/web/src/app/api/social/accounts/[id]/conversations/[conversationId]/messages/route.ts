@@ -60,6 +60,8 @@ export async function GET(
       const allMessages: Array<{ id: string; fromId: string | null; fromName: string | null; message: string; createdTime: string | null; isFromPage: boolean }> = [];
       const allEventParticipantIds = new Set<string>();
       let nextToken: string | null = null;
+      let pageCount = 0;
+      const maxPages = 10;
       const userMap = new Map<string, string>();
       const userObjMap = new Map<string, { name?: string; username?: string; profile_image_url?: string }>();
       const dmConversationUrl = `https://api.x.com/2/dm_conversations/${conversationId}/dm_events`;
@@ -127,7 +129,8 @@ export async function GET(
           });
         }
         nextToken = res.data?.meta?.next_token ?? null;
-      } while (nextToken);
+        pageCount++;
+      } while (nextToken && pageCount < maxPages);
 
       allMessages.sort((a, b) => {
         const tA = a.createdTime ? new Date(a.createdTime).getTime() : 0;

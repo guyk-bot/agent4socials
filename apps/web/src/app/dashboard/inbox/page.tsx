@@ -493,6 +493,15 @@ function InboxPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dmOrFbPlatforms.join(','), effectiveAccounts.map((a) => a.id).join(','), conversationsRefreshKey]);
 
+  // Auto-open the first conversation when the list loads (messages mode) so all conversations are one click away
+  useEffect(() => {
+    if (inboxMode !== 'messages' || !conversations.length || selectedConversationId) return;
+    const first = conversations[0];
+    setSelectedConversationId(first.id);
+    const platform = (first as Conversation & { platform?: string }).platform;
+    if (platform) setSelectedPlatform(platform);
+  }, [inboxMode, conversations, selectedConversationId]);
+
   const commentsSupportedPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK' || p === 'TWITTER' || p === 'YOUTUBE' || p === 'TIKTOK');
   // When only TikTok is selected, TikTok's API doesn't return comment text — so also fetch other platforms so the list doesn't go empty
   const platformsToFetchComments =
@@ -2279,7 +2288,13 @@ function InboxPage() {
                     ) : conversationMessages.length === 0 ? (
                       <p className="text-sm text-neutral-500 italic">No messages in this conversation yet.</p>
                     ) : (
-                      <div className="space-y-4">
+                      <>
+                        {selectedPlatform === 'TWITTER' && conversationMessages.length <= 1 && (
+                          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
+                            Only messages from accepted conversations appear here. To see full history, open <a href="https://x.com/messages" target="_blank" rel="noopener noreferrer" className="underline font-medium">x.com/messages</a> and accept any &quot;Message requests&quot; for this account, then refresh.
+                          </p>
+                        )}
+                        <div className="space-y-4">
                         {conversationMessages.map((msg) => (
                           <div
                             key={msg.id}
@@ -2307,6 +2322,7 @@ function InboxPage() {
               </div>
                         ))}
             </div>
+                      </>
                     )}
                   </div>
                 </div>

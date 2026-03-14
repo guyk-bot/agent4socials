@@ -217,6 +217,7 @@ export async function GET(
         pageCount++;
       } while (nextToken && pageCount < 5);
 
+      const ourUsername = (account.username ?? '').trim() || undefined;
       let list: TwitterConvItem[] = Array.from(convosById.entries()).map(([id, { updatedTime, otherParticipantIds }]) => {
         const senders: TwitterSender[] = Array.from(otherParticipantIds).map((uid) => {
           const u = userMap.get(uid);
@@ -227,10 +228,14 @@ export async function GET(
             pictureUrl: u?.profile_image_url?.replace(/_normal\./, '_400x400.') ?? null,
           };
         });
+        // Self-DM: otherParticipantIds is empty (conversation id is ourId-ourId). Show our username instead of "X (Twitter) user".
+        const fallbackSender: TwitterSender = senders.length > 0
+          ? { id: undefined, name: undefined, username: undefined, pictureUrl: null }
+          : { id: ourId, name: ourUsername ?? 'You', username: ourUsername, pictureUrl: null };
         return {
           id,
           updatedTime: updatedTime || null,
-          senders: senders.length > 0 ? senders : [{ id: undefined, name: undefined, username: undefined, pictureUrl: null }],
+          senders: senders.length > 0 ? senders : [fallbackSender],
           messageCount: undefined as number | undefined,
         };
       });
