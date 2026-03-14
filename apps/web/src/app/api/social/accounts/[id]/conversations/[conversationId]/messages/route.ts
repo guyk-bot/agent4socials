@@ -159,6 +159,7 @@ export async function GET(
               data?: Array<{ id: string; event_type?: string; sender_id?: string; text?: string; created_at?: string }>;
               includes?: { users?: Array<{ id: string; name?: string; username?: string; profile_image_url?: string }> };
               meta?: { next_token?: string };
+              error?: { message?: string };
             }>(withUrl, {
               params: withParams,
               headers: useOAuth1ForDm
