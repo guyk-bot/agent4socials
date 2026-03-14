@@ -292,6 +292,7 @@ export default function DashboardPage() {
   } | null>(null);
   const [aggregatedLoading, setAggregatedLoading] = useState(false);
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
+  const [disconnectingLabel, setDisconnectingLabel] = useState<string | null>(null);
   const [disconnectConfirmOpen, setDisconnectConfirmOpen] = useState(false);
   const [reconnectingId, setReconnectingId] = useState<string | null>(null);
   const [enablingTwitter1oa, setEnablingTwitter1oa] = useState(false);
@@ -879,8 +880,6 @@ export default function DashboardPage() {
   const showViewsHint = hasFbOrIg && effectiveFollowers > 0 && effectiveImpressions === 0 && !effectiveTimeSeries.some((d) => d.value > 0) && (selectedAccount?.platform === 'INSTAGRAM' || selectedAccount?.platform === 'FACEBOOK' || !selectedAccount);
   const showTikTokFollowersHint = selectedAccount?.platform === 'TIKTOK' && effectiveFollowers === 0 && effectiveImpressions > 0;
 
-  const isDisconnectingSelected = Boolean(disconnectingId && selectedAccount && disconnectingId === selectedAccount.id);
-
   return (
     <div className="space-y-0">
       <ConfirmModal open={alertMessage !== null} onClose={() => setAlertMessage(null)} message={alertMessage ?? ''} variant="alert" confirmLabel="OK" />
@@ -888,9 +887,9 @@ export default function DashboardPage() {
         <div className="mb-4 flex items-center gap-3 px-4 py-3 rounded-xl border border-amber-200 bg-amber-50 text-amber-800" role="status" aria-live="polite">
           <RefreshCw size={20} className="animate-spin shrink-0 text-amber-600" aria-hidden />
           <p className="text-sm font-medium">
-            Disconnecting {isDisconnectingSelected && selectedAccount ? `@${selectedAccount.username || selectedAccount.platform}` : 'account'}…
+            Disconnecting {disconnectingLabel ? `@${disconnectingLabel}` : 'account'}…
           </p>
-          <p className="text-xs text-amber-700">This may take a few seconds.</p>
+          <p className="text-xs text-amber-700">Finishing in the background. You can reconnect anytime from the sidebar.</p>
         </div>
       )}
       {(connectingParam === '1' || justConnected || insightsLoading || importedPostsLoading) && (
@@ -1063,9 +1062,13 @@ export default function DashboardPage() {
                 onConfirm={async () => {
                   const accountIdToRemove = selectedAccount.id;
                   const platformJustDisconnected = selectedAccount.platform;
+                  const label = selectedAccount.username || selectedAccount.platform;
+                  const previousAccounts = (cachedAccounts as SocialAccount[]) ?? [];
                   setDisconnectingId(selectedAccount.id);
+                  setDisconnectingLabel(label);
                   setDisconnectConfirmOpen(false);
                   setSelectedPlatformForConnect(platformJustDisconnected);
+                  setCachedAccounts(previousAccounts.filter((a) => a.id !== accountIdToRemove));
                   setInsights(null);
                   setAggregatedInsights(null);
                   router.replace('/dashboard', { scroll: false });
@@ -1075,10 +1078,14 @@ export default function DashboardPage() {
                     const data = Array.isArray(res.data) ? res.data : [];
                     setCachedAccounts(data);
                   } catch (e) {
+                    setCachedAccounts(previousAccounts);
+                    setSelectedPlatformForConnect(null);
+                    setSelectedAccountId(accountIdToRemove);
                     const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Could not disconnect. Try again.';
                     setAlertMessage(msg);
                   } finally {
                     setDisconnectingId(null);
+                    setDisconnectingLabel(null);
                   }
                 }}
               />
