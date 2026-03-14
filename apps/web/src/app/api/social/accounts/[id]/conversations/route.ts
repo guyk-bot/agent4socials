@@ -66,7 +66,8 @@ export async function GET(
     }, { status: 200 });
   }
 
-  // --- Twitter (X) DMs: GET /2/dm_events with OAuth 1.0a user token (Access Token + Secret). App-Only Bearer cannot read DMs. ---
+  // --- Twitter (X) DMs: GET /2/dm_events only. No test message is ever sent. ---
+  // X returns all DM events for the user from the last 30 days; we paginate with meta.next_token.
   if (account.platform === 'TWITTER') {
     try {
       const ourId = String(account.platformUserId ?? '');
@@ -215,7 +216,7 @@ export async function GET(
         }
         nextToken = res.data?.meta?.next_token ?? null;
         pageCount++;
-      } while (nextToken && pageCount < 5);
+      } while (nextToken && pageCount < 15);
 
       const ourUsername = (account.username ?? '').trim() || undefined;
       let list: TwitterConvItem[] = Array.from(convosById.entries()).map(([id, { updatedTime, otherParticipantIds }]) => {

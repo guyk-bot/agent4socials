@@ -1450,7 +1450,11 @@ function InboxPage() {
                   <p className="text-xs text-amber-800 font-semibold mb-1">Step 2: Allow DMs from everyone (prevents future requests)</p>
                   <p className="text-xs text-amber-700">On x.com: <strong>Settings &rarr; Privacy and safety &rarr; Direct Messages &rarr; Allow message requests from: Everyone</strong></p>
                 </div>
-              ) : dmOrFbPlatforms.includes('TWITTER') && conversationsDebug?.metaMessage && (
+              ) : null}
+              {dmOrFbPlatforms.includes('TWITTER') && selectedPlatform === 'TWITTER' && (
+                <p className="text-xs text-neutral-500 mt-2">Conversations are loaded from the last 30 days. Opening one only loads messages; no message is sent until you click Send.</p>
+              )}
+              {dmOrFbPlatforms.includes('TWITTER') && conversationsDebug?.metaMessage && !conversationsDebug?.metaMessage?.includes('DM events returned: 0') && (
                 <div className="mt-3 max-w-sm mx-auto space-y-2 text-left">
                   {(conversationsDebug.metaMessage.includes('Invalid or expired token') || conversationsDebug.metaMessage.includes('code":89') || conversationsDebug.metaMessage.includes('code": 89') || conversationsDebug.metaMessage.includes('401')) && (
                     <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2">

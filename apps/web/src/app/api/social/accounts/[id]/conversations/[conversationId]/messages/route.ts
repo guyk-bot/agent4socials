@@ -44,7 +44,7 @@ export async function GET(
     return NextResponse.json({ messages: [], error: 'conversationId required' }, { status: 400 });
   }
 
-  // --- Twitter (X) DMs: GET /2/dm_conversations/:id/dm_events with OAuth 1.0a user token. App-Only Bearer cannot read DMs. ---
+  // --- Twitter (X) DMs: GET only. We fetch via /2/dm_conversations/:id/dm_events (and fallback /2/dm_conversations/with/:participant_id/dm_events). No test message is sent. ---
   if (account.platform === 'TWITTER') {
     const token = account.accessToken ?? '';
     const credJson = (account.credentialsJson && typeof account.credentialsJson === 'object'
