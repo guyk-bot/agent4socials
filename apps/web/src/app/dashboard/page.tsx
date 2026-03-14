@@ -879,9 +879,20 @@ export default function DashboardPage() {
   const showViewsHint = hasFbOrIg && effectiveFollowers > 0 && effectiveImpressions === 0 && !effectiveTimeSeries.some((d) => d.value > 0) && (selectedAccount?.platform === 'INSTAGRAM' || selectedAccount?.platform === 'FACEBOOK' || !selectedAccount);
   const showTikTokFollowersHint = selectedAccount?.platform === 'TIKTOK' && effectiveFollowers === 0 && effectiveImpressions > 0;
 
+  const isDisconnectingSelected = Boolean(disconnectingId && selectedAccount && disconnectingId === selectedAccount.id);
+
   return (
     <div className="space-y-0">
       <ConfirmModal open={alertMessage !== null} onClose={() => setAlertMessage(null)} message={alertMessage ?? ''} variant="alert" confirmLabel="OK" />
+      {disconnectingId && (
+        <div className="mb-4 flex items-center gap-3 px-4 py-3 rounded-xl border border-amber-200 bg-amber-50 text-amber-800" role="status" aria-live="polite">
+          <RefreshCw size={20} className="animate-spin shrink-0 text-amber-600" aria-hidden />
+          <p className="text-sm font-medium">
+            Disconnecting {isDisconnectingSelected && selectedAccount ? `@${selectedAccount.username || selectedAccount.platform}` : 'account'}…
+          </p>
+          <p className="text-xs text-amber-700">This may take a few seconds.</p>
+        </div>
+      )}
       {(connectingParam === '1' || justConnected || insightsLoading || importedPostsLoading) && (
         <DataSyncBanner
           platform={selectedAccount?.platform}
@@ -1030,9 +1041,16 @@ export default function DashboardPage() {
                 type="button"
                 onClick={() => { if (!disconnectingId) setDisconnectConfirmOpen(true); }}
                 disabled={!!disconnectingId}
-                className="shrink-0 px-4 py-2 rounded-lg border border-red-200 bg-white text-red-700 text-sm font-medium hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-red-200 bg-white text-red-700 text-sm font-medium hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {disconnectingId === selectedAccount.id ? 'Disconnecting…' : 'Disconnect account'}
+                {disconnectingId === selectedAccount.id ? (
+                  <>
+                    <RefreshCw size={16} className="animate-spin" aria-hidden />
+                    Disconnecting…
+                  </>
+                ) : (
+                  'Disconnect account'
+                )}
               </button>
               <ConfirmModal
                 open={disconnectConfirmOpen}
