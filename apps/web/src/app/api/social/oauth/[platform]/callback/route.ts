@@ -649,8 +649,7 @@ export async function GET(
           });
         }
         const dashboardUrl = `${baseUrl}/dashboard?connecting=1`;
-        const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Agent4Socials – Connected</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;"><p><strong>Agent4Socials</strong> – Page connected.</p><script>window.location.href = ${JSON.stringify(dashboardUrl)};</script><p><a href="${dashboardUrl}">Go to Dashboard</a></p></body></html>`;
-        return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
+        return NextResponse.redirect(dashboardUrl);
       } catch (e) {
         console.error('[Social OAuth] Facebook single-page connect error:', e);
       }
@@ -742,9 +741,8 @@ export async function GET(
             where: { userId, platform: 'INSTAGRAM', platformUserId: { not: igId } },
           });
         }
-        const dashboardUrl = `${baseUrl}/dashboard?connecting=1`;
-        const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Agent4Socials – Page connected</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;"><p><strong>Agent4Socials</strong> – Page connected.</p><script>window.location.href = ${JSON.stringify(dashboardUrl)};</script><p><a href="${dashboardUrl}">Go to Dashboard</a></p></body></html>`;
-        return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
+      const dashboardUrl = `${baseUrl}/dashboard?connecting=1`;
+      return NextResponse.redirect(dashboardUrl);
       } catch (fallbackErr) {
         console.error('[Social OAuth] Facebook fallback connect error:', fallbackErr);
         const msg = (fallbackErr as Error)?.message ?? '';
@@ -843,8 +841,7 @@ export async function GET(
         });
       }
       const dashboardUrl = `${baseUrl}/dashboard?connecting=1`;
-      const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Agent4Socials – Account connected</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;"><p><strong>Agent4Socials</strong> – Account connected.</p><script>window.location.href = ${JSON.stringify(dashboardUrl)};</script><p><a href="${dashboardUrl}">Go to Dashboard</a></p></body></html>`;
-      return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
+      return NextResponse.redirect(dashboardUrl);
     } catch (autoConnectErr) {
       console.error('[Social OAuth] Instagram auto-connect error:', autoConnectErr);
       const msg = (autoConnectErr as Error)?.message ?? '';
@@ -982,16 +979,6 @@ export async function GET(
   const accountIdParam = mainAccount?.id ? `&accountId=${encodeURIComponent(mainAccount.id)}` : '';
   // Do not auto-redirect to OAuth 1.0a after OAuth 2.0; that forced users to authorize twice. They can click "Enable image upload" on the dashboard if needed.
   const successRedirectUrl = `${baseUrl}/dashboard?connecting=1${accountIdParam}`;
-  const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Agent4Socials – Account connected</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;"><p><strong>Agent4Socials</strong> – Account connected.</p><script>
-(function(){
-  var url = ${JSON.stringify(successRedirectUrl)};
-  if (window.opener) {
-    try { window.opener.location.href = url; } catch (e) {}
-    try { window.close(); } catch (e) {}
-  } else {
-    window.location.href = url;
-  }
-})();
-</script><p>Redirecting to <a href="${successRedirectUrl}">Dashboard</a>…</p></body></html>`;
-  return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
+  // Redirect immediately so the user lands on the dashboard (X connection / analytics view) without seeing an intermediate "Account connected" page.
+  return NextResponse.redirect(successRedirectUrl);
 }
