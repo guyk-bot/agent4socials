@@ -5,6 +5,7 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
+  // Used by prisma migrate deploy at build time. Set to same as DATABASE_URL (Transaction pooler) so build and runtime both work.
   directUrl = env("DATABASE_DIRECT_URL")
 }
 

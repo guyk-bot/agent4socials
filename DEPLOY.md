@@ -79,7 +79,22 @@ Your API will be at **https://api.agent4socials.com** (e.g. **https://api.agent4
 
 ---
 
-## 4. Point the frontend to the live API
+## 4. Supabase database (web app: DATABASE_URL and DATABASE_DIRECT_URL)
+
+If the **web** app (Next.js in `apps/web`) uses Supabase Postgres:
+
+1. **Transaction pooler only** – In Supabase: **Project → Settings → Database**. Under **Connection string**, choose **"Transaction"** (port **6543**). Copy the URI and replace `[YOUR-PASSWORD]` with your database password (URL-encode it: `@` → `%40`, `/` → `%2F`). Add `?pgbouncer=true` if the string does not already include it.
+
+2. **In Vercel** (web project → **Settings → Environment Variables**), set **both**:
+   - **`DATABASE_URL`** = that Transaction pooler URI (e.g. `postgresql://postgres.PROJECT_REF:PASSWORD@…pooler.supabase.com:6543/postgres?pgbouncer=true`).
+   - **`DATABASE_DIRECT_URL`** = **the same value as `DATABASE_URL`**.  
+     Prisma uses `DATABASE_DIRECT_URL` for **migrations** during the build (`prisma migrate deploy`). If you only set `DATABASE_URL` correctly but `DATABASE_DIRECT_URL` is missing or wrong, the build can fail with errors like "Tenant or user not found" even though the URL you care about is correct. Setting both to the same pooler URI avoids that.
+
+3. **Redeploy** after changing env vars (and use **Redeploy** → **Clear cache and redeploy** if the build still used an old value).
+
+---
+
+## 5. Point the frontend to the live API
 
 1. In the **web** project on Vercel → **Settings** → **Environment Variables**.
 2. Set **NEXT_PUBLIC_API_URL** to `https://api.agent4socials.com` (no trailing slash).
@@ -87,7 +102,7 @@ Your API will be at **https://api.agent4socials.com** (e.g. **https://api.agent4
 
 ---
 
-## 5. Use these URLs for social developer apps
+## 6. Use these URLs for social developer apps
 
 When Meta, Google, or TikTok ask for URLs:
 
@@ -102,7 +117,7 @@ Use **https** and no trailing slash. Add these in each platform’s developer co
 
 ---
 
-## 6. DNS summary (at your domain registrar)
+## 7. DNS summary (at your domain registrar)
 
 For **agent4socials.com**:
 
