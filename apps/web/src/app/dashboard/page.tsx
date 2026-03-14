@@ -311,27 +311,28 @@ export default function DashboardPage() {
     } catch (_) {}
   };
 
+  const accountIdFromUrl = searchParams.get('accountId');
   const twitter1oaNext = searchParams.get('twitter_1oa_next');
+
+  // When accountId is in URL (e.g. after connecting any social): select that account and clean URL. No loading banner.
   useEffect(() => {
-    if (connectingParam !== '1') return;
-    if (twitter1oaNext === '1') return;
+    if (!accountIdFromUrl || twitter1oaNext === '1') return;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
-    const accountIdFromUrl = searchParams.get('accountId');
     fetchAccounts().then(() => {
-      if (accountIdFromUrl) {
-        setSelectedAccountId(accountIdFromUrl);
-        delete postsCacheRef.current[accountIdFromUrl];
-        Object.keys(insightsCacheRef.current).forEach((k) => {
-          if (k.startsWith(accountIdFromUrl + '-')) delete insightsCacheRef.current[k];
-        });
-        appData?.clearAccountData(accountIdFromUrl);
-      }
+      setSelectedAccountId(accountIdFromUrl);
+      delete postsCacheRef.current[accountIdFromUrl];
+      Object.keys(insightsCacheRef.current).forEach((k) => {
+        if (k.startsWith(accountIdFromUrl + '-')) delete insightsCacheRef.current[k];
+      });
+      appData?.clearAccountData(accountIdFromUrl);
       router.replace('/dashboard', { scroll: false });
-      setJustConnected(true);
-      timeoutId = setTimeout(() => setJustConnected(false), 5000);
+      if (connectingParam === '1') {
+        setJustConnected(true);
+        timeoutId = setTimeout(() => setJustConnected(false), 5000);
+      }
     }).catch(() => router.replace('/dashboard', { scroll: false }));
     return () => { if (timeoutId) clearTimeout(timeoutId); };
-  }, [connectingParam, twitter1oaNext, router, setSelectedAccountId, searchParams, appData]);
+  }, [accountIdFromUrl, connectingParam, twitter1oaNext, router, setSelectedAccountId, appData]);
 
   useEffect(() => {
     if (twitter1oaNext !== '1') return;

@@ -132,6 +132,66 @@ export async function GET(
         pageCount++;
       } while (nextToken && pageCount < maxPages);
 
+      // For 1:1 conversations, also try the "with" endpoint in case it returns more history than the conversation-id endpoint
+      let recipientIdFromConvo: string | null = null;
+      for (const part of conversationId.split('-')) {
+        if (part && part !== ourId) {
+          recipientIdFromConvo = part;
+          break;
+        }
+      }
+      if (recipientIdFromConvo && allMessages.length < 50) {
+        try {
+          const withUrl = `https://api.x.com/2/dm_conversations/with/${encodeURIComponent(recipientIdFromConvo)}/dm_events`;
+          const existingIds = new Set(allMessages.map((m) => m.id));
+          let withNext: string | null = null;
+          let withPages = 0;
+          do {
+            const withParams: Record<string, string> = {
+              'dm_event.fields': 'id,text,sender_id,created_at,event_type',
+              event_types: 'MessageCreate',
+              expansions: 'sender_id',
+              'user.fields': 'id,name,username,profile_image_url',
+              max_results: '100',
+            };
+            if (withNext) withParams.pagination_token = withNext;
+            const withRes = await axios.get<{
+              data?: Array<{ id: string; event_type?: string; sender_id?: string; text?: string; created_at?: string }>;
+              includes?: { users?: Array<{ id: string; name?: string; username?: string; profile_image_url?: string }> };
+              meta?: { next_token?: string };
+            }>(withUrl, {
+              params: withParams,
+              headers: useOAuth1ForDm
+                ? signTwitterRequest('GET', withUrl, { key: oauth1UserToken!, secret: oauth1UserSecret! }, withParams)
+                : { Authorization: `Bearer ${token}` },
+              timeout: 15_000,
+            });
+            if (withRes.data?.error) break;
+            for (const u of withRes.data?.includes?.users ?? []) {
+              userMap.set(u.id, u.username ?? u.name ?? u.id);
+              userObjMap.set(u.id, { name: u.name, username: u.username, profile_image_url: u.profile_image_url });
+            }
+            for (const ev of withRes.data?.data ?? []) {
+              if ((ev.event_type != null && ev.event_type !== 'MessageCreate') || existingIds.has(ev.id)) continue;
+              existingIds.add(ev.id);
+              const fromId = ev.sender_id ?? null;
+              allMessages.push({
+                id: ev.id,
+                fromId,
+                fromName: fromId ? (userMap.get(fromId) ?? null) : null,
+                message: ev.text ?? '',
+                createdTime: ev.created_at ?? null,
+                isFromPage: fromId === ourId,
+              });
+            }
+            withNext = withRes.data?.meta?.next_token ?? null;
+            withPages++;
+          } while (withNext && withPages < 5);
+        } catch {
+          // ignore - use what we have from the main endpoint
+        }
+      }
+
       allMessages.sort((a, b) => {
         const tA = a.createdTime ? new Date(a.createdTime).getTime() : 0;
         const tB = b.createdTime ? new Date(b.createdTime).getTime() : 0;

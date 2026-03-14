@@ -648,7 +648,11 @@ export async function GET(
             where: { userId, platform: 'INSTAGRAM', platformUserId: { not: igId } },
           });
         }
-        const dashboardUrl = `${baseUrl}/dashboard?connecting=1`;
+        const fbAccount = await prisma.socialAccount.findFirst({
+          where: { userId, platform: 'FACEBOOK', platformUserId: firstPage.id },
+          select: { id: true },
+        });
+        const dashboardUrl = fbAccount?.id ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(fbAccount.id)}` : `${baseUrl}/dashboard`;
         return NextResponse.redirect(dashboardUrl);
       } catch (e) {
         console.error('[Social OAuth] Facebook single-page connect error:', e);
@@ -741,7 +745,11 @@ export async function GET(
             where: { userId, platform: 'INSTAGRAM', platformUserId: { not: igId } },
           });
         }
-      const dashboardUrl = `${baseUrl}/dashboard?connecting=1`;
+      const fbAccount = await prisma.socialAccount.findFirst({
+        where: { userId, platform: 'FACEBOOK', platformUserId: firstPage.id },
+        select: { id: true },
+      });
+      const dashboardUrl = fbAccount?.id ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(fbAccount.id)}` : `${baseUrl}/dashboard`;
       return NextResponse.redirect(dashboardUrl);
       } catch (fallbackErr) {
         console.error('[Social OAuth] Facebook fallback connect error:', fallbackErr);
@@ -840,7 +848,11 @@ export async function GET(
           where: { userId, platform: 'FACEBOOK', platformUserId: { not: linkedPage.id } },
         });
       }
-      const dashboardUrl = `${baseUrl}/dashboard?connecting=1`;
+      const igAccount = await prisma.socialAccount.findFirst({
+        where: { userId, platform: 'INSTAGRAM', platformUserId: first.id },
+        select: { id: true },
+      });
+      const dashboardUrl = igAccount?.id ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(igAccount.id)}` : `${baseUrl}/dashboard`;
       return NextResponse.redirect(dashboardUrl);
     } catch (autoConnectErr) {
       console.error('[Social OAuth] Instagram auto-connect error:', autoConnectErr);
@@ -976,9 +988,9 @@ export async function GET(
     where: { userId, platform: plat, platformUserId: tokenData.platformUserId },
     select: { id: true },
   });
-  const accountIdParam = mainAccount?.id ? `&accountId=${encodeURIComponent(mainAccount.id)}` : '';
-  // Do not auto-redirect to OAuth 1.0a after OAuth 2.0; that forced users to authorize twice. They can click "Enable image upload" on the dashboard if needed.
-  const successRedirectUrl = `${baseUrl}/dashboard?connecting=1${accountIdParam}`;
-  // Redirect immediately so the user lands on the dashboard (X connection / analytics view) without seeing an intermediate "Account connected" page.
+  // Redirect with accountId only (no connecting=1) so the dashboard does not show the loading banner; user lands on the ready view.
+  const successRedirectUrl = mainAccount?.id
+    ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(mainAccount.id)}`
+    : `${baseUrl}/dashboard`;
   return NextResponse.redirect(successRedirectUrl);
 }

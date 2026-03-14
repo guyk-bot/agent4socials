@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
         accessToken: 'oauth1',
       },
     });
-    return NextResponse.redirect(`${dashboardUrl}?connecting=1&accountId=${encodeURIComponent(existing.id)}`);
+    return NextResponse.redirect(`${dashboardUrl}?accountId=${encodeURIComponent(existing.id)}`);
   }
 
   const created = await prisma.socialAccount.create({
@@ -124,5 +124,5 @@ export async function GET(request: NextRequest) {
     },
     select: { id: true },
   });
-  return NextResponse.redirect(`${dashboardUrl}?connecting=1&accountId=${encodeURIComponent(created.id)}`);
+  return NextResponse.redirect(`${dashboardUrl}?accountId=${encodeURIComponent(created.id)}`);
 }
