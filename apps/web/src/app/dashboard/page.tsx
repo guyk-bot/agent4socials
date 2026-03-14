@@ -313,6 +313,18 @@ export default function DashboardPage() {
 
   const accountIdFromUrl = searchParams.get('accountId');
   const twitter1oaNext = searchParams.get('twitter_1oa_next');
+  const connectParam = searchParams.get('connect');
+
+  // When connect= is in URL (e.g. clicked + from Inbox): show Connect view for that platform. Survives full page load.
+  useEffect(() => {
+    if (!connectParam) return;
+    const upper = connectParam.toUpperCase();
+    const allowed = ['INSTAGRAM', 'FACEBOOK', 'TIKTOK', 'YOUTUBE', 'TWITTER', 'LINKEDIN'];
+    if (allowed.includes(upper)) {
+      setSelectedPlatformForConnect(upper);
+      router.replace('/dashboard', { scroll: false });
+    }
+  }, [connectParam, router, setSelectedPlatformForConnect]);
 
   // When accountId is in URL (e.g. after connecting any social): select that account and clean URL. No loading banner.
   useEffect(() => {

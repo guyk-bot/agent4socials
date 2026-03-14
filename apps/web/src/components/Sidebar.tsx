@@ -136,14 +136,14 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
           const isPlatformSelected = selectedPlatformForConnect === platform;
 
           if (accounts.length === 0) {
+            const connectParam = platform.toLowerCase();
             return (
               <button
                 key={platform}
                 type="button"
                 onClick={() => {
                   setSelectedPlatformForConnect(platform);
-                  if (isInboxPage) window.location.href = '/dashboard';
-                  else router.push('/dashboard');
+                  router.push(`/dashboard?connect=${connectParam}`);
                 }}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors ${
                   isPlatformSelected ? 'bg-white shadow-sm ring-1 ring-neutral-200' : 'hover:bg-white/70'
