@@ -447,6 +447,48 @@ export default function DashboardPage() {
     }
     if (analyticsTab !== 'posts' && analyticsTab !== 'account') return;
     const accountIds = accounts.map((a) => a.id);
+    const accountIdsKey = accountIds.sort().join(',');
+    const syncAllFirst = syncAllRequestedRef.current !== accountIdsKey;
+    if (syncAllFirst) syncAllRequestedRef.current = accountIdsKey;
+
+    const runSync = (withSync: boolean) => {
+      const timeoutMs = withSync ? 60_000 : 25_000;
+      Promise.allSettled(
+        accounts.map((acc) =>
+          api.get(`/social/accounts/${acc.id}/posts`, { params: withSync ? { sync: 1 } : {}, timeout: timeoutMs }).then((r) => ({
+            id: acc.id,
+            posts: r.data?.posts ?? [],
+            syncError: r.data?.syncError as string | undefined,
+          }))
+        )
+      )
+        .then((outcomes) => {
+          const results: Array<{ posts: Array<{ id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; impressions: number; interactions: number; publishedAt: string; mediaType?: string | null; platform: string }>; syncError?: string }> = [];
+          const errors: string[] = [];
+          for (const outcome of outcomes) {
+            if (outcome.status === 'fulfilled' && outcome.value) {
+              results.push({ posts: outcome.value.posts ?? [], syncError: outcome.value.syncError });
+              if (outcome.value.syncError) errors.push(outcome.value.syncError);
+              appData?.setPostsForAccount(outcome.value.id, outcome.value.posts ?? []);
+            } else if (outcome.status === 'rejected') {
+              const err = outcome.reason;
+              const msg = err?.response?.data?.message ?? err?.message ?? 'Request failed';
+              if (msg.includes('timeout') || msg.includes('Timeout')) {
+                errors.push('Sync is taking too long. Try selecting one account in the sidebar and click Sync there, or try again in a moment.');
+              } else if (err?.response?.status === 401) {
+                errors.push('Session expired. Please log out and log back in.');
+              } else {
+                errors.push(msg);
+              }
+            }
+          }
+          const merged = results.flatMap((r) => r.posts).sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+          setImportedPosts(merged);
+          if (errors.length) setAllPostsSyncError(errors[0]);
+        })
+        .finally(() => setImportedPostsLoading(false));
+    };
+
     if (appData && accountIds.length > 0) {
       const merged: Array<{ id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; impressions: number; interactions: number; publishedAt: string; mediaType?: string | null; platform: string }> = [];
       let allCached = true;
@@ -463,49 +505,14 @@ export default function DashboardPage() {
         setImportedPosts(sorted);
         setImportedPostsLoading(false);
         setAllPostsSyncError(null);
+        // Auto-sync in background so posts stay fresh without clicking "Sync posts"
+        runSync(true);
         return;
       }
     }
     setImportedPostsLoading(true);
-    const accountIdsKey = accountIds.sort().join(',');
-    const syncAllFirst = syncAllRequestedRef.current !== accountIdsKey;
-    if (syncAllFirst) syncAllRequestedRef.current = accountIdsKey;
     setAllPostsSyncError(null);
-    const timeoutMs = syncAllFirst ? 60_000 : 25_000;
-    Promise.allSettled(
-      accounts.map((acc) =>
-        api.get(`/social/accounts/${acc.id}/posts`, { params: syncAllFirst ? { sync: 1 } : {}, timeout: timeoutMs }).then((r) => ({
-          id: acc.id,
-          posts: r.data?.posts ?? [],
-          syncError: r.data?.syncError as string | undefined,
-        }))
-      )
-    )
-      .then((outcomes) => {
-        const results: Array<{ posts: Array<{ id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; impressions: number; interactions: number; publishedAt: string; mediaType?: string | null; platform: string }>; syncError?: string }> = [];
-        const errors: string[] = [];
-        for (const outcome of outcomes) {
-          if (outcome.status === 'fulfilled' && outcome.value) {
-            results.push({ posts: outcome.value.posts ?? [], syncError: outcome.value.syncError });
-            if (outcome.value.syncError) errors.push(outcome.value.syncError);
-            appData?.setPostsForAccount(outcome.value.id, outcome.value.posts ?? []);
-          } else if (outcome.status === 'rejected') {
-            const err = outcome.reason;
-            const msg = err?.response?.data?.message ?? err?.message ?? 'Request failed';
-            if (msg.includes('timeout') || msg.includes('Timeout')) {
-              errors.push('Sync is taking too long. Try selecting one account in the sidebar and click Sync there, or try again in a moment.');
-            } else if (err?.response?.status === 401) {
-              errors.push('Session expired. Please log out and log back in.');
-            } else {
-              errors.push(msg);
-            }
-          }
-        }
-        const merged = results.flatMap((r) => r.posts).sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
-        setImportedPosts(merged);
-        if (errors.length) setAllPostsSyncError(errors[0]);
-      })
-      .finally(() => setImportedPostsLoading(false));
+    runSync(syncAllFirst);
   }, [analyticsTab, selectedAccount?.id, hasAccounts, syncAllTrigger, accounts.map((a) => a.id).join(','), appData]);
 
   const insightsCacheRef = useRef<Record<string, { platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number; profileViewsTotal?: number }>>({});
