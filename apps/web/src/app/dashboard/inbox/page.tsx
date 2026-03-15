@@ -586,7 +586,7 @@ function InboxPage() {
           const msg = apiError ?? err?.message ?? 'Could not load conversations.';
           const isTimeout = status === 408 || /timeout|408/i.test(msg);
           const isRateLimit = status === 429;
-          errors.push(isRateLimit ? msg : isTimeout ? 'Request timed out. Try again or reconnect and choose your Page.' : msg);
+          errors.push(isRateLimit ? msg : isTimeout ? 'Request timed out. The server or Meta may be slow.' : msg);
           type MetaErr = { message?: string; code?: number };
           const metaError: MetaErr | undefined = err?.response?.data && typeof err.response.data === 'object'
             ? (err.response.data as { error?: MetaErr }).error
@@ -1151,6 +1151,8 @@ function InboxPage() {
       );
     }
     if (conversationsError) {
+      const isTimeout = /Request timed out|timeout/i.test(conversationsError);
+      const isAuthError = /401|Reconnect|access token|expired|permission/i.test(conversationsError);
       return (
         <div className="p-4">
           <div className="rounded-xl border-2 border-red-200 bg-red-50 px-4 py-4">
@@ -1163,35 +1165,88 @@ function InboxPage() {
               <p className="text-xs text-red-800 mt-1 font-mono bg-red-100/80 px-2 py-1 rounded mt-2">{conversationsDebug.metaMessage}</p>
             )}
             <div className="mt-3 flex flex-col gap-2">
-              {dmOrFbPlatforms.includes('INSTAGRAM') && effectiveAccounts.some((a) => a.platform === 'INSTAGRAM') && (
+              {isTimeout && (
                 <button
                   type="button"
-                  onClick={async () => {
-                    try {
-                      const res = await api.get('/social/oauth/INSTAGRAM/start?method=instagram');
-                      const url = res?.data?.url;
-                      if (url && typeof url === 'string') window.location.href = url;
-                    } catch (_) {}
+                  onClick={() => {
+                    appData?.invalidateConversations?.();
+                    setConversationsRefreshKey((k) => k + 1);
+                    setConversationsLoading(true);
                   }}
-                  className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-medium hover:opacity-90"
+                  className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 inline-flex items-center justify-center gap-2"
                 >
-                  Reconnect Instagram
+                  <RefreshCw size={16} />
+                  Try again
                 </button>
               )}
-              {dmOrFbPlatforms.includes('FACEBOOK') && effectiveAccounts.some((a) => a.platform === 'FACEBOOK') && (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      const res = await api.get('/social/oauth/facebook/start');
-                      const url = res?.data?.url;
-                      if (url && typeof url === 'string') window.location.href = url;
-                    } catch (_) {}
-                  }}
-                  className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
-                >
-                  Reconnect Facebook
-                </button>
+              {(isAuthError || !isTimeout) && (
+                <>
+                  {dmOrFbPlatforms.includes('INSTAGRAM') && effectiveAccounts.some((a) => a.platform === 'INSTAGRAM') && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const res = await api.get('/social/oauth/INSTAGRAM/start?method=instagram');
+                          const url = res?.data?.url;
+                          if (url && typeof url === 'string') window.location.href = url;
+                        } catch (_) {}
+                      }}
+                      className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-medium hover:opacity-90"
+                    >
+                      Reconnect Instagram
+                    </button>
+                  )}
+                  {dmOrFbPlatforms.includes('FACEBOOK') && effectiveAccounts.some((a) => a.platform === 'FACEBOOK') && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const res = await api.get('/social/oauth/facebook/start');
+                          const url = res?.data?.url;
+                          if (url && typeof url === 'string') window.location.href = url;
+                        } catch (_) {}
+                      }}
+                      className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
+                    >
+                      Reconnect Facebook
+                    </button>
+                  )}
+                </>
+              )}
+              {isTimeout && (
+                <>
+                  <p className="text-xs text-red-700 mt-1">If it still fails after trying again, reconnect and choose your Page:</p>
+                  {dmOrFbPlatforms.includes('INSTAGRAM') && effectiveAccounts.some((a) => a.platform === 'INSTAGRAM') && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const res = await api.get('/social/oauth/INSTAGRAM/start?method=instagram');
+                          const url = res?.data?.url;
+                          if (url && typeof url === 'string') window.location.href = url;
+                        } catch (_) {}
+                      }}
+                      className="px-3 py-1.5 rounded-lg border border-purple-300 bg-white text-purple-700 text-sm font-medium hover:bg-purple-50"
+                    >
+                      Reconnect Instagram
+                    </button>
+                  )}
+                  {dmOrFbPlatforms.includes('FACEBOOK') && effectiveAccounts.some((a) => a.platform === 'FACEBOOK') && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const res = await api.get('/social/oauth/facebook/start');
+                          const url = res?.data?.url;
+                          if (url && typeof url === 'string') window.location.href = url;
+                        } catch (_) {}
+                      }}
+                      className="px-3 py-1.5 rounded-lg border border-blue-300 bg-white text-blue-700 text-sm font-medium hover:bg-blue-50"
+                    >
+                      Reconnect Facebook
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </div>

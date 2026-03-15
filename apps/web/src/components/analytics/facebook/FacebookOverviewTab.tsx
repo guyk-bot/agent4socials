@@ -138,6 +138,17 @@ export function FacebookOverviewTab({
     return first.getMonth() === last.getMonth() && first.getDate() === last.getDate();
   }, [growthChartData]);
 
+  const growthFollowersDomain = useMemo(() => {
+    if (growthChartData.length === 0) return undefined;
+    const values = growthChartData.map((d) => d.followers).filter((v) => typeof v === 'number');
+    if (values.length === 0) return undefined;
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const span = max - min;
+    const padding = span < 5 ? Math.max(1, Math.ceil(span * 0.5)) : Math.max(0, Math.ceil((max - min) * 0.05));
+    return [Math.max(0, min - padding), max + padding] as [number, number];
+  }, [growthChartData]);
+
   if (loading) {
     return (
       <div className="space-y-6 animate-pulse max-w-full" style={{ maxWidth: 1400 }}>
@@ -209,20 +220,25 @@ export function FacebookOverviewTab({
         </AnalyticsGridItem>
       </AnalyticsGrid>
 
-      {/* Section 2 — Followers (full row) */}
+      {/* Section 2 — Growth (Metricool-style: summary cards + line + content bars) */}
       <AnalyticsGrid>
         <AnalyticsGridItem span={12}>
-          <AnalyticsWatermarkedChart title={followersLabel} height={280} showWatermark={showWatermark}>
-            <div className="w-full" style={{ height: 260 }}>
+          <AnalyticsWatermarkedChart title="Growth" height={320} showWatermark={showWatermark}>
+            <div className="w-full relative" style={{ height: 300 }}>
+              {/* Summary cards (top-right, like Metricool) */}
+              <div className="absolute top-0 right-0 z-20 flex flex-wrap gap-2 justify-end">
+                <div className="rounded-xl px-3 py-2 bg-blue-500/10 border border-blue-200/80">
+                  <p className="text-lg font-bold text-blue-700 tabular-nums">{followers.toLocaleString()}</p>
+                  <p className="text-xs font-medium text-blue-600">{followersLabel}</p>
+                </div>
+                <div className="rounded-xl px-3 py-2 bg-amber-500/10 border border-amber-200/80">
+                  <p className="text-lg font-bold text-amber-700 tabular-nums">{posts.length}</p>
+                  <p className="text-xs font-medium text-amber-600">Total content</p>
+                </div>
+              </div>
               {growthChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={growthChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="followersGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#10b981" stopOpacity={0.4} />
-                        <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
+                  <ComposedChart data={growthChartData} margin={{ top: 8, right: 140, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(107,114,128,0.08)" vertical={false} />
                     <XAxis
                       dataKey="date"
@@ -233,25 +249,50 @@ export function FacebookOverviewTab({
                         new Date(v).toLocaleDateString(undefined, followersChartShowYear ? { month: 'short', day: 'numeric', year: '2-digit' } : { month: 'short', day: 'numeric' })
                       }
                     />
-                    <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} />
+                    <YAxis
+                      yAxisId="left"
+                      domain={growthFollowersDomain}
+                      tick={{ fontSize: 11, fill: '#6b7280' }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(v) => v.toLocaleString()}
+                    />
+                    <YAxis yAxisId="right" orientation="right" hide />
                     <RechartTooltip
                       content={({ active, payload, label }) => {
                         if (!active || !payload?.length || !label) return null;
                         return (
                           <div className="bg-[#111827] text-white text-xs rounded-lg px-2.5 py-2 shadow-xl" style={{ borderRadius: 8 }}>
                             <p className="text-neutral-300">{new Date(label).toLocaleDateString(undefined, { dateStyle: 'medium' })}</p>
-                            <p className="font-medium mt-0.5">{followersLabel}: {typeof payload[0]?.value === 'number' ? payload[0].value.toLocaleString() : payload[0]?.value}</p>
+                            {payload.map((p) => (
+                              <p key={p.name} className="font-medium mt-0.5">
+                                {p.name}: {typeof p.value === 'number' ? p.value.toLocaleString() : p.value}
+                              </p>
+                            ))}
                           </div>
                         );
                       }}
                     />
-                    <Area
+                    <Bar
+                      yAxisId="right"
+                      dataKey="posts"
+                      name="Posts"
+                      fill="#f59e0b"
+                      radius={[2, 2, 0, 0]}
+                      barSize={6}
+                      isAnimationActive
+                      animationDuration={400}
+                    />
+                    <Legend />
+                    <Line
+                      yAxisId="left"
                       type="monotone"
                       dataKey="followers"
-                      stroke="#10b981"
+                      name={followersLabel}
+                      stroke="#2563eb"
                       strokeWidth={2}
-                      fill="url(#followersGrad)"
-                      dot={false}
+                      dot={{ fill: '#2563eb', strokeWidth: 0, r: 3 }}
+                      activeDot={{ r: 4 }}
                       isAnimationActive
                       animationDuration={400}
                     />
