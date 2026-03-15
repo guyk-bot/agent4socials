@@ -97,7 +97,7 @@ export default function Home() {
               <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4 fill-emerald-400/20" />
               <span>7-day free trial</span>
               <span className="text-slate-600">|</span>
-              <span className="text-slate-400">Plans from $12/mo</span>
+              <span className="text-slate-400">Plans from $15/mo</span>
             </div>
             
             <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl xl:text-[5rem] leading-[1.1]">
@@ -335,27 +335,27 @@ export default function Home() {
               Plans for every stage
             </h2>
             <p className="mx-auto mt-4 sm:mt-5 max-w-xl text-center text-base sm:text-lg text-slate-400">
-              7-day free trial on any plan. Yearly billing saves 19%. No hidden fees.
+              7-day free trial on any plan. Yearly billing saves 20%. No hidden fees.
             </p>
             <div className="mt-12 grid gap-6 sm:grid-cols-3 max-w-4xl mx-auto">
               <div className="rounded-2xl border border-slate-700 bg-slate-800/40 p-5 sm:p-6 text-center">
-                <p className="text-xs font-semibold uppercase tracking-wider text-emerald-400">Creator</p>
-                <p className="mt-2 text-2xl font-bold">$12<span className="text-slate-400 font-normal text-base">/mo</span></p>
-                <p className="mt-1 text-xs text-slate-500">5 accounts, scheduling, inbox, 100 DM automations, AI (30/mo)</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-emerald-400">Free</p>
+                <p className="mt-2 text-2xl font-bold">$0</p>
+                <p className="mt-1 text-xs text-slate-500">1 brand, 50 scheduled posts/mo, 30 days analytics, 1 smart link, limited AI</p>
+                <Link href="/pricing" className="mt-4 inline-block w-full rounded-xl border border-slate-600 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-slate-700">View plan</Link>
+              </div>
+              <div className="rounded-2xl border border-slate-700 bg-slate-800/40 p-5 sm:p-6 text-center">
+                <p className="text-xs font-semibold uppercase tracking-wider text-sky-400">Starter</p>
+                <p className="mt-2 text-2xl font-bold">$15<span className="text-slate-400 font-normal text-base">/mo</span></p>
+                <p className="mt-1 text-xs text-slate-500">1 brand, unlimited scheduling, inbox, X & LinkedIn, 6 months analytics, unlimited AI, export reports</p>
                 <Link href="/pricing" className="mt-4 inline-block w-full rounded-xl border border-slate-600 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-slate-700">View plan</Link>
               </div>
               <div className="rounded-2xl border-2 border-sky-500/50 bg-slate-800/60 p-5 sm:p-6 text-center relative">
                 <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-sky-500 px-2 py-0.5 text-[10px] font-semibold text-white">Popular</span>
-                <p className="text-xs font-semibold uppercase tracking-wider text-sky-400">Growth</p>
-                <p className="mt-2 text-2xl font-bold">$24<span className="text-slate-400 font-normal text-base">/mo</span></p>
-                <p className="mt-1 text-xs text-slate-500">15 accounts, advanced analytics, keyword automations, Unlimited DM automations, AI (150/mo)</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-sky-400">Pro</p>
+                <p className="mt-2 text-2xl font-bold">$39<span className="text-slate-400 font-normal text-base">/mo</span></p>
+                <p className="mt-1 text-xs text-slate-500">1 brand, advanced analytics, bulk replies, keyword triggers, 10 smart links, custom domains, white-label, priority support</p>
                 <Link href="/pricing" className="mt-4 inline-block w-full rounded-xl bg-sky-500 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-400">View plan</Link>
-              </div>
-              <div className="rounded-2xl border border-slate-700 bg-slate-800/40 p-5 sm:p-6 text-center">
-                <p className="text-xs font-semibold uppercase tracking-wider text-violet-400">Agency</p>
-                <p className="mt-2 text-2xl font-bold">$59<span className="text-slate-400 font-normal text-base">/mo</span></p>
-                <p className="mt-1 text-xs text-slate-500">Multiple brands, 3 team members, white-label, AI (500+/mo), priority support</p>
-                <Link href="/pricing" className="mt-4 inline-block w-full rounded-xl border border-violet-500/50 py-2.5 text-sm font-semibold text-violet-300 transition hover:bg-violet-500/10">View plan</Link>
               </div>
             </div>
             <p className="mt-10 text-center">
@@ -403,11 +403,11 @@ export default function Home() {
                 },
                 {
                   q: 'Is there a free trial?',
-                  a: 'Yes. You get a 7-day free trial on any plan (Creator, Growth, or Agency) to explore scheduling, automation, inbox and analytics. No credit card required to start.',
+                  a: 'Yes. You get a 7-day free trial on any plan (Free, Starter, or Pro) to explore scheduling, automation, inbox and analytics. No credit card required to start.',
                 },
                 {
                   q: 'Which plan is right for me?',
-                  a: 'Creator ($12/mo) is for solo creators and small businesses: 5 accounts, scheduling, basic analytics, inbox, 100 DM automations, and 30 AI generations per month. Growth ($24/mo) adds 15 accounts, advanced analytics, keyword automations, Unlimited DM automations, and 150 AI generations. Agency ($59/mo) is for teams: multiple brands, 3 team members, white-label, higher limits, and priority support. Yearly billing saves 19%.',
+                  a: 'Free is for trying the platform: 1 brand, 50 scheduled posts per month, 30 days analytics, and limited AI. Starter ($15/mo) is for creators and freelancers: 1 brand, unlimited scheduling, inbox, X and LinkedIn, 6 months analytics, unlimited AI, and export reports. Pro ($39/mo) is for professionals and agencies: advanced analytics, bulk replies, keyword triggers, 10 smart link pages, custom domains, white-label, and priority support. Yearly billing saves 20%.',
                 },
               ].map((item, i) => (
                 <FaqItem key={i} question={item.q} answer={item.a} />
