@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       return out;
     });
     const res = NextResponse.json(accounts);
-    res.headers.set('Cache-Control', 'private, max-age=30');
+    res.headers.set('Cache-Control', 'private, no-store, must-revalidate');
     return res;
   } catch (e) {
     const msg = (e as Error)?.message?.toLowerCase() ?? '';
