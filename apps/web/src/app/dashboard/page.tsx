@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
 import { InteractiveLineChart } from '@/components/charts/InteractiveLineChart';
-import { FacebookAnalyticsView } from '@/components/analytics';
+import { FacebookAnalyticsView, PlatformAnalyticsHeader } from '@/components/analytics';
 import type { Demographics, GrowthDataPoint, TrafficSourceItem } from '@/types/analytics';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip as RechartTooltip,
@@ -964,77 +964,56 @@ export default function DashboardPage() {
       <div className="mt-6 flex flex-col gap-3">
         {selectedAccount ? (
           <>
-            <div className="flex flex-wrap items-center gap-3">
-              <a
-                href={profileUrlForAccount(selectedAccount)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex gap-3 p-3 bg-white rounded-xl border border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50/50 transition-colors w-fit"
-              >
-                <div className="w-12 h-12 rounded-full bg-neutral-100 flex items-center justify-center overflow-hidden shrink-0">
-                  {selectedAccount.profilePicture ? <img src={selectedAccount.profilePicture} alt="" className="w-full h-full object-cover" /> : PLATFORM_ICON[selectedAccount.platform]}
-                </div>
-                <div>
-                  <p className="font-semibold text-neutral-900">{selectedAccount.username || selectedAccount.platform}</p>
-                  <p className="text-sm text-neutral-500">{selectedAccount.platform} · Open profile</p>
-                </div>
-              </a>
-              <button
-                type="button"
-                onClick={async () => {
-                  if (reconnectingId) return;
-                  setReconnectingId(selectedAccount.id);
-                  try {
-                    const res = await api.get(`/social/oauth/${selectedAccount.platform.toLowerCase()}/start`);
-                    const url = res?.data?.url;
-                    if (url && typeof url === 'string') window.location.href = url;
-                  } catch (_) {}
-                  setReconnectingId(null);
-                }}
-                disabled={!!reconnectingId}
-                title="Reconnect account"
-                className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-neutral-200 bg-white text-neutral-700 text-sm font-medium hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {reconnectingId === selectedAccount.id ? <RefreshCw size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-                {reconnectingId === selectedAccount.id ? 'Reconnecting…' : 'Reconnect'}
-              </button>
-              {(selectedAccount.platform === 'INSTAGRAM' || selectedAccount.platform === 'FACEBOOK') && (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (tokenDebugLoading) return;
-                    setTokenDebugLoading(selectedAccount.id);
-                    try {
-                      const res = await api.get(`/social/accounts/${selectedAccount.id}/token-debug`);
-                      const d = res.data as {
-                        isValid?: boolean;
-                        scopes?: string[];
-                        hasPublishScope?: boolean;
-                        hasFacebookInsightsScope?: boolean;
-                        hasInstagramInsightsScope?: boolean;
-                        expiresAt?: number;
-                      };
-                      const exp = d.expiresAt ? new Date(d.expiresAt * 1000).toISOString().slice(0, 10) : 'N/A';
-                      const scopeList = (d.scopes ?? []).join(', ') || 'none';
-                      const fbInsights = d.hasFacebookInsightsScope ? 'yes' : 'no';
-                      const igInsights = d.hasInstagramInsightsScope ? 'yes' : 'no';
-                      const msg = `Token valid: ${d.isValid ?? false}. Publish scope: ${d.hasPublishScope ? 'yes' : 'no'}. Expires: ${exp}.\n\nFacebook Page insights (read_insights): ${fbInsights}.\nInstagram insights (instagram_manage_insights): ${igInsights}.\n\nAll scopes: ${scopeList}`;
-                      setAlertMessage(msg);
-                    } catch (e: unknown) {
-                      const err = e as { response?: { data?: { message?: string; error?: string } } };
-                      setAlertMessage(err?.response?.data?.message ?? err?.response?.data?.error ?? 'Could not validate token.');
-                    }
-                    setTokenDebugLoading(null);
-                  }}
-                  disabled={!!tokenDebugLoading}
-                  title="Validate Meta token and show granted scopes"
-                  className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-neutral-200 bg-white text-neutral-700 text-sm font-medium hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {tokenDebugLoading === selectedAccount.id ? <RefreshCw size={16} className="animate-spin" /> : <HelpCircle size={16} />}
-                  {tokenDebugLoading === selectedAccount.id ? 'Checking…' : 'Check permissions'}
-                </button>
-              )}
-              {selectedAccount.platform === 'TWITTER' && !(selectedAccount as { imageUploadEnabled?: boolean }).imageUploadEnabled && (
+            <PlatformAnalyticsHeader
+              account={{
+                id: selectedAccount.id,
+                platform: selectedAccount.platform,
+                username: selectedAccount.username,
+                profilePicture: selectedAccount.profilePicture,
+              }}
+              profileUrl={profileUrlForAccount(selectedAccount)}
+              platformLabel={selectedAccount.platform === 'TWITTER' ? 'Twitter/X' : selectedAccount.platform.charAt(0) + selectedAccount.platform.slice(1).toLowerCase()}
+              icon={PLATFORM_ICON[selectedAccount.platform]}
+              onReconnect={async () => {
+                if (reconnectingId) return;
+                setReconnectingId(selectedAccount.id);
+                try {
+                  const res = await api.get(`/social/oauth/${selectedAccount.platform.toLowerCase()}/start`);
+                  const url = res?.data?.url;
+                  if (url && typeof url === 'string') window.location.href = url;
+                } catch (_) {}
+                setReconnectingId(null);
+              }}
+              onDisconnectClick={() => { if (!disconnectingId) setDisconnectConfirmOpen(true); }}
+              onCheckPermissions={(selectedAccount.platform === 'INSTAGRAM' || selectedAccount.platform === 'FACEBOOK') ? async () => {
+                if (tokenDebugLoading) return;
+                setTokenDebugLoading(selectedAccount.id);
+                try {
+                  const res = await api.get(`/social/accounts/${selectedAccount.id}/token-debug`);
+                  const d = res.data as {
+                    isValid?: boolean;
+                    scopes?: string[];
+                    hasPublishScope?: boolean;
+                    hasFacebookInsightsScope?: boolean;
+                    hasInstagramInsightsScope?: boolean;
+                    expiresAt?: number;
+                  };
+                  const exp = d.expiresAt ? new Date(d.expiresAt * 1000).toISOString().slice(0, 10) : 'N/A';
+                  const scopeList = (d.scopes ?? []).join(', ') || 'none';
+                  const fbInsights = d.hasFacebookInsightsScope ? 'yes' : 'no';
+                  const igInsights = d.hasInstagramInsightsScope ? 'yes' : 'no';
+                  const msg = `Token valid: ${d.isValid ?? false}. Publish scope: ${d.hasPublishScope ? 'yes' : 'no'}. Expires: ${exp}.\n\nFacebook Page insights (read_insights): ${fbInsights}.\nInstagram insights (instagram_manage_insights): ${igInsights}.\n\nAll scopes: ${scopeList}`;
+                  setAlertMessage(msg);
+                } catch (e: unknown) {
+                  const err = e as { response?: { data?: { message?: string; error?: string } } };
+                  setAlertMessage(err?.response?.data?.message ?? err?.response?.data?.error ?? 'Could not validate token.');
+                }
+                setTokenDebugLoading(null);
+              } : undefined}
+              reconnectLoading={reconnectingId === selectedAccount.id}
+              checkPermissionsLoading={tokenDebugLoading === selectedAccount.id}
+              disconnectLoading={disconnectingId === selectedAccount.id}
+              extraActions={selectedAccount.platform === 'TWITTER' && !(selectedAccount as { imageUploadEnabled?: boolean }).imageUploadEnabled ? (
                 <button
                   type="button"
                   onClick={async () => {
@@ -1053,28 +1032,14 @@ export default function DashboardPage() {
                   }}
                   disabled={!!enablingTwitter1oa}
                   title="Enable image upload for X posts (OAuth 1.0a)"
-                  className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-neutral-200 bg-white text-neutral-700 text-sm font-medium hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-neutral-200 bg-white text-[#374151] text-sm font-medium hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {enablingTwitter1oa ? <RefreshCw size={16} className="animate-spin" /> : <Image size={16} />}
                   Enable image upload
                 </button>
-              )}
-              <button
-                type="button"
-                onClick={() => { if (!disconnectingId) setDisconnectConfirmOpen(true); }}
-                disabled={!!disconnectingId}
-                className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-red-200 bg-white text-red-700 text-sm font-medium hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {disconnectingId === selectedAccount.id ? (
-                  <>
-                    <RefreshCw size={16} className="animate-spin" aria-hidden />
-                    Disconnecting…
-                  </>
-                ) : (
-                  'Disconnect account'
-                )}
-              </button>
-              <ConfirmModal
+              ) : undefined}
+            />
+            <ConfirmModal
                 open={disconnectConfirmOpen}
                 onClose={() => setDisconnectConfirmOpen(false)}
                 title="Disconnect account?"
@@ -1114,7 +1079,6 @@ export default function DashboardPage() {
                   }
                 }}
               />
-            </div>
           </>
         ) : hasAccounts ? (
           <div className="flex gap-3 p-3 bg-white rounded-xl border border-neutral-200 w-fit">

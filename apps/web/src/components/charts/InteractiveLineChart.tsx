@@ -29,6 +29,8 @@ type InteractiveLineChartProps = {
   className?: string;
   /** Show vertical crosshair on hover (Metricool-style) */
   crosshair?: boolean;
+  /** Use dark tooltip (background #111827, white text, 8px 10px padding, 8px radius) for analytics */
+  tooltipStyle?: 'light' | 'dark';
 };
 
 const defaultColor = '#6366f1';
@@ -52,6 +54,7 @@ export function InteractiveLineChart({
   secondaryLabel,
   className = '',
   crosshair = true,
+  tooltipStyle = 'light',
 }: InteractiveLineChartProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const id = useMemo(() => `chart-${Math.random().toString(36).slice(2, 9)}`, []);
@@ -77,14 +80,17 @@ export function InteractiveLineChart({
         label?: string;
       };
       if (!active || !payload?.length || !label) return null;
+      const isDark = tooltipStyle === 'dark';
       return (
-        <div className="rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-xl">
-          <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-2">{formatDate(label)}</p>
+        <div
+          className={isDark ? 'bg-[#111827] text-white px-2.5 py-2 rounded-lg shadow-xl text-xs' : 'rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-xl'}
+        >
+          <p className={isDark ? 'text-neutral-300 mb-1.5' : 'text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-2'}>{formatDate(label)}</p>
           <div className="space-y-1">
             {payload.map((p) => (
               <div key={p.name} className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: p.color }} />
-                <span className="text-sm font-medium text-neutral-800">
+                <span className={isDark ? 'font-medium' : 'text-sm font-medium text-neutral-800'}>
                   {p.name}: {typeof p.value === 'number' ? p.value.toLocaleString() : p.value}
                 </span>
               </div>
@@ -93,7 +99,7 @@ export function InteractiveLineChart({
         </div>
       );
     },
-    []
+    [tooltipStyle]
   );
 
   if (chartData.length === 0) {

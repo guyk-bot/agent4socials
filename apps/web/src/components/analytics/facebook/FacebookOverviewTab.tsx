@@ -75,7 +75,7 @@ export function FacebookOverviewTab({
   }
 
   return (
-    <div className="space-y-10" style={{ maxWidth: 1400 }}>
+    <div className="space-y-6 md:space-y-10 max-w-full" style={{ maxWidth: 1400 }}>
       {/* Section A — Key summary cards */}
       <section>
         <AnalyticsSectionHeader title="Key metrics" subtitle="Summary for the selected period." />
@@ -137,6 +137,7 @@ export function FacebookOverviewTab({
               valueLabel="Followers"
               color="#10b981"
               crosshair
+              tooltipStyle="dark"
             />
           </AnalyticsWatermarkedChart>
           <AnalyticsWatermarkedChart title="Visibility trend" height={260}>
@@ -146,6 +147,7 @@ export function FacebookOverviewTab({
               valueLabel="Views"
               color="#6366f1"
               crosshair
+              tooltipStyle="dark"
             />
           </AnalyticsWatermarkedChart>
         </div>

@@ -101,7 +101,7 @@ export function FacebookPostsTab({
   }
 
   return (
-    <div className="space-y-10" style={{ maxWidth: 1400 }}>
+    <div className="space-y-6 md:space-y-10 max-w-full" style={{ maxWidth: 1400 }}>
       {/* Section A — Post performance summary */}
       <section>
         <AnalyticsSectionHeader title="Post performance" subtitle="Summary of your published content." />
@@ -139,7 +139,7 @@ export function FacebookPostsTab({
                     content={({ active, payload, label }) => {
                       if (!active || !payload?.length || !label) return null;
                       return (
-                        <div className="bg-[#111827] text-white text-xs rounded-lg px-3 py-2 shadow-xl">
+                        <div className="bg-[#111827] text-white text-xs rounded-lg px-2.5 py-2 shadow-xl" style={{ padding: '8px 10px', borderRadius: 8 }}>
                           <p className="text-neutral-300">{new Date(label).toLocaleDateString(undefined, { dateStyle: 'medium' })}</p>
                           <p className="font-semibold mt-0.5">Posts: {(payload[0]?.value ?? 0) as number}</p>
                         </div>
@@ -214,7 +214,7 @@ export function FacebookPostsTab({
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-[rgba(0,0,0,0.06)] shadow-[0_2px_10px_rgba(0,0,0,0.04)] overflow-hidden">
+        <div className="bg-white rounded-2xl border border-[rgba(0,0,0,0.06)] shadow-[0_2px_10px_rgba(0,0,0,0.04)] overflow-hidden overflow-x-auto">
           {sortedPosts.length === 0 ? (
             <div className="p-12 text-center">
               <ImageIcon size={48} className="mx-auto text-neutral-300 mb-4" />

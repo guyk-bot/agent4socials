@@ -6,5 +6,7 @@ export type { AnalyticsNoticeBannerProps, NoticeVariant } from './AnalyticsNotic
 export { AnalyticsUpgradeCard } from './AnalyticsUpgradeCard';
 export { AnalyticsWatermarkedChart } from './AnalyticsWatermarkedChart';
 export { MetricLockBadge } from './MetricLockBadge';
+export { PlatformAnalyticsHeader } from './PlatformAnalyticsHeader';
+export type { PlatformAnalyticsHeaderProps, PlatformAnalyticsHeaderAccount } from './PlatformAnalyticsHeader';
 export { FacebookAnalyticsView } from './facebook/FacebookAnalyticsView';
 export type { FacebookAnalyticsViewProps, FacebookAnalyticsTabId } from './facebook/FacebookAnalyticsView';

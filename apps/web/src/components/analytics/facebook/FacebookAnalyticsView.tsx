@@ -45,7 +45,7 @@ export function FacebookAnalyticsView({
   const loading = insightsLoading || postsLoading;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-full" style={{ maxWidth: 1400 }}>
       {/* Notices */}
       {insightsHint && (
         <AnalyticsNoticeBanner
