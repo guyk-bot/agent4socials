@@ -2,8 +2,10 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Check, Minus, Star, Loader2, BookOpen } from 'lucide-react';
+import { Check, Minus, Star, Loader2, BookOpen, Send, Calendar, BarChart2, MessageCircle, TrendingUp } from 'lucide-react';
 import { InstagramIcon, FacebookIcon, YoutubeIcon, LinkedinIcon, TikTokIcon, XTwitterIcon } from '@/components/SocialPlatformIcons';
+
+const BULLET_ICONS = [Send, Calendar, BarChart2, MessageCircle, TrendingUp];
 
 const PLATFORM_INFO: Record<string, {
   name: string;
@@ -14,120 +16,114 @@ const PLATFORM_INFO: Record<string, {
   accentBorder: string;
   accentHover: string;
   functionalities: string[];
-  limitations: string[];
   helpAnchor: string;
+  /** Shown on the main connect button when using the generic layout. Defaults to name. */
+  buttonLabel?: string;
 }> = {
   INSTAGRAM: {
     name: 'Instagram',
-    description: 'Connect a Business or Creator account to access analytics, posts, messages, and comments.',
+    description: 'Connect your Instagram account to schedule posts, track performance, and manage conversations from one place.',
     headerIcon: <InstagramIcon size={40} />,
     buttonGradient: 'from-pink-500 to-purple-600',
     buttonHover: 'hover:from-pink-600 hover:to-purple-700',
     accentBorder: 'border-pink-200',
     accentHover: 'hover:border-pink-400 hover:bg-pink-50/40',
     functionalities: [
-      'Schedule posts, carousels, and reels',
-      'Analytics: followers, reach, impressions (last 28 days)',
-      'Inbox: DMs and comments, reply from the app',
-      'Automation and AI reply drafts',
-    ],
-    limitations: [
-      'Business or Creator accounts only; personal accounts not supported',
-      'Full DMs require Meta Advanced Access (or test users in Development mode)',
-      'Insights limited to last 28 days; comments on posts older than 28 days not available',
+      'Publish posts and reels',
+      'Schedule content in advance',
+      'View engagement analytics',
+      'Manage messages and comments from the unified inbox',
+      'Track account growth and performance',
     ],
     helpAnchor: 'instagram',
   },
   FACEBOOK: {
-    name: 'Facebook',
-    description: 'Connect the Facebook account that manages your Page to get posts, insights and inbox.',
+    name: 'Facebook Page',
+    description: 'Connect your Facebook Page to publish posts, manage conversations, and track performance without leaving Agent4Socials.',
     headerIcon: <FacebookIcon size={40} />,
     buttonGradient: 'from-blue-500 to-blue-700',
     buttonHover: 'hover:from-blue-600 hover:to-blue-800',
     accentBorder: 'border-blue-200',
     accentHover: 'hover:border-blue-400 hover:bg-blue-50/40',
     functionalities: [
-      'Publish as your Page and manage Page inbox',
-      'Insights: followers, reach, impressions',
-      'Comments in Inbox and reply from the app',
-    ],
-    limitations: [
-      'Page required (not a personal profile)',
-      'Insights depend on Meta API; some metrics may be limited or delayed',
+      'Publish posts to your Facebook Page',
+      'Schedule posts in advance',
+      'Manage messages and comments',
+      'Track page growth and engagement',
+      'View analytics for posts and audience',
     ],
     helpAnchor: 'facebook',
   },
   TIKTOK: {
     name: 'TikTok',
-    description: 'Pull analytics and video stats from your TikTok account to improve your strategy.',
+    description: 'Connect your TikTok account to publish videos, track performance, and manage your content strategy directly from Agent4Socials.',
     headerIcon: <TikTokIcon size={40} />,
     buttonGradient: 'from-neutral-800 to-neutral-900',
     buttonHover: 'hover:from-neutral-900 hover:to-black',
     accentBorder: 'border-neutral-300',
     accentHover: 'hover:border-neutral-500 hover:bg-neutral-100/40',
     functionalities: [
-      'Publish videos and basic analytics (followers, views)',
-      'Reel Analyzer for performance tips',
-    ],
-    limitations: [
-      'Inbox DMs not available; comment text not exposed by TikTok Display API',
-      'Some metrics may require additional API approval from TikTok',
+      'Publish videos directly to TikTok',
+      'Schedule videos in advance',
+      'Track follower growth and video performance',
+      'View video analytics and engagement metrics',
+      'Manage your TikTok content from one dashboard',
     ],
     helpAnchor: 'tiktok',
   },
   YOUTUBE: {
     name: 'YouTube',
-    description: 'Connect with the Google account that owns your channel to get views, subscribers and video analytics.',
+    description: 'Connect your YouTube channel to publish videos, track analytics, and manage comments from one dashboard.',
     headerIcon: <YoutubeIcon size={40} />,
     buttonGradient: 'from-red-500 to-red-700',
     buttonHover: 'hover:from-red-600 hover:to-red-800',
     accentBorder: 'border-red-200',
     accentHover: 'hover:border-red-400 hover:bg-red-50/40',
     functionalities: [
-      'Publish videos and subscriber count',
-      'View stats; detailed analytics when YouTube Analytics API is enabled',
-    ],
-    limitations: [
-      'YouTube Analytics API must be enabled in Google Cloud for full channel stats',
-      'Reconnect after enabling new scopes if data is missing',
+      'Upload videos directly',
+      'Schedule video publishing',
+      'Track video performance and channel growth',
+      'View engagement analytics',
+      'Manage YouTube comments from the inbox',
     ],
     helpAnchor: 'youtube',
+    buttonLabel: 'YouTube Channel',
   },
   TWITTER: {
     name: 'X (Twitter)',
-    description: 'Authorize with the X account you want to publish from and track impressions. Comments on your posts appear in the Inbox; direct messages are not currently supported.',
+    description: 'Connect your X account to publish posts, schedule content, and monitor performance from Agent4Socials.',
     headerIcon: <XTwitterIcon size={40} className="text-neutral-900" />,
     buttonGradient: 'from-sky-400 to-sky-600',
     buttonHover: 'hover:from-sky-500 hover:to-sky-700',
     accentBorder: 'border-sky-200',
     accentHover: 'hover:border-sky-400 hover:bg-sky-50/40',
     functionalities: [
-      'Post tweets and sync existing posts',
-      'Follower and tweet counts in analytics',
-      'Comments on your posts in the Inbox',
-    ],
-    limitations: [
-      'Direct messages (DMs) are not available in the Inbox; support may be added in a future update',
-      'Image upload may need to be enabled from the Dashboard',
+      'Publish posts directly',
+      'Schedule posts in advance',
+      'Track engagement and impressions',
+      'Monitor performance analytics',
+      'Manage replies and conversations',
     ],
     helpAnchor: 'twitter-x',
+    buttonLabel: 'X Account',
   },
   LINKEDIN: {
     name: 'LinkedIn',
-    description: 'Sign in with the LinkedIn account you want to publish from and view professional analytics.',
+    description: 'Connect your LinkedIn account to publish content, schedule posts, and track engagement from one dashboard.',
     headerIcon: <LinkedinIcon size={40} />,
     buttonGradient: 'from-blue-600 to-blue-800',
     buttonHover: 'hover:from-blue-700 hover:to-blue-900',
     accentBorder: 'border-blue-200',
     accentHover: 'hover:border-blue-400 hover:bg-blue-50/40',
     functionalities: [
-      'Publish posts and schedule content',
-      'Connection count and basic profile data',
-    ],
-    limitations: [
-      'Impressions and reach require LinkedIn Marketing API approval',
+      'Publish posts to LinkedIn',
+      'Schedule content in advance',
+      'Track engagement and performance',
+      'Monitor audience growth',
+      'Manage LinkedIn comments',
     ],
     helpAnchor: 'linkedin',
+    buttonLabel: 'LinkedIn Account',
   },
 };
 
@@ -141,35 +137,26 @@ type ConnectViewProps = {
 
 function ConnectPageSections({
   functionalities,
-  limitations,
   helpAnchor,
 }: {
   functionalities: string[];
-  limitations: string[];
   helpAnchor: string;
 }) {
   return (
     <div className="space-y-4 text-left">
       <div>
-        <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">What you get</h2>
+        <h2 className="text-sm font-semibold text-neutral-700 mb-2">What you can do</h2>
         <ul className="space-y-1.5 text-sm text-neutral-600">
-          {functionalities.map((item, i) => (
-            <li key={i} className="flex items-start gap-2">
-              <Check size={14} className="text-green-600 shrink-0 mt-0.5" />
-              <span>{item}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-      <div>
-        <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">Limitations</h2>
-        <ul className="space-y-1.5 text-sm text-neutral-600">
-          {limitations.map((item, i) => (
-            <li key={i} className="flex items-start gap-2">
-              <span className="text-amber-600 shrink-0">•</span>
-              <span>{item}</span>
-            </li>
-          ))}
+          {functionalities.map((item, i) => {
+            const IconComponent = BULLET_ICONS[i % BULLET_ICONS.length];
+            return (
+              <li key={i} className="flex items-start gap-2">
+                <Check size={14} className="text-green-600 shrink-0 mt-0.5" />
+                <IconComponent size={14} className="text-neutral-400 shrink-0 mt-0.5" />
+                <span>{item}</span>
+              </li>
+            );
+          })}
         </ul>
       </div>
       <div className="pt-1">
@@ -178,7 +165,8 @@ function ConnectPageSections({
           className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-700 hover:underline"
         >
           <BookOpen size={16} />
-          Learn more in the Knowledge Base
+          Learn more about platform capabilities
+          <span className="ml-0.5">→</span>
         </Link>
       </div>
     </div>
@@ -205,7 +193,6 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
 
           <ConnectPageSections
             functionalities={info.functionalities}
-            limitations={info.limitations}
             helpAnchor={info.helpAnchor}
           />
 
@@ -280,7 +267,6 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
 
           <ConnectPageSections
             functionalities={info.functionalities}
-            limitations={info.limitations}
             helpAnchor={info.helpAnchor}
           />
 
@@ -289,8 +275,8 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
           )}
           <div className="space-y-3 mt-6">
           {[
-            { method: 'personal', label: 'Personal account' },
-            { method: 'business', label: 'Business account' },
+            { method: 'personal', label: 'Personal Account' },
+            { method: 'business', label: 'Business Account' },
           ].map(({ method, label }) => (
             <button
               key={method}
@@ -321,11 +307,10 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
           <p className="text-neutral-500 mt-1 text-sm max-w-xs mx-auto">{info.description}</p>
         </div>
 
-        <ConnectPageSections
-          functionalities={info.functionalities}
-          limitations={info.limitations}
-          helpAnchor={info.helpAnchor}
-        />
+<ConnectPageSections
+        functionalities={info.functionalities}
+        helpAnchor={info.helpAnchor}
+      />
 
         {connectError && (
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 mt-4">{connectError}</div>
@@ -338,7 +323,7 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
           className={`mt-6 w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl text-sm font-semibold text-white bg-gradient-to-r ${info.buttonGradient} ${info.buttonHover} transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed`}
         >
           {connecting ? <Loader2 size={18} className="animate-spin" /> : null}
-          Connect {info.name}
+          Connect {info.buttonLabel ?? info.name}
         </button>
       </div>
     </div>
