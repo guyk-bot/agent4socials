@@ -57,7 +57,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold text-white">5. Payment and cancellation</h2>
             <p className="mt-3 leading-relaxed">
-              Paid plans are billed as described on the <Link href="/pricing" className="text-emerald-400 hover:text-emerald-300 underline">pricing page</Link> (e.g. 7-day free trial, then monthly or yearly subscription). You may cancel at any time; access continues until the end of the current billing period. We do not provide refunds for partial periods. We may change pricing with advance notice. You are responsible for any applicable taxes.
+              Paid plans are billed as described on the <Link href="/pricing" className="text-emerald-400 hover:text-emerald-300 underline">pricing page</Link> (monthly or yearly subscription). You may cancel at any time; access continues until the end of the current billing period. We do not provide refunds for partial periods. We may change pricing with advance notice. You are responsible for any applicable taxes.
             </p>
           </section>
 

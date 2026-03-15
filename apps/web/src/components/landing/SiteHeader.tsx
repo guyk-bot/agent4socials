@@ -39,7 +39,7 @@ export default function SiteHeader() {
             onClick={openSignup}
             className="rounded-xl bg-emerald-500 px-4 py-2 sm:px-5 sm:py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-400 hover:shadow-emerald-500/30"
           >
-            7-day free trial
+            Try for free
           </button>
         </nav>
         <div className="flex items-center gap-2 md:hidden">
@@ -48,7 +48,7 @@ export default function SiteHeader() {
             onClick={openSignup}
             className="rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-white"
           >
-            Free trial
+            Try for free
           </button>
           <button
             type="button"
@@ -84,7 +84,7 @@ export default function SiteHeader() {
             onClick={() => { setMobileOpen(false); openSignup(); }}
             className="mt-2 mx-3 py-3 rounded-xl bg-emerald-500 text-center font-semibold text-white w-full"
           >
-            Start 7-day free trial
+            Try for free
           </button>
         </nav>
       )}

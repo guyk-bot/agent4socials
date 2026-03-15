@@ -95,7 +95,7 @@ export default function Home() {
           <div className="relative mx-auto max-w-5xl px-4 text-center sm:px-6 animate-fade-in-up">
             <div className="mb-8 inline-flex flex-wrap items-center justify-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/5 px-4 py-1.5 sm:px-5 sm:py-2 text-xs sm:text-sm font-semibold text-emerald-400 shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)] backdrop-blur-sm transition-transform hover:scale-105 cursor-default">
               <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4 fill-emerald-400/20" />
-              <span>7-day free trial</span>
+              <span>Try for free</span>
               <span className="text-slate-600">|</span>
               <span className="text-slate-400">Plans from $15/mo</span>
             </div>
@@ -122,7 +122,7 @@ export default function Home() {
                 className="group relative inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-8 py-4 text-lg font-semibold text-white shadow-xl shadow-emerald-500/20 transition-all hover:bg-emerald-400 hover:shadow-emerald-500/40 hover:-translate-y-1 sm:w-auto overflow-hidden"
               >
                 <div className="absolute inset-0 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent z-10" />
-                <span>Start 7-day free trial</span>
+                <span>Try for free</span>
                 <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
               </button>
               <Link
@@ -335,7 +335,7 @@ export default function Home() {
               Plans for every stage
             </h2>
             <p className="mx-auto mt-4 sm:mt-5 max-w-xl text-center text-base sm:text-lg text-slate-400">
-              7-day free trial on any plan. Yearly billing saves 20%. No hidden fees.
+              Yearly billing saves 20%. No hidden fees.
             </p>
             <div className="mt-12 grid gap-6 sm:grid-cols-3 max-w-4xl mx-auto">
               <div className="rounded-2xl border border-slate-700 bg-slate-800/40 p-5 sm:p-6 text-center">
@@ -402,8 +402,8 @@ export default function Home() {
                   a: 'Yes. You can cancel your subscription at any time. You’ll keep access until the end of your billing period.',
                 },
                 {
-                  q: 'Is there a free trial?',
-                  a: 'Yes. You get a 7-day free trial on any plan (Free, Starter, or Pro) to explore scheduling, automation, inbox and analytics. No credit card required to start.',
+                  q: 'How do I get started?',
+                  a: 'You can try for free with the Free plan (no credit card required), or sign up for Starter or Pro to unlock more features. Connect your accounts and start scheduling, managing your inbox, and viewing analytics from one dashboard.',
                 },
                 {
                   q: 'Which plan is right for me?',
@@ -435,7 +435,7 @@ export default function Home() {
                 onClick={openSignup}
                 className="group inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 py-3.5 sm:px-8 sm:py-4 text-base sm:text-lg font-semibold text-white shadow-xl shadow-emerald-500/25 transition-all hover:bg-emerald-400 hover:shadow-emerald-500/40 active:scale-[0.98] sm:hover:-translate-y-0.5"
               >
-                Start 7-day free trial
+                Try for free
                 <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
               </button>
               <button type="button" onClick={openLogin} className="text-slate-400 hover:text-white transition-colors font-medium">
