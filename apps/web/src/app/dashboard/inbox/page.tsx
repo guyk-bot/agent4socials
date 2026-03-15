@@ -638,14 +638,16 @@ function InboxPage() {
   }, [inboxMode, conversations, selectedConversationId]);
 
   const commentsSupportedPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK' || p === 'TWITTER' || p === 'YOUTUBE' || p === 'TIKTOK' || p === 'LINKEDIN');
-  // When only TikTok is selected, TikTok's API doesn't return comment text — so also fetch other platforms so the list doesn't go empty
-  const platformsToFetchComments =
+  // TikTok's Display API does not expose comment text; only Research API (for approved researchers) does. So we never request TikTok comments and show a note when TikTok is selected.
+  const platformsToFetchCommentsBase =
     commentsSupportedPlatforms.length === 1 && commentsSupportedPlatforms[0] === 'TIKTOK'
       ? (effectiveAccounts
           .map((a) => a.platform)
           .filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK' || p === 'TWITTER' || p === 'YOUTUBE' || p === 'TIKTOK' || p === 'LINKEDIN') as string[])
       : commentsSupportedPlatforms;
+  const platformsToFetchComments = platformsToFetchCommentsBase.filter((p) => p !== 'TIKTOK');
   const tiktokOnlyFallback = platformsToFetchComments.length > 1 && commentsSupportedPlatforms.length === 1 && commentsSupportedPlatforms[0] === 'TIKTOK';
+  const tiktokSelectedForComments = commentsSupportedPlatforms.includes('TIKTOK');
   useEffect(() => {
     if (platformsToFetchComments.length === 0) {
       setComments([]);
@@ -1064,9 +1066,11 @@ function InboxPage() {
       }
       return (
         <>
-          {tiktokOnlyFallback && (
+          {tiktokSelectedForComments && (
             <div className="px-4 py-2.5 bg-sky-50 border-b border-sky-100 text-sm text-sky-800">
-              TikTok comment text isn&apos;t available in the API. Showing comments from your other platforms.
+              {tiktokOnlyFallback
+                ? "TikTok comment text isn't available in the API. Showing comments from your other platforms."
+                : "TikTok comment text isn't available in the API (Display API limitation). You can see comment counts in Analytics. Comments below are from your other selected platforms."}
             </div>
           )}
           <div className="divide-y divide-neutral-100">
