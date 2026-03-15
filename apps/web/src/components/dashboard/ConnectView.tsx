@@ -297,7 +297,7 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
               type="button"
               onClick={() => onConnect('tiktok', method)}
               disabled={connecting}
-              className={`w-full flex items-center justify-center gap-2.5 py-3 px-5 rounded-xl border-2 ${info.accentBorder} ${info.accentHover} transition-all font-semibold text-sm text-neutral-900 bg-white`}
+              className="w-full flex items-center justify-center gap-2.5 py-3 px-5 rounded-xl border-2 border-neutral-900 bg-neutral-900 text-white font-semibold text-sm transition-all hover:bg-neutral-800 hover:border-neutral-800 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {connecting && connectingMethod === method ? <Loader2 size={18} className="animate-spin" /> : null}
               Connect {label}
