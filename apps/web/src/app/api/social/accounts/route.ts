@@ -33,6 +33,10 @@ export async function GET(request: NextRequest) {
         const creds = credentialsJson as { twitterOAuth1AccessToken?: string } | null;
         (out as { imageUploadEnabled?: boolean }).imageUploadEnabled = !!(creds?.twitterOAuth1AccessToken);
       }
+      if (rest.platform === 'INSTAGRAM') {
+        const creds = credentialsJson as { loginMethod?: string } | null;
+        (out as { instagramLoginOnly?: boolean }).instagramLoginOnly = creds?.loginMethod === 'instagram_business';
+      }
       return out;
     });
     const res = NextResponse.json(accounts);

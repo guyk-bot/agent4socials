@@ -949,6 +949,22 @@ export default function DashboardPage() {
         <Link href="/pricing" className="shrink-0 px-3 py-1.5 rounded-lg bg-amber-500 text-white text-sm font-medium hover:bg-amber-600">Upgrade your plan</Link>
       </div>
 
+      {/* Instagram-only: analytics and posts not available; CTA to connect with Facebook */}
+      {selectedAccount?.platform === 'INSTAGRAM' && (selectedAccount as { instagramLoginOnly?: boolean }).instagramLoginOnly && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-4 px-4 py-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-sm text-blue-900">
+            <strong>Analytics and posts are not available</strong> when connected with Instagram only. Connect with Facebook to unlock full analytics, post history, and insights on both the Account and Posts tabs.
+          </p>
+          <button
+            type="button"
+            onClick={() => setSelectedPlatformForConnect('INSTAGRAM')}
+            className="shrink-0 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
+          >
+            Connect with Facebook for full features
+          </button>
+        </div>
+      )}
+
       {/* Account block: profile link when one account selected; "All connected" or connect CTA otherwise */}
       <div className="mt-6 flex flex-col gap-3">
         {selectedAccount ? (
