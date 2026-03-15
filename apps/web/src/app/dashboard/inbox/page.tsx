@@ -29,6 +29,8 @@ import {
   markCommentsAsRead,
   markConversationsAsRead,
   markEngagementAsRead,
+  getInboxInitializedAccountIds,
+  addInboxInitializedAccount,
 } from '@/lib/inbox-read-state';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import { useAppData } from '@/context/AppDataContext';
@@ -709,10 +711,18 @@ function InboxPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [platformsToFetchComments.join(','), effectiveAccounts.map((a) => a.id).join(','), commentsRefreshKey]);
 
-  // Track unread comment ids: top-level comments not in persisted read set; new loads add to unread only if not read
+  // Track unread comment ids. When we first load comments for an account, mark them all as read so we only highlight new notifications after connection.
   useEffect(() => {
     const topLevel = comments.filter((c) => !c.parentCommentId);
     const topLevelIds = new Set(topLevel.map((c) => c.commentId));
+    const initializedAccounts = getInboxInitializedAccountIds(user?.id);
+    const accountIds = [...new Set(comments.map((c) => c.accountId).filter(Boolean))];
+    for (const accountId of accountIds) {
+      if (initializedAccounts.has(accountId)) continue;
+      const idsForAccount = comments.filter((c) => c.accountId === accountId).map((c) => c.commentId);
+      markCommentsAsRead(idsForAccount, user?.id);
+      addInboxInitializedAccount(accountId, user?.id);
+    }
     const readSet = getReadCommentIds(user?.id);
     const unreadIds = [...topLevelIds].filter((id) => !readSet.has(id));
     setUnreadCommentIds(new Set(unreadIds));
@@ -764,13 +774,24 @@ function InboxPage() {
     return () => { cancelled = true; };
   }, [allEngagementAccounts.map((a) => a.id).join(','), effectiveAccounts.length]);
 
-  // Track unread conversation ids and total unread messages: use messageCount + lastRead when available
+  // Track unread conversation ids and total unread messages: use messageCount + lastRead when available.
+  // When we first see a conversation (no stored lastRead), treat it as read so we only highlight new notifications after connection.
   useEffect(() => {
     const ids = new Set(conversations.map((c) => c.id));
     const readSet = getReadConversationIds(user?.id);
-    const lastRead = getConversationLastReadCounts(user?.id);
+    let lastRead = getConversationLastReadCounts(user?.id);
     const hasAnyMessageCount = conversations.some((c) => typeof c.messageCount === 'number');
+
     if (hasAnyMessageCount) {
+      let didInit = false;
+      for (const c of conversations) {
+        if (lastRead[c.id] === undefined) {
+          setConversationLastReadCount(c.id, c.messageCount ?? 0, user?.id);
+          didInit = true;
+        }
+      }
+      if (didInit) lastRead = getConversationLastReadCounts(user?.id);
+
       let total = 0;
       const unreadIds = new Set<string>();
       for (const c of conversations) {

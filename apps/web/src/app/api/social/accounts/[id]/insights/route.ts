@@ -6,7 +6,9 @@ import axios from 'axios';
 import { getValidYoutubeToken } from '@/lib/youtube-token';
 import { fetchInstagramDemographics, fetchFacebookDemographics, fetchYouTubeExtended } from '@/lib/analytics/extended-fetchers';
 
-const baseUrl = 'https://graph.facebook.com/v18.0';
+const fbBaseUrl = 'https://graph.facebook.com/v18.0';
+const igBaseUrl = 'https://graph.instagram.com/v18.0';
+const baseUrl = fbBaseUrl; // used by Facebook and other platforms
 
 /**
  * GET /api/social/accounts/[id]/insights?since=YYYY-MM-DD&until=YYYY-MM-DD&extended=1
@@ -33,7 +35,7 @@ export async function GET(
   const { id } = await params;
   const account = await prisma.socialAccount.findFirst({
     where: { id, userId },
-      select: { id: true, platform: true, platformUserId: true, accessToken: true, refreshToken: true, expiresAt: true },
+    select: { id: true, platform: true, platformUserId: true, accessToken: true, refreshToken: true, expiresAt: true, credentialsJson: true },
   });
   if (!account) {
     return NextResponse.json({ message: 'Account not found' }, { status: 404 });
@@ -101,51 +103,61 @@ export async function GET(
   try {
     if (account.platform === 'INSTAGRAM') {
       const token = account.accessToken;
-      // Fetch followers + media_count in one call
-      try {
-        const profileRes = await axios.get<{ followers_count?: number; media_count?: number }>(
-          `${baseUrl}/${account.platformUserId}`,
-          { params: { fields: 'followers_count,media_count', access_token: token }, timeout: 8_000 }
-        );
-        if (typeof profileRes.data?.followers_count === 'number') {
-          out.followers = profileRes.data.followers_count;
+      const credJson = (account.credentialsJson && typeof account.credentialsJson === 'object' ? account.credentialsJson : {}) as { loginMethod?: string };
+      const isInstagramBusinessLogin = credJson?.loginMethod === 'instagram_business';
+
+      const tryProfile = async (base: string): Promise<boolean> => {
+        try {
+          const profileRes = await axios.get<{ followers_count?: number; media_count?: number }>(
+            `${base}/${account.platformUserId}`,
+            { params: { fields: 'followers_count,media_count', access_token: token }, timeout: 8_000 }
+          );
+          if (typeof profileRes.data?.followers_count === 'number') {
+            out.followers = profileRes.data.followers_count;
+            return true;
+          }
+        } catch (e) {
+          console.warn('[Insights] Instagram profile:', base, (e as Error)?.message ?? e);
         }
-      } catch (e) {
-        console.warn('[Insights] Instagram profile:', (e as Error)?.message ?? e);
+        return false;
+      };
+
+      // Prefer graph.facebook.com for Page-linked; fall back to graph.instagram.com for Instagram-only (Business Login)
+      let profileOk = await tryProfile(fbBaseUrl);
+      if (!profileOk && (isInstagramBusinessLogin || out.followers === 0)) {
+        profileOk = await tryProfile(igBaseUrl);
       }
 
-      if (effectiveSinceTs != null && effectiveUntilTs != null) {
-        // Try newer v19+ metrics first, fall back gracefully
+      const tryInsights = async (base: string): Promise<boolean> => {
+        if (effectiveSinceTs == null || effectiveUntilTs == null) return false;
         const metricSets = [
           'impressions,reach,profile_views,accounts_engaged',
           'impressions,reach,profile_views',
           'reach,profile_views',
           'reach',
         ];
-        let insightsOk = false;
         for (const metricSet of metricSets) {
-          if (insightsOk) break;
-        try {
-          const insightsRes = await axios.get<{
+          try {
+            const insightsRes = await axios.get<{
               data?: Array<{
                 name: string;
                 values?: Array<{ value: number; end_time?: string }>;
                 total_value?: { value: number; breakdowns?: unknown[] };
               }>;
               error?: { message?: string; code?: number };
-          }>(`${baseUrl}/${account.platformUserId}/insights`, {
-            params: {
+            }>(`${base}/${account.platformUserId}/insights`, {
+              params: {
                 metric: metricSet,
-              period: 'day',
+                period: 'day',
                 since: effectiveSinceTs,
                 until: effectiveUntilTs,
-              access_token: token,
-            },
+                access_token: token,
+              },
               timeout: 10_000,
             });
 
             if (insightsRes.data?.error) {
-              console.warn('[Insights] IG metric set failed:', metricSet, insightsRes.data.error.message);
+              console.warn('[Insights] IG metric set failed:', base, metricSet, insightsRes.data.error.message);
               continue;
             }
 
@@ -167,34 +179,39 @@ export async function GET(
                       .filter((x) => x.date)
                       .sort((a, b) => a.date.localeCompare(b.date))
                   : [];
-            if (d.name === 'impressions') {
-              out.impressionsTotal = total;
+              if (d.name === 'impressions') {
+                out.impressionsTotal = total;
                 out.impressionsTimeSeries = series.length ? series : (total ? [{ date: untilParam?.slice(0, 10) || new Date().toISOString().slice(0, 10), value: total }] : []);
-            } else if (d.name === 'reach') {
-              out.reachTotal = total;
-                // Use reach as fallback time series when impressions are empty
+              } else if (d.name === 'reach') {
+                out.reachTotal = total;
                 if (!out.impressionsTimeSeries?.length && series.length) {
                   out.impressionsTimeSeries = series;
                   if (!out.impressionsTotal) out.impressionsTotal = total;
                 }
-            } else if (d.name === 'profile_views') {
-              out.profileViewsTotal = total;
+              } else if (d.name === 'profile_views') {
+                out.profileViewsTotal = total;
               } else if (d.name === 'accounts_engaged') {
                 (out as Record<string, unknown>).accountsEngaged = total;
               }
             }
-            insightsOk = true;
+            return true;
           } catch (e) {
             const status = (e as { response?: { status?: number } })?.response?.status;
-            if (status === 400 || status === 403) continue; // try next metric set
-            console.warn('[Insights] Instagram insights error:', (e as Error)?.message ?? e);
-            break;
+            if (status === 400 || status === 403) continue;
+            console.warn('[Insights] Instagram insights error:', base, (e as Error)?.message ?? e);
+            return false;
           }
         }
+        return false;
+      };
 
-        if (!insightsOk && !out.impressionsTotal && !out.reachTotal && out.followers === 0) {
-          out.insightsHint = 'Instagram insights temporarily unavailable. Try reconnecting your account from the sidebar.';
-        }
+      let insightsOk = await tryInsights(fbBaseUrl);
+      if (!insightsOk && (isInstagramBusinessLogin || (out.followers > 0 && !out.impressionsTotal && !out.reachTotal))) {
+        insightsOk = await tryInsights(igBaseUrl);
+      }
+
+      if (!insightsOk && !out.impressionsTotal && !out.reachTotal && out.followers === 0) {
+        out.insightsHint = 'Instagram insights temporarily unavailable. Try reconnecting your account from the sidebar.';
       }
       const extended = request.nextUrl.searchParams.get('extended') === '1';
       if (extended) {

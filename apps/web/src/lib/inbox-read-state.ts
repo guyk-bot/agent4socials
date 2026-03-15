@@ -101,3 +101,18 @@ export function setConversationLastReadCount(conversationId: string, count: numb
     // ignore
   }
 }
+
+const KEY_INBOX_INITIALIZED_ACCOUNTS = 'agent4socials_inbox_initialized_accounts';
+
+/** Account IDs for which we've already marked "existing at first load" as read (so we only highlight new notifications after connection). */
+export function getInboxInitializedAccountIds(userId?: string | null): Set<string> {
+  return loadSet(getKey(KEY_INBOX_INITIALIZED_ACCOUNTS, userId));
+}
+
+export function addInboxInitializedAccount(accountId: string, userId?: string | null): void {
+  if (typeof window === 'undefined') return;
+  const key = getKey(KEY_INBOX_INITIALIZED_ACCOUNTS, userId);
+  const set = loadSet(key);
+  set.add(accountId);
+  saveSet(key, set);
+}
