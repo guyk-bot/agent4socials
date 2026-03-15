@@ -252,12 +252,7 @@ export default function DashboardPage() {
   const [postsSyncError, setPostsSyncError] = useState<string | null>(null);
   const [allPostsSyncError, setAllPostsSyncError] = useState<string | null>(null);
   const [syncAllTrigger, setSyncAllTrigger] = useState(0);
-  const [dateRange, setDateRange] = useState(() => {
-    const end = new Date();
-    const start = new Date();
-    start.setFullYear(start.getFullYear() - 2);
-    return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
-  });
+  const [dateRange, setDateRange] = useState(() => getDefaultDateRange());
   const [postsPage, setPostsPage] = useState(1);
   const [postsSearch, setPostsSearch] = useState('');
   const [postsPerPage, setPostsPerPage] = useState(5);

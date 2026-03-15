@@ -91,11 +91,11 @@ const defaultNotifications: NotificationsCache = { inbox: 0, comments: 0, messag
 
 const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
 
-/** Shared default date range (2 years) used by prefetch and analytics. */
+/** Shared default date range (last 30 days) used by prefetch and analytics. */
 export function getDefaultDateRange() {
   const end = new Date();
   const start = new Date();
-  start.setFullYear(start.getFullYear() - 2);
+  start.setDate(start.getDate() - 29);
   return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
 }
 
