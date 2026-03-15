@@ -191,7 +191,7 @@ export function FacebookOverviewTab({
             <div className="w-full" style={{ height: 260 }}>
               {growthChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={growthChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} isAnimationActive animationDuration={400}>
+                  <ComposedChart data={growthChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id="followersGrad" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#10b981" stopOpacity={0.4} />
@@ -255,7 +255,7 @@ export function FacebookOverviewTab({
             <div className="w-full" style={{ height: 260 }}>
               {engagementByDate.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={engagementByDate} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} isAnimationActive animationDuration={400}>
+                  <ComposedChart data={engagementByDate} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id="engagementLikesGrad" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#f43f5e" stopOpacity={0.4} />
@@ -309,7 +309,7 @@ export function FacebookOverviewTab({
             <div className="w-full" style={{ height: 220 }}>
               {postsByDate.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={postsByDate} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} isAnimationActive animationDuration={400}>
+                  <ComposedChart data={postsByDate} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(107,114,128,0.08)" vertical={false} />
                     <XAxis
                       dataKey="date"
@@ -399,19 +399,6 @@ export function FacebookOverviewTab({
           />
         </AnalyticsGridItem>
       </AnalyticsGrid>
-
-      {showPermissionsNotice && onReconnect && (
-        <AnalyticsGrid>
-          <AnalyticsGridItem span={12}>
-            <AnalyticsUpgradeCard
-              title="More insights are available"
-              description="Connect Facebook Page insights permissions to unlock follower trends, views, reach, and growth charts."
-              ctaLabel="Reconnect account"
-              onCta={onReconnect}
-            />
-          </AnalyticsGridItem>
-        </AnalyticsGrid>
-      )}
     </div>
   );
 }
