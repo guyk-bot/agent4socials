@@ -126,6 +126,14 @@ export function FacebookOverviewTab({
 
   const prevFollowers = Math.max(0, followers - netGrowth);
   const trendPct = netGrowth !== 0 && prevFollowers > 0 ? `${(netGrowth / prevFollowers * 100).toFixed(1)}%` : (netGrowth !== 0 ? `${netGrowth >= 0 ? '+' : ''}${netGrowth}` : undefined);
+  const showWatermark = days > 30;
+  const followersChartShowYear = useMemo(() => {
+    const dates = growthChartData.map((d) => d.date);
+    if (dates.length <= 2) return true;
+    const first = new Date(dates[0]);
+    const last = new Date(dates[dates.length - 1]);
+    return first.getMonth() === last.getMonth() && first.getDate() === last.getDate();
+  }, [growthChartData]);
 
   if (loading) {
     return (
@@ -147,6 +155,20 @@ export function FacebookOverviewTab({
 
   return (
     <div className="space-y-6 max-w-full" style={{ maxWidth: 1400 }}>
+      {showWatermark && (
+        <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-indigo-800">
+            You're viewing more than 30 days. Upgrade to remove watermarks and view full history.
+          </p>
+          <button
+            type="button"
+            onClick={onUpgrade}
+            className="shrink-0 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
+          >
+            Upgrade plan
+          </button>
+        </div>
+      )}
       {/* Section 1 — Account Overview: 4 metric cards */}
       <AnalyticsGrid>
         <AnalyticsGridItem span={3}>
@@ -184,10 +206,10 @@ export function FacebookOverviewTab({
         </AnalyticsGridItem>
       </AnalyticsGrid>
 
-      {/* Section 2 — Growth Analytics (span 8) + Visibility Metrics (span 4) */}
+      {/* Section 2 — Followers (full row) */}
       <AnalyticsGrid>
-        <AnalyticsGridItem span={8}>
-          <AnalyticsWatermarkedChart title="Audience Growth" height={280}>
+        <AnalyticsGridItem span={12}>
+          <AnalyticsWatermarkedChart title="Followers" height={280} showWatermark={showWatermark}>
             <div className="w-full" style={{ height: 260 }}>
               {growthChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
@@ -204,30 +226,25 @@ export function FacebookOverviewTab({
                       tick={{ fontSize: 11, fill: '#6b7280' }}
                       axisLine={false}
                       tickLine={false}
-                      tickFormatter={(v) => new Date(v).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                      tickFormatter={(v) =>
+                        new Date(v).toLocaleDateString(undefined, followersChartShowYear ? { month: 'short', day: 'numeric', year: '2-digit' } : { month: 'short', day: 'numeric' })
+                      }
                     />
-                    <YAxis yAxisId="left" tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} />
-                    <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} />
                     <RechartTooltip
                       content={({ active, payload, label }) => {
                         if (!active || !payload?.length || !label) return null;
                         return (
                           <div className="bg-[#111827] text-white text-xs rounded-lg px-2.5 py-2 shadow-xl" style={{ borderRadius: 8 }}>
                             <p className="text-neutral-300">{new Date(label).toLocaleDateString(undefined, { dateStyle: 'medium' })}</p>
-                            {payload.map((p) => (
-                              <p key={p.name} className="font-medium mt-0.5">{p.name}: {typeof p.value === 'number' ? p.value.toLocaleString() : p.value}</p>
-                            ))}
+                            <p className="font-medium mt-0.5">Followers: {typeof payload[0]?.value === 'number' ? payload[0].value.toLocaleString() : payload[0]?.value}</p>
                           </div>
                         );
                       }}
                     />
-                    <Legend />
-                    <Bar yAxisId="right" dataKey="posts" name="Posts" fill="#f59e0b" radius={[4, 4, 0, 0]} isAnimationActive animationDuration={400} />
                     <Area
-                      yAxisId="left"
                       type="monotone"
                       dataKey="followers"
-                      name="Followers"
                       stroke="#10b981"
                       strokeWidth={2}
                       fill="url(#followersGrad)"
@@ -243,15 +260,19 @@ export function FacebookOverviewTab({
             </div>
           </AnalyticsWatermarkedChart>
         </AnalyticsGridItem>
-        <AnalyticsGridItem span={4}>
+      </AnalyticsGrid>
+
+      {/* Section 3 — Visibility Metrics (full row) */}
+      <AnalyticsGrid>
+        <AnalyticsGridItem span={12}>
           <VisibilityMetricsCard title="Visibility Metrics" metrics={visibilityMetrics} />
         </AnalyticsGridItem>
       </AnalyticsGrid>
 
-      {/* Section 4 + 5 — Engagement Over Time (span 6) + Content Activity (span 6) */}
+      {/* Section 4 — Engagement Over Time (full row) */}
       <AnalyticsGrid>
-        <AnalyticsGridItem span={6}>
-          <AnalyticsWatermarkedChart title="Engagement Over Time" height={280}>
+        <AnalyticsGridItem span={12}>
+          <AnalyticsWatermarkedChart title="Engagement Over Time" height={280} showWatermark={showWatermark}>
             <div className="w-full" style={{ height: 260 }}>
               {engagementByDate.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
@@ -304,8 +325,12 @@ export function FacebookOverviewTab({
             </div>
           </AnalyticsWatermarkedChart>
         </AnalyticsGridItem>
-        <AnalyticsGridItem span={6}>
-          <AnalyticsWatermarkedChart title="Publishing Activity" height={280}>
+      </AnalyticsGrid>
+
+      {/* Section 5 — Publishing Activity (full row) */}
+      <AnalyticsGrid>
+        <AnalyticsGridItem span={12}>
+          <AnalyticsWatermarkedChart title="Publishing Activity" height={280} showWatermark={showWatermark}>
             <div className="w-full" style={{ height: 220 }}>
               {postsByDate.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">

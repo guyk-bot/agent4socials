@@ -7,6 +7,8 @@ export interface AnalyticsWatermarkedChartProps {
   title?: string;
   height?: number;
   className?: string;
+  /** When false, the Agent4Socials watermark is hidden (e.g. for upgraded users or ranges ≤30 days). */
+  showWatermark?: boolean;
 }
 
 /** Wraps a chart with a subtle Agent4Socials watermark in the background. */
@@ -15,6 +17,7 @@ export function AnalyticsWatermarkedChart({
   title,
   height = 280,
   className = '',
+  showWatermark = true,
 }: AnalyticsWatermarkedChartProps) {
   return (
     <div
@@ -30,14 +33,15 @@ export function AnalyticsWatermarkedChart({
         </div>
       )}
       <div className="relative" style={{ minHeight: height }}>
-        {/* Watermark: centered, very low opacity, pointer-events none */}
-        <div
-          className="absolute inset-0 flex items-center justify-center pointer-events-none select-none"
-          style={{ opacity: 0.04 }}
-          aria-hidden
-        >
-          <span className="text-[#111827] font-semibold text-2xl tracking-tight">Agent4Socials</span>
-        </div>
+        {showWatermark && (
+          <div
+            className="absolute inset-0 flex items-center justify-center pointer-events-none select-none"
+            style={{ opacity: 0.04 }}
+            aria-hidden
+          >
+            <span className="text-[#111827] font-semibold text-2xl tracking-tight">Agent4Socials</span>
+          </div>
+        )}
         <div className="relative z-10" style={{ height }}>
           {children}
         </div>
