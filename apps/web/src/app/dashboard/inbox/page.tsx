@@ -850,6 +850,427 @@ function InboxPage() {
     setAiReplyError(null);
   };
 
+  const renderSidebarList = () => {
+    if (inboxMode === 'engagement') {
+      if (engagementLoading) {
+        return (
+          <div className="p-6 flex flex-col items-center justify-center gap-3">
+            <Loader2 size={32} className="text-indigo-500 animate-spin" />
+            <p className="text-sm text-neutral-500">Loading engagement…</p>
+          </div>
+        );
+      }
+      if (engagementError) {
+        return (
+          <div className="p-4">
+            <p className="text-sm text-neutral-700">{engagementError}</p>
+          </div>
+        );
+      }
+      if (engagement.length === 0) {
+        return (
+          <div className="p-6 text-center">
+            <BarChart3 size={40} className="mx-auto text-neutral-300 mb-3" />
+            <p className="text-sm font-medium text-neutral-900">No engagement data yet</p>
+            <p className="text-sm text-neutral-500 mt-1">Publish posts to Instagram or Facebook, then sync to see likes and comments.</p>
+            <button
+              type="button"
+              onClick={() => {
+                const igFbAccounts = effectiveAccounts.filter((a) => a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK');
+                if (igFbAccounts.length === 0) return;
+                setEngagementLoading(true);
+                setEngagementError(null);
+                let pending = igFbAccounts.length;
+                const merge: EngagementItem[] = [];
+                igFbAccounts.forEach((account) => {
+                  api.get<{ engagement?: EngagementItem[]; error?: string }>(`/social/accounts/${account.id}/engagement`)
+                    .then((res) => {
+                      merge.push(...(res.data?.engagement ?? []));
+                      if (--pending === 0) {
+                        merge.sort((a, b) => (b.likeCount + b.commentCount) - (a.likeCount + a.commentCount));
+                        setEngagement(merge);
+                        setEngagementLoading(false);
+                      }
+                    })
+                    .catch(() => { if (--pending === 0) { setEngagement(merge); setEngagementLoading(false); } });
+                });
+              }}
+              className="mt-3 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-neutral-200 bg-white text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+            >
+              <RefreshCw size={14} />
+              Refresh engagement
+            </button>
+          </div>
+        );
+      }
+      return (
+        <div className="p-2 space-y-0">
+          {engagement
+            .filter((e) => !searchQuery || e.postPreview.toLowerCase().includes(searchQuery.toLowerCase()))
+            .map((e) => {
+              const engagementKey = `${e.platform}-${e.platformPostId}`;
+              const isUnread = unreadEngagementIds.has(engagementKey);
+              return (
+                <button
+                  key={engagementKey}
+                  type="button"
+                  onClick={() => {
+                    setSelectedEngagement(e);
+                    markEngagementAsRead([engagementKey], user?.id);
+                    setUnreadEngagementIds((prev) => {
+                      const next = new Set(prev);
+                      next.delete(engagementKey);
+                      return next;
+                    });
+                  }}
+                  className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors ${
+                    selectedEngagement?.platformPostId === e.platformPostId ? 'bg-indigo-50 border border-indigo-100' : isUnread ? 'bg-sky-50/80 hover:bg-sky-100/80' : 'hover:bg-neutral-50'
+                  }`}
+                >
+                  <div className="w-12 h-12 rounded-lg bg-neutral-100 shrink-0 overflow-hidden flex items-center justify-center">
+                    {e.mediaUrl ? (
+                      <img src={e.mediaUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <BarChart3 size={24} className="text-neutral-400" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-neutral-900 truncate">{e.postPreview || 'Post'}</p>
+                    <p className="text-xs text-neutral-500 mt-0.5">
+                      {e.likeCount} likes · {e.commentCount} comments
+                    </p>
+                    <p className="text-xs text-neutral-500 mt-0.5 flex items-center gap-1.5">
+                      {(() => {
+                        const plat = PLATFORMS.find((p) => p.id === e.platform);
+                        const Icon = plat?.icon;
+                        return (
+                          <>
+                            {Icon && <Icon size={12} className="opacity-70 shrink-0" />}
+                            <span>{plat?.label ?? e.platform}</span>
+                          </>
+                        );
+                      })()}
+                    </p>
+                  </div>
+                  {isUnread && <span className="shrink-0 w-2 h-2 rounded-full bg-red-500" aria-hidden />}
+                </button>
+              );
+            })}
+        </div>
+      );
+    }
+    if (inboxMode === 'comments' && commentsSupportedPlatforms.length === 0) {
+      return (
+        <div className="p-6 text-center">
+          <p className="text-sm text-neutral-500">Comments are available for Instagram, Facebook, X, and YouTube. Select one or more platforms above. TikTok comment text is only available via TikTok&apos;s Research API (for researchers), not the Display API this app uses. You can see TikTok comment counts in Analytics.</p>
+        </div>
+      );
+    }
+    if (selectedPlatforms.length === 0) {
+      return (
+        <div className="p-6 text-center">
+          <MessageCircle size={40} className="mx-auto text-neutral-300 mb-3" />
+          <p className="text-sm text-neutral-500">Click one or more platform icons above to view their inboxes.</p>
+        </div>
+      );
+    }
+    if (inboxMode === 'comments') {
+      if (commentsLoading) {
+        return (
+          <div className="p-6 flex flex-col items-center justify-center gap-3">
+            <Loader2 size={32} className="text-indigo-500 animate-spin" />
+            <p className="text-sm text-neutral-500">Loading comments…</p>
+          </div>
+        );
+      }
+      if (commentsError && !(commentsSupportedPlatforms.length === 1 && commentsSupportedPlatforms[0] === 'TIKTOK')) {
+        return (
+          <div className="p-4 space-y-3">
+            <div className="rounded-xl border-2 border-amber-200 bg-amber-50 px-4 py-4">
+              <p className="text-sm font-medium text-amber-900">Could not load comments</p>
+              <p className="text-xs text-amber-700 mt-1">{commentsError}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setCommentsRefreshKey((k) => k + 1)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-neutral-200 bg-white text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+              >
+                <RefreshCw size={14} />
+                Retry
+              </button>
+              {effectiveAccounts.some((a) => a.platform === 'TWITTER') && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const res = await api.get('/social/oauth/TWITTER/start');
+                      const url = res?.data?.url;
+                      if (url) window.location.href = url;
+                    } catch { /* ignore */ }
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-neutral-800 text-white text-sm font-medium hover:opacity-90"
+                >
+                  Reconnect X (Twitter)
+                </button>
+              )}
+              {effectiveAccounts.some((a) => a.platform === 'INSTAGRAM') && (commentsError.toLowerCase().includes('permission') || commentsError.toLowerCase().includes('reconnect') || commentsError.toLowerCase().includes('expired')) && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const res = await api.get('/social/oauth/INSTAGRAM/start?method=instagram');
+                      const url = res?.data?.url;
+                      if (url) window.location.href = url;
+                    } catch { /* ignore */ }
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-medium hover:opacity-90"
+                >
+                  Reconnect Instagram
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      }
+      if (comments.length === 0) {
+        if (commentsSupportedPlatforms.length === 1 && commentsSupportedPlatforms[0] === 'TIKTOK') {
+          return (
+            <div className="p-6 text-center">
+              <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-4 mb-4">
+                <p className="text-sm font-medium text-sky-900">TikTok comment text isn&apos;t available</p>
+                <p className="text-xs text-sky-700 mt-1">TikTok&apos;s Display API doesn&apos;t include comment text. You can see comment counts in Analytics.</p>
+              </div>
+              <p className="text-sm text-neutral-600">Select Instagram, Facebook, X, or YouTube above to see comments from those platforms.</p>
+            </div>
+          );
+        }
+        return (
+          <div className="p-6 text-center">
+            <MessageCircle size={40} className="mx-auto text-neutral-300 mb-3" />
+            <p className="text-sm text-neutral-500">No comments yet.</p>
+            <p className="text-xs text-neutral-400 mt-1">Comments on your posts will appear here. Make sure to sync your posts first from the Dashboard.</p>
+            <button
+              type="button"
+              onClick={() => setCommentsRefreshKey((k) => k + 1)}
+              className="mt-3 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-neutral-200 bg-white text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+            >
+              <RefreshCw size={14} />
+              Refresh comments
+            </button>
+          </div>
+        );
+      }
+      return (
+        <>
+          {tiktokOnlyFallback && (
+            <div className="px-4 py-2.5 bg-sky-50 border-b border-sky-100 text-sm text-sky-800">
+              TikTok comment text isn&apos;t available in the API. Showing comments from your other platforms.
+            </div>
+          )}
+          <div className="divide-y divide-neutral-100">
+            {(() => {
+              const topLevelOnly = comments.filter((c) => !c.parentCommentId);
+              const hasRepliedByParent = new Set(
+                comments.filter((r) => r.isFromMe && r.parentCommentId).map((r) => r.parentCommentId)
+              );
+              const filtered = topLevelOnly
+                .filter((c) =>
+                  commentsFilter === 'all'
+                    ? true
+                    : commentsFilter === 'replied'
+                      ? hasRepliedByParent.has(c.commentId)
+                      : !hasRepliedByParent.has(c.commentId)
+                )
+                .filter((c) => !searchQuery || c.text.toLowerCase().includes(searchQuery.toLowerCase()) || c.authorName.toLowerCase().includes(searchQuery.toLowerCase()))
+                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+              return filtered.map((c) => {
+                const isUnread = unreadCommentIds.has(c.commentId);
+                const hasReplied = hasRepliedByParent.has(c.commentId);
+                const isSelected = selectMode && selectedCommentIds.has(c.commentId);
+                return (
+                  <button
+                    key={c.commentId}
+                    type="button"
+                    onClick={() => {
+                      if (selectMode) {
+                        setSelectedCommentIds((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(c.commentId)) next.delete(c.commentId);
+                          else next.add(c.commentId);
+                          return next;
+                        });
+                        return;
+                      }
+                      markCommentsAsRead([c.commentId], user?.id);
+                      setSelectedComment(c);
+                      setUnreadCommentIds((prev) => {
+                        const next = new Set(prev);
+                        next.delete(c.commentId);
+                        return next;
+                      });
+                    }}
+                    className={`w-full px-3 py-3 text-left transition-colors flex items-center gap-2 ${
+                      isSelected ? 'bg-indigo-50 border-l-2 border-l-indigo-500' :
+                      selectedComment?.commentId === c.commentId ? 'bg-indigo-50 border-l-2 border-l-indigo-500' : isUnread ? 'bg-sky-50/80 hover:bg-sky-100/80' : 'hover:bg-neutral-50'
+                    }`}
+                  >
+                    {selectMode ? (
+                      <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border-2 ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-neutral-300'}`}>
+                        {isSelected && <Check size={12} className="text-white" />}
+                      </div>
+                    ) : null}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-neutral-400 flex items-center gap-1 mb-1">
+                        {(() => {
+                          const plat = PLATFORMS.find((p) => p.id === c.platform);
+                          const Icon = plat?.icon;
+                          return Icon ? <Icon size={12} className="opacity-70" /> : null;
+                        })()}
+                        <span>{new Date(c.createdAt).toLocaleString()}</span>
+                      </p>
+                      <div className="flex items-start gap-3">
+                        <div className="w-9 h-9 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden">
+                          {c.authorPictureUrl ? (
+                            <img src={c.authorPictureUrl} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-xs font-semibold text-neutral-600">{(c.authorName || '?').slice(0, 2).toUpperCase()}</span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-neutral-900 truncate">{c.authorName}</p>
+                          <p className="text-xs text-neutral-500 truncate mt-0.5">{(c.postPreview || '').slice(0, 20)}{(c.postPreview?.length ?? 0) > 20 ? '…' : ''}</p>
+                          <p className="text-xs text-neutral-600 line-clamp-2 mt-0.5">{c.text}</p>
+                        </div>
+                      </div>
+                    </div>
+                    {hasReplied && (
+                      <span className="shrink-0 flex items-center gap-0.5 text-xs text-emerald-600 font-medium" title="You replied">
+                        <Check size={12} />
+                        Replied
+                      </span>
+                    )}
+                    {isUnread && (
+                      <span className="shrink-0 w-2 h-2 rounded-full bg-red-500" aria-hidden />
+                    )}
+                  </button>
+                );
+              });
+            })()}
+          </div>
+        </>
+      );
+    }
+    if (conversationsLoading) {
+      return (
+        <div className="p-6 flex flex-col items-center justify-center gap-3">
+          <Loader2 size={32} className="text-indigo-500 animate-spin" />
+          <p className="text-sm text-neutral-500">Loading conversations…</p>
+        </div>
+      );
+    }
+    if (conversationsError) {
+      return (
+        <div className="p-4">
+          <div className="rounded-xl border-2 border-red-200 bg-red-50 px-4 py-4">
+            <p className="text-sm font-medium text-red-900">Could not load messages</p>
+            <p className="text-xs text-red-700 mt-1">{conversationsError}</p>
+            {conversationsError?.includes('401') && (
+              <p className="text-xs text-amber-800 mt-1 bg-amber-100/80 px-2 py-1 rounded">Your session or the platform token may have expired. Try reconnecting the selected platform below, or sign out and sign back in.</p>
+            )}
+            {conversationsDebug?.metaMessage && (
+              <p className="text-xs text-red-800 mt-1 font-mono bg-red-100/80 px-2 py-1 rounded mt-2">{conversationsDebug.metaMessage}</p>
+            )}
+            <div className="mt-3 flex flex-col gap-2">
+              {dmOrFbPlatforms.includes('INSTAGRAM') && effectiveAccounts.some((a) => a.platform === 'INSTAGRAM') && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const res = await api.get('/social/oauth/INSTAGRAM/start?method=instagram');
+                      const url = res?.data?.url;
+                      if (url && typeof url === 'string') window.location.href = url;
+                    } catch (_) {}
+                  }}
+                  className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-medium hover:opacity-90"
+                >
+                  Reconnect Instagram
+                </button>
+              )}
+              {dmOrFbPlatforms.includes('FACEBOOK') && effectiveAccounts.some((a) => a.platform === 'FACEBOOK') && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const res = await api.get('/social/oauth/facebook/start');
+                      const url = res?.data?.url;
+                      if (url && typeof url === 'string') window.location.href = url;
+                    } catch (_) {}
+                  }}
+                  className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
+                >
+                  Reconnect Facebook
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+    if (conversations.length === 0) {
+      return (
+        <div className="p-6 text-center">
+          <MessageCircle size={40} className="mx-auto text-neutral-300 mb-3" />
+          <p className="text-sm text-neutral-500">No conversations yet.</p>
+          <p className="text-xs text-neutral-400 mt-1">Messages will appear here when you receive them.</p>
+          <button
+            type="button"
+            onClick={() => {
+              appData?.invalidateConversations?.();
+              setConversationsRefreshKey((k) => k + 1);
+              setConversationsLoading(true);
+            }}
+            className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-neutral-200 bg-white text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+          >
+            <RefreshCw size={16} />
+            Refresh conversations
+          </button>
+          {selectedPlatform === 'TIKTOK' && (
+            <p className="text-xs text-amber-700 mt-3 max-w-sm mx-auto bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              TikTok inbox (DMs) are not available in the app. Use Instagram or Facebook to view and reply to messages here.
+            </p>
+          )}
+          {dmOrFbPlatforms.includes('INSTAGRAM') && selectedPlatform !== 'TIKTOK' && (
+            <p className="text-xs text-amber-700 mt-3 max-w-sm mx-auto bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              If you see Instagram DMs in Metricool but not here, Meta is only granting inbox access to apps with <strong>Advanced Access</strong>. Complete App Review for instagram_manage_messages to enable it in A4S.
+            </p>
+          )}
+        </div>
+      );
+    }
+    return (
+      <MessagesConversationList
+        conversations={conversations}
+        inboxFilter={inboxFilter}
+        searchQuery={searchQuery}
+        dmOrFbPlatforms={dmOrFbPlatforms}
+        selectMode={selectMode}
+        selectedConversationIds={selectedConversationIds}
+        selectedConversationId={selectedConversationId}
+        unreadConversationIds={unreadConversationIds}
+        setSelectedPlatform={setSelectedPlatform}
+        setSelectedConversationId={setSelectedConversationId}
+        setSelectedConversationIds={setSelectedConversationIds}
+        setUnreadConversationIds={setUnreadConversationIds}
+        markConversationsAsRead={markConversationsAsRead}
+        setTotalUnreadMessages={setTotalUnreadMessages}
+        getConversationLastReadCounts={getConversationLastReadCounts}
+        setConversationLastReadCount={setConversationLastReadCount}
+        user={user}
+      />
+    );
+  };
+
   return (
     <div className="flex h-[calc(100vh-3.5rem-3rem)] md:h-[calc(100vh-3.5rem-4rem)] bg-white flex-col md:flex-row -mx-4 sm:-mx-6 md:-mx-8 -my-6 md:-my-8">
       {/* Left sidebar - Metricool style */}
@@ -1137,387 +1558,7 @@ function InboxPage() {
 
         {/* Conversation, comment, or engagement list */}
         <div className="flex-1 overflow-y-auto">
-          {inboxMode === 'engagement' ? (
-            engagementLoading ? (
-              <div className="p-6 flex flex-col items-center justify-center gap-3">
-                <Loader2 size={32} className="text-indigo-500 animate-spin" />
-                <p className="text-sm text-neutral-500">Loading engagement…</p>
-              </div>
-            ) : engagementError ? (
-              <div className="p-4">
-                <p className="text-sm text-neutral-700">{engagementError}</p>
-              </div>
-            ) : engagement.length === 0 ? (
-              <div className="p-6 text-center">
-                <BarChart3 size={40} className="mx-auto text-neutral-300 mb-3" />
-                <p className="text-sm font-medium text-neutral-900">No engagement data yet</p>
-                <p className="text-sm text-neutral-500 mt-1">Publish posts to Instagram or Facebook, then sync to see likes and comments.</p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const igFbAccounts = effectiveAccounts.filter((a) => a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK');
-                    if (igFbAccounts.length === 0) return;
-                    setEngagementLoading(true);
-                    setEngagementError(null);
-                    let pending = igFbAccounts.length;
-                    const merge: EngagementItem[] = [];
-                    igFbAccounts.forEach((account) => {
-                      api.get<{ engagement?: EngagementItem[]; error?: string }>(`/social/accounts/${account.id}/engagement`)
-                        .then((res) => {
-                          merge.push(...(res.data?.engagement ?? []));
-                          if (--pending === 0) {
-                            merge.sort((a, b) => (b.likeCount + b.commentCount) - (a.likeCount + a.commentCount));
-                            setEngagement(merge);
-                            setEngagementLoading(false);
-                          }
-                        })
-                        .catch(() => { if (--pending === 0) { setEngagement(merge); setEngagementLoading(false); } });
-                    });
-                  }}
-                  className="mt-3 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-neutral-200 bg-white text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-                >
-                  <RefreshCw size={14} />
-                  Refresh engagement
-                </button>
-              </div>
-            ) : (
-              <div className="p-2 space-y-0">
-                {engagement
-                  .filter((e) => !searchQuery || e.postPreview.toLowerCase().includes(searchQuery.toLowerCase()))
-                  .map((e) => {
-                    const engagementKey = `${e.platform}-${e.platformPostId}`;
-                    const isUnread = unreadEngagementIds.has(engagementKey);
-                    return (
-                    <button
-                      key={engagementKey}
-                      type="button"
-                      onClick={() => {
-                        setSelectedEngagement(e);
-                        markEngagementAsRead([engagementKey], user?.id);
-                        setUnreadEngagementIds((prev) => {
-                          const next = new Set(prev);
-                          next.delete(engagementKey);
-                          return next;
-                        });
-                      }}
-                      className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors ${
-                        selectedEngagement?.platformPostId === e.platformPostId ? 'bg-indigo-50 border border-indigo-100' : isUnread ? 'bg-sky-50/80 hover:bg-sky-100/80' : 'hover:bg-neutral-50'
-                      }`}
-                    >
-                      <div className="w-12 h-12 rounded-lg bg-neutral-100 shrink-0 overflow-hidden flex items-center justify-center">
-                        {e.mediaUrl ? (
-                          <img src={e.mediaUrl} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <BarChart3 size={24} className="text-neutral-400" />
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-neutral-900 truncate">{e.postPreview || 'Post'}</p>
-                        <p className="text-xs text-neutral-500 mt-0.5">
-                          {e.likeCount} likes · {e.commentCount} comments
-                        </p>
-                        <p className="text-xs text-neutral-500 mt-0.5 flex items-center gap-1.5">
-                          {(() => {
-                            const plat = PLATFORMS.find((p) => p.id === e.platform);
-                            const Icon = plat?.icon;
-                            return (
-                              <>
-                                {Icon && <Icon size={12} className="opacity-70 shrink-0" />}
-                                <span>{plat?.label ?? e.platform}</span>
-                              </>
-                            );
-                          })()}
-                        </p>
-                      </div>
-                      {isUnread && <span className="shrink-0 w-2 h-2 rounded-full bg-red-500" aria-hidden />}
-                    </button>
-                    );
-                  })}
-              </div>
-            )
-          ) : inboxMode === 'comments' && commentsSupportedPlatforms.length === 0 ? (
-            <div className="p-6 text-center">
-              <p className="text-sm text-neutral-500">Comments are available for Instagram, Facebook, X, and YouTube. Select one or more platforms above. TikTok comment text is only available via TikTok&apos;s Research API (for researchers), not the Display API this app uses. You can see TikTok comment counts in Analytics.</p>
-            </div>
-          ) : selectedPlatforms.length === 0 ? (
-            <div className="p-6 text-center">
-              <MessageCircle size={40} className="mx-auto text-neutral-300 mb-3" />
-              <p className="text-sm text-neutral-500">Click one or more platform icons above to view their inboxes.</p>
-            </div>
-          ) : inboxMode === 'comments' ? (
-            commentsLoading ? (
-              <div className="p-6 flex flex-col items-center justify-center gap-3">
-                <Loader2 size={32} className="text-indigo-500 animate-spin" />
-                <p className="text-sm text-neutral-500">Loading comments…</p>
-              </div>
-            ) : commentsError && !(commentsSupportedPlatforms.length === 1 && commentsSupportedPlatforms[0] === 'TIKTOK') ? (
-              <div className="p-4 space-y-3">
-                <div className="rounded-xl border-2 border-amber-200 bg-amber-50 px-4 py-4">
-                  <p className="text-sm font-medium text-amber-900">Could not load comments</p>
-                  <p className="text-xs text-amber-700 mt-1">{commentsError}</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setCommentsRefreshKey((k) => k + 1)}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-neutral-200 bg-white text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-                  >
-                    <RefreshCw size={14} />
-                    Retry
-                  </button>
-                  {effectiveAccounts.some((a) => a.platform === 'TWITTER') && (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          const res = await api.get('/social/oauth/TWITTER/start');
-                          const url = res?.data?.url;
-                          if (url) window.location.href = url;
-                        } catch { /* ignore */ }
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-neutral-800 text-white text-sm font-medium hover:opacity-90"
-                    >
-                      Reconnect X (Twitter)
-                    </button>
-                  )}
-                  {effectiveAccounts.some((a) => a.platform === 'INSTAGRAM') && (commentsError.toLowerCase().includes('permission') || commentsError.toLowerCase().includes('reconnect') || commentsError.toLowerCase().includes('expired')) && (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          const res = await api.get('/social/oauth/INSTAGRAM/start?method=instagram');
-                          const url = res?.data?.url;
-                          if (url) window.location.href = url;
-                        } catch { /* ignore */ }
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-medium hover:opacity-90"
-                    >
-                      Reconnect Instagram
-                    </button>
-                  )}
-                </div>
-              </div>
-            ) : comments.length === 0 ? (
-              commentsSupportedPlatforms.length === 1 && commentsSupportedPlatforms[0] === 'TIKTOK' ? (
-                <div className="p-6 text-center">
-                  <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-4 mb-4">
-                    <p className="text-sm font-medium text-sky-900">TikTok comment text isn&apos;t available</p>
-                    <p className="text-xs text-sky-700 mt-1">TikTok&apos;s Display API doesn&apos;t include comment text. You can see comment counts in Analytics.</p>
-                  </div>
-                  <p className="text-sm text-neutral-600">Select Instagram, Facebook, X, or YouTube above to see comments from those platforms.</p>
-                </div>
-              ) : (
-              <div className="p-6 text-center">
-                <MessageCircle size={40} className="mx-auto text-neutral-300 mb-3" />
-                <p className="text-sm text-neutral-500">No comments yet.</p>
-                <p className="text-xs text-neutral-400 mt-1">Comments on your posts will appear here. Make sure to sync your posts first from the Dashboard.</p>
-                <button
-                  type="button"
-                  onClick={() => setCommentsRefreshKey((k) => k + 1)}
-                  className="mt-3 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-neutral-200 bg-white text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-                >
-                  <RefreshCw size={14} />
-                  Refresh comments
-                </button>
-              </div>
-              )
-            ) : (
-              <>
-                {tiktokOnlyFallback && (
-                  <div className="px-4 py-2.5 bg-sky-50 border-b border-sky-100 text-sm text-sky-800">
-                    TikTok comment text isn&apos;t available in the API. Showing comments from your other platforms.
-                  </div>
-                )}
-                <div className="divide-y divide-neutral-100">
-                {(() => {
-                  const topLevelOnly = comments.filter((c) => !c.parentCommentId);
-                  const hasRepliedByParent = new Set(
-                    comments.filter((r) => r.isFromMe && r.parentCommentId).map((r) => r.parentCommentId)
-                  );
-                  const filtered = topLevelOnly
-                    .filter((c) =>
-                      commentsFilter === 'all'
-                        ? true
-                        : commentsFilter === 'replied'
-                          ? hasRepliedByParent.has(c.commentId)
-                          : !hasRepliedByParent.has(c.commentId)
-                    )
-                    .filter((c) => !searchQuery || c.text.toLowerCase().includes(searchQuery.toLowerCase()) || c.authorName.toLowerCase().includes(searchQuery.toLowerCase()))
-                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-                  return filtered.map((c) => {
-                    const isUnread = unreadCommentIds.has(c.commentId);
-                    const hasReplied = hasRepliedByParent.has(c.commentId);
-                    const isSelected = selectMode && selectedCommentIds.has(c.commentId);
-                    return (
-                          <button
-                            key={c.commentId}
-                            type="button"
-                            onClick={() => {
-                              if (selectMode) {
-                                setSelectedCommentIds((prev) => {
-                                  const next = new Set(prev);
-                                  if (next.has(c.commentId)) next.delete(c.commentId);
-                                  else next.add(c.commentId);
-                                  return next;
-                                });
-                                return;
-                              }
-                              markCommentsAsRead([c.commentId], user?.id);
-                              setSelectedComment(c);
-                              setUnreadCommentIds((prev) => {
-                                const next = new Set(prev);
-                                next.delete(c.commentId);
-                                return next;
-                              });
-                            }}
-                            className={`w-full px-3 py-3 text-left transition-colors flex items-center gap-2 ${
-                              isSelected ? 'bg-indigo-50 border-l-2 border-l-indigo-500' :
-                              selectedComment?.commentId === c.commentId ? 'bg-indigo-50 border-l-2 border-l-indigo-500' : isUnread ? 'bg-sky-50/80 hover:bg-sky-100/80' : 'hover:bg-neutral-50'
-                            }`}
-                          >
-                            {selectMode ? (
-                              <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border-2 ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-neutral-300'}`}>
-                                {isSelected && <Check size={12} className="text-white" />}
-                              </div>
-                            ) : null}
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs text-neutral-400 flex items-center gap-1 mb-1">
-                                {(() => {
-                                  const plat = PLATFORMS.find((p) => p.id === c.platform);
-                                  const Icon = plat?.icon;
-                                  return Icon ? <Icon size={12} className="opacity-70" /> : null;
-                                })()}
-                                <span>{new Date(c.createdAt).toLocaleString()}</span>
-                              </p>
-                              <div className="flex items-start gap-3">
-                                <div className="w-9 h-9 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden">
-                                  {c.authorPictureUrl ? (
-                                    <img src={c.authorPictureUrl} alt="" className="w-full h-full object-cover" />
-                                  ) : (
-                                    <span className="text-xs font-semibold text-neutral-600">{(c.authorName || '?').slice(0, 2).toUpperCase()}</span>
-                                  )}
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-sm font-medium text-neutral-900 truncate">{c.authorName}</p>
-                                  <p className="text-xs text-neutral-500 truncate mt-0.5">{(c.postPreview || '').slice(0, 20)}{(c.postPreview?.length ?? 0) > 20 ? '…' : ''}</p>
-                                  <p className="text-xs text-neutral-600 line-clamp-2 mt-0.5">{c.text}</p>
-                                </div>
-                              </div>
-                            </div>
-                            {hasReplied && (
-                              <span className="shrink-0 flex items-center gap-0.5 text-xs text-emerald-600 font-medium" title="You replied">
-                                <Check size={12} />
-                                Replied
-                              </span>
-                            )}
-                            {isUnread && (
-                              <span className="shrink-0 w-2 h-2 rounded-full bg-red-500" aria-hidden />
-                            )}
-                          </button>
-                    );
-                  });
-                })()}
-              </div>
-              </>
-            )
-          ) : conversationsLoading ? (
-            <div className="p-6 flex flex-col items-center justify-center gap-3">
-              <Loader2 size={32} className="text-indigo-500 animate-spin" />
-              <p className="text-sm text-neutral-500">Loading conversations…</p>
-            </div>
-          ) : conversationsError ? (
-            <div className="p-4">
-              <div className="rounded-xl border-2 border-red-200 bg-red-50 px-4 py-4">
-                <p className="text-sm font-medium text-red-900">Could not load messages</p>
-                <p className="text-xs text-red-700 mt-1">{conversationsError}</p>
-                {conversationsError?.includes('401') && (
-                  <p className="text-xs text-amber-800 mt-1 bg-amber-100/80 px-2 py-1 rounded">Your session or the platform token may have expired. Try reconnecting the selected platform below, or sign out and sign back in.</p>
-                )}
-                {conversationsDebug?.metaMessage && (
-                  <p className="text-xs text-red-800 mt-1 font-mono bg-red-100/80 px-2 py-1 rounded mt-2">{conversationsDebug.metaMessage}</p>
-                )}
-                <div className="mt-3 flex flex-col gap-2">
-                  {dmOrFbPlatforms.includes('INSTAGRAM') && effectiveAccounts.some((a) => a.platform === 'INSTAGRAM') && (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          const res = await api.get('/social/oauth/INSTAGRAM/start?method=instagram');
-                          const url = res?.data?.url;
-                          if (url && typeof url === 'string') window.location.href = url;
-                        } catch (_) {}
-                      }}
-                      className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-medium hover:opacity-90"
-                    >
-                      Reconnect Instagram
-                    </button>
-                  )}
-                  {dmOrFbPlatforms.includes('FACEBOOK') && effectiveAccounts.some((a) => a.platform === 'FACEBOOK') && (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          const res = await api.get('/social/oauth/facebook/start');
-                          const url = res?.data?.url;
-                          if (url && typeof url === 'string') window.location.href = url;
-                        } catch (_) {}
-                      }}
-                      className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
-                    >
-                      Reconnect Facebook
-                    </button>
-                  )}
-              </div>
-            </div>
-          ) : conversations.length === 0 ? (
-            <div className="p-6 text-center">
-              <MessageCircle size={40} className="mx-auto text-neutral-300 mb-3" />
-              <p className="text-sm text-neutral-500">No conversations yet.</p>
-              <p className="text-xs text-neutral-400 mt-1">Messages will appear here when you receive them.</p>
-              <button
-                type="button"
-                onClick={() => {
-                  appData?.invalidateConversations?.();
-                  setConversationsRefreshKey((k) => k + 1);
-                  setConversationsLoading(true);
-                }}
-                className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-neutral-200 bg-white text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-              >
-                <RefreshCw size={16} />
-                Refresh conversations
-              </button>
-              {selectedPlatform === 'TIKTOK' && (
-                <p className="text-xs text-amber-700 mt-3 max-w-sm mx-auto bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                  TikTok inbox (DMs) are not available in the app. Use Instagram or Facebook to view and reply to messages here.
-                </p>
-              )}
-              {dmOrFbPlatforms.includes('INSTAGRAM') && selectedPlatform !== 'TIKTOK' && (
-                <p className="text-xs text-amber-700 mt-3 max-w-sm mx-auto bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                  If you see Instagram DMs in Metricool but not here, Meta is only granting inbox access to apps with <strong>Advanced Access</strong>. Complete App Review for instagram_manage_messages to enable it in A4S.
-                </p>
-              )}
-            </div>
-          ) : (
-            <MessagesConversationList
-              conversations={conversations}
-              inboxFilter={inboxFilter}
-              searchQuery={searchQuery}
-              dmOrFbPlatforms={dmOrFbPlatforms}
-              selectMode={selectMode}
-              selectedConversationIds={selectedConversationIds}
-              selectedConversationId={selectedConversationId}
-              unreadConversationIds={unreadConversationIds}
-              setSelectedPlatform={setSelectedPlatform}
-              setSelectedConversationId={setSelectedConversationId}
-              setSelectedConversationIds={setSelectedConversationIds}
-              setUnreadConversationIds={setUnreadConversationIds}
-              markConversationsAsRead={markConversationsAsRead}
-              setTotalUnreadMessages={setTotalUnreadMessages}
-              getConversationLastReadCounts={getConversationLastReadCounts}
-              setConversationLastReadCount={setConversationLastReadCount}
-              user={user}
-            />
-          )\u007D
+          {renderSidebarList()}
         </div>
       </div>
 
