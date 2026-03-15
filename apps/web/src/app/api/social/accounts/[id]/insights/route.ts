@@ -245,19 +245,35 @@ export async function GET(
       if (effectiveSinceTs != null && effectiveUntilTs != null) {
         try {
           // page_impressions = total views (not unique), page_views_total = page visits, page_engaged_users = engaged reach
-          const insightsRes = await axios.get<{
-            data?: Array<{ name: string; values?: Array<{ value: number; end_time?: string }> }>;
-          }>(`${baseUrl}/${account.platformUserId}/insights`, {
-            params: {
-              metric: 'page_impressions,page_views_total,page_engaged_users,page_fan_adds',
-              period: 'day',
-              since: effectiveSinceTs,
-              until: effectiveUntilTs,
-              access_token: token,
-            },
-            timeout: 10_000,
-          });
-          const data = insightsRes.data?.data ?? [];
+          const metricSets = [
+            'page_impressions,page_views_total,page_engaged_users,page_fan_adds,page_fan_removes',
+            'page_impressions,page_views_total,page_engaged_users,page_fan_adds',
+          ];
+          let data: Array<{ name: string; values?: Array<{ value: number; end_time?: string }> }> = [];
+          for (const metrics of metricSets) {
+            try {
+              const insightsRes = await axios.get<{
+                data?: Array<{ name: string; values?: Array<{ value: number; end_time?: string }> }>;
+              }>(`${baseUrl}/${account.platformUserId}/insights`, {
+                params: {
+                  metric: metrics,
+                  period: 'day',
+                  since: effectiveSinceTs,
+                  until: effectiveUntilTs,
+                  access_token: token,
+                },
+                timeout: 10_000,
+              });
+              data = insightsRes.data?.data ?? [];
+              break;
+            } catch (err) {
+              const status = (err as { response?: { status?: number } })?.response?.status;
+              if (status === 400 && metrics.includes('page_fan_removes')) continue;
+              throw err;
+            }
+          }
+          const addsByDate = new Map<string, number>();
+          const removesByDate = new Map<string, number>();
           for (const d of data) {
             const values = d.values ?? [];
             let total = 0;
@@ -276,14 +292,32 @@ export async function GET(
               out.pageViewsTotal = total;
             } else if (d.name === 'page_engaged_users') {
               out.reachTotal = total;
-            } else if (d.name === 'page_fan_adds' && sortedSeries.length > 0) {
-              out.growthTimeSeries = sortedSeries.map(({ date, value }) => ({
-                date,
-                gained: value,
-                lost: 0,
-                net: value,
-              }));
+            } else if (d.name === 'page_fan_adds') {
+              for (const { date, value } of sortedSeries) addsByDate.set(date, value);
+            } else if (d.name === 'page_fan_removes') {
+              for (const { date, value } of sortedSeries) removesByDate.set(date, value);
             }
+          }
+          const allDates = [...new Set([...addsByDate.keys(), ...removesByDate.keys()])].sort((a, b) => a.localeCompare(b));
+          if (allDates.length > 0) {
+            out.growthTimeSeries = allDates.map((date) => {
+              const gained = addsByDate.get(date) ?? 0;
+              const lost = removesByDate.get(date) ?? 0;
+              return { date, gained, lost, net: gained - lost };
+            });
+            const currentFollowers = out.followers;
+            const points: Array<{ date: string; value: number }> = [];
+            let followersAtNext = currentFollowers;
+            for (let i = allDates.length - 1; i >= 0; i--) {
+              const date = allDates[i];
+              const gained = addsByDate.get(date) ?? 0;
+              const lost = removesByDate.get(date) ?? 0;
+              const net = gained - lost;
+              const value = followersAtNext;
+              points.unshift({ date, value });
+              followersAtNext = followersAtNext - net;
+            }
+            out.followersTimeSeries = points;
           }
         } catch (e) {
           const status = (e as { response?: { status?: number } })?.response?.status;

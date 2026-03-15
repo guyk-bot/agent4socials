@@ -938,11 +938,25 @@ export default function DashboardPage() {
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2 px-3 py-2 bg-white border border-neutral-200 rounded-lg shrink-0">
-          <Calendar size={16} className="text-neutral-500" />
-          <input type="date" value={dateRange.start} onChange={(e) => setDateRange((r) => ({ ...r, start: e.target.value }))} className="text-sm border-0 bg-transparent focus:ring-0 p-0 text-neutral-700 w-[7.5rem]" />
-          <span className="text-neutral-400">–</span>
-          <input type="date" value={dateRange.end} onChange={(e) => setDateRange((r) => ({ ...r, end: e.target.value }))} className="text-sm border-0 bg-transparent focus:ring-0 p-0 text-neutral-700 w-[7.5rem]" />
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => {
+              const end = new Date();
+              const start = new Date();
+              start.setDate(start.getDate() - 29);
+              setDateRange({ start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) });
+            }}
+            className="text-sm font-medium text-neutral-600 hover:text-neutral-900 px-3 py-1.5 rounded-md hover:bg-neutral-100"
+          >
+            Last 30 days
+          </button>
+          <div className="flex items-center gap-2 px-3 py-2 bg-white border border-neutral-200 rounded-lg shrink-0">
+            <Calendar size={16} className="text-neutral-500" />
+            <input type="date" value={dateRange.start} onChange={(e) => setDateRange((r) => ({ ...r, start: e.target.value }))} className="text-sm border-0 bg-transparent focus:ring-0 p-0 text-neutral-700 w-[7.5rem]" />
+            <span className="text-neutral-400">–</span>
+            <input type="date" value={dateRange.end} onChange={(e) => setDateRange((r) => ({ ...r, end: e.target.value }))} className="text-sm border-0 bg-transparent focus:ring-0 p-0 text-neutral-700 w-[7.5rem]" />
+          </div>
         </div>
       </div>
 
