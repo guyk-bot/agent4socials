@@ -2,16 +2,15 @@
 
 import React, { useMemo } from 'react';
 import { Users, Eye, FileText, Heart } from 'lucide-react';
-import { AnalyticsGrid, AnalyticsGridItem } from '../AnalyticsGrid';
-import { AnalyticsCard } from '../AnalyticsCard';
-import { OverviewMetricCard } from '../OverviewMetricCard';
-import { VisibilityMetricsCard } from '../VisibilityMetricsCard';
-import { AnalyticsWatermarkedChart } from '../AnalyticsWatermarkedChart';
-import { AnalyticsUpgradeCard } from '../AnalyticsUpgradeCard';
+import { AnalyticsGrid, AnalyticsGridItem } from './AnalyticsGrid';
+import { AnalyticsCard } from './AnalyticsCard';
+import { OverviewMetricCard } from './OverviewMetricCard';
+import { VisibilityMetricsCard } from './VisibilityMetricsCard';
+import { AnalyticsWatermarkedChart } from './AnalyticsWatermarkedChart';
+import { AnalyticsUpgradeCard } from './AnalyticsUpgradeCard';
 import {
   ComposedChart,
   Bar,
-  Line,
   Area,
   XAxis,
   YAxis,
@@ -20,15 +19,34 @@ import {
   CartesianGrid,
   Legend,
 } from 'recharts';
-import type { FacebookInsights, FacebookPost } from './types';
 
-interface FacebookOverviewTabProps {
-  insights: FacebookInsights | null;
-  posts: FacebookPost[];
+export type PlatformId = 'INSTAGRAM' | 'TIKTOK' | 'YOUTUBE' | 'TWITTER' | 'LINKEDIN';
+
+export interface PlatformPost {
+  id: string;
+  publishedAt: string;
+  likeCount?: number;
+  commentsCount?: number;
+  sharesCount?: number;
+  interactions?: number;
+  impressions?: number;
+  content?: string | null;
+  thumbnailUrl?: string | null;
+}
+
+export interface PlatformOverviewTabProps {
+  platform: PlatformId | null;
+  followers: number;
+  reach: number;
+  impressions: number;
+  profileViews: number;
+  pageViews: number;
+  posts: PlatformPost[];
   dateRange: { start: string; end: string };
+  followersTimeSeries: Array<{ date: string; value: number }>;
   loading: boolean;
   onUpgrade?: () => void;
-  /** e.g. "Subscribers" for YouTube; defaults to "Followers" */
+  /** e.g. "Subscribers" for YouTube */
   followersLabel?: string;
 }
 
@@ -37,65 +55,46 @@ function formatNull(value: number | undefined | null): string | number | null {
   return value;
 }
 
-export function FacebookOverviewTab({
-  insights,
+export function PlatformOverviewTab({
+  platform,
+  followers,
+  reach,
+  impressions,
+  profileViews,
+  pageViews,
   posts,
   dateRange,
+  followersTimeSeries,
   loading,
   onUpgrade,
   followersLabel = 'Followers',
-}: FacebookOverviewTabProps) {
+}: PlatformOverviewTabProps) {
   const start = dateRange.start ? new Date(dateRange.start) : null;
   const end = dateRange.end ? new Date(dateRange.end) : null;
   const days = start && end ? Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000))) : 0;
   const weeks = days ? days / 7 : 0;
 
-  const followers = insights?.followers ?? 0;
-  const views = insights?.impressionsTotal ?? 0;
-  const pageVisits = insights?.pageViewsTotal ?? insights?.profileViewsTotal ?? 0;
-  const reach = insights?.reachTotal ?? 0;
   const totalInteractions = posts.reduce((s, p) => s + (p.interactions ?? 0), 0);
-  const growthSeries = insights?.growthTimeSeries ?? [];
-  const netGrowth = growthSeries.reduce((s, p) => s + (p.net ?? p.gained - (p.lost ?? 0)), 0);
-
-  const impressionsSeries = insights?.impressionsTimeSeries ?? [];
-  const hasImpressionsData = impressionsSeries.length > 0 && impressionsSeries.some((d) => d.value > 0);
-  const followersSeries = (insights as { followersTimeSeries?: Array<{ date: string; value: number }> })?.followersTimeSeries;
-  const startValue = netGrowth !== 0 ? Math.max(0, followers - netGrowth) : 0;
-  const displayFollowersSeries = followersSeries?.length
-    ? followersSeries
+  const startValue = 0;
+  const displayFollowersSeries = followersTimeSeries?.length
+    ? followersTimeSeries
     : [{ date: dateRange.start || '', value: startValue }, { date: dateRange.end || '', value: followers }];
-  const displayViewsSeries = hasImpressionsData
-    ? impressionsSeries
-    : views > 0
-      ? [{ date: dateRange.start || '', value: views }, { date: dateRange.end || '', value: views }]
-      : [];
 
   const growthChartData = useMemo(() => {
-    const postsByDate: Record<string, number> = {};
-    posts.forEach((p) => {
-      const d = p.publishedAt.slice(0, 10);
-      postsByDate[d] = (postsByDate[d] ?? 0) + 1;
-    });
     const dateSet = new Set(displayFollowersSeries.map((x) => x.date));
-    displayFollowersSeries.forEach((x) => dateSet.add(x.date));
     const sorted = Array.from(dateSet).sort();
     let prevFollowers = followers;
     return sorted.map((date) => {
       const f = displayFollowersSeries.find((x) => x.date === date)?.value;
       if (f !== undefined) prevFollowers = f;
-      return {
-        date,
-        followers: f ?? prevFollowers,
-        posts: postsByDate[date] ?? 0,
-      };
+      return { date, followers: f ?? prevFollowers };
     });
-  }, [displayFollowersSeries, posts, followers]);
+  }, [displayFollowersSeries, followers]);
 
   const engagementByDate = useMemo(() => {
     const map: Record<string, { likes: number; comments: number; shares: number }> = {};
     posts.forEach((p) => {
-      const d = p.publishedAt.slice(0, 10);
+      const d = String(p.publishedAt).slice(0, 10);
       if (!map[d]) map[d] = { likes: 0, comments: 0, shares: 0 };
       map[d].likes += p.likeCount ?? 0;
       map[d].comments += p.commentsCount ?? 0;
@@ -109,7 +108,7 @@ export function FacebookOverviewTab({
   const postsByDate = useMemo(() => {
     const map: Record<string, number> = {};
     posts.forEach((p) => {
-      const d = p.publishedAt.slice(0, 10);
+      const d = String(p.publishedAt).slice(0, 10);
       map[d] = (map[d] ?? 0) + 1;
     });
     return Object.entries(map)
@@ -118,17 +117,15 @@ export function FacebookOverviewTab({
   }, [posts]);
 
   const visibilityMetrics = useMemo(() => {
-    const max = Math.max(views || 0, reach || 0, pageVisits || 0, 1);
+    const max = Math.max(impressions || 0, reach || 0, pageViews || 0, 1);
     return [
-      { label: 'Impressions', value: views || 0, percent: (views || 0) / max * 100 },
+      { label: 'Impressions', value: impressions || 0, percent: (impressions || 0) / max * 100 },
       { label: 'Reach', value: reach || 0, percent: (reach || 0) / max * 100 },
-      { label: 'Profile Views', value: insights?.profileViewsTotal ?? 0, percent: ((insights?.profileViewsTotal ?? 0) / max) * 100 },
-      { label: 'Page Visits', value: pageVisits || 0, percent: (pageVisits || 0) / max * 100 },
+      { label: 'Profile Views', value: profileViews || 0, percent: (profileViews || 0) / max * 100 },
+      { label: 'Page Visits', value: pageViews || 0, percent: (pageViews || 0) / max * 100 },
     ];
-  }, [views, reach, pageVisits, insights?.profileViewsTotal]);
+  }, [impressions, reach, pageViews, profileViews]);
 
-  const prevFollowers = Math.max(0, followers - netGrowth);
-  const trendPct = netGrowth !== 0 && prevFollowers > 0 ? `${(netGrowth / prevFollowers * 100).toFixed(1)}%` : (netGrowth !== 0 ? `${netGrowth >= 0 ? '+' : ''}${netGrowth}` : undefined);
   const showWatermark = days > 30;
   const followersChartShowYear = useMemo(() => {
     const dates = growthChartData.map((d) => d.date);
@@ -137,6 +134,8 @@ export function FacebookOverviewTab({
     const last = new Date(dates[dates.length - 1]);
     return first.getMonth() === last.getMonth() && first.getDate() === last.getDate();
   }, [growthChartData]);
+
+  const chartId = useMemo(() => `po-${Math.random().toString(36).slice(2, 9)}`, []);
 
   if (loading) {
     return (
@@ -149,8 +148,7 @@ export function FacebookOverviewTab({
           ))}
         </AnalyticsGrid>
         <AnalyticsGrid>
-          <AnalyticsGridItem span={8}><div className="h-72 rounded-2xl bg-neutral-100" /></AnalyticsGridItem>
-          <AnalyticsGridItem span={4}><div className="h-72 rounded-2xl bg-neutral-100" /></AnalyticsGridItem>
+          <AnalyticsGridItem span={12}><div className="h-72 rounded-2xl bg-neutral-100" /></AnalyticsGridItem>
         </AnalyticsGrid>
       </div>
     );
@@ -172,14 +170,12 @@ export function FacebookOverviewTab({
           </button>
         </div>
       )}
-      {/* Section 1 — Account Overview: 4 metric cards */}
       <AnalyticsGrid>
         <AnalyticsGridItem span={3}>
           <OverviewMetricCard
             type="followers"
             label={followersLabel}
-            value={formatNull(insights?.followers) ?? '—'}
-            trend={netGrowth !== 0 ? { direction: netGrowth >= 0 ? 'up' : 'down', value: trendPct ?? `${netGrowth >= 0 ? '+' : ''}${netGrowth}` } : undefined}
+            value={formatNull(followers) ?? '—'}
             icon={<Users size={22} className="text-indigo-600" />}
           />
         </AnalyticsGridItem>
@@ -209,7 +205,6 @@ export function FacebookOverviewTab({
         </AnalyticsGridItem>
       </AnalyticsGrid>
 
-      {/* Section 2 — Followers (full row) */}
       <AnalyticsGrid>
         <AnalyticsGridItem span={12}>
           <AnalyticsWatermarkedChart title={followersLabel} height={280} showWatermark={showWatermark}>
@@ -218,7 +213,7 @@ export function FacebookOverviewTab({
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={growthChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                     <defs>
-                      <linearGradient id="followersGrad" x1="0" y1="0" x2="0" y2="1">
+                      <linearGradient id={`${chartId}-followersGrad`} x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#10b981" stopOpacity={0.4} />
                         <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
                       </linearGradient>
@@ -250,7 +245,7 @@ export function FacebookOverviewTab({
                       dataKey="followers"
                       stroke="#10b981"
                       strokeWidth={2}
-                      fill="url(#followersGrad)"
+                      fill={`url(#${chartId}-followersGrad)`}
                       dot={false}
                       isAnimationActive
                       animationDuration={400}
@@ -265,14 +260,12 @@ export function FacebookOverviewTab({
         </AnalyticsGridItem>
       </AnalyticsGrid>
 
-      {/* Section 3 — Visibility Metrics (full row) */}
       <AnalyticsGrid>
         <AnalyticsGridItem span={12}>
           <VisibilityMetricsCard title="Visibility Metrics" metrics={visibilityMetrics} />
         </AnalyticsGridItem>
       </AnalyticsGrid>
 
-      {/* Section 4 — Engagement Over Time (full row) */}
       <AnalyticsGrid>
         <AnalyticsGridItem span={12}>
           <AnalyticsWatermarkedChart title="Engagement Over Time" height={280} showWatermark={showWatermark}>
@@ -281,15 +274,15 @@ export function FacebookOverviewTab({
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={engagementByDate} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                     <defs>
-                      <linearGradient id="engagementLikesGrad" x1="0" y1="0" x2="0" y2="1">
+                      <linearGradient id={`${chartId}-likesGrad`} x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#f43f5e" stopOpacity={0.4} />
                         <stop offset="100%" stopColor="#f43f5e" stopOpacity={0} />
                       </linearGradient>
-                      <linearGradient id="engagementCommentsGrad" x1="0" y1="0" x2="0" y2="1">
+                      <linearGradient id={`${chartId}-commentsGrad`} x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#a855f7" stopOpacity={0.4} />
                         <stop offset="100%" stopColor="#a855f7" stopOpacity={0} />
                       </linearGradient>
-                      <linearGradient id="engagementSharesGrad" x1="0" y1="0" x2="0" y2="1">
+                      <linearGradient id={`${chartId}-sharesGrad`} x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#6366f1" stopOpacity={0.4} />
                         <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
                       </linearGradient>
@@ -317,9 +310,9 @@ export function FacebookOverviewTab({
                       }}
                     />
                     <Legend />
-                    <Area type="monotone" dataKey="likes" name="Likes" stroke="#f43f5e" strokeWidth={2} fill="url(#engagementLikesGrad)" dot={false} isAnimationActive animationDuration={400} />
-                    <Area type="monotone" dataKey="comments" name="Comments" stroke="#a855f7" strokeWidth={2} fill="url(#engagementCommentsGrad)" dot={false} isAnimationActive animationDuration={400} />
-                    <Area type="monotone" dataKey="shares" name="Shares" stroke="#6366f1" strokeWidth={2} fill="url(#engagementSharesGrad)" dot={false} isAnimationActive animationDuration={400} />
+                    <Area type="monotone" dataKey="likes" name="Likes" stroke="#f43f5e" strokeWidth={2} fill={`url(#${chartId}-likesGrad)`} dot={false} isAnimationActive animationDuration={400} />
+                    <Area type="monotone" dataKey="comments" name="Comments" stroke="#a855f7" strokeWidth={2} fill={`url(#${chartId}-commentsGrad)`} dot={false} isAnimationActive animationDuration={400} />
+                    <Area type="monotone" dataKey="shares" name="Shares" stroke="#6366f1" strokeWidth={2} fill={`url(#${chartId}-sharesGrad)`} dot={false} isAnimationActive animationDuration={400} />
                   </ComposedChart>
                 </ResponsiveContainer>
               ) : (
@@ -330,7 +323,6 @@ export function FacebookOverviewTab({
         </AnalyticsGridItem>
       </AnalyticsGrid>
 
-      {/* Section 5 — Publishing Activity (full row) */}
       <AnalyticsGrid>
         <AnalyticsGridItem span={12}>
           <AnalyticsWatermarkedChart title="Publishing Activity" height={280} showWatermark={showWatermark}>
@@ -383,7 +375,6 @@ export function FacebookOverviewTab({
         </AnalyticsGridItem>
       </AnalyticsGrid>
 
-      {/* Section 8 — Top Performing Posts (3 columns) */}
       {posts.length > 0 && (
         <AnalyticsGrid>
           <AnalyticsGridItem span={12}>
@@ -416,12 +407,11 @@ export function FacebookOverviewTab({
         </AnalyticsGrid>
       )}
 
-      {/* Upgrade CTA */}
       <AnalyticsGrid>
         <AnalyticsGridItem span={12}>
           <AnalyticsUpgradeCard
             title="Need shareable reports?"
-            description="Upgrade to export Facebook analytics without watermark."
+            description="Upgrade to export analytics without watermark."
             ctaLabel="Upgrade plan"
             onCta={onUpgrade}
           />

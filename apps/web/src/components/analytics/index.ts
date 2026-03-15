@@ -18,3 +18,5 @@ export { PlatformAnalyticsHeader } from './PlatformAnalyticsHeader';
 export type { PlatformAnalyticsHeaderProps, PlatformAnalyticsHeaderAccount } from './PlatformAnalyticsHeader';
 export { FacebookAnalyticsView } from './facebook/FacebookAnalyticsView';
 export type { FacebookAnalyticsViewProps } from './facebook/FacebookAnalyticsView';
+export { PlatformOverviewTab } from './PlatformOverviewTab';
+export type { PlatformOverviewTabProps, PlatformId, PlatformPost } from './PlatformOverviewTab';

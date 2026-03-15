@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
 import { InteractiveLineChart } from '@/components/charts/InteractiveLineChart';
-import { FacebookAnalyticsView, PlatformAnalyticsHeader } from '@/components/analytics';
+import { FacebookAnalyticsView, PlatformAnalyticsHeader, AnalyticsGrid, AnalyticsGridItem, AnalyticsWatermarkedChart } from '@/components/analytics';
 import type { Demographics, GrowthDataPoint, TrafficSourceItem } from '@/types/analytics';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip as RechartTooltip,
@@ -836,6 +836,8 @@ export default function DashboardPage() {
   const maxPostsTabValue = Math.max(...postsTabDisplaySeries.map((d) => d.value), 1);
   const maxInteractionsTabValue = Math.max(...interactionsTabDisplaySeries.map((d) => d.value), 1);
   void maxPostsTabValue; void maxInteractionsTabValue;
+  const postsSectionDays = dateRange.start && dateRange.end ? Math.max(1, Math.ceil((new Date(dateRange.end).getTime() - new Date(dateRange.start).getTime()) / (24 * 60 * 60 * 1000))) : 0;
+  const postsShowWatermark = postsSectionDays > 30;
 
   const plat = selectedAccount ? aggregatedInsights?.byPlatform[selectedAccount.platform] : null;
   const effectiveFollowers = selectedAccount
@@ -1117,337 +1119,41 @@ export default function DashboardPage() {
       </div>
 
       {analyticsTab === 'account' && (
-        <div className="mt-6 space-y-6">
-          {selectedAccount?.platform === 'FACEBOOK' ? (
-            <FacebookAnalyticsView
-              insights={insights as import('@/components/analytics/facebook/types').FacebookInsights | null}
-              posts={importedPosts.filter((p: { platform: string }) => p.platform === 'FACEBOOK') as import('@/components/analytics/facebook/types').FacebookPost[]}
-              dateRange={dateRange}
-              insightsLoading={!!(insightsLoading && selectedAccount && !insights)}
-              postsLoading={importedPostsLoading}
-              onUpgrade={() => router.push('/pricing')}
-            />
-          ) : (
-          <>
-          <h2 className="text-lg font-semibold text-neutral-900">Account</h2>
-          {effectiveInsightsLoading && <SkeletonAnalyticsCards />}
-          {!effectiveInsightsLoading && (
-          <>{/* analytics content */}
-          {!selectedAccount && hasAccounts && (importedPosts.length === 0 || allPostsSyncError) && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              {importedPosts.length === 0 && <p>No posts in this period yet. Sync to load posts from your connected accounts (Instagram, Facebook, X, etc.) and see interactions, number of posts, and total content.</p>}
-              {allPostsSyncError && <p className="mt-1 font-medium">{allPostsSyncError}</p>}
-              <p className="mt-2 text-xs text-amber-700">Tip: If syncing all accounts fails or times out, select one account in the sidebar and click Sync there.</p>
-              <button
-                type="button"
-                onClick={() => {
-                  syncAllRequestedRef.current = null;
-                  setSyncAllTrigger((t) => t + 1);
-                }}
-                disabled={importedPostsLoading}
-                className="mt-3 px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 disabled:opacity-50"
-              >
-                {importedPostsLoading ? 'Syncing…' : 'Sync posts'}
-              </button>
-            </div>
-          )}
-          {/* ── Analytics cards (Metricool-style) ──────────────────────────── */}
-          {(() => {
-            const platColor =
-              selectedAccount?.platform === 'INSTAGRAM' ? '#E1306C' :
-              selectedAccount?.platform === 'FACEBOOK' ? '#1877F2' :
-              selectedAccount?.platform === 'YOUTUBE' ? '#FF0000' :
-              selectedAccount?.platform === 'TIKTOK' ? '#010101' :
-              selectedAccount?.platform === 'TWITTER' ? '#1D9BF0' :
-              selectedAccount?.platform === 'LINKEDIN' ? '#0A66C2' :
-              '#6366f1';
-            const start = dateRange.start ? new Date(dateRange.start) : null;
-            const end = dateRange.end ? new Date(dateRange.end) : null;
-            const days = start && end ? Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000))) : 0;
-            const weeks = days ? days / 7 : 0;
-
-            const platformBadge = (platform: string, value: number | null, suffix?: string) => {
-              const cls =
-                platform === 'INSTAGRAM' ? 'bg-pink-100 text-pink-800' :
-                platform === 'FACEBOOK' ? 'bg-blue-100 text-blue-800' :
-                platform === 'TWITTER' ? 'bg-sky-100 text-sky-800' :
-                platform === 'TIKTOK' ? 'bg-neutral-900/10 text-neutral-800' :
-                platform === 'YOUTUBE' ? 'bg-red-100 text-red-800' :
-                platform === 'LINKEDIN' ? 'bg-blue-50 text-blue-800' :
-                'bg-neutral-100 text-neutral-700';
-              const label = platform === 'TWITTER' ? 'X' : platform.charAt(0) + platform.slice(1).toLowerCase();
-              return (
-                <span key={platform} className={`px-2.5 py-1 rounded-md text-xs font-medium ${cls}`}>
-                  {value != null ? value.toLocaleString() : '—'} {label}{suffix ?? ''}
-                </span>
-              );
-            };
-
-            return (
-              <div className="space-y-4">
-                {/* Row 1: Followers + Views — full charts */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {/* Followers card */}
-                  <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
-                    style={{ borderLeft: `4px solid ${platColor}` }}>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
-                      {selectedAccount?.platform === 'YOUTUBE' ? 'Subscribers' : 'Followers'}
-                    </p>
-                    <p className="text-3xl font-bold text-neutral-900 mt-1 tabular-nums">{effectiveFollowers.toLocaleString()}</p>
-                    <div className="flex gap-1.5 mt-2 flex-wrap">
-                      {selectedAccount
-                        ? platformBadge(selectedAccount.platform, effectiveFollowers)
-                        : Array.from(new Set(accounts.map((a) => a.platform))).map((pl) => {
-                            const v = aggregatedInsights?.byPlatform?.[pl]?.followers ?? null;
-                            return platformBadge(pl, v);
-                          })}
-                    </div>
-                    <div className="mt-3 rounded-xl overflow-hidden bg-neutral-50" style={{ height: 180 }}>
-                      {displayFollowersTimeSeries.length ? (
-                        <InteractiveLineChart data={displayFollowersTimeSeries} height={180} valueLabel={selectedAccount?.platform === 'YOUTUBE' ? 'Subscribers' : 'Followers'} color={platColor} crosshair />
-                      ) : (
-                        <div className="h-full flex items-end gap-1 px-3 pb-3 pt-4">
-                          {[28,35,42,38,45,40,50].map((pct, i) => (
-                            <div key={i} className="flex-1 rounded-t animate-pulse" style={{ height: `${pct}%`, backgroundColor: platColor + '33' }} />
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <p className="text-xs text-neutral-400 mt-1">{dateRange.start} – {dateRange.end}</p>
-                  </div>
-
-                  {/* Views / Impressions card */}
-                  <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
-                    style={{ borderLeft: `4px solid #6366f1` }}>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
-                      {isTwitter ? 'Tweets' : 'Impressions / views'}
-                    </p>
-                    <p className="text-3xl font-bold text-neutral-900 mt-1 tabular-nums">
-                      {(isTwitter ? effectiveTweets : effectiveImpressions).toLocaleString()}
-                    </p>
-                    <div className="flex gap-1.5 mt-2 flex-wrap">
-                      {selectedAccount
-                        ? platformBadge(selectedAccount.platform, isTwitter ? effectiveTweets : effectiveImpressions)
-                        : Array.from(new Set(accounts.map((a) => a.platform))).map((pl) => {
-                            const v = aggregatedInsights?.byPlatform?.[pl]?.impressions ?? null;
-                            return platformBadge(pl, v);
-                          })}
-                    </div>
-                    <div className="mt-3 rounded-xl overflow-hidden bg-neutral-50" style={{ height: 180 }}>
-                      {displayTimeSeries.length ? (
-                        <InteractiveLineChart data={displayTimeSeries} height={180} valueLabel={isTwitter ? 'Tweets' : 'Impressions / views'} color="#6366f1" crosshair />
-                      ) : (
-                        <div className="h-full flex items-end gap-1 px-3 pb-3 pt-4">
-                          {[32,40,35,48,42,38,52].map((pct, i) => (
-                            <div key={i} className="flex-1 rounded-t animate-pulse bg-indigo-200/60" style={{ height: `${pct}%` }} />
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <p className="text-xs text-neutral-400 mt-1">{dateRange.start} – {dateRange.end}</p>
-                  </div>
-                </div>
-
-                {/* Row 2: stat tiles */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {[
-                    { label: 'Interactions', value: totalInteractions.toLocaleString(), sub: `${importedPosts.length} posts`, accent: platColor },
-                    { label: 'Reach', value: effectiveReach ? effectiveReach.toLocaleString() : '—', sub: selectedAccount?.platform === 'INSTAGRAM' ? 'Unique viewers' : 'Engaged users', accent: '#22c55e' },
-                    { label: effectiveProfileViews > 0 ? 'Profile views' : 'Page visitors', value: (effectiveProfileViews || effectivePageVisits) ? (effectiveProfileViews || effectivePageVisits).toLocaleString() : '—', sub: selectedAccount?.platform === 'INSTAGRAM' ? 'Profile visits' : selectedAccount?.platform === 'FACEBOOK' ? 'Page visits in period' : 'Profile or page visits', accent: '#a855f7' },
-                    { label: 'Total content', value: importedPosts.length.toLocaleString(), sub: `${days ? (importedPosts.length / days).toFixed(1) : 0} per day`, accent: '#0ea5e9' },
-                  ].map((tile, i) => (
-                    <div
-                      key={i}
-                      className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5"
-                      style={{ borderLeft: `3px solid ${tile.accent}`, animation: `slide-up 0.4s ease-out ${i * 60}ms both` }}
-                    >
-                      <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">{tile.label}</p>
-                      <p className="text-2xl font-bold text-neutral-900 mt-1 tabular-nums">{tile.value}</p>
-                      <p className="text-xs text-neutral-400 mt-0.5">{tile.sub}</p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Row 2b: Watch time (YT) and Follower growth when available */}
-                {(() => {
-                  const watchTimeMinutes = selectedAccount?.platform === 'YOUTUBE' && typeof insights?.extra?.estimatedMinutesWatched === 'number' ? insights.extra.estimatedMinutesWatched : 0;
-                  const growthSeries = insights?.growthTimeSeries ?? [];
-                  const netGrowth = growthSeries.reduce((s, p) => s + (p.net ?? p.gained - p.lost), 0);
-                  const hasWatchTime = watchTimeMinutes > 0;
-                  const hasGrowth = growthSeries.length > 0;
-                  if (!hasWatchTime && !hasGrowth) return null;
-                  return (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {hasWatchTime && (
-                        <div
-                          className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200"
-                          style={{ borderLeft: '3px solid #FF0000' }}
-                        >
-                          <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Watch time (YT)</p>
-                          <p className="text-2xl font-bold text-neutral-900 mt-1 tabular-nums">
-                            {watchTimeMinutes >= 60 ? `${(watchTimeMinutes / 60).toFixed(1)} hrs` : `${Math.round(watchTimeMinutes)} min`}
-                          </p>
-                          <p className="text-xs text-neutral-400 mt-0.5">Total minutes watched in period</p>
-                        </div>
-                      )}
-                      {hasGrowth && (
-                        <div
-                          className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200"
-                          style={{ borderLeft: '3px solid #22c55e' }}
-                        >
-                          <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Follower growth</p>
-                          <p className="text-2xl font-bold text-neutral-900 mt-1 tabular-nums">
-                            {netGrowth >= 0 ? `+${netGrowth.toLocaleString()}` : netGrowth.toLocaleString()}
-                          </p>
-                          <p className="text-xs text-neutral-400 mt-0.5">{selectedAccount?.platform === 'YOUTUBE' ? 'Subscribers gained minus lost' : 'Page fans added in period'}</p>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                {/* Row 3: derived stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {[
-                    { label: 'Daily page views', value: days && effectivePageVisits ? (effectivePageVisits / days).toFixed(1) : '—' },
-                    { label: 'Daily posts', value: days ? (importedPosts.length / days).toFixed(2) : '—' },
-                    { label: 'Posts per week', value: weeks ? (importedPosts.length / weeks).toFixed(1) : '—' },
-                    { label: 'Avg. interactions / post', value: importedPosts.length ? (totalInteractions / importedPosts.length).toFixed(1) : '—' },
-                  ].map((tile, i) => (
-                    <div
-                      key={i}
-                      className="bg-neutral-50 border border-neutral-100 rounded-xl p-4 hover:bg-white hover:shadow-sm transition-all duration-150"
-                      style={{ animation: `slide-up 0.4s ease-out ${(i + 4) * 60}ms both` }}
-                    >
-                      <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">{tile.label}</p>
-                      <p className="text-xl font-bold text-neutral-800 mt-1 tabular-nums">{tile.value}</p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Hint when Page visitors / Impressions / Daily page views are missing (platform API or permissions) */}
-                {selectedAccount && (selectedAccount.platform === 'INSTAGRAM' || selectedAccount.platform === 'FACEBOOK') && (!effectivePageVisits && !effectiveProfileViews || !effectiveImpressions) && (
-                  <p className="text-xs text-neutral-500 mt-2">
-                    Page visitors, Profile visits, Impressions, and Daily page views come from the platform&apos;s Insights API. They may show as empty if the page is new, the date range has no data, or the app needs additional permissions (e.g. <strong>read_insights</strong> for Facebook, <strong>instagram_manage_insights</strong> for Instagram). Reconnect the account or try a different date range.
-                  </p>
-                )}
-
-                {/* Demographics: Country, Age, Gender */}
-                {(() => {
-                  const demo = insights?.demographics;
-                  const hasCountry = (demo?.byCountry?.length ?? 0) > 0;
-                  const hasAge = (demo?.byAge?.length ?? 0) > 0;
-                  const hasGender = (demo?.byGender?.length ?? 0) > 0;
-                  if (!hasCountry && !hasAge && !hasGender) return null;
-                  const renderBreakdown = (title: string, items: Array<{ dimensionValue: string; label?: string; value: number }> | undefined, maxItems = 8) => {
-                    if (!items?.length) return null;
-                    const sorted = [...items].sort((a, b) => b.value - a.value).slice(0, maxItems);
-                    const total = items.reduce((s, i) => s + i.value, 0);
-                    return (
-                      <div key={title} className="space-y-2">
-                        <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">{title}</p>
-                        <ul className="space-y-1.5">
-                          {sorted.map((item, i) => (
-                            <li key={i} className="flex items-center justify-between gap-2 text-sm">
-                              <span className="text-neutral-700 truncate">{(item.label ?? item.dimensionValue) || '—'}</span>
-                              <span className="text-neutral-900 font-medium tabular-nums shrink-0">{item.value.toLocaleString()}</span>
-                            </li>
-                          ))}
-                        </ul>
-                        {total > 0 && sorted.length < items.length && (
-                          <p className="text-xs text-neutral-400">Top {maxItems} of {items.length} (total {total.toLocaleString()})</p>
-                        )}
-                      </div>
-                    );
-                  };
-                  return (
-                    <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-sm" style={{ borderLeft: '4px solid #6366f1' }}>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-3">Audience demographics</p>
-                      {demo?.hint && <p className="text-xs text-neutral-500 mb-3">{demo.hint}</p>}
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                        {renderBreakdown('Country', demo?.byCountry)}
-                        {renderBreakdown('Age', demo?.byAge)}
-                        {renderBreakdown('Gender', demo?.byGender)}
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* Facebook Page reviews (pages_read_user_content) */}
-                {selectedAccount?.platform === 'FACEBOOK' && (
-                  <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-sm" style={{ borderLeft: '4px solid #1877F2' }}>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-1">Page reviews</p>
-                    <p className="text-sm text-neutral-600 mb-4">Ratings and reviews from your Facebook Page (pages_read_user_content).</p>
-                    {pageReviewsLoading && (
-                      <div className="flex items-center gap-2 text-neutral-500 text-sm py-4">
-                        <RefreshCw size={18} className="animate-spin" />
-                        Loading reviews…
-                      </div>
-                    )}
-                    {pageReviewsError && !pageReviewsLoading && (
-                      <p className="text-amber-700 text-sm py-2">{pageReviewsError}</p>
-                    )}
-                    {!pageReviewsLoading && pageReviews.length === 0 && !pageReviewsError && (
-                      <p className="text-neutral-500 text-sm py-4">No reviews yet. Reviews appear here when people rate your Page.</p>
-                    )}
-                    {!pageReviewsLoading && pageReviews.length > 0 && (
-                      <ul className="space-y-4 max-h-80 overflow-y-auto">
-                        {pageReviews.map((r, i) => (
-                          <li key={i} className="border-b border-neutral-100 pb-4 last:border-0 last:pb-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              {r.rating != null && (
-                                <span className="text-amber-500 font-medium" title="Rating">{"★".repeat(Math.min(5, Math.max(0, r.rating)))}{"☆".repeat(5 - Math.min(5, Math.max(0, r.rating)))} {r.rating}/5</span>
-                              )}
-                              {r.recommendation_type && (
-                                <span className={`px-2 py-0.5 rounded text-xs font-medium ${r.recommendation_type === 'positive' ? 'bg-green-100 text-green-800' : 'bg-neutral-100 text-neutral-700'}`}>
-                                  {r.recommendation_type}
-                                </span>
-                              )}
-                              {r.created_time && (
-                                <span className="text-xs text-neutral-400">{new Date(r.created_time).toLocaleDateString(undefined, { dateStyle: 'medium' })}</span>
-                              )}
-                            </div>
-                            {r.review_text && <p className="text-sm text-neutral-800 mt-2">{r.review_text}</p>}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                )}
-
-                {/* Twitter recent tweets */}
-                {isTwitter && recentTweets.length > 0 && (
-                  <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-sm">
-                    <p className="text-sm font-semibold text-neutral-700 mb-3">Recent posts on X</p>
-                    <ul className="space-y-3 max-h-64 overflow-y-auto">
-                      {recentTweets.slice(0, 10).map((t) => (
-                        <li key={t.id} className="flex flex-col gap-1 text-sm border-b border-neutral-100 pb-2 last:border-0">
-                          <p className="text-neutral-800 line-clamp-2">{t.text || '—'}</p>
-                          <div className="flex gap-3 text-xs text-neutral-500">
-                            <span>❤️ {t.like_count}</span>
-                            <span>🔁 {t.retweet_count}</span>
-                            <span>💬 {t.reply_count}</span>
-                            {t.impression_count > 0 && <span>👁 {t.impression_count.toLocaleString()}</span>}
-                            {t.created_at && <span>{new Date(t.created_at).toLocaleDateString()}</span>}
-                          </div>
-                          <a href={`https://x.com/i/status/${t.id}`} target="_blank" rel="noopener noreferrer" className="text-sky-600 text-xs hover:underline w-fit">View on X →</a>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            );
-          })()}
-          </>
-          )}
-          </>
-          )}
+        <div className="mt-6 space-y-6 max-w-full" style={{ maxWidth: 1400 }}>
+          {selectedAccount ? (
+          <FacebookAnalyticsView
+            insights={(() => {
+              const base: import('@/components/analytics/facebook/types').FacebookInsights = {
+                platform: selectedAccount.platform,
+                followers: effectiveFollowers,
+                impressionsTotal: effectiveImpressions,
+                impressionsTimeSeries: effectiveTimeSeries,
+                pageViewsTotal: effectivePageVisits,
+                reachTotal: effectiveReach,
+                profileViewsTotal: effectiveProfileViews,
+                followersTimeSeries: displayFollowersTimeSeries,
+                ...(insights && {
+                  insightsHint: insights.insightsHint,
+                  growthTimeSeries: insights.growthTimeSeries as Array<{ date: string; gained: number; lost: number; net?: number }> | undefined,
+                }),
+              };
+              return base;
+            })()}
+            posts={importedPosts.filter((p: { platform: string }) => p.platform === selectedAccount.platform) as import('@/components/analytics/facebook/types').FacebookPost[]}
+            dateRange={dateRange}
+            insightsLoading={effectiveInsightsLoading}
+            postsLoading={importedPostsLoading}
+            onUpgrade={() => router.push('/pricing')}
+            followersLabel={selectedAccount.platform === 'YOUTUBE' ? 'Subscribers' : 'Followers'}
+          />
+          ) : hasAccounts ? (
+            <p className="text-sm text-neutral-500 py-8">Select an account in the left sidebar to see its analytics.</p>
+          ) : null}
         </div>
       )}
 
       {analyticsTab === 'posts' && (
-          <div className="mt-6 space-y-6">
+          <div className="mt-6 space-y-6 max-w-full" style={{ maxWidth: 1400 }}>
             {importedPostsLoading && (
               <div className="space-y-6">
                 {/* widget skeletons */}
@@ -1474,109 +1180,123 @@ export default function DashboardPage() {
               </div>
             )}
             <div className={importedPostsLoading ? 'hidden' : undefined}>
-            {/* Interactions + Posts charts row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Interactions card */}
-              <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-sm hover:shadow-lg transition-all duration-200"
-                style={{ borderLeft: '4px solid #E1306C' }}>
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Interactions</p>
-                    <p className="text-3xl font-bold text-neutral-900 mt-0.5 tabular-nums" style={{ animation: 'count-up 0.4s cubic-bezier(0.34,1.56,0.64,1) both' }}>
-                      {totalInteractions.toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="flex gap-1.5 flex-wrap justify-end max-w-[160px]">
-                    {Array.from(new Set(importedPosts.map((p) => p.platform))).map((pl) => {
-                      const count = importedPosts.filter((p) => p.platform === pl).reduce((s, p) => s + p.interactions, 0);
-                      const cls = pl === 'INSTAGRAM' ? 'bg-pink-100 text-pink-800' : pl === 'FACEBOOK' ? 'bg-blue-100 text-blue-800' : pl === 'YOUTUBE' ? 'bg-red-100 text-red-800' : pl === 'TIKTOK' ? 'bg-neutral-100 text-neutral-800' : pl === 'TWITTER' ? 'bg-sky-100 text-sky-800' : 'bg-neutral-100 text-neutral-700';
-                      return <span key={pl} className={`px-2 py-0.5 rounded text-xs font-medium ${cls}`}>{count.toLocaleString()}</span>;
-                    })}
-                  </div>
-                </div>
-                <div className="h-28 -mx-1">
-                  {interactionsTabDisplaySeries.length > 1 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={interactionsTabDisplaySeries} margin={{ top: 4, right: 4, left: -24, bottom: 0 }} barSize={10}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                        <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false}
-                          tickFormatter={(v) => { try { return new Date(v).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); } catch { return v; } }} />
-                        <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                        <RechartTooltip
-                          content={(props) => {
-                            const { active, payload, label } = props as unknown as { active?: boolean; payload?: Array<{ value?: number }>; label?: string };
-                            if (!active || !payload?.length || !label) return null;
-                            return (
-                              <div className="rounded-xl border border-neutral-200 bg-white px-3 py-2 shadow-xl text-xs">
-                                <p className="text-neutral-500 mb-1">{label}</p>
-                                <p className="font-bold text-neutral-900">{(payload[0]?.value ?? 0).toLocaleString()} interactions</p>
-                              </div>
-                            );
-                          }}
-                          cursor={{ fill: 'rgba(225,48,108,0.06)' }}
-                        />
-                        <Bar dataKey="value" name="Interactions" radius={[3, 3, 0, 0]} fill="#E1306C" fillOpacity={0.85} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="h-full flex items-center justify-center text-neutral-300 text-xs">No chart data yet</div>
-                  )}
-                </div>
+            {postsShowWatermark && (
+              <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 flex flex-wrap items-center justify-between gap-3 mb-6">
+                <p className="text-sm text-indigo-800">
+                  You're viewing more than 30 days. Upgrade to remove watermarks and view full history.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => router.push('/pricing')}
+                  className="shrink-0 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
+                >
+                  Upgrade plan
+                </button>
               </div>
-
-              {/* Number of posts card */}
-              <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-sm hover:shadow-lg transition-all duration-200"
-                style={{ borderLeft: '4px solid #6366f1' }}>
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Number of Posts</p>
-                    <p className="text-3xl font-bold text-neutral-900 mt-0.5 tabular-nums" style={{ animation: 'count-up 0.4s cubic-bezier(0.34,1.56,0.64,1) 80ms both' }}>
-                      {importedPosts.length.toLocaleString()}
-                    </p>
+            )}
+            <AnalyticsGrid>
+              <AnalyticsGridItem span={12}>
+                <AnalyticsWatermarkedChart title="Interactions" height={240} showWatermark={postsShowWatermark}>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-2xl font-bold text-[#111827] tabular-nums">{totalInteractions.toLocaleString()}</p>
+                    <div className="flex gap-1.5 flex-wrap justify-end max-w-[160px]">
+                      {Array.from(new Set(importedPosts.map((p) => p.platform))).map((pl) => {
+                        const count = importedPosts.filter((p) => p.platform === pl).reduce((s, p) => s + p.interactions, 0);
+                        const cls = pl === 'INSTAGRAM' ? 'bg-pink-100 text-pink-800' : pl === 'FACEBOOK' ? 'bg-blue-100 text-blue-800' : pl === 'YOUTUBE' ? 'bg-red-100 text-red-800' : pl === 'TIKTOK' ? 'bg-neutral-100 text-neutral-800' : pl === 'TWITTER' ? 'bg-sky-100 text-sky-800' : 'bg-neutral-100 text-neutral-700';
+                        return <span key={pl} className={`px-2 py-0.5 rounded text-xs font-medium ${cls}`}>{count.toLocaleString()}</span>;
+                      })}
+                    </div>
                   </div>
-                  <div className="flex gap-1.5 flex-wrap justify-end max-w-[160px]">
-                    {Array.from(new Set(importedPosts.map((p) => p.platform))).map((pl) => {
-                      const count = importedPosts.filter((p) => p.platform === pl).length;
-                      const cls = pl === 'INSTAGRAM' ? 'bg-pink-100 text-pink-800' : pl === 'FACEBOOK' ? 'bg-blue-100 text-blue-800' : pl === 'YOUTUBE' ? 'bg-red-100 text-red-800' : pl === 'TIKTOK' ? 'bg-neutral-100 text-neutral-800' : pl === 'TWITTER' ? 'bg-sky-100 text-sky-800' : 'bg-neutral-100 text-neutral-700';
-                      return <span key={pl} className={`px-2 py-0.5 rounded text-xs font-medium ${cls}`}>{count}</span>;
-                    })}
+                  <div className="w-full" style={{ height: 200 }}>
+                    {interactionsTabDisplaySeries.length > 1 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={interactionsTabDisplaySeries} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barSize={12}>
+                          <defs>
+                            <linearGradient id="postsInteractionsGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#E1306C" stopOpacity={0.9} />
+                              <stop offset="100%" stopColor="#E1306C" stopOpacity={0.6} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(107,114,128,0.08)" vertical={false} />
+                          <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false}
+                            tickFormatter={(v) => { try { return new Date(v).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); } catch { return v; } }} />
+                          <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                          <RechartTooltip
+                            content={(props) => {
+                              const { active, payload, label } = props as unknown as { active?: boolean; payload?: Array<{ value?: number }>; label?: string };
+                              if (!active || !payload?.length || !label) return null;
+                              return (
+                                <div className="bg-[#111827] text-white text-xs rounded-lg px-2.5 py-2 shadow-xl" style={{ borderRadius: 8 }}>
+                                  <p className="text-neutral-300">{new Date(label).toLocaleDateString(undefined, { dateStyle: 'medium' })}</p>
+                                  <p className="font-medium mt-0.5">{(payload[0]?.value ?? 0).toLocaleString()} interactions</p>
+                                </div>
+                              );
+                            }}
+                            cursor={{ fill: 'rgba(225,48,108,0.08)' }}
+                          />
+                          <Bar dataKey="value" name="Interactions" radius={[4, 4, 0, 0]} fill="url(#postsInteractionsGrad)" isAnimationActive animationDuration={400} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full flex items-center justify-center text-neutral-400 text-sm">No chart data yet</div>
+                    )}
                   </div>
-                </div>
-                <div className="h-28 -mx-1">
-                  {postsTabDisplaySeries.length > 1 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={postsTabDisplaySeries} margin={{ top: 4, right: 4, left: -24, bottom: 0 }} barSize={10}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                        <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false}
-                          tickFormatter={(v) => { try { return new Date(v).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); } catch { return v; } }} />
-                        <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                        <RechartTooltip
-                          content={(props) => {
-                            const { active, payload, label } = props as unknown as { active?: boolean; payload?: Array<{ value?: number }>; label?: string };
-                            if (!active || !payload?.length || !label) return null;
-                            return (
-                              <div className="rounded-xl border border-neutral-200 bg-white px-3 py-2 shadow-xl text-xs">
-                                <p className="text-neutral-500 mb-1">{label}</p>
-                                <p className="font-bold text-neutral-900">{(payload[0]?.value ?? 0).toLocaleString()} posts</p>
-                              </div>
-                            );
-                          }}
-                          cursor={{ fill: 'rgba(99,102,241,0.06)' }}
-                        />
-                        <Bar dataKey="value" name="Posts" radius={[3, 3, 0, 0]} fill="#6366f1" fillOpacity={0.85} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="h-full flex items-center justify-center text-neutral-300 text-xs">No chart data yet</div>
-                  )}
-                </div>
-              </div>
-            </div>
+                </AnalyticsWatermarkedChart>
+              </AnalyticsGridItem>
+              <AnalyticsGridItem span={12}>
+                <AnalyticsWatermarkedChart title="Number of Posts" height={240} showWatermark={postsShowWatermark}>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-2xl font-bold text-[#111827] tabular-nums">{importedPosts.length.toLocaleString()}</p>
+                    <div className="flex gap-1.5 flex-wrap justify-end max-w-[160px]">
+                      {Array.from(new Set(importedPosts.map((p) => p.platform))).map((pl) => {
+                        const count = importedPosts.filter((p) => p.platform === pl).length;
+                        const cls = pl === 'INSTAGRAM' ? 'bg-pink-100 text-pink-800' : pl === 'FACEBOOK' ? 'bg-blue-100 text-blue-800' : pl === 'YOUTUBE' ? 'bg-red-100 text-red-800' : pl === 'TIKTOK' ? 'bg-neutral-100 text-neutral-800' : pl === 'TWITTER' ? 'bg-sky-100 text-sky-800' : 'bg-neutral-100 text-neutral-700';
+                        return <span key={pl} className={`px-2 py-0.5 rounded text-xs font-medium ${cls}`}>{count}</span>;
+                      })}
+                    </div>
+                  </div>
+                  <div className="w-full" style={{ height: 200 }}>
+                    {postsTabDisplaySeries.length > 1 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={postsTabDisplaySeries} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barSize={12}>
+                          <defs>
+                            <linearGradient id="postsCountGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#6366f1" stopOpacity={0.9} />
+                              <stop offset="100%" stopColor="#6366f1" stopOpacity={0.6} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(107,114,128,0.08)" vertical={false} />
+                          <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false}
+                            tickFormatter={(v) => { try { return new Date(v).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); } catch { return v; } }} />
+                          <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                          <RechartTooltip
+                            content={(props) => {
+                              const { active, payload, label } = props as unknown as { active?: boolean; payload?: Array<{ value?: number }>; label?: string };
+                              if (!active || !payload?.length || !label) return null;
+                              return (
+                                <div className="bg-[#111827] text-white text-xs rounded-lg px-2.5 py-2 shadow-xl" style={{ borderRadius: 8 }}>
+                                  <p className="text-neutral-300">{new Date(label).toLocaleDateString(undefined, { dateStyle: 'medium' })}</p>
+                                  <p className="font-medium mt-0.5">{(payload[0]?.value ?? 0).toLocaleString()} posts</p>
+                                </div>
+                              );
+                            }}
+                            cursor={{ fill: 'rgba(99,102,241,0.08)' }}
+                          />
+                          <Bar dataKey="value" name="Posts" radius={[4, 4, 0, 0]} fill="url(#postsCountGrad)" isAnimationActive animationDuration={400} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full flex items-center justify-center text-neutral-400 text-sm">No chart data yet</div>
+                    )}
+                  </div>
+                </AnalyticsWatermarkedChart>
+              </AnalyticsGridItem>
+            </AnalyticsGrid>
 
-            {/* List of posts (Metricool-style): Search, Download CSV, Columns, table, pagination */}
-            <div>
-              <div className="flex items-center justify-between gap-4 flex-wrap mb-3">
-                <h3 className="text-sm font-semibold text-neutral-800">List of posts</h3>
+            {/* List of posts — same card style as Account analytics */}
+            <div className="bg-white rounded-2xl p-6 border border-[rgba(0,0,0,0.06)] shadow-[0_4px_16px_rgba(0,0,0,0.04)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.06)] transition-all duration-150 overflow-hidden">
+              <div className="flex items-center justify-between gap-4 flex-wrap mb-4">
+                <p className="text-sm font-semibold text-[#111827]">List of posts</p>
                 <div className="flex items-center gap-2 flex-wrap">
                   <button
                     type="button"
@@ -1614,8 +1334,8 @@ export default function DashboardPage() {
                   <p className="mt-2 text-xs text-amber-700">Data will sync automatically when your Page is linked.</p>
                 </div>
               )}
-              <div className="bg-white border border-neutral-200 rounded-xl shadow-sm overflow-hidden">
-                <div className="flex items-center gap-2 p-3 border-b border-neutral-200 flex-wrap">
+              <div className="border border-neutral-100 rounded-xl overflow-hidden bg-neutral-50/50">
+                <div className="flex items-center gap-2 p-3 border-b border-neutral-100 flex-wrap bg-white">
                   <input
                     type="search"
                     placeholder="Search"

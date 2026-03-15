@@ -13,6 +13,8 @@ export interface FacebookInsights {
   profileViewsTotal?: number;
   insightsHint?: string;
   growthTimeSeries?: Array<{ date: string; gained: number; lost: number; net?: number }>;
+  /** Optional time series for followers chart (used by all platforms). */
+  followersTimeSeries?: Array<{ date: string; value: number }>;
 }
 
 export interface FacebookPost {

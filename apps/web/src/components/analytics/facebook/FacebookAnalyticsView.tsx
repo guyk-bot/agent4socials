@@ -11,6 +11,8 @@ export interface FacebookAnalyticsViewProps {
   insightsLoading: boolean;
   postsLoading: boolean;
   onUpgrade?: () => void;
+  /** e.g. "Subscribers" for YouTube; defaults to "Followers" */
+  followersLabel?: string;
 }
 
 export function FacebookAnalyticsView({
@@ -20,6 +22,7 @@ export function FacebookAnalyticsView({
   insightsLoading,
   postsLoading,
   onUpgrade,
+  followersLabel = 'Followers',
 }: FacebookAnalyticsViewProps) {
   const loading = insightsLoading || postsLoading;
 
@@ -31,6 +34,7 @@ export function FacebookAnalyticsView({
         dateRange={dateRange}
         loading={loading}
         onUpgrade={onUpgrade}
+        followersLabel={followersLabel}
       />
     </div>
   );
