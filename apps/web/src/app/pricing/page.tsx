@@ -1,11 +1,14 @@
 'use client';
 
+import { useState } from 'react';
 import { useAuthModal } from '@/context/AuthModalContext';
 import SiteHeader from '@/components/landing/SiteHeader';
 import SiteFooter from '@/components/landing/SiteFooter';
 import {
   PricingHero,
+  PricingBillingToggle,
   PricingCard,
+  PricingBrandAddons,
   PricingComparisonTable,
   PricingFAQ,
   PricingCTA,
@@ -43,17 +46,27 @@ const PRO_HIGHLIGHTS = [
 
 export default function PricingPage() {
   const { openSignup } = useAuthModal();
+  const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('yearly');
 
   return (
     <div className="min-h-screen bg-neutral-50">
       <SiteHeader />
       <main className="relative">
-        {/* Light content area with subtle background */}
         <div className="min-h-screen">
           <PricingHero />
 
+          {/* Billing toggle */}
+          <section className="pb-8">
+            <div className="mx-auto max-w-6xl px-4 sm:px-6">
+              <PricingBillingToggle
+                interval={billingInterval}
+                onIntervalChange={setBillingInterval}
+              />
+            </div>
+          </section>
+
           {/* Pricing cards */}
-          <section className="pb-16 sm:pb-20">
+          <section className="pb-8 sm:pb-12">
             <div className="mx-auto max-w-6xl px-4 sm:px-6">
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 lg:gap-8">
                 <PricingCard
@@ -61,33 +74,46 @@ export default function PricingPage() {
                   price="$0"
                   description="Best for trying the platform"
                   highlights={FREE_HIGHLIGHTS}
-                  additionalBrands="No extra brands"
                   ctaText="Start Free"
                   onCta={openSignup}
+                  billingInterval={billingInterval}
                 />
                 <PricingCard
                   plan="starter"
-                  price="$15"
                   description="Best for creators and freelancers"
                   highlights={STARTER_HIGHLIGHTS}
-                  additionalBrands="+$5 per additional brand"
+                  priceMonthly={15}
+                  priceYearly={144}
+                  yearlyCrossedPrice={180}
+                  savePerYear={36}
+                  additionalBrandsMonthly={5}
+                  additionalBrandsYearly={48}
                   ctaText="Get Starter"
                   onCta={openSignup}
+                  billingInterval={billingInterval}
                 />
                 <PricingCard
                   plan="pro"
-                  price="$39"
                   description="Best for professionals and agencies"
                   badge="Most Popular"
+                  bestValueLabel="⭐ Best value for growing brands"
                   highlights={PRO_HIGHLIGHTS}
-                  additionalBrands="+$3 per additional brand"
+                  priceMonthly={39}
+                  priceYearly={374}
+                  yearlyCrossedPrice={468}
+                  savePerYear={94}
+                  additionalBrandsMonthly={3}
+                  additionalBrandsYearly={29}
                   ctaText="Get Pro"
                   onCta={openSignup}
                   highlighted
+                  billingInterval={billingInterval}
                 />
               </div>
             </div>
           </section>
+
+          <PricingBrandAddons billingInterval={billingInterval} />
 
           <PricingComparisonTable />
           <PricingFAQ />
