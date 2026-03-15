@@ -26,7 +26,6 @@ import {
   HelpCircle,
   ArrowUpDown,
 } from 'lucide-react';
-import Link from 'next/link';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
 import { InteractiveLineChart } from '@/components/charts/InteractiveLineChart';
 import type { Demographics, GrowthDataPoint, TrafficSourceItem } from '@/types/analytics';
@@ -935,18 +934,6 @@ export default function DashboardPage() {
           <span className="text-neutral-400">–</span>
           <input type="date" value={dateRange.end} onChange={(e) => setDateRange((r) => ({ ...r, end: e.target.value }))} className="text-sm border-0 bg-transparent focus:ring-0 p-0 text-neutral-700 w-[7.5rem]" />
         </div>
-      </div>
-
-      {/* API limit / upgrade banner */}
-      <div className="mt-4 flex items-center justify-between gap-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg">
-        <p className="text-sm text-amber-800">
-          {selectedAccount?.platform === 'INSTAGRAM'
-            ? "Instagram's API only allows the last 28 days of insights. We show that data; older ranges are capped to 28 days."
-            : selectedAccount?.platform === 'FACEBOOK'
-              ? "Facebook Page insights are limited to 90 days per API request. Upgrade for export options."
-              : 'Upgrade to export reports without a watermark.'}
-        </p>
-        <Link href="/pricing" className="shrink-0 px-3 py-1.5 rounded-lg bg-amber-500 text-white text-sm font-medium hover:bg-amber-600">Upgrade your plan</Link>
       </div>
 
       {/* Instagram-only: analytics and posts not available; CTA to connect with Facebook */}
