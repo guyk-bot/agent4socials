@@ -392,8 +392,8 @@ export async function GET(
     if (account.platform === 'TIKTOK') {
       try {
         const userRes = await axios.get<{
-          data?: { user?: { follower_count?: number; video_count?: number; likes_count?: number } };
-          error?: { code?: string };
+          data?: { user?: { follower_count?: number | string; video_count?: number | string; likes_count?: number | string } };
+          error?: { code?: string; message?: string };
         }>('https://open.tiktokapis.com/v2/user/info/', {
           params: { fields: 'open_id,follower_count,video_count,likes_count' },
           headers: {
@@ -402,8 +402,15 @@ export async function GET(
           },
         });
         const user = userRes.data?.data?.user;
-        if (userRes.data?.error?.code === 'ok' || !userRes.data?.error?.code) {
-          if (user?.follower_count != null) out.followers = user.follower_count;
+        const err = userRes.data?.error;
+        if (err?.code && err.code !== 'ok') {
+          console.warn('[Insights] TikTok user/info error:', err.code, err.message ?? '');
+        }
+        if (err?.code === 'ok' || !err?.code) {
+          if (user?.follower_count != null) {
+            const n = typeof user.follower_count === 'string' ? parseInt(user.follower_count, 10) : user.follower_count;
+            if (!Number.isNaN(n)) out.followers = n;
+          }
         }
       } catch (e) {
         console.warn('[Insights] TikTok user/info:', (e as Error)?.message ?? e);
@@ -417,10 +424,11 @@ export async function GET(
         const totalViews = posts.reduce((s, p) => s + (p.impressions ?? 0), 0);
         if (totalViews > 0) out.impressionsTotal = totalViews;
       } catch (_) {}
-      if (out.followers === 0 && out.impressionsTotal === 0) {
-        out.insightsHint = 'Add user.info.stats scope and reconnect to see followers. Views update automatically.';
+      if (out.followers === 0) {
+        out.insightsHint = out.impressionsTotal === 0
+          ? 'Reconnect TikTok and approve "user.info.stats" to see follower count. Views will update after syncing videos.'
+          : 'Reconnect TikTok and approve "user.info.stats" to see follower count.';
       }
-      // When followers > 0 and views === 0 we auto-sync on the dashboard; no hint needed.
       return NextResponse.json(out);
     }
 
