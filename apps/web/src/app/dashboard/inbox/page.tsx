@@ -96,6 +96,136 @@ function freshPostImageUrl(comment: Pick<PostComment, 'accountId' | 'platformPos
   return `/api/post-image?accountId=${encodeURIComponent(comment.accountId)}&postId=${encodeURIComponent(comment.platformPostId)}`;
 }
 
+function MessagesConversationList({
+  conversations,
+  inboxFilter,
+  searchQuery,
+  dmOrFbPlatforms,
+  selectMode,
+  selectedConversationIds,
+  selectedConversationId,
+  unreadConversationIds,
+  setSelectedPlatform,
+  setSelectedConversationId,
+  setSelectedConversationIds,
+  setUnreadConversationIds,
+  markConversationsAsRead,
+  setTotalUnreadMessages,
+  getConversationLastReadCounts,
+  setConversationLastReadCount,
+  user,
+}: {
+  conversations: Array<Conversation & { platform?: string }>;
+  inboxFilter: string;
+  searchQuery: string;
+  dmOrFbPlatforms: string[];
+  selectMode: boolean;
+  selectedConversationIds: Set<string>;
+  selectedConversationId: string | null;
+  unreadConversationIds: Set<string>;
+  setSelectedPlatform: (p: string | null) => void;
+  setSelectedConversationId: (id: string | null) => void;
+  setSelectedConversationIds: React.Dispatch<React.SetStateAction<Set<string>>>;
+  setUnreadConversationIds: React.Dispatch<React.SetStateAction<Set<string>>>;
+  markConversationsAsRead: (ids: string[], userId: string | undefined) => void;
+  setTotalUnreadMessages: React.Dispatch<React.SetStateAction<number>>;
+  getConversationLastReadCounts: (userId: string | undefined) => Record<string, number>;
+  setConversationLastReadCount: (convId: string, count: number, userId: string | undefined) => void;
+  user: { id: string } | null;
+}) {
+  const filtered = conversations
+    .filter((c) => {
+      if (inboxFilter === 'all') return true;
+      if (inboxFilter === 'read') return !unreadConversationIds.has(c.id);
+      if (inboxFilter === 'unread') return unreadConversationIds.has(c.id);
+      return true;
+    })
+    .filter((c) => !searchQuery || (c.senders?.[0]?.username ?? c.senders?.[0]?.name ?? c.id).toLowerCase().includes(searchQuery.toLowerCase()));
+  return (
+    <div className="p-2 space-y-0">
+      {filtered.map((c) => {
+        const firstSender = c.senders?.[0];
+        const rawName = firstSender?.username ?? firstSender?.name;
+        const convPlatform = (c as Conversation & { platform?: string }).platform ?? (dmOrFbPlatforms.length === 1 ? dmOrFbPlatforms[0] : undefined);
+        const name = rawName && rawName.trim() ? rawName : (convPlatform === 'TWITTER' ? 'X (Twitter) user' : 'Unknown');
+        const pictureUrl = firstSender?.pictureUrl;
+        const initials = (name === 'X (Twitter) user' ? 'X' : name).slice(0, 2).toUpperCase();
+        const platform = convPlatform ?? (c as Conversation & { platform?: string }).platform;
+        return (
+          <button
+            key={platform ? `${platform}-${c.id}` : c.id}
+            type="button"
+            onClick={() => {
+              if (selectMode) {
+                setSelectedConversationIds((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(c.id)) next.delete(c.id);
+                  else next.add(c.id);
+                  return next;
+                });
+                return;
+              }
+              if (platform) setSelectedPlatform(platform);
+              setSelectedConversationId(c.id);
+              markConversationsAsRead([c.id], user?.id);
+              setUnreadConversationIds((prev) => {
+                const next = new Set(prev);
+                next.delete(c.id);
+                return next;
+              });
+              const lastRead = getConversationLastReadCounts(user?.id);
+              const count = (c as Conversation).messageCount;
+              if (typeof count === 'number') {
+                const readUpTo = lastRead[c.id] ?? 0;
+                const unreadForThis = Math.max(0, count - readUpTo);
+                setTotalUnreadMessages((prev) => Math.max(0, prev - unreadForThis));
+                setConversationLastReadCount(c.id, count, user?.id);
+              } else {
+                setTotalUnreadMessages((prev) => Math.max(0, prev - 1));
+              }
+            }}
+            className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors ${
+              selectMode && selectedConversationIds.has(c.id) ? 'bg-indigo-50 border border-indigo-200' :
+              selectedConversationId === c.id ? 'bg-indigo-50 border-indigo-100' : unreadConversationIds.has(c.id) ? 'bg-sky-50/80 hover:bg-sky-100/80' : 'hover:bg-neutral-50'
+            }`}
+          >
+            {selectMode ? (
+              <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border-2 ${selectedConversationIds.has(c.id) ? 'bg-indigo-600 border-indigo-600' : 'border-neutral-300'}`}>
+                {selectedConversationIds.has(c.id) && <Check size={12} className="text-white" />}
+              </div>
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden">
+                {pictureUrl ? (
+                  <img src={pictureUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-sm font-semibold text-neutral-600">{initials}</span>
+                )}
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-neutral-900 truncate">{name}</p>
+              <p className="text-xs text-neutral-500 truncate flex items-center gap-1.5">
+                {platform ? (() => {
+                  const plat = PLATFORMS.find((p) => p.id === platform);
+                  const Icon = plat?.icon;
+                  return Icon ? <><Icon size={12} className="shrink-0 opacity-70" /><span>{plat?.label ?? platform}</span></> : null;
+                })() : 'Conversation'}
+              </p>
+            </div>
+            <div className="shrink-0 flex items-center gap-1">
+              {unreadConversationIds.has(c.id) && <span className="w-2 h-2 rounded-full bg-red-500" aria-hidden />}
+              {c.updatedTime && <span className="text-xs text-neutral-400">{new Date(c.updatedTime).toLocaleDateString()}</span>}
+              <button type="button" className="p-1 rounded hover:bg-neutral-200" title="Mark resolved">
+                <Check size={14} className="text-neutral-400" />
+              </button>
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function InboxPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1368,101 +1498,26 @@ function InboxPage() {
               )}
             </div>
           ) : (
-            <div className="p-2 space-y-0">
-              {conversations
-                .filter((c) => {
-                  if (inboxFilter === 'all') return true;
-                  if (inboxFilter === 'read') return !unreadConversationIds.has(c.id);
-                  if (inboxFilter === 'unread') return unreadConversationIds.has(c.id);
-                  return true;
-                })
-                .filter((c) => !searchQuery || (c.senders?.[0]?.username ?? c.senders?.[0]?.name ?? c.id).toLowerCase().includes(searchQuery.toLowerCase()))
-                .map((c) => {
-                  const firstSender = c.senders?.[0];
-                  const rawName = firstSender?.username ?? firstSender?.name;
-                  const convPlatform = (c as Conversation & { platform?: string }).platform ?? (dmOrFbPlatforms.length === 1 ? dmOrFbPlatforms[0] : undefined);
-                  const name = rawName && rawName.trim() ? rawName : (convPlatform === 'TWITTER' ? 'X (Twitter) user' : 'Unknown');
-                  const pictureUrl = firstSender?.pictureUrl;
-                  const initials = (name === 'X (Twitter) user' ? 'X' : name).slice(0, 2).toUpperCase();
-                  const platform = convPlatform ?? (c as Conversation & { platform?: string }).platform;
-                  return (
-                    <button
-                      key={platform ? `${platform}-${c.id}` : c.id}
-                      type="button"
-                      onClick={() => {
-                        if (selectMode) {
-                          setSelectedConversationIds((prev) => {
-                            const next = new Set(prev);
-                            if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
-                            return next;
-                          });
-                          return;
-                        }
-                        if (platform) setSelectedPlatform(platform);
-                        setSelectedConversationId(c.id);
-                        markConversationsAsRead([c.id], user?.id);
-                        setUnreadConversationIds((prev) => {
-                          const next = new Set(prev);
-                          next.delete(c.id);
-                          return next;
-                        });
-                        // Reduce Messages tab badge immediately (same as comments/engagement)
-                        const lastRead = getConversationLastReadCounts(user?.id);
-                        const count = (c as Conversation).messageCount;
-                        if (typeof count === 'number') {
-                          const readUpTo = lastRead[c.id] ?? 0;
-                          const unreadForThis = Math.max(0, count - readUpTo);
-                          setTotalUnreadMessages((prev) => Math.max(0, prev - unreadForThis));
-                          setConversationLastReadCount(c.id, count, user?.id);
-                        } else {
-                          setTotalUnreadMessages((prev) => Math.max(0, prev - 1));
-                        }
-                      }}
-                      className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors ${
-                        selectMode && selectedConversationIds.has(c.id) ? 'bg-indigo-50 border border-indigo-200' :
-                        selectedConversationId === c.id ? 'bg-indigo-50 border border-indigo-100' : unreadConversationIds.has(c.id) ? 'bg-sky-50/80 hover:bg-sky-100/80' : 'hover:bg-neutral-50'
-                      }`}
-                    >
-                      {selectMode ? (
-                        <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border-2 ${selectedConversationIds.has(c.id) ? 'bg-indigo-600 border-indigo-600' : 'border-neutral-300'}`}>
-                          {selectedConversationIds.has(c.id) && <Check size={12} className="text-white" />}
-                      </div>
-                      ) : (
-                      <div className="w-10 h-10 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden">
-                        {pictureUrl ? (
-                          <img src={pictureUrl} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-sm font-semibold text-neutral-600">{initials}</span>
-                        )}
-                      </div>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-neutral-900 truncate">{name}</p>
-                        <p className="text-xs text-neutral-500 truncate flex items-center gap-1.5">
-                          {platform ? (() => {
-                            const plat = PLATFORMS.find((p) => p.id === platform);
-                            const Icon = plat?.icon;
-                            return (
-                              <>
-                                {Icon && <Icon size={12} className="shrink-0 opacity-70" />}
-                                <span>{plat?.label ?? platform}</span>
-                              </>
-                            );
-                          })() : 'Conversation'}
-                        </p>
-                      </div>
-                      <div className="shrink-0 flex items-center gap-1">
-                        {unreadConversationIds.has(c.id) && <span className="w-2 h-2 rounded-full bg-red-500" aria-hidden />}
-                        {c.updatedTime && <span className="text-xs text-neutral-400">{new Date(c.updatedTime).toLocaleDateString()}</span>}
-                        <button type="button" className="p-1 rounded hover:bg-neutral-200" title="Mark resolved">
-                          <Check size={14} className="text-neutral-400" />
-                        </button>
-                      </div>
-                    </button>
-                  );
-                })}
-            </div>
-          )}
+            <MessagesConversationList
+              conversations={conversations}
+              inboxFilter={inboxFilter}
+              searchQuery={searchQuery}
+              dmOrFbPlatforms={dmOrFbPlatforms}
+              selectMode={selectMode}
+              selectedConversationIds={selectedConversationIds}
+              selectedConversationId={selectedConversationId}
+              unreadConversationIds={unreadConversationIds}
+              setSelectedPlatform={setSelectedPlatform}
+              setSelectedConversationId={setSelectedConversationId}
+              setSelectedConversationIds={setSelectedConversationIds}
+              setUnreadConversationIds={setUnreadConversationIds}
+              markConversationsAsRead={markConversationsAsRead}
+              setTotalUnreadMessages={setTotalUnreadMessages}
+              getConversationLastReadCounts={getConversationLastReadCounts}
+              setConversationLastReadCount={setConversationLastReadCount}
+              user={user}
+            />
+          )\u007D
         </div>
       </div>
 
