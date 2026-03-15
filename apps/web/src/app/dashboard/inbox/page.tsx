@@ -34,15 +34,16 @@ import {
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import { useAppData } from '@/context/AppDataContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
-import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon } from '@/components/SocialPlatformIcons';
+import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
 
-// Inbox-relevant platforms only (no GMB/LinkedIn in connect list). LinkedIn excluded from + dropdown per request.
+// Inbox-relevant platforms (Comments: IG, FB, X, YouTube, TikTok, LinkedIn; Messages: IG + FB only).
 const PLATFORMS = [
   { id: 'INSTAGRAM', label: 'Instagram', icon: InstagramIcon },
   { id: 'FACEBOOK', label: 'Facebook', icon: FacebookIcon },
   { id: 'TIKTOK', label: 'TikTok', icon: TikTokIcon },
   { id: 'YOUTUBE', label: 'YouTube', icon: YoutubeIcon },
   { id: 'TWITTER', label: 'Twitter/X', icon: XTwitterIcon, color: 'text-neutral-800' },
+  { id: 'LINKEDIN', label: 'LinkedIn', icon: LinkedinIcon },
 ] as const;
 
 type Account = { id: string; platform: string; username?: string | null };
@@ -636,13 +637,13 @@ function InboxPage() {
     if (platform) setSelectedPlatform(platform);
   }, [inboxMode, conversations, selectedConversationId]);
 
-  const commentsSupportedPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK' || p === 'TWITTER' || p === 'YOUTUBE' || p === 'TIKTOK');
+  const commentsSupportedPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK' || p === 'TWITTER' || p === 'YOUTUBE' || p === 'TIKTOK' || p === 'LINKEDIN');
   // When only TikTok is selected, TikTok's API doesn't return comment text — so also fetch other platforms so the list doesn't go empty
   const platformsToFetchComments =
     commentsSupportedPlatforms.length === 1 && commentsSupportedPlatforms[0] === 'TIKTOK'
       ? (effectiveAccounts
           .map((a) => a.platform)
-          .filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK' || p === 'TWITTER' || p === 'YOUTUBE' || p === 'TIKTOK') as string[])
+          .filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK' || p === 'TWITTER' || p === 'YOUTUBE' || p === 'TIKTOK' || p === 'LINKEDIN') as string[])
       : commentsSupportedPlatforms;
   const tiktokOnlyFallback = platformsToFetchComments.length > 1 && commentsSupportedPlatforms.length === 1 && commentsSupportedPlatforms[0] === 'TIKTOK';
   useEffect(() => {
@@ -1041,7 +1042,7 @@ function InboxPage() {
                 <p className="text-sm font-medium text-sky-900">TikTok comment text isn&apos;t available</p>
                 <p className="text-xs text-sky-700 mt-1">TikTok&apos;s Display API doesn&apos;t include comment text. You can see comment counts in Analytics.</p>
               </div>
-              <p className="text-sm text-neutral-600">Select Instagram, Facebook, X, or YouTube above to see comments from those platforms.</p>
+              <p className="text-sm text-neutral-600">Select Instagram, Facebook, X, YouTube, or LinkedIn above to see comments from those platforms.</p>
             </div>
           );
         }

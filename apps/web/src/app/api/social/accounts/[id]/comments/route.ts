@@ -30,8 +30,8 @@ export async function GET(
   }
 
   const platform = account.platform;
-  if (platform !== 'INSTAGRAM' && platform !== 'FACEBOOK' && platform !== 'TWITTER' && platform !== 'YOUTUBE' && platform !== 'TIKTOK') {
-    return NextResponse.json({ comments: [], error: 'Comments are only available for Instagram, Facebook, X, YouTube, and TikTok.' });
+  if (platform !== 'INSTAGRAM' && platform !== 'FACEBOOK' && platform !== 'TWITTER' && platform !== 'YOUTUBE' && platform !== 'TIKTOK' && platform !== 'LINKEDIN') {
+    return NextResponse.json({ comments: [], error: 'Comments are only available for Instagram, Facebook, X, YouTube, TikTok, and LinkedIn.' });
   }
 
   // TikTok: Comment *reading* exists in TikTok's Research API, but that API is only for approved
@@ -158,6 +158,39 @@ export async function GET(
         postTargetId: `live-${t.id}`,
         postPublishedAt: t.created_at ?? undefined,
         postUrl: `https://twitter.com/i/web/status/${t.id}`,
+      }));
+    } catch { /* if live fetch fails, proceed with dbSources only */ }
+  }
+
+  // LinkedIn: fetch recent UGC posts so we have post sources for comments
+  if (platform === 'LINKEDIN') {
+    try {
+      const personUrn = `urn:li:person:${account.platformUserId}`;
+      const postsRes = await axios.get<{
+        elements?: Array<{
+          id?: string;
+          specificContent?: { 'com.linkedin.ugc.ShareContent'?: { shareCommentary?: { text?: string } } };
+          firstPublishedAt?: number;
+        }>;
+      }>('https://api.linkedin.com/v2/ugcPosts', {
+        params: {
+          q: 'authors',
+          authors: `List(${encodeURIComponent(personUrn)})`,
+          count: 50,
+        },
+        headers: {
+          Authorization: `Bearer ${account.accessToken}`,
+          'X-Restli-Protocol-Version': '2.0.0',
+        },
+        timeout: 15_000,
+      });
+      const items = postsRes.data?.elements ?? [];
+      liveSources = items.map((p, i) => ({
+        platformPostId: p.id!,
+        postPreview: (p.specificContent?.['com.linkedin.ugc.ShareContent']?.shareCommentary?.text ?? '').trim() || `Post ${i + 1}`,
+        postTargetId: `live-${p.id}`,
+        postPublishedAt: p.firstPublishedAt ? new Date(p.firstPublishedAt).toISOString() : undefined,
+        postUrl: `https://www.linkedin.com/feed/update/${encodeURIComponent(p.id!)}`,
       }));
     } catch { /* if live fetch fails, proceed with dbSources only */ }
   }
@@ -297,6 +330,13 @@ export async function GET(
         } catch (_) {
           return null;
         }
+      }
+      if (plat === 'LINKEDIN') {
+        const imp = await prisma.importedPost.findFirst({
+          where: { platformPostId: postId, socialAccountId: accountId },
+          select: { thumbnailUrl: true },
+        });
+        return imp?.thumbnailUrl ?? null;
       }
     } catch (_) {}
     return null;
@@ -549,6 +589,49 @@ export async function GET(
         }
       } catch (_) {
         // skip
+      }
+    }
+
+    if (platform === 'LINKEDIN') {
+      try {
+        const postUrn = platformPostId.startsWith('urn:') ? platformPostId : `urn:li:ugcPost:${platformPostId}`;
+        const commentsRes = await axios.get<{
+          elements?: Array<{
+            id?: string;
+            actor?: string;
+            message?: { text?: string };
+            created?: { time?: number };
+            object?: string;
+          }>;
+        }>(`https://api.linkedin.com/rest/socialActions/${encodeURIComponent(postUrn)}/comments`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'X-Restli-Protocol-Version': '2.0.0',
+          },
+          timeout: 15_000,
+        });
+        const elements = commentsRes.data?.elements ?? [];
+        for (const c of elements) {
+          const text = c.message?.text ?? '';
+          const createdAt = c.created?.time != null ? new Date(c.created.time).toISOString() : new Date().toISOString();
+          comments.push({
+            commentId: c.id ?? '',
+            postTargetId,
+            platformPostId,
+            accountId,
+            postPreview,
+            postImageUrl: sourceImageUrl ?? (await getPostImageUrl(platformPostId, platform, token)),
+            postPublishedAt: postPublishedAt ?? null,
+            postUrl: sourcePostUrl ?? `https://www.linkedin.com/feed/update/${encodeURIComponent(platformPostId)}`,
+            text,
+            authorName: 'LinkedIn member',
+            authorPictureUrl: null,
+            createdAt,
+            platform: 'LINKEDIN',
+          });
+        }
+      } catch (_) {
+        // skip on API error
       }
     }
   }
