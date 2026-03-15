@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Check, Minus, Star, Loader2, BookOpen, Send, Calendar, BarChart2, MessageCircle, TrendingUp } from 'lucide-react';
+import { Check, Star, Loader2, BookOpen, Send, Calendar, BarChart2, MessageCircle, TrendingUp } from 'lucide-react';
 import { InstagramIcon, FacebookIcon, YoutubeIcon, LinkedinIcon, TikTokIcon, XTwitterIcon } from '@/components/SocialPlatformIcons';
 
 const BULLET_ICONS = [Send, Calendar, BarChart2, MessageCircle, TrendingUp];
@@ -216,7 +216,6 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
             <ul className="space-y-1.5 text-sm text-neutral-600 flex-1">
               <li className="flex items-center gap-2"><Check size={13} className="text-green-500 shrink-0" /> Posts &amp; analytics</li>
               <li className="flex items-center gap-2"><Check size={13} className="text-green-500 shrink-0" /> Comments &amp; messages</li>
-              <li className="flex items-center gap-2"><Minus size={13} className="text-neutral-300 shrink-0" /> No competitor analysis</li>
             </ul>
             <div className={`mt-5 flex justify-center items-center gap-2 w-full py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r ${info.buttonGradient} ${info.buttonHover} transition-all`}>
               {connecting && connectingMethod === 'instagram' ? <Loader2 size={15} className="animate-spin" /> : 'Connect'}
