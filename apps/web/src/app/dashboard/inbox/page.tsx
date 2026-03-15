@@ -4,7 +4,6 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
   MessageCircle,
-  Plus,
   Search,
   Check,
   CheckSquare,
@@ -231,7 +230,6 @@ function InboxPage() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const platformFromUrl = searchParams.get('platform')?.toUpperCase();
-  const setSelectedPlatformForConnect = useSelectedAccount()?.setSelectedPlatformForConnect ?? (() => {});
   const appData = useAppData();
   const { cachedAccounts, setCachedAccounts } = useAccountsCache() ?? { cachedAccounts: [], setCachedAccounts: () => {} };
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -239,7 +237,6 @@ function InboxPage() {
   const [inboxFilter, setInboxFilter] = useState<'all' | 'read' | 'unread'>('all');
   const [commentsFilter, setCommentsFilter] = useState<'all' | 'replied' | 'didnt_reply'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [connectOpen, setConnectOpen] = useState(false);
   const [inboxMode, setInboxMode] = useState<'messages' | 'comments' | 'engagement'>('messages');
   const [batchConversationLastMessage, setBatchConversationLastMessage] = useState<Record<string, string>>({});
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
@@ -270,7 +267,6 @@ function InboxPage() {
   const [aiReplyLoading, setAiReplyLoading] = useState(false);
   const [aiReplyError, setAiReplyError] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<{ comments: number; messages: number; byPlatform?: Record<string, { comments: number; messages: number }> }>({ comments: 0, messages: 0 });
-  const connectRef = useRef<HTMLDivElement>(null);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [engagement, setEngagement] = useState<EngagementItem[]>([]);
   const [engagementLoading, setEngagementLoading] = useState(false);
@@ -400,7 +396,6 @@ function InboxPage() {
   }, [selectedPlatforms.join(',')]);
 
   const connectedPlatforms = PLATFORMS.filter((p) => effectiveAccounts.some((a) => a.platform === p.id));
-  const unconnectedPlatforms = PLATFORMS.filter((p) => !effectiveAccounts.some((a) => a.platform === p.id));
   const platformsForMessages = connectedPlatforms.filter((p) => p.id === 'INSTAGRAM' || p.id === 'FACEBOOK');
   const platformsToShow = inboxMode === 'messages' ? platformsForMessages : connectedPlatforms;
   const byPlatform = appData?.notifications?.byPlatform ?? notifications.byPlatform ?? {};
@@ -815,14 +810,6 @@ function InboxPage() {
       inbox: Math.min(total, 99),
     });
   }, [unreadCommentIds.size, unreadConversationIds.size, totalUnreadMessages, appData]);
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (connectRef.current && !connectRef.current.contains(e.target as Node)) setConnectOpen(false);
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   const handlePlatformClick = (platformId: string) => {
     setSelectedPlatforms((prev) => {
@@ -1263,44 +1250,6 @@ function InboxPage() {
                 </button>
               );
             })}
-            <div className="relative" ref={connectRef}>
-              <button
-                type="button"
-                onClick={() => setConnectOpen((o) => !o)}
-                className="w-10 h-10 rounded-lg flex items-center justify-center border-2 border-dashed border-neutral-300 bg-neutral-50 text-neutral-500 hover:bg-neutral-100 hover:border-neutral-400 transition-colors"
-                title="Add another platform"
-              >
-                <Plus size={22} />
-              </button>
-              {connectOpen && (
-                <div className="absolute top-full left-0 mt-1 w-72 py-1 bg-white border border-neutral-200 rounded-xl shadow-lg z-50">
-                  <p className="px-3 py-2 text-xs font-semibold text-neutral-500 uppercase tracking-wider">Add platform</p>
-                  <p className="px-3 py-1 text-xs text-neutral-500">Connect more accounts from the Dashboard. Inbox will show them here automatically.</p>
-                  {unconnectedPlatforms.length === 0 ? (
-                    <p className="px-3 py-3 text-sm text-neutral-500">All inbox platforms connected.</p>
-                  ) : (
-                    unconnectedPlatforms.map((p) => {
-                    const Icon = p.icon;
-                    return (
-                        <button
-                        key={p.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedPlatformForConnect(p.id);
-                          setConnectOpen(false);
-                            router.push('/dashboard');
-                          }}
-                          className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 text-left"
-                        >
-                          <Icon size={20} className={'color' in p && p.color ? `shrink-0 ${p.color}` : 'shrink-0'} />
-                          <span className="flex-1">Connect {p.label} (opens Dashboard)</span>
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
-              )}
-            </div>
           </div>
         </div>
 
