@@ -1,12 +1,25 @@
 'use client';
 
-import React from 'react';
-import { Users, Eye, FileText, Heart, Share2, TrendingUp } from 'lucide-react';
-import { AnalyticsKpiCard } from '../AnalyticsKpiCard';
-import { AnalyticsSectionHeader } from '../AnalyticsSectionHeader';
+import React, { useMemo } from 'react';
+import { Users, Eye, FileText, Heart } from 'lucide-react';
+import { AnalyticsGrid, AnalyticsGridItem } from '../AnalyticsGrid';
+import { AnalyticsCard } from '../AnalyticsCard';
+import { OverviewMetricCard } from '../OverviewMetricCard';
+import { VisibilityMetricsCard } from '../VisibilityMetricsCard';
 import { AnalyticsWatermarkedChart } from '../AnalyticsWatermarkedChart';
 import { AnalyticsUpgradeCard } from '../AnalyticsUpgradeCard';
 import { InteractiveLineChart } from '@/components/charts/InteractiveLineChart';
+import {
+  ComposedChart,
+  Bar,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip as RechartTooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+  Legend,
+} from 'recharts';
 import type { FacebookInsights, FacebookPost } from './types';
 
 interface FacebookOverviewTabProps {
@@ -58,148 +71,332 @@ export function FacebookOverviewTab({
       ? [{ date: dateRange.start || '', value: views }, { date: dateRange.end || '', value: views }]
       : [];
 
+  const growthChartData = useMemo(() => {
+    const postsByDate: Record<string, number> = {};
+    posts.forEach((p) => {
+      const d = p.publishedAt.slice(0, 10);
+      postsByDate[d] = (postsByDate[d] ?? 0) + 1;
+    });
+    const dateSet = new Set(displayFollowersSeries.map((x) => x.date));
+    displayFollowersSeries.forEach((x) => dateSet.add(x.date));
+    const sorted = Array.from(dateSet).sort();
+    let prevFollowers = followers;
+    return sorted.map((date) => {
+      const f = displayFollowersSeries.find((x) => x.date === date)?.value;
+      if (f !== undefined) prevFollowers = f;
+      return {
+        date,
+        followers: f ?? prevFollowers,
+        posts: postsByDate[date] ?? 0,
+      };
+    });
+  }, [displayFollowersSeries, posts, followers]);
+
+  const engagementByDate = useMemo(() => {
+    const map: Record<string, { likes: number; comments: number; shares: number }> = {};
+    posts.forEach((p) => {
+      const d = p.publishedAt.slice(0, 10);
+      if (!map[d]) map[d] = { likes: 0, comments: 0, shares: 0 };
+      map[d].likes += p.likeCount ?? 0;
+      map[d].comments += p.commentsCount ?? 0;
+      map[d].shares += p.sharesCount ?? 0;
+    });
+    return Object.entries(map)
+      .map(([date, v]) => ({ date, ...v }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [posts]);
+
+  const postsByDate = useMemo(() => {
+    const map: Record<string, number> = {};
+    posts.forEach((p) => {
+      const d = p.publishedAt.slice(0, 10);
+      map[d] = (map[d] ?? 0) + 1;
+    });
+    return Object.entries(map)
+      .map(([date, value]) => ({ date, value }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [posts]);
+
+  const visibilityMetrics = useMemo(() => {
+    const max = Math.max(views || 0, reach || 0, pageVisits || 0, 1);
+    return [
+      { label: 'Impressions', value: views || 0, percent: (views || 0) / max * 100 },
+      { label: 'Reach', value: reach || 0, percent: (reach || 0) / max * 100 },
+      { label: 'Profile Views', value: insights?.profileViewsTotal ?? 0, percent: ((insights?.profileViewsTotal ?? 0) / max) * 100 },
+      { label: 'Page Visits', value: pageVisits || 0, percent: (pageVisits || 0) / max * 100 },
+    ];
+  }, [views, reach, pageVisits, insights?.profileViewsTotal]);
+
+  const prevFollowers = Math.max(0, followers - netGrowth);
+  const trendPct = netGrowth !== 0 && prevFollowers > 0 ? `${(netGrowth / prevFollowers * 100).toFixed(1)}%` : (netGrowth !== 0 ? `${netGrowth >= 0 ? '+' : ''}${netGrowth}` : undefined);
+
   if (loading) {
     return (
-      <div className="space-y-10 animate-pulse">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="h-28 rounded-2xl bg-neutral-100" />
+      <div className="space-y-6 animate-pulse max-w-full" style={{ maxWidth: 1400 }}>
+        <AnalyticsGrid>
+          {[1, 2, 3, 4].map((i) => (
+            <AnalyticsGridItem key={i} span={3}>
+              <div className="h-28 rounded-2xl bg-neutral-100" />
+            </AnalyticsGridItem>
           ))}
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="h-72 rounded-2xl bg-neutral-100" />
-          <div className="h-72 rounded-2xl bg-neutral-100" />
-        </div>
+        </AnalyticsGrid>
+        <AnalyticsGrid>
+          <AnalyticsGridItem span={8}><div className="h-72 rounded-2xl bg-neutral-100" /></AnalyticsGridItem>
+          <AnalyticsGridItem span={4}><div className="h-72 rounded-2xl bg-neutral-100" /></AnalyticsGridItem>
+        </AnalyticsGrid>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 md:space-y-10 max-w-full" style={{ maxWidth: 1400 }}>
-      {/* Section A — Key summary cards */}
-      <section>
-        <AnalyticsSectionHeader title="Key metrics" subtitle="Summary for the selected period." />
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          <AnalyticsKpiCard
+    <div className="space-y-6 max-w-full" style={{ maxWidth: 1400 }}>
+      {/* Section 1 — Account Overview: 4 metric cards */}
+      <AnalyticsGrid>
+        <AnalyticsGridItem span={3}>
+          <OverviewMetricCard
+            type="followers"
             label="Followers"
-            value={formatNull(insights?.followers)}
-            trend={netGrowth !== 0 ? { direction: netGrowth >= 0 ? 'up' : 'down', value: `${netGrowth >= 0 ? '+' : ''}${netGrowth} this period` } : undefined}
-            accent="audience"
-            icon={<Users size={20} />}
+            value={formatNull(insights?.followers) ?? '—'}
+            trend={netGrowth !== 0 ? { direction: netGrowth >= 0 ? 'up' : 'down', value: trendPct ?? `${netGrowth >= 0 ? '+' : ''}${netGrowth}` } : undefined}
+            icon={<Users size={22} className="text-indigo-600" />}
           />
-          <AnalyticsKpiCard
-            label="Views"
-            value={formatNull(views)}
-            subtitle="Page impressions"
-            accent="visibility"
-            icon={<Eye size={20} />}
+        </AnalyticsGridItem>
+        <AnalyticsGridItem span={3}>
+          <OverviewMetricCard
+            type="reach"
+            label="Reach"
+            value={formatNull(reach) ?? '—'}
+            icon={<Eye size={22} className="text-cyan-600" />}
           />
-          <AnalyticsKpiCard
-            label="Page Visits"
-            value={formatNull(pageVisits) || '—'}
-            accent="visibility"
-          />
-          <AnalyticsKpiCard
-            label="Published Content"
-            value={posts.length}
-            subtitle={weeks ? `${(posts.length / weeks).toFixed(1)} per week` : undefined}
-            accent="content"
-            icon={<FileText size={20} />}
-          />
-          <AnalyticsKpiCard
+        </AnalyticsGridItem>
+        <AnalyticsGridItem span={3}>
+          <OverviewMetricCard
+            type="interactions"
             label="Interactions"
             value={totalInteractions}
-            subtitle={posts.length ? `Avg ${(totalInteractions / posts.length).toFixed(0)} per post` : undefined}
-            accent="engagement"
-            icon={<Heart size={20} />}
+            icon={<Heart size={22} className="text-rose-500" />}
           />
-          <AnalyticsKpiCard
-            label="Reach"
-            value={formatNull(reach) || '—'}
-            subtitle="Engaged users"
-            accent="engagement"
-            icon={<Share2 size={20} />}
+        </AnalyticsGridItem>
+        <AnalyticsGridItem span={3}>
+          <OverviewMetricCard
+            type="posts"
+            label="Posts"
+            value={posts.length}
+            icon={<FileText size={22} className="text-amber-600" />}
           />
-        </div>
-      </section>
+        </AnalyticsGridItem>
+      </AnalyticsGrid>
 
-      {/* Section B — Audience & visibility trends */}
-      <section>
-        <AnalyticsSectionHeader
-          title="Audience & visibility"
-          subtitle="Track how your Facebook audience and page visibility evolve over time."
-        />
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <AnalyticsWatermarkedChart title="Audience trend" height={260}>
-            <InteractiveLineChart
-              data={displayFollowersSeries}
-              height={240}
-              valueLabel="Followers"
-              color="#10b981"
-              crosshair
-              tooltipStyle="dark"
-            />
+      {/* Section 2 — Growth Analytics (span 8) + Visibility Metrics (span 4) */}
+      <AnalyticsGrid>
+        <AnalyticsGridItem span={8}>
+          <AnalyticsWatermarkedChart title="Audience Growth" height={280}>
+            <div className="w-full" style={{ height: 260 }}>
+              {growthChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={growthChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="followersGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#10b981" stopOpacity={0.3} />
+                        <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(107,114,128,0.08)" vertical={false} />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 11, fill: '#6b7280' }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(v) => new Date(v).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    />
+                    <YAxis yAxisId="left" tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} />
+                    <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} />
+                    <RechartTooltip
+                      content={({ active, payload, label }) => {
+                        if (!active || !payload?.length || !label) return null;
+                        return (
+                          <div className="bg-[#111827] text-white text-xs rounded-lg px-2.5 py-2 shadow-xl" style={{ borderRadius: 8 }}>
+                            <p className="text-neutral-300">{new Date(label).toLocaleDateString(undefined, { dateStyle: 'medium' })}</p>
+                            {payload.map((p) => (
+                              <p key={p.name} className="font-medium mt-0.5">{p.name}: {typeof p.value === 'number' ? p.value.toLocaleString() : p.value}</p>
+                            ))}
+                          </div>
+                        );
+                      }}
+                    />
+                    <Legend />
+                    <Bar yAxisId="right" dataKey="posts" name="Posts" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                    <Line
+                      yAxisId="left"
+                      type="monotone"
+                      dataKey="followers"
+                      name="Followers"
+                      stroke="#10b981"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-neutral-400 text-sm">No data for this period</div>
+              )}
+            </div>
           </AnalyticsWatermarkedChart>
-          <AnalyticsWatermarkedChart title="Visibility trend" height={260}>
-            <InteractiveLineChart
-              data={displayViewsSeries.length ? displayViewsSeries : [{ date: dateRange.start || '', value: 0 }, { date: dateRange.end || '', value: 0 }]}
-              height={240}
-              valueLabel="Views"
-              color="#6366f1"
-              crosshair
-              tooltipStyle="dark"
-            />
+        </AnalyticsGridItem>
+        <AnalyticsGridItem span={4}>
+          <VisibilityMetricsCard title="Visibility Metrics" metrics={visibilityMetrics} />
+        </AnalyticsGridItem>
+      </AnalyticsGrid>
+
+      {/* Section 4 + 5 — Engagement Over Time (span 6) + Content Activity (span 6) */}
+      <AnalyticsGrid>
+        <AnalyticsGridItem span={6}>
+          <AnalyticsWatermarkedChart title="Engagement Over Time" height={280}>
+            <div className="w-full" style={{ height: 260 }}>
+              {engagementByDate.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={engagementByDate} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(107,114,128,0.08)" vertical={false} />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 11, fill: '#6b7280' }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(v) => new Date(v).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    />
+                    <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} />
+                    <RechartTooltip
+                      content={({ active, payload, label }) => {
+                        if (!active || !payload?.length || !label) return null;
+                        return (
+                          <div className="bg-[#111827] text-white text-xs rounded-lg px-2.5 py-2 shadow-xl" style={{ borderRadius: 8 }}>
+                            <p className="text-neutral-300">{new Date(label).toLocaleDateString(undefined, { dateStyle: 'medium' })}</p>
+                            {payload.map((p) => (
+                              <p key={p.name} className="font-medium mt-0.5">{p.name}: {typeof p.value === 'number' ? p.value.toLocaleString() : p.value}</p>
+                            ))}
+                          </div>
+                        );
+                      }}
+                    />
+                    <Legend />
+                    <Line type="monotone" dataKey="likes" name="Likes" stroke="#f43f5e" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="comments" name="Comments" stroke="#a855f7" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="shares" name="Shares" stroke="#6366f1" strokeWidth={2} dot={false} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-neutral-400 text-sm">No engagement data yet</div>
+              )}
+            </div>
           </AnalyticsWatermarkedChart>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
-          <div className="rounded-xl bg-neutral-50 border border-neutral-100 px-4 py-3">
-            <p className="text-xs font-medium text-[#6b7280] uppercase tracking-wider">Avg daily new followers</p>
-            <p className="text-lg font-semibold text-[#111827] tabular-nums">{days ? (netGrowth / days).toFixed(1) : '—'}</p>
-          </div>
-          <div className="rounded-xl bg-neutral-50 border border-neutral-100 px-4 py-3">
-            <p className="text-xs font-medium text-[#6b7280] uppercase tracking-wider">Daily page views</p>
-            <p className="text-lg font-semibold text-[#111827] tabular-nums">{days && pageVisits ? (pageVisits / days).toFixed(1) : '—'}</p>
-          </div>
-          <div className="rounded-xl bg-neutral-50 border border-neutral-100 px-4 py-3">
-            <p className="text-xs font-medium text-[#6b7280] uppercase tracking-wider">Posts per week</p>
-            <p className="text-lg font-semibold text-[#111827] tabular-nums">{weeks ? (posts.length / weeks).toFixed(1) : '—'}</p>
-          </div>
-          <div className="rounded-xl bg-neutral-50 border border-neutral-100 px-4 py-3">
-            <p className="text-xs font-medium text-[#6b7280] uppercase tracking-wider">Avg interactions per post</p>
-            <p className="text-lg font-semibold text-[#111827] tabular-nums">{posts.length ? (totalInteractions / posts.length).toFixed(0) : '—'}</p>
-          </div>
-        </div>
-      </section>
+        </AnalyticsGridItem>
+        <AnalyticsGridItem span={6}>
+          <AnalyticsWatermarkedChart title="Publishing Activity" height={280}>
+            <div className="w-full" style={{ height: 220 }}>
+              {postsByDate.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={postsByDate} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(107,114,128,0.08)" vertical={false} />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 11, fill: '#6b7280' }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(v) => new Date(v).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    />
+                    <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} />
+                    <RechartTooltip
+                      content={({ active, payload, label }) => {
+                        if (!active || !payload?.length || !label) return null;
+                        return (
+                          <div className="bg-[#111827] text-white text-xs rounded-lg px-2.5 py-2 shadow-xl" style={{ borderRadius: 8 }}>
+                            <p className="text-neutral-300">{new Date(label).toLocaleDateString(undefined, { dateStyle: 'medium' })}</p>
+                            <p className="font-medium mt-0.5">Posts: {(payload[0]?.value ?? 0) as number}</p>
+                          </div>
+                        );
+                      }}
+                    />
+                    <Bar dataKey="value" name="Posts" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-neutral-400 text-sm">No posts in this period</div>
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-neutral-100">
+              <div>
+                <p className="text-xs font-medium text-[#6b7280] uppercase tracking-wider">Avg posts per week</p>
+                <p className="text-lg font-semibold text-[#111827] tabular-nums">{weeks ? (posts.length / weeks).toFixed(1) : '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-[#6b7280] uppercase tracking-wider">Total posts</p>
+                <p className="text-lg font-semibold text-[#111827] tabular-nums">{posts.length}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-[#6b7280] uppercase tracking-wider">Avg interactions per post</p>
+                <p className="text-lg font-semibold text-[#111827] tabular-nums">{posts.length ? (totalInteractions / posts.length).toFixed(0) : '—'}</p>
+              </div>
+            </div>
+          </AnalyticsWatermarkedChart>
+        </AnalyticsGridItem>
+      </AnalyticsGrid>
 
-      {/* Section C — Content activity snapshot */}
-      <section>
-        <AnalyticsSectionHeader title="Publishing performance" subtitle="How your posted content performed during the selected period." />
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-          <AnalyticsKpiCard label="Total posts" value={posts.length} accent="content" />
-          <AnalyticsKpiCard label="Avg. interactions per post" value={posts.length ? (totalInteractions / posts.length).toFixed(0) : '—'} accent="engagement" />
-          <AnalyticsKpiCard label="Total views on posts" value={posts.reduce((s, p) => s + (p.impressions ?? 0), 0)} accent="visibility" />
-          <AnalyticsKpiCard label="Avg reach per post" value={posts.length && reach ? (reach / posts.length).toFixed(0) : '—'} accent="visibility" />
-          <AnalyticsKpiCard label="Total reactions" value={posts.reduce((s, p) => s + (p.likeCount ?? 0), 0)} accent="engagement" />
-        </div>
-      </section>
+      {/* Section 8 — Top Performing Posts (3 columns) */}
+      {posts.length > 0 && (
+        <AnalyticsGrid>
+          <AnalyticsGridItem span={12}>
+            <p className="text-sm font-semibold text-[#111827] mb-4">Top Performing Posts</p>
+          </AnalyticsGridItem>
+          {[...posts]
+            .sort((a, b) => (b.impressions ?? 0) + (b.interactions ?? 0) - (a.impressions ?? 0) - (a.interactions ?? 0))
+            .slice(0, 6)
+            .map((post) => (
+              <AnalyticsGridItem key={post.id} span={4}>
+                <AnalyticsCard>
+                  <div className="flex gap-3">
+                    {post.thumbnailUrl ? (
+                      <img src={post.thumbnailUrl} alt="" className="w-14 h-14 rounded-lg object-cover shrink-0" />
+                    ) : (
+                      <div className="w-14 h-14 rounded-lg bg-neutral-100 shrink-0" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs text-[#6b7280] line-clamp-2">{post.content || 'Post'}</p>
+                      <div className="flex flex-wrap gap-2 mt-2 text-xs">
+                        <span className="text-[#111827] font-medium">{(post.impressions ?? 0).toLocaleString()} reach</span>
+                        <span className="text-rose-500">{(post.likeCount ?? 0).toLocaleString()} likes</span>
+                        <span className="text-purple-500">{(post.commentsCount ?? 0).toLocaleString()} comments</span>
+                      </div>
+                    </div>
+                  </div>
+                </AnalyticsCard>
+              </AnalyticsGridItem>
+            ))}
+        </AnalyticsGrid>
+      )}
 
-      {/* Section D — Export CTA */}
-      <section>
-        <AnalyticsUpgradeCard
-          title="Need shareable reports?"
-          description="Upgrade to export Facebook analytics without watermark."
-          ctaLabel="Upgrade plan"
-          onCta={onUpgrade}
-        />
-      </section>
+      {/* Upgrade CTA */}
+      <AnalyticsGrid>
+        <AnalyticsGridItem span={12}>
+          <AnalyticsUpgradeCard
+            title="Need shareable reports?"
+            description="Upgrade to export Facebook analytics without watermark."
+            ctaLabel="Upgrade plan"
+            onCta={onUpgrade}
+          />
+        </AnalyticsGridItem>
+      </AnalyticsGrid>
 
       {showPermissionsNotice && onReconnect && (
-        <AnalyticsUpgradeCard
-          title="More insights are available"
-          description="Connect Facebook Page insights permissions to unlock follower trends, views, reach, and growth charts."
-          ctaLabel="Reconnect account"
-          onCta={onReconnect}
-        />
+        <AnalyticsGrid>
+          <AnalyticsGridItem span={12}>
+            <AnalyticsUpgradeCard
+              title="More insights are available"
+              description="Connect Facebook Page insights permissions to unlock follower trends, views, reach, and growth charts."
+              ctaLabel="Reconnect account"
+              onCta={onReconnect}
+            />
+          </AnalyticsGridItem>
+        </AnalyticsGrid>
       )}
     </div>
   );

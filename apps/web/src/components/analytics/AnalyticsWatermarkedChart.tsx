@@ -19,16 +19,17 @@ export function AnalyticsWatermarkedChart({
   return (
     <div
       className={`
-        bg-white rounded-2xl border border-[rgba(0,0,0,0.06)] shadow-[0_2px_10px_rgba(0,0,0,0.04)]
+        bg-white rounded-2xl p-6 border border-[rgba(0,0,0,0.06)] shadow-[0_4px_16px_rgba(0,0,0,0.04)]
+        hover:translate-y-[-2px] hover:shadow-[0_6px_20px_rgba(0,0,0,0.06)] transition-all duration-150
         overflow-hidden relative ${className}
       `}
     >
       {title && (
-        <div className="px-6 pt-5 pb-1">
+        <div className="pb-2">
           <p className="text-sm font-semibold text-[#111827]">{title}</p>
         </div>
       )}
-      <div className="px-6 pb-6 pt-2 relative" style={{ minHeight: height }}>
+      <div className="relative" style={{ minHeight: height }}>
         {/* Watermark: centered, very low opacity, pointer-events none */}
         <div
           className="absolute inset-0 flex items-center justify-center pointer-events-none select-none"
