@@ -850,8 +850,8 @@ export default function DashboardPage() {
     ? ((insights?.impressionsTimeSeries?.length && insights.impressionsTimeSeries.some((d) => d.value > 0)) ? insights.impressionsTimeSeries : (plat?.timeSeries?.length ? plat.timeSeries : []))
     : (aggregatedInsights?.combinedTimeSeries ?? []);
   const effectivePageVisits = selectedAccount
-    ? (insights?.pageViewsTotal ?? aggregatedInsights?.totalPageViews ?? 0)
-    : (aggregatedInsights?.totalPageViews ?? 0);
+    ? (insights?.pageViewsTotal ?? insights?.profileViewsTotal ?? aggregatedInsights?.totalPageViews ?? aggregatedInsights?.totalProfileViews ?? 0)
+    : (aggregatedInsights?.totalPageViews ?? aggregatedInsights?.totalProfileViews ?? 0);
   const effectiveReach = selectedAccount
     ? (insights?.reachTotal ?? aggregatedInsights?.totalReach ?? 0)
     : (aggregatedInsights?.totalReach ?? 0);
@@ -1339,6 +1339,13 @@ export default function DashboardPage() {
                     </div>
                   ))}
                 </div>
+
+                {/* Hint when Page visitors / Impressions / Daily page views are missing (platform API or permissions) */}
+                {selectedAccount && (selectedAccount.platform === 'INSTAGRAM' || selectedAccount.platform === 'FACEBOOK') && (!effectivePageVisits && !effectiveProfileViews || !effectiveImpressions) && (
+                  <p className="text-xs text-neutral-500 mt-2">
+                    Page visitors, Profile visits, Impressions, and Daily page views come from the platform&apos;s Insights API. They may show as empty if the page is new, the date range has no data, or the app needs additional permissions (e.g. <strong>read_insights</strong> for Facebook, <strong>instagram_manage_insights</strong> for Instagram). Reconnect the account or try a different date range.
+                  </p>
+                )}
 
                 {/* Demographics: Country, Age, Gender */}
                 {(() => {
