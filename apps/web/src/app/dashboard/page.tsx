@@ -859,19 +859,22 @@ export default function DashboardPage() {
   const hasNonZeroSeries = effectiveTimeSeries.length > 0 && effectiveTimeSeries.some((d) => d.value > 0);
   const endDate = dateRange.end || new Date().toISOString().slice(0, 10);
   const startDate = dateRange.start || endDate;
-  // Views/impressions chart: use only impressions time series or fallback to views (never mix in followers)
+  // Views/impressions (or Tweets for X) chart: use time series or flat line so we always show a real chart like other platforms
+  const effectiveViewsOrTweets = isTwitter ? effectiveTweets : effectiveImpressions;
   const displayTimeSeries =
     hasNonZeroSeries
       ? effectiveTimeSeries
-      : effectiveImpressions > 0
-        ? [{ date: startDate, value: effectiveImpressions }, { date: endDate, value: effectiveImpressions }]
-        : [];
-  // Followers chart: use its own series so it never shows views. When we have no historical data, show flat line at current follower count.
+      : selectedAccount
+        ? [{ date: startDate, value: effectiveViewsOrTweets }, { date: endDate, value: effectiveViewsOrTweets }]
+        : effectiveImpressions > 0
+          ? [{ date: startDate, value: effectiveImpressions }, { date: endDate, value: effectiveImpressions }]
+          : [];
+  // Followers chart: use its own series. When we have no historical data, show flat line at current count (including 0) so X matches IG/FB.
   const followersTimeSeries = (insights as { followersTimeSeries?: Array<{ date: string; value: number }> })?.followersTimeSeries;
   const displayFollowersTimeSeries =
     followersTimeSeries?.length
       ? followersTimeSeries
-      : selectedAccount && (effectiveFollowers > 0 || effectiveImpressions > 0)
+      : selectedAccount
         ? [{ date: startDate, value: effectiveFollowers }, { date: endDate, value: effectiveFollowers }]
         : !selectedAccount && aggregatedInsights
           ? [{ date: startDate, value: effectiveFollowers }, { date: endDate, value: effectiveFollowers }]
