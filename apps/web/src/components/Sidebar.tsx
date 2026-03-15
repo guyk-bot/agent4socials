@@ -40,7 +40,7 @@ const PLATFORM_ICON: Record<string, React.ReactNode> = {
   LINKEDIN: <LinkedinIcon size={26} />,
 };
 
-const PLATFORM_ORDER = ['INSTAGRAM', 'FACEBOOK', 'TIKTOK', 'YOUTUBE', 'TWITTER', 'LINKEDIN'];
+const PLATFORM_ORDER = ['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'TWITTER', 'LINKEDIN'];
 
 type SidebarProps = {
   sidebarOpen?: boolean;

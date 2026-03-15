@@ -52,16 +52,21 @@ export async function GET(
       }
     );
     const data = res.data?.data;
+    const scopes = data?.scopes ?? [];
     const hasPublish = platform === 'INSTAGRAM'
-      ? (data?.scopes ?? []).some((s) => s.includes('content_publish') || s.includes('content publish'))
-      : (data?.scopes ?? []).some((s) => s.includes('manage_posts') || s.includes('manage posts'));
+      ? scopes.some((s) => s.includes('content_publish') || s.includes('content publish'))
+      : scopes.some((s) => s.includes('manage_posts') || s.includes('manage posts'));
+    const hasFacebookInsights = scopes.some((s) => s === 'read_insights' || s.includes('read_insights'));
+    const hasInstagramInsights = scopes.some((s) => s === 'instagram_manage_insights' || s.includes('instagram_manage_insights'));
     return NextResponse.json({
       platform,
       username: account.username,
       isValid: data?.is_valid ?? false,
-      scopes: data?.scopes ?? [],
+      scopes,
       expiresAt: data?.expires_at,
       hasPublishScope: hasPublish,
+      hasFacebookInsightsScope: hasFacebookInsights,
+      hasInstagramInsightsScope: hasInstagramInsights,
       raw: data,
     });
   } catch (err: unknown) {

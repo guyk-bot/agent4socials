@@ -1005,10 +1005,19 @@ export default function DashboardPage() {
                     setTokenDebugLoading(selectedAccount.id);
                     try {
                       const res = await api.get(`/social/accounts/${selectedAccount.id}/token-debug`);
-                      const d = res.data as { isValid?: boolean; scopes?: string[]; hasPublishScope?: boolean; expiresAt?: number };
+                      const d = res.data as {
+                        isValid?: boolean;
+                        scopes?: string[];
+                        hasPublishScope?: boolean;
+                        hasFacebookInsightsScope?: boolean;
+                        hasInstagramInsightsScope?: boolean;
+                        expiresAt?: number;
+                      };
                       const exp = d.expiresAt ? new Date(d.expiresAt * 1000).toISOString().slice(0, 10) : 'N/A';
                       const scopeList = (d.scopes ?? []).join(', ') || 'none';
-                      const msg = `Token valid: ${d.isValid ?? false}. Publish scope: ${d.hasPublishScope ? 'yes' : 'no'}. Expires: ${exp}. Scopes: ${scopeList}`;
+                      const fbInsights = d.hasFacebookInsightsScope ? 'yes' : 'no';
+                      const igInsights = d.hasInstagramInsightsScope ? 'yes' : 'no';
+                      const msg = `Token valid: ${d.isValid ?? false}. Publish scope: ${d.hasPublishScope ? 'yes' : 'no'}. Expires: ${exp}.\n\nFacebook Page insights (read_insights): ${fbInsights}.\nInstagram insights (instagram_manage_insights): ${igInsights}.\n\nAll scopes: ${scopeList}`;
                       setAlertMessage(msg);
                     } catch (e: unknown) {
                       const err = e as { response?: { data?: { message?: string; error?: string } } };

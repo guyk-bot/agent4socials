@@ -59,8 +59,8 @@ function FacebookSelectContent() {
 
   if (loading) {
     return (
-      <div className="max-w-md mx-auto mt-16 text-center">
-        <Loader2 className="w-10 h-10 animate-spin text-indigo-600 mx-auto mb-4" />
+      <div className="min-h-[80vh] flex flex-col items-center justify-center">
+        <Loader2 className="w-10 h-10 animate-spin text-[#1877F2] mb-4" />
         <p className="text-neutral-600">Loading your Pages…</p>
       </div>
     );
@@ -68,59 +68,67 @@ function FacebookSelectContent() {
 
   if (error || pages.length === 0) {
     return (
-      <div className="max-w-md mx-auto mt-16 card">
-        <p className="text-neutral-700">{error ?? 'No Pages found.'}</p>
-        <Link href="/dashboard" className="mt-4 inline-block btn-primary">
-          Back to Accounts
-        </Link>
+      <div className="min-h-[80vh] flex flex-col items-center justify-center px-4">
+        <div className="max-w-md w-full card">
+          <p className="text-neutral-700">{error ?? 'No Pages found.'}</p>
+          <Link href="/dashboard" className="mt-4 inline-block btn-primary">
+            Back to Accounts
+          </Link>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-md mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-neutral-900">Connect a Facebook Page</h1>
-        <p className="text-neutral-500 mt-1">Choose which Page you want to connect to Agent4Socials.</p>
-      </div>
-      <form onSubmit={handleSubmit} className="card space-y-4">
-        <div className="space-y-3">
-          {pages.map((page) => (
-            <label
-              key={page.id}
-              className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                selectedId === page.id ? 'border-indigo-500 bg-indigo-50' : 'border-neutral-200 hover:bg-neutral-50'
-              }`}
+    <div className="min-h-[80vh] flex flex-col items-center justify-center px-4">
+      <div className="w-full max-w-md space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-neutral-900">Connect a Facebook Page</h1>
+          <p className="text-neutral-500 mt-1">Choose which Page you want to connect to Agent4Socials.</p>
+        </div>
+        <form onSubmit={handleSubmit} className="card space-y-4">
+          <div className="space-y-3">
+            {pages.map((page) => (
+              <label
+                key={page.id}
+                className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                  selectedId === page.id ? 'border-[#1877F2] bg-[#E7F3FF]' : 'border-neutral-200 hover:bg-neutral-50'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="page"
+                  value={page.id}
+                  checked={selectedId === page.id}
+                  onChange={() => setSelectedId(page.id)}
+                  className="sr-only"
+                />
+                <div className="w-10 h-10 rounded-full bg-neutral-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {page.picture ? (
+                    <img src={page.picture} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <Facebook className="w-5 h-5 text-[#1877F2]" />
+                  )}
+                </div>
+                <span className="font-medium text-neutral-900">{page.name || 'Facebook Page'}</span>
+              </label>
+            ))}
+          </div>
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <div className="flex gap-3 pt-2">
+            <Link href="/dashboard" className="flex-1 text-center py-2 rounded-lg border border-neutral-300 text-neutral-700 hover:bg-neutral-50">
+              Cancel
+            </Link>
+            <button
+              type="submit"
+              disabled={!selectedId || submitting}
+              className="flex-1 py-2 rounded-lg font-medium text-white bg-[#1877F2] hover:bg-[#166FE5] active:bg-[#145BCC] disabled:opacity-50 transition-colors flex items-center justify-center"
             >
-              <input
-                type="radio"
-                name="page"
-                value={page.id}
-                checked={selectedId === page.id}
-                onChange={() => setSelectedId(page.id)}
-                className="sr-only"
-              />
-              <div className="w-10 h-10 rounded-full bg-neutral-200 flex items-center justify-center overflow-hidden flex-shrink-0">
-                {page.picture ? (
-                  <img src={page.picture} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <Facebook className="w-5 h-5 text-blue-600" />
-                )}
-              </div>
-              <span className="font-medium text-neutral-900">{page.name || 'Facebook Page'}</span>
-            </label>
-          ))}
-        </div>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <div className="flex gap-3 pt-2">
-          <Link href="/dashboard" className="flex-1 text-center py-2 rounded-lg border border-neutral-300 text-neutral-700 hover:bg-neutral-50">
-            Cancel
-          </Link>
-          <button type="submit" disabled={!selectedId || submitting} className="flex-1 btn-primary py-2 disabled:opacity-50">
-            {submitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Connect this Page'}
-          </button>
-        </div>
-      </form>
+              {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Connect this Page'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
