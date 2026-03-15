@@ -96,7 +96,7 @@ const SECTIONS: TableSection[] = [
     title: 'Brands',
     rows: [
       { feature: 'Brands included', free: '1', starter: '1', pro: '1' },
-      { feature: 'Additional brands', free: '—', starter: '+$5 / brand', pro: '+$3 / brand' },
+      { feature: 'Additional brands', free: '—', starter: '+$5/mo or $48/year', pro: '+$3/mo or $29/year' },
     ],
   },
 ];
