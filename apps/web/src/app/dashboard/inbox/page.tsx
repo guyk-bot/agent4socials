@@ -34,13 +34,12 @@ import {
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import { useAppData } from '@/context/AppDataContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
-import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
+import { InstagramIcon, FacebookIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
 
-// Inbox-relevant platforms (Comments: IG, FB, X, YouTube, TikTok, LinkedIn; Messages: IG + FB only).
+// Inbox-relevant platforms (Comments: IG, FB, X, YouTube, LinkedIn; Messages: IG + FB only). TikTok excluded (Display API has no comment text).
 const PLATFORMS = [
   { id: 'INSTAGRAM', label: 'Instagram', icon: InstagramIcon },
   { id: 'FACEBOOK', label: 'Facebook', icon: FacebookIcon },
-  { id: 'TIKTOK', label: 'TikTok', icon: TikTokIcon },
   { id: 'YOUTUBE', label: 'YouTube', icon: YoutubeIcon },
   { id: 'TWITTER', label: 'Twitter/X', icon: XTwitterIcon, color: 'text-neutral-800' },
   { id: 'LINKEDIN', label: 'LinkedIn', icon: LinkedinIcon },
@@ -637,17 +636,8 @@ function InboxPage() {
     if (platform) setSelectedPlatform(platform);
   }, [inboxMode, conversations, selectedConversationId]);
 
-  const commentsSupportedPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK' || p === 'TWITTER' || p === 'YOUTUBE' || p === 'TIKTOK' || p === 'LINKEDIN');
-  // TikTok's Display API does not expose comment text; only Research API (for approved researchers) does. So we never request TikTok comments and show a note when TikTok is selected.
-  const platformsToFetchCommentsBase =
-    commentsSupportedPlatforms.length === 1 && commentsSupportedPlatforms[0] === 'TIKTOK'
-      ? (effectiveAccounts
-          .map((a) => a.platform)
-          .filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK' || p === 'TWITTER' || p === 'YOUTUBE' || p === 'TIKTOK' || p === 'LINKEDIN') as string[])
-      : commentsSupportedPlatforms;
-  const platformsToFetchComments = platformsToFetchCommentsBase.filter((p) => p !== 'TIKTOK');
-  const tiktokOnlyFallback = platformsToFetchComments.length > 1 && commentsSupportedPlatforms.length === 1 && commentsSupportedPlatforms[0] === 'TIKTOK';
-  const tiktokSelectedForComments = commentsSupportedPlatforms.includes('TIKTOK');
+  const commentsSupportedPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK' || p === 'TWITTER' || p === 'YOUTUBE' || p === 'LINKEDIN');
+  const platformsToFetchComments = commentsSupportedPlatforms;
   useEffect(() => {
     if (platformsToFetchComments.length === 0) {
       setComments([]);
@@ -667,7 +657,7 @@ function InboxPage() {
         if (--pending === 0 && !cancelled) {
           setComments(merge.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
           setCommentsLoading(false);
-          setCommentsError(tiktokOnlyFallback && merge.length > 0 ? null : errorsFound[0] ?? null);
+          setCommentsError(errorsFound[0] ?? null);
         }
         return;
       }
@@ -678,7 +668,7 @@ function InboxPage() {
         merge.push(...withAccountId);
         if (--pending === 0 && !cancelled) {
           setComments(merge.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-          setCommentsError(tiktokOnlyFallback ? null : null);
+          setCommentsError(null);
           setCommentsLoading(false);
         }
         return;
@@ -695,9 +685,7 @@ function InboxPage() {
           if (apiError) errorsFound.push(apiError);
           if (--pending === 0) {
             setComments(merge.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-            setCommentsError(
-              tiktokOnlyFallback && merge.length > 0 ? null : (errorsFound.length > 0 ? errorsFound[0] : null)
-            );
+            setCommentsError(errorsFound.length > 0 ? errorsFound[0] : null);
             setCommentsLoading(false);
           }
       })
@@ -712,9 +700,7 @@ function InboxPage() {
           }
           if (--pending === 0) {
             setComments(merge.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-            setCommentsError(
-              tiktokOnlyFallback && merge.length > 0 ? null : (errorsFound[0] ?? 'Could not load comments.')
-            );
+            setCommentsError(errorsFound[0] ?? 'Could not load comments.');
             setCommentsLoading(false);
           }
         });
@@ -726,7 +712,7 @@ function InboxPage() {
     }
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [platformsToFetchComments.join(','), effectiveAccounts.map((a) => a.id).join(','), commentsRefreshKey, tiktokOnlyFallback]);
+  }, [platformsToFetchComments.join(','), effectiveAccounts.map((a) => a.id).join(','), commentsRefreshKey]);
 
   // Track unread comment ids: top-level comments not in persisted read set; new loads add to unread only if not read
   useEffect(() => {
@@ -963,12 +949,12 @@ function InboxPage() {
       );
     }
     if (inboxMode === 'comments' && commentsSupportedPlatforms.length === 0) {
-      return (
-        <div className="p-6 text-center">
-          <p className="text-sm text-neutral-500">Comments are available for Instagram, Facebook, X, and YouTube. Select one or more platforms above. TikTok comment text is only available via TikTok&apos;s Research API (for researchers), not the Display API this app uses. You can see TikTok comment counts in Analytics.</p>
-        </div>
-      );
-    }
+              return (
+            <div className="p-6 text-center">
+              <p className="text-sm text-neutral-500">Comments are available for Instagram, Facebook, X, YouTube, and LinkedIn. Select one or more platforms above.</p>
+            </div>
+              );
+            }
     if (selectedPlatforms.length === 0) {
       return (
         <div className="p-6 text-center">
@@ -986,7 +972,7 @@ function InboxPage() {
           </div>
         );
       }
-      if (commentsError && !(commentsSupportedPlatforms.length === 1 && commentsSupportedPlatforms[0] === 'TIKTOK')) {
+      if (commentsError) {
         return (
           <div className="p-4 space-y-3">
             <div className="rounded-xl border-2 border-amber-200 bg-amber-50 px-4 py-4">
@@ -1037,17 +1023,6 @@ function InboxPage() {
         );
       }
       if (comments.length === 0) {
-        if (commentsSupportedPlatforms.length === 1 && commentsSupportedPlatforms[0] === 'TIKTOK') {
-          return (
-            <div className="p-6 text-center">
-              <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-4 mb-4">
-                <p className="text-sm font-medium text-sky-900">TikTok comment text isn&apos;t available</p>
-                <p className="text-xs text-sky-700 mt-1">TikTok&apos;s Display API doesn&apos;t include comment text. You can see comment counts in Analytics.</p>
-              </div>
-              <p className="text-sm text-neutral-600">Select Instagram, Facebook, X, YouTube, or LinkedIn above to see comments from those platforms.</p>
-            </div>
-          );
-        }
         return (
           <div className="p-6 text-center">
             <MessageCircle size={40} className="mx-auto text-neutral-300 mb-3" />
@@ -1066,13 +1041,6 @@ function InboxPage() {
       }
       return (
         <>
-          {tiktokSelectedForComments && (
-            <div className="px-4 py-2.5 bg-sky-50 border-b border-sky-100 text-sm text-sky-800">
-              {tiktokOnlyFallback
-                ? "TikTok comment text isn't available in the API. Showing comments from your other platforms."
-                : "TikTok comment text isn't available in the API (Display API limitation). You can see comment counts in Analytics. Comments below are from your other selected platforms."}
-            </div>
-          )}
           <div className="divide-y divide-neutral-100">
             {(() => {
               const topLevelOnly = comments.filter((c) => !c.parentCommentId);
@@ -1240,12 +1208,7 @@ function InboxPage() {
             <RefreshCw size={16} />
             Refresh conversations
           </button>
-          {selectedPlatform === 'TIKTOK' && (
-            <p className="text-xs text-amber-700 mt-3 max-w-sm mx-auto bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-              TikTok inbox (DMs) are not available in the app. Use Instagram or Facebook to view and reply to messages here.
-            </p>
-          )}
-          {dmOrFbPlatforms.includes('INSTAGRAM') && selectedPlatform !== 'TIKTOK' && (
+              {dmOrFbPlatforms.includes('INSTAGRAM') && (
             <p className="text-xs text-amber-700 mt-3 max-w-sm mx-auto bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
               If you see Instagram DMs in Metricool but not here, Meta is only granting inbox access to apps with <strong>Advanced Access</strong>. Complete App Review for instagram_manage_messages to enable it in A4S.
             </p>
