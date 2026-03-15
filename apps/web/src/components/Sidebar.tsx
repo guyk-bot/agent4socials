@@ -13,7 +13,6 @@ import {
     Zap,
     Sparkles,
     PanelLeftClose,
-    Link2,
     HelpCircle,
 } from 'lucide-react';
 import api from '@/lib/api';
@@ -103,7 +102,6 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
   const isAutomationPage = pathname === '/dashboard/automation';
   const isHashtagPoolPage = pathname === '/dashboard/hashtag-pool';
   const isAiAssistantPage = pathname === '/dashboard/ai-assistant';
-  const isSmartLinksPage = pathname === '/dashboard/smart-links';
   const isSettingsPage = pathname === '/dashboard/settings';
   const isHelpPage = pathname === '/help';
 
@@ -273,25 +271,6 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
         >
           <Sparkles size={18} className="shrink-0" />
           <span>AI Assistant</span>
-        </Link>
-        )}
-        {isInboxPage ? (
-          <a
-            href="/dashboard/smart-links"
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isSmartLinksPage ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
-            style={isSmartLinksPage ? { color: accent } : undefined}
-          >
-            <Link2 size={18} className="shrink-0" />
-            <span>Smart Links</span>
-          </a>
-        ) : (
-        <Link
-          href="/dashboard/smart-links"
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isSmartLinksPage ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
-          style={isSmartLinksPage ? { color: accent } : undefined}
-        >
-          <Link2 size={18} className="shrink-0" />
-          <span>Smart Links</span>
         </Link>
         )}
         {isInboxPage ? (
