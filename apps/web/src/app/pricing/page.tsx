@@ -8,7 +8,6 @@ import {
   PricingHero,
   PricingBillingToggle,
   PricingCard,
-  PricingBrandAddons,
   PricingComparisonTable,
   PricingFAQ,
   PricingCTA,
@@ -112,8 +111,6 @@ export default function PricingPage() {
               </div>
             </div>
           </section>
-
-          <PricingBrandAddons billingInterval={billingInterval} />
 
           <PricingComparisonTable />
           <PricingFAQ />

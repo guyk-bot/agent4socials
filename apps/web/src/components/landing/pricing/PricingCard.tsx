@@ -117,13 +117,16 @@ export default function PricingCard({
         ))}
       </ul>
 
-      {/* Additional brands line */}
+      {/* Add-ons: additional brands */}
       {!isFree && (additionalBrandsMonthly != null || additionalBrandsYearly != null) && (
-        <p className="mt-4 text-xs text-neutral-500">
-          {billingInterval === 'monthly'
-            ? `+$${additionalBrandsMonthly} / brand monthly`
-            : `+$${additionalBrandsYearly} / brand yearly`}
-        </p>
+        <div className="mt-4 pt-4 border-t border-neutral-100">
+          <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-1">Add-ons</p>
+          <p className="text-sm text-neutral-600">
+            {billingInterval === 'monthly'
+              ? `+$${additionalBrandsMonthly} / brand monthly`
+              : `+$${additionalBrandsYearly} / brand yearly`}
+          </p>
+        </div>
       )}
 
       <button
