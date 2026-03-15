@@ -17,4 +17,4 @@ export { MetricLockBadge } from './MetricLockBadge';
 export { PlatformAnalyticsHeader } from './PlatformAnalyticsHeader';
 export type { PlatformAnalyticsHeaderProps, PlatformAnalyticsHeaderAccount } from './PlatformAnalyticsHeader';
 export { FacebookAnalyticsView } from './facebook/FacebookAnalyticsView';
-export type { FacebookAnalyticsViewProps, FacebookAnalyticsTabId } from './facebook/FacebookAnalyticsView';
+export type { FacebookAnalyticsViewProps } from './facebook/FacebookAnalyticsView';

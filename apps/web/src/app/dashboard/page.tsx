@@ -887,7 +887,7 @@ export default function DashboardPage() {
           ? [{ date: startDate, value: effectiveFollowers }, { date: endDate, value: effectiveFollowers }]
           : [];
   const maxImpressions = displayTimeSeries.length ? Math.max(...displayTimeSeries.map((d) => d.value), 1) : 1;
-  const showViewsHint = hasFbOrIg && effectiveFollowers > 0 && effectiveImpressions === 0 && !effectiveTimeSeries.some((d) => d.value > 0) && (selectedAccount?.platform === 'INSTAGRAM' || selectedAccount?.platform === 'FACEBOOK' || !selectedAccount);
+  const showViewsHint = hasFbOrIg && effectiveFollowers > 0 && effectiveImpressions === 0 && !effectiveTimeSeries.some((d) => d.value > 0) && (selectedAccount?.platform === 'INSTAGRAM' || !selectedAccount);
   const showTikTokFollowersHint = selectedAccount?.platform === 'TIKTOK' && effectiveFollowers === 0 && effectiveImpressions > 0;
 
   return (
@@ -1125,37 +1125,7 @@ export default function DashboardPage() {
               dateRange={dateRange}
               insightsLoading={!!(insightsLoading && selectedAccount && !insights)}
               postsLoading={importedPostsLoading}
-              insightsHint={insights?.insightsHint}
-              showPermissionsNotice={
-                selectedAccount?.platform === 'FACEBOOK' &&
-                (insights?.followers ?? 0) > 0 &&
-                (insights?.impressionsTotal ?? 0) === 0 &&
-                !(insights?.impressionsTimeSeries?.length && insights.impressionsTimeSeries.some((d: { value: number }) => d.value > 0))
-              }
-              onReconnect={async () => {
-                if (!selectedAccount || reconnectingId) return;
-                setReconnectingId(selectedAccount.id);
-                try {
-                  const res = await api.get(`/social/oauth/facebook/start`);
-                  const url = res?.data?.url;
-                  if (url && typeof url === 'string') window.location.href = url;
-                } catch (_) {}
-                setReconnectingId(null);
-              }}
               onUpgrade={() => router.push('/pricing')}
-              onSyncPosts={async () => {
-                if (!selectedAccount?.id) return;
-                setImportedPostsLoading(true);
-                try {
-                  const res = await api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: { sync: 1 } });
-                  setImportedPosts(res.data?.posts ?? []);
-                  setPostsSyncError(res.data?.syncError ?? null);
-                } catch (_) {
-                  setImportedPosts([]);
-                } finally {
-                  setImportedPostsLoading(false);
-                }
-              }}
             />
           ) : (
           <>

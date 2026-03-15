@@ -8,11 +8,11 @@ import { OverviewMetricCard } from '../OverviewMetricCard';
 import { VisibilityMetricsCard } from '../VisibilityMetricsCard';
 import { AnalyticsWatermarkedChart } from '../AnalyticsWatermarkedChart';
 import { AnalyticsUpgradeCard } from '../AnalyticsUpgradeCard';
-import { InteractiveLineChart } from '@/components/charts/InteractiveLineChart';
 import {
   ComposedChart,
   Bar,
   Line,
+  Area,
   XAxis,
   YAxis,
   Tooltip as RechartTooltip,
@@ -28,8 +28,6 @@ interface FacebookOverviewTabProps {
   dateRange: { start: string; end: string };
   loading: boolean;
   onUpgrade?: () => void;
-  onReconnect?: () => void;
-  showPermissionsNotice?: boolean;
 }
 
 function formatNull(value: number | undefined | null): string | number | null {
@@ -43,8 +41,6 @@ export function FacebookOverviewTab({
   dateRange,
   loading,
   onUpgrade,
-  onReconnect,
-  showPermissionsNotice,
 }: FacebookOverviewTabProps) {
   const start = dateRange.start ? new Date(dateRange.start) : null;
   const end = dateRange.end ? new Date(dateRange.end) : null;
@@ -62,9 +58,10 @@ export function FacebookOverviewTab({
   const impressionsSeries = insights?.impressionsTimeSeries ?? [];
   const hasImpressionsData = impressionsSeries.length > 0 && impressionsSeries.some((d) => d.value > 0);
   const followersSeries = (insights as { followersTimeSeries?: Array<{ date: string; value: number }> })?.followersTimeSeries;
+  const startValue = netGrowth !== 0 ? Math.max(0, followers - netGrowth) : 0;
   const displayFollowersSeries = followersSeries?.length
     ? followersSeries
-    : [{ date: dateRange.start || '', value: followers }, { date: dateRange.end || '', value: followers }];
+    : [{ date: dateRange.start || '', value: startValue }, { date: dateRange.end || '', value: followers }];
   const displayViewsSeries = hasImpressionsData
     ? impressionsSeries
     : views > 0
@@ -194,10 +191,10 @@ export function FacebookOverviewTab({
             <div className="w-full" style={{ height: 260 }}>
               {growthChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={growthChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <ComposedChart data={growthChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} isAnimationActive animationDuration={400}>
                     <defs>
                       <linearGradient id="followersGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#10b981" stopOpacity={0.3} />
+                        <stop offset="0%" stopColor="#10b981" stopOpacity={0.4} />
                         <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
                       </linearGradient>
                     </defs>
@@ -225,15 +222,18 @@ export function FacebookOverviewTab({
                       }}
                     />
                     <Legend />
-                    <Bar yAxisId="right" dataKey="posts" name="Posts" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                    <Line
+                    <Bar yAxisId="right" dataKey="posts" name="Posts" fill="#f59e0b" radius={[4, 4, 0, 0]} isAnimationActive animationDuration={400} />
+                    <Area
                       yAxisId="left"
                       type="monotone"
                       dataKey="followers"
                       name="Followers"
                       stroke="#10b981"
                       strokeWidth={2}
+                      fill="url(#followersGrad)"
                       dot={false}
+                      isAnimationActive
+                      animationDuration={400}
                     />
                   </ComposedChart>
                 </ResponsiveContainer>
@@ -255,7 +255,21 @@ export function FacebookOverviewTab({
             <div className="w-full" style={{ height: 260 }}>
               {engagementByDate.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={engagementByDate} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <ComposedChart data={engagementByDate} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} isAnimationActive animationDuration={400}>
+                    <defs>
+                      <linearGradient id="engagementLikesGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#f43f5e" stopOpacity={0.4} />
+                        <stop offset="100%" stopColor="#f43f5e" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="engagementCommentsGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#a855f7" stopOpacity={0.4} />
+                        <stop offset="100%" stopColor="#a855f7" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="engagementSharesGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#6366f1" stopOpacity={0.4} />
+                        <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(107,114,128,0.08)" vertical={false} />
                     <XAxis
                       dataKey="date"
@@ -279,9 +293,9 @@ export function FacebookOverviewTab({
                       }}
                     />
                     <Legend />
-                    <Line type="monotone" dataKey="likes" name="Likes" stroke="#f43f5e" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="comments" name="Comments" stroke="#a855f7" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="shares" name="Shares" stroke="#6366f1" strokeWidth={2} dot={false} />
+                    <Area type="monotone" dataKey="likes" name="Likes" stroke="#f43f5e" strokeWidth={2} fill="url(#engagementLikesGrad)" dot={false} isAnimationActive animationDuration={400} />
+                    <Area type="monotone" dataKey="comments" name="Comments" stroke="#a855f7" strokeWidth={2} fill="url(#engagementCommentsGrad)" dot={false} isAnimationActive animationDuration={400} />
+                    <Area type="monotone" dataKey="shares" name="Shares" stroke="#6366f1" strokeWidth={2} fill="url(#engagementSharesGrad)" dot={false} isAnimationActive animationDuration={400} />
                   </ComposedChart>
                 </ResponsiveContainer>
               ) : (
@@ -295,7 +309,7 @@ export function FacebookOverviewTab({
             <div className="w-full" style={{ height: 220 }}>
               {postsByDate.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={postsByDate} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <ComposedChart data={postsByDate} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} isAnimationActive animationDuration={400}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(107,114,128,0.08)" vertical={false} />
                     <XAxis
                       dataKey="date"
@@ -316,7 +330,7 @@ export function FacebookOverviewTab({
                         );
                       }}
                     />
-                    <Bar dataKey="value" name="Posts" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="value" name="Posts" fill="#f59e0b" radius={[4, 4, 0, 0]} isAnimationActive animationDuration={400} />
                   </ComposedChart>
                 </ResponsiveContainer>
               ) : (
