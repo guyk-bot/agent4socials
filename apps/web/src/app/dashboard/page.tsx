@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
 import { InteractiveLineChart } from '@/components/charts/InteractiveLineChart';
+import { FacebookAnalyticsView } from '@/components/analytics';
 import type { Demographics, GrowthDataPoint, TrafficSourceItem } from '@/types/analytics';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip as RechartTooltip,
@@ -1153,6 +1154,47 @@ export default function DashboardPage() {
 
       {analyticsTab === 'account' && (
         <div className="mt-6 space-y-6">
+          {selectedAccount?.platform === 'FACEBOOK' ? (
+            <FacebookAnalyticsView
+              insights={insights as import('@/components/analytics/facebook/types').FacebookInsights | null}
+              posts={importedPosts.filter((p: { platform: string }) => p.platform === 'FACEBOOK') as import('@/components/analytics/facebook/types').FacebookPost[]}
+              dateRange={dateRange}
+              insightsLoading={!!(insightsLoading && selectedAccount && !insights)}
+              postsLoading={importedPostsLoading}
+              insightsHint={insights?.insightsHint}
+              showPermissionsNotice={
+                selectedAccount?.platform === 'FACEBOOK' &&
+                (insights?.followers ?? 0) > 0 &&
+                (insights?.impressionsTotal ?? 0) === 0 &&
+                !(insights?.impressionsTimeSeries?.length && insights.impressionsTimeSeries.some((d: { value: number }) => d.value > 0))
+              }
+              onReconnect={async () => {
+                if (!selectedAccount || reconnectingId) return;
+                setReconnectingId(selectedAccount.id);
+                try {
+                  const res = await api.get(`/social/oauth/facebook/start`);
+                  const url = res?.data?.url;
+                  if (url && typeof url === 'string') window.location.href = url;
+                } catch (_) {}
+                setReconnectingId(null);
+              }}
+              onUpgrade={() => router.push('/pricing')}
+              onSyncPosts={async () => {
+                if (!selectedAccount?.id) return;
+                setImportedPostsLoading(true);
+                try {
+                  const res = await api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: { sync: 1 } });
+                  setImportedPosts(res.data?.posts ?? []);
+                  setPostsSyncError(res.data?.syncError ?? null);
+                } catch (_) {
+                  setImportedPosts([]);
+                } finally {
+                  setImportedPostsLoading(false);
+                }
+              }}
+            />
+          ) : (
+          <>
           <h2 className="text-lg font-semibold text-neutral-900">Account</h2>
           {effectiveInsightsLoading && <SkeletonAnalyticsCards />}
           {!effectiveInsightsLoading && (
@@ -1463,6 +1505,8 @@ export default function DashboardPage() {
               </div>
             );
           })()}
+          </>
+          )}
           </>
           )}
         </div>
