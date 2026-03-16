@@ -141,7 +141,11 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                 type="button"
                 onClick={() => {
                   setSelectedPlatformForConnect(platform);
-                  router.push(`/dashboard?connect=${connectParam}`);
+                  if (isInboxPage) {
+                    window.location.href = `/dashboard?connect=${connectParam}`;
+                  } else {
+                    router.push(`/dashboard?connect=${connectParam}`);
+                  }
                 }}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors ${
                   isPlatformSelected ? 'bg-white shadow-sm ring-1 ring-neutral-200' : 'hover:bg-white/70'
@@ -169,8 +173,11 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                     type="button"
                     onClick={() => {
                       setSelectedAccount(acc);
-                      if (isInboxPage) window.location.href = '/dashboard';
-                      else router.push('/dashboard');
+                      if (isInboxPage) {
+                        window.location.href = '/dashboard';
+                      } else {
+                        router.push('/dashboard');
+                      }
                     }}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors min-w-0 ${
                       isSelected ? 'bg-white shadow-sm ring-1 ring-neutral-200' : 'hover:bg-white/70'
@@ -335,7 +342,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
 
   return (
     <div
-      className={`${sidebarOpen ? 'flex' : 'hidden'} md:flex w-64 border-r border-neutral-200 flex-col fixed left-0 top-14 bottom-0 z-30 bg-white min-h-0 transition-[transform] duration-200`}
+      className={`${sidebarOpen ? 'flex' : 'hidden'} md:flex w-64 border-r border-neutral-200 flex-col fixed left-0 top-14 bottom-0 bg-white min-h-0 transition-[transform] duration-200 ${isInboxPage ? 'z-[40]' : 'z-30'}`}
       style={{ height: 'calc(100vh - 3.5rem)', backgroundColor: 'var(--wl-sidebar-bg, #ffffff)', color: text }}
     >
       {onSidebarToggle && (
