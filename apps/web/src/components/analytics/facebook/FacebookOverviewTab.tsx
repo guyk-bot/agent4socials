@@ -80,18 +80,32 @@ export function FacebookOverviewTab({
 
   return (
     <div className="max-w-full" style={{ maxWidth: 1200 }}>
-      {/* Upgrade banner when > 30 days */}
+      {/* Top upgrade CTA: unlock more than 30 days and remove watermarks */}
+      <div className="mb-6 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-indigo-800">
+          Upgrade to view more than 30 days of analytics and export reports without watermarks.
+        </p>
+        <button
+          type="button"
+          onClick={() => (onUpgrade ? onUpgrade() : window.location.assign('/pricing'))}
+          className="shrink-0 inline-flex px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
+        >
+          Upgrade
+        </button>
+      </div>
+
+      {/* Reminder when date range &gt; 30 days */}
       {showWatermark && (
-        <div className="mb-6 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-indigo-800">
-            You're viewing more than 30 days. Upgrade to remove watermarks and view full history.
+        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-amber-800">
+            You are viewing more than 30 days. Upgrade to remove watermarks and access full history.
           </p>
           <button
             type="button"
-            onClick={onUpgrade}
-            className="shrink-0 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
+            onClick={() => (onUpgrade ? onUpgrade() : window.location.assign('/pricing'))}
+            className="shrink-0 inline-flex px-3 py-1.5 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 transition-colors"
           >
-            Upgrade plan
+            Upgrade
           </button>
         </div>
       )}

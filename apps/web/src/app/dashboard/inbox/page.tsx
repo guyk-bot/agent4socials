@@ -679,14 +679,18 @@ function InboxPage() {
     }
   }, [inboxMode, selectedPlatform, platformsForMessages]);
 
-  // Auto-open the first conversation when the list loads (messages mode) so all conversations are one click away
+  // Auto-open the first conversation when the list loads (messages mode). Do not change selectedPlatform to avoid icon flashing.
+  const hasAutoOpenedRef = useRef(false);
   useEffect(() => {
     if (inboxMode !== 'messages' || !conversations.length || selectedConversationId) return;
+    if (hasAutoOpenedRef.current) return;
+    hasAutoOpenedRef.current = true;
     const first = conversations[0];
     setSelectedConversationId(first.id);
-    const platform = (first as Conversation & { platform?: string }).platform;
-    if (platform) setSelectedPlatform(platform);
   }, [inboxMode, conversations, selectedConversationId]);
+  useEffect(() => {
+    if (inboxMode !== 'messages' || !conversations.length) hasAutoOpenedRef.current = false;
+  }, [inboxMode, conversations.length]);
 
   const commentsSupportedPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK' || p === 'TWITTER' || p === 'YOUTUBE' || p === 'LINKEDIN');
   const platformsToFetchComments = commentsSupportedPlatforms;
@@ -1205,7 +1209,7 @@ function InboxPage() {
         </div>
       );
     }
-    if (conversationsError) {
+    if (conversationsError && conversations.length === 0) {
       const isTimeout = /Request timed out|timeout/i.test(conversationsError);
       const isAuthError = /401|Reconnect|access token|expired|permission/i.test(conversationsError);
       return (
@@ -1335,25 +1339,56 @@ function InboxPage() {
       );
     }
     return (
-      <MessagesConversationList
-        conversations={conversations}
-        inboxFilter={inboxFilter}
-        searchQuery={searchQuery}
-        dmOrFbPlatforms={dmOrFbPlatforms}
-        selectMode={selectMode}
-        selectedConversationIds={selectedConversationIds}
-        selectedConversationId={selectedConversationId}
-        unreadConversationIds={unreadConversationIds}
-        setSelectedPlatform={setSelectedPlatform}
-        setSelectedConversationId={setSelectedConversationId}
-        setSelectedConversationIds={setSelectedConversationIds}
-        setUnreadConversationIds={setUnreadConversationIds}
-        markConversationsAsRead={markConversationsAsRead}
-        setTotalUnreadMessages={setTotalUnreadMessages}
-        getConversationLastReadCounts={getConversationLastReadCounts}
-        setConversationLastReadCount={setConversationLastReadCount}
-        user={user}
-      />
+      <>
+        {conversationsError && conversations.length > 0 && (
+          <div className="p-3 border-b border-amber-200 bg-amber-50 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-amber-900">One platform could not load: {conversationsError}</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => { appData?.invalidateConversations?.(); setConversationsRefreshKey((k) => k + 1); }}
+                className="text-xs px-2 py-1 rounded bg-amber-200 text-amber-900 font-medium hover:bg-amber-300"
+              >
+                Retry
+              </button>
+              {/Reconnect|Facebook|permission|expired/i.test(conversationsError) && dmOrFbPlatforms.includes('FACEBOOK') && effectiveAccounts.some((a) => a.platform === 'FACEBOOK') && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const res = await api.get('/social/oauth/facebook/start');
+                      const url = res?.data?.url;
+                      if (url && typeof url === 'string') window.location.href = url;
+                    } catch (_) {}
+                  }}
+                  className="text-xs px-2 py-1 rounded bg-blue-600 text-white font-medium hover:bg-blue-700"
+                >
+                  Reconnect Facebook
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+        <MessagesConversationList
+          conversations={conversations}
+          inboxFilter={inboxFilter}
+          searchQuery={searchQuery}
+          dmOrFbPlatforms={dmOrFbPlatforms}
+          selectMode={selectMode}
+          selectedConversationIds={selectedConversationIds}
+          selectedConversationId={selectedConversationId}
+          unreadConversationIds={unreadConversationIds}
+          setSelectedPlatform={setSelectedPlatform}
+          setSelectedConversationId={setSelectedConversationId}
+          setSelectedConversationIds={setSelectedConversationIds}
+          setUnreadConversationIds={setUnreadConversationIds}
+          markConversationsAsRead={markConversationsAsRead}
+          setTotalUnreadMessages={setTotalUnreadMessages}
+          getConversationLastReadCounts={getConversationLastReadCounts}
+          setConversationLastReadCount={setConversationLastReadCount}
+          user={user}
+        />
+      </>
     );
   };
 
