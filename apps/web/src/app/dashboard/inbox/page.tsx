@@ -286,6 +286,7 @@ function InboxPage() {
   const previousTopLevelCommentIdsRef = useRef<Set<string>>(new Set());
   const previousConversationIdsRef = useRef<Set<string>>(new Set());
   const previousEngagementIdsRef = useRef<Set<string>>(new Set());
+  const conversationsLoadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Multi-select state for conversations
   const [selectedConversationIds, setSelectedConversationIds] = useState<Set<string>>(new Set());
@@ -640,7 +641,13 @@ function InboxPage() {
           }
         })
         .finally(() => {
-          if (pending === 0 && !cancelled) setConversationsLoading(false);
+          if (pending === 0 && !cancelled) {
+            if (conversationsLoadTimeoutRef.current) {
+              clearTimeout(conversationsLoadTimeoutRef.current);
+              conversationsLoadTimeoutRef.current = null;
+            }
+            setConversationsLoading(false);
+          }
         });
     });
 
@@ -648,8 +655,19 @@ function InboxPage() {
       setConversationsLoading(true);
       setConversationsError(null);
       setConversationsDebug(null);
+      conversationsLoadTimeoutRef.current = setTimeout(() => {
+        if (cancelled) return;
+        setConversationsLoading(false);
+        setConversationsError('Loading is taking longer than usual. Try refreshing.');
+      }, 18000);
     }
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (conversationsLoadTimeoutRef.current) {
+        clearTimeout(conversationsLoadTimeoutRef.current);
+        conversationsLoadTimeoutRef.current = null;
+      }
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dmOrFbPlatforms.join(','), effectiveAccounts.map((a) => a.id).join(','), conversationsRefreshKey, user?.id]);
 

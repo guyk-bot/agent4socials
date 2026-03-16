@@ -33,9 +33,8 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
 
   useEffect(() => {
     if (appData) return;
-    api.get<{ inbox?: number }>('/social/notifications').then((res) => {
-      const n = res.data?.inbox ?? 0;
-      setInboxCount(n);
+    api.get<{ inbox?: number }>('/social/notifications').then(() => {
+      setInboxCount(0);
     }).catch(() => setInboxCount(0));
   }, [pathname, appData]);
 

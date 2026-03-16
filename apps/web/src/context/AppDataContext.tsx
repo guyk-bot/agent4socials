@@ -214,7 +214,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         await Promise.all([
           api.get<{ inbox?: number; comments?: number; messages?: number; byPlatform?: Record<string, { comments: number; messages: number }> }>('/social/notifications').then((r) => {
             if (!cancelled) setNotificationsState({
-              inbox: r.data?.inbox ?? 0,
+              inbox: 0,
               comments: r.data?.comments ?? 0,
               messages: r.data?.messages ?? 0,
               byPlatform: r.data?.byPlatform ?? {},
