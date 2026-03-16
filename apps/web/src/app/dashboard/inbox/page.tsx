@@ -378,23 +378,23 @@ function InboxPage() {
 
   const effectiveAccounts = (cachedAccounts as Account[]).length > 0 ? (cachedAccounts as Account[]) : accounts;
   const connectedPlatformIds = effectiveAccounts.map((a) => a.platform).filter(Boolean);
+  const hasRestoredPlatformsRef = useRef(false);
   useEffect(() => {
     if (connectedPlatformIds.length === 0) return;
+    if (hasRestoredPlatformsRef.current) return;
+    hasRestoredPlatformsRef.current = true;
     const stored = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('agent4socials_inbox_platforms') : null;
     const parsed: string[] = stored ? (() => { try { const a = JSON.parse(stored); return Array.isArray(a) ? a : []; } catch { return []; } })() : [];
     const valid = parsed.filter((p) => connectedPlatformIds.includes(p));
     if (valid.length > 0) {
       setSelectedPlatforms(valid);
-      if (!selectedPlatform || !valid.includes(selectedPlatform)) setSelectedPlatform(valid[0] ?? null);
+      setSelectedPlatform(valid[0] ?? null);
       return;
     }
-    if (selectedPlatforms.length === 0) {
-      setSelectedPlatforms(connectedPlatformIds);
-      setSelectedPlatform(connectedPlatformIds[0] ?? null);
-    }
-  }, [connectedPlatformIds.join(','), selectedPlatforms.length]);
+    setSelectedPlatforms(connectedPlatformIds);
+    setSelectedPlatform(connectedPlatformIds[0] ?? null);
+  }, [connectedPlatformIds.join(',')]);
 
-  // Fallback: ensure we have a selection whenever we have connected accounts (fixes race where icons show but click does nothing)
   useEffect(() => {
     if (connectedPlatformIds.length > 0 && selectedPlatforms.length === 0) {
       setSelectedPlatforms(connectedPlatformIds);
@@ -1412,10 +1412,10 @@ function InboxPage() {
                     e.stopPropagation();
                     handlePlatformClick(p.id);
                   }}
-                  className={`w-10 h-10 rounded-lg flex items-center justify-center border transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-neutral-300 focus:ring-offset-1 ${
-                    isSelected ? 'bg-neutral-200 border-neutral-300' : 'bg-white border-neutral-200 hover:bg-neutral-50'
+                  className={`w-10 h-10 rounded-lg flex items-center justify-center border cursor-pointer focus:outline-none select-none ${
+                    isSelected ? 'bg-neutral-300 border-neutral-400' : 'bg-white border-neutral-200 hover:bg-neutral-100'
                   }`}
-                  title={`${p.label} inbox`}
+                  title={isSelected ? `Hide ${p.label}` : `Show ${p.label}`}
                 >
                   <Icon size={22} className={'color' in p ? p.color : undefined} />
                 </button>
