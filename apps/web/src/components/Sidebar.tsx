@@ -4,7 +4,7 @@ import React, { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-    ListChecks,
+    BarChart3,
     FileText,
     Hash,
     Settings,
@@ -124,7 +124,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
           }`}
           style={isSummaryView ? { color: accent } : undefined}
         >
-          <ListChecks size={18} className="shrink-0" />
+          <BarChart3 size={18} className="shrink-0" />
           Analytics
           {isSummaryView && <ChevronRight size={14} className="ml-auto opacity-70" />}
         </button>
