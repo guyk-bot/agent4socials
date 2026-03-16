@@ -1068,9 +1068,11 @@ export default function DashboardPage() {
                   const platformJustDisconnected = selectedAccount.platform;
                   const label = selectedAccount.username || selectedAccount.platform;
                   const previousAccounts = (cachedAccounts as SocialAccount[]) ?? [];
+                  setDisconnectConfirmOpen(false);
                   setDisconnectingId(selectedAccount.id);
                   setDisconnectingLabel(label);
-                  setDisconnectConfirmOpen(false);
+                  const minLoadingMs = 1500;
+                  const start = Date.now();
                   setSelectedPlatformForConnect(platformJustDisconnected);
                   setCachedAccounts(previousAccounts.filter((a) => a.id !== accountIdToRemove));
                   setInsights(null);
@@ -1090,8 +1092,10 @@ export default function DashboardPage() {
                     const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Could not disconnect. Try again.';
                     setAlertMessage(msg);
                   } finally {
-                    setDisconnectingId(null);
-                    setDisconnectingLabel(null);
+                    const elapsed = Date.now() - start;
+                    const wait = Math.max(0, minLoadingMs - elapsed);
+                    if (wait > 0) setTimeout(() => { setDisconnectingId(null); setDisconnectingLabel(null); }, wait);
+                    else { setDisconnectingId(null); setDisconnectingLabel(null); }
                   }
                 }}
               />
