@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
-
-const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const MODEL = 'openai/gpt-4.1-mini';
+import { openAiChat } from '@/lib/openai-client';
 
 function buildSystemPrompt(brand: {
   targetAudience: string | null;
@@ -62,10 +60,9 @@ function getPlatformHint(platform: string): string {
 }
 
 export async function POST(request: NextRequest) {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey?.trim()) {
+  if (!process.env.OPENAI_API_KEY?.trim()) {
     return NextResponse.json(
-      { message: 'AI description generation is not configured (OPENROUTER_API_KEY)' },
+      { message: 'AI description generation is not configured (OPENAI_API_KEY)' },
       { status: 503 }
     );
   }
@@ -116,42 +113,23 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const payload = {
-    model: MODEL,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userContent },
-    ],
-    max_tokens: includeCtaAndAutomation ? 600 : 500,
-  };
-
-  const res = await fetch(OPENROUTER_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-      'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || '',
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    console.error('[OpenRouter]', res.status, errText);
+  let raw: string;
+  try {
+    const result = await openAiChat(
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userContent },
+      ],
+      { max_tokens: includeCtaAndAutomation ? 600 : 500 }
+    );
+    raw = result.content;
+  } catch (e) {
+    console.error('[OpenAI] generate-description', e instanceof Error ? e.message : e);
     return NextResponse.json(
       { message: 'AI service error. Try again later.' },
       { status: 502 }
     );
   }
-
-  const data = (await res.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-    error?: { message?: string };
-  };
-  if (data.error?.message) {
-    return NextResponse.json({ message: data.error.message }, { status: 502 });
-  }
-  let raw = data.choices?.[0]?.message?.content?.trim() ?? '';
 
   if (includeCtaAndAutomation) {
     const jsonMatch = raw.match(/\{[\s\S]*\}/);

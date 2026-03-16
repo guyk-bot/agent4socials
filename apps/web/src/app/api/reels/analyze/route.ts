@@ -16,10 +16,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
 
-  const apiKey = process.env.OPENROUTER_API_KEY?.trim();
-  if (!apiKey) {
+  if (!process.env.OPENAI_API_KEY?.trim()) {
     return NextResponse.json(
-      { message: 'Reel analysis is not configured (OPENROUTER_API_KEY).' },
+      { message: 'Reel analysis is not configured (OPENAI_API_KEY).' },
       { status: 503 }
     );
   }
@@ -80,7 +79,7 @@ export async function POST(request: NextRequest) {
         metadata,
         transcript,
       },
-      { openRouterApiKey: apiKey }
+      {}
     );
 
     return NextResponse.json({

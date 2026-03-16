@@ -31,6 +31,8 @@ import {
   markEngagementAsRead,
   getInboxInitializedAccountIds,
   addInboxInitializedAccount,
+  getInboxInitializedAccountIdsForConversations,
+  addInboxInitializedAccountForConversations,
 } from '@/lib/inbox-read-state';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import { useAppData } from '@/context/AppDataContext';
@@ -389,7 +391,15 @@ function InboxPage() {
       setSelectedPlatforms(connectedPlatformIds);
       setSelectedPlatform(connectedPlatformIds[0] ?? null);
     }
-  }, [connectedPlatformIds.join(',')]);
+  }, [connectedPlatformIds.join(','), selectedPlatforms.length]);
+
+  // Fallback: ensure we have a selection whenever we have connected accounts (fixes race where icons show but click does nothing)
+  useEffect(() => {
+    if (connectedPlatformIds.length > 0 && selectedPlatforms.length === 0) {
+      setSelectedPlatforms(connectedPlatformIds);
+      setSelectedPlatform(connectedPlatformIds[0] ?? null);
+    }
+  }, [connectedPlatformIds.join(','), selectedPlatforms.length]);
 
   useEffect(() => {
     if (selectedPlatforms.length > 0 && typeof sessionStorage !== 'undefined') {
@@ -399,7 +409,8 @@ function InboxPage() {
 
   const connectedPlatforms = PLATFORMS.filter((p) => effectiveAccounts.some((a) => a.platform === p.id));
   const platformsForMessages = connectedPlatforms.filter((p) => p.id === 'INSTAGRAM' || p.id === 'FACEBOOK');
-  const platformsToShow = inboxMode === 'messages' ? platformsForMessages : connectedPlatforms;
+  // Always show all connected platform icons so the user can always click something (in messages mode, non-IG/FB show a hint in the main area)
+  const platformsToShow = connectedPlatforms;
   const byPlatform = appData?.notifications?.byPlatform ?? notifications.byPlatform ?? {};
   const effectiveNotifications = selectedPlatforms.length > 0
     ? {
@@ -546,7 +557,19 @@ function InboxPage() {
       const fromCache = appData?.getConversations(account.id);
       const useCache = fromCache !== undefined && fromCache !== null;
       if (useCache) {
-        merge.push(...fromCache.map((c) => ({ ...c, platform })));
+        const list = fromCache.map((c) => ({ ...c, platform }));
+        merge.push(...list);
+        if (list.length > 0 && user?.id) {
+          const initialized = getInboxInitializedAccountIdsForConversations(user.id);
+          if (!initialized.has(account.id)) {
+            const ids = list.map((c) => c.id);
+            markConversationsAsRead(ids, user.id);
+            list.forEach((c) => {
+              if (typeof c.messageCount === 'number') setConversationLastReadCount(c.id, c.messageCount!, user.id);
+            });
+            addInboxInitializedAccountForConversations(account.id, user.id);
+          }
+        }
         if (--pending === 0 && !cancelled) {
           setConversations(merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? '')));
     setConversationsError(null);
@@ -566,6 +589,17 @@ function InboxPage() {
             debugs.push(res.data.debug as { rawMessage?: string; code?: number; responseData?: unknown; metaMessage?: string });
           }
           if (!res.data?.error) appData?.setConversationsForAccount(account.id, res.data?.conversations ?? []);
+          if (!res.data?.error && list.length > 0 && user?.id) {
+            const initialized = getInboxInitializedAccountIdsForConversations(user.id);
+            if (!initialized.has(account.id)) {
+              const ids = list.map((c) => c.id);
+              markConversationsAsRead(ids, user.id);
+              list.forEach((c) => {
+                if (typeof c.messageCount === 'number') setConversationLastReadCount(c.id, c.messageCount, user.id);
+              });
+              addInboxInitializedAccountForConversations(account.id, user.id);
+            }
+          }
           if (--pending === 0) {
             setConversations(merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? '')));
             setConversationsError(errors[0] ?? null);
@@ -614,7 +648,7 @@ function InboxPage() {
     }
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dmOrFbPlatforms.join(','), effectiveAccounts.map((a) => a.id).join(','), conversationsRefreshKey]);
+  }, [dmOrFbPlatforms.join(','), effectiveAccounts.map((a) => a.id).join(','), conversationsRefreshKey, user?.id]);
 
   // When in Messages mode, do not keep Twitter selected (Messages are IG + FB only)
   useEffect(() => {
@@ -1304,10 +1338,10 @@ function InboxPage() {
 
   return (
     <div className="flex h-[calc(100vh-3.5rem-3rem)] md:h-[calc(100vh-3.5rem-4rem)] bg-white flex-col md:flex-row -mx-4 sm:-mx-6 md:-mx-8 -my-6 md:-my-8">
-      {/* Left sidebar - Metricool style */}
-      <div className="w-full md:w-80 border-r border-neutral-200 flex flex-col shrink-0 bg-white">
+      {/* Left sidebar - Metricool style; relative z-10 so nothing overlaps and blocks clicks */}
+      <div className="relative z-10 w-full md:w-80 border-r border-neutral-200 flex flex-col shrink-0 bg-white">
         {/* Platform icons + Connect */}
-        <div className="p-3 border-b border-neutral-100">
+        <div className="p-3 border-b border-neutral-100 shrink-0">
           <div className="flex items-center gap-2 flex-wrap">
             {platformsToShow.map((p) => {
               const Icon = p.icon;
@@ -1316,8 +1350,12 @@ function InboxPage() {
                 <button
                   key={p.id}
                   type="button"
-                  onClick={() => handlePlatformClick(p.id)}
-                  className={`w-10 h-10 rounded-lg flex items-center justify-center border transition-colors ${
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handlePlatformClick(p.id);
+                  }}
+                  className={`w-10 h-10 rounded-lg flex items-center justify-center border transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 ${
                     isSelected ? 'bg-neutral-100 border-neutral-300 ring-1 ring-neutral-200' : 'border-neutral-200 hover:bg-neutral-50'
                   }`}
                   title={`${p.label} inbox`}
@@ -1564,6 +1602,16 @@ function InboxPage() {
               <h2 className="text-lg font-semibold text-neutral-800">Open an inbox</h2>
               <p className="text-sm text-neutral-500 mt-2">
                 Click Instagram or Facebook to view direct messages, or any connected platform to view comments.
+              </p>
+            </div>
+          </div>
+        ) : inboxMode === 'messages' && selectedPlatform && !platformsForMessages.some((p) => p.id === selectedPlatform) ? (
+          <div className="flex-1 flex items-center justify-center p-8">
+            <div className="text-center max-w-sm">
+              <MessageCircle size={64} className="mx-auto text-neutral-300 mb-4" />
+              <h2 className="text-lg font-semibold text-neutral-800">Direct messages</h2>
+              <p className="text-sm text-neutral-500 mt-2">
+                Direct messages are only available for Instagram and Facebook. Switch to the Comments tab for this platform, or connect Instagram or Facebook to view DMs.
               </p>
             </div>
           </div>
@@ -2018,7 +2066,7 @@ function InboxPage() {
                         else setAiReplyError('No reply generated. Try again.');
                       } catch (e: unknown) {
                         const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
-                        setAiReplyError(msg ?? 'Could not generate reply. Check that OPENROUTER_API_KEY is set.');
+                        setAiReplyError(msg ?? 'Could not generate reply. Check that OPENAI_API_KEY is set.');
                       } finally {
                         setAiReplyLoading(false);
                       }
@@ -2396,7 +2444,7 @@ function InboxPage() {
                         else setAiReplyError('No reply generated. Try again.');
                       } catch (e: unknown) {
                         const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
-                        setAiReplyError(msg ?? 'Could not generate reply. Check that OPENROUTER_API_KEY is set.');
+                        setAiReplyError(msg ?? 'Could not generate reply. Check that OPENAI_API_KEY is set.');
                       } finally {
                         setAiReplyLoading(false);
                       }

@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
-
-const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const MODEL = 'openai/gpt-4.1-mini';
+import { openAiChat } from '@/lib/openai-client';
 
 function buildSystemPrompt(brand: {
   targetAudience: string | null;
@@ -55,10 +53,9 @@ function cleanGeneratedText(text: string): string {
  * Body: { videoUrl?, transcript?, durationSec? }
  */
 export async function POST(request: NextRequest) {
-  const apiKey = process.env.OPENROUTER_API_KEY?.trim();
-  if (!apiKey) {
+  if (!process.env.OPENAI_API_KEY?.trim()) {
     return NextResponse.json(
-      { message: 'Caption generation is not configured (OPENROUTER_API_KEY).' },
+      { message: 'Caption generation is not configured (OPENAI_API_KEY).' },
       { status: 503 }
     );
   }
@@ -112,40 +109,23 @@ export async function POST(request: NextRequest) {
   }
   userParts.push('Output only the caption text, nothing else.');
 
-  const res = await fetch(OPENROUTER_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-      'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || '',
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [
+  let raw: string;
+  try {
+    const result = await openAiChat(
+      [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userParts.join('\n\n') },
       ],
-      max_tokens: 300,
-    }),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    console.error('[reels/generate-caption]', res.status, errText);
+      { max_tokens: 300 }
+    );
+    raw = result.content;
+  } catch (e) {
+    console.error('[OpenAI] reels/generate-caption', e instanceof Error ? e.message : e);
     return NextResponse.json(
       { message: 'AI service error. Try again later.' },
       { status: 502 }
     );
   }
-
-  const data = (await res.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-    error?: { message?: string };
-  };
-  if (data.error?.message) {
-    return NextResponse.json({ message: data.error.message }, { status: 502 });
-  }
-  const raw = data.choices?.[0]?.message?.content?.trim() ?? '';
   const content = cleanGeneratedText(raw);
   return NextResponse.json({ content });
 }

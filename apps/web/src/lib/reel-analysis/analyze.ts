@@ -11,12 +11,11 @@ import {
   buildRiskFactors,
 } from './scoring';
 import { generateReelAnalysisPrompt } from './prompt';
-
-const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const MODEL = 'openai/gpt-4.1-mini';
+import { openAiChat } from '@/lib/openai-client';
 
 export interface AnalyzeReelOptions {
-  openRouterApiKey: string;
+  /** @deprecated Use OPENAI_API_KEY env instead */
+  openRouterApiKey?: string;
 }
 
 /**
@@ -34,35 +33,13 @@ export async function analyzeReel(
     input.targetPlatform
   );
 
-  const res = await fetch(OPENROUTER_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${options.openRouterApiKey}`,
-      'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || '',
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ],
-      max_tokens: 1600,
-      response_format: { type: 'json_object' },
-    }),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`AI analysis failed: ${res.status} ${errText}`);
-  }
-
-  const data = (await res.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-    error?: { message?: string };
-  };
-  if (data.error?.message) throw new Error(data.error.message);
-  const raw = data.choices?.[0]?.message?.content?.trim() ?? '';
+  const { content: raw } = await openAiChat(
+    [
+      { role: 'system', content: system },
+      { role: 'user', content: user },
+    ],
+    { max_tokens: 1600, response_format: { type: 'json_object' } }
+  );
 
   const parsed = parseAiJson(raw);
   const technicalReadiness = technical.score;

@@ -8,7 +8,7 @@ export default function PrivacyPage() {
       <SiteHeader />
       <main className="mx-auto max-w-3xl px-4 pt-24 pb-20 sm:px-6">
         <h1 className="text-3xl font-bold sm:text-4xl">Privacy Policy</h1>
-        <p className="mt-4 text-slate-400">Last updated: February 2025</p>
+        <p className="mt-4 text-slate-400">Last updated: March 2025</p>
 
         <div className="mt-10 space-y-10 text-slate-300">
           <section>
@@ -31,7 +31,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-xl font-semibold text-white">3. How we use your data</h2>
             <p className="mt-3 leading-relaxed">
-              We use your data to provide the Service: scheduling and publishing posts; displaying analytics; unified inbox and replying to messages; comment automation (auto-reply when someone comments a keyword, including optional DM replies on Instagram) and welcome/new-follower messages; hashtag pool and AI Assistant features. We also use data to improve the Service, communicate with you, ensure security and prevent abuse, and comply with legal obligations. We may use aggregated or anonymized data for product improvement.
+              We use your data to provide the Service: scheduling and publishing posts; displaying analytics; unified inbox and replying to messages; comment automation (auto-reply when someone comments a keyword, including optional DM replies on Instagram) and welcome/new-follower messages; hashtag pool and AI Assistant features (e.g. AI-generated post descriptions and reply drafts, powered by OpenAI). We also use data to improve the Service, communicate with you, ensure security and prevent abuse, and comply with legal obligations. We may use aggregated or anonymized data for product improvement. <strong className="text-white">Google User Data that we send to third-party AI providers is not used to train generalized AI or machine learning models.</strong>
             </p>
           </section>
 
@@ -39,6 +39,9 @@ export default function PrivacyPage() {
             <h2 className="text-xl font-semibold text-white">4. Sharing and disclosure</h2>
             <p className="mt-3 leading-relaxed">
               We share data only as needed: (a) with the social platforms you connect (Meta, TikTok, Google, X, LinkedIn) to post content, reply to comments, send messages, and retrieve analytics and inbox data on your behalf; (b) with service providers (hosting, payments, email) under strict confidentiality; (c) if required by law or to protect our rights and safety. We do not sell or rent your personal information to third parties.
+            </p>
+            <p className="mt-3 leading-relaxed">
+              <strong className="text-white">AI processing (OpenAI).</strong> We use OpenAI&apos;s API to power optional AI-assisted features such as post description suggestions, inbox and comment reply drafts, and reel caption and analysis. When you use these features, we send only the minimal content necessary (e.g. your brand context, the post topic or message text you choose to process) to OpenAI to generate suggestions. We use a service tier and configuration that <strong className="text-white">guarantees your data is not used to train generalized AI or machine learning models</strong>. Under the Google API Services User Data Policy&apos;s Limited Use requirements, we are responsible for ensuring that any third party we share Google User Data with complies with these restrictions; we share Google User Data with OpenAI only as described above, and we have ensured that the specific service tier and configuration we use with OpenAI guarantees that such data is not used to train generalized AI or machine learning models.
             </p>
           </section>
 
