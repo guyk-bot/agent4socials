@@ -106,9 +106,11 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
   const isHelpPage = pathname === '/help';
 
   const handleSummaryClick = () => {
-    clearSelection();
-    if (isInboxPage) window.location.href = '/dashboard/summary';
-    else router.push('/dashboard/summary');
+    if (isInboxPage) {
+      window.location.href = '/dashboard/summary';
+      return;
+    }
+    router.push('/dashboard/summary');
   };
 
   const sidebarContent = (

@@ -310,13 +310,17 @@ export default function DashboardPage() {
   const accountIdFromUrl = searchParams.get('accountId');
   const twitter1oaNext = searchParams.get('twitter_1oa_next');
   const connectParam = searchParams.get('connect');
+  const ALLOWED_CONNECT = ['INSTAGRAM', 'FACEBOOK', 'TIKTOK', 'YOUTUBE', 'TWITTER', 'LINKEDIN'];
+  const connectFromUrl = connectParam && ALLOWED_CONNECT.includes(connectParam.toUpperCase())
+    ? connectParam.toUpperCase()
+    : null;
+  const showConnectView = selectedPlatformForConnect || connectFromUrl;
 
-  // When connect= is in URL (e.g. clicked + from Inbox): show Connect view for that platform. Survives full page load.
+  // When connect= is in URL (e.g. clicked + from Inbox): sync state and clean URL. Ensures we show Connect view on first paint via connectFromUrl.
   useEffect(() => {
     if (!connectParam) return;
     const upper = connectParam.toUpperCase();
-    const allowed = ['INSTAGRAM', 'FACEBOOK', 'TIKTOK', 'YOUTUBE', 'TWITTER', 'LINKEDIN'];
-    if (allowed.includes(upper)) {
+    if (ALLOWED_CONNECT.includes(upper)) {
       setSelectedPlatformForConnect(upper);
       router.replace('/dashboard', { scroll: false });
     }
@@ -787,12 +791,13 @@ export default function DashboardPage() {
       .catch(() => {});
   }, [reconnectCondition, accounts, appData, insights?.insightsHint]);
 
-  if (selectedPlatformForConnect) {
+  if (showConnectView) {
+    const connectPlatform = selectedPlatformForConnect || connectFromUrl;
     return (
       <>
         <ConfirmModal open={alertMessage !== null} onClose={() => setAlertMessage(null)} message={alertMessage ?? ''} variant="alert" confirmLabel="OK" />
         <ConnectView
-          platform={selectedPlatformForConnect}
+          platform={connectPlatform}
           onConnect={handleConnect}
           connecting={connectingPlatform !== null}
           connectingMethod={connectingMethod}
