@@ -106,10 +106,6 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
   const isHelpPage = pathname === '/help';
 
   const handleSummaryClick = () => {
-    if (isInboxPage) {
-      window.location.href = '/dashboard/summary';
-      return;
-    }
     router.push('/dashboard/summary');
   };
 
@@ -143,11 +139,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                 type="button"
                 onClick={() => {
                   setSelectedPlatformForConnect(platform);
-                  if (isInboxPage) {
-                    window.location.href = `/dashboard?connect=${connectParam}`;
-                  } else {
-                    router.push(`/dashboard?connect=${connectParam}`);
-                  }
+                  router.push(`/dashboard?connect=${connectParam}`);
                 }}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors ${
                   isPlatformSelected ? 'bg-white shadow-sm ring-1 ring-neutral-200' : 'hover:bg-white/70'
@@ -175,11 +167,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                     type="button"
                     onClick={() => {
                       setSelectedAccount(acc);
-                      if (isInboxPage) {
-                        window.location.href = '/dashboard';
-                      } else {
-                        router.push('/dashboard');
-                      }
+                      router.push('/dashboard');
                     }}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors min-w-0 ${
                       isSelected ? 'bg-white shadow-sm ring-1 ring-neutral-200' : 'hover:bg-white/70'
