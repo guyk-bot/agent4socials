@@ -792,7 +792,7 @@ export default function DashboardPage() {
   }, [reconnectCondition, accounts, appData, insights?.insightsHint]);
 
   if (showConnectView) {
-    const connectPlatform = selectedPlatformForConnect || connectFromUrl;
+    const connectPlatform = (selectedPlatformForConnect || connectFromUrl) as string;
     return (
       <>
         <ConfirmModal open={alertMessage !== null} onClose={() => setAlertMessage(null)} message={alertMessage ?? ''} variant="alert" confirmLabel="OK" />
