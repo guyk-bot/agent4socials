@@ -15,13 +15,23 @@ import { PostPerformanceTable } from './PostPerformanceTable';
 import { ContentTypeDistribution } from './ContentTypeDistribution';
 import { useSummaryData } from './useSummaryData';
 
+// Same icons as sidebar (size 26, Twitter with text-neutral-800)
+const PLATFORM_ICON: Record<string, React.ReactNode> = {
+  FACEBOOK: <FacebookIcon size={26} />,
+  INSTAGRAM: <InstagramIcon size={26} />,
+  TIKTOK: <TikTokIcon size={26} />,
+  YOUTUBE: <YoutubeIcon size={26} />,
+  TWITTER: <XTwitterIcon size={26} className="text-neutral-800" />,
+  LINKEDIN: <LinkedinIcon size={26} />,
+};
+
 const CONNECT_PLATFORMS = [
-  { id: 'FACEBOOK', name: 'Facebook', slug: 'facebook', Icon: FacebookIcon, gradient: 'from-blue-500 to-blue-600', hover: 'hover:from-blue-600 hover:to-blue-700', border: 'border-blue-200', bg: 'bg-blue-50/50' },
-  { id: 'INSTAGRAM', name: 'Instagram', slug: 'instagram', Icon: InstagramIcon, gradient: 'from-pink-500 to-purple-600', hover: 'hover:from-pink-600 hover:to-purple-700', border: 'border-pink-200', bg: 'bg-pink-50/50' },
-  { id: 'TIKTOK', name: 'TikTok', slug: 'tiktok', Icon: TikTokIcon, gradient: 'from-neutral-800 to-neutral-900', hover: 'hover:from-neutral-900 hover:to-black', border: 'border-neutral-300', bg: 'bg-neutral-100/80' },
-  { id: 'YOUTUBE', name: 'YouTube', slug: 'youtube', Icon: YoutubeIcon, gradient: 'from-red-500 to-red-600', hover: 'hover:from-red-600 hover:to-red-700', border: 'border-red-200', bg: 'bg-red-50/50' },
-  { id: 'TWITTER', name: 'X (Twitter)', slug: 'twitter', Icon: XTwitterIcon, gradient: 'from-sky-400 to-sky-600', hover: 'hover:from-sky-500 hover:to-sky-700', border: 'border-sky-200', bg: 'bg-sky-50/50' },
-  { id: 'LINKEDIN', name: 'LinkedIn', slug: 'linkedin', Icon: LinkedinIcon, gradient: 'from-blue-600 to-blue-800', hover: 'hover:from-blue-700 hover:to-blue-900', border: 'border-blue-200', bg: 'bg-blue-50/50' },
+  { id: 'FACEBOOK', name: 'Facebook', slug: 'facebook', border: 'border-blue-200', bg: 'bg-blue-50/50' },
+  { id: 'INSTAGRAM', name: 'Instagram', slug: 'instagram', border: 'border-pink-200', bg: 'bg-pink-50/50' },
+  { id: 'TIKTOK', name: 'TikTok', slug: 'tiktok', border: 'border-neutral-300', bg: 'bg-neutral-100/80' },
+  { id: 'YOUTUBE', name: 'YouTube', slug: 'youtube', border: 'border-red-200', bg: 'bg-red-50/50' },
+  { id: 'TWITTER', name: 'Twitter/X', slug: 'twitter', border: 'border-sky-200', bg: 'bg-sky-50/50' },
+  { id: 'LINKEDIN', name: 'LinkedIn', slug: 'linkedin', border: 'border-blue-200', bg: 'bg-blue-50/50' },
 ];
 
 const DEFAULT_DATE_END = new Date().toISOString().slice(0, 10);
@@ -126,14 +136,14 @@ export function SummaryDashboard() {
           Choose a platform below to connect and see your Summary Dashboard.
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full">
-          {CONNECT_PLATFORMS.map(({ id, name, slug, Icon, gradient, hover, border, bg }) => (
+          {CONNECT_PLATFORMS.map(({ id, name, slug, border, bg }) => (
             <Link
               key={id}
               href={`/dashboard?connect=${slug}`}
               className={`flex flex-col items-center justify-center gap-3 p-5 rounded-xl border-2 ${border} ${bg} bg-white hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 group`}
             >
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br ${gradient} ${hover} shadow-md group-hover:shadow-lg transition-shadow`}>
-                <Icon size={26} className="text-white" />
+              <div className="w-10 h-10 flex items-center justify-center shrink-0">
+                {PLATFORM_ICON[id]}
               </div>
               <span className="text-sm font-semibold text-slate-800">{name}</span>
               <span className="text-xs text-slate-500 group-hover:text-slate-700">Connect</span>
