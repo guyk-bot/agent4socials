@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useState, useCallback, useEffect } from 'react';
+import Link from 'next/link';
 import { useAppData } from '@/context/AppDataContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
 import api from '@/lib/api';
+import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
 import { SummaryFiltersBar } from './SummaryFiltersBar';
 import { KPICardsGrid } from './KPICardsGrid';
 import { PlatformBreakdownCards } from './PlatformBreakdownCards';
@@ -12,6 +14,15 @@ import { ContentActivityPanels } from './ContentActivityPanels';
 import { PostPerformanceTable } from './PostPerformanceTable';
 import { ContentTypeDistribution } from './ContentTypeDistribution';
 import { useSummaryData } from './useSummaryData';
+
+const CONNECT_PLATFORMS = [
+  { id: 'FACEBOOK', name: 'Facebook', slug: 'facebook', Icon: FacebookIcon, gradient: 'from-blue-500 to-blue-600', hover: 'hover:from-blue-600 hover:to-blue-700', border: 'border-blue-200', bg: 'bg-blue-50/50' },
+  { id: 'INSTAGRAM', name: 'Instagram', slug: 'instagram', Icon: InstagramIcon, gradient: 'from-pink-500 to-purple-600', hover: 'hover:from-pink-600 hover:to-purple-700', border: 'border-pink-200', bg: 'bg-pink-50/50' },
+  { id: 'TIKTOK', name: 'TikTok', slug: 'tiktok', Icon: TikTokIcon, gradient: 'from-neutral-800 to-neutral-900', hover: 'hover:from-neutral-900 hover:to-black', border: 'border-neutral-300', bg: 'bg-neutral-100/80' },
+  { id: 'YOUTUBE', name: 'YouTube', slug: 'youtube', Icon: YoutubeIcon, gradient: 'from-red-500 to-red-600', hover: 'hover:from-red-600 hover:to-red-700', border: 'border-red-200', bg: 'bg-red-50/50' },
+  { id: 'TWITTER', name: 'X (Twitter)', slug: 'twitter', Icon: XTwitterIcon, gradient: 'from-sky-400 to-sky-600', hover: 'hover:from-sky-500 hover:to-sky-700', border: 'border-sky-200', bg: 'bg-sky-50/50' },
+  { id: 'LINKEDIN', name: 'LinkedIn', slug: 'linkedin', Icon: LinkedinIcon, gradient: 'from-blue-600 to-blue-800', hover: 'hover:from-blue-700 hover:to-blue-900', border: 'border-blue-200', bg: 'bg-blue-50/50' },
+];
 
 const DEFAULT_DATE_END = new Date().toISOString().slice(0, 10);
 const DEFAULT_DATE_START = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -107,22 +118,28 @@ export function SummaryDashboard() {
   if (!summary) {
     return (
       <div
-        className="min-h-[60vh] flex flex-col items-center justify-center rounded-[20px] bg-white border border-slate-200/60 p-12"
-        style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.04)', animation: 'slide-up 0.4s ease-out both' }}
+        className="min-h-[60vh] flex flex-col items-center justify-center rounded-2xl bg-white border border-slate-200/80 p-8 sm:p-10 md:p-12 max-w-3xl mx-auto"
+        style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.06)', animation: 'slide-up 0.4s ease-out both' }}
       >
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center mb-5 shadow-lg">
-          <span className="text-2xl">📊</span>
-        </div>
-        <h2 className="text-xl font-bold text-slate-900 mb-2">No data yet</h2>
-        <p className="text-slate-500 text-center max-w-sm text-sm">
-          Connect at least one social account from the sidebar to see your Summary Dashboard.
+        <h2 className="text-2xl font-bold text-slate-900 mb-1">Connect your accounts</h2>
+        <p className="text-slate-500 text-center text-sm mb-8">
+          Choose a platform below to connect and see your Summary Dashboard.
         </p>
-        <a
-          href="/dashboard"
-          className="mt-6 px-6 py-2.5 rounded-xl bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 transition-colors shadow-sm"
-        >
-          Go to Dashboard
-        </a>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full">
+          {CONNECT_PLATFORMS.map(({ id, name, slug, Icon, gradient, hover, border, bg }) => (
+            <Link
+              key={id}
+              href={`/dashboard?connect=${slug}`}
+              className={`flex flex-col items-center justify-center gap-3 p-5 rounded-xl border-2 ${border} ${bg} bg-white hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 group`}
+            >
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br ${gradient} ${hover} shadow-md group-hover:shadow-lg transition-shadow`}>
+                <Icon size={26} className="text-white" />
+              </div>
+              <span className="text-sm font-semibold text-slate-800">{name}</span>
+              <span className="text-xs text-slate-500 group-hover:text-slate-700">Connect</span>
+            </Link>
+          ))}
+        </div>
       </div>
     );
   }
