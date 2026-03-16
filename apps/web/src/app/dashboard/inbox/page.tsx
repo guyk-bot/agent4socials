@@ -667,6 +667,7 @@ function InboxPage() {
         clearTimeout(conversationsLoadTimeoutRef.current);
         conversationsLoadTimeoutRef.current = null;
       }
+      setConversationsLoading(false);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dmOrFbPlatforms.join(','), effectiveAccounts.map((a) => a.id).join(','), conversationsRefreshKey, user?.id]);
@@ -1411,8 +1412,8 @@ function InboxPage() {
                     e.stopPropagation();
                     handlePlatformClick(p.id);
                   }}
-                  className={`w-10 h-10 rounded-lg flex items-center justify-center border transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 ${
-                    isSelected ? 'bg-neutral-100 border-neutral-300 ring-1 ring-neutral-200' : 'border-neutral-200 hover:bg-neutral-50'
+                  className={`w-10 h-10 rounded-lg flex items-center justify-center border transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-neutral-300 focus:ring-offset-1 ${
+                    isSelected ? 'bg-neutral-200 border-neutral-300' : 'bg-white border-neutral-200 hover:bg-neutral-50'
                   }`}
                   title={`${p.label} inbox`}
                 >

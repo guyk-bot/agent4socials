@@ -51,7 +51,7 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
   const isAccountPage = pathname === '/dashboard/account';
 
   const navLinkClass = (active: boolean) =>
-    `relative flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+    `relative flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-0 ${
       active ? 'bg-white/15 text-white' : 'text-neutral-300 hover:text-white hover:bg-white/10'
     }`;
 
