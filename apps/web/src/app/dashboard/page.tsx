@@ -1120,9 +1120,6 @@ export default function DashboardPage() {
                 </button>
               </div>
             )}
-            <div className="flex gap-3 p-4 bg-neutral-50 rounded-xl border border-neutral-200 w-full max-w-md">
-              <p className="text-sm text-neutral-600">Connect a platform from the left sidebar to see your analytics and posts here.</p>
-            </div>
           </div>
         )}
       </div>
