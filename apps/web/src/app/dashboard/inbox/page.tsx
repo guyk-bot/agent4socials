@@ -557,7 +557,7 @@ function InboxPage() {
       const fromCache = appData?.getConversations(account.id);
       const useCache = fromCache !== undefined && fromCache !== null;
       if (useCache) {
-        const list = fromCache.map((c) => ({ ...c, platform }));
+        const list: Array<Conversation & { platform: string }> = fromCache.map((c: Conversation) => ({ ...c, platform }));
         merge.push(...list);
         if (list.length > 0 && user?.id) {
           const initialized = getInboxInitializedAccountIdsForConversations(user.id);
@@ -565,7 +565,7 @@ function InboxPage() {
             const ids = list.map((c) => c.id);
             markConversationsAsRead(ids, user.id);
             list.forEach((c) => {
-              const count = (c as Conversation).messageCount;
+              const count = c.messageCount;
               if (typeof count === 'number') setConversationLastReadCount(c.id, count, user.id);
             });
             addInboxInitializedAccountForConversations(account.id, user.id);
@@ -593,10 +593,11 @@ function InboxPage() {
           if (!res.data?.error && list.length > 0 && user?.id) {
             const initialized = getInboxInitializedAccountIdsForConversations(user.id);
             if (!initialized.has(account.id)) {
-              const ids = list.map((c) => c.id);
+              type ConvWithPlatform = Conversation & { platform: string };
+              const ids = list.map((c: ConvWithPlatform) => c.id);
               markConversationsAsRead(ids, user.id);
-              list.forEach((c) => {
-                const count = (c as Conversation).messageCount;
+              list.forEach((c: ConvWithPlatform) => {
+                const count = c.messageCount;
                 if (typeof count === 'number') setConversationLastReadCount(c.id, count, user.id);
               });
               addInboxInitializedAccountForConversations(account.id, user.id);
