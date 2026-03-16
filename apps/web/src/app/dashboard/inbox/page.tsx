@@ -565,7 +565,8 @@ function InboxPage() {
             const ids = list.map((c) => c.id);
             markConversationsAsRead(ids, user.id);
             list.forEach((c) => {
-              if (typeof c.messageCount === 'number') setConversationLastReadCount(c.id, c.messageCount!, user.id);
+              const count = (c as Conversation).messageCount;
+              if (typeof count === 'number') setConversationLastReadCount(c.id, count, user.id);
             });
             addInboxInitializedAccountForConversations(account.id, user.id);
           }
@@ -595,7 +596,8 @@ function InboxPage() {
               const ids = list.map((c) => c.id);
               markConversationsAsRead(ids, user.id);
               list.forEach((c) => {
-                if (typeof c.messageCount === 'number') setConversationLastReadCount(c.id, c.messageCount, user.id);
+                const count = (c as Conversation).messageCount;
+                if (typeof count === 'number') setConversationLastReadCount(c.id, count, user.id);
               });
               addInboxInitializedAccountForConversations(account.id, user.id);
             }
