@@ -27,6 +27,37 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
+import { PricingBillingToggle, PricingCard } from '@/components/landing/pricing';
+
+const FREE_HIGHLIGHTS = [
+  '1 brand',
+  '50 scheduled posts / month',
+  '30 days analytics',
+  '1 smart link page',
+  'Limited AI Assistant use',
+];
+
+const STARTER_HIGHLIGHTS = [
+  '1 brand included',
+  'Unlimited scheduling',
+  'Reply to messages and comments',
+  'X / Twitter and LinkedIn connections',
+  '6 months analytics',
+  'Unlimited AI Assistant use',
+  'Export analytics reports (no watermark)',
+];
+
+const PRO_HIGHLIGHTS = [
+  '1 brand included',
+  'Unlimited analytic history',
+  'Bulk replies (messages and comments)',
+  'Keyword triggers',
+  '10 smart link pages',
+  'Custom domains',
+  'White-label reports',
+  'Client dashboard',
+  'Priority support',
+];
 
 function FaqItem({ question, answer }: { question: string; answer: string }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -69,6 +100,7 @@ const HERO_PLATFORMS = [
 
 export default function Home() {
   const { openLogin, openSignup } = useAuthModal();
+  const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('yearly');
 
   // When Google OAuth sends user to / with #access_token=..., redirect to callback so session is set and then dashboard
   useEffect(() => {
@@ -328,35 +360,60 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Pricing preview */}
+        {/* Pricing - full view same as pricing page */}
         <section className="border-t border-white/10 bg-[var(--dark)]/40 py-16 sm:py-24 md:py-32">
-          <div className="mx-auto max-w-5xl px-4 sm:px-6">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <h2 className="text-center text-2xl font-bold sm:text-3xl md:text-4xl lg:text-5xl">
               Plans for every stage
             </h2>
             <p className="mx-auto mt-4 sm:mt-5 max-w-xl text-center text-base sm:text-lg text-slate-400">
               Yearly billing saves 20%. No hidden fees.
             </p>
-            <div className="mt-12 grid gap-6 sm:grid-cols-3 max-w-4xl mx-auto">
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-5 sm:p-6 text-center">
-                <p className="text-xs font-semibold uppercase tracking-wider text-[#5ff6fd]">Free</p>
-                <p className="mt-2 text-2xl font-bold">$0</p>
-                <p className="mt-1 text-xs text-slate-500">1 brand, 50 scheduled posts/mo, 30 days analytics, 1 smart link, limited AI</p>
-                <Link href="/pricing" className="mt-4 inline-block w-full rounded-xl border border-white/20 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-white/10">View plan</Link>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-5 sm:p-6 text-center">
-                <p className="text-xs font-semibold uppercase tracking-wider text-sky-400">Starter</p>
-                <p className="mt-2 text-2xl font-bold">$15<span className="text-slate-400 font-normal text-base">/mo</span></p>
-                <p className="mt-1 text-xs text-slate-500">1 brand, unlimited scheduling, inbox, X & LinkedIn, 6 months analytics, unlimited AI, export reports</p>
-                <Link href="/pricing" className="mt-4 inline-block w-full rounded-xl border border-white/20 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-white/10">View plan</Link>
-              </div>
-              <div className="rounded-2xl border-2 border-sky-500/50 bg-white/5/60 p-5 sm:p-6 text-center relative">
-                <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-sky-500 px-2 py-0.5 text-[10px] font-semibold text-white">Popular</span>
-                <p className="text-xs font-semibold uppercase tracking-wider text-sky-400">Pro</p>
-                <p className="mt-2 text-2xl font-bold">$39<span className="text-slate-400 font-normal text-base">/mo</span></p>
-                <p className="mt-1 text-xs text-slate-500">1 brand, advanced analytics, bulk replies, keyword triggers, 10 smart links, custom domains, white-label, priority support</p>
-                <Link href="/pricing" className="mt-4 inline-block w-full rounded-xl bg-sky-500 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-400">View plan</Link>
-              </div>
+            <div className="mt-12 pb-8">
+              <PricingBillingToggle
+                interval={billingInterval}
+                onIntervalChange={setBillingInterval}
+              />
+            </div>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 lg:gap-8">
+              <PricingCard
+                plan="free"
+                price="$0"
+                description="Best for trying the platform"
+                highlights={FREE_HIGHLIGHTS}
+                ctaText="Start Free"
+                onCta={openSignup}
+                billingInterval={billingInterval}
+              />
+              <PricingCard
+                plan="starter"
+                description="Best for creators and freelancers"
+                highlights={STARTER_HIGHLIGHTS}
+                priceMonthly={15}
+                priceYearly={144}
+                yearlyCrossedPrice={180}
+                additionalBrandsMonthly={5}
+                additionalBrandsYearly={48}
+                ctaText="Get Starter"
+                onCta={openSignup}
+                billingInterval={billingInterval}
+              />
+              <PricingCard
+                plan="pro"
+                description="Best for professionals and agencies"
+                badge="Most Popular"
+                bestValueLabel="⭐ Best value for growing brands"
+                highlights={PRO_HIGHLIGHTS}
+                priceMonthly={24}
+                priceYearly={230}
+                yearlyCrossedPrice={288}
+                additionalBrandsMonthly={3}
+                additionalBrandsYearly={29}
+                ctaText="Get Pro"
+                onCta={openSignup}
+                highlighted
+                billingInterval={billingInterval}
+              />
             </div>
             <p className="mt-10 text-center">
               <Link href="/pricing" className="text-[#5ff6fd] font-medium hover:text-[#3dd9e0] hover:underline">
