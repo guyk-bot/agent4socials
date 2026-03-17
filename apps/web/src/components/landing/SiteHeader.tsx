@@ -19,7 +19,7 @@ export default function SiteHeader() {
   const { openLogin, openSignup } = useAuthModal();
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 border-b border-slate-800/80 bg-slate-950/95 backdrop-blur-xl">
+    <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-[var(--dark)]/95 backdrop-blur-xl">
       <div className="mx-auto flex h-14 sm:h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2 sm:gap-2.5 transition-opacity hover:opacity-90 min-w-0">
           <Image src="/logo.svg" alt="Agent4Socials" width={36} height={36} className="h-8 w-8 sm:h-9 sm:w-9 shrink-0" />
@@ -53,7 +53,7 @@ export default function SiteHeader() {
           <button
             type="button"
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+            className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
             aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
           >
             {mobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -61,13 +61,13 @@ export default function SiteHeader() {
         </div>
       </div>
       {mobileOpen && (
-        <nav className="md:hidden border-t border-slate-800/80 bg-slate-950/98 backdrop-blur-xl px-4 py-4 flex flex-col gap-1">
+        <nav className="md:hidden border-t border-white/10 bg-[var(--dark)]/98 backdrop-blur-xl px-4 py-4 flex flex-col gap-1">
           {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
               onClick={() => setMobileOpen(false)}
-              className="py-3 px-3 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/80 font-medium transition-colors"
+              className="py-3 px-3 rounded-lg text-slate-300 hover:text-white hover:bg-white/10/80 font-medium transition-colors"
             >
               {link.label}
             </Link>
@@ -75,7 +75,7 @@ export default function SiteHeader() {
           <button
             type="button"
             onClick={() => { setMobileOpen(false); openLogin(); }}
-            className="py-3 px-3 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/80 font-medium transition-colors w-full text-left"
+            className="py-3 px-3 rounded-lg text-slate-300 hover:text-white hover:bg-white/10/80 font-medium transition-colors w-full text-left"
           >
             Log in
           </button>

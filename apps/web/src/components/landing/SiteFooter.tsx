@@ -7,7 +7,7 @@ import { useAuthModal } from '@/context/AuthModalContext';
 export default function SiteFooter() {
   const { openLogin, openSignup } = useAuthModal();
   return (
-    <footer className="border-t border-slate-800/80 bg-slate-950 text-slate-400">
+    <footer className="border-t border-white/10 bg-[var(--dark)] text-slate-400">
       <div className="mx-auto max-w-6xl px-4 py-10 sm:py-14 sm:px-6">
         <div className="flex flex-col gap-8 sm:gap-10 md:flex-row md:items-start md:justify-between">
           <div className="flex items-center gap-2.5">

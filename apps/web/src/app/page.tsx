@@ -32,7 +32,7 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 overflow-hidden transition-all duration-300 hover:border-slate-600">
+    <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden transition-all duration-300 hover:border-white/20">
       <button 
         onClick={() => setIsOpen(!isOpen)}
         className="flex w-full items-start justify-between gap-3 p-4 sm:p-6 text-left"
@@ -80,7 +80,7 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-[var(--dark)] text-white">
       <SiteHeader />
       <main>
         {/* Hero */}
@@ -127,7 +127,7 @@ export default function Home() {
               </button>
               <Link
                 href="/pricing"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/40 px-8 py-4 text-lg font-semibold text-slate-300 transition-all hover:text-white hover:border-slate-500 hover:bg-slate-800 sm:w-auto backdrop-blur-sm"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-8 py-4 text-lg font-semibold text-slate-300 transition-all hover:text-white hover:border-white/20 hover:bg-white/10 sm:w-auto backdrop-blur-sm"
               >
                 See pricing
               </Link>
@@ -141,7 +141,7 @@ export default function Home() {
                   style={{ animationDelay: `${1.2 + i * 0.12}s`, animationFillMode: 'forwards' }}
                 >
                   <div
-                    className="rounded-2xl border border-slate-700/60 bg-slate-800/40 p-3 sm:p-4 shadow-lg transition-all duration-300 hover:-translate-y-2 hover:border-[#5ff6fd]/40 hover:shadow-[#5ff6fd]/20 hover:shadow-xl"
+                    className="rounded-2xl border border-white/10/60 bg-white/5 p-3 sm:p-4 shadow-lg transition-all duration-300 hover:-translate-y-2 hover:border-[#5ff6fd]/40 hover:shadow-[#5ff6fd]/20 hover:shadow-xl"
                     style={{ animation: 'hero-logo-float 3s ease-in-out infinite', animationDelay: `${i * 0.2}s` }}
                   >
                     <span className={label === 'Twitter/X' ? 'inline-block invert' : ''}>
@@ -159,8 +159,8 @@ export default function Home() {
         </section>
 
         {/* Features */}
-        <section id="features" className="border-t border-slate-800/50 bg-slate-950/50 py-24 sm:py-32 relative">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900/50 via-slate-950 to-slate-950 pointer-events-none" />
+        <section id="features" className="border-t border-white/10 bg-[var(--dark)]/80 py-24 sm:py-32 relative">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[var(--dark)]/80 via-[var(--dark)] to-[var(--dark)] pointer-events-none" />
           <div className="mx-auto max-w-5xl px-4 sm:px-6 relative z-10">
             <h2 className="text-center text-3xl font-bold sm:text-4xl md:text-5xl">
               Everything you need to grow
@@ -169,10 +169,10 @@ export default function Home() {
               Scheduling, analytics, unified inbox, keyword and DM automation, and AI-powered captions. All in one place.
             </p>
             <div className="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-3 md:max-w-5xl md:mx-auto">
-              <div className="group relative rounded-3xl border border-slate-800 bg-slate-900/50 p-8 transition-all hover:border-[#5ff6fd]/30 hover:shadow-2xl hover:shadow-[#5ff6fd]/10 hover:-translate-y-1">
+              <div className="group relative rounded-3xl border border-white/10 bg-white/5 p-8 transition-all hover:border-[#5ff6fd]/30 hover:shadow-2xl hover:shadow-[#5ff6fd]/10 hover:-translate-y-1">
                 <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-[#5ff6fd]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="relative">
-                  <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-800 text-[#5ff6fd] shadow-inner shadow-white/5 ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-300">
+                  <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 text-[#5ff6fd] shadow-inner shadow-white/5 ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-300">
                     <Calendar className="h-7 w-7" />
                   </div>
                   <h3 className="text-2xl font-bold text-slate-100 group-hover:text-[#5ff6fd] transition-colors">Schedule posts</h3>
@@ -181,10 +181,10 @@ export default function Home() {
                   </p>
                 </div>
               </div>
-              <div className="group relative rounded-3xl border border-slate-800 bg-slate-900/50 p-8 transition-all hover:border-[#df44dc]/30 hover:shadow-2xl hover:shadow-[#df44dc]/10 hover:-translate-y-1">
+              <div className="group relative rounded-3xl border border-white/10 bg-white/5 p-8 transition-all hover:border-[#df44dc]/30 hover:shadow-2xl hover:shadow-[#df44dc]/10 hover:-translate-y-1">
                 <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-[#df44dc]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="relative">
-                  <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-800 text-[#df44dc] shadow-inner shadow-white/5 ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-300">
+                  <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 text-[#df44dc] shadow-inner shadow-white/5 ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-300">
                     <BarChart3 className="h-7 w-7" />
                   </div>
                   <h3 className="text-2xl font-bold text-slate-100 group-hover:text-[#df44dc] transition-colors">Analytics</h3>
@@ -193,10 +193,10 @@ export default function Home() {
                   </p>
                 </div>
               </div>
-              <div className="group relative rounded-3xl border border-slate-800 bg-slate-900/50 p-8 transition-all hover:border-[#df44dc]/30 hover:shadow-2xl hover:shadow-[#df44dc]/10 hover:-translate-y-1 sm:col-span-2 lg:col-span-1">
+              <div className="group relative rounded-3xl border border-white/10 bg-white/5 p-8 transition-all hover:border-[#df44dc]/30 hover:shadow-2xl hover:shadow-[#df44dc]/10 hover:-translate-y-1 sm:col-span-2 lg:col-span-1">
                 <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-[#df44dc]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="relative">
-                  <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-800 text-[#df44dc] shadow-inner shadow-white/5 ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-300">
+                  <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 text-[#df44dc] shadow-inner shadow-white/5 ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-300">
                     <MessageCircle className="h-7 w-7" />
                   </div>
                   <h3 className="text-2xl font-bold text-slate-100 group-hover:text-[#df44dc] transition-colors">Unified inbox</h3>
@@ -205,10 +205,10 @@ export default function Home() {
                   </p>
                 </div>
               </div>
-              <div className="group relative rounded-3xl border border-slate-800 bg-slate-900/50 p-8 transition-all hover:border-amber-500/30 hover:shadow-2xl hover:shadow-amber-500/5 hover:-translate-y-1">
+              <div className="group relative rounded-3xl border border-white/10 bg-white/5 p-8 transition-all hover:border-amber-500/30 hover:shadow-2xl hover:shadow-amber-500/5 hover:-translate-y-1">
                 <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="relative">
-                  <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-800 text-amber-400 shadow-inner shadow-white/5 ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-300">
+                  <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 text-amber-400 shadow-inner shadow-white/5 ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-300">
                     <MessageSquare className="h-7 w-7" />
                   </div>
                   <h3 className="text-2xl font-bold text-slate-100 group-hover:text-amber-400 transition-colors">Comment automation</h3>
@@ -217,10 +217,10 @@ export default function Home() {
                   </p>
                 </div>
               </div>
-              <div className="group relative rounded-3xl border border-slate-800 bg-slate-900/50 p-8 transition-all hover:border-rose-500/30 hover:shadow-2xl hover:shadow-rose-500/5 hover:-translate-y-1">
+              <div className="group relative rounded-3xl border border-white/10 bg-white/5 p-8 transition-all hover:border-rose-500/30 hover:shadow-2xl hover:shadow-rose-500/5 hover:-translate-y-1">
                 <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-rose-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="relative">
-                  <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-800 text-rose-400 shadow-inner shadow-white/5 ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-300">
+                  <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 text-rose-400 shadow-inner shadow-white/5 ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-300">
                     <Hash className="h-7 w-7" />
                   </div>
                   <h3 className="text-2xl font-bold text-slate-100 group-hover:text-rose-400 transition-colors">Hashtag pool</h3>
@@ -229,10 +229,10 @@ export default function Home() {
                   </p>
                 </div>
               </div>
-              <div className="group relative rounded-3xl border border-slate-800 bg-slate-900/50 p-8 transition-all hover:border-cyan-500/30 hover:shadow-2xl hover:shadow-cyan-500/5 hover:-translate-y-1">
+              <div className="group relative rounded-3xl border border-white/10 bg-white/5 p-8 transition-all hover:border-cyan-500/30 hover:shadow-2xl hover:shadow-cyan-500/5 hover:-translate-y-1">
                 <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="relative">
-                  <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-800 text-cyan-400 shadow-inner shadow-white/5 ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-300">
+                  <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 text-cyan-400 shadow-inner shadow-white/5 ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-300">
                     <Sparkles className="h-7 w-7" />
                   </div>
                   <h3 className="text-2xl font-bold text-slate-100 group-hover:text-cyan-400 transition-colors">AI Assistant</h3>
@@ -246,7 +246,7 @@ export default function Home() {
         </section>
 
         {/* How it works */}
-        <section id="how-it-works" className="border-t border-slate-800/50 bg-slate-950 py-24 sm:py-32">
+        <section id="how-it-works" className="border-t border-white/10 bg-[var(--dark)] py-24 sm:py-32">
           <div className="mx-auto max-w-5xl px-4 sm:px-6">
             <h2 className="text-center text-3xl font-bold sm:text-4xl md:text-5xl">
               How it works
@@ -256,31 +256,31 @@ export default function Home() {
             </p>
             <div className="mt-16 grid gap-12 md:grid-cols-3 relative">
               {/* Connector line for desktop */}
-              <div className="hidden md:block absolute top-1/2 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-slate-800 to-transparent -translate-y-8 z-0" />
+              <div className="hidden md:block absolute top-1/2 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-y-8 z-0" />
               
               <div className="relative text-center group z-10">
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl border border-slate-700 bg-slate-900 text-[#5ff6fd] shadow-xl transition-all duration-300 group-hover:-translate-y-2 group-hover:border-[#5ff6fd]/50 group-hover:shadow-[#5ff6fd]/20">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-[var(--dark)] text-[#5ff6fd] shadow-xl transition-all duration-300 group-hover:-translate-y-2 group-hover:border-[#5ff6fd]/50 group-hover:shadow-[#5ff6fd]/20">
                   <Link2 className="h-9 w-9" />
                 </div>
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-bold text-slate-300 group-hover:border-[#5ff6fd]/50 group-hover:text-[#5ff6fd] transition-colors">Step 1</div>
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-white/10 bg-[var(--dark)] px-3 py-1 text-xs font-bold text-slate-300 group-hover:border-[#5ff6fd]/50 group-hover:text-[#5ff6fd] transition-colors">Step 1</div>
                 <h3 className="mt-8 text-xl font-semibold text-slate-200">Connect</h3>
                 <p className="mt-3 text-slate-400 leading-relaxed px-4">Link Instagram, YouTube, TikTok, Facebook, Twitter or LinkedIn securely.</p>
               </div>
               
               <div className="relative text-center group z-10">
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl border border-slate-700 bg-slate-900 text-[#5ff6fd] shadow-xl transition-all duration-300 group-hover:-translate-y-2 group-hover:border-[#5ff6fd]/50 group-hover:shadow-[#5ff6fd]/20">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-[var(--dark)] text-[#5ff6fd] shadow-xl transition-all duration-300 group-hover:-translate-y-2 group-hover:border-[#5ff6fd]/50 group-hover:shadow-[#5ff6fd]/20">
                   <CalendarCheck className="h-9 w-9" />
                 </div>
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-bold text-slate-300 group-hover:border-[#5ff6fd]/50 group-hover:text-[#5ff6fd] transition-colors">Step 2</div>
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-white/10 bg-[var(--dark)] px-3 py-1 text-xs font-bold text-slate-300 group-hover:border-[#5ff6fd]/50 group-hover:text-[#5ff6fd] transition-colors">Step 2</div>
                 <h3 className="mt-8 text-xl font-semibold text-slate-200">Schedule</h3>
                 <p className="mt-3 text-slate-400 leading-relaxed px-4">Draft posts, add media, and choose when to go live across channels.</p>
               </div>
               
               <div className="relative text-center group z-10">
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl border border-slate-700 bg-slate-900 text-[#5ff6fd] shadow-xl transition-all duration-300 group-hover:-translate-y-2 group-hover:border-[#5ff6fd]/50 group-hover:shadow-[#5ff6fd]/20">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-[var(--dark)] text-[#5ff6fd] shadow-xl transition-all duration-300 group-hover:-translate-y-2 group-hover:border-[#5ff6fd]/50 group-hover:shadow-[#5ff6fd]/20">
                   <BarChart2 className="h-9 w-9" />
                 </div>
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-bold text-slate-300 group-hover:border-[#5ff6fd]/50 group-hover:text-[#5ff6fd] transition-colors">Step 3</div>
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-white/10 bg-[var(--dark)] px-3 py-1 text-xs font-bold text-slate-300 group-hover:border-[#5ff6fd]/50 group-hover:text-[#5ff6fd] transition-colors">Step 3</div>
                 <h3 className="mt-8 text-xl font-semibold text-slate-200">Analyze</h3>
                 <p className="mt-3 text-slate-400 leading-relaxed px-4">Track views, likes, and growth in one simple dashboard.</p>
               </div>
@@ -289,7 +289,7 @@ export default function Home() {
         </section>
 
         {/* Product detail */}
-        <section id="product" className="border-t border-slate-800/80 py-16 sm:py-24 md:py-32">
+        <section id="product" className="border-t border-white/10 py-16 sm:py-24 md:py-32">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_60%_at_50%_50%,rgba(95,246,253,0.06),transparent)] pointer-events-none" />
           <div className="mx-auto max-w-5xl px-4 sm:px-6 relative z-10">
             <h2 className="text-center text-2xl font-bold sm:text-3xl md:text-4xl lg:text-5xl">
@@ -307,7 +307,7 @@ export default function Home() {
                 { title: 'Hashtag pool & AI', desc: 'Save hashtag sets and reuse them. Set your brand voice and get AI-suggested captions in the Composer.' },
                 { title: 'White-label (Agency)', desc: 'Upload your logo and colors so the dashboard looks like your brand. Multiple workspaces and team members on higher plans.' },
               ].map((item, i) => (
-                <div key={i} className="rounded-2xl border border-slate-700/60 bg-slate-800/30 p-5 sm:p-6 text-left hover:border-slate-600 hover:bg-slate-800/50 transition-all">
+                <div key={i} className="rounded-2xl border border-white/10 bg-white/5 p-5 sm:p-6 text-left hover:border-white/20 hover:bg-white/10 transition-all">
                   <h3 className="font-semibold text-slate-100 text-lg">{item.title}</h3>
                   <p className="mt-2 text-sm text-slate-400 leading-relaxed">{item.desc}</p>
                 </div>
@@ -329,7 +329,7 @@ export default function Home() {
         </section>
 
         {/* Pricing preview */}
-        <section className="border-t border-slate-800/80 bg-slate-900/40 py-16 sm:py-24 md:py-32">
+        <section className="border-t border-white/10 bg-[var(--dark)]/40 py-16 sm:py-24 md:py-32">
           <div className="mx-auto max-w-5xl px-4 sm:px-6">
             <h2 className="text-center text-2xl font-bold sm:text-3xl md:text-4xl lg:text-5xl">
               Plans for every stage
@@ -338,19 +338,19 @@ export default function Home() {
               Yearly billing saves 20%. No hidden fees.
             </p>
             <div className="mt-12 grid gap-6 sm:grid-cols-3 max-w-4xl mx-auto">
-              <div className="rounded-2xl border border-slate-700 bg-slate-800/40 p-5 sm:p-6 text-center">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-5 sm:p-6 text-center">
                 <p className="text-xs font-semibold uppercase tracking-wider text-[#5ff6fd]">Free</p>
                 <p className="mt-2 text-2xl font-bold">$0</p>
                 <p className="mt-1 text-xs text-slate-500">1 brand, 50 scheduled posts/mo, 30 days analytics, 1 smart link, limited AI</p>
-                <Link href="/pricing" className="mt-4 inline-block w-full rounded-xl border border-slate-600 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-slate-700">View plan</Link>
+                <Link href="/pricing" className="mt-4 inline-block w-full rounded-xl border border-white/20 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-white/10">View plan</Link>
               </div>
-              <div className="rounded-2xl border border-slate-700 bg-slate-800/40 p-5 sm:p-6 text-center">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-5 sm:p-6 text-center">
                 <p className="text-xs font-semibold uppercase tracking-wider text-sky-400">Starter</p>
                 <p className="mt-2 text-2xl font-bold">$15<span className="text-slate-400 font-normal text-base">/mo</span></p>
                 <p className="mt-1 text-xs text-slate-500">1 brand, unlimited scheduling, inbox, X & LinkedIn, 6 months analytics, unlimited AI, export reports</p>
-                <Link href="/pricing" className="mt-4 inline-block w-full rounded-xl border border-slate-600 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-slate-700">View plan</Link>
+                <Link href="/pricing" className="mt-4 inline-block w-full rounded-xl border border-white/20 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-white/10">View plan</Link>
               </div>
-              <div className="rounded-2xl border-2 border-sky-500/50 bg-slate-800/60 p-5 sm:p-6 text-center relative">
+              <div className="rounded-2xl border-2 border-sky-500/50 bg-white/5/60 p-5 sm:p-6 text-center relative">
                 <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-sky-500 px-2 py-0.5 text-[10px] font-semibold text-white">Popular</span>
                 <p className="text-xs font-semibold uppercase tracking-wider text-sky-400">Pro</p>
                 <p className="mt-2 text-2xl font-bold">$39<span className="text-slate-400 font-normal text-base">/mo</span></p>
@@ -367,7 +367,7 @@ export default function Home() {
         </section>
 
         {/* FAQ */}
-        <section id="faq" className="border-t border-slate-800/80 bg-slate-900/40 py-16 sm:py-24 md:py-32">
+        <section id="faq" className="border-t border-white/10 bg-[var(--dark)]/40 py-16 sm:py-24 md:py-32">
           <div className="mx-auto max-w-3xl px-4 sm:px-6">
             <h2 className="text-center text-2xl font-bold sm:text-3xl md:text-4xl lg:text-5xl">
               Frequently asked questions
@@ -420,7 +420,7 @@ export default function Home() {
         <Testimonials />
 
         {/* CTA */}
-        <section className="relative border-t border-slate-800/80 py-16 sm:py-24 md:py-32">
+        <section className="relative border-t border-white/10 py-16 sm:py-24 md:py-32">
           <div className="absolute inset-0 bg-gradient-to-t from-[#5ff6fd]/5 via-transparent to-transparent" />
           <div className="relative mx-auto max-w-3xl px-4 text-center sm:px-6">
             <h2 className="text-2xl font-bold sm:text-3xl md:text-4xl lg:text-5xl">
