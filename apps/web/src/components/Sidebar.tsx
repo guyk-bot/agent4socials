@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
     BarChart3,
     FileText,
@@ -52,6 +52,7 @@ type SidebarProps = {
 
 export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {} }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { primaryColor, textColor } = useWhiteLabel();
   const { cachedAccounts, setCachedAccounts, setAccountsLoadError } = useAccountsCache() ?? { cachedAccounts: [], setCachedAccounts: () => {}, setAccountsLoadError: () => {} };
   const ctx = useSelectedAccount();
@@ -212,20 +213,16 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                   </>
                 );
                 const dashboardUrl = `/dashboard?accountId=${encodeURIComponent(acc.id)}`;
-                return isInboxPage ? (
+                const handleGoToAccountDashboard = (e: React.MouseEvent) => {
+                  e.preventDefault();
+                  setSelectedAccount(acc);
+                  router.push(dashboardUrl);
+                };
+                return (
                   <Link
                     key={acc.id}
                     href={dashboardUrl}
-                    className={accountRowClass}
-                    style={isSelected ? { color: accent } : undefined}
-                  >
-                    {accountRowInner}
-                  </Link>
-                ) : (
-                  <Link
-                    key={acc.id}
-                    href={dashboardUrl}
-                    onClick={() => setSelectedAccount(acc)}
+                    onClick={handleGoToAccountDashboard}
                     className={accountRowClass}
                     style={isSelected ? { color: accent } : undefined}
                   >
