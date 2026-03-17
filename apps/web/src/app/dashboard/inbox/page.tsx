@@ -576,6 +576,7 @@ function InboxPage() {
     const debugs: Array<{ rawMessage?: string; code?: number; responseData?: unknown; metaMessage?: string }> = [];
     let pending = dmOrFbPlatforms.length;
     let needsFetch = false;
+    const platformsToFetch: Array<{ platform: string; account: { id: string; platform: string } }> = [];
 
     dmOrFbPlatforms.forEach((platform) => {
       const account = effectiveAccounts.find((a) => a.platform === platform);
@@ -618,6 +619,18 @@ function InboxPage() {
         return;
       }
       needsFetch = true;
+      platformsToFetch.push({ platform, account });
+    });
+
+    // Show cached conversations immediately so inbox opens faster; then fetch missing platforms in background
+    if (merge.length > 0 && !cancelled) {
+      const sorted = [...merge].sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
+      setConversations(sorted);
+      conversationsLoadedRef.current = true;
+      setConversationsLoading(false);
+    }
+
+    platformsToFetch.forEach(({ platform, account }) => {
     api.get(`/social/accounts/${account.id}/conversations?includeMessageCounts=1`)
       .then((res) => {
           if (cancelled) return;
@@ -693,10 +706,12 @@ function InboxPage() {
     });
 
     if (needsFetch) {
-      conversationsLoadedRef.current = false;
-      setConversationsLoading(true);
-      setConversationsError(null);
-      setConversationsDebug(null);
+      if (merge.length === 0) {
+        conversationsLoadedRef.current = false;
+        setConversationsLoading(true);
+        setConversationsError(null);
+        setConversationsDebug(null);
+      }
       // Use a longer timeout (55s) so we don't show an error while Meta/API is slow after re-login; avoids confusing flash of error then partial load.
       conversationsLoadTimeoutRef.current = setTimeout(() => {
         if (cancelled) return;
