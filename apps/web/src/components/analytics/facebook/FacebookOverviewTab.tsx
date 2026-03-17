@@ -80,33 +80,33 @@ export function FacebookOverviewTab({
 
   return (
     <div className="max-w-full" style={{ maxWidth: 1200 }}>
-      {/* Top upgrade CTA: unlock more than 30 days and remove watermarks */}
-      <div className="mb-6 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-indigo-800">
-          Upgrade to view more than 30 days of analytics and export reports without watermarks.
-        </p>
+      {/* Top upgrade CTA: button first, then message */}
+      <div className="mb-6 rounded-xl border border-[#5ff6fd]/30 bg-gradient-to-r from-[#5ff6fd]/10 to-[#df44dc]/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
         <button
           type="button"
           onClick={() => (onUpgrade ? onUpgrade() : window.location.assign('/pricing'))}
-          className="shrink-0 inline-flex px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
+          className="shrink-0 w-full sm:w-auto inline-flex items-center justify-center px-5 py-2.5 rounded-lg bg-gradient-to-r from-[#5ff6fd] to-[#df44dc] text-neutral-900 font-semibold text-sm hover:opacity-90 transition-opacity"
         >
           Upgrade
         </button>
+        <p className="text-sm text-neutral-700">
+          Upgrade to view more than 30 days of analytics and export reports without watermarks.
+        </p>
       </div>
 
       {/* Reminder when date range &gt; 30 days */}
       {showWatermark && (
-        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-amber-800">
-            You are viewing more than 30 days. Upgrade to remove watermarks and access full history.
-          </p>
+        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 flex flex-col sm:flex-row sm:items-center gap-3">
           <button
             type="button"
             onClick={() => (onUpgrade ? onUpgrade() : window.location.assign('/pricing'))}
-            className="shrink-0 inline-flex px-3 py-1.5 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 transition-colors"
+            className="shrink-0 w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 rounded-lg bg-gradient-to-r from-[#5ff6fd] to-[#df44dc] text-neutral-900 font-semibold text-sm hover:opacity-90 transition-opacity"
           >
             Upgrade
           </button>
+          <p className="text-sm text-amber-800">
+            You are viewing more than 30 days. Upgrade to remove watermarks and access full history.
+          </p>
         </div>
       )}
 

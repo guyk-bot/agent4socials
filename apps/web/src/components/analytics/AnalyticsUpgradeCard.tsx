@@ -35,7 +35,7 @@ export function AnalyticsUpgradeCard({
             <button
               type="button"
               onClick={onCta}
-              className="mt-3 px-4 py-2 rounded-lg bg-[#111827] text-white text-sm font-medium hover:bg-[#374151] transition-colors"
+              className="mt-3 px-4 py-2 rounded-lg bg-gradient-to-r from-[#5ff6fd] to-[#df44dc] text-neutral-900 font-semibold text-sm hover:opacity-90 transition-opacity"
             >
               {ctaLabel}
             </button>

@@ -1196,17 +1196,17 @@ export default function DashboardPage() {
             )}
             <div className={importedPostsLoading ? 'hidden' : undefined}>
             {postsShowWatermark && (
-              <div className="rounded-xl border border-[var(--primary)]/30 bg-[var(--primary)]/10 px-4 py-3 flex flex-wrap items-center justify-between gap-3 mb-6">
-                <p className="text-sm text-[var(--primary)]">
-                  You're viewing more than 30 days. Upgrade to remove watermarks and view full history.
-                </p>
+              <div className="rounded-xl border border-[#5ff6fd]/30 bg-gradient-to-r from-[#5ff6fd]/10 to-[#df44dc]/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
                 <button
                   type="button"
                   onClick={() => router.push('/pricing')}
-                  className="shrink-0 px-4 py-2 rounded-lg bg-[var(--button)] text-white text-sm font-medium hover:bg-[var(--button-hover)] transition-colors"
+                  className="shrink-0 w-full sm:w-auto inline-flex items-center justify-center px-5 py-2.5 rounded-lg bg-gradient-to-r from-[#5ff6fd] to-[#df44dc] text-neutral-900 font-semibold text-sm hover:opacity-90 transition-opacity"
                 >
                   Upgrade plan
                 </button>
+                <p className="text-sm text-neutral-700">
+                  You're viewing more than 30 days. Upgrade to remove watermarks and view full history.
+                </p>
               </div>
             )}
             <AnalyticsGrid>
