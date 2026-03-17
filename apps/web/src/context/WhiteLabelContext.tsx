@@ -12,7 +12,7 @@ type WhiteLabelState = {
 
 const defaultState: WhiteLabelState = {
   logoUrl: null,
-  primaryColor: '#525252',
+  primaryColor: '#5ff6fd',
   backgroundColor: '#f5f5f5',
   textColor: '#171717',
   appName: 'Agent4Socials',

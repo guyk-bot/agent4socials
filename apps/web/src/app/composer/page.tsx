@@ -1316,7 +1316,7 @@ export default function ComposerPage() {
                 <LoadingVideoOverlay loading={true} />
                 <div className="max-w-6xl mx-auto px-2 sm:px-4 flex flex-col items-center justify-center min-h-[60vh]">
                     <div className="flex flex-col items-center gap-4">
-                        <Loader2 size={40} className="animate-spin text-indigo-600" aria-hidden />
+                        <Loader2 size={40} className="animate-spin text-[var(--primary)]" aria-hidden />
                         <p className="text-neutral-600 font-medium">Loading composer…</p>
                         <p className="text-sm text-neutral-400">Restoring your draft and accounts</p>
                     </div>
@@ -1375,7 +1375,7 @@ export default function ComposerPage() {
                                         type="checkbox"
                                         checked={aiIncludeCtaAndAutomation}
                                         onChange={(e) => setAiIncludeCtaAndAutomation(e.target.checked)}
-                                        className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                                        className="rounded border-neutral-300 text-[var(--primary)] focus:ring-[var(--primary)]"
                                     />
                                     <span className="text-sm text-neutral-700">Also generate CTA and comment automation (keyword + reply)</span>
                                 </label>
@@ -1397,7 +1397,7 @@ export default function ComposerPage() {
                                             type="checkbox"
                                             checked={differentContentPerPlatform}
                                             onChange={(e) => setDifferentContentPerPlatform(e.target.checked)}
-                                            className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                                            className="rounded border-neutral-300 text-[var(--primary)] focus:ring-[var(--primary)]"
                                         />
                                         <span className="text-sm text-neutral-700">Use different content per platform</span>
                                     </label>
@@ -1427,7 +1427,7 @@ export default function ComposerPage() {
                                 )}
                                 <div className="mt-6 flex flex-wrap justify-end gap-3">
                                     <button type="button" onClick={() => !aiLoading && setAiModalOpen(false)} className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50">Cancel</button>
-                                    <button type="button" onClick={handleAiGenerate} disabled={aiLoading} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
+                                    <button type="button" onClick={handleAiGenerate} disabled={aiLoading} className="inline-flex items-center gap-2 rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--primary-hover)] disabled:opacity-50">
                                         {aiLoading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
                                         Generate
                                     </button>
@@ -1496,7 +1496,7 @@ export default function ComposerPage() {
                                 type="checkbox"
                                 checked={differentMediaPerPlatform}
                                 onChange={(e) => setDifferentMediaPerPlatform(e.target.checked)}
-                                className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                                className="rounded border-neutral-300 text-[var(--primary)] focus:ring-[var(--primary)]"
                             />
                             <span className="text-sm text-neutral-700">Use different media per platform</span>
                         </label>
@@ -1520,7 +1520,7 @@ export default function ComposerPage() {
                                                 }
                                             }}
                                             className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${mediaType === type
-                                                ? 'bg-white text-indigo-700 shadow-sm ring-1 ring-neutral-200'
+                                                ? 'bg-white text-[var(--primary)] shadow-sm ring-1 ring-neutral-200'
                                                 : 'text-neutral-600 hover:text-neutral-900 hover:bg-white/60'
                                                 }`}
                                         >
@@ -1547,7 +1547,7 @@ export default function ComposerPage() {
                                         type="button"
                                         onClick={() => fileInputRef.current?.click()}
                                         disabled={mediaUploading}
-                                        className="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-medium transition-all border-2 border-dashed border-neutral-300 hover:border-indigo-400 hover:bg-indigo-50/50 text-neutral-700 hover:text-indigo-800 disabled:opacity-50 disabled:border-neutral-200"
+                                        className="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-medium transition-all border-2 border-dashed border-neutral-300 hover:border-[var(--primary)]/60 hover:bg-[var(--primary)]/15/50 text-neutral-700 hover:text-[var(--primary)] disabled:opacity-50 disabled:border-neutral-200"
                                     >
                                         <ImageIcon size={18} className="shrink-0" />
                                         {mediaType === 'carousel'
@@ -1569,7 +1569,7 @@ export default function ComposerPage() {
                                                             type="checkbox"
                                                             checked={differentThumbnailPerPlatform}
                                                             onChange={(e) => setDifferentThumbnailPerPlatform(e.target.checked)}
-                                                            className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                                                            className="rounded border-neutral-300 text-[var(--primary)] focus:ring-[var(--primary)]"
                                                         />
                                                         <span className="text-sm text-neutral-700">Use different thumbnail per platform</span>
                                                     </label>
@@ -1591,13 +1591,13 @@ export default function ComposerPage() {
                                                 <p className="text-xs text-neutral-400 mt-1 font-medium">Choose one option:</p>
                                             </div>
                                             <div className="flex flex-col gap-2">
-                                                <label className={`flex items-center gap-2.5 p-2.5 rounded-lg border-2 cursor-pointer transition-colors ${thumbnailChoice === 'none' ? 'border-indigo-500 bg-indigo-50/80' : 'border-neutral-200 hover:border-neutral-300'}`}>
-                                                    <input type="radio" name="thumbnailOption" checked={thumbnailChoice === 'none'} onChange={() => { setThumbnailChoice('none'); handleRemoveThumbnail(); }} className="text-indigo-600 focus:ring-indigo-500" />
+                                                <label className={`flex items-center gap-2.5 p-2.5 rounded-lg border-2 cursor-pointer transition-colors ${thumbnailChoice === 'none' ? 'border-[var(--primary)] bg-[var(--primary)]/15/80' : 'border-neutral-200 hover:border-neutral-300'}`}>
+                                                    <input type="radio" name="thumbnailOption" checked={thumbnailChoice === 'none'} onChange={() => { setThumbnailChoice('none'); handleRemoveThumbnail(); }} className="text-[var(--primary)] focus:ring-[var(--primary)]" />
                                                     <span className="text-sm font-medium text-neutral-800">No custom thumbnail</span>
                                                     <span className="text-xs text-neutral-500">(use video default)</span>
                                                 </label>
-                                                <label className={`flex items-center gap-2.5 p-2.5 rounded-lg border-2 cursor-pointer transition-colors ${thumbnailChoice === 'upload' ? 'border-indigo-500 bg-indigo-50/80' : 'border-neutral-200 hover:border-neutral-300'}`}>
-                                                    <input type="radio" name="thumbnailOption" checked={thumbnailChoice === 'upload'} onChange={() => setThumbnailChoice('upload')} className="text-indigo-600 focus:ring-indigo-500" />
+                                                <label className={`flex items-center gap-2.5 p-2.5 rounded-lg border-2 cursor-pointer transition-colors ${thumbnailChoice === 'upload' ? 'border-[var(--primary)] bg-[var(--primary)]/15/80' : 'border-neutral-200 hover:border-neutral-300'}`}>
+                                                    <input type="radio" name="thumbnailOption" checked={thumbnailChoice === 'upload'} onChange={() => setThumbnailChoice('upload')} className="text-[var(--primary)] focus:ring-[var(--primary)]" />
                                                     <span className="text-sm font-medium text-neutral-800">Upload image</span>
                                                 </label>
                                                 {thumbnailChoice === 'upload' && (
@@ -1612,14 +1612,14 @@ export default function ComposerPage() {
                                                         )}
                                                     </div>
                                                 )}
-                                                <label className={`flex items-center gap-2.5 p-2.5 rounded-lg border-2 cursor-pointer transition-colors ${thumbnailChoice === 'frame' ? 'border-indigo-500 bg-indigo-50/80' : 'border-neutral-200 hover:border-neutral-300'}`}>
-                                                    <input type="radio" name="thumbnailOption" checked={thumbnailChoice === 'frame'} onChange={() => setThumbnailChoice('frame')} className="text-indigo-600 focus:ring-indigo-500" />
+                                                <label className={`flex items-center gap-2.5 p-2.5 rounded-lg border-2 cursor-pointer transition-colors ${thumbnailChoice === 'frame' ? 'border-[var(--primary)] bg-[var(--primary)]/15/80' : 'border-neutral-200 hover:border-neutral-300'}`}>
+                                                    <input type="radio" name="thumbnailOption" checked={thumbnailChoice === 'frame'} onChange={() => setThumbnailChoice('frame')} className="text-[var(--primary)] focus:ring-[var(--primary)]" />
                                                     <span className="text-sm font-medium text-neutral-800">Pick a frame from video</span>
                                                 </label>
                                                 {thumbnailChoice === 'frame' && (
                                                     <div className="ml-6 flex flex-col gap-1.5">
-                                                        <input type="range" min={0} max={thumbnailVideoDuration} step={0.1} value={thumbnailPickerTime} onChange={(e) => handleThumbnailSliderChange(parseFloat(e.target.value))} onInput={(e) => handleThumbnailSliderChange(parseFloat((e.target as HTMLInputElement).value))} className="w-full max-w-[200px] h-2 rounded-full accent-indigo-600" />
-                                                        <button type="button" onClick={handleUseFrameAsThumbnail} disabled={thumbnailPicking || mediaUploading} className="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium disabled:opacity-50 w-fit">
+                                                        <input type="range" min={0} max={thumbnailVideoDuration} step={0.1} value={thumbnailPickerTime} onChange={(e) => handleThumbnailSliderChange(parseFloat(e.target.value))} onInput={(e) => handleThumbnailSliderChange(parseFloat((e.target as HTMLInputElement).value))} className="w-full max-w-[200px] h-2 rounded-full accent-[var(--primary)]" />
+                                                        <button type="button" onClick={handleUseFrameAsThumbnail} disabled={thumbnailPicking || mediaUploading} className="inline-flex items-center gap-1.5 px-3 py-2 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white rounded-lg text-xs font-medium disabled:opacity-50 w-fit">
                                                             {thumbnailPicking ? <Loader2 size={14} className="animate-spin shrink-0" /> : <ImageIcon size={14} className="shrink-0" />}
                                                             Use this frame
                                                         </button>
@@ -1698,7 +1698,7 @@ export default function ComposerPage() {
                                     {mediaList.map((m, i) => (
                                         <div
                                             key={i}
-                                            className={`relative group rounded-xl overflow-hidden bg-neutral-100 border-2 ${mediaType === 'reel' || mediaType === 'video' ? 'aspect-[9/16]' : 'aspect-square'} ${mediaType === 'carousel' ? 'cursor-grab active:cursor-grabbing border-neutral-300 hover:border-indigo-400' : 'border-neutral-200'} ${carouselDraggingIndex === i ? 'opacity-50 ring-2 ring-indigo-400' : ''}`}
+                                            className={`relative group rounded-xl overflow-hidden bg-neutral-100 border-2 ${mediaType === 'reel' || mediaType === 'video' ? 'aspect-[9/16]' : 'aspect-square'} ${mediaType === 'carousel' ? 'cursor-grab active:cursor-grabbing border-neutral-300 hover:border-[var(--primary)]/60' : 'border-neutral-200'} ${carouselDraggingIndex === i ? 'opacity-50 ring-2 ring-[var(--primary)]/60' : ''}`}
                                             onClick={mediaType === 'carousel' ? () => moveCarouselToPosition(i, 0) : undefined}
                                             role={mediaType === 'carousel' ? 'button' : undefined}
                                             draggable={mediaType === 'carousel'}
@@ -1797,9 +1797,9 @@ export default function ComposerPage() {
                     </div>
 
                     {analyzeReelParam && !(mediaType === 'reel' && mediaList.length === 1 && mediaList[0].type === 'VIDEO') && (
-                        <div className="card space-y-4 rounded-xl border-2 border-dashed border-indigo-200 bg-indigo-50/50 p-4">
-                            <p className="text-sm font-medium text-indigo-900">Reel Analyzer</p>
-                            <p className="text-sm text-indigo-700">Add a <strong>Reel / Short</strong> video in the Media section above (choose &quot;Reel / Short&quot;, then upload one video). The analyzer will appear here so you can get a Short Video Score and optimization tips before posting.</p>
+                        <div className="card space-y-4 rounded-xl border-2 border-dashed border-[var(--primary)]/30 bg-[var(--primary)]/15/50 p-4">
+                            <p className="text-sm font-medium text-neutral-900">Reel Analyzer</p>
+                            <p className="text-sm text-[var(--primary)]">Add a <strong>Reel / Short</strong> video in the Media section above (choose &quot;Reel / Short&quot;, then upload one video). The analyzer will appear here so you can get a Short Video Score and optimization tips before posting.</p>
                         </div>
                     )}
 
@@ -1848,7 +1848,7 @@ export default function ComposerPage() {
                                 type="checkbox"
                                 checked={differentContentPerPlatform}
                                 onChange={(e) => setDifferentContentPerPlatform(e.target.checked)}
-                                className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                                className="rounded border-neutral-300 text-[var(--primary)] focus:ring-[var(--primary)]"
                             />
                             <span className="text-sm text-neutral-700">Use different content per platform</span>
                         </label>
@@ -1856,7 +1856,7 @@ export default function ComposerPage() {
                             <button
                                 type="button"
                                 onClick={openAiModal}
-                                className="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-sm font-medium transition-colors"
+                                className="inline-flex items-center gap-1.5 px-3 py-2 bg-[var(--primary)]/15 text-[var(--primary)] hover:bg-[var(--primary)]/20 rounded-lg text-sm font-medium transition-colors"
                             >
                                 <Sparkles size={16} />
                                 Generate with AI
@@ -1871,7 +1871,7 @@ export default function ComposerPage() {
                                     onFocus={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
                                 placeholder="What's on your mind?..."
                                     rows={5}
-                                    className="w-full min-h-[7rem] p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none overflow-hidden"
+                                    className="w-full min-h-[7rem] p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)] resize-none overflow-hidden"
                                 />
                                 {platforms.includes('TWITTER') && (() => {
                                     const withTags = content.trim() + (selectedHashtags.length ? ' ' + selectedHashtags.join(' ') : '');
@@ -1901,7 +1901,7 @@ export default function ComposerPage() {
                                                 onFocus={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
                                             placeholder="Content for this platform..."
                                                 rows={4}
-                                                className="w-full min-h-[6rem] p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm resize-none overflow-hidden"
+                                                className="w-full min-h-[6rem] p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)] text-sm resize-none overflow-hidden"
                                         />
                                             {p === 'TWITTER' && (
                                                 <p className={`text-xs ${fullLength > 280 ? 'text-amber-600 font-medium' : 'text-neutral-500'}`}>
@@ -1930,7 +1930,7 @@ export default function ComposerPage() {
                                 type="checkbox"
                                 checked={commentAutomationEnabled}
                                 onChange={(e) => setCommentAutomationEnabled(e.target.checked)}
-                                className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                                className="rounded border-neutral-300 text-[var(--primary)] focus:ring-[var(--primary)]"
                             />
                             <span className="text-sm font-medium text-neutral-700">Enable keyword comment automation</span>
                         </label>
@@ -1944,7 +1944,7 @@ export default function ComposerPage() {
                                         onChange={(e) => setCommentAutomationKeywords(e.target.value)}
                                         placeholder="e.g. price, discount, help"
                                         rows={2}
-                                        className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                        className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)] text-sm"
                                     />
                                 </div>
                                 <div>
@@ -1954,7 +1954,7 @@ export default function ComposerPage() {
                                         onChange={(e) => setCommentAutomationReplyTemplate(e.target.value)}
                                         placeholder="e.g. Thanks for your interest!"
                                         rows={2}
-                                        className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                        className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)] text-sm"
                                     />
                                 </div>
                                 <label className="flex items-center gap-2 cursor-pointer">
@@ -1962,7 +1962,7 @@ export default function ComposerPage() {
                                         type="checkbox"
                                         checked={commentAutomationTagCommenter}
                                         onChange={(e) => setCommentAutomationTagCommenter(e.target.checked)}
-                                        className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                                        className="rounded border-neutral-300 text-[var(--primary)] focus:ring-[var(--primary)]"
                                     />
                                     <span className="text-sm text-neutral-700">Tag the commenter in the reply (e.g. &quot;Hi @username, thanks!&quot;)</span>
                                 </label>
@@ -1981,7 +1981,7 @@ export default function ComposerPage() {
                                                                         type="checkbox"
                                                                         checked={commentAutomationInstagramPublicReply}
                                                                         onChange={(e) => setCommentAutomationInstagramPublicReply(e.target.checked)}
-                                                                        className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                                                                        className="rounded border-neutral-300 text-[var(--primary)] focus:ring-[var(--primary)]"
                                                                     />
                                                                     <span className="text-sm text-neutral-700">Send public reply</span>
                                                                 </label>
@@ -1990,7 +1990,7 @@ export default function ComposerPage() {
                                                                         type="checkbox"
                                                                         checked={commentAutomationInstagramPrivateReply}
                                                                         onChange={(e) => setCommentAutomationInstagramPrivateReply(e.target.checked)}
-                                                                        className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                                                                        className="rounded border-neutral-300 text-[var(--primary)] focus:ring-[var(--primary)]"
                                                                     />
                                                                     <span className="text-sm text-neutral-700">Send a private reply (DM)</span>
                                                                 </label>
@@ -2000,7 +2000,7 @@ export default function ComposerPage() {
                                                                 onChange={(e) => setCommentAutomationReplyByPlatform((prev) => ({ ...prev, [p]: e.target.value }))}
                                                                 placeholder={commentAutomationReplyTemplate.trim() || 'e.g. Thanks for commenting!'}
                                                                 rows={2}
-                                                                className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                                                className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)] text-sm"
                                                             />
                                                             {commentAutomationInstagramPrivateReply && (
                                                                 <div className="mt-2 space-y-1">
@@ -2011,7 +2011,7 @@ export default function ComposerPage() {
                                                                             onChange={(e) => setCommentAutomationInstagramDmMessage(e.target.value)}
                                                                             placeholder="e.g. Thanks! I'll send you the link via DM."
                                                                             rows={2}
-                                                                            className="flex-1 p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                                                            className="flex-1 p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)] text-sm"
                                                                         />
                                                                         <button
                                                                             type="button"
@@ -2029,7 +2029,7 @@ export default function ComposerPage() {
                                                                                 finally { setDmReplyAiLoading(false); }
                                                                             }}
                                                                             disabled={dmReplyAiLoading}
-                                                                            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-sm font-medium disabled:opacity-50"
+                                                                            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 bg-[var(--primary)]/15 text-[var(--primary)] hover:bg-[var(--primary)]/20 rounded-lg text-sm font-medium disabled:opacity-50"
                                                                         >
                                                                             {dmReplyAiLoading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
                                                                             Generate with AI
@@ -2044,7 +2044,7 @@ export default function ComposerPage() {
                                                             onChange={(e) => setCommentAutomationReplyByPlatform((prev) => ({ ...prev, [p]: e.target.value }))}
                                                             placeholder={commentAutomationReplyTemplate.trim() || 'e.g. Thanks for commenting!'}
                                                             rows={2}
-                                                            className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                                            className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)] text-sm"
                                                         />
                                                     )}
                                                 </div>
@@ -2077,7 +2077,7 @@ export default function ComposerPage() {
                                     onChange={(e) => setNewHashtagInput(e.target.value)}
                                     onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addToHashtagPool())}
                                     placeholder="e.g. travel or #travel"
-                                    className="flex-1 p-2.5 border border-neutral-200 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                    className="flex-1 p-2.5 border border-neutral-200 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)]"
                                 />
                                 <button type="button" onClick={addToHashtagPool} className="px-4 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-lg text-sm font-medium transition-colors">
                                     Add to pool
@@ -2099,7 +2099,7 @@ export default function ComposerPage() {
                         {hashtagPool.length > 0 && (
                             <>
                                 <label className="flex items-center gap-2 cursor-pointer">
-                                    <input type="checkbox" checked={differentHashtagsPerPlatform} onChange={(e) => setDifferentHashtagsPerPlatform(e.target.checked)} className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500" />
+                                    <input type="checkbox" checked={differentHashtagsPerPlatform} onChange={(e) => setDifferentHashtagsPerPlatform(e.target.checked)} className="rounded border-neutral-300 text-[var(--primary)] focus:ring-[var(--primary)]" />
                                     <span className="text-sm font-medium text-neutral-700">Use different hashtags per platform</span>
                                 </label>
                                 {!differentHashtagsPerPlatform ? (
@@ -2109,7 +2109,7 @@ export default function ComposerPage() {
                                             {hashtagPool.map((tag) => {
                                                 const selected = selectedHashtags.includes(tag);
                                                 return (
-                                                    <button key={tag} type="button" onClick={() => toggleSelectedHashtag(tag)} className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${selected ? 'bg-indigo-600 text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}>
+                                                    <button key={tag} type="button" onClick={() => toggleSelectedHashtag(tag)} className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${selected ? 'bg-[var(--primary)] text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}>
                                                         {tag}
                                                     </button>
                                                 );
@@ -2128,7 +2128,7 @@ export default function ComposerPage() {
                                                         {hashtagPool.map((tag) => {
                                                             const selected = list.includes(tag);
                                                             return (
-                                                                <button key={tag} type="button" onClick={() => toggleSelectedHashtagForPlatform(p, tag)} className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${selected ? 'bg-indigo-600 text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}>
+                                                                <button key={tag} type="button" onClick={() => toggleSelectedHashtagForPlatform(p, tag)} className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${selected ? 'bg-[var(--primary)] text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}>
                                                                     {tag}
                                                                 </button>
                                                             );
@@ -2160,7 +2160,7 @@ export default function ComposerPage() {
                                     name="scheduleMode"
                                     checked={!scheduledAt || scheduledAt.trim() === ''}
                                     onChange={() => setScheduledAt('')}
-                                    className="text-indigo-600 focus:ring-indigo-500"
+                                    className="text-[var(--primary)] focus:ring-[var(--primary)]"
                                 />
                                 <span className="text-sm font-medium text-neutral-800">Post now</span>
                             </label>
@@ -2170,7 +2170,7 @@ export default function ComposerPage() {
                                     name="scheduleMode"
                                     checked={scheduledAt.trim() !== ''}
                                     onChange={() => { if (!scheduledAt.trim()) setScheduledAt(new Date().toISOString().slice(0, 16)); }}
-                                    className="text-indigo-600 focus:ring-indigo-500"
+                                    className="text-[var(--primary)] focus:ring-[var(--primary)]"
                                 />
                                 <span className="text-sm font-medium text-neutral-800">Schedule for later</span>
                             </label>
@@ -2183,7 +2183,7 @@ export default function ComposerPage() {
                                 type="datetime-local"
                                 value={scheduledAt}
                                 onChange={(e) => setScheduledAt(e.target.value)}
-                                className="flex-1 p-3 border border-neutral-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                className="flex-1 p-3 border border-neutral-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)]"
                             />
                         </div>
                         <div className="space-y-2">
@@ -2196,7 +2196,7 @@ export default function ComposerPage() {
                                     name="scheduleDelivery"
                                     checked={scheduleDelivery === 'auto'}
                                     onChange={() => setScheduleDelivery('auto')}
-                                    className="text-indigo-600 focus:ring-indigo-500"
+                                    className="text-[var(--primary)] focus:ring-[var(--primary)]"
                                 />
                                 <span className="text-sm text-neutral-800">Post automatically to all platforms</span>
                             </label>
@@ -2206,7 +2206,7 @@ export default function ComposerPage() {
                                     name="scheduleDelivery"
                                     checked={scheduleDelivery === 'email_links'}
                                     onChange={() => setScheduleDelivery('email_links')}
-                                    className="text-indigo-600 focus:ring-indigo-500"
+                                    className="text-[var(--primary)] focus:ring-[var(--primary)]"
                                 />
                                 <span className="text-sm text-neutral-800">Email me a link per platform so I can open each one, edit or add sound, and publish manually</span>
                             </label>
@@ -2254,7 +2254,7 @@ export default function ComposerPage() {
 
                 {/* Resizable preview panel: drag the handle to change width */}
                 <div
-                    className="hidden lg:block shrink-0 w-2 cursor-col-resize bg-neutral-200 hover:bg-indigo-300 active:bg-indigo-400 transition-colors rounded-full my-2 self-stretch"
+                    className="hidden lg:block shrink-0 w-2 cursor-col-resize bg-neutral-200 hover:bg-[var(--primary)]/40 active:bg-[var(--primary)]/50 transition-colors rounded-full my-2 self-stretch"
                     role="separator"
                     aria-label="Resize preview"
                     onMouseDown={(e) => {
@@ -2394,7 +2394,7 @@ function PlatformToggle({ platform, label, icon, active, onClick, connected }: {
                     !connected
                         ? 'border-neutral-100 bg-neutral-50 text-neutral-300 cursor-not-allowed opacity-50'
                         : active
-                    ? 'border-indigo-600 bg-indigo-50 text-indigo-600 shadow-sm'
+                    ? 'border-indigo-600 bg-[var(--primary)]/15 text-[var(--primary)] shadow-sm'
                     : 'border-neutral-200 bg-white text-neutral-500 hover:border-neutral-300 hover:bg-neutral-50'
                 }`}
         >

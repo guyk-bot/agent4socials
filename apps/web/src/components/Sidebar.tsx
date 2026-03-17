@@ -92,7 +92,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
     return acc;
   }, {});
 
-  const accent = primaryColor || '#6366f1';
+  const accent = primaryColor || '#5ff6fd';
   const text = textColor || '#171717';
   const isSummaryView = pathname === '/dashboard/summary';
   const isDashboardOverview = pathname === '/dashboard/summary' && !selectedAccountId && !selectedPlatformForConnect;
@@ -110,7 +110,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
         <Link
           href="/dashboard/summary"
           className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-            isSummaryView ? 'bg-indigo-50 border border-indigo-100 shadow-sm' : 'hover:bg-neutral-100 border border-transparent'
+            isSummaryView ? 'bg-[var(--primary)]/15 border border-[var(--primary)]/25 shadow-sm' : 'hover:bg-neutral-100 border border-transparent'
           }`}
           style={isSummaryView ? { color: accent } : undefined}
         >

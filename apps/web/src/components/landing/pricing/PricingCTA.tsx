@@ -27,7 +27,7 @@ export default function PricingCTA({ onStartFree, onGetPro }: PricingCTAProps) {
             <button
               type="button"
               onClick={onGetPro}
-              className="w-full rounded-xl bg-emerald-600 px-8 py-3.5 font-semibold text-white shadow-md transition-all hover:bg-emerald-700 sm:w-auto"
+              className="w-full rounded-xl bg-[var(--primary)] px-8 py-3.5 font-semibold text-neutral-900 shadow-md transition-all hover:bg-[var(--primary-hover)] sm:w-auto"
             >
               Get Pro
             </button>

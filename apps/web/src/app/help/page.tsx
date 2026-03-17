@@ -24,8 +24,8 @@ export default function HelpPage() {
       <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-hidden mb-10">
         <div className="px-6 py-8 sm:px-8">
           <div className="flex items-center gap-3 mb-2">
-            <div className="p-2.5 rounded-xl bg-indigo-100">
-              <HelpCircle className="w-6 h-6 text-indigo-600" />
+            <div className="p-2.5 rounded-xl bg-[var(--primary)]/15">
+              <HelpCircle className="w-6 h-6 text-[var(--primary)]" />
             </div>
             <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">Help &amp; Knowledge Base</h1>
           </div>
@@ -34,7 +34,7 @@ export default function HelpPage() {
           </p>
           <Link
             href="/help/support"
-            className="mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
+            className="mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--primary)] text-neutral-900 text-sm font-medium hover:bg-[var(--primary-hover)] transition-colors"
           >
             <Mail size={18} />
             Open a support ticket
@@ -51,7 +51,7 @@ export default function HelpPage() {
             <ul className="space-y-1 text-sm">
               {NAV_LINKS.map(({ href, label }) => (
                 <li key={href}>
-                  <a href={href} className="text-neutral-600 hover:text-indigo-600 hover:underline py-0.5 block">
+                  <a href={href} className="text-neutral-600 hover:text-[var(--primary)] hover:underline py-0.5 block">
                     {label}
                   </a>
                 </li>
@@ -131,7 +131,7 @@ export default function HelpPage() {
                 <li><strong>Instagram:</strong> Insights are limited to the last 28 days by Instagram&apos;s API. Older ranges are capped to 28 days.</li>
                 <li><strong>Comments (Inbox):</strong> New comments on posts older than 28 days cannot be accessed; only comments on posts from the last 28 days are available. This is a platform API limitation.</li>
                 <li><strong>TikTok (Inbox):</strong> TikTok&apos;s <strong>Research API</strong> can read comment text but is only for approved researchers. The <strong>Display API</strong> (used by this app for video list, publish, etc.) does not expose comment text. You can see comment counts in Analytics; we&apos;ll support TikTok comments in Inbox if TikTok adds them to an API available to developer apps.</li>
-                <li><strong>Messages (Inbox):</strong> You may not see all messages in a conversation; unread/notification counts may be approximate or show as one (e.g. &quot;1&quot;) due to platform API limits. See <a href="#inbox-dms" className="text-indigo-600 hover:underline">Inbox & DMs</a> for details.</li>
+                <li><strong>Messages (Inbox):</strong> You may not see all messages in a conversation; unread/notification counts may be approximate or show as one (e.g. &quot;1&quot;) due to platform API limits. See <a href="#inbox-dms" className="text-[var(--primary)] hover:underline">Inbox & DMs</a> for details.</li>
                 <li><strong>Facebook:</strong> Page insights depend on Meta&apos;s API; date ranges and metrics may be limited.</li>
                 <li><strong>X (Twitter):</strong> Reconnect the account if follower or tweet counts are missing. Direct messages are not available in the Inbox; only comments are shown. DM support may be added in a future update.</li>
                 <li><strong>YouTube:</strong> Enable YouTube Analytics API in Google Cloud and reconnect for full channel stats.</li>
@@ -169,7 +169,7 @@ export default function HelpPage() {
             <section
               key={id}
               id={id}
-              className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm border-l-4 border-l-indigo-500"
+              className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm border-l-4 border-l-[var(--primary)]"
             >
               <h2 className="text-lg font-semibold text-neutral-900 mb-4">{title}</h2>
               {children}

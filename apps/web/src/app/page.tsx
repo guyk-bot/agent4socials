@@ -38,7 +38,7 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
         className="flex w-full items-start justify-between gap-3 p-4 sm:p-6 text-left"
       >
         <span className="flex items-start gap-3 font-semibold text-white">
-          <HelpCircle className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
+          <HelpCircle className="mt-0.5 h-5 w-5 shrink-0 text-[#5ff6fd]" />
           {question}
         </span>
         {isOpen ? (
@@ -86,15 +86,15 @@ export default function Home() {
         {/* Hero */}
         <section className="relative overflow-hidden pt-24 pb-16 sm:pt-32 sm:pb-24 md:pt-40 md:pb-32">
           {/* Background Effects */}
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(16,185,129,0.15),transparent)] pointer-events-none" />
-          <div className="absolute inset-0 bg-gradient-to-b from-emerald-500/5 via-transparent to-transparent pointer-events-none" />
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 h-[40rem] w-[40rem] rounded-full bg-emerald-500/10 blur-[100px] animate-pulse-glow pointer-events-none" />
-          <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-sky-500/10 blur-[80px] pointer-events-none" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(95,246,253,0.15),transparent)] pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#5ff6fd]/5 via-transparent to-transparent pointer-events-none" />
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 h-[40rem] w-[40rem] rounded-full bg-[#5ff6fd]/10 blur-[100px] animate-pulse-glow pointer-events-none" />
+          <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-[#df44dc]/10 blur-[80px] pointer-events-none" />
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#334155_0.5px,transparent_0.5px),linear-gradient(to_bottom,#334155_0.5px,transparent_0.5px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_80%_at_50%_0%,#000_70%,transparent_110%)] pointer-events-none" />
           
           <div className="relative mx-auto max-w-5xl px-4 text-center sm:px-6 animate-fade-in-up">
-            <div className="mb-8 inline-flex flex-wrap items-center justify-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/5 px-4 py-1.5 sm:px-5 sm:py-2 text-xs sm:text-sm font-semibold text-emerald-400 shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)] backdrop-blur-sm transition-transform hover:scale-105 cursor-default">
-              <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4 fill-emerald-400/20" />
+            <div className="mb-8 inline-flex flex-wrap items-center justify-center gap-2 rounded-full border border-[#5ff6fd]/30 bg-[#5ff6fd]/5 px-4 py-1.5 sm:px-5 sm:py-2 text-xs sm:text-sm font-semibold text-[#5ff6fd] shadow-[0_0_20px_-5px_rgba(95,246,253,0.3)] backdrop-blur-sm transition-transform hover:scale-105 cursor-default">
+              <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4 fill-[#5ff6fd]/20" />
               <span>Try for free</span>
               <span className="text-slate-600">|</span>
               <span className="text-slate-400">Plans from $15/mo</span>
@@ -105,7 +105,7 @@ export default function Home() {
                 Schedule, automate & grow
               </span>
               <br />
-              <span className="bg-gradient-to-r from-emerald-400 via-teal-400 to-sky-400 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-[#5ff6fd] via-[#7df8fd] to-[#df44dc] bg-clip-text text-transparent">
                 across all your socials
               </span>
             </h1>
@@ -119,7 +119,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={openSignup}
-                className="group relative inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-8 py-4 text-lg font-semibold text-white shadow-xl shadow-emerald-500/20 transition-all hover:bg-emerald-400 hover:shadow-emerald-500/40 hover:-translate-y-1 sm:w-auto overflow-hidden"
+                className="group relative inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#5ff6fd] px-8 py-4 text-lg font-semibold text-neutral-900 shadow-xl shadow-[0_0_30px_rgba(95,246,253,0.35)] transition-all hover:bg-[#3dd9e0] hover:shadow-[0_0_40px_rgba(95,246,253,0.45)] hover:-translate-y-1 sm:w-auto overflow-hidden"
               >
                 <div className="absolute inset-0 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent z-10" />
                 <span>Try for free</span>
@@ -141,7 +141,7 @@ export default function Home() {
                   style={{ animationDelay: `${1.2 + i * 0.12}s`, animationFillMode: 'forwards' }}
                 >
                   <div
-                    className="rounded-2xl border border-slate-700/60 bg-slate-800/40 p-3 sm:p-4 shadow-lg transition-all duration-300 hover:-translate-y-2 hover:border-emerald-500/40 hover:shadow-emerald-500/20 hover:shadow-xl"
+                    className="rounded-2xl border border-slate-700/60 bg-slate-800/40 p-3 sm:p-4 shadow-lg transition-all duration-300 hover:-translate-y-2 hover:border-[#5ff6fd]/40 hover:shadow-[#5ff6fd]/20 hover:shadow-xl"
                     style={{ animation: 'hero-logo-float 3s ease-in-out infinite', animationDelay: `${i * 0.2}s` }}
                   >
                     <span className={label === 'Twitter/X' ? 'inline-block invert' : ''}>
@@ -169,37 +169,37 @@ export default function Home() {
               Scheduling, analytics, unified inbox, keyword and DM automation, and AI-powered captions. All in one place.
             </p>
             <div className="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-3 md:max-w-5xl md:mx-auto">
-              <div className="group relative rounded-3xl border border-slate-800 bg-slate-900/50 p-8 transition-all hover:border-emerald-500/30 hover:shadow-2xl hover:shadow-emerald-500/5 hover:-translate-y-1">
-                <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="group relative rounded-3xl border border-slate-800 bg-slate-900/50 p-8 transition-all hover:border-[#5ff6fd]/30 hover:shadow-2xl hover:shadow-[#5ff6fd]/10 hover:-translate-y-1">
+                <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-[#5ff6fd]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="relative">
-                  <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-800 text-emerald-400 shadow-inner shadow-white/5 ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-300">
+                  <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-800 text-[#5ff6fd] shadow-inner shadow-white/5 ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-300">
                     <Calendar className="h-7 w-7" />
                   </div>
-                  <h3 className="text-2xl font-bold text-slate-100 group-hover:text-emerald-400 transition-colors">Schedule posts</h3>
+                  <h3 className="text-2xl font-bold text-slate-100 group-hover:text-[#5ff6fd] transition-colors">Schedule posts</h3>
                   <p className="mt-4 leading-relaxed text-slate-400">
                     Plan content for Instagram, YouTube, TikTok, Facebook, Twitter and LinkedIn from one calendar. Set it and forget it.
                   </p>
                 </div>
               </div>
-              <div className="group relative rounded-3xl border border-slate-800 bg-slate-900/50 p-8 transition-all hover:border-sky-500/30 hover:shadow-2xl hover:shadow-sky-500/5 hover:-translate-y-1">
-                <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-sky-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="group relative rounded-3xl border border-slate-800 bg-slate-900/50 p-8 transition-all hover:border-[#df44dc]/30 hover:shadow-2xl hover:shadow-[#df44dc]/10 hover:-translate-y-1">
+                <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-[#df44dc]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="relative">
-                  <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-800 text-sky-400 shadow-inner shadow-white/5 ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-300">
+                  <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-800 text-[#df44dc] shadow-inner shadow-white/5 ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-300">
                     <BarChart3 className="h-7 w-7" />
                   </div>
-                  <h3 className="text-2xl font-bold text-slate-100 group-hover:text-sky-400 transition-colors">Analytics</h3>
+                  <h3 className="text-2xl font-bold text-slate-100 group-hover:text-[#df44dc] transition-colors">Analytics</h3>
                   <p className="mt-4 leading-relaxed text-slate-400">
                     Views, likes, comments, followers, subscribers: see what works across all platforms and double down on success.
                   </p>
                 </div>
               </div>
-              <div className="group relative rounded-3xl border border-slate-800 bg-slate-900/50 p-8 transition-all hover:border-violet-500/30 hover:shadow-2xl hover:shadow-violet-500/5 hover:-translate-y-1 sm:col-span-2 lg:col-span-1">
-                <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-violet-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="group relative rounded-3xl border border-slate-800 bg-slate-900/50 p-8 transition-all hover:border-[#df44dc]/30 hover:shadow-2xl hover:shadow-[#df44dc]/10 hover:-translate-y-1 sm:col-span-2 lg:col-span-1">
+                <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-[#df44dc]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="relative">
-                  <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-800 text-violet-400 shadow-inner shadow-white/5 ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-300">
+                  <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-800 text-[#df44dc] shadow-inner shadow-white/5 ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-300">
                     <MessageCircle className="h-7 w-7" />
                   </div>
-                  <h3 className="text-2xl font-bold text-slate-100 group-hover:text-violet-400 transition-colors">Unified inbox</h3>
+                  <h3 className="text-2xl font-bold text-slate-100 group-hover:text-[#df44dc] transition-colors">Unified inbox</h3>
                   <p className="mt-4 leading-relaxed text-slate-400">
                     View and reply to DMs and messages from Instagram, Facebook and X in one place.
                   </p>
@@ -259,28 +259,28 @@ export default function Home() {
               <div className="hidden md:block absolute top-1/2 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-slate-800 to-transparent -translate-y-8 z-0" />
               
               <div className="relative text-center group z-10">
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl border border-slate-700 bg-slate-900 text-emerald-400 shadow-xl transition-all duration-300 group-hover:-translate-y-2 group-hover:border-emerald-500/50 group-hover:shadow-emerald-500/20">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl border border-slate-700 bg-slate-900 text-[#5ff6fd] shadow-xl transition-all duration-300 group-hover:-translate-y-2 group-hover:border-[#5ff6fd]/50 group-hover:shadow-[#5ff6fd]/20">
                   <Link2 className="h-9 w-9" />
                 </div>
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-bold text-slate-300 group-hover:border-emerald-500/50 group-hover:text-emerald-400 transition-colors">Step 1</div>
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-bold text-slate-300 group-hover:border-[#5ff6fd]/50 group-hover:text-[#5ff6fd] transition-colors">Step 1</div>
                 <h3 className="mt-8 text-xl font-semibold text-slate-200">Connect</h3>
                 <p className="mt-3 text-slate-400 leading-relaxed px-4">Link Instagram, YouTube, TikTok, Facebook, Twitter or LinkedIn securely.</p>
               </div>
               
               <div className="relative text-center group z-10">
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl border border-slate-700 bg-slate-900 text-emerald-400 shadow-xl transition-all duration-300 group-hover:-translate-y-2 group-hover:border-emerald-500/50 group-hover:shadow-emerald-500/20">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl border border-slate-700 bg-slate-900 text-[#5ff6fd] shadow-xl transition-all duration-300 group-hover:-translate-y-2 group-hover:border-[#5ff6fd]/50 group-hover:shadow-[#5ff6fd]/20">
                   <CalendarCheck className="h-9 w-9" />
                 </div>
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-bold text-slate-300 group-hover:border-emerald-500/50 group-hover:text-emerald-400 transition-colors">Step 2</div>
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-bold text-slate-300 group-hover:border-[#5ff6fd]/50 group-hover:text-[#5ff6fd] transition-colors">Step 2</div>
                 <h3 className="mt-8 text-xl font-semibold text-slate-200">Schedule</h3>
                 <p className="mt-3 text-slate-400 leading-relaxed px-4">Draft posts, add media, and choose when to go live across channels.</p>
               </div>
               
               <div className="relative text-center group z-10">
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl border border-slate-700 bg-slate-900 text-emerald-400 shadow-xl transition-all duration-300 group-hover:-translate-y-2 group-hover:border-emerald-500/50 group-hover:shadow-emerald-500/20">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl border border-slate-700 bg-slate-900 text-[#5ff6fd] shadow-xl transition-all duration-300 group-hover:-translate-y-2 group-hover:border-[#5ff6fd]/50 group-hover:shadow-[#5ff6fd]/20">
                   <BarChart2 className="h-9 w-9" />
                 </div>
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-bold text-slate-300 group-hover:border-emerald-500/50 group-hover:text-emerald-400 transition-colors">Step 3</div>
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-bold text-slate-300 group-hover:border-[#5ff6fd]/50 group-hover:text-[#5ff6fd] transition-colors">Step 3</div>
                 <h3 className="mt-8 text-xl font-semibold text-slate-200">Analyze</h3>
                 <p className="mt-3 text-slate-400 leading-relaxed px-4">Track views, likes, and growth in one simple dashboard.</p>
               </div>
@@ -290,7 +290,7 @@ export default function Home() {
 
         {/* Product detail */}
         <section id="product" className="border-t border-slate-800/80 py-16 sm:py-24 md:py-32">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_60%_at_50%_50%,rgba(16,185,129,0.03),transparent)] pointer-events-none" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_60%_at_50%_50%,rgba(95,246,253,0.06),transparent)] pointer-events-none" />
           <div className="mx-auto max-w-5xl px-4 sm:px-6 relative z-10">
             <h2 className="text-center text-2xl font-bold sm:text-3xl md:text-4xl lg:text-5xl">
               One product, everything you need
@@ -320,7 +320,7 @@ export default function Home() {
                 'Agency adds multiple brands, team members, white-label, and priority support.',
               ].map((item, i) => (
                 <li key={i} className="flex items-start gap-3">
-                  <Check className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
+                  <Check className="mt-0.5 h-5 w-5 shrink-0 text-[#df44dc]" />
                   <span>{item}</span>
                 </li>
               ))}
@@ -339,7 +339,7 @@ export default function Home() {
             </p>
             <div className="mt-12 grid gap-6 sm:grid-cols-3 max-w-4xl mx-auto">
               <div className="rounded-2xl border border-slate-700 bg-slate-800/40 p-5 sm:p-6 text-center">
-                <p className="text-xs font-semibold uppercase tracking-wider text-emerald-400">Free</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-[#5ff6fd]">Free</p>
                 <p className="mt-2 text-2xl font-bold">$0</p>
                 <p className="mt-1 text-xs text-slate-500">1 brand, 50 scheduled posts/mo, 30 days analytics, 1 smart link, limited AI</p>
                 <Link href="/pricing" className="mt-4 inline-block w-full rounded-xl border border-slate-600 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-slate-700">View plan</Link>
@@ -359,7 +359,7 @@ export default function Home() {
               </div>
             </div>
             <p className="mt-10 text-center">
-              <Link href="/pricing" className="text-emerald-400 font-medium hover:text-emerald-300 hover:underline">
+              <Link href="/pricing" className="text-[#5ff6fd] font-medium hover:text-[#3dd9e0] hover:underline">
                 Compare all features and yearly pricing →
               </Link>
             </p>
@@ -421,7 +421,7 @@ export default function Home() {
 
         {/* CTA */}
         <section className="relative border-t border-slate-800/80 py-16 sm:py-24 md:py-32">
-          <div className="absolute inset-0 bg-gradient-to-t from-emerald-500/5 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#5ff6fd]/5 via-transparent to-transparent" />
           <div className="relative mx-auto max-w-3xl px-4 text-center sm:px-6">
             <h2 className="text-2xl font-bold sm:text-3xl md:text-4xl lg:text-5xl">
               Ready to grow your socials?
@@ -433,7 +433,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={openSignup}
-                className="group inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 py-3.5 sm:px-8 sm:py-4 text-base sm:text-lg font-semibold text-white shadow-xl shadow-emerald-500/25 transition-all hover:bg-emerald-400 hover:shadow-emerald-500/40 active:scale-[0.98] sm:hover:-translate-y-0.5"
+                className="group inline-flex items-center justify-center gap-2 rounded-xl bg-[#5ff6fd] px-6 py-3.5 sm:px-8 sm:py-4 text-base sm:text-lg font-semibold text-neutral-900 shadow-xl shadow-[0_0_30px_rgba(95,246,253,0.35)] transition-all hover:bg-[#3dd9e0] hover:shadow-[0_0_40px_rgba(95,246,253,0.45)] active:scale-[0.98] sm:hover:-translate-y-0.5"
               >
                 Try for free
                 <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />

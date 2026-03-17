@@ -37,7 +37,7 @@ export default function SiteHeader() {
           <button
             type="button"
             onClick={openSignup}
-            className="rounded-xl bg-emerald-500 px-4 py-2 sm:px-5 sm:py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-400 hover:shadow-emerald-500/30"
+            className="rounded-xl bg-[var(--primary)] px-4 py-2 sm:px-5 sm:py-2.5 text-sm font-semibold text-neutral-900 shadow-lg shadow-[0_0_20px_rgba(95,246,253,0.35)] transition-all hover:bg-[var(--primary-hover)] hover:shadow-[0_0_24px_rgba(95,246,253,0.45)]"
           >
             Try for free
           </button>
@@ -46,7 +46,7 @@ export default function SiteHeader() {
           <button
             type="button"
             onClick={openSignup}
-            className="rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-white"
+            className="rounded-lg bg-[var(--primary)] px-3 py-2 text-sm font-semibold text-white hover:bg-[var(--primary-hover)]"
           >
             Try for free
           </button>
@@ -82,7 +82,7 @@ export default function SiteHeader() {
           <button
             type="button"
             onClick={() => { setMobileOpen(false); openSignup(); }}
-            className="mt-2 mx-3 py-3 rounded-xl bg-emerald-500 text-center font-semibold text-white w-full"
+            className="mt-2 mx-3 py-3 rounded-xl bg-[var(--primary)] text-center font-semibold text-white w-full hover:bg-[var(--primary-hover)]"
           >
             Try for free
           </button>

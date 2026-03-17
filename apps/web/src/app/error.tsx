@@ -24,11 +24,11 @@ export default function Error({
       )}
       <button
         onClick={reset}
-        className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700"
+        className="px-4 py-2 rounded-lg bg-[var(--primary)] text-neutral-900 font-medium hover:bg-[var(--primary-hover)]"
       >
         Try again
       </button>
-      <a href="/" className="text-sm text-indigo-600 hover:underline">Go home</a>
+      <a href="/" className="text-sm text-[var(--primary)] hover:underline">Go home</a>
     </div>
   );
 }

@@ -73,7 +73,7 @@ function DataSyncBanner({
     YOUTUBE: 'from-red-500 to-red-700',
     TWITTER: 'from-sky-400 to-sky-600',
     LINKEDIN: 'from-blue-600 to-blue-800',
-    DEFAULT: 'from-indigo-500 to-violet-600',
+    DEFAULT: 'from-[#5ff6fd] to-[#df44dc]',
   };
   const grad = platformColors[platform ?? ''] ?? platformColors.DEFAULT;
   const icon = platform ? platformIcons[platform] : null;
@@ -85,10 +85,10 @@ function DataSyncBanner({
     <div className="flex items-center gap-1.5 min-w-0">
       <div className={`shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
         state === 'done' ? 'bg-emerald-500 text-white' :
-        state === 'loading' ? 'bg-white text-indigo-600' : 'bg-white/30 text-white/60'
+        state === 'loading' ? 'bg-white text-[var(--primary)]' : 'bg-white/30 text-white/60'
       }`}>
         {state === 'done' ? '✓' : state === 'loading' ? (
-          <span className="inline-block w-3 h-3 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+          <span className="inline-block w-3 h-3 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
         ) : '○'}
       </div>
       <span className={`text-xs font-medium truncate ${
@@ -1196,14 +1196,14 @@ export default function DashboardPage() {
             )}
             <div className={importedPostsLoading ? 'hidden' : undefined}>
             {postsShowWatermark && (
-              <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 flex flex-wrap items-center justify-between gap-3 mb-6">
-                <p className="text-sm text-indigo-800">
+              <div className="rounded-xl border border-[var(--primary)]/30 bg-[var(--primary)]/10 px-4 py-3 flex flex-wrap items-center justify-between gap-3 mb-6">
+                <p className="text-sm text-[var(--primary)]">
                   You're viewing more than 30 days. Upgrade to remove watermarks and view full history.
                 </p>
                 <button
                   type="button"
                   onClick={() => router.push('/pricing')}
-                  className="shrink-0 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
+                  className="shrink-0 px-4 py-2 rounded-lg bg-[var(--primary)] text-neutral-900 text-sm font-medium hover:bg-[var(--primary-hover)] transition-colors"
                 >
                   Upgrade plan
                 </button>
@@ -1276,8 +1276,8 @@ export default function DashboardPage() {
                         <BarChart data={postsTabDisplaySeries} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barSize={12}>
                           <defs>
                             <linearGradient id="postsCountGrad" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#6366f1" stopOpacity={0.9} />
-                              <stop offset="100%" stopColor="#6366f1" stopOpacity={0.6} />
+                              <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.9} />
+                              <stop offset="100%" stopColor="var(--primary)" stopOpacity={0.6} />
                             </linearGradient>
                           </defs>
                           <CartesianGrid strokeDasharray="3 3" stroke="rgba(107,114,128,0.08)" vertical={false} />
@@ -1369,7 +1369,7 @@ export default function DashboardPage() {
                       platform === 'TIKTOK' ? (isActive ? 'bg-neutral-900 border-neutral-900 text-white' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-100') :
                       platform === 'TWITTER' ? (isActive ? 'bg-sky-100 border-sky-300 text-sky-800' : 'border-neutral-200 text-neutral-600 hover:bg-sky-50') :
                       platform === 'LINKEDIN' ? (isActive ? 'bg-blue-100 border-blue-400 text-blue-900' : 'border-neutral-200 text-neutral-600 hover:bg-blue-50') :
-                      (isActive ? 'bg-indigo-100 border-indigo-300 text-indigo-800' : 'border-neutral-200 text-neutral-600 hover:bg-indigo-50');
+                      (isActive ? 'bg-[var(--primary)]/15 border-[var(--primary)]/40 text-[var(--primary)]' : 'border-neutral-200 text-neutral-600 hover:bg-[var(--primary)]/5');
                     return (
                       <button
                         key={platform}
@@ -1458,7 +1458,7 @@ export default function DashboardPage() {
                                     <p className="text-sm text-neutral-900 truncate">{post.content || 'No caption'}</p>
                                   </div>
                                   {post.permalinkUrl && (
-                                    <a href={post.permalinkUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-600 hover:underline inline-flex items-center gap-0.5">
+                                    <a href={post.permalinkUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-[var(--primary)] hover:underline inline-flex items-center gap-0.5">
                                       Open <ExternalLink size={12} />
                                     </a>
                                   )}

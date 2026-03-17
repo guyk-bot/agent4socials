@@ -60,7 +60,7 @@ function InstagramSelectContent() {
   if (loading) {
     return (
       <div className="max-w-md mx-auto mt-16 text-center">
-        <Loader2 className="w-10 h-10 animate-spin text-indigo-600 mx-auto mb-4" />
+        <Loader2 className="w-10 h-10 animate-spin text-[var(--primary)] mx-auto mb-4" />
         <p className="text-neutral-600">Loading your Instagram accounts…</p>
       </div>
     );
@@ -89,7 +89,7 @@ function InstagramSelectContent() {
             <label
               key={account.id}
               className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                selectedId === account.id ? 'border-indigo-500 bg-indigo-50' : 'border-neutral-200 hover:bg-neutral-50'
+                selectedId === account.id ? 'border-[var(--primary)] bg-[var(--primary)]/10' : 'border-neutral-200 hover:bg-neutral-50'
               }`}
             >
               <input
@@ -129,7 +129,7 @@ export default function InstagramSelectPage() {
   return (
     <Suspense fallback={
       <div className="max-w-md mx-auto mt-16 text-center">
-        <Loader2 className="w-10 h-10 animate-spin text-indigo-600 mx-auto mb-4" />
+        <Loader2 className="w-10 h-10 animate-spin text-[var(--primary)] mx-auto mb-4" />
         <p className="text-neutral-600">Loading…</p>
       </div>
     }>

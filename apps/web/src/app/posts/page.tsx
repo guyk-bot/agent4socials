@@ -155,13 +155,13 @@ export default function PostsPage() {
                         <input
                             type="text"
                             placeholder="Search posts..."
-                            className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                            className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-[var(--primary)] focus:border-[var(--primary)] bg-white"
                         />
                     </div>
                     <select
                         value={filter}
                         onChange={(e) => setFilter(e.target.value)}
-                        className="pl-3 pr-8 py-2 border border-gray-200 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500 bg-white cursor-pointer"
+                        className="pl-3 pr-8 py-2 border border-gray-200 rounded-lg text-sm focus:ring-[var(--primary)] focus:border-[var(--primary)] bg-white cursor-pointer"
                     >
                         <option value="ALL">All Status</option>
                         <option value="POSTED">Posted</option>
@@ -175,7 +175,7 @@ export default function PostsPage() {
             <div className="card !p-0 overflow-hidden">
                 {loading ? (
                     <div className="p-12 flex flex-col items-center justify-center gap-4">
-                        <Loader2 size={32} className="animate-spin text-indigo-600" />
+                        <Loader2 size={32} className="animate-spin text-[var(--primary)]" />
                         <p className="text-gray-500">Loading history...</p>
                         <div className="w-full max-w-md space-y-3">
                             {[1, 2, 3, 4, 5].map((i) => (
@@ -245,7 +245,7 @@ export default function PostsPage() {
                                     <td className="px-6 py-4">
                                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${post.status === 'POSTED' ? 'bg-green-100 text-green-800' :
                                                 post.status === 'FAILED' ? 'bg-red-100 text-red-800' :
-                                                    'bg-indigo-100 text-indigo-800'
+                                                    'bg-[var(--primary)]/15 text-[var(--primary)]'
                                             }`}>
                                             {post.status}
                                         </span>
@@ -253,7 +253,7 @@ export default function PostsPage() {
                                     <td className="px-6 py-4 text-right">
                                         <Link
                                             href={`/composer?edit=${post.id}`}
-                                            className="inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+                                            className="inline-flex items-center gap-1 text-sm font-medium text-[var(--primary)] hover:opacity-90"
                                         >
                                             Open in Composer
                                             <ChevronRight size={18} />

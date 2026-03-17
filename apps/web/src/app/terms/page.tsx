@@ -14,7 +14,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold text-white">1. Acceptance of terms</h2>
             <p className="mt-3 leading-relaxed">
-              By accessing or using Agent4Socials (&quot;Service&quot;, &quot;we,&quot; &quot;us&quot;), you agree to be bound by these Terms of Service and our <Link href="/privacy" className="text-emerald-400 hover:text-emerald-300 underline">Privacy Policy</Link>. If you do not agree, do not use the Service. We may update these terms from time to time; we will post the updated version on this page and update the &quot;Last updated&quot; date. Continued use after changes constitutes acceptance.
+              By accessing or using Agent4Socials (&quot;Service&quot;, &quot;we,&quot; &quot;us&quot;), you agree to be bound by these Terms of Service and our <Link href="/privacy" className="text-[var(--primary)] hover:opacity-90 underline">Privacy Policy</Link>. If you do not agree, do not use the Service. We may update these terms from time to time; we will post the updated version on this page and update the &quot;Last updated&quot; date. Continued use after changes constitutes acceptance.
             </p>
           </section>
 
@@ -57,7 +57,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold text-white">5. Payment and cancellation</h2>
             <p className="mt-3 leading-relaxed">
-              Paid plans are billed as described on the <Link href="/pricing" className="text-emerald-400 hover:text-emerald-300 underline">pricing page</Link> (monthly or yearly subscription). You may cancel at any time; access continues until the end of the current billing period. We do not provide refunds for partial periods. We may change pricing with advance notice. You are responsible for any applicable taxes.
+              Paid plans are billed as described on the <Link href="/pricing" className="text-[var(--primary)] hover:opacity-90 underline">pricing page</Link> (monthly or yearly subscription). You may cancel at any time; access continues until the end of the current billing period. We do not provide refunds for partial periods. We may change pricing with advance notice. You are responsible for any applicable taxes.
             </p>
           </section>
 
@@ -85,12 +85,12 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold text-white">9. Contact</h2>
             <p className="mt-3 leading-relaxed">
-              For questions about these terms, contact us at <a href="mailto:support@agent4socials.com" className="text-emerald-400 hover:text-emerald-300 underline">support@agent4socials.com</a> or use the contact or support option in the app or on our website. For data deletion requests, see our <Link href="/data-deletion" className="text-emerald-400 hover:text-emerald-300 underline">Data Deletion</Link> page and <Link href="/privacy" className="text-emerald-400 hover:text-emerald-300 underline">Privacy Policy</Link>.
+              For questions about these terms, contact us at <a href="mailto:support@agent4socials.com" className="text-[var(--primary)] hover:opacity-90 underline">support@agent4socials.com</a> or use the contact or support option in the app or on our website. For data deletion requests, see our <Link href="/data-deletion" className="text-[var(--primary)] hover:opacity-90 underline">Data Deletion</Link> page and <Link href="/privacy" className="text-[var(--primary)] hover:opacity-90 underline">Privacy Policy</Link>.
             </p>
           </section>
         </div>
 
-        <Link href="/" className="mt-12 inline-block text-emerald-400 font-medium hover:text-emerald-300 hover:underline">
+        <Link href="/" className="mt-12 inline-block text-[var(--primary)] font-medium hover:opacity-90 hover:underline">
           ← Back to home
         </Link>
       </main>

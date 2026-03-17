@@ -38,7 +38,7 @@ export default function SupportPage() {
     <div className="max-w-xl mx-auto pb-16">
       <Link
         href="/help"
-        className="inline-flex items-center gap-2 text-sm text-neutral-600 hover:text-indigo-600 mb-8"
+        className="inline-flex items-center gap-2 text-sm text-neutral-600 hover:text-[var(--primary)] mb-8"
       >
         <ArrowLeft size={16} />
         Back to Help & Knowledge Base
@@ -47,8 +47,8 @@ export default function SupportPage() {
       <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
         <div className="px-6 py-8 sm:px-8 border-b border-neutral-100">
           <div className="flex items-center gap-3 mb-2">
-            <div className="p-2.5 rounded-xl bg-indigo-100">
-              <Mail className="w-6 h-6 text-indigo-600" />
+            <div className="p-2.5 rounded-xl bg-[var(--primary)]/15">
+              <Mail className="w-6 h-6 text-[var(--primary)]" />
             </div>
             <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">Open a support ticket</h1>
           </div>
@@ -96,7 +96,7 @@ export default function SupportPage() {
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 maxLength={200}
-                className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-[var(--primary)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
               />
             </div>
             <div>
@@ -109,13 +109,13 @@ export default function SupportPage() {
                 required
                 rows={5}
                 maxLength={10000}
-                className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-y min-h-[120px]"
+                className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-[var(--primary)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)] resize-y min-h-[120px]"
               />
             </div>
             <button
               type="submit"
               disabled={status === 'sending' || !message.trim()}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--primary)] text-neutral-900 text-sm font-medium hover:bg-[var(--primary-hover)] disabled:opacity-50 disabled:pointer-events-none transition-colors"
             >
               {status === 'sending' ? (
                 <>Sending...</>
@@ -129,7 +129,7 @@ export default function SupportPage() {
           </form>
 
           <p className="text-neutral-500 text-xs mt-6">
-            Or email us directly: <a href={`mailto:${SUPPORT_EMAIL}`} className="text-indigo-600 hover:underline">{SUPPORT_EMAIL}</a>
+            Or email us directly: <a href={`mailto:${SUPPORT_EMAIL}`} className="text-[var(--primary)] hover:underline">{SUPPORT_EMAIL}</a>
           </p>
         </div>
       </div>

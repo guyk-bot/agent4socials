@@ -42,7 +42,7 @@ function ExpiredLink() {
     <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4">
       <div className="card max-w-md w-full text-center">
         <p className="text-neutral-600">Link expired or invalid</p>
-        <Link href="/" className="mt-4 inline-block text-indigo-600 font-medium">Go to Agent4Socials</Link>
+        <Link href="/" className="mt-4 inline-block text-[var(--primary)] font-medium">Go to Agent4Socials</Link>
       </div>
     </div>
   );

@@ -102,7 +102,7 @@ const SECTIONS: TableSection[] = [
 
 function Cell({ value }: { value: CellValue }) {
   if (value === 'check') {
-    return <span className="text-emerald-600 font-medium" aria-hidden>✓</span>;
+    return <span className="text-[var(--primary)] font-medium" aria-hidden>✓</span>;
   }
   if (value === 'dash') {
     return <span className="text-neutral-300">—</span>;

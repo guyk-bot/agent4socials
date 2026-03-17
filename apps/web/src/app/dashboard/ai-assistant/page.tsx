@@ -127,7 +127,7 @@ export default function AIAssistantPage() {
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Sparkles size={28} className="text-indigo-500" />
+            <Sparkles size={28} className="text-[var(--primary)]" />
             AI Writing Assistant
           </h1>
           <p className="text-sm text-gray-500 mt-1">
@@ -257,7 +257,7 @@ export default function AIAssistantPage() {
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium text-neutral-900 bg-[var(--primary)] hover:bg-[var(--primary-hover)] disabled:opacity-50"
           >
             {saving ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
             Save brand context
@@ -268,7 +268,7 @@ export default function AIAssistantPage() {
       {/* Inbox reply examples */}
       <div className="card p-6 mt-6">
         <div className="flex items-start gap-3 mb-4">
-          <MessageCircle size={22} className="text-indigo-500 shrink-0 mt-0.5" />
+          <MessageCircle size={22} className="text-[var(--primary)] shrink-0 mt-0.5" />
           <div>
             <h2 className="font-semibold text-gray-900">Inbox reply examples</h2>
             <p className="text-sm text-gray-500 mt-0.5">
@@ -303,7 +303,7 @@ export default function AIAssistantPage() {
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium text-neutral-900 bg-[var(--primary)] hover:bg-[var(--primary-hover)] disabled:opacity-50"
           >
             {saving ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
             Save
@@ -314,7 +314,7 @@ export default function AIAssistantPage() {
       {/* Comment reply examples */}
       <div className="card p-6 mt-6">
         <div className="flex items-start gap-3 mb-4">
-          <MessagesSquare size={22} className="text-indigo-500 shrink-0 mt-0.5" />
+          <MessagesSquare size={22} className="text-[var(--primary)] shrink-0 mt-0.5" />
           <div>
             <h2 className="font-semibold text-gray-900">Comment reply examples</h2>
             <p className="text-sm text-gray-500 mt-0.5">
@@ -349,7 +349,7 @@ export default function AIAssistantPage() {
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium text-neutral-900 bg-[var(--primary)] hover:bg-[var(--primary-hover)] disabled:opacity-50"
           >
             {saving ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
             Save

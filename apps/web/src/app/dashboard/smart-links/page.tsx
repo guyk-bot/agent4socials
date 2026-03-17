@@ -427,7 +427,7 @@ export default function SmartLinksPage() {
       <>
         <LoadingVideoOverlay loading={true} />
         <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+          <Loader2 className="w-8 h-8 animate-spin text-[var(--primary)]" />
         </div>
       </>
     );
@@ -441,7 +441,7 @@ export default function SmartLinksPage() {
           {/* Header */}
           <div className="p-5 border-b border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] flex items-center justify-center">
                 <Link2 className="w-5 h-5 text-white" />
               </div>
               <div>
@@ -452,7 +452,7 @@ export default function SmartLinksPage() {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium text-sm hover:bg-indigo-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+              className="px-4 py-2 bg-[var(--primary)] text-white rounded-lg font-medium text-sm hover:bg-[var(--primary-hover)] transition-colors flex items-center gap-2 disabled:opacity-50"
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               Save
@@ -471,7 +471,7 @@ export default function SmartLinksPage() {
                   setData((prev) => ({ ...prev, slug: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') }));
                 }}
                 placeholder="username"
-                className="flex-1 px-3 py-1.5 border border-slate-200 rounded-lg text-sm font-medium focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
+                className="flex-1 px-3 py-1.5 border border-slate-200 rounded-lg text-sm font-medium focus:ring-2 focus:ring-[var(--primary)]/30 focus:border-[var(--primary)]"
               />
               <button
                 onClick={handleCopyLink}
@@ -503,14 +503,14 @@ export default function SmartLinksPage() {
           <div className="flex border-b border-slate-100">
             <button
               onClick={() => setActiveTab('links')}
-              className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === 'links' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === 'links' ? 'text-[var(--primary)] border-b-2 border-[var(--primary)]' : 'text-slate-500 hover:text-slate-700'}`}
             >
               <Link2 className="w-4 h-4 inline mr-2" />
               Links
             </button>
             <button
               onClick={() => setActiveTab('design')}
-              className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === 'design' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === 'design' ? 'text-[var(--primary)] border-b-2 border-[var(--primary)]' : 'text-slate-500 hover:text-slate-700'}`}
             >
               <Palette className="w-4 h-4 inline mr-2" />
               Design
@@ -559,7 +559,7 @@ export default function SmartLinksPage() {
                         type="button"
                         onClick={() => avatarInputRef.current?.click()}
                         disabled={avatarUploading}
-                        className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow hover:bg-indigo-700 disabled:opacity-50"
+                        className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-[var(--primary)] text-white flex items-center justify-center shadow hover:bg-[var(--primary-hover)] disabled:opacity-50"
                         title="Upload profile photo (recommended: 400×400px square)"
                       >
                         {avatarUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
@@ -572,14 +572,14 @@ export default function SmartLinksPage() {
                         value={data.title || ''}
                         onChange={(e) => setData((prev) => ({ ...prev, title: e.target.value }))}
                         placeholder="Display Name"
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-medium focus:ring-2 focus:ring-indigo-200"
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-medium focus:ring-2 focus:ring-[var(--primary)]/30"
                       />
                       <textarea
                         value={data.bio || ''}
                         onChange={(e) => setData((prev) => ({ ...prev, bio: e.target.value }))}
                         placeholder="Bio (optional)"
                         rows={2}
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm resize-none focus:ring-2 focus:ring-indigo-200"
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm resize-none focus:ring-2 focus:ring-[var(--primary)]/30"
                       />
                       {data.avatarUrl && (
                         <div className="space-y-1">
@@ -591,7 +591,7 @@ export default function SmartLinksPage() {
                             step={0.1}
                             value={data.design?.avatarScale ?? 1}
                             onChange={(e) => updateDesign({ avatarScale: parseFloat(e.target.value) })}
-                            className="w-full h-2 rounded-lg appearance-none bg-slate-200 accent-indigo-600"
+                            className="w-full h-2 rounded-lg appearance-none bg-slate-200 accent-[var(--primary)]"
                           />
                           <p className="text-xs text-slate-400">
                             {(Math.round((data.design?.avatarScale ?? 1) * 100)).toString()}%
@@ -668,7 +668,7 @@ export default function SmartLinksPage() {
                     <div className="flex gap-2 flex-wrap">
                       <button
                         onClick={() => addLink('link')}
-                        className="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-medium hover:bg-indigo-100 transition-colors flex items-center gap-1"
+                        className="px-3 py-1.5 bg-[var(--primary)]/15 text-[var(--primary)] rounded-lg text-xs font-medium hover:bg-[var(--primary)]/25 transition-colors flex items-center gap-1"
                       >
                         <Plus className="w-3 h-3" /> Link
                       </button>
@@ -702,7 +702,7 @@ export default function SmartLinksPage() {
                   </div>
 
                   {data.links.some((l) => l.type === 'carousel') && (
-                    <div className="space-y-2 py-2 px-3 bg-indigo-50/50 rounded-xl border border-indigo-100">
+                    <div className="space-y-2 py-2 px-3 bg-[var(--primary)]/10 rounded-xl border border-[var(--primary)]/20">
                       <div className="flex items-center justify-between">
                         <label className="text-sm font-semibold text-slate-700">Carousel auto-advance</label>
                         <button
@@ -710,7 +710,7 @@ export default function SmartLinksPage() {
                           role="switch"
                           aria-checked={data.design?.carouselAutoplay !== false}
                           onClick={() => updateDesign({ carouselAutoplay: data.design?.carouselAutoplay === false })}
-                          className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors ${data.design?.carouselAutoplay !== false ? 'bg-indigo-600' : 'bg-slate-200'}`}
+                          className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors ${data.design?.carouselAutoplay !== false ? 'bg-[var(--primary)]' : 'bg-slate-200'}`}
                         >
                           <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${data.design?.carouselAutoplay !== false ? 'translate-x-5' : 'translate-x-0.5'} mt-0.5`} />
                         </button>
@@ -750,7 +750,7 @@ export default function SmartLinksPage() {
                           onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverId(link.id); }}
                           onDragLeave={() => setDragOverId(null)}
                           onDrop={(e) => handleDrop(e, link.id)}
-                          className={`flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100 group transition-colors ${dragOverId === link.id ? 'ring-2 ring-indigo-400 bg-indigo-50/50' : ''}`}
+                          className={`flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100 group transition-colors ${dragOverId === link.id ? 'ring-2 ring-[var(--primary)] bg-[var(--primary)]/15' : ''}`}
                         >
                           <GripVertical className="w-4 h-4 text-slate-300 cursor-grab shrink-0" />
                           {link.type === 'header' ? (
@@ -806,7 +806,7 @@ export default function SmartLinksPage() {
                                     iconInputRef.current?.click();
                                   }}
                                   disabled={uploadingIconFor === link.id}
-                                  className="shrink-0 px-2 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-medium hover:bg-indigo-100 flex items-center gap-1"
+                                  className="shrink-0 px-2 py-1 bg-[var(--primary)]/15 text-[var(--primary)] rounded-lg text-xs font-medium hover:bg-[var(--primary)]/25 flex items-center gap-1"
                                 >
                                   {uploadingIconFor === link.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
                                   Add image
@@ -959,7 +959,7 @@ export default function SmartLinksPage() {
                       <button
                         key={theme.id}
                         onClick={() => applyTheme(theme.id)}
-                        className={`p-1 rounded-xl border-2 transition-all ${data.design?.theme === theme.id ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-transparent hover:border-slate-300'}`}
+                        className={`p-1 rounded-xl border-2 transition-all ${data.design?.theme === theme.id ? 'border-[var(--primary)] ring-2 ring-[var(--primary)]/30' : 'border-transparent hover:border-slate-300'}`}
                       >
                         <div
                           className="w-full aspect-[3/4] rounded-lg"
@@ -994,7 +994,7 @@ export default function SmartLinksPage() {
                       <button
                         key={bg}
                         onClick={() => updateDesign({ bgType: bg })}
-                        className={`px-2 py-1.5 rounded-lg text-xs font-medium capitalize ${data.design?.bgType === bg ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                        className={`px-2 py-1.5 rounded-lg text-xs font-medium capitalize ${data.design?.bgType === bg ? 'bg-[var(--primary)] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                       >
                         {bg}
                       </button>
@@ -1110,7 +1110,7 @@ export default function SmartLinksPage() {
                       <button
                         key={sz}
                         onClick={() => updateDesign({ buttonSize: sz })}
-                        className={`px-3 py-2 rounded-lg text-xs font-medium capitalize ${(data.design?.buttonSize ?? 'medium') === sz ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                        className={`px-3 py-2 rounded-lg text-xs font-medium capitalize ${(data.design?.buttonSize ?? 'medium') === sz ? 'bg-[var(--primary)] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                       >
                         {sz}
                       </button>
@@ -1126,7 +1126,7 @@ export default function SmartLinksPage() {
                       <button
                         key={style}
                         onClick={() => updateDesign({ buttonStyle: style as LinkPageDesign['buttonStyle'] })}
-                        className={`px-3 py-2 rounded-lg text-xs font-medium capitalize transition-all ${data.design?.buttonStyle === style ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                        className={`px-3 py-2 rounded-lg text-xs font-medium capitalize transition-all ${data.design?.buttonStyle === style ? 'bg-[var(--primary)] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                       >
                         {style}
                       </button>
@@ -1142,7 +1142,7 @@ export default function SmartLinksPage() {
                     role="switch"
                     aria-checked={data.design?.buttonTextBold ?? false}
                     onClick={() => updateDesign({ buttonTextBold: !(data.design?.buttonTextBold ?? false) })}
-                    className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors ${data.design?.buttonTextBold ? 'bg-indigo-600' : 'bg-slate-200'}`}
+                    className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors ${data.design?.buttonTextBold ? 'bg-[var(--primary)]' : 'bg-slate-200'}`}
                   >
                     <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${data.design?.buttonTextBold ? 'translate-x-5' : 'translate-x-0.5'} mt-0.5`} />
                   </button>
@@ -1187,7 +1187,7 @@ export default function SmartLinksPage() {
                       <button
                         key={anim}
                         onClick={() => updateDesign({ animation: anim as LinkPageDesign['animation'] })}
-                        className={`px-2 py-1.5 rounded-lg text-xs font-medium capitalize transition-all ${data.design?.animation === anim ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                        className={`px-2 py-1.5 rounded-lg text-xs font-medium capitalize transition-all ${data.design?.animation === anim ? 'bg-[var(--primary)] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                       >
                         {anim}
                       </button>

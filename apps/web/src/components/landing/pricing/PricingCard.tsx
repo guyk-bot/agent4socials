@@ -55,12 +55,12 @@ export default function PricingCard({
     <div
       className={`relative flex flex-col rounded-2xl border-2 p-6 sm:p-8 transition-all duration-200 ${
         highlighted
-          ? 'border-emerald-500/60 bg-emerald-50/50 shadow-lg shadow-emerald-500/10'
+          ? 'border-[var(--secondary)]/60 bg-[var(--secondary)]/10 shadow-lg shadow-[var(--secondary)]/20'
           : 'border-neutral-200 bg-white shadow-sm hover:border-neutral-300 hover:shadow-md'
       }`}
     >
       {badge && (
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white shadow">
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[var(--secondary)] px-3 py-1 text-xs font-semibold text-white shadow hover:bg-[var(--secondary-hover)]">
           {badge}
         </div>
       )}
@@ -95,7 +95,7 @@ export default function PricingCard({
             </p>
             <p className="mt-1 text-sm text-neutral-500">billed yearly</p>
             {savePerYear != null && savePerYear > 0 && (
-              <p className="mt-2 text-sm font-semibold text-emerald-600">Save ${savePerYear} per year</p>
+              <p className="mt-2 text-sm font-semibold text-[var(--secondary)]">Save ${savePerYear} per year</p>
             )}
           </>
         )}
@@ -104,7 +104,7 @@ export default function PricingCard({
       <ul className="mt-6 flex-1 space-y-3">
         {highlights.map((item, i) => (
           <li key={i} className="flex items-start gap-3 text-sm text-neutral-700">
-            <Check className="h-5 w-5 shrink-0 text-emerald-600" aria-hidden />
+            <Check className="h-5 w-5 shrink-0 text-[var(--primary)]" aria-hidden />
             <span>{item}</span>
           </li>
         ))}
@@ -127,10 +127,10 @@ export default function PricingCard({
         onClick={onCta}
         className={`mt-8 w-full rounded-xl py-3.5 font-semibold text-sm transition-all duration-200 ${
           highlighted
-            ? 'bg-emerald-600 text-white shadow hover:bg-emerald-700 active:scale-[0.98]'
+            ? 'bg-[var(--secondary)] text-white shadow hover:bg-[var(--secondary-hover)] active:scale-[0.98]'
             : isFree
               ? 'border-2 border-neutral-300 bg-white text-neutral-900 hover:border-neutral-400 hover:bg-neutral-50'
-              : 'border-2 border-neutral-900 bg-neutral-900 text-white hover:bg-neutral-800 active:scale-[0.98]'
+              : 'border-2 border-[var(--primary)] bg-[var(--primary)] text-neutral-900 hover:bg-[var(--primary-hover)] active:scale-[0.98]'
         }`}
       >
         {ctaText}

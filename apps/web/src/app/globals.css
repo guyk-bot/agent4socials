@@ -1,6 +1,10 @@
 @import "tailwindcss";
 
 @theme {
+  --color-primary: #5ff6fd;
+  --color-primary-hover: #3dd9e0;
+  --color-secondary: #df44dc;
+  --color-secondary-hover: #c93dd0;
   --animate-fade-in: fade-in 0.5s ease-out forwards;
   --animate-fade-in-up: fade-in-up 0.7s ease-out forwards;
   --animate-float: float 6s ease-in-out infinite;
@@ -66,9 +70,10 @@
 }
 
 :root {
-  --primary: #6366f1;
-  --primary-hover: #4f46e5;
-  --secondary: #ec4899;
+  --primary: #5ff6fd;
+  --primary-hover: #3dd9e0;
+  --secondary: #df44dc;
+  --secondary-hover: #c93dd0;
   --background: #f8fafc;
   --card-bg: #ffffff;
   --foreground: #0f172a;
@@ -123,7 +128,7 @@ button {
 
 .btn-primary {
   background: var(--primary);
-  color: white;
+  color: #171717;
   padding: 0.75rem 1.5rem;
   border-radius: 8px;
   font-weight: 500;
@@ -133,7 +138,7 @@ button {
 .btn-primary:hover {
   background: var(--primary-hover);
   transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 6px 12px -2px rgb(99 102 241 / 0.4);
+  box-shadow: 0 6px 12px -2px rgb(95 246 253 / 0.4);
 }
 
 .btn-primary:active {
