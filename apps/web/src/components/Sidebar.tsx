@@ -141,8 +141,8 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                   {PLATFORM_ICON[platform]}
                 </div>
                 <span className="truncate flex-1 font-medium">{PLATFORM_LABELS[platform]}</span>
-                <div className="w-8 h-8 rounded-full bg-[var(--button)] flex items-center justify-center shrink-0 hover:opacity-90">
-                  <Plus size={14} className="text-white" />
+                <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 hover:bg-neutral-300">
+                  <Plus size={14} className="text-neutral-600" />
                 </div>
               </Link>
             );

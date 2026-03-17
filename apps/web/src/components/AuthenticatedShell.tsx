@@ -31,18 +31,19 @@ function AuthenticatedContent({
     };
 
     const CHROME_Z = 2147483646;
+    const chromePointerEvents = { pointerEvents: 'auto' as const };
     const chromePortal = mounted && typeof document !== 'undefined' ? createPortal(
         <>
             <div
                 className="fixed top-0 left-0 right-0 h-14"
-                style={{ ...chromeStyle, zIndex: CHROME_Z }}
+                style={{ ...chromeStyle, zIndex: CHROME_Z, ...chromePointerEvents }}
                 data-chrome="header"
             >
                 <AppHeader sidebarOpen={sidebarOpen} onSidebarToggle={onSidebarToggle} />
             </div>
             <div
                 className="fixed left-0 top-14 bottom-0 w-64"
-                style={{ ...chromeStyle, zIndex: CHROME_Z }}
+                style={{ ...chromeStyle, zIndex: CHROME_Z, ...chromePointerEvents }}
                 data-chrome="sidebar"
             >
                 <Sidebar sidebarOpen={sidebarOpen} onSidebarToggle={onSidebarToggle} />
@@ -55,14 +56,14 @@ function AuthenticatedContent({
         <>
             <div
                 className="fixed top-0 left-0 right-0 h-14"
-                style={{ ...chromeStyle, zIndex: CHROME_Z }}
+                style={{ ...chromeStyle, zIndex: CHROME_Z, ...chromePointerEvents }}
                 data-chrome="header"
             >
                 <AppHeader sidebarOpen={sidebarOpen} onSidebarToggle={onSidebarToggle} />
             </div>
             <div
                 className="fixed left-0 top-14 bottom-0 w-64"
-                style={{ ...chromeStyle, zIndex: CHROME_Z }}
+                style={{ ...chromeStyle, zIndex: CHROME_Z, ...chromePointerEvents }}
                 data-chrome="sidebar"
             >
                 <Sidebar sidebarOpen={sidebarOpen} onSidebarToggle={onSidebarToggle} />
@@ -72,8 +73,9 @@ function AuthenticatedContent({
 
     return (
         <div
-            className="min-h-screen bg-neutral-100"
+            className="min-h-screen bg-neutral-100 relative"
             style={{
+                zIndex: 0,
                 backgroundColor: backgroundColor || undefined,
                 color: textColor || undefined,
                 ['--wl-primary' as string]: primaryColor || undefined,
