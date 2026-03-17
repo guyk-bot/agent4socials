@@ -30,8 +30,11 @@ function AuthenticatedContent({
                 ['--wl-sidebar-bg' as string]: backgroundColor || '#f5f5f5',
             }}
         >
-            <AppHeader sidebarOpen={sidebarOpen} onSidebarToggle={onSidebarToggle} />
-            <Sidebar sidebarOpen={sidebarOpen} onSidebarToggle={onSidebarToggle} />
+            {/* Chrome layer: header + sidebar always on top so nav is clickable from Inbox and other pages */}
+            <div className="relative z-[200]">
+                <AppHeader sidebarOpen={sidebarOpen} onSidebarToggle={onSidebarToggle} />
+                <Sidebar sidebarOpen={sidebarOpen} onSidebarToggle={onSidebarToggle} />
+            </div>
             <div className={`relative z-0 pt-14 transition-[padding] duration-200 ${sidebarOpen ? 'md:pl-64' : 'pl-0'}`}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6 md:py-8">
                     {children}
