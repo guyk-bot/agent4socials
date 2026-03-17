@@ -9,13 +9,8 @@ export default function SettingsPage() {
   const {
     logoUrl,
     primaryColor,
-    backgroundColor,
-    textColor,
     appName,
     setLogoUrl,
-    setPrimaryColor,
-    setBackgroundColor,
-    setTextColor,
     setAppName,
     reset,
   } = useWhiteLabel();
@@ -40,7 +35,7 @@ export default function SettingsPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">White-label (Branding)</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Upload your logo and set colors so the app looks like your own brand.
+          Upload your logo so the app reflects your brand.
         </p>
       </div>
 
@@ -99,66 +94,6 @@ export default function SettingsPage() {
             placeholder="Agent4Socials"
             className="mt-2 block w-full max-w-sm rounded-lg border border-gray-300 px-3 py-2 text-sm"
           />
-        </div>
-      </div>
-
-      <div className="card space-y-6">
-        <h2 className="font-semibold text-gray-900 flex items-center gap-2">
-          <Palette size={20} />
-          Colors
-        </h2>
-        <div className="grid gap-6 sm:grid-cols-2">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Primary (buttons, links)</label>
-            <div className="mt-2 flex items-center gap-3">
-              <input
-                type="color"
-                value={primaryColor}
-                onChange={(e) => setPrimaryColor(e.target.value)}
-                className="h-10 w-14 cursor-pointer rounded border border-gray-300"
-              />
-              <input
-                type="text"
-                value={primaryColor}
-                onChange={(e) => setPrimaryColor(e.target.value)}
-                className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Background</label>
-            <div className="mt-2 flex items-center gap-3">
-              <input
-                type="color"
-                value={backgroundColor}
-                onChange={(e) => setBackgroundColor(e.target.value)}
-                className="h-10 w-14 cursor-pointer rounded border border-gray-300"
-              />
-              <input
-                type="text"
-                value={backgroundColor}
-                onChange={(e) => setBackgroundColor(e.target.value)}
-                className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Text</label>
-            <div className="mt-2 flex items-center gap-3">
-              <input
-                type="color"
-                value={textColor}
-                onChange={(e) => setTextColor(e.target.value)}
-                className="h-10 w-14 cursor-pointer rounded border border-gray-300"
-              />
-              <input
-                type="text"
-                value={textColor}
-                onChange={(e) => setTextColor(e.target.value)}
-                className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
-              />
-            </div>
-          </div>
         </div>
       </div>
 
