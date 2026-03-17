@@ -58,12 +58,12 @@ const PRO_HIGHLIGHTS = [
 ];
 
 const HERO_PLATFORMS = [
-  { Icon: LinkedinIcon, label: 'LinkedIn' },
-  { Icon: XTwitterIcon, label: 'Twitter/X' },
-  { Icon: TikTokIcon, label: 'TikTok' },
-  { Icon: YoutubeIcon, label: 'YouTube' },
   { Icon: FacebookIcon, label: 'Facebook' },
   { Icon: InstagramIcon, label: 'Instagram' },
+  { Icon: YoutubeIcon, label: 'YouTube' },
+  { Icon: TikTokIcon, label: 'TikTok' },
+  { Icon: XTwitterIcon, label: 'Twitter/X' },
+  { Icon: LinkedinIcon, label: 'LinkedIn' },
 ] as const;
 
 function FaqItem({ question, answer }: { question: string; answer: string }) {
@@ -166,16 +166,14 @@ export default function Home() {
 
           {/* Platforms: glass chips */}
           <div className="relative mx-auto max-w-3xl px-4 sm:px-6 mt-16 text-center">
-            <p className="text-[12px] font-semibold uppercase tracking-[0.2em] text-[#9ca3af] mb-5">Connect your platforms</p>
             <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
               {HERO_PLATFORMS.map(({ Icon, label }) => (
-                <div key={label} className="group flex flex-col items-center gap-1.5">
-                  <div className="rounded-[16px] border border-white/[0.08] bg-[rgba(255,255,255,0.05)] p-2.5 backdrop-blur-[16px] transition-all group-hover:border-[#5ff6fd]/40 group-hover:shadow-[0_0_10px_rgba(95,246,253,0.4)]">
+                <div key={label} className="group flex flex-col items-center">
+                  <div className="rounded-[16px] border border-white/[0.08] bg-[rgba(255,255,255,0.05)] p-4 backdrop-blur-[16px] transition-all group-hover:border-[#5ff6fd]/40 group-hover:shadow-[0_0_10px_rgba(95,246,253,0.4)]">
                     <span className={label === 'Twitter/X' ? 'inline-block invert opacity-70 group-hover:opacity-100 transition-opacity' : 'opacity-70 group-hover:opacity-100 transition-opacity'}>
-                      <Icon size={22} />
+                      <Icon size={36} />
                     </span>
                   </div>
-                  <span className="text-[12px] text-[#9ca3af] group-hover:text-white transition-colors">{label}</span>
                 </div>
               ))}
             </div>
