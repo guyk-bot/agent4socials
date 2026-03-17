@@ -3,16 +3,17 @@
 import React, { useEffect, useState, useRef } from 'react';
 
 const LOADING_VIDEO_PATH = '/loading-transition.mp4';
-const DELAY_MS = 2000;
+/** Show video after this delay so the spinner is barely visible; fast loads (< delay) never show the video. */
+const DELAY_MS = 400;
 
 type Props = {
-  /** When true, we consider "loading". After loading has been true for 2+ seconds, the video overlay is shown. */
+  /** When true, we consider "loading". After loading has been true for DELAY_MS, the video overlay is shown. */
   loading: boolean;
 };
 
 /**
- * Shows the logo loading video only when a loading process takes 2+ seconds.
- * If loading finishes before 2s (e.g. cached data), the video never appears.
+ * Shows the logo loading video shortly after loading starts so the default spinner is rarely seen.
+ * If loading finishes before the delay (e.g. cached data), the video never appears.
  */
 export default function LoadingVideoOverlay({ loading }: Props) {
   const [showVideo, setShowVideo] = useState(false);
