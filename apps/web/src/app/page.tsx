@@ -117,60 +117,98 @@ export default function Home() {
     <div className="min-h-screen bg-[var(--dark)] text-white">
       <SiteHeader />
       <main>
-        {/* Hero - dark minimal style */}
-        <section className="relative overflow-hidden pt-24 pb-20 sm:pt-32 sm:pb-28">
-          <div className="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-t from-[#b030ad]/15 via-[#6d6bcf]/10 to-transparent pointer-events-none" />
-          <div className="relative mx-auto max-w-4xl px-4 sm:px-6">
-            <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl md:text-5xl lg:text-6xl">
-              Run your entire social media from one place
-            </h1>
-            <p className="mt-6 max-w-2xl text-base sm:text-lg text-slate-400 leading-relaxed">
-              Schedule content, manage comments and DMs, and streamline your workflow across all platforms. Analytics, AI, smart links, and more.
-            </p>
-            <div className="mt-10 flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-              <button
-                type="button"
-                onClick={openSignup}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--button)] px-6 py-3.5 text-base font-semibold text-white transition-all hover:bg-[var(--button-hover)] sm:w-auto"
-              >
-                Try for free
-                <ArrowRight className="h-4 w-4" />
-              </button>
-              <Link
-                href="/pricing"
-                className="inline-flex items-center justify-center rounded-lg border border-white/20 bg-white/5 px-6 py-3.5 text-base font-medium text-slate-300 transition-all hover:bg-white/10 hover:text-white sm:w-auto"
-              >
-                See pricing
-              </Link>
+        {/* Hero - reference style: horizontal purple glow at bottom, left copy + right frosted card stack */}
+        <section className="relative overflow-hidden pt-24 pb-32 sm:pt-32 sm:pb-40 min-h-[80vh] flex flex-col">
+          {/* Single horizontal purple/magenta glow at bottom */}
+          <div className="absolute bottom-0 left-0 right-0 h-72 bg-gradient-to-t from-[#8b5cf6]/50 from-0% via-[#6d28d9]/25 via-40% to-transparent to-100% pointer-events-none" />
+          <div className="absolute bottom-0 left-0 right-0 h-32 bg-[#7c3aed]/30 blur-3xl pointer-events-none" />
+          <div className="relative mx-auto w-full max-w-6xl px-4 sm:px-6 flex-1 flex flex-col lg:flex-row lg:items-center lg:gap-16">
+            {/* Left: headline (mixed typography) + sub + CTAs */}
+            <div className="flex-1 lg:max-w-xl">
+              <h1 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl lg:text-5xl xl:text-6xl">
+                <span className="text-slate-400">Run your entire </span>
+                <span className="text-white">social media</span>
+                <br />
+                <span className="text-white">from one place.</span>
+              </h1>
+              <p className="mt-6 text-base sm:text-lg text-slate-400 leading-relaxed">
+                Schedule content, manage comments and DMs, and streamline your workflow across all platforms.
+              </p>
+              <p className="mt-2 text-sm sm:text-base text-slate-500">
+                Analytics, AI, smart links, and more.
+              </p>
+              <div className="mt-10 flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+                <button
+                  type="button"
+                  onClick={openSignup}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--button)] px-6 py-3.5 text-base font-semibold text-white transition-all hover:bg-[var(--button-hover)] sm:w-auto"
+                >
+                  Try for free
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+                <Link
+                  href="/pricing"
+                  className="inline-flex items-center justify-center rounded-lg border border-white/30 bg-transparent px-6 py-3.5 text-base font-medium text-white transition-all hover:bg-white/10 sm:w-auto"
+                >
+                  See pricing
+                </Link>
+              </div>
             </div>
-            <div className="mt-14 flex flex-wrap items-center gap-6 sm:gap-8">
-              {HERO_PLATFORMS.map(({ Icon, label }) => (
-                <div key={label} className="flex items-center gap-2">
-                  <div className="rounded-lg border border-white/10 bg-white/5 p-2.5">
-                    <span className={label === 'Twitter/X' ? 'inline-block invert' : ''}>
-                      <Icon size={28} />
-                    </span>
-                  </div>
-                  <span className="text-sm text-slate-500">{label}</span>
+            {/* Right: diagonal stack of frosted glass cards with checkmarks */}
+            <div className="mt-16 lg:mt-0 flex-1 relative flex justify-center lg:justify-end items-center min-h-[320px]">
+              {[
+                'Schedule everywhere',
+                'Unified inbox',
+                'Analytics & reports',
+                'AI Assistant',
+                'Smart links',
+              ].map((label, i) => (
+                <div
+                  key={label}
+                  className="absolute rounded-xl border border-white/20 bg-white/10 backdrop-blur-md px-5 py-4 flex items-center gap-3 shadow-lg shadow-[#6d28d9]/20"
+                  style={{
+                    width: 'min(100%, 280px)',
+                    transform: `translate(${i * 12}px, ${i * -14}px) rotate(${i * -1.5}deg)`,
+                    zIndex: i,
+                  }}
+                >
+                  <Check className="h-5 w-5 shrink-0 text-emerald-400" strokeWidth={2.5} />
+                  <span className="text-sm font-medium text-white">{label}</span>
                 </div>
               ))}
             </div>
-            <div className="mt-12">
+          </div>
+          {/* Platform row + dashboard preview below fold */}
+          <div className="relative mx-auto max-w-5xl px-4 sm:px-6 mt-8 pt-8 border-t border-white/5">
+            <p className="text-xs font-medium uppercase tracking-wider text-slate-500 mb-4">Connect Instagram, Facebook, TikTok, YouTube, X, LinkedIn</p>
+            <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+              {HERO_PLATFORMS.map(({ Icon, label }) => (
+                <div key={label} className="flex items-center gap-2">
+                  <div className="rounded-lg border border-white/10 bg-white/5 p-2">
+                    <span className={label === 'Twitter/X' ? 'inline-block invert' : ''}>
+                      <Icon size={24} />
+                    </span>
+                  </div>
+                  <span className="text-xs text-slate-500">{label}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-10">
               <DashboardPreview />
             </div>
           </div>
         </section>
 
-        {/* Features */}
+        {/* Features - frosted cards with purple glow */}
         <section id="features" className="border-t border-white/10 py-20 sm:py-28">
-          <div className="mx-auto max-w-3xl px-4 sm:px-6">
+          <div className="mx-auto max-w-4xl px-4 sm:px-6">
             <h2 className="text-2xl font-bold text-white sm:text-3xl">
               Everything you need to grow
             </h2>
             <p className="mt-3 text-slate-400">
               Scheduling, analytics, unified inbox, automation, and AI. All in one place.
             </p>
-            <ul className="mt-10 space-y-3">
+            <div className="mt-12 grid gap-4 sm:grid-cols-2">
               {[
                 { icon: Calendar, label: 'Schedule posts', desc: 'Plan content for all platforms from one calendar.' },
                 { icon: BarChart3, label: 'Analytics', desc: 'Views, likes, comments, followers across platforms.' },
@@ -180,17 +218,20 @@ export default function Home() {
                 { icon: Hash, label: 'Hashtag pool', desc: 'Save and reuse hashtag sets.' },
                 { icon: Sparkles, label: 'AI Assistant', desc: 'Brand voice and AI-suggested captions in the Composer.' },
               ].map(({ icon: Icon, label, desc }) => (
-                <li key={label} className="flex items-start gap-4 rounded-xl border border-white/10 bg-white/5 px-5 py-4">
+                <div
+                  key={label}
+                  className="flex items-start gap-4 rounded-xl border border-white/20 bg-white/10 backdrop-blur-md px-5 py-4 shadow-lg shadow-[#6d28d9]/10"
+                >
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--button)]/20 text-[var(--button)]">
                     <Icon className="h-5 w-5" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-slate-100">{label}</h3>
+                    <h3 className="font-semibold text-white">{label}</h3>
                     <p className="mt-0.5 text-sm text-slate-400">{desc}</p>
                   </div>
-                </li>
+                </div>
               ))}
-            </ul>
+            </div>
           </div>
         </section>
 
@@ -208,28 +249,28 @@ export default function Home() {
               <div className="hidden md:block absolute top-1/2 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-y-8 z-0" />
               
               <div className="relative text-center group z-10">
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-[var(--dark)] text-[#5ff6fd] shadow-xl transition-all duration-300 group-hover:-translate-y-2 group-hover:border-[#5ff6fd]/50 group-hover:shadow-[#5ff6fd]/20">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-[var(--dark)] text-[var(--button)] shadow-xl transition-all duration-300 group-hover:-translate-y-2 group-hover:border-[var(--button)]/50 group-hover:shadow-[var(--button)]/20">
                   <Link2 className="h-9 w-9" />
                 </div>
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-white/10 bg-[var(--dark)] px-3 py-1 text-xs font-bold text-slate-300 group-hover:border-[#5ff6fd]/50 group-hover:text-[#5ff6fd] transition-colors">Step 1</div>
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-white/10 bg-[var(--dark)] px-3 py-1 text-xs font-bold text-slate-300 group-hover:border-[var(--button)]/50 group-hover:text-[var(--button)] transition-colors">Step 1</div>
                 <h3 className="mt-8 text-xl font-semibold text-slate-200">Connect</h3>
                 <p className="mt-3 text-slate-400 leading-relaxed px-4 text-sm sm:text-base">Authorize Instagram, YouTube, TikTok, Facebook, X (Twitter), and LinkedIn with each platform’s official login. Your accounts appear in one dashboard so you can manage them from a single place. No passwords stored, just secure OAuth.</p>
               </div>
               
               <div className="relative text-center group z-10">
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-[var(--dark)] text-[#5ff6fd] shadow-xl transition-all duration-300 group-hover:-translate-y-2 group-hover:border-[#5ff6fd]/50 group-hover:shadow-[#5ff6fd]/20">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-[var(--dark)] text-[var(--button)] shadow-xl transition-all duration-300 group-hover:-translate-y-2 group-hover:border-[var(--button)]/50 group-hover:shadow-[var(--button)]/20">
                   <CalendarCheck className="h-9 w-9" />
                 </div>
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-white/10 bg-[var(--dark)] px-3 py-1 text-xs font-bold text-slate-300 group-hover:border-[#5ff6fd]/50 group-hover:text-[#5ff6fd] transition-colors">Step 2</div>
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-white/10 bg-[var(--dark)] px-3 py-1 text-xs font-bold text-slate-300 group-hover:border-[var(--button)]/50 group-hover:text-[var(--button)] transition-colors">Step 2</div>
                 <h3 className="mt-8 text-xl font-semibold text-slate-200">Schedule</h3>
                 <p className="mt-3 text-slate-400 leading-relaxed px-4 text-sm sm:text-base">Use the Composer to create posts, add captions and media, and pick date and time. Publish to one or multiple platforms at once. Use the Calendar to see what’s going out when, or lean on AI to suggest captions. We post for you at the scheduled time.</p>
               </div>
               
               <div className="relative text-center group z-10">
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-[var(--dark)] text-[#5ff6fd] shadow-xl transition-all duration-300 group-hover:-translate-y-2 group-hover:border-[#5ff6fd]/50 group-hover:shadow-[#5ff6fd]/20">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-[var(--dark)] text-[var(--button)] shadow-xl transition-all duration-300 group-hover:-translate-y-2 group-hover:border-[var(--button)]/50 group-hover:shadow-[var(--button)]/20">
                   <BarChart2 className="h-9 w-9" />
                 </div>
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-white/10 bg-[var(--dark)] px-3 py-1 text-xs font-bold text-slate-300 group-hover:border-[#5ff6fd]/50 group-hover:text-[#5ff6fd] transition-colors">Step 3</div>
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-white/10 bg-[var(--dark)] px-3 py-1 text-xs font-bold text-slate-300 group-hover:border-[var(--button)]/50 group-hover:text-[var(--button)] transition-colors">Step 3</div>
                 <h3 className="mt-8 text-xl font-semibold text-slate-200">Analyze & engage</h3>
                 <p className="mt-3 text-slate-400 leading-relaxed px-4 text-sm sm:text-base">View views, likes, comments, followers, and subscribers in one analytics dashboard. Reply to DMs and comments from the unified Inbox, use Smart Links for bio links, and export or white-label reports. See what works and grow from one place.</p>
               </div>
@@ -255,8 +296,8 @@ export default function Home() {
                 { title: 'Hashtag pool & AI', desc: 'Save hashtag sets and reuse them. Set your brand voice and get AI-suggested captions in the Composer.' },
                 { title: 'White-label (Agency)', desc: 'Upload your logo and colors so the dashboard looks like your brand. Multiple workspaces and team members on higher plans.' },
               ].map((item, i) => (
-                <div key={i} className="rounded-2xl border border-white/10 bg-white/5 p-5 sm:p-6 text-left hover:border-white/20 hover:bg-white/10 transition-all">
-                  <h3 className="font-semibold text-slate-100 text-lg">{item.title}</h3>
+                <div key={i} className="rounded-xl border border-white/20 bg-white/10 backdrop-blur-md p-5 sm:p-6 text-left shadow-lg shadow-[#6d28d9]/10">
+                  <h3 className="font-semibold text-white text-lg">{item.title}</h3>
                   <p className="mt-2 text-sm text-slate-400 leading-relaxed">{item.desc}</p>
                 </div>
               ))}
@@ -268,7 +309,7 @@ export default function Home() {
                 'Agency adds multiple brands, team members, white-label, and priority support.',
               ].map((item, i) => (
                 <li key={i} className="flex items-start gap-3">
-                  <Check className="mt-0.5 h-5 w-5 shrink-0 text-[#b030ad]" />
+                  <Check className="mt-0.5 h-5 w-5 shrink-0 text-[var(--button)]" />
                   <span>{item}</span>
                 </li>
               ))}

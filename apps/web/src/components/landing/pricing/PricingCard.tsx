@@ -59,7 +59,7 @@ export default function PricingCard({
       <div
         className={`relative flex flex-col rounded-2xl border-2 p-6 sm:p-8 transition-all duration-200 ${
           highlighted
-            ? 'border-[var(--button)] bg-white/5 shadow-lg shadow-[var(--button)]/20'
+            ? 'border-[var(--button)] bg-white/5 shadow-[0_0_40px_rgba(109,40,217,0.35)]'
             : 'border-white/10 bg-white/5 hover:border-white/20'
         }`}
       >
@@ -119,7 +119,7 @@ export default function PricingCard({
             highlighted
               ? 'bg-[var(--button)] text-white hover:bg-[var(--button-hover)]'
               : isFree
-                ? 'border border-white/20 bg-transparent text-white hover:bg-white/10'
+                ? 'border-2 border-white/40 bg-transparent text-white hover:bg-white/10'
                 : 'bg-[var(--button)] text-white hover:bg-[var(--button-hover)]'
           }`}
         >
