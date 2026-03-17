@@ -25,7 +25,6 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAppData } from '@/context/AppDataContext';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
-import { ReelAnalyzer } from '@/components/ReelAnalyzer';
 import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 
 const COMPOSER_DRAFT_KEY = 'agent4socials_composer_draft';
@@ -173,7 +172,6 @@ export default function ComposerPage() {
     const appData = useAppData();
     const searchParams = useSearchParams();
     const editPostId = searchParams.get('edit');
-    const analyzeReelParam = searchParams.get('analyze') === 'reel';
     const [platforms, setPlatforms] = useState<string[]>([]);
     const [content, setContent] = useState('');
     const [contentByPlatform, setContentByPlatform] = useState<Record<string, string>>({});
@@ -201,14 +199,9 @@ export default function ComposerPage() {
     const [accountsFetched, setAccountsFetched] = useState(false);
     const [loading, setLoading] = useState(false);
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
-    const [sectionOpen, setSectionOpen] = useState({ platforms: true, media: true, reelAnalyzer: true, content: false, commentAutomation: false, hashtags: false, schedule: false });
+    const [sectionOpen, setSectionOpen] = useState({ platforms: true, media: true, content: false, commentAutomation: false, hashtags: false, schedule: false });
     const toggleSection = (key: keyof typeof sectionOpen) => setSectionOpen((s) => ({ ...s, [key]: !s[key] }));
 
-    useEffect(() => {
-        if (analyzeReelParam) {
-            setSectionOpen((s) => ({ ...s, media: true, reelAnalyzer: true }));
-        }
-    }, [analyzeReelParam]);
 
     // Resizable right preview panel (px); min 280, max 720
     const [previewWidthPx, setPreviewWidthPx] = useState(480);
@@ -238,15 +231,6 @@ export default function ComposerPage() {
     const [thumbnailByPlatform, setThumbnailByPlatform] = useState<Record<string, string>>({});
     const [selectedPlatformForThumbnail, setSelectedPlatformForThumbnail] = useState<string>('');
 
-    // Reel Analyzer: metadata from video element (duration, dimensions) for analysis
-    const [reelAnalysisMetadata, setReelAnalysisMetadata] = useState<{ durationSec: number; width: number; height: number } | null>(null);
-    const reelMetadataVideoRef = useRef<HTMLVideoElement>(null);
-
-    useEffect(() => {
-        if (!(mediaType === 'reel' && mediaList.length === 1 && mediaList[0].type === 'VIDEO')) {
-            setReelAnalysisMetadata(null);
-        }
-    }, [mediaType, mediaList.length, mediaList[0]?.fileUrl]);
 
     // When platforms change, keep selected platform for thumbnail in sync
     useEffect(() => {
@@ -1796,45 +1780,6 @@ export default function ComposerPage() {
                         )}
                     </div>
 
-                    {analyzeReelParam && !(mediaType === 'reel' && mediaList.length === 1 && mediaList[0].type === 'VIDEO') && (
-                        <div className="card space-y-4 rounded-xl border-2 border-dashed border-[var(--primary)]/30 bg-[var(--primary)]/15/50 p-4">
-                            <p className="text-sm font-medium text-neutral-900">Reel Analyzer</p>
-                            <p className="text-sm text-[var(--primary)]">Add a <strong>Reel / Short</strong> video in the Media section above (choose &quot;Reel / Short&quot;, then upload one video). The analyzer will appear here so you can get a Short Video Score and optimization tips before posting.</p>
-                        </div>
-                    )}
-
-                    {mediaType === 'reel' && mediaList.length === 1 && mediaList[0].type === 'VIDEO' && (
-                        <>
-                            <video
-                                ref={reelMetadataVideoRef}
-                                src={mediaCanvasUrl(mediaList[0].fileUrl)}
-                                className="hidden"
-                                crossOrigin="anonymous"
-                                preload="metadata"
-                                onLoadedMetadata={(e) => {
-                                    const v = e.currentTarget;
-                                    const d = v.duration;
-                                    if (Number.isFinite(d) && v.videoWidth > 0 && v.videoHeight > 0) {
-                                        setReelAnalysisMetadata({ durationSec: d, width: v.videoWidth, height: v.videoHeight });
-                                    }
-                                }}
-                                onError={() => setReelAnalysisMetadata(null)}
-                            />
-                    <div className="card space-y-4">
-                                {reelAnalysisMetadata ? (
-                                    <ReelAnalyzer
-                                        videoUrl={mediaList[0].fileUrl}
-                                        caption={differentContentPerPlatform && platforms[0] ? (contentByPlatform[platforms[0]] ?? content) : content}
-                                        targetPlatform={platforms.length === 1 ? platforms[0].toLowerCase() : undefined}
-                                        metadata={reelAnalysisMetadata}
-                                        videoPreviewUrl={mediaDisplayUrl(mediaList[0].fileUrl)}
-                                    />
-                                ) : (
-                                    <p className="text-sm text-neutral-500 py-2">Loading video metadata to enable &quot;Analyze Reel Before Posting&quot;…</p>
-                                )}
-                            </div>
-                        </>
-                    )}
 
                     <div className="card space-y-4">
                         <button type="button" onClick={() => toggleSection('content')} className="w-full flex items-center justify-between text-left">
