@@ -10,14 +10,14 @@ export default function PricingBillingToggle({ interval, onIntervalChange, dark 
   if (dark) {
     return (
       <div className="flex flex-col items-center gap-2">
-        <div className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/5 p-1">
+        <div className="inline-flex items-center gap-1 rounded-full border border-white/[0.08] bg-[rgba(255,255,255,0.05)] backdrop-blur-[20px] p-1">
           <button
             type="button"
             onClick={() => onIntervalChange('monthly')}
-            className={`rounded-full px-5 py-2.5 text-sm font-semibold transition-all ${
+            className={`rounded-full px-5 py-2.5 text-sm font-semibold transition-all duration-300 ${
               interval === 'monthly'
-                ? 'bg-[var(--button)] text-white'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-[linear-gradient(135deg,#5ff6fd,#8b5cf6)] text-white shadow-[0_0_15px_rgba(139,92,246,0.4)]'
+                : 'text-[#9ca3af] hover:text-white'
             }`}
           >
             Monthly
@@ -25,16 +25,16 @@ export default function PricingBillingToggle({ interval, onIntervalChange, dark 
           <button
             type="button"
             onClick={() => onIntervalChange('yearly')}
-            className={`rounded-full px-5 py-2.5 text-sm font-semibold transition-all ${
+            className={`rounded-full px-5 py-2.5 text-sm font-semibold transition-all duration-300 ${
               interval === 'yearly'
-                ? 'bg-[var(--button)] text-white'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-[linear-gradient(135deg,#5ff6fd,#8b5cf6)] text-white shadow-[0_0_15px_rgba(139,92,246,0.4)]'
+                : 'text-[#9ca3af] hover:text-white'
             }`}
           >
-            Yearly <span className={interval === 'yearly' ? 'text-white/90' : 'text-[var(--button)]'}>(Save 20%)</span>
+            Yearly <span className={interval === 'yearly' ? 'text-white/90' : 'text-[#5ff6fd]'}>(Save 20%)</span>
           </button>
         </div>
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-[#9ca3af]">
           2 months free with annual billing
         </p>
       </div>

@@ -57,14 +57,14 @@ export default function PricingCard({
   if (dark) {
     return (
       <div
-        className={`relative flex flex-col rounded-2xl border-2 p-6 sm:p-8 transition-all duration-200 ${
+        className={`relative flex flex-col rounded-[20px] border p-6 sm:p-8 backdrop-blur-[20px] transition-all duration-300 ${
           highlighted
-            ? 'border-[var(--button)] bg-white/5 shadow-[0_0_40px_rgba(109,40,217,0.35)]'
-            : 'border-white/10 bg-white/5 hover:border-white/20'
+            ? 'border-[#5ff6fd]/40 bg-[rgba(255,255,255,0.06)] shadow-[0_0_30px_rgba(139,92,246,0.5)] scale-[1.02]'
+            : 'border-white/[0.08] bg-[rgba(255,255,255,0.05)] hover:border-white/[0.12] hover:shadow-[0_0_20px_rgba(139,92,246,0.2)]'
         }`}
       >
         {badge && (
-          <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[var(--button)] px-3 py-1 text-xs font-semibold text-white">
+          <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[linear-gradient(135deg,#5ff6fd,#df44dc)] px-3 py-1 text-xs font-semibold text-white shadow-[0_0_15px_rgba(139,92,246,0.5)]">
             {badge}
           </div>
         )}
@@ -72,9 +72,9 @@ export default function PricingCard({
           {plan === 'free' ? 'Free' : plan === 'starter' ? 'Starter' : 'Pro'}
         </h2>
         {bestValueLabel && (
-          <p className="mt-1 text-sm font-medium text-amber-400">{bestValueLabel}</p>
+          <p className="mt-1 text-sm font-medium text-[#5ff6fd]">{bestValueLabel}</p>
         )}
-        <p className="mt-1 text-sm text-slate-400">{description}</p>
+        <p className="mt-1 text-sm text-[#9ca3af]">{description}</p>
         <div className="mt-6">
           {isFree ? (
             <p className="flex items-baseline gap-1">
@@ -83,29 +83,29 @@ export default function PricingCard({
           ) : billingInterval === 'monthly' ? (
             <p className="flex items-baseline gap-1">
               <span className="text-3xl font-bold tracking-tight text-white sm:text-4xl">${priceMonthly}</span>
-              <span className="text-slate-400">/ month</span>
+              <span className="text-[#9ca3af]">/ month</span>
             </p>
           ) : (
             <p className="flex items-baseline gap-1">
               <span className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
                 ${Math.round((priceYearly ?? 0) / 12)}
               </span>
-              <span className="text-slate-400">/ month</span>
+              <span className="text-[#9ca3af]">/ month</span>
             </p>
           )}
         </div>
         <ul className="mt-6 flex-1 space-y-3">
           {highlights.map((item, i) => (
-            <li key={i} className="flex items-start gap-3 text-sm text-slate-300">
-              <Check className="h-5 w-5 shrink-0 text-emerald-500" aria-hidden />
+            <li key={i} className="flex items-start gap-3 text-sm text-[#9ca3af]">
+              <Check className="h-5 w-5 shrink-0 text-[#5ff6fd]" aria-hidden />
               <span>{item}</span>
             </li>
           ))}
         </ul>
         {!isFree && (additionalBrandsMonthly != null || additionalBrandsYearly != null) && (
-          <div className="mt-4 pt-4 border-t border-white/10">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Add-ons</p>
-            <p className="text-sm text-slate-400">
+          <div className="mt-4 pt-4 border-t border-white/[0.08]">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#6b7280] mb-1">Add-ons</p>
+            <p className="text-sm text-[#9ca3af]">
               {billingInterval === 'monthly'
                 ? `+$${additionalBrandsMonthly} / brand monthly`
                 : `+$${additionalBrandsYearly} / brand yearly`}
@@ -115,12 +115,12 @@ export default function PricingCard({
         <button
           type="button"
           onClick={onCta}
-          className={`mt-8 w-full rounded-xl py-3.5 font-semibold text-sm transition-all ${
+          className={`mt-8 w-full rounded-full py-3.5 font-semibold text-sm transition-all duration-300 ${
             highlighted
-              ? 'bg-[var(--button)] text-white hover:bg-[var(--button-hover)]'
+              ? 'bg-[linear-gradient(135deg,#5ff6fd,#8b5cf6,#df44dc)] text-white shadow-[0_0_20px_rgba(139,92,246,0.5)] hover:shadow-[0_0_30px_rgba(139,92,246,0.7)] hover:scale-[1.02]'
               : isFree
-                ? 'border-2 border-white/40 bg-transparent text-white hover:bg-white/10'
-                : 'bg-[var(--button)] text-white hover:bg-[var(--button-hover)]'
+                ? 'border border-white/[0.2] bg-transparent text-white hover:bg-[rgba(255,255,255,0.08)]'
+                : 'bg-[linear-gradient(135deg,#5ff6fd,#8b5cf6,#df44dc)] text-white shadow-[0_0_15px_rgba(139,92,246,0.4)] hover:shadow-[0_0_25px_rgba(139,92,246,0.6)] hover:scale-[1.02]'
           }`}
         >
           {ctaText}

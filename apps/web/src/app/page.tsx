@@ -69,20 +69,20 @@ const HERO_PLATFORMS = [
 function FaqItem({ question, answer }: { question: string; answer: string }) {
   const [isOpen, setIsOpen] = useState(false);
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden transition-all hover:border-white/20">
+    <div className="rounded-[20px] border border-white/[0.08] bg-[rgba(255,255,255,0.05)] backdrop-blur-[20px] overflow-hidden transition-all duration-300 hover:border-white/[0.12] hover:shadow-[0_0_20px_rgba(139,92,246,0.15)]">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex w-full items-start justify-between gap-3 p-5 sm:p-6 text-left"
       >
         <span className="flex items-start gap-3 font-semibold text-white text-sm sm:text-base">
-          <HelpCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#a78bfa]" />
+          <HelpCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#5ff6fd]" />
           {question}
         </span>
         {isOpen
-          ? <ChevronUp className="h-4 w-4 shrink-0 text-slate-500 mt-0.5" />
-          : <ChevronDown className="h-4 w-4 shrink-0 text-slate-500 mt-0.5" />}
+          ? <ChevronUp className="h-4 w-4 shrink-0 text-[#9ca3af] mt-0.5" />
+          : <ChevronDown className="h-4 w-4 shrink-0 text-[#9ca3af] mt-0.5" />}
       </button>
-      <div className={`px-5 sm:px-6 text-slate-400 text-sm leading-relaxed overflow-hidden transition-all duration-300 ${isOpen ? 'max-h-96 pb-5 opacity-100' : 'max-h-0 opacity-0'}`}>
+      <div className={`px-5 sm:px-6 text-[#9ca3af] text-sm leading-relaxed overflow-hidden transition-all duration-300 ${isOpen ? 'max-h-96 pb-5 opacity-100' : 'max-h-0 opacity-0'}`}>
         <div className="pl-7">{answer}</div>
       </div>
     </div>
@@ -102,129 +102,129 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[var(--dark)] text-white overflow-x-hidden">
+    <div className="min-h-screen bg-[#0b0f1a] text-white overflow-x-hidden">
       <SiteHeader />
       <main>
 
-        {/* HERO */}
+        {/* HERO - Futuristic Neon Glass: radial glows (cyan, purple, magenta), centered layout */}
         <section className="relative overflow-hidden pt-28 pb-20 sm:pt-36 sm:pb-28">
-          {/* Nebula glows */}
+          {/* Design system: radial glow + light streaks feel */}
           <div className="pointer-events-none absolute inset-0">
-            <div className="absolute left-1/2 top-0 -translate-x-1/2 h-[600px] w-[900px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(109,40,217,0.45)_0%,rgba(76,29,149,0.2)_40%,transparent_70%)]" />
-            <div className="absolute -right-40 top-10 h-[400px] w-[500px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(6,182,212,0.12)_0%,transparent_65%)]" />
-            <div className="absolute -left-20 bottom-0 h-[350px] w-[450px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(139,92,246,0.18)_0%,transparent_65%)]" />
-            <div className="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-t from-[#6d28d9]/30 via-[#7c3aed]/10 to-transparent" />
+            <div className="absolute left-1/2 top-0 -translate-x-1/2 h-[600px] w-[900px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(139,92,246,0.4)_0%,rgba(139,92,246,0.15)_35%,transparent_70%)]" />
+            <div className="absolute -right-32 top-20 h-[450px] w-[550px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(95,246,253,0.15)_0%,transparent_65%)]" />
+            <div className="absolute -left-24 bottom-10 h-[380px] w-[480px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(223,68,220,0.2)_0%,transparent_65%)]" />
+            <div className="absolute bottom-0 left-0 right-0 h-72 bg-gradient-to-t from-[#8b5cf6]/25 via-[#df44dc]/10 to-transparent" />
           </div>
 
           <div className="relative mx-auto max-w-5xl px-4 sm:px-6 text-center">
-            {/* Eyebrow */}
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#7c3aed]/50 bg-[#7c3aed]/10 px-4 py-1.5 text-xs font-semibold text-[#a78bfa] uppercase tracking-widest mb-8 backdrop-blur-sm">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#a78bfa] animate-pulse" />
+            {/* Badge: floating glass chip with glow */}
+            <div className="inline-flex items-center gap-2 rounded-[12px] border border-white/[0.08] bg-[rgba(255,255,255,0.05)] px-4 py-2 text-xs font-semibold text-[#5ff6fd] uppercase tracking-widest mb-8 backdrop-blur-[20px] shadow-[0_0_20px_rgba(139,92,246,0.3)]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#5ff6fd] animate-pulse shadow-[0_0_10px_rgba(95,246,253,0.6)]" />
               All 6 platforms. One dashboard.
             </div>
 
-            {/* Headline */}
-            <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl leading-[1.08]">
-              <span className="text-white">Run your entire</span>
+            {/* Headline: 48-72px, gradient accent */}
+            <h1 className="text-[48px] font-bold tracking-[-0.02em] leading-[1.1] sm:text-5xl md:text-6xl lg:text-7xl">
+              <span className="text-[#ffffff]">Run your entire</span>
               <br />
-              <span className="bg-gradient-to-r from-[#a78bfa] via-[#818cf8] to-[#38bdf8] bg-clip-text text-transparent">
+              <span className="bg-[linear-gradient(135deg,#5ff6fd,#8b5cf6,#df44dc)] bg-clip-text text-transparent">
                 social media
               </span>
               <br />
-              <span className="text-white">from one place.</span>
+              <span className="text-[#ffffff]">from one place.</span>
             </h1>
 
-            <p className="mx-auto mt-7 max-w-2xl text-base sm:text-lg text-slate-400 leading-relaxed">
+            <p className="mx-auto mt-7 max-w-2xl text-base sm:text-lg text-[#9ca3af] leading-relaxed">
               Schedule content, manage comments and DMs, and grow across Instagram, TikTok, YouTube, Facebook, X and LinkedIn from a single powerful dashboard.
             </p>
 
-            {/* CTAs */}
+            {/* CTAs: pill-shaped primary with gradient + glow; secondary glass */}
             <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
               <button
                 type="button"
                 onClick={openSignup}
-                className="group inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] px-8 py-4 text-base font-bold text-white shadow-[0_0_40px_rgba(109,40,217,0.6)] transition-all hover:shadow-[0_0_60px_rgba(109,40,217,0.8)] hover:scale-[1.03] active:scale-[0.98]"
+                className="group inline-flex items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#5ff6fd,#8b5cf6,#df44dc)] px-8 py-4 text-base font-semibold text-white shadow-[0_0_20px_rgba(139,92,246,0.6)] transition-all duration-300 hover:shadow-[0_0_30px_rgba(139,92,246,0.8)] hover:scale-[1.03] active:scale-[0.98]"
               >
                 Get started free
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </button>
               <Link
                 href="/pricing"
-                className="inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/5 backdrop-blur-sm px-8 py-4 text-base font-medium text-white transition-all hover:bg-white/10 hover:border-white/30"
+                className="inline-flex items-center justify-center rounded-full border border-white/[0.1] bg-[rgba(255,255,255,0.05)] backdrop-blur-[20px] px-8 py-4 text-base font-medium text-white transition-all hover:bg-white/[0.08] hover:shadow-[0_0_10px_rgba(95,246,253,0.3)]"
               >
                 See pricing
               </Link>
             </div>
 
             {/* Trust bar */}
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-xs text-slate-500">
-              <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-emerald-500" /> No credit card required</span>
-              <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-emerald-500" /> Free plan forever</span>
-              <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-emerald-500" /> Cancel anytime</span>
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-xs text-[#9ca3af]">
+              <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#5ff6fd]" /> No credit card required</span>
+              <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#5ff6fd]" /> Free plan forever</span>
+              <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#5ff6fd]" /> Cancel anytime</span>
             </div>
           </div>
 
-          {/* Platforms */}
+          {/* Platforms: glass chips */}
           <div className="relative mx-auto max-w-3xl px-4 sm:px-6 mt-16 text-center">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-600 mb-5">Connect your platforms</p>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.2em] text-[#9ca3af] mb-5">Connect your platforms</p>
             <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
               {HERO_PLATFORMS.map(({ Icon, label }) => (
                 <div key={label} className="group flex flex-col items-center gap-1.5">
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-2.5 backdrop-blur-sm transition-all group-hover:border-[#7c3aed]/40 group-hover:bg-[#7c3aed]/10 group-hover:shadow-[0_0_16px_rgba(124,58,237,0.3)]">
+                  <div className="rounded-[16px] border border-white/[0.08] bg-[rgba(255,255,255,0.05)] p-2.5 backdrop-blur-[16px] transition-all group-hover:border-[#5ff6fd]/40 group-hover:shadow-[0_0_10px_rgba(95,246,253,0.4)]">
                     <span className={label === 'Twitter/X' ? 'inline-block invert opacity-70 group-hover:opacity-100 transition-opacity' : 'opacity-70 group-hover:opacity-100 transition-opacity'}>
                       <Icon size={22} />
                     </span>
                   </div>
-                  <span className="text-[10px] text-slate-600 group-hover:text-slate-400 transition-colors">{label}</span>
+                  <span className="text-[12px] text-[#9ca3af] group-hover:text-white transition-colors">{label}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Dashboard preview with floating stat badges */}
+          {/* Dashboard preview + floating glass badges (design: detached UI, blur, glow) */}
           <div className="relative mx-auto max-w-5xl px-4 sm:px-6 mt-14">
             <div className="hidden sm:block absolute -left-2 top-10 z-10">
-              <div className="rounded-xl border border-[#7c3aed]/40 bg-[#1a0d3a]/90 backdrop-blur-xl px-4 py-3 shadow-[0_0_30px_rgba(109,40,217,0.35)]">
-                <p className="text-[9px] font-semibold uppercase tracking-widest text-[#a78bfa] mb-0.5">Platforms</p>
-                <p className="text-lg font-extrabold text-white">6 connected</p>
+              <div className="rounded-[16px] border border-white/[0.08] bg-[rgba(255,255,255,0.05)] backdrop-blur-[20px] px-4 py-3 shadow-[0_0_20px_rgba(139,92,246,0.4)]">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#8b5cf6] mb-0.5">Platforms</p>
+                <p className="text-lg font-bold text-white">6 connected</p>
               </div>
             </div>
             <div className="hidden sm:block absolute -right-2 top-10 z-10">
-              <div className="rounded-xl border border-[#0ea5e9]/30 bg-[#0c1a2e]/90 backdrop-blur-xl px-4 py-3 shadow-[0_0_30px_rgba(14,165,233,0.2)]">
-                <p className="text-[9px] font-semibold uppercase tracking-widest text-[#38bdf8] mb-0.5">AI Assistant</p>
-                <p className="text-lg font-extrabold text-white">Always on</p>
+              <div className="rounded-[16px] border border-[#5ff6fd]/30 bg-[rgba(255,255,255,0.05)] backdrop-blur-[20px] px-4 py-3 shadow-[0_0_10px_rgba(95,246,253,0.3)]">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#5ff6fd] mb-0.5">AI Assistant</p>
+                <p className="text-lg font-bold text-white">Always on</p>
               </div>
             </div>
             <div className="hidden sm:block absolute -left-2 bottom-14 z-10">
-              <div className="rounded-xl border border-emerald-500/30 bg-[#0a1f15]/90 backdrop-blur-xl px-4 py-3 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
-                <p className="text-[9px] font-semibold uppercase tracking-widest text-emerald-400 mb-0.5">Analytics</p>
-                <p className="text-lg font-extrabold text-white">Real-time</p>
+              <div className="rounded-[16px] border border-[#df44dc]/30 bg-[rgba(255,255,255,0.05)] backdrop-blur-[20px] px-4 py-3 shadow-[0_0_20px_rgba(223,68,220,0.3)]">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#df44dc] mb-0.5">Analytics</p>
+                <p className="text-lg font-bold text-white">Real-time</p>
               </div>
             </div>
             <div className="hidden sm:block absolute -right-2 bottom-14 z-10">
-              <div className="rounded-xl border border-[#7c3aed]/40 bg-[#1a0d3a]/90 backdrop-blur-xl px-4 py-3 shadow-[0_0_30px_rgba(109,40,217,0.35)]">
-                <p className="text-[9px] font-semibold uppercase tracking-widest text-[#a78bfa] mb-0.5">Scheduling</p>
-                <p className="text-lg font-extrabold text-white">Unlimited</p>
+              <div className="rounded-[16px] border border-white/[0.08] bg-[rgba(255,255,255,0.05)] backdrop-blur-[20px] px-4 py-3 shadow-[0_0_20px_rgba(139,92,246,0.4)]">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#8b5cf6] mb-0.5">Scheduling</p>
+                <p className="text-lg font-bold text-white">Unlimited</p>
               </div>
             </div>
-            <div className="absolute inset-x-16 top-1/2 -translate-y-1/2 h-64 bg-[#6d28d9]/20 blur-3xl pointer-events-none rounded-full" />
-            <div className="relative rounded-2xl border border-white/10 overflow-hidden shadow-[0_0_80px_rgba(109,40,217,0.25)]">
+            <div className="absolute inset-x-16 top-1/2 -translate-y-1/2 h-64 bg-[radial-gradient(circle,rgba(139,92,246,0.4),transparent)] blur-3xl pointer-events-none rounded-full" />
+            <div className="relative rounded-[24px] border border-white/[0.08] overflow-hidden shadow-[0_0_40px_rgba(139,92,246,0.35)] backdrop-blur-[20px] bg-[rgba(255,255,255,0.03)]">
               <DashboardPreview />
             </div>
           </div>
         </section>
 
-        {/* FEATURES */}
-        <section id="features" className="relative border-t border-white/5 py-24 sm:py-32">
+        {/* FEATURES - glassmorphism cards, neon accents */}
+        <section id="features" className="relative border-t border-white/[0.06] py-20 sm:py-28">
           <div className="pointer-events-none absolute inset-0">
-            <div className="absolute right-0 top-1/2 -translate-y-1/2 h-[500px] w-[500px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(109,40,217,0.1)_0%,transparent_65%)]" />
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 h-[500px] w-[500px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(139,92,246,0.25)_0%,transparent_65%)]" />
           </div>
           <div className="relative mx-auto max-w-5xl px-4 sm:px-6">
-            <div className="text-center mb-16">
-              <h2 className="text-3xl font-extrabold text-white sm:text-4xl">Everything you need to grow</h2>
-              <p className="mt-4 text-slate-400 max-w-xl mx-auto">Scheduling, analytics, unified inbox, automation, and AI. All in one place, all six platforms.</p>
+            <div className="text-center mb-14">
+              <h2 className="text-[28px] sm:text-[36px] font-bold tracking-[-0.02em] text-white">Everything you need to grow</h2>
+              <p className="mt-4 text-[#9ca3af] max-w-xl mx-auto text-base">Scheduling, analytics, unified inbox, automation, and AI. All in one place, all six platforms.</p>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {[
                 { icon: Calendar, label: 'Post Scheduler', desc: 'Plan content for all 6 platforms from one visual calendar. Draft once, publish everywhere.' },
                 { icon: BarChart3, label: 'Cross-platform Analytics', desc: 'Views, likes, comments, followers across all your accounts in one unified dashboard.' },
@@ -233,13 +233,13 @@ export default function Home() {
                 { icon: Link2, label: 'Smart Links', desc: 'One powerful bio link page. Custom domains on higher plans.' },
                 { icon: Sparkles, label: 'AI Assistant', desc: 'Set your brand voice, get AI-suggested captions right inside the Composer.' },
               ].map(({ icon: Icon, label, desc }) => (
-                <div key={label} className="group relative flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-sm p-6 transition-all hover:border-[#7c3aed]/40 hover:bg-[#7c3aed]/5 hover:shadow-[0_0_30px_rgba(109,40,217,0.15)]">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-[#7c3aed]/30 to-[#6d28d9]/10 border border-[#7c3aed]/30 text-[#a78bfa] group-hover:from-[#7c3aed]/40 transition-all">
+                <div key={label} className="group relative flex flex-col gap-4 rounded-[20px] border border-white/[0.08] bg-[rgba(255,255,255,0.05)] backdrop-blur-[20px] p-6 transition-all duration-300 hover:border-[#5ff6fd]/30 hover:shadow-[0_0_20px_rgba(139,92,246,0.25)] hover:scale-[1.02]">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[rgba(255,255,255,0.06)] border border-white/[0.08] text-[#5ff6fd] group-hover:shadow-[0_0_10px_rgba(95,246,253,0.4)] transition-all">
                     <Icon className="h-5 w-5" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-white text-base">{label}</h3>
-                    <p className="mt-1.5 text-sm text-slate-500 leading-relaxed">{desc}</p>
+                    <h3 className="font-semibold text-white text-base">{label}</h3>
+                    <p className="mt-1.5 text-sm text-[#9ca3af] leading-relaxed">{desc}</p>
                   </div>
                 </div>
               ))}
@@ -247,18 +247,18 @@ export default function Home() {
           </div>
         </section>
 
-        {/* HOW IT WORKS */}
-        <section id="how-it-works" className="relative border-t border-white/5 py-24 sm:py-32 overflow-hidden">
+        {/* HOW IT WORKS - step cards with glow */}
+        <section id="how-it-works" className="relative border-t border-white/[0.06] py-20 sm:py-28 overflow-hidden">
           <div className="pointer-events-none absolute inset-0">
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[700px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(109,40,217,0.1)_0%,transparent_65%)]" />
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[700px] rounded-full bg-[radial-gradient(circle,rgba(139,92,246,0.25),transparent_65%)]" />
           </div>
           <div className="relative mx-auto max-w-5xl px-4 sm:px-6">
-            <div className="text-center mb-20">
-              <h2 className="text-3xl font-extrabold sm:text-4xl md:text-5xl">Up and running in minutes</h2>
-              <p className="mx-auto mt-5 max-w-xl text-slate-400">Three steps from signup to your first scheduled post. No complicated setup.</p>
+            <div className="text-center mb-16">
+              <h2 className="text-[28px] sm:text-4xl md:text-5xl font-bold tracking-[-0.02em] text-white">Up and running in minutes</h2>
+              <p className="mx-auto mt-5 max-w-xl text-[#9ca3af]">Three steps from signup to your first scheduled post. No complicated setup.</p>
             </div>
-            <div className="grid gap-8 md:grid-cols-3 relative">
-              <div className="hidden md:block absolute top-14 left-[calc(16.67%+1rem)] right-[calc(16.67%+1rem)] h-px bg-gradient-to-r from-[#7c3aed]/40 via-[#818cf8]/30 to-[#7c3aed]/40" />
+            <div className="grid gap-10 md:grid-cols-3 relative">
+              <div className="hidden md:block absolute top-14 left-[calc(16.67%+1rem)] right-[calc(16.67%+1rem)] h-px bg-gradient-to-r from-[#5ff6fd]/30 via-[#8b5cf6]/40 to-[#df44dc]/30" />
               {[
                 { icon: Link2, step: '01', title: 'Connect', desc: 'Authorize your accounts with each platform\'s official OAuth. No passwords stored, just secure logins.' },
                 { icon: CalendarCheck, step: '02', title: 'Create & Schedule', desc: 'Use the Composer to write captions, add media, and schedule posts to one or multiple platforms at once.' },
@@ -266,28 +266,28 @@ export default function Home() {
               ].map(({ icon: Icon, step, title, desc }) => (
                 <div key={title} className="group relative flex flex-col items-center text-center z-10">
                   <div className="relative mb-6">
-                    <div className="flex h-28 w-28 items-center justify-center rounded-2xl border border-[#7c3aed]/30 bg-gradient-to-b from-[#1e0a3c] to-[#16082e] text-[#a78bfa] shadow-[0_0_40px_rgba(109,40,217,0.3)] transition-all group-hover:shadow-[0_0_60px_rgba(109,40,217,0.5)] group-hover:-translate-y-2 duration-300">
+                    <div className="flex h-24 w-24 items-center justify-center rounded-[20px] border border-white/[0.08] bg-[rgba(255,255,255,0.05)] backdrop-blur-[20px] text-[#5ff6fd] shadow-[0_0_20px_rgba(139,92,246,0.4)] transition-all duration-300 group-hover:shadow-[0_0_30px_rgba(139,92,246,0.6)] group-hover:-translate-y-2">
                       <Icon className="h-10 w-10" />
                     </div>
-                    <div className="absolute -top-3 -right-3 flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#7c3aed] to-[#5b21b6] text-[10px] font-black text-white shadow-[0_0_12px_rgba(124,58,237,0.6)]">{step}</div>
+                    <div className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-[linear-gradient(135deg,#5ff6fd,#df44dc)] text-[10px] font-black text-white shadow-[0_0_10px_rgba(95,246,253,0.5)]">{step}</div>
                   </div>
-                  <h3 className="text-xl font-bold text-white mb-3">{title}</h3>
-                  <p className="text-sm text-slate-500 leading-relaxed max-w-xs">{desc}</p>
+                  <h3 className="text-xl font-semibold text-white mb-3">{title}</h3>
+                  <p className="text-sm text-[#9ca3af] leading-relaxed max-w-xs">{desc}</p>
                 </div>
               ))}
             </div>
           </div>
         </section>
 
-        {/* PRODUCT DETAIL */}
-        <section id="product" className="relative border-t border-white/5 py-24 sm:py-32 overflow-hidden">
+        {/* PRODUCT DETAIL - glass cards */}
+        <section id="product" className="relative border-t border-white/[0.06] py-20 sm:py-28 overflow-hidden">
           <div className="pointer-events-none absolute inset-0">
-            <div className="absolute -left-20 top-1/2 -translate-y-1/2 h-[400px] w-[400px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(6,182,212,0.07)_0%,transparent_65%)]" />
+            <div className="absolute -left-20 top-1/2 -translate-y-1/2 h-[400px] w-[400px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(95,246,253,0.08)_0%,transparent_65%)]" />
           </div>
           <div className="relative mx-auto max-w-5xl px-4 sm:px-6">
-            <div className="text-center mb-16">
-              <h2 className="text-3xl font-extrabold sm:text-4xl md:text-5xl">One product, everything you need</h2>
-              <p className="mx-auto mt-4 max-w-xl text-slate-400">No juggling multiple tools. One login, all platforms. Scale from solo creator to agency.</p>
+            <div className="text-center mb-14">
+              <h2 className="text-[28px] sm:text-4xl md:text-5xl font-bold tracking-[-0.02em] text-white">One product, everything you need</h2>
+              <p className="mx-auto mt-4 max-w-xl text-[#9ca3af]">No juggling multiple tools. One login, all platforms. Scale from solo creator to agency.</p>
             </div>
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {[
@@ -298,22 +298,22 @@ export default function Home() {
                 { title: 'Hashtag pool & AI', desc: 'Save hashtag sets and reuse them. Get AI-suggested captions with your brand voice.', emoji: '✨' },
                 { title: 'White-label (Agency)', desc: 'Your logo, your colors. The dashboard looks like your brand. Multiple workspaces on higher plans.', emoji: '🏢' },
               ].map((item) => (
-                <div key={item.title} className="group rounded-2xl border border-white/10 bg-white/[0.03] p-6 transition-all hover:border-[#7c3aed]/30 hover:bg-[#7c3aed]/5">
+                <div key={item.title} className="group rounded-[20px] border border-white/[0.08] bg-[rgba(255,255,255,0.05)] backdrop-blur-[20px] p-6 transition-all duration-300 hover:border-[#5ff6fd]/25 hover:shadow-[0_0_20px_rgba(139,92,246,0.2)]">
                   <div className="text-2xl mb-3">{item.emoji}</div>
-                  <h3 className="font-bold text-white mb-2">{item.title}</h3>
-                  <p className="text-sm text-slate-500 leading-relaxed">{item.desc}</p>
+                  <h3 className="font-semibold text-white mb-2">{item.title}</h3>
+                  <p className="text-sm text-[#9ca3af] leading-relaxed">{item.desc}</p>
                 </div>
               ))}
             </div>
-            <div className="mt-10 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+            <div className="mt-10 rounded-[20px] border border-white/[0.08] bg-[rgba(255,255,255,0.05)] backdrop-blur-[20px] p-6 sm:p-8">
               <ul className="space-y-3">
                 {[
                   'All plans include scheduling, basic analytics, unified inbox, and AI assistant.',
                   'Keyword comment automation and higher limits on Starter and Pro.',
                   'Pro adds white-label, custom domains, smart links, and priority support.',
                 ].map((item, i) => (
-                  <li key={i} className="flex items-start gap-3 text-sm text-slate-400">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                  <li key={i} className="flex items-start gap-3 text-sm text-[#9ca3af]">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#5ff6fd]" />
                     <span>{item}</span>
                   </li>
                 ))}
@@ -322,15 +322,15 @@ export default function Home() {
           </div>
         </section>
 
-        {/* PRICING */}
-        <section className="relative border-t border-white/5 py-24 sm:py-32 overflow-hidden">
+        {/* PRICING - glow behind */}
+        <section className="relative border-t border-white/[0.06] py-20 sm:py-28 overflow-hidden">
           <div className="pointer-events-none absolute inset-0">
-            <div className="absolute left-1/2 bottom-0 -translate-x-1/2 h-[400px] w-[800px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(109,40,217,0.12)_0%,transparent_65%)]" />
+            <div className="absolute left-1/2 bottom-0 -translate-x-1/2 h-[400px] w-[800px] rounded-full bg-[radial-gradient(circle,rgba(139,92,246,0.3),transparent_65%)]" />
           </div>
           <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
             <div className="text-center mb-10">
-              <h2 className="text-3xl font-extrabold text-white sm:text-4xl">Plans for every stage</h2>
-              <p className="mt-3 text-slate-400">Yearly billing saves 20%. No hidden fees.</p>
+              <h2 className="text-[28px] sm:text-4xl font-bold tracking-[-0.02em] text-white">Plans for every stage</h2>
+              <p className="mt-3 text-[#9ca3af]">Yearly billing saves 20%. No hidden fees.</p>
             </div>
             <div className="pb-8">
               <PricingBillingToggle interval={billingInterval} onIntervalChange={setBillingInterval} dark />
@@ -341,7 +341,7 @@ export default function Home() {
               <PricingCard plan="pro" description="Best for professionals and agencies" badge="Most Popular" bestValueLabel="Best value for growing brands" highlights={PRO_HIGHLIGHTS} priceMonthly={24} priceYearly={230} yearlyCrossedPrice={288} additionalBrandsMonthly={3} additionalBrandsYearly={29} ctaText="Get Pro" onCta={openSignup} highlighted billingInterval={billingInterval} dark />
             </div>
             <p className="mt-10 text-center">
-              <Link href="/pricing" className="text-[#a78bfa] font-medium hover:text-white transition-colors">
+              <Link href="/pricing" className="text-[#5ff6fd] font-medium hover:text-white transition-colors">
                 Compare all features and yearly pricing &rarr;
               </Link>
             </p>
@@ -349,11 +349,11 @@ export default function Home() {
         </section>
 
         {/* FAQ */}
-        <section id="faq" className="border-t border-white/5 py-24 sm:py-32">
+        <section id="faq" className="border-t border-white/[0.06] py-20 sm:py-28">
           <div className="mx-auto max-w-3xl px-4 sm:px-6">
             <div className="text-center mb-14">
-              <h2 className="text-3xl font-extrabold sm:text-4xl">Frequently asked questions</h2>
-              <p className="mx-auto mt-4 max-w-md text-slate-400">Quick answers to common questions.</p>
+              <h2 className="text-[28px] sm:text-4xl font-bold tracking-[-0.02em] text-white">Frequently asked questions</h2>
+              <p className="mx-auto mt-4 max-w-md text-[#9ca3af]">Quick answers to common questions.</p>
             </div>
             <div className="space-y-3">
               {[
@@ -375,28 +375,28 @@ export default function Home() {
         {/* TESTIMONIALS */}
         <Testimonials />
 
-        {/* FINAL CTA */}
-        <section className="relative border-t border-white/5 py-24 sm:py-32 overflow-hidden">
+        {/* FINAL CTA - gradient CTA + glow */}
+        <section className="relative border-t border-white/[0.06] py-20 sm:py-28 overflow-hidden">
           <div className="pointer-events-none absolute inset-0">
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[500px] w-[700px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(109,40,217,0.3)_0%,rgba(76,29,149,0.1)_45%,transparent_70%)]" />
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[500px] w-[700px] rounded-full bg-[radial-gradient(circle,rgba(139,92,246,0.35)_0%,rgba(223,68,220,0.1)_45%,transparent_70%)]" />
           </div>
           <div className="relative mx-auto max-w-2xl px-4 text-center sm:px-6">
-            <h2 className="text-3xl font-extrabold sm:text-4xl md:text-5xl">Ready to grow your socials?</h2>
-            <p className="mt-5 text-lg text-slate-400">Join creators and businesses who schedule smarter with Agent4Socials.</p>
+            <h2 className="text-[28px] sm:text-4xl md:text-5xl font-bold tracking-[-0.02em] text-white">Ready to grow your socials?</h2>
+            <p className="mt-5 text-lg text-[#9ca3af]">Join creators and businesses who schedule smarter with Agent4Socials.</p>
             <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
               <button
                 type="button"
                 onClick={openSignup}
-                className="group inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] px-8 py-4 text-base font-bold text-white shadow-[0_0_40px_rgba(109,40,217,0.55)] transition-all hover:shadow-[0_0_60px_rgba(109,40,217,0.75)] hover:scale-[1.03] active:scale-[0.98]"
+                className="group inline-flex items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#5ff6fd,#8b5cf6,#df44dc)] px-8 py-4 text-base font-semibold text-white shadow-[0_0_20px_rgba(139,92,246,0.6)] transition-all duration-300 hover:shadow-[0_0_30px_rgba(139,92,246,0.8)] hover:scale-[1.03] active:scale-[0.98]"
               >
                 Get started free
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </button>
-              <button type="button" onClick={openLogin} className="text-slate-500 hover:text-white transition-colors text-sm font-medium">
+              <button type="button" onClick={openLogin} className="text-[#9ca3af] hover:text-white transition-colors text-sm font-medium">
                 I already have an account
               </button>
             </div>
-            <p className="mt-6 text-xs text-slate-600">No credit card required. Free plan, forever.</p>
+            <p className="mt-6 text-xs text-[#6b7280]">No credit card required. Free plan, forever.</p>
           </div>
         </section>
 

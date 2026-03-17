@@ -1,11 +1,20 @@
 @import "tailwindcss";
 
 @theme {
+  /* Futuristic Neon Glass SaaS design system */
   --color-primary: #5ff6fd;
   --color-primary-hover: #3dd9e0;
-  --color-secondary: #b030ad;
-  --color-secondary-hover: #9c28a5;
+  --color-secondary: #df44dc;
+  --color-secondary-hover: #c93dd0;
+  --color-tertiary: #8b5cf6;
   --color-dark: #0b0f1a;
+  --color-surface: #111827;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #9ca3af;
+  --glow-purple: 0 0 20px rgba(139, 92, 246, 0.6);
+  --glow-cyan: 0 0 10px rgba(95, 246, 253, 0.5);
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.08);
   --animate-fade-in: fade-in 0.5s ease-out forwards;
   --animate-fade-in-up: fade-in-up 0.7s ease-out forwards;
   --animate-float: float 6s ease-in-out infinite;
@@ -73,19 +82,26 @@
 :root {
   --primary: #5ff6fd;
   --primary-hover: #3dd9e0;
-  --secondary: #b030ad;
-  --secondary-hover: #9c28a5;
+  --secondary: #df44dc;
+  --secondary-hover: #c93dd0;
+  --tertiary: #8b5cf6;
   --dark: #0b0f1a;
-  --button: #6d6bcf;
-  --button-hover: #5a58c0;
+  --surface: #111827;
+  --button: #8b5cf6;
+  --button-hover: #7c3aed;
   --background: #f8fafc;
   --card-bg: #ffffff;
   --foreground: #0f172a;
   --muted: #64748b;
   --border: #e2e8f0;
   --radius: 12px;
+  --radius-glass: 20px;
   --font-main: var(--font-inter), ui-sans-serif, sans-serif;
   --font-heading: var(--font-outfit), ui-sans-serif, sans-serif;
+  --gradient-primary: linear-gradient(135deg, #5ff6fd, #8b5cf6, #df44dc);
+  --gradient-glow: radial-gradient(circle, rgba(139, 92, 246, 0.4), transparent);
+  --shadow-glow: 0 0 20px rgba(139, 92, 246, 0.6);
+  --shadow-glow-cyan: 0 0 10px rgba(95, 246, 253, 0.5);
 }
 
 [data-theme='dark'] {
