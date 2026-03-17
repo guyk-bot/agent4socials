@@ -1,13 +1,14 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useState, useCallback } from 'react';
 import AppHeader from '@/components/AppHeader';
 import Sidebar from '@/components/Sidebar';
 import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
+
+const CHROME_Z = 9999;
 
 function AuthenticatedContent({
     sidebarOpen,
@@ -19,8 +20,6 @@ function AuthenticatedContent({
     children: React.ReactNode;
 }) {
     const { backgroundColor, primaryColor, textColor } = useWhiteLabel();
-    const [mounted, setMounted] = useState(false);
-    useEffect(() => setMounted(true), []);
 
     const chromeStyle: React.CSSProperties = {
         color: textColor || undefined,
@@ -28,54 +27,13 @@ function AuthenticatedContent({
         ['--primary' as string]: primaryColor || undefined,
         ['--wl-text' as string]: textColor || undefined,
         ['--wl-sidebar-bg' as string]: backgroundColor || '#f5f5f5',
+        pointerEvents: 'auto',
     };
-
-    const CHROME_Z = 2147483646;
-    const chromePointerEvents = { pointerEvents: 'auto' as const };
-    const chromePortal = mounted && typeof document !== 'undefined' ? createPortal(
-        <>
-            <div
-                className="fixed top-0 left-0 right-0 h-14"
-                style={{ ...chromeStyle, zIndex: CHROME_Z, ...chromePointerEvents }}
-                data-chrome="header"
-            >
-                <AppHeader sidebarOpen={sidebarOpen} onSidebarToggle={onSidebarToggle} />
-            </div>
-            <div
-                className="fixed left-0 top-14 bottom-0 w-64"
-                style={{ ...chromeStyle, zIndex: CHROME_Z, ...chromePointerEvents }}
-                data-chrome="sidebar"
-            >
-                <Sidebar sidebarOpen={sidebarOpen} onSidebarToggle={onSidebarToggle} />
-            </div>
-        </>,
-        document.body
-    ) : null;
-
-    const chromeInTree = (
-        <>
-            <div
-                className="fixed top-0 left-0 right-0 h-14"
-                style={{ ...chromeStyle, zIndex: CHROME_Z, ...chromePointerEvents }}
-                data-chrome="header"
-            >
-                <AppHeader sidebarOpen={sidebarOpen} onSidebarToggle={onSidebarToggle} />
-            </div>
-            <div
-                className="fixed left-0 top-14 bottom-0 w-64"
-                style={{ ...chromeStyle, zIndex: CHROME_Z, ...chromePointerEvents }}
-                data-chrome="sidebar"
-            >
-                <Sidebar sidebarOpen={sidebarOpen} onSidebarToggle={onSidebarToggle} />
-            </div>
-        </>
-    );
 
     return (
         <div
-            className="min-h-screen bg-neutral-100 relative"
+            className="min-h-screen bg-neutral-100"
             style={{
-                zIndex: 0,
                 backgroundColor: backgroundColor || undefined,
                 color: textColor || undefined,
                 ['--wl-primary' as string]: primaryColor || undefined,
@@ -84,12 +42,30 @@ function AuthenticatedContent({
                 ['--wl-sidebar-bg' as string]: backgroundColor || '#f5f5f5',
             }}
         >
-            <div className={`pt-14 transition-[padding] duration-200 ${sidebarOpen ? 'md:pl-64' : 'pl-0'}`}>
+            {/* Main content: low stacking order so chrome can sit on top */}
+            <div
+                className={`pt-14 transition-[padding] duration-200 ${sidebarOpen ? 'md:pl-64' : 'pl-0'}`}
+                style={{ position: 'relative', zIndex: 0 }}
+            >
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6 md:py-8">
                     {children}
                 </div>
             </div>
-            {mounted ? chromePortal : chromeInTree}
+            {/* Header and sidebar: fixed, rendered after content so they stack on top and stay clickable */}
+            <div
+                className="fixed top-0 left-0 right-0 h-14"
+                style={{ ...chromeStyle, zIndex: CHROME_Z }}
+                data-chrome="header"
+            >
+                <AppHeader sidebarOpen={sidebarOpen} onSidebarToggle={onSidebarToggle} />
+            </div>
+            <div
+                className="fixed left-0 top-14 bottom-0 w-64"
+                style={{ ...chromeStyle, zIndex: CHROME_Z }}
+                data-chrome="sidebar"
+            >
+                <Sidebar sidebarOpen={sidebarOpen} onSidebarToggle={onSidebarToggle} />
+            </div>
         </div>
     );
 }
