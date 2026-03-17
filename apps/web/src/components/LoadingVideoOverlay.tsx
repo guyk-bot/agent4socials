@@ -50,7 +50,7 @@ export default function LoadingVideoOverlay({ loading }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-[300] flex items-center justify-center bg-neutral-900"
+      className="fixed inset-0 z-[300] bg-neutral-900 w-full h-full min-h-screen min-w-full"
       role="status"
       aria-live="polite"
       aria-label="Loading"
@@ -58,7 +58,7 @@ export default function LoadingVideoOverlay({ loading }: Props) {
       <video
         ref={videoRef}
         src={LOADING_VIDEO_PATH}
-        className="max-w-full max-h-full w-auto h-auto object-contain"
+        className="max-w-full max-h-full w-auto h-auto object-contain absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
         autoPlay
         muted
         playsInline
