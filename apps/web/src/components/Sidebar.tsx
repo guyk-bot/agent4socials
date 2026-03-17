@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import {
     BarChart3,
     FileText,
@@ -49,7 +49,6 @@ type SidebarProps = {
 
 export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {} }: SidebarProps) {
   const pathname = usePathname();
-  const router = useRouter();
   const { primaryColor, textColor } = useWhiteLabel();
   const { cachedAccounts, setCachedAccounts, setAccountsLoadError } = useAccountsCache() ?? { cachedAccounts: [], setCachedAccounts: () => {}, setAccountsLoadError: () => {} };
   const ctx = useSelectedAccount();
@@ -105,16 +104,11 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
   const isSettingsPage = pathname === '/dashboard/settings';
   const isHelpPage = pathname === '/help';
 
-  const handleSummaryClick = () => {
-    router.push('/dashboard/summary');
-  };
-
   const sidebarContent = (
     <>
       <div className="p-3">
-        <button
-          type="button"
-          onClick={handleSummaryClick}
+        <Link
+          href="/dashboard/summary"
           className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
             isSummaryView ? 'bg-indigo-50 border border-indigo-100 shadow-sm' : 'hover:bg-neutral-100 border border-transparent'
           }`}
@@ -123,7 +117,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
           <BarChart3 size={18} className="shrink-0" />
           Analytics
           {isSummaryView && <ChevronRight size={14} className="ml-auto opacity-70" />}
-        </button>
+        </Link>
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 space-y-1">
@@ -134,13 +128,10 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
           if (accounts.length === 0) {
             const connectParam = platform.toLowerCase();
             return (
-              <button
+              <Link
                 key={platform}
-                type="button"
-                onClick={() => {
-                  setSelectedPlatformForConnect(platform);
-                  router.push(`/dashboard?connect=${connectParam}`);
-                }}
+                href={`/dashboard?connect=${connectParam}`}
+                onClick={() => setSelectedPlatformForConnect(platform)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors ${
                   isPlatformSelected ? 'bg-white shadow-sm ring-1 ring-neutral-200' : 'hover:bg-white/70'
                 }`}
@@ -153,7 +144,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                 <div className="w-8 h-8 rounded-full bg-neutral-300 flex items-center justify-center shrink-0">
                   <Plus size={14} className="text-white" />
                 </div>
-              </button>
+              </Link>
             );
           }
 
@@ -162,13 +153,10 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
               {accounts.map((acc) => {
                 const isSelected = selectedAccountId === acc.id;
                 return (
-                  <button
+                  <Link
                     key={acc.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedAccount(acc);
-                      router.push('/dashboard');
-                    }}
+                    href="/dashboard"
+                    onClick={() => setSelectedAccount(acc)}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors min-w-0 ${
                       isSelected ? 'bg-white shadow-sm ring-1 ring-neutral-200' : 'hover:bg-white/70'
                     }`}
@@ -185,7 +173,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                         PLATFORM_ICON[platform] ?? <span className="font-bold text-xs text-neutral-500">?</span>
                       )}
                     </div>
-                  </button>
+                  </Link>
                 );
               })}
             </div>

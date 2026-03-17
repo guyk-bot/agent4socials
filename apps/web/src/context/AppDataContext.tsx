@@ -89,6 +89,9 @@ type AppDataContextType = {
 
 const defaultNotifications: NotificationsCache = { inbox: 0, comments: 0, messages: 0 };
 
+const CACHE_KEY = 'appData_cache_v1';
+const CACHE_MAX_BYTES = 450000; // ~450KB to stay under sessionStorage quota
+
 const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
 
 /** Shared default date range (last 30 days) used by prefetch and analytics. */
@@ -186,16 +189,71 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     setScheduledPostsState([]);
     setPrefetchStatus('idle');
     setPrefetchHasLoadedOnce(false);
+    if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(CACHE_KEY);
   }, []);
 
   const invalidateConversations = useCallback(() => {
     setConversationsByAccountId({});
   }, []);
 
+  // Rehydrate cache from sessionStorage on mount so data survives full reloads
+  useEffect(() => {
+    if (typeof window === 'undefined' || !user?.id) return;
+    try {
+      const raw = sessionStorage.getItem(CACHE_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw) as {
+        conversationsByAccountId?: Record<string, CachedConversation[]>;
+        postsByAccountId?: Record<string, CachedPost[]>;
+        insightsByAccountId?: Record<string, CachedInsights>;
+        commentsByAccountId?: Record<string, CachedComment[]>;
+      };
+      if (data.conversationsByAccountId && Object.keys(data.conversationsByAccountId).length > 0) {
+        setConversationsByAccountId(data.conversationsByAccountId);
+      }
+      if (data.postsByAccountId && Object.keys(data.postsByAccountId).length > 0) {
+        setPostsByAccountId(data.postsByAccountId);
+      }
+      if (data.insightsByAccountId && Object.keys(data.insightsByAccountId).length > 0) {
+        setInsightsByAccountId(data.insightsByAccountId);
+      }
+      if (data.commentsByAccountId && Object.keys(data.commentsByAccountId).length > 0) {
+        setCommentsByAccountId(data.commentsByAccountId);
+      }
+    } catch {
+      // ignore parse errors or quota
+    }
+  }, [user?.id]);
+
+  // Persist cache to sessionStorage when it changes so reloads show cached data immediately
+  useEffect(() => {
+    if (typeof window === 'undefined' || !user?.id) return;
+    const hasData =
+      Object.keys(conversationsByAccountId).length > 0 ||
+      Object.keys(postsByAccountId).length > 0 ||
+      Object.keys(insightsByAccountId).length > 0 ||
+      Object.keys(commentsByAccountId).length > 0;
+    if (!hasData) return;
+    try {
+      const payload = {
+        conversationsByAccountId,
+        postsByAccountId,
+        insightsByAccountId,
+        commentsByAccountId,
+      };
+      const str = JSON.stringify(payload);
+      if (str.length > CACHE_MAX_BYTES) return;
+      sessionStorage.setItem(CACHE_KEY, str);
+    } catch {
+      // ignore quota or other errors
+    }
+  }, [user?.id, conversationsByAccountId, postsByAccountId, insightsByAccountId, commentsByAccountId]);
+
   useEffect(() => {
     if (!user) {
       setPrefetchStatus('idle');
       setPrefetchHasLoadedOnce(false);
+      if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(CACHE_KEY);
       return;
     }
     let cancelled = false;
