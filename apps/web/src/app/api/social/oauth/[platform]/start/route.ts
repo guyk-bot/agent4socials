@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma, databaseUrlLooksDirect } from '@/lib/db';
 import { getTwitterOAuth1 } from '@/lib/twitter-oauth1';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import axios from 'axios';
 import { Platform } from '@prisma/client';
+
+const PAID_TIERS = ['starter', 'pro'];
 
 const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN'] as const;
 
@@ -134,6 +137,24 @@ export async function GET(
         );
       }
     } else if (plat === 'TWITTER') {
+      // X (Twitter) is paid-only: reject free-tier users
+      const dbUser = await prisma.user.findUnique({ where: { id: userId }, select: { supabaseId: true } });
+      const admin = getSupabaseAdmin();
+      if (admin && dbUser?.supabaseId) {
+        const { data: profile } = await admin
+          .from('user_profiles')
+          .select('tier')
+          .eq('user_id', dbUser.supabaseId)
+          .maybeSingle();
+        const tier = (profile?.tier ?? 'account')?.toString().toLowerCase();
+        if (!PAID_TIERS.includes(tier)) {
+          return NextResponse.json(
+            { message: 'X (Twitter) connection is available on Starter and Pro plans only. Upgrade at agent4socials.com/pricing to connect.' },
+            { status: 403 }
+          );
+        }
+      }
+
       // Prefer OAuth 2.0 PKCE (recommended for DMs: Bearer token for GET /2/dm_events and POST send).
       const twitterClientId = process.env.TWITTER_CLIENT_ID?.trim();
       const apiKey = process.env.TWITTER_API_KEY?.trim();

@@ -43,8 +43,8 @@ const PLATFORM_ICON: Record<string, React.ReactNode> = {
 
 const PLATFORM_ORDER = ['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'TWITTER', 'LINKEDIN'];
 
-/** Twitter and LinkedIn require upgrade to connect; highlight in sidebar when unconnected */
-const UPGRADE_TO_CONNECT_PLATFORMS = ['TWITTER', 'LINKEDIN'];
+/** X (Twitter) is paid-only; highlight and send to pricing when unconnected. LinkedIn stays connectable. */
+const UPGRADE_TO_CONNECT_PLATFORMS = ['TWITTER'];
 
 type SidebarProps = {
   sidebarOpen?: boolean;
@@ -132,16 +132,17 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
           if (accounts.length === 0) {
             const connectParam = platform.toLowerCase();
             const needsUpgrade = UPGRADE_TO_CONNECT_PLATFORMS.includes(platform);
+            const href = needsUpgrade ? '/pricing' : `/dashboard?connect=${connectParam}`;
             return (
               <Link
                 key={platform}
-                href={`/dashboard?connect=${connectParam}`}
-                onClick={() => setSelectedPlatformForConnect(platform)}
+                href={href}
+                onClick={() => !needsUpgrade && setSelectedPlatformForConnect(platform)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors ${
                   isPlatformSelected ? 'bg-white shadow-sm ring-1 ring-neutral-200' : 'hover:bg-white/70'
                 } ${needsUpgrade ? 'ring-1 ring-[#5ff6fd]/40 bg-gradient-to-r from-[#5ff6fd]/5 to-[#df44dc]/5' : ''}`}
                 style={isPlatformSelected ? { color: accent } : undefined}
-                title={needsUpgrade ? 'Upgrade to connect Twitter/X or LinkedIn' : undefined}
+                title={needsUpgrade ? 'X (Twitter) is available on paid plans. Upgrade to connect.' : undefined}
               >
                 <div className="w-10 h-10 flex items-center justify-center shrink-0">
                   {PLATFORM_ICON[platform]}

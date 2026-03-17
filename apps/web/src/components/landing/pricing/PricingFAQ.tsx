@@ -32,6 +32,10 @@ const FAQ_ITEMS: { question: string; answer: string }[] = [
     question: 'What is the difference between Starter and Pro?',
     answer: 'Starter is designed for creators and freelancers who need more connections, unlimited scheduling, and exports. Pro adds advanced analytics, bulk replies, custom domains, white-label reports, and client dashboard features.',
   },
+  {
+    question: 'Is X (Twitter) included on the Free plan?',
+    answer: 'No. X (Twitter) connection is available on Starter and Pro plans only. Free plan includes Instagram, Facebook, TikTok, YouTube, and LinkedIn. Upgrade to connect X (Twitter).',
+  },
 ];
 
 function FaqItem({ question, answer, isOpen, onToggle }: { question: string; answer: string; isOpen: boolean; onToggle: () => void }) {

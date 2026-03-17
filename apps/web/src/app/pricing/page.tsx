@@ -16,6 +16,8 @@ import {
 const FREE_HIGHLIGHTS = [
   '1 brand',
   '50 scheduled posts / month',
+  'Connect Instagram, Facebook, TikTok, YouTube, LinkedIn',
+  'X (Twitter) available on Starter & Pro only',
   '30 days analytics',
   '1 smart link page',
   'Limited AI Assistant use',
@@ -25,7 +27,7 @@ const STARTER_HIGHLIGHTS = [
   '1 brand included',
   'Unlimited scheduling',
   'Reply to messages and comments',
-  'X / Twitter and LinkedIn connections',
+  'X (Twitter) and LinkedIn connections',
   '6 months analytics',
   'Unlimited AI Assistant use',
   'Export analytics reports (no watermark)',

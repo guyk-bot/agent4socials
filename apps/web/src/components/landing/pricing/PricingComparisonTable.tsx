@@ -13,12 +13,13 @@ type TableSection = {
 const SECTIONS: TableSection[] = [
   {
     title: 'Connections',
+    note: 'X (Twitter) is available on paid plans (Starter & Pro) only.',
     rows: [
       { feature: 'Instagram connection', free: 'check', starter: 'check', pro: 'check' },
       { feature: 'Facebook connection', free: 'check', starter: 'check', pro: 'check' },
       { feature: 'TikTok connection', free: 'check', starter: 'check', pro: 'check' },
       { feature: 'YouTube connection', free: 'check', starter: 'check', pro: 'check' },
-      { feature: 'X / Twitter connection', free: 'dash', starter: 'check', pro: 'check' },
+      { feature: 'X (Twitter) connection', free: 'dash', starter: 'check', pro: 'check' },
       { feature: 'LinkedIn connection', free: 'dash', starter: 'check', pro: 'check' },
     ],
   },

@@ -296,6 +296,7 @@ export default function DashboardPage() {
   const [pageReviews, setPageReviews] = useState<Array<{ created_time: string | null; rating: number | null; recommendation_type: string | null; review_text: string | null; has_rating: boolean; has_review: boolean }>>([]);
   const [pageReviewsLoading, setPageReviewsLoading] = useState(false);
   const [pageReviewsError, setPageReviewsError] = useState<string | null>(null);
+  const [canConnectTwitter, setCanConnectTwitter] = useState<boolean | null>(null);
   const accounts = (cachedAccounts as SocialAccount[]) ?? [];
   const hasAccounts = accounts.length > 0;
 
@@ -326,6 +327,25 @@ export default function DashboardPage() {
       router.replace('/dashboard', { scroll: false });
     }
   }, [connectParam, router, setSelectedPlatformForConnect]);
+
+  // X (Twitter) is paid-only: check if user can connect when they land on connect=twitter
+  useEffect(() => {
+    const platform = (selectedPlatformForConnect || connectFromUrl) as string;
+    if (platform !== 'TWITTER') {
+      setCanConnectTwitter(null);
+      return;
+    }
+    let cancelled = false;
+    setCanConnectTwitter(null);
+    api.get<{ canConnectTwitter?: boolean }>('/user/can-connect-twitter')
+      .then((res) => {
+        if (!cancelled) setCanConnectTwitter(res.data?.canConnectTwitter ?? false);
+      })
+      .catch(() => {
+        if (!cancelled) setCanConnectTwitter(false);
+      });
+    return () => { cancelled = true; };
+  }, [selectedPlatformForConnect, connectFromUrl]);
 
   // When accountId is in URL (e.g. after connecting any social): select that account and clean URL. No loading banner.
   useEffect(() => {
@@ -794,6 +814,48 @@ export default function DashboardPage() {
 
   if (showConnectView) {
     const connectPlatform = (selectedPlatformForConnect || connectFromUrl) as string;
+    const isTwitterConnect = connectPlatform === 'TWITTER';
+    const twitterGateLoaded = !isTwitterConnect || canConnectTwitter !== null;
+
+    if (isTwitterConnect && !twitterGateLoaded) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[320px] gap-4">
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-[var(--button)] border-t-transparent" />
+          <p className="text-sm text-neutral-500">Checking plan…</p>
+        </div>
+      );
+    }
+
+    if (isTwitterConnect && canConnectTwitter === false) {
+      return (
+        <>
+          <ConfirmModal open={alertMessage !== null} onClose={() => setAlertMessage(null)} message={alertMessage ?? ''} variant="alert" confirmLabel="OK" />
+          <div className="rounded-2xl border-2 border-[#5ff6fd]/40 bg-gradient-to-r from-[#5ff6fd]/10 to-[#df44dc]/10 p-8 max-w-lg mx-auto text-center">
+            <h2 className="text-xl font-bold text-neutral-900">X (Twitter) is for paid plans</h2>
+            <p className="mt-2 text-neutral-700">
+              Connect X (Twitter) on Starter or Pro. Upgrade to add X to your dashboard.
+            </p>
+            <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => router.push('/pricing')}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#5ff6fd] to-[#df44dc] px-6 py-3 text-neutral-900 font-semibold text-sm hover:opacity-90"
+              >
+                View plans
+              </button>
+              <button
+                type="button"
+                onClick={() => { setSelectedPlatformForConnect(null); router.replace('/dashboard', { scroll: false }); }}
+                className="text-sm font-medium text-neutral-600 hover:text-neutral-900"
+              >
+                Back to dashboard
+              </button>
+            </div>
+          </div>
+        </>
+      );
+    }
+
     return (
       <>
         <ConfirmModal open={alertMessage !== null} onClose={() => setAlertMessage(null)} message={alertMessage ?? ''} variant="alert" confirmLabel="OK" />
