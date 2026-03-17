@@ -25,7 +25,7 @@ import {
   ExternalLink,
   HelpCircle,
   ArrowUpDown,
-  Star,
+  Gem,
 } from 'lucide-react';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
 import { InteractiveLineChart } from '@/components/charts/InteractiveLineChart';
@@ -991,16 +991,12 @@ export default function DashboardPage() {
         <button
           type="button"
           onClick={() => router.push('/pricing')}
-          className="shrink-0 w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-[#5ff6fd] to-[#df44dc] text-neutral-900 font-semibold text-sm hover:opacity-90 transition-opacity"
+          className="shrink-0 w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-[#5ff6fd] to-[#df44dc] text-white font-bold text-sm drop-shadow-sm hover:opacity-90 transition-opacity"
         >
-          <span className="flex items-center gap-0.5" aria-hidden>
-            <Star size={14} className="fill-amber-400 text-amber-400" />
-            <Star size={16} className="fill-amber-400 text-amber-400" />
-            <Star size={14} className="fill-amber-400 text-amber-400" />
-          </span>
           Upgrade
         </button>
-        <p className="text-sm text-neutral-700">
+        <p className="text-sm text-neutral-800 font-medium flex items-center gap-2 flex-wrap">
+          <Gem size={16} className="shrink-0 text-[#df44dc]" aria-hidden />
           Upgrade to view more than 30 days of analytics and export reports without watermarks.
         </p>
       </div>
