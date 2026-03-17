@@ -6,10 +6,10 @@ import { TrendingUp, TrendingDown, Lock } from 'lucide-react';
 export type KpiAccent = 'visibility' | 'audience' | 'engagement' | 'content' | 'muted';
 
 const ACCENT_STYLES: Record<KpiAccent, { border: string; trendPositive: string; trendNegative: string }> = {
-  visibility: { border: 'border-l-[#6366f1]', trendPositive: 'text-[#6366f1]', trendNegative: 'text-red-500' },
-  audience: { border: 'border-l-[#10b981]', trendPositive: 'text-[#10b981]', trendNegative: 'text-red-500' },
-  engagement: { border: 'border-l-[#f43f5e]', trendPositive: 'text-[#f43f5e]', trendNegative: 'text-red-500' },
-  content: { border: 'border-l-[#f59e0b]', trendPositive: 'text-[#f59e0b]', trendNegative: 'text-red-500' },
+  visibility: { border: 'border-l-[#5ff6fd]', trendPositive: 'text-[#5ff6fd]', trendNegative: 'text-red-500' },
+  audience: { border: 'border-l-[#5ff6fd]', trendPositive: 'text-[#5ff6fd]', trendNegative: 'text-red-500' },
+  engagement: { border: 'border-l-[#df44dc]', trendPositive: 'text-[#df44dc]', trendNegative: 'text-red-500' },
+  content: { border: 'border-l-[#df44dc]', trendPositive: 'text-[#df44dc]', trendNegative: 'text-red-500' },
   muted: { border: 'border-l-neutral-200', trendPositive: 'text-neutral-500', trendNegative: 'text-neutral-500' },
 };
 

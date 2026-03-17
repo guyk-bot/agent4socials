@@ -30,7 +30,7 @@ const PLATFORM_COLORS: Record<string, string> = {
   LINKEDIN: '#0A66C2',
 };
 
-const ACCENT = '#6366f1';
+const ACCENT = '#5ff6fd';
 
 function formatDateShort(dateStr: string): string {
   try {
@@ -111,7 +111,7 @@ export function ContentActivityPanels({ dailyPublishing, dailyEngagement }: Cont
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
                 <XAxis dataKey="date" tickFormatter={formatDateShort} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} allowDecimals={false} domain={[0, maxPublish + 1]} />
-                <Tooltip content={<PublishTooltip />} cursor={{ fill: 'rgba(99,102,241,0.06)' }} />
+                <Tooltip content={<PublishTooltip />} cursor={{ fill: 'rgba(95,246,253,0.08)' }} />
                 <Bar dataKey="count" radius={[4, 4, 0, 0]}>
                   {dailyPublishing.map((entry) => {
                     const topPlatform = Object.entries(entry.byPlatform).sort((a, b) => b[1] - a[1])[0]?.[0];
@@ -150,16 +150,16 @@ export function ContentActivityPanels({ dailyPublishing, dailyEngagement }: Cont
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
                 <XAxis dataKey="date" tickFormatter={formatDateShort} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                <Tooltip content={<EngageTooltip />} cursor={{ fill: 'rgba(99,102,241,0.06)' }} />
-                <Bar dataKey="likes" name="Likes" fill="#E1306C" radius={[3, 3, 0, 0]} stackId="engage" />
-                <Bar dataKey="comments" name="Comments" fill="#6366f1" radius={[3, 3, 0, 0]} stackId="engage" />
+                <Tooltip content={<EngageTooltip />} cursor={{ fill: 'rgba(95,246,253,0.08)' }} />
+                <Bar dataKey="likes" name="Likes" fill="#df44dc" radius={[3, 3, 0, 0]} stackId="engage" />
+                <Bar dataKey="comments" name="Comments" fill="#5ff6fd" radius={[3, 3, 0, 0]} stackId="engage" />
               </BarChart>
             </ResponsiveContainer>
           </div>
         )}
         <div className="flex gap-4 mt-3">
-          <span className="flex items-center gap-1.5 text-xs text-slate-600"><span className="w-2 h-2 rounded-sm bg-[#E1306C]" />Likes</span>
-          <span className="flex items-center gap-1.5 text-xs text-slate-600"><span className="w-2 h-2 rounded-sm bg-[#6366f1]" />Comments</span>
+          <span className="flex items-center gap-1.5 text-xs text-slate-600"><span className="w-2 h-2 rounded-sm bg-[#df44dc]" />Likes</span>
+          <span className="flex items-center gap-1.5 text-xs text-slate-600"><span className="w-2 h-2 rounded-sm bg-[#5ff6fd]" />Comments</span>
         </div>
       </section>
     </div>

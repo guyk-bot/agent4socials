@@ -32,7 +32,7 @@ export function VisibilityMetricsCard({ title, metrics }: VisibilityMetricsCardP
             </div>
             <div className="h-1.5 rounded-full bg-neutral-100 overflow-hidden">
               <div
-                className="h-full rounded-full bg-[#6366f1] transition-all duration-300"
+                className="h-full rounded-full bg-[#5ff6fd] transition-all duration-300"
                 style={{ width: `${m.percent ?? (typeof m.value === 'number' ? Math.min(100, (m.value / maxVal) * 100) : 0)}%` }}
               />
             </div>

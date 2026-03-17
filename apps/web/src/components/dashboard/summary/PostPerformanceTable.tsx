@@ -59,7 +59,7 @@ export function PostPerformanceTable({ posts }: PostPerformanceTableProps) {
     if (platform === 'TIKTOK') return active ? 'bg-neutral-900 border-neutral-900 text-white' : 'border-slate-200 text-slate-600 hover:bg-neutral-100';
     if (platform === 'TWITTER') return active ? 'bg-sky-100 border-sky-300 text-sky-800' : 'border-slate-200 text-slate-600 hover:bg-sky-50';
     if (platform === 'LINKEDIN') return active ? 'bg-blue-100 border-blue-400 text-blue-900' : 'border-slate-200 text-slate-600 hover:bg-blue-50';
-    return active ? 'bg-indigo-100 border-indigo-300 text-indigo-800' : 'border-slate-200 text-slate-600 hover:bg-indigo-50';
+    return active ? 'bg-[#5ff6fd]/20 border-[#5ff6fd]/50 text-[#0b0f1a]' : 'border-slate-200 text-slate-600 hover:bg-[#5ff6fd]/10';
   };
 
   return (
@@ -168,7 +168,7 @@ export function PostPerformanceTable({ posts }: PostPerformanceTableProps) {
                           <span className="text-slate-800 truncate text-sm">{post.caption || 'No caption'}</span>
                         </div>
                         {post.permalinkUrl && (
-                          <a href={post.permalinkUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-600 hover:underline">
+                          <a href={post.permalinkUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-[#5ff6fd] hover:underline">
                             Open
                           </a>
                         )}

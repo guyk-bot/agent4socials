@@ -90,7 +90,7 @@ export function PlatformBreakdownCards({ platforms }: { platforms: SummaryPlatfo
       <h2 className="text-lg font-semibold text-slate-900 mb-4">Platform Breakdown</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {sorted.map((p, idx) => {
-          const color = PLATFORM_HEX[p.platform] ?? '#6366f1';
+          const color = PLATFORM_HEX[p.platform] ?? '#5ff6fd';
           const bg = PLATFORM_BG[p.platform] ?? 'bg-slate-100';
           const trendValues = p.timeSeries.slice(-14).map((d) => d.value);
           if (trendValues.length < 2 && p.reach > 0) {

@@ -176,7 +176,7 @@ export function PlatformOverviewTab({
             type="followers"
             label={followersLabel}
             value={formatNull(followers) ?? '—'}
-            icon={<Users size={22} className="text-indigo-600" />}
+            icon={<Users size={22} className="text-[#5ff6fd]" />}
           />
         </AnalyticsGridItem>
         <AnalyticsGridItem span={3}>
@@ -275,16 +275,16 @@ export function PlatformOverviewTab({
                   <ComposedChart data={engagementByDate} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id={`${chartId}-likesGrad`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#f43f5e" stopOpacity={0.4} />
-                        <stop offset="100%" stopColor="#f43f5e" stopOpacity={0} />
+                        <stop offset="0%" stopColor="#df44dc" stopOpacity={0.4} />
+                        <stop offset="100%" stopColor="#df44dc" stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id={`${chartId}-commentsGrad`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#a855f7" stopOpacity={0.4} />
-                        <stop offset="100%" stopColor="#a855f7" stopOpacity={0} />
+                        <stop offset="0%" stopColor="#5ff6fd" stopOpacity={0.4} />
+                        <stop offset="100%" stopColor="#5ff6fd" stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id={`${chartId}-sharesGrad`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#6366f1" stopOpacity={0.4} />
-                        <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
+                        <stop offset="0%" stopColor="#5ff6fd" stopOpacity={0.25} />
+                        <stop offset="100%" stopColor="#5ff6fd" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(107,114,128,0.08)" vertical={false} />
@@ -310,9 +310,9 @@ export function PlatformOverviewTab({
                       }}
                     />
                     <Legend />
-                    <Area type="monotone" dataKey="likes" name="Likes" stroke="#f43f5e" strokeWidth={2} fill={`url(#${chartId}-likesGrad)`} dot={false} isAnimationActive animationDuration={400} />
-                    <Area type="monotone" dataKey="comments" name="Comments" stroke="#a855f7" strokeWidth={2} fill={`url(#${chartId}-commentsGrad)`} dot={false} isAnimationActive animationDuration={400} />
-                    <Area type="monotone" dataKey="shares" name="Shares" stroke="#6366f1" strokeWidth={2} fill={`url(#${chartId}-sharesGrad)`} dot={false} isAnimationActive animationDuration={400} />
+                    <Area type="monotone" dataKey="likes" name="Likes" stroke="#df44dc" strokeWidth={2} fill={`url(#${chartId}-likesGrad)`} dot={false} isAnimationActive animationDuration={400} />
+                    <Area type="monotone" dataKey="comments" name="Comments" stroke="#5ff6fd" strokeWidth={2} fill={`url(#${chartId}-commentsGrad)`} dot={false} isAnimationActive animationDuration={400} />
+                    <Area type="monotone" dataKey="shares" name="Shares" stroke="#5ff6fd" strokeWidth={2} fill={`url(#${chartId}-sharesGrad)`} dot={false} isAnimationActive animationDuration={400} />
                   </ComposedChart>
                 </ResponsiveContainer>
               ) : (
@@ -397,7 +397,7 @@ export function PlatformOverviewTab({
                       <div className="flex flex-wrap gap-2 mt-2 text-xs">
                         <span className="text-[#111827] font-medium">{(post.impressions ?? 0).toLocaleString()} reach</span>
                         <span className="text-rose-500">{(post.likeCount ?? 0).toLocaleString()} likes</span>
-                        <span className="text-purple-500">{(post.commentsCount ?? 0).toLocaleString()} comments</span>
+                        <span className="text-[#df44dc]">{(post.commentsCount ?? 0).toLocaleString()} comments</span>
                       </div>
                     </div>
                   </div>
