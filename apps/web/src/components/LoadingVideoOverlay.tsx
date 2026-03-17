@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 
-const LOADING_VIDEO_PATH = '/loading-transition.mp4';
+const LOADING_VIDEO_PATH = '/logo-loading-page.mp4';
 /** Show video immediately when loading starts so the default spinner is not shown. */
 const DELAY_MS = 0;
 
