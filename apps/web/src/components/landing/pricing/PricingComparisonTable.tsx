@@ -24,7 +24,6 @@ const SECTIONS: TableSection[] = [
   },
   {
     title: 'Publishing',
-    note: 'Each scheduled platform counts as one post.',
     rows: [
       { feature: 'Post composer', free: 'check', starter: 'check', pro: 'check' },
       { feature: 'Schedule posts', free: 'check', starter: 'check', pro: 'check' },
@@ -47,7 +46,7 @@ const SECTIONS: TableSection[] = [
     rows: [
       { feature: 'Basic analytics', free: 'check', starter: 'check', pro: 'check' },
       { feature: 'Analytics history', free: '30 days', starter: '6 months', pro: 'Unlimited' },
-      { feature: 'Advanced analytics', free: 'dash', starter: 'dash', pro: 'check' },
+      { feature: 'Unlimited analytic history', free: 'dash', starter: 'dash', pro: 'check' },
       { feature: 'Export analytics reports (no watermark)', free: 'dash', starter: 'check', pro: 'check' },
       { feature: 'White-label reports', free: 'dash', starter: 'dash', pro: 'check' },
     ],

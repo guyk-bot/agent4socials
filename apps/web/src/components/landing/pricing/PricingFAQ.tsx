@@ -10,7 +10,7 @@ const FAQ_ITEMS: { question: string; answer: string }[] = [
   },
   {
     question: 'What counts as a scheduled post?',
-    answer: 'Each scheduled platform counts as one post. Example: publishing one piece of content to Instagram, Facebook, and TikTok counts as 3 posts.',
+    answer: 'The number of posts depends on how many platforms you schedule each piece of content to.',
   },
   {
     question: 'Can I add more brands later?',

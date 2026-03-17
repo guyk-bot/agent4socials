@@ -33,7 +33,7 @@ const STARTER_HIGHLIGHTS = [
 
 const PRO_HIGHLIGHTS = [
   '1 brand included',
-  'Advanced analytics',
+  'Unlimited analytic history',
   'Bulk replies (messages and comments)',
   'Keyword triggers',
   '10 smart link pages',
@@ -97,10 +97,10 @@ export default function PricingPage() {
                   badge="Most Popular"
                   bestValueLabel="⭐ Best value for growing brands"
                   highlights={PRO_HIGHLIGHTS}
-                  priceMonthly={39}
-                  priceYearly={374}
-                  yearlyCrossedPrice={468}
-                  savePerYear={94}
+                  priceMonthly={24}
+                  priceYearly={230}
+                  yearlyCrossedPrice={288}
+                  savePerYear={58}
                   additionalBrandsMonthly={3}
                   additionalBrandsYearly={29}
                   ctaText="Get Pro"

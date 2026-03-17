@@ -10,14 +10,6 @@ export default function PricingHero() {
         <p className="mt-4 text-lg leading-relaxed text-neutral-600">
           Schedule posts, reply to messages and comments, track analytics, and create smart bio links from one dashboard.
         </p>
-        <p className="mt-6 text-sm text-neutral-500">
-          Each plan includes 1 brand. Add more brands anytime.
-          <br />
-          Each scheduled platform counts as one post.
-        </p>
-        <p className="mt-2 text-xs text-neutral-400">
-          Example: Instagram only = 1 post. Instagram + Facebook + TikTok = 3 posts.
-        </p>
       </div>
     </section>
   );

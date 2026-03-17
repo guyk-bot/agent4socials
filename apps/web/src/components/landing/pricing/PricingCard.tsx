@@ -79,26 +79,19 @@ export default function PricingCard({
             <span className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl">{freePrice ?? '$0'}</span>
           </p>
         ) : billingInterval === 'monthly' ? (
+          <p className="flex items-baseline gap-1">
+            <span className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl">
+              ${priceMonthly}
+            </span>
+            <span className="text-neutral-500">/ month</span>
+          </p>
+        ) : (
           <>
             <p className="flex items-baseline gap-1">
               <span className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl">
-                ${priceMonthly}
+                ${Math.round((priceYearly ?? 0) / 12)}
               </span>
               <span className="text-neutral-500">/ month</span>
-            </p>
-            <p className="mt-1 text-sm text-neutral-500">or ${priceYearly} / year</p>
-          </>
-        ) : (
-          <>
-            <p className="flex items-baseline gap-2">
-              {yearlyCrossedPrice != null && (
-                <span className="text-xl font-medium text-neutral-400 line-through sm:text-2xl">
-                  ${yearlyCrossedPrice}
-                </span>
-              )}
-              <span className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl">
-                ${priceYearly}
-              </span>
             </p>
             <p className="mt-1 text-sm text-neutral-500">billed yearly</p>
             {savePerYear != null && savePerYear > 0 && (
