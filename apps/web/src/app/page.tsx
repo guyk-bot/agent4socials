@@ -117,12 +117,6 @@ export default function Home() {
           </div>
 
           <div className="relative mx-auto max-w-5xl px-4 sm:px-6 text-center">
-            {/* Badge: floating glass chip with glow */}
-            <div className="inline-flex items-center gap-2 rounded-[12px] border border-white/[0.08] bg-[rgba(255,255,255,0.05)] px-4 py-2 text-xs font-semibold text-[#5ff6fd] uppercase tracking-widest mb-8 backdrop-blur-[20px] shadow-[0_0_20px_rgba(139,92,246,0.3)]">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#5ff6fd] animate-pulse shadow-[0_0_10px_rgba(95,246,253,0.6)]" />
-              All 6 platforms. One dashboard.
-            </div>
-
             {/* Headline: 48-72px, gradient accent */}
             <h1 className="text-[48px] font-bold tracking-[-0.02em] leading-[1.1] sm:text-5xl md:text-6xl lg:text-7xl">
               <span className="text-[#ffffff]">Run your entire</span>
