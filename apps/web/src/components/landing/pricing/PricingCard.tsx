@@ -98,7 +98,7 @@ export default function PricingCard({
       <ul className="mt-6 flex-1 space-y-3">
         {highlights.map((item, i) => (
           <li key={i} className="flex items-start gap-3 text-sm text-neutral-700">
-            <Check className="h-5 w-5 shrink-0 text-[var(--primary)]" aria-hidden />
+            <Check className="h-5 w-5 shrink-0 text-emerald-600" aria-hidden />
             <span>{item}</span>
           </li>
         ))}
