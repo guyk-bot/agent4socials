@@ -2429,7 +2429,8 @@ function PlatformToggle({ platform, label, icon, active, onClick, connected }: {
             type="button"
                 onClick={connected ? onClick : undefined}
                 title={connected ? label : `Connect ${label} first in the sidebar`}
-                className={`w-full min-w-[72px] max-w-[96px] aspect-square rounded-xl border-2 flex flex-col items-center justify-center gap-1.5 transition-all duration-200 ${
+                aria-label={label}
+                className={`w-full min-w-[72px] max-w-[96px] aspect-square rounded-xl border-2 flex flex-col items-center justify-center transition-all duration-200 ${
                     !connected
                         ? 'border-neutral-100 bg-neutral-50 text-neutral-300 cursor-not-allowed opacity-50'
                         : active
@@ -2438,7 +2439,6 @@ function PlatformToggle({ platform, label, icon, active, onClick, connected }: {
                 }`}
         >
                 <span className="flex items-center justify-center w-9 h-9 shrink-0">{icon}</span>
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-center leading-tight px-0.5">{label}</span>
         </button>
         </div>
     );
