@@ -42,6 +42,9 @@ const PLATFORM_ICON: Record<string, React.ReactNode> = {
 
 const PLATFORM_ORDER = ['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'TWITTER', 'LINKEDIN'];
 
+/** Twitter and LinkedIn require upgrade to connect; highlight in sidebar when unconnected */
+const UPGRADE_TO_CONNECT_PLATFORMS = ['TWITTER', 'LINKEDIN'];
+
 type SidebarProps = {
   sidebarOpen?: boolean;
   onSidebarToggle?: () => void;
@@ -127,6 +130,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
 
           if (accounts.length === 0) {
             const connectParam = platform.toLowerCase();
+            const needsUpgrade = UPGRADE_TO_CONNECT_PLATFORMS.includes(platform);
             return (
               <Link
                 key={platform}
@@ -134,13 +138,17 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                 onClick={() => setSelectedPlatformForConnect(platform)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors ${
                   isPlatformSelected ? 'bg-white shadow-sm ring-1 ring-neutral-200' : 'hover:bg-white/70'
-                }`}
+                } ${needsUpgrade ? 'ring-1 ring-[#5ff6fd]/40 bg-gradient-to-r from-[#5ff6fd]/5 to-[#df44dc]/5' : ''}`}
                 style={isPlatformSelected ? { color: accent } : undefined}
+                title={needsUpgrade ? 'Upgrade to connect Twitter/X or LinkedIn' : undefined}
               >
                 <div className="w-10 h-10 flex items-center justify-center shrink-0">
                   {PLATFORM_ICON[platform]}
                 </div>
                 <span className="truncate flex-1 font-medium">{PLATFORM_LABELS[platform]}</span>
+                {needsUpgrade ? (
+                  <span className="shrink-0 text-[10px] font-semibold text-[#df44dc] uppercase tracking-wide">Upgrade</span>
+                ) : null}
                 <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 hover:bg-neutral-300">
                   <Plus size={14} className="text-neutral-600" />
                 </div>

@@ -25,6 +25,7 @@ import {
   ExternalLink,
   HelpCircle,
   ArrowUpDown,
+  Star,
 } from 'lucide-react';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
 import { InteractiveLineChart } from '@/components/charts/InteractiveLineChart';
@@ -923,6 +924,24 @@ export default function DashboardPage() {
           <p className="mt-1 text-xs text-amber-700">Use Reconnect in the sidebar and approve all requested permissions to see your follower count here. Views are from your synced videos.</p>
         </div>
       )}
+      {/* Upgrade CTA at top of analytics (above tabs and date range) */}
+      <div className="mb-6 rounded-xl border border-[#5ff6fd]/30 bg-gradient-to-r from-[#5ff6fd]/10 to-[#df44dc]/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
+        <button
+          type="button"
+          onClick={() => router.push('/pricing')}
+          className="shrink-0 w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-[#5ff6fd] to-[#df44dc] text-neutral-900 font-semibold text-sm hover:opacity-90 transition-opacity"
+        >
+          <span className="flex items-center gap-0.5" aria-hidden>
+            <Star size={14} className="fill-amber-400 text-amber-400" />
+            <Star size={16} className="fill-amber-400 text-amber-400" />
+            <Star size={14} className="fill-amber-400 text-amber-400" />
+          </span>
+          Upgrade
+        </button>
+        <p className="text-sm text-neutral-700">
+          Upgrade to view more than 30 days of analytics and export reports without watermarks.
+        </p>
+      </div>
       {/* Top row: ACCOUNT | POSTS tabs + date range (Metricool-style) */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-neutral-200">
         <div className="flex gap-1 p-1 bg-neutral-100 rounded-lg w-fit">
