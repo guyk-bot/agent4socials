@@ -157,11 +157,11 @@ export function PlatformOverviewTab({
   return (
     <div className="space-y-6 max-w-full" style={{ maxWidth: 1400 }}>
       {showWatermark && (
-        <div className="rounded-xl border border-[#5ff6fd]/30 bg-gradient-to-r from-[#5ff6fd]/10 to-[#df44dc]/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="rounded-xl border border-[#5ff6fd]/30 bg-gradient-to-r from-[#5ff6fd]/10 to-[#b030ad]/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
           <button
             type="button"
             onClick={onUpgrade}
-            className="shrink-0 w-full sm:w-auto inline-flex items-center justify-center px-5 py-2.5 rounded-lg bg-gradient-to-r from-[#5ff6fd] to-[#df44dc] text-neutral-900 font-semibold text-sm hover:opacity-90 transition-opacity"
+            className="shrink-0 w-full sm:w-auto inline-flex items-center justify-center px-5 py-2.5 rounded-lg bg-gradient-to-r from-[#5ff6fd] to-[#b030ad] text-neutral-900 font-semibold text-sm hover:opacity-90 transition-opacity"
           >
             Upgrade plan
           </button>
@@ -275,8 +275,8 @@ export function PlatformOverviewTab({
                   <ComposedChart data={engagementByDate} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id={`${chartId}-likesGrad`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#df44dc" stopOpacity={0.4} />
-                        <stop offset="100%" stopColor="#df44dc" stopOpacity={0} />
+                        <stop offset="0%" stopColor="#b030ad" stopOpacity={0.4} />
+                        <stop offset="100%" stopColor="#b030ad" stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id={`${chartId}-commentsGrad`} x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#5ff6fd" stopOpacity={0.4} />
@@ -310,7 +310,7 @@ export function PlatformOverviewTab({
                       }}
                     />
                     <Legend />
-                    <Area type="monotone" dataKey="likes" name="Likes" stroke="#df44dc" strokeWidth={2} fill={`url(#${chartId}-likesGrad)`} dot={false} isAnimationActive animationDuration={400} />
+                    <Area type="monotone" dataKey="likes" name="Likes" stroke="#b030ad" strokeWidth={2} fill={`url(#${chartId}-likesGrad)`} dot={false} isAnimationActive animationDuration={400} />
                     <Area type="monotone" dataKey="comments" name="Comments" stroke="#5ff6fd" strokeWidth={2} fill={`url(#${chartId}-commentsGrad)`} dot={false} isAnimationActive animationDuration={400} />
                     <Area type="monotone" dataKey="shares" name="Shares" stroke="#5ff6fd" strokeWidth={2} fill={`url(#${chartId}-sharesGrad)`} dot={false} isAnimationActive animationDuration={400} />
                   </ComposedChart>
@@ -397,7 +397,7 @@ export function PlatformOverviewTab({
                       <div className="flex flex-wrap gap-2 mt-2 text-xs">
                         <span className="text-[#111827] font-medium">{(post.impressions ?? 0).toLocaleString()} reach</span>
                         <span className="text-rose-500">{(post.likeCount ?? 0).toLocaleString()} likes</span>
-                        <span className="text-[#df44dc]">{(post.commentsCount ?? 0).toLocaleString()} comments</span>
+                        <span className="text-[#b030ad]">{(post.commentsCount ?? 0).toLocaleString()} comments</span>
                       </div>
                     </div>
                   </div>

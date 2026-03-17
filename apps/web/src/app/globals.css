@@ -3,8 +3,8 @@
 @theme {
   --color-primary: #5ff6fd;
   --color-primary-hover: #3dd9e0;
-  --color-secondary: #df44dc;
-  --color-secondary-hover: #c93dd0;
+  --color-secondary: #b030ad;
+  --color-secondary-hover: #9c28a5;
   --color-dark: #0b0f1a;
   --animate-fade-in: fade-in 0.5s ease-out forwards;
   --animate-fade-in-up: fade-in-up 0.7s ease-out forwards;
@@ -73,11 +73,11 @@
 :root {
   --primary: #5ff6fd;
   --primary-hover: #3dd9e0;
-  --secondary: #df44dc;
-  --secondary-hover: #c93dd0;
+  --secondary: #b030ad;
+  --secondary-hover: #9c28a5;
   --dark: #0b0f1a;
-  --button: #9f9df0;
-  --button-hover: #8a88e0;
+  --button: #6d6bcf;
+  --button-hover: #5a58c0;
   --background: #f8fafc;
   --card-bg: #ffffff;
   --foreground: #0f172a;

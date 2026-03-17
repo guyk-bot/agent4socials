@@ -50,7 +50,7 @@ export function InteractiveLineChart({
   height = 200,
   valueLabel = 'Value',
   secondaryData,
-  secondaryColor = '#df44dc',
+  secondaryColor = '#b030ad',
   secondaryLabel,
   className = '',
   crosshair = true,

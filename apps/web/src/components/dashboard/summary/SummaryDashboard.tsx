@@ -158,7 +158,7 @@ export function SummaryDashboard() {
     <div className="space-y-8 pb-12">
       {/* Sync progress bar */}
       {syncing && (
-        <div className="rounded-2xl bg-gradient-to-r from-[#5ff6fd] to-[#df44dc] px-5 py-3 flex items-center gap-3 shadow-md">
+        <div className="rounded-2xl bg-gradient-to-r from-[#5ff6fd] to-[#b030ad] px-5 py-3 flex items-center gap-3 shadow-md">
           <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-white text-sm font-medium">Syncing data from all connected accounts…</p>

@@ -74,7 +74,7 @@ function DataSyncBanner({
     YOUTUBE: 'from-red-500 to-red-700',
     TWITTER: 'from-sky-400 to-sky-600',
     LINKEDIN: 'from-blue-600 to-blue-800',
-    DEFAULT: 'from-[#5ff6fd] to-[#df44dc]',
+    DEFAULT: 'from-[#5ff6fd] to-[#b030ad]',
   };
   const grad = platformColors[platform ?? ''] ?? platformColors.DEFAULT;
   const icon = platform ? platformIcons[platform] : null;
@@ -830,7 +830,7 @@ export default function DashboardPage() {
       return (
         <>
           <ConfirmModal open={alertMessage !== null} onClose={() => setAlertMessage(null)} message={alertMessage ?? ''} variant="alert" confirmLabel="OK" />
-          <div className="rounded-2xl border-2 border-[#5ff6fd]/40 bg-gradient-to-r from-[#5ff6fd]/10 to-[#df44dc]/10 p-8 max-w-lg mx-auto text-center">
+          <div className="rounded-2xl border-2 border-[#5ff6fd]/40 bg-gradient-to-r from-[#5ff6fd]/10 to-[#b030ad]/10 p-8 max-w-lg mx-auto text-center">
             <h2 className="text-xl font-bold text-neutral-900">X (Twitter) is for paid plans</h2>
             <p className="mt-2 text-neutral-700">
               Connect X (Twitter) on Starter or Pro. Upgrade to add X to your dashboard.
@@ -839,7 +839,7 @@ export default function DashboardPage() {
               <button
                 type="button"
                 onClick={() => router.push('/pricing')}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#5ff6fd] to-[#df44dc] px-6 py-3 text-neutral-900 font-semibold text-sm hover:opacity-90"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#5ff6fd] to-[#b030ad] px-6 py-3 text-neutral-900 font-semibold text-sm hover:opacity-90"
               >
                 View plans
               </button>
@@ -987,16 +987,16 @@ export default function DashboardPage() {
         </div>
       )}
       {/* Upgrade CTA at top of analytics (above tabs and date range) */}
-      <div className="mb-6 rounded-xl border border-[#5ff6fd]/30 bg-gradient-to-r from-[#5ff6fd]/10 to-[#df44dc]/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
+      <div className="mb-6 rounded-xl border border-[#5ff6fd]/30 bg-gradient-to-r from-[#5ff6fd]/10 to-[#b030ad]/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
         <button
           type="button"
           onClick={() => router.push('/pricing')}
-          className="shrink-0 w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-[#5ff6fd] to-[#df44dc] text-white font-bold text-sm drop-shadow-sm hover:opacity-90 transition-opacity"
+          className="shrink-0 w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-[#5ff6fd] to-[#b030ad] text-white font-bold text-sm drop-shadow-sm hover:opacity-90 transition-opacity"
         >
           Upgrade
         </button>
         <p className="text-sm text-neutral-800 font-medium flex items-center gap-2 flex-wrap">
-          <Gem size={16} className="shrink-0 text-[#df44dc]" aria-hidden />
+          <Gem size={16} className="shrink-0 text-[#b030ad]" aria-hidden />
           Upgrade to view more than 30 days of analytics and export reports without watermarks.
         </p>
       </div>
@@ -1273,11 +1273,11 @@ export default function DashboardPage() {
             )}
             <div className={importedPostsLoading ? 'hidden' : undefined}>
             {postsShowWatermark && (
-              <div className="rounded-xl border border-[#5ff6fd]/30 bg-gradient-to-r from-[#5ff6fd]/10 to-[#df44dc]/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+              <div className="rounded-xl border border-[#5ff6fd]/30 bg-gradient-to-r from-[#5ff6fd]/10 to-[#b030ad]/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
                 <button
                   type="button"
                   onClick={() => router.push('/pricing')}
-                  className="shrink-0 w-full sm:w-auto inline-flex items-center justify-center px-5 py-2.5 rounded-lg bg-gradient-to-r from-[#5ff6fd] to-[#df44dc] text-neutral-900 font-semibold text-sm hover:opacity-90 transition-opacity"
+                  className="shrink-0 w-full sm:w-auto inline-flex items-center justify-center px-5 py-2.5 rounded-lg bg-gradient-to-r from-[#5ff6fd] to-[#b030ad] text-neutral-900 font-semibold text-sm hover:opacity-90 transition-opacity"
                 >
                   Upgrade plan
                 </button>

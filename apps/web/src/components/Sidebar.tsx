@@ -139,7 +139,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                 onClick={() => !needsUpgrade && setSelectedPlatformForConnect(platform)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors ${
                   isPlatformSelected ? 'bg-white shadow-sm ring-1 ring-neutral-200' : 'hover:bg-white/70'
-                } ${needsUpgrade ? 'ring-1 ring-[#5ff6fd]/40 bg-gradient-to-r from-[#5ff6fd]/5 to-[#df44dc]/5' : ''}`}
+                } ${needsUpgrade ? 'ring-1 ring-[#5ff6fd]/40 bg-gradient-to-r from-[#5ff6fd]/5 to-[#b030ad]/5' : ''}`}
                 style={isPlatformSelected ? { color: accent } : undefined}
                 title={needsUpgrade ? 'X (Twitter) is available on paid plans. Upgrade to connect.' : undefined}
               >

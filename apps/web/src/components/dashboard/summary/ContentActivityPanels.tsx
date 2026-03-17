@@ -151,14 +151,14 @@ export function ContentActivityPanels({ dailyPublishing, dailyEngagement }: Cont
                 <XAxis dataKey="date" tickFormatter={formatDateShort} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} allowDecimals={false} />
                 <Tooltip content={<EngageTooltip />} cursor={{ fill: 'rgba(95,246,253,0.08)' }} />
-                <Bar dataKey="likes" name="Likes" fill="#df44dc" radius={[3, 3, 0, 0]} stackId="engage" />
+                <Bar dataKey="likes" name="Likes" fill="#b030ad" radius={[3, 3, 0, 0]} stackId="engage" />
                 <Bar dataKey="comments" name="Comments" fill="#5ff6fd" radius={[3, 3, 0, 0]} stackId="engage" />
               </BarChart>
             </ResponsiveContainer>
           </div>
         )}
         <div className="flex gap-4 mt-3">
-          <span className="flex items-center gap-1.5 text-xs text-slate-600"><span className="w-2 h-2 rounded-sm bg-[#df44dc]" />Likes</span>
+          <span className="flex items-center gap-1.5 text-xs text-slate-600"><span className="w-2 h-2 rounded-sm bg-[#b030ad]" />Likes</span>
           <span className="flex items-center gap-1.5 text-xs text-slate-600"><span className="w-2 h-2 rounded-sm bg-[#5ff6fd]" />Comments</span>
         </div>
       </section>

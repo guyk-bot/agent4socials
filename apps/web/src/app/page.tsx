@@ -123,12 +123,12 @@ export default function Home() {
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(95,246,253,0.15),transparent)] pointer-events-none" />
           <div className="absolute inset-0 bg-gradient-to-b from-[#5ff6fd]/5 via-transparent to-transparent pointer-events-none" />
           <div className="absolute top-0 left-1/2 -translate-x-1/2 h-[40rem] w-[40rem] rounded-full bg-[#5ff6fd]/10 blur-[100px] animate-pulse-glow pointer-events-none" />
-          <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-[#df44dc]/10 blur-[80px] pointer-events-none" />
+          <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-[#b030ad]/10 blur-[80px] pointer-events-none" />
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#334155_0.5px,transparent_0.5px),linear-gradient(to_bottom,#334155_0.5px,transparent_0.5px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_80%_at_50%_0%,#000_70%,transparent_110%)] pointer-events-none" />
           
           <div className="relative mx-auto max-w-5xl px-4 text-center sm:px-6 animate-fade-in-up">
             <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl xl:text-[5rem] leading-[1.1]">
-              <span className="bg-gradient-to-r from-[#5ff6fd] via-white to-[#df44dc] bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-[#5ff6fd] via-white to-[#b030ad] bg-clip-text text-transparent">
                 Run your entire social media from one place
               </span>
             </h1>
@@ -144,7 +144,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={openSignup}
-                className="group relative inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#5ff6fd] to-[#df44dc] px-8 py-4 text-lg font-semibold text-white shadow-xl shadow-[0_0_30px_rgba(95,246,253,0.35)] transition-all hover:opacity-95 hover:shadow-[0_0_40px_rgba(223,68,220,0.3)] hover:-translate-y-1 sm:w-auto overflow-hidden"
+                className="group relative inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#5ff6fd] to-[#b030ad] px-8 py-4 text-lg font-semibold text-white shadow-xl shadow-[0_0_30px_rgba(95,246,253,0.35)] transition-all hover:opacity-95 hover:shadow-[0_0_40px_rgba(176,48,173,0.35)] hover:-translate-y-1 sm:w-auto overflow-hidden"
               >
                 <div className="absolute inset-0 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent z-10" />
                 <span>Try for free</span>
@@ -345,7 +345,7 @@ export default function Home() {
                 'Agency adds multiple brands, team members, white-label, and priority support.',
               ].map((item, i) => (
                 <li key={i} className="flex items-start gap-3">
-                  <Check className="mt-0.5 h-5 w-5 shrink-0 text-[#df44dc]" />
+                  <Check className="mt-0.5 h-5 w-5 shrink-0 text-[#b030ad]" />
                   <span>{item}</span>
                 </li>
               ))}
