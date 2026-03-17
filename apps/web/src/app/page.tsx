@@ -11,7 +11,6 @@ import { useAuthModal } from '@/context/AuthModalContext';
 import {
   Calendar,
   BarChart3,
-  Zap,
   Check,
   ArrowRight,
   Link2,
@@ -89,13 +88,14 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
   );
 }
 
+// Order left to right on page: LinkedIn, Twitter/X, TikTok, YouTube, Facebook, Instagram (user requested right-to-left reading order)
 const HERO_PLATFORMS = [
-  { Icon: InstagramIcon, label: 'Instagram' },
-  { Icon: YoutubeIcon, label: 'YouTube' },
-  { Icon: TikTokIcon, label: 'TikTok' },
-  { Icon: FacebookIcon, label: 'Facebook' },
-  { Icon: XTwitterIcon, label: 'Twitter/X' },
   { Icon: LinkedinIcon, label: 'LinkedIn' },
+  { Icon: XTwitterIcon, label: 'Twitter/X' },
+  { Icon: TikTokIcon, label: 'TikTok' },
+  { Icon: YoutubeIcon, label: 'YouTube' },
+  { Icon: FacebookIcon, label: 'Facebook' },
+  { Icon: InstagramIcon, label: 'Instagram' },
 ] as const;
 
 export default function Home() {
@@ -125,33 +125,24 @@ export default function Home() {
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#334155_0.5px,transparent_0.5px),linear-gradient(to_bottom,#334155_0.5px,transparent_0.5px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_80%_at_50%_0%,#000_70%,transparent_110%)] pointer-events-none" />
           
           <div className="relative mx-auto max-w-5xl px-4 text-center sm:px-6 animate-fade-in-up">
-            <div className="mb-8 inline-flex flex-wrap items-center justify-center gap-2 rounded-full border border-[#5ff6fd]/30 bg-[#5ff6fd]/5 px-4 py-1.5 sm:px-5 sm:py-2 text-xs sm:text-sm font-semibold text-[#5ff6fd] shadow-[0_0_20px_-5px_rgba(95,246,253,0.3)] backdrop-blur-sm transition-transform hover:scale-105 cursor-default">
-              <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4 fill-[#5ff6fd]/20" />
-              <span>Try for free</span>
-              <span className="text-slate-600">|</span>
-              <span className="text-slate-400">Plans from $15/mo</span>
-            </div>
-            
             <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl xl:text-[5rem] leading-[1.1]">
-              <span className="bg-gradient-to-br from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
-                Schedule, automate & grow
-              </span>
-              <br />
-              <span className="bg-gradient-to-r from-[#5ff6fd] via-[#7df8fd] to-[#df44dc] bg-clip-text text-transparent">
-                across all your socials
+              <span className="bg-gradient-to-r from-[#5ff6fd] via-white to-[#df44dc] bg-clip-text text-transparent">
+                Run your entire social media from one place
               </span>
             </h1>
             
             <p className="mx-auto mt-8 max-w-2xl text-lg sm:text-xl leading-relaxed text-slate-400 px-2 font-medium">
-              One dashboard for Instagram, YouTube, TikTok, Facebook, Twitter and LinkedIn.
-              <span className="block mt-1 text-slate-500">Schedule posts, automate comment and DM replies, manage your inbox, and grow with AI-powered captions.</span>
+              Schedule content, manage comments and DMs, and streamline your workflow across all platforms.
+            </p>
+            <p className="mx-auto mt-2 max-w-2xl text-base sm:text-lg leading-relaxed text-slate-500 px-2">
+              Analytics, AI content & replies, keyword automations, smart links, white-label, and more.
             </p>
             
             <div className="mt-10 sm:mt-12 flex flex-col items-stretch sm:items-center justify-center gap-4 sm:flex-row">
               <button
                 type="button"
                 onClick={openSignup}
-                className="group relative inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#5ff6fd] px-8 py-4 text-lg font-semibold text-neutral-900 shadow-xl shadow-[0_0_30px_rgba(95,246,253,0.35)] transition-all hover:bg-[#3dd9e0] hover:shadow-[0_0_40px_rgba(95,246,253,0.45)] hover:-translate-y-1 sm:w-auto overflow-hidden"
+                className="group relative inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#5ff6fd] to-[#df44dc] px-8 py-4 text-lg font-semibold text-white shadow-xl shadow-[0_0_30px_rgba(95,246,253,0.35)] transition-all hover:opacity-95 hover:shadow-[0_0_40px_rgba(223,68,220,0.3)] hover:-translate-y-1 sm:w-auto overflow-hidden"
               >
                 <div className="absolute inset-0 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent z-10" />
                 <span>Try for free</span>
