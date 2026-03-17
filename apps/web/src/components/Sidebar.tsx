@@ -40,7 +40,7 @@ const PLATFORM_ICON: Record<string, React.ReactNode> = {
   LINKEDIN: <LinkedinIcon size={26} />,
 };
 
-const PLATFORM_ORDER = ['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'TWITTER', 'LINKEDIN'];
+const PLATFORM_ORDER = ['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'LINKEDIN', 'TWITTER'];
 
 /** X (Twitter) is paid-only; highlight and send to pricing when unconnected. LinkedIn stays connectable. */
 const UPGRADE_TO_CONNECT_PLATFORMS = ['TWITTER'];

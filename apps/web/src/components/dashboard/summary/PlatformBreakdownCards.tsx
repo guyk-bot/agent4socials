@@ -74,7 +74,7 @@ function Sparkline({ values, color }: { values: number[]; color: string }) {
   );
 }
 
-const PLATFORM_ORDER = ['INSTAGRAM', 'FACEBOOK', 'YOUTUBE', 'TIKTOK', 'TWITTER', 'LINKEDIN'];
+const PLATFORM_ORDER = ['INSTAGRAM', 'FACEBOOK', 'YOUTUBE', 'TIKTOK', 'LINKEDIN', 'TWITTER'];
 
 export function PlatformBreakdownCards({ platforms }: { platforms: SummaryPlatform[] }) {
   if (platforms.length === 0) return null;

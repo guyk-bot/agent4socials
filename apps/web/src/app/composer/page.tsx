@@ -1457,7 +1457,7 @@ export default function ComposerPage() {
                         </button>
                         {sectionOpen.platforms && (
                         <div className="pt-4 grid grid-cols-3 sm:grid-cols-6 gap-3">
-                            {(['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN'] as const).map((p) => {
+                            {(['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'LINKEDIN', 'TWITTER'] as const).map((p) => {
                                 const connected = accounts.some((a) => a.platform === p);
                                 const icons: Record<string, React.ReactNode> = {
                                     INSTAGRAM: <InstagramIcon size={26} />,
