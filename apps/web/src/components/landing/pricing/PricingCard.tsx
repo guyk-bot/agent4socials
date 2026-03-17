@@ -86,18 +86,12 @@ export default function PricingCard({
             <span className="text-neutral-500">/ month</span>
           </p>
         ) : (
-          <>
-            <p className="flex items-baseline gap-1">
-              <span className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl">
-                ${Math.round((priceYearly ?? 0) / 12)}
-              </span>
-              <span className="text-neutral-500">/ month</span>
-            </p>
-            <p className="mt-1 text-sm text-neutral-500">billed yearly</p>
-            {savePerYear != null && savePerYear > 0 && (
-              <p className="mt-2 text-sm font-semibold text-[var(--secondary)]">Save ${savePerYear} per year</p>
-            )}
-          </>
+          <p className="flex items-baseline gap-1">
+            <span className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl">
+              ${Math.round((priceYearly ?? 0) / 12)}
+            </span>
+            <span className="text-neutral-500">/ month</span>
+          </p>
         )}
       </div>
 
