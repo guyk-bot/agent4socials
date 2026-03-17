@@ -75,7 +75,7 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
           onClick={(e) => {
             if (pathname === '/dashboard/inbox') {
               e.preventDefault();
-              router.push('/dashboard');
+              window.location.href = '/dashboard';
             }
           }}
         >
@@ -112,7 +112,7 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
                 onClick={(e) => {
                   if (pathname === '/dashboard/inbox' && !e.ctrlKey && !e.metaKey) {
                     e.preventDefault();
-                    router.push(item.href);
+                    window.location.href = item.href;
                   }
                 }}
               >
@@ -133,7 +133,7 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
           onClick={(e) => {
             if (pathname === '/dashboard/inbox') {
               e.preventDefault();
-              router.push('/dashboard/account');
+              window.location.href = '/dashboard/account';
             }
           }}
         >
@@ -162,7 +162,7 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
                 setTopNavOpen(false);
                 if (pathname === '/dashboard/inbox') {
                   e.preventDefault();
-                  router.push('/dashboard/account');
+                  window.location.href = '/dashboard/account';
                 }
               }}
               className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors ${isAccountPage ? 'bg-white/15 text-white' : 'text-neutral-300 hover:text-white hover:bg-white/10'}`}
@@ -193,7 +193,7 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
                     setTopNavOpen(false);
                     if (pathname === '/dashboard/inbox') {
                       e.preventDefault();
-                      router.push(item.href);
+                      window.location.href = item.href;
                     }
                   }}
                   className={mobileLinkClass}
