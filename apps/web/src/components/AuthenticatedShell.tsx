@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, Suspense } from 'react';
 import AppHeader from '@/components/AppHeader';
 import Sidebar from '@/components/Sidebar';
 import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
@@ -57,7 +57,9 @@ function AuthenticatedContent({
                 style={{ ...chromeStyle, zIndex: CHROME_Z }}
                 data-chrome="header"
             >
-                <AppHeader sidebarOpen={sidebarOpen} onSidebarToggle={onSidebarToggle} />
+                <Suspense fallback={<div className="h-14 bg-[var(--dark)]" />}>
+                    <AppHeader sidebarOpen={sidebarOpen} onSidebarToggle={onSidebarToggle} />
+                </Suspense>
             </div>
             <div
                 className="fixed left-0 top-14 bottom-0 w-64"

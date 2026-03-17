@@ -110,17 +110,31 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
   const sidebarContent = (
     <>
       <div className="p-3">
-        <Link
-          href="/dashboard/summary"
-          className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-            isSummaryView ? 'bg-[var(--primary)]/15 border border-[var(--primary)]/25 shadow-sm' : 'hover:bg-neutral-100 border border-transparent'
-          }`}
-          style={isSummaryView ? { color: accent } : undefined}
-        >
-          <BarChart3 size={18} className="shrink-0" />
-          Analytics
-          {isSummaryView && <ChevronRight size={14} className="ml-auto opacity-70" />}
-        </Link>
+        {isInboxPage ? (
+          <a
+            href="/dashboard/summary"
+            className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              isSummaryView ? 'bg-[var(--primary)]/15 border border-[var(--primary)]/25 shadow-sm' : 'hover:bg-neutral-100 border border-transparent'
+            }`}
+            style={isSummaryView ? { color: accent } : undefined}
+          >
+            <BarChart3 size={18} className="shrink-0" />
+            Analytics
+            {isSummaryView && <ChevronRight size={14} className="ml-auto opacity-70" />}
+          </a>
+        ) : (
+          <Link
+            href="/dashboard/summary"
+            className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              isSummaryView ? 'bg-[var(--primary)]/15 border border-[var(--primary)]/25 shadow-sm' : 'hover:bg-neutral-100 border border-transparent'
+            }`}
+            style={isSummaryView ? { color: accent } : undefined}
+          >
+            <BarChart3 size={18} className="shrink-0" />
+            Analytics
+            {isSummaryView && <ChevronRight size={14} className="ml-auto opacity-70" />}
+          </Link>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 space-y-1">
@@ -132,17 +146,11 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
             const connectParam = platform.toLowerCase();
             const needsUpgrade = UPGRADE_TO_CONNECT_PLATFORMS.includes(platform);
             const href = needsUpgrade ? '/pricing' : `/dashboard?connect=${connectParam}`;
-            return (
-              <Link
-                key={platform}
-                href={href}
-                onClick={() => !needsUpgrade && setSelectedPlatformForConnect(platform)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors ${
-                  isPlatformSelected ? 'bg-white shadow-sm ring-1 ring-neutral-200' : 'hover:bg-white/70'
-                } ${needsUpgrade ? 'ring-1 ring-[#5ff6fd]/40 bg-gradient-to-r from-[#5ff6fd]/5 to-[#b030ad]/5' : ''}`}
-                style={isPlatformSelected ? { color: accent } : undefined}
-                title={needsUpgrade ? 'X (Twitter) is available on paid plans. Upgrade to connect.' : undefined}
-              >
+            const platformRowClass = `w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors ${
+              isPlatformSelected ? 'bg-white shadow-sm ring-1 ring-neutral-200' : 'hover:bg-white/70'
+            } ${needsUpgrade ? 'ring-1 ring-[#5ff6fd]/40 bg-gradient-to-r from-[#5ff6fd]/5 to-[#b030ad]/5' : ''}`;
+            const platformRowInner = (
+              <>
                 <div className="w-10 h-10 flex items-center justify-center shrink-0">
                   {PLATFORM_ICON[platform]}
                 </div>
@@ -155,6 +163,28 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                 <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 hover:bg-neutral-300">
                   <Plus size={14} className="text-neutral-600" />
                 </div>
+              </>
+            );
+            return isInboxPage ? (
+              <a
+                key={platform}
+                href={href}
+                className={platformRowClass}
+                style={isPlatformSelected ? { color: accent } : undefined}
+                title={needsUpgrade ? 'X (Twitter) is available on paid plans. Upgrade to connect.' : undefined}
+              >
+                {platformRowInner}
+              </a>
+            ) : (
+              <Link
+                key={platform}
+                href={href}
+                onClick={() => !needsUpgrade && setSelectedPlatformForConnect(platform)}
+                className={platformRowClass}
+                style={isPlatformSelected ? { color: accent } : undefined}
+                title={needsUpgrade ? 'X (Twitter) is available on paid plans. Upgrade to connect.' : undefined}
+              >
+                {platformRowInner}
               </Link>
             );
           }
@@ -163,16 +193,11 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
             <div key={platform} className="space-y-0.5">
               {accounts.map((acc) => {
                 const isSelected = selectedAccountId === acc.id;
-                return (
-                  <Link
-                    key={acc.id}
-                    href="/dashboard"
-                    onClick={() => setSelectedAccount(acc)}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors min-w-0 ${
-                      isSelected ? 'bg-white shadow-sm ring-1 ring-neutral-200' : 'hover:bg-white/70'
-                    }`}
-                    style={isSelected ? { color: accent } : undefined}
-                  >
+                const accountRowClass = `w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors min-w-0 ${
+                  isSelected ? 'bg-white shadow-sm ring-1 ring-neutral-200' : 'hover:bg-white/70'
+                }`;
+                const accountRowInner = (
+                  <>
                     <div className="w-10 h-10 flex items-center justify-center shrink-0">
                       {PLATFORM_ICON[platform]}
                     </div>
@@ -184,6 +209,26 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                         PLATFORM_ICON[platform] ?? <span className="font-bold text-xs text-neutral-500">?</span>
                       )}
                     </div>
+                  </>
+                );
+                return isInboxPage ? (
+                  <a
+                    key={acc.id}
+                    href="/dashboard/summary"
+                    className={accountRowClass}
+                    style={isSelected ? { color: accent } : undefined}
+                  >
+                    {accountRowInner}
+                  </a>
+                ) : (
+                  <Link
+                    key={acc.id}
+                    href="/dashboard"
+                    onClick={() => setSelectedAccount(acc)}
+                    className={accountRowClass}
+                    style={isSelected ? { color: accent } : undefined}
+                  >
+                    {accountRowInner}
                   </Link>
                 );
               })}
