@@ -91,6 +91,9 @@ type EngagementItem = {
   permalink?: string | null;
 };
 
+const INBOX_MESSAGES_CACHE_KEY = 'agent4socials_inbox_messages_cache';
+const INBOX_MESSAGES_CACHE_MAX_BYTES = 350000;
+
 function proxyImageUrl(url: string | null | undefined): string | null {
   if (!url) return null;
   return `/api/proxy-image?url=${encodeURIComponent(url)}`;
@@ -288,6 +291,7 @@ function InboxPage() {
   const previousConversationIdsRef = useRef<Set<string>>(new Set());
   const previousEngagementIdsRef = useRef<Set<string>>(new Set());
   const conversationsLoadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const conversationsLoadedRef = useRef(false);
 
   // Multi-select state for conversations
   const [selectedConversationIds, setSelectedConversationIds] = useState<Set<string>>(new Set());
@@ -408,6 +412,34 @@ function InboxPage() {
       sessionStorage.setItem('agent4socials_inbox_platforms', JSON.stringify(selectedPlatforms));
     }
   }, [selectedPlatforms.join(',')]);
+
+  // Restore conversation messages cache from sessionStorage on mount so messages persist across refresh/navigation
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = sessionStorage.getItem(INBOX_MESSAGES_CACHE_KEY);
+      if (!raw || raw.length > INBOX_MESSAGES_CACHE_MAX_BYTES) return;
+      const parsed = JSON.parse(raw) as Record<string, { messages: ConversationMessage[]; recipientId: string | null; recipientName?: string | null; recipientPictureUrl?: string | null; error: string | null }>;
+      if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+        setConversationMessagesCache(parsed);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Persist conversation messages cache to sessionStorage so it survives refresh
+  useEffect(() => {
+    if (typeof window === 'undefined' || Object.keys(conversationMessagesCache).length === 0) return;
+    try {
+      const str = JSON.stringify(conversationMessagesCache);
+      if (str.length <= INBOX_MESSAGES_CACHE_MAX_BYTES) {
+        sessionStorage.setItem(INBOX_MESSAGES_CACHE_KEY, str);
+      }
+    } catch {
+      // ignore quota
+    }
+  }, [conversationMessagesCache]);
 
   const connectedPlatforms = PLATFORMS.filter((p) => effectiveAccounts.some((a) => a.platform === p.id));
   const platformsForMessages = connectedPlatforms.filter((p) => p.id === 'INSTAGRAM' || p.id === 'FACEBOOK');
@@ -547,9 +579,11 @@ function InboxPage() {
 
     dmOrFbPlatforms.forEach((platform) => {
       const account = effectiveAccounts.find((a) => a.platform === platform);
-    if (!account) {
+        if (!account) {
         if (--pending === 0 && !cancelled) {
-          setConversations(merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? '')));
+          const sorted = merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
+          setConversations(sorted);
+          if (sorted.length > 0) conversationsLoadedRef.current = true;
           setConversationsError(errors[0] ?? null);
           setConversationsDebug(debugs[0] ?? null);
           setConversationsLoading(false);
@@ -574,8 +608,10 @@ function InboxPage() {
           }
         }
         if (--pending === 0 && !cancelled) {
-          setConversations(merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? '')));
-    setConversationsError(null);
+          const sorted = merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
+          setConversations(sorted);
+          if (sorted.length > 0) conversationsLoadedRef.current = true;
+          setConversationsError(null);
           setConversationsDebug(null);
           setConversationsLoading(false);
         }
@@ -606,7 +642,9 @@ function InboxPage() {
             }
           }
           if (--pending === 0) {
-            setConversations(merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? '')));
+            const sorted = merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
+            setConversations(sorted);
+            if (sorted.length > 0) conversationsLoadedRef.current = true;
             setConversationsError(errors[0] ?? null);
             setConversationsDebug(debugs[0] ?? null);
           }
@@ -636,7 +674,9 @@ function InboxPage() {
             ...(metaError?.message ? { metaMessage: metaError.message, code: metaError.code } : {}),
           });
           if (--pending === 0) {
-            setConversations(merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? '')));
+            const sorted = merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
+            setConversations(sorted);
+            if (sorted.length > 0) conversationsLoadedRef.current = true;
             setConversationsError(errors[0] ?? null);
             setConversationsDebug(debugs[0] ?? null);
           }
@@ -653,13 +693,16 @@ function InboxPage() {
     });
 
     if (needsFetch) {
+      conversationsLoadedRef.current = false;
       setConversationsLoading(true);
       setConversationsError(null);
       setConversationsDebug(null);
       conversationsLoadTimeoutRef.current = setTimeout(() => {
         if (cancelled) return;
         setConversationsLoading(false);
-        setConversationsError('Loading is taking longer than usual. Try refreshing.');
+        if (!conversationsLoadedRef.current) {
+          setConversationsError('Loading is taking longer than usual. Try refreshing.');
+        }
       }, 18000);
     }
     return () => {

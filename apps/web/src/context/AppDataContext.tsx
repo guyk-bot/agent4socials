@@ -92,6 +92,34 @@ const defaultNotifications: NotificationsCache = { inbox: 0, comments: 0, messag
 const CACHE_KEY = 'appData_cache_v1';
 const CACHE_MAX_BYTES = 450000; // ~450KB to stay under sessionStorage quota
 
+function getInitialConversationsFromStorage(): Record<string, CachedConversation[]> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = sessionStorage.getItem(CACHE_KEY);
+    if (!raw) return {};
+    const data = JSON.parse(raw) as { conversationsByAccountId?: Record<string, CachedConversation[]> };
+    return data?.conversationsByAccountId && typeof data.conversationsByAccountId === 'object'
+      ? data.conversationsByAccountId
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function getInitialCommentsFromStorage(): Record<string, CachedComment[]> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = sessionStorage.getItem(CACHE_KEY);
+    if (!raw) return {};
+    const data = JSON.parse(raw) as { commentsByAccountId?: Record<string, CachedComment[]> };
+    return data?.commentsByAccountId && typeof data.commentsByAccountId === 'object'
+      ? data.commentsByAccountId
+      : {};
+  } catch {
+    return {};
+  }
+}
+
 const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
 
 /** Shared default date range (last 30 days) used by prefetch and analytics. */
@@ -108,8 +136,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotificationsState] = useState<NotificationsCache>(defaultNotifications);
   const [postsByAccountId, setPostsByAccountId] = useState<Record<string, CachedPost[]>>({});
   const [insightsByAccountId, setInsightsByAccountId] = useState<Record<string, CachedInsights>>({});
-  const [commentsByAccountId, setCommentsByAccountId] = useState<Record<string, CachedComment[]>>({});
-  const [conversationsByAccountId, setConversationsByAccountId] = useState<Record<string, CachedConversation[]>>({});
+  const [commentsByAccountId, setCommentsByAccountId] = useState<Record<string, CachedComment[]>>(getInitialCommentsFromStorage);
+  const [conversationsByAccountId, setConversationsByAccountId] = useState<Record<string, CachedConversation[]>>(getInitialConversationsFromStorage);
   const [scheduledPosts, setScheduledPostsState] = useState<CachedScheduledPost[]>([]);
   const [prefetchStatus, setPrefetchStatus] = useState<'idle' | 'loading' | 'done'>('idle');
   const [prefetchHasLoadedOnce, setPrefetchHasLoadedOnce] = useState(false);
