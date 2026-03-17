@@ -55,7 +55,7 @@ export default function PricingCard({
     <div
       className={`relative flex flex-col rounded-2xl border-2 p-6 sm:p-8 transition-all duration-200 ${
         highlighted
-          ? 'border-[var(--secondary)]/60 bg-[var(--secondary)]/10 shadow-lg shadow-[var(--secondary)]/20'
+          ? 'border-[var(--secondary)] bg-white shadow-lg shadow-[var(--secondary)]/25'
           : 'border-neutral-200 bg-white shadow-sm hover:border-neutral-300 hover:shadow-md'
       }`}
     >
@@ -68,11 +68,11 @@ export default function PricingCard({
         {plan === 'free' ? 'Free' : plan === 'starter' ? 'Starter' : 'Pro'}
       </h2>
       {bestValueLabel && (
-        <p className="mt-1 text-sm font-medium text-amber-700">{bestValueLabel}</p>
+        <p className="mt-1 text-sm font-medium text-amber-800">{bestValueLabel}</p>
       )}
-      <p className="mt-1 text-sm text-neutral-600">{description}</p>
+      <p className="mt-1 text-sm text-neutral-700">{description}</p>
 
-      {/* Price block */}
+      {/* Price block - explicit dark text for contrast on all cards */}
       <div className="mt-6">
         {isFree ? (
           <p className="flex items-baseline gap-1">
@@ -83,21 +83,21 @@ export default function PricingCard({
             <span className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl">
               ${priceMonthly}
             </span>
-            <span className="text-neutral-500">/ month</span>
+            <span className="text-neutral-600">/ month</span>
           </p>
         ) : (
           <p className="flex items-baseline gap-1">
             <span className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl">
               ${Math.round((priceYearly ?? 0) / 12)}
             </span>
-            <span className="text-neutral-500">/ month</span>
+            <span className="text-neutral-600">/ month</span>
           </p>
         )}
       </div>
 
       <ul className="mt-6 flex-1 space-y-3">
         {highlights.map((item, i) => (
-          <li key={i} className="flex items-start gap-3 text-sm text-neutral-700">
+          <li key={i} className="flex items-start gap-3 text-sm text-neutral-800">
             <Check className="h-5 w-5 shrink-0 text-emerald-600" aria-hidden />
             <span>{item}</span>
           </li>
@@ -106,9 +106,9 @@ export default function PricingCard({
 
       {/* Add-ons: additional brands */}
       {!isFree && (additionalBrandsMonthly != null || additionalBrandsYearly != null) && (
-        <div className="mt-4 pt-4 border-t border-neutral-100">
-          <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-1">Add-ons</p>
-          <p className="text-sm text-neutral-600">
+        <div className="mt-4 pt-4 border-t border-neutral-200">
+          <p className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-1">Add-ons</p>
+          <p className="text-sm text-neutral-700">
             {billingInterval === 'monthly'
               ? `+$${additionalBrandsMonthly} / brand monthly`
               : `+$${additionalBrandsYearly} / brand yearly`}

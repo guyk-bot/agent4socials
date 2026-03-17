@@ -15,7 +15,7 @@ export default function PricingBillingToggle({ interval, onIntervalChange }: Pri
           className={`rounded-full px-5 py-2.5 text-sm font-semibold transition-all ${
             interval === 'monthly'
               ? 'bg-[var(--primary)] text-neutral-900 shadow'
-              : 'text-neutral-600 hover:text-neutral-900'
+              : 'text-neutral-700 hover:text-neutral-900'
           }`}
         >
           Monthly
@@ -26,10 +26,10 @@ export default function PricingBillingToggle({ interval, onIntervalChange }: Pri
           className={`rounded-full px-5 py-2.5 text-sm font-semibold transition-all ${
             interval === 'yearly'
               ? 'bg-[var(--primary)] text-neutral-900 shadow'
-              : 'text-neutral-600 hover:text-neutral-900'
+              : 'text-neutral-700 hover:text-neutral-900'
           }`}
         >
-          Yearly <span className={interval === 'yearly' ? 'text-neutral-700' : 'text-[var(--secondary)]'}>(Save 20%)</span>
+          Yearly <span className={interval === 'yearly' ? 'text-neutral-800' : 'text-[var(--secondary)]'}>(Save 20%)</span>
         </button>
       </div>
       <p className="text-sm font-medium text-[var(--secondary)]">
