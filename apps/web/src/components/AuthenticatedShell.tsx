@@ -31,8 +31,8 @@ function AuthenticatedContent({
                 ['--wl-sidebar-bg' as string]: backgroundColor || '#f5f5f5',
             }}
         >
-            {/* Chrome layer: header + sidebar always on top so nav is clickable from Inbox and other pages */}
-            <div className="relative z-[200]">
+            {/* Full-viewport chrome layer on top; pointer-events-none so content gets clicks; header/sidebar have pointer-events-auto so nav works from Inbox */}
+            <div className="fixed inset-0 z-[200] pointer-events-none">
                 <AppHeader sidebarOpen={sidebarOpen} onSidebarToggle={onSidebarToggle} />
                 <Sidebar sidebarOpen={sidebarOpen} onSidebarToggle={onSidebarToggle} />
             </div>
