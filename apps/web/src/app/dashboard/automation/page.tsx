@@ -60,14 +60,7 @@ export default function AutomationPage() {
   };
 
   if (loading) {
-    return (
-      <>
-        <LoadingVideoOverlay loading={true} />
-        <div className="max-w-2xl mx-auto p-6 flex items-center justify-center min-h-[200px]">
-          <Loader2 size={28} className="animate-spin text-neutral-400" />
-        </div>
-      </>
-    );
+    return <LoadingVideoOverlay loading={true} />;
   }
 
   return (
