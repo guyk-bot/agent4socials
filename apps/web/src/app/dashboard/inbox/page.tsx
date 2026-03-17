@@ -697,13 +697,14 @@ function InboxPage() {
       setConversationsLoading(true);
       setConversationsError(null);
       setConversationsDebug(null);
+      // Use a longer timeout (55s) so we don't show an error while Meta/API is slow after re-login; avoids confusing flash of error then partial load.
       conversationsLoadTimeoutRef.current = setTimeout(() => {
         if (cancelled) return;
         setConversationsLoading(false);
         if (!conversationsLoadedRef.current) {
           setConversationsError('Loading is taking longer than usual. Try refreshing.');
         }
-      }, 18000);
+      }, 55000);
     }
     return () => {
       cancelled = true;
@@ -1387,7 +1388,11 @@ function InboxPage() {
       <>
         {conversationsError && conversations.length > 0 && (
           <div className="p-3 border-b border-amber-200 bg-amber-50 flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs text-amber-900">One platform could not load: {conversationsError}</p>
+            <p className="text-xs text-amber-900">
+              {/timeout|timed out/i.test(conversationsError)
+                ? 'One platform is still loading or responded slowly. You can retry or use the conversations below.'
+                : `One platform could not load: ${conversationsError}`}
+            </p>
             <div className="flex gap-2">
               <button
                 type="button"
