@@ -26,19 +26,19 @@ function AuthModalInner() {
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
       onClick={closeModal}
       role="dialog"
       aria-modal="true"
       aria-label={modal === 'login' ? 'Log in' : 'Sign up'}
     >
       <div
-        className="relative w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-8 shadow-2xl"
+        className="relative w-full max-w-md rounded-[24px] border border-white/[0.08] bg-[rgba(11,15,26,0.95)] backdrop-blur-[20px] p-8 shadow-[0_0_40px_rgba(139,92,246,0.2)]"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={closeModal}
-          className="absolute top-4 right-4 p-1 text-slate-400 hover:text-white rounded-lg transition-colors"
+          className="absolute top-4 right-4 p-1.5 text-[#9ca3af] hover:text-white rounded-xl hover:bg-white/[0.06] transition-colors"
           aria-label="Close"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
