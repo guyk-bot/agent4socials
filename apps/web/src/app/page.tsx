@@ -132,12 +132,12 @@ export default function Home() {
               Schedule content, manage comments and DMs, and grow across Instagram, TikTok, YouTube, Facebook, X and LinkedIn from a single powerful dashboard.
             </p>
 
-            {/* CTAs: pill-shaped primary with gradient + glow; secondary glass */}
+            {/* CTAs: solid purple primary; gradient only on header Try for free and Pro plan */}
             <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
               <button
                 type="button"
                 onClick={openSignup}
-                className="group inline-flex items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#5ff6fd,#8b5cf6,#df44dc)] px-8 py-4 text-base font-semibold text-white shadow-[0_0_20px_rgba(139,92,246,0.6)] transition-all duration-300 hover:shadow-[0_0_30px_rgba(139,92,246,0.8)] hover:scale-[1.03] active:scale-[0.98]"
+                className="group inline-flex items-center justify-center gap-2 rounded-full bg-[#6b21a8] px-8 py-4 text-base font-semibold text-white shadow-[0_0_20px_rgba(107,33,168,0.5)] transition-all duration-300 hover:bg-[#7c3aed] hover:shadow-[0_0_25px_rgba(124,58,237,0.6)] hover:scale-[1.03] active:scale-[0.98]"
               >
                 Get started free
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -280,6 +280,16 @@ export default function Home() {
             <div className="text-center mb-14">
               <h2 className="text-[28px] sm:text-4xl md:text-5xl font-bold tracking-[-0.02em] text-white">One product, everything you need</h2>
               <p className="mx-auto mt-4 max-w-xl text-[#9ca3af]">No juggling multiple tools. One login, all platforms. Scale from solo creator to agency.</p>
+              <div className="mt-8 flex justify-center">
+                <button
+                  type="button"
+                  onClick={openSignup}
+                  className="group inline-flex items-center justify-center gap-2 rounded-full bg-[#6b21a8] px-8 py-4 text-base font-semibold text-white shadow-[0_0_20px_rgba(107,33,168,0.5)] transition-all duration-300 hover:bg-[#7c3aed] hover:shadow-[0_0_25px_rgba(124,58,237,0.6)] hover:scale-[1.03] active:scale-[0.98]"
+                >
+                  Get started free
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                </button>
+              </div>
             </div>
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {[
@@ -379,7 +389,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={openSignup}
-                className="group inline-flex items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#5ff6fd,#8b5cf6,#df44dc)] px-8 py-4 text-base font-semibold text-white shadow-[0_0_20px_rgba(139,92,246,0.6)] transition-all duration-300 hover:shadow-[0_0_30px_rgba(139,92,246,0.8)] hover:scale-[1.03] active:scale-[0.98]"
+                className="group inline-flex items-center justify-center gap-2 rounded-full bg-[#6b21a8] px-8 py-4 text-base font-semibold text-white shadow-[0_0_20px_rgba(107,33,168,0.5)] transition-all duration-300 hover:bg-[#7c3aed] hover:shadow-[0_0_25px_rgba(124,58,237,0.6)] hover:scale-[1.03] active:scale-[0.98]"
               >
                 Get started free
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />

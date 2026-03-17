@@ -118,9 +118,7 @@ export default function PricingCard({
           className={`mt-8 w-full rounded-full py-3.5 font-semibold text-sm transition-all duration-300 ${
             highlighted
               ? 'bg-[linear-gradient(135deg,#5ff6fd,#8b5cf6,#df44dc)] text-white shadow-[0_0_20px_rgba(139,92,246,0.5)] hover:shadow-[0_0_30px_rgba(139,92,246,0.7)] hover:scale-[1.02]'
-              : isFree
-                ? 'border border-white/[0.2] bg-transparent text-white hover:bg-[rgba(255,255,255,0.08)]'
-                : 'bg-[linear-gradient(135deg,#5ff6fd,#8b5cf6,#df44dc)] text-white shadow-[0_0_15px_rgba(139,92,246,0.4)] hover:shadow-[0_0_25px_rgba(139,92,246,0.6)] hover:scale-[1.02]'
+              : 'bg-[#6b21a8] text-white hover:bg-[#7c3aed] shadow-[0_0_15px_rgba(107,33,168,0.4)] hover:shadow-[0_0_20px_rgba(124,58,237,0.5)] hover:scale-[1.02]'
           }`}
         >
           {ctaText}

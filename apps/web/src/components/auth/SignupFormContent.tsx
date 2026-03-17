@@ -143,7 +143,7 @@ export default function SignupFormContent() {
               <input type="checkbox" checked={marketingConsent} onChange={(e) => setMarketingConsent(e.target.checked)} className="rounded border-white/[0.2] bg-[rgba(255,255,255,0.05)] text-[#5ff6fd] focus:ring-[#5ff6fd]/50" />
               Send me product updates and tips (optional)
             </label>
-            <button type="submit" disabled={loading} className="w-full flex justify-center items-center gap-2 py-3.5 px-4 rounded-full text-sm font-semibold text-white bg-[linear-gradient(135deg,#5ff6fd,#8b5cf6,#df44dc)] shadow-[0_0_20px_rgba(139,92,246,0.4)] hover:shadow-[0_0_25px_rgba(139,92,246,0.5)] disabled:opacity-50 transition-all">
+            <button type="submit" disabled={loading} className="w-full flex justify-center items-center gap-2 py-3.5 px-4 rounded-full text-sm font-semibold text-white bg-[#6b21a8] shadow-[0_0_15px_rgba(107,33,168,0.4)] hover:bg-[#7c3aed] hover:shadow-[0_0_20px_rgba(124,58,237,0.5)] disabled:opacity-50 transition-all">
               {loading ? 'Sending code...' : 'Sign up'} <ArrowRight className="w-4 h-4" />
             </button>
           </form>
@@ -169,7 +169,7 @@ export default function SignupFormContent() {
               />
             </div>
           </div>
-          <button type="submit" disabled={loading || code.length !== 6} className="w-full flex justify-center items-center gap-2 py-3.5 px-4 rounded-full text-sm font-semibold text-white bg-[linear-gradient(135deg,#5ff6fd,#8b5cf6,#df44dc)] shadow-[0_0_20px_rgba(139,92,246,0.4)] hover:shadow-[0_0_25px_rgba(139,92,246,0.5)] disabled:opacity-50 transition-all">
+          <button type="submit" disabled={loading || code.length !== 6} className="w-full flex justify-center items-center gap-2 py-3.5 px-4 rounded-full text-sm font-semibold text-white bg-[#6b21a8] shadow-[0_0_15px_rgba(107,33,168,0.4)] hover:bg-[#7c3aed] hover:shadow-[0_0_20px_rgba(124,58,237,0.5)] disabled:opacity-50 transition-all">
             {loading ? 'Verifying...' : 'Verify and sign in'} <ArrowRight className="w-4 h-4" />
           </button>
           <button

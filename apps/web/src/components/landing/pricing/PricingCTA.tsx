@@ -21,14 +21,14 @@ export default function PricingCTA({ onStartFree, onGetPro, dark }: PricingCTAPr
             <button
               type="button"
               onClick={onStartFree}
-              className="w-full rounded-lg border border-white/20 bg-transparent px-8 py-3.5 font-semibold text-white transition-all hover:bg-white/10 sm:w-auto"
+              className="w-full rounded-full bg-[#6b21a8] px-8 py-3.5 font-semibold text-white shadow-[0_0_15px_rgba(107,33,168,0.4)] transition-all hover:bg-[#7c3aed] hover:shadow-[0_0_20px_rgba(124,58,237,0.5)] sm:w-auto"
             >
               Start Free
             </button>
             <button
               type="button"
               onClick={onGetPro}
-              className="w-full rounded-lg bg-[var(--button)] px-8 py-3.5 font-semibold text-white transition-all hover:bg-[var(--button-hover)] sm:w-auto"
+              className="w-full rounded-full bg-[linear-gradient(135deg,#5ff6fd,#8b5cf6,#df44dc)] px-8 py-3.5 font-semibold text-white shadow-[0_0_20px_rgba(139,92,246,0.5)] transition-all hover:shadow-[0_0_25px_rgba(139,92,246,0.7)] hover:scale-[1.02] sm:w-auto"
             >
               Get Pro
             </button>
