@@ -25,7 +25,6 @@ import {
   ExternalLink,
   HelpCircle,
   ArrowUpDown,
-  Gem,
 } from 'lucide-react';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
 import { InteractiveLineChart } from '@/components/charts/InteractiveLineChart';
@@ -996,7 +995,7 @@ export default function DashboardPage() {
           Upgrade
         </button>
         <p className="text-sm text-neutral-800 font-medium flex items-center gap-2 flex-wrap">
-          <Gem size={16} className="shrink-0 text-[#b030ad]" aria-hidden />
+          <img src="/dim.svg" alt="" className="h-4 w-4 object-contain shrink-0" width={16} height={16} aria-hidden />
           Upgrade to view more than 30 days of analytics and export reports without watermarks.
         </p>
       </div>
