@@ -14,7 +14,6 @@ import {
     Sparkles,
     PanelLeftClose,
     HelpCircle,
-    Star,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
@@ -149,10 +148,8 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                 </div>
                 <span className="truncate flex-1 font-medium">{PLATFORM_LABELS[platform]}</span>
                 {needsUpgrade ? (
-                  <span className="shrink-0 flex items-center gap-0.5" aria-hidden title="Upgrade to connect">
-                    <Star size={12} className="fill-amber-400 text-amber-400" />
-                    <Star size={14} className="fill-amber-400 text-amber-400" />
-                    <Star size={12} className="fill-amber-400 text-amber-400" />
+                  <span className="shrink-0 flex items-center" aria-hidden title="Upgrade to connect">
+                    <img src="/dim.svg" alt="" className="h-4 w-4 object-contain" width={16} height={16} />
                   </span>
                 ) : null}
                 <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 hover:bg-neutral-300">
