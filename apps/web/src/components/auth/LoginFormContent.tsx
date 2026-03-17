@@ -51,11 +51,9 @@ export default function LoginFormContent({ profileFailedMessage, authError }: Pr
     setLoading(true);
     try {
       await signInWithGoogle();
-      closeModal();
-      router.push('/dashboard');
+      // Do not close modal or navigate: OAuth redirects the page to Google; any router.push here would briefly show the dashboard before redirect.
     } catch (err: unknown) {
       setError(err && typeof err === 'object' && 'message' in err ? String((err as { message: string }).message) : 'Failed to sign in with Google');
-    } finally {
       setLoading(false);
     }
   };
