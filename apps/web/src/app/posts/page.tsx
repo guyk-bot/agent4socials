@@ -20,6 +20,7 @@ import {
     ImageIcon,
 } from 'lucide-react';
 import { useAppData } from '@/context/AppDataContext';
+import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 
 function postMediaThumbUrl(mediaItem: { fileUrl: string; type: string; metadata?: { thumbnailUrl?: string } | null } | undefined): string | null {
     if (!mediaItem?.fileUrl) return null;
@@ -131,6 +132,7 @@ export default function PostsPage() {
 
     return (
         <div className="space-y-8">
+            <LoadingVideoOverlay loading={loading} />
             {showDraftSavedBanner && (
                 <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 flex items-center justify-between">
                     <span>Draft saved. Find it in History below.</span>

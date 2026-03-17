@@ -38,6 +38,7 @@ import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import { useAppData } from '@/context/AppDataContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
 import { InstagramIcon, FacebookIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
+import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 
 // Inbox-relevant platforms (Comments: IG, FB, X, YouTube, LinkedIn; Messages: IG + FB only). TikTok excluded (Display API has no comment text).
 const PLATFORMS = [
@@ -1395,6 +1396,7 @@ function InboxPage() {
 
   return (
     <div className="flex h-[calc(100vh-3.5rem-3rem)] md:h-[calc(100vh-3.5rem-4rem)] bg-white flex-col md:flex-row -mx-4 sm:-mx-6 md:-mx-8 -mb-6 md:-mb-8">
+      <LoadingVideoOverlay loading={conversationsLoading} />
       {/* Left column: platform filters, search, list */}
       <div className="w-full md:w-80 border-r border-neutral-200 flex flex-col shrink-0 bg-white">
         {/* Platform icons + Connect */}
