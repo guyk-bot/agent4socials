@@ -22,7 +22,7 @@ export default function SiteHeader() {
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-[var(--dark)]/95 backdrop-blur-xl">
       <div className="mx-auto flex h-14 sm:h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2 sm:gap-2.5 transition-opacity hover:opacity-90 min-w-0">
-          <Image src="/logo.svg" alt="Agent4Socials" width={36} height={36} className="h-8 w-8 sm:h-9 sm:w-9 shrink-0" />
+          <Image src="/logo.svg" alt="Agent4Socials" width={36} height={36} className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 object-contain [background:transparent]" />
           <span className="text-lg sm:text-xl font-bold tracking-tight text-white truncate">Agent4Socials</span>
         </Link>
         <nav className="hidden items-center gap-6 lg:gap-8 md:flex">
