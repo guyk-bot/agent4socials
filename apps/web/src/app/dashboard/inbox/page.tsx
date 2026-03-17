@@ -1394,9 +1394,9 @@ function InboxPage() {
   };
 
   return (
-    <div className="relative z-0 flex h-[calc(100vh-3.5rem-3rem)] md:h-[calc(100vh-3.5rem-4rem)] bg-white flex-col md:flex-row -mx-4 sm:-mx-6 md:-mx-8 -mb-6 md:-mb-8">
-      {/* Left column: platform filters, search, list - isolated stacking so sidebar stays clickable */}
-      <div className="relative z-0 w-full md:w-80 border-r border-neutral-200 flex flex-col shrink-0 bg-white">
+    <div className="flex h-[calc(100vh-3.5rem-3rem)] md:h-[calc(100vh-3.5rem-4rem)] bg-white flex-col md:flex-row -mx-4 sm:-mx-6 md:-mx-8 -mb-6 md:-mb-8">
+      {/* Left column: platform filters, search, list */}
+      <div className="w-full md:w-80 border-r border-neutral-200 flex flex-col shrink-0 bg-white">
         {/* Platform icons + Connect */}
         <div className="p-3 border-b border-neutral-100 shrink-0">
           <div className="flex items-center gap-2 flex-wrap">

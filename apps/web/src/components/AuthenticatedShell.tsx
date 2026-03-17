@@ -30,12 +30,21 @@ function AuthenticatedContent({
         ['--wl-sidebar-bg' as string]: backgroundColor || '#f5f5f5',
     };
 
+    const CHROME_Z = 2147483646;
     const chromePortal = mounted && typeof document !== 'undefined' ? createPortal(
         <>
-            <div className="fixed top-0 left-0 right-0 h-14 z-[9999]" style={chromeStyle}>
+            <div
+                className="fixed top-0 left-0 right-0 h-14"
+                style={{ ...chromeStyle, zIndex: CHROME_Z }}
+                data-chrome="header"
+            >
                 <AppHeader sidebarOpen={sidebarOpen} onSidebarToggle={onSidebarToggle} />
             </div>
-            <div className="fixed left-0 top-14 bottom-0 w-64 z-[9999]" style={chromeStyle}>
+            <div
+                className="fixed left-0 top-14 bottom-0 w-64"
+                style={{ ...chromeStyle, zIndex: CHROME_Z }}
+                data-chrome="sidebar"
+            >
                 <Sidebar sidebarOpen={sidebarOpen} onSidebarToggle={onSidebarToggle} />
             </div>
         </>,
@@ -44,10 +53,18 @@ function AuthenticatedContent({
 
     const chromeInTree = (
         <>
-            <div className="fixed top-0 left-0 right-0 h-14 z-[9999]" style={chromeStyle}>
+            <div
+                className="fixed top-0 left-0 right-0 h-14"
+                style={{ ...chromeStyle, zIndex: CHROME_Z }}
+                data-chrome="header"
+            >
                 <AppHeader sidebarOpen={sidebarOpen} onSidebarToggle={onSidebarToggle} />
             </div>
-            <div className="fixed left-0 top-14 bottom-0 w-64 z-[9999]" style={chromeStyle}>
+            <div
+                className="fixed left-0 top-14 bottom-0 w-64"
+                style={{ ...chromeStyle, zIndex: CHROME_Z }}
+                data-chrome="sidebar"
+            >
                 <Sidebar sidebarOpen={sidebarOpen} onSidebarToggle={onSidebarToggle} />
             </div>
         </>
