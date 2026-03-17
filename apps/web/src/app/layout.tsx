@@ -68,11 +68,11 @@ export const metadata: Metadata = {
     follow: true,
     googleBot: { index: true, follow: true },
   },
-  // Favicon: use 48x48 PNG for Google Search / Search Console; SVG and 192 PNG for browsers. Bump v= when you change the logo.
+  // Tab favicon only (browser tab / Google): use favicon.svg. Header and footer logos are unchanged (logo.svg, etc.).
   icons: {
     icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
       { url: "/logo-48.png", sizes: "48x48", type: "image/png" },
-      { url: "/logo.svg?v=3", type: "image/svg+xml" },
     ],
     apple: [{ url: "/logo-192.png", sizes: "192x192", type: "image/png" }],
   },
