@@ -252,7 +252,7 @@ export default function Home() {
               How it works
             </h2>
             <p className="mx-auto mt-6 max-w-2xl text-center text-lg text-slate-400">
-              Get started in three simple steps.
+              From connecting your accounts to publishing and measuring performance, here’s how Agent4Socials works.
             </p>
             <div className="mt-16 grid gap-12 md:grid-cols-3 relative">
               {/* Connector line for desktop */}
@@ -264,7 +264,7 @@ export default function Home() {
                 </div>
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-white/10 bg-[var(--dark)] px-3 py-1 text-xs font-bold text-slate-300 group-hover:border-[#5ff6fd]/50 group-hover:text-[#5ff6fd] transition-colors">Step 1</div>
                 <h3 className="mt-8 text-xl font-semibold text-slate-200">Connect</h3>
-                <p className="mt-3 text-slate-400 leading-relaxed px-4">Link Instagram, YouTube, TikTok, Facebook, Twitter or LinkedIn securely.</p>
+                <p className="mt-3 text-slate-400 leading-relaxed px-4 text-sm sm:text-base">Authorize Instagram, YouTube, TikTok, Facebook, X (Twitter), and LinkedIn with each platform’s official login. Your accounts appear in one dashboard so you can manage them from a single place. No passwords stored, just secure OAuth.</p>
               </div>
               
               <div className="relative text-center group z-10">
@@ -273,7 +273,7 @@ export default function Home() {
                 </div>
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-white/10 bg-[var(--dark)] px-3 py-1 text-xs font-bold text-slate-300 group-hover:border-[#5ff6fd]/50 group-hover:text-[#5ff6fd] transition-colors">Step 2</div>
                 <h3 className="mt-8 text-xl font-semibold text-slate-200">Schedule</h3>
-                <p className="mt-3 text-slate-400 leading-relaxed px-4">Draft posts, add media, and choose when to go live across channels.</p>
+                <p className="mt-3 text-slate-400 leading-relaxed px-4 text-sm sm:text-base">Use the Composer to create posts, add captions and media, and pick date and time. Publish to one or multiple platforms at once. Use the Calendar to see what’s going out when, or lean on AI to suggest captions. We post for you at the scheduled time.</p>
               </div>
               
               <div className="relative text-center group z-10">
@@ -281,8 +281,8 @@ export default function Home() {
                   <BarChart2 className="h-9 w-9" />
                 </div>
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-white/10 bg-[var(--dark)] px-3 py-1 text-xs font-bold text-slate-300 group-hover:border-[#5ff6fd]/50 group-hover:text-[#5ff6fd] transition-colors">Step 3</div>
-                <h3 className="mt-8 text-xl font-semibold text-slate-200">Analyze</h3>
-                <p className="mt-3 text-slate-400 leading-relaxed px-4">Track views, likes, and growth in one simple dashboard.</p>
+                <h3 className="mt-8 text-xl font-semibold text-slate-200">Analyze & engage</h3>
+                <p className="mt-3 text-slate-400 leading-relaxed px-4 text-sm sm:text-base">View views, likes, comments, followers, and subscribers in one analytics dashboard. Reply to DMs and comments from the unified Inbox, use Smart Links for bio links, and export or white-label reports. See what works and grow from one place.</p>
               </div>
             </div>
           </div>
