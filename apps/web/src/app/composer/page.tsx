@@ -2346,9 +2346,6 @@ function PlatformToggle({ platform, label, icon, active, onClick, connected }: {
                 <span className="flex items-center justify-center w-9 h-9 shrink-0">{icon}</span>
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-center leading-tight px-0.5">{label}</span>
         </button>
-            {!connected && (
-                <span className="text-[9px] text-neutral-400 font-medium">Not connected</span>
-            )}
         </div>
     );
 }
