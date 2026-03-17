@@ -9,6 +9,7 @@ import {
 import api from '@/lib/api';
 import { LinkPageRenderer } from '@/components/smart-links/LinkPageRenderer';
 import { THEME_PRESETS, FONT_OPTIONS, type LinkPageDesign } from '@/components/smart-links/themes';
+import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 
 type LinkItem = {
   id: string;
@@ -423,9 +424,12 @@ export default function SmartLinksPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-      </div>
+      <>
+        <LoadingVideoOverlay loading={true} />
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+        </div>
+      </>
     );
   }
 

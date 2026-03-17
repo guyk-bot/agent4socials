@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { MessageCircle, Send, UserPlus, MessageSquare, Loader2 } from 'lucide-react';
 import api from '@/lib/api';
+import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 
 type AutomationSettings = {
   dmWelcomeEnabled: boolean;
@@ -60,9 +61,12 @@ export default function AutomationPage() {
 
   if (loading) {
     return (
-      <div className="max-w-2xl mx-auto p-6 flex items-center justify-center min-h-[200px]">
-        <Loader2 size={28} className="animate-spin text-neutral-400" />
-      </div>
+      <>
+        <LoadingVideoOverlay loading={true} />
+        <div className="max-w-2xl mx-auto p-6 flex items-center justify-center min-h-[200px]">
+          <Loader2 size={28} className="animate-spin text-neutral-400" />
+        </div>
+      </>
     );
   }
 

@@ -26,6 +26,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAppData } from '@/context/AppDataContext';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
 import { ReelAnalyzer } from '@/components/ReelAnalyzer';
+import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 
 const COMPOSER_DRAFT_KEY = 'agent4socials_composer_draft';
 
@@ -1311,13 +1312,16 @@ export default function ComposerPage() {
 
     if (!composerReady) {
     return (
-            <div className="max-w-6xl mx-auto px-2 sm:px-4 flex flex-col items-center justify-center min-h-[60vh]">
-                <div className="flex flex-col items-center gap-4">
-                    <Loader2 size={40} className="animate-spin text-indigo-600" aria-hidden />
-                    <p className="text-neutral-600 font-medium">Loading composer…</p>
-                    <p className="text-sm text-neutral-400">Restoring your draft and accounts</p>
+            <>
+                <LoadingVideoOverlay loading={true} />
+                <div className="max-w-6xl mx-auto px-2 sm:px-4 flex flex-col items-center justify-center min-h-[60vh]">
+                    <div className="flex flex-col items-center gap-4">
+                        <Loader2 size={40} className="animate-spin text-indigo-600" aria-hidden />
+                        <p className="text-neutral-600 font-medium">Loading composer…</p>
+                        <p className="text-sm text-neutral-400">Restoring your draft and accounts</p>
+                    </div>
                 </div>
-            </div>
+            </>
         );
     }
 

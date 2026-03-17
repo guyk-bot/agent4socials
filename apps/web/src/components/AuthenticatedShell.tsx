@@ -3,6 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import AppHeader from '@/components/AppHeader';
 import Sidebar from '@/components/Sidebar';
+import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
@@ -62,10 +63,13 @@ export default function AuthenticatedShell({
 
     if (loading) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-neutral-100">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
-                <p className="text-sm text-neutral-500">Loading…</p>
-            </div>
+            <>
+                <LoadingVideoOverlay loading={true} />
+                <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-neutral-100">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
+                    <p className="text-sm text-neutral-500">Loading…</p>
+                </div>
+            </>
         );
     }
 

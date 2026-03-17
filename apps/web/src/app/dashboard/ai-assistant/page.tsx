@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Sparkles, Loader2, MessageCircle, MessagesSquare } from 'lucide-react';
 import api from '@/lib/api';
+import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 
 type BrandContextPayload = {
   id?: string;
@@ -112,9 +113,12 @@ export default function AIAssistantPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[200px]">
-        <Loader2 className="w-8 h-8 animate-spin text-neutral-400" />
-      </div>
+      <>
+        <LoadingVideoOverlay loading={true} />
+        <div className="flex items-center justify-center min-h-[200px]">
+          <Loader2 className="w-8 h-8 animate-spin text-neutral-400" />
+        </div>
+      </>
     );
   }
 
