@@ -346,19 +346,22 @@ export default function DashboardPage() {
     return () => { cancelled = true; };
   }, [selectedPlatformForConnect, connectFromUrl]);
 
-  // When accountId is in URL (e.g. after connecting any social): select that account and clean URL. No loading banner.
+  // When accountId is in URL: select that account and clean URL. Only clear cache when just connected (connecting=1) so sidebar navigation reuses saved data like inbox.
   useEffect(() => {
     if (!accountIdFromUrl || twitter1oaNext === '1') return;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const justConnected = connectingParam === '1';
     fetchAccounts().then(() => {
       setSelectedAccountId(accountIdFromUrl);
-      delete postsCacheRef.current[accountIdFromUrl];
-      Object.keys(insightsCacheRef.current).forEach((k) => {
-        if (k.startsWith(accountIdFromUrl + '-')) delete insightsCacheRef.current[k];
-      });
-      appData?.clearAccountData(accountIdFromUrl);
+      if (justConnected) {
+        delete postsCacheRef.current[accountIdFromUrl];
+        Object.keys(insightsCacheRef.current).forEach((k) => {
+          if (k.startsWith(accountIdFromUrl + '-')) delete insightsCacheRef.current[k];
+        });
+        appData?.clearAccountData(accountIdFromUrl);
+      }
       router.replace('/dashboard', { scroll: false });
-      if (connectingParam === '1') {
+      if (justConnected) {
         setJustConnected(true);
         timeoutId = setTimeout(() => setJustConnected(false), 5000);
       }
