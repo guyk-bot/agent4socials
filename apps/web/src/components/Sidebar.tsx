@@ -211,19 +211,20 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                     </div>
                   </>
                 );
+                const dashboardUrl = `/dashboard?accountId=${encodeURIComponent(acc.id)}`;
                 return isInboxPage ? (
-                  <a
+                  <Link
                     key={acc.id}
-                    href="/dashboard/summary"
+                    href={dashboardUrl}
                     className={accountRowClass}
                     style={isSelected ? { color: accent } : undefined}
                   >
                     {accountRowInner}
-                  </a>
+                  </Link>
                 ) : (
                   <Link
                     key={acc.id}
-                    href="/dashboard"
+                    href={dashboardUrl}
                     onClick={() => setSelectedAccount(acc)}
                     className={accountRowClass}
                     style={isSelected ? { color: accent } : undefined}
