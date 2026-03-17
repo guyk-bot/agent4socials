@@ -31,9 +31,11 @@ function AuthenticatedContent({
                 ['--wl-sidebar-bg' as string]: backgroundColor || '#f5f5f5',
             }}
         >
-            {/* Full-viewport chrome layer on top; pointer-events-none so content gets clicks; header/sidebar have pointer-events-auto so nav works from Inbox */}
-            <div className="fixed inset-0 z-[200] pointer-events-none">
+            {/* Header and sidebar in separate fixed regions so they always receive clicks (e.g. from Inbox); content stays below */}
+            <div className="fixed top-0 left-0 right-0 h-14 z-[200]">
                 <AppHeader sidebarOpen={sidebarOpen} onSidebarToggle={onSidebarToggle} />
+            </div>
+            <div className={`fixed left-0 top-14 bottom-0 w-64 z-[200] ${sidebarOpen ? 'pointer-events-auto' : 'pointer-events-none md:pointer-events-auto'}`}>
                 <Sidebar sidebarOpen={sidebarOpen} onSidebarToggle={onSidebarToggle} />
             </div>
             <div className={`relative z-0 pt-14 transition-[padding] duration-200 ${sidebarOpen ? 'md:pl-64' : 'pl-0'}`}>
