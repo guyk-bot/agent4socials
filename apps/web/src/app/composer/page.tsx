@@ -20,6 +20,7 @@ import {
     Sparkles,
     Loader2,
     Download,
+    HelpCircle,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -165,6 +166,104 @@ function extractHashtagsFromPost(post: { content?: string | null; contentByPlatf
 /** Remove trailing hashtags from content so we can store caption and selectedHashtags separately (avoid duplicate in preview). */
 function stripTrailingHashtags(text: string): string {
     return text.replace(/(?:\s+#[\w]+)+\s*$/, '').trimEnd();
+}
+
+const MEDIA_SPECS: Record<string, { icon: string; name: string; specs: { label: string; value: string; tag?: string }[] }[]> = {
+    photo: [
+        { icon: '📸', name: 'Instagram', specs: [{ label: 'Square', value: '1080×1080 (1:1)', tag: 'Safe for all' }, { label: 'Portrait', value: '1080×1350 (4:5)', tag: 'Best reach' }, { label: 'Landscape', value: '1080×566 (1.91:1)' }] },
+        { icon: '📘', name: 'Facebook', specs: [{ label: 'Portrait', value: '1080×1350 (4:5)', tag: 'Best reach' }, { label: 'Square', value: '1080×1080 (1:1)' }, { label: 'Landscape', value: '1200×630 (1.91:1)' }] },
+        { icon: '💼', name: 'LinkedIn', specs: [{ label: 'Portrait', value: '1080×1350 (4:5)', tag: 'Best reach' }, { label: 'Square', value: '1200×1200 (1:1)' }, { label: 'Landscape', value: '1200×627 (1.91:1)' }] },
+        { icon: '🐦', name: 'Twitter/X', specs: [{ label: 'Landscape', value: '1600×900 (16:9)', tag: 'Recommended' }, { label: 'Square', value: '1080×1080 (1:1)' }] },
+    ],
+    video: [
+        { icon: '▶️', name: 'YouTube', specs: [{ label: 'Standard', value: '1920×1080 (16:9)', tag: 'Recommended' }, { label: 'Thumbnail', value: '1280×720 (16:9)' }] },
+        { icon: '💼', name: 'LinkedIn', specs: [{ label: 'Landscape', value: '1920×1080 (16:9)', tag: 'Recommended' }, { label: 'Square', value: '1080×1080 (1:1)' }, { label: 'Vertical', value: '1080×1920 (9:16)' }] },
+        { icon: '🐦', name: 'Twitter/X', specs: [{ label: 'Landscape', value: '1280×720 (16:9)', tag: 'Recommended' }] },
+        { icon: '📘', name: 'Facebook', specs: [{ label: 'Portrait', value: '1080×1350 (4:5)', tag: 'Best reach' }, { label: 'Landscape', value: '1200×630 (1.91:1)' }] },
+    ],
+    reel: [
+        { icon: '📸', name: 'Instagram Reels', specs: [{ label: 'Vertical', value: '1080×1920 (9:16)', tag: 'Required' }] },
+        { icon: '🎵', name: 'TikTok', specs: [{ label: 'Vertical', value: '1080×1920 (9:16)', tag: 'Required' }] },
+        { icon: '▶️', name: 'YouTube Shorts', specs: [{ label: 'Vertical', value: '1080×1920 (9:16)', tag: 'Required' }, { label: 'Max duration', value: '60 sec' }] },
+        { icon: '🐦', name: 'Twitter/X', specs: [{ label: 'Square', value: '1080×1080 (1:1)', tag: 'Best' }, { label: 'Vertical', value: '1080×1920 (9:16)', tag: 'Under 60s' }] },
+    ],
+    carousel: [
+        { icon: '📸', name: 'Instagram', specs: [{ label: 'Per slide', value: '1080×1080 (1:1)', tag: 'Recommended' }, { label: 'Slides', value: '2–10 images' }] },
+        { icon: '📘', name: 'Facebook', specs: [{ label: 'Per slide', value: '1080×1080 (1:1)', tag: 'Recommended' }] },
+        { icon: '💼', name: 'LinkedIn', specs: [{ label: 'Per slide', value: '1080×1080 (1:1)', tag: 'Recommended' }] },
+        { icon: '🐦', name: 'Twitter/X', specs: [{ label: 'Per slide', value: '1080×1080 (1:1)' }] },
+    ],
+};
+
+function MediaRequirementsHint({ mediaType }: { mediaType: keyof typeof MEDIA_SPECS }) {
+    const [open, setOpen] = useState(false);
+    const btnRef = useRef<HTMLButtonElement>(null);
+    const popoverRef = useRef<HTMLDivElement>(null);
+    const specs = MEDIA_SPECS[mediaType] ?? [];
+
+    useEffect(() => {
+        if (!open) return;
+        const handleClick = (e: MouseEvent) => {
+            if (popoverRef.current && !popoverRef.current.contains(e.target as Node) && !btnRef.current?.contains(e.target as Node)) {
+                setOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClick);
+        return () => document.removeEventListener('mousedown', handleClick);
+    }, [open]);
+
+    const tagColor = (tag?: string) => {
+        if (!tag) return '';
+        if (tag === 'Required') return 'bg-red-50 text-red-600 border border-red-200';
+        if (tag === 'Best' || tag === 'Best reach' || tag === 'Recommended') return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+        return 'bg-neutral-100 text-neutral-500 border border-neutral-200';
+    };
+
+    return (
+        <div className="relative flex items-center gap-1.5">
+            <span className="text-xs text-neutral-500">Ensure your media meets platform requirements.</span>
+            <button
+                ref={btnRef}
+                type="button"
+                className="shrink-0 text-neutral-400 hover:text-neutral-600 transition-colors"
+                onClick={() => setOpen((v) => !v)}
+                aria-label="View platform media specifications"
+            >
+                <HelpCircle size={13} />
+            </button>
+            {open && (
+                <div
+                    ref={popoverRef}
+                    className="absolute left-0 top-full mt-1.5 z-50 w-80 rounded-xl border border-neutral-200 bg-white shadow-xl overflow-hidden"
+                >
+                    <div className="bg-neutral-50 border-b border-neutral-200 px-4 py-2.5 flex items-center justify-between">
+                        <span className="text-xs font-semibold text-neutral-700 uppercase tracking-wide">Platform specs</span>
+                        <button type="button" onClick={() => setOpen(false)} className="text-neutral-400 hover:text-neutral-600">
+                            <X size={13} />
+                        </button>
+                    </div>
+                    <div className="divide-y divide-neutral-100 max-h-72 overflow-y-auto">
+                        {specs.map((platform) => (
+                            <div key={platform.name} className="px-4 py-2.5">
+                                <p className="text-xs font-semibold text-neutral-700 mb-1.5">{platform.icon} {platform.name}</p>
+                                <div className="space-y-1">
+                                    {platform.specs.map((s) => (
+                                        <div key={s.label} className="flex items-center justify-between gap-2">
+                                            <span className="text-xs text-neutral-500">{s.label}</span>
+                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                <span className="text-xs font-medium text-neutral-700">{s.value}</span>
+                                                {s.tag && <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${tagColor(s.tag)}`}>{s.tag}</span>}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 }
 
 export default function ComposerPage() {
@@ -1512,12 +1611,7 @@ export default function ComposerPage() {
                                         </button>
                                     ))}
                                 </div>
-                                <div className="space-y-0.5">
-                                    <p className="text-xs text-neutral-500">{MEDIA_RECOMMENDATIONS[mediaType].hint}</p>
-                                    {(mediaType === 'video' || mediaType === 'reel') && MEDIA_RECOMMENDATIONS[mediaType].formatsHint && (
-                                        <p className="text-xs text-neutral-400">Supported: {MEDIA_RECOMMENDATIONS[mediaType].formatsHint}. Max 512MB (X) / 5GB (LinkedIn).</p>
-                                    )}
-                                </div>
+                                <MediaRequirementsHint mediaType={mediaType} />
                                 <input
                                     ref={fileInputRef}
                                     type="file"
