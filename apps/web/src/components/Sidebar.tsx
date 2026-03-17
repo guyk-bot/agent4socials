@@ -216,7 +216,11 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                 const handleGoToAccountDashboard = (e: React.MouseEvent) => {
                   e.preventDefault();
                   setSelectedAccount(acc);
-                  router.push(dashboardUrl);
+                  if (isInboxPage) {
+                    window.location.href = dashboardUrl;
+                  } else {
+                    router.push(dashboardUrl);
+                  }
                 };
                 return (
                   <Link
@@ -225,6 +229,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                     onClick={handleGoToAccountDashboard}
                     className={accountRowClass}
                     style={isSelected ? { color: accent } : undefined}
+                    title={isInboxPage ? 'View analytics' : undefined}
                   >
                     {accountRowInner}
                   </Link>
