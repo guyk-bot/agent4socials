@@ -216,11 +216,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                 const handleGoToAccountDashboard = (e: React.MouseEvent) => {
                   e.preventDefault();
                   setSelectedAccount(acc);
-                  if (isInboxPage) {
-                    window.location.href = dashboardUrl;
-                  } else {
-                    router.push(dashboardUrl);
-                  }
+                  router.push(dashboardUrl);
                 };
                 return (
                   <Link
