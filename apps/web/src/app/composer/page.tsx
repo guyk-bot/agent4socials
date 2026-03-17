@@ -1427,7 +1427,7 @@ export default function ComposerPage() {
                                 )}
                                 <div className="mt-6 flex flex-wrap justify-end gap-3">
                                     <button type="button" onClick={() => !aiLoading && setAiModalOpen(false)} className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50">Cancel</button>
-                                    <button type="button" onClick={handleAiGenerate} disabled={aiLoading} className="inline-flex items-center gap-2 rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--primary-hover)] disabled:opacity-50">
+                                    <button type="button" onClick={handleAiGenerate} disabled={aiLoading} className="inline-flex items-center gap-2 rounded-lg bg-[var(--button)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--button-hover)] disabled:opacity-50">
                                         {aiLoading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
                                         Generate
                                     </button>
@@ -1619,7 +1619,7 @@ export default function ComposerPage() {
                                                 {thumbnailChoice === 'frame' && (
                                                     <div className="ml-6 flex flex-col gap-1.5">
                                                         <input type="range" min={0} max={thumbnailVideoDuration} step={0.1} value={thumbnailPickerTime} onChange={(e) => handleThumbnailSliderChange(parseFloat(e.target.value))} onInput={(e) => handleThumbnailSliderChange(parseFloat((e.target as HTMLInputElement).value))} className="w-full max-w-[200px] h-2 rounded-full accent-[var(--primary)]" />
-                                                        <button type="button" onClick={handleUseFrameAsThumbnail} disabled={thumbnailPicking || mediaUploading} className="inline-flex items-center gap-1.5 px-3 py-2 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white rounded-lg text-xs font-medium disabled:opacity-50 w-fit">
+                                                        <button type="button" onClick={handleUseFrameAsThumbnail} disabled={thumbnailPicking || mediaUploading} className="inline-flex items-center gap-1.5 px-3 py-2 bg-[var(--button)] hover:bg-[var(--button-hover)] text-white rounded-lg text-xs font-medium disabled:opacity-50 w-fit">
                                                             {thumbnailPicking ? <Loader2 size={14} className="animate-spin shrink-0" /> : <ImageIcon size={14} className="shrink-0" />}
                                                             Use this frame
                                                         </button>
@@ -2109,7 +2109,7 @@ export default function ComposerPage() {
                                             {hashtagPool.map((tag) => {
                                                 const selected = selectedHashtags.includes(tag);
                                                 return (
-                                                    <button key={tag} type="button" onClick={() => toggleSelectedHashtag(tag)} className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${selected ? 'bg-[var(--primary)] text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}>
+                                                    <button key={tag} type="button" onClick={() => toggleSelectedHashtag(tag)} className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${selected ? 'bg-[var(--button)] text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}>
                                                         {tag}
                                                     </button>
                                                 );
@@ -2128,7 +2128,7 @@ export default function ComposerPage() {
                                                         {hashtagPool.map((tag) => {
                                                             const selected = list.includes(tag);
                                                             return (
-                                                                <button key={tag} type="button" onClick={() => toggleSelectedHashtagForPlatform(p, tag)} className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${selected ? 'bg-[var(--primary)] text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}>
+                                                                <button key={tag} type="button" onClick={() => toggleSelectedHashtagForPlatform(p, tag)} className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${selected ? 'bg-[var(--button)] text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}>
                                                                     {tag}
                                                                 </button>
                                                             );

@@ -34,7 +34,7 @@ export default function HelpPage() {
           </p>
           <Link
             href="/help/support"
-            className="mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--primary)] text-neutral-900 text-sm font-medium hover:bg-[var(--primary-hover)] transition-colors"
+            className="mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--button)] text-white text-sm font-medium hover:bg-[var(--button-hover)] transition-colors"
           >
             <Mail size={18} />
             Open a support ticket

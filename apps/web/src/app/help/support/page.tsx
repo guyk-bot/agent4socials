@@ -115,7 +115,7 @@ export default function SupportPage() {
             <button
               type="submit"
               disabled={status === 'sending' || !message.trim()}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--primary)] text-neutral-900 text-sm font-medium hover:bg-[var(--primary-hover)] disabled:opacity-50 disabled:pointer-events-none transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--button)] text-white text-sm font-medium hover:bg-[var(--button-hover)] disabled:opacity-50 disabled:pointer-events-none transition-colors"
             >
               {status === 'sending' ? (
                 <>Sending...</>

@@ -193,7 +193,7 @@ function MessagesConversationList({
             }`}
           >
             {selectMode ? (
-              <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border-2 ${selectedConversationIds.has(c.id) ? 'bg-indigo-600 border-indigo-600' : 'border-neutral-300'}`}>
+              <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border-2 ${selectedConversationIds.has(c.id) ? 'bg-[var(--button)] border-[var(--button)]' : 'border-neutral-300'}`}>
                 {selectedConversationIds.has(c.id) && <Check size={12} className="text-white" />}
               </div>
             ) : (
@@ -1157,7 +1157,7 @@ function InboxPage() {
                     }`}
                   >
                     {selectMode ? (
-                      <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border-2 ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-neutral-300'}`}>
+                      <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border-2 ${isSelected ? 'bg-[var(--button)] border-[var(--button)]' : 'border-neutral-300'}`}>
                         {isSelected && <Check size={12} className="text-white" />}
                       </div>
                     ) : null}
@@ -1233,7 +1233,7 @@ function InboxPage() {
                     setConversationsRefreshKey((k) => k + 1);
                     setConversationsLoading(true);
                   }}
-                  className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 inline-flex items-center justify-center gap-2"
+                  className="px-4 py-2 rounded-lg bg-[var(--button)] text-white text-sm font-medium hover:bg-[var(--button-hover)] inline-flex items-center justify-center gap-2"
                 >
                   <RefreshCw size={16} />
                   Try again
@@ -1785,7 +1785,7 @@ function InboxPage() {
                           setCommentsRefreshKey((k) => k + 1);
                         }
                       }}
-                      className="mt-3 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                      className="mt-3 px-4 py-2.5 rounded-xl bg-[var(--button)] text-white text-sm font-medium hover:bg-[var(--button-hover)] disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
                     >
                       {replySending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
                       Send to all ({replyable.length})
@@ -1928,7 +1928,7 @@ function InboxPage() {
                                     setDmReplySending(false);
                                   }
                                 }}
-                                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[var(--button)] text-white text-xs font-medium hover:bg-[var(--button-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 {dmReplySending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                                 Send
@@ -2180,7 +2180,7 @@ function InboxPage() {
                       setReplySending(false);
                     }
                   }}
-                  className="p-3 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                  className="p-3 rounded-xl bg-[var(--button)] text-white hover:bg-[var(--button-hover)] disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                   title="Send reply"
                   >
                     {replySending ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
@@ -2386,7 +2386,7 @@ function InboxPage() {
                             <div
                               className={`max-w-[80%] rounded-2xl px-4 py-2 ${
                                 msg.isFromPage
-                                  ? 'bg-indigo-600 text-white rounded-br-md'
+                                  ? 'bg-[var(--button)] text-white rounded-br-md'
                                   : 'bg-neutral-100 text-neutral-900 rounded-bl-md'
                               }`}
                             >
@@ -2462,7 +2462,7 @@ function InboxPage() {
                             setDmRecipientLookupLoading(false);
                           }
                         }}
-                        className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-3 py-2 rounded-lg bg-[var(--button)] text-white text-sm font-medium hover:bg-[var(--button-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {dmRecipientLookupLoading ? 'Looking up…' : 'Look up'}
                       </button>
@@ -2563,7 +2563,7 @@ function InboxPage() {
                       setDmReplySending(false);
                     }
                   }}
-                  className="p-3 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                  className="p-3 rounded-xl bg-[var(--button)] text-white hover:bg-[var(--button-hover)] disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                   title="Send"
                 >
                   {dmReplySending ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}

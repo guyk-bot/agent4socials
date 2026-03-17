@@ -76,6 +76,8 @@
   --secondary: #df44dc;
   --secondary-hover: #c93dd0;
   --dark: #0b0f1a;
+  --button: #0b0f1a;
+  --button-hover: #151b2d;
   --background: #f8fafc;
   --card-bg: #ffffff;
   --foreground: #0f172a;
@@ -129,8 +131,8 @@ button {
 }
 
 .btn-primary {
-  background: var(--primary);
-  color: #171717;
+  background: var(--button);
+  color: #fff;
   padding: 0.75rem 1.5rem;
   border-radius: 8px;
   font-weight: 500;
@@ -138,9 +140,9 @@ button {
 }
 
 .btn-primary:hover {
-  background: var(--primary-hover);
+  background: var(--button-hover);
   transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 6px 12px -2px rgb(95 246 253 / 0.4);
+  box-shadow: 0 6px 12px -2px rgb(11 15 26 / 0.35);
 }
 
 .btn-primary:active {

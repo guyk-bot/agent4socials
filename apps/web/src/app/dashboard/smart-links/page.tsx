@@ -452,7 +452,7 @@ export default function SmartLinksPage() {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-4 py-2 bg-[var(--primary)] text-white rounded-lg font-medium text-sm hover:bg-[var(--primary-hover)] transition-colors flex items-center gap-2 disabled:opacity-50"
+              className="px-4 py-2 bg-[var(--button)] text-white rounded-lg font-medium text-sm hover:bg-[var(--button-hover)] transition-colors flex items-center gap-2 disabled:opacity-50"
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               Save
@@ -559,7 +559,7 @@ export default function SmartLinksPage() {
                         type="button"
                         onClick={() => avatarInputRef.current?.click()}
                         disabled={avatarUploading}
-                        className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-[var(--primary)] text-white flex items-center justify-center shadow hover:bg-[var(--primary-hover)] disabled:opacity-50"
+                        className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-[var(--button)] text-white flex items-center justify-center shadow hover:bg-[var(--button-hover)] disabled:opacity-50"
                         title="Upload profile photo (recommended: 400×400px square)"
                       >
                         {avatarUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
@@ -710,7 +710,7 @@ export default function SmartLinksPage() {
                           role="switch"
                           aria-checked={data.design?.carouselAutoplay !== false}
                           onClick={() => updateDesign({ carouselAutoplay: data.design?.carouselAutoplay === false })}
-                          className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors ${data.design?.carouselAutoplay !== false ? 'bg-[var(--primary)]' : 'bg-slate-200'}`}
+                          className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors ${data.design?.carouselAutoplay !== false ? 'bg-[var(--button)]' : 'bg-slate-200'}`}
                         >
                           <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${data.design?.carouselAutoplay !== false ? 'translate-x-5' : 'translate-x-0.5'} mt-0.5`} />
                         </button>
@@ -994,7 +994,7 @@ export default function SmartLinksPage() {
                       <button
                         key={bg}
                         onClick={() => updateDesign({ bgType: bg })}
-                        className={`px-2 py-1.5 rounded-lg text-xs font-medium capitalize ${data.design?.bgType === bg ? 'bg-[var(--primary)] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                        className={`px-2 py-1.5 rounded-lg text-xs font-medium capitalize ${data.design?.bgType === bg ? 'bg-[var(--button)] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                       >
                         {bg}
                       </button>
@@ -1110,7 +1110,7 @@ export default function SmartLinksPage() {
                       <button
                         key={sz}
                         onClick={() => updateDesign({ buttonSize: sz })}
-                        className={`px-3 py-2 rounded-lg text-xs font-medium capitalize ${(data.design?.buttonSize ?? 'medium') === sz ? 'bg-[var(--primary)] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                        className={`px-3 py-2 rounded-lg text-xs font-medium capitalize ${(data.design?.buttonSize ?? 'medium') === sz ? 'bg-[var(--button)] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                       >
                         {sz}
                       </button>
@@ -1126,7 +1126,7 @@ export default function SmartLinksPage() {
                       <button
                         key={style}
                         onClick={() => updateDesign({ buttonStyle: style as LinkPageDesign['buttonStyle'] })}
-                        className={`px-3 py-2 rounded-lg text-xs font-medium capitalize transition-all ${data.design?.buttonStyle === style ? 'bg-[var(--primary)] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                        className={`px-3 py-2 rounded-lg text-xs font-medium capitalize transition-all ${data.design?.buttonStyle === style ? 'bg-[var(--button)] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                       >
                         {style}
                       </button>
@@ -1142,7 +1142,7 @@ export default function SmartLinksPage() {
                     role="switch"
                     aria-checked={data.design?.buttonTextBold ?? false}
                     onClick={() => updateDesign({ buttonTextBold: !(data.design?.buttonTextBold ?? false) })}
-                    className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors ${data.design?.buttonTextBold ? 'bg-[var(--primary)]' : 'bg-slate-200'}`}
+                    className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors ${data.design?.buttonTextBold ? 'bg-[var(--button)]' : 'bg-slate-200'}`}
                   >
                     <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${data.design?.buttonTextBold ? 'translate-x-5' : 'translate-x-0.5'} mt-0.5`} />
                   </button>
@@ -1187,7 +1187,7 @@ export default function SmartLinksPage() {
                       <button
                         key={anim}
                         onClick={() => updateDesign({ animation: anim as LinkPageDesign['animation'] })}
-                        className={`px-2 py-1.5 rounded-lg text-xs font-medium capitalize transition-all ${data.design?.animation === anim ? 'bg-[var(--primary)] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                        className={`px-2 py-1.5 rounded-lg text-xs font-medium capitalize transition-all ${data.design?.animation === anim ? 'bg-[var(--button)] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                       >
                         {anim}
                       </button>

@@ -113,7 +113,7 @@ export default function AutomationPage() {
         </div>
         <Link
           href="/composer"
-          className="inline-flex items-center gap-2 mt-3 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+          className="inline-flex items-center gap-2 mt-3 text-sm font-medium text-[var(--button)] hover:opacity-90"
         >
           Open Composer
         </Link>
@@ -133,7 +133,7 @@ export default function AutomationPage() {
             type="checkbox"
             checked={settings.dmWelcomeEnabled}
             onChange={(e) => update({ dmWelcomeEnabled: e.target.checked })}
-            className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+            className="rounded border-neutral-300 text-[var(--button)] focus:ring-[var(--button)]/50"
           />
           <span className="text-sm font-medium text-neutral-700">Enable welcome message</span>
         </label>
@@ -145,7 +145,7 @@ export default function AutomationPage() {
               onChange={(e) => update({ dmWelcomeMessage: e.target.value || null })}
               placeholder="Hi! Thanks for reaching out. We'll get back to you soon."
               rows={4}
-              className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-[var(--button)]/30 focus:border-[var(--button)] text-sm"
             />
           </div>
         )}
@@ -166,7 +166,7 @@ export default function AutomationPage() {
             type="checkbox"
             checked={settings.dmNewFollowerEnabled}
             onChange={(e) => update({ dmNewFollowerEnabled: e.target.checked })}
-            className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+            className="rounded border-neutral-300 text-[var(--button)] focus:ring-[var(--button)]/50"
           />
           <span className="text-sm font-medium text-neutral-700">Send welcome DM to new followers</span>
         </label>
@@ -178,7 +178,7 @@ export default function AutomationPage() {
               onChange={(e) => update({ dmNewFollowerMessage: e.target.value || null })}
               placeholder="Thanks for following! Here's what we share..."
               rows={4}
-              className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-[var(--button)]/30 focus:border-[var(--button)] text-sm"
             />
             <p className="mt-2 text-xs text-neutral-500">Add a cron (e.g. every 15 min) calling <code className="bg-neutral-100 px-1 rounded">/api/cron/welcome-followers</code> with header <code className="bg-neutral-100 px-1 rounded">X-Cron-Secret: YOUR_CRON_SECRET</code>.</p>
           </div>

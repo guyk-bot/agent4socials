@@ -1203,7 +1203,7 @@ export default function DashboardPage() {
                 <button
                   type="button"
                   onClick={() => router.push('/pricing')}
-                  className="shrink-0 px-4 py-2 rounded-lg bg-[var(--primary)] text-neutral-900 text-sm font-medium hover:bg-[var(--primary-hover)] transition-colors"
+                  className="shrink-0 px-4 py-2 rounded-lg bg-[var(--button)] text-white text-sm font-medium hover:bg-[var(--button-hover)] transition-colors"
                 >
                   Upgrade plan
                 </button>

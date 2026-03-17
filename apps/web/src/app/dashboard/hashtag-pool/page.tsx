@@ -64,12 +64,12 @@ export default function HashtagPoolPage() {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), add())}
             placeholder="e.g. travel or #travel"
-            className="flex-1 p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            className="flex-1 p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-[var(--button)]/30 focus:border-[var(--button)]"
           />
           <button
             type="button"
             onClick={add}
-            className="px-4 py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors inline-flex items-center gap-2"
+            className="px-4 py-3 bg-[var(--button)] text-white rounded-xl font-medium hover:bg-[var(--button-hover)] transition-colors inline-flex items-center gap-2"
           >
             <Plus size={20} />
             Add
@@ -100,7 +100,7 @@ export default function HashtagPoolPage() {
       </div>
 
       <p className="text-sm text-neutral-500">
-        <Link href="/composer" className="text-indigo-600 hover:text-indigo-700 font-medium">
+        <Link href="/composer" className="text-[var(--button)] hover:opacity-90 font-medium">
           Open Composer
         </Link>
         {' '}to create a post and choose hashtags from this pool (up to 5 per post).

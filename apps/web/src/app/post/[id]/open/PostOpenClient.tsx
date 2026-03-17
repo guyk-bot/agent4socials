@@ -132,7 +132,7 @@ export default function PostOpenClient({
               type="button"
               onClick={handlePublishNow}
               disabled={publishState === 'loading'}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-60"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-[var(--button)] text-white rounded-lg text-sm font-medium hover:bg-[var(--button-hover)] disabled:opacity-60"
             >
               {publishState === 'loading' ? (
                 <>
@@ -244,7 +244,7 @@ export default function PostOpenClient({
                                 key={i}
                                 type="button"
                                 onClick={() => setCarouselIndex((p) => ({ ...p, [platform]: i }))}
-                                className={`w-2 h-2 rounded-full transition-colors ${i === idx ? 'bg-indigo-600' : 'bg-neutral-300'}`}
+                                className={`w-2 h-2 rounded-full transition-colors ${i === idx ? 'bg-[var(--button)]' : 'bg-neutral-300'}`}
                               />
                             ))}
                           </div>
@@ -321,7 +321,7 @@ export default function PostOpenClient({
                     href={shareUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 bg-[var(--button)] text-white rounded-lg text-sm font-medium hover:bg-[var(--button-hover)]"
                   >
                     <ExternalLink size={16} />
                     Open in {PLATFORM_LABELS[platform] || platform}
