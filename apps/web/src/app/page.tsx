@@ -75,7 +75,7 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
         className="flex w-full items-start justify-between gap-3 p-5 sm:p-6 text-left"
       >
         <span className="flex items-start gap-3 font-semibold text-white text-sm sm:text-base">
-          <HelpCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#5ff6fd]" />
+          <HelpCircle className="mt-0.5 h-4 w-4 shrink-0 text-white" />
           {question}
         </span>
         {isOpen
@@ -111,7 +111,7 @@ export default function Home() {
           {/* Design system: radial glow + light streaks feel */}
           <div className="pointer-events-none absolute inset-0">
             <div className="absolute left-1/2 top-0 -translate-x-1/2 h-[600px] w-[900px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(139,92,246,0.4)_0%,rgba(139,92,246,0.15)_35%,transparent_70%)]" />
-            <div className="absolute -right-32 top-20 h-[450px] w-[550px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(95,246,253,0.15)_0%,transparent_65%)]" />
+            <div className="absolute -right-32 top-20 h-[450px] w-[550px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(139,92,246,0.15)_0%,transparent_65%)]" />
             <div className="absolute -left-24 bottom-10 h-[380px] w-[480px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(223,68,220,0.2)_0%,transparent_65%)]" />
             <div className="absolute bottom-0 left-0 right-0 h-72 bg-gradient-to-t from-[#8b5cf6]/25 via-[#df44dc]/10 to-transparent" />
           </div>
@@ -121,7 +121,7 @@ export default function Home() {
             <h1 className="text-[48px] font-bold tracking-[-0.02em] leading-[1.1] sm:text-5xl md:text-6xl lg:text-7xl">
               <span className="text-[#ffffff]">Run your entire</span>
               <br />
-              <span className="bg-[linear-gradient(135deg,#5ff6fd,#8b5cf6,#df44dc)] bg-clip-text text-transparent">
+              <span className="bg-[linear-gradient(135deg,#a78bfa,#8b5cf6,#df44dc)] bg-clip-text text-transparent">
                 social media
               </span>
               <br />
@@ -144,7 +144,7 @@ export default function Home() {
               </button>
               <Link
                 href="/pricing"
-                className="inline-flex items-center justify-center rounded-full border border-white/[0.1] bg-[rgba(255,255,255,0.05)] backdrop-blur-[20px] px-8 py-4 text-base font-medium text-white transition-all hover:bg-white/[0.08] hover:shadow-[0_0_10px_rgba(95,246,253,0.3)]"
+                className="inline-flex items-center justify-center rounded-full border border-white/[0.1] bg-[rgba(255,255,255,0.05)] backdrop-blur-[20px] px-8 py-4 text-base font-medium text-white transition-all hover:bg-white/[0.08] hover:shadow-[0_0_10px_rgba(139,92,246,0.3)]"
               >
                 See pricing
               </Link>
@@ -152,9 +152,9 @@ export default function Home() {
 
             {/* Trust bar */}
             <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-xs text-[#9ca3af]">
-              <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#5ff6fd]" /> No credit card required</span>
-              <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#5ff6fd]" /> Free plan forever</span>
-              <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#5ff6fd]" /> Cancel anytime</span>
+              <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-white" /> No credit card required</span>
+              <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-white" /> Free plan forever</span>
+              <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-white" /> Cancel anytime</span>
             </div>
           </div>
 
@@ -163,7 +163,7 @@ export default function Home() {
             <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
               {HERO_PLATFORMS.map(({ Icon, label }) => (
                 <div key={label} className="group flex flex-col items-center">
-                  <div className="rounded-[16px] border border-white/[0.08] bg-[rgba(255,255,255,0.05)] p-4 backdrop-blur-[16px] transition-all group-hover:border-[#5ff6fd]/40 group-hover:shadow-[0_0_10px_rgba(95,246,253,0.4)]">
+                  <div className="rounded-[16px] border border-white/[0.08] bg-[rgba(255,255,255,0.05)] p-4 backdrop-blur-[16px] transition-all group-hover:border-[#8b5cf6]/40 group-hover:shadow-[0_0_10px_rgba(139,92,246,0.4)]">
                     <span className={label === 'Twitter/X' ? 'inline-block invert opacity-70 group-hover:opacity-100 transition-opacity' : 'opacity-70 group-hover:opacity-100 transition-opacity'}>
                       <Icon size={36} />
                     </span>
@@ -182,8 +182,8 @@ export default function Home() {
               </div>
             </div>
             <div className="hidden sm:block absolute -right-2 top-10 z-10">
-              <div className="rounded-[16px] border border-[#5ff6fd]/30 bg-[rgba(255,255,255,0.05)] backdrop-blur-[20px] px-4 py-3 shadow-[0_0_10px_rgba(95,246,253,0.3)]">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#5ff6fd] mb-0.5">AI Assistant</p>
+              <div className="rounded-[16px] border border-[#8b5cf6]/30 bg-[rgba(255,255,255,0.05)] backdrop-blur-[20px] px-4 py-3 shadow-[0_0_10px_rgba(139,92,246,0.3)]">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-white mb-0.5">AI Assistant</p>
                 <p className="text-lg font-bold text-white">Always on</p>
               </div>
             </div>
@@ -225,8 +225,8 @@ export default function Home() {
                 { icon: Link2, label: 'Smart Links', desc: 'One powerful bio link page. Custom domains on higher plans.' },
                 { icon: Sparkles, label: 'AI Assistant', desc: 'Set your brand voice, get AI-suggested captions right inside the Composer.' },
               ].map(({ icon: Icon, label, desc }) => (
-                <div key={label} className="group relative flex flex-col gap-4 rounded-[20px] border border-white/[0.08] bg-[rgba(255,255,255,0.05)] backdrop-blur-[20px] p-6 transition-all duration-300 hover:border-[#5ff6fd]/30 hover:shadow-[0_0_20px_rgba(139,92,246,0.25)] hover:scale-[1.02]">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[rgba(255,255,255,0.06)] border border-white/[0.08] text-[#5ff6fd] group-hover:shadow-[0_0_10px_rgba(95,246,253,0.4)] transition-all">
+                <div key={label} className="group relative flex flex-col gap-4 rounded-[20px] border border-white/[0.08] bg-[rgba(255,255,255,0.05)] backdrop-blur-[20px] p-6 transition-all duration-300 hover:border-[#8b5cf6]/30 hover:shadow-[0_0_20px_rgba(139,92,246,0.25)] hover:scale-[1.02]">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[rgba(255,255,255,0.06)] border border-white/[0.08] text-white group-hover:shadow-[0_0_10px_rgba(139,92,246,0.4)] transition-all">
                     <Icon className="h-5 w-5" />
                   </div>
                   <div>
@@ -250,7 +250,7 @@ export default function Home() {
               <p className="mx-auto mt-5 max-w-xl text-[#9ca3af]">Three steps from signup to your first scheduled post. No complicated setup.</p>
             </div>
             <div className="grid gap-10 md:grid-cols-3 relative">
-              <div className="hidden md:block absolute top-14 left-[calc(16.67%+1rem)] right-[calc(16.67%+1rem)] h-px bg-gradient-to-r from-[#5ff6fd]/30 via-[#8b5cf6]/40 to-[#df44dc]/30" />
+              <div className="hidden md:block absolute top-14 left-[calc(16.67%+1rem)] right-[calc(16.67%+1rem)] h-px bg-gradient-to-r from-[#8b5cf6]/30 via-[#8b5cf6]/40 to-[#df44dc]/30" />
               {[
                 { icon: Link2, step: '01', title: 'Connect', desc: 'Authorize your accounts with each platform\'s official OAuth. No passwords stored, just secure logins.' },
                 { icon: CalendarCheck, step: '02', title: 'Create & Schedule', desc: 'Use the Composer to write captions, add media, and schedule posts to one or multiple platforms at once.' },
@@ -258,10 +258,10 @@ export default function Home() {
               ].map(({ icon: Icon, step, title, desc }) => (
                 <div key={title} className="group relative flex flex-col items-center text-center z-10">
                   <div className="relative mb-6">
-                    <div className="flex h-24 w-24 items-center justify-center rounded-[20px] border border-white/[0.08] bg-[rgba(255,255,255,0.05)] backdrop-blur-[20px] text-[#5ff6fd] shadow-[0_0_20px_rgba(139,92,246,0.4)] transition-all duration-300 group-hover:shadow-[0_0_30px_rgba(139,92,246,0.6)] group-hover:-translate-y-2">
+                    <div className="flex h-24 w-24 items-center justify-center rounded-[20px] border border-white/[0.08] bg-[rgba(255,255,255,0.05)] backdrop-blur-[20px] text-white shadow-[0_0_20px_rgba(139,92,246,0.4)] transition-all duration-300 group-hover:shadow-[0_0_30px_rgba(139,92,246,0.6)] group-hover:-translate-y-2">
                       <Icon className="h-10 w-10" />
                     </div>
-                    <div className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-[linear-gradient(135deg,#5ff6fd,#df44dc)] text-[10px] font-black text-white shadow-[0_0_10px_rgba(95,246,253,0.5)]">{step}</div>
+                    <div className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-[linear-gradient(135deg,#8b5cf6,#df44dc)] text-[10px] font-black text-white shadow-[0_0_10px_rgba(139,92,246,0.5)]">{step}</div>
                   </div>
                   <h3 className="text-xl font-semibold text-white mb-3">{title}</h3>
                   <p className="text-sm text-[#9ca3af] leading-relaxed max-w-xs">{desc}</p>
@@ -274,7 +274,7 @@ export default function Home() {
         {/* PRODUCT DETAIL - glass cards */}
         <section id="product" className="relative border-t border-white/[0.06] py-20 sm:py-28 overflow-hidden">
           <div className="pointer-events-none absolute inset-0">
-            <div className="absolute -left-20 top-1/2 -translate-y-1/2 h-[400px] w-[400px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(95,246,253,0.08)_0%,transparent_65%)]" />
+            <div className="absolute -left-20 top-1/2 -translate-y-1/2 h-[400px] w-[400px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(139,92,246,0.08)_0%,transparent_65%)]" />
           </div>
           <div className="relative mx-auto max-w-5xl px-4 sm:px-6">
             <div className="text-center mb-14">
@@ -300,7 +300,7 @@ export default function Home() {
                 { title: 'Hashtag pool & AI', desc: 'Save hashtag sets and reuse them. Get AI-suggested captions with your brand voice.', emoji: '✨' },
                 { title: 'White-label (Agency)', desc: 'Your logo, your colors. The dashboard looks like your brand. Multiple workspaces on higher plans.', emoji: '🏢' },
               ].map((item) => (
-                <div key={item.title} className="group rounded-[20px] border border-white/[0.08] bg-[rgba(255,255,255,0.05)] backdrop-blur-[20px] p-6 transition-all duration-300 hover:border-[#5ff6fd]/25 hover:shadow-[0_0_20px_rgba(139,92,246,0.2)]">
+                <div key={item.title} className="group rounded-[20px] border border-white/[0.08] bg-[rgba(255,255,255,0.05)] backdrop-blur-[20px] p-6 transition-all duration-300 hover:border-[#8b5cf6]/25 hover:shadow-[0_0_20px_rgba(139,92,246,0.2)]">
                   <div className="text-2xl mb-3">{item.emoji}</div>
                   <h3 className="font-semibold text-white mb-2">{item.title}</h3>
                   <p className="text-sm text-[#9ca3af] leading-relaxed">{item.desc}</p>
@@ -315,7 +315,7 @@ export default function Home() {
                   'Pro adds white-label, custom domains, smart links, and priority support.',
                 ].map((item, i) => (
                   <li key={i} className="flex items-start gap-3 text-sm text-[#9ca3af]">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#5ff6fd]" />
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-white" />
                     <span>{item}</span>
                   </li>
                 ))}
@@ -343,7 +343,7 @@ export default function Home() {
               <PricingCard plan="pro" description="Best for professionals and agencies" badge="Most Popular" bestValueLabel="Best value for growing brands" highlights={PRO_HIGHLIGHTS} priceMonthly={24} priceYearly={230} yearlyCrossedPrice={288} additionalBrandsMonthly={3} additionalBrandsYearly={29} ctaText="Get Pro" onCta={openSignup} highlighted billingInterval={billingInterval} dark />
             </div>
             <p className="mt-10 text-center">
-              <Link href="/pricing" className="text-[#5ff6fd] font-medium hover:text-white transition-colors">
+              <Link href="/pricing" className="text-white font-medium hover:text-[#c4b5fd] transition-colors">
                 Compare all features and yearly pricing &rarr;
               </Link>
             </p>
