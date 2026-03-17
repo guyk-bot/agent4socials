@@ -181,61 +181,61 @@ export default function Home() {
                   </p>
                 </div>
               </div>
-              <div className="group relative rounded-3xl border border-white/10 bg-white/5 p-8 transition-all hover:border-[#df44dc]/30 hover:shadow-2xl hover:shadow-[#df44dc]/10 hover:-translate-y-1">
-                <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-[#df44dc]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="group relative rounded-3xl border border-white/10 bg-white/5 p-8 transition-all hover:border-[#5ff6fd]/30 hover:shadow-2xl hover:shadow-[#5ff6fd]/10 hover:-translate-y-1">
+                <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-[#5ff6fd]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="relative">
-                  <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 text-[#df44dc] shadow-inner shadow-white/5 ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-300">
+                  <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 text-[#5ff6fd] shadow-inner shadow-white/5 ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-300">
                     <BarChart3 className="h-7 w-7" />
                   </div>
-                  <h3 className="text-2xl font-bold text-slate-100 group-hover:text-[#df44dc] transition-colors">Analytics</h3>
+                  <h3 className="text-2xl font-bold text-slate-100 group-hover:text-[#5ff6fd] transition-colors">Analytics</h3>
                   <p className="mt-4 leading-relaxed text-slate-400">
                     Views, likes, comments, followers, subscribers: see what works across all platforms and double down on success.
                   </p>
                 </div>
               </div>
-              <div className="group relative rounded-3xl border border-white/10 bg-white/5 p-8 transition-all hover:border-[#df44dc]/30 hover:shadow-2xl hover:shadow-[#df44dc]/10 hover:-translate-y-1 sm:col-span-2 lg:col-span-1">
-                <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-[#df44dc]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="group relative rounded-3xl border border-white/10 bg-white/5 p-8 transition-all hover:border-[#5ff6fd]/30 hover:shadow-2xl hover:shadow-[#5ff6fd]/10 hover:-translate-y-1 sm:col-span-2 lg:col-span-1">
+                <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-[#5ff6fd]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="relative">
-                  <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 text-[#df44dc] shadow-inner shadow-white/5 ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-300">
+                  <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 text-[#5ff6fd] shadow-inner shadow-white/5 ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-300">
                     <MessageCircle className="h-7 w-7" />
                   </div>
-                  <h3 className="text-2xl font-bold text-slate-100 group-hover:text-[#df44dc] transition-colors">Unified inbox</h3>
+                  <h3 className="text-2xl font-bold text-slate-100 group-hover:text-[#5ff6fd] transition-colors">Unified inbox</h3>
                   <p className="mt-4 leading-relaxed text-slate-400">
                     View and reply to DMs and messages from Instagram, Facebook and X in one place.
                   </p>
                 </div>
               </div>
-              <div className="group relative rounded-3xl border border-white/10 bg-white/5 p-8 transition-all hover:border-amber-500/30 hover:shadow-2xl hover:shadow-amber-500/5 hover:-translate-y-1">
-                <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="group relative rounded-3xl border border-white/10 bg-white/5 p-8 transition-all hover:border-[#5ff6fd]/30 hover:shadow-2xl hover:shadow-[#5ff6fd]/10 hover:-translate-y-1">
+                <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-[#5ff6fd]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="relative">
-                  <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 text-amber-400 shadow-inner shadow-white/5 ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-300">
+                  <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 text-[#5ff6fd] shadow-inner shadow-white/5 ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-300">
                     <MessageSquare className="h-7 w-7" />
                   </div>
-                  <h3 className="text-2xl font-bold text-slate-100 group-hover:text-amber-400 transition-colors">Comment automation</h3>
+                  <h3 className="text-2xl font-bold text-slate-100 group-hover:text-[#5ff6fd] transition-colors">Comment automation</h3>
                   <p className="mt-4 leading-relaxed text-slate-400">
                     Auto-reply when someone comments a keyword on your post. Set different reply text per platform. Optional welcome DMs when someone messages you first.
                   </p>
                 </div>
               </div>
-              <div className="group relative rounded-3xl border border-white/10 bg-white/5 p-8 transition-all hover:border-rose-500/30 hover:shadow-2xl hover:shadow-rose-500/5 hover:-translate-y-1">
-                <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-rose-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="group relative rounded-3xl border border-white/10 bg-white/5 p-8 transition-all hover:border-[#5ff6fd]/30 hover:shadow-2xl hover:shadow-[#5ff6fd]/10 hover:-translate-y-1">
+                <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-[#5ff6fd]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="relative">
-                  <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 text-rose-400 shadow-inner shadow-white/5 ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-300">
+                  <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 text-[#5ff6fd] shadow-inner shadow-white/5 ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-300">
                     <Hash className="h-7 w-7" />
                   </div>
-                  <h3 className="text-2xl font-bold text-slate-100 group-hover:text-rose-400 transition-colors">Hashtag pool</h3>
+                  <h3 className="text-2xl font-bold text-slate-100 group-hover:text-[#5ff6fd] transition-colors">Hashtag pool</h3>
                   <p className="mt-4 leading-relaxed text-slate-400">
                     Save and reuse hashtag sets for your posts. Keep your best-performing tags organized and one click away.
                   </p>
                 </div>
               </div>
-              <div className="group relative rounded-3xl border border-white/10 bg-white/5 p-8 transition-all hover:border-cyan-500/30 hover:shadow-2xl hover:shadow-cyan-500/5 hover:-translate-y-1">
-                <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="group relative rounded-3xl border border-white/10 bg-white/5 p-8 transition-all hover:border-[#5ff6fd]/30 hover:shadow-2xl hover:shadow-[#5ff6fd]/10 hover:-translate-y-1">
+                <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-[#5ff6fd]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="relative">
-                  <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 text-cyan-400 shadow-inner shadow-white/5 ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-300">
+                  <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 text-[#5ff6fd] shadow-inner shadow-white/5 ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-300">
                     <Sparkles className="h-7 w-7" />
                   </div>
-                  <h3 className="text-2xl font-bold text-slate-100 group-hover:text-cyan-400 transition-colors">AI Assistant</h3>
+                  <h3 className="text-2xl font-bold text-slate-100 group-hover:text-[#5ff6fd] transition-colors">AI Assistant</h3>
                   <p className="mt-4 leading-relaxed text-slate-400">
                     Set your brand voice and audience. Get AI-suggested captions and ideas in the Composer that match your style.
                   </p>
