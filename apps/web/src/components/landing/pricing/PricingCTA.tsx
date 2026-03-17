@@ -3,9 +3,40 @@
 type PricingCTAProps = {
   onStartFree: () => void;
   onGetPro: () => void;
+  dark?: boolean;
 };
 
-export default function PricingCTA({ onStartFree, onGetPro }: PricingCTAProps) {
+export default function PricingCTA({ onStartFree, onGetPro, dark }: PricingCTAProps) {
+  if (dark) {
+    return (
+      <section className="py-16 sm:py-20">
+        <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
+          <h2 className="text-2xl font-bold text-white sm:text-3xl">
+            Start managing your social media smarter today
+          </h2>
+          <p className="mt-3 text-slate-400">
+            Everything you need to publish, engage, analyze, and grow, in one place.
+          </p>
+          <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
+            <button
+              type="button"
+              onClick={onStartFree}
+              className="w-full rounded-lg border border-white/20 bg-transparent px-8 py-3.5 font-semibold text-white transition-all hover:bg-white/10 sm:w-auto"
+            >
+              Start Free
+            </button>
+            <button
+              type="button"
+              onClick={onGetPro}
+              className="w-full rounded-lg bg-[var(--button)] px-8 py-3.5 font-semibold text-white transition-all hover:bg-[var(--button-hover)] sm:w-auto"
+            >
+              Get Pro
+            </button>
+          </div>
+        </div>
+      </section>
+    );
+  }
   return (
     <section className="py-16 sm:py-20">
       <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">

@@ -111,7 +111,67 @@ function Cell({ value }: { value: CellValue }) {
   return <span className="text-neutral-700 text-sm">{value}</span>;
 }
 
-export default function PricingComparisonTable() {
+function CellDark({ value }: { value: CellValue }) {
+  if (value === 'check') {
+    return <span className="text-emerald-500">✓</span>;
+  }
+  if (value === 'dash') {
+    return <span className="text-slate-500">—</span>;
+  }
+  return <span className="text-slate-300 text-sm">{value}</span>;
+}
+
+export default function PricingComparisonTable({ dark }: { dark?: boolean }) {
+  const CellComponent = dark ? CellDark : Cell;
+  if (dark) {
+    return (
+      <section className="border-t border-white/10 py-16 sm:py-20">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6">
+          <h2 className="text-2xl font-bold text-white sm:text-3xl">
+            Compare plans
+          </h2>
+          <div className="mt-10 overflow-x-auto rounded-xl border border-white/10 bg-white/5">
+            <table className="w-full min-w-[640px] border-collapse text-left">
+              <thead>
+                <tr className="border-b border-white/10 bg-white/5">
+                  <th className="py-4 pl-6 pr-4 text-sm font-semibold text-white">Feature</th>
+                  <th className="py-4 px-4 text-sm font-semibold text-white text-center">Free</th>
+                  <th className="py-4 px-4 text-sm font-semibold text-white text-center">Starter</th>
+                  <th className="py-4 px-4 text-sm font-semibold text-white text-center">Pro</th>
+                </tr>
+              </thead>
+              <tbody>
+                {SECTIONS.map((section) => (
+                  <React.Fragment key={section.title}>
+                    <tr className="border-b border-white/10 bg-white/5">
+                      <td colSpan={4} className="py-3 pl-6 pr-4 text-sm font-semibold uppercase tracking-wider text-slate-400">
+                        {section.title}
+                      </td>
+                    </tr>
+                    {section.rows.map((row) => (
+                      <tr key={row.feature} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                        <td className="py-3 pl-6 pr-4 text-sm text-slate-200">{row.feature}</td>
+                        <td className="py-3 px-4 text-center"><CellComponent value={row.free} /></td>
+                        <td className="py-3 px-4 text-center"><CellComponent value={row.starter} /></td>
+                        <td className="py-3 px-4 text-center"><CellComponent value={row.pro} /></td>
+                      </tr>
+                    ))}
+                    {section.note && (
+                      <tr className="border-b border-white/10 bg-amber-500/10">
+                        <td colSpan={4} className="py-2 pl-6 pr-4 text-xs text-amber-300">
+                          {section.note}
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    );
+  }
   return (
     <section className="py-16 sm:py-20">
       <div className="mx-auto max-w-5xl px-4 sm:px-6">

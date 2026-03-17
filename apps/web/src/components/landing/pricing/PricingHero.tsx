@@ -1,6 +1,22 @@
 'use client';
 
-export default function PricingHero() {
+type PricingHeroProps = { dark?: boolean };
+
+export default function PricingHero({ dark }: PricingHeroProps) {
+  if (dark) {
+    return (
+      <section className="pt-24 pb-10 sm:pt-28 sm:pb-12">
+        <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
+          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">
+            Pricing
+          </h1>
+          <p className="mt-3 text-slate-400">
+            Manage your social media, conversations, and bio links in one place. Yearly billing saves 20%.
+          </p>
+        </div>
+      </section>
+    );
+  }
   return (
     <section className="pt-24 pb-12 sm:pt-28 sm:pb-16">
       <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">

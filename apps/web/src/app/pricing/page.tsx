@@ -50,23 +50,22 @@ export default function PricingPage() {
   const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('yearly');
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-[var(--dark)] text-white">
       <SiteHeader />
       <main className="relative">
         <div className="min-h-screen">
-          <PricingHero />
+          <PricingHero dark />
 
-          {/* Billing toggle */}
           <section className="pb-8">
             <div className="mx-auto max-w-6xl px-4 sm:px-6">
               <PricingBillingToggle
                 interval={billingInterval}
                 onIntervalChange={setBillingInterval}
+                dark
               />
             </div>
           </section>
 
-          {/* Pricing cards */}
           <section className="pb-8 sm:pb-12">
             <div className="mx-auto max-w-6xl px-4 sm:px-6">
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 lg:gap-8">
@@ -78,6 +77,7 @@ export default function PricingPage() {
                   ctaText="Start Free"
                   onCta={openSignup}
                   billingInterval={billingInterval}
+                  dark
                 />
                 <PricingCard
                   plan="starter"
@@ -92,6 +92,7 @@ export default function PricingPage() {
                   ctaText="Get Starter"
                   onCta={openSignup}
                   billingInterval={billingInterval}
+                  dark
                 />
                 <PricingCard
                   plan="pro"
@@ -109,14 +110,15 @@ export default function PricingPage() {
                   onCta={openSignup}
                   highlighted
                   billingInterval={billingInterval}
+                  dark
                 />
               </div>
             </div>
           </section>
 
-          <PricingComparisonTable />
-          <PricingFAQ />
-          <PricingCTA onStartFree={openSignup} onGetPro={openSignup} />
+          <PricingComparisonTable dark />
+          <PricingFAQ dark />
+          <PricingCTA onStartFree={openSignup} onGetPro={openSignup} dark />
         </div>
       </main>
       <SiteFooter />

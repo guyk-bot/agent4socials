@@ -38,7 +38,35 @@ const FAQ_ITEMS: { question: string; answer: string }[] = [
   },
 ];
 
-function FaqItem({ question, answer, isOpen, onToggle }: { question: string; answer: string; isOpen: boolean; onToggle: () => void }) {
+function FaqItem({ question, answer, isOpen, onToggle, dark }: { question: string; answer: string; isOpen: boolean; onToggle: () => void; dark?: boolean }) {
+  if (dark) {
+    return (
+      <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden transition-all hover:border-white/20">
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex w-full items-center justify-between gap-4 p-5 sm:p-6 text-left"
+          aria-expanded={isOpen}
+        >
+          <span className="font-semibold text-white pr-4">{question}</span>
+          {isOpen ? (
+            <ChevronUp className="h-5 w-5 shrink-0 text-slate-400" aria-hidden />
+          ) : (
+            <ChevronDown className="h-5 w-5 shrink-0 text-slate-400" aria-hidden />
+          )}
+        </button>
+        <div
+          className={`overflow-hidden transition-all duration-300 ease-out ${
+            isOpen ? 'max-h-[20rem] opacity-100' : 'max-h-0 opacity-0'
+          }`}
+        >
+          <div className="border-t border-white/10 px-5 pb-5 pt-0 sm:px-6 sm:pb-6 sm:pt-0">
+            <p className="text-slate-400 text-sm sm:text-base leading-relaxed">{answer}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden transition-all duration-200 hover:border-neutral-300">
       <button
@@ -67,13 +95,13 @@ function FaqItem({ question, answer, isOpen, onToggle }: { question: string; ans
   );
 }
 
-export default function PricingFAQ() {
+export default function PricingFAQ({ dark }: { dark?: boolean }) {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   return (
-    <section className="py-16 sm:py-20">
+    <section className={dark ? 'border-t border-white/10 py-16 sm:py-20' : 'py-16 sm:py-20'}>
       <div className="mx-auto max-w-3xl px-4 sm:px-6">
-        <h2 className="text-center text-2xl font-bold text-neutral-900 sm:text-3xl">
+        <h2 className={`text-2xl font-bold sm:text-3xl ${dark ? 'text-white' : 'text-center text-neutral-900'}`}>
           Frequently Asked Questions
         </h2>
         <div className="mt-10 space-y-3">
@@ -84,6 +112,7 @@ export default function PricingFAQ() {
               answer={item.answer}
               isOpen={openIndex === i}
               onToggle={() => setOpenIndex(openIndex === i ? null : i)}
+              dark={dark}
             />
           ))}
         </div>
