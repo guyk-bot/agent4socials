@@ -3,6 +3,8 @@
 import React, { useRef, useEffect, useMemo, useState } from 'react';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
 /** Presets; anything beyond 30 days is premium (diamond). highlight = default purple tint for paid periods. */
 const PRESETS = [
   { id: 'yesterday', label: 'Yesterday', premium: false, highlight: false },
@@ -71,6 +73,7 @@ function getPresetRange(
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
+/** Single month grid; compact=true for 12-month row (smaller cells). */
 function CalendarGrid({
   year,
   month,
@@ -78,6 +81,8 @@ function CalendarGrid({
   end,
   onSelectDay,
   today,
+  compact = false,
+  title,
 }: {
   year: number;
   month: number;
@@ -85,6 +90,8 @@ function CalendarGrid({
   end: string | null;
   onSelectDay: (dateStr: string) => void;
   today: string;
+  compact?: boolean;
+  title?: string;
 }) {
   const first = new Date(year, month, 1);
   const last = new Date(year, month + 1, 0);
@@ -123,16 +130,25 @@ function CalendarGrid({
   const isEnd = (dateStr: string) => end === dateStr;
   const isCurrentMonth = (dateStr: string) => dateStr.startsWith(`${year}-${String(month + 1).padStart(2, '0')}-`);
 
+  const gap = compact ? 'gap-1.5' : 'gap-4';
+  const cellSize = compact ? 'w-9 min-w-9 h-9 min-h-9 text-sm' : 'w-16 min-w-16 h-16 min-h-16 text-base';
+  const headerSize = compact ? 'h-7 text-xs' : 'h-10 text-sm';
+
   return (
-    <div className="calendar-grid">
-      <div className="grid grid-cols-7 gap-4 mb-3">
+    <div className="calendar-grid shrink-0">
+      {(title || !compact) && (
+        <div className={`flex items-center justify-center font-semibold text-neutral-700 mb-2 ${compact ? 'text-xs' : 'text-base'}`}>
+          {title ?? new Date(year, month).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+        </div>
+      )}
+      <div className={`grid grid-cols-7 ${gap} mb-1.5`}>
         {WEEKDAYS.map((w, i) => (
-          <div key={i} className="h-10 flex items-center justify-center text-sm font-semibold text-neutral-500">
+          <div key={i} className={`${headerSize} flex items-center justify-center font-semibold text-neutral-500`}>
             {w}
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-4">
+      <div className={`grid grid-cols-7 ${gap}`}>
         {rows.flat().map((dateStr, i) => {
           if (!dateStr) return <div key={i} />;
           const inRange = isInRange(dateStr);
@@ -145,13 +161,13 @@ function CalendarGrid({
               type="button"
               onClick={() => onSelectDay(dateStr)}
               className={`
-                aspect-square w-14 min-w-14 h-14 min-h-14 rounded-xl text-base font-semibold
+                aspect-square ${cellSize} rounded-lg font-semibold
                 flex items-center justify-center p-0 leading-none tabular-nums
                 ${!currentMonth ? 'text-neutral-300' : 'text-neutral-800'}
                 ${inRange && !startOrEnd ? 'bg-violet-100' : ''}
                 ${!inRange && !startOrEnd ? 'hover:bg-neutral-100' : ''}
                 ${startOrEnd ? 'bg-violet-600 text-white hover:bg-violet-700' : ''}
-                ${isToday && !startOrEnd ? 'ring-2 ring-violet-400 ring-offset-2' : ''}
+                ${isToday && !startOrEnd ? 'ring-2 ring-violet-400 ring-offset-1' : ''}
               `}
             >
               {new Date(dateStr + 'T12:00:00').getDate()}
@@ -185,15 +201,15 @@ export function AnalyticsDateRangePicker({
   const now = useMemo(() => new Date(), []);
   const todayStr = useMemo(() => now.toISOString().slice(0, 10), [now]);
 
-  const [calendarMonth, setCalendarMonth] = useState(() => {
+  const [calendarYear, setCalendarYear] = useState(() => {
     const s = start ? new Date(start + 'T12:00:00') : now;
-    return { year: s.getFullYear(), month: s.getMonth() };
+    return s.getFullYear();
   });
 
   useEffect(() => {
     if (start) {
       const s = new Date(start + 'T12:00:00');
-      setCalendarMonth({ year: s.getFullYear(), month: s.getMonth() });
+      setCalendarYear(s.getFullYear());
     }
   }, [start]);
 
@@ -232,10 +248,7 @@ export function AnalyticsDateRangePicker({
     onChange({ start: range.start, end: range.end });
     setTempStart(range.start);
     setTempEnd(range.end);
-    setCalendarMonth({
-      year: new Date(range.start + 'T12:00:00').getFullYear(),
-      month: new Date(range.start + 'T12:00:00').getMonth(),
-    });
+    setCalendarYear(new Date(range.start + 'T12:00:00').getFullYear());
     setOpen(false);
   };
 
@@ -256,19 +269,6 @@ export function AnalyticsDateRangePicker({
     }
   };
 
-  const goPrevMonth = () => {
-    setCalendarMonth((m) => {
-      if (m.month === 0) return { year: m.year - 1, month: 11 };
-      return { year: m.year, month: m.month - 1 };
-    });
-  };
-  const goNextMonth = () => {
-    setCalendarMonth((m) => {
-      if (m.month === 11) return { year: m.year + 1, month: 0 };
-      return { year: m.year, month: m.month + 1 };
-    });
-  };
-
   const displayStart = tempStart ?? start;
   const displayEnd = tempEnd ?? end;
 
@@ -284,8 +284,8 @@ export function AnalyticsDateRangePicker({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 z-50 flex gap-8 p-6 bg-white border border-neutral-200 rounded-2xl shadow-xl min-w-[520px]">
-          <div className="min-w-[200px] w-56">
+        <div className="absolute right-0 top-full mt-2 z-50 flex gap-8 p-6 bg-white border border-neutral-200 rounded-2xl shadow-xl min-w-[900px] max-w-[96vw] w-[1200px]">
+          <div className="min-w-[200px] w-56 shrink-0">
             <p className="px-0 py-2 text-sm font-semibold text-neutral-500 uppercase tracking-wider mb-3">Presets</p>
             <div className="space-y-1">
               {PRESETS.map((p) => (
@@ -308,7 +308,7 @@ export function AnalyticsDateRangePicker({
             </div>
           </div>
 
-          <div className="border-l border-neutral-100 pl-6 flex-1">
+          <div className="border-l border-neutral-100 pl-6 flex-1 min-w-0 overflow-x-auto">
             <p className="text-sm font-semibold text-neutral-500 uppercase tracking-wider mb-3">Custom range</p>
             <div className="flex items-center gap-3 flex-wrap mb-4">
               <input
@@ -337,32 +337,37 @@ export function AnalyticsDateRangePicker({
               <div className="flex items-center justify-between mb-4">
                 <button
                   type="button"
-                  onClick={goPrevMonth}
+                  onClick={() => setCalendarYear((y) => y - 1)}
                   className="p-2 rounded-lg text-neutral-500 hover:bg-neutral-200 hover:text-neutral-800"
-                  aria-label="Previous month"
+                  aria-label="Previous year"
                 >
                   <ChevronLeft size={22} />
                 </button>
-                <span className="text-base font-semibold text-neutral-800">
-                  {new Date(calendarMonth.year, calendarMonth.month).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
-                </span>
+                <span className="text-lg font-semibold text-neutral-800">{calendarYear}</span>
                 <button
                   type="button"
-                  onClick={goNextMonth}
+                  onClick={() => setCalendarYear((y) => y + 1)}
                   className="p-2 rounded-lg text-neutral-500 hover:bg-neutral-200 hover:text-neutral-800"
-                  aria-label="Next month"
+                  aria-label="Next year"
                 >
                   <ChevronRight size={22} />
                 </button>
               </div>
-              <CalendarGrid
-                year={calendarMonth.year}
-                month={calendarMonth.month}
-                start={displayStart || null}
-                end={displayEnd || null}
-                onSelectDay={handleCalendarDay}
-                today={todayStr}
-              />
+              <div className="flex flex-row flex-nowrap gap-6 overflow-x-auto pb-2">
+                {MONTH_NAMES.map((name, monthIndex) => (
+                  <CalendarGrid
+                    key={`${calendarYear}-${monthIndex}`}
+                    year={calendarYear}
+                    month={monthIndex}
+                    start={displayStart || null}
+                    end={displayEnd || null}
+                    onSelectDay={handleCalendarDay}
+                    today={todayStr}
+                    compact
+                    title={name}
+                  />
+                ))}
+              </div>
               <div className="flex items-center justify-between mt-4 pt-3 border-t border-neutral-200">
                 <button
                   type="button"
