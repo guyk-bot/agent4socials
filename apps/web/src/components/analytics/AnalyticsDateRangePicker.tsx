@@ -125,14 +125,14 @@ function CalendarGrid({
 
   return (
     <div className="calendar-grid">
-      <div className="grid grid-cols-7 gap-2.5 mb-2">
+      <div className="grid grid-cols-7 gap-3 mb-2">
         {WEEKDAYS.map((w, i) => (
-          <div key={i} className="h-10 flex items-center justify-center text-xs font-medium text-neutral-500">
+          <div key={i} className="h-11 flex items-center justify-center text-xs font-medium text-neutral-500">
             {w}
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-2.5">
+      <div className="grid grid-cols-7 gap-3">
         {rows.flat().map((dateStr, i) => {
           if (!dateStr) return <div key={i} />;
           const inRange = isInRange(dateStr);
@@ -145,7 +145,7 @@ function CalendarGrid({
               type="button"
               onClick={() => onSelectDay(dateStr)}
               className={`
-                aspect-square w-10 min-w-10 h-10 min-h-10 rounded-lg text-sm font-medium
+                aspect-square w-11 min-w-11 h-11 min-h-11 rounded-lg text-sm font-medium
                 flex items-center justify-center p-0 leading-none tabular-nums
                 ${!currentMonth ? 'text-neutral-300' : 'text-neutral-800'}
                 ${inRange && !startOrEnd ? 'bg-violet-100' : ''}
