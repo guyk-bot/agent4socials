@@ -178,8 +178,9 @@ function FollowersGrowthChart({
           <LineChart
             data={chartData}
             margin={{ top: 12, right: 12, left: 4, bottom: 4 }}
-            onMouseMove={(e: { activePayload?: Array<{ payload?: { date?: string } }> }) => {
-              const date = e?.activePayload?.[0]?.payload?.date;
+            onMouseMove={(e) => {
+              const payload = (e as unknown as { activePayload?: Array<{ payload?: { date?: string } }> }).activePayload;
+              const date = payload?.[0]?.payload?.date;
               onDateHover(date ?? null);
             }}
             onMouseLeave={() => onDateHover(null)}
@@ -283,8 +284,9 @@ function ContentActivityChart({
           <BarChart
             data={data}
             margin={{ top: 12, right: 12, left: 4, bottom: 4 }}
-            onMouseMove={(e: { activePayload?: Array<{ payload?: { date?: string } }> }) => {
-              const date = e?.activePayload?.[0]?.payload?.date;
+            onMouseMove={(e) => {
+              const payload = (e as unknown as { activePayload?: Array<{ payload?: { date?: string } }> }).activePayload;
+              const date = payload?.[0]?.payload?.date;
               onDateHover(date ?? null);
             }}
             onMouseLeave={() => onDateHover(null)}
