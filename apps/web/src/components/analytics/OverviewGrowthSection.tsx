@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Download } from 'lucide-react';
 import {
-  LineChart,
   Line,
   BarChart,
   Bar,
@@ -28,7 +28,9 @@ const PURPLE = {
 } as const;
 
 export type LineMetricId = 'followers' | 'views' | 'visits';
+export type ChartMetricId = LineMetricId | 'posts';
 const LINE_METRIC_IDS: LineMetricId[] = ['followers', 'views', 'visits'];
+const CHART_METRIC_IDS: ChartMetricId[] = ['followers', 'views', 'visits', 'posts'];
 
 export type GrowthDataPoint = {
   date: string;
@@ -75,6 +77,30 @@ function formatDateShort(str: string) {
   return new Date(str + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
+// Count-up display value for KPI (animates from 0 to value on mount/change)
+function useCountUp(value: string | number, duration = 520, enabled = true): string | number {
+  const num = typeof value === 'number' ? value : parseInt(String(value), 10);
+  const isNumeric = !Number.isNaN(num) && typeof value === 'number';
+  const [display, setDisplay] = useState(isNumeric ? 0 : value);
+  useEffect(() => {
+    if (!enabled || !isNumeric) {
+      setDisplay(value);
+      return;
+    }
+    const end = num;
+    const startTime = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min((now - startTime) / duration, 1);
+      const eased = 1 - (1 - t) * (1 - t);
+      setDisplay(Math.round(end * eased));
+      if (t < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, [num, duration, enabled, isNumeric, value]);
+  if (!isNumeric) return value;
+  return display;
+}
+
 // —— KpiCard (clickable for metric focus) ——
 function KpiCard({
   label,
@@ -96,12 +122,13 @@ function KpiCard({
   tint?: 'neutral' | 'violet' | 'blue' | 'emerald' | 'slate';
   sparkData?: number[];
   primary?: boolean;
-  metricId?: LineMetricId;
+  metricId?: ChartMetricId;
   isActive?: boolean;
   isPrimary?: boolean;
-  onFocusMetric?: (id: LineMetricId) => void;
+  onFocusMetric?: (id: ChartMetricId) => void;
 }) {
-  const isLineMetric = metricId != null;
+  const isChartMetric = metricId != null;
+  const displayValue = useCountUp(value);
   const bgTint =
     tint === 'violet'
       ? primary
@@ -111,10 +138,10 @@ function KpiCard({
 
   const wrapperClass = [
     'relative rounded-[22px] flex flex-col justify-between shadow-sm border transition-all duration-200',
-    isLineMetric ? 'cursor-pointer select-none' : '',
+    isChartMetric ? 'cursor-pointer select-none' : '',
     primary ? 'p-6 min-h-[108px]' : 'p-5 min-h-[100px]',
     isPrimary ? 'border-violet-400/70 ring-1 ring-violet-400/20 shadow-md' : isActive ? 'border-violet-300/50 hover:border-violet-400/60' : primary ? 'border-violet-200/50 hover:border-violet-300/60' : 'border-neutral-200/60 hover:border-neutral-300/70',
-    'hover:shadow-md',
+    'hover:shadow-md hover:-translate-y-0.5 hover:shadow-lg',
     bgTint,
   ].filter(Boolean).join(' ');
 
@@ -130,11 +157,11 @@ function KpiCard({
         </span>
       )}
       <div className="flex-1">
-        <p className={`font-semibold text-neutral-900 tracking-tight tabular-nums ${primary ? 'text-2xl md:text-3xl' : 'text-xl md:text-2xl'}`}>{value}</p>
+        <p className={`font-semibold text-neutral-900 tracking-tight tabular-nums ${primary ? 'text-2xl md:text-3xl' : 'text-xl md:text-2xl'}`}>{displayValue}</p>
         <p className="text-sm text-neutral-500 mt-1">{label}</p>
       </div>
       {sparkData != null && sparkData.length > 1 && (
-        <div className={`mt-3 h-8 -mb-1 ${tint === 'violet' ? 'opacity-70' : 'opacity-40'}`}>
+        <div className={`mt-3 h-8 -mb-1 ${tint === 'violet' ? 'opacity-75' : 'opacity-60'}`}>
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart
               data={sparkData.map((value, index) => ({ value, index }))}
@@ -162,7 +189,7 @@ function KpiCard({
     </>
   );
 
-  if (isLineMetric && metricId != null && onFocusMetric) {
+  if (isChartMetric && metricId != null && onFocusMetric) {
     return (
       <button type="button" className={wrapperClass} onClick={() => onFocusMetric(metricId)}>
         {content}
@@ -175,7 +202,7 @@ function KpiCard({
 // —— SummaryStatCard ——
 function SummaryStatCard({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-xl bg-neutral-50/60 border border-neutral-100/80 px-4 py-3 hover:bg-neutral-50/80 hover:border-neutral-200/60 transition-colors">
+    <div className="rounded-xl bg-white border border-neutral-100 shadow-sm px-4 py-3 hover:shadow-md hover:border-neutral-200/80 transition-all duration-200">
       <p className="text-base font-semibold text-neutral-700 tabular-nums">{value}</p>
       <p className="text-xs text-neutral-500 mt-0.5">{label}</p>
     </div>
@@ -196,19 +223,23 @@ function formatYAxisValue(v: number): string {
 }
 
 // —— FollowersGrowthChart ——
-// KPI-driven focus: only active metrics shown; primary gets full opacity + area; dual Y-axis for scale.
+// KPI-driven focus: lines for followers/views/visits, bars for posts. Optional posting-day markers.
 function FollowersGrowthChart({
   data,
   hoveredDate,
   onDateHover,
   activeMetrics,
   primaryFocus,
+  showActivityOnGrowth = true,
+  onShowActivityChange,
 }: {
   data: GrowthDataPoint[];
   hoveredDate: string | null;
   onDateHover: (date: string | null) => void;
-  activeMetrics: Set<LineMetricId>;
-  primaryFocus: LineMetricId;
+  activeMetrics: Set<ChartMetricId>;
+  primaryFocus: ChartMetricId;
+  showActivityOnGrowth?: boolean;
+  onShowActivityChange?: (show: boolean) => void;
 }) {
   const chartData = useMemo(() => {
     return data.map((d, i) => ({
@@ -217,21 +248,33 @@ function FollowersGrowthChart({
     }));
   }, [data]);
 
+  const postingDays = useMemo(() => data.filter((d) => (d.posts ?? 0) > 0).map((d) => d.date), [data]);
+  const hasEnoughData = useMemo(() => {
+    const totalF = data.reduce((s, d) => s + (d.followers ?? 0), 0);
+    const totalP = data.reduce((s, d) => s + (d.posts ?? 0), 0);
+    return data.length >= 2 && (totalF > 0 || totalP > 0);
+  }, [data]);
+
   const leftMetricIds = useMemo(() => LINE_METRIC_IDS.filter((id) => id !== 'views' && activeMetrics.has(id)), [activeMetrics]);
   const hasViews = activeMetrics.has('views');
+  const hasPosts = activeMetrics.has('posts');
 
   const leftDomain = useMemo((): [number, number] => {
-    if (leftMetricIds.length === 0) return [0, 10];
     let max = 0;
     for (const id of leftMetricIds) {
       const key = id as keyof GrowthDataPoint;
       const vals = chartData.map((d) => Number(d[key]) ?? 0);
       max = Math.max(max, ...vals);
     }
+    if (hasPosts) {
+      const postVals = chartData.map((d) => d.posts ?? 0);
+      max = Math.max(max, ...postVals);
+    }
+    if (max === 0 && leftMetricIds.length === 0 && !hasPosts) return [0, 10];
     const min = 0;
     const offset = max <= 1 ? 0.5 : Math.min(0.5, max * 0.08);
     return [min, max + offset];
-  }, [chartData, leftMetricIds]);
+  }, [chartData, leftMetricIds, hasPosts]);
 
   const rightDomain = useMemo((): [number, number] => {
     if (!hasViews) return [0, 10];
@@ -243,13 +286,30 @@ function FollowersGrowthChart({
   }, [chartData, hasViews]);
 
   const lastDate = chartData.length > 0 ? chartData[chartData.length - 1].date : null;
+  const tickCount = 4;
 
   return (
-    <div className="rounded-[22px] bg-white border border-neutral-100 shadow-sm p-6 hover:shadow-md hover:border-neutral-200/80 transition-all duration-200">
-      <p className="text-xs text-neutral-400 mb-3">Track how your audience grew over time. Click KPI cards to focus metrics.</p>
+    <div className={`rounded-[22px] bg-white border border-neutral-100 shadow-md p-6 hover:shadow-lg hover:border-neutral-200/80 transition-all duration-200 ${!hasEnoughData ? 'opacity-85' : ''}`}>
+      <div className="flex items-center justify-between gap-4 mb-1">
+        <h3 className="text-sm font-semibold text-neutral-800">Audience growth over time</h3>
+        {onShowActivityChange && (
+          <label className="flex items-center gap-2 cursor-pointer select-none shrink-0">
+            <input
+              type="checkbox"
+              checked={showActivityOnGrowth}
+              onChange={(e) => onShowActivityChange(e.target.checked)}
+              className="rounded border-neutral-300 text-violet-600 focus:ring-violet-500/20"
+            />
+            <span className="text-xs font-medium text-neutral-500">Show activity</span>
+          </label>
+        )}
+      </div>
+      {!hasEnoughData && (
+        <p className="text-xs text-neutral-400 mb-2">Start posting to see trends.</p>
+      )}
       <div className="h-[300px] w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart
+          <ComposedChart
             data={chartData}
             margin={{ top: 12, right: hasViews ? 44 : 12, left: 4, bottom: 4 }}
             onMouseMove={(e) => {
@@ -284,26 +344,44 @@ function FollowersGrowthChart({
                 <stop offset="0%" stopColor="#6ee7b7" stopOpacity={0.12} />
                 <stop offset="100%" stopColor="#059669" stopOpacity={0} />
               </linearGradient>
+              <linearGradient id="growthContentBarGrad" x1="0" y1="1" x2="0" y2="0">
+                <stop offset="0%" stopColor={PURPLE.soft} stopOpacity={0.7} />
+                <stop offset="100%" stopColor={PURPLE.soft} stopOpacity={0.95} />
+              </linearGradient>
+              <linearGradient id="growthContentBarGradPrimary" x1="0" y1="1" x2="0" y2="0">
+                <stop offset="0%" stopColor={PURPLE.primary} stopOpacity={0.85} />
+                <stop offset="100%" stopColor={PURPLE.strong} stopOpacity={1} />
+              </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke={PURPLE.grid} vertical={false} />
             {hoveredDate && (
-              <ReferenceLine x={hoveredDate} stroke={PURPLE.muted} strokeWidth={1} strokeDasharray="4 3" />
+              <ReferenceLine x={hoveredDate} stroke={PURPLE.primary} strokeOpacity={0.35} strokeWidth={1.5} strokeDasharray="4 3" />
             )}
+            {showActivityOnGrowth && postingDays.map((date) => (
+              <ReferenceLine
+                key={date}
+                segment={[{ x: date, y: 0 }, { x: date, y: leftDomain[1] * 0.06 }]}
+                stroke="rgba(124, 58, 237, 0.22)"
+                strokeWidth={1}
+              />
+            ))}
             <XAxis
               dataKey="date"
-              tick={{ fontSize: 11, fill: '#737373' }}
+              tick={{ fontSize: 12, fill: '#525252' }}
               axisLine={false}
               tickLine={false}
               tickFormatter={formatDateShort}
+              interval="preserveStartEnd"
             />
-            {(leftMetricIds.length > 0 || !hasViews) && (
+            {(leftMetricIds.length > 0 || hasPosts || !hasViews) && (
               <YAxis
                 yAxisId="left"
                 domain={leftDomain}
-                tick={{ fontSize: 11, fill: '#737373' }}
+                tick={{ fontSize: 12, fill: '#525252' }}
                 axisLine={false}
                 tickLine={false}
                 width={28}
+                tickCount={tickCount}
                 tickFormatter={formatYAxisValue}
               />
             )}
@@ -312,10 +390,11 @@ function FollowersGrowthChart({
                 yAxisId="right"
                 orientation="right"
                 domain={rightDomain}
-                tick={{ fontSize: 11, fill: '#737373' }}
+                tick={{ fontSize: 12, fill: '#525252' }}
                 axisLine={false}
                 tickLine={false}
                 width={36}
+                tickCount={tickCount}
                 tickFormatter={formatYAxisValue}
               />
             )}
@@ -324,23 +403,31 @@ function FollowersGrowthChart({
                 const labelStr = label != null ? String(label) : '';
                 if (!active || !labelStr) return null;
                 const point = chartData.find((d) => d.date === labelStr);
-                const activePayloads = (payload ?? []).filter((p) => p.dataKey && activeMetrics.has(p.dataKey as LineMetricId));
-                if (activePayloads.length === 0) return null;
-                const metricLabels: Record<LineMetricId, string> = { followers: 'Followers', views: 'Views', visits: 'Page visits' };
+                const activePayloads = (payload ?? []).filter((p) => p.dataKey && activeMetrics.has(p.dataKey as ChartMetricId));
+                const metricLabels: Record<ChartMetricId, string> = { followers: 'Followers', views: 'Views', visits: 'Page visits', posts: 'Posts' };
+                const postsThatDay = point?.posts ?? 0;
+                const showPostsInTooltip = activePayloads.length > 0 || postsThatDay >= 0;
                 return (
-                  <div className="rounded-lg bg-white text-neutral-900 px-3 py-2 shadow-md border border-neutral-200/50 text-left min-w-[140px]">
+                  <div className="rounded-lg bg-white text-neutral-900 px-3 py-2 shadow-lg border border-neutral-200/60 text-left min-w-[140px]">
                     <p className="text-neutral-500 text-xs font-medium">{formatDate(labelStr)}</p>
                     {activePayloads.map((p) => {
-                      const id = p.dataKey as LineMetricId;
+                      const id = p.dataKey as ChartMetricId;
                       const value = (p.value as number) ?? 0;
                       const isPrimary = id === primaryFocus;
+                      const color = id === 'posts' ? PURPLE.primary : METRIC_COLORS[id].stroke;
                       return (
                         <p key={id} className={`mt-0.5 text-sm ${isPrimary ? 'font-semibold text-neutral-900' : 'text-neutral-600'}`}>
                           <span className="text-neutral-500">{metricLabels[id]}: </span>
-                          <span className="tabular-nums" style={{ color: METRIC_COLORS[id].stroke }}>{formatYAxisValue(value)}</span>
+                          <span className="tabular-nums" style={{ color }}>{id === 'posts' ? String(value) : formatYAxisValue(value)}</span>
                         </p>
                       );
                     })}
+                    {showPostsInTooltip && !activePayloads.some((p) => p.dataKey === 'posts') && (
+                      <p className="mt-0.5 text-sm text-neutral-600">
+                        <span className="text-neutral-500">Posts: </span>
+                        <span className="tabular-nums text-neutral-800">{postsThatDay}</span>
+                      </p>
+                    )}
                     {point != null && primaryFocus === 'followers' && (
                       <p className="text-neutral-400 text-xs mt-0.5">+{point.gained} that day</p>
                     )}
@@ -385,12 +472,32 @@ function FollowersGrowthChart({
                     strokeLinejoin="round"
                     connectNulls
                     isAnimationActive
-                    animationDuration={300}
+                    animationDuration={500}
+                    animationEasing="ease-out"
                   />
                 </React.Fragment>
               );
             })}
-          </LineChart>
+            {hasPosts && (
+              <Bar dataKey="posts" yAxisId="left" fill="url(#growthContentBarGrad)" radius={[6, 6, 0, 0]} barSize={20} maxBarSize={32}>
+                {chartData.map((entry, index) => {
+                  const isHovered = entry.date === hoveredDate;
+                  const isPrimary = primaryFocus === 'posts';
+                  const fill = isHovered || isPrimary ? 'url(#growthContentBarGradPrimary)' : 'url(#growthContentBarGrad)';
+                  const fillOpacity = isPrimary ? 1 : 0.78;
+                  return (
+                    <Cell
+                      key={entry.date + index}
+                      fill={fill}
+                      fillOpacity={fillOpacity}
+                      stroke={isHovered || isPrimary ? PURPLE.primary : undefined}
+                      strokeWidth={isHovered || isPrimary ? 1.5 : 0}
+                    />
+                  );
+                })}
+              </Bar>
+            )}
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
     </div>
@@ -412,11 +519,17 @@ function ContentActivityChart({
     () => (maxPosts > 0 ? data.find((d) => d.posts === maxPosts)?.date : null),
     [data, maxPosts]
   );
+  const hasEnoughData = useMemo(() => {
+    const totalP = data.reduce((s, d) => s + (d.posts ?? 0), 0);
+    return data.length >= 2 && totalP > 0;
+  }, [data]);
 
   return (
-    <div className="rounded-[22px] bg-white border border-neutral-100 shadow-sm p-6 hover:shadow-md hover:border-neutral-200/80 transition-all duration-200">
-      <h3 className="text-sm font-semibold text-neutral-800">Content activity</h3>
-      <p className="text-xs text-neutral-400 mt-0.5 mb-3">See how publishing frequency aligns with account growth.</p>
+    <div className={`rounded-[22px] bg-white border border-neutral-100 shadow-sm p-6 hover:shadow-md hover:border-neutral-200/80 transition-all duration-200 ${!hasEnoughData ? 'opacity-90' : ''}`}>
+      <h3 className="text-sm font-semibold text-neutral-700">Content activity</h3>
+      {!hasEnoughData && (
+        <p className="text-xs text-neutral-400 mt-0.5 mb-2">Start posting to see activity.</p>
+      )}
       <div className="h-[200px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
@@ -441,40 +554,48 @@ function ContentActivityChart({
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke={PURPLE.grid} vertical={false} />
             {hoveredDate && (
-              <ReferenceLine x={hoveredDate} stroke={PURPLE.muted} strokeWidth={1} strokeDasharray="4 3" />
+              <ReferenceLine x={hoveredDate} stroke={PURPLE.primary} strokeOpacity={0.35} strokeWidth={1.5} strokeDasharray="4 3" />
             )}
             <XAxis
               dataKey="date"
-              tick={{ fontSize: 10, fill: '#737373' }}
+              tick={{ fontSize: 12, fill: '#525252' }}
               axisLine={false}
               tickLine={false}
               tickFormatter={formatDateShort}
+              interval="preserveStartEnd"
             />
             <YAxis
-              tick={{ fontSize: 10, fill: '#737373' }}
+              tick={{ fontSize: 12, fill: '#525252' }}
               axisLine={false}
               tickLine={false}
               width={24}
               allowDecimals={false}
+              tickCount={4}
             />
             <Tooltip
               content={({ active, payload, label }) => {
                 const labelStr = label != null ? String(label) : '';
-                if (!active || !payload?.length || !labelStr) return null;
-                const value = (payload[0]?.value as number) ?? 0;
+                if (!active || !labelStr) return null;
+                const point = data.find((d) => d.date === labelStr);
+                const postsVal = (payload?.[0]?.value as number) ?? point?.posts ?? 0;
+                const followersVal = point?.followers ?? 0;
                 return (
-                  <div className="rounded-lg bg-white text-neutral-900 px-3 py-2 shadow-md border border-neutral-200/50 text-left min-w-[130px]">
+                  <div className="rounded-lg bg-white text-neutral-900 px-3 py-2 shadow-lg border border-neutral-200/60 text-left min-w-[140px]">
                     <p className="text-neutral-500 text-xs font-medium">{formatDate(labelStr)}</p>
                     <p className="mt-0.5 text-sm">
                       <span className="text-neutral-500">Posts: </span>
-                      <span className="font-semibold text-violet-600 tabular-nums">{value}</span>
+                      <span className="font-semibold text-violet-600 tabular-nums">{postsVal}</span>
+                    </p>
+                    <p className="mt-0.5 text-sm text-neutral-600">
+                      <span className="text-neutral-500">Followers: </span>
+                      <span className="tabular-nums">{followersVal}</span>
                     </p>
                   </div>
                 );
               }}
-              cursor={false}
+              cursor={{ stroke: PURPLE.muted, strokeWidth: 1, strokeDasharray: '4 2' }}
             />
-            <Bar dataKey="posts" fill="url(#contentBarGrad)" radius={[6, 6, 0, 0]} barSize={17} maxBarSize={32}>
+            <Bar dataKey="posts" fill="url(#contentBarGrad)" radius={[6, 6, 0, 0]} barSize={17} maxBarSize={32} isAnimationActive animationDuration={400} animationEasing="ease-out">
               {data.map((entry, index) => {
                 const isMax = entry.date === maxPostsDate && maxPosts > 0;
                 const isHovered = entry.date === hoveredDate;
@@ -514,16 +635,17 @@ export function OverviewGrowthSection({
   onExport,
 }: OverviewGrowthSectionProps) {
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
-  const [activeMetrics, setActiveMetrics] = useState<Set<LineMetricId>>(() => new Set(['followers']));
-  const [primaryFocus, setPrimaryFocus] = useState<LineMetricId>('followers');
+  const [activeMetrics, setActiveMetrics] = useState<Set<ChartMetricId>>(() => new Set(['followers', 'posts']));
+  const [primaryFocus, setPrimaryFocus] = useState<ChartMetricId>('followers');
+  const [showActivityOnGrowth, setShowActivityOnGrowth] = useState(true);
 
-  const handleFocusMetric = useCallback((id: LineMetricId) => {
+  const handleFocusMetric = useCallback((id: ChartMetricId) => {
     setActiveMetrics((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
         if (next.size <= 1) return prev;
         next.delete(id);
-        setPrimaryFocus((p) => (p === id ? LINE_METRIC_IDS.find((m) => next.has(m)) ?? p : p));
+        setPrimaryFocus((p) => (p === id ? CHART_METRIC_IDS.find((m) => next.has(m)) ?? p : p));
         return next;
       }
       next.add(id);
@@ -558,11 +680,12 @@ export function OverviewGrowthSection({
       postsPerWeek,
       viewsSpark: data.map((d) => d.views),
       visitsSpark: data.map((d) => d.visits),
+      postsSpark: data.map((d) => d.posts),
     };
   }, [data]);
 
   return (
-    <section className="rounded-[24px] bg-white/80 border border-neutral-100 shadow-sm overflow-hidden">
+    <section className="rounded-[24px] bg-white border border-neutral-100 shadow-sm overflow-hidden">
       <div className="p-6 md:p-8 space-y-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -580,8 +703,9 @@ export function OverviewGrowthSection({
               <button
                 type="button"
                 onClick={onExport}
-                className="text-sm font-medium text-neutral-600 hover:text-neutral-900 px-3 py-2 rounded-lg hover:bg-neutral-100 transition-colors"
+                className="inline-flex items-center gap-2 text-sm font-medium text-neutral-600 hover:text-neutral-900 px-3 py-2 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-50 hover:border-neutral-300 transition-all duration-200"
               >
+                <Download size={16} className="text-neutral-500" />
                 Export
               </button>
             )}
@@ -623,7 +747,16 @@ export function OverviewGrowthSection({
             isPrimary={primaryFocus === 'visits'}
             onFocusMetric={handleFocusMetric}
           />
-          <KpiCard label="Total content" value={stats.totalContent} tint="slate" />
+          <KpiCard
+            label="Total content"
+            value={stats.totalContent}
+            tint="slate"
+            sparkData={stats.postsSpark}
+            metricId="posts"
+            isActive={activeMetrics.has('posts')}
+            isPrimary={primaryFocus === 'posts'}
+            onFocusMetric={handleFocusMetric}
+          />
         </div>
 
         {/* Main chart: Followers growth (KPI-driven focus) */}
@@ -633,6 +766,8 @@ export function OverviewGrowthSection({
           onDateHover={setHoveredDate}
           activeMetrics={activeMetrics}
           primaryFocus={primaryFocus}
+          showActivityOnGrowth={showActivityOnGrowth}
+          onShowActivityChange={setShowActivityOnGrowth}
         />
 
         {/* Secondary chart: Content activity */}

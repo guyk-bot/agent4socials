@@ -3,8 +3,6 @@
 import React, { useRef, useEffect, useMemo, useState } from 'react';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 
-const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
 /** Presets; anything beyond 30 days is premium (diamond). highlight = default purple tint for paid periods. */
 const PRESETS = [
   { id: 'yesterday', label: 'Yesterday', premium: false, highlight: false },
@@ -83,6 +81,7 @@ function CalendarGrid({
   today,
   compact = false,
   title,
+  showMonthTitle = true,
 }: {
   year: number;
   month: number;
@@ -92,6 +91,7 @@ function CalendarGrid({
   today: string;
   compact?: boolean;
   title?: string;
+  showMonthTitle?: boolean;
 }) {
   const first = new Date(year, month, 1);
   const last = new Date(year, month + 1, 0);
@@ -130,13 +130,13 @@ function CalendarGrid({
   const isEnd = (dateStr: string) => end === dateStr;
   const isCurrentMonth = (dateStr: string) => dateStr.startsWith(`${year}-${String(month + 1).padStart(2, '0')}-`);
 
-  const gap = compact ? 'gap-1.5' : 'gap-4';
-  const cellSize = compact ? 'w-9 min-w-9 h-9 min-h-9 text-sm' : 'w-16 min-w-16 h-16 min-h-16 text-base';
-  const headerSize = compact ? 'h-7 text-xs' : 'h-10 text-sm';
+  const gap = compact ? 'gap-1' : 'gap-2';
+  const cellSize = compact ? 'w-9 min-w-9 h-9 min-h-9 text-sm' : 'w-12 min-w-12 h-12 min-h-12 text-sm';
+  const headerSize = compact ? 'h-6 text-xs' : 'h-8 text-xs';
 
   return (
     <div className="calendar-grid shrink-0">
-      {(title || !compact) && (
+      {showMonthTitle && (title || !compact) && (
         <div className={`flex items-center justify-center font-semibold text-neutral-700 mb-2 ${compact ? 'text-xs' : 'text-base'}`}>
           {title ?? new Date(year, month).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
         </div>
@@ -201,15 +201,15 @@ export function AnalyticsDateRangePicker({
   const now = useMemo(() => new Date(), []);
   const todayStr = useMemo(() => now.toISOString().slice(0, 10), [now]);
 
-  const [calendarYear, setCalendarYear] = useState(() => {
+  const [calendarMonth, setCalendarMonth] = useState(() => {
     const s = start ? new Date(start + 'T12:00:00') : now;
-    return s.getFullYear();
+    return { year: s.getFullYear(), month: s.getMonth() };
   });
 
   useEffect(() => {
     if (start) {
       const s = new Date(start + 'T12:00:00');
-      setCalendarYear(s.getFullYear());
+      setCalendarMonth({ year: s.getFullYear(), month: s.getMonth() });
     }
   }, [start]);
 
@@ -248,7 +248,8 @@ export function AnalyticsDateRangePicker({
     onChange({ start: range.start, end: range.end });
     setTempStart(range.start);
     setTempEnd(range.end);
-    setCalendarYear(new Date(range.start + 'T12:00:00').getFullYear());
+    const d = new Date(range.start + 'T12:00:00');
+    setCalendarMonth({ year: d.getFullYear(), month: d.getMonth() });
     setOpen(false);
   };
 
@@ -284,7 +285,7 @@ export function AnalyticsDateRangePicker({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 z-50 flex gap-8 p-6 bg-white border border-neutral-200 rounded-2xl shadow-xl min-w-[900px] max-w-[96vw] w-[1200px]">
+        <div className="absolute right-0 top-full mt-2 z-50 flex gap-8 p-6 bg-white border border-neutral-200 rounded-2xl shadow-xl min-w-[380px] max-w-[96vw]">
           <div className="min-w-[200px] w-56 shrink-0">
             <p className="px-0 py-2 text-sm font-semibold text-neutral-500 uppercase tracking-wider mb-3">Presets</p>
             <div className="space-y-1">
@@ -333,41 +334,37 @@ export function AnalyticsDateRangePicker({
                 className="flex-1 min-w-0 text-base border border-neutral-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
               />
             </div>
-            <div className="border border-neutral-200 rounded-xl p-6 bg-neutral-50/50">
-              <div className="flex items-center justify-between mb-4">
+            <div className="border border-neutral-200 rounded-xl p-5 bg-neutral-50/50">
+              <div className="flex items-center justify-between mb-3">
                 <button
                   type="button"
-                  onClick={() => setCalendarYear((y) => y - 1)}
+                  onClick={() => setCalendarMonth((m) => (m.month === 0 ? { year: m.year - 1, month: 11 } : { year: m.year, month: m.month - 1 }))}
                   className="p-2 rounded-lg text-neutral-500 hover:bg-neutral-200 hover:text-neutral-800"
-                  aria-label="Previous year"
+                  aria-label="Previous month"
                 >
-                  <ChevronLeft size={22} />
+                  <ChevronLeft size={20} />
                 </button>
-                <span className="text-lg font-semibold text-neutral-800">{calendarYear}</span>
+                <span className="text-base font-semibold text-neutral-800">
+                  {new Date(calendarMonth.year, calendarMonth.month).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                </span>
                 <button
                   type="button"
-                  onClick={() => setCalendarYear((y) => y + 1)}
+                  onClick={() => setCalendarMonth((m) => (m.month === 11 ? { year: m.year + 1, month: 0 } : { year: m.year, month: m.month + 1 }))}
                   className="p-2 rounded-lg text-neutral-500 hover:bg-neutral-200 hover:text-neutral-800"
-                  aria-label="Next year"
+                  aria-label="Next month"
                 >
-                  <ChevronRight size={22} />
+                  <ChevronRight size={20} />
                 </button>
               </div>
-              <div className="flex flex-row flex-nowrap gap-6 overflow-x-auto pb-2">
-                {MONTH_NAMES.map((name, monthIndex) => (
-                  <CalendarGrid
-                    key={`${calendarYear}-${monthIndex}`}
-                    year={calendarYear}
-                    month={monthIndex}
-                    start={displayStart || null}
-                    end={displayEnd || null}
-                    onSelectDay={handleCalendarDay}
-                    today={todayStr}
-                    compact
-                    title={name}
-                  />
-                ))}
-              </div>
+              <CalendarGrid
+                year={calendarMonth.year}
+                month={calendarMonth.month}
+                start={displayStart || null}
+                end={displayEnd || null}
+                onSelectDay={handleCalendarDay}
+                today={todayStr}
+                showMonthTitle={false}
+              />
               <div className="flex items-center justify-between mt-4 pt-3 border-t border-neutral-200">
                 <button
                   type="button"
