@@ -212,12 +212,14 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                     </div>
                   </>
                 );
+                // From Inbox or any page: go to this account's analytics via client-side nav (keeps cache, no reload).
                 const dashboardUrl = `/dashboard?accountId=${encodeURIComponent(acc.id)}`;
                 const handleGoToAccountDashboard = (e: React.MouseEvent) => {
                   e.preventDefault();
                   setSelectedAccount(acc);
                   router.push(dashboardUrl);
                 };
+                const platformLabel = PLATFORM_LABELS[platform] ?? platform;
                 return (
                   <Link
                     key={acc.id}
@@ -225,7 +227,8 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                     onClick={handleGoToAccountDashboard}
                     className={accountRowClass}
                     style={isSelected ? { color: accent } : undefined}
-                    title={isInboxPage ? 'View analytics' : undefined}
+                    title={`View ${platformLabel} analytics`}
+                    aria-label={`View ${acc.username || platformLabel} analytics`}
                   >
                     {accountRowInner}
                   </Link>
