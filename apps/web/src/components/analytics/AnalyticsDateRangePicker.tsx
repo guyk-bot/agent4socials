@@ -125,14 +125,14 @@ function CalendarGrid({
 
   return (
     <div className="calendar-grid">
-      <div className="grid grid-cols-7 gap-3.5 mb-2">
+      <div className="grid grid-cols-7 gap-4 mb-3">
         {WEEKDAYS.map((w, i) => (
-          <div key={i} className="h-12 flex items-center justify-center text-xs font-medium text-neutral-500">
+          <div key={i} className="h-10 flex items-center justify-center text-sm font-semibold text-neutral-500">
             {w}
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-3.5">
+      <div className="grid grid-cols-7 gap-4">
         {rows.flat().map((dateStr, i) => {
           if (!dateStr) return <div key={i} />;
           const inRange = isInRange(dateStr);
@@ -145,13 +145,13 @@ function CalendarGrid({
               type="button"
               onClick={() => onSelectDay(dateStr)}
               className={`
-                aspect-square w-12 min-w-12 h-12 min-h-12 rounded-lg text-sm font-medium
+                aspect-square w-14 min-w-14 h-14 min-h-14 rounded-xl text-base font-semibold
                 flex items-center justify-center p-0 leading-none tabular-nums
                 ${!currentMonth ? 'text-neutral-300' : 'text-neutral-800'}
                 ${inRange && !startOrEnd ? 'bg-violet-100' : ''}
                 ${!inRange && !startOrEnd ? 'hover:bg-neutral-100' : ''}
                 ${startOrEnd ? 'bg-violet-600 text-white hover:bg-violet-700' : ''}
-                ${isToday && !startOrEnd ? 'ring-1 ring-violet-400 ring-offset-1' : ''}
+                ${isToday && !startOrEnd ? 'ring-2 ring-violet-400 ring-offset-2' : ''}
               `}
             >
               {new Date(dateStr + 'T12:00:00').getDate()}
@@ -284,16 +284,16 @@ export function AnalyticsDateRangePicker({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1 z-50 flex gap-4 p-4 bg-white border border-neutral-200 rounded-xl shadow-lg">
-          <div className="w-52">
-            <p className="px-0 py-1.5 text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">Presets</p>
-            <div className="space-y-0.5">
+        <div className="absolute right-0 top-full mt-2 z-50 flex gap-8 p-6 bg-white border border-neutral-200 rounded-2xl shadow-xl min-w-[520px]">
+          <div className="min-w-[200px] w-56">
+            <p className="px-0 py-2 text-sm font-semibold text-neutral-500 uppercase tracking-wider mb-3">Presets</p>
+            <div className="space-y-1">
               {PRESETS.map((p) => (
                 <button
                   key={p.id}
                   type="button"
                   onClick={() => handlePreset(p.id)}
-                  className={`w-full text-left px-3 py-2 text-sm font-medium rounded-md transition-colors flex items-center justify-between gap-2 ${
+                  className={`w-full text-left px-4 py-3 text-base font-medium rounded-lg transition-colors flex items-center justify-between gap-2 ${
                     p.highlight
                       ? 'bg-violet-50 text-violet-800 hover:bg-violet-100 hover:text-violet-900'
                       : 'text-neutral-800 hover:bg-neutral-100 hover:text-neutral-700'
@@ -301,16 +301,16 @@ export function AnalyticsDateRangePicker({
                 >
                   <span>{p.label}</span>
                   {p.premium && (
-                    <img src="/dim.svg" alt="" className="h-3.5 w-3.5 object-contain shrink-0 opacity-80" width={14} height={14} aria-hidden />
+                    <img src="/dim.svg" alt="" className="h-4 w-4 object-contain shrink-0 opacity-80" width={16} height={16} aria-hidden />
                   )}
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="border-l border-neutral-100 pl-4">
-            <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">Custom range</p>
-            <div className="flex items-center gap-2 flex-wrap mb-3">
+          <div className="border-l border-neutral-100 pl-6 flex-1">
+            <p className="text-sm font-semibold text-neutral-500 uppercase tracking-wider mb-3">Custom range</p>
+            <div className="flex items-center gap-3 flex-wrap mb-4">
               <input
                 type="date"
                 value={displayStart}
@@ -319,9 +319,9 @@ export function AnalyticsDateRangePicker({
                   setTempStart(v);
                   if (displayEnd && v <= displayEnd) onChange({ start: v, end: displayEnd });
                 }}
-                className="flex-1 min-w-0 text-sm border border-neutral-200 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
+                className="flex-1 min-w-0 text-base border border-neutral-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
               />
-              <span className="text-neutral-400">–</span>
+              <span className="text-neutral-400 text-base">–</span>
               <input
                 type="date"
                 value={displayEnd}
@@ -330,29 +330,29 @@ export function AnalyticsDateRangePicker({
                   setTempEnd(v);
                   if (displayStart && v >= displayStart) onChange({ start: displayStart, end: v });
                 }}
-                className="flex-1 min-w-0 text-sm border border-neutral-200 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
+                className="flex-1 min-w-0 text-base border border-neutral-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
               />
             </div>
-            <div className="border border-neutral-200 rounded-lg p-4 bg-neutral-50/50">
-              <div className="flex items-center justify-between mb-2">
+            <div className="border border-neutral-200 rounded-xl p-6 bg-neutral-50/50">
+              <div className="flex items-center justify-between mb-4">
                 <button
                   type="button"
                   onClick={goPrevMonth}
-                  className="p-1 rounded text-neutral-500 hover:bg-neutral-200 hover:text-neutral-800"
+                  className="p-2 rounded-lg text-neutral-500 hover:bg-neutral-200 hover:text-neutral-800"
                   aria-label="Previous month"
                 >
-                  <ChevronLeft size={18} />
+                  <ChevronLeft size={22} />
                 </button>
-                <span className="text-sm font-semibold text-neutral-800">
+                <span className="text-base font-semibold text-neutral-800">
                   {new Date(calendarMonth.year, calendarMonth.month).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
                 </span>
                 <button
                   type="button"
                   onClick={goNextMonth}
-                  className="p-1 rounded text-neutral-500 hover:bg-neutral-200 hover:text-neutral-800"
+                  className="p-2 rounded-lg text-neutral-500 hover:bg-neutral-200 hover:text-neutral-800"
                   aria-label="Next month"
                 >
-                  <ChevronRight size={18} />
+                  <ChevronRight size={22} />
                 </button>
               </div>
               <CalendarGrid
@@ -363,7 +363,7 @@ export function AnalyticsDateRangePicker({
                 onSelectDay={handleCalendarDay}
                 today={todayStr}
               />
-              <div className="flex items-center justify-between mt-3 pt-2 border-t border-neutral-200">
+              <div className="flex items-center justify-between mt-4 pt-3 border-t border-neutral-200">
                 <button
                   type="button"
                   onClick={() => {
@@ -371,7 +371,7 @@ export function AnalyticsDateRangePicker({
                     setTempEnd(null);
                     setRangeSelectPhase('start');
                   }}
-                  className="text-xs font-medium text-neutral-500 hover:text-neutral-700"
+                  className="text-sm font-medium text-neutral-500 hover:text-neutral-700"
                 >
                   Clear
                 </button>
@@ -383,7 +383,7 @@ export function AnalyticsDateRangePicker({
                     onChange({ start: todayStr, end: todayStr });
                     setRangeSelectPhase('start');
                   }}
-                  className="text-xs font-medium text-violet-600 hover:text-violet-800"
+                  className="text-sm font-medium text-violet-600 hover:text-violet-800"
                 >
                   Today
                 </button>
