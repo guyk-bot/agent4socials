@@ -283,6 +283,7 @@ function InboxPage() {
   const [commentsRefreshKey, setCommentsRefreshKey] = useState(0);
   const [conversationsRefreshKey, setConversationsRefreshKey] = useState(0);
   const [deleteCommentLoading, setDeleteCommentLoading] = useState(false);
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
   const [unreadCommentIds, setUnreadCommentIds] = useState<Set<string>>(new Set());
   const [unreadConversationIds, setUnreadConversationIds] = useState<Set<string>>(new Set());
   const [totalUnreadMessages, setTotalUnreadMessages] = useState(0); // sum of unread message counts when messageCount is available
@@ -1189,10 +1190,13 @@ function InboxPage() {
                 const isUnread = unreadCommentIds.has(c.commentId);
                 const hasReplied = hasRepliedByParent.has(c.commentId);
                 const isSelected = selectMode && selectedCommentIds.has(c.commentId);
+                const account = effectiveAccounts.find((a) => a.platform === c.platform);
+                const canDelete = account && (c.platform === 'INSTAGRAM' || c.platform === 'FACEBOOK' || c.platform === 'YOUTUBE' || c.platform === 'TWITTER');
                 return (
-                  <button
+                  <div
                     key={c.commentId}
-                    type="button"
+                    role="button"
+                    tabIndex={0}
                     onClick={() => {
                       if (selectMode) {
                         setSelectedCommentIds((prev) => {
@@ -1211,7 +1215,13 @@ function InboxPage() {
                         return next;
                       });
                     }}
-                    className={`w-full px-3 py-3 text-left transition-colors flex items-center gap-2 ${
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        (e.currentTarget as HTMLDivElement).click();
+                      }
+                    }}
+                    className={`w-full px-3 py-3 text-left transition-colors flex items-center gap-2 cursor-pointer ${
                       isSelected ? 'bg-indigo-50 border-l-2 border-l-indigo-500' :
                       selectedComment?.commentId === c.commentId ? 'bg-indigo-50 border-l-2 border-l-indigo-500' : isUnread ? 'bg-sky-50/80 hover:bg-sky-100/80' : 'hover:bg-neutral-50'
                     }`}
@@ -1245,6 +1255,38 @@ function InboxPage() {
                         </div>
                       </div>
                     </div>
+                    {canDelete && (
+                      <button
+                        type="button"
+                        disabled={deletingCommentId !== null}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (!account) return;
+                          setDeletingCommentId(c.commentId);
+                          setReplySendError(null);
+                          (async () => {
+                            try {
+                              await api.post(`/social/accounts/${account.id}/comments/delete`, { commentId: c.commentId });
+                              setComments((prev) => prev.filter((x) => x.commentId !== c.commentId));
+                              if (selectedComment?.commentId === c.commentId) {
+                                setSelectedComment(null);
+                                setReplyText('');
+                              }
+                            } catch (err: unknown) {
+                              const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+                              setReplySendError(msg ?? 'Failed to delete comment.');
+                            } finally {
+                              setDeletingCommentId(null);
+                            }
+                          })();
+                        }}
+                        className="shrink-0 p-1.5 rounded text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                        title="Delete comment"
+                      >
+                        {deletingCommentId === c.commentId ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                      </button>
+                    )}
                     {hasReplied && (
                       <span className="shrink-0 flex items-center gap-0.5 text-xs text-emerald-600 font-medium" title="You replied">
                         <Check size={12} />
@@ -1254,7 +1296,7 @@ function InboxPage() {
                     {isUnread && (
                       <span className="shrink-0 w-2 h-2 rounded-full bg-red-500" aria-hidden />
                     )}
-                  </button>
+                  </div>
                 );
               });
             })()}
@@ -2105,9 +2147,38 @@ function InboxPage() {
                         </div>
                       </div>
                     </div>
-                    <div>
-                      <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Comment</p>
-                      <p className="text-sm text-neutral-800 mt-1">{selectedComment.text}</p>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Comment</p>
+                        <p className="text-sm text-neutral-800 mt-1">{selectedComment.text}</p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={deleteCommentLoading || deletingCommentId !== null}
+                        onClick={async (e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const account = effectiveAccounts.find((a) => a.platform === selectedComment.platform);
+                          if (!account || !selectedComment) return;
+                          setDeletingCommentId(selectedComment.commentId);
+                          setReplySendError(null);
+                          try {
+                            await api.post(`/social/accounts/${account.id}/comments/delete`, { commentId: selectedComment.commentId });
+                            setComments((prev) => prev.filter((c) => c.commentId !== selectedComment.commentId));
+                            setSelectedComment(null);
+                            setReplyText('');
+                          } catch (err: unknown) {
+                            const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+                            setReplySendError(msg ?? 'Failed to delete comment.');
+                          } finally {
+                            setDeletingCommentId(null);
+                          }
+                        }}
+                        className="shrink-0 p-1.5 rounded-md text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Delete comment"
+                      >
+                        {deletingCommentId === selectedComment.commentId ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                      </button>
                     </div>
                     {(() => {
                       const replies = comments
@@ -2122,8 +2193,10 @@ function InboxPage() {
                               const avatarUrl = (r.authorName === 'You' || r.isFromMe) && !r.authorPictureUrl
                                 ? (user?.avatarUrl ?? r.authorPictureUrl)
                                 : r.authorPictureUrl;
+                              const account = effectiveAccounts.find((a) => a.platform === r.platform);
+                              const canDeleteReply = account && (r.platform === 'INSTAGRAM' || r.platform === 'FACEBOOK' || r.platform === 'YOUTUBE' || r.platform === 'TWITTER');
                               return (
-                              <div key={r.commentId} className="flex gap-2 rounded-lg bg-neutral-50 p-2">
+                              <div key={r.commentId} className="flex gap-2 rounded-lg bg-neutral-50 p-2 items-start">
                                 <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden">
                                   {avatarUrl ? (
                                     <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
@@ -2138,6 +2211,32 @@ function InboxPage() {
                                   </p>
                                   <p className="text-sm text-neutral-800 mt-0.5">{r.text}</p>
                                 </div>
+                                {canDeleteReply && (
+                                  <button
+                                    type="button"
+                                    disabled={deletingCommentId !== null}
+                                    onClick={async (e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      if (!account) return;
+                                      setDeletingCommentId(r.commentId);
+                                      setReplySendError(null);
+                                      try {
+                                        await api.post(`/social/accounts/${account.id}/comments/delete`, { commentId: r.commentId });
+                                        setComments((prev) => prev.filter((c) => c.commentId !== r.commentId));
+                                      } catch (err: unknown) {
+                                        const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+                                        setReplySendError(msg ?? 'Failed to delete reply.');
+                                      } finally {
+                                        setDeletingCommentId(null);
+                                      }
+                                    }}
+                                    className="shrink-0 p-1 rounded text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                                    title="Delete reply"
+                                  >
+                                    {deletingCommentId === r.commentId ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                                  </button>
+                                )}
                               </div>
                               );
                             })}
@@ -2263,44 +2362,8 @@ function InboxPage() {
                     AI comment drafts are disabled. <a href="/dashboard/ai-assistant" className="font-medium underline">Add comment reply examples in AI Assistant</a> to enable them.
                   </p>
                 )}
-                {(selectedPlatform === 'INSTAGRAM' || selectedPlatform === 'FACEBOOK' || selectedPlatform === 'TWITTER') && (
-                  <div className="mt-3 pt-3 border-t border-neutral-100">
-                    <button
-                      type="button"
-                      disabled={deleteCommentLoading}
-                      onClick={async () => {
-                        const account = effectiveAccounts.find((a) => a.platform === selectedComment.platform);
-                        if (!account || !selectedComment) return;
-                        if (!confirm('Delete this comment? It will be removed from your post.')) return;
-                        setDeleteCommentLoading(true);
-                        setReplySendError(null);
-                        try {
-                          await api.post(`/social/accounts/${account.id}/comments/delete`, {
-                            commentId: selectedComment.commentId,
-                          });
-                          setComments((prev) => prev.filter((c) => c.commentId !== selectedComment.commentId));
-                          setSelectedComment(null);
-                          setReplyText('');
-                        } catch (e: unknown) {
-                          const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
-                          setReplySendError(msg ?? 'Failed to delete comment.');
-                        } finally {
-                          setDeleteCommentLoading(false);
-                        }
-                      }}
-                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-red-200 text-red-700 text-sm font-medium hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Delete this comment"
-                    >
-                      {deleteCommentLoading ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
-                      Delete comment
-                    </button>
-                  </div>
-                )}
                 </>
                 )}
-                {selectedComment.platform === 'INSTAGRAM' || selectedComment.platform === 'FACEBOOK' ? (
-                  <p className="text-xs text-neutral-400 mt-2">Use the sparkle button to generate a reply with AI, then edit or send.</p>
-                ) : null}
               </div>
             </div>
           </>
@@ -2391,41 +2454,42 @@ function InboxPage() {
           </div>
         ) : (
           <>
-            <div className="flex-1 overflow-y-auto p-6 min-h-0">
-              <div className="max-w-2xl mx-auto">
-                <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
-                  <div className="p-4 border-b border-neutral-100 bg-neutral-50/50">
-                    {(() => {
-                      const selectedConv = conversations.find((c) => c.id === selectedConversationId);
-                      const cached = selectedConversationId ? conversationMessagesCache[selectedConversationId] : undefined;
-                      const recipientNameFromCache = cached?.recipientName;
-                      const senderNames = selectedConv?.senders?.map((s) => s.username ?? s.name).filter(Boolean).join(', ') || null;
-                      const displayName = senderNames || (selectedPlatform === 'TWITTER' ? recipientNameFromCache : null) || null;
-                      const chatWithLabel = displayName
-                        ? `Chat with ${displayName}`
-                        : selectedPlatform === 'TWITTER'
-                          ? 'Chat with X (Twitter) user'
-                          : 'Conversation';
-                      return (
-                        <>
-                          <p className="text-sm font-medium text-neutral-800">{chatWithLabel}</p>
-                          <p className="text-xs text-neutral-500 mt-0.5 flex items-center gap-1.5">
-                            {selectedPlatform && (() => {
-                              const plat = PLATFORMS.find((p) => p.id === selectedPlatform);
-                              const Icon = plat?.icon;
-                              return (
-                                <span className="inline-flex items-center gap-1 font-medium text-neutral-600">
-                                  {Icon && <Icon size={14} />}
-                                  {plat?.label ?? selectedPlatform} inbox
-                                </span>
-                              );
-                            })()}
-                          </p>
-                        </>
-                      );
-                    })()}
-                  </div>
-                  <div className="p-6 min-h-[200px] overflow-y-auto max-h-[60vh]">
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-6 min-h-0">
+                <div className="max-w-2xl mx-auto h-full flex flex-col min-h-0">
+                  <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden flex-1 flex flex-col min-h-0">
+                    <div className="p-4 border-b border-neutral-100 bg-neutral-50/50 shrink-0">
+                      {(() => {
+                        const selectedConv = conversations.find((c) => c.id === selectedConversationId);
+                        const cached = selectedConversationId ? conversationMessagesCache[selectedConversationId] : undefined;
+                        const recipientNameFromCache = cached?.recipientName;
+                        const senderNames = selectedConv?.senders?.map((s) => s.username ?? s.name).filter(Boolean).join(', ') || null;
+                        const displayName = senderNames || (selectedPlatform === 'TWITTER' ? recipientNameFromCache : null) || null;
+                        const chatWithLabel = displayName
+                          ? `Chat with ${displayName}`
+                          : selectedPlatform === 'TWITTER'
+                            ? 'Chat with X (Twitter) user'
+                            : 'Conversation';
+                        return (
+                          <>
+                            <p className="text-sm font-medium text-neutral-800">{chatWithLabel}</p>
+                            <p className="text-xs text-neutral-500 mt-0.5 flex items-center gap-1.5">
+                              {selectedPlatform && (() => {
+                                const plat = PLATFORMS.find((p) => p.id === selectedPlatform);
+                                const Icon = plat?.icon;
+                                return (
+                                  <span className="inline-flex items-center gap-1 font-medium text-neutral-600">
+                                    {Icon && <Icon size={14} />}
+                                    {plat?.label ?? selectedPlatform} inbox
+                                  </span>
+                                );
+                              })()}
+                            </p>
+                          </>
+                        );
+                      })()}
+                    </div>
+                    <div className="p-6 flex-1 min-h-0 overflow-y-auto">
                     {conversationMessagesLoading ? (
                       <div className="flex flex-col items-center justify-center gap-2 py-6">
                         <Loader2 size={24} className="text-indigo-500 animate-spin" />
@@ -2475,6 +2539,7 @@ function InboxPage() {
                   </div>
                 </div>
               </div>
+            </div>
             </div>
             <div className="border-t border-neutral-200 bg-white p-4 shrink-0">
               <div className="max-w-2xl mx-auto">
