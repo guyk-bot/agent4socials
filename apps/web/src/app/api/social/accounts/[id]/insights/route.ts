@@ -255,6 +255,7 @@ export async function GET(
         console.warn('[Insights] Facebook page profile:', (e as Error)?.message ?? e);
       }
       if (effectiveSinceTs != null && effectiveUntilTs != null) {
+        let insightsError: string | undefined;
         try {
           // page_impressions = total views (not unique), page_views_total = page visits, page_engaged_users = engaged reach
           const metricSets = [
@@ -262,11 +263,21 @@ export async function GET(
             'page_impressions,page_views_total,page_engaged_users,page_fan_adds',
           ];
           let data: Array<{ name: string; values?: Array<{ value: number | string; end_time?: string }> }> = [];
+          const untilForApi = (() => {
+            const d = new Date(effectiveUntilParam + 'T12:00:00');
+            const today = new Date();
+            today.setHours(12, 0, 0, 0);
+            if (d >= today) {
+              d.setUTCDate(d.getUTCDate() - 1);
+            }
+            return d.toISOString().slice(0, 10);
+          })();
+          const untilApi = (() => { const d = new Date(untilForApi + 'T12:00:00'); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10); })();
           for (const metrics of metricSets) {
             try {
-              const untilApi = effectiveUntilParam ? (() => { const d = new Date(effectiveUntilParam + 'T12:00:00'); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10); })() : effectiveUntilParam;
               const insightsRes = await axios.get<{
                 data?: Array<{ name: string; values?: Array<{ value: number | string; end_time?: string }> }>;
+                error?: { message?: string; code?: number; type?: string };
               }>(`${baseUrl}/${account.platformUserId}/insights`, {
                 params: {
                   metric: metrics,
@@ -277,13 +288,24 @@ export async function GET(
                 },
                 timeout: 10_000,
               });
+              if (insightsRes.data?.error) {
+                insightsError = insightsRes.data.error.message ?? JSON.stringify(insightsRes.data.error);
+              }
               data = insightsRes.data?.data ?? [];
               break;
             } catch (err) {
-              const status = (err as { response?: { status?: number } })?.response?.status;
+              const ax = err as { response?: { status?: number; data?: { error?: { message?: string; code?: number } } } };
+              const status = ax?.response?.status;
+              const msg = ax?.response?.data?.error?.message ?? (err as Error)?.message;
               if (status === 400 && metrics.includes('page_fan_removes')) continue;
+              insightsError = msg ? `Meta API: ${msg}` : (status ? `HTTP ${status}` : 'Request failed');
               throw err;
             }
+          }
+          if (data.length === 0 && !out.impressionsTotal && !out.pageViewsTotal) {
+            out.insightsHint = insightsError
+              ? `Page insights: ${insightsError}. Ensure the app has read_insights (Meta → Use cases → Pages API) and reconnect Facebook, then choose your Page.`
+              : 'Page insights returned no data for this range. Try a different date range or reconnect and ensure read_insights is granted.';
           }
           const addsByDate = new Map<string, number>();
           const removesByDate = new Map<string, number>();
@@ -334,10 +356,14 @@ export async function GET(
             out.followersTimeSeries = points;
           }
         } catch (e) {
-          const status = (e as { response?: { status?: number } })?.response?.status;
-          if (status !== 400) console.warn('[Insights] Facebook insights:', (e as Error)?.message ?? e);
-          if (!out.insightsHint && out.followers === 0 && !out.impressionsTotal) {
-            out.insightsHint = 'Reconnect from the sidebar and choose your Page when asked to see Page analytics.';
+          const ax = e as { response?: { status?: number; data?: { error?: { message?: string } } } };
+          const status = ax?.response?.status;
+          const msg = ax?.response?.data?.error?.message ?? (e as Error)?.message;
+          if (status !== 400) console.warn('[Insights] Facebook insights:', msg ?? e);
+          if (!out.insightsHint) {
+            out.insightsHint = msg
+              ? `Page insights failed: ${msg}. Ensure read_insights is in your Meta app (Use cases → Pages API) and reconnect Facebook, then choose your Page.`
+              : 'Reconnect from the sidebar and choose your Page when asked to see Page analytics.';
           }
         }
       }
