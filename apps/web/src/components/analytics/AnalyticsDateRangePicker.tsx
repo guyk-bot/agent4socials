@@ -127,7 +127,7 @@ function CalendarGrid({
     <div className="calendar-grid">
       <div className="grid grid-cols-7 gap-2 mb-2">
         {WEEKDAYS.map((w, i) => (
-          <div key={i} className="text-center text-xs font-medium text-neutral-500 py-1.5">
+          <div key={i} className="h-10 flex items-center justify-center text-xs font-medium text-neutral-500">
             {w}
           </div>
         ))}
@@ -145,7 +145,8 @@ function CalendarGrid({
               type="button"
               onClick={() => onSelectDay(dateStr)}
               className={`
-                w-10 h-10 rounded-lg text-sm flex items-center justify-center
+                aspect-square w-10 min-w-10 h-10 min-h-10 rounded-lg text-sm font-medium
+                flex items-center justify-center p-0 leading-none tabular-nums
                 ${!currentMonth ? 'text-neutral-300' : 'text-neutral-800'}
                 ${inRange ? 'bg-violet-100' : 'hover:bg-neutral-100'}
                 ${startOrEnd ? 'bg-violet-600 text-white hover:bg-violet-700' : ''}
