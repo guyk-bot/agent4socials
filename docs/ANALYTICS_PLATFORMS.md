@@ -16,6 +16,8 @@ Official APIs only. No scraping.
 
 **Metrics**: impressions (deprecated), reach, profile_views, accounts_engaged, **follower_demographics**, **engaged_audience_demographics** (breakdowns: age, city, country, gender), views, saves, likes, shares.
 
+**Follower count over time (growth chart)**: Same permissions (`instagram_manage_insights` or `instagram_business_manage_insights`). We request the **follower_count** insight with `period=day`; it returns **new followers per day**. We then build a daily total from baseline so the chart shows exact follower fluctuations. Not available for accounts with fewer than 100 followers.
+
 ---
 
 ## Facebook (Page)

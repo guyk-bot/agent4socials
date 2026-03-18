@@ -200,6 +200,13 @@ function formatYAxisValue(v: number): string {
   return String(v);
 }
 
+/** Tooltip: show exact integer for followers/following so users see real counts (e.g. 1,049 not 1.0k). */
+function formatTooltipValue(metricId: ChartMetricId, value: number): string {
+  if (metricId === 'followers' || metricId === 'following') return Math.round(value).toLocaleString();
+  if (metricId === 'posts') return String(value);
+  return formatYAxisValue(value);
+}
+
 // —— FollowersGrowthChart ——
 // KPI-driven: lines for followers/views/visits/following, bars for posts. Data-driven domains to show fluctuation.
 function FollowersGrowthChart({
@@ -378,7 +385,10 @@ function FollowersGrowthChart({
                 const labelStr = label != null ? String(label) : '';
                 if (!active || !labelStr) return null;
                 const point = chartData.find((d) => d.date === labelStr);
-                const activePayloads = (payload ?? []).filter((p) => p.dataKey && activeMetrics.has(p.dataKey as ChartMetricId));
+                // Dedupe by dataKey (Recharts sends one entry per Area + Line per metric, so we get duplicate Followers/Following)
+                const seen = new Set<string>();
+                const activePayloads = (payload ?? [])
+                  .filter((p) => p.dataKey && activeMetrics.has(p.dataKey as ChartMetricId) && !seen.has(String(p.dataKey)) && seen.add(String(p.dataKey)));
                 const metricLabels: Record<ChartMetricId, string> = { followers: 'Followers', views: 'Views', visits: 'Page visits', posts: 'Posts', following: 'Following' };
                 const postsThatDay = point?.posts ?? 0;
                 const showPostsInTooltip = activePayloads.length > 0 || postsThatDay >= 0;
@@ -393,7 +403,7 @@ function FollowersGrowthChart({
                       return (
                         <p key={id} className={`mt-0.5 text-sm ${isPrimary ? 'font-semibold text-neutral-900' : 'text-neutral-600'}`}>
                           <span className="text-neutral-500">{metricLabels[id]}: </span>
-                          <span className="tabular-nums" style={{ color }}>{id === 'posts' ? String(value) : formatYAxisValue(value)}</span>
+                          <span className="tabular-nums" style={{ color }}>{formatTooltipValue(id, value)}</span>
                         </p>
                       );
                     })}

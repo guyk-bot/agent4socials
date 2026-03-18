@@ -226,6 +226,56 @@ export async function GET(
         insightsOk = await tryInsights(igBaseUrl);
       }
 
+      // Fetch daily follower growth so we can show follower count over time (requires instagram_manage_insights / instagram_business_manage_insights).
+      // Metric follower_count = new followers per day; not available for accounts with <100 followers.
+      const tryFollowerCount = async (base: string): Promise<boolean> => {
+        if (effectiveSinceTs == null || effectiveUntilTs == null || out.followers < 100) return false;
+        try {
+          const res = await axios.get<{
+            data?: Array<{
+              name: string;
+              values?: Array<{ value: number; end_time?: string }>;
+            }>;
+            error?: { message?: string };
+          }>(`${base}/${account.platformUserId}/insights`, {
+            params: {
+              metric: 'follower_count',
+              period: 'day',
+              since: effectiveSinceTs,
+              until: effectiveUntilTs,
+              access_token: token,
+            },
+            timeout: 10_000,
+          });
+          if (res.data?.error || !res.data?.data?.length) return false;
+          const metric = res.data.data.find((m) => m.name === 'follower_count');
+          const values = metric?.values ?? [];
+          if (values.length === 0) return false;
+          const points = values
+            .map((v) => ({
+              date: v.end_time ? v.end_time.slice(0, 10) : '',
+              value: typeof v.value === 'number' ? v.value : 0,
+            }))
+            .filter((x) => x.date)
+            .sort((a, b) => a.date.localeCompare(b.date));
+          // follower_count = new followers that day. Build cumulative: total at day i = baseline + sum(gained from start to i).
+          const totalGainedInRange = points.reduce((s, p) => s + p.value, 0);
+          const baseline = Math.max(0, out.followers - totalGainedInRange);
+          let running = baseline;
+          out.followersTimeSeries = points.map((p) => {
+            running += p.value;
+            return { date: p.date, value: running };
+          });
+          return true;
+        } catch (e) {
+          const status = (e as { response?: { status?: number } })?.response?.status;
+          if (status === 400 || status === 403) return false;
+          return false;
+        }
+      };
+      const fcOk = await tryFollowerCount(fbBaseUrl);
+      if (!fcOk && (isInstagramBusinessLogin || out.followers > 0)) await tryFollowerCount(igBaseUrl);
+
       if (!insightsOk && !out.impressionsTotal && !out.reachTotal && out.followers === 0) {
         out.insightsHint = 'Instagram insights temporarily unavailable. Try reconnecting your account from the sidebar.';
       }
