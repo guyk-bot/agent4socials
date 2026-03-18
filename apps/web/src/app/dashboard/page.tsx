@@ -824,16 +824,6 @@ export default function DashboardPage() {
   if (showConnectView) {
     const connectPlatform = (selectedPlatformForConnect || connectFromUrl) as string;
     const isTwitterConnect = connectPlatform === 'TWITTER';
-    const twitterGateLoaded = !isTwitterConnect || canConnectTwitter !== null;
-
-    if (isTwitterConnect && !twitterGateLoaded) {
-      return (
-        <div className="flex flex-col items-center justify-center min-h-[320px] gap-4">
-          <div className="animate-spin rounded-full h-10 w-10 border-2 border-[var(--button)] border-t-transparent" />
-          <p className="text-sm text-neutral-500">Checking plan…</p>
-        </div>
-      );
-    }
 
     if (isTwitterConnect && canConnectTwitter === false) {
       return (
