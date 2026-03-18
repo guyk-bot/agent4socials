@@ -3,15 +3,15 @@
 import React, { useRef, useEffect, useMemo, useState } from 'react';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 
+/** Presets; anything beyond 30 days is premium (diamond). */
 const PRESETS = [
-  { id: 'yesterday', label: 'Yesterday' },
-  { id: 'last_week', label: 'Last week' },
-  { id: 'current_month', label: 'Current month' },
-  { id: 'last_30', label: 'Last 30 days' },
-  { id: 'previous_month', label: 'Previous month' },
-  { id: 'last_3_months', label: 'Last 3 months' },
-  { id: 'last_6_months', label: 'Last 6 months' },
-  { id: 'last_12_months', label: 'Last 12 months' },
+  { id: 'yesterday', label: 'Yesterday', premium: false },
+  { id: 'last_week', label: 'Last week', premium: false },
+  { id: 'current_month', label: 'Current month', premium: false },
+  { id: 'last_30', label: 'Last 30 days', premium: false },
+  { id: 'last_3_months', label: 'Last 3 months', premium: true },
+  { id: 'last_6_months', label: 'Last 6 months', premium: true },
+  { id: 'last_12_months', label: 'Last 12 months', premium: true },
 ] as const;
 
 function getPresetRange(
@@ -43,11 +43,6 @@ function getPresetRange(
     start.setDate(start.getDate() - 29);
     start.setHours(0, 0, 0, 0);
     return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
-  }
-  if (id === 'previous_month') {
-    start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const endPrev = new Date(now.getFullYear(), now.getMonth(), 0);
-    return { start: start.toISOString().slice(0, 10), end: endPrev.toISOString().slice(0, 10) };
   }
   if (id === 'last_3_months') {
     start = new Date(now);
@@ -130,14 +125,14 @@ function CalendarGrid({
 
   return (
     <div className="calendar-grid">
-      <div className="grid grid-cols-7 gap-0.5 mb-1">
+      <div className="grid grid-cols-7 gap-2 mb-2">
         {WEEKDAYS.map((w, i) => (
-          <div key={i} className="text-center text-xs font-medium text-neutral-500 py-1">
+          <div key={i} className="text-center text-xs font-medium text-neutral-500 py-1.5">
             {w}
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-0.5">
+      <div className="grid grid-cols-7 gap-2">
         {rows.flat().map((dateStr, i) => {
           if (!dateStr) return <div key={i} />;
           const inRange = isInRange(dateStr);
@@ -150,7 +145,7 @@ function CalendarGrid({
               type="button"
               onClick={() => onSelectDay(dateStr)}
               className={`
-                w-8 h-8 rounded-md text-sm flex items-center justify-center
+                w-10 h-10 rounded-lg text-sm flex items-center justify-center
                 ${!currentMonth ? 'text-neutral-300' : 'text-neutral-800'}
                 ${inRange ? 'bg-violet-100' : 'hover:bg-neutral-100'}
                 ${startOrEnd ? 'bg-violet-600 text-white hover:bg-violet-700' : ''}
@@ -296,9 +291,12 @@ export function AnalyticsDateRangePicker({
                   key={p.id}
                   type="button"
                   onClick={() => handlePreset(p.id)}
-                  className="w-full text-left px-3 py-2 text-sm font-medium text-neutral-800 hover:bg-violet-50 hover:text-violet-800 rounded-md transition-colors"
+                  className="w-full text-left px-3 py-2 text-sm font-medium text-neutral-800 hover:bg-violet-50 hover:text-violet-800 rounded-md transition-colors flex items-center justify-between gap-2"
                 >
-                  {p.label}
+                  <span>{p.label}</span>
+                  {p.premium && (
+                    <img src="/dim.svg" alt="" className="h-3.5 w-3.5 object-contain shrink-0 opacity-80" width={14} height={14} aria-hidden />
+                  )}
                 </button>
               ))}
             </div>
@@ -329,7 +327,7 @@ export function AnalyticsDateRangePicker({
                 className="flex-1 min-w-0 text-sm border border-neutral-200 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
               />
             </div>
-            <div className="border border-neutral-200 rounded-lg p-3 bg-neutral-50/50">
+            <div className="border border-neutral-200 rounded-lg p-4 bg-neutral-50/50">
               <div className="flex items-center justify-between mb-2">
                 <button
                   type="button"
