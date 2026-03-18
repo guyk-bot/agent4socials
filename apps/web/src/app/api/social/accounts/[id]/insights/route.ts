@@ -10,6 +10,13 @@ const fbBaseUrl = 'https://graph.facebook.com/v18.0';
 const igBaseUrl = 'https://graph.instagram.com/v18.0';
 const baseUrl = fbBaseUrl; // used by Facebook and other platforms
 
+/** Facebook Insights end_time is end-of-day Pacific (next day midnight UTC). Return YYYY-MM-DD for the metric day to match Meta Business Suite. */
+function facebookMetricDateFromEndTime(endTime: string): string {
+  const d = new Date(endTime);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
 /**
  * GET /api/social/accounts/[id]/insights?since=YYYY-MM-DD&until=YYYY-MM-DD&extended=1
  * Returns account-level analytics. If extended=1, also fetches demographics, traffic sources, and growth where available.
@@ -68,11 +75,15 @@ export async function GET(
       insightsRangeHint = `Showing last ${INSTAGRAM_INSIGHTS_DAYS} days (Instagram\'s API limits insights to ${INSTAGRAM_INSIGHTS_DAYS} days).`;
     }
   }
+  let effectiveSinceParam = sinceParam;
+  let effectiveUntilParam = untilParam;
   if (account.platform === 'FACEBOOK' && sinceTs != null && untilTs != null) {
     const rangeDays = (untilTs - sinceTs) / (24 * 60 * 60);
     if (rangeDays > FACEBOOK_INSIGHTS_DAYS) {
       effectiveUntilTs = Math.floor(Date.now() / 1000);
       effectiveSinceTs = effectiveUntilTs - FACEBOOK_INSIGHTS_DAYS * 24 * 60 * 60;
+      effectiveUntilParam = new Date(effectiveUntilTs * 1000).toISOString().slice(0, 10);
+      effectiveSinceParam = new Date(effectiveSinceTs * 1000).toISOString().slice(0, 10);
       insightsRangeHint = `Showing last ${FACEBOOK_INSIGHTS_DAYS} days (Facebook allows up to ${FACEBOOK_INSIGHTS_DAYS} days per request).`;
     }
   }
@@ -253,14 +264,15 @@ export async function GET(
           let data: Array<{ name: string; values?: Array<{ value: number; end_time?: string }> }> = [];
           for (const metrics of metricSets) {
             try {
+              const untilApi = effectiveUntilParam ? (() => { const d = new Date(effectiveUntilParam + 'T12:00:00'); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10); })() : effectiveUntilParam;
               const insightsRes = await axios.get<{
-                data?: Array<{ name: string; values?: Array<{ value: number; end_time?: string }> }>;
+                data?: Array<{ name: string; values?: Array<{ value: number | string; end_time?: string }> }>;
               }>(`${baseUrl}/${account.platformUserId}/insights`, {
                 params: {
                   metric: metrics,
                   period: 'day',
-                  since: effectiveSinceTs,
-                  until: effectiveUntilTs,
+                  since: effectiveSinceParam,
+                  until: untilApi,
                   access_token: token,
                 },
                 timeout: 10_000,
@@ -280,18 +292,18 @@ export async function GET(
             let total = 0;
             const series: Array<{ date: string; value: number }> = [];
             for (const v of values) {
-              const val = typeof v.value === 'number' ? v.value : 0;
+              const val = typeof v.value === 'number' ? v.value : Number(v.value) || 0;
               total += val;
-              const date = v.end_time ? v.end_time.slice(0, 10) : '';
+              const date = v.end_time ? facebookMetricDateFromEndTime(v.end_time) : '';
               if (date) series.push({ date, value: val });
             }
             const sortedSeries = series.sort((a, b) => a.date.localeCompare(b.date));
             if (d.name === 'page_impressions') {
               out.impressionsTotal = total;
-              out.impressionsTimeSeries = sortedSeries.length ? sortedSeries : (total ? [{ date: untilParam?.slice(0, 10) || new Date().toISOString().slice(0, 10), value: total }] : []);
+              out.impressionsTimeSeries = sortedSeries.length ? sortedSeries : (total ? [{ date: effectiveUntilParam?.slice(0, 10) || new Date().toISOString().slice(0, 10), value: total }] : []);
             } else if (d.name === 'page_views_total') {
               out.pageViewsTotal = total;
-              out.pageViewsTimeSeries = sortedSeries.length ? sortedSeries : (total ? [{ date: untilParam?.slice(0, 10) || new Date().toISOString().slice(0, 10), value: total }] : []);
+              out.pageViewsTimeSeries = sortedSeries.length ? sortedSeries : (total ? [{ date: effectiveUntilParam?.slice(0, 10) || new Date().toISOString().slice(0, 10), value: total }] : []);
             } else if (d.name === 'page_engaged_users') {
               out.reachTotal = total;
             } else if (d.name === 'page_fan_adds') {
