@@ -124,15 +124,15 @@ function CalendarGrid({
   const isCurrentMonth = (dateStr: string) => dateStr.startsWith(`${year}-${String(month + 1).padStart(2, '0')}-`);
 
   return (
-    <div className="calendar-grid min-w-[432px]">
-      <div className="grid grid-cols-7 gap-4 mb-2">
+    <div className="calendar-grid">
+      <div className="grid grid-cols-7 gap-2.5 mb-2">
         {WEEKDAYS.map((w, i) => (
-          <div key={i} className="h-12 flex items-center justify-center text-xs font-medium text-neutral-500">
+          <div key={i} className="h-10 flex items-center justify-center text-xs font-medium text-neutral-500">
             {w}
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-4">
+      <div className="grid grid-cols-7 gap-2.5">
         {rows.flat().map((dateStr, i) => {
           if (!dateStr) return <div key={i} />;
           const inRange = isInRange(dateStr);
@@ -145,7 +145,7 @@ function CalendarGrid({
               type="button"
               onClick={() => onSelectDay(dateStr)}
               className={`
-                aspect-square w-12 min-w-[2.75rem] h-12 min-h-[2.75rem] rounded-xl text-sm font-medium
+                aspect-square w-10 min-w-10 h-10 min-h-10 rounded-lg text-sm font-medium
                 flex items-center justify-center p-0 leading-none tabular-nums
                 ${!currentMonth ? 'text-neutral-300' : 'text-neutral-800'}
                 ${inRange && !startOrEnd ? 'bg-violet-100' : ''}
@@ -310,7 +310,6 @@ export function AnalyticsDateRangePicker({
 
           <div className="border-l border-neutral-100 pl-4">
             <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">Custom range</p>
-            <p className="text-xs text-neutral-500 mb-2 whitespace-nowrap">e.g. 30 days</p>
             <div className="flex items-center gap-2 flex-wrap mb-3">
               <input
                 type="date"
