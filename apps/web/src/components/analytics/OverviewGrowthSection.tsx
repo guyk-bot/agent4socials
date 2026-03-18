@@ -17,6 +17,16 @@ import {
   ReferenceLine,
 } from 'recharts';
 
+// —— Purple color system (one hue, multiple expressions) ——
+const PURPLE = {
+  primary: '#7c3aed',      // violet-600, main brand
+  strong: '#6d28d9',       // violet-700, highlights / emphasis
+  soft: '#a78bfa',        // violet-400, secondary elements
+  muted: 'rgba(124, 58, 237, 0.4)',
+  bg: 'rgba(124, 58, 237, 0.08)',
+  grid: 'rgba(0, 0, 0, 0.018)',
+} as const;
+
 export type GrowthDataPoint = {
   date: string;
   followers: number;
@@ -83,24 +93,18 @@ function KpiCard({
   const bgTint =
     tint === 'violet'
       ? primary
-        ? 'bg-violet-500/[0.1]'
-        : 'bg-violet-500/[0.06]'
-      : tint === 'blue'
-        ? 'bg-blue-500/[0.05]'
-        : tint === 'emerald'
-          ? 'bg-emerald-500/[0.05]'
-          : tint === 'slate'
-            ? 'bg-slate-500/[0.05]'
-            : 'bg-neutral-100/80';
+        ? 'bg-violet-500/[0.07]'
+        : 'bg-violet-500/[0.05]'
+      : 'bg-neutral-100/90';
 
   return (
     <div
-      className={`relative rounded-[22px] flex flex-col justify-between shadow-sm border transition-all duration-200 ${primary ? 'p-6 min-h-[108px] border-violet-200/60 hover:border-violet-300/80' : 'p-5 min-h-[100px] border-neutral-100/80 hover:border-neutral-200/80'} hover:shadow-md ${bgTint}`}
+      className={`relative rounded-[22px] flex flex-col justify-between shadow-sm border transition-all duration-200 hover:shadow-md ${primary ? 'p-6 min-h-[108px] border-violet-200/50 hover:border-violet-300/60' : 'p-5 min-h-[100px] border-neutral-200/60 hover:border-neutral-300/70'} ${bgTint}`}
     >
       {trend != null && (
         <span
           className={`absolute top-4 right-4 text-xs font-medium ${
-            trendUp ? 'text-emerald-600' : trend === '0' ? 'text-neutral-500' : 'text-rose-600'
+            trendUp ? 'text-violet-600' : trend === '0' ? 'text-neutral-500' : 'text-rose-500/90'
           }`}
         >
           {trend}
@@ -111,18 +115,26 @@ function KpiCard({
         <p className="text-sm text-neutral-500 mt-1">{label}</p>
       </div>
       {sparkData != null && sparkData.length > 1 && (
-        <div className="mt-3 h-8 -mb-1 opacity-50">
+        <div className={`mt-3 h-8 -mb-1 ${tint === 'violet' ? 'opacity-70' : 'opacity-40'}`}>
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart
               data={sparkData.map((value, index) => ({ value, index }))}
               margin={{ top: 2, right: 0, left: 0, bottom: 2 }}
             >
+              {tint === 'violet' && (
+                <defs>
+                  <linearGradient id="kpiSparkGrad" x1="0" y1="1" x2="0" y2="0">
+                    <stop offset="0%" stopColor={PURPLE.primary} stopOpacity={0.1} />
+                    <stop offset="100%" stopColor={PURPLE.soft} stopOpacity={0.4} />
+                  </linearGradient>
+                </defs>
+              )}
               <Area
                 type="monotone"
                 dataKey="value"
                 stroke="none"
-                fill="currentColor"
-                fillOpacity={0.25}
+                fill={tint === 'violet' ? 'url(#kpiSparkGrad)' : 'currentColor'}
+                fillOpacity={tint === 'violet' ? 1 : 0.2}
               />
             </ComposedChart>
           </ResponsiveContainer>
@@ -187,17 +199,17 @@ function FollowersGrowthChart({
           >
             <defs>
               <linearGradient id="followersLineGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#8b5cf6" stopOpacity={1} />
-                <stop offset="100%" stopColor="#7c3aed" stopOpacity={0.75} />
+                <stop offset="0%" stopColor={PURPLE.strong} stopOpacity={1} />
+                <stop offset="100%" stopColor={PURPLE.primary} stopOpacity={0.75} />
               </linearGradient>
               <linearGradient id="followersAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.08} />
-                <stop offset="100%" stopColor="#7c3aed" stopOpacity={0} />
+                <stop offset="0%" stopColor={PURPLE.soft} stopOpacity={0.09} />
+                <stop offset="100%" stopColor={PURPLE.primary} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.02)" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke={PURPLE.grid} vertical={false} />
             {hoveredDate && (
-              <ReferenceLine x={hoveredDate} stroke="#a78bfa" strokeWidth={1} strokeDasharray="4 3" opacity={0.8} />
+              <ReferenceLine x={hoveredDate} stroke={PURPLE.muted} strokeWidth={1} strokeDasharray="4 3" />
             )}
             <XAxis
               dataKey="date"
@@ -219,17 +231,21 @@ function FollowersGrowthChart({
                 const labelStr = label != null ? String(label) : '';
                 if (!active || !payload?.length || !labelStr) return null;
                 const point = chartData.find((d) => d.date === labelStr);
+                const value = (payload[0]?.value as number) ?? 0;
                 return (
-                  <div className="rounded-lg bg-white/98 text-neutral-900 px-3 py-2 shadow-lg border border-neutral-200/60 text-left min-w-[140px] ring-1 ring-neutral-900/5">
+                  <div className="rounded-lg bg-white text-neutral-900 px-3 py-2 shadow-md border border-neutral-200/50 text-left min-w-[140px]">
                     <p className="text-neutral-500 text-xs font-medium">{formatDate(labelStr)}</p>
-                    <p className="text-neutral-900 font-semibold mt-0.5 text-sm">Followers: {(payload[0]?.value as number) ?? 0}</p>
+                    <p className="mt-0.5 text-sm">
+                      <span className="text-neutral-500">Followers: </span>
+                      <span className="font-semibold text-violet-600 tabular-nums">{value}</span>
+                    </p>
                     {point != null && (
-                      <p className="text-neutral-500 text-xs mt-0.5">+{point.gained} that day</p>
+                      <p className="text-neutral-400 text-xs mt-0.5">+{point.gained} that day</p>
                     )}
                   </div>
                 );
               }}
-              cursor={{ stroke: '#a78bfa', strokeWidth: 1, strokeDasharray: '4 2', strokeOpacity: 0.6 }}
+              cursor={{ stroke: PURPLE.muted, strokeWidth: 1, strokeDasharray: '4 2' }}
             />
             <Area type="monotone" dataKey="followers" fill="url(#followersAreaGrad)" stroke="none" />
             <Line
@@ -240,14 +256,14 @@ function FollowersGrowthChart({
               dot={({ cx, cy, payload }) =>
                 payload.date === lastDate ? (
                   <g key={payload.date}>
-                    <circle cx={cx} cy={cy} r={7} fill="#7c3aed" fillOpacity={0.2} />
-                    <circle cx={cx} cy={cy} r={4.5} fill="#7c3aed" stroke="#fff" strokeWidth={1.5} />
+                    <circle cx={cx} cy={cy} r={7} fill={PURPLE.strong} fillOpacity={0.22} />
+                    <circle cx={cx} cy={cy} r={4.5} fill={PURPLE.strong} stroke="#fff" strokeWidth={1.5} />
                   </g>
                 ) : (
-                  <circle key={payload.date} cx={cx} cy={cy} r={2} fill="#7c3aed" fillOpacity={0.9} />
+                  <circle key={payload.date} cx={cx} cy={cy} r={2} fill={PURPLE.primary} fillOpacity={0.85} />
                 )
               }
-              activeDot={{ r: 5, fill: '#7c3aed', stroke: '#fff', strokeWidth: 1.5 }}
+              activeDot={{ r: 5, fill: PURPLE.primary, stroke: '#fff', strokeWidth: 1.5 }}
               strokeLinecap="round"
               strokeLinejoin="round"
               connectNulls
@@ -292,14 +308,18 @@ function ContentActivityChart({
             onMouseLeave={() => onDateHover(null)}
           >
             <defs>
-              <linearGradient id="contentBarGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.95} />
-                <stop offset="100%" stopColor="#a78bfa" stopOpacity={0.85} />
+              <linearGradient id="contentBarGrad" x1="0" y1="1" x2="0" y2="0">
+                <stop offset="0%" stopColor={PURPLE.soft} stopOpacity={0.7} />
+                <stop offset="100%" stopColor={PURPLE.soft} stopOpacity={0.95} />
+              </linearGradient>
+              <linearGradient id="contentBarGradMax" x1="0" y1="1" x2="0" y2="0">
+                <stop offset="0%" stopColor={PURPLE.primary} stopOpacity={0.85} />
+                <stop offset="100%" stopColor={PURPLE.strong} stopOpacity={1} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.02)" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke={PURPLE.grid} vertical={false} />
             {hoveredDate && (
-              <ReferenceLine x={hoveredDate} stroke="#a78bfa" strokeWidth={1} strokeDasharray="4 3" opacity={0.6} />
+              <ReferenceLine x={hoveredDate} stroke={PURPLE.muted} strokeWidth={1} strokeDasharray="4 3" />
             )}
             <XAxis
               dataKey="date"
@@ -319,10 +339,14 @@ function ContentActivityChart({
               content={({ active, payload, label }) => {
                 const labelStr = label != null ? String(label) : '';
                 if (!active || !payload?.length || !labelStr) return null;
+                const value = (payload[0]?.value as number) ?? 0;
                 return (
-                  <div className="rounded-lg bg-white/98 text-neutral-900 px-3 py-2 shadow-lg border border-neutral-200/60 text-left min-w-[130px] ring-1 ring-neutral-900/5">
+                  <div className="rounded-lg bg-white text-neutral-900 px-3 py-2 shadow-md border border-neutral-200/50 text-left min-w-[130px]">
                     <p className="text-neutral-500 text-xs font-medium">{formatDate(labelStr)}</p>
-                    <p className="text-neutral-900 font-semibold mt-0.5 text-sm">Posts: {(payload[0]?.value as number) ?? 0}</p>
+                    <p className="mt-0.5 text-sm">
+                      <span className="text-neutral-500">Posts: </span>
+                      <span className="font-semibold text-violet-600 tabular-nums">{value}</span>
+                    </p>
                   </div>
                 );
               }}
@@ -332,12 +356,15 @@ function ContentActivityChart({
               {data.map((entry, index) => {
                 const isMax = entry.date === maxPostsDate && maxPosts > 0;
                 const isHovered = entry.date === hoveredDate;
+                const fill =
+                  isHovered ? PURPLE.primary : isMax ? 'url(#contentBarGradMax)' : 'url(#contentBarGrad)';
+                const fillOpacity = isHovered ? 1 : isMax ? 1 : 0.72;
                 return (
                   <Cell
                     key={entry.date + index}
-                    fill={isMax ? '#7c3aed' : 'url(#contentBarGrad)'}
-                    fillOpacity={isHovered ? 1 : isMax ? 1 : 0.88}
-                    stroke={isHovered ? '#7c3aed' : undefined}
+                    fill={fill}
+                    fillOpacity={fillOpacity}
+                    stroke={isHovered ? PURPLE.primary : undefined}
                     strokeWidth={isHovered ? 1.5 : 0}
                   />
                 );
