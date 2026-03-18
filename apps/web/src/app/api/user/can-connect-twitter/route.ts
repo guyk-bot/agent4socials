@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
-/** Paid tiers that can connect X (Twitter). Free tier is 'account' or missing. */
-const PAID_TIERS = ['starter', 'pro'];
-
+/**
+ * Allow connecting X (Twitter) for all authenticated users.
+ * Sidebar still shows the diamond/tooltip for display purposes; this only controls actual connection.
+ */
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
   if (!authHeader?.startsWith('Bearer ')) {
@@ -22,19 +22,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ canConnectTwitter: false }, { status: 401 });
   }
 
-  const admin = getSupabaseAdmin();
-  if (!admin) {
-    return NextResponse.json({ canConnectTwitter: false });
-  }
-
-  const { data: profile } = await admin
-    .from('user_profiles')
-    .select('tier')
-    .eq('user_id', user.id)
-    .maybeSingle();
-
-  const tier = (profile?.tier ?? 'account')?.toString().toLowerCase();
-  const canConnectTwitter = PAID_TIERS.includes(tier);
-
-  return NextResponse.json({ canConnectTwitter });
+  return NextResponse.json({ canConnectTwitter: true });
 }
