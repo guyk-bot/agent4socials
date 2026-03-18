@@ -27,10 +27,10 @@ const PURPLE = {
   grid: 'rgba(0, 0, 0, 0.018)',
 } as const;
 
-export type LineMetricId = 'followers' | 'views' | 'visits';
+export type LineMetricId = 'followers' | 'views' | 'visits' | 'following';
 export type ChartMetricId = LineMetricId | 'posts';
 const LINE_METRIC_IDS: LineMetricId[] = ['followers', 'views', 'visits'];
-const CHART_METRIC_IDS: ChartMetricId[] = ['followers', 'views', 'visits', 'posts'];
+const CHART_METRIC_IDS: ChartMetricId[] = ['followers', 'views', 'visits', 'posts', 'following'];
 
 export type GrowthDataPoint = {
   date: string;
@@ -38,6 +38,8 @@ export type GrowthDataPoint = {
   posts: number;
   views: number;
   visits: number;
+  /** Instagram: flat value (no historical series from API). */
+  following?: number;
 };
 
 const SAMPLE_GROWTH_DATA: GrowthDataPoint[] = [
@@ -188,6 +190,7 @@ const METRIC_COLORS: Record<LineMetricId, { stroke: string; fill: string }> = {
   followers: { stroke: PURPLE.primary, fill: PURPLE.soft },
   views: { stroke: '#2563eb', fill: '#93c5fd' },
   visits: { stroke: '#059669', fill: '#6ee7b7' },
+  following: { stroke: '#059669', fill: '#6ee7b7' }, // emerald to match Following card
 };
 const POSTS_CHART_COLOR = { stroke: '#d97706', fill: '#fcd34d' }; // amber-600 / amber-300
 
@@ -198,7 +201,7 @@ function formatYAxisValue(v: number): string {
 }
 
 // —— FollowersGrowthChart ——
-// KPI-driven focus: lines for followers/views/visits, bars for posts.
+// KPI-driven: lines for followers/views/visits/following, bars for posts. Data-driven domains to show fluctuation.
 function FollowersGrowthChart({
   data,
   hoveredDate,
@@ -222,38 +225,51 @@ function FollowersGrowthChart({
   const hasEnoughData = useMemo(() => {
     const totalF = data.reduce((s, d) => s + (d.followers ?? 0), 0);
     const totalP = data.reduce((s, d) => s + (d.posts ?? 0), 0);
-    return data.length >= 2 && (totalF > 0 || totalP > 0);
+    const totalFollowing = data.reduce((s, d) => s + (d.following ?? 0), 0);
+    return data.length >= 2 && (totalF > 0 || totalP > 0 || totalFollowing > 0);
   }, [data]);
 
-  const leftMetricIds = useMemo(() => LINE_METRIC_IDS.filter((id) => id !== 'views' && activeMetrics.has(id)), [activeMetrics]);
+  // Left axis: followers, visits, following (line metrics). Right: views (line), posts (bars).
+  const leftMetricIds = useMemo(() => {
+    const ids: LineMetricId[] = [];
+    if (activeMetrics.has('followers')) ids.push('followers');
+    if (activeMetrics.has('visits')) ids.push('visits');
+    if (activeMetrics.has('following')) ids.push('following');
+    return ids;
+  }, [activeMetrics]);
   const hasViews = activeMetrics.has('views');
   const hasPosts = activeMetrics.has('posts');
 
+  // Data-driven left domain so follower/following fluctuation is visible (not 0 to max).
   const leftDomain = useMemo((): [number, number] => {
-    let max = 0;
+    if (leftMetricIds.length === 0 && !hasPosts) return [0, 10];
+    const vals: number[] = [];
     for (const id of leftMetricIds) {
       const key = id as keyof GrowthDataPoint;
-      const vals = chartData.map((d) => Number(d[key]) ?? 0);
-      max = Math.max(max, ...vals);
+      chartData.forEach((d) => {
+        const v = Number(d[key]) ?? 0;
+        if (v > 0 || id === 'following') vals.push(v);
+      });
     }
-    if (hasPosts) {
-      const postVals = chartData.map((d) => d.posts ?? 0);
-      max = Math.max(max, ...postVals);
-    }
-    if (max === 0 && leftMetricIds.length === 0 && !hasPosts) return [0, 10];
-    const min = 0;
-    const offset = max <= 1 ? 0.5 : Math.min(0.5, max * 0.08);
-    return [min, max + offset];
+    if (vals.length === 0) return [0, 10];
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    const range = max - min || 1;
+    const pad = Math.max(range * 0.15, 2, min * 0.01);
+    return [Math.max(0, min - pad), max + pad];
   }, [chartData, leftMetricIds, hasPosts]);
 
+  // Right axis: views (line) and/or posts (bars). Domain fits both so both are visible.
   const rightDomain = useMemo((): [number, number] => {
-    if (!hasViews) return [0, 10];
-    const vals = chartData.map((d) => d.views ?? 0);
-    const max = Math.max(...vals, 0);
-    const min = 0;
-    const offset = max <= 1 ? 0.5 : Math.min(0.5, max * 0.08);
-    return [min, max + offset];
-  }, [chartData, hasViews]);
+    const viewVals = hasViews ? chartData.map((d) => d.views ?? 0) : [];
+    const postVals = hasPosts ? chartData.map((d) => d.posts ?? 0) : [];
+    const maxV = viewVals.length ? Math.max(...viewVals) : 0;
+    const maxP = postVals.length ? Math.max(...postVals) : 0;
+    const max = Math.max(maxV, maxP, 1);
+    const pad = Math.max(1, max * 0.1);
+    return [0, max + pad];
+  }, [chartData, hasViews, hasPosts]);
+  const useRightAxis = hasViews || hasPosts;
 
   const lastDate = chartData.length > 0 ? chartData[chartData.length - 1].date : null;
   const tickCount = 4;
@@ -270,7 +286,7 @@ function FollowersGrowthChart({
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart
             data={chartData}
-            margin={{ top: 12, right: hasViews ? 44 : 12, left: 4, bottom: 4 }}
+            margin={{ top: 12, right: useRightAxis ? 44 : 12, left: 4, bottom: 4 }}
             onMouseMove={(e) => {
               const payload = (e as unknown as { activePayload?: Array<{ payload?: { date?: string } }> }).activePayload;
               const date = payload?.[0]?.payload?.date;
@@ -303,6 +319,14 @@ function FollowersGrowthChart({
                 <stop offset="0%" stopColor="#6ee7b7" stopOpacity={0.12} />
                 <stop offset="100%" stopColor="#059669" stopOpacity={0} />
               </linearGradient>
+              <linearGradient id="followingLineGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#047857" stopOpacity={1} />
+                <stop offset="100%" stopColor="#059669" stopOpacity={0.85} />
+              </linearGradient>
+              <linearGradient id="followingAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#6ee7b7" stopOpacity={0.12} />
+                <stop offset="100%" stopColor="#059669" stopOpacity={0} />
+              </linearGradient>
               <linearGradient id="growthContentBarGrad" x1="0" y1="1" x2="0" y2="0">
                 <stop offset="0%" stopColor={POSTS_CHART_COLOR.stroke} stopOpacity={0.5} />
                 <stop offset="100%" stopColor={POSTS_CHART_COLOR.stroke} stopOpacity={0.8} />
@@ -324,19 +348,19 @@ function FollowersGrowthChart({
               tickFormatter={formatDateShort}
               interval="preserveStartEnd"
             />
-            {(leftMetricIds.length > 0 || hasPosts || !hasViews) && (
+            {(leftMetricIds.length > 0 || !useRightAxis) && (
               <YAxis
                 yAxisId="left"
                 domain={leftDomain}
                 tick={{ fontSize: 12, fill: '#525252' }}
                 axisLine={false}
                 tickLine={false}
-                width={28}
+                width={32}
                 tickCount={tickCount}
                 tickFormatter={formatYAxisValue}
               />
             )}
-            {hasViews && (
+            {useRightAxis && (
               <YAxis
                 yAxisId="right"
                 orientation="right"
@@ -355,7 +379,7 @@ function FollowersGrowthChart({
                 if (!active || !labelStr) return null;
                 const point = chartData.find((d) => d.date === labelStr);
                 const activePayloads = (payload ?? []).filter((p) => p.dataKey && activeMetrics.has(p.dataKey as ChartMetricId));
-                const metricLabels: Record<ChartMetricId, string> = { followers: 'Followers', views: 'Views', visits: 'Page visits', posts: 'Posts' };
+                const metricLabels: Record<ChartMetricId, string> = { followers: 'Followers', views: 'Views', visits: 'Page visits', posts: 'Posts', following: 'Following' };
                 const postsThatDay = point?.posts ?? 0;
                 const showPostsInTooltip = activePayloads.length > 0 || postsThatDay >= 0;
                 return (
@@ -365,7 +389,7 @@ function FollowersGrowthChart({
                       const id = p.dataKey as ChartMetricId;
                       const value = (p.value as number) ?? 0;
                       const isPrimary = id === primaryFocus;
-                      const color = id === 'posts' ? PURPLE.primary : METRIC_COLORS[id].stroke;
+                      const color = id === 'posts' ? POSTS_CHART_COLOR.stroke : METRIC_COLORS[id as LineMetricId].stroke;
                       return (
                         <p key={id} className={`mt-0.5 text-sm ${isPrimary ? 'font-semibold text-neutral-900' : 'text-neutral-600'}`}>
                           <span className="text-neutral-500">{metricLabels[id]}: </span>
@@ -387,14 +411,13 @@ function FollowersGrowthChart({
               }}
               cursor={{ stroke: PURPLE.muted, strokeWidth: 1, strokeDasharray: '4 2' }}
             />
-            {LINE_METRIC_IDS.map((id) => {
-              if (!activeMetrics.has(id)) return null;
+            {[...leftMetricIds, ...(hasViews ? (['views'] as const) : [])].map((id) => {
               const isPrimary = id === primaryFocus;
               const opacity = isPrimary ? 1 : 0.38;
               const strokeWidth = isPrimary ? 2.8 : 1.5;
               const yAxisId = id === 'views' ? 'right' : 'left';
-              const strokeGrad = id === 'followers' ? 'url(#followersLineGrad)' : id === 'views' ? 'url(#viewsLineGrad)' : 'url(#visitsLineGrad)';
-              const areaGrad = id === 'followers' ? 'url(#followersAreaGrad)' : id === 'views' ? 'url(#viewsAreaGrad)' : 'url(#visitsAreaGrad)';
+              const strokeGrad = id === 'followers' ? 'url(#followersLineGrad)' : id === 'views' ? 'url(#viewsLineGrad)' : id === 'following' ? 'url(#followingLineGrad)' : 'url(#visitsLineGrad)';
+              const areaGrad = id === 'followers' ? 'url(#followersAreaGrad)' : id === 'views' ? 'url(#viewsAreaGrad)' : id === 'following' ? 'url(#followingAreaGrad)' : 'url(#visitsAreaGrad)';
               const color = METRIC_COLORS[id];
               return (
                 <React.Fragment key={id}>
@@ -402,7 +425,7 @@ function FollowersGrowthChart({
                     <Area type="monotone" dataKey={id} fill={areaGrad} stroke="none" yAxisId={yAxisId} isAnimationActive animationDuration={500} animationEasing="ease-out" />
                   )}
                   <Line
-                    type="stepAfter"
+                    type="monotone"
                     dataKey={id}
                     yAxisId={yAxisId}
                     stroke={strokeGrad}
@@ -430,7 +453,7 @@ function FollowersGrowthChart({
               );
             })}
             {hasPosts && (
-              <Bar dataKey="posts" yAxisId="left" fill="url(#growthContentBarGrad)" radius={[4, 4, 0, 0]} barSize={14} maxBarSize={22} isAnimationActive animationDuration={400} animationEasing="ease-out">
+              <Bar dataKey="posts" yAxisId="right" fill="url(#growthContentBarGrad)" radius={[4, 4, 0, 0]} barSize={14} maxBarSize={22} isAnimationActive animationDuration={400} animationEasing="ease-out">
                 {chartData.map((entry, index) => {
                   const isHovered = entry.date === hoveredDate;
                   const isPrimary = primaryFocus === 'posts';
@@ -698,7 +721,11 @@ export function OverviewGrowthSection({
   followingCount,
 }: OverviewGrowthSectionProps) {
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
-  const [activeMetrics, setActiveMetrics] = useState<Set<ChartMetricId>>(() => new Set(['followers', 'posts']));
+  const defaultMetrics = useMemo(() => {
+    if (platform === 'INSTAGRAM') return new Set<ChartMetricId>(['followers', 'posts', 'following']);
+    return new Set<ChartMetricId>(['followers', 'posts']);
+  }, [platform]);
+  const [activeMetrics, setActiveMetrics] = useState<Set<ChartMetricId>>(defaultMetrics);
   const [primaryFocus, setPrimaryFocus] = useState<ChartMetricId>('followers');
 
   const handleFocusMetric = useCallback((id: ChartMetricId) => {
@@ -715,6 +742,13 @@ export function OverviewGrowthSection({
       return next;
     });
   }, []);
+
+  // Extend data with flat .following for Instagram so chart can show Following line
+  const chartData = useMemo((): GrowthDataPoint[] => {
+    if (!data?.length) return [];
+    const count = platform === 'INSTAGRAM' && followingCount != null && followingCount !== undefined ? followingCount : undefined;
+    return data.map((d) => ({ ...d, ...(count !== undefined ? { following: count } : {}) }));
+  }, [data, platform, followingCount]);
 
   const stats = useMemo(() => {
     const last = data[data.length - 1];
@@ -792,9 +826,10 @@ export function OverviewGrowthSection({
               label="Following"
               value={followingCount != null && followingCount !== undefined ? followingCount : '—'}
               tint="emerald"
-              metricId={undefined}
-              isActive={false}
-              isPrimary={false}
+              metricId="following"
+              isActive={activeMetrics.has('following')}
+              isPrimary={primaryFocus === 'following'}
+              onFocusMetric={handleFocusMetric}
             />
             <KpiCard
               label="Total content"
@@ -851,9 +886,9 @@ export function OverviewGrowthSection({
           </div>
         )}
 
-        {/* Chart 1: Audience growth over time (followers line + posts bars) */}
+        {/* Chart 1: Audience growth over time (data-driven, dual axis, card toggles) */}
         <FollowersGrowthChart
-          data={data}
+          data={chartData}
           hoveredDate={hoveredDate}
           onDateHover={setHoveredDate}
           activeMetrics={activeMetrics}
