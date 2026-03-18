@@ -1,5 +1,9 @@
 # Why pushes to main don't create Vercel deployments (and how to fix it)
 
+**Note:** The GitHub Action that triggered the Deploy Hook (`.github/workflows/trigger-vercel-deploy.yml`) was removed because it caused **two deployments per push**: one from Vercel's Git integration and one from the hook. If your Vercel project is connected to GitHub and deploys on push (including from automation/bots), you don't need the workflow.
+
+---
+
 ## Root cause: Commit author not recognized by Vercel
 
 Vercel only starts a deployment when the **commit author** can be matched to a GitHub user who has access to the Vercel project. Commits made from Cursor, automation, or with a local/machine email (e.g. `guykogen@guys-MacBook-Air.local`) are not linked to a GitHub account, so Vercel **does not create a deployment** for those pushes.
