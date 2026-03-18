@@ -1048,7 +1048,6 @@ export default function DashboardPage() {
             start={dateRange.start}
             end={dateRange.end}
             onChange={(r) => setDateRange(r)}
-            defaultOpen
           />
         </div>
       </div>

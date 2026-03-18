@@ -130,9 +130,9 @@ function CalendarGrid({
   const isEnd = (dateStr: string) => end === dateStr;
   const isCurrentMonth = (dateStr: string) => dateStr.startsWith(`${year}-${String(month + 1).padStart(2, '0')}-`);
 
-  const gap = compact ? 'gap-1' : 'gap-3';
-  const cellSize = compact ? 'w-9 min-w-9 h-9 min-h-9 text-sm' : 'w-16 min-w-16 h-16 min-h-16 text-base';
-  const headerSize = compact ? 'h-6 text-xs' : 'h-10 text-sm';
+  const gap = compact ? 'gap-1' : 'gap-2';
+  const cellSize = compact ? 'w-9 min-w-9 h-9 min-h-9 text-sm' : 'w-11 min-w-11 h-11 min-h-11 text-base';
+  const headerSize = compact ? 'h-6 text-xs' : 'h-8 text-sm';
 
   return (
     <div className="calendar-grid shrink-0">
@@ -148,7 +148,7 @@ function CalendarGrid({
           </div>
         ))}
       </div>
-      <div className={`grid grid-cols-7 ${gap}`}>
+      <div className={`grid grid-cols-7 ${gap} min-h-[240px]`}>
         {rows.flat().map((dateStr, i) => {
           if (!dateStr) return <div key={i} />;
           const inRange = isInRange(dateStr);
@@ -184,7 +184,7 @@ export interface AnalyticsDateRangePickerProps {
   end: string;
   onChange: (range: { start: string; end: string }) => void;
   onUpgrade?: () => void;
-  /** When true, the dropdown is open by default so the user can quickly change dates. */
+  /** When true, the dropdown is open by default. Default false so it does not open on every refresh. */
   defaultOpen?: boolean;
   className?: string;
 }
@@ -193,7 +193,7 @@ export function AnalyticsDateRangePicker({
   start,
   end,
   onChange,
-  defaultOpen = true,
+  defaultOpen = false,
   className = '',
 }: AnalyticsDateRangePickerProps) {
   const [open, setOpen] = useState(defaultOpen);
@@ -285,7 +285,7 @@ export function AnalyticsDateRangePicker({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 z-50 flex gap-8 p-6 bg-white border border-neutral-200 rounded-2xl shadow-xl min-w-[460px] max-w-[96vw]">
+        <div className="absolute right-0 top-full mt-2 z-50 flex gap-8 p-6 bg-white border border-neutral-200 rounded-2xl shadow-xl min-w-[460px] max-w-[96vw] overflow-visible">
           <div className="min-w-[200px] w-56 shrink-0">
             <p className="px-0 py-2 text-sm font-semibold text-neutral-500 uppercase tracking-wider mb-3">Presets</p>
             <div className="space-y-1">
@@ -334,8 +334,8 @@ export function AnalyticsDateRangePicker({
                 className="flex-1 min-w-[140px] text-base border border-neutral-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
               />
             </div>
-            <div className="border border-neutral-200 rounded-xl p-6 bg-neutral-50/50">
-              <div className="flex items-center justify-between mb-4">
+            <div className="border border-neutral-200 rounded-xl p-6 bg-neutral-50/50 min-h-[320px] flex flex-col">
+              <div className="flex items-center justify-between mb-4 shrink-0">
                 <button
                   type="button"
                   onClick={() => setCalendarMonth((m) => (m.month === 0 ? { year: m.year - 1, month: 11 } : { year: m.year, month: m.month - 1 }))}
@@ -356,16 +356,18 @@ export function AnalyticsDateRangePicker({
                   <ChevronRight size={24} />
                 </button>
               </div>
-              <CalendarGrid
-                year={calendarMonth.year}
-                month={calendarMonth.month}
-                start={displayStart || null}
-                end={displayEnd || null}
-                onSelectDay={handleCalendarDay}
-                today={todayStr}
-                showMonthTitle={false}
-              />
-              <div className="flex items-center justify-between mt-4 pt-3 border-t border-neutral-200">
+              <div className="flex-1 min-h-0 flex flex-col">
+                <CalendarGrid
+                  year={calendarMonth.year}
+                  month={calendarMonth.month}
+                  start={displayStart || null}
+                  end={displayEnd || null}
+                  onSelectDay={handleCalendarDay}
+                  today={todayStr}
+                  showMonthTitle={false}
+                />
+              </div>
+              <div className="flex items-center justify-between mt-4 pt-3 border-t border-neutral-200 shrink-0">
                 <button
                   type="button"
                   onClick={() => {
