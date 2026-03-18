@@ -163,9 +163,9 @@ function FollowersGrowthChart({
   const yDomain = useMemo(() => {
     const vals = chartData.map((d) => d.followers);
     const max = Math.max(...vals, 0);
-    const min = Math.min(...vals, 0);
-    const padding = max === min ? 0.5 : Math.max(0.2, (max - min) * 0.05);
-    return [Math.max(0, min - padding), max + padding];
+    const min = 0;
+    const offset = max <= 1 ? 0.5 : Math.min(0.5, max * 0.08);
+    return [min, max + offset];
   }, [chartData]);
 
   const lastDate = chartData.length > 0 ? chartData[chartData.length - 1].date : null;
@@ -188,14 +188,14 @@ function FollowersGrowthChart({
             <defs>
               <linearGradient id="followersLineGrad" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#8b5cf6" stopOpacity={1} />
-                <stop offset="100%" stopColor="#7c3aed" stopOpacity={0.7} />
+                <stop offset="100%" stopColor="#7c3aed" stopOpacity={0.75} />
               </linearGradient>
               <linearGradient id="followersAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.2} />
-                <stop offset="100%" stopColor="#7c3aed" stopOpacity={0.02} />
+                <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.08} />
+                <stop offset="100%" stopColor="#7c3aed" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.035)" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.02)" vertical={false} />
             {hoveredDate && (
               <ReferenceLine x={hoveredDate} stroke="#a78bfa" strokeWidth={1} strokeDasharray="4 3" opacity={0.8} />
             )}
@@ -220,34 +220,34 @@ function FollowersGrowthChart({
                 if (!active || !payload?.length || !labelStr) return null;
                 const point = chartData.find((d) => d.date === labelStr);
                 return (
-                  <div className="rounded-xl bg-white/95 text-neutral-900 px-3.5 py-2.5 shadow-xl border border-neutral-200/80 text-left min-w-[150px] ring-1 ring-neutral-900/5">
+                  <div className="rounded-lg bg-white/98 text-neutral-900 px-3 py-2 shadow-lg border border-neutral-200/60 text-left min-w-[140px] ring-1 ring-neutral-900/5">
                     <p className="text-neutral-500 text-xs font-medium">{formatDate(labelStr)}</p>
-                    <p className="text-neutral-900 font-semibold mt-1">Followers: {(payload[0]?.value as number) ?? 0}</p>
+                    <p className="text-neutral-900 font-semibold mt-0.5 text-sm">Followers: {(payload[0]?.value as number) ?? 0}</p>
                     {point != null && (
                       <p className="text-neutral-500 text-xs mt-0.5">+{point.gained} that day</p>
                     )}
                   </div>
                 );
               }}
-              cursor={{ stroke: '#a78bfa', strokeWidth: 1, strokeDasharray: '4 2' }}
+              cursor={{ stroke: '#a78bfa', strokeWidth: 1, strokeDasharray: '4 2', strokeOpacity: 0.6 }}
             />
             <Area type="monotone" dataKey="followers" fill="url(#followersAreaGrad)" stroke="none" />
             <Line
               type="stepAfter"
               dataKey="followers"
               stroke="url(#followersLineGrad)"
-              strokeWidth={2.5}
+              strokeWidth={2.8}
               dot={({ cx, cy, payload }) =>
                 payload.date === lastDate ? (
                   <g key={payload.date}>
-                    <circle cx={cx} cy={cy} r={8} fill="#7c3aed" fillOpacity={0.25} />
-                    <circle cx={cx} cy={cy} r={5} fill="#7c3aed" stroke="#fff" strokeWidth={2} />
+                    <circle cx={cx} cy={cy} r={7} fill="#7c3aed" fillOpacity={0.2} />
+                    <circle cx={cx} cy={cy} r={4.5} fill="#7c3aed" stroke="#fff" strokeWidth={1.5} />
                   </g>
                 ) : (
-                  <circle key={payload.date} cx={cx} cy={cy} r={2.5} fill="#7c3aed" />
+                  <circle key={payload.date} cx={cx} cy={cy} r={2} fill="#7c3aed" fillOpacity={0.9} />
                 )
               }
-              activeDot={{ r: 6, fill: '#7c3aed', stroke: '#fff', strokeWidth: 2 }}
+              activeDot={{ r: 5, fill: '#7c3aed', stroke: '#fff', strokeWidth: 1.5 }}
               strokeLinecap="round"
               strokeLinejoin="round"
               connectNulls
@@ -291,9 +291,15 @@ function ContentActivityChart({
             }}
             onMouseLeave={() => onDateHover(null)}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.035)" vertical={false} />
+            <defs>
+              <linearGradient id="contentBarGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.95} />
+                <stop offset="100%" stopColor="#a78bfa" stopOpacity={0.85} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.02)" vertical={false} />
             {hoveredDate && (
-              <ReferenceLine x={hoveredDate} stroke="#a78bfa" strokeWidth={1} strokeDasharray="4 3" opacity={0.8} />
+              <ReferenceLine x={hoveredDate} stroke="#a78bfa" strokeWidth={1} strokeDasharray="4 3" opacity={0.6} />
             )}
             <XAxis
               dataKey="date"
@@ -314,22 +320,28 @@ function ContentActivityChart({
                 const labelStr = label != null ? String(label) : '';
                 if (!active || !payload?.length || !labelStr) return null;
                 return (
-                  <div className="rounded-xl bg-white/95 text-neutral-900 px-3.5 py-2.5 shadow-xl border border-neutral-200/80 text-left min-w-[140px] ring-1 ring-neutral-900/5">
+                  <div className="rounded-lg bg-white/98 text-neutral-900 px-3 py-2 shadow-lg border border-neutral-200/60 text-left min-w-[130px] ring-1 ring-neutral-900/5">
                     <p className="text-neutral-500 text-xs font-medium">{formatDate(labelStr)}</p>
-                    <p className="text-neutral-900 font-semibold mt-1">Posts: {(payload[0]?.value as number) ?? 0}</p>
+                    <p className="text-neutral-900 font-semibold mt-0.5 text-sm">Posts: {(payload[0]?.value as number) ?? 0}</p>
                   </div>
                 );
               }}
-              cursor={{ fill: 'rgba(0,0,0,0.04)' }}
+              cursor={false}
             />
-            <Bar dataKey="posts" fill="#a78bfa" fillOpacity={0.85} radius={[6, 6, 0, 0]} barSize={14} maxBarSize={28}>
-              {data.map((entry, index) => (
-                <Cell
-                  key={entry.date + index}
-                  fill={entry.date === maxPostsDate && maxPosts > 0 ? '#7c3aed' : '#a78bfa'}
-                  fillOpacity={entry.date === maxPostsDate && maxPosts > 0 ? 1 : 0.8}
-                />
-              ))}
+            <Bar dataKey="posts" fill="url(#contentBarGrad)" radius={[6, 6, 0, 0]} barSize={17} maxBarSize={32}>
+              {data.map((entry, index) => {
+                const isMax = entry.date === maxPostsDate && maxPosts > 0;
+                const isHovered = entry.date === hoveredDate;
+                return (
+                  <Cell
+                    key={entry.date + index}
+                    fill={isMax ? '#7c3aed' : 'url(#contentBarGrad)'}
+                    fillOpacity={isHovered ? 1 : isMax ? 1 : 0.88}
+                    stroke={isHovered ? '#7c3aed' : undefined}
+                    strokeWidth={isHovered ? 1.5 : 0}
+                  />
+                );
+              })}
             </Bar>
           </BarChart>
         </ResponsiveContainer>
