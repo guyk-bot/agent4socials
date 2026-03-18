@@ -130,9 +130,9 @@ function CalendarGrid({
   const isEnd = (dateStr: string) => end === dateStr;
   const isCurrentMonth = (dateStr: string) => dateStr.startsWith(`${year}-${String(month + 1).padStart(2, '0')}-`);
 
-  const gap = compact ? 'gap-1' : 'gap-2';
-  const cellSize = compact ? 'w-9 min-w-9 h-9 min-h-9 text-sm' : 'w-12 min-w-12 h-12 min-h-12 text-sm';
-  const headerSize = compact ? 'h-6 text-xs' : 'h-8 text-xs';
+  const gap = compact ? 'gap-1' : 'gap-3';
+  const cellSize = compact ? 'w-9 min-w-9 h-9 min-h-9 text-sm' : 'w-16 min-w-16 h-16 min-h-16 text-base';
+  const headerSize = compact ? 'h-6 text-xs' : 'h-10 text-sm';
 
   return (
     <div className="calendar-grid shrink-0">
@@ -141,7 +141,7 @@ function CalendarGrid({
           {title ?? new Date(year, month).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
         </div>
       )}
-      <div className={`grid grid-cols-7 ${gap} mb-1.5`}>
+      <div className={`grid grid-cols-7 ${gap} mb-2`}>
         {WEEKDAYS.map((w, i) => (
           <div key={i} className={`${headerSize} flex items-center justify-center font-semibold text-neutral-500`}>
             {w}
@@ -285,7 +285,7 @@ export function AnalyticsDateRangePicker({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 z-50 flex gap-8 p-6 bg-white border border-neutral-200 rounded-2xl shadow-xl min-w-[380px] max-w-[96vw]">
+        <div className="absolute right-0 top-full mt-2 z-50 flex gap-8 p-6 bg-white border border-neutral-200 rounded-2xl shadow-xl min-w-[460px] max-w-[96vw]">
           <div className="min-w-[200px] w-56 shrink-0">
             <p className="px-0 py-2 text-sm font-semibold text-neutral-500 uppercase tracking-wider mb-3">Presets</p>
             <div className="space-y-1">
@@ -311,7 +311,7 @@ export function AnalyticsDateRangePicker({
 
           <div className="border-l border-neutral-100 pl-6 flex-1 min-w-0 overflow-x-auto">
             <p className="text-sm font-semibold text-neutral-500 uppercase tracking-wider mb-3">Custom range</p>
-            <div className="flex items-center gap-3 flex-wrap mb-4">
+            <div className="flex items-center gap-3 flex-wrap mb-5">
               <input
                 type="date"
                 value={displayStart}
@@ -320,7 +320,7 @@ export function AnalyticsDateRangePicker({
                   setTempStart(v);
                   if (displayEnd && v <= displayEnd) onChange({ start: v, end: displayEnd });
                 }}
-                className="flex-1 min-w-0 text-base border border-neutral-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
+                className="flex-1 min-w-[140px] text-base border border-neutral-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
               />
               <span className="text-neutral-400 text-base">–</span>
               <input
@@ -331,29 +331,29 @@ export function AnalyticsDateRangePicker({
                   setTempEnd(v);
                   if (displayStart && v >= displayStart) onChange({ start: displayStart, end: v });
                 }}
-                className="flex-1 min-w-0 text-base border border-neutral-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
+                className="flex-1 min-w-[140px] text-base border border-neutral-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
               />
             </div>
-            <div className="border border-neutral-200 rounded-xl p-5 bg-neutral-50/50">
-              <div className="flex items-center justify-between mb-3">
+            <div className="border border-neutral-200 rounded-xl p-6 bg-neutral-50/50">
+              <div className="flex items-center justify-between mb-4">
                 <button
                   type="button"
                   onClick={() => setCalendarMonth((m) => (m.month === 0 ? { year: m.year - 1, month: 11 } : { year: m.year, month: m.month - 1 }))}
-                  className="p-2 rounded-lg text-neutral-500 hover:bg-neutral-200 hover:text-neutral-800"
+                  className="p-2.5 rounded-lg text-neutral-500 hover:bg-neutral-200 hover:text-neutral-800"
                   aria-label="Previous month"
                 >
-                  <ChevronLeft size={20} />
+                  <ChevronLeft size={24} />
                 </button>
-                <span className="text-base font-semibold text-neutral-800">
+                <span className="text-lg font-semibold text-neutral-800">
                   {new Date(calendarMonth.year, calendarMonth.month).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
                 </span>
                 <button
                   type="button"
                   onClick={() => setCalendarMonth((m) => (m.month === 11 ? { year: m.year + 1, month: 0 } : { year: m.year, month: m.month + 1 }))}
-                  className="p-2 rounded-lg text-neutral-500 hover:bg-neutral-200 hover:text-neutral-800"
+                  className="p-2.5 rounded-lg text-neutral-500 hover:bg-neutral-200 hover:text-neutral-800"
                   aria-label="Next month"
                 >
-                  <ChevronRight size={20} />
+                  <ChevronRight size={24} />
                 </button>
               </div>
               <CalendarGrid

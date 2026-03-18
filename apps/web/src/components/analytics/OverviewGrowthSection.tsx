@@ -161,26 +161,28 @@ function KpiCard({
         <p className="text-sm text-neutral-500 mt-1">{label}</p>
       </div>
       {sparkData != null && sparkData.length > 1 && (
-        <div className={`mt-3 h-8 -mb-1 ${tint === 'violet' ? 'opacity-75' : 'opacity-60'}`}>
+        <div className={`mt-3 h-8 -mb-1 ${tint === 'violet' ? 'opacity-75' : tint === 'slate' ? 'opacity-75' : 'opacity-60'}`}>
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart
               data={sparkData.map((value, index) => ({ value, index }))}
               margin={{ top: 2, right: 0, left: 0, bottom: 2 }}
             >
-              {tint === 'violet' && (
-                <defs>
-                  <linearGradient id="kpiSparkGrad" x1="0" y1="1" x2="0" y2="0">
-                    <stop offset="0%" stopColor={PURPLE.primary} stopOpacity={0.1} />
-                    <stop offset="100%" stopColor={PURPLE.soft} stopOpacity={0.4} />
-                  </linearGradient>
-                </defs>
-              )}
+              <defs>
+                <linearGradient id="kpiSparkGrad" x1="0" y1="1" x2="0" y2="0">
+                  <stop offset="0%" stopColor={PURPLE.primary} stopOpacity={0.1} />
+                  <stop offset="100%" stopColor={PURPLE.soft} stopOpacity={0.4} />
+                </linearGradient>
+                <linearGradient id="kpiSparkGradSlate" x1="0" y1="1" x2="0" y2="0">
+                  <stop offset="0%" stopColor={PURPLE.primary} stopOpacity={0.06} />
+                  <stop offset="100%" stopColor={PURPLE.soft} stopOpacity={0.25} />
+                </linearGradient>
+              </defs>
               <Area
                 type="monotone"
                 dataKey="value"
                 stroke="none"
-                fill={tint === 'violet' ? 'url(#kpiSparkGrad)' : 'currentColor'}
-                fillOpacity={tint === 'violet' ? 1 : 0.2}
+                fill={tint === 'violet' ? 'url(#kpiSparkGrad)' : tint === 'slate' ? 'url(#kpiSparkGradSlate)' : 'currentColor'}
+                fillOpacity={tint === 'violet' ? 1 : tint === 'slate' ? 1 : 0.2}
               />
             </ComposedChart>
           </ResponsiveContainer>
@@ -290,17 +292,22 @@ function FollowersGrowthChart({
 
   return (
     <div className={`rounded-[22px] bg-white border border-neutral-100 shadow-md p-6 hover:shadow-lg hover:border-neutral-200/80 transition-all duration-200 ${!hasEnoughData ? 'opacity-85' : ''}`}>
-      <div className="flex items-center justify-between gap-4 mb-1">
+      <div className="flex items-center justify-between gap-4 mb-3">
         <h3 className="text-sm font-semibold text-neutral-800">Audience growth over time</h3>
         {onShowActivityChange && (
-          <label className="flex items-center gap-2 cursor-pointer select-none shrink-0">
-            <input
-              type="checkbox"
-              checked={showActivityOnGrowth}
-              onChange={(e) => onShowActivityChange(e.target.checked)}
-              className="rounded border-neutral-300 text-violet-600 focus:ring-violet-500/20"
-            />
-            <span className="text-xs font-medium text-neutral-500">Show activity</span>
+          <label className="flex items-center gap-2.5 cursor-pointer select-none shrink-0 group">
+            <span className="text-xs font-medium text-neutral-500 group-hover:text-neutral-600 transition-colors">Overlay activity</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={showActivityOnGrowth}
+              onClick={() => onShowActivityChange(!showActivityOnGrowth)}
+              className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:ring-offset-1 ${showActivityOnGrowth ? 'bg-violet-500 border-violet-500' : 'bg-neutral-200 border-neutral-200 group-hover:bg-neutral-300'}`}
+            >
+              <span
+                className={`pointer-events-none absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${showActivityOnGrowth ? 'translate-x-5' : 'translate-x-0'}`}
+              />
+            </button>
           </label>
         )}
       </div>
@@ -361,7 +368,7 @@ function FollowersGrowthChart({
               <ReferenceLine
                 key={date}
                 segment={[{ x: date, y: 0 }, { x: date, y: leftDomain[1] * 0.06 }]}
-                stroke="rgba(124, 58, 237, 0.22)"
+                stroke="rgba(124, 58, 237, 0.045)"
                 strokeWidth={1}
               />
             ))}
@@ -390,10 +397,10 @@ function FollowersGrowthChart({
                 yAxisId="right"
                 orientation="right"
                 domain={rightDomain}
-                tick={{ fontSize: 12, fill: '#525252' }}
+                tick={{ fontSize: 11, fill: '#737373' }}
                 axisLine={false}
                 tickLine={false}
-                width={36}
+                width={32}
                 tickCount={tickCount}
                 tickFormatter={formatYAxisValue}
               />
@@ -448,7 +455,7 @@ function FollowersGrowthChart({
               return (
                 <React.Fragment key={id}>
                   {isPrimary && (
-                    <Area type="monotone" dataKey={id} fill={areaGrad} stroke="none" yAxisId={yAxisId} isAnimationActive />
+                    <Area type="monotone" dataKey={id} fill={areaGrad} stroke="none" yAxisId={yAxisId} isAnimationActive animationDuration={500} animationEasing="ease-out" />
                   )}
                   <Line
                     type="stepAfter"
@@ -479,12 +486,12 @@ function FollowersGrowthChart({
               );
             })}
             {hasPosts && (
-              <Bar dataKey="posts" yAxisId="left" fill="url(#growthContentBarGrad)" radius={[6, 6, 0, 0]} barSize={20} maxBarSize={32}>
+              <Bar dataKey="posts" yAxisId="left" fill="url(#growthContentBarGrad)" radius={[4, 4, 0, 0]} barSize={14} maxBarSize={22} isAnimationActive animationDuration={400} animationEasing="ease-out">
                 {chartData.map((entry, index) => {
                   const isHovered = entry.date === hoveredDate;
                   const isPrimary = primaryFocus === 'posts';
                   const fill = isHovered || isPrimary ? 'url(#growthContentBarGradPrimary)' : 'url(#growthContentBarGrad)';
-                  const fillOpacity = isPrimary ? 1 : 0.78;
+                  const fillOpacity = isPrimary ? 0.9 : 0.45;
                   return (
                     <Cell
                       key={entry.date + index}
