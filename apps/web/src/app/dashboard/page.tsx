@@ -1049,7 +1049,7 @@ export default function DashboardPage() {
             start={dateRange.start}
             end={dateRange.end}
             onChange={(r) => setDateRange(r)}
-            onUpgrade={() => router.push('/pricing')}
+            defaultOpen
           />
         </div>
       </div>

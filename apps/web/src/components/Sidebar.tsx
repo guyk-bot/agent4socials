@@ -152,7 +152,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
             const href = `/dashboard?connect=${connectParam}`;
             const platformRowClass = `w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors ${
               isPlatformSelected ? 'bg-white shadow-sm ring-1 ring-neutral-200' : 'hover:bg-white/70'
-            } ${needsUpgrade ? 'ring-1 ring-[#5ff6fd]/40 bg-gradient-to-r from-[#5ff6fd]/5 to-[#b030ad]/5' : ''}`;
+            } ${needsUpgrade ? 'ring-1 ring-violet-400/50 bg-gradient-to-r from-violet-500/10 to-purple-500/10' : ''}`;
             const platformRowInner = (
               <>
                 <div className="w-10 h-10 flex items-center justify-center shrink-0">
@@ -160,7 +160,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                 </div>
                 <span className="truncate flex-1 font-medium">{PLATFORM_LABELS[platform]}</span>
                 {needsUpgrade ? (
-                  <span className="shrink-0 flex items-center" aria-hidden title="Upgrade to connect">
+                  <span className="shrink-0 flex items-center text-violet-600" aria-hidden title="Upgrade to connect">
                     <img src="/dim.svg" alt="" className="h-4 w-4 object-contain" width={16} height={16} />
                   </span>
                 ) : null}
