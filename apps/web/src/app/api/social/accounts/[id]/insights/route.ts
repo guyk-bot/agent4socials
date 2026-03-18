@@ -261,7 +261,7 @@ export async function GET(
             'page_impressions,page_views_total,page_engaged_users,page_fan_adds,page_fan_removes',
             'page_impressions,page_views_total,page_engaged_users,page_fan_adds',
           ];
-          let data: Array<{ name: string; values?: Array<{ value: number; end_time?: string }> }> = [];
+          let data: Array<{ name: string; values?: Array<{ value: number | string; end_time?: string }> }> = [];
           for (const metrics of metricSets) {
             try {
               const untilApi = effectiveUntilParam ? (() => { const d = new Date(effectiveUntilParam + 'T12:00:00'); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10); })() : effectiveUntilParam;
