@@ -154,12 +154,8 @@ export function AnalyticsDateRangePicker({
     }
   };
 
-  const handlePreset = (id: string, premium: boolean) => {
-    if (premium && onUpgrade) {
-      onUpgrade();
-      setOpen(false);
-      return;
-    }
+  /** Apply preset (including premium). For testing all ranges are allowed; visuals (diamond, amber) unchanged. */
+  const handlePreset = (id: string) => {
     const range = getPresetRange(id, now);
     onChange({ start: range.start, end: range.end });
     setOpen(false);
@@ -188,7 +184,7 @@ export function AnalyticsDateRangePicker({
             <button
               key={p.id}
               type="button"
-              onClick={() => handlePreset(p.id, false)}
+              onClick={() => handlePreset(p.id)}
               className="w-full text-left px-3 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-100 flex items-center justify-between"
             >
               {p.label}
@@ -201,7 +197,7 @@ export function AnalyticsDateRangePicker({
             <button
               key={p.id}
               type="button"
-              onClick={() => handlePreset(p.id, true)}
+              onClick={() => handlePreset(p.id)}
               className="w-full text-left px-3 py-2 text-sm font-medium flex items-center justify-between gap-2 hover:bg-amber-50/80 group"
             >
               <span className="bg-amber-100/90 text-amber-900 group-hover:bg-amber-200/90 px-2 py-0.5 rounded-md">

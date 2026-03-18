@@ -148,7 +148,8 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
           if (accounts.length === 0) {
             const connectParam = platform.toLowerCase();
             const needsUpgrade = UPGRADE_TO_CONNECT_PLATFORMS.includes(platform);
-            const href = needsUpgrade ? '/pricing' : `/dashboard?connect=${connectParam}`;
+            /** Same connect URL for all (testing: premium platforms connectable); visuals (diamond, tooltip) still show for needsUpgrade. */
+            const href = `/dashboard?connect=${connectParam}`;
             const platformRowClass = `w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors ${
               isPlatformSelected ? 'bg-white shadow-sm ring-1 ring-neutral-200' : 'hover:bg-white/70'
             } ${needsUpgrade ? 'ring-1 ring-[#5ff6fd]/40 bg-gradient-to-r from-[#5ff6fd]/5 to-[#b030ad]/5' : ''}`;
@@ -182,7 +183,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
               <Link
                 key={platform}
                 href={href}
-                onClick={() => !needsUpgrade && setSelectedPlatformForConnect(platform)}
+                onClick={() => setSelectedPlatformForConnect(platform)}
                 className={platformRowClass}
                 style={isPlatformSelected ? { color: accent } : undefined}
                 title={needsUpgrade ? 'X (Twitter) is available on paid plans. Upgrade to connect.' : undefined}
