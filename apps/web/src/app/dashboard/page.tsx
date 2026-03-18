@@ -544,11 +544,13 @@ export default function DashboardPage() {
   const selectedAccountIdRef = useRef<string | null>(null);
   const aggregatedCacheRef = useRef<{ key: string; data: { totalFollowers: number; totalImpressions: number; totalReach: number; totalProfileViews: number; totalPageViews: number; byPlatform: Record<string, { followers: number; impressions: number; timeSeries: Array<{ date: string; value: number }> }>; combinedTimeSeries: Array<{ date: string; value: number }> } } | null>(null);
 
-  // Single-account insights: when an account is selected
+  // Single-account insights: when an account is selected. Load once; on date change refetch in place without clearing UI.
   useEffect(() => {
     if (!selectedAccount?.id || analyticsTab !== 'account' || !dateRange.start || !dateRange.end) return;
+    const prevAccountId = selectedAccountIdRef.current;
     selectedAccountIdRef.current = selectedAccount.id;
     const accountId = selectedAccount.id;
+    const isSameAccount = prevAccountId === accountId;
     const platform = selectedAccount.platform;
     const cacheKey = `${accountId}-${dateRange.start}-${dateRange.end}`;
     const defaultRange = getDefaultDateRange();
@@ -605,11 +607,15 @@ export default function DashboardPage() {
       return;
     }
 
-    setInsights(null);
+    // No cache: only clear data when switching account so UI doesn't flash on date change
+    if (!isSameAccount) {
+      setInsights(null);
+      setImportedPosts([]);
+    }
     setInsightsLoading(true);
     setImportedPostsLoading(true);
 
-    // Step 1: fetch insights + posts from DB quickly (no sync) so UI shows data in ~1s
+    // Fetch insights + posts; keep previous data visible until response arrives
     const insightsPromise = api.get(`/social/accounts/${accountId}/insights`, { params: { since: dateRange.start, until: dateRange.end, extended: 1 } });
     const fastPostsPromise = api.get(`/social/accounts/${accountId}/posts`);
 
@@ -622,7 +628,7 @@ export default function DashboardPage() {
         }
         if (selectedAccountIdRef.current === accountId) setInsights(data);
       })
-      .catch(() => { if (selectedAccountIdRef.current === accountId) setInsights(null); })
+      .catch(() => { if (selectedAccountIdRef.current === accountId && !isSameAccount) setInsights(null); })
       .finally(() => setInsightsLoading(false));
 
     fastPostsPromise
@@ -635,7 +641,6 @@ export default function DashboardPage() {
       .catch(() => {})
       .finally(() => setImportedPostsLoading(false));
 
-    // Step 2: sync in background to pull latest from platform, then update silently
     runBackgroundSync();
   }, [analyticsTab, selectedAccount?.id, selectedAccount?.platform, dateRange.start, dateRange.end, appData, syncAllTrigger]);
 
@@ -976,7 +981,8 @@ export default function DashboardPage() {
           Upgrade to view more than 30 days of analytics and export reports without watermarks.
         </p>
       </div>
-      {(connectingParam === '1' || justConnected || insightsLoading || importedPostsLoading) && (
+      {/* Show sync banner only on first load (no data yet) or right after connect; date changes refetch in place without banner */}
+      {(connectingParam === '1' || justConnected || ((insightsLoading || importedPostsLoading) && insights == null && selectedAccount != null)) && (
         <DataSyncBanner
           platform={selectedAccount?.platform}
           insightsLoading={insightsLoading || connectingParam === '1'}
@@ -1044,7 +1050,10 @@ export default function DashboardPage() {
             ))}
           </div>
         )}
-        <div className="ml-auto shrink-0">
+        <div className="ml-auto shrink-0 flex items-center gap-2">
+          {selectedAccount && analyticsTab === 'account' && insightsLoading && insights != null && (
+            <span className="text-xs text-neutral-500 animate-pulse">Updating…</span>
+          )}
           <AnalyticsDateRangePicker
             start={dateRange.start}
             end={dateRange.end}
