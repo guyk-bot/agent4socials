@@ -18,6 +18,8 @@ export interface FacebookInsights {
   growthTimeSeries?: Array<{ date: string; gained: number; lost: number; net?: number }>;
   /** Optional time series for followers chart (used by all platforms). */
   followersTimeSeries?: Array<{ date: string; value: number }>;
+  /** Demographics (age, gender, country) when requested with extended=1. */
+  demographics?: import('@/types/analytics').Demographics;
 }
 
 export interface FacebookPost {

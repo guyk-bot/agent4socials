@@ -627,9 +627,114 @@ function ContentActivityChart({
   );
 }
 
+// —— Balance of Followers chart (gained / lost per day) ——
+function BalanceOfFollowersChart({
+  growthTimeSeries,
+  hoveredDate,
+  onDateHover,
+}: {
+  growthTimeSeries: Array<{ date: string; gained: number; lost: number; net?: number }>;
+  hoveredDate: string | null;
+  onDateHover: (date: string | null) => void;
+}) {
+  const hasData = growthTimeSeries.length >= 1;
+  const netTotal = growthTimeSeries.reduce((s, d) => s + (d.net ?? d.gained - d.lost), 0);
+  const chartData = useMemo(
+    () =>
+      growthTimeSeries.map((d) => ({
+        date: d.date,
+        gained: d.gained,
+        lost: -Math.abs(d.lost || 0),
+        net: d.net ?? d.gained - d.lost,
+      })),
+    [growthTimeSeries]
+  );
+
+  return (
+    <div className={`rounded-[22px] bg-white border border-neutral-100 shadow-sm p-6 hover:shadow-md hover:border-neutral-200/80 transition-all duration-200 ${!hasData ? 'opacity-90' : ''}`}>
+      <div className="flex items-center justify-between gap-4 mb-3">
+        <h3 className="text-sm font-semibold text-neutral-800">Balance of Followers</h3>
+        <p className="text-sm font-medium tabular-nums text-neutral-600">
+          Net: {netTotal >= 0 ? `+${netTotal}` : netTotal}
+        </p>
+      </div>
+      {!hasData && (
+        <p className="text-xs text-neutral-400 mb-2">No follower changes in this period.</p>
+      )}
+      <div className="h-[220px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={chartData}
+            margin={{ top: 12, right: 12, left: 12, bottom: 4 }}
+            onMouseMove={(e) => {
+              const payload = (e as unknown as { activePayload?: Array<{ payload?: { date?: string } }> }).activePayload;
+              const date = payload?.[0]?.payload?.date;
+              onDateHover(date ?? null);
+            }}
+            onMouseLeave={() => onDateHover(null)}
+            barGap={2}
+            barCategoryGap="12%"
+          >
+            <CartesianGrid strokeDasharray="3 3" stroke={PURPLE.grid} vertical={false} />
+            <ReferenceLine y={0} stroke="#a3a3a3" strokeWidth={1} />
+            {hoveredDate && (
+              <ReferenceLine x={hoveredDate} stroke={PURPLE.primary} strokeOpacity={0.35} strokeWidth={1.5} strokeDasharray="4 3" />
+            )}
+            <XAxis
+              dataKey="date"
+              tick={{ fontSize: 12, fill: '#525252' }}
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={formatDateShort}
+              interval="preserveStartEnd"
+            />
+            <YAxis
+              tick={{ fontSize: 12, fill: '#525252' }}
+              axisLine={false}
+              tickLine={false}
+              width={32}
+              tickFormatter={(v) => (v >= 0 ? `+${v}` : String(v))}
+              domain={['auto', 'auto']}
+            />
+            <Tooltip
+              content={({ active, payload, label }) => {
+                const labelStr = label != null ? String(label) : '';
+                if (!active || !labelStr) return null;
+                const point = chartData.find((d) => d.date === labelStr);
+                if (!point) return null;
+                return (
+                  <div className="rounded-lg bg-white text-neutral-900 px-3 py-2 shadow-lg border border-neutral-200/60 text-left min-w-[140px]">
+                    <p className="text-neutral-500 text-xs font-medium">{formatDate(labelStr)}</p>
+                    <p className="mt-0.5 text-sm text-emerald-600">
+                      <span className="text-neutral-500">Gained: </span>
+                      <span className="tabular-nums font-medium">+{point.gained}</span>
+                    </p>
+                    <p className="mt-0.5 text-sm text-rose-500">
+                      <span className="text-neutral-500">Lost: </span>
+                      <span className="tabular-nums font-medium">-{Math.abs(point.lost)}</span>
+                    </p>
+                    <p className="mt-0.5 text-sm text-neutral-700">
+                      <span className="text-neutral-500">Net: </span>
+                      <span className="tabular-nums font-medium">{point.net >= 0 ? `+${point.net}` : point.net}</span>
+                    </p>
+                  </div>
+                );
+              }}
+              cursor={{ stroke: PURPLE.muted, strokeWidth: 1, strokeDasharray: '4 2' }}
+            />
+            <Bar dataKey="gained" name="Gained" fill="#10b981" radius={[4, 4, 0, 0]} barSize={14} isAnimationActive animationDuration={400} />
+            <Bar dataKey="lost" name="Lost" fill="#f43f5e" radius={[0, 0, 4, 4]} barSize={14} isAnimationActive animationDuration={400} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
 // —— OverviewGrowthSection ——
 export interface OverviewGrowthSectionProps {
   data?: GrowthDataPoint[];
+  growthTimeSeries?: Array<{ date: string; gained: number; lost: number; net?: number }>;
   dateRange?: { start: string; end: string };
   onDateRangeChange?: (range: { start: string; end: string }) => void;
   onExport?: () => void;
@@ -637,6 +742,7 @@ export interface OverviewGrowthSectionProps {
 
 export function OverviewGrowthSection({
   data = SAMPLE_GROWTH_DATA,
+  growthTimeSeries,
   dateRange,
   onDateRangeChange,
   onExport,
@@ -766,7 +872,7 @@ export function OverviewGrowthSection({
           />
         </div>
 
-        {/* Main chart: Followers growth (KPI-driven focus) */}
+        {/* Chart 1: Audience growth over time (followers line + posts bars) */}
         <FollowersGrowthChart
           data={data}
           hoveredDate={hoveredDate}
@@ -777,8 +883,14 @@ export function OverviewGrowthSection({
           onShowActivityChange={setShowActivityOnGrowth}
         />
 
-        {/* Secondary chart: Content activity */}
-        <ContentActivityChart data={data} hoveredDate={hoveredDate} onDateHover={setHoveredDate} />
+        {/* Chart 2: Balance of Followers (gained / lost per day) */}
+        {growthTimeSeries && growthTimeSeries.length > 0 ? (
+          <BalanceOfFollowersChart
+            growthTimeSeries={growthTimeSeries}
+            hoveredDate={hoveredDate}
+            onDateHover={setHoveredDate}
+          />
+        ) : null}
 
         {/* Bottom summary cards */}
         <div className="space-y-3">

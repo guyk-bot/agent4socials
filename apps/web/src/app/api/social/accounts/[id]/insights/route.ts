@@ -109,7 +109,7 @@ export async function GET(
     followers: 0,
     impressionsTotal: 0,
     impressionsTimeSeries: [],
-    ...(insightsRangeHint ? { insightsHint: insightsRangeHint } : {}),
+    ...(insightsRangeHint && account.platform !== 'INSTAGRAM' ? { insightsHint: insightsRangeHint } : {}),
   };
 
   try {

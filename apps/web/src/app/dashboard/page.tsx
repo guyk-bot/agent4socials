@@ -229,9 +229,10 @@ const TABS = [
   { id: 'posts', label: 'POSTS', icon: Image },
 ];
 
-/** Scroll-to sections for single-page Facebook (and future platform) analytics. */
+/** Scroll-to sections for single-page analytics (all platforms). */
 const ANALYTICS_SCROLL_SECTIONS = [
   { id: FACEBOOK_ANALYTICS_SECTION_IDS.overview, label: 'Overview' },
+  { id: FACEBOOK_ANALYTICS_SECTION_IDS.demographics, label: 'Demografic' },
   { id: FACEBOOK_ANALYTICS_SECTION_IDS.clicksTraffic, label: 'Clicks / Traffic' },
   { id: FACEBOOK_ANALYTICS_SECTION_IDS.posts, label: 'Posts' },
   { id: FACEBOOK_ANALYTICS_SECTION_IDS.reelsVideos, label: 'Reels / Videos' },
@@ -442,28 +443,26 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (selectedAccount?.id) {
-      if (analyticsTab === 'posts') {
-        const fromCache = appData?.getPosts(selectedAccount.id);
-        const cached = fromCache ?? postsCacheRef.current[selectedAccount.id];
-        if (cached !== undefined && cached !== null) {
-          setImportedPosts(cached);
-          setImportedPostsLoading(false);
-          return;
-        }
-        setImportedPosts([]);
-        setImportedPostsLoading(true);
-        const syncFirst = !postsCacheRef.current[selectedAccount.id];
-        api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: syncFirst ? { sync: 1 } : {} })
-          .then((res) => {
-            const list = res.data?.posts ?? [];
-            postsCacheRef.current[selectedAccount.id] = list;
-            appData?.setPostsForAccount(selectedAccount.id, list);
-            setImportedPosts(list);
-            setPostsSyncError(res.data?.syncError ?? null);
-          })
-          .catch(() => { setImportedPosts([]); setPostsSyncError(null); })
-          .finally(() => setImportedPostsLoading(false));
+      const fromCache = appData?.getPosts(selectedAccount.id);
+      const cached = fromCache ?? postsCacheRef.current[selectedAccount.id];
+      if (cached !== undefined && cached !== null) {
+        setImportedPosts(cached);
+        setImportedPostsLoading(false);
+        return;
       }
+      setImportedPosts([]);
+      setImportedPostsLoading(true);
+      const syncFirst = !postsCacheRef.current[selectedAccount.id];
+      api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: syncFirst ? { sync: 1 } : {} })
+        .then((res) => {
+          const list = res.data?.posts ?? [];
+          postsCacheRef.current[selectedAccount.id] = list;
+          appData?.setPostsForAccount(selectedAccount.id, list);
+          setImportedPosts(list);
+          setPostsSyncError(res.data?.syncError ?? null);
+        })
+        .catch(() => { setImportedPosts([]); setPostsSyncError(null); })
+        .finally(() => setImportedPostsLoading(false));
       return;
     }
     if (!hasAccounts) {
@@ -538,7 +537,7 @@ export default function DashboardPage() {
     setImportedPostsLoading(true);
     setAllPostsSyncError(null);
     runSync(syncAllFirst);
-  }, [analyticsTab, selectedAccount?.id, hasAccounts, syncAllTrigger, accounts.map((a) => a.id).join(','), appData]);
+  }, [selectedAccount?.id, hasAccounts, syncAllTrigger, accounts.map((a) => a.id).join(','), appData]);
 
   const insightsCacheRef = useRef<Record<string, { platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number; profileViewsTotal?: number }>>({});
   const selectedAccountIdRef = useRef<string | null>(null);
@@ -546,7 +545,7 @@ export default function DashboardPage() {
 
   // Single-account insights: when an account is selected. Load once; on date change refetch in place without clearing UI.
   useEffect(() => {
-    if (!selectedAccount?.id || analyticsTab !== 'account' || !dateRange.start || !dateRange.end) return;
+    if (!selectedAccount?.id || !dateRange.start || !dateRange.end) return;
     const prevAccountId = selectedAccountIdRef.current;
     selectedAccountIdRef.current = selectedAccount.id;
     const accountId = selectedAccount.id;
@@ -646,7 +645,7 @@ export default function DashboardPage() {
 
   // Facebook Page reviews (pages_read_user_content)
   useEffect(() => {
-    if (selectedAccount?.platform !== 'FACEBOOK' || !selectedAccount?.id || analyticsTab !== 'account') {
+    if (selectedAccount?.platform !== 'FACEBOOK' || !selectedAccount?.id) {
       setPageReviews([]);
       setPageReviewsError(null);
       return;
@@ -1012,7 +1011,7 @@ export default function DashboardPage() {
             />
           </div>
         )}
-        {selectedAccount?.platform === 'FACEBOOK' ? (
+        {selectedAccount && (
           <nav className="flex gap-0.5 p-0.5 bg-neutral-100 rounded-lg shrink-0" aria-label="Analytics sections">
             {ANALYTICS_SCROLL_SECTIONS.map((sec) => (
               <button
@@ -1025,23 +1024,9 @@ export default function DashboardPage() {
               </button>
             ))}
           </nav>
-        ) : selectedAccount && (
-          <div className="flex gap-1 p-1 bg-neutral-100 rounded-lg w-fit">
-            {TABS.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setAnalyticsTab(tab.id)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium ${analyticsTab === tab.id ? 'bg-white shadow-sm text-neutral-900' : 'text-neutral-600 hover:bg-white/70'}`}
-              >
-                <tab.icon size={16} />
-                {tab.label}
-              </button>
-            ))}
-          </div>
         )}
         <div className="ml-auto shrink-0 flex items-center gap-2">
-          {selectedAccount && analyticsTab === 'account' && insightsLoading && insights != null && (
+          {selectedAccount && insightsLoading && insights != null && (
             <span className="text-xs text-neutral-500 animate-pulse">Updating…</span>
           )}
           <AnalyticsDateRangePicker
@@ -1105,8 +1090,8 @@ export default function DashboardPage() {
       </div>
       )}
 
-      {/* Facebook: single page with scroll sections (Overview, Clicks/Traffic, Posts, Reels/Videos) */}
-      {selectedAccount?.platform === 'FACEBOOK' && (
+      {/* Single-page analytics for any selected account (Overview, Demografic, Clicks/Traffic, Posts, Reels/Videos) */}
+      {selectedAccount && (
         <div className="mt-6 max-w-full" style={{ maxWidth: 1400 }}>
           <FacebookAnalyticsView
             insights={(() => {
@@ -1123,6 +1108,7 @@ export default function DashboardPage() {
                   insightsHint: insights.insightsHint,
                   growthTimeSeries: insights.growthTimeSeries as Array<{ date: string; gained: number; lost: number; net?: number }> | undefined,
                   pageViewsTimeSeries: (insights as { pageViewsTimeSeries?: Array<{ date: string; value: number }> }).pageViewsTimeSeries,
+                  demographics: insights.demographics,
                 }),
               };
               return base;
@@ -1146,48 +1132,16 @@ export default function DashboardPage() {
                 setImportedPostsLoading(false);
               }
             }}
-            followersLabel="Followers"
-          />
-        </div>
-      )}
-
-      {/* Non-Facebook account tab: platform-specific or placeholder */}
-      {analyticsTab === 'account' && selectedAccount && selectedAccount.platform !== 'FACEBOOK' && (
-        <div className="mt-6 space-y-6 max-w-full" style={{ maxWidth: 1400 }}>
-          <FacebookAnalyticsView
-            insights={(() => {
-              const base: import('@/components/analytics/facebook/types').FacebookInsights = {
-                platform: selectedAccount.platform,
-                followers: effectiveFollowers,
-                impressionsTotal: effectiveImpressions,
-                impressionsTimeSeries: effectiveTimeSeries,
-                pageViewsTotal: effectivePageVisits,
-                reachTotal: effectiveReach,
-                profileViewsTotal: effectiveProfileViews,
-                followersTimeSeries: displayFollowersTimeSeries,
-                ...(insights && {
-                  insightsHint: insights.insightsHint,
-                  growthTimeSeries: insights.growthTimeSeries as Array<{ date: string; gained: number; lost: number; net?: number }> | undefined,
-                  pageViewsTimeSeries: (insights as { pageViewsTimeSeries?: Array<{ date: string; value: number }> }).pageViewsTimeSeries,
-                }),
-              };
-              return base;
-            })()}
-            posts={importedPosts.filter((p: { platform: string }) => p.platform === selectedAccount.platform) as import('@/components/analytics/facebook/types').FacebookPost[]}
-            dateRange={dateRange}
-            insightsLoading={effectiveInsightsLoading}
-            postsLoading={importedPostsLoading}
-            onUpgrade={() => router.push('/pricing')}
             followersLabel={selectedAccount.platform === 'YOUTUBE' ? 'Subscribers' : 'Followers'}
           />
         </div>
       )}
 
-      {analyticsTab === 'account' && !selectedAccount && hasAccounts && (
+      {!selectedAccount && hasAccounts && (
         <p className="text-sm text-neutral-500 py-8">Select an account in the left sidebar to see its analytics.</p>
       )}
 
-      {analyticsTab === 'posts' && (
+      {false && analyticsTab === 'posts' && (
           <div className="mt-6 space-y-6 max-w-full" style={{ maxWidth: 1400 }}>
             {importedPostsLoading && (
               <div className="space-y-6">
