@@ -140,7 +140,7 @@ function KpiCard({
   const style = tintStyles[tint ?? 'neutral'];
   const wrapperClass = [
     'relative rounded-[22px] flex flex-col justify-between shadow-sm border-2 transition-all duration-200 overflow-hidden',
-    isChartMetric ? 'cursor-pointer select-none' : '',
+    isChartMetric ? 'cursor-pointer select-none outline-none' : '',
     primary ? 'p-6 min-h-[108px]' : 'p-5 min-h-[100px]',
     isPrimary ? style.borderSelected : style.border,
     'hover:shadow-md hover:-translate-y-0.5 hover:shadow-lg',

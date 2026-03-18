@@ -42,6 +42,9 @@ export function FacebookAnalyticsView({
   const loading = insightsLoading || postsLoading;
 
   const growthData = useMemo((): GrowthDataPoint[] | undefined => {
+    const start = dateRange?.start;
+    const end = dateRange?.end;
+    if (!start || !end) return undefined;
     const series = insights?.impressionsTimeSeries ?? [];
     const followerSeries = insights?.followersTimeSeries ?? [];
     const visitsSeries = insights?.pageViewsTimeSeries ?? [];
@@ -50,22 +53,57 @@ export function FacebookAnalyticsView({
       const d = p.publishedAt.slice(0, 10);
       postsByDate[d] = (postsByDate[d] ?? 0) + 1;
     });
-    const dates = new Set<string>([
-      ...series.map((s) => s.date),
-      ...followerSeries.map((s) => s.date),
-      ...visitsSeries.map((s) => s.date),
-      ...Object.keys(postsByDate),
-    ]);
-    if (dates.size === 0) return undefined;
-    const sorted = Array.from(dates).sort();
-    return sorted.map((date) => ({
-      date,
-      followers: followerSeries.find((s) => s.date === date)?.value ?? 0,
-      posts: postsByDate[date] ?? 0,
-      views: series.find((s) => s.date === date)?.value ?? 0,
-      visits: visitsSeries.find((s) => s.date === date)?.value ?? 0,
-    }));
-  }, [insights?.impressionsTimeSeries, insights?.followersTimeSeries, insights?.pageViewsTimeSeries, posts]);
+
+    // Build exact date range: every day from start to end (inclusive) so chart matches selected 30 days and starts at baseline
+    const allDates: string[] = [];
+    const dStart = new Date(start + 'T12:00:00');
+    const dEnd = new Date(end + 'T12:00:00');
+    for (let d = new Date(dStart); d <= dEnd; d.setDate(d.getDate() + 1)) {
+      allDates.push(d.toISOString().slice(0, 10));
+    }
+    if (allDates.length === 0) return undefined;
+
+    // Maps for lookup; use only data within range
+    const followerMap: Record<string, number> = {};
+    followerSeries.forEach((s) => {
+      if (s.date >= start && s.date <= end) followerMap[s.date] = s.value;
+    });
+    const viewsMap: Record<string, number> = {};
+    series.forEach((s) => {
+      if (s.date >= start && s.date <= end) viewsMap[s.date] = s.value;
+    });
+    const visitsMap: Record<string, number> = {};
+    visitsSeries.forEach((s) => {
+      if (s.date >= start && s.date <= end) visitsMap[s.date] = s.value;
+    });
+
+    // Baseline: value on first day of range if API has it, else most recent value before range (e.g. 1055 on Feb 18)
+    const sortedFollower = [...followerSeries].sort((a, b) => b.date.localeCompare(a.date));
+    const baselineFollowers = followerMap[start] ?? sortedFollower.find((s) => s.date <= start)?.value ?? 0;
+    const sortedViews = [...series].sort((a, b) => b.date.localeCompare(a.date));
+    const baselineViewsVal = viewsMap[start] ?? sortedViews.find((s) => s.date <= start)?.value ?? 0;
+    const sortedVisits = [...visitsSeries].sort((a, b) => b.date.localeCompare(a.date));
+    const baselineVisitsVal = visitsMap[start] ?? sortedVisits.find((s) => s.date <= start)?.value ?? 0;
+
+    let prevF = baselineFollowers;
+    let prevViews = baselineViewsVal;
+    let prevVisits = baselineVisitsVal;
+    return allDates.map((date) => {
+      const f = followerMap[date] ?? prevF;
+      const v = viewsMap[date] ?? prevViews;
+      const vis = visitsMap[date] ?? prevVisits;
+      prevF = f;
+      prevViews = v;
+      prevVisits = vis;
+      return {
+        date,
+        followers: f,
+        views: v,
+        visits: vis,
+        posts: postsByDate[date] ?? 0,
+      };
+    });
+  }, [dateRange?.start, dateRange?.end, insights?.impressionsTimeSeries, insights?.followersTimeSeries, insights?.pageViewsTimeSeries, posts]);
 
   return (
     <div className="space-y-12 max-w-full" style={{ maxWidth: 1400 }}>
