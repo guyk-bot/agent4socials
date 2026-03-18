@@ -3,15 +3,15 @@
 import React, { useRef, useEffect, useMemo, useState } from 'react';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 
-/** Presets; anything beyond 30 days is premium (diamond). */
+/** Presets; anything beyond 30 days is premium (diamond). highlight = default purple tint. */
 const PRESETS = [
-  { id: 'yesterday', label: 'Yesterday', premium: false },
-  { id: 'last_week', label: 'Last week', premium: false },
-  { id: 'current_month', label: 'Current month', premium: false },
-  { id: 'last_30', label: 'Last 30 days', premium: false },
-  { id: 'last_3_months', label: 'Last 3 months', premium: true },
-  { id: 'last_6_months', label: 'Last 6 months', premium: true },
-  { id: 'last_12_months', label: 'Last 12 months', premium: true },
+  { id: 'yesterday', label: 'Yesterday', premium: false, highlight: false },
+  { id: 'last_week', label: 'Last week', premium: false, highlight: false },
+  { id: 'current_month', label: 'Current month', premium: false, highlight: false },
+  { id: 'last_30', label: 'Last 30 days', premium: false, highlight: false },
+  { id: 'last_3_months', label: 'Last 3 months', premium: true, highlight: true },
+  { id: 'last_6_months', label: 'Last 6 months', premium: true, highlight: true },
+  { id: 'last_12_months', label: 'Last 12 months', premium: true, highlight: false },
 ] as const;
 
 function getPresetRange(
@@ -292,7 +292,11 @@ export function AnalyticsDateRangePicker({
                   key={p.id}
                   type="button"
                   onClick={() => handlePreset(p.id)}
-                  className="w-full text-left px-3 py-2 text-sm font-medium text-neutral-800 hover:bg-violet-50 hover:text-violet-800 rounded-md transition-colors flex items-center justify-between gap-2"
+                  className={`w-full text-left px-3 py-2 text-sm font-medium rounded-md transition-colors flex items-center justify-between gap-2 ${
+                    p.highlight
+                      ? 'bg-violet-50 text-violet-800 hover:bg-violet-100 hover:text-violet-900'
+                      : 'text-neutral-800 hover:bg-neutral-100 hover:text-neutral-700'
+                  }`}
                 >
                   <span>{p.label}</span>
                   {p.premium && (
@@ -305,6 +309,7 @@ export function AnalyticsDateRangePicker({
 
           <div className="border-l border-neutral-100 pl-4">
             <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">Custom range</p>
+            <p className="text-xs text-neutral-500 mb-2 whitespace-nowrap">e.g. Last 30 days</p>
             <div className="flex items-center gap-2 flex-wrap mb-3">
               <input
                 type="date"
