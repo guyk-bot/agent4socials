@@ -23,6 +23,8 @@ export interface PlatformAnalyticsHeaderProps {
   disconnectLoading?: boolean;
   /** Optional extra action buttons (e.g. Twitter "Enable image upload") */
   extraActions?: React.ReactNode;
+  /** When true, only show compact profile (avatar + name + link). No Reconnect/Check/Disconnect. Use on analytics page; manage accounts on Accounts page. */
+  compact?: boolean;
   className?: string;
 }
 
@@ -38,33 +40,50 @@ export function PlatformAnalyticsHeader({
   checkPermissionsLoading = false,
   disconnectLoading = false,
   extraActions,
+  compact = false,
   className = '',
 }: PlatformAnalyticsHeaderProps) {
+  const profileLink = (
+    <a
+      href={profileUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`flex items-center gap-2 bg-white rounded-xl border border-neutral-200/80 shadow-sm hover:border-neutral-300 hover:shadow transition-all duration-150 w-fit ${
+        compact ? 'py-1.5 pr-2.5 pl-1.5 gap-2' : 'p-3 gap-3 rounded-2xl border-[rgba(0,0,0,0.06)] shadow-[0_2px_10px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_14px_rgba(0,0,0,0.06)]'
+      }`}
+    >
+      <div
+        className={`rounded-full bg-neutral-100 flex items-center justify-center overflow-hidden shrink-0 ${
+          compact ? 'w-8 h-8' : 'w-12 h-12'
+        }`}
+      >
+        {account.profilePicture ? (
+          <img src={account.profilePicture} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <span className={compact ? '[&>svg]:w-4 [&>svg]:h-4' : ''}>{icon}</span>
+        )}
+      </div>
+      <div className="min-w-0">
+        <p className={`font-semibold text-[#111827] truncate ${compact ? 'text-sm' : ''}`}>
+          {account.username || account.platform}
+        </p>
+        <p className={`text-[#6b7280] flex items-center gap-1 ${compact ? 'text-xs' : 'text-sm'}`}>
+          {platformLabel}
+          <ExternalLink size={compact ? 10 : 12} className="opacity-70 shrink-0" />
+          <span className="sr-only">Open profile</span>
+        </p>
+      </div>
+    </a>
+  );
+
+  if (compact) {
+    return <div className={className}>{profileLink}</div>;
+  }
+
   return (
     <div className={`flex flex-col gap-3 ${className}`}>
       <div className="flex flex-wrap items-center gap-3">
-        <a
-          href={profileUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex gap-3 p-3 bg-white rounded-2xl border border-[rgba(0,0,0,0.06)] shadow-[0_2px_10px_rgba(0,0,0,0.04)] hover:border-neutral-200 hover:shadow-[0_4px_14px_rgba(0,0,0,0.06)] hover:-translate-y-px transition-all duration-150 w-fit"
-        >
-          <div className="w-12 h-12 rounded-full bg-neutral-100 flex items-center justify-center overflow-hidden shrink-0">
-            {account.profilePicture ? (
-              <img src={account.profilePicture} alt="" className="w-full h-full object-cover" />
-            ) : (
-              icon
-            )}
-          </div>
-          <div>
-            <p className="font-semibold text-[#111827]">{account.username || account.platform}</p>
-            <p className="text-sm text-[#6b7280] flex items-center gap-1">
-              {platformLabel}
-              <ExternalLink size={12} className="opacity-70" />
-              <span className="sr-only">Open profile</span>
-            </p>
-          </div>
-        </a>
+        {profileLink}
         <button
           type="button"
           onClick={onReconnect}

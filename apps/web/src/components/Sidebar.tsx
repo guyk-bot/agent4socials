@@ -8,6 +8,7 @@ import {
     FileText,
     Hash,
     Settings,
+    Users,
     ChevronRight,
     Plus,
     Zap,
@@ -106,6 +107,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
   const isHashtagPoolPage = pathname === '/dashboard/hashtag-pool';
   const isAiAssistantPage = pathname === '/dashboard/ai-assistant';
   const isSettingsPage = pathname === '/dashboard/settings';
+  const isAccountsPage = pathname === '/dashboard/accounts';
   const isHelpPage = pathname === '/help';
 
   const sidebarContent = (
@@ -314,6 +316,25 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
         >
           <Sparkles size={18} className="shrink-0" />
           <span>AI Assistant</span>
+        </Link>
+        )}
+        {isInboxPage ? (
+          <a
+            href="/dashboard/accounts"
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isAccountsPage ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
+            style={isAccountsPage ? { color: accent } : undefined}
+          >
+            <Users size={18} className="shrink-0" />
+            <span>Accounts</span>
+          </a>
+        ) : (
+        <Link
+          href="/dashboard/accounts"
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isAccountsPage ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
+          style={isAccountsPage ? { color: accent } : undefined}
+        >
+          <Users size={18} className="shrink-0" />
+          <span>Accounts</span>
         </Link>
         )}
         {isInboxPage ? (

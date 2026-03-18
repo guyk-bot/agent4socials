@@ -16,7 +16,7 @@ export { AnalyticsWatermarkedChart } from './AnalyticsWatermarkedChart';
 export { MetricLockBadge } from './MetricLockBadge';
 export { PlatformAnalyticsHeader } from './PlatformAnalyticsHeader';
 export type { PlatformAnalyticsHeaderProps, PlatformAnalyticsHeaderAccount } from './PlatformAnalyticsHeader';
-export { FacebookAnalyticsView } from './facebook/FacebookAnalyticsView';
+export { FacebookAnalyticsView, FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook/FacebookAnalyticsView';
 export type { FacebookAnalyticsViewProps } from './facebook/FacebookAnalyticsView';
 export { PlatformOverviewTab } from './PlatformOverviewTab';
 export type { PlatformOverviewTabProps, PlatformId, PlatformPost } from './PlatformOverviewTab';

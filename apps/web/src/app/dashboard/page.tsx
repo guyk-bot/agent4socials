@@ -14,7 +14,6 @@ import { ConfirmModal } from '@/components/ConfirmModal';
 import ConnectView from '@/components/dashboard/ConnectView';
 import {
   Users,
-  Calendar,
   CheckCircle,
   Clock,
   AlertCircle,
@@ -28,7 +27,8 @@ import {
 } from 'lucide-react';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
 import { InteractiveLineChart } from '@/components/charts/InteractiveLineChart';
-import { FacebookAnalyticsView, PlatformAnalyticsHeader, AnalyticsGrid, AnalyticsGridItem, AnalyticsWatermarkedChart } from '@/components/analytics';
+import { FacebookAnalyticsView, FACEBOOK_ANALYTICS_SECTION_IDS, PlatformAnalyticsHeader, AnalyticsGrid, AnalyticsGridItem, AnalyticsWatermarkedChart } from '@/components/analytics';
+import { AnalyticsDateRangePicker } from '@/components/analytics/AnalyticsDateRangePicker';
 import type { Demographics, GrowthDataPoint, TrafficSourceItem } from '@/types/analytics';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip as RechartTooltip,
@@ -229,6 +229,14 @@ const TABS = [
   { id: 'posts', label: 'POSTS', icon: Image },
 ];
 
+/** Scroll-to sections for single-page Facebook (and future platform) analytics. */
+const ANALYTICS_SCROLL_SECTIONS = [
+  { id: FACEBOOK_ANALYTICS_SECTION_IDS.overview, label: 'Overview' },
+  { id: FACEBOOK_ANALYTICS_SECTION_IDS.clicksTraffic, label: 'Clicks / Traffic' },
+  { id: FACEBOOK_ANALYTICS_SECTION_IDS.posts, label: 'Posts' },
+  { id: FACEBOOK_ANALYTICS_SECTION_IDS.reelsVideos, label: 'Reels / Videos' },
+] as const;
+
 export default function DashboardPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -286,12 +294,6 @@ export default function DashboardPage() {
     combinedTimeSeries: Array<{ date: string; value: number }>;
   } | null>(null);
   const [aggregatedLoading, setAggregatedLoading] = useState(false);
-  const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
-  const [disconnectingLabel, setDisconnectingLabel] = useState<string | null>(null);
-  const [disconnectConfirmOpen, setDisconnectConfirmOpen] = useState(false);
-  const [reconnectingId, setReconnectingId] = useState<string | null>(null);
-  const [enablingTwitter1oa, setEnablingTwitter1oa] = useState(false);
-  const [tokenDebugLoading, setTokenDebugLoading] = useState<string | null>(null);
   const [pageReviews, setPageReviews] = useState<Array<{ created_time: string | null; rating: number | null; recommendation_type: string | null; review_text: string | null; has_rating: boolean; has_review: boolean }>>([]);
   const [pageReviewsLoading, setPageReviewsLoading] = useState(false);
   const [pageReviewsError, setPageReviewsError] = useState<string | null>(null);
@@ -960,15 +962,6 @@ export default function DashboardPage() {
   return (
     <div className="space-y-0">
       <ConfirmModal open={alertMessage !== null} onClose={() => setAlertMessage(null)} message={alertMessage ?? ''} variant="alert" confirmLabel="OK" />
-      {disconnectingId && (
-        <div className="mb-4 flex items-center gap-3 px-4 py-3 rounded-xl border border-amber-200 bg-amber-50 text-amber-800" role="status" aria-live="polite">
-          <RefreshCw size={20} className="animate-spin shrink-0 text-amber-600" aria-hidden />
-          <p className="text-sm font-medium">
-            Disconnecting {disconnectingLabel ? `@${disconnectingLabel}` : 'account'}…
-          </p>
-          <p className="text-xs text-amber-700">Finishing in the background. You can reconnect anytime from the sidebar.</p>
-        </div>
-      )}
       {(connectingParam === '1' || justConnected || insightsLoading || importedPostsLoading) && (
         <DataSyncBanner
           platform={selectedAccount?.platform}
@@ -1002,40 +995,62 @@ export default function DashboardPage() {
           Upgrade to view more than 30 days of analytics and export reports without watermarks.
         </p>
       </div>
-      {/* Top row: ACCOUNT | POSTS tabs + date range (Metricool-style) */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-neutral-200">
-        <div className="flex gap-1 p-1 bg-neutral-100 rounded-lg w-fit">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setAnalyticsTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium ${analyticsTab === tab.id ? 'bg-white shadow-sm text-neutral-900' : 'text-neutral-600 hover:bg-white/70'}`}
-            >
-              <tab.icon size={18} />
-              {tab.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={() => {
-              const end = new Date();
-              const start = new Date();
-              start.setDate(start.getDate() - 29);
-              setDateRange({ start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) });
-            }}
-            className="text-sm font-medium text-neutral-600 hover:text-neutral-900 px-3 py-1.5 rounded-md hover:bg-neutral-100"
-          >
-            Last 30 days
-          </button>
-          <div className="flex items-center gap-2 px-3 py-2 bg-white border border-neutral-200 rounded-lg shrink-0">
-            <Calendar size={16} className="text-neutral-500" />
-            <input type="date" value={dateRange.start} onChange={(e) => setDateRange((r) => ({ ...r, start: e.target.value }))} className="text-sm border-0 bg-transparent focus:ring-0 p-0 text-neutral-700 w-[7.5rem]" />
-            <span className="text-neutral-400">–</span>
-            <input type="date" value={dateRange.end} onChange={(e) => setDateRange((r) => ({ ...r, end: e.target.value }))} className="text-sm border-0 bg-transparent focus:ring-0 p-0 text-neutral-700 w-[7.5rem]" />
+      {/* Single row: compact profile | scroll nav or tabs | date range picker */}
+      <div className="flex flex-wrap items-center gap-3 pb-4 border-b border-neutral-200">
+        {selectedAccount && (
+          <div className="shrink-0">
+            <PlatformAnalyticsHeader
+              account={{
+                id: selectedAccount.id,
+                platform: selectedAccount.platform,
+                username: selectedAccount.username,
+                profilePicture: selectedAccount.profilePicture,
+              }}
+              profileUrl={profileUrlForAccount(selectedAccount)}
+              platformLabel={selectedAccount.platform === 'TWITTER' ? 'Twitter/X' : selectedAccount.platform.charAt(0) + selectedAccount.platform.slice(1).toLowerCase()}
+              icon={PLATFORM_ICON[selectedAccount.platform]}
+              onReconnect={() => {}}
+              onDisconnectClick={() => {}}
+              compact
+              className="shrink-0"
+            />
           </div>
+        )}
+        {selectedAccount?.platform === 'FACEBOOK' ? (
+          <nav className="flex gap-0.5 p-0.5 bg-neutral-100 rounded-lg shrink-0" aria-label="Analytics sections">
+            {ANALYTICS_SCROLL_SECTIONS.map((sec) => (
+              <button
+                key={sec.id}
+                type="button"
+                onClick={() => document.getElementById(sec.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                className="px-3 py-1.5 rounded-md text-sm font-medium text-neutral-700 hover:bg-white hover:text-neutral-900 transition-colors"
+              >
+                {sec.label}
+              </button>
+            ))}
+          </nav>
+        ) : selectedAccount && (
+          <div className="flex gap-1 p-1 bg-neutral-100 rounded-lg w-fit">
+            {TABS.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setAnalyticsTab(tab.id)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium ${analyticsTab === tab.id ? 'bg-white shadow-sm text-neutral-900' : 'text-neutral-600 hover:bg-white/70'}`}
+              >
+                <tab.icon size={16} />
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="ml-auto shrink-0">
+          <AnalyticsDateRangePicker
+            start={dateRange.start}
+            end={dateRange.end}
+            onChange={(r) => setDateRange(r)}
+            onUpgrade={() => router.push('/pricing')}
+          />
         </div>
       </div>
 
@@ -1055,131 +1070,10 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Account block: profile link when one account selected; "All connected" or connect CTA otherwise */}
+      {/* When no account selected: show "All connected" or connect CTA. Disconnect is on Accounts page. */}
+      {!selectedAccount && (
       <div className="mt-6 flex flex-col gap-3">
-        {selectedAccount ? (
-          <>
-            <PlatformAnalyticsHeader
-              account={{
-                id: selectedAccount.id,
-                platform: selectedAccount.platform,
-                username: selectedAccount.username,
-                profilePicture: selectedAccount.profilePicture,
-              }}
-              profileUrl={profileUrlForAccount(selectedAccount)}
-              platformLabel={selectedAccount.platform === 'TWITTER' ? 'Twitter/X' : selectedAccount.platform.charAt(0) + selectedAccount.platform.slice(1).toLowerCase()}
-              icon={PLATFORM_ICON[selectedAccount.platform]}
-              onReconnect={async () => {
-                if (reconnectingId) return;
-                setReconnectingId(selectedAccount.id);
-                try {
-                  const res = await api.get(`/social/oauth/${selectedAccount.platform.toLowerCase()}/start`);
-                  const url = res?.data?.url;
-                  if (url && typeof url === 'string') window.location.href = url;
-                } catch (_) {}
-                setReconnectingId(null);
-              }}
-              onDisconnectClick={() => { if (!disconnectingId) setDisconnectConfirmOpen(true); }}
-              onCheckPermissions={(selectedAccount.platform === 'INSTAGRAM' || selectedAccount.platform === 'FACEBOOK') ? async () => {
-                if (tokenDebugLoading) return;
-                setTokenDebugLoading(selectedAccount.id);
-                try {
-                  const res = await api.get(`/social/accounts/${selectedAccount.id}/token-debug`);
-                  const d = res.data as {
-                    isValid?: boolean;
-                    scopes?: string[];
-                    hasPublishScope?: boolean;
-                    hasFacebookInsightsScope?: boolean;
-                    hasInstagramInsightsScope?: boolean;
-                    expiresAt?: number;
-                  };
-                  const exp = d.expiresAt ? new Date(d.expiresAt * 1000).toISOString().slice(0, 10) : 'N/A';
-                  const scopeList = (d.scopes ?? []).join(', ') || 'none';
-                  const fbInsights = d.hasFacebookInsightsScope ? 'yes' : 'no';
-                  const igInsights = d.hasInstagramInsightsScope ? 'yes' : 'no';
-                  const msg = `Token valid: ${d.isValid ?? false}. Publish scope: ${d.hasPublishScope ? 'yes' : 'no'}. Expires: ${exp}.\n\nFacebook Page insights (read_insights): ${fbInsights}.\nInstagram insights (instagram_manage_insights): ${igInsights}.\n\nAll scopes: ${scopeList}`;
-                  setAlertMessage(msg);
-                } catch (e: unknown) {
-                  const err = e as { response?: { data?: { message?: string; error?: string } } };
-                  setAlertMessage(err?.response?.data?.message ?? err?.response?.data?.error ?? 'Could not validate token.');
-                }
-                setTokenDebugLoading(null);
-              } : undefined}
-              reconnectLoading={reconnectingId === selectedAccount.id}
-              checkPermissionsLoading={tokenDebugLoading === selectedAccount.id}
-              disconnectLoading={disconnectingId === selectedAccount.id}
-              extraActions={selectedAccount.platform === 'TWITTER' && !(selectedAccount as { imageUploadEnabled?: boolean }).imageUploadEnabled ? (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (enablingTwitter1oa) return;
-                    setEnablingTwitter1oa(true);
-                    try {
-                      const res = await api.get('/social/oauth/twitter-1oa/start');
-                      const url = res?.data?.url;
-                      if (url && typeof url === 'string') window.location.href = url;
-                      else setAlertMessage(res?.data?.message ?? 'Could not start. Add TWITTER_API_KEY and TWITTER_API_SECRET in Vercel.');
-                    } catch (e: unknown) {
-                      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
-                      setAlertMessage(msg ?? 'Enable image upload failed. Add TWITTER_API_KEY and TWITTER_API_SECRET in Vercel.');
-                    }
-                    setEnablingTwitter1oa(false);
-                  }}
-                  disabled={!!enablingTwitter1oa}
-                  title="Enable image upload for X posts (OAuth 1.0a)"
-                  className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-neutral-200 bg-white text-[#374151] text-sm font-medium hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {enablingTwitter1oa ? <RefreshCw size={16} className="animate-spin" /> : <Image size={16} />}
-                  Enable image upload
-                </button>
-              ) : undefined}
-            />
-            <ConfirmModal
-                open={disconnectConfirmOpen}
-                onClose={() => setDisconnectConfirmOpen(false)}
-                title="Disconnect account?"
-                message={`Disconnect @${selectedAccount.username || selectedAccount.platform}? All synced posts and insights for this account will be removed. You can reconnect anytime from the sidebar.`}
-                confirmLabel="Disconnect"
-                cancelLabel="Keep connected"
-                variant="danger"
-                onConfirm={async () => {
-                  const accountIdToRemove = selectedAccount.id;
-                  const platformJustDisconnected = selectedAccount.platform;
-                  const label = selectedAccount.username || selectedAccount.platform;
-                  const previousAccounts = (cachedAccounts as SocialAccount[]) ?? [];
-                  setDisconnectConfirmOpen(false);
-                  setDisconnectingId(selectedAccount.id);
-                  setDisconnectingLabel(label);
-                  const minLoadingMs = 1500;
-                  const start = Date.now();
-                  setSelectedPlatformForConnect(platformJustDisconnected);
-                  setCachedAccounts(previousAccounts.filter((a) => a.id !== accountIdToRemove));
-                  setInsights(null);
-                  setAggregatedInsights(null);
-                  setImportedPosts([]);
-                  appData?.clearAccountData(accountIdToRemove);
-                  router.replace('/dashboard', { scroll: false });
-                  try {
-                    await api.delete(`/social/accounts/${accountIdToRemove}`);
-                    const res = await api.get(`/social/accounts?_=${Date.now()}`);
-                    const data = Array.isArray(res.data) ? res.data : [];
-                    setCachedAccounts(data);
-                  } catch (e) {
-                    setCachedAccounts(previousAccounts);
-                    setSelectedPlatformForConnect(null);
-                    setSelectedAccountId(accountIdToRemove);
-                    const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Could not disconnect. Try again.';
-                    setAlertMessage(msg);
-                  } finally {
-                    const elapsed = Date.now() - start;
-                    const wait = Math.max(0, minLoadingMs - elapsed);
-                    if (wait > 0) setTimeout(() => { setDisconnectingId(null); setDisconnectingLabel(null); }, wait);
-                    else { setDisconnectingId(null); setDisconnectingLabel(null); }
-                  }
-                }}
-              />
-          </>
-        ) : hasAccounts ? (
+        {hasAccounts ? (
           <div className="flex gap-3 p-3 bg-white rounded-xl border border-neutral-200 w-fit">
             <div className="flex items-center gap-1 shrink-0">
               {accounts.slice(0, 6).map((acc) => (
@@ -1211,10 +1105,56 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+      )}
 
-      {analyticsTab === 'account' && (
+      {/* Facebook: single page with scroll sections (Overview, Clicks/Traffic, Posts, Reels/Videos) */}
+      {selectedAccount?.platform === 'FACEBOOK' && (
+        <div className="mt-6 max-w-full" style={{ maxWidth: 1400 }}>
+          <FacebookAnalyticsView
+            insights={(() => {
+              const base: import('@/components/analytics/facebook/types').FacebookInsights = {
+                platform: selectedAccount.platform,
+                followers: effectiveFollowers,
+                impressionsTotal: effectiveImpressions,
+                impressionsTimeSeries: effectiveTimeSeries,
+                pageViewsTotal: effectivePageVisits,
+                reachTotal: effectiveReach,
+                profileViewsTotal: effectiveProfileViews,
+                followersTimeSeries: displayFollowersTimeSeries,
+                ...(insights && {
+                  insightsHint: insights.insightsHint,
+                  growthTimeSeries: insights.growthTimeSeries as Array<{ date: string; gained: number; lost: number; net?: number }> | undefined,
+                }),
+              };
+              return base;
+            })()}
+            posts={importedPosts.filter((p: { platform: string }) => p.platform === selectedAccount.platform) as import('@/components/analytics/facebook/types').FacebookPost[]}
+            dateRange={dateRange}
+            insightsLoading={effectiveInsightsLoading}
+            postsLoading={importedPostsLoading}
+            onUpgrade={() => router.push('/pricing')}
+            onSync={async () => {
+              if (!selectedAccount?.id || importedPostsLoading) return;
+              setImportedPostsLoading(true);
+              try {
+                const res = await api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: { sync: 1 } });
+                const list = res.data?.posts ?? [];
+                setImportedPosts((prev) => prev.filter((p: { platform: string }) => p.platform !== selectedAccount.platform).concat(list));
+                setPostsSyncError(res.data?.syncError ?? null);
+              } catch (_) {
+                setPostsSyncError(null);
+              } finally {
+                setImportedPostsLoading(false);
+              }
+            }}
+            followersLabel="Followers"
+          />
+        </div>
+      )}
+
+      {/* Non-Facebook account tab: platform-specific or placeholder */}
+      {analyticsTab === 'account' && selectedAccount && selectedAccount.platform !== 'FACEBOOK' && (
         <div className="mt-6 space-y-6 max-w-full" style={{ maxWidth: 1400 }}>
-          {selectedAccount ? (
           <FacebookAnalyticsView
             insights={(() => {
               const base: import('@/components/analytics/facebook/types').FacebookInsights = {
@@ -1240,10 +1180,11 @@ export default function DashboardPage() {
             onUpgrade={() => router.push('/pricing')}
             followersLabel={selectedAccount.platform === 'YOUTUBE' ? 'Subscribers' : 'Followers'}
           />
-          ) : hasAccounts ? (
-            <p className="text-sm text-neutral-500 py-8">Select an account in the left sidebar to see its analytics.</p>
-          ) : null}
         </div>
+      )}
+
+      {analyticsTab === 'account' && !selectedAccount && hasAccounts && (
+        <p className="text-sm text-neutral-500 py-8">Select an account in the left sidebar to see its analytics.</p>
       )}
 
       {analyticsTab === 'posts' && (
