@@ -91,6 +91,7 @@ export async function GET(
   const out: {
     platform: string;
     followers: number;
+    followingCount?: number;
     impressionsTotal: number;
     impressionsTimeSeries: Array<{ date: string; value: number }>;
     pageViewsTotal?: number;
@@ -128,7 +129,7 @@ export async function GET(
             out.followers = profileRes.data.followers_count;
           }
           if (typeof profileRes.data?.follows_count === 'number') {
-            (out as Record<string, number>).followingCount = profileRes.data.follows_count;
+            out.followingCount = profileRes.data.follows_count;
           }
           return typeof profileRes.data?.followers_count === 'number';
         } catch (e) {
