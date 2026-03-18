@@ -962,6 +962,20 @@ export default function DashboardPage() {
   return (
     <div className="space-y-0">
       <ConfirmModal open={alertMessage !== null} onClose={() => setAlertMessage(null)} message={alertMessage ?? ''} variant="alert" confirmLabel="OK" />
+      {/* Upgrade CTA at top; platform data loading shown underneath */}
+      <div className="mb-4 rounded-xl border border-[#5ff6fd]/30 bg-gradient-to-r from-[#5ff6fd]/10 to-[#b030ad]/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
+        <button
+          type="button"
+          onClick={() => router.push('/pricing')}
+          className="shrink-0 w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-[#5ff6fd] to-[#b030ad] text-white font-bold text-sm drop-shadow-sm hover:opacity-90 transition-opacity"
+        >
+          Upgrade
+        </button>
+        <p className="text-sm text-neutral-800 font-medium flex items-center gap-2 flex-wrap">
+          <img src="/dim.svg" alt="" className="h-4 w-4 object-contain shrink-0" width={16} height={16} aria-hidden />
+          Upgrade to view more than 30 days of analytics and export reports without watermarks.
+        </p>
+      </div>
       {(connectingParam === '1' || justConnected || insightsLoading || importedPostsLoading) && (
         <DataSyncBanner
           platform={selectedAccount?.platform}
@@ -981,20 +995,6 @@ export default function DashboardPage() {
           <p className="mt-1 text-xs text-amber-700">Use Reconnect in the sidebar and approve all requested permissions to see your follower count here. Views are from your synced videos.</p>
         </div>
       )}
-      {/* Upgrade CTA at top of analytics (above tabs and date range) */}
-      <div className="mb-6 rounded-xl border border-[#5ff6fd]/30 bg-gradient-to-r from-[#5ff6fd]/10 to-[#b030ad]/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
-        <button
-          type="button"
-          onClick={() => router.push('/pricing')}
-          className="shrink-0 w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-[#5ff6fd] to-[#b030ad] text-white font-bold text-sm drop-shadow-sm hover:opacity-90 transition-opacity"
-        >
-          Upgrade
-        </button>
-        <p className="text-sm text-neutral-800 font-medium flex items-center gap-2 flex-wrap">
-          <img src="/dim.svg" alt="" className="h-4 w-4 object-contain shrink-0" width={16} height={16} aria-hidden />
-          Upgrade to view more than 30 days of analytics and export reports without watermarks.
-        </p>
-      </div>
       {/* Single row: compact profile | scroll nav or tabs | date range picker */}
       <div className="flex flex-wrap items-center gap-3 pb-4 border-b border-neutral-200">
         {selectedAccount && (
