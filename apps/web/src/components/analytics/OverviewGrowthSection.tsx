@@ -168,11 +168,12 @@ function FollowersGrowthChart({ data }: { data: GrowthDataPoint[] }) {
             />
             <Tooltip
               content={({ active, payload, label }) => {
-                if (!active || !payload?.length || !label) return null;
-                const point = chartData.find((d) => d.date === label);
+                const labelStr = label != null ? String(label) : '';
+                if (!active || !payload?.length || !labelStr) return null;
+                const point = chartData.find((d) => d.date === labelStr);
                 return (
                   <div className="rounded-xl bg-neutral-800 text-white px-3 py-2.5 shadow-lg border border-neutral-700/50 text-left min-w-[140px]">
-                    <p className="text-neutral-300 text-xs font-medium">{formatDate(label)}</p>
+                    <p className="text-neutral-300 text-xs font-medium">{formatDate(labelStr)}</p>
                     <p className="text-white font-semibold mt-1">Followers: {(payload[0]?.value as number) ?? 0}</p>
                     {point != null && (
                       <p className="text-neutral-400 text-xs mt-0.5">+{point.gained} that day</p>
@@ -225,10 +226,11 @@ function ContentActivityChart({ data }: { data: GrowthDataPoint[] }) {
             />
             <Tooltip
               content={({ active, payload, label }) => {
-                if (!active || !payload?.length || !label) return null;
+                const labelStr = label != null ? String(label) : '';
+                if (!active || !payload?.length || !labelStr) return null;
                 return (
                   <div className="rounded-xl bg-neutral-800 text-white px-3 py-2.5 shadow-lg border border-neutral-700/50 text-left">
-                    <p className="text-neutral-300 text-xs font-medium">{formatDate(label)}</p>
+                    <p className="text-neutral-300 text-xs font-medium">{formatDate(labelStr)}</p>
                     <p className="text-white font-semibold mt-1">Posts: {(payload[0]?.value as number) ?? 0}</p>
                   </div>
                 );
