@@ -18,7 +18,6 @@ import {
   Clock,
   AlertCircle,
   Plus,
-  BarChart3,
   Image,
   RefreshCw,
   ExternalLink,
@@ -223,11 +222,6 @@ function profileUrlForAccount(account: { platform: string; username?: string | n
   if (platform === 'LINKEDIN') return 'https://www.linkedin.com';
   return '#';
 }
-
-const TABS = [
-  { id: 'account', label: 'ACCOUNT', icon: BarChart3 },
-  { id: 'posts', label: 'POSTS', icon: Image },
-];
 
 /** Scroll-to sections for single-page analytics (all platforms). */
 const ANALYTICS_SCROLL_SECTIONS = [
@@ -990,7 +984,7 @@ export default function DashboardPage() {
           <p className="mt-1 text-xs text-amber-700">Use Reconnect in the sidebar and approve all requested permissions to see your follower count here. Views are from your synced videos.</p>
         </div>
       )}
-      {/* Single row: compact profile | scroll nav or tabs | date range picker */}
+      {/* Single row: compact profile | section nav | date range picker */}
       <div className="flex flex-wrap items-center gap-3 pb-4 border-b border-neutral-200">
         {selectedAccount && (
           <div className="shrink-0">
@@ -1106,6 +1100,7 @@ export default function DashboardPage() {
                 followersTimeSeries: displayFollowersTimeSeries,
                 ...(insights && {
                   insightsHint: insights.insightsHint,
+                  followingCount: (insights as { followingCount?: number }).followingCount,
                   growthTimeSeries: insights.growthTimeSeries as Array<{ date: string; gained: number; lost: number; net?: number }> | undefined,
                   pageViewsTimeSeries: (insights as { pageViewsTimeSeries?: Array<{ date: string; value: number }> }).pageViewsTimeSeries,
                   demographics: insights.demographics,

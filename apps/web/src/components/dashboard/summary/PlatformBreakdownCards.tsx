@@ -1,9 +1,6 @@
 'use client';
 
 import React from 'react';
-import {
-  AreaChart, Area, ResponsiveContainer, Tooltip,
-} from 'recharts';
 import type { SummaryPlatform } from './types';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
 
@@ -39,41 +36,6 @@ const PLATFORM_LABEL: Record<string, string> = {
   YOUTUBE: 'YouTube', TWITTER: 'X (Twitter)', LINKEDIN: 'LinkedIn',
 };
 
-function Sparkline({ values, color }: { values: number[]; color: string }) {
-  if (values.length < 2) {
-    return <div className="h-10 w-20" />;
-  }
-  const data = values.map((v, i) => ({ i, v }));
-  return (
-    <div style={{ width: 80, height: 40 }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
-          <defs>
-            <linearGradient id={`spark-${color.replace('#', '')}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity={0.4} />
-              <stop offset="100%" stopColor={color} stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <Tooltip
-            content={(props) => {
-              const { active, payload } = props as unknown as { active?: boolean; payload?: Array<{ value?: number }> };
-              if (!active || !payload?.length) return null;
-              return (
-                <div className="bg-white border border-neutral-200 rounded-lg px-2 py-1 text-xs shadow-lg font-medium">
-                  {(payload[0]?.value ?? 0).toLocaleString()}
-                </div>
-              );
-            }}
-            cursor={{ stroke: color, strokeWidth: 1, strokeDasharray: '3 3' }}
-          />
-          <Area type="monotone" dataKey="v" stroke={color} strokeWidth={2}
-            fill={`url(#spark-${color.replace('#', '')})`} dot={false} />
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
 const PLATFORM_ORDER = ['INSTAGRAM', 'FACEBOOK', 'YOUTUBE', 'TIKTOK', 'LINKEDIN', 'TWITTER'];
 
 export function PlatformBreakdownCards({ platforms }: { platforms: SummaryPlatform[] }) {
@@ -92,10 +54,6 @@ export function PlatformBreakdownCards({ platforms }: { platforms: SummaryPlatfo
         {sorted.map((p, idx) => {
           const color = PLATFORM_HEX[p.platform] ?? '#5ff6fd';
           const bg = PLATFORM_BG[p.platform] ?? 'bg-slate-100';
-          const trendValues = p.timeSeries.slice(-14).map((d) => d.value);
-          if (trendValues.length < 2 && p.reach > 0) {
-            trendValues.push(0, p.reach);
-          }
           return (
             <div
               key={p.id}
@@ -118,7 +76,7 @@ export function PlatformBreakdownCards({ platforms }: { platforms: SummaryPlatfo
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm mb-3">
+              <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
                 <div>
                   <p className="text-xs text-slate-500">{p.platform === 'YOUTUBE' ? 'Subscribers' : 'Followers'}</p>
                   <p className="font-bold text-slate-900 tabular-nums" style={{ color }}>{p.followers.toLocaleString()}</p>
@@ -135,10 +93,6 @@ export function PlatformBreakdownCards({ platforms }: { platforms: SummaryPlatfo
                   <p className="text-xs text-slate-500">Engagement</p>
                   <p className="font-semibold text-slate-900">{p.engagement.toLocaleString()}</p>
                 </div>
-              </div>
-
-              <div className="flex justify-end" style={{ color }}>
-                <Sparkline values={trendValues} color={color} />
               </div>
             </div>
           );

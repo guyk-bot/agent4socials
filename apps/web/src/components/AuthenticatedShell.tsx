@@ -34,7 +34,7 @@ function AuthenticatedContent({
         <div
             className="min-h-screen bg-neutral-100"
             style={{
-                backgroundColor: backgroundColor || undefined,
+                backgroundColor: backgroundColor || 'var(--background)',
                 color: textColor || undefined,
                 ['--wl-primary' as string]: primaryColor || undefined,
                 ['--primary' as string]: primaryColor || undefined,

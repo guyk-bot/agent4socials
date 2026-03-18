@@ -1,65 +1,19 @@
 'use client';
 
 import React from 'react';
-import {
-  AreaChart,
-  Area,
-  ResponsiveContainer,
-  Tooltip,
-  TooltipProps,
-} from 'recharts';
 import type { SummaryKPIs } from './types';
-
-function Sparkline({ values, color }: { values: number[]; color: string }) {
-  if (values.length === 0) return null;
-  const data = values.map((v, i) => ({ i, v }));
-  return (
-    <div style={{ width: 80, height: 36 }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
-          <defs>
-            <linearGradient id={`spark-${color.replace('#', '')}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity={0.4} />
-              <stop offset="100%" stopColor={color} stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <Tooltip
-            content={(rawProps: TooltipProps<number, string>) => {
-              const { active, payload } = rawProps as unknown as { active?: boolean; payload?: Array<{ value?: number }> };
-              if (!active || !payload?.length) return null;
-              return (
-                <div className="bg-white border border-neutral-200 rounded-lg px-2 py-1 text-xs shadow">
-                  {payload[0]?.value?.toLocaleString()}
-                </div>
-              );
-            }}
-          />
-          <Area
-            type="monotone"
-            dataKey="v"
-            stroke={color}
-            strokeWidth={1.5}
-            fill={`url(#spark-${color.replace('#', '')})`}
-            dot={false}
-          />
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
 
 type KPICardProps = {
   label: string;
   value: string | number;
   change?: number;
-  sparkline: number[];
   accentColor: string;
   borderColor: string;
   icon: string;
   delay: number;
 };
 
-function KPICard({ label, value, change, sparkline, accentColor, borderColor, icon, delay }: KPICardProps) {
+function KPICard({ label, value, change, accentColor, borderColor, icon, delay }: KPICardProps) {
   return (
     <div
       className="rounded-2xl bg-white p-5 flex flex-col min-h-[130px] transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
@@ -82,7 +36,6 @@ function KPICard({ label, value, change, sparkline, accentColor, borderColor, ic
             </p>
           )}
         </div>
-        <Sparkline values={sparkline} color={accentColor} />
       </div>
     </div>
   );
@@ -98,7 +51,6 @@ export function KPICardsGrid({ kpis }: KPICardsGridProps) {
       label: 'Total Audience',
       value: kpis.totalAudience.toLocaleString(),
       change: kpis.totalAudienceChange,
-      sparkline: kpis.audienceSparkline,
       accentColor: '#5ff6fd',
       borderColor: '#5ff6fd',
       icon: '👥',
@@ -108,7 +60,6 @@ export function KPICardsGrid({ kpis }: KPICardsGridProps) {
       label: 'Total Reach',
       value: kpis.totalReach.toLocaleString(),
       change: kpis.totalReachChange,
-      sparkline: kpis.reachSparkline,
       accentColor: '#b030ad',
       borderColor: '#b030ad',
       icon: '📡',
@@ -118,7 +69,6 @@ export function KPICardsGrid({ kpis }: KPICardsGridProps) {
       label: 'Engagement Rate',
       value: `${kpis.engagementRate.toFixed(2)}%`,
       change: kpis.engagementRateChange,
-      sparkline: kpis.engagementSparkline,
       accentColor: '#5ff6fd',
       borderColor: '#5ff6fd',
       icon: '💬',
@@ -128,7 +78,6 @@ export function KPICardsGrid({ kpis }: KPICardsGridProps) {
       label: 'Content Published',
       value: kpis.contentPublished.toLocaleString(),
       change: kpis.contentPublishedChange,
-      sparkline: kpis.postsSparkline,
       accentColor: '#b030ad',
       borderColor: '#b030ad',
       icon: '📄',
@@ -146,7 +95,6 @@ export function KPICardsGrid({ kpis }: KPICardsGridProps) {
             label={c.label}
             value={c.value}
             change={c.change}
-            sparkline={c.sparkline}
             accentColor={c.accentColor}
             borderColor={c.borderColor}
             icon={c.icon}

@@ -112,6 +112,42 @@
   --border: #334155;
 }
 
+/* Dark mode: override common Tailwind backgrounds and borders so dashboard/cards flip */
+[data-theme='dark'] .bg-white,
+[data-theme='dark'] .bg-neutral-50 {
+  background-color: var(--card-bg) !important;
+}
+[data-theme='dark'] .bg-neutral-100,
+[data-theme='dark'] .bg-slate-50 {
+  background-color: var(--background) !important;
+}
+[data-theme='dark'] .bg-neutral-200\/80,
+[data-theme='dark'] .bg-neutral-200 {
+  background-color: var(--border) !important;
+}
+[data-theme='dark'] .text-neutral-900,
+[data-theme='dark'] .text-neutral-800 {
+  color: var(--foreground) !important;
+}
+[data-theme='dark'] .text-neutral-700,
+[data-theme='dark'] .text-neutral-600 {
+  color: var(--muted) !important;
+}
+[data-theme='dark'] .text-neutral-500 {
+  color: var(--muted) !important;
+}
+[data-theme='dark'] .border-neutral-200,
+[data-theme='dark'] .border-neutral-200\/80,
+[data-theme='dark'] .border-slate-200 {
+  border-color: var(--border) !important;
+}
+[data-theme='dark'] .border-neutral-100 {
+  border-color: var(--border) !important;
+}
+[data-theme='dark'] .shadow-sm {
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+}
+
 * {
   box-sizing: border-box;
 }

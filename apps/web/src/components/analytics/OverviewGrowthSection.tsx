@@ -108,7 +108,6 @@ function KpiCard({
   trend,
   trendUp,
   tint = 'neutral',
-  sparkData,
   primary,
   metricId,
   isActive,
@@ -120,7 +119,6 @@ function KpiCard({
   trend?: string;
   trendUp?: boolean;
   tint?: 'neutral' | 'violet' | 'blue' | 'emerald' | 'slate';
-  sparkData?: number[];
   primary?: boolean;
   metricId?: ChartMetricId;
   isActive?: boolean;
@@ -129,20 +127,22 @@ function KpiCard({
 }) {
   const isChartMetric = metricId != null;
   const displayValue = useCountUp(value);
-  const bgTint =
-    tint === 'violet'
-      ? primary
-        ? 'bg-violet-500/[0.07]'
-        : 'bg-violet-500/[0.05]'
-      : 'bg-neutral-100/90';
-
+  // Distinct solid background per tint; selected = ring + darker border
+  const tintStyles: Record<NonNullable<typeof tint>, { bg: string; border: string; borderSelected: string; text: string; trendPositive: string }> = {
+    violet: { bg: 'bg-violet-50', border: 'border-violet-200', borderSelected: 'border-violet-500 ring-2 ring-violet-400/50', text: 'text-violet-900', trendPositive: 'text-violet-600' },
+    blue: { bg: 'bg-blue-50', border: 'border-blue-200', borderSelected: 'border-blue-500 ring-2 ring-blue-400/50', text: 'text-blue-900', trendPositive: 'text-blue-600' },
+    emerald: { bg: 'bg-emerald-50', border: 'border-emerald-200', borderSelected: 'border-emerald-500 ring-2 ring-emerald-400/50', text: 'text-emerald-900', trendPositive: 'text-emerald-600' },
+    slate: { bg: 'bg-amber-50', border: 'border-amber-200', borderSelected: 'border-amber-500 ring-2 ring-amber-400/50', text: 'text-amber-900', trendPositive: 'text-amber-600' },
+    neutral: { bg: 'bg-neutral-100', border: 'border-neutral-200', borderSelected: 'border-neutral-500 ring-2 ring-neutral-400/50', text: 'text-neutral-900', trendPositive: 'text-neutral-600' },
+  };
+  const style = tintStyles[tint ?? 'neutral'];
   const wrapperClass = [
-    'relative rounded-[22px] flex flex-col justify-between shadow-sm border transition-all duration-200',
+    'relative rounded-[22px] flex flex-col justify-between shadow-sm border-2 transition-all duration-200 overflow-hidden',
     isChartMetric ? 'cursor-pointer select-none' : '',
     primary ? 'p-6 min-h-[108px]' : 'p-5 min-h-[100px]',
-    isPrimary ? 'border-violet-400/70 ring-1 ring-violet-400/20 shadow-md' : isActive ? 'border-violet-300/50 hover:border-violet-400/60' : primary ? 'border-violet-200/50 hover:border-violet-300/60' : 'border-neutral-200/60 hover:border-neutral-300/70',
+    isPrimary ? style.borderSelected : style.border,
     'hover:shadow-md hover:-translate-y-0.5 hover:shadow-lg',
-    bgTint,
+    style.bg,
   ].filter(Boolean).join(' ');
 
   const content = (
@@ -150,44 +150,16 @@ function KpiCard({
       {trend != null && (
         <span
           className={`absolute top-4 right-4 text-xs font-medium ${
-            trendUp ? 'text-violet-600' : trend === '0' ? 'text-neutral-500' : 'text-rose-500/90'
+            trendUp ? style.trendPositive : trend === '0' ? 'text-neutral-500' : 'text-rose-500/90'
           }`}
         >
           {trend}
         </span>
       )}
       <div className="flex-1">
-        <p className={`font-semibold text-neutral-900 tracking-tight tabular-nums ${primary ? 'text-2xl md:text-3xl' : 'text-xl md:text-2xl'}`}>{displayValue}</p>
+        <p className={`font-semibold tracking-tight tabular-nums ${style.text} ${primary ? 'text-2xl md:text-3xl' : 'text-xl md:text-2xl'}`}>{displayValue}</p>
         <p className="text-sm text-neutral-500 mt-1">{label}</p>
       </div>
-      {sparkData != null && sparkData.length > 1 && (
-        <div className={`mt-3 h-8 -mb-1 ${tint === 'violet' ? 'opacity-75' : tint === 'slate' ? 'opacity-75' : 'opacity-60'}`}>
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart
-              data={sparkData.map((value, index) => ({ value, index }))}
-              margin={{ top: 2, right: 0, left: 0, bottom: 2 }}
-            >
-              <defs>
-                <linearGradient id="kpiSparkGrad" x1="0" y1="1" x2="0" y2="0">
-                  <stop offset="0%" stopColor={PURPLE.primary} stopOpacity={0.1} />
-                  <stop offset="100%" stopColor={PURPLE.soft} stopOpacity={0.4} />
-                </linearGradient>
-                <linearGradient id="kpiSparkGradSlate" x1="0" y1="1" x2="0" y2="0">
-                  <stop offset="0%" stopColor={PURPLE.primary} stopOpacity={0.06} />
-                  <stop offset="100%" stopColor={PURPLE.soft} stopOpacity={0.25} />
-                </linearGradient>
-              </defs>
-              <Area
-                type="monotone"
-                dataKey="value"
-                stroke="none"
-                fill={tint === 'violet' ? 'url(#kpiSparkGrad)' : tint === 'slate' ? 'url(#kpiSparkGradSlate)' : 'currentColor'}
-                fillOpacity={tint === 'violet' ? 1 : tint === 'slate' ? 1 : 0.2}
-              />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </div>
-      )}
     </>
   );
 
@@ -211,12 +183,13 @@ function SummaryStatCard({ label, value }: { label: string; value: string | numb
   );
 }
 
-// Line metric colors (aligned with KPI card tints)
+// Line metric colors (aligned with KPI card tints) + posts for chart
 const METRIC_COLORS: Record<LineMetricId, { stroke: string; fill: string }> = {
   followers: { stroke: PURPLE.primary, fill: PURPLE.soft },
   views: { stroke: '#2563eb', fill: '#93c5fd' },
   visits: { stroke: '#059669', fill: '#6ee7b7' },
 };
+const POSTS_CHART_COLOR = { stroke: '#d97706', fill: '#fcd34d' }; // amber-600 / amber-300
 
 function formatYAxisValue(v: number): string {
   if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
@@ -225,23 +198,19 @@ function formatYAxisValue(v: number): string {
 }
 
 // —— FollowersGrowthChart ——
-// KPI-driven focus: lines for followers/views/visits, bars for posts. Optional posting-day markers.
+// KPI-driven focus: lines for followers/views/visits, bars for posts.
 function FollowersGrowthChart({
   data,
   hoveredDate,
   onDateHover,
   activeMetrics,
   primaryFocus,
-  showActivityOnGrowth = true,
-  onShowActivityChange,
 }: {
   data: GrowthDataPoint[];
   hoveredDate: string | null;
   onDateHover: (date: string | null) => void;
   activeMetrics: Set<ChartMetricId>;
   primaryFocus: ChartMetricId;
-  showActivityOnGrowth?: boolean;
-  onShowActivityChange?: (show: boolean) => void;
 }) {
   const chartData = useMemo(() => {
     return data.map((d, i) => ({
@@ -250,7 +219,6 @@ function FollowersGrowthChart({
     }));
   }, [data]);
 
-  const postingDays = useMemo(() => data.filter((d) => (d.posts ?? 0) > 0).map((d) => d.date), [data]);
   const hasEnoughData = useMemo(() => {
     const totalF = data.reduce((s, d) => s + (d.followers ?? 0), 0);
     const totalP = data.reduce((s, d) => s + (d.posts ?? 0), 0);
@@ -294,22 +262,6 @@ function FollowersGrowthChart({
     <div className={`rounded-[22px] bg-white border border-neutral-100 shadow-md p-6 hover:shadow-lg hover:border-neutral-200/80 transition-all duration-200 ${!hasEnoughData ? 'opacity-85' : ''}`}>
       <div className="flex items-center justify-between gap-4 mb-3">
         <h3 className="text-sm font-semibold text-neutral-800">Audience growth over time</h3>
-        {onShowActivityChange && (
-          <label className="flex items-center gap-2.5 cursor-pointer select-none shrink-0 group">
-            <span className="text-xs font-medium text-neutral-500 group-hover:text-neutral-600 transition-colors">Overlay activity</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={showActivityOnGrowth}
-              onClick={() => onShowActivityChange(!showActivityOnGrowth)}
-              className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:ring-offset-1 ${showActivityOnGrowth ? 'bg-violet-500 border-violet-500' : 'bg-neutral-200 border-neutral-200 group-hover:bg-neutral-300'}`}
-            >
-              <span
-                className={`pointer-events-none absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${showActivityOnGrowth ? 'translate-x-5' : 'translate-x-0'}`}
-              />
-            </button>
-          </label>
-        )}
       </div>
       {!hasEnoughData && (
         <p className="text-xs text-neutral-400 mb-2">Start posting to see trends.</p>
@@ -352,26 +304,18 @@ function FollowersGrowthChart({
                 <stop offset="100%" stopColor="#059669" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="growthContentBarGrad" x1="0" y1="1" x2="0" y2="0">
-                <stop offset="0%" stopColor={PURPLE.soft} stopOpacity={0.7} />
-                <stop offset="100%" stopColor={PURPLE.soft} stopOpacity={0.95} />
+                <stop offset="0%" stopColor={POSTS_CHART_COLOR.stroke} stopOpacity={0.5} />
+                <stop offset="100%" stopColor={POSTS_CHART_COLOR.stroke} stopOpacity={0.8} />
               </linearGradient>
               <linearGradient id="growthContentBarGradPrimary" x1="0" y1="1" x2="0" y2="0">
-                <stop offset="0%" stopColor={PURPLE.primary} stopOpacity={0.85} />
-                <stop offset="100%" stopColor={PURPLE.strong} stopOpacity={1} />
+                <stop offset="0%" stopColor={POSTS_CHART_COLOR.stroke} stopOpacity={0.85} />
+                <stop offset="100%" stopColor={POSTS_CHART_COLOR.stroke} stopOpacity={1} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke={PURPLE.grid} vertical={false} />
             {hoveredDate && (
               <ReferenceLine x={hoveredDate} stroke={PURPLE.primary} strokeOpacity={0.35} strokeWidth={1.5} strokeDasharray="4 3" />
             )}
-            {showActivityOnGrowth && postingDays.map((date) => (
-              <ReferenceLine
-                key={date}
-                segment={[{ x: date, y: 0 }, { x: date, y: leftDomain[1] * 0.06 }]}
-                stroke="rgba(124, 58, 237, 0.045)"
-                strokeWidth={1}
-              />
-            ))}
             <XAxis
               dataKey="date"
               tick={{ fontSize: 12, fill: '#525252' }}
@@ -738,6 +682,10 @@ export interface OverviewGrowthSectionProps {
   dateRange?: { start: string; end: string };
   onDateRangeChange?: (range: { start: string; end: string }) => void;
   onExport?: () => void;
+  /** When 'INSTAGRAM', show 3 cards: Followers, Following, Total content (left to right). */
+  platform?: string;
+  /** Current following count (e.g. for Instagram); shown in second card when platform is INSTAGRAM. */
+  followingCount?: number | null;
 }
 
 export function OverviewGrowthSection({
@@ -746,11 +694,12 @@ export function OverviewGrowthSection({
   dateRange,
   onDateRangeChange,
   onExport,
+  platform,
+  followingCount,
 }: OverviewGrowthSectionProps) {
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
   const [activeMetrics, setActiveMetrics] = useState<Set<ChartMetricId>>(() => new Set(['followers', 'posts']));
   const [primaryFocus, setPrimaryFocus] = useState<ChartMetricId>('followers');
-  const [showActivityOnGrowth, setShowActivityOnGrowth] = useState(true);
 
   const handleFocusMetric = useCallback((id: ChartMetricId) => {
     setActiveMetrics((prev) => {
@@ -780,6 +729,7 @@ export function OverviewGrowthSection({
     const dailyPosts = days > 0 ? (totalPosts / days).toFixed(2) : '0';
     const postsPerWeek = days > 0 ? (totalPosts / (days / 7)).toFixed(2) : '0';
 
+    const followersPerPost = totalPosts > 0 && !Number.isNaN(followersGain) ? (followersGain / totalPosts).toFixed(2) : '—';
     return {
       followers: last?.followers ?? 0,
       followersTrend: followersGain > 0 ? `+${followersGain}` : followersGain < 0 ? String(followersGain) : '0',
@@ -791,9 +741,7 @@ export function OverviewGrowthSection({
       dailyPageViews,
       dailyPosts,
       postsPerWeek,
-      viewsSpark: data.map((d) => d.views),
-      visitsSpark: data.map((d) => d.visits),
-      postsSpark: data.map((d) => d.posts),
+      followersPerPost,
     };
   }, [data]);
 
@@ -825,52 +773,83 @@ export function OverviewGrowthSection({
           </div>
         </div>
 
-        {/* KPI cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <KpiCard
-            label="Followers"
-            value={stats.followers}
-            trend={stats.followersTrend}
-            trendUp={stats.followersTrendUp}
-            tint="violet"
-            primary
-            metricId="followers"
-            isActive={activeMetrics.has('followers')}
-            isPrimary={primaryFocus === 'followers'}
-            onFocusMetric={handleFocusMetric}
-          />
-          <KpiCard
-            label="Views"
-            value={stats.views}
-            trend={stats.views > 0 ? undefined : undefined}
-            tint="blue"
-            sparkData={stats.viewsSpark}
-            metricId="views"
-            isActive={activeMetrics.has('views')}
-            isPrimary={primaryFocus === 'views'}
-            onFocusMetric={handleFocusMetric}
-          />
-          <KpiCard
-            label="Page visits"
-            value={stats.visits}
-            tint="emerald"
-            sparkData={stats.visitsSpark}
-            metricId="visits"
-            isActive={activeMetrics.has('visits')}
-            isPrimary={primaryFocus === 'visits'}
-            onFocusMetric={handleFocusMetric}
-          />
-          <KpiCard
-            label="Total content"
-            value={stats.totalContent}
-            tint="slate"
-            sparkData={stats.postsSpark}
-            metricId="posts"
-            isActive={activeMetrics.has('posts')}
-            isPrimary={primaryFocus === 'posts'}
-            onFocusMetric={handleFocusMetric}
-          />
-        </div>
+        {/* KPI cards: Instagram = 3 cards (Followers, Following, Total content); else 4 cards */}
+        {platform === 'INSTAGRAM' ? (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <KpiCard
+              label="Followers"
+              value={stats.followers}
+              trend={stats.followersTrend}
+              trendUp={stats.followersTrendUp}
+              tint="violet"
+              primary
+              metricId="followers"
+              isActive={activeMetrics.has('followers')}
+              isPrimary={primaryFocus === 'followers'}
+              onFocusMetric={handleFocusMetric}
+            />
+            <KpiCard
+              label="Following"
+              value={followingCount != null && followingCount !== undefined ? followingCount : '—'}
+              tint="emerald"
+              metricId={undefined}
+              isActive={false}
+              isPrimary={false}
+            />
+            <KpiCard
+              label="Total content"
+              value={stats.totalContent}
+              tint="slate"
+              metricId="posts"
+              isActive={activeMetrics.has('posts')}
+              isPrimary={primaryFocus === 'posts'}
+              onFocusMetric={handleFocusMetric}
+            />
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <KpiCard
+              label="Followers"
+              value={stats.followers}
+              trend={stats.followersTrend}
+              trendUp={stats.followersTrendUp}
+              tint="violet"
+              primary
+              metricId="followers"
+              isActive={activeMetrics.has('followers')}
+              isPrimary={primaryFocus === 'followers'}
+              onFocusMetric={handleFocusMetric}
+            />
+            <KpiCard
+              label="Views"
+              value={stats.views}
+              trend={stats.views > 0 ? undefined : undefined}
+              tint="blue"
+              metricId="views"
+              isActive={activeMetrics.has('views')}
+              isPrimary={primaryFocus === 'views'}
+              onFocusMetric={handleFocusMetric}
+            />
+            <KpiCard
+              label="Page visits"
+              value={stats.visits}
+              tint="emerald"
+              metricId="visits"
+              isActive={activeMetrics.has('visits')}
+              isPrimary={primaryFocus === 'visits'}
+              onFocusMetric={handleFocusMetric}
+            />
+            <KpiCard
+              label="Total content"
+              value={stats.totalContent}
+              tint="slate"
+              metricId="posts"
+              isActive={activeMetrics.has('posts')}
+              isPrimary={primaryFocus === 'posts'}
+              onFocusMetric={handleFocusMetric}
+            />
+          </div>
+        )}
 
         {/* Chart 1: Audience growth over time (followers line + posts bars) */}
         <FollowersGrowthChart
@@ -879,8 +858,6 @@ export function OverviewGrowthSection({
           onDateHover={setHoveredDate}
           activeMetrics={activeMetrics}
           primaryFocus={primaryFocus}
-          showActivityOnGrowth={showActivityOnGrowth}
-          onShowActivityChange={setShowActivityOnGrowth}
         />
 
         {/* Chart 2: Balance of Followers (gained / lost per day) */}
@@ -892,12 +869,17 @@ export function OverviewGrowthSection({
           />
         ) : null}
 
-        {/* Bottom summary cards */}
+        {/* Bottom analytics row (6 cards like reference) */}
         <div className="space-y-3">
           <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Averages</p>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <SummaryStatCard label="Average daily new followers" value={stats.avgDailyFollowers} />
-            <SummaryStatCard label="Daily page views" value={stats.dailyPageViews} />
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <SummaryStatCard label="Net followers" value={stats.followersTrend} />
+            <SummaryStatCard label="Daily followers" value={stats.avgDailyFollowers} />
+            <SummaryStatCard label="Followers per post" value={stats.followersPerPost} />
+            <SummaryStatCard
+              label="Following"
+              value={platform === 'INSTAGRAM' && followingCount != null && followingCount !== undefined ? followingCount : '—'}
+            />
             <SummaryStatCard label="Daily posts" value={stats.dailyPosts} />
             <SummaryStatCard label="Posts per week" value={stats.postsPerWeek} />
           </div>

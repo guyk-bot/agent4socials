@@ -120,14 +120,17 @@ export async function GET(
 
       const tryProfile = async (base: string): Promise<boolean> => {
         try {
-          const profileRes = await axios.get<{ followers_count?: number; media_count?: number }>(
+          const profileRes = await axios.get<{ followers_count?: number; media_count?: number; follows_count?: number }>(
             `${base}/${account.platformUserId}`,
-            { params: { fields: 'followers_count,media_count', access_token: token }, timeout: 8_000 }
+            { params: { fields: 'followers_count,media_count,follows_count', access_token: token }, timeout: 8_000 }
           );
           if (typeof profileRes.data?.followers_count === 'number') {
             out.followers = profileRes.data.followers_count;
-            return true;
           }
+          if (typeof profileRes.data?.follows_count === 'number') {
+            (out as Record<string, number>).followingCount = profileRes.data.follows_count;
+          }
+          return typeof profileRes.data?.followers_count === 'number';
         } catch (e) {
           console.warn('[Insights] Instagram profile:', base, (e as Error)?.message ?? e);
         }

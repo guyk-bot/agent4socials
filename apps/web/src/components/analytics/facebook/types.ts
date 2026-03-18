@@ -6,6 +6,8 @@
 export interface FacebookInsights {
   platform: string;
   followers: number;
+  /** Instagram: follows_count (accounts the user follows). */
+  followingCount?: number;
   impressionsTotal: number;
   impressionsTimeSeries: Array<{ date: string; value: number }>;
   pageViewsTotal?: number;

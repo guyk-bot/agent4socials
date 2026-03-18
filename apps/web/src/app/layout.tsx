@@ -8,6 +8,7 @@ import { WhiteLabelProvider } from "@/context/WhiteLabelContext";
 import { AccountsCacheProvider } from "@/context/AccountsCacheContext";
 import { SelectedAccountProvider } from "@/context/SelectedAccountContext";
 import { AppDataProvider } from "@/context/AppDataContext";
+import { ThemeProvider } from "@/context/ThemeContext";
 import AuthModal from "@/components/auth/AuthModal";
 import AuthModalOpener from "@/components/auth/AuthModalOpener";
 
@@ -94,8 +95,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${outfit.variable}`}>
+    <html lang="en" className={`${inter.variable} ${outfit.variable}`} suppressHydrationWarning>
       <body className="antialiased min-h-screen min-h-dvh">
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){var t=localStorage.getItem('agent4socials-theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);})();`,
+          }}
+        />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
@@ -111,6 +117,7 @@ export default function RootLayout({
           }}
         />
         <AuthProvider>
+          <ThemeProvider>
           <AccountsCacheProvider>
             <SelectedAccountProvider>
             <AppDataProvider>
@@ -125,6 +132,7 @@ export default function RootLayout({
             </AppDataProvider>
             </SelectedAccountProvider>
           </AccountsCacheProvider>
+          </ThemeProvider>
         </AuthProvider>
       </body>
     </html>

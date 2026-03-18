@@ -3,8 +3,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams, useRouter } from 'next/navigation';
-import { MessageCircle, PlusSquare, Calendar, Menu, PanelLeft, PanelLeftClose, Link2 } from 'lucide-react';
+import { MessageCircle, PlusSquare, Calendar, Menu, PanelLeft, PanelLeftClose, Link2, Sun, Moon } from 'lucide-react';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
+import { useTheme } from '@/context/ThemeContext';
 import { useAppData } from '@/context/AppDataContext';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
@@ -27,6 +28,7 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
   const router = useRouter();
   const { user } = useAuth();
   const { logoUrl, appName } = useWhiteLabel();
+  const { theme, toggleTheme } = useTheme();
   const appData = useAppData();
   const [topNavOpen, setTopNavOpen] = useState(false);
   const [inboxCount, setInboxCount] = useState(0);
@@ -123,8 +125,17 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
         </nav>
       </div>
 
-      {/* Profile/account (top right) + mobile menu */}
+      {/* Dark mode toggle + Profile/account (top right) + mobile menu */}
       <div className="flex items-center gap-1 relative" ref={dropdownRef}>
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="p-2 rounded-lg text-neutral-300 hover:text-white hover:bg-white/10 transition-colors"
+          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+        >
+          {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+        </button>
         <Link
           href="/dashboard/account"
           className="flex items-center justify-center w-9 h-9 rounded-full overflow-hidden border-2 border-neutral-600 text-neutral-300 hover:text-white hover:border-neutral-500 hover:bg-white/10 transition-colors shrink-0"
