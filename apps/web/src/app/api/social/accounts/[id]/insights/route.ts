@@ -83,6 +83,7 @@ export async function GET(
     impressionsTotal: number;
     impressionsTimeSeries: Array<{ date: string; value: number }>;
     pageViewsTotal?: number;
+    pageViewsTimeSeries?: Array<{ date: string; value: number }>;
     reachTotal?: number;
     profileViewsTotal?: number;
     followersTimeSeries?: Array<{ date: string; value: number }>;
@@ -290,6 +291,7 @@ export async function GET(
               out.impressionsTimeSeries = sortedSeries.length ? sortedSeries : (total ? [{ date: untilParam?.slice(0, 10) || new Date().toISOString().slice(0, 10), value: total }] : []);
             } else if (d.name === 'page_views_total') {
               out.pageViewsTotal = total;
+              out.pageViewsTimeSeries = sortedSeries.length ? sortedSeries : (total ? [{ date: untilParam?.slice(0, 10) || new Date().toISOString().slice(0, 10), value: total }] : []);
             } else if (d.name === 'page_engaged_users') {
               out.reachTotal = total;
             } else if (d.name === 'page_fan_adds') {

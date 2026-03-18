@@ -43,6 +43,7 @@ export function FacebookAnalyticsView({
   const growthData = useMemo((): GrowthDataPoint[] | undefined => {
     const series = insights?.impressionsTimeSeries ?? [];
     const followerSeries = insights?.followersTimeSeries ?? [];
+    const visitsSeries = insights?.pageViewsTimeSeries ?? [];
     const postsByDate: Record<string, number> = {};
     posts.forEach((p) => {
       const d = p.publishedAt.slice(0, 10);
@@ -51,6 +52,7 @@ export function FacebookAnalyticsView({
     const dates = new Set<string>([
       ...series.map((s) => s.date),
       ...followerSeries.map((s) => s.date),
+      ...visitsSeries.map((s) => s.date),
       ...Object.keys(postsByDate),
     ]);
     if (dates.size === 0) return undefined;
@@ -60,9 +62,9 @@ export function FacebookAnalyticsView({
       followers: followerSeries.find((s) => s.date === date)?.value ?? 0,
       posts: postsByDate[date] ?? 0,
       views: series.find((s) => s.date === date)?.value ?? 0,
-      visits: 0,
+      visits: visitsSeries.find((s) => s.date === date)?.value ?? 0,
     }));
-  }, [insights?.impressionsTimeSeries, insights?.followersTimeSeries, posts]);
+  }, [insights?.impressionsTimeSeries, insights?.followersTimeSeries, insights?.pageViewsTimeSeries, posts]);
 
   return (
     <div className="space-y-12 max-w-full" style={{ maxWidth: 1400 }}>

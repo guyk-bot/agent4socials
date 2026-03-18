@@ -1123,6 +1123,7 @@ export default function DashboardPage() {
                 ...(insights && {
                   insightsHint: insights.insightsHint,
                   growthTimeSeries: insights.growthTimeSeries as Array<{ date: string; gained: number; lost: number; net?: number }> | undefined,
+                  pageViewsTimeSeries: (insights as { pageViewsTimeSeries?: Array<{ date: string; value: number }> }).pageViewsTimeSeries,
                 }),
               };
               return base;
@@ -1168,6 +1169,7 @@ export default function DashboardPage() {
                 ...(insights && {
                   insightsHint: insights.insightsHint,
                   growthTimeSeries: insights.growthTimeSeries as Array<{ date: string; gained: number; lost: number; net?: number }> | undefined,
+                  pageViewsTimeSeries: (insights as { pageViewsTimeSeries?: Array<{ date: string; value: number }> }).pageViewsTimeSeries,
                 }),
               };
               return base;

@@ -9,9 +9,12 @@ export interface FacebookInsights {
   impressionsTotal: number;
   impressionsTimeSeries: Array<{ date: string; value: number }>;
   pageViewsTotal?: number;
+  /** Page visits by date (from page_views_total insights). */
+  pageViewsTimeSeries?: Array<{ date: string; value: number }>;
   reachTotal?: number;
   profileViewsTotal?: number;
   insightsHint?: string;
+  /** New followers by date: { date, gained, lost, net }. */
   growthTimeSeries?: Array<{ date: string; gained: number; lost: number; net?: number }>;
   /** Optional time series for followers chart (used by all platforms). */
   followersTimeSeries?: Array<{ date: string; value: number }>;
