@@ -16,7 +16,7 @@ Official APIs only. No scraping.
 
 **Metrics**: impressions (deprecated), reach, profile_views, accounts_engaged, **follower_demographics**, **engaged_audience_demographics** (breakdowns: age, city, country, gender), views, saves, likes, shares.
 
-**Follower count over time (growth chart)**: Same permissions (`instagram_manage_insights` or `instagram_business_manage_insights`). We request the **follower_count** insight with `period=day`; it returns **new followers per day**. We then build a daily total from baseline so the chart shows exact follower fluctuations. Not available for accounts with fewer than 100 followers.
+**Follower count over time (growth chart)**: Same permissions (`instagram_manage_insights` or `instagram_business_manage_insights`). We first try **follows_and_unfollows** with `period=day` and breakdown `follow_type` (new followers vs unfollows per day) so each day shows the correct total including unfollows. If that returns no per-day data, we fall back to **follower_count** (new followers per day only). We normalize `end_time` to the metric date (end-of-day Pacific → subtract 1 day UTC) so values align with the correct calendar day (e.g. Feb 20 shows the count for Feb 20). Not available for accounts with fewer than 100 followers.
 
 ---
 

@@ -226,8 +226,72 @@ export async function GET(
         insightsOk = await tryInsights(igBaseUrl);
       }
 
-      // Fetch daily follower growth so we can show follower count over time (requires instagram_manage_insights / instagram_business_manage_insights).
-      // Metric follower_count = new followers per day; not available for accounts with <100 followers.
+      // Fetch daily follower change so we can show exact follower count over time (same scope: instagram_manage_insights / instagram_business_manage_insights).
+      // Prefer follows_and_unfollows (net per day) so past days are correct; fallback to follower_count (new per day only, so unfollows not reflected).
+      // end_time is end-of-day (often Pacific) so normalize to metric date like Facebook (subtract 1 day in UTC).
+      const toMetricDate = (endTime: string): string => {
+        const d = new Date(endTime);
+        d.setUTCDate(d.getUTCDate() - 1);
+        return d.toISOString().slice(0, 10);
+      };
+      const tryFollowsAndUnfollows = async (base: string): Promise<boolean> => {
+        if (effectiveSinceTs == null || effectiveUntilTs == null || out.followers < 100) return false;
+        try {
+          const res = await axios.get<{
+            data?: Array<{
+              name: string;
+              total_value?: { breakdowns?: Array<{ dimension_keys?: string[]; results?: Array<{ dimension_values?: string[]; value: number; end_time?: string }> }> };
+              values?: Array<{ value: number; end_time?: string }>;
+            }>;
+            error?: { message?: string };
+          }>(`${base}/${account.platformUserId}/insights`, {
+            params: {
+              metric: 'follows_and_unfollows',
+              period: 'day',
+              metric_type: 'total_value',
+              breakdown: 'follow_type',
+              since: effectiveSinceTs,
+              until: effectiveUntilTs,
+              access_token: token,
+            },
+            timeout: 10_000,
+          });
+          if (res.data?.error || !res.data?.data?.length) return false;
+          const metric = res.data.data.find((m) => m.name === 'follows_and_unfollows');
+          const breakdowns = metric?.total_value?.breakdowns ?? [];
+          const netByDate = new Map<string, number>();
+          for (const b of breakdowns) {
+            const results = b.results ?? [];
+            for (const r of results) {
+              const date = r.end_time ? toMetricDate(r.end_time) : '';
+              if (!date) continue;
+              const val = typeof r.value === 'number' ? r.value : 0;
+              const dim = ((r.dimension_values ?? [])[0] ?? '').toLowerCase();
+              const current = netByDate.get(date) ?? 0;
+              // New followers = add; Unfollows / deactivated = subtract
+              if (dim.includes('unfollow') || dim.includes('deactivat')) {
+                netByDate.set(date, current - val);
+              } else {
+                netByDate.set(date, current + val);
+              }
+            }
+          }
+          const points = Array.from(netByDate.entries())
+            .map(([date, value]) => ({ date, value }))
+            .sort((a, b) => a.date.localeCompare(b.date));
+          if (points.length === 0) return false;
+          const totalNetInRange = points.reduce((s, p) => s + p.value, 0);
+          const baseline = Math.max(0, out.followers - totalNetInRange);
+          let running = baseline;
+          out.followersTimeSeries = points.map((p) => {
+            running += p.value;
+            return { date: p.date, value: running };
+          });
+          return true;
+        } catch {
+          return false;
+        }
+      };
       const tryFollowerCount = async (base: string): Promise<boolean> => {
         if (effectiveSinceTs == null || effectiveUntilTs == null || out.followers < 100) return false;
         try {
@@ -253,12 +317,11 @@ export async function GET(
           if (values.length === 0) return false;
           const points = values
             .map((v) => ({
-              date: v.end_time ? v.end_time.slice(0, 10) : '',
+              date: v.end_time ? toMetricDate(v.end_time) : '',
               value: typeof v.value === 'number' ? v.value : 0,
             }))
             .filter((x) => x.date)
             .sort((a, b) => a.date.localeCompare(b.date));
-          // follower_count = new followers that day. Build cumulative: total at day i = baseline + sum(gained from start to i).
           const totalGainedInRange = points.reduce((s, p) => s + p.value, 0);
           const baseline = Math.max(0, out.followers - totalGainedInRange);
           let running = baseline;
@@ -267,14 +330,16 @@ export async function GET(
             return { date: p.date, value: running };
           });
           return true;
-        } catch (e) {
-          const status = (e as { response?: { status?: number } })?.response?.status;
-          if (status === 400 || status === 403) return false;
+        } catch {
           return false;
         }
       };
-      const fcOk = await tryFollowerCount(fbBaseUrl);
-      if (!fcOk && (isInstagramBusinessLogin || out.followers > 0)) await tryFollowerCount(igBaseUrl);
+      const fuOk = await tryFollowsAndUnfollows(fbBaseUrl);
+      if (!fuOk && (isInstagramBusinessLogin || out.followers > 0)) await tryFollowsAndUnfollows(igBaseUrl);
+      if (!out.followersTimeSeries?.length) {
+        const fcOk = await tryFollowerCount(fbBaseUrl);
+        if (!fcOk && (isInstagramBusinessLogin || out.followers > 0)) await tryFollowerCount(igBaseUrl);
+      }
 
       if (!insightsOk && !out.impressionsTotal && !out.reachTotal && out.followers === 0) {
         out.insightsHint = 'Instagram insights temporarily unavailable. Try reconnecting your account from the sidebar.';
