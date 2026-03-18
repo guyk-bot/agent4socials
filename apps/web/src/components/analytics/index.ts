@@ -20,3 +20,5 @@ export { FacebookAnalyticsView, FACEBOOK_ANALYTICS_SECTION_IDS } from './faceboo
 export type { FacebookAnalyticsViewProps } from './facebook/FacebookAnalyticsView';
 export { PlatformOverviewTab } from './PlatformOverviewTab';
 export type { PlatformOverviewTabProps, PlatformId, PlatformPost } from './PlatformOverviewTab';
+export { OverviewGrowthSection } from './OverviewGrowthSection';
+export type { OverviewGrowthSectionProps, GrowthDataPoint } from './OverviewGrowthSection';

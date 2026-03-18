@@ -1,9 +1,11 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { FacebookOverviewTab } from './FacebookOverviewTab';
 import { FacebookPageViewsTab } from './FacebookPageViewsTab';
 import { FacebookPostsTab } from './FacebookPostsTab';
+import { OverviewGrowthSection } from '../OverviewGrowthSection';
+import type { GrowthDataPoint } from '../OverviewGrowthSection';
 import type { FacebookInsights, FacebookPost } from './types';
 
 /** Section ids for scroll-to navigation. Must match dashboard scroll nav. */
@@ -38,9 +40,38 @@ export function FacebookAnalyticsView({
 }: FacebookAnalyticsViewProps) {
   const loading = insightsLoading || postsLoading;
 
+  const growthData = useMemo((): GrowthDataPoint[] | undefined => {
+    const series = insights?.impressionsTimeSeries ?? [];
+    const followerSeries = insights?.followersTimeSeries ?? [];
+    const postsByDate: Record<string, number> = {};
+    posts.forEach((p) => {
+      const d = p.publishedAt.slice(0, 10);
+      postsByDate[d] = (postsByDate[d] ?? 0) + 1;
+    });
+    const dates = new Set<string>([
+      ...series.map((s) => s.date),
+      ...followerSeries.map((s) => s.date),
+      ...Object.keys(postsByDate),
+    ]);
+    if (dates.size === 0) return undefined;
+    const sorted = Array.from(dates).sort();
+    return sorted.map((date) => ({
+      date,
+      followers: followerSeries.find((s) => s.date === date)?.value ?? 0,
+      posts: postsByDate[date] ?? 0,
+      views: series.find((s) => s.date === date)?.value ?? 0,
+      visits: 0,
+    }));
+  }, [insights?.impressionsTimeSeries, insights?.followersTimeSeries, posts]);
+
   return (
     <div className="space-y-12 max-w-full" style={{ maxWidth: 1400 }}>
-      <section id={FACEBOOK_ANALYTICS_SECTION_IDS.overview} className="scroll-mt-6">
+      <section id={FACEBOOK_ANALYTICS_SECTION_IDS.overview} className="scroll-mt-6 space-y-10">
+        <OverviewGrowthSection
+          data={growthData}
+          dateRange={dateRange}
+          onExport={() => {}}
+        />
         <FacebookOverviewTab
           insights={insights}
           posts={posts}
