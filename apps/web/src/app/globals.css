@@ -105,11 +105,13 @@
 }
 
 [data-theme='dark'] {
-  --background: #0f172a;
-  --card-bg: #1e293b;
-  --foreground: #f8fafc;
-  --muted: #94a3b8;
-  --border: #334155;
+  --background: #000000;
+  --card-bg: #171717;
+  --foreground: #fafafa;
+  --muted: #d4d4d8;
+  --border: #27272a;
+  --wl-sidebar-bg: #000000;
+  --dark: #000000;
 }
 
 /* Dark mode: override common Tailwind backgrounds and borders so dashboard/cards flip */
@@ -133,7 +135,8 @@
 [data-theme='dark'] .text-neutral-600 {
   color: var(--muted) !important;
 }
-[data-theme='dark'] .text-neutral-500 {
+[data-theme='dark'] .text-neutral-500,
+[data-theme='dark'] .text-neutral-400 {
   color: var(--muted) !important;
 }
 [data-theme='dark'] .border-neutral-200,
