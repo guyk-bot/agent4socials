@@ -1,11 +1,10 @@
 import { PrismaClient } from '@prisma/client';
 
-// Supabase (and similar poolers) often run in transaction mode; Prisma's prepared statements then cause
+// Connection poolers (Supabase, Neon, etc.) often use transaction mode; Prisma's prepared statements then cause
 // "Invalid findFirst() invocation" or "prepared statement already exists". Adding pgbouncer=true disables prepared statements.
-// Apply to any Supabase URL so it works whether the user set the direct (5432) or pooler (6543) URL in Vercel.
+// Apply to any postgres URL so serverless works without manual pooler config in Vercel.
 const url = process.env.DATABASE_URL;
-const isSupabase = url && (/supabase\.com|supabase\.co/i.test(url));
-if (isSupabase && !url.includes('pgbouncer=true')) {
+if (url && /^postgres(ql)?:\/\//i.test(url) && !url.includes('pgbouncer=true')) {
   process.env.DATABASE_URL = url.includes('?') ? url.replace('?', '?pgbouncer=true&') : `${url}?pgbouncer=true`;
 }
 
