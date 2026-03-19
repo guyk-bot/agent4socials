@@ -326,6 +326,7 @@ export function AnalyticsDateRangePicker({
               <input
                 type="date"
                 value={displayEnd}
+                max={todayStr}
                 onChange={(e) => {
                   const v = e.target.value;
                   setTempEnd(v);

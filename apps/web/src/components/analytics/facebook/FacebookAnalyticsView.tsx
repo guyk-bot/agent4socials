@@ -115,6 +115,11 @@ export function FacebookAnalyticsView({
   return (
     <div className="space-y-12 max-w-full" style={{ maxWidth: 1400 }}>
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.overview} className="scroll-mt-6 space-y-10">
+        {insights?.insightsHint && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {insights.insightsHint}
+          </div>
+        )}
         <OverviewGrowthSection
           data={growthData}
           growthTimeSeries={insights?.growthTimeSeries}

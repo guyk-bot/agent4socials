@@ -587,6 +587,10 @@ export async function GET(
             }
             out.followersTimeSeries = points;
           }
+          // Hint when Meta returned data but all key metrics are zero
+          if (!out.insightsHint && out.followers === 0 && (out.impressionsTotal ?? 0) === 0 && (out.pageViewsTotal ?? 0) === 0) {
+            out.insightsHint = 'Followers, views, and page visits are all zero. This can happen if your Page is new, has no reach in this period, or if the app does not have read_insights permission. Try reconnecting Facebook and ensure read_insights is granted in Meta (Use cases → Pages API).';
+          }
         } catch (e) {
           const ax = e as { response?: { status?: number; data?: { error?: { message?: string } } } };
           const status = ax?.response?.status;
