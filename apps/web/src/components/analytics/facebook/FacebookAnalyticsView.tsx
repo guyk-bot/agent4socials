@@ -24,6 +24,8 @@ export interface FacebookAnalyticsViewProps {
   postsLoading: boolean;
   onUpgrade?: () => void;
   onSync?: () => void;
+  /** Called when user taps "Reconnect Facebook" to refresh followers/views; opens connect flow. */
+  onReconnectFacebook?: () => void;
   /** e.g. "Subscribers" for YouTube; defaults to "Followers" */
   followersLabel?: string;
 }
@@ -36,9 +38,11 @@ export function FacebookAnalyticsView({
   postsLoading,
   onUpgrade,
   onSync,
+  onReconnectFacebook,
   followersLabel = 'Followers',
 }: FacebookAnalyticsViewProps) {
   const loading = insightsLoading || postsLoading;
+  const showReconnectCta = insights && (insights.followers === 0 && insights.impressionsTotal === 0) && onReconnectFacebook;
 
   const growthData = useMemo((): GrowthDataPoint[] | undefined => {
     const start = dateRange?.start;
@@ -115,9 +119,20 @@ export function FacebookAnalyticsView({
   return (
     <div className="space-y-12 max-w-full" style={{ maxWidth: 1400 }}>
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.overview} className="scroll-mt-6 space-y-10">
-        {insights?.insightsHint && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            {insights.insightsHint}
+        {(insights?.insightsHint || showReconnectCta) && (
+          <div className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-4 text-sm text-violet-900">
+            <p className="font-medium">
+              {insights?.insightsHint ?? 'Followers and views come from your Facebook Page. Connect with the right permissions to see them here.'}
+            </p>
+            {showReconnectCta && (
+              <button
+                type="button"
+                onClick={onReconnectFacebook}
+                className="mt-3 px-4 py-2 rounded-lg bg-violet-600 text-white font-semibold text-sm hover:bg-violet-700 transition-colors"
+              >
+                Reconnect Facebook to see followers and views
+              </button>
+            )}
           </div>
         )}
         <OverviewGrowthSection

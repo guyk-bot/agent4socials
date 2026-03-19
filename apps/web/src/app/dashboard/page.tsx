@@ -1137,6 +1137,7 @@ export default function DashboardPage() {
                 setImportedPostsLoading(false);
               }
             }}
+            onReconnectFacebook={selectedAccount?.platform === 'FACEBOOK' ? () => router.push('/dashboard?connect=facebook') : undefined}
             followersLabel={selectedAccount.platform === 'YOUTUBE' ? 'Subscribers' : 'Followers'}
           />
         </div>
