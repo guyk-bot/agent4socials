@@ -21,7 +21,7 @@ import { useWhiteLabel } from '@/context/WhiteLabelContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import type { SocialAccount } from '@/context/SelectedAccountContext';
-import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
+import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, RedditIcon } from '@/components/SocialPlatformIcons';
 
 const PLATFORM_LABELS: Record<string, string> = {
   INSTAGRAM: 'Instagram',
@@ -30,6 +30,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   YOUTUBE: 'YouTube',
   TWITTER: 'Twitter/X',
   LINKEDIN: 'LinkedIn',
+  REDDIT: 'Reddit',
 };
 
 const PLATFORM_ICON: Record<string, React.ReactNode> = {
@@ -39,9 +40,10 @@ const PLATFORM_ICON: Record<string, React.ReactNode> = {
   YOUTUBE: <YoutubeIcon size={26} />,
   TWITTER: <XTwitterIcon size={26} className="text-neutral-800" />,
   LINKEDIN: <LinkedinIcon size={26} />,
+  REDDIT: <RedditIcon size={26} />,
 };
 
-const PLATFORM_ORDER = ['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'LINKEDIN', 'TWITTER'];
+const PLATFORM_ORDER = ['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'LINKEDIN', 'REDDIT', 'TWITTER'];
 
 /** X (Twitter) is paid-only; highlight and send to pricing when unconnected. LinkedIn stays connectable. */
 const UPGRADE_TO_CONNECT_PLATFORMS = ['TWITTER'];
