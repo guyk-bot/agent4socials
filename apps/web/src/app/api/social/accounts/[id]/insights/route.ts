@@ -472,6 +472,9 @@ export async function GET(
         else if (typeof pageRes.data?.followers_count === 'number') out.followers = pageRes.data.followers_count;
       } catch (e) {
         console.warn('[Insights] Facebook page profile:', (e as Error)?.message ?? e);
+        if (!out.insightsHint) {
+          out.insightsHint = 'Could not load follower count from Facebook. Reconnect from the sidebar (or use the button below) to refresh.';
+        }
       }
       if (effectiveSinceTs != null && effectiveUntilTs != null) {
         let insightsError: string | undefined;
@@ -656,6 +659,16 @@ export async function GET(
         }
       } catch (e) {
         console.warn('[Insights] Facebook metric history:', (e as Error)?.message ?? e);
+      }
+      // When live API returned 0 followers, use last known count from our snapshots so "followers" doesn’t disappear
+      if (out.followers === 0 && out.followersTimeSeries?.length) {
+        const lastPoint = out.followersTimeSeries[out.followersTimeSeries.length - 1];
+        if (typeof lastPoint?.value === 'number' && lastPoint.value > 0) {
+          out.followers = lastPoint.value;
+          if (!out.insightsHint) {
+            out.insightsHint = 'Follower count is from our last sync. Reconnect Facebook to refresh.';
+          }
+        }
       }
       // Merge snapshot-backed insights so we show full timeline from connection when API window (e.g. 90 days) is shorter than requested range.
       if (sinceParam && untilParam) {
