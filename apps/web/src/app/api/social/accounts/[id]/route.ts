@@ -11,29 +11,38 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!process.env.DATABASE_URL) {
-    return NextResponse.json({ message: 'DATABASE_URL required' }, { status: 503 });
+  try {
+    if (!process.env.DATABASE_URL) {
+      return NextResponse.json({ message: 'DATABASE_URL required' }, { status: 503 });
+    }
+    const userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
+    if (!userId) {
+      return NextResponse.json({ message: 'Unauthorized. Sign in again and try disconnecting.' }, { status: 401 });
+    }
+    const { id } = await params;
+    const account = await prisma.socialAccount.findFirst({
+      where: { id, userId },
+      select: { id: true },
+    });
+    if (!account) {
+      return NextResponse.json({ message: 'Account not found. It may already be disconnected.' }, { status: 404 });
+    }
+    await prisma.socialAccount.update({
+      where: { id: account.id },
+      data: {
+        status: 'disconnected',
+        disconnectedAt: new Date(),
+        accessToken: '',
+        refreshToken: null,
+      },
+    });
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    const msg = (e as Error)?.message ?? 'Disconnect failed';
+    console.error('[DELETE /social/accounts/:id]', msg);
+    return NextResponse.json(
+      { message: msg.includes('Database') || msg.includes('connection') ? 'Database temporarily unavailable. Try again in a moment.' : 'Could not disconnect. Try again.' },
+      { status: 500 }
+    );
   }
-  const userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
-  if (!userId) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-  }
-  const { id } = await params;
-  const account = await prisma.socialAccount.findFirst({
-    where: { id, userId },
-    select: { id: true },
-  });
-  if (!account) {
-    return NextResponse.json({ message: 'Account not found' }, { status: 404 });
-  }
-  await prisma.socialAccount.update({
-    where: { id: account.id },
-    data: {
-      status: 'disconnected',
-      disconnectedAt: new Date(),
-      accessToken: '',
-      refreshToken: null,
-    },
-  });
-  return NextResponse.json({ ok: true });
 }

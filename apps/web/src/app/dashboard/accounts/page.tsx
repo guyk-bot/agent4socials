@@ -78,7 +78,8 @@ export default function AccountsPage() {
       setSelectedPlatformForConnect(platformJustDisconnected);
       router.replace('/dashboard', { scroll: false });
     } catch (e) {
-      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Could not disconnect. Try again.';
+      const err = e as { response?: { data?: { message?: string }; status?: number } };
+      const msg = err?.response?.data?.message ?? (err?.response?.status === 401 ? 'Session expired. Sign out and sign back in, then try again.' : 'Could not disconnect. Try again.');
       setAlertMessage(msg);
     } finally {
       setDisconnectingId(null);
