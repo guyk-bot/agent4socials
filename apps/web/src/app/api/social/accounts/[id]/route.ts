@@ -38,11 +38,15 @@ export async function DELETE(
     });
     return NextResponse.json({ ok: true });
   } catch (e) {
-    const msg = (e as Error)?.message ?? 'Disconnect failed';
-    console.error('[DELETE /social/accounts/:id]', msg);
-    return NextResponse.json(
-      { message: msg.includes('Database') || msg.includes('connection') ? 'Database temporarily unavailable. Try again in a moment.' : 'Could not disconnect. Try again.' },
-      { status: 500 }
-    );
+    const err = e as Error & { code?: string };
+    const msg = err?.message ?? 'Disconnect failed';
+    console.error('[DELETE /social/accounts/:id]', msg, err?.code ?? '');
+    const isPoolerError = /Invalid.*invocation|prepared statement|42P05/i.test(msg);
+    const userMessage = isPoolerError
+      ? 'Database pooler config: use Supabase Transaction pooler URL (port 6543) with ?pgbouncer=true, then redeploy.'
+      : msg.includes('Database') || msg.includes('connection')
+        ? 'Database temporarily unavailable. Try again in a moment.'
+        : 'Could not disconnect. Try again.';
+    return NextResponse.json({ message: userMessage }, { status: 500 });
   }
 }
