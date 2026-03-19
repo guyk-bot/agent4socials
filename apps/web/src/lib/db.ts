@@ -1,10 +1,11 @@
 import { PrismaClient } from '@prisma/client';
 
-// Supabase/Neon pooler (port 6543 or host containing "pooler") reuses connections; Prisma's prepared statements then cause
+// Supabase (and similar poolers) often run in transaction mode; Prisma's prepared statements then cause
 // "Invalid findFirst() invocation" or "prepared statement already exists". Adding pgbouncer=true disables prepared statements.
+// Apply to any Supabase URL so it works whether the user set the direct (5432) or pooler (6543) URL in Vercel.
 const url = process.env.DATABASE_URL;
-const isPooler = url && (/[:.]6543[/?]|:6543$/.test(url) || /\.pooler\.|pooler\.supabase\.com/i.test(url));
-if (isPooler && !url.includes('pgbouncer=true')) {
+const isSupabase = url && (/supabase\.com|supabase\.co/i.test(url));
+if (isSupabase && !url.includes('pgbouncer=true')) {
   process.env.DATABASE_URL = url.includes('?') ? url.replace('?', '?pgbouncer=true&') : `${url}?pgbouncer=true`;
 }
 
