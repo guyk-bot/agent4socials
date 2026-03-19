@@ -65,23 +65,19 @@ export default function AccountsPage() {
     }
     const accountIdToRemove = acc.id;
     const platformJustDisconnected = acc.platform;
-    const previousAccounts = [...accounts];
     setDisconnectConfirmOpen(false);
     setAccountToDisconnect(null);
     setDisconnectingId(accountIdToRemove);
-    setCachedAccounts(previousAccounts.filter((a) => a.id !== accountIdToRemove));
-    appData?.clearAccountData(accountIdToRemove);
-    setSelectedPlatformForConnect(platformJustDisconnected);
-    router.replace('/dashboard', { scroll: false });
     try {
       await api.delete(`/social/accounts/${accountIdToRemove}`);
       const res = await api.get(`/social/accounts?_=${Date.now()}`);
       const data = Array.isArray(res.data) ? res.data : [];
       setCachedAccounts(data);
+      appData?.clearAccountData(accountIdToRemove);
+      setSelectedAccountId(null);
+      setSelectedPlatformForConnect(platformJustDisconnected);
+      router.replace('/dashboard', { scroll: false });
     } catch (e) {
-      setCachedAccounts(previousAccounts);
-      setSelectedPlatformForConnect(null);
-      setSelectedAccountId(accountIdToRemove);
       const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Could not disconnect. Try again.';
       setAlertMessage(msg);
     } finally {
