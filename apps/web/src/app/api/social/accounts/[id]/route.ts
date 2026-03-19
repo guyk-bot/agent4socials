@@ -43,7 +43,7 @@ export async function DELETE(
     console.error('[DELETE /social/accounts/:id]', msg, err?.code ?? '');
     const isPoolerError = /Invalid.*invocation|prepared statement|42P05/i.test(msg);
     const userMessage = isPoolerError
-      ? 'Database connection issue. Redeploy the app from Vercel (Deployments → Redeploy) so the latest fix is active, then try again.'
+      ? 'Database connection issue. Try again in a moment.'
       : msg.includes('Database') || msg.includes('connection')
         ? 'Database temporarily unavailable. Try again in a moment.'
         : 'Could not disconnect. Try again.';
