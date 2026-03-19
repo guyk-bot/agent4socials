@@ -719,6 +719,10 @@ export interface OverviewGrowthSectionProps {
   platform?: string;
   /** Current following count (e.g. for Instagram); shown in second card when platform is INSTAGRAM. */
   followingCount?: number | null;
+  /** First connection date (for bootstrap helper); only shown for Instagram/Facebook when isBootstrap. */
+  firstConnectedAt?: string | null;
+  /** When true, we have &lt; 2 snapshots and show flat line + "Tracking started on …" (Instagram/Facebook only). */
+  isBootstrap?: boolean;
 }
 
 export function OverviewGrowthSection({
@@ -729,6 +733,8 @@ export function OverviewGrowthSection({
   onExport,
   platform,
   followingCount,
+  firstConnectedAt,
+  isBootstrap,
 }: OverviewGrowthSectionProps) {
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
   const defaultMetrics = useMemo(() => {
@@ -817,6 +823,12 @@ export function OverviewGrowthSection({
           </div>
         </div>
 
+        {/* Bootstrap helper: only for Instagram/Facebook when we have < 2 snapshots (YouTube excluded). */}
+        {isBootstrap && firstConnectedAt && (platform === 'INSTAGRAM' || platform === 'FACEBOOK') && (
+          <p className="text-xs text-neutral-500">
+            Tracking started on {new Date(firstConnectedAt + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}. Historical growth is collected from the moment you connected this account.
+          </p>
+        )}
         {/* KPI cards: Instagram = 3 cards (Followers, Following, Total content); else 4 cards */}
         {platform === 'INSTAGRAM' ? (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

@@ -5,6 +5,12 @@ import { Platform } from '@prisma/client';
 import axios from 'axios';
 import { getValidYoutubeToken } from '@/lib/youtube-token';
 import { fetchInstagramDemographics, fetchFacebookDemographics, fetchYouTubeExtended } from '@/lib/analytics/extended-fetchers';
+import {
+  getAccountHistorySeries,
+  buildBootstrapFlatSeries,
+  persistInsightsSeries,
+  getInsightsTimeSeries,
+} from '@/lib/analytics/metric-snapshots';
 
 const fbBaseUrl = 'https://graph.facebook.com/v18.0';
 const igBaseUrl = 'https://graph.instagram.com/v18.0';
@@ -15,6 +21,22 @@ function facebookMetricDateFromEndTime(endTime: string): string {
   const d = new Date(endTime);
   d.setUTCDate(d.getUTCDate() - 1);
   return d.toISOString().slice(0, 10);
+}
+
+/** Merge API time series with snapshot-backed series so we show full range from connection; API values take precedence for overlapping dates. */
+function mergeSeriesWithSnapshots(
+  apiSeries: Array<{ date: string; value: number }>,
+  snapshotSeries: Array<{ date: string; value: number }>,
+  since: string,
+  until: string
+): Array<{ date: string; value: number }> {
+  const apiMap = new Map(apiSeries.map((p) => [p.date, p.value]));
+  const snapshotMap = new Map(snapshotSeries.map((p) => [p.date, p.value]));
+  const dates: string[] = [];
+  for (let d = new Date(since + 'T12:00:00Z'); d <= new Date(until + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + 1)) {
+    dates.push(d.toISOString().slice(0, 10));
+  }
+  return dates.map((date) => ({ date, value: apiMap.get(date) ?? snapshotMap.get(date) ?? 0 }));
 }
 
 /**
@@ -42,7 +64,7 @@ export async function GET(
   const { id } = await params;
   const account = await prisma.socialAccount.findFirst({
     where: { id, userId },
-    select: { id: true, platform: true, platformUserId: true, accessToken: true, refreshToken: true, expiresAt: true, credentialsJson: true },
+    select: { id: true, platform: true, platformUserId: true, accessToken: true, refreshToken: true, expiresAt: true, credentialsJson: true, firstConnectedAt: true },
   });
   if (!account) {
     return NextResponse.json({ message: 'Account not found' }, { status: 404 });
@@ -105,6 +127,14 @@ export async function GET(
     growthTimeSeries?: import('@/types/analytics').GrowthDataPoint[];
     extra?: Record<string, number | number[] | Array<{ date: string; value: number }>>;
     raw?: Record<string, unknown>;
+    /** When true, followersTimeSeries is from our DB (snapshots or bootstrap). */
+    metricHistoryFromSnapshots?: boolean;
+    /** True when we have fewer than 2 snapshots and are showing a flat bootstrap line; show "Tracking started on …" helper. */
+    isBootstrap?: boolean;
+    /** First time this account was connected (preserved across disconnect/reconnect). For bootstrap flat line start. */
+    firstConnectedAt?: string | null;
+    /** Per-day following count from our snapshots (Instagram); when present chart uses this instead of flat followingCount. */
+    followingTimeSeries?: Array<{ date: string; value: number }>;
   } = {
     platform: account.platform,
     followers: 0,
@@ -144,6 +174,7 @@ export async function GET(
         profileOk = await tryProfile(igBaseUrl);
       }
 
+      const igSeriesByMetric: Record<string, Array<{ date: string; value: number }>> = {};
       const tryInsights = async (base: string): Promise<boolean> => {
         if (effectiveSinceTs == null || effectiveUntilTs == null) return false;
         const metricSets = [
@@ -195,6 +226,7 @@ export async function GET(
                       .filter((x) => x.date)
                       .sort((a, b) => a.date.localeCompare(b.date))
                   : [];
+              if (series.length > 0) igSeriesByMetric[d.name] = series;
               if (d.name === 'impressions') {
                 out.impressionsTotal = total;
                 out.impressionsTimeSeries = series.length ? series : (total ? [{ date: untilParam?.slice(0, 10) || new Date().toISOString().slice(0, 10), value: total }] : []);
@@ -224,6 +256,19 @@ export async function GET(
       let insightsOk = await tryInsights(fbBaseUrl);
       if (!insightsOk && (isInstagramBusinessLogin || (out.followers > 0 && !out.impressionsTotal && !out.reachTotal))) {
         insightsOk = await tryInsights(igBaseUrl);
+      }
+      if (Object.keys(igSeriesByMetric).length > 0) {
+        try {
+          await persistInsightsSeries({
+            userId,
+            socialAccountId: account.id,
+            platform: 'INSTAGRAM',
+            externalAccountId: account.platformUserId,
+            seriesByMetric: igSeriesByMetric,
+          });
+        } catch (e) {
+          console.warn('[Insights] Persist IG insights:', (e as Error)?.message ?? e);
+        }
       }
 
       // Fetch daily follower change so we can show exact follower count over time (same scope: instagram_manage_insights / instagram_business_manage_insights).
@@ -358,6 +403,59 @@ export async function GET(
           console.warn('[Insights] Instagram extended demographics:', (e as Error)?.message ?? e);
         }
       }
+      // Persistent follower/following history (Instagram only; YouTube excluded). Use our snapshots or bootstrap flat line.
+      try {
+        const history = await getAccountHistorySeries({
+          userId,
+          socialAccountId: account.id,
+          platform: 'INSTAGRAM',
+          externalAccountId: account.platformUserId,
+          since: effectiveSinceParam ?? sinceParam,
+          until: effectiveUntilParam ?? untilParam,
+        });
+        const connectionStart = account.firstConnectedAt ?? (sinceParam ? new Date(sinceParam + 'T12:00:00Z') : new Date());
+        out.firstConnectedAt = account.firstConnectedAt?.toISOString().slice(0, 10) ?? null;
+        if (history.snapshotCount >= 2) {
+          out.followersTimeSeries = history.followersTimeSeries;
+          if (history.followingTimeSeries) out.followingTimeSeries = history.followingTimeSeries;
+          out.metricHistoryFromSnapshots = true;
+          out.isBootstrap = false;
+        } else {
+          out.isBootstrap = true;
+          const bootstrap = buildBootstrapFlatSeries({
+            firstConnectedAt: connectionStart ?? new Date(),
+            endDate: effectiveUntilParam ?? untilParam ?? new Date().toISOString().slice(0, 10),
+            followersCount: out.followers,
+            followingCount: out.followingCount ?? null,
+          });
+          out.followersTimeSeries = bootstrap.followersTimeSeries;
+          if (bootstrap.followingTimeSeries) out.followingTimeSeries = bootstrap.followingTimeSeries;
+          out.metricHistoryFromSnapshots = true;
+        }
+      } catch (e) {
+        console.warn('[Insights] Instagram metric history:', (e as Error)?.message ?? e);
+      }
+      // Merge snapshot-backed insights so we show full timeline from connection when API window (e.g. 28 days) is shorter than requested range.
+      if (sinceParam && untilParam) {
+        try {
+          const snapshotImpressions = await getInsightsTimeSeries({
+            userId,
+            platform: 'INSTAGRAM',
+            externalAccountId: account.platformUserId,
+            since: sinceParam,
+            until: untilParam,
+            metricKey: 'impressions',
+          });
+          out.impressionsTimeSeries = mergeSeriesWithSnapshots(
+            out.impressionsTimeSeries,
+            snapshotImpressions,
+            sinceParam,
+            untilParam
+          );
+        } catch (e) {
+          console.warn('[Insights] Merge IG impressions from snapshots:', (e as Error)?.message ?? e);
+        }
+      }
       return NextResponse.json(out);
     }
 
@@ -428,6 +526,7 @@ export async function GET(
           }
           const addsByDate = new Map<string, number>();
           const removesByDate = new Map<string, number>();
+          const fbSeriesByMetric: Record<string, Array<{ date: string; value: number }>> = {};
           for (const d of data) {
             const values = d.values ?? [];
             let total = 0;
@@ -439,6 +538,7 @@ export async function GET(
               if (date) series.push({ date, value: val });
             }
             const sortedSeries = series.sort((a, b) => a.date.localeCompare(b.date));
+            if (sortedSeries.length > 0) fbSeriesByMetric[d.name] = sortedSeries;
             if (d.name === 'page_impressions') {
               out.impressionsTotal = total;
               out.impressionsTimeSeries = sortedSeries.length ? sortedSeries : (total ? [{ date: effectiveUntilParam?.slice(0, 10) || new Date().toISOString().slice(0, 10), value: total }] : []);
@@ -451,6 +551,19 @@ export async function GET(
               for (const { date, value } of sortedSeries) addsByDate.set(date, value);
             } else if (d.name === 'page_fan_removes') {
               for (const { date, value } of sortedSeries) removesByDate.set(date, value);
+            }
+          }
+          if (Object.keys(fbSeriesByMetric).length > 0) {
+            try {
+              await persistInsightsSeries({
+                userId,
+                socialAccountId: account.id,
+                platform: 'FACEBOOK',
+                externalAccountId: account.platformUserId,
+                seriesByMetric: fbSeriesByMetric,
+              });
+            } catch (e) {
+              console.warn('[Insights] Persist FB insights:', (e as Error)?.message ?? e);
             }
           }
           const allDates = [...new Set([...addsByDate.keys(), ...removesByDate.keys()])].sort((a, b) => a.localeCompare(b));
@@ -497,6 +610,76 @@ export async function GET(
           if (fbRaw && typeof fbRaw === 'object') out.raw = { ...(out.raw ?? {}), facebook: fbRaw };
         } catch (e) {
           console.warn('[Insights] Facebook extended demographics:', (e as Error)?.message ?? e);
+        }
+      }
+      // Persistent follower/fans history (Facebook only; YouTube excluded). Use our snapshots or bootstrap flat line.
+      try {
+        const history = await getAccountHistorySeries({
+          userId,
+          socialAccountId: account.id,
+          platform: 'FACEBOOK',
+          externalAccountId: account.platformUserId,
+          since: effectiveSinceParam ?? sinceParam,
+          until: effectiveUntilParam ?? untilParam,
+        });
+        const connectionStart = account.firstConnectedAt ?? (sinceParam ? new Date(sinceParam + 'T12:00:00Z') : new Date());
+        out.firstConnectedAt = account.firstConnectedAt?.toISOString().slice(0, 10) ?? null;
+        if (history.snapshotCount >= 2) {
+          out.followersTimeSeries = history.followersTimeSeries;
+          out.metricHistoryFromSnapshots = true;
+          out.isBootstrap = false;
+        } else {
+          out.isBootstrap = true;
+          const bootstrap = buildBootstrapFlatSeries({
+            firstConnectedAt: connectionStart,
+            endDate: effectiveUntilParam ?? untilParam ?? new Date().toISOString().slice(0, 10),
+            followersCount: out.followers,
+            followingCount: null,
+            fansCount: out.followers,
+          });
+          out.followersTimeSeries = bootstrap.followersTimeSeries;
+          out.metricHistoryFromSnapshots = true;
+        }
+      } catch (e) {
+        console.warn('[Insights] Facebook metric history:', (e as Error)?.message ?? e);
+      }
+      // Merge snapshot-backed insights so we show full timeline from connection when API window (e.g. 90 days) is shorter than requested range.
+      if (sinceParam && untilParam) {
+        try {
+          const [snapshotImpressions, snapshotPageViews] = await Promise.all([
+            getInsightsTimeSeries({
+              userId,
+              platform: 'FACEBOOK',
+              externalAccountId: account.platformUserId,
+              since: sinceParam,
+              until: untilParam,
+              metricKey: 'page_impressions',
+            }),
+            getInsightsTimeSeries({
+              userId,
+              platform: 'FACEBOOK',
+              externalAccountId: account.platformUserId,
+              since: sinceParam,
+              until: untilParam,
+              metricKey: 'page_views_total',
+            }),
+          ]);
+          out.impressionsTimeSeries = mergeSeriesWithSnapshots(
+            out.impressionsTimeSeries,
+            snapshotImpressions,
+            sinceParam,
+            untilParam
+          );
+          if (out.pageViewsTimeSeries) {
+            out.pageViewsTimeSeries = mergeSeriesWithSnapshots(
+              out.pageViewsTimeSeries,
+              snapshotPageViews,
+              sinceParam,
+              untilParam
+            );
+          }
+        } catch (e) {
+          console.warn('[Insights] Merge FB insights from snapshots:', (e as Error)?.message ?? e);
         }
       }
       return NextResponse.json(out);

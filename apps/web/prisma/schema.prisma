@@ -41,26 +41,51 @@ enum Platform {
 }
 
 model SocialAccount {
-  id              String   @id @default(cuid())
-  userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  platform        Platform
-  username        String
-  platformUserId  String   @unique
-  profilePicture  String?
-  accessToken     String
-  refreshToken    String?
-  expiresAt       DateTime?
-  scopes          String[] @default([])
-  status          String   @default("connected")
-  credentialsJson Json?    // Optional: e.g. Twitter OAuth 1.0a tokens for media upload
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                String    @id @default(cuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform          Platform
+  username          String
+  platformUserId    String    @unique  // stable external provider id (IG business id, FB page id, etc.)
+  profilePicture    String?
+  accessToken       String
+  refreshToken      String?
+  expiresAt         DateTime?
+  scopes            String[]  @default([])
+  status            String    @default("connected")  // "connected" | "disconnected"
+  credentialsJson   Json?     // Optional: e.g. Twitter OAuth 1.0a tokens for media upload
+  firstConnectedAt  DateTime? // set once on first ever connect; preserved across disconnect/reconnect
+  connectedAt       DateTime? // set on each connect/reconnect
+  disconnectedAt    DateTime? // set on disconnect; cleared on reconnect
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  postTargets     PostTarget[]
-  importedPosts   ImportedPost[]
+  postTargets       PostTarget[]
+  importedPosts     ImportedPost[]
+  metricSnapshots   AccountMetricSnapshot[]
 
   @@unique([userId, platform, platformUserId])
+}
+
+model AccountMetricSnapshot {
+  id               String   @id @default(cuid())
+  userId           String
+  socialAccountId  String
+  socialAccount    SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  platform         Platform
+  externalAccountId String   // same as SocialAccount.platformUserId for history by external id
+  metricDate       String   // YYYY-MM-DD bucket
+  metricTimestamp  DateTime
+  followersCount   Int?
+  followingCount   Int?
+  fansCount        Int?
+  insightsJson     Json?    // Per-day API metrics (impressions, reach, profile_views, page_impressions, etc.) so we keep full history beyond Meta 28/90-day window
+  source           String   @default("bootstrap")  // "bootstrap" | "scheduled_sync" | "manual_refresh"
+  createdAt        DateTime @default(now())
+
+  @@unique([userId, platform, externalAccountId, metricDate])
+  @@index([userId, platform, externalAccountId, metricTimestamp])
+  @@index([socialAccountId, metricDate])
 }
 
 model ImportedPost {

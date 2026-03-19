@@ -49,6 +49,8 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | Summary UI components | `apps/web/src/components/dashboard/summary/` (SummaryDashboard, KPICardsGrid, GrowthChartTabs, etc.) |
 | Insights API | `apps/web/src/app/api/social/accounts/[id]/insights/route.ts` |
 | Analytics types & fetchers | `apps/web/src/types/analytics.ts`, `apps/web/src/lib/analytics/extended-fetchers.ts` |
+| **Follower/following history (IG & FB only)** | `apps/web/src/lib/analytics/metric-snapshots.ts` – snapshots, bootstrap, getAccountHistorySeries; insights route injects series; **YouTube excluded** |
+| **Daily metric snapshot cron** | `apps/web/src/app/api/cron/metric-snapshots/route.ts` (X-Cron-Secret); see `docs/METRIC_SNAPSHOTS_AND_HISTORY.md` |
 
 ### Auth & layout
 
@@ -69,7 +71,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | Twitter 1OA | `apps/web/src/app/api/social/oauth/twitter-1oa/start/route.ts`, `callback/route.ts` |
 | Instagram connect | `apps/web/src/app/api/social/instagram/connect-account/route.ts`, `pending/route.ts` |
 | Facebook connect | `apps/web/src/app/api/social/facebook/connect-page/route.ts`, `pending/route.ts` |
-| Accounts list/delete | `apps/web/src/app/api/social/accounts/route.ts`, `accounts/[id]/route.ts` |
+| Accounts list (connected only) / soft disconnect | `apps/web/src/app/api/social/accounts/route.ts`, `accounts/[id]/route.ts` – disconnect sets status + disconnectedAt; firstConnectedAt preserved for IG/FB history |
 
 ### Other pages & API
 
@@ -82,7 +84,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | Link-in-bio page | `apps/web/src/app/[username]/page.tsx`, `apps/web/src/components/smart-links/LinkPageRenderer.tsx` |
 | Automation | `apps/web/src/app/dashboard/automation/page.tsx`, `apps/web/src/app/api/automation/` |
 | AI (brand, reply, description) | `apps/web/src/app/api/ai/` |
-| Cron jobs | `apps/web/src/app/api/cron/` |
+| Cron jobs | `apps/web/src/app/api/cron/` (process-scheduled, metric-snapshots, etc.) |
 | White-label (logo, colors) | `apps/web/src/context/WhiteLabelContext.tsx`, `apps/web/src/app/dashboard/settings/page.tsx` |
 
 ### Config & assets

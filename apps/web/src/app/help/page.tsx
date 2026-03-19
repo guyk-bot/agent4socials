@@ -13,6 +13,7 @@ const NAV_LINKS = [
   { href: '#youtube', label: 'YouTube' },
   { href: '#linkedin', label: 'LinkedIn' },
   { href: '#analytics-limitations', label: 'Analytics limitations' },
+  { href: '#growth-chart-history', label: 'Growth chart & follower history' },
   { href: '#inbox-dms', label: 'Inbox & DMs' },
   { href: '#features', label: 'Features overview' },
 ];
@@ -138,6 +139,19 @@ export default function HelpPage() {
                 <li><strong>LinkedIn:</strong> Impressions and reach require LinkedIn Marketing API approval.</li>
                 <li><strong>TikTok:</strong> Some metrics require additional API approval from TikTok.</li>
               </ul>
+            )},
+            { id: 'growth-chart-history', title: 'Growth chart & follower history', children: (
+              <>
+                <p className="text-neutral-600 text-sm leading-relaxed mb-3">
+                  For <strong>Instagram</strong> and <strong>Facebook</strong>, the app stores daily snapshots of your follower (and following, for Instagram) counts from the moment you connect. The Growth chart uses this history so you see real fluctuation over time. If you just connected and there isn&apos;t enough history yet, the chart shows a flat line starting at your connection date with your current counts until more daily data is collected.
+                </p>
+                <p className="text-neutral-600 text-sm leading-relaxed mb-3">
+                  <strong>Disconnect and reconnect:</strong> If you disconnect an account and later reconnect the same one, your historical data is preserved and the chart continues from your full history; we do not delete snapshots on disconnect.
+                </p>
+                <p className="text-neutral-600 text-sm leading-relaxed">
+                  <strong>YouTube</strong> does not use this custom history; the Growth chart for YouTube uses only the data provided by the YouTube API (e.g. subscribers over time when available).
+                </p>
+              </>
             )},
             { id: 'inbox-dms', title: 'Inbox & DMs', children: (
               <>

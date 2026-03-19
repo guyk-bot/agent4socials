@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
   }
   try {
     const rows = await prisma.socialAccount.findMany({
-      where: { userId },
+      where: { userId, status: 'connected' },
       select: { id: true, platform: true, username: true, profilePicture: true, platformUserId: true, status: true, updatedAt: true, credentialsJson: true },
     });
     const accounts = rows.map(({ credentialsJson, ...rest }) => {

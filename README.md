@@ -39,4 +39,8 @@ Agent4Socials is a social media scheduling platform for **Instagram**, **YouTube
 
 ## Documentation
 
-See [SETUP.md](./SETUP.md) for production deployment (Vercel, domain, OAuth, R2).
+- [SETUP.md](./SETUP.md) – Production deployment (Vercel, domain, OAuth, R2).
+- [docs/ANALYTICS_PLATFORMS.md](./docs/ANALYTICS_PLATFORMS.md) – Analytics support and metrics by platform.
+- [docs/METRIC_SNAPSHOTS_AND_HISTORY.md](./docs/METRIC_SNAPSHOTS_AND_HISTORY.md) – Persistent follower/following history for Instagram & Facebook (Growth chart, snapshots, cron).
+- [docs/DEPLOY_METRIC_SNAPSHOTS.md](./docs/DEPLOY_METRIC_SNAPSHOTS.md) – **Deploy steps:** run migration, set CRON_SECRET, schedule `/api/cron/metric-snapshots` once per day.
+- [docs/DATABASE_MIGRATIONS.md](./docs/DATABASE_MIGRATIONS.md) – Running migrations (direct URL, metric snapshots migration).

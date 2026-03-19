@@ -1,5 +1,16 @@
 # Database migrations
 
+## Metric snapshots and connection history (Instagram & Facebook)
+
+Migration **20260318120000_metric_snapshots_and_connection_history** adds:
+
+- **SocialAccount**: `firstConnectedAt`, `connectedAt`, `disconnectedAt` (backfilled from `createdAt` for existing rows).
+- **AccountMetricSnapshot**: New table for daily follower/following/fans snapshots (one row per account per day). Used for Growth chart history; **Instagram and Facebook only** (YouTube excluded). See **docs/METRIC_SNAPSHOTS_AND_HISTORY.md**.
+
+After deploying, run `npx prisma migrate deploy` from `apps/web` with `DATABASE_DIRECT_URL` set (direct Postgres port 5432). Ensure the cron job for `/api/cron/metric-snapshots` is scheduled (e.g. daily) so new snapshots are collected.
+
+---
+
 ## "The column contentByPlatform does not exist"
 
 This means the production database is missing columns added by a Prisma migration. Migrations are **not** run during Vercel build (to avoid slow or stuck builds with the DB pooler). Run them from your machine when you add or change schema:

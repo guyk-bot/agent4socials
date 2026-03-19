@@ -20,6 +20,14 @@ export interface FacebookInsights {
   growthTimeSeries?: Array<{ date: string; gained: number; lost: number; net?: number }>;
   /** Optional time series for followers chart (used by all platforms). */
   followersTimeSeries?: Array<{ date: string; value: number }>;
+  /** Per-day following (from our snapshots for Instagram); when present chart shows fluctuation. */
+  followingTimeSeries?: Array<{ date: string; value: number }>;
+  /** When true, chart data is from our DB (snapshot or bootstrap). */
+  metricHistoryFromSnapshots?: boolean;
+  /** When true, we have &lt; 2 snapshots and show flat bootstrap line; show "Tracking started on …". */
+  isBootstrap?: boolean;
+  /** First connection date (for bootstrap helper text). */
+  firstConnectedAt?: string | null;
   /** Demographics (age, gender, country) when requested with extended=1. */
   demographics?: import('@/types/analytics').Demographics;
 }

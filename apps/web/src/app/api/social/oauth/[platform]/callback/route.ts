@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { Platform } from '@prisma/client';
 import axios from 'axios';
+import { ensureBootstrapSnapshotForToday } from '@/lib/analytics/metric-snapshots';
 
 const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN'] as const;
 
@@ -591,6 +592,8 @@ export async function GET(
             username: firstPage.name ?? 'Facebook Page',
             profilePicture: firstPage.picture ?? null,
             status: 'connected',
+            connectedAt: new Date(),
+            disconnectedAt: null,
           },
           create: {
             userId,
@@ -602,6 +605,8 @@ export async function GET(
             refreshToken: tokenData.refreshToken,
             expiresAt: tokenData.expiresAt,
             status: 'connected',
+            firstConnectedAt: new Date(),
+            connectedAt: new Date(),
           },
         });
         await prisma.socialAccount.deleteMany({
@@ -629,6 +634,8 @@ export async function GET(
               profilePicture: igPicture,
               expiresAt: tokenData.expiresAt,
               status: 'connected',
+              connectedAt: new Date(),
+              disconnectedAt: null,
               credentialsJson: { loginMethod: 'facebook_login' as const, linkedPageId: firstPage.id },
             },
             create: {
@@ -641,6 +648,8 @@ export async function GET(
               refreshToken: null,
               expiresAt: tokenData.expiresAt,
               status: 'connected',
+              firstConnectedAt: new Date(),
+              connectedAt: new Date(),
               credentialsJson: { loginMethod: 'facebook_login' as const, linkedPageId: firstPage.id },
             },
           });
@@ -650,8 +659,18 @@ export async function GET(
         }
         const fbAccount = await prisma.socialAccount.findFirst({
           where: { userId, platform: 'FACEBOOK', platformUserId: firstPage.id },
-          select: { id: true },
+          select: { id: true, userId: true, platform: true, platformUserId: true, accessToken: true },
         });
+        if (fbAccount) {
+          try { await ensureBootstrapSnapshotForToday(fbAccount); } catch (_) {}
+        }
+        const igAccount = igId ? await prisma.socialAccount.findFirst({
+          where: { userId, platform: 'INSTAGRAM', platformUserId: igId },
+          select: { id: true, userId: true, platform: true, platformUserId: true, accessToken: true },
+        }) : null;
+        if (igAccount) {
+          try { await ensureBootstrapSnapshotForToday(igAccount); } catch (_) {}
+        }
         const dashboardUrl = fbAccount?.id ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(fbAccount.id)}` : `${baseUrl}/dashboard`;
         return NextResponse.redirect(dashboardUrl);
       } catch (e) {
@@ -688,6 +707,8 @@ export async function GET(
             username: firstPage.name ?? 'Facebook Page',
             profilePicture: firstPage.picture ?? null,
             status: 'connected',
+            connectedAt: new Date(),
+            disconnectedAt: null,
           },
           create: {
             userId,
@@ -699,6 +720,8 @@ export async function GET(
             refreshToken: tokenData.refreshToken,
             expiresAt: tokenData.expiresAt,
             status: 'connected',
+            firstConnectedAt: new Date(),
+            connectedAt: new Date(),
           },
         });
         await prisma.socialAccount.deleteMany({
@@ -726,6 +749,8 @@ export async function GET(
               profilePicture: igPicture,
               expiresAt: tokenData.expiresAt,
               status: 'connected',
+              connectedAt: new Date(),
+              disconnectedAt: null,
               credentialsJson: { loginMethod: 'facebook_login' as const, linkedPageId: firstPage.id },
             },
             create: {
@@ -738,6 +763,8 @@ export async function GET(
               refreshToken: null,
               expiresAt: tokenData.expiresAt,
               status: 'connected',
+              firstConnectedAt: new Date(),
+              connectedAt: new Date(),
               credentialsJson: { loginMethod: 'facebook_login' as const, linkedPageId: firstPage.id },
             },
           });
@@ -745,10 +772,16 @@ export async function GET(
             where: { userId, platform: 'INSTAGRAM', platformUserId: { not: igId } },
           });
         }
-      const fbAccount = await prisma.socialAccount.findFirst({
-        where: { userId, platform: 'FACEBOOK', platformUserId: firstPage.id },
-        select: { id: true },
-      });
+        const fbAccount = await prisma.socialAccount.findFirst({
+          where: { userId, platform: 'FACEBOOK', platformUserId: firstPage.id },
+          select: { id: true, userId: true, platform: true, platformUserId: true, accessToken: true },
+        });
+        if (fbAccount) { try { await ensureBootstrapSnapshotForToday(fbAccount); } catch (_) {} }
+        const igAccountForBootstrap = igId ? await prisma.socialAccount.findFirst({
+          where: { userId, platform: 'INSTAGRAM', platformUserId: igId },
+          select: { id: true, userId: true, platform: true, platformUserId: true, accessToken: true },
+        }) : null;
+        if (igAccountForBootstrap) { try { await ensureBootstrapSnapshotForToday(igAccountForBootstrap); } catch (_) {} }
       const dashboardUrl = fbAccount?.id ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(fbAccount.id)}` : `${baseUrl}/dashboard`;
       return NextResponse.redirect(dashboardUrl);
       } catch (fallbackErr) {
@@ -801,6 +834,8 @@ export async function GET(
           username: first.username ?? 'Instagram',
           profilePicture: first.profilePicture ?? null,
           status: 'connected',
+          connectedAt: new Date(),
+          disconnectedAt: null,
           credentialsJson: fbLoginCreds,
         },
         create: {
@@ -813,6 +848,8 @@ export async function GET(
           refreshToken: tokenData.refreshToken,
           expiresAt: tokenData.expiresAt,
           status: 'connected',
+          firstConnectedAt: new Date(),
+          connectedAt: new Date(),
           credentialsJson: fbLoginCreds,
         },
       });
@@ -831,6 +868,8 @@ export async function GET(
             username: linkedPage.name,
             profilePicture: linkedPage.picture,
             status: 'connected',
+            connectedAt: new Date(),
+            disconnectedAt: null,
           },
           create: {
             userId,
@@ -842,6 +881,8 @@ export async function GET(
             refreshToken: tokenData.refreshToken,
             expiresAt: tokenData.expiresAt,
             status: 'connected',
+            firstConnectedAt: new Date(),
+            connectedAt: new Date(),
           },
         });
         await prisma.socialAccount.deleteMany({
@@ -850,8 +891,9 @@ export async function GET(
       }
       const igAccount = await prisma.socialAccount.findFirst({
         where: { userId, platform: 'INSTAGRAM', platformUserId: first.id },
-        select: { id: true },
+        select: { id: true, userId: true, platform: true, platformUserId: true, accessToken: true },
       });
+      if (igAccount) { try { await ensureBootstrapSnapshotForToday(igAccount); } catch (_) {} }
       const dashboardUrl = igAccount?.id ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(igAccount.id)}` : `${baseUrl}/dashboard`;
       return NextResponse.redirect(dashboardUrl);
     } catch (autoConnectErr) {
@@ -873,7 +915,7 @@ export async function GET(
     : undefined;
   const credentialsJsonToSet = igBusinessCreds ?? twitterCreds ?? undefined;
   try {
-    // Upsert first so reconnecting the same account updates in place and keeps posts/data
+    // Upsert so reconnecting the same account updates in place; preserve history (firstConnectedAt never cleared).
     await prisma.socialAccount.upsert({
       where: {
         userId_platform_platformUserId: {
@@ -889,6 +931,8 @@ export async function GET(
         username: tokenData.username,
         ...(profilePicture !== undefined && { profilePicture }),
         status: 'connected',
+        connectedAt: new Date(),
+        disconnectedAt: null,
         ...(credentialsJsonToSet && { credentialsJson: credentialsJsonToSet }),
       },
       create: {
@@ -901,6 +945,8 @@ export async function GET(
         refreshToken: tokenData.refreshToken,
         expiresAt: tokenData.expiresAt,
         status: 'connected',
+        firstConnectedAt: new Date(),
+        connectedAt: new Date(),
         ...(credentialsJsonToSet && { credentialsJson: credentialsJsonToSet }),
       },
     });
@@ -924,6 +970,8 @@ export async function GET(
           username: tokenData.linkedPage.name,
           profilePicture: tokenData.linkedPage.picture,
           status: 'connected',
+          connectedAt: new Date(),
+          disconnectedAt: null,
         },
         create: {
           userId,
@@ -935,6 +983,8 @@ export async function GET(
           refreshToken: tokenData.refreshToken,
           expiresAt: tokenData.expiresAt,
           status: 'connected',
+          firstConnectedAt: new Date(),
+          connectedAt: new Date(),
         },
       });
       await prisma.socialAccount.deleteMany({
@@ -942,8 +992,6 @@ export async function GET(
       });
     }
     if (plat === 'FACEBOOK' && tokenData.linkedInstagram) {
-      // When Instagram is auto-created from a Facebook connection, store loginMethod and linkedPageId
-      // so inbox/comments/messages routing works correctly for this account.
       const fbLinkedIgCreds = { loginMethod: 'facebook_login' as const, linkedPageId: tokenData.platformUserId };
       await prisma.socialAccount.upsert({
         where: {
@@ -960,6 +1008,8 @@ export async function GET(
           username: tokenData.linkedInstagram.username ?? 'Instagram',
           profilePicture: tokenData.linkedInstagram.profilePicture ?? null,
           status: 'connected',
+          connectedAt: new Date(),
+          disconnectedAt: null,
           credentialsJson: fbLinkedIgCreds,
         },
         create: {
@@ -972,6 +1022,8 @@ export async function GET(
           refreshToken: tokenData.refreshToken,
           expiresAt: tokenData.expiresAt,
           status: 'connected',
+          firstConnectedAt: new Date(),
+          connectedAt: new Date(),
           credentialsJson: fbLinkedIgCreds,
         },
       });
@@ -986,9 +1038,16 @@ export async function GET(
 
   const mainAccount = await prisma.socialAccount.findFirst({
     where: { userId, platform: plat, platformUserId: tokenData.platformUserId },
-    select: { id: true },
+    select: { id: true, userId: true, platform: true, platformUserId: true, accessToken: true },
   });
-  // Redirect with accountId only (no connecting=1) so the dashboard does not show the loading banner; user lands on the ready view.
+  // Bootstrap follower/following snapshot for Instagram and Facebook only (YouTube excluded).
+  if (mainAccount && (plat === 'INSTAGRAM' || plat === 'FACEBOOK')) {
+    try {
+      await ensureBootstrapSnapshotForToday(mainAccount);
+    } catch (e) {
+      console.warn('[OAuth] Bootstrap metric snapshot:', (e as Error)?.message ?? e);
+    }
+  }
   const successRedirectUrl = mainAccount?.id
     ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(mainAccount.id)}`
     : `${baseUrl}/dashboard`;

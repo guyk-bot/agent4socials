@@ -47,6 +47,7 @@ export function FacebookAnalyticsView({
     if (!start || !end) return undefined;
     const series = insights?.impressionsTimeSeries ?? [];
     const followerSeries = insights?.followersTimeSeries ?? [];
+    const followingSeries = insights?.followingTimeSeries;
     const visitsSeries = insights?.pageViewsTimeSeries ?? [];
     const postsByDate: Record<string, number> = {};
     posts.forEach((p) => {
@@ -54,7 +55,6 @@ export function FacebookAnalyticsView({
       postsByDate[d] = (postsByDate[d] ?? 0) + 1;
     });
 
-    // Build exact date range: every day from start to end (inclusive) so chart matches selected 30 days and starts at baseline
     const allDates: string[] = [];
     const dStart = new Date(start + 'T12:00:00');
     const dEnd = new Date(end + 'T12:00:00');
@@ -63,10 +63,13 @@ export function FacebookAnalyticsView({
     }
     if (allDates.length === 0) return undefined;
 
-    // Maps for lookup; use only data within range
     const followerMap: Record<string, number> = {};
     followerSeries.forEach((s) => {
       if (s.date >= start && s.date <= end) followerMap[s.date] = s.value;
+    });
+    const followingMap: Record<string, number> = {};
+    followingSeries?.forEach((s) => {
+      if (s.date >= start && s.date <= end) followingMap[s.date] = s.value;
     });
     const viewsMap: Record<string, number> = {};
     series.forEach((s) => {
@@ -77,19 +80,23 @@ export function FacebookAnalyticsView({
       if (s.date >= start && s.date <= end) visitsMap[s.date] = s.value;
     });
 
-    // Baseline: value on first day of range if API has it, else most recent value before range (e.g. 1055 on Feb 18)
     const sortedFollower = [...followerSeries].sort((a, b) => b.date.localeCompare(a.date));
     const baselineFollowers = followerMap[start] ?? sortedFollower.find((s) => s.date <= start)?.value ?? 0;
+    const sortedFollowing = followingSeries?.length ? [...followingSeries].sort((a, b) => b.date.localeCompare(a.date)) : [];
+    const baselineFollowing = followingMap[start] ?? sortedFollowing.find((s) => s.date <= start)?.value ?? insights?.followingCount ?? null;
     const sortedViews = [...series].sort((a, b) => b.date.localeCompare(a.date));
     const baselineViewsVal = viewsMap[start] ?? sortedViews.find((s) => s.date <= start)?.value ?? 0;
     const sortedVisits = [...visitsSeries].sort((a, b) => b.date.localeCompare(a.date));
     const baselineVisitsVal = visitsMap[start] ?? sortedVisits.find((s) => s.date <= start)?.value ?? 0;
 
     let prevF = baselineFollowers;
+    let prevFollowing: number | null = baselineFollowing ?? null;
     let prevViews = baselineViewsVal;
     let prevVisits = baselineVisitsVal;
     return allDates.map((date) => {
       const f = followerMap[date] ?? prevF;
+      const fol = followingMap[date] ?? prevFollowing;
+      if (fol != null) prevFollowing = fol;
       const v = viewsMap[date] ?? prevViews;
       const vis = visitsMap[date] ?? prevVisits;
       prevF = f;
@@ -101,9 +108,10 @@ export function FacebookAnalyticsView({
         views: v,
         visits: vis,
         posts: postsByDate[date] ?? 0,
+        ...(fol != null ? { following: fol } : insights?.followingCount != null ? { following: insights.followingCount } : {}),
       };
     });
-  }, [dateRange?.start, dateRange?.end, insights?.impressionsTimeSeries, insights?.followersTimeSeries, insights?.pageViewsTimeSeries, posts]);
+  }, [dateRange?.start, dateRange?.end, insights?.impressionsTimeSeries, insights?.followersTimeSeries, insights?.pageViewsTimeSeries, insights?.followingCount, insights?.followingTimeSeries, posts]);
 
   return (
     <div className="space-y-12 max-w-full" style={{ maxWidth: 1400 }}>
@@ -115,6 +123,8 @@ export function FacebookAnalyticsView({
           onExport={() => {}}
           platform={insights?.platform}
           followingCount={insights?.followingCount}
+          firstConnectedAt={insights?.firstConnectedAt}
+          isBootstrap={insights?.isBootstrap}
         />
         <FacebookOverviewTab
           insights={insights}

@@ -1,0 +1,196 @@
+{
+  "design_system_name": "Futuristic Neon Glass SaaS",
+  "design_style": {
+    "theme": "dark",
+    "aesthetic": ["futuristic", "neon", "glassmorphism", "high-tech", "3D depth"],
+    "mood": ["premium", "dynamic", "innovative"],
+    "visual_characteristics": {
+      "backgrounds": {
+        "type": "gradient + subtle noise",
+        "colors": ["deep navy", "purple", "blue"],
+        "effects": ["radial glow", "light streaks", "grid overlays (optional)"]
+      },
+      "lighting": {
+        "style": "neon glow",
+        "intensity": "medium to high",
+        "colors": ["cyan", "purple", "magenta"],
+        "usage": ["edges", "buttons", "cards", "highlights"]
+      },
+      "depth": {
+        "techniques": [
+          "soft shadows",
+          "outer glow",
+          "inner glow",
+          "blur layers",
+          "3D stacked elements"
+        ]
+      }
+    }
+  },
+
+  "color_system": {
+    "primary": "#5ff6fd",
+    "secondary": "#df44dc",
+    "tertiary": "#8b5cf6",
+    "background": "#0b0f1a",
+    "surface": "#111827",
+    "text_primary": "#ffffff",
+    "text_secondary": "#9ca3af",
+    "gradients": [
+      {
+        "name": "primary_gradient",
+        "value": "linear-gradient(135deg, #5ff6fd, #8b5cf6, #df44dc)"
+      },
+      {
+        "name": "glow_gradient",
+        "value": "radial-gradient(circle, rgba(139,92,246,0.4), transparent)"
+      }
+    ],
+    "effects": {
+      "glow": "0 0 20px rgba(139,92,246,0.6)",
+      "border_glow": "0 0 10px rgba(95,246,253,0.5)"
+    }
+  },
+
+  "typography": {
+    "font_family": "Inter, SF Pro, or modern sans-serif",
+    "heading": {
+      "weight": 600,
+      "tracking": "-0.02em",
+      "line_height": 1.1
+    },
+    "body": {
+      "weight": 400,
+      "line_height": 1.5
+    },
+    "scale": {
+      "hero": "48-72px",
+      "section_title": "28-36px",
+      "body": "14-18px",
+      "caption": "12-13px"
+    }
+  },
+
+  "layout_system": {
+    "grid": {
+      "type": "12-column",
+      "max_width": "1200-1400px",
+      "gutter": "16-24px"
+    },
+    "spacing": {
+      "section_padding": "80-120px",
+      "component_gap": "16-32px"
+    },
+    "alignment": ["centered hero", "left-aligned content sections"]
+  },
+
+  "components": {
+    "buttons": {
+      "style": "rounded, pill-shaped",
+      "radius": "999px",
+      "primary": {
+        "background": "gradient",
+        "text_color": "#ffffff",
+        "effects": ["glow", "soft shadow"]
+      },
+      "secondary": {
+        "background": "transparent",
+        "border": "1px solid rgba(255,255,255,0.1)",
+        "hover": "subtle glow"
+      }
+    },
+
+    "cards": {
+      "style": "glassmorphism",
+      "background": "rgba(255,255,255,0.05)",
+      "blur": "backdrop-blur(10-20px)",
+      "border": "1px solid rgba(255,255,255,0.08)",
+      "radius": "16-24px",
+      "effects": ["inner glow", "outer glow"]
+    },
+
+    "badges": {
+      "style": "floating glass chips",
+      "background": "semi-transparent gradient",
+      "border_radius": "12px",
+      "effects": ["glow", "blur"],
+      "usage": ["stats", "highlights", "labels"]
+    },
+
+    "pricing_cards": {
+      "highlighted": {
+        "scale": "1.05-1.1",
+        "border_glow": true,
+        "gradient_outline": true
+      },
+      "default": {
+        "opacity": "slightly reduced",
+        "border": "subtle"
+      }
+    },
+
+    "floating_elements": {
+      "style": "detached UI elements",
+      "effects": ["blur", "glow", "soft shadow"],
+      "positioning": "absolute layered"
+    }
+  },
+
+  "visual_patterns": {
+    "hero_section": {
+      "layout": "centered",
+      "elements": [
+        "headline",
+        "subheadline",
+        "primary CTA",
+        "floating UI cards",
+        "device mockups"
+      ],
+      "background_effects": ["radial glow", "light streaks"]
+    },
+
+    "feature_stack": {
+      "style": "layered 3D cards",
+      "orientation": "vertical stack",
+      "effects": ["depth", "perspective transform"]
+    },
+
+    "dashboard_preview": {
+      "style": "angled perspective",
+      "elements": ["charts", "cards", "data blocks"],
+      "effects": ["glow edges", "glass panels"]
+    }
+  },
+
+  "motion": {
+    "transitions": {
+      "duration": "200-400ms",
+      "easing": "ease-out"
+    },
+    "hover_effects": [
+      "glow intensifies",
+      "slight scale (1.02-1.05)",
+      "shadow elevation"
+    ],
+    "animations": [
+      "floating (subtle up/down)",
+      "fade + slide in",
+      "gradient shift"
+    ]
+  },
+
+  "iconography": {
+    "style": "minimal, outline or soft filled",
+    "color": "muted white or gradient accents",
+    "usage": ["badges", "lists", "UI indicators"]
+  },
+
+  "ui_principles": [
+    "Use glow sparingly to highlight key actions",
+    "Maintain strong contrast with dark backgrounds",
+    "Layer elements to create depth and hierarchy",
+    "Prefer gradients over flat colors",
+    "Keep spacing generous for a premium feel",
+    "Limit text density; emphasize visual storytelling"
+  ]
+}

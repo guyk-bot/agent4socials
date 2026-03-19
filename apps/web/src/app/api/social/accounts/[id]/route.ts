@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 
+/**
+ * Soft disconnect: set status = disconnected and disconnectedAt = now.
+ * Do NOT delete the account or any metric snapshots; history is preserved for reconnect.
+ * When the user reconnects the same account (same platform + platformUserId), the same row is updated.
+ */
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -21,6 +26,14 @@ export async function DELETE(
   if (!account) {
     return NextResponse.json({ message: 'Account not found' }, { status: 404 });
   }
-  await prisma.socialAccount.delete({ where: { id: account.id } });
+  await prisma.socialAccount.update({
+    where: { id: account.id },
+    data: {
+      status: 'disconnected',
+      disconnectedAt: new Date(),
+      accessToken: '',
+      refreshToken: null,
+    },
+  });
   return NextResponse.json({ ok: true });
 }

@@ -16,13 +16,16 @@
 
 ### 1.2 Current analytics endpoints
 
-- **GET /api/social/accounts/[id]/insights** – Account-level: followers, impressionsTotal, impressionsTimeSeries, pageViewsTotal, reachTotal, profileViewsTotal, insightsHint.
+- **GET /api/social/accounts/[id]/insights** – Account-level: followers, impressionsTotal, impressionsTimeSeries, pageViewsTotal, reachTotal, profileViewsTotal, insightsHint. For **Instagram and Facebook**, also returns snapshot-based or bootstrap **followersTimeSeries** (and IG **followingTimeSeries**), **firstConnectedAt**, **isBootstrap**, **metricHistoryFromSnapshots**.
 - **GET /api/social/accounts/[id]/engagement** – Per-post engagement (IG/FB/YouTube).
 - **GET /api/social/accounts/[id]/posts** – Post list + sync with metrics.
+- **GET/POST /api/cron/metric-snapshots** – Daily job: upsert one snapshot per connected IG/FB account (X-Cron-Secret required). **YouTube excluded.**
 
 ### 1.3 DB models
 
 - **ImportedPost**: impressions, interactions, likeCount, commentsCount, repostsCount, sharesCount. No demographics table; time series computed in API.
+- **SocialAccount**: Added **firstConnectedAt**, **connectedAt**, **disconnectedAt** for connection history and soft disconnect (reconnect preserves history).
+- **AccountMetricSnapshot**: Persistent follower/following/fans history for **Instagram and Facebook only**. One row per account per day (metricDate); unique (userId, platform, externalAccountId, metricDate). Used for Growth chart when ≥2 snapshots; otherwise bootstrap flat line from connection date. **YouTube excluded.** See **docs/METRIC_SNAPSHOTS_AND_HISTORY.md**.
 
 ### 1.4 Frontend
 
@@ -115,4 +118,11 @@
 - **Types**: `apps/web/src/types/analytics.ts` – Demographics, TrafficSourceItem, GrowthDataPoint, ExtendedAnalytics.
 - **Fetchers**: `apps/web/src/lib/analytics/extended-fetchers.ts` – fetchInstagramDemographics, fetchFacebookDemographics, fetchYouTubeExtended (country, age, gender, traffic source, watch time, subscriber growth).
 - **Insights route**: `GET /api/social/accounts/[id]/insights?since=&until=&extended=1` – when `extended=1`, appends `demographics`, `trafficSources`, `growthTimeSeries`, `extra`, and `raw` (per-platform) where available. Backward compatible: without `extended` the response shape is unchanged.
-- **Docs**: `docs/ANALYTICS_AUDIT.md` (this file), `docs/ANALYTICS_PLATFORMS.md` (support matrix).
+- **Persistent follower/following history (Instagram & Facebook only):**
+  - **Metric snapshots**: `apps/web/src/lib/analytics/metric-snapshots.ts` – fetchCurrentInstagramMetrics, fetchCurrentFacebookMetrics, upsertDailyMetricSnapshot, getAccountHistorySeries, buildBootstrapFlatSeries, ensureBootstrapSnapshotForToday, runDailyMetricSnapshotSync.
+  - **Schema**: `SocialAccount.firstConnectedAt`, `connectedAt`, `disconnectedAt`; new model `AccountMetricSnapshot` (migration `20260318120000_metric_snapshots_and_connection_history`).
+  - **Connect/reconnect**: OAuth callback sets firstConnectedAt (create only), connectedAt, disconnectedAt (reconnect clears); calls ensureBootstrapSnapshotForToday for IG/FB.
+  - **Disconnect**: Soft disconnect (status + disconnectedAt; no row or snapshot delete). Accounts list returns only `status = 'connected'`.
+  - **Cron**: `GET/POST /api/cron/metric-snapshots` runs runDailyMetricSnapshotSync for connected IG/FB accounts. **YouTube excluded.**
+  - **Chart**: Insights route for IG/FB returns snapshot-based or bootstrap followersTimeSeries/followingTimeSeries; frontend shows “Tracking started on [date]” when isBootstrap.
+- **Docs**: `docs/ANALYTICS_AUDIT.md` (this file), `docs/ANALYTICS_PLATFORMS.md` (support matrix), `docs/METRIC_SNAPSHOTS_AND_HISTORY.md` (snapshot design and flows).

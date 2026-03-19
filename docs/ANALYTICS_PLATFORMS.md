@@ -16,7 +16,10 @@ Official APIs only. No scraping.
 
 **Metrics**: impressions (deprecated), reach, profile_views, accounts_engaged, **follower_demographics**, **engaged_audience_demographics** (breakdowns: age, city, country, gender), views, saves, likes, shares.
 
-**Follower count over time (growth chart)**: Same permissions (`instagram_manage_insights` or `instagram_business_manage_insights`). We first try **follows_and_unfollows** with `period=day` and breakdown `follow_type` (new followers vs unfollows per day) so each day shows the correct total including unfollows. If that returns no per-day data, we fall back to **follower_count** (new followers per day only). We normalize `end_time` to the metric date (end-of-day Pacific → subtract 1 day UTC) so values align with the correct calendar day (e.g. Feb 20 shows the count for Feb 20). Not available for accounts with fewer than 100 followers.
+**Follower count over time (growth chart)** – two sources:
+
+1. **Our own history (primary for connected accounts):** From first connection we store daily snapshots in `AccountMetricSnapshot`. The Growth chart uses this when we have ≥2 snapshots; otherwise we show a flat bootstrap line from connection date with current values. History is preserved across disconnect/reconnect. See **docs/METRIC_SNAPSHOTS_AND_HISTORY.md**.
+2. **API fallback (when building series from API):** Same permissions. We try **follows_and_unfollows** with `period=day` and breakdown `follow_type`; if no per-day data, we use **follower_count** (new followers per day). We normalize `end_time` to metric date (end-of-day Pacific → subtract 1 day UTC). Not available for accounts with fewer than 100 followers.
 
 ---
 
@@ -32,6 +35,8 @@ Official APIs only. No scraping.
 
 **Metrics**: page_impressions, page_views_total, page_engaged_users, page_fan_adds, **page_fans_gender_age**, **page_fans_country**. Some deprecated June 2026.
 
+**Follower/fans count over time (growth chart):** We use **our own snapshot history** (same as Instagram): daily snapshots in `AccountMetricSnapshot` from first connection; chart shows real series when ≥2 snapshots, else flat bootstrap line from connection date. See **docs/METRIC_SNAPSHOTS_AND_HISTORY.md**.
+
 ---
 
 ## YouTube
@@ -45,6 +50,8 @@ Official APIs only. No scraping.
 | **Aggregation** | Aggregated |
 
 **Dimensions**: day, **country**, **ageGroup**, **gender**, **insightTrafficSourceType**. **Metrics**: views, estimatedMinutesWatched, averageViewDuration, subscribersGained, subscribersLost.
+
+**Note:** We do **not** apply custom follower-history tracking to YouTube. The Growth chart uses only platform/API data (e.g. subscribers from the API). No `AccountMetricSnapshot` or bootstrap logic for YouTube.
 
 ---
 

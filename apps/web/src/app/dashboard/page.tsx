@@ -1101,9 +1101,12 @@ export default function DashboardPage() {
                 ...(insights && {
                   insightsHint: insights.insightsHint,
                   followingCount: (insights as { followingCount?: number }).followingCount,
+                  followingTimeSeries: (insights as { followingTimeSeries?: Array<{ date: string; value: number }> }).followingTimeSeries,
                   growthTimeSeries: insights.growthTimeSeries as Array<{ date: string; gained: number; lost: number; net?: number }> | undefined,
                   pageViewsTimeSeries: (insights as { pageViewsTimeSeries?: Array<{ date: string; value: number }> }).pageViewsTimeSeries,
                   demographics: insights.demographics,
+                  firstConnectedAt: (insights as { firstConnectedAt?: string | null }).firstConnectedAt,
+                  isBootstrap: (insights as { isBootstrap?: boolean }).isBootstrap,
                 }),
               };
               return base;
