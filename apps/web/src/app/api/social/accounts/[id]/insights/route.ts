@@ -23,7 +23,7 @@ function facebookMetricDateFromEndTime(endTime: string): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** Merge API time series with snapshot-backed series so we show full range from connection; API values take precedence for overlapping dates. */
+/** Merge API time series with snapshot-backed series. API values take precedence. Only include dates that have a value so the UI can carry forward the last known value for missing dates (avoids showing zeros when Meta has no data yet for recent days). */
 function mergeSeriesWithSnapshots(
   apiSeries: Array<{ date: string; value: number }>,
   snapshotSeries: Array<{ date: string; value: number }>,
@@ -36,7 +36,9 @@ function mergeSeriesWithSnapshots(
   for (let d = new Date(since + 'T12:00:00Z'); d <= new Date(until + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + 1)) {
     dates.push(d.toISOString().slice(0, 10));
   }
-  return dates.map((date) => ({ date, value: apiMap.get(date) ?? snapshotMap.get(date) ?? 0 }));
+  return dates
+    .map((date) => ({ date, value: apiMap.get(date) ?? snapshotMap.get(date) }))
+    .filter((p): p is { date: string; value: number } => typeof p.value === 'number');
 }
 
 /**
@@ -527,6 +529,12 @@ export async function GET(
           const addsByDate = new Map<string, number>();
           const removesByDate = new Map<string, number>();
           const fbSeriesByMetric: Record<string, Array<{ date: string; value: number }>> = {};
+          // Don't add explicit 0 for recent dates (Meta often returns 0 for "not yet available"); UI will carry forward last value
+          const cutoffForZero = (() => {
+            const d = new Date(untilForApi + 'T12:00:00');
+            d.setUTCDate(d.getUTCDate() - 2);
+            return d.toISOString().slice(0, 10);
+          })();
           for (const d of data) {
             const values = d.values ?? [];
             let total = 0;
@@ -535,7 +543,9 @@ export async function GET(
               const val = typeof v.value === 'number' ? v.value : Number(v.value) || 0;
               total += val;
               const date = v.end_time ? facebookMetricDateFromEndTime(v.end_time) : '';
-              if (date) series.push({ date, value: val });
+              if (date) {
+                if (val !== 0 || date <= cutoffForZero) series.push({ date, value: val });
+              }
             }
             const sortedSeries = series.sort((a, b) => a.date.localeCompare(b.date));
             if (sortedSeries.length > 0) fbSeriesByMetric[d.name] = sortedSeries;
