@@ -37,7 +37,7 @@ import {
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import { useAppData } from '@/context/AppDataContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
-import { InstagramIcon, FacebookIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
+import { InstagramIcon, FacebookIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, RedditIcon } from '@/components/SocialPlatformIcons';
 import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 
 // Inbox-relevant platforms (Comments: IG, FB, X, YouTube, LinkedIn; Messages: IG + FB only). TikTok excluded (Display API has no comment text).
@@ -47,6 +47,7 @@ const PLATFORMS = [
   { id: 'YOUTUBE', label: 'YouTube', icon: YoutubeIcon },
   { id: 'TWITTER', label: 'Twitter/X', icon: XTwitterIcon, color: 'text-neutral-800' },
   { id: 'LINKEDIN', label: 'LinkedIn', icon: LinkedinIcon },
+  { id: 'REDDIT', label: 'Reddit', icon: RedditIcon },
 ] as const;
 
 type Account = { id: string; platform: string; username?: string | null };

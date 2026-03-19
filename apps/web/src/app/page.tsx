@@ -22,13 +22,13 @@ import {
   MessageSquare,
   Sparkles,
 } from 'lucide-react';
-import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
+import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, RedditIcon } from '@/components/SocialPlatformIcons';
 import { PricingBillingToggle, PricingCard } from '@/components/landing/pricing';
 
 const FREE_HIGHLIGHTS = [
   '1 brand',
   '50 scheduled posts / month',
-  'Connect Instagram, Facebook, TikTok, YouTube, LinkedIn',
+  'Connect Instagram, Facebook, TikTok, YouTube, LinkedIn, Reddit',
   'X (Twitter) available on Starter & Pro only',
   '30 days analytics',
   '1 smart link page',
@@ -64,6 +64,7 @@ const HERO_PLATFORMS = [
   { Icon: TikTokIcon, label: 'TikTok' },
   { Icon: XTwitterIcon, label: 'Twitter/X' },
   { Icon: LinkedinIcon, label: 'LinkedIn' },
+  { Icon: RedditIcon, label: 'Reddit' },
 ] as const;
 
 function FaqItem({ question, answer }: { question: string; answer: string }) {
@@ -119,17 +120,15 @@ export default function Home() {
           <div className="relative mx-auto max-w-5xl px-4 sm:px-6 text-center">
             {/* Headline: 48-72px, gradient accent */}
             <h1 className="text-[48px] font-bold tracking-[-0.02em] leading-[1.1] sm:text-5xl md:text-6xl lg:text-7xl">
-              <span className="text-[#ffffff]">Run your entire</span>
-              <br />
               <span className="bg-[linear-gradient(135deg,#a78bfa,#8b5cf6,#df44dc)] bg-clip-text text-transparent">
-                social media
+                7X Your Content Potential
               </span>
               <br />
-              <span className="text-[#ffffff]">from one place.</span>
+              <span className="text-[#ffffff]">Without Paying For Ads</span>
             </h1>
 
             <p className="mx-auto mt-7 max-w-2xl text-base sm:text-lg text-[#9ca3af] leading-relaxed">
-              Schedule content, manage comments and DMs, and grow across Instagram, TikTok, YouTube, Facebook, X and LinkedIn from a single powerful dashboard.
+              Schedule content, manage comments and DMs, and grow across Instagram, TikTok, YouTube, Facebook, X, LinkedIn and Reddit from a single powerful dashboard.
             </p>
 
             {/* CTAs: solid purple primary; gradient only on header Try for free and Pro plan */}
@@ -164,7 +163,7 @@ export default function Home() {
               {HERO_PLATFORMS.map(({ Icon, label }) => (
                 <div key={label} className="group flex flex-col items-center">
                   <div className="rounded-[16px] border border-white/[0.08] bg-[rgba(255,255,255,0.05)] p-4 backdrop-blur-[16px] transition-all group-hover:border-[#8b5cf6]/40 group-hover:shadow-[0_0_10px_rgba(139,92,246,0.4)]">
-                    <span className={label === 'Twitter/X' ? 'inline-block invert opacity-70 group-hover:opacity-100 transition-opacity' : 'opacity-70 group-hover:opacity-100 transition-opacity'}>
+                    <span className={label === 'Twitter/X' ? 'inline-block invert opacity-70 group-hover:opacity-100 transition-opacity' : label === 'Reddit' ? 'opacity-90 group-hover:opacity-100 transition-opacity' : 'opacity-70 group-hover:opacity-100 transition-opacity'}>
                       <Icon size={36} />
                     </span>
                   </div>
@@ -178,7 +177,7 @@ export default function Home() {
             <div className="hidden sm:block absolute -left-2 top-10 z-10">
               <div className="rounded-[16px] border border-white/[0.08] bg-[rgba(255,255,255,0.05)] backdrop-blur-[20px] px-4 py-3 shadow-[0_0_20px_rgba(139,92,246,0.4)]">
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-[#8b5cf6] mb-0.5">Platforms</p>
-                <p className="text-lg font-bold text-white">6 connected</p>
+                <p className="text-lg font-bold text-white">7 connected</p>
               </div>
             </div>
             <div className="hidden sm:block absolute -right-2 top-10 z-10">
@@ -214,11 +213,11 @@ export default function Home() {
           <div className="relative mx-auto max-w-5xl px-4 sm:px-6">
             <div className="text-center mb-14">
               <h2 className="text-[28px] sm:text-[36px] font-bold tracking-[-0.02em] text-white">Everything you need to grow</h2>
-              <p className="mt-4 text-[#9ca3af] max-w-xl mx-auto text-base">Scheduling, analytics, unified inbox, automation, and AI. All in one place, all six platforms.</p>
+              <p className="mt-4 text-[#9ca3af] max-w-xl mx-auto text-base">Scheduling, analytics, unified inbox, automation, and AI. All in one place, all seven platforms.</p>
             </div>
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {[
-                { icon: Calendar, label: 'Post Scheduler', desc: 'Plan content for all 6 platforms from one visual calendar. Draft once, publish everywhere.' },
+                { icon: Calendar, label: 'Post Scheduler', desc: 'Plan content for all 7 platforms from one visual calendar. Draft once, publish everywhere.' },
                 { icon: BarChart3, label: 'Cross-platform Analytics', desc: 'Views, likes, comments, followers across all your accounts in one unified dashboard.' },
                 { icon: MessageCircle, label: 'Unified Inbox', desc: 'DMs and comments from Instagram, Facebook, and X in one feed. Zero app-switching.' },
                 { icon: MessageSquare, label: 'Comment Automation', desc: 'Auto-reply on keywords, send welcome DMs, configure per-platform response text.' },
@@ -293,7 +292,7 @@ export default function Home() {
             </div>
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {[
-                { title: 'Publish everywhere', desc: 'Schedule to Instagram, YouTube, TikTok, Facebook, X and LinkedIn from one calendar.', emoji: '🚀' },
+                { title: 'Publish everywhere', desc: 'Schedule to Instagram, YouTube, TikTok, Facebook, X, LinkedIn and Reddit from one calendar.', emoji: '🚀' },
                 { title: 'Analytics that matter', desc: 'Views, likes, comments, followers and subscribers in one dashboard. See what works.', emoji: '📊' },
                 { title: 'Unified inbox', desc: 'View and reply to DMs from Instagram, Facebook and X in one place. No more app hopping.', emoji: '💬' },
                 { title: 'Smart automation', desc: 'Keyword comment replies, welcome DMs, and new-follower messages. Set it per post or account.', emoji: '⚡' },
@@ -359,7 +358,7 @@ export default function Home() {
             </div>
             <div className="space-y-3">
               {[
-                { q: 'Which platforms can I connect?', a: 'You can connect Instagram, YouTube, TikTok, Facebook, Twitter (X), and LinkedIn. We use each platform\'s official OAuth so you authorize access securely. Inbox and comment automation are available for Instagram, Facebook and X; scheduling and analytics support all six platforms.' },
+                { q: 'Which platforms can I connect?', a: 'You can connect Instagram, YouTube, TikTok, Facebook, Twitter (X), LinkedIn, and Reddit. We use each platform\'s official OAuth so you authorize access securely. Inbox and comment automation are available for Instagram, Facebook and X; scheduling and analytics support all seven platforms.' },
                 { q: 'How does scheduling work?', a: 'You create a post in the Composer, add your media and text, pick the date and time, and choose which connected accounts to publish to. We send the post at the scheduled time. You can also set keyword comment automation and per-platform reply text per post.' },
                 { q: 'What is comment automation?', a: 'When someone comments on your post with a keyword you set (e.g. "demo"), we can automatically reply with a message you define, or send a DM on Instagram if you prefer. You can set different reply text per platform.' },
                 { q: 'What analytics do I get?', a: 'We pull views, likes, comments, followers, and subscribers (where available) from your connected accounts into one dashboard so you can see performance across platforms.' },

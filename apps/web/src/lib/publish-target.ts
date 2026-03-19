@@ -91,6 +91,9 @@ export async function publishTarget(
   }
 
   try {
+    if (platform === 'REDDIT') {
+      return { ok: false, error: 'Reddit publishing is not yet supported. Connect Reddit for analytics; posting will be added in a future update.' };
+    }
     if (platform === 'INSTAGRAM') {
       if (firstMediaUrl) {
         // Reel: Resumable upload (more reliable than video_url; video_url often fails with 2207076)

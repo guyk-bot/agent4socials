@@ -11,6 +11,7 @@ const SOCIAL_ICON_SRC: Record<string, string> = {
   youtube: '/social-icons/youtube.svg',
   linkedin: '/social-icons/linkedin.svg',
   x: '/social-icons/x.svg',
+  reddit: '/social-icons/reddit.svg',
 };
 
 function SocialIconImg({ name, size = 24, className = '' }: { name: keyof typeof SOCIAL_ICON_SRC; size?: number; className?: string }) {
@@ -54,6 +55,10 @@ export function XTwitterIcon(props: IconProps) {
   return <SocialIconImg name="x" {...props} />;
 }
 
+export function RedditIcon(props: IconProps) {
+  return <SocialIconImg name="reddit" {...props} />;
+}
+
 export const PLATFORM_ICON_MAP = {
   INSTAGRAM: InstagramIcon,
   FACEBOOK: FacebookIcon,
@@ -61,6 +66,7 @@ export const PLATFORM_ICON_MAP = {
   YOUTUBE: YoutubeIcon,
   TWITTER: XTwitterIcon,
   LINKEDIN: LinkedinIcon,
+  REDDIT: RedditIcon,
 } as const;
 
 /** Render platform icon by id; use className for X (e.g. text-neutral-800 on light bg) */

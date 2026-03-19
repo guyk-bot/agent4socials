@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Check, Star, Loader2, BookOpen, Send, Calendar, BarChart2, MessageCircle, TrendingUp } from 'lucide-react';
-import { InstagramIcon, FacebookIcon, YoutubeIcon, LinkedinIcon, TikTokIcon, XTwitterIcon } from '@/components/SocialPlatformIcons';
+import { InstagramIcon, FacebookIcon, YoutubeIcon, LinkedinIcon, TikTokIcon, XTwitterIcon, RedditIcon } from '@/components/SocialPlatformIcons';
 
 const BULLET_ICONS = [Send, Calendar, BarChart2, MessageCircle, TrendingUp];
 
@@ -124,6 +124,24 @@ const PLATFORM_INFO: Record<string, {
     ],
     helpAnchor: 'linkedin',
     buttonLabel: 'LinkedIn Account',
+  },
+  REDDIT: {
+    name: 'Reddit',
+    description: 'Connect your Reddit account to publish posts, schedule content, and manage your presence from one dashboard.',
+    headerIcon: <RedditIcon size={40} />,
+    buttonGradient: 'from-orange-500 to-orange-700',
+    buttonHover: 'hover:from-orange-600 hover:to-orange-800',
+    accentBorder: 'border-orange-200',
+    accentHover: 'hover:border-orange-400 hover:bg-orange-50/40',
+    functionalities: [
+      'Publish posts and comments',
+      'Schedule content in advance',
+      'Track karma and engagement',
+      'Manage your Reddit profile',
+      'Post to subreddits you moderate or subscribe to',
+    ],
+    helpAnchor: 'reddit',
+    buttonLabel: 'Reddit Account',
   },
 };
 

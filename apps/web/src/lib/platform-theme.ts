@@ -4,7 +4,7 @@
  * to keep colors consistent across the entire app.
  */
 
-export type PlatformKey = 'INSTAGRAM' | 'FACEBOOK' | 'YOUTUBE' | 'TIKTOK' | 'TWITTER' | 'LINKEDIN';
+export type PlatformKey = 'INSTAGRAM' | 'FACEBOOK' | 'YOUTUBE' | 'TIKTOK' | 'TWITTER' | 'LINKEDIN' | 'REDDIT';
 
 export interface PlatformTheme {
   /** Tailwind gradient string for backgrounds (e.g. DataSyncBanner) */
@@ -77,6 +77,15 @@ export const PLATFORM_THEMES: Record<string, PlatformTheme> = {
     lightBg: 'bg-blue-50',
     hex: '#0A66C2',
     label: 'LinkedIn',
+  },
+  REDDIT: {
+    gradient: 'from-orange-500 to-orange-700',
+    solidBg: 'bg-orange-600',
+    textColor: 'text-orange-600',
+    borderColor: 'border-orange-400',
+    lightBg: 'bg-orange-50',
+    hex: '#FF4500',
+    label: 'Reddit',
   },
   DEFAULT: {
     gradient: 'from-indigo-500 to-violet-600',

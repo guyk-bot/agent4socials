@@ -8,7 +8,7 @@ import { Platform } from '@prisma/client';
 
 const PAID_TIERS = ['starter', 'pro'];
 
-const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN'] as const;
+const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN', 'REDDIT'] as const;
 
 function getOAuthUrl(platform: Platform, userId: string, method?: string): string {
   const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
@@ -81,6 +81,11 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
         : 'openid profile email w_member_social r_member_social';
       return `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${process.env.LINKEDIN_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.LINKEDIN_REDIRECT_URI || callbackUrl)}&state=${encodeURIComponent(state)}&scope=${encodeURIComponent(linkedInScopes)}`;
     }
+    case 'REDDIT': {
+      const redditRedirect = (process.env.REDDIT_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
+      const redditScope = 'identity read submit edit history';
+      return `https://www.reddit.com/api/v1/authorize?client_id=${encodeURIComponent(process.env.REDDIT_CLIENT_ID || '')}&response_type=code&state=${encodeURIComponent(state)}&redirect_uri=${encodeURIComponent(redditRedirect)}&duration=permanent&scope=${encodeURIComponent(redditScope)}`;
+    }
     default:
       throw new Error('Unsupported platform');
   }
@@ -133,6 +138,15 @@ export async function GET(
             message:
               'Instagram/Facebook: META_APP_ID and META_APP_SECRET must be set for Production in Vercel → Settings → Environment Variables. If they are set, ensure each variable is enabled for "Production" and redeploy.',
           },
+          { status: 503 }
+        );
+      }
+    } else if (plat === 'REDDIT') {
+      const redditId = process.env.REDDIT_CLIENT_ID?.trim();
+      const redditSecret = process.env.REDDIT_CLIENT_SECRET?.trim();
+      if (!redditId || !redditSecret) {
+        return NextResponse.json(
+          { message: 'Reddit: REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET must be set in Vercel (or .env). See docs/REDDIT_SETUP.md.' },
           { status: 503 }
         );
       }
