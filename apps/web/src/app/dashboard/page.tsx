@@ -230,7 +230,6 @@ function profileUrlForAccount(account: { platform: string; username?: string | n
 /** Scroll-to sections for single-page analytics (all platforms). */
 const ANALYTICS_SCROLL_SECTIONS = [
   { id: FACEBOOK_ANALYTICS_SECTION_IDS.overview, label: 'Overview' },
-  { id: FACEBOOK_ANALYTICS_SECTION_IDS.demographics, label: 'Demografic' },
   { id: FACEBOOK_ANALYTICS_SECTION_IDS.clicksTraffic, label: 'Clicks / Traffic' },
   { id: FACEBOOK_ANALYTICS_SECTION_IDS.posts, label: 'Posts' },
   { id: FACEBOOK_ANALYTICS_SECTION_IDS.reelsVideos, label: 'Reels / Videos' },
@@ -540,8 +539,11 @@ export default function DashboardPage() {
   const insightsCacheRef = useRef<Record<string, { platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number; profileViewsTotal?: number }>>({});
   const selectedAccountIdRef = useRef<string | null>(null);
   const aggregatedCacheRef = useRef<{ key: string; data: { totalFollowers: number; totalImpressions: number; totalReach: number; totalProfileViews: number; totalPageViews: number; byPlatform: Record<string, { followers: number; impressions: number; timeSeries: Array<{ date: string; value: number }> }>; combinedTimeSeries: Array<{ date: string; value: number }> } } | null>(null);
+  const appDataRef = useRef(appData);
+  appDataRef.current = appData;
 
   // Single-account insights: when an account is selected. Load once; on date change refetch in place without clearing UI.
+  // Use appDataRef so context updates (after setInsightsForAccount/setPostsForAccount) don't re-run this effect and cause a loading loop.
   useEffect(() => {
     if (!selectedAccount?.id || !dateRange.start || !dateRange.end) return;
     const prevAccountId = selectedAccountIdRef.current;
@@ -551,9 +553,10 @@ export default function DashboardPage() {
     const platform = selectedAccount.platform;
     const cacheKey = `${accountId}-${dateRange.start}-${dateRange.end}`;
     const defaultRange = getDefaultDateRange();
-    const usePrefetchedInsights = dateRange.start === defaultRange.start && dateRange.end === defaultRange.end && appData?.getInsights(accountId);
+    const app = appDataRef.current;
+    const usePrefetchedInsights = dateRange.start === defaultRange.start && dateRange.end === defaultRange.end && app?.getInsights(accountId);
     const cached = usePrefetchedInsights ?? insightsCacheRef.current[cacheKey];
-    const postsCached = postsCacheRef.current[accountId] ?? appData?.getPosts(accountId);
+    const postsCached = postsCacheRef.current[accountId] ?? app?.getPosts(accountId);
 
     // Helper: run background sync (posts + re-fetch insights) without blocking the UI
     const runBackgroundSync = () => {
@@ -561,7 +564,7 @@ export default function DashboardPage() {
         .then((postsRes) => {
           const list = postsRes.data?.posts ?? [];
           postsCacheRef.current[accountId] = list;
-          appData?.setPostsForAccount(accountId, list);
+          appDataRef.current?.setPostsForAccount(accountId, list);
           if (selectedAccountIdRef.current === accountId) setImportedPosts(list);
           setPostsSyncError(postsRes.data?.syncError ?? null);
           if ((platform === 'TIKTOK' || platform === 'YOUTUBE') && selectedAccountIdRef.current === accountId) {
@@ -573,7 +576,7 @@ export default function DashboardPage() {
           if (!insightsRes?.data || selectedAccountIdRef.current !== accountId) return;
           const next = insightsRes.data;
           insightsCacheRef.current[cacheKey] = next;
-          appData?.setInsightsForAccount(accountId, next);
+          appDataRef.current?.setInsightsForAccount(accountId, next);
           setInsights(next);
         })
         .catch(() => {});
@@ -594,7 +597,7 @@ export default function DashboardPage() {
           .then((postsRes) => {
             const list = postsRes.data?.posts ?? [];
             postsCacheRef.current[accountId] = list;
-            appData?.setPostsForAccount(accountId, list);
+            appDataRef.current?.setPostsForAccount(accountId, list);
             if (selectedAccountIdRef.current === accountId) setImportedPosts(list);
             setPostsSyncError(postsRes.data?.syncError ?? null);
           })
@@ -621,7 +624,7 @@ export default function DashboardPage() {
         const data = res.data ?? null;
         if (data) {
           insightsCacheRef.current[cacheKey] = data;
-          appData?.setInsightsForAccount(accountId, data);
+          appDataRef.current?.setInsightsForAccount(accountId, data);
         }
         if (selectedAccountIdRef.current === accountId) setInsights(data);
       })
@@ -632,14 +635,14 @@ export default function DashboardPage() {
       .then((postsRes) => {
         const list = postsRes.data?.posts ?? [];
         postsCacheRef.current[accountId] = list;
-        appData?.setPostsForAccount(accountId, list);
+        appDataRef.current?.setPostsForAccount(accountId, list);
         if (selectedAccountIdRef.current === accountId) setImportedPosts(list);
       })
       .catch(() => {})
       .finally(() => setImportedPostsLoading(false));
 
     runBackgroundSync();
-  }, [analyticsTab, selectedAccount?.id, selectedAccount?.platform, dateRange.start, dateRange.end, appData, syncAllTrigger]);
+  }, [analyticsTab, selectedAccount?.id, selectedAccount?.platform, dateRange.start, dateRange.end, syncAllTrigger]);
 
   // Facebook Page reviews (pages_read_user_content)
   useEffect(() => {

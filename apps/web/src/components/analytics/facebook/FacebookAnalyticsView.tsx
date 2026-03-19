@@ -8,10 +8,9 @@ import { OverviewGrowthSection } from '../OverviewGrowthSection';
 import type { GrowthDataPoint } from '../OverviewGrowthSection';
 import type { FacebookInsights, FacebookPost } from './types';
 
-/** Section ids for scroll-to navigation. Must match dashboard scroll nav. */
+/** Section ids for scroll-to navigation. Must match dashboard scroll nav. Facebook does not provide demographics via API so that tab is omitted. */
 export const FACEBOOK_ANALYTICS_SECTION_IDS = {
   overview: 'overview',
-  demographics: 'demographics',
   clicksTraffic: 'clicks-traffic',
   posts: 'posts',
   reelsVideos: 'reels-videos',
@@ -134,60 +133,6 @@ export function FacebookAnalyticsView({
           onUpgrade={onUpgrade}
           followersLabel={followersLabel}
         />
-      </section>
-
-      <section id={FACEBOOK_ANALYTICS_SECTION_IDS.demographics} className="scroll-mt-6">
-        <div className="rounded-2xl border border-neutral-200/80 bg-white p-8 shadow-sm">
-          <h2 className="text-lg font-semibold text-neutral-900 mb-1">Demografic</h2>
-          <p className="text-sm text-neutral-500 mb-4">
-            Audience demographics by age, gender, and location when available.
-          </p>
-          {insights?.demographics && (insights.demographics.byAge?.length || insights.demographics.byGender?.length || insights.demographics.byCountry?.length) ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {insights.demographics.byAge?.length ? (
-                <div>
-                  <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">Age</p>
-                  <ul className="space-y-1 text-sm text-neutral-700">
-                    {insights.demographics.byAge.slice(0, 8).map((item, i) => (
-                      <li key={i} className="flex justify-between gap-2">
-                        <span>{item.dimensionValue ?? item.label}</span>
-                        <span className="tabular-nums text-neutral-500">{typeof item.value === 'number' ? item.value.toLocaleString() : item.value}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-              {insights.demographics.byGender?.length ? (
-                <div>
-                  <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">Gender</p>
-                  <ul className="space-y-1 text-sm text-neutral-700">
-                    {insights.demographics.byGender.slice(0, 6).map((item, i) => (
-                      <li key={i} className="flex justify-between gap-2">
-                        <span>{item.dimensionValue ?? item.label}</span>
-                        <span className="tabular-nums text-neutral-500">{typeof item.value === 'number' ? item.value.toLocaleString() : item.value}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-              {insights.demographics.byCountry?.length ? (
-                <div>
-                  <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">Country</p>
-                  <ul className="space-y-1 text-sm text-neutral-700">
-                    {insights.demographics.byCountry.slice(0, 8).map((item, i) => (
-                      <li key={i} className="flex justify-between gap-2">
-                        <span>{item.dimensionValue ?? item.label}</span>
-                        <span className="tabular-nums text-neutral-500">{typeof item.value === 'number' ? item.value.toLocaleString() : item.value}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-            </div>
-          ) : (
-            <p className="text-sm text-neutral-500">{insights?.demographics?.hint ?? 'Demographics will appear here when available (e.g. after 100+ followers and with extended insights).'}</p>
-          )}
-        </div>
       </section>
 
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.clicksTraffic} className="scroll-mt-6">
