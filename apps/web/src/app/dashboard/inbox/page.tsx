@@ -37,7 +37,7 @@ import {
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import { useAppData } from '@/context/AppDataContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
-import { InstagramIcon, FacebookIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, RedditIcon } from '@/components/SocialPlatformIcons';
+import { InstagramIcon, FacebookIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
 import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 
 // Inbox-relevant platforms (Comments: IG, FB, X, YouTube, LinkedIn; Messages: IG + FB only). TikTok excluded (Display API has no comment text).
@@ -47,7 +47,6 @@ const PLATFORMS = [
   { id: 'YOUTUBE', label: 'YouTube', icon: YoutubeIcon },
   { id: 'TWITTER', label: 'Twitter/X', icon: XTwitterIcon, color: 'text-neutral-800' },
   { id: 'LINKEDIN', label: 'LinkedIn', icon: LinkedinIcon },
-  { id: 'REDDIT', label: 'Reddit', icon: RedditIcon },
 ] as const;
 
 type Account = { id: string; platform: string; username?: string | null };
@@ -463,8 +462,7 @@ function InboxPage() {
       !selectedConversationId ||
       !currentAccountForMessages ||
       (selectedPlatform !== 'INSTAGRAM' &&
-        selectedPlatform !== 'FACEBOOK' &&
-        selectedPlatform !== 'REDDIT')
+        selectedPlatform !== 'FACEBOOK')
     ) {
       setConversationMessages([]);
       setConversationRecipientId(null);
@@ -568,9 +566,9 @@ function InboxPage() {
       .catch(() => setNotifications({ comments: 0, messages: 0 }));
   }, [selectedPlatform, inboxMode, appData]);
 
-  // Messages tab: Instagram, Facebook, Reddit PMs (X uses a separate path when enabled)
+  // Messages tab: Instagram and Facebook (X uses a separate path when enabled)
   const dmOrFbPlatforms = selectedPlatforms.filter(
-    (p) => p === 'INSTAGRAM' || p === 'FACEBOOK' || p === 'REDDIT'
+    (p) => p === 'INSTAGRAM' || p === 'FACEBOOK'
   );
   useEffect(() => {
     if (dmOrFbPlatforms.length === 0) {
@@ -871,11 +869,10 @@ function InboxPage() {
     (a) =>
       a.platform === 'INSTAGRAM' ||
       a.platform === 'FACEBOOK' ||
-      a.platform === 'YOUTUBE' ||
-      a.platform === 'REDDIT'
+      a.platform === 'YOUTUBE'
   );
   const engagementPlatforms = selectedPlatforms.filter(
-    (p) => p === 'INSTAGRAM' || p === 'FACEBOOK' || p === 'YOUTUBE' || p === 'REDDIT'
+    (p) => p === 'INSTAGRAM' || p === 'FACEBOOK' || p === 'YOUTUBE'
   );
   useEffect(() => {
     if (allEngagementAccounts.length === 0) {

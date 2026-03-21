@@ -63,7 +63,7 @@ export async function PATCH(
     contentByPlatform?: Record<string, string>;
     media?: { fileUrl: string; type: 'IMAGE' | 'VIDEO'; thumbnailUrl?: string; useVideoDefaultForPublish?: boolean }[];
     mediaByPlatform?: Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[]>;
-    targets?: { platform: string; socialAccountId: string; options?: Record<string, unknown> }[];
+    targets?: { platform: string; socialAccountId: string }[];
     scheduledAt?: string | null;
     scheduleDelivery?: 'auto' | 'email_links' | null;
     commentAutomation?: { keywords: string[]; replyTemplate?: string; replyTemplateByPlatform?: Record<string, string>; replyOnComment?: boolean; usePrivateReply?: boolean } | null;
@@ -75,8 +75,7 @@ export async function PATCH(
   }
   const { title, content, contentByPlatform, media = [], mediaByPlatform, targets, scheduledAt, scheduleDelivery, commentAutomation } = body;
   const validTargets = (targets || []).filter(
-    (t): t is { platform: string; socialAccountId: string; options?: Record<string, unknown> } =>
-      Boolean(t?.platform && t?.socialAccountId)
+    (t): t is { platform: string; socialAccountId: string } => Boolean(t?.platform && t?.socialAccountId)
   );
   const accountIds = validTargets.length ? [...new Set(validTargets.map((t) => t.socialAccountId))] : [];
   if (accountIds.length) {
@@ -105,7 +104,6 @@ export async function PATCH(
           platform: t.platform as Platform,
           socialAccountId: t.socialAccountId,
           status,
-          ...(t.options && Object.keys(t.options).length > 0 ? { options: t.options as object } : {}),
         })),
       });
     }

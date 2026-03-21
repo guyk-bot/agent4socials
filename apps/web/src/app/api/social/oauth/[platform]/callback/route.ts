@@ -3,9 +3,7 @@ import { prisma } from '@/lib/db';
 import { Platform } from '@prisma/client';
 import axios from 'axios';
 import { ensureBootstrapSnapshotForToday } from '@/lib/analytics/metric-snapshots';
-import { getRedditUserAgent, redditAuthHeaders } from '@/lib/reddit-api';
-
-const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN', 'REDDIT'] as const;
+const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN'] as const;
 
 const OAUTH_HEAD = '<meta charset="utf-8"><meta name="robots" content="noindex, nofollow">';
 
@@ -468,58 +466,6 @@ async function exchangeCode(
         profilePicture,
       };
     }
-    case 'REDDIT': {
-      const clientId = process.env.REDDIT_CLIENT_ID;
-      const clientSecret = process.env.REDDIT_CLIENT_SECRET;
-      if (!clientId || !clientSecret) throw new Error('REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET must be set');
-      const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-      const r = await axios.post(
-        'https://www.reddit.com/api/v1/access_token',
-        new URLSearchParams({
-          grant_type: 'authorization_code',
-          code,
-          redirect_uri: callbackUrl,
-        }).toString(),
-        {
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            Authorization: `Basic ${basicAuth}`,
-            'User-Agent': getRedditUserAgent(),
-          },
-          validateStatus: () => true,
-        }
-      );
-      if (r.status !== 200 || r.data?.error) {
-        const errMsg = r.data?.error_description ?? r.data?.error ?? `HTTP ${r.status}`;
-        console.error('[Social OAuth] Reddit token error:', r.data ?? r.status);
-        throw new Error(`Reddit: ${errMsg}`);
-      }
-      const accessToken = r.data.access_token;
-      const refreshToken = r.data.refresh_token ?? null;
-      const expiresIn = typeof r.data.expires_in === 'number' ? r.data.expires_in : 3600;
-      let platformUserId = 'reddit-' + (accessToken?.slice(-8) ?? 'id');
-      let username = 'Reddit';
-      let profilePicture: string | null = null;
-      try {
-        const meRes = await axios.get<{ id?: string; name?: string; icon_img?: string }>(
-          'https://oauth.reddit.com/api/v1/me',
-          { headers: redditAuthHeaders(accessToken) }
-        );
-        if (meRes.data?.id) platformUserId = meRes.data.id;
-        if (meRes.data?.name) username = meRes.data.name.startsWith('u/') ? meRes.data.name : `u/${meRes.data.name}`;
-        if (meRes.data?.icon_img) profilePicture = meRes.data.icon_img.split('?')[0] || null;
-      } catch (_) {
-        // keep defaults
-      }
-      return {
-        accessToken,
-        refreshToken,
-        expiresAt: new Date(Date.now() + expiresIn * 1000),
-        platformUserId,
-        username,
-        profilePicture,
-      };
-    }
     default:
       throw new Error('Unsupported platform');
   }
@@ -570,8 +516,6 @@ export async function GET(
     callbackUrl = process.env.TIKTOK_REDIRECT_URI.replace(/\/+$/, '');
   } else if (plat === 'TWITTER' && process.env.TWITTER_REDIRECT_URI) {
     callbackUrl = process.env.TWITTER_REDIRECT_URI.replace(/\/+$/, '');
-  } else if (plat === 'REDDIT' && process.env.REDDIT_REDIRECT_URI) {
-    callbackUrl = process.env.REDDIT_REDIRECT_URI.replace(/\/+$/, '');
   }
 
   let tokenData: TokenResult;

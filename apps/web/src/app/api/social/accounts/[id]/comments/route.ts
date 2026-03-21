@@ -4,8 +4,6 @@ import { prisma } from '@/lib/db';
 import { PostStatus } from '@prisma/client';
 import axios from 'axios';
 import { getValidYoutubeToken } from '@/lib/youtube-token';
-import { getValidRedditToken } from '@/lib/reddit-token';
-import { redditAuthHeaders } from '@/lib/reddit-api';
 
 /**
  * GET /api/social/accounts/[id]/comments
@@ -46,90 +44,12 @@ export async function GET(
     platform !== 'TWITTER' &&
     platform !== 'YOUTUBE' &&
     platform !== 'TIKTOK' &&
-    platform !== 'LINKEDIN' &&
-    platform !== 'REDDIT'
+    platform !== 'LINKEDIN'
   ) {
     return NextResponse.json({
       comments: [],
-      error: 'Comments are only available for Instagram, Facebook, X, YouTube, TikTok, LinkedIn, and Reddit.',
+      error: 'Comments are only available for Instagram, Facebook, X, YouTube, TikTok, and LinkedIn.',
     });
-  }
-
-  if (platform === 'REDDIT') {
-    try {
-      const token = await getValidRedditToken({
-        id: account.id,
-        accessToken: account.accessToken ?? '',
-        refreshToken: account.refreshToken ?? null,
-        expiresAt: account.expiresAt ?? null,
-      });
-      const inboxRes = await axios.get<{
-        data?: {
-          children?: Array<{
-            kind?: string;
-            data?: {
-              name?: string;
-              author?: string;
-              body?: string;
-              created_utc?: number;
-              link_title?: string;
-              link_id?: string;
-              parent_id?: string;
-              context?: string;
-              permalink?: string;
-            };
-          }>;
-        };
-      }>('https://oauth.reddit.com/message/inbox', {
-        params: { limit: 50, raw_json: 1 },
-        headers: redditAuthHeaders(token),
-        timeout: 15_000,
-        validateStatus: () => true,
-      });
-      if (inboxRes.status !== 200) {
-        return NextResponse.json({
-          comments: [],
-          error:
-            inboxRes.status === 403
-              ? 'Reddit denied inbox access. Reconnect and approve privatemessages scope (see docs/REDDIT_SETUP.md).'
-              : `Reddit inbox error (${inboxRes.status}).`,
-        });
-      }
-      const children = inboxRes.data?.data?.children ?? [];
-      const comments = children
-        .filter((c) => c.kind === 't1' && c.data?.name)
-        .map((c) => {
-          const d = c.data!;
-          const created = d.created_utc ? new Date(d.created_utc * 1000).toISOString() : new Date().toISOString();
-          const postUrl = d.context
-            ? `https://www.reddit.com${d.context}`
-            : d.permalink
-              ? `https://www.reddit.com${d.permalink}`
-              : null;
-          return {
-            commentId: d.name!,
-            postTargetId: `reddit-inbox-${d.name}`,
-            platformPostId: d.link_id ?? d.parent_id ?? 'reddit',
-            accountId: account.id,
-            postPreview: (d.link_title ?? 'Reddit').slice(0, 120),
-            text: d.body ?? '',
-            authorName: d.author ?? '',
-            createdAt: created,
-            platform: 'REDDIT',
-            postUrl,
-          };
-        });
-      return NextResponse.json({
-        comments,
-        hint: 'Reddit shows replies and mentions from your inbox. There is no separate comment feed API like Instagram.',
-      });
-    } catch (e) {
-      console.warn('[Comments] Reddit:', (e as Error)?.message ?? e);
-      return NextResponse.json({
-        comments: [],
-        error: 'Could not load Reddit inbox. Reconnect Reddit or set REDDIT_USER_AGENT in Vercel.',
-      });
-    }
   }
 
   // TikTok: Comment *reading* exists in TikTok's Research API, but that API is only for approved

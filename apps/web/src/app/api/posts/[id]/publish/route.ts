@@ -135,21 +135,8 @@ export async function POST(
   for (const target of post.targets) {
     const { platform, socialAccount } = target;
     let token = socialAccount.accessToken;
-    if (platform === 'REDDIT') {
-      const { getValidRedditToken } = await import('@/lib/reddit-token');
-      token = await getValidRedditToken({
-        id: socialAccount.id,
-        accessToken: socialAccount.accessToken,
-        refreshToken: socialAccount.refreshToken,
-        expiresAt: socialAccount.expiresAt,
-      });
-    }
     const platformUserId = socialAccount.platformUserId;
     const caption = (contentByPlatform?.[platform] ?? post.content ?? '').trim();
-    const targetOptions =
-      target && typeof (target as { options?: unknown }).options === 'object' && (target as { options?: unknown }).options !== null
-        ? ((target as { options?: Record<string, unknown> }).options as Record<string, unknown>)
-        : null;
     const platformMedia = mediaByPlatform?.[platform];
     const targetMedia = (platformMedia && platformMedia.length > 0 ? platformMedia : defaultMedia) as { fileUrl: string; type: string; thumbnailUrl?: string }[];
     const allImages = targetMedia.filter((m) => m.type === 'IMAGE');
@@ -238,8 +225,6 @@ export async function POST(
         token,
         platformUserId,
         caption,
-        postTitle: post.title,
-        targetOptions,
         firstImageUrl,
         firstMediaUrl,
         imageUrls,
@@ -268,8 +253,6 @@ export async function POST(
             token,
             platformUserId,
             caption,
-            postTitle: post.title,
-            targetOptions,
             firstImageUrl,
             firstMediaUrl,
             imageUrls,
@@ -304,8 +287,6 @@ export async function POST(
             token,
             platformUserId,
             caption,
-            postTitle: post.title,
-            targetOptions,
             firstImageUrl,
             firstMediaUrl,
             imageUrls,

@@ -29,7 +29,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | X DM debug API | `apps/web/src/app/api/social/accounts/[id]/x-dm-debug/route.ts` |
 | Conversations list API | `apps/web/src/app/api/social/accounts/[id]/conversations/route.ts` |
 | Messages in conversation | `apps/web/src/app/api/social/accounts/[id]/conversations/[conversationId]/messages/route.ts` |
-| Comments / reply / delete | `apps/web/src/app/api/social/accounts/[id]/comments/route.ts`, `comments/reply/`, `comments/delete/` (Reddit inbox `t1` in comments; reply via Reddit API) |
+| Comments / reply / delete | `apps/web/src/app/api/social/accounts/[id]/comments/route.ts`, `comments/reply/`, `comments/delete/` |
 | Inbox engagement tab | `apps/web/src/app/api/social/accounts/[id]/engagement/route.ts` |
 | Inbox read state | `apps/web/src/lib/inbox-read-state.ts` |
 | Accounts cache (refresh after disconnect) | `apps/web/src/context/AccountsCacheContext.tsx` |
@@ -69,8 +69,6 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | What | Where |
 |------|--------|
 | OAuth start/callback (generic) | `apps/web/src/app/api/social/oauth/[platform]/start/route.ts`, `callback/route.ts` |
-| Reddit API helpers (User-Agent, token refresh) | `apps/web/src/lib/reddit-api.ts`, `apps/web/src/lib/reddit-token.ts` |
-| Reddit setup doc | `docs/REDDIT_SETUP.md` |
 | Twitter 1OA | `apps/web/src/app/api/social/oauth/twitter-1oa/start/route.ts`, `callback/route.ts` |
 | Instagram connect | `apps/web/src/app/api/social/instagram/connect-account/route.ts`, `pending/route.ts` |
 | Facebook connect | `apps/web/src/app/api/social/facebook/connect-page/route.ts`, `pending/route.ts` |

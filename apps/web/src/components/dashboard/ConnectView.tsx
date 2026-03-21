@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Check, Star, Loader2, BookOpen, Send, Calendar, BarChart2, MessageCircle, TrendingUp } from 'lucide-react';
-import { InstagramIcon, FacebookIcon, YoutubeIcon, LinkedinIcon, TikTokIcon, XTwitterIcon, RedditIcon } from '@/components/SocialPlatformIcons';
+import { InstagramIcon, FacebookIcon, YoutubeIcon, LinkedinIcon, TikTokIcon, XTwitterIcon } from '@/components/SocialPlatformIcons';
 
 const BULLET_ICONS = [Send, Calendar, BarChart2, MessageCircle, TrendingUp];
 
@@ -124,24 +124,6 @@ const PLATFORM_INFO: Record<string, {
     ],
     helpAnchor: 'linkedin',
     buttonLabel: 'LinkedIn Account',
-  },
-  REDDIT: {
-    name: 'Reddit',
-    description:
-      'Connect your Reddit account for text posts (composer), scheduled publishing, karma and post engagement, inbox replies, and private messages.',
-    headerIcon: <RedditIcon size={40} />,
-    buttonGradient: 'from-orange-500 to-orange-700',
-    buttonHover: 'hover:from-orange-600 hover:to-orange-800',
-    accentBorder: 'border-orange-200',
-    accentHover: 'hover:border-orange-400 hover:bg-orange-50/40',
-    functionalities: [
-      'Text posts to subreddits you can post in (from the composer)',
-      'Schedule and publish like other networks',
-      'Analytics: karma and recent post engagement',
-      'Inbox: comment replies and private messages',
-    ],
-    helpAnchor: 'reddit',
-    buttonLabel: 'Reddit Account',
   },
 };
 

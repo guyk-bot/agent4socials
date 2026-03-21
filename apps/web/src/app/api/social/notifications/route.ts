@@ -147,39 +147,6 @@ export async function GET(request: NextRequest) {
       }
       messagesTotal += messagesCount;
       byPlatform['TWITTER'].messages += messagesCount;
-    } else if (account.platform === 'REDDIT') {
-      try {
-        const { getValidRedditToken } = await import('@/lib/reddit-token');
-        const { redditAuthHeaders } = await import('@/lib/reddit-api');
-        const rt = await getValidRedditToken({
-          id: account.id,
-          accessToken: account.accessToken,
-          refreshToken: account.refreshToken ?? null,
-          expiresAt: account.expiresAt ?? null,
-        });
-        const inboxRes = await axios.get<{
-          data?: { children?: Array<{ kind?: string }> };
-        }>('https://oauth.reddit.com/message/inbox', {
-          params: { limit: 100, raw_json: 1 },
-          headers: redditAuthHeaders(rt),
-          timeout: 8000,
-          validateStatus: () => true,
-        });
-        if (inboxRes.status !== 200) {
-          /* skip Reddit counts */
-        } else {
-        const children = inboxRes.data?.data?.children ?? [];
-        const t1 = children.filter((c) => c.kind === 't1').length;
-        const t4 = children.filter((c) => c.kind === 't4').length;
-        commentsTotal += t1;
-        messagesTotal += t4;
-        if (!byPlatform['REDDIT']) byPlatform['REDDIT'] = { comments: 0, messages: 0 };
-        byPlatform['REDDIT'].comments += t1;
-        byPlatform['REDDIT'].messages += t4;
-        }
-      } catch (_) {
-        // skip
-      }
     }
   }
 
@@ -188,8 +155,7 @@ export async function GET(request: NextRequest) {
     (a) =>
       a.platform === 'INSTAGRAM' ||
       a.platform === 'FACEBOOK' ||
-      a.platform === 'YOUTUBE' ||
-      a.platform === 'REDDIT'
+      a.platform === 'YOUTUBE'
   );
   for (const account of engagementAccounts) {
     const importedCount = await prisma.importedPost.count({

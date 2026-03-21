@@ -39,72 +39,12 @@ export async function GET(
   if (
     platform !== 'INSTAGRAM' &&
     platform !== 'FACEBOOK' &&
-    platform !== 'YOUTUBE' &&
-    platform !== 'REDDIT'
+    platform !== 'YOUTUBE'
   ) {
     return NextResponse.json({
       engagement: [],
-      error: 'Engagement is only available for Instagram, Facebook, YouTube, and Reddit.',
+      error: 'Engagement is only available for Instagram, Facebook, and YouTube.',
     });
-  }
-
-  if (platform === 'REDDIT') {
-    try {
-      const { getValidRedditToken } = await import('@/lib/reddit-token');
-      const { redditAuthHeaders } = await import('@/lib/reddit-api');
-      const token = await getValidRedditToken({
-        id: account.id,
-        accessToken: account.accessToken,
-        refreshToken: account.refreshToken,
-        expiresAt: account.expiresAt,
-      });
-      const meRes = await axios.get<{ name?: string }>('https://oauth.reddit.com/api/v1/me', {
-        headers: redditAuthHeaders(token),
-        timeout: 10_000,
-      });
-      const name = (meRes.data?.name ?? '').replace(/^u\//, '');
-      if (!name) return NextResponse.json({ engagement: [], error: 'Could not resolve Reddit username.' });
-      const subRes = await axios.get<{
-        data?: {
-          children?: Array<{
-            data?: {
-              id?: string;
-              title?: string;
-              score?: number;
-              num_comments?: number;
-              permalink?: string;
-              thumbnail?: string;
-              url?: string;
-            };
-          }>;
-        };
-      }>(`https://oauth.reddit.com/user/${encodeURIComponent(name)}/submitted`, {
-        params: { limit: 25, sort: 'new', raw_json: 1 },
-        headers: redditAuthHeaders(token),
-        timeout: 15_000,
-      });
-      const children = subRes.data?.data?.children ?? [];
-      const engagement = children.map((ch) => {
-        const d = ch.data;
-        if (!d?.id) return null;
-        return {
-          platformPostId: d.id,
-          postPreview: (d.title ?? 'Post').slice(0, 80),
-          platform: 'REDDIT',
-          likeCount: d.score ?? 0,
-          commentCount: d.num_comments ?? 0,
-          mediaUrl: d.thumbnail && d.thumbnail !== 'self' && d.thumbnail !== 'default' ? d.thumbnail : null,
-          permalink: d.permalink ? `https://www.reddit.com${d.permalink}` : null,
-        };
-      }).filter(Boolean);
-      return NextResponse.json({ engagement });
-    } catch (e) {
-      console.warn('[Engagement] Reddit:', (e as Error)?.message ?? e);
-      return NextResponse.json({
-        engagement: [],
-        error: 'Could not load Reddit posts. Reconnect Reddit or set REDDIT_USER_AGENT.',
-      });
-    }
   }
 
   // YouTube: pull engagement directly from stored importedPost stats (no extra API calls needed)
