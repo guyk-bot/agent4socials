@@ -19,6 +19,8 @@ export type PublishTargetOptions = {
   videoThumbnailUrl?: string;
   /** When set, Twitter v1.1 media upload uses OAuth 1.0a (avoids 403). Tweet creation still uses token (OAuth 2.0). */
   twitterOAuth1?: { accessToken: string; accessTokenSecret: string };
+  /** Pinterest Pin target board (from account credentials after connect). */
+  pinterestBoardId?: string | null;
 };
 
 export type PublishTargetResult = {
@@ -71,6 +73,7 @@ export async function publishTarget(
     imageUrls,
     videoThumbnailUrl,
     twitterOAuth1,
+    pinterestBoardId,
   } = options;
   const { fetch: fetchFn, axios: axiosInstance } = deps;
 
@@ -436,6 +439,39 @@ export async function publishTarget(
       const headers = (postRes.headers ?? {}) as Record<string, string>;
       const postUrn = headers['x-restli-id'] ?? (postRes.data as { id?: string })?.id;
       return { ok: true, platformPostId: typeof postUrn === 'string' ? postUrn : undefined };
+    }
+
+    if (platform === 'PINTEREST') {
+      const boardId = pinterestBoardId?.trim();
+      if (!boardId) {
+        return {
+          ok: false,
+          error:
+            'No Pinterest board on file. Reconnect Pinterest so we can save a default board, or create a board on Pinterest first.',
+        };
+      }
+      if (!firstImageUrl) {
+        return { ok: false, error: 'Pinterest requires an image URL for each Pin (add an image in the Composer).' };
+      }
+      const pinRes = await axiosInstance.post(
+        'https://api.pinterest.com/v5/pins',
+        {
+          board_id: boardId,
+          ...(caption?.trim() ? { description: caption.trim().slice(0, 800) } : {}),
+          media_source: {
+            source_type: 'image_url',
+            url: firstImageUrl,
+          },
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      const pinId = (pinRes.data as { id?: string })?.id;
+      return { ok: true, platformPostId: pinId };
     }
 
     if (platform === 'TWITTER') {

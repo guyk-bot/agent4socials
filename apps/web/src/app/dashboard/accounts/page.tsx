@@ -9,7 +9,7 @@ import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import type { SocialAccount } from '@/context/SelectedAccountContext';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { PlatformAnalyticsHeader } from '@/components/analytics';
-import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
+import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
 import { RefreshCw, HelpCircle, Image } from 'lucide-react';
 
 const PLATFORM_ICON: Record<string, React.ReactNode> = {
@@ -19,6 +19,7 @@ const PLATFORM_ICON: Record<string, React.ReactNode> = {
   YOUTUBE: <YoutubeIcon size={24} />,
   TWITTER: <XTwitterIcon size={24} className="text-neutral-800" />,
   LINKEDIN: <LinkedinIcon size={24} />,
+  PINTEREST: <PinterestIcon size={24} />,
 };
 
 function profileUrlForAccount(acc: SocialAccount): string {
@@ -31,6 +32,7 @@ function profileUrlForAccount(acc: SocialAccount): string {
   if (platform === 'YOUTUBE') return 'https://www.youtube.com';
   if (platform === 'TWITTER' && username) return `https://x.com/${username.replace(/^@/, '')}`;
   if (platform === 'LINKEDIN') return 'https://www.linkedin.com';
+  if (platform === 'PINTEREST' && username) return `https://www.pinterest.com/${username.replace(/^@/, '')}/`;
   return '#';
 }
 

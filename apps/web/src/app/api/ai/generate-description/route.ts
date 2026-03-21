@@ -56,6 +56,7 @@ function getPlatformHint(platform: string): string {
   if (p === 'FACEBOOK') return 'Conversational. One or two short paragraphs.';
   if (p === 'TIKTOK') return 'Casual and punchy. Short lines. Hook in the first line.';
   if (p === 'YOUTUBE') return 'Descriptive but concise. Good for video captions or community posts.';
+  if (p === 'PINTEREST') return 'Pinterest Pin description: searchable keywords naturally, short paragraphs or bullet-style lines, inspiring tone. No hashtag spam.';
   return '';
 }
 

@@ -4,7 +4,7 @@
  * to keep colors consistent across the entire app.
  */
 
-export type PlatformKey = 'INSTAGRAM' | 'FACEBOOK' | 'YOUTUBE' | 'TIKTOK' | 'TWITTER' | 'LINKEDIN';
+export type PlatformKey = 'INSTAGRAM' | 'FACEBOOK' | 'YOUTUBE' | 'TIKTOK' | 'TWITTER' | 'LINKEDIN' | 'PINTEREST';
 
 export interface PlatformTheme {
   /** Tailwind gradient string for backgrounds (e.g. DataSyncBanner) */
@@ -77,6 +77,15 @@ export const PLATFORM_THEMES: Record<string, PlatformTheme> = {
     lightBg: 'bg-blue-50',
     hex: '#0A66C2',
     label: 'LinkedIn',
+  },
+  PINTEREST: {
+    gradient: 'from-rose-600 to-red-700',
+    solidBg: 'bg-[#E60023]',
+    textColor: 'text-[#E60023]',
+    borderColor: 'border-rose-400',
+    lightBg: 'bg-rose-50',
+    hex: '#E60023',
+    label: 'Pinterest',
   },
   DEFAULT: {
     gradient: 'from-indigo-500 to-violet-600',

@@ -7,6 +7,7 @@ import { publishTarget } from '@/lib/publish-target';
 import { createMediaServeToken } from '@/lib/media-serve-token';
 import { ensureInstagramJpegOnR2 } from '@/lib/instagram-media-r2';
 import { refreshTwitterToken } from '@/lib/twitter-refresh';
+import { getValidPinterestToken } from '@/lib/pinterest-token';
 
 // Allow up to 5 minutes for video publishing (TikTok uploads + polling).
 export const maxDuration = 300;
@@ -135,6 +136,14 @@ export async function POST(
   for (const target of post.targets) {
     const { platform, socialAccount } = target;
     let token = socialAccount.accessToken;
+    if (platform === 'PINTEREST') {
+      token = await getValidPinterestToken({
+        id: socialAccount.id,
+        accessToken: socialAccount.accessToken,
+        refreshToken: socialAccount.refreshToken,
+        expiresAt: socialAccount.expiresAt,
+      });
+    }
     const platformUserId = socialAccount.platformUserId;
     const caption = (contentByPlatform?.[platform] ?? post.content ?? '').trim();
     const platformMedia = mediaByPlatform?.[platform];
@@ -148,6 +157,9 @@ export async function POST(
     // (Requires agent4socials.com to be verified in TikTok Developer Portal.)
     if (platform === 'TIKTOK' && firstMediaUrl) {
       firstMediaUrl = publicMediaUrlForMeta(firstMediaUrl);
+    }
+    if (platform === 'PINTEREST' && firstImageUrl) {
+      firstImageUrl = publicMediaUrlForMeta(firstImageUrl);
     }
     if (platform === 'INSTAGRAM' || platform === 'FACEBOOK') {
       const isInstagram = platform === 'INSTAGRAM';
@@ -213,11 +225,31 @@ export async function POST(
       }
     }
 
-    const creds = socialAccount.credentialsJson as { twitterOAuth1AccessToken?: string; twitterOAuth1AccessTokenSecret?: string } | null;
+    const creds = socialAccount.credentialsJson as {
+      twitterOAuth1AccessToken?: string;
+      twitterOAuth1AccessTokenSecret?: string;
+      pinterestDefaultBoardId?: string | null;
+    } | null;
     const twitterOAuth1 =
       platform === 'TWITTER' && creds?.twitterOAuth1AccessToken && creds?.twitterOAuth1AccessTokenSecret
         ? { accessToken: creds.twitterOAuth1AccessToken, accessTokenSecret: creds.twitterOAuth1AccessTokenSecret }
         : undefined;
+    const pinterestBoardId =
+      platform === 'PINTEREST' && typeof creds?.pinterestDefaultBoardId === 'string'
+        ? creds.pinterestDefaultBoardId
+        : null;
+
+    if (platform === 'PINTEREST' && !firstImageUrl) {
+      await prisma.postTarget.update({
+        where: { id: target.id },
+        data: {
+          status: PostStatus.FAILED,
+          error: 'Pinterest needs at least one image in the post.',
+        },
+      });
+      results.push({ platform, ok: false, error: 'Pinterest needs at least one image.' });
+      continue;
+    }
 
     let result = await publishTarget(
       {
@@ -230,6 +262,7 @@ export async function POST(
         imageUrls,
         videoThumbnailUrl,
         twitterOAuth1,
+        pinterestBoardId,
       },
       { fetch, axios }
     );
@@ -258,6 +291,7 @@ export async function POST(
             imageUrls,
             videoThumbnailUrl,
             twitterOAuth1,
+            pinterestBoardId,
           },
           { fetch, axios }
         );
@@ -292,6 +326,7 @@ export async function POST(
             imageUrls,
             videoThumbnailUrl,
             twitterOAuth1,
+            pinterestBoardId,
           },
           { fetch, axios }
         );

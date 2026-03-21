@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Check, Star, Loader2, BookOpen, Send, Calendar, BarChart2, MessageCircle, TrendingUp } from 'lucide-react';
-import { InstagramIcon, FacebookIcon, YoutubeIcon, LinkedinIcon, TikTokIcon, XTwitterIcon } from '@/components/SocialPlatformIcons';
+import { InstagramIcon, FacebookIcon, YoutubeIcon, LinkedinIcon, TikTokIcon, XTwitterIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
 
 const BULLET_ICONS = [Send, Calendar, BarChart2, MessageCircle, TrendingUp];
 
@@ -124,6 +124,25 @@ const PLATFORM_INFO: Record<string, {
     ],
     helpAnchor: 'linkedin',
     buttonLabel: 'LinkedIn Account',
+  },
+  PINTEREST: {
+    name: 'Pinterest',
+    description:
+      'Connect your Pinterest profile to publish Pins from the Composer, see account metrics, and use Pinterest v5 APIs where your app access allows.',
+    headerIcon: <PinterestIcon size={40} />,
+    buttonGradient: 'from-rose-600 to-red-700',
+    buttonHover: 'hover:from-rose-700 hover:to-red-800',
+    accentBorder: 'border-rose-200',
+    accentHover: 'hover:border-rose-400 hover:bg-rose-50/40',
+    functionalities: [
+      'Publish image Pins to your default board',
+      'Schedule Pins with the calendar',
+      'View followers and analytics when your Pinterest app has access',
+      'OAuth with refresh tokens for reliable scheduling',
+      'Uses official Pinterest v5 API',
+    ],
+    helpAnchor: 'pinterest',
+    buttonLabel: 'Pinterest',
   },
 };
 

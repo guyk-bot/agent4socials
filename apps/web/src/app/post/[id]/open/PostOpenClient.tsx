@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { ExternalLink, Copy, Check, ChevronLeft, ChevronRight, Download, Send } from 'lucide-react';
-import { InstagramIcon, FacebookIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
+import { InstagramIcon, FacebookIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
 
 const PLATFORM_LABELS: Record<string, string> = {
   INSTAGRAM: 'Instagram',
@@ -12,6 +12,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   FACEBOOK: 'Facebook',
   TWITTER: 'Twitter/X',
   LINKEDIN: 'LinkedIn',
+  PINTEREST: 'Pinterest',
 };
 
 const TWITTER_CHAR_LIMIT = 280;
@@ -22,6 +23,7 @@ function PlatformIcon({ platform }: { platform: string }) {
     case 'FACEBOOK': return <FacebookIcon size={20} />;
     case 'TWITTER': return <XTwitterIcon size={20} className="text-neutral-800" />;
     case 'LINKEDIN': return <LinkedinIcon size={20} />;
+    case 'PINTEREST': return <PinterestIcon size={20} />;
     default: return <ExternalLink size={20} />;
   }
 }

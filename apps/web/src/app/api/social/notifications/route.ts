@@ -155,7 +155,8 @@ export async function GET(request: NextRequest) {
     (a) =>
       a.platform === 'INSTAGRAM' ||
       a.platform === 'FACEBOOK' ||
-      a.platform === 'YOUTUBE'
+      a.platform === 'YOUTUBE' ||
+      a.platform === 'PINTEREST'
   );
   for (const account of engagementAccounts) {
     const importedCount = await prisma.importedPost.count({

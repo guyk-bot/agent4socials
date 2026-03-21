@@ -20,6 +20,7 @@ const PLATFORM_SHORT: Record<string, string> = {
     FACEBOOK: 'FB',
     TWITTER: 'X',
     LINKEDIN: 'LI',
+    PINTEREST: 'Pin',
     TIKTOK: 'TT',
     YOUTUBE: 'YT',
 };
@@ -175,7 +176,7 @@ export default function CalendarPage() {
         } catch { return null; }
     })();
 
-    const platformNames: Record<string, string> = { INSTAGRAM: 'Instagram', FACEBOOK: 'Facebook', TWITTER: 'X (Twitter)', LINKEDIN: 'LinkedIn', TIKTOK: 'TikTok', YOUTUBE: 'YouTube' };
+    const platformNames: Record<string, string> = { INSTAGRAM: 'Instagram', FACEBOOK: 'Facebook', TWITTER: 'X (Twitter)', LINKEDIN: 'LinkedIn', PINTEREST: 'Pinterest', TIKTOK: 'TikTok', YOUTUBE: 'YouTube' };
     const platformsLabel = scheduledPlatforms
         ? scheduledPlatforms.split(',').map((p) => platformNames[p] ?? p).join(', ')
         : null;

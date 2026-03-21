@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Search, ArrowUpDown } from 'lucide-react';
 import type { SummaryPost } from './types';
-import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
+import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
 
 const PLATFORM_ICON: Record<string, React.ReactNode> = {
   INSTAGRAM: <InstagramIcon size={18} />,
@@ -12,6 +12,7 @@ const PLATFORM_ICON: Record<string, React.ReactNode> = {
   YOUTUBE: <YoutubeIcon size={18} />,
   TWITTER: <XTwitterIcon size={18} className="text-neutral-800" />,
   LINKEDIN: <LinkedinIcon size={18} />,
+  PINTEREST: <PinterestIcon size={18} />,
 };
 
 const PLATFORM_LABEL: Record<string, string> = {
@@ -21,6 +22,7 @@ const PLATFORM_LABEL: Record<string, string> = {
   YOUTUBE: 'YouTube',
   TWITTER: 'X',
   LINKEDIN: 'LinkedIn',
+  PINTEREST: 'Pinterest',
 };
 
 type PostPerformanceTableProps = {
@@ -59,6 +61,7 @@ export function PostPerformanceTable({ posts }: PostPerformanceTableProps) {
     if (platform === 'TIKTOK') return active ? 'bg-neutral-900 border-neutral-900 text-white' : 'border-slate-200 text-slate-600 hover:bg-neutral-100';
     if (platform === 'TWITTER') return active ? 'bg-sky-100 border-sky-300 text-sky-800' : 'border-slate-200 text-slate-600 hover:bg-sky-50';
     if (platform === 'LINKEDIN') return active ? 'bg-blue-100 border-blue-400 text-blue-900' : 'border-slate-200 text-slate-600 hover:bg-blue-50';
+    if (platform === 'PINTEREST') return active ? 'bg-rose-100 border-rose-400 text-rose-900' : 'border-slate-200 text-slate-600 hover:bg-rose-50';
     return active ? 'bg-[#5ff6fd]/20 border-[#5ff6fd]/50 text-[#0b0f1a]' : 'border-slate-200 text-slate-600 hover:bg-[#5ff6fd]/10';
   };
 

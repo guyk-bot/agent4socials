@@ -12,6 +12,7 @@ const NAV_LINKS = [
   { href: '#twitter-x', label: 'X (Twitter)' },
   { href: '#youtube', label: 'YouTube' },
   { href: '#linkedin', label: 'LinkedIn' },
+  { href: '#pinterest', label: 'Pinterest' },
   { href: '#analytics-limitations', label: 'Analytics limitations' },
   { href: '#growth-chart-history', label: 'Growth chart & follower history' },
   { href: '#inbox-dms', label: 'Inbox & DMs' },
@@ -66,7 +67,7 @@ export default function HelpPage() {
           {[
             { id: 'connecting-accounts', title: 'Connecting accounts', children: (
               <p className="text-neutral-600 text-sm leading-relaxed">
-                From the Dashboard (or Analytics in the sidebar), click the platform icon (Instagram, Facebook, TikTok, etc.) or the plus button to add an account. Each platform has different requirements: some use Meta (Facebook) login, others use their own OAuth. Only business or creator accounts are supported for Instagram and Facebook; personal accounts cannot be connected for publishing or analytics.
+                From the Dashboard (or Analytics in the sidebar), click the platform icon (Instagram, Facebook, TikTok, Pinterest, etc.) or the plus button to add an account. Each platform has different requirements: some use Meta (Facebook) login, others use their own OAuth. Only business or creator accounts are supported for Instagram and Facebook; personal accounts cannot be connected for publishing or analytics.
               </p>
             )},
             { id: 'facebook', title: 'Facebook', children: (
@@ -127,6 +128,22 @@ export default function HelpPage() {
                 Connect your LinkedIn account to publish posts and view basic profile data. <strong>Connection count</strong> and <strong>post publishing</strong> are available. Advanced analytics (impressions, reach, engagement breakdown) require <strong>LinkedIn Marketing API</strong> approval from LinkedIn. Until then, those metrics will not appear; you can still schedule and publish content.
               </p>
             )},
+            { id: 'pinterest', title: 'Pinterest', children: (
+              <>
+                <p className="text-neutral-600 text-sm leading-relaxed mb-3">
+                  Connect with <strong>Pinterest OAuth (v5)</strong> from the sidebar. We store a <strong>refresh token</strong> so scheduled posts can publish reliably. After connect, we save your <strong>first board</strong> as the default board for new Pins from the Composer.
+                </p>
+                <p className="text-neutral-600 text-sm leading-relaxed mb-3">
+                  <strong>Publishing:</strong> Each scheduled or immediate post to Pinterest must include at least one <strong>image</strong>. Pins are created via the official API using a public image URL (same pattern as other networks that fetch media from our servers).
+                </p>
+                <p className="text-neutral-600 text-sm leading-relaxed mb-3">
+                  <strong>Analytics:</strong> We call Pinterest&apos;s <code className="text-xs bg-neutral-100 px-1 rounded">user_account</code> and <code className="text-xs bg-neutral-100 px-1 rounded">user_account/analytics</code> endpoints. If your Pinterest app is still on <strong>trial access</strong> or lacks analytics product access, impressions time series may return 401/403. Follower counts and profile fields appear when the API allows.
+                </p>
+                <p className="text-neutral-600 text-sm leading-relaxed">
+                  <strong>Vercel:</strong> Set <code className="text-xs bg-neutral-100 px-1 rounded">PINTEREST_APP_ID</code>, <code className="text-xs bg-neutral-100 px-1 rounded">PINTEREST_APP_SECRET</code>, and add the callback URL <code className="text-xs bg-neutral-100 px-1 rounded">/api/social/oauth/pinterest/callback</code> in the Pinterest Developer Portal. See <code className="text-xs bg-neutral-100 px-1 rounded">docs/PINTEREST_SETUP.md</code> in the repo for the full checklist.
+                </p>
+              </>
+            )},
             { id: 'analytics-limitations', title: 'Analytics limitations', children: (
               <ul className="list-disc list-inside text-neutral-600 text-sm space-y-2">
                 <li><strong>Instagram:</strong> Insights are limited to the last 28 days by Instagram&apos;s API. Older ranges are capped to 28 days.</li>
@@ -137,6 +154,7 @@ export default function HelpPage() {
                 <li><strong>X (Twitter):</strong> Reconnect the account if follower or tweet counts are missing. Direct messages are not available in the Inbox; only comments are shown. DM support may be added in a future update.</li>
                 <li><strong>YouTube:</strong> Enable YouTube Analytics API in Google Cloud and reconnect for full channel stats.</li>
                 <li><strong>LinkedIn:</strong> Impressions and reach require LinkedIn Marketing API approval.</li>
+                <li><strong>Pinterest:</strong> Account analytics depend on your Pinterest app&apos;s API access (trial vs production). Missing impressions usually means the analytics endpoint is not permitted yet for your app.</li>
                 <li><strong>TikTok:</strong> Some metrics require additional API approval from TikTok.</li>
               </ul>
             )},

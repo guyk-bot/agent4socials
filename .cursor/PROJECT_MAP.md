@@ -68,7 +68,9 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 
 | What | Where |
 |------|--------|
-| OAuth start/callback (generic) | `apps/web/src/app/api/social/oauth/[platform]/start/route.ts`, `callback/route.ts` |
+| OAuth start/callback (generic) | `apps/web/src/app/api/social/oauth/[platform]/start/route.ts`, `callback/route.ts` (includes Pinterest v5) |
+| Pinterest token refresh | `apps/web/src/lib/pinterest-token.ts` |
+| Pinterest setup doc | `docs/PINTEREST_SETUP.md` |
 | Twitter 1OA | `apps/web/src/app/api/social/oauth/twitter-1oa/start/route.ts`, `callback/route.ts` |
 | Instagram connect | `apps/web/src/app/api/social/instagram/connect-account/route.ts`, `pending/route.ts` |
 | Facebook connect | `apps/web/src/app/api/social/facebook/connect-page/route.ts`, `pending/route.ts` |
@@ -96,7 +98,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | Env / site URL | `apps/web/src/app/layout.tsx` (metadataBase, siteUrl) |
 | Logo, favicon | `apps/web/public/logo.svg`, `logo-48.png`, `logo-192.png`; `docs/FAVICON.md` |
 | Manifest | `apps/web/public/manifest.json` |
-| Platform icons | `apps/web/src/components/SocialPlatformIcons.tsx` |
+| Platform icons | `apps/web/src/components/SocialPlatformIcons.tsx` (`public/social-icons/pinterest.svg`) |
 
 ---
 

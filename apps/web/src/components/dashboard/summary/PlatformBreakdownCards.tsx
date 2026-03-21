@@ -2,7 +2,7 @@
 
 import React from 'react';
 import type { SummaryPlatform } from './types';
-import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
+import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
 
 const PLATFORM_ICON: Record<string, React.ReactNode> = {
   INSTAGRAM: <InstagramIcon size={20} />,
@@ -11,6 +11,7 @@ const PLATFORM_ICON: Record<string, React.ReactNode> = {
   YOUTUBE: <YoutubeIcon size={20} />,
   TWITTER: <XTwitterIcon size={20} className="text-sky-500" />,
   LINKEDIN: <LinkedinIcon size={20} />,
+  PINTEREST: <PinterestIcon size={20} />,
 };
 
 const PLATFORM_HEX: Record<string, string> = {
@@ -20,6 +21,7 @@ const PLATFORM_HEX: Record<string, string> = {
   YOUTUBE: '#FF0000',
   TWITTER: '#1D9BF0',
   LINKEDIN: '#0A66C2',
+  PINTEREST: '#E60023',
 };
 
 const PLATFORM_BG: Record<string, string> = {
@@ -29,14 +31,15 @@ const PLATFORM_BG: Record<string, string> = {
   YOUTUBE: 'bg-red-50',
   TWITTER: 'bg-sky-50',
   LINKEDIN: 'bg-blue-50',
+  PINTEREST: 'bg-rose-50',
 };
 
 const PLATFORM_LABEL: Record<string, string> = {
   INSTAGRAM: 'Instagram', FACEBOOK: 'Facebook', TIKTOK: 'TikTok',
-  YOUTUBE: 'YouTube', TWITTER: 'X (Twitter)', LINKEDIN: 'LinkedIn',
+  YOUTUBE: 'YouTube', TWITTER: 'X (Twitter)', LINKEDIN: 'LinkedIn', PINTEREST: 'Pinterest',
 };
 
-const PLATFORM_ORDER = ['INSTAGRAM', 'FACEBOOK', 'YOUTUBE', 'TIKTOK', 'LINKEDIN', 'TWITTER'];
+const PLATFORM_ORDER = ['INSTAGRAM', 'FACEBOOK', 'YOUTUBE', 'TIKTOK', 'LINKEDIN', 'PINTEREST', 'TWITTER'];
 
 export function PlatformBreakdownCards({ platforms }: { platforms: SummaryPlatform[] }) {
   if (platforms.length === 0) return null;

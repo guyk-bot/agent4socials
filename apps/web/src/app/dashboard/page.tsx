@@ -24,7 +24,7 @@ import {
   HelpCircle,
   ArrowUpDown,
 } from 'lucide-react';
-import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
+import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
 import { InteractiveLineChart } from '@/components/charts/InteractiveLineChart';
 import { FacebookAnalyticsView, FACEBOOK_ANALYTICS_SECTION_IDS, PlatformAnalyticsHeader, AnalyticsGrid, AnalyticsGridItem, AnalyticsWatermarkedChart } from '@/components/analytics';
 import { AnalyticsDateRangePicker } from '@/components/analytics/AnalyticsDateRangePicker';
@@ -64,6 +64,7 @@ function DataSyncBanner({
     YOUTUBE: <YoutubeIcon size={20} />,
     TWITTER: <XTwitterIcon size={20} className="text-neutral-800" />,
     LINKEDIN: <LinkedinIcon size={20} />,
+    PINTEREST: <PinterestIcon size={20} />,
   };
   const platformColors: Record<string, string> = {
     INSTAGRAM: 'from-pink-500 via-fuchsia-500 to-purple-600',
@@ -72,6 +73,7 @@ function DataSyncBanner({
     YOUTUBE: 'from-red-500 to-red-700',
     TWITTER: 'from-sky-400 to-sky-600',
     LINKEDIN: 'from-blue-600 to-blue-800',
+    PINTEREST: 'from-rose-600 to-red-700',
     DEFAULT: 'from-[#5ff6fd] to-[#b030ad]',
   };
   const grad = platformColors[platform ?? ''] ?? platformColors.DEFAULT;
@@ -208,6 +210,7 @@ const PLATFORM_ICON: Record<string, React.ReactNode> = {
   YOUTUBE: <YoutubeIcon size={22} />,
   TWITTER: <XTwitterIcon size={22} className="text-neutral-800" />,
   LINKEDIN: <LinkedinIcon size={22} />,
+  PINTEREST: <PinterestIcon size={22} />,
 };
 
 function profileUrlForAccount(account: { platform: string; username?: string | null; platformUserId?: string }): string {
@@ -220,6 +223,7 @@ function profileUrlForAccount(account: { platform: string; username?: string | n
   if (platform === 'YOUTUBE') return 'https://www.youtube.com';
   if (platform === 'TWITTER' && username) return `https://x.com/${username.replace(/^@/, '')}`;
   if (platform === 'LINKEDIN') return 'https://www.linkedin.com';
+  if (platform === 'PINTEREST' && username) return `https://www.pinterest.com/${username.replace(/^@/, '')}/`;
   return '#';
 }
 
@@ -307,7 +311,7 @@ export default function DashboardPage() {
   const accountIdFromUrl = searchParams.get('accountId');
   const twitter1oaNext = searchParams.get('twitter_1oa_next');
   const connectParam = searchParams.get('connect');
-  const ALLOWED_CONNECT = ['INSTAGRAM', 'FACEBOOK', 'TIKTOK', 'YOUTUBE', 'TWITTER', 'LINKEDIN'];
+  const ALLOWED_CONNECT = ['INSTAGRAM', 'FACEBOOK', 'TIKTOK', 'YOUTUBE', 'TWITTER', 'LINKEDIN', 'PINTEREST'];
   const connectFromUrl = connectParam && ALLOWED_CONNECT.includes(connectParam.toUpperCase())
     ? connectParam.toUpperCase()
     : null;
@@ -999,7 +1003,13 @@ export default function DashboardPage() {
                 profilePicture: selectedAccount.profilePicture,
               }}
               profileUrl={profileUrlForAccount(selectedAccount)}
-              platformLabel={selectedAccount.platform === 'TWITTER' ? 'Twitter/X' : selectedAccount.platform.charAt(0) + selectedAccount.platform.slice(1).toLowerCase()}
+              platformLabel={
+                selectedAccount.platform === 'TWITTER'
+                  ? 'Twitter/X'
+                  : selectedAccount.platform === 'PINTEREST'
+                    ? 'Pinterest'
+                    : selectedAccount.platform.charAt(0) + selectedAccount.platform.slice(1).toLowerCase()
+              }
               icon={PLATFORM_ICON[selectedAccount.platform]}
               onReconnect={() => {}}
               onDisconnectClick={() => {}}
@@ -1193,7 +1203,7 @@ export default function DashboardPage() {
                     <div className="flex gap-1.5 flex-wrap justify-end max-w-[160px]">
                       {Array.from(new Set(importedPosts.map((p) => p.platform))).map((pl) => {
                         const count = importedPosts.filter((p) => p.platform === pl).reduce((s, p) => s + p.interactions, 0);
-                        const cls = pl === 'INSTAGRAM' ? 'bg-pink-100 text-pink-800' : pl === 'FACEBOOK' ? 'bg-blue-100 text-blue-800' : pl === 'YOUTUBE' ? 'bg-red-100 text-red-800' : pl === 'TIKTOK' ? 'bg-neutral-100 text-neutral-800' : pl === 'TWITTER' ? 'bg-sky-100 text-sky-800' : pl === 'LINKEDIN' ? 'bg-blue-100 text-blue-800' : 'bg-neutral-100 text-neutral-700';
+                        const cls = pl === 'INSTAGRAM' ? 'bg-pink-100 text-pink-800' : pl === 'FACEBOOK' ? 'bg-blue-100 text-blue-800' : pl === 'YOUTUBE' ? 'bg-red-100 text-red-800' : pl === 'TIKTOK' ? 'bg-neutral-100 text-neutral-800' : pl === 'TWITTER' ? 'bg-sky-100 text-sky-800' : pl === 'LINKEDIN' ? 'bg-blue-100 text-blue-800' : pl === 'PINTEREST' ? 'bg-rose-100 text-rose-800' : 'bg-neutral-100 text-neutral-700';
                         return <span key={pl} className={`px-2 py-0.5 rounded text-xs font-medium ${cls}`}>{count.toLocaleString()}</span>;
                       })}
                     </div>
@@ -1241,7 +1251,7 @@ export default function DashboardPage() {
                     <div className="flex gap-1.5 flex-wrap justify-end max-w-[160px]">
                       {Array.from(new Set(importedPosts.map((p) => p.platform))).map((pl) => {
                         const count = importedPosts.filter((p) => p.platform === pl).length;
-                        const cls = pl === 'INSTAGRAM' ? 'bg-pink-100 text-pink-800' : pl === 'FACEBOOK' ? 'bg-blue-100 text-blue-800' : pl === 'YOUTUBE' ? 'bg-red-100 text-red-800' : pl === 'TIKTOK' ? 'bg-neutral-100 text-neutral-800' : pl === 'TWITTER' ? 'bg-sky-100 text-sky-800' : pl === 'LINKEDIN' ? 'bg-blue-100 text-blue-800' : 'bg-neutral-100 text-neutral-700';
+                        const cls = pl === 'INSTAGRAM' ? 'bg-pink-100 text-pink-800' : pl === 'FACEBOOK' ? 'bg-blue-100 text-blue-800' : pl === 'YOUTUBE' ? 'bg-red-100 text-red-800' : pl === 'TIKTOK' ? 'bg-neutral-100 text-neutral-800' : pl === 'TWITTER' ? 'bg-sky-100 text-sky-800' : pl === 'LINKEDIN' ? 'bg-blue-100 text-blue-800' : pl === 'PINTEREST' ? 'bg-rose-100 text-rose-800' : 'bg-neutral-100 text-neutral-700';
                         return <span key={pl} className={`px-2 py-0.5 rounded text-xs font-medium ${cls}`}>{count}</span>;
                       })}
                     </div>
@@ -1345,6 +1355,7 @@ export default function DashboardPage() {
                       platform === 'TIKTOK' ? (isActive ? 'bg-neutral-900 border-neutral-900 text-white' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-100') :
                       platform === 'TWITTER' ? (isActive ? 'bg-sky-100 border-sky-300 text-sky-800' : 'border-neutral-200 text-neutral-600 hover:bg-sky-50') :
                       platform === 'LINKEDIN' ? (isActive ? 'bg-blue-100 border-blue-400 text-blue-900' : 'border-neutral-200 text-neutral-600 hover:bg-blue-50') :
+                      platform === 'PINTEREST' ? (isActive ? 'bg-rose-100 border-rose-400 text-rose-900' : 'border-neutral-200 text-neutral-600 hover:bg-rose-50') :
                       (isActive ? 'bg-[var(--primary)]/15 border-[var(--primary)]/40 text-[var(--primary)]' : 'border-neutral-200 text-neutral-600 hover:bg-[var(--primary)]/5');
                     return (
                       <button

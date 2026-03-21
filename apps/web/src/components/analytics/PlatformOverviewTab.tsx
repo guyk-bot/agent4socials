@@ -20,7 +20,7 @@ import {
   Legend,
 } from 'recharts';
 
-export type PlatformId = 'INSTAGRAM' | 'TIKTOK' | 'YOUTUBE' | 'TWITTER' | 'LINKEDIN';
+export type PlatformId = 'INSTAGRAM' | 'TIKTOK' | 'YOUTUBE' | 'TWITTER' | 'LINKEDIN' | 'PINTEREST';
 
 export interface PlatformPost {
   id: string;

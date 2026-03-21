@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db';
 import { Platform } from '@prisma/client';
 import axios from 'axios';
 import { ensureBootstrapSnapshotForToday } from '@/lib/analytics/metric-snapshots';
-const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN'] as const;
+const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN', 'PINTEREST'] as const;
 
 const OAUTH_HEAD = '<meta charset="utf-8"><meta name="robots" content="noindex, nofollow">';
 
@@ -37,6 +37,11 @@ type TokenResult = {
   linkedPage?: { id: string; name: string; picture: string | null };
   /** When connecting Facebook: the linked Instagram Business account to also create as INSTAGRAM */
   linkedInstagram?: { id: string; username?: string; profilePicture?: string };
+  /** Pinterest: default board for publishing (first board from /v5/boards when available) */
+  pinterestCredentials?: {
+    defaultBoardId: string | null;
+    boards?: Array<{ id: string; name?: string }>;
+  };
 };
 
 async function exchangeCodeInstagramLogin(code: string, callbackUrl: string): Promise<TokenResult> {
@@ -466,6 +471,90 @@ async function exchangeCode(
         profilePicture,
       };
     }
+    case 'PINTEREST': {
+      const clientId = process.env.PINTEREST_APP_ID || process.env.PINTEREST_CLIENT_ID;
+      const clientSecret = process.env.PINTEREST_APP_SECRET || process.env.PINTEREST_CLIENT_SECRET;
+      if (!clientId || !clientSecret) {
+        throw new Error('PINTEREST_APP_ID and PINTEREST_APP_SECRET must be set');
+      }
+      const pinRedirect = (process.env.PINTEREST_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
+      const basic = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+      const r = await axios.post<{
+        access_token?: string;
+        refresh_token?: string;
+        expires_in?: number;
+        code?: number;
+        message?: string;
+      }>(
+        'https://api.pinterest.com/v5/oauth/token',
+        new URLSearchParams({
+          grant_type: 'authorization_code',
+          code,
+          redirect_uri: pinRedirect,
+        }).toString(),
+        {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            Authorization: `Basic ${basic}`,
+          },
+          validateStatus: () => true,
+        }
+      );
+      if (r.status !== 200 || !r.data?.access_token) {
+        const msg =
+          typeof r.data?.message === 'string'
+            ? r.data.message
+            : `Pinterest token error (HTTP ${r.status})`;
+        console.error('[Social OAuth] Pinterest token:', r.status, r.data);
+        throw new Error(msg);
+      }
+      const accessToken = r.data.access_token;
+      let platformUserId = 'pin-' + accessToken.slice(-8);
+      let username = 'Pinterest';
+      let profilePicture: string | null = null;
+      const pinterestCredentials: {
+        defaultBoardId: string | null;
+        boards?: Array<{ id: string; name?: string }>;
+      } = { defaultBoardId: null };
+      try {
+        const ua = await axios.get<{
+          username?: string;
+          id?: string;
+          profile_image?: string;
+        }>('https://api.pinterest.com/v5/user_account', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (ua.data?.id) platformUserId = ua.data.id;
+        if (ua.data?.username) username = ua.data.username;
+        if (ua.data?.profile_image) profilePicture = ua.data.profile_image;
+      } catch (e) {
+        console.warn('[Social OAuth] Pinterest user_account:', (e as Error)?.message ?? e);
+      }
+      try {
+        const boardsRes = await axios.get<{
+          items?: Array<{ id?: string; name?: string }>;
+        }>('https://api.pinterest.com/v5/boards', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          params: { page_size: 25 },
+        });
+        const items = boardsRes.data?.items ?? [];
+        const boards = items.filter((b) => b?.id).map((b) => ({ id: b.id as string, name: b.name }));
+        pinterestCredentials.boards = boards;
+        if (boards[0]?.id) pinterestCredentials.defaultBoardId = boards[0].id;
+      } catch (e) {
+        console.warn('[Social OAuth] Pinterest boards:', (e as Error)?.message ?? e);
+      }
+      const expiresIn = r.data.expires_in ?? 3600;
+      return {
+        accessToken,
+        refreshToken: r.data.refresh_token ?? null,
+        expiresAt: new Date(Date.now() + expiresIn * 1000),
+        platformUserId,
+        username,
+        profilePicture,
+        pinterestCredentials,
+      };
+    }
     default:
       throw new Error('Unsupported platform');
   }
@@ -516,6 +605,8 @@ export async function GET(
     callbackUrl = process.env.TIKTOK_REDIRECT_URI.replace(/\/+$/, '');
   } else if (plat === 'TWITTER' && process.env.TWITTER_REDIRECT_URI) {
     callbackUrl = process.env.TWITTER_REDIRECT_URI.replace(/\/+$/, '');
+  } else if (plat === 'PINTEREST' && process.env.PINTEREST_REDIRECT_URI) {
+    callbackUrl = process.env.PINTEREST_REDIRECT_URI.replace(/\/+$/, '');
   }
 
   let tokenData: TokenResult;
@@ -912,7 +1003,16 @@ export async function GET(
   const twitterCreds = plat === 'TWITTER' && tokenData.twitterGrantedScope
     ? { grantedScope: tokenData.twitterGrantedScope }
     : undefined;
-  const credentialsJsonToSet = igBusinessCreds ?? twitterCreds ?? undefined;
+  const pinterestStored =
+    plat === 'PINTEREST' && tokenData.pinterestCredentials
+      ? {
+          pinterestDefaultBoardId: tokenData.pinterestCredentials.defaultBoardId,
+          ...(tokenData.pinterestCredentials.boards?.length
+            ? { pinterestBoards: tokenData.pinterestCredentials.boards }
+            : {}),
+        }
+      : undefined;
+  const credentialsJsonToSet = igBusinessCreds ?? twitterCreds ?? pinterestStored ?? undefined;
   try {
     // Upsert so reconnecting the same account updates in place; preserve history (firstConnectedAt never cleared).
     await prisma.socialAccount.upsert({

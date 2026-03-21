@@ -10,6 +10,7 @@ const PLATFORM_OPTIONS = [
   { id: 'YOUTUBE', label: 'YouTube' },
   { id: 'TWITTER', label: 'Twitter/X' },
   { id: 'LINKEDIN', label: 'LinkedIn' },
+  { id: 'PINTEREST', label: 'Pinterest' },
 ];
 
 type SummaryFiltersBarProps = {

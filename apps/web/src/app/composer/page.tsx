@@ -25,7 +25,7 @@ import {
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAppData } from '@/context/AppDataContext';
-import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
+import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
 import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 
 const COMPOSER_DRAFT_KEY = 'agent4socials_composer_draft';
@@ -94,6 +94,7 @@ const PLATFORM_LABELS: Record<string, string> = {
     FACEBOOK: 'Facebook',
     TWITTER: 'Twitter/X',
     LINKEDIN: 'LinkedIn',
+    PINTEREST: 'Pinterest',
 };
 
 // Platforms that support comment-automation (replies to keyword comments)
@@ -1118,6 +1119,18 @@ export default function ComposerPage() {
                 }
             }
 
+            if (platforms.includes('PINTEREST')) {
+                const pinMedia = differentMediaPerPlatform ? (mediaByPlatform['PINTEREST'] ?? []) : mediaList;
+                const hasPinImage = pinMedia.some((m) => m.type === 'IMAGE');
+                if (!hasPinImage) {
+                    setLoading(false);
+                    setAlertMessage(
+                        'Pinterest needs at least one image for this post (we publish image Pins to your default board). Add a photo or remove Pinterest from the selected platforms.'
+                    );
+                    return;
+                }
+            }
+
             const payload: {
                 title?: string;
                 content: string;
@@ -1548,8 +1561,8 @@ export default function ComposerPage() {
                             {sectionOpen.platforms ? <ChevronUp size={20} className="text-neutral-400 shrink-0" /> : <ChevronDown size={20} className="text-neutral-400 shrink-0" />}
                         </button>
                         {sectionOpen.platforms && (
-                        <div className="pt-4 grid grid-cols-3 sm:grid-cols-6 gap-3">
-                            {(['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'LINKEDIN', 'TWITTER'] as const).map((p) => {
+                        <div className="pt-4 grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+                            {(['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'LINKEDIN', 'PINTEREST', 'TWITTER'] as const).map((p) => {
                                 const connected = accounts.some((a) => a.platform === p);
                                 const icons: Record<string, React.ReactNode> = {
                                     INSTAGRAM: <InstagramIcon size={26} />,
@@ -1558,8 +1571,9 @@ export default function ComposerPage() {
                                     FACEBOOK: <FacebookIcon size={26} />,
                                     TWITTER: <XTwitterIcon size={26} className="text-neutral-800" />,
                                     LINKEDIN: <LinkedinIcon size={26} />,
+                                    PINTEREST: <PinterestIcon size={26} />,
                                 };
-                                const labels: Record<string, string> = { INSTAGRAM: 'Instagram', TIKTOK: 'TikTok', YOUTUBE: 'YouTube', FACEBOOK: 'Facebook', TWITTER: 'Twitter/X', LINKEDIN: 'LinkedIn' };
+                                const labels: Record<string, string> = { INSTAGRAM: 'Instagram', TIKTOK: 'TikTok', YOUTUBE: 'YouTube', FACEBOOK: 'Facebook', TWITTER: 'Twitter/X', LINKEDIN: 'LinkedIn', PINTEREST: 'Pinterest' };
                                 return (
                             <PlatformToggle
                                         key={p}
@@ -2484,6 +2498,7 @@ function PostPreview({
             case 'FACEBOOK': return <FacebookIcon size={compact ? 16 : 22} />;
             case 'TWITTER': return <XTwitterIcon size={compact ? 16 : 22} className="text-neutral-800" />;
             case 'LINKEDIN': return <LinkedinIcon size={compact ? 16 : 22} />;
+            case 'PINTEREST': return <PinterestIcon size={compact ? 16 : 22} />;
             default: return <Video size={compact ? 16 : 22} className="text-neutral-500" />;
         }
     };

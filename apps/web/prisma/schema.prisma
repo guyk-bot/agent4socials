@@ -38,6 +38,7 @@ enum Platform {
   FACEBOOK
   TWITTER
   LINKEDIN
+  PINTEREST
 }
 
 model SocialAccount {

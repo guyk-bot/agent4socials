@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { Platform } from '@prisma/client';
 import axios from 'axios';
 import { getValidYoutubeToken } from '@/lib/youtube-token';
+import { getValidPinterestToken } from '@/lib/pinterest-token';
 import { fetchInstagramDemographics, fetchFacebookDemographics, fetchYouTubeExtended } from '@/lib/analytics/extended-fetchers';
 import {
   getAccountHistorySeries,
@@ -938,6 +939,95 @@ export async function GET(
           if (ytRaw && typeof ytRaw === 'object') out.raw = { ...(out.raw ?? {}), youtube: ytRaw };
         } catch (e) {
           console.warn('[Insights] YouTube extended analytics:', (e as Error)?.message ?? e);
+        }
+      }
+
+      return NextResponse.json(out);
+    }
+
+    if (account.platform === 'PINTEREST') {
+      const token = await getValidPinterestToken(account);
+      const headers = { Authorization: `Bearer ${token}` };
+      try {
+        const ua = await axios.get<{
+          follower_count?: number;
+          monthly_views?: number;
+          pin_count?: number;
+          username?: string;
+        }>('https://api.pinterest.com/v5/user_account', { headers });
+        if (typeof ua.data?.follower_count === 'number') out.followers = ua.data.follower_count;
+        out.extra = {
+          ...(out.extra ?? {}),
+          pinterestUsername: ua.data?.username,
+          pinterestPinCount: ua.data?.pin_count,
+          pinterestMonthlyViews: ua.data?.monthly_views,
+        };
+      } catch (e) {
+        console.warn('[Insights] Pinterest user_account:', (e as Error)?.message ?? e);
+        out.insightsHint = 'Could not load Pinterest profile. Reconnect from the sidebar.';
+      }
+
+      try {
+        const analyticsRes = await axios.get<{
+          all?: {
+            summary_metrics?: Record<string, number | string>;
+            daily_metrics?: Array<{ date?: string; metrics?: Record<string, number> }>;
+          };
+        }>('https://api.pinterest.com/v5/user_account/analytics', {
+          headers,
+          params: { start_date: sinceParam, end_date: untilParam },
+          validateStatus: () => true,
+        });
+        if (analyticsRes.status === 200 && analyticsRes.data?.all) {
+          const daily = analyticsRes.data.all.daily_metrics ?? [];
+          const byDate: Record<string, number> = {};
+          for (const row of daily) {
+            const m = row.metrics ?? {};
+            const imp =
+              (typeof m.IMPRESSION === 'number' ? m.IMPRESSION : undefined) ??
+              (typeof m.impression === 'number' ? m.impression : undefined) ??
+              0;
+            const d = (row.date ?? '').slice(0, 10);
+            if (d) byDate[d] = (byDate[d] ?? 0) + imp;
+          }
+          out.impressionsTimeSeries = Object.entries(byDate)
+            .map(([date, value]) => ({ date, value }))
+            .sort((a, b) => a.date.localeCompare(b.date));
+          const sm = analyticsRes.data.all.summary_metrics ?? {};
+          const totalImp =
+            (typeof sm.IMPRESSION === 'number' ? sm.IMPRESSION : undefined) ??
+            (typeof sm.impression === 'number' ? sm.impression : undefined);
+          if (typeof totalImp === 'number') out.impressionsTotal = totalImp;
+          else out.impressionsTotal = out.impressionsTimeSeries.reduce((s, p) => s + p.value, 0);
+        } else if (analyticsRes.status === 403 || analyticsRes.status === 401) {
+          out.insightsHint =
+            'Pinterest analytics for this date range may require Standard API access or approved trial on your Pinterest app. Follower and profile data still load when the API allows.';
+        }
+      } catch (e) {
+        console.warn('[Insights] Pinterest analytics:', (e as Error)?.message ?? e);
+      }
+
+      const extended = request.nextUrl.searchParams.get('extended') === '1';
+      if (extended) {
+        try {
+          const topRes = await axios.get(
+            'https://api.pinterest.com/v5/user_account/analytics/top_pins',
+            {
+              headers,
+              params: {
+                start_date: sinceParam,
+                end_date: untilParam,
+                sort_by: 'IMPRESSION',
+                num_of_pins: 10,
+              },
+              validateStatus: () => true,
+            }
+          );
+          if (topRes.status === 200 && topRes.data && typeof topRes.data === 'object') {
+            out.extra = { ...(out.extra ?? {}), pinterestTopPins: topRes.data };
+          }
+        } catch (_) {
+          // optional
         }
       }
 

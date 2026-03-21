@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useAppData } from '@/context/AppDataContext';
 import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
+import { PinterestIcon } from '@/components/SocialPlatformIcons';
 
 function postMediaThumbUrl(mediaItem: { fileUrl: string; type: string; metadata?: { thumbnailUrl?: string } | null } | undefined): string | null {
     if (!mediaItem?.fileUrl) return null;
@@ -235,6 +236,7 @@ export default function PostsPage() {
                                                         {t.platform === 'FACEBOOK' && <Facebook size={14} />}
                                                         {t.platform === 'TWITTER' && <Twitter size={14} />}
                                                         {t.platform === 'LINKEDIN' && <Linkedin size={14} />}
+                                                        {t.platform === 'PINTEREST' && <PinterestIcon size={14} />}
                                                         <span>{t.platform}</span>
                                                     </span>
                                                 ))

@@ -28,6 +28,7 @@ const PLATFORM_COLORS: Record<string, string> = {
   YOUTUBE: '#FF0000',
   TWITTER: '#1D9BF0',
   LINKEDIN: '#0A66C2',
+  PINTEREST: '#E60023',
 };
 
 const ACCENT = '#5ff6fd';

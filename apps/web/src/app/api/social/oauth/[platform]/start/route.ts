@@ -8,7 +8,7 @@ import { Platform } from '@prisma/client';
 
 const PAID_TIERS = ['starter', 'pro'];
 
-const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN'] as const;
+const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN', 'PINTEREST'] as const;
 
 function getOAuthUrl(platform: Platform, userId: string, method?: string): string {
   const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
@@ -80,6 +80,19 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
         ? 'openid profile email w_member_social r_member_social r_organization_social w_organization_social'
         : 'openid profile email w_member_social r_member_social';
       return `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${process.env.LINKEDIN_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.LINKEDIN_REDIRECT_URI || callbackUrl)}&state=${encodeURIComponent(state)}&scope=${encodeURIComponent(linkedInScopes)}`;
+    }
+    case 'PINTEREST': {
+      const pinRedirect = (process.env.PINTEREST_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
+      const defaultScopes =
+        'user_accounts:read,pins:read,boards:read,pins:write,boards:write';
+      const scope =
+        typeof process.env.PINTEREST_OAUTH_SCOPES === 'string' && process.env.PINTEREST_OAUTH_SCOPES.trim()
+          ? process.env.PINTEREST_OAUTH_SCOPES.trim()
+          : defaultScopes;
+      const clientId = encodeURIComponent(
+        process.env.PINTEREST_APP_ID || process.env.PINTEREST_CLIENT_ID || ''
+      );
+      return `https://www.pinterest.com/oauth/?client_id=${clientId}&redirect_uri=${encodeURIComponent(pinRedirect)}&response_type=code&scope=${encodeURIComponent(scope)}&state=${encodeURIComponent(state)}&refreshable=true`;
     }
     default:
       throw new Error('Unsupported platform');
@@ -203,6 +216,18 @@ export async function GET(
           {
             message:
               'X (Twitter) Connect requires TWITTER_CLIENT_ID (OAuth 2.0, recommended for DMs) or TWITTER_API_KEY + TWITTER_API_SECRET (OAuth 1.0a) in Vercel.',
+          },
+          { status: 503 }
+        );
+      }
+    } else if (plat === 'PINTEREST') {
+      const pid = process.env.PINTEREST_APP_ID?.trim() || process.env.PINTEREST_CLIENT_ID?.trim();
+      const psec = process.env.PINTEREST_APP_SECRET?.trim() || process.env.PINTEREST_CLIENT_SECRET?.trim();
+      if (!pid || !psec) {
+        return NextResponse.json(
+          {
+            message:
+              'Pinterest requires PINTEREST_APP_ID and PINTEREST_APP_SECRET (or PINTEREST_CLIENT_ID and PINTEREST_CLIENT_SECRET) in Vercel.',
           },
           { status: 503 }
         );

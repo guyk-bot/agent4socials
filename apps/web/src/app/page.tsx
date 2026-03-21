@@ -22,13 +22,13 @@ import {
   MessageSquare,
   Sparkles,
 } from 'lucide-react';
-import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
+import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
 import { PricingBillingToggle, PricingCard } from '@/components/landing/pricing';
 
 const FREE_HIGHLIGHTS = [
   '1 brand',
   '50 scheduled posts / month',
-  'Connect Instagram, Facebook, TikTok, YouTube, and LinkedIn',
+  'Connect Instagram, Facebook, TikTok, YouTube, LinkedIn, and Pinterest',
   'X (Twitter) available on Starter & Pro only',
   '30 days analytics',
   '1 smart link page',
@@ -64,6 +64,7 @@ const HERO_PLATFORMS = [
   { Icon: TikTokIcon, label: 'TikTok' },
   { Icon: XTwitterIcon, label: 'Twitter/X' },
   { Icon: LinkedinIcon, label: 'LinkedIn' },
+  { Icon: PinterestIcon, label: 'Pinterest' },
 ] as const;
 
 function FaqItem({ question, answer }: { question: string; answer: string }) {
@@ -127,7 +128,7 @@ export default function Home() {
             </h1>
 
             <p className="mx-auto mt-7 max-w-2xl text-base sm:text-lg text-[#9ca3af] leading-relaxed">
-              Schedule content, manage comments and DMs, and grow across Instagram, TikTok, YouTube, Facebook, X, and LinkedIn from a single powerful dashboard.
+              Schedule content, manage comments and DMs, and grow across Instagram, TikTok, YouTube, Facebook, X, LinkedIn, and Pinterest from a single powerful dashboard.
             </p>
 
             {/* CTAs: solid purple primary; gradient only on header Try for free and Pro plan */}
@@ -176,7 +177,7 @@ export default function Home() {
             <div className="hidden sm:block absolute -left-2 top-10 z-10">
               <div className="rounded-[16px] border border-white/[0.08] bg-[rgba(255,255,255,0.05)] backdrop-blur-[20px] px-4 py-3 shadow-[0_0_20px_rgba(139,92,246,0.4)]">
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-[#8b5cf6] mb-0.5">Platforms</p>
-                <p className="text-lg font-bold text-white">6 connected</p>
+                <p className="text-lg font-bold text-white">7 connected</p>
               </div>
             </div>
             <div className="hidden sm:block absolute -right-2 top-10 z-10">
@@ -291,7 +292,7 @@ export default function Home() {
             </div>
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {[
-                { title: 'Publish everywhere', desc: 'Schedule to Instagram, YouTube, TikTok, Facebook, X, and LinkedIn from one calendar.', emoji: '🚀' },
+                { title: 'Publish everywhere', desc: 'Schedule to Instagram, YouTube, TikTok, Facebook, X, LinkedIn, and Pinterest from one calendar.', emoji: '🚀' },
                 { title: 'Analytics that matter', desc: 'Views, likes, comments, followers and subscribers in one dashboard. See what works.', emoji: '📊' },
                 { title: 'Unified inbox', desc: 'View and reply to DMs from Instagram, Facebook and X in one place. No more app hopping.', emoji: '💬' },
                 { title: 'Smart automation', desc: 'Keyword comment replies, welcome DMs, and new-follower messages. Set it per post or account.', emoji: '⚡' },
@@ -357,7 +358,7 @@ export default function Home() {
             </div>
             <div className="space-y-3">
               {[
-                { q: 'Which platforms can I connect?', a: 'You can connect Instagram, YouTube, TikTok, Facebook, Twitter (X), and LinkedIn. We use each platform\'s official OAuth so you authorize access securely. Inbox and comment automation are available for Instagram, Facebook and X; scheduling and analytics support all six platforms.' },
+                { q: 'Which platforms can I connect?', a: 'You can connect Instagram, YouTube, TikTok, Facebook, Twitter (X), LinkedIn, and Pinterest. We use each platform\'s official OAuth so you authorize access securely. Inbox and comment automation are available for Instagram, Facebook and X; scheduling and analytics support all seven platforms.' },
                 { q: 'How does scheduling work?', a: 'You create a post in the Composer, add your media and text, pick the date and time, and choose which connected accounts to publish to. We send the post at the scheduled time. You can also set keyword comment automation and per-platform reply text per post.' },
                 { q: 'What is comment automation?', a: 'When someone comments on your post with a keyword you set (e.g. "demo"), we can automatically reply with a message you define, or send a DM on Instagram if you prefer. You can set different reply text per platform.' },
                 { q: 'What analytics do I get?', a: 'We pull views, likes, comments, followers, and subscribers (where available) from your connected accounts into one dashboard so you can see performance across platforms.' },

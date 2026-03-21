@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useAppData } from '@/context/AppDataContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
 import api from '@/lib/api';
-import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
+import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
 import { SummaryFiltersBar } from './SummaryFiltersBar';
 import { KPICardsGrid } from './KPICardsGrid';
 import { PlatformBreakdownCards } from './PlatformBreakdownCards';
@@ -23,6 +23,7 @@ const PLATFORM_ICON: Record<string, React.ReactNode> = {
   YOUTUBE: <YoutubeIcon size={26} />,
   TWITTER: <XTwitterIcon size={26} className="text-neutral-800" />,
   LINKEDIN: <LinkedinIcon size={26} />,
+  PINTEREST: <PinterestIcon size={26} />,
 };
 
 const CONNECT_PLATFORMS = [
@@ -32,6 +33,7 @@ const CONNECT_PLATFORMS = [
   { id: 'YOUTUBE', name: 'YouTube', slug: 'youtube', border: 'border-red-200', bg: 'bg-red-50/50' },
   { id: 'TWITTER', name: 'Twitter/X', slug: 'twitter', border: 'border-sky-200', bg: 'bg-sky-50/50' },
   { id: 'LINKEDIN', name: 'LinkedIn', slug: 'linkedin', border: 'border-blue-200', bg: 'bg-blue-50/50' },
+  { id: 'PINTEREST', name: 'Pinterest', slug: 'pinterest', border: 'border-rose-200', bg: 'bg-rose-50/50' },
 ];
 
 const DEFAULT_DATE_END = new Date().toISOString().slice(0, 10);
