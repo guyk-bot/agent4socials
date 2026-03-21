@@ -40,7 +40,7 @@ export default function AccountsPage() {
   const router = useRouter();
   const { cachedAccounts, setCachedAccounts } = useAccountsCache() ?? { cachedAccounts: [], setCachedAccounts: () => {} };
   const appData = useAppData();
-  const { setSelectedAccountId, setSelectedPlatformForConnect } = useSelectedAccount() ?? { setSelectedAccountId: () => {}, setSelectedPlatformForConnect: () => {} };
+  const { selectedAccountId, setSelectedAccountId } = useSelectedAccount() ?? { selectedAccountId: null, setSelectedAccountId: () => {} };
 
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
   const [disconnectConfirmOpen, setDisconnectConfirmOpen] = useState(false);
@@ -64,7 +64,7 @@ export default function AccountsPage() {
       return;
     }
     const accountIdToRemove = acc.id;
-    const platformJustDisconnected = acc.platform;
+    const disconnectedAccountWasSelected = selectedAccountId === accountIdToRemove;
     setDisconnectConfirmOpen(false);
     setAccountToDisconnect(null);
     setDisconnectingId(accountIdToRemove);
@@ -74,9 +74,9 @@ export default function AccountsPage() {
       const data = Array.isArray(res.data) ? res.data : [];
       setCachedAccounts(data);
       appData?.clearAccountData(accountIdToRemove);
-      setSelectedAccountId(null);
-      setSelectedPlatformForConnect(platformJustDisconnected);
-      router.replace('/dashboard', { scroll: false });
+      if (disconnectedAccountWasSelected) {
+        setSelectedAccountId(null);
+      }
     } catch (e) {
       const err = e as { response?: { data?: { message?: string }; status?: number } };
       const msg = err?.response?.data?.message ?? (err?.response?.status === 401 ? 'Session expired. Sign out and sign back in, then try again.' : 'Could not disconnect. Try again.');
