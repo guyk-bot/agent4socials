@@ -137,7 +137,8 @@ export async function GET(
     demographics?: import('@/types/analytics').Demographics;
     trafficSources?: import('@/types/analytics').TrafficSourceItem[];
     growthTimeSeries?: import('@/types/analytics').GrowthDataPoint[];
-    extra?: Record<string, number | number[] | Array<{ date: string; value: number }>>;
+    /** Platform-specific metrics; values may be numbers, series, or structured objects (e.g. Reddit recent posts). */
+    extra?: Record<string, unknown>;
     raw?: Record<string, unknown>;
     /** When true, followersTimeSeries is from our DB (snapshots or bootstrap). */
     metricHistoryFromSnapshots?: boolean;
