@@ -66,7 +66,17 @@ export async function GET(
   const { id } = await params;
   const account = await prisma.socialAccount.findFirst({
     where: { id, userId },
-    select: { id: true, platform: true, platformUserId: true, accessToken: true, refreshToken: true, expiresAt: true, credentialsJson: true, firstConnectedAt: true },
+    select: {
+      id: true,
+      platform: true,
+      platformUserId: true,
+      accessToken: true,
+      refreshToken: true,
+      expiresAt: true,
+      credentialsJson: true,
+      firstConnectedAt: true,
+      username: true,
+    },
   });
   if (!account) {
     return NextResponse.json({ message: 'Account not found' }, { status: 404 });
@@ -931,6 +941,86 @@ export async function GET(
       }
 
       return NextResponse.json(out);
+    }
+
+    if (account.platform === 'REDDIT') {
+      const { getValidRedditToken } = await import('@/lib/reddit-token');
+      const { redditAuthHeaders } = await import('@/lib/reddit-api');
+      const token = await getValidRedditToken({
+        id: account.id,
+        accessToken: account.accessToken,
+        refreshToken: account.refreshToken,
+        expiresAt: account.expiresAt,
+      });
+      try {
+        const meRes = await axios.get<{
+          comment_karma?: number;
+          link_karma?: number;
+          total_karma?: number;
+          name?: string;
+        }>('https://oauth.reddit.com/api/v1/me', {
+          headers: redditAuthHeaders(token),
+          timeout: 12_000,
+        });
+        const tk = meRes.data?.total_karma;
+        const lk = meRes.data?.link_karma ?? 0;
+        const ck = meRes.data?.comment_karma ?? 0;
+        const name = (meRes.data?.name ?? '').replace(/^u\//, '');
+        if (typeof tk === 'number') out.followers = tk;
+        out.extra = {
+          ...(out.extra ?? {}),
+          linkKarma: lk,
+          commentKarma: ck,
+          totalKarma: typeof tk === 'number' ? tk : lk + ck,
+        };
+        if (name) {
+          const subRes = await axios.get<{
+            data?: {
+              children?: Array<{
+                data?: { score?: number; num_comments?: number; title?: string; created_utc?: number; permalink?: string };
+              }>;
+            };
+          }>(`https://oauth.reddit.com/user/${encodeURIComponent(name)}/submitted`, {
+            params: { limit: 25, sort: 'new', raw_json: 1 },
+            headers: redditAuthHeaders(token),
+            timeout: 15_000,
+          });
+          const children = subRes.data?.data?.children ?? [];
+          let engagement = 0;
+          const byDate: Record<string, number> = {};
+          for (const ch of children) {
+            const d = ch.data;
+            if (!d) continue;
+            const s = (d.score ?? 0) + (d.num_comments ?? 0);
+            engagement += s;
+            if (d.created_utc) {
+              const day = new Date(d.created_utc * 1000).toISOString().slice(0, 10);
+              byDate[day] = (byDate[day] ?? 0) + s;
+            }
+          }
+          out.impressionsTotal = engagement;
+          out.impressionsTimeSeries = Object.entries(byDate)
+            .map(([date, value]) => ({ date, value }))
+            .sort((a, b) => a.date.localeCompare(b.date));
+          out.extra = {
+            ...(out.extra ?? {}),
+            recentRedditPosts: children.slice(0, 10).map((ch) => ({
+              title: ch.data?.title ?? '',
+              score: ch.data?.score ?? 0,
+              num_comments: ch.data?.num_comments ?? 0,
+              permalink: ch.data?.permalink ? `https://www.reddit.com${ch.data.permalink}` : null,
+            })),
+          };
+        }
+        out.insightsHint =
+          'Follower count shows total karma. Chart uses recent post engagement (score plus comments on up to 25 newest posts). Reddit does not expose impression-style metrics like Instagram.';
+        return NextResponse.json(out);
+      } catch (e) {
+        console.warn('[Insights] Reddit:', (e as Error)?.message ?? e);
+        out.insightsHint =
+          'Could not load Reddit analytics. Reconnect Reddit from the sidebar. Set REDDIT_USER_AGENT in Vercel (see docs/REDDIT_SETUP.md).';
+        return NextResponse.json(out);
+      }
     }
   } catch (e) {
     console.error('[Insights] error:', e);

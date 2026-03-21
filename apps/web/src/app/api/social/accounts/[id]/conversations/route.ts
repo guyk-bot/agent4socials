@@ -48,14 +48,31 @@ export async function GET(
   const includeMessageCounts = searchParams.get('includeMessageCounts') === '1' || searchParams.get('includeMessageCounts') === 'true';
   const account = await prisma.socialAccount.findFirst({
     where: { id, userId },
-    select: { id: true, platform: true, platformUserId: true, username: true, accessToken: true, refreshToken: true, credentialsJson: true },
+    select: {
+      id: true,
+      platform: true,
+      platformUserId: true,
+      username: true,
+      accessToken: true,
+      refreshToken: true,
+      expiresAt: true,
+      credentialsJson: true,
+    },
   });
   if (!account) {
     return NextResponse.json({ message: 'Account not found' }, { status: 404 });
   }
 
-  if (account.platform !== 'INSTAGRAM' && account.platform !== 'FACEBOOK' && account.platform !== 'TWITTER') {
-    return NextResponse.json({ conversations: [], hint: 'Conversations are only available for Instagram, Facebook, and X (Twitter).' });
+  if (
+    account.platform !== 'INSTAGRAM' &&
+    account.platform !== 'FACEBOOK' &&
+    account.platform !== 'TWITTER' &&
+    account.platform !== 'REDDIT'
+  ) {
+    return NextResponse.json({
+      conversations: [],
+      hint: 'Conversations are only available for Instagram, Facebook, X (Twitter), and Reddit (private messages).',
+    });
   }
 
   const token = (account.accessToken || '').trim();
@@ -64,6 +81,72 @@ export async function GET(
       conversations: [],
       error: 'No access token. Reconnect this account from the sidebar (Reconnect Facebook & Instagram) and choose your Page.',
     }, { status: 200 });
+  }
+
+  // --- Reddit private messages (legacy inbox): t4 items only ---
+  if (account.platform === 'REDDIT') {
+    try {
+      const { getValidRedditToken } = await import('@/lib/reddit-token');
+      const { redditAuthHeaders } = await import('@/lib/reddit-api');
+      const rt = await getValidRedditToken({
+        id: account.id,
+        accessToken: account.accessToken,
+        refreshToken: account.refreshToken ?? null,
+        expiresAt: account.expiresAt ?? null,
+      });
+      const inboxRes = await axios.get<{
+        data?: {
+          children?: Array<{
+            kind?: string;
+            data?: {
+              name?: string;
+              author?: string;
+              body?: string;
+              subject?: string;
+              created_utc?: number;
+              new?: boolean;
+            };
+          }>;
+        };
+      }>('https://oauth.reddit.com/message/inbox', {
+        params: { limit: 50, raw_json: 1 },
+        headers: redditAuthHeaders(rt),
+        timeout: 15_000,
+        validateStatus: () => true,
+      });
+      if (inboxRes.status !== 200) {
+        return NextResponse.json({
+          conversations: [],
+          error:
+            inboxRes.status === 403
+              ? 'Reddit denied inbox access. Reconnect Reddit and approve privatemessages scope (see docs/REDDIT_SETUP.md).'
+              : `Reddit inbox error (${inboxRes.status}).`,
+        });
+      }
+      const children = inboxRes.data?.data?.children ?? [];
+      const conversations = children
+        .filter((c) => c.kind === 't4' && c.data?.name)
+        .map((c) => {
+          const d = c.data!;
+          const author = d.author ?? 'unknown';
+          const t = d.created_utc ? new Date(d.created_utc * 1000).toISOString() : null;
+          const preview = (d.subject || d.body || '').trim().slice(0, 80);
+          return {
+            id: d.name!,
+            updatedTime: t,
+            senders: [{ id: author, name: author, username: author, pictureUrl: null as string | null }],
+            messageCount: 1,
+            lastMessagePreview: preview,
+          };
+        });
+      return NextResponse.json({ conversations, hint: undefined });
+    } catch (e) {
+      console.warn('[Conversations] Reddit:', (e as Error)?.message ?? e);
+      return NextResponse.json({
+        conversations: [],
+        error: 'Could not load Reddit messages. Reconnect Reddit or check REDDIT_USER_AGENT in Vercel.',
+      });
+    }
   }
 
   // --- Twitter (X) DMs: GET /2/dm_events only. No test message is ever sent. ---

@@ -53,7 +53,17 @@ export async function POST(
       media: true,
       targets: {
         include: {
-          socialAccount: { select: { id: true, platform: true, platformUserId: true, accessToken: true, refreshToken: true, credentialsJson: true } },
+          socialAccount: {
+            select: {
+              id: true,
+              platform: true,
+              platformUserId: true,
+              accessToken: true,
+              refreshToken: true,
+              expiresAt: true,
+              credentialsJson: true,
+            },
+          },
         },
       },
     },
@@ -125,8 +135,21 @@ export async function POST(
   for (const target of post.targets) {
     const { platform, socialAccount } = target;
     let token = socialAccount.accessToken;
+    if (platform === 'REDDIT') {
+      const { getValidRedditToken } = await import('@/lib/reddit-token');
+      token = await getValidRedditToken({
+        id: socialAccount.id,
+        accessToken: socialAccount.accessToken,
+        refreshToken: socialAccount.refreshToken,
+        expiresAt: socialAccount.expiresAt,
+      });
+    }
     const platformUserId = socialAccount.platformUserId;
     const caption = (contentByPlatform?.[platform] ?? post.content ?? '').trim();
+    const targetOptions =
+      target && typeof (target as { options?: unknown }).options === 'object' && (target as { options?: unknown }).options !== null
+        ? ((target as { options?: Record<string, unknown> }).options as Record<string, unknown>)
+        : null;
     const platformMedia = mediaByPlatform?.[platform];
     const targetMedia = (platformMedia && platformMedia.length > 0 ? platformMedia : defaultMedia) as { fileUrl: string; type: string; thumbnailUrl?: string }[];
     const allImages = targetMedia.filter((m) => m.type === 'IMAGE');
@@ -215,6 +238,8 @@ export async function POST(
         token,
         platformUserId,
         caption,
+        postTitle: post.title,
+        targetOptions,
         firstImageUrl,
         firstMediaUrl,
         imageUrls,
@@ -238,7 +263,19 @@ export async function POST(
         });
         token = newAccess;
         result = await publishTarget(
-          { platform, token, platformUserId, caption, firstImageUrl, firstMediaUrl, imageUrls, videoThumbnailUrl, twitterOAuth1 },
+          {
+            platform,
+            token,
+            platformUserId,
+            caption,
+            postTitle: post.title,
+            targetOptions,
+            firstImageUrl,
+            firstMediaUrl,
+            imageUrls,
+            videoThumbnailUrl,
+            twitterOAuth1,
+          },
           { fetch, axios }
         );
       } catch (refreshErr) {
@@ -262,7 +299,19 @@ export async function POST(
       for (let attempt = 0; attempt < 2 && isTwitterNetworkError(result); attempt++) {
         await new Promise((r) => setTimeout(r, 2000));
         result = await publishTarget(
-          { platform, token, platformUserId, caption, firstImageUrl, firstMediaUrl, imageUrls, videoThumbnailUrl, twitterOAuth1 },
+          {
+            platform,
+            token,
+            platformUserId,
+            caption,
+            postTitle: post.title,
+            targetOptions,
+            firstImageUrl,
+            firstMediaUrl,
+            imageUrls,
+            videoThumbnailUrl,
+            twitterOAuth1,
+          },
           { fetch, axios }
         );
       }

@@ -32,16 +32,104 @@ export async function GET(
   const { id, conversationId } = await params;
   const account = await prisma.socialAccount.findFirst({
     where: { id, userId },
-    select: { id: true, platform: true, platformUserId: true, accessToken: true, credentialsJson: true },
+    select: {
+      id: true,
+      platform: true,
+      platformUserId: true,
+      accessToken: true,
+      refreshToken: true,
+      expiresAt: true,
+      credentialsJson: true,
+    },
   });
   if (!account) {
     return NextResponse.json({ message: 'Account not found' }, { status: 404 });
   }
-  if (account.platform !== 'INSTAGRAM' && account.platform !== 'FACEBOOK' && account.platform !== 'TWITTER') {
-    return NextResponse.json({ messages: [], error: 'Conversations are only available for Instagram, Facebook, and X (Twitter).' });
+  if (
+    account.platform !== 'INSTAGRAM' &&
+    account.platform !== 'FACEBOOK' &&
+    account.platform !== 'TWITTER' &&
+    account.platform !== 'REDDIT'
+  ) {
+    return NextResponse.json({
+      messages: [],
+      error: 'Conversations are only available for Instagram, Facebook, X (Twitter), and Reddit.',
+    });
   }
   if (!conversationId) {
     return NextResponse.json({ messages: [], error: 'conversationId required' }, { status: 400 });
+  }
+
+  if (account.platform === 'REDDIT') {
+    try {
+      const { getValidRedditToken } = await import('@/lib/reddit-token');
+      const { redditAuthHeaders } = await import('@/lib/reddit-api');
+      const rt = await getValidRedditToken({
+        id: account.id,
+        accessToken: account.accessToken,
+        refreshToken: account.refreshToken ?? null,
+        expiresAt: account.expiresAt ?? null,
+      });
+      const meRes = await axios.get<{ name?: string }>('https://oauth.reddit.com/api/v1/me', {
+        headers: redditAuthHeaders(rt),
+        timeout: 10_000,
+      });
+      const myName = (meRes.data?.name ?? '').replace(/^u\//, '').toLowerCase();
+      const infoRes = await axios.get<{
+        data?: {
+          children?: Array<{
+            data?: {
+              name?: string;
+              author?: string;
+              body?: string;
+              subject?: string;
+              created_utc?: number;
+              dest?: string;
+            };
+          }>;
+        };
+      }>('https://oauth.reddit.com/api/info', {
+        params: { id: conversationId, raw_json: 1 },
+        headers: redditAuthHeaders(rt),
+        timeout: 12_000,
+      });
+      const d = infoRes.data?.data?.children?.[0]?.data;
+      if (!d) {
+        return NextResponse.json({ messages: [], recipientId: null, error: 'Message not found.' });
+      }
+      const author = (d.author ?? '').replace(/^u\//, '');
+      const destRaw = d.dest != null ? String(d.dest) : '';
+      const dest = destRaw.replace(/^u\//, '');
+      const other =
+        author.toLowerCase() === myName && dest ? dest : author || dest || '';
+      const created = d.created_utc ? new Date(d.created_utc * 1000).toISOString() : null;
+      const lines: string[] = [];
+      if (d.subject) lines.push(`Subject: ${d.subject}`);
+      if (d.body) lines.push(d.body);
+      const messageText = lines.join('\n\n').trim() || '(no body)';
+      const isFromPage = author.toLowerCase() === myName;
+      return NextResponse.json({
+        messages: [
+          {
+            id: d.name ?? conversationId,
+            fromId: author,
+            fromName: author,
+            message: messageText,
+            createdTime: created,
+            isFromPage,
+          },
+        ],
+        recipientId: other,
+        recipientName: other,
+      });
+    } catch (e) {
+      console.warn('[Conversation messages] Reddit GET:', (e as Error)?.message ?? e);
+      return NextResponse.json({
+        messages: [],
+        recipientId: null,
+        error: 'Could not load Reddit message.',
+      });
+    }
   }
 
   // --- Twitter (X) DMs: GET only. We fetch via /2/dm_conversations/:id/dm_events (and fallback /2/dm_conversations/with/:participant_id/dm_events). No test message is sent. ---
@@ -467,13 +555,28 @@ export async function POST(
   const { id, conversationId } = await params;
   const account = await prisma.socialAccount.findFirst({
     where: { id, userId },
-    select: { id: true, platform: true, platformUserId: true, accessToken: true, credentialsJson: true },
+    select: {
+      id: true,
+      platform: true,
+      platformUserId: true,
+      accessToken: true,
+      refreshToken: true,
+      expiresAt: true,
+      credentialsJson: true,
+    },
   });
   if (!account) {
     return NextResponse.json({ message: 'Account not found' }, { status: 404 });
   }
-  if (account.platform !== 'INSTAGRAM' && account.platform !== 'FACEBOOK' && account.platform !== 'TWITTER') {
-    return NextResponse.json({ message: 'Sending is only available for Instagram, Facebook, and X (Twitter).' }, { status: 400 });
+  if (
+    account.platform !== 'INSTAGRAM' &&
+    account.platform !== 'FACEBOOK' &&
+    account.platform !== 'TWITTER' &&
+    account.platform !== 'REDDIT'
+  ) {
+    return NextResponse.json({
+      message: 'Sending is only available for Instagram, Facebook, X (Twitter), and Reddit.',
+    }, { status: 400 });
   }
   if (!conversationId) {
     return NextResponse.json({ message: 'conversationId required' }, { status: 400 });
@@ -517,6 +620,53 @@ export async function POST(
   if (resolvedPageId) ourIds.add(resolvedPageId);
 
   let recipientId = typeof body.recipientId === 'string' ? body.recipientId.trim() : null;
+
+  if (account.platform === 'REDDIT') {
+    const rid = typeof body.recipientId === 'string' ? body.recipientId.trim().replace(/^u\//, '') : '';
+    if (!rid) {
+      return NextResponse.json(
+        { message: 'Open the conversation first so we know who to message (recipientId missing).' },
+        { status: 400 }
+      );
+    }
+    try {
+      const { getValidRedditToken } = await import('@/lib/reddit-token');
+      const { redditAuthHeaders } = await import('@/lib/reddit-api');
+      const rt = await getValidRedditToken({
+        id: account.id,
+        accessToken: account.accessToken,
+        refreshToken: account.refreshToken ?? null,
+        expiresAt: account.expiresAt ?? null,
+      });
+      const form = new URLSearchParams({
+        api_type: 'json',
+        to: rid,
+        subject: 'Message',
+        text: text.slice(0, 10_000),
+      });
+      const cr = await axios.post<{ json?: { errors?: unknown[] } }>(
+        'https://oauth.reddit.com/api/compose',
+        form.toString(),
+        {
+          headers: {
+            ...redditAuthHeaders(rt),
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          timeout: 20_000,
+          validateStatus: () => true,
+        }
+      );
+      const errs = cr.data?.json?.errors;
+      if (cr.status >= 400 || (Array.isArray(errs) && errs.length > 0)) {
+        const msg = typeof errs?.[0] === 'string' ? errs[0] : JSON.stringify(errs ?? cr.data).slice(0, 300);
+        return NextResponse.json({ message: `Reddit: ${msg}` }, { status: 400 });
+      }
+      return NextResponse.json({ ok: true, message: 'Message sent.' });
+    } catch (e) {
+      const msg = (e as Error)?.message ?? 'Failed to send Reddit message.';
+      return NextResponse.json({ message: msg }, { status: 500 });
+    }
+  }
 
   // X (Twitter): recipientId is required (the other participant's user id). Use OAuth 1.0a when set (same as read).
   if (account.platform === 'TWITTER') {

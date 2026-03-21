@@ -177,6 +177,7 @@ model PostTarget {
   status          PostStatus   @default(SCHEDULED)
   platformPostId  String?
   error           String?
+  options         Json? // e.g. { redditSubreddit: "opensource" }
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
   commentReplies  CommentAutomationReply[]

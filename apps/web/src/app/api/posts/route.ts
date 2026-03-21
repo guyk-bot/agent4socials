@@ -35,12 +35,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
   let body: {
-    title?: string;
+    title?: string | null;
     content?: string;
     contentByPlatform?: Record<string, string>;
     media?: { fileUrl: string; type: 'IMAGE' | 'VIDEO'; thumbnailUrl?: string; useVideoDefaultForPublish?: boolean }[];
     mediaByPlatform?: Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[]>;
-    targets?: { platform: string; socialAccountId: string }[];
+    targets?: { platform: string; socialAccountId: string; options?: Record<string, unknown> }[];
     scheduledAt?: string | null;
     scheduleDelivery?: 'auto' | 'email_links' | null;
     commentAutomation?: { keywords: string[]; replyTemplate?: string; replyTemplateByPlatform?: Record<string, string>; replyOnComment?: boolean; usePrivateReply?: boolean } | null;
@@ -50,9 +50,19 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ message: 'Invalid JSON' }, { status: 400 });
   }
-  const { title, content, contentByPlatform, media = [], mediaByPlatform, targets = [], scheduledAt, scheduleDelivery, commentAutomation } = body;
+  const {
+    title,
+    content,
+    contentByPlatform,
+    media = [],
+    mediaByPlatform,
+    targets = [],
+    scheduledAt,
+    scheduleDelivery,
+    commentAutomation,
+  } = body;
   const validTargets = (targets || []).filter(
-    (t): t is { platform: string; socialAccountId: string } =>
+    (t): t is { platform: string; socialAccountId: string; options?: Record<string, unknown> } =>
       Boolean(t?.platform && t?.socialAccountId)
   );
   if (!validTargets.length) {
@@ -87,7 +97,7 @@ export async function POST(request: NextRequest) {
   const post = await prisma.post.create({
     data: {
       userId,
-      title: title ?? null,
+      ...(title !== undefined && title !== null && String(title).trim() ? { title: String(title).trim().slice(0, 300) } : {}),
       content: content ?? null,
       ...(contentByPlatform && Object.keys(contentByPlatform).length > 0 ? { contentByPlatform } : {}),
       ...(mediaByPlatform && Object.keys(mediaByPlatform).length > 0 ? { mediaByPlatform } : {}),
@@ -119,6 +129,7 @@ export async function POST(request: NextRequest) {
           platform: t.platform as Platform,
           socialAccountId: t.socialAccountId,
           status,
+          ...(t.options && Object.keys(t.options).length > 0 ? { options: t.options as object } : {}),
         })),
       },
     },

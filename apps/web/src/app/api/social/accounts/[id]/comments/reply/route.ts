@@ -3,6 +3,8 @@ import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import axios from 'axios';
 import { getValidYoutubeToken } from '@/lib/youtube-token';
+import { getValidRedditToken } from '@/lib/reddit-token';
+import { redditAuthHeaders } from '@/lib/reddit-api';
 
 /**
  * POST /api/social/accounts/[id]/comments/reply
@@ -31,15 +33,31 @@ export async function POST(
 
   const account = await prisma.socialAccount.findFirst({
     where: { id, userId },
-    select: { id: true, platform: true, platformUserId: true, accessToken: true, credentialsJson: true, refreshToken: true, expiresAt: true },
+    select: {
+      id: true,
+      platform: true,
+      platformUserId: true,
+      accessToken: true,
+      credentialsJson: true,
+      refreshToken: true,
+      expiresAt: true,
+    },
   });
   if (!account) {
     return NextResponse.json({ message: 'Account not found' }, { status: 404 });
   }
 
   const platform = account.platform;
-  if (platform !== 'INSTAGRAM' && platform !== 'FACEBOOK' && platform !== 'YOUTUBE' && platform !== 'TWITTER') {
-    return NextResponse.json({ message: 'Comment replies are only supported for Instagram, Facebook, YouTube, and X (Twitter).' }, { status: 400 });
+  if (
+    platform !== 'INSTAGRAM' &&
+    platform !== 'FACEBOOK' &&
+    platform !== 'YOUTUBE' &&
+    platform !== 'TWITTER' &&
+    platform !== 'REDDIT'
+  ) {
+    return NextResponse.json({
+      message: 'Comment replies are only supported for Instagram, Facebook, YouTube, X (Twitter), and Reddit.',
+    }, { status: 400 });
   }
 
   const credJson = (account.credentialsJson && typeof account.credentialsJson === 'object'
@@ -50,6 +68,38 @@ export async function POST(
   const accessToken = account.accessToken ?? '';
 
   try {
+    if (platform === 'REDDIT') {
+      const token = await getValidRedditToken({
+        id: account.id,
+        accessToken: account.accessToken ?? '',
+        refreshToken: account.refreshToken ?? null,
+        expiresAt: account.expiresAt ?? null,
+      });
+      const form = new URLSearchParams({
+        api_type: 'json',
+        thing_id: commentId,
+        text: message.trim(),
+      });
+      const rr = await axios.post<{ json?: { errors?: unknown[] } }>(
+        'https://oauth.reddit.com/api/comment',
+        form.toString(),
+        {
+          headers: {
+            ...redditAuthHeaders(token),
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          timeout: 20_000,
+          validateStatus: () => true,
+        }
+      );
+      const errs = rr.data?.json?.errors;
+      if (rr.status >= 400 || (Array.isArray(errs) && errs.length > 0)) {
+        const msg = typeof errs?.[0] === 'string' ? errs[0] : JSON.stringify(errs ?? rr.data).slice(0, 300);
+        return NextResponse.json({ message: `Reddit: ${msg}` }, { status: 400 });
+      }
+      return NextResponse.json({ ok: true });
+    }
+
     if (platform === 'TWITTER') {
       await axios.post<{ data?: { id?: string } }>(
         'https://api.twitter.com/2/tweets',

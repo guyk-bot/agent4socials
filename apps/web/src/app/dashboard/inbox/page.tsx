@@ -459,7 +459,13 @@ function InboxPage() {
 
   const currentAccountForMessages = selectedPlatform ? effectiveAccounts.find((a) => a.platform === selectedPlatform) : null;
   useEffect(() => {
-    if (!selectedConversationId || !currentAccountForMessages || (selectedPlatform !== 'INSTAGRAM' && selectedPlatform !== 'FACEBOOK')) {
+    if (
+      !selectedConversationId ||
+      !currentAccountForMessages ||
+      (selectedPlatform !== 'INSTAGRAM' &&
+        selectedPlatform !== 'FACEBOOK' &&
+        selectedPlatform !== 'REDDIT')
+    ) {
       setConversationMessages([]);
       setConversationRecipientId(null);
       setConversationMessagesError(null);
@@ -562,8 +568,10 @@ function InboxPage() {
       .catch(() => setNotifications({ comments: 0, messages: 0 }));
   }, [selectedPlatform, inboxMode, appData]);
 
-  // Messages tab: only Instagram and Facebook (no X/Twitter DMs for now)
-  const dmOrFbPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK');
+  // Messages tab: Instagram, Facebook, Reddit PMs (X uses a separate path when enabled)
+  const dmOrFbPlatforms = selectedPlatforms.filter(
+    (p) => p === 'INSTAGRAM' || p === 'FACEBOOK' || p === 'REDDIT'
+  );
   useEffect(() => {
     if (dmOrFbPlatforms.length === 0) {
       setConversations([]);
@@ -859,8 +867,16 @@ function InboxPage() {
   }, [inboxMode, commentsSupportedPlatforms.length]);
 
   // For engagement, always show all connected IG+FB accounts regardless of platform filter
-  const allEngagementAccounts = effectiveAccounts.filter((a) => a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK' || a.platform === 'YOUTUBE');
-  const engagementPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK' || p === 'YOUTUBE');
+  const allEngagementAccounts = effectiveAccounts.filter(
+    (a) =>
+      a.platform === 'INSTAGRAM' ||
+      a.platform === 'FACEBOOK' ||
+      a.platform === 'YOUTUBE' ||
+      a.platform === 'REDDIT'
+  );
+  const engagementPlatforms = selectedPlatforms.filter(
+    (p) => p === 'INSTAGRAM' || p === 'FACEBOOK' || p === 'YOUTUBE' || p === 'REDDIT'
+  );
   useEffect(() => {
     if (allEngagementAccounts.length === 0) {
       setEngagement([]);

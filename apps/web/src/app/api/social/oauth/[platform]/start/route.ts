@@ -83,7 +83,7 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
     }
     case 'REDDIT': {
       const redditRedirect = (process.env.REDDIT_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
-      const redditScope = 'identity read submit edit history';
+      const redditScope = 'identity read submit edit history privatemessages';
       return `https://www.reddit.com/api/v1/authorize?client_id=${encodeURIComponent(process.env.REDDIT_CLIENT_ID || '')}&response_type=code&state=${encodeURIComponent(state)}&redirect_uri=${encodeURIComponent(redditRedirect)}&duration=permanent&scope=${encodeURIComponent(redditScope)}`;
     }
     default:

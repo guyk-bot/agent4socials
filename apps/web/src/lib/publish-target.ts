@@ -11,6 +11,10 @@ export type PublishTargetOptions = {
   token: string;
   platformUserId: string;
   caption: string;
+  /** Post title from DB (used for Reddit thread title). */
+  postTitle?: string | null;
+  /** Target.options from PostTarget (e.g. redditSubreddit). */
+  targetOptions?: Record<string, unknown> | null;
   firstImageUrl?: string;
   firstMediaUrl?: string;
   /** For Instagram carousel: 2-10 image URLs (all must be JPEG for Meta). */
@@ -61,7 +65,19 @@ export async function publishTarget(
   options: PublishTargetOptions,
   deps: PublishDeps
 ): Promise<PublishTargetResult> {
-  const { platform, token, platformUserId, caption, firstImageUrl, firstMediaUrl, imageUrls, videoThumbnailUrl, twitterOAuth1 } = options;
+  const {
+    platform,
+    token,
+    platformUserId,
+    caption,
+    postTitle,
+    targetOptions,
+    firstImageUrl,
+    firstMediaUrl,
+    imageUrls,
+    videoThumbnailUrl,
+    twitterOAuth1,
+  } = options;
   const { fetch: fetchFn, axios: axiosInstance } = deps;
 
   /** Poll Instagram container until status_code is FINISHED or ERROR. Required before media_publish. */
@@ -92,7 +108,89 @@ export async function publishTarget(
 
   try {
     if (platform === 'REDDIT') {
-      return { ok: false, error: 'Reddit publishing is not yet supported. Connect Reddit for analytics; posting will be added in a future update.' };
+      const { redditAuthHeaders } = await import('@/lib/reddit-api');
+      const rawSub =
+        typeof targetOptions?.redditSubreddit === 'string'
+          ? targetOptions.redditSubreddit.trim()
+          : typeof targetOptions?.subreddit === 'string'
+            ? (targetOptions.subreddit as string).trim()
+            : '';
+      const sr = rawSub.replace(/^r\//i, '').toLowerCase();
+      if (!sr) {
+        return {
+          ok: false,
+          error: 'Reddit requires a subreddit. In the composer, set the subreddit name (without r/) for this post target.',
+        };
+      }
+      if (firstImageUrl || firstMediaUrl || (imageUrls && imageUrls.length > 0)) {
+        return {
+          ok: false,
+          error:
+            'Reddit text posts only in this version. Remove media for the Reddit target, or publish images from reddit.com. Image upload uses a separate Reddit API flow.',
+        };
+      }
+      const body = caption.trim();
+      if (!body) {
+        return { ok: false, error: 'Reddit post body cannot be empty.' };
+      }
+      const titleFromPost = (postTitle ?? '').trim();
+      let title: string;
+      let text: string;
+      if (titleFromPost) {
+        title = titleFromPost.slice(0, 300);
+        text = body;
+      } else {
+        const nl = body.indexOf('\n');
+        if (nl === -1) {
+          if (body.length <= 300) {
+            title = body;
+            text = '';
+          } else {
+            title = body.slice(0, 300);
+            text = body.slice(300).trim();
+          }
+        } else {
+          title = body.slice(0, nl).slice(0, 300) || 'Post';
+          text = body.slice(nl + 1).trim();
+        }
+      }
+      if (!title) title = 'Post';
+      const form = new URLSearchParams({
+        api_type: 'json',
+        kind: 'self',
+        sr,
+        title,
+        text: text.trim() || ' ',
+      });
+      const submitRes = await axiosInstance.post<{ json?: { data?: { url?: string; id?: string }; errors?: unknown[] } }>(
+        'https://oauth.reddit.com/api/submit',
+        form.toString(),
+        {
+          headers: {
+            ...redditAuthHeaders(token),
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          timeout: 30_000,
+          validateStatus: () => true,
+        }
+      );
+      const j = submitRes.data?.json;
+      const errs = j?.errors;
+      if (submitRes.status >= 400 || (Array.isArray(errs) && errs.length > 0)) {
+        const msg =
+          typeof errs?.[0] === 'string'
+            ? errs[0]
+            : JSON.stringify(errs ?? submitRes.data).slice(0, 400);
+        return { ok: false, error: `Reddit: ${msg}` };
+      }
+      const data = j?.data;
+      const platformPostId =
+        typeof data?.id === 'string'
+          ? data.id
+          : typeof data?.url === 'string'
+            ? data.url.split('/').filter(Boolean).pop() ?? data.url
+            : undefined;
+      return { ok: true, ...(platformPostId ? { platformPostId } : {}) };
     }
     if (platform === 'INSTAGRAM') {
       if (firstMediaUrl) {

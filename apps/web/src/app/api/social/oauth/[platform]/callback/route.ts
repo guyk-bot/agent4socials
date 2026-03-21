@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { Platform } from '@prisma/client';
 import axios from 'axios';
 import { ensureBootstrapSnapshotForToday } from '@/lib/analytics/metric-snapshots';
+import { getRedditUserAgent, redditAuthHeaders } from '@/lib/reddit-api';
 
 const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN', 'REDDIT'] as const;
 
@@ -483,6 +484,7 @@ async function exchangeCode(
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
             Authorization: `Basic ${basicAuth}`,
+            'User-Agent': getRedditUserAgent(),
           },
           validateStatus: () => true,
         }
@@ -501,7 +503,7 @@ async function exchangeCode(
       try {
         const meRes = await axios.get<{ id?: string; name?: string; icon_img?: string }>(
           'https://oauth.reddit.com/api/v1/me',
-          { headers: { Authorization: `Bearer ${accessToken}` } }
+          { headers: redditAuthHeaders(accessToken) }
         );
         if (meRes.data?.id) platformUserId = meRes.data.id;
         if (meRes.data?.name) username = meRes.data.name.startsWith('u/') ? meRes.data.name : `u/${meRes.data.name}`;

@@ -296,6 +296,8 @@ export default function ComposerPage() {
     const [scheduleDelivery, setScheduleDelivery] = useState<'auto' | 'email_links'>('auto');
     const [accounts, setAccounts] = useState<{ id: string; platform: string }[]>([]);
     const [accountsFetched, setAccountsFetched] = useState(false);
+    const [redditSubreddit, setRedditSubreddit] = useState('');
+    const [redditPostTitle, setRedditPostTitle] = useState('');
     const [loading, setLoading] = useState(false);
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [sectionOpen, setSectionOpen] = useState({ platforms: true, media: true, content: false, commentAutomation: false, hashtags: false, schedule: false });
@@ -528,7 +530,13 @@ export default function ComposerPage() {
                     contentByPlatform?: Record<string, string> | null;
                     media?: { fileUrl: string; type: string }[];
                     mediaByPlatform?: Record<string, { fileUrl: string; type: string }[]>;
-                    targets?: { platform?: string; status?: string; error?: string | null; socialAccount?: { id: string; platform?: string } }[];
+                    targets?: {
+                        platform?: string;
+                        status?: string;
+                        error?: string | null;
+                        options?: { redditSubreddit?: string } | null;
+                        socialAccount?: { id: string; platform?: string };
+                    }[];
                     scheduledAt?: string | null;
                     scheduleDelivery?: string | null;
                     commentAutomation?: { keywords?: string[]; replyTemplate?: string; replyTemplateByPlatform?: Record<string, string>; instagramPublicReply?: boolean; instagramPrivateReply?: boolean; instagramDmTemplate?: string } | null;
@@ -547,6 +555,10 @@ export default function ComposerPage() {
                 setEditPostAlreadyPosted(p.status === 'POSTED');
                 const plats = [...new Set((p.targets ?? []).map((t) => t.socialAccount?.platform ?? t.platform ?? '').filter(Boolean))];
                 setPlatforms(plats);
+                const redditT = (p.targets ?? []).find((t) => (t.socialAccount?.platform ?? t.platform) === 'REDDIT');
+                const rOpts = redditT?.options && typeof redditT.options === 'object' ? redditT.options : null;
+                if (rOpts?.redditSubreddit) setRedditSubreddit(String(rOpts.redditSubreddit));
+                if (typeof p.title === 'string' && p.title.trim()) setRedditPostTitle(p.title.trim());
                 const cp = p.contentByPlatform && typeof p.contentByPlatform === 'object' ? p.contentByPlatform : {};
                 const hasPerPlatform = Object.keys(cp).some((k) => (cp[k] ?? '').trim());
                 setDifferentContentPerPlatform(hasPerPlatform);
@@ -1064,12 +1076,36 @@ export default function ComposerPage() {
             setAlertMessage('Select at least one platform');
             return;
         }
+        const hasMedia =
+            mediaList.length > 0 ||
+            Object.values(mediaByPlatform).some((arr) => Array.isArray(arr) && arr.length > 0);
+        if (platforms.includes('REDDIT')) {
+            const sub = redditSubreddit.trim().replace(/^r\//i, '');
+            if (!sub) {
+                setAlertMessage('Enter a subreddit for Reddit (name only, e.g. opensource, without r/).');
+                setLoading(false);
+                return;
+            }
+            if (hasMedia) {
+                setAlertMessage('Reddit posts from this composer are text-only. Remove media or deselect Reddit for this post.');
+                setLoading(false);
+                return;
+            }
+        }
         const targets = platforms
             .map((p) => {
                 const acc = accounts.find((a: { platform: string }) => a.platform === p);
-                return acc?.id ? { platform: p, socialAccountId: acc.id } : null;
+                if (!acc?.id) return null;
+                if (p === 'REDDIT') {
+                    return {
+                        platform: p,
+                        socialAccountId: acc.id,
+                        options: { redditSubreddit: redditSubreddit.trim().replace(/^r\//i, '').toLowerCase() },
+                    };
+                }
+                return { platform: p, socialAccountId: acc.id };
             })
-            .filter(Boolean) as { platform: string; socialAccountId: string }[];
+            .filter(Boolean) as { platform: string; socialAccountId: string; options?: { redditSubreddit: string } }[];
         if (targets.length === 0) {
             setAlertMessage('Connect at least one account for the selected platforms (Accounts page).');
             return;
@@ -1115,11 +1151,12 @@ export default function ComposerPage() {
                 contentByPlatform?: Record<string, string>;
                 media: { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[];
                 mediaByPlatform?: Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[]>;
-                targets: { platform: string; socialAccountId: string }[];
+                targets: { platform: string; socialAccountId: string; options?: { redditSubreddit: string } }[];
                 scheduledAt?: string;
                 scheduleDelivery?: 'auto' | 'email_links';
                 commentAutomation?: { keywords: string[]; replyTemplate: string; replyOnComment?: boolean; usePrivateReply?: boolean; tagCommenter?: boolean } | null;
             } = {
+                ...(platforms.includes('REDDIT') && redditPostTitle.trim() ? { title: redditPostTitle.trim().slice(0, 300) } : {}),
                 content: contentFinal,
                 media: mediaList.map((m, i) => {
                     if (i === 0 && m.type === 'VIDEO') {
@@ -1925,6 +1962,33 @@ export default function ComposerPage() {
                                         </div>
                                     );
                                 })()}
+                                {platforms.includes('REDDIT') && (
+                                    <div className="mt-3 space-y-2 p-3 rounded-xl bg-orange-50/80 border border-orange-100">
+                                        <p className="text-sm font-medium text-orange-900">Reddit (text post)</p>
+                                        <p className="text-xs text-orange-800/90">Posts are self-text only. Title uses the field below, or the first line of your content if empty. Body is the rest of the content (or full content when title is set).</p>
+                                        <div>
+                                            <label className="block text-xs font-medium text-orange-900/90 mb-1">Subreddit (required)</label>
+                                            <input
+                                                type="text"
+                                                value={redditSubreddit}
+                                                onChange={(e) => setRedditSubreddit(e.target.value)}
+                                                placeholder="e.g. opensource or r/opensource"
+                                                className="w-full px-3 py-2 rounded-lg border border-orange-200 text-sm text-neutral-900 placeholder:text-neutral-400"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-orange-900/90 mb-1">Post title (optional)</label>
+                                            <input
+                                                type="text"
+                                                value={redditPostTitle}
+                                                onChange={(e) => setRedditPostTitle(e.target.value)}
+                                                placeholder="Shown as the Reddit thread title; max 300 characters"
+                                                maxLength={300}
+                                                className="w-full px-3 py-2 rounded-lg border border-orange-200 text-sm text-neutral-900 placeholder:text-neutral-400"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         ) : (
                             <div className="space-y-4">
