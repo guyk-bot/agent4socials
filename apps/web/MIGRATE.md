@@ -1,6 +1,6 @@
 # Database migrations (CommentAutomationReply and others)
 
-The app runs `prisma migrate deploy` on every Vercel build so the production database stays in sync.
+The app runs `prisma migrate deploy` on every Vercel build so the production database stays in sync. If `migrate deploy` fails, the **build fails** (migrations are not ignored), so missing enum values like `PINTEREST` cannot slip through silently.
 
 **If you see "The table 'public.LinkPage' does not exist"** (Smart Links save error), see **[Smart Links tables (LinkPage, LinkItem)](#smart-links-tables-linkpage-linkitem)** below to create the tables (manual SQL or run `npm run db:migrate` in `apps/web` with `DATABASE_URL` and `DATABASE_DIRECT_URL` set).
 

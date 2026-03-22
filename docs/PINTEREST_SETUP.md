@@ -30,6 +30,9 @@ This app uses the **Pinterest API v5** with OAuth 2.0. Users connect from the da
 
 ## Troubleshooting
 
+- **"Could not save account. Check database connection and schema"** (callback URL with `code=...`) **or Vercel log `22P02` / `invalid_text_representation`:** The production database is missing the `PINTEREST` value on the Postgres `Platform` enum. Fix it in one of these ways:
+  1. **Redeploy** after pulling the latest repo: the Vercel **build** runs `prisma migrate deploy` (it must **not** be skipped). Ensure **`DATABASE_DIRECT_URL`** is set in Vercel (direct Postgres, usually port **5432**) if you use Supabase’s pooler for `DATABASE_URL`, or migrations may fail during build. See `apps/web/MIGRATE.md`.
+  2. **Manual SQL (fastest):** In Supabase → SQL Editor, run `apps/web/scripts/ensure-pinterest-platform-enum.sql` (adds `PINTEREST` to the enum). Then try **Connect** again in the app.
 - **"Pinterest did not return an access token":** Check `PINTEREST_APP_SECRET`, redirect URI match, and that the app is not blocking the request.
 - **403 on analytics:** Normal if the app lacks analytics access; profile metrics may still work.
 - **"No Pinterest board on file":** User has no boards or `/boards` failed at connect; create a board on Pinterest and reconnect.
