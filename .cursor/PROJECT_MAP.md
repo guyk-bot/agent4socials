@@ -58,6 +58,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | Facebook capability map / implementation report | `docs/FACEBOOK_ANALYTICS_CAPABILITY_MAP.md`, `docs/FACEBOOK_ANALYTICS_IMPLEMENTATION_REPORT.md` |
 | Facebook live JSON audit (notifications invalid, insights comma-list, version mix) | `docs/FACEBOOK_JSON_AUDIT_REPORT.md` |
 | Facebook pipeline validation script (page insights DB, post insights, comments/reactions; needs `DATABASE_URL`) | `apps/web/scripts/facebook-pipeline-validation.ts`, `docs/FACEBOOK_PIPELINE_VALIDATION.md` (`npm run validate:facebook-pipeline` in `apps/web`) |
+| Facebook **storage evidence** (DB rows, optional `storageProof=1` upsert readback) | `GET .../facebook-storage-evidence`, `docs/FACEBOOK_STORAGE_EVIDENCE.md` |
 | Facebook Page/profile + conversations + reviews DB cache (sync with posts) | `apps/web/src/lib/facebook/sync-extras.ts`, Prisma `FacebookPageCache`, `FacebookConversationCache`, `FacebookReviewCache` |
 | Analytics types & fetchers | `apps/web/src/types/analytics.ts`, `apps/web/src/lib/analytics/extended-fetchers.ts` |
 | **Follower/following history (IG & FB only)** | `apps/web/src/lib/analytics/metric-snapshots.ts` – snapshots, bootstrap, getAccountHistorySeries; insights route injects series; **YouTube excluded** |
