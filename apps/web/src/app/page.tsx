@@ -121,7 +121,7 @@ export default function Home() {
             {/* Headline: 48-72px, gradient accent */}
             <h1 className="text-[48px] font-bold tracking-[-0.02em] leading-[1.1] sm:text-5xl md:text-6xl lg:text-7xl">
               <span className="bg-[linear-gradient(135deg,#a78bfa,#8b5cf6,#df44dc)] bg-clip-text text-transparent">
-                7X Your Content Potential
+                2-7x Your Content Potential
               </span>
               <br />
               <span className="text-[#ffffff]">Without Paying For Ads</span>
