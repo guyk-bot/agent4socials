@@ -27,6 +27,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 |------|--------|
 | Inbox page, conversations, messages | `apps/web/src/app/dashboard/inbox/page.tsx` |
 | X DM debug API | `apps/web/src/app/api/social/accounts/[id]/x-dm-debug/route.ts` |
+| Facebook Graph raw JSON debug (read_insights, page, posts, etc.) | `apps/web/src/app/api/social/accounts/[id]/facebook-graph-debug/route.ts` |
 | Conversations list API | `apps/web/src/app/api/social/accounts/[id]/conversations/route.ts` |
 | Messages in conversation | `apps/web/src/app/api/social/accounts/[id]/conversations/[conversationId]/messages/route.ts` |
 | Comments / reply / delete | `apps/web/src/app/api/social/accounts/[id]/comments/route.ts`, `comments/reply/`, `comments/delete/` |
