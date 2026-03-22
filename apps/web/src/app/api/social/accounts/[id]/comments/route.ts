@@ -3,6 +3,7 @@ import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import { PostStatus } from '@prisma/client';
 import axios from 'axios';
+import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 import { getValidYoutubeToken } from '@/lib/youtube-token';
 
 /**
@@ -118,7 +119,7 @@ export async function GET(
       if (platform === 'INSTAGRAM') {
         const mediaUrl = isInstagramBizEarly
           ? 'https://graph.instagram.com/v25.0/me/media'
-          : `https://graph.facebook.com/v18.0/${account.platformUserId}/media`;
+          : `${facebookGraphBaseUrl}/${account.platformUserId}/media`;
         type InstagramMediaItem = { id: string; caption?: string; media_url?: string; thumbnail_url?: string };
         type InstagramMediaResponse = { data?: InstagramMediaItem[]; paging?: { next?: string } };
         const allMedia: InstagramMediaItem[] = [];
@@ -142,7 +143,7 @@ export async function GET(
         }));
       } else if (platform === 'FACEBOOK') {
         const fbRes = await axios.get<{ data?: Array<{ id: string; message?: string; story?: string }> }>(
-          `https://graph.facebook.com/v18.0/${account.platformUserId}/posts`,
+          `${facebookGraphBaseUrl}/${account.platformUserId}/posts`,
           { params: { fields: 'id,message,story', limit: 50, access_token: liveToken }, timeout: 15_000 }
         );
         liveSources = (fbRes.data?.data ?? []).map((m, i) => ({
@@ -257,7 +258,7 @@ export async function GET(
     try {
       const mediaUrl = isInstagramBusinessLogin
         ? 'https://graph.instagram.com/v25.0/me/media'
-        : `https://graph.facebook.com/v18.0/${account.platformUserId}/media`;
+        : `${facebookGraphBaseUrl}/${account.platformUserId}/media`;
       const mediaRes = await axios.get<{ data?: Array<{ id: string; media_url?: string; thumbnail_url?: string; permalink?: string }> }>(mediaUrl, {
         params: { fields: 'id,media_url,thumbnail_url,permalink', limit: 50, access_token: token },
         timeout: 15_000,
@@ -283,7 +284,7 @@ export async function GET(
     try {
       if (plat === 'FACEBOOK') {
         const r = await axios.get<{ full_picture?: string; picture?: string }>(
-          `https://graph.facebook.com/v18.0/${postId}`,
+          `${facebookGraphBaseUrl}/${postId}`,
           { params: { fields: 'full_picture,picture', access_token: accessToken } }
         );
         const url = r.data?.full_picture ?? r.data?.picture ?? null;
@@ -300,7 +301,7 @@ export async function GET(
         // Fallback to individual API calls
         try {
           const r = await axios.get<{ media_url?: string; thumbnail_url?: string }>(
-            `https://graph.facebook.com/v18.0/${postId}`,
+            `${facebookGraphBaseUrl}/${postId}`,
             { params: { fields: 'media_url,thumbnail_url', access_token: accessToken } }
           );
           const url = r.data?.media_url ?? r.data?.thumbnail_url ?? null;
@@ -442,7 +443,7 @@ export async function GET(
                 message?: string;
                 created_time?: string;
               }>;
-            }>(`https://graph.facebook.com/v18.0/${platformPostId}/comments`, {
+            }>(`${facebookGraphBaseUrl}/${platformPostId}/comments`, {
               params: { fields, access_token: token, limit: 50 },
               timeout: 15_000,
             });
@@ -478,7 +479,7 @@ export async function GET(
                     created_time?: string;
                     timestamp?: string;
                   }>;
-                }>(`https://graph.facebook.com/v18.0/${commentId}/${replyEndpoint}`, {
+                }>(`${facebookGraphBaseUrl}/${commentId}/${replyEndpoint}`, {
                   params: { fields: replyFields, access_token: token, limit: 25 },
                   timeout: 8_000,
                 });

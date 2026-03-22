@@ -4,7 +4,9 @@ import { prisma } from '@/lib/db';
 import axios from 'axios';
 import { signTwitterRequest } from '@/lib/twitter-oauth1';
 
-const fbBaseUrl = 'https://graph.facebook.com/v18.0';
+import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
+
+const fbBaseUrl = facebookGraphBaseUrl;
 const igBaseUrl = 'https://graph.instagram.com/v25.0';
 
 /**

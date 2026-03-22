@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import axios from 'axios';
+import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 import { getValidYoutubeToken } from '@/lib/youtube-token';
 
 /**
@@ -100,7 +101,7 @@ export async function POST(
       } else {
         // Instagram via Facebook Login: use replies endpoint on graph.facebook.com
         await axios.post(
-          `https://graph.facebook.com/v18.0/${commentId}/replies`,
+          `${facebookGraphBaseUrl}/${commentId}/replies`,
           null,
           { params: { message: message.trim(), access_token: accessToken }, timeout: 15_000 }
         );
@@ -108,7 +109,7 @@ export async function POST(
     } else {
       // Facebook page comment: reply as nested comment
       await axios.post(
-        `https://graph.facebook.com/v18.0/${commentId}/comments`,
+        `${facebookGraphBaseUrl}/${commentId}/comments`,
         null,
         { params: { message: message.trim(), access_token: accessToken }, timeout: 15_000 }
       );

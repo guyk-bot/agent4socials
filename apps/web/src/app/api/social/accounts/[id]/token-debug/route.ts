@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import axios from 'axios';
+import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 
 /**
  * GET /api/social/accounts/[id]/token-debug
@@ -42,7 +43,7 @@ export async function GET(
   const appToken = `${appId}|${appSecret}`;
   try {
     const res = await axios.get<{ data?: { is_valid?: boolean; scopes?: string[]; expires_at?: number; user_id?: string } }>(
-      'https://graph.facebook.com/v18.0/debug_token',
+      `${facebookGraphBaseUrl}/debug_token`,
       {
         params: {
           input_token: account.accessToken,

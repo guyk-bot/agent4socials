@@ -10,3 +10,4 @@ export * from './discovery';
 export * from './resilient-insights';
 export * from './fetchers';
 export * from './sync-run';
+export * from './sync-extras';

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import axios from 'axios';
+import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 
 /**
  * POST /api/social/accounts/[id]/comments/delete
@@ -57,7 +58,7 @@ export async function POST(
       );
     } else {
       await axios.delete(
-        `https://graph.facebook.com/v18.0/${commentId}`,
+        `${facebookGraphBaseUrl}/${commentId}`,
         { params: { access_token: accessToken }, timeout: 15_000 }
       );
     }

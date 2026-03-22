@@ -5,6 +5,9 @@
 
 import FormData from 'form-data';
 import { signTwitterRequest } from './twitter-oauth1';
+import { facebookGraphBaseUrl, META_GRAPH_FACEBOOK_API_VERSION } from '@/lib/meta-graph-insights';
+
+const graphVideoFacebook = `https://graph-video.facebook.com/${META_GRAPH_FACEBOOK_API_VERSION}`;
 
 export type PublishTargetOptions = {
   platform: string;
@@ -84,7 +87,7 @@ export async function publishTarget(
     while (Date.now() - start < maxWaitMs) {
       try {
         const statusRes = await axiosInstance.get(
-          `https://graph.facebook.com/v18.0/${containerId}`,
+          `${facebookGraphBaseUrl}/${containerId}`,
           { params: { fields: 'status_code,status', access_token: token } }
         );
         const data = statusRes.data as { status_code?: string; status?: string };
@@ -108,7 +111,7 @@ export async function publishTarget(
       if (firstMediaUrl) {
         // Reel: Resumable upload (more reliable than video_url; video_url often fails with 2207076)
         const containerRes = await axiosInstance.post(
-          `https://graph.facebook.com/v18.0/${platformUserId}/media`,
+          `${facebookGraphBaseUrl}/${platformUserId}/media`,
           null,
           {
             params: {
@@ -144,7 +147,7 @@ export async function publishTarget(
         const wait = await waitForInstagramContainer(creationId, token, 90_000);
         if (!wait.ok) throw new Error(wait.error ?? 'Reel container not ready');
         const publishRes = await axiosInstance.post(
-          `https://graph.facebook.com/v18.0/${platformUserId}/media_publish`,
+          `${facebookGraphBaseUrl}/${platformUserId}/media_publish`,
           null,
           { params: { creation_id: creationId, access_token: token } }
         );
@@ -159,7 +162,7 @@ export async function publishTarget(
         const childIds: string[] = [];
         for (const imageUrl of urls) {
           const itemRes = await axiosInstance.post(
-            `https://graph.facebook.com/v18.0/${platformUserId}/media`,
+            `${facebookGraphBaseUrl}/${platformUserId}/media`,
             null,
             { params: { image_url: imageUrl, is_carousel_item: 'true', access_token: token } }
           );
@@ -170,7 +173,7 @@ export async function publishTarget(
           childIds.push(id);
         }
         const carouselRes = await axiosInstance.post(
-          `https://graph.facebook.com/v18.0/${platformUserId}/media`,
+          `${facebookGraphBaseUrl}/${platformUserId}/media`,
           null,
           {
             params: {
@@ -186,7 +189,7 @@ export async function publishTarget(
         const wait = await waitForInstagramContainer(creationId, token, 60_000);
         if (!wait.ok) throw new Error(wait.error ?? 'Carousel not ready');
         const publishRes = await axiosInstance.post(
-          `https://graph.facebook.com/v18.0/${platformUserId}/media_publish`,
+          `${facebookGraphBaseUrl}/${platformUserId}/media_publish`,
           null,
           { params: { creation_id: creationId, access_token: token } }
         );
@@ -194,7 +197,7 @@ export async function publishTarget(
         return { ok: true, platformPostId: mediaId };
       }
       const containerRes = await axiosInstance.post(
-        `https://graph.facebook.com/v18.0/${platformUserId}/media`,
+        `${facebookGraphBaseUrl}/${platformUserId}/media`,
         null,
         {
           params: {
@@ -209,7 +212,7 @@ export async function publishTarget(
       const wait = await waitForInstagramContainer(creationId, token, 30_000);
       if (!wait.ok) throw new Error(wait.error ?? 'Image container not ready');
       const publishRes = await axiosInstance.post(
-        `https://graph.facebook.com/v18.0/${platformUserId}/media_publish`,
+        `${facebookGraphBaseUrl}/${platformUserId}/media_publish`,
         null,
         { params: { creation_id: creationId, access_token: token } }
       );
@@ -220,10 +223,9 @@ export async function publishTarget(
     if (platform === 'FACEBOOK') {
       let pageToken = token;
       try {
-        const pagesRes = await axiosInstance.get(
-          'https://graph.facebook.com/v18.0/me/accounts',
-          { params: { fields: 'id,access_token', access_token: token } }
-        );
+        const pagesRes = await axiosInstance.get(`${facebookGraphBaseUrl}/me/accounts`, {
+          params: { fields: 'id,access_token', access_token: token },
+        });
         const data = pagesRes.data as { data?: Array<{ id: string; access_token?: string }> } | undefined;
         const page = data?.data?.find((p) => p.id === platformUserId);
         if (page?.access_token) pageToken = page.access_token;
@@ -236,7 +238,7 @@ export async function publishTarget(
         };
         if (caption?.trim()) photoParams.caption = caption.trim();
         const photoRes = await axiosInstance.post(
-          `https://graph.facebook.com/v18.0/${platformUserId}/photos`,
+          `${facebookGraphBaseUrl}/${platformUserId}/photos`,
           null,
           { params: photoParams }
         );
@@ -253,7 +255,7 @@ export async function publishTarget(
           };
           if (caption?.trim()) videoParams.description = caption.trim();
           const videoRes = await axiosInstance.post(
-            `https://graph-video.facebook.com/v18.0/${platformUserId}/videos`,
+            `${graphVideoFacebook}/${platformUserId}/videos`,
             null,
             { params: videoParams, timeout: 120_000 }
           );
@@ -272,7 +274,7 @@ export async function publishTarget(
               form.append('access_token', pageToken);
               if (caption?.trim()) form.append('description', caption.trim());
               const formRes = await axiosInstance.post(
-                `https://graph-video.facebook.com/v18.0/${platformUserId}/videos`,
+                `${graphVideoFacebook}/${platformUserId}/videos`,
                 form,
                 {
                   headers: form.getHeaders(),
@@ -297,7 +299,7 @@ export async function publishTarget(
         access_token: pageToken,
       };
       const feedRes = await axiosInstance.post(
-        `https://graph.facebook.com/v18.0/${platformUserId}/feed`,
+        `${facebookGraphBaseUrl}/${platformUserId}/feed`,
         null,
         { params: feedParams }
       );

@@ -6,9 +6,12 @@ import axios, { type AxiosResponse } from 'axios';
 import { getValidYoutubeToken } from '@/lib/youtube-token';
 import {
   fetchAllPublishedPostsForPage,
+  fetchAllPostsFeedForPage,
   resolvePostInsightMetricsForSync,
   fetchPostLifetimeMetricTotals,
 } from '@/lib/facebook/fetchers';
+import { syncFacebookAuxiliaryIngest } from '@/lib/facebook/sync-extras';
+import { fbRestBaseUrl } from '@/lib/facebook/constants';
 
 /** GET: list imported posts for this account. ?sync=1 to sync from platform first then return. */
 export async function GET(
@@ -170,7 +173,7 @@ async function syncImportedPosts(
   platformUserId: string,
   accessToken: string
 ): Promise<string | undefined> {
-  const baseUrl = 'https://graph.facebook.com/v18.0';
+  const baseUrl = fbRestBaseUrl;
   if (platform === 'INSTAGRAM') {
     type MediaItem = {
       id: string;
@@ -317,6 +320,35 @@ async function syncImportedPosts(
     try {
       const fetched = await fetchAllPublishedPostsForPage(platformUserId, accessToken, maxPosts);
       items = fetched.items;
+      const publishedIds = new Set(items.map((i) => i.id));
+      try {
+        const feed = await fetchAllPostsFeedForPage(platformUserId, accessToken, maxPosts);
+        for (const f of feed.items) {
+          if (publishedIds.has(f.id)) continue;
+          publishedIds.add(f.id);
+          items.push({
+            id: f.id,
+            message: f.message,
+            created_time: f.created_time,
+            permalink_url: f.permalink_url,
+          });
+        }
+      } catch {
+        // feed backfill is best-effort
+      }
+
+      try {
+        const aux = await syncFacebookAuxiliaryIngest({
+          socialAccountId,
+          pageId: platformUserId,
+          accessToken,
+        });
+        if (aux.errors.length > 0) {
+          console.warn('[FB sync] auxiliary ingest:', aux.errors.join('; '));
+        }
+      } catch (e) {
+        console.warn('[FB sync] auxiliary ingest failed:', (e as Error)?.message ?? e);
+      }
     } catch (e) {
       const msg = (e as Error)?.message ?? '';
       const metaMsg = (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;

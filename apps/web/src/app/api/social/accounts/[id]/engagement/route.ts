@@ -3,6 +3,7 @@ import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import { PostStatus } from '@prisma/client';
 import axios from 'axios';
+import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 
 /**
  * GET /api/social/accounts/[id]/engagement
@@ -119,7 +120,7 @@ export async function GET(
           comments_count?: number;
           media_url?: string;
           permalink?: string;
-        }>(`https://graph.facebook.com/v18.0/${platformPostId}`, {
+        }>(`${facebookGraphBaseUrl}/${platformPostId}`, {
           params: {
             fields: 'like_count,comments_count,media_url,permalink',
             access_token: token,
@@ -143,7 +144,7 @@ export async function GET(
           message?: string;
           full_picture?: string;
           permalink_url?: string;
-        }>(`https://graph.facebook.com/v18.0/${platformPostId}`, {
+        }>(`${facebookGraphBaseUrl}/${platformPostId}`, {
           params: {
             fields: 'reactions.summary(1),comments.summary(1),message,full_picture,permalink_url',
             access_token: token,

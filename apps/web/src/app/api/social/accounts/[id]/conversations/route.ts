@@ -5,7 +5,9 @@ import axios, { AxiosResponse } from 'axios';
 import { signTwitterRequest } from '@/lib/twitter-oauth1';
 import { refreshTwitterToken } from '@/lib/twitter-refresh';
 
-const baseUrl = 'https://graph.facebook.com/v18.0';
+import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
+
+const baseUrl = facebookGraphBaseUrl;
 const igBaseUrl = 'https://graph.instagram.com/v25.0';
 
 type ConvParticipant = {
@@ -380,11 +382,11 @@ export async function GET(
 
   // Route to the correct API based on login method:
   // - Instagram Business Login → graph.instagram.com/v25.0/me/conversations (Instagram User token)
-  // - Facebook Login           → graph.facebook.com/v18.0/{PAGE_ID}/conversations (Page token)
+  // - Facebook Login           → graph.facebook.com/{version}/{PAGE_ID}/conversations (Page token)
   const conversationsPath = isInstagramBusinessLogin
     ? 'https://graph.instagram.com/v25.0/me/conversations'
     : isInstagram && linkedPageId
-      ? `https://graph.facebook.com/v18.0/${linkedPageId}/conversations`
+      ? `${baseUrl}/${linkedPageId}/conversations`
       : isInstagram
         ? 'https://graph.instagram.com/v25.0/me/conversations'
         : `${baseUrl}/${account.platformUserId}/conversations`;

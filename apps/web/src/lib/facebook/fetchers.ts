@@ -1,10 +1,11 @@
 import axios from 'axios';
 import type { AxiosResponse } from 'axios';
+import { createHash } from 'crypto';
 import { fbRestBaseUrl } from './constants';
 import { metaGraphInsightsBaseUrl } from '@/lib/meta-graph-insights';
 import { getOrDiscoverPostLifetimeMetrics } from './discovery';
 
-/** Page identity + counts for dashboards (Graph v18 object endpoint). */
+/** Page identity + counts for dashboards. */
 export async function fetchPageProfile(pageId: string, accessToken: string) {
   const res = await axios.get<{
     id?: string;
@@ -57,14 +58,20 @@ type PublishedPostsPage = { data?: FbPublishedPostRow[]; paging?: { next?: strin
 const PUBLISHED_FIELDS =
   'id,message,created_time,permalink_url,full_picture,status_type,reactions.summary(1),comments.summary(1),attachments{media_type,type,media{image{src}},subattachments{media_type,type}}';
 
+const POSTS_FEED_FIELDS = 'id,message,created_time,permalink_url';
+
+type PostsFeedRow = { id: string; message?: string; created_time?: string; permalink_url?: string };
+type PostsFeedPage = { data?: PostsFeedRow[]; paging?: { cursors?: { after?: string } } };
+
 /**
- * Paginate `published_posts` until cap. Uses Graph REST base (v18) for compatibility with existing tokens.
+ * One page of `published_posts`. Prefer advancing with `after` from `cursors`, not `paging.next`
+ * (Meta often returns `next` on a different Graph version than the app).
  */
 export async function fetchPublishedPostsPage(
   pageId: string,
   accessToken: string,
   options?: { after?: string; limit?: number }
-): Promise<{ items: FbPublishedPostRow[]; nextUrl: string | null; afterCursor: string | null }> {
+): Promise<{ items: FbPublishedPostRow[]; afterCursor: string | null; ok: boolean }> {
   const limit = options?.limit ?? 50;
   const params: Record<string, string | number> = {
     fields: PUBLISHED_FIELDS,
@@ -78,61 +85,118 @@ export async function fetchPublishedPostsPage(
     validateStatus: () => true,
   });
   if (res.status !== 200) {
-    return { items: [], nextUrl: null, afterCursor: null };
+    return { items: [], afterCursor: null, ok: false };
   }
   const data = res.data?.data ?? [];
   const paging = res.data?.paging;
   return {
     items: data,
-    nextUrl: paging?.next ?? null,
     afterCursor: paging?.cursors?.after ?? null,
+    ok: true,
   };
 }
 
-/** Follow `paging.next` or `after` cursor until cap or empty page. */
+/**
+ * Paginate `published_posts` using only our `fbRestBaseUrl` + `after` cursor (never follow `paging.next`).
+ */
 export async function fetchAllPublishedPostsForPage(
   pageId: string,
   accessToken: string,
   cap: number
-): Promise<{ items: FbPublishedPostRow[]; pageFetches: number }> {
+): Promise<{ items: FbPublishedPostRow[]; pageFetches: number; lastError?: string }> {
   const items: FbPublishedPostRow[] = [];
-  let nextUrl: string | null = null;
   let after: string | undefined;
   let pageFetches = 0;
+  const pageLimit = 50;
+  let lastError: string | undefined;
 
-  while (items.length < cap && pageFetches < 60) {
+  while (items.length < cap && pageFetches < 80) {
     pageFetches += 1;
-    let res: AxiosResponse<PublishedPostsPage>;
-    if (nextUrl) {
-      res = await axios.get<PublishedPostsPage>(nextUrl, { timeout: 25_000, validateStatus: () => true });
-    } else {
-      const params: Record<string, string | number> = {
-        fields: PUBLISHED_FIELDS,
-        access_token: accessToken,
-        limit: 50,
-      };
-      if (after) params.after = after;
-      res = await axios.get<PublishedPostsPage>(`${fbRestBaseUrl}/${pageId}/published_posts`, {
-        params,
-        timeout: 25_000,
-        validateStatus: () => true,
-      });
+    const { items: chunk, afterCursor, ok } = await fetchPublishedPostsPage(pageId, accessToken, {
+      after,
+      limit: pageLimit,
+    });
+    if (!ok) {
+      lastError = 'published_posts request failed';
+      break;
     }
-    if (res.status !== 200) break;
-    const chunk = res.data?.data ?? [];
-    const paging = res.data?.paging;
-    nextUrl = paging?.next ?? null;
-    after = paging?.cursors?.after ?? undefined;
     if (chunk.length === 0) break;
     for (const row of chunk) {
       if (items.length >= cap) break;
       items.push(row);
     }
     if (items.length >= cap) break;
-    if (!nextUrl && !after) break;
+    if (!afterCursor) break;
+    after = afterCursor;
   }
 
-  return { items, pageFetches };
+  return { items, pageFetches, lastError };
+}
+
+export async function fetchPostsFeedPage(
+  pageId: string,
+  accessToken: string,
+  options?: { after?: string; limit?: number }
+): Promise<{ items: PostsFeedRow[]; afterCursor: string | null; ok: boolean }> {
+  const limit = options?.limit ?? 50;
+  const params: Record<string, string | number> = {
+    fields: POSTS_FEED_FIELDS,
+    access_token: accessToken,
+    limit,
+  };
+  if (options?.after) params.after = options.after;
+  const res: AxiosResponse<PostsFeedPage> = await axios.get(`${fbRestBaseUrl}/${pageId}/posts`, {
+    params,
+    timeout: 20_000,
+    validateStatus: () => true,
+  });
+  if (res.status !== 200) {
+    return { items: [], afterCursor: null, ok: false };
+  }
+  const data = res.data?.data ?? [];
+  return {
+    items: data,
+    afterCursor: res.data?.paging?.cursors?.after ?? null,
+    ok: true,
+  };
+}
+
+/** Backfill `/posts` edge without following Meta's cross-version `paging.next`. */
+export async function fetchAllPostsFeedForPage(
+  pageId: string,
+  accessToken: string,
+  cap: number
+): Promise<{ items: PostsFeedRow[]; pageFetches: number; lastError?: string }> {
+  const items: PostsFeedRow[] = [];
+  let after: string | undefined;
+  let pageFetches = 0;
+  const pageLimit = 50;
+  let lastError: string | undefined;
+
+  while (items.length < cap && pageFetches < 80) {
+    pageFetches += 1;
+    const { items: chunk, afterCursor, ok } = await fetchPostsFeedPage(pageId, accessToken, { after, limit: pageLimit });
+    if (!ok) {
+      lastError = 'posts feed request failed';
+      break;
+    }
+    if (chunk.length === 0) break;
+    for (const row of chunk) {
+      if (items.length >= cap) break;
+      items.push(row);
+    }
+    if (items.length >= cap) break;
+    if (!afterCursor) break;
+    after = afterCursor;
+  }
+
+  return { items, pageFetches, lastError };
+}
+
+export function reviewContentHash(createdTimeIso: string | null, reviewText: string | null): string {
+  const t = createdTimeIso ?? '';
+  const x = reviewText ?? '';
+  return createHash('sha256').update(`${t}\0${x}`).digest('hex').slice(0, 48);
 }
 
 /** Pick primary “views” value for ImportedPost.impressions using probed-valid post metrics (order preserved). */

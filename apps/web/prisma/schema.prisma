@@ -66,8 +66,57 @@ model SocialAccount {
   metricSnapshots   AccountMetricSnapshot[]
   facebookMetricDiscoveries FacebookMetricDiscovery[]
   facebookSyncRuns          FacebookSyncRun[]
+  facebookPageCache         FacebookPageCache?
+  facebookConversationCaches FacebookConversationCache[]
+  facebookReviewCaches      FacebookReviewCache[]
 
   @@unique([userId, platform, platformUserId])
+}
+
+/// Latest Graph `/{page-id}` profile JSON for this connected Page (normalized “facebook_pages” store).
+model FacebookPageCache {
+  id               String        @id @default(cuid())
+  socialAccountId  String        @unique
+  socialAccount    SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  pageId           String
+  profileJson      Json?
+  fetchedAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@map("facebook_pages")
+}
+
+/// Messenger conversations for a Page (from `/{page-id}/conversations`).
+model FacebookConversationCache {
+  id                     String        @id @default(cuid())
+  socialAccountId        String
+  socialAccount          SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  platformConversationId String
+  link                   String?
+  updatedTime            DateTime?
+  fetchedAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+
+  @@unique([socialAccountId, platformConversationId])
+  @@index([socialAccountId, updatedTime])
+  @@map("facebook_conversations")
+}
+
+/// Page ratings/recommendations (`/{page-id}/ratings`).
+model FacebookReviewCache {
+  id                 String        @id @default(cuid())
+  socialAccountId    String
+  socialAccount      SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  sourceCreatedAt    DateTime
+  recommendationType String?
+  reviewText         String?       @db.Text
+  contentHash        String
+  fetchedAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@unique([socialAccountId, contentHash])
+  @@index([socialAccountId, sourceCreatedAt])
+  @@map("facebook_reviews")
 }
 
 /// Cached results of probing Graph `/{page-id}/insights` metric names so we never rely on one brittle comma-separated list.

@@ -5,9 +5,9 @@
 
 import axios from 'axios';
 import type { Demographics, TrafficSourceItem, GrowthDataPoint } from '@/types/analytics';
-import { metaGraphInsightsBaseUrl } from '@/lib/meta-graph-insights';
+import { facebookGraphBaseUrl, metaGraphInsightsBaseUrl } from '@/lib/meta-graph-insights';
 
-const baseUrl = 'https://graph.facebook.com/v18.0';
+const baseUrl = facebookGraphBaseUrl;
 
 type IgInsightsBreakdown = {
   dimension_keys?: string[];

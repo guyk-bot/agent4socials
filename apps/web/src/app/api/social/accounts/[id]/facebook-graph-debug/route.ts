@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import axios from 'axios';
-import { META_GRAPH_INSIGHTS_VERSION, metaGraphInsightsBaseUrl } from '@/lib/meta-graph-insights';
-
-const FB = 'https://graph.facebook.com/v18.0';
+import { facebookGraphBaseUrl, metaGraphInsightsBaseUrl } from '@/lib/meta-graph-insights';
+import { FACEBOOK_PAGE_DAY_METRIC_CANDIDATES } from '@/lib/facebook/metric-candidates';
+import { probePageDayMetric } from '@/lib/facebook/discovery';
 
 type Bucket = { url: string; status: number; data: unknown };
 
@@ -68,64 +68,74 @@ export async function GET(
     _meta: {
       pageId,
       username: account.username,
-      graphApiInsightsVersion: META_GRAPH_INSIGHTS_VERSION,
+      graphApiVersion: facebookGraphBaseUrl.replace('https://graph.facebook.com/', ''),
       description:
-        'Page /insights uses graphApiInsightsVersion (default v22); v18 rejects newer metric names like page_media_view. (#100) can also mean a deprecated name in metric=. Scopes: debug_token.',
+        'All calls below use the same graphApiVersion (META_GRAPH_API_VERSION, default v22). Page /insights requires a valid metric= per request; comma lists fail if any name is invalid. Field notifications is not available on Page objects.',
     },
   };
 
   if (appToken) {
-    out.debug_token = await getJson(`${FB}/debug_token`, {
+    out.debug_token = await getJson(`${facebookGraphBaseUrl}/debug_token`, {
       input_token: token,
       access_token: appToken,
     });
   } else {
     out.debug_token = {
-      url: `${FB}/debug_token`,
+      url: `${facebookGraphBaseUrl}/debug_token`,
       status: 0,
       data: { skipped: true, reason: 'META_APP_ID and META_APP_SECRET not set in this environment' },
     };
   }
 
-  out.page_fields = await getJson(`${FB}/${pageId}`, {
+  out.page_fields = await getJson(`${facebookGraphBaseUrl}/${pageId}`, {
     fields:
       'id,name,username,fan_count,followers_count,about,category,category_list,verification_status,link,website,phone,is_published,is_verified',
     access_token: token,
   });
 
-  // Do not include page_engaged_users (deprecated Mar 2024); one bad metric fails the entire metric= request.
-  out.insights_read_insights = await getJson(`${metaGraphInsightsBaseUrl}/${pageId}/insights`, {
-    metric: 'page_media_view,page_views_total,page_fan_adds',
-    period: 'day',
-    since: sinceStr,
-    until: untilPlus,
-    access_token: token,
-  });
+  // Single-metric probes (matches production discovery). Never use a comma-separated metric= list here.
+  const probeMetrics = FACEBOOK_PAGE_DAY_METRIC_CANDIDATES.slice(0, 12);
+  out.insights_metric_probes = await Promise.all(
+    probeMetrics.map(async (metric) => {
+      const r = await probePageDayMetric(pageId, token, metric, sinceStr, untilPlus);
+      const url = `${metaGraphInsightsBaseUrl}/${pageId}/insights?metric=${encodeURIComponent(metric)}&period=day&since=${sinceStr}&until=${untilPlus}`;
+      if (r.ok) {
+        return { metric, url, status: 200, ok: true as const };
+      }
+      return {
+        metric,
+        url,
+        status: 400,
+        ok: false as const,
+        error: r.error,
+        code: r.code,
+      };
+    })
+  );
 
-  out.published_posts_sample = await getJson(`${FB}/${pageId}/published_posts`, {
+  out.published_posts_sample = await getJson(`${facebookGraphBaseUrl}/${pageId}/published_posts`, {
     fields: 'id,message,created_time,permalink_url',
     limit: 5,
     access_token: token,
   });
 
-  out.posts_feed_sample = await getJson(`${FB}/${pageId}/posts`, {
+  out.posts_feed_sample = await getJson(`${facebookGraphBaseUrl}/${pageId}/posts`, {
     fields: 'id,message,created_time',
     limit: 5,
     access_token: token,
   });
 
-  out.conversations_sample = await getJson(`${FB}/${pageId}/conversations`, {
+  out.conversations_sample = await getJson(`${facebookGraphBaseUrl}/${pageId}/conversations`, {
     platform: 'MESSENGER',
     limit: 3,
     access_token: token,
   });
 
-  out.page_notifications_sample = await getJson(`${FB}/${pageId}/notifications`, {
-    limit: 5,
-    access_token: token,
-  });
+  out.page_notifications_unavailable = {
+    note: 'GET /{page-id}/notifications is not a valid Page field. Meta returns (#100) Tried accessing nonexisting field (notifications). Do not call it.',
+  };
 
-  out.ratings_sample = await getJson(`${FB}/${pageId}/ratings`, {
+  out.ratings_sample = await getJson(`${facebookGraphBaseUrl}/${pageId}/ratings`, {
     limit: 3,
     access_token: token,
   });

@@ -10,9 +10,10 @@
 import { prisma } from '@/lib/db';
 import { Platform } from '@prisma/client';
 import axios from 'axios';
+import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 
 const INSTAGRAM_FACEBOOK = ['INSTAGRAM', 'FACEBOOK'] as const;
-const fbBaseUrl = 'https://graph.facebook.com/v18.0';
+const fbBaseUrl = facebookGraphBaseUrl;
 const igBaseUrl = 'https://graph.instagram.com/v18.0';
 
 export type SnapshotSource = 'bootstrap' | 'scheduled_sync' | 'manual_refresh';

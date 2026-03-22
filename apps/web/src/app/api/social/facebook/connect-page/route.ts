@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import axios from 'axios';
+import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 
 type PageItem = { id: string; name?: string; picture?: string; instagram_business_account_id?: string };
 
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
         access_token?: string;
         instagram_business_account?: { id: string };
       }>;
-    }>('https://graph.facebook.com/v18.0/me/accounts', {
+    }>(`${facebookGraphBaseUrl}/me/accounts`, {
       params: { fields: 'id,name,picture,access_token,instagram_business_account', access_token: payload.accessToken },
     });
     const pagesFromApi = pagesRes.data?.data ?? [];
@@ -120,7 +121,7 @@ export async function POST(request: NextRequest) {
     let igPicture: string | null = null;
     try {
       const igRes = await axios.get<{ username?: string; profile_picture_url?: string }>(
-        `https://graph.facebook.com/v18.0/${instagramId}`,
+        `${facebookGraphBaseUrl}/${instagramId}`,
         { params: { fields: 'username,profile_picture_url', access_token: pageAccessToken } }
       );
       if (igRes.data?.username) igUsername = igRes.data.username;

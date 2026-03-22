@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import axios from 'axios';
+import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 
-const baseUrl = 'https://graph.facebook.com/v18.0';
+const baseUrl = facebookGraphBaseUrl;
 
 /**
  * GET /api/social/accounts/[id]/page-reviews

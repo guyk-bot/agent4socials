@@ -15,8 +15,9 @@ import {
 import { fetchMergedFacebookPageDayInsights } from '@/lib/facebook/resilient-insights';
 import { fetchPageProfile } from '@/lib/facebook/fetchers';
 import { facebookMetricDateFromEndTime } from '@/lib/facebook/dates';
+import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 
-const fbBaseUrl = 'https://graph.facebook.com/v18.0';
+const fbBaseUrl = facebookGraphBaseUrl;
 const igBaseUrl = 'https://graph.instagram.com/v18.0';
 const baseUrl = fbBaseUrl; // used by Facebook and other platforms
 

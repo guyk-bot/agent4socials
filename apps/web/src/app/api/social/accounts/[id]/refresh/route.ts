@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import axios from 'axios';
+import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 
 export async function PATCH(
   request: NextRequest,
@@ -36,7 +37,7 @@ export async function PATCH(
       let pages: Array<{ id: string; name?: string; picture?: { data?: { url?: string } }; access_token?: string }> = [];
       try {
         const pagesRes = await axios.get<{ data?: typeof pages; error?: { message?: string; code?: number } }>(
-          'https://graph.facebook.com/v18.0/me/accounts',
+          `${facebookGraphBaseUrl}/me/accounts`,
           { params: { fields: 'id,name,picture,access_token', access_token: token } }
         );
         pages = pagesRes.data?.data || [];
@@ -67,7 +68,7 @@ export async function PATCH(
         if (!profilePicture || !username) {
           try {
             const pageRes = await axios.get<{ name?: string; picture?: { data?: { url?: string } } }>(
-              `https://graph.facebook.com/v18.0/${page.id}`,
+              `${facebookGraphBaseUrl}/${page.id}`,
               { params: { fields: 'name,picture', access_token: tokenToUse } }
             );
             if (pageRes.data?.name) username = pageRes.data.name;
@@ -77,7 +78,7 @@ export async function PATCH(
         if (!profilePicture && tokenToUse) {
           try {
             const pageRes = await axios.get<{ picture?: { data?: { url?: string } } }>(
-              `https://graph.facebook.com/v18.0/${page.id}`,
+              `${facebookGraphBaseUrl}/${page.id}`,
               { params: { fields: 'picture.type(large)', access_token: tokenToUse } }
             );
             if (pageRes.data?.picture?.data?.url) profilePicture = pageRes.data.picture.data.url;
@@ -88,7 +89,7 @@ export async function PATCH(
       const isOldFormat = account.platformUserId.startsWith('instagram-');
       if (isOldFormat) {
       const pagesRes = await axios.get<{ data?: Array<{ id: string; instagram_business_account?: { id: string } }> }>(
-        'https://graph.facebook.com/v18.0/me/accounts',
+        `${facebookGraphBaseUrl}/me/accounts`,
         { params: { fields: 'id,instagram_business_account', access_token: token } }
       );
       const pages = pagesRes.data?.data || [];
@@ -96,7 +97,7 @@ export async function PATCH(
         const igId = page.instagram_business_account?.id;
         if (!igId) continue;
         const igRes = await axios.get<{ username?: string; profile_picture_url?: string }>(
-          `https://graph.facebook.com/v18.0/${igId}`,
+          `${facebookGraphBaseUrl}/${igId}`,
           { params: { fields: 'username,profile_picture_url', access_token: token } }
         );
         // save real id and profile even when username is missing
@@ -115,7 +116,7 @@ export async function PATCH(
           profilePicture = igRes.data?.profile_picture_url ?? undefined;
         } catch (_) {
           const igRes = await axios.get<{ username?: string; profile_picture_url?: string }>(
-            `https://graph.facebook.com/v18.0/${account.platformUserId}`,
+            `${facebookGraphBaseUrl}/${account.platformUserId}`,
             { params: { fields: 'username,profile_picture_url', access_token: token } }
           );
           username = igRes.data?.username ?? undefined;

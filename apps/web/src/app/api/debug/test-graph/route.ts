@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 
-const baseUrl = 'https://graph.facebook.com/v18.0';
+import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
+
+const baseUrl = facebookGraphBaseUrl;
 
 /**
  * GET /api/debug/test-graph

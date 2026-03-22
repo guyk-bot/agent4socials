@@ -5,6 +5,7 @@ import { getTwitterOAuth1 } from '@/lib/twitter-oauth1';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import axios from 'axios';
 import { Platform } from '@prisma/client';
+import { META_GRAPH_FACEBOOK_API_VERSION } from '@/lib/meta-graph-insights';
 
 const PAID_TIERS = ['starter', 'pro'];
 
@@ -35,7 +36,7 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
       const igFbScope = (typeof process.env.INSTAGRAM_VIA_FACEBOOK_OAUTH_SCOPES === 'string' && process.env.INSTAGRAM_VIA_FACEBOOK_OAUTH_SCOPES.trim())
         ? process.env.INSTAGRAM_VIA_FACEBOOK_OAUTH_SCOPES.trim()
         : defaultIgFbScope;
-      return `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.META_APP_ID}&redirect_uri=${encodeURIComponent(process.env.META_REDIRECT_URI || callbackUrl)}&state=${state}&scope=${encodeURIComponent(igFbScope)}`;
+      return `https://www.facebook.com/${META_GRAPH_FACEBOOK_API_VERSION}/dialog/oauth?client_id=${process.env.META_APP_ID}&redirect_uri=${encodeURIComponent(process.env.META_REDIRECT_URI || callbackUrl)}&state=${state}&scope=${encodeURIComponent(igFbScope)}`;
     case 'TIKTOK': {
       const tiktokRedirect = (process.env.TIKTOK_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
       // video.list = list user's videos for sync; user.info.basic = profile/avatar; user.info.stats = follower count
@@ -61,7 +62,7 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
         ? process.env.FACEBOOK_OAUTH_SCOPES.trim()
         : defaultFbScope;
       const fbRedirectUri = (process.env.FACEBOOK_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
-      return `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.META_APP_ID}&redirect_uri=${encodeURIComponent(fbRedirectUri)}&state=${state}&scope=${encodeURIComponent(fbScope)}`;
+      return `https://www.facebook.com/${META_GRAPH_FACEBOOK_API_VERSION}/dialog/oauth?client_id=${process.env.META_APP_ID}&redirect_uri=${encodeURIComponent(fbRedirectUri)}&state=${state}&scope=${encodeURIComponent(fbScope)}`;
     }
     case 'TWITTER': {
       // Full "Send and manage Direct Messages" consent (group conversations, delete, react) requires dm.read + dm.write.

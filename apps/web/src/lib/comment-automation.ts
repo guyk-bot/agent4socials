@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db';
 import { PostStatus, Prisma } from '@prisma/client';
 import axios from 'axios';
+import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 
 export type CommentAutomation = {
   keywords: string[];
@@ -95,7 +96,7 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
           const igAccountId = (target.socialAccount.platformUserId || '').trim();
 
           const res = await axios.get<{ data?: Array<{ id: string; text?: string; from?: { id?: string; username?: string } }> }>(
-            `https://graph.facebook.com/v18.0/${platformPostId}/comments`,
+            `${facebookGraphBaseUrl}/${platformPostId}/comments`,
             { params: { fields: 'id,text,from{username}', access_token: token }, timeout: 10000 }
           );
           const comments = res.data?.data ?? [];
@@ -118,7 +119,7 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
               const finalReply = mention ? `${mention}${replyText}` : replyText;
               if (doPublicReply) {
                 await axios.post(
-                  `https://graph.facebook.com/v18.0/${c.id}/replies`,
+                  `${facebookGraphBaseUrl}/${c.id}/replies`,
                   null,
                   { params: { message: finalReply, access_token: token }, timeout: 10000 }
                 );
@@ -131,7 +132,7 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
                 const msgSenderId = linkedPageId || igAccountId;
                 if (msgSenderId) {
                   await axios.post(
-                    `https://graph.facebook.com/v18.0/${msgSenderId}/messages`,
+                    `${facebookGraphBaseUrl}/${msgSenderId}/messages`,
                     {
                       recipient: { comment_id: c.id },
                       message: { text: dmText },
@@ -156,7 +157,7 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
           }
         } else if (platform === 'FACEBOOK') {
           const res = await axios.get<{ data?: Array<{ id: string; message?: string; from?: { name?: string } }> }>(
-            `https://graph.facebook.com/v18.0/${platformPostId}/comments`,
+            `${facebookGraphBaseUrl}/${platformPostId}/comments`,
             { params: { fields: 'id,message,from{name}', access_token: token }, timeout: 10000 }
           );
           const comments = res.data?.data ?? [];
@@ -172,7 +173,7 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
               const mention = (ca.tagCommenter && c.from?.name) ? `${c.from.name}, ` : '';
               const finalReply = mention ? `${mention}${replyText}` : replyText;
               await axios.post(
-                `https://graph.facebook.com/v18.0/${c.id}/comments`,
+                `${facebookGraphBaseUrl}/${c.id}/comments`,
                 null,
                 { params: { message: finalReply, access_token: token }, timeout: 10000 }
               );

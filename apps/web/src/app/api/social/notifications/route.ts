@@ -3,6 +3,7 @@ import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import { PostStatus } from '@prisma/client';
 import axios from 'axios';
+import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 
 /**
  * GET /api/social/notifications
@@ -50,7 +51,7 @@ export async function GET(request: NextRequest) {
         const pid = target.platformPostId!;
         try {
           const res = await axios.get<{ data?: unknown[] }>(
-            `https://graph.facebook.com/v18.0/${pid}/comments`,
+            `${facebookGraphBaseUrl}/${pid}/comments`,
             { params: { fields: 'id', access_token: token }, timeout: 8000 }
           );
           const n = (res.data?.data ?? []).length;
@@ -73,7 +74,7 @@ export async function GET(request: NextRequest) {
             if (fb?.platformUserId) linkedPageId = fb.platformUserId;
           }
           const convPath = linkedPageId
-            ? `https://graph.facebook.com/v18.0/${linkedPageId}/conversations`
+            ? `${facebookGraphBaseUrl}/${linkedPageId}/conversations`
             : 'https://graph.instagram.com/v18.0/me/conversations';
           const convParams: Record<string, string> = { fields: 'id', access_token: token };
           if (linkedPageId) convParams.platform = 'instagram';
@@ -81,7 +82,7 @@ export async function GET(request: NextRequest) {
           messagesCount = (convRes.data?.data ?? []).length;
         } else {
           const convRes = await axios.get<{ data?: unknown[] }>(
-            `https://graph.facebook.com/v18.0/${account.platformUserId}/conversations`,
+            `${facebookGraphBaseUrl}/${account.platformUserId}/conversations`,
             { params: { fields: 'id', access_token: token }, timeout: 5000 }
           );
           messagesCount = (convRes.data?.data ?? []).length;

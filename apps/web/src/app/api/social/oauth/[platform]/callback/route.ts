@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { Platform } from '@prisma/client';
 import axios from 'axios';
+import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 import { ensureBootstrapSnapshotForToday } from '@/lib/analytics/metric-snapshots';
 import { ensurePinterestPlatformEnum } from '@/lib/ensure-pinterest-platform-enum';
 const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN', 'PINTEREST'] as const;
@@ -130,7 +131,7 @@ async function exchangeCode(
 ): Promise<TokenResult> {
   switch (platform) {
     case 'INSTAGRAM': {
-      const r = await axios.get('https://graph.facebook.com/v18.0/oauth/access_token', {
+      const r = await axios.get(`${facebookGraphBaseUrl}/oauth/access_token`, {
         params: {
           client_id: process.env.META_APP_ID,
           client_secret: process.env.META_APP_SECRET,
@@ -154,7 +155,7 @@ async function exchangeCode(
             instagram_business_account?: { id: string };
           }>;
         }>(
-          'https://graph.facebook.com/v18.0/me/accounts',
+          `${facebookGraphBaseUrl}/me/accounts`,
           { params: { fields: 'id,name,picture,access_token,instagram_business_account', access_token: accessToken } }
         );
         const pages = pagesRes.data?.data || [];
@@ -167,7 +168,7 @@ async function exchangeCode(
           let igPicture: string | undefined;
           try {
             const igRes = await axios.get<{ username?: string; profile_picture_url?: string }>(
-              `https://graph.facebook.com/v18.0/${igAccountId}`,
+              `${facebookGraphBaseUrl}/${igAccountId}`,
               { params: { fields: 'username,profile_picture_url', access_token: accessToken } }
             );
             igUsername = igRes.data?.username;
@@ -311,7 +312,7 @@ async function exchangeCode(
       };
     }
     case 'FACEBOOK': {
-      const r = await axios.get('https://graph.facebook.com/v18.0/oauth/access_token', {
+      const r = await axios.get(`${facebookGraphBaseUrl}/oauth/access_token`, {
         params: {
           client_id: process.env.META_APP_ID,
           client_secret: process.env.META_APP_SECRET,
@@ -336,7 +337,7 @@ async function exchangeCode(
           }>;
           error?: { message?: string };
         }>(
-          'https://graph.facebook.com/v18.0/me/accounts',
+          `${facebookGraphBaseUrl}/me/accounts`,
           { params: { fields: 'id,name,picture,access_token,instagram_business_account', access_token: accessToken } }
         );
         const pages = pagesRes.data?.data || [];
@@ -360,7 +361,7 @@ async function exchangeCode(
             const tokenToUse = page.access_token || accessToken;
             try {
               const pageRes = await axios.get<{ name?: string; picture?: { data?: { url?: string } } }>(
-                `https://graph.facebook.com/v18.0/${page.id}`,
+                `${facebookGraphBaseUrl}/${page.id}`,
                 { params: { fields: 'name,picture', access_token: tokenToUse } }
               );
               if (pageRes.data?.name) username = pageRes.data.name;
@@ -371,7 +372,7 @@ async function exchangeCode(
           if (igAccountId) {
             try {
               const igRes = await axios.get<{ username?: string; profile_picture_url?: string }>(
-                `https://graph.facebook.com/v18.0/${igAccountId}`,
+                `${facebookGraphBaseUrl}/${igAccountId}`,
                 { params: { fields: 'username,profile_picture_url', access_token: accessToken } }
               );
               linkedInstagram = {
@@ -709,7 +710,7 @@ export async function GET(
           let igPicture: string | null = null;
           try {
             const igRes = await axios.get<{ username?: string; profile_picture_url?: string }>(
-              `https://graph.facebook.com/v18.0/${igId}`,
+              `${facebookGraphBaseUrl}/${igId}`,
               { params: { fields: 'username,profile_picture_url', access_token: pageToken } }
             );
             if (igRes.data?.username) igUsername = igRes.data.username;
@@ -824,7 +825,7 @@ export async function GET(
           let igPicture: string | null = null;
           try {
             const igRes = await axios.get<{ username?: string; profile_picture_url?: string }>(
-              `https://graph.facebook.com/v18.0/${igId}`,
+              `${facebookGraphBaseUrl}/${igId}`,
               { params: { fields: 'username,profile_picture_url', access_token: pageToken } }
             );
             if (igRes.data?.username) igUsername = igRes.data.username;

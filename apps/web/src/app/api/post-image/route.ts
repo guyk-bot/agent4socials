@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import axios from 'axios';
+import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 
 /**
  * GET /api/post-image?accountId=xxx&postId=yyy
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
     if (platform === 'INSTAGRAM') {
       const apiBase = isBusinessLogin
         ? `https://graph.instagram.com/v25.0/${postId}`
-        : `https://graph.facebook.com/v18.0/${postId}`;
+        : `${facebookGraphBaseUrl}/${postId}`;
       const res = await axios.get<{ media_url?: string; thumbnail_url?: string }>(apiBase, {
         params: { fields: 'media_url,thumbnail_url', access_token: token },
         timeout: 10_000,
@@ -57,7 +58,7 @@ export async function GET(request: NextRequest) {
         picture?: string;
         attachments?: { data?: Array<{ media?: { image?: { src?: string } }; subattachments?: { data?: Array<{ media?: { image?: { src?: string } } }> } }> };
       }>(
-        `https://graph.facebook.com/v18.0/${postId}`,
+        `${facebookGraphBaseUrl}/${postId}`,
         { params: { fields: 'full_picture,picture,attachments{media{image{src}},subattachments{data{media{image{src}}}}}', access_token: token }, timeout: 10_000 }
       );
       freshImageUrl = res.data?.full_picture ?? res.data?.picture ?? null;
