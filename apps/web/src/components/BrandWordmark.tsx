@@ -1,5 +1,6 @@
 'use client';
 
+/** Marketing / funnel header only (e.g. `SiteHeader`). Dashboard uses plain text in `AppHeader`. */
 import { Bebas_Neue } from 'next/font/google';
 
 const brandXFont = Bebas_Neue({ weight: '400', subsets: ['latin'] });

@@ -20,7 +20,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | Connect flow UI (per-platform) | `apps/web/src/components/dashboard/ConnectView.tsx` |
 | Sidebar | `apps/web/src/components/Sidebar.tsx` |
 | App header (nav, logo) | `apps/web/src/components/AppHeader.tsx` |
-| Header wordmark (red X font) | `apps/web/src/components/BrandWordmark.tsx` |
+| Funnel / landing wordmark (red X font) | `apps/web/src/components/BrandWordmark.tsx`, used in `landing/SiteHeader.tsx` only |
 
 ### Inbox (DMs, comments)
 

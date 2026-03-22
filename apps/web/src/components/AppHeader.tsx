@@ -9,7 +9,6 @@ import { useTheme } from '@/context/ThemeContext';
 import { useAppData } from '@/context/AppDataContext';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
-import { BrandWordmark } from '@/components/BrandWordmark';
 
 export const topNavItems = [
   { icon: MessageCircle, label: 'Inbox', href: '/dashboard/inbox', badgeKey: 'inbox' as const },
@@ -87,7 +86,7 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
           ) : (
             <img src="/logo.svg" alt="Agent4Socials" className="h-8 w-8 object-contain block bg-transparent" />
           )}
-          <BrandWordmark name={appName || 'Agent4Socials'} className="font-semibold text-white hidden sm:inline truncate" />
+          <span className="font-semibold text-white hidden sm:inline truncate">{appName || 'Agent4Socials'}</span>
         </Link>
         <nav className="hidden md:flex items-center gap-1">
           {topNavItems.map((item) => {
