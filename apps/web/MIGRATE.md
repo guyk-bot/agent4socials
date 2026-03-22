@@ -4,7 +4,9 @@ The app runs `prisma migrate deploy` on every Vercel build (via `node scripts/ve
 
 **Supabase "Tenant or user not found" during build:** `DATABASE_DIRECT_URL` is wrong for Prisma migrations. In Supabase: **Settings → Database → Connection string**, copy **Session pooler** or **Direct** (not Transaction pooler on 6543), set it as `DATABASE_DIRECT_URL` in Vercel, redeploy.
 
-**Emergency deploy without migrate:** Set `SKIP_PRISMA_MIGRATE_ON_VERCEL=1` in Vercel (Production), redeploy, then fix `DATABASE_DIRECT_URL` or run pending SQL manually (e.g. `apps/web/scripts/ensure-pinterest-platform-enum.sql` for Pinterest).
+**Vercel and migrate:** If `migrate deploy` fails (e.g. **Tenant or user not found**), the build **still continues on Vercel** so your site can deploy. Fix `DATABASE_DIRECT_URL` when you can, run any needed SQL in Supabase (e.g. `apps/web/scripts/ensure-pinterest-platform-enum.sql` for Pinterest). When migrations work reliably, add **`STRICT_PRISMA_MIGRATE_ON_VERCEL=1`** in Vercel so a failed migrate **fails** the build.
+
+**Local `npm run build`:** If migrate fails, the build fails unless you set `SKIP_PRISMA_MIGRATE_ON_VERCEL=1`.
 
 **If you see "The table 'public.LinkPage' does not exist"** (Smart Links save error), see **[Smart Links tables (LinkPage, LinkItem)](#smart-links-tables-linkpage-linkitem)** below to create the tables (manual SQL or run `npm run db:migrate` in `apps/web` with `DATABASE_URL` and `DATABASE_DIRECT_URL` set).
 

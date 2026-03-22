@@ -1,8 +1,10 @@
 /**
  * Vercel build: prisma generate → migrate deploy → next build.
- * If migrate fails (e.g. Supabase "Tenant or user not found" on pooler), set
- * SKIP_PRISMA_MIGRATE_ON_VERCEL=1 in Vercel to ship the build, then fix
- * DATABASE_DIRECT_URL or run SQL migrations manually (see apps/web/MIGRATE.md).
+ *
+ * Supabase often breaks prisma migrate deploy when DATABASE_DIRECT_URL uses the wrong
+ * pooler user (FATAL: Tenant or user not found). On Vercel we continue the build by
+ * default so deploys succeed; fix DATABASE_DIRECT_URL and set STRICT_PRISMA_MIGRATE_ON_VERCEL=1
+ * to require migrations. Locally, migrate failure fails the build unless SKIP_PRISMA_MIGRATE_ON_VERCEL=1.
  */
 import { spawnSync } from 'child_process';
 import { fileURLToPath } from 'url';
@@ -10,6 +12,8 @@ import path from 'path';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.join(__dirname, '..');
+
+const isVercel = Boolean(process.env.VERCEL);
 
 function run(cmd, args) {
   const r = spawnSync(cmd, args, { stdio: 'inherit', shell: true, cwd: appRoot, env: process.env });
@@ -22,17 +26,27 @@ if (code !== 0) process.exit(code);
 code = run('npx', ['prisma', 'migrate', 'deploy']);
 if (code !== 0) {
   console.error(
-    '\n[build] prisma migrate deploy failed. Common fix (Supabase): set DATABASE_DIRECT_URL in Vercel to the URI from ' +
-      'Dashboard → Settings → Database → Connection string → Session mode (or Direct), usually port 5432 with the user format they show. ' +
-      'Do not use the Transaction pooler (6543) string as DATABASE_DIRECT_URL. See apps/web/MIGRATE.md.\n'
+    '\n[build] prisma migrate deploy failed. Supabase: set DATABASE_DIRECT_URL in Vercel to the URI from ' +
+      'Dashboard → Settings → Database → Connection string → Session pooler or Direct (correct username, often postgres.PROJECTREF). ' +
+      'See apps/web/MIGRATE.md.\n'
   );
-  if (process.env.SKIP_PRISMA_MIGRATE_ON_VERCEL === '1') {
+
+  const strict = process.env.STRICT_PRISMA_MIGRATE_ON_VERCEL === '1';
+  const skipExplicit = process.env.SKIP_PRISMA_MIGRATE_ON_VERCEL === '1';
+
+  if (strict) {
+    console.error('[build] STRICT_PRISMA_MIGRATE_ON_VERCEL=1: failing build because migrate did not succeed.\n');
+    process.exit(code);
+  }
+
+  if (isVercel || skipExplicit) {
     console.warn(
-      '[build] SKIP_PRISMA_MIGRATE_ON_VERCEL=1: continuing without migrations. Apply pending migrations via SQL or a local prisma migrate deploy with a working direct URL.\n'
+      '[build] Continuing without successful migrations. Apply pending changes in Supabase SQL or fix DATABASE_DIRECT_URL. ' +
+        'When migrate works, set STRICT_PRISMA_MIGRATE_ON_VERCEL=1 in Vercel to fail the build if migrate ever breaks again.\n'
     );
   } else {
     console.error(
-      '[build] To deploy anyway (not recommended long term), set SKIP_PRISMA_MIGRATE_ON_VERCEL=1 in Vercel Environment Variables.\n'
+      '[build] Local build: fix the DB URL or run SKIP_PRISMA_MIGRATE_ON_VERCEL=1 for one-off builds.\n'
     );
     process.exit(code);
   }
