@@ -4,6 +4,11 @@ import { prisma } from '@/lib/db';
 import { Platform, PostStatus } from '@prisma/client';
 import axios, { type AxiosResponse } from 'axios';
 import { getValidYoutubeToken } from '@/lib/youtube-token';
+import {
+  fetchAllPublishedPostsForPage,
+  resolvePostInsightMetricsForSync,
+  fetchPostLifetimeMetricTotals,
+} from '@/lib/facebook/fetchers';
 
 /** GET: list imported posts for this account. ?sync=1 to sync from platform first then return. */
 export async function GET(
@@ -307,26 +312,11 @@ async function syncImportedPosts(
   }
 
   if (platform === 'FACEBOOK') {
-    type FbPost = {
-      id: string;
-      message?: string;
-      created_time?: string;
-      full_picture?: string;
-      permalink_url?: string;
-      reactions?: { summary?: { total_count?: number } };
-      comments?: { summary?: { total_count?: number } };
-    };
-    let res: { data?: { data?: Array<FbPost> } };
+    const maxPosts = 500;
+    let items: Awaited<ReturnType<typeof fetchAllPublishedPostsForPage>>['items'] = [];
     try {
-      res = await axios.get(
-        `${baseUrl}/${platformUserId}/published_posts`,
-        {
-          params: {
-            fields: 'id,message,created_time,full_picture,permalink_url,reactions.summary(1),comments.summary(1)',
-            access_token: accessToken,
-          },
-        }
-      );
+      const fetched = await fetchAllPublishedPostsForPage(platformUserId, accessToken, maxPosts);
+      items = fetched.items;
     } catch (e) {
       const msg = (e as Error)?.message ?? '';
       const metaMsg = (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
@@ -336,28 +326,49 @@ async function syncImportedPosts(
       if (metaMsg) return metaMsg;
       throw e;
     }
-    const items = res.data?.data ?? [];
-    for (const p of items) {
-      const publishedAt = p.created_time ? new Date(p.created_time) : new Date();
-      const likeCount = p.reactions?.summary?.total_count ?? 0;
-      const commentsCount = p.comments?.summary?.total_count ?? 0;
-      const interactions = likeCount + commentsCount;
 
-      // Fetch post-level impressions (total views) from the Page Insights API.
-      // Requires pages_read_engagement scope on the Page token.
+    const samplePostId = items[0]?.id ?? null;
+    const postMetricsOrder = await resolvePostInsightMetricsForSync({
+      socialAccountId,
+      pageId: platformUserId,
+      accessToken,
+      samplePostId,
+    });
+
+    const POST_INSIGHT_FETCH_CAP = 150;
+    const slice = items.slice(0, maxPosts);
+    for (let idx = 0; idx < slice.length; idx++) {
+      const p = slice[idx];
+      const publishedAt = p.created_time ? new Date(p.created_time) : new Date();
+      const likeCountFinal = p.reactions?.summary?.total_count ?? 0;
+      const commentsCountFinal = p.comments?.summary?.total_count ?? 0;
+      const interactionsFinal = likeCountFinal + commentsCountFinal;
+
       let impressions = 0;
-      try {
-        const insightsRes = await axios.get<{
-          data?: Array<{ name: string; values?: Array<{ value: number }> }>;
-        }>(
-          `${baseUrl}/${p.id}/insights`,
-          { params: { metric: 'post_impressions', access_token: accessToken }, timeout: 8_000 }
-        );
-        const row = insightsRes.data?.data?.find((d) => d.name === 'post_impressions');
-        impressions = row?.values?.[0]?.value ?? 0;
-      } catch {
-        // Insights may not be available for all post types or permission levels; silently skip.
+      if (idx < POST_INSIGHT_FETCH_CAP) {
+        const r = await fetchPostLifetimeMetricTotals(p.id, accessToken, postMetricsOrder);
+        impressions = r.impressions;
+      } else {
+        const prev = await prisma.importedPost.findUnique({
+          where: { socialAccountId_platformPostId: { socialAccountId, platformPostId: p.id } },
+          select: { impressions: true },
+        });
+        impressions = prev?.impressions ?? 0;
       }
+
+      const mediaTypeGuess =
+        p.status_type?.includes('VIDEO') || p.status_type?.includes('REEL')
+          ? 'VIDEO'
+          : p.attachments?.data?.[0]?.media_type === 'photo'
+            ? 'IMAGE'
+            : p.attachments?.data?.[0]?.media_type === 'video'
+              ? 'VIDEO'
+              : null;
+
+      const platformMetadata = {
+        status_type: p.status_type ?? null,
+        attachmentTypes: (p.attachments?.data ?? []).map((a) => a.media_type ?? a.type).filter(Boolean),
+      };
 
       await prisma.importedPost.upsert({
         where: {
@@ -368,11 +379,12 @@ async function syncImportedPosts(
           thumbnailUrl: p.full_picture ?? null,
           permalinkUrl: p.permalink_url ?? null,
           publishedAt,
-          mediaType: null,
+          mediaType: mediaTypeGuess,
+          platformMetadata: platformMetadata as object,
           impressions,
-          interactions,
-          likeCount,
-          commentsCount,
+          interactions: interactionsFinal,
+          likeCount: likeCountFinal,
+          commentsCount: commentsCountFinal,
           syncedAt: new Date(),
         },
         create: {
@@ -383,11 +395,12 @@ async function syncImportedPosts(
           thumbnailUrl: p.full_picture ?? null,
           permalinkUrl: p.permalink_url ?? null,
           publishedAt,
-          mediaType: null,
+          mediaType: mediaTypeGuess,
+          platformMetadata: platformMetadata as object,
           impressions,
-          interactions,
-          likeCount,
-          commentsCount,
+          interactions: interactionsFinal,
+          likeCount: likeCountFinal,
+          commentsCount: commentsCountFinal,
         },
       });
     }

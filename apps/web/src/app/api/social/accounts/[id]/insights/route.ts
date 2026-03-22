@@ -12,18 +12,13 @@ import {
   persistInsightsSeries,
   getInsightsTimeSeries,
 } from '@/lib/analytics/metric-snapshots';
-import { metaGraphInsightsBaseUrl } from '@/lib/meta-graph-insights';
+import { fetchMergedFacebookPageDayInsights } from '@/lib/facebook/resilient-insights';
+import { fetchPageProfile } from '@/lib/facebook/fetchers';
+import { facebookMetricDateFromEndTime } from '@/lib/facebook/dates';
 
 const fbBaseUrl = 'https://graph.facebook.com/v18.0';
 const igBaseUrl = 'https://graph.instagram.com/v18.0';
 const baseUrl = fbBaseUrl; // used by Facebook and other platforms
-
-/** Facebook Insights end_time is end-of-day Pacific (next day midnight UTC). Return YYYY-MM-DD for the metric day to match Meta Business Suite. */
-function facebookMetricDateFromEndTime(endTime: string): string {
-  const d = new Date(endTime);
-  d.setUTCDate(d.getUTCDate() - 1);
-  return d.toISOString().slice(0, 10);
-}
 
 /** Merge API time series with snapshot-backed series. API values take precedence. Only include dates that have a value so the UI can carry forward the last known value for missing dates (avoids showing zeros when Meta has no data yet for recent days). */
 function mergeSeriesWithSnapshots(
@@ -477,12 +472,12 @@ export async function GET(
     if (account.platform === 'FACEBOOK') {
       const token = account.accessToken;
       try {
-        const pageRes = await axios.get<{ fan_count?: number; followers_count?: number; name?: string }>(
-          `${baseUrl}/${account.platformUserId}`,
-          { params: { fields: 'fan_count,followers_count,name', access_token: token }, timeout: 8_000 }
-        );
-        if (typeof pageRes.data?.fan_count === 'number') out.followers = pageRes.data.fan_count;
-        else if (typeof pageRes.data?.followers_count === 'number') out.followers = pageRes.data.followers_count;
+        const pageRes = await fetchPageProfile(account.platformUserId, token);
+        if (pageRes.status === 200) {
+          const p = pageRes.data;
+          if (typeof p?.fan_count === 'number') out.followers = p.fan_count;
+          else if (typeof p?.followers_count === 'number') out.followers = p.followers_count;
+        }
       } catch (e) {
         console.warn('[Insights] Facebook page profile:', (e as Error)?.message ?? e);
         if (!out.insightsHint) {
@@ -490,20 +485,7 @@ export async function GET(
         }
       }
       if (effectiveSinceTs != null && effectiveUntilTs != null) {
-        let insightsError: string | undefined;
         try {
-          // page_media_view replaces page_impressions (~Nov 2025). page_engaged_users was removed Mar 2024 (invalidates whole metric= if included).
-          const metricSets = [
-            'page_media_view,page_views_total,page_fan_adds,page_fan_removes',
-            'page_media_view,page_views_total,page_fan_adds',
-            'page_media_view,page_views_total',
-            'page_post_engagements,page_views_total,page_fan_adds',
-            'page_views_total,page_fan_adds',
-            'page_post_engagements',
-            'page_impressions,page_views_total,page_fan_adds,page_fan_removes',
-            'page_impressions,page_views_total,page_fan_adds',
-          ];
-          let data: Array<{ name: string; values?: Array<{ value: number | string; end_time?: string }> }> = [];
           const untilForApi = (() => {
             const d = new Date(effectiveUntilParam + 'T12:00:00');
             const today = new Date();
@@ -513,56 +495,27 @@ export async function GET(
             }
             return d.toISOString().slice(0, 10);
           })();
-          const untilApi = (() => { const d = new Date(untilForApi + 'T12:00:00'); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10); })();
-          for (const metrics of metricSets) {
-            try {
-              const insightsRes = await axios.get<{
-                data?: Array<{ name: string; values?: Array<{ value: number | string; end_time?: string }> }>;
-                error?: { message?: string; code?: number; type?: string };
-              }>(`${metaGraphInsightsBaseUrl}/${account.platformUserId}/insights`, {
-                params: {
-                  metric: metrics,
-                  period: 'day',
-                  since: effectiveSinceParam,
-                  until: untilApi,
-                  access_token: token,
-                },
-                timeout: 10_000,
-              });
-              if (insightsRes.data?.error) {
-                const errObj = insightsRes.data.error;
-                insightsError = errObj.message ?? JSON.stringify(errObj);
-                const code = errObj.code;
-                if (code === 100 || (typeof errObj.message === 'string' && errObj.message.includes('insights metric'))) {
-                  continue;
-                }
-                data = [];
-                break;
-              }
-              data = insightsRes.data?.data ?? [];
-              break;
-            } catch (err) {
-              const ax = err as { response?: { status?: number; data?: { error?: { message?: string; code?: number } } } };
-              const status = ax?.response?.status;
-              const msg = ax?.response?.data?.error?.message ?? (err as Error)?.message;
-              const code = ax?.response?.data?.error?.code;
-              if (
-                status === 400 &&
-                (code === 100 ||
-                  (typeof msg === 'string' && msg.includes('insights metric')) ||
-                  metrics.includes('page_fan_removes') ||
-                  metrics.includes('page_impressions'))
-              ) {
-                if (msg) insightsError = msg;
-                continue;
-              }
-              insightsError = msg ? `Meta API: ${msg}` : (status ? `HTTP ${status}` : 'Request failed');
-              throw err;
-            }
+          const untilApi = (() => {
+            const d = new Date(untilForApi + 'T12:00:00');
+            d.setUTCDate(d.getUTCDate() + 1);
+            return d.toISOString().slice(0, 10);
+          })();
+          const logSync = process.env.FACEBOOK_LOG_SYNC_RUNS === '1';
+          const { rows, summary } = await fetchMergedFacebookPageDayInsights({
+            socialAccountId: account.id,
+            pageId: account.platformUserId,
+            accessToken: token,
+            since: effectiveSinceParam,
+            until: untilApi,
+            logSync,
+          });
+          if (request.nextUrl.searchParams.get('extended') === '1' && summary) {
+            (out as Record<string, unknown>).facebookInsightsSync = summary;
           }
+          const data = rows;
           if (data.length === 0 && !out.impressionsTotal && !out.pageViewsTotal) {
-            out.insightsHint = insightsError
-              ? `Page insights: ${insightsError}. Ensure the app has read_insights (Meta → Use cases → Pages API) and reconnect Facebook, then choose your Page.`
+            out.insightsHint = !summary.metricsFetched?.length
+              ? 'No Page insight metrics passed discovery for this Graph version. Confirm read_insights on the Page token, or set META_GRAPH_API_VERSION in env to match Meta (see docs/FACEBOOK_ANALYTICS_CAPABILITY_MAP.md).'
               : 'Page insights returned no data for this range. Try a different date range or reconnect and ensure read_insights is granted.';
           }
           const addsByDate = new Map<string, number>();

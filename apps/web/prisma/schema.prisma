@@ -64,8 +64,52 @@ model SocialAccount {
   postTargets       PostTarget[]
   importedPosts     ImportedPost[]
   metricSnapshots   AccountMetricSnapshot[]
+  facebookMetricDiscoveries FacebookMetricDiscovery[]
+  facebookSyncRuns          FacebookSyncRun[]
 
   @@unique([userId, platform, platformUserId])
+}
+
+/// Cached results of probing Graph `/{page-id}/insights` metric names so we never rely on one brittle comma-separated list.
+enum FacebookMetricProbeStatus {
+  VALID
+  INVALID
+  DEPRECATED
+  UNAVAILABLE
+}
+
+model FacebookMetricDiscovery {
+  id               String                    @id @default(cuid())
+  socialAccountId  String
+  socialAccount    SocialAccount             @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  pageId           String
+  /// e.g. page_insights:day, post_insights:lifetime
+  scope            String
+  metricName       String
+  status           FacebookMetricProbeStatus
+  lastError        String?
+  graphVersion     String
+  validatedAt      DateTime                  @default(now())
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+
+  @@unique([socialAccountId, scope, metricName])
+  @@index([socialAccountId, scope, status])
+}
+
+/// Observability for Facebook ingestion / discovery (dev-friendly summaries in `summary` JSON).
+model FacebookSyncRun {
+  id               String        @id @default(cuid())
+  socialAccountId  String
+  socialAccount    SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  runKind          String
+  startedAt        DateTime      @default(now())
+  completedAt      DateTime?
+  success          Boolean       @default(false)
+  summary          Json?
+  errorMessage     String?
+
+  @@index([socialAccountId, startedAt])
 }
 
 model AccountMetricSnapshot {
@@ -106,6 +150,8 @@ model ImportedPost {
   sharesCount     Int?     @default(0)
   publishedAt     DateTime
   mediaType       String?  // IMAGE, VIDEO, etc.
+  /// Platform-specific payload (e.g. Facebook status_type, attachment types) for analytics / UI.
+  platformMetadata Json?
   syncedAt        DateTime @default(now())
 
   @@unique([socialAccountId, platformPostId])
