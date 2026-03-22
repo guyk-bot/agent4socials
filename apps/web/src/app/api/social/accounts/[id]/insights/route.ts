@@ -491,8 +491,12 @@ export async function GET(
       if (effectiveSinceTs != null && effectiveUntilTs != null) {
         let insightsError: string | undefined;
         try {
-          // page_impressions = total views (not unique), page_views_total = page visits, page_engaged_users = engaged reach
+          // page_media_view replaces deprecated page_impressions (Meta ~Nov 2025). page_views_total = visits, page_engaged_users = engaged users.
           const metricSets = [
+            'page_media_view,page_views_total,page_engaged_users,page_fan_adds,page_fan_removes',
+            'page_media_view,page_views_total,page_engaged_users,page_fan_adds',
+            'page_media_view,page_views_total,page_engaged_users',
+            // Legacy API versions only:
             'page_impressions,page_views_total,page_engaged_users,page_fan_adds,page_fan_removes',
             'page_impressions,page_views_total,page_engaged_users,page_fan_adds',
           ];
@@ -523,7 +527,14 @@ export async function GET(
                 timeout: 10_000,
               });
               if (insightsRes.data?.error) {
-                insightsError = insightsRes.data.error.message ?? JSON.stringify(insightsRes.data.error);
+                const errObj = insightsRes.data.error;
+                insightsError = errObj.message ?? JSON.stringify(errObj);
+                const code = errObj.code;
+                if (code === 100 || (typeof errObj.message === 'string' && errObj.message.includes('insights metric'))) {
+                  continue;
+                }
+                data = [];
+                break;
               }
               data = insightsRes.data?.data ?? [];
               break;
@@ -531,7 +542,17 @@ export async function GET(
               const ax = err as { response?: { status?: number; data?: { error?: { message?: string; code?: number } } } };
               const status = ax?.response?.status;
               const msg = ax?.response?.data?.error?.message ?? (err as Error)?.message;
-              if (status === 400 && metrics.includes('page_fan_removes')) continue;
+              const code = ax?.response?.data?.error?.code;
+              if (
+                status === 400 &&
+                (code === 100 ||
+                  (typeof msg === 'string' && msg.includes('insights metric')) ||
+                  metrics.includes('page_fan_removes') ||
+                  metrics.includes('page_impressions'))
+              ) {
+                if (msg) insightsError = msg;
+                continue;
+              }
               insightsError = msg ? `Meta API: ${msg}` : (status ? `HTTP ${status}` : 'Request failed');
               throw err;
             }
@@ -563,8 +584,9 @@ export async function GET(
               }
             }
             const sortedSeries = series.sort((a, b) => a.date.localeCompare(b.date));
-            if (sortedSeries.length > 0) fbSeriesByMetric[d.name] = sortedSeries;
-            if (d.name === 'page_impressions') {
+            const persistMetricKey = d.name === 'page_media_view' ? 'page_impressions' : d.name;
+            if (sortedSeries.length > 0) fbSeriesByMetric[persistMetricKey] = sortedSeries;
+            if (d.name === 'page_impressions' || d.name === 'page_media_view') {
               out.impressionsTotal = total;
               out.impressionsTimeSeries = sortedSeries.length ? sortedSeries : (total ? [{ date: effectiveUntilParam?.slice(0, 10) || new Date().toISOString().slice(0, 10), value: total }] : []);
             } else if (d.name === 'page_views_total') {
