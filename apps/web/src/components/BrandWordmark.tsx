@@ -14,6 +14,17 @@ type BrandWordmarkProps = {
 };
 
 /**
+ * Same stylized X as the funnel header wordmark, for inline copy (e.g. listing the X platform next to other names).
+ */
+export function BrandMarkX({ className, 'aria-label': ariaLabel }: { className?: string; 'aria-label'?: string }) {
+  return (
+    <span className={className ? `${xSpanClass} ${className}` : xSpanClass} aria-label={ariaLabel ?? 'X (Twitter)'}>
+      X
+    </span>
+  );
+}
+
+/**
  * Header wordmark: red capital X in Bebas Neue, rest inherits parent typography.
  */
 export function BrandWordmark({ name, className }: BrandWordmarkProps) {
