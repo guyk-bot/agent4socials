@@ -5,6 +5,7 @@
 
 import axios from 'axios';
 import type { Demographics, TrafficSourceItem, GrowthDataPoint } from '@/types/analytics';
+import { metaGraphInsightsBaseUrl } from '@/lib/meta-graph-insights';
 
 const baseUrl = 'https://graph.facebook.com/v18.0';
 
@@ -99,7 +100,7 @@ export async function fetchFacebookDemographics(
           values?: Array<{ value: Record<string, number> | number; end_time?: string }>;
         }>;
         error?: { message?: string; code?: number };
-      }>(`${baseUrl}/${pageId}/insights`, {
+      }>(`${metaGraphInsightsBaseUrl}/${pageId}/insights`, {
         params: {
           metric,
           period: 'lifetime',

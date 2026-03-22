@@ -12,6 +12,7 @@ import {
   persistInsightsSeries,
   getInsightsTimeSeries,
 } from '@/lib/analytics/metric-snapshots';
+import { metaGraphInsightsBaseUrl } from '@/lib/meta-graph-insights';
 
 const fbBaseUrl = 'https://graph.facebook.com/v18.0';
 const igBaseUrl = 'https://graph.instagram.com/v18.0';
@@ -518,7 +519,7 @@ export async function GET(
               const insightsRes = await axios.get<{
                 data?: Array<{ name: string; values?: Array<{ value: number | string; end_time?: string }> }>;
                 error?: { message?: string; code?: number; type?: string };
-              }>(`${baseUrl}/${account.platformUserId}/insights`, {
+              }>(`${metaGraphInsightsBaseUrl}/${account.platformUserId}/insights`, {
                 params: {
                   metric: metrics,
                   period: 'day',

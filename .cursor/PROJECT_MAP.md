@@ -51,6 +51,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | Summary dashboard | `apps/web/src/app/dashboard/summary/page.tsx` |
 | Summary UI components | `apps/web/src/components/dashboard/summary/` (SummaryDashboard, KPICardsGrid, GrowthChartTabs, etc.) |
 | Insights API | `apps/web/src/app/api/social/accounts/[id]/insights/route.ts` |
+| Meta Graph version for Page `/insights` (default v22; env `META_GRAPH_API_VERSION`) | `apps/web/src/lib/meta-graph-insights.ts` |
 | Analytics types & fetchers | `apps/web/src/types/analytics.ts`, `apps/web/src/lib/analytics/extended-fetchers.ts` |
 | **Follower/following history (IG & FB only)** | `apps/web/src/lib/analytics/metric-snapshots.ts` – snapshots, bootstrap, getAccountHistorySeries; insights route injects series; **YouTube excluded** |
 | **Daily metric snapshot cron** | `apps/web/src/app/api/cron/metric-snapshots/route.ts` (X-Cron-Secret); see `docs/METRIC_SNAPSHOTS_AND_HISTORY.md` |

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import axios from 'axios';
+import { META_GRAPH_INSIGHTS_VERSION, metaGraphInsightsBaseUrl } from '@/lib/meta-graph-insights';
 
 const FB = 'https://graph.facebook.com/v18.0';
 
@@ -67,8 +68,9 @@ export async function GET(
     _meta: {
       pageId,
       username: account.username,
+      graphApiInsightsVersion: META_GRAPH_INSIGHTS_VERSION,
       description:
-        'Raw responses from Graph API. (#100) invalid metric often means one name in the metric= list is deprecated (e.g. page_engaged_users since Mar 2024, page_impressions → page_media_view). Meta rejects the whole batch. Scopes: debug_token.',
+        'Page /insights uses graphApiInsightsVersion (default v22); v18 rejects newer metric names like page_media_view. (#100) can also mean a deprecated name in metric=. Scopes: debug_token.',
     },
   };
 
@@ -92,7 +94,7 @@ export async function GET(
   });
 
   // Do not include page_engaged_users (deprecated Mar 2024); one bad metric fails the entire metric= request.
-  out.insights_read_insights = await getJson(`${FB}/${pageId}/insights`, {
+  out.insights_read_insights = await getJson(`${metaGraphInsightsBaseUrl}/${pageId}/insights`, {
     metric: 'page_media_view,page_views_total,page_fan_adds',
     period: 'day',
     since: sinceStr,
