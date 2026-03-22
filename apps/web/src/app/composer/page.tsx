@@ -818,6 +818,18 @@ export default function ComposerPage() {
         return () => { cancelled = true; };
     }, []);
 
+    // Drafts (and edited posts) can list platforms that are no longer connected. Toggles show those as
+    // disabled gray, so they look "off" while previews still map `platforms` and show ghost cards.
+    useEffect(() => {
+        if (!accountsFetched) return;
+        const allowed = new Set(accounts.map((a) => a.platform));
+        setPlatforms((prev) => {
+            const next = prev.filter((p) => allowed.has(p));
+            if (next.length === prev.length && next.every((p, i) => p === prev[i])) return prev;
+            return next;
+        });
+    }, [accountsFetched, accounts, platforms]);
+
     // Photo / Video / Reel: only one item allowed; trim if more
     useEffect(() => {
         const singleFormat = mediaType === 'photo' || mediaType === 'video' || mediaType === 'reel';
