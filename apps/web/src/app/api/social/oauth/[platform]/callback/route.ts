@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { Platform } from '@prisma/client';
 import axios from 'axios';
 import { ensureBootstrapSnapshotForToday } from '@/lib/analytics/metric-snapshots';
+import { ensurePinterestPlatformEnum } from '@/lib/ensure-pinterest-platform-enum';
 const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN', 'PINTEREST'] as const;
 
 const OAUTH_HEAD = '<meta charset="utf-8"><meta name="robots" content="noindex, nofollow">';
@@ -1014,6 +1015,9 @@ export async function GET(
       : undefined;
   const credentialsJsonToSet = igBusinessCreds ?? twitterCreds ?? pinterestStored ?? undefined;
   try {
+    if (plat === 'PINTEREST') {
+      await ensurePinterestPlatformEnum();
+    }
     // Upsert so reconnecting the same account updates in place; preserve history (firstConnectedAt never cleared).
     await prisma.socialAccount.upsert({
       where: {
