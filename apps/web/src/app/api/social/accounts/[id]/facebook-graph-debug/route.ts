@@ -68,7 +68,7 @@ export async function GET(
       pageId,
       username: account.username,
       description:
-        'Raw responses from Graph API. If insights_read_insights returns (#100) invalid metric, Meta deprecated a name (e.g. page_impressions → page_media_view), not missing read_insights. Scopes are listed under debug_token.',
+        'Raw responses from Graph API. (#100) invalid metric often means one name in the metric= list is deprecated (e.g. page_engaged_users since Mar 2024, page_impressions → page_media_view). Meta rejects the whole batch. Scopes: debug_token.',
     },
   };
 
@@ -91,9 +91,9 @@ export async function GET(
     access_token: token,
   });
 
-  // Meta deprecated page_impressions (use page_media_view). Omit page_fan_removes here so this bucket is less likely to 400.
+  // Do not include page_engaged_users (deprecated Mar 2024); one bad metric fails the entire metric= request.
   out.insights_read_insights = await getJson(`${FB}/${pageId}/insights`, {
-    metric: 'page_media_view,page_views_total,page_engaged_users,page_fan_adds',
+    metric: 'page_media_view,page_views_total,page_fan_adds',
     period: 'day',
     since: sinceStr,
     until: untilPlus,

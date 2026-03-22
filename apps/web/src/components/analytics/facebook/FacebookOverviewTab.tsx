@@ -121,7 +121,7 @@ export function FacebookOverviewTab({
           <p className="text-2xl font-bold text-neutral-900 tabular-nums">{followers.toLocaleString()}</p>
         </div>
         <div className="rounded-2xl border border-neutral-200/80 bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
-          <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">Reach</p>
+          <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">Engagements</p>
           <p className="text-2xl font-bold text-neutral-900 tabular-nums">{reach.toLocaleString()}</p>
         </div>
         <div className="rounded-2xl border border-neutral-200/80 bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
@@ -218,7 +218,7 @@ export function FacebookOverviewTab({
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-neutral-400">
               <p className="text-sm font-medium">No chart data for this period</p>
-              <p className="text-xs mt-1">Connect your Page and post content to see reach and impressions.</p>
+              <p className="text-xs mt-1">Connect your Page and post content to see engagements and impressions.</p>
             </div>
           )}
         </div>
