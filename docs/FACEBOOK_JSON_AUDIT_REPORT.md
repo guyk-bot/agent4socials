@@ -55,3 +55,12 @@ Exactly **which** Page day metrics work is **per-Page and per-version**: candida
 
 - Page day metrics: `AccountMetricSnapshot.insightsJson` (merged by date) **and** `FacebookPageInsightDaily` (one row per metric per day, Graph-native `metricKey`).
 - Post metrics: `ImportedPost.platformMetadata.facebookInsights` plus `impressions`, `sharesCount`, reactions/comments summaries from edges.
+
+## Frontend payload (`GET .../insights`)
+
+- **`facebookAnalytics`**: stable `series` + `totals` for followers, content views (merged snapshots), tab views, engagement, video views/time, follows, daily follows, total actions, and post impression splits (viral / nonviral / total). Built in `frontend-analytics-bundle.ts`.
+- **`facebookPageMetricSeries`**: raw Graph metric names (unchanged).
+
+## Posts API
+
+- Each Facebook post may include **`facebookInsights`** (lifetime registry-valid metrics) and **`engagementBreakdown`** (reactions, comments, shares, `totalEngagement`).

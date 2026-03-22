@@ -27,6 +27,7 @@ import {
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
 import { InteractiveLineChart } from '@/components/charts/InteractiveLineChart';
 import { FacebookAnalyticsView, FACEBOOK_ANALYTICS_SECTION_IDS, PlatformAnalyticsHeader, AnalyticsGrid, AnalyticsGridItem, AnalyticsWatermarkedChart } from '@/components/analytics';
+import type { FacebookFrontendAnalyticsBundle } from '@/lib/facebook/frontend-analytics-bundle';
 import { AnalyticsDateRangePicker } from '@/components/analytics/AnalyticsDateRangePicker';
 import type { Demographics, GrowthDataPoint, TrafficSourceItem } from '@/types/analytics';
 import {
@@ -1122,6 +1123,7 @@ export default function DashboardPage() {
                   isBootstrap: (insights as { isBootstrap?: boolean }).isBootstrap,
                   facebookPageMetricSeries: (insights as { facebookPageMetricSeries?: Record<string, Array<{ date: string; value: number }>> }).facebookPageMetricSeries,
                   facebookInsightPersistence: (insights as { facebookInsightPersistence?: { dailyRowsUpserted: number } }).facebookInsightPersistence,
+                  facebookAnalytics: (insights as { facebookAnalytics?: FacebookFrontendAnalyticsBundle }).facebookAnalytics,
                 }),
               };
               return base;

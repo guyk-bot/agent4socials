@@ -12,3 +12,4 @@ export * from './fetchers';
 export * from './sync-run';
 export * from './sync-extras';
 export * from './persist-page-insights';
+export * from './frontend-analytics-bundle';

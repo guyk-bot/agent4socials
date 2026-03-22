@@ -3,6 +3,8 @@
  * Aligned with GET /api/social/accounts/[id]/insights and imported posts.
  */
 
+import type { FacebookFrontendAnalyticsBundle } from '@/lib/facebook/frontend-analytics-bundle';
+
 export interface FacebookInsights {
   platform: string;
   followers: number;
@@ -34,6 +36,8 @@ export interface FacebookInsights {
   facebookPageMetricSeries?: Record<string, Array<{ date: string; value: number }>>;
   /** When extended=1: rows upserted into `facebook_page_insight_daily` on last persist. */
   facebookInsightPersistence?: { dailyRowsUpserted: number };
+  /** Stable series + totals for dashboard widgets (followers, follows, views, engagement, video, actions, post impressions). */
+  facebookAnalytics?: FacebookFrontendAnalyticsBundle;
 }
 
 export interface FacebookPost {
@@ -52,4 +56,11 @@ export interface FacebookPost {
   repostsCount?: number;
   /** Post lifetime insights from sync (registry-valid metrics only). */
   facebookInsights?: Record<string, number>;
+  /** Edge summaries + scalar totals for quick UI (Facebook only). */
+  engagementBreakdown?: {
+    reactions: number;
+    comments: number;
+    shares: number;
+    totalEngagement: number;
+  };
 }

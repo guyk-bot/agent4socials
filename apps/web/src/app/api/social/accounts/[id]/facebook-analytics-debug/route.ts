@@ -42,12 +42,34 @@ export async function GET(
     prisma.facebookSyncRun.count({ where: { socialAccountId: account.id } }),
   ]);
 
+  const debugSummary = {
+    validPageDayMetrics: discovery.pageDay.valid,
+    invalidPageDayMetrics: discovery.pageDay.invalid,
+    deprecatedPageDayMetrics: discovery.pageDay.deprecated,
+    unavailablePageDayMetrics: discovery.pageDay.unavailable,
+    validPostLifetimeMetrics: discovery.postLifetime.valid,
+    invalidPostLifetimeMetrics: discovery.postLifetime.invalid,
+    deprecatedPostLifetimeMetrics: discovery.postLifetime.deprecated,
+    unavailablePostLifetimeMetrics: discovery.postLifetime.unavailable,
+    counts: {
+      validPageDay: discovery.pageDay.valid.length,
+      invalidPageDay: discovery.pageDay.invalid.length,
+      validPostLifetime: discovery.postLifetime.valid.length,
+      invalidPostLifetime: discovery.postLifetime.invalid.length,
+      storedFacebookPageInsightDailyRows: facebookPageInsightDailyCount,
+      accountMetricSnapshotsWithInsightsJson: snapshotRowsWithInsights,
+      importedFacebookPosts: importedPostCount,
+      facebookSyncRunsLogged: syncRunCount,
+    },
+  };
+
   return NextResponse.json(
     {
       graphApiVersion: META_GRAPH_FACEBOOK_API_VERSION,
       pageId: account.platformUserId,
       username: account.username,
       discovery,
+      debugSummary,
       storage: {
         facebookPageInsightDailyRows: facebookPageInsightDailyCount,
         accountMetricSnapshotsWithInsightsJson: snapshotRowsWithInsights,

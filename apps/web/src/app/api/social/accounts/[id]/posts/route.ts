@@ -142,6 +142,16 @@ export async function GET(
         mediaType: p.mediaType,
         platform: p.platform,
         ...(facebookInsights && Object.keys(facebookInsights).length > 0 ? { facebookInsights } : {}),
+        ...(p.platform === 'FACEBOOK'
+          ? {
+              engagementBreakdown: {
+                reactions: p.likeCount ?? 0,
+                comments: p.commentsCount ?? 0,
+                shares: p.sharesCount ?? 0,
+                totalEngagement: (p.likeCount ?? 0) + (p.commentsCount ?? 0) + (p.sharesCount ?? 0),
+              },
+            }
+          : {}),
       };
     });
 

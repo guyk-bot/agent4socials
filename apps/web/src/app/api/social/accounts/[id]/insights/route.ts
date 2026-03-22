@@ -16,6 +16,7 @@ import { fetchMergedFacebookPageDayInsights } from '@/lib/facebook/resilient-ins
 import { fetchPageProfile } from '@/lib/facebook/fetchers';
 import { facebookMetricDateFromEndTime } from '@/lib/facebook/dates';
 import { persistFacebookPageInsightsNormalized } from '@/lib/facebook/persist-page-insights';
+import { buildFacebookFrontendAnalyticsBundle } from '@/lib/facebook/frontend-analytics-bundle';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 
 const fbBaseUrl = facebookGraphBaseUrl;
@@ -704,6 +705,16 @@ export async function GET(
         } catch (e) {
           console.warn('[Insights] Merge FB insights from snapshots:', (e as Error)?.message ?? e);
         }
+      }
+      {
+        const graphSeries = ((out as Record<string, unknown>).facebookPageMetricSeries ??
+          {}) as Record<string, Array<{ date: string; value: number }>>;
+        (out as Record<string, unknown>).facebookAnalytics = buildFacebookFrontendAnalyticsBundle({
+          followers: out.followers,
+          graphSeries,
+          mergedContentViewsSeries: out.impressionsTimeSeries ?? [],
+          mergedPageTabViewsSeries: out.pageViewsTimeSeries,
+        });
       }
       return NextResponse.json(out);
     }
