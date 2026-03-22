@@ -45,3 +45,13 @@ Exactly **which** Page day metrics work is **per-Page and per-version**: candida
 
 - `META_GRAPH_API_VERSION`: optional override (e.g. `24.0` or `v24.0`). Default **v22.0** if unset.
 - `FACEBOOK_LOG_SYNC_RUNS=1`: persist `FacebookSyncRun` rows for Page insight syncs.
+
+## Debug endpoints
+
+- `GET /api/social/accounts/[id]/facebook-graph-debug` – raw Graph buckets (metric probes one-by-one).
+- `GET /api/social/accounts/[id]/facebook-analytics-debug` – **registry** valid/invalid lists, counts of `facebook_page_insight_daily` rows and snapshots with `insightsJson`, and unimplemented notes.
+
+## Persistence
+
+- Page day metrics: `AccountMetricSnapshot.insightsJson` (merged by date) **and** `FacebookPageInsightDaily` (one row per metric per day, Graph-native `metricKey`).
+- Post metrics: `ImportedPost.platformMetadata.facebookInsights` plus `impressions`, `sharesCount`, reactions/comments summaries from edges.

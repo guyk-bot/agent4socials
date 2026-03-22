@@ -30,6 +30,10 @@ export interface FacebookInsights {
   firstConnectedAt?: string | null;
   /** Demographics (age, gender, country) when requested with extended=1. */
   demographics?: import('@/types/analytics').Demographics;
+  /** Graph-native metric name → daily series (from live API merge). */
+  facebookPageMetricSeries?: Record<string, Array<{ date: string; value: number }>>;
+  /** When extended=1: rows upserted into `facebook_page_insight_daily` on last persist. */
+  facebookInsightPersistence?: { dailyRowsUpserted: number };
 }
 
 export interface FacebookPost {
@@ -46,4 +50,6 @@ export interface FacebookPost {
   commentsCount?: number;
   sharesCount?: number;
   repostsCount?: number;
+  /** Post lifetime insights from sync (registry-valid metrics only). */
+  facebookInsights?: Record<string, number>;
 }

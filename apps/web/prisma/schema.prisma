@@ -69,8 +69,28 @@ model SocialAccount {
   facebookPageCache         FacebookPageCache?
   facebookConversationCaches FacebookConversationCache[]
   facebookReviewCaches      FacebookReviewCache[]
+  facebookPageInsightDailies FacebookPageInsightDaily[]
 
   @@unique([userId, platform, platformUserId])
+}
+
+/// Normalized Page insight values per day (one row per metric per date). Complements `AccountMetricSnapshot.insightsJson` for explicit queries and debug counts.
+model FacebookPageInsightDaily {
+  id               String        @id @default(cuid())
+  userId           String
+  socialAccountId  String
+  socialAccount    SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  pageId           String
+  metricDate       String
+  metricKey        String
+  value            Float
+  source           String        @default("insights_api")
+  fetchedAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@unique([socialAccountId, metricKey, metricDate])
+  @@index([userId, pageId, metricDate])
+  @@map("facebook_page_insight_daily")
 }
 
 /// Latest Graph `/{page-id}` profile JSON for this connected Page (normalized “facebook_pages” store).

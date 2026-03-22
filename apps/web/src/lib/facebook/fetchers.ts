@@ -228,6 +228,57 @@ export async function fetchPostLifetimeMetricTotals(
   return { impressions: 0, metricUsed: null };
 }
 
+const POST_INSIGHT_PARALLEL = 4;
+
+/** Fetch every probed-valid post metric (one Graph call each, small parallel batches). */
+export async function fetchPostLifetimeInsightMap(
+  postId: string,
+  accessToken: string,
+  metricNames: string[]
+): Promise<Record<string, number>> {
+  const out: Record<string, number> = {};
+  const unique = [...new Set(metricNames.filter(Boolean))];
+  for (let i = 0; i < unique.length; i += POST_INSIGHT_PARALLEL) {
+    const chunk = unique.slice(i, i + POST_INSIGHT_PARALLEL);
+    await Promise.all(
+      chunk.map(async (metric) => {
+        try {
+          const res = await axios.get(`${metaGraphInsightsBaseUrl}/${postId}/insights`, {
+            params: { metric, access_token: accessToken },
+            timeout: 12_000,
+            validateStatus: () => true,
+          });
+          const body = res.data as {
+            data?: Array<{ name: string; values?: Array<{ value: number }> }>;
+            error?: { message?: string; code?: number };
+          };
+          if (body.error || res.status !== 200) return;
+          const row = body.data?.find((d) => d.name === metric);
+          const v = row?.values?.[0]?.value;
+          if (typeof v === 'number' && v >= 0) out[metric] = v;
+        } catch {
+          /* skip */
+        }
+      })
+    );
+  }
+  return out;
+}
+
+export function pickFacebookPostImpressionsFromInsightMap(m: Record<string, number>): {
+  impressions: number;
+  metricUsed: string | null;
+} {
+  const order = ['post_media_view', 'post_impressions', 'post_impressions_unique', 'post_engaged_users', 'post_video_views'];
+  for (const k of order) {
+    if (typeof m[k] === 'number' && m[k] >= 0) return { impressions: m[k], metricUsed: k };
+  }
+  for (const [k, v] of Object.entries(m)) {
+    if (typeof v === 'number' && v >= 0) return { impressions: v, metricUsed: k };
+  }
+  return { impressions: 0, metricUsed: null };
+}
+
 export async function resolvePostInsightMetricsForSync(params: {
   socialAccountId: string;
   pageId: string;

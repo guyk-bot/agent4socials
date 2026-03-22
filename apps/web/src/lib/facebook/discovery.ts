@@ -283,3 +283,48 @@ export async function getOrDiscoverPostLifetimeMetrics(params: {
   }
   return { metrics: validNames, discoveryRan: false };
 }
+
+/** When a metric was marked VALID but a later sync gets (#100) invalid insights metric, flip registry to INVALID. */
+export async function markPageDayMetricInvalidAfterFetchFailure(params: {
+  socialAccountId: string;
+  pageId: string;
+  metricName: string;
+  errorMessage: string;
+  errorCode?: number;
+}): Promise<void> {
+  const { socialAccountId, pageId, metricName, errorMessage, errorCode } = params;
+  if (errorCode !== 100) return;
+  if (!errorMessage.toLowerCase().includes('insights metric')) return;
+  await upsertProbe({
+    socialAccountId,
+    pageId,
+    scope: PAGE_INSIGHTS_DAY_SCOPE,
+    metricName,
+    status: FacebookMetricProbeStatus.INVALID,
+    lastError: errorMessage,
+  });
+}
+
+export async function getFacebookMetricDiscoveryReport(socialAccountId: string) {
+  const rows = await prisma.facebookMetricDiscovery.findMany({
+    where: { socialAccountId, graphVersion: META_GRAPH_INSIGHTS_VERSION },
+    select: { scope: true, metricName: true, status: true, lastError: true },
+    orderBy: [{ scope: 'asc' }, { metricName: 'asc' }],
+  });
+  const names = (scope: string, status: FacebookMetricProbeStatus) =>
+    rows.filter((r) => r.scope === scope && r.status === status).map((r) => r.metricName);
+  return {
+    pageDay: {
+      valid: names(PAGE_INSIGHTS_DAY_SCOPE, FacebookMetricProbeStatus.VALID),
+      invalid: names(PAGE_INSIGHTS_DAY_SCOPE, FacebookMetricProbeStatus.INVALID),
+      deprecated: names(PAGE_INSIGHTS_DAY_SCOPE, FacebookMetricProbeStatus.DEPRECATED),
+      unavailable: names(PAGE_INSIGHTS_DAY_SCOPE, FacebookMetricProbeStatus.UNAVAILABLE),
+    },
+    postLifetime: {
+      valid: names(POST_INSIGHTS_LIFETIME_SCOPE, FacebookMetricProbeStatus.VALID),
+      invalid: names(POST_INSIGHTS_LIFETIME_SCOPE, FacebookMetricProbeStatus.INVALID),
+      deprecated: names(POST_INSIGHTS_LIFETIME_SCOPE, FacebookMetricProbeStatus.DEPRECATED),
+      unavailable: names(POST_INSIGHTS_LIFETIME_SCOPE, FacebookMetricProbeStatus.UNAVAILABLE),
+    },
+  };
+}

@@ -8,7 +8,8 @@ import {
   fetchAllPublishedPostsForPage,
   fetchAllPostsFeedForPage,
   resolvePostInsightMetricsForSync,
-  fetchPostLifetimeMetricTotals,
+  fetchPostLifetimeInsightMap,
+  pickFacebookPostImpressionsFromInsightMap,
 } from '@/lib/facebook/fetchers';
 import { syncFacebookAuxiliaryIngest } from '@/lib/facebook/sync-extras';
 import { fbRestBaseUrl } from '@/lib/facebook/constants';
@@ -117,6 +118,14 @@ export async function GET(
 
     const serialized = importedRows.map((p) => {
       const enrich = account.platform === 'TWITTER' ? twitterEnrich[p.platformPostId] : undefined;
+      const meta =
+        p.platformMetadata && typeof p.platformMetadata === 'object' && !Array.isArray(p.platformMetadata)
+          ? (p.platformMetadata as Record<string, unknown>)
+          : {};
+      const facebookInsights =
+        p.platform === 'FACEBOOK' && meta.facebookInsights && typeof meta.facebookInsights === 'object' && !Array.isArray(meta.facebookInsights)
+          ? (meta.facebookInsights as Record<string, number>)
+          : undefined;
       return {
         id: p.id,
         platformPostId: p.platformPostId,
@@ -132,6 +141,7 @@ export async function GET(
         publishedAt: p.publishedAt instanceof Date ? p.publishedAt.toISOString() : String(p.publishedAt),
         mediaType: p.mediaType,
         platform: p.platform,
+        ...(facebookInsights && Object.keys(facebookInsights).length > 0 ? { facebookInsights } : {}),
       };
     });
 
@@ -368,25 +378,35 @@ async function syncImportedPosts(
     });
 
     const POST_INSIGHT_FETCH_CAP = 150;
+    /** Cap Graph calls per post: registry may list many names; fetch the most useful subset. */
+    const POST_METRICS_MAX = 12;
+    const postMetricsSlice = postMetricsOrder.slice(0, POST_METRICS_MAX);
     const slice = items.slice(0, maxPosts);
     for (let idx = 0; idx < slice.length; idx++) {
       const p = slice[idx];
       const publishedAt = p.created_time ? new Date(p.created_time) : new Date();
       const likeCountFinal = p.reactions?.summary?.total_count ?? 0;
       const commentsCountFinal = p.comments?.summary?.total_count ?? 0;
-      const interactionsFinal = likeCountFinal + commentsCountFinal;
 
       let impressions = 0;
-      if (idx < POST_INSIGHT_FETCH_CAP) {
-        const r = await fetchPostLifetimeMetricTotals(p.id, accessToken, postMetricsOrder);
-        impressions = r.impressions;
-      } else {
+      let insightMap: Record<string, number> = {};
+      if (idx < POST_INSIGHT_FETCH_CAP && postMetricsSlice.length > 0) {
+        insightMap = await fetchPostLifetimeInsightMap(p.id, accessToken, postMetricsSlice);
+        impressions = pickFacebookPostImpressionsFromInsightMap(insightMap).impressions;
+      } else if (idx >= POST_INSIGHT_FETCH_CAP) {
         const prev = await prisma.importedPost.findUnique({
           where: { socialAccountId_platformPostId: { socialAccountId, platformPostId: p.id } },
-          select: { impressions: true },
+          select: { impressions: true, platformMetadata: true },
         });
         impressions = prev?.impressions ?? 0;
+        const prevMeta = prev?.platformMetadata && typeof prev.platformMetadata === 'object' ? prev.platformMetadata as Record<string, unknown> : {};
+        if (prevMeta.facebookInsights && typeof prevMeta.facebookInsights === 'object') {
+          insightMap = prevMeta.facebookInsights as Record<string, number>;
+        }
       }
+
+      const sharesCountFinal = typeof insightMap.post_shares === 'number' ? insightMap.post_shares : 0;
+      const interactionsFinal = likeCountFinal + commentsCountFinal + sharesCountFinal;
 
       const mediaTypeGuess =
         p.status_type?.includes('VIDEO') || p.status_type?.includes('REEL')
@@ -400,6 +420,12 @@ async function syncImportedPosts(
       const platformMetadata = {
         status_type: p.status_type ?? null,
         attachmentTypes: (p.attachments?.data ?? []).map((a) => a.media_type ?? a.type).filter(Boolean),
+        ...(Object.keys(insightMap).length > 0
+          ? {
+              facebookInsights: insightMap,
+              impressionsMetricKey: pickFacebookPostImpressionsFromInsightMap(insightMap).metricUsed,
+            }
+          : {}),
       };
 
       await prisma.importedPost.upsert({
@@ -417,6 +443,7 @@ async function syncImportedPosts(
           interactions: interactionsFinal,
           likeCount: likeCountFinal,
           commentsCount: commentsCountFinal,
+          sharesCount: sharesCountFinal,
           syncedAt: new Date(),
         },
         create: {
@@ -433,6 +460,7 @@ async function syncImportedPosts(
           interactions: interactionsFinal,
           likeCount: likeCountFinal,
           commentsCount: commentsCountFinal,
+          sharesCount: sharesCountFinal,
         },
       });
     }

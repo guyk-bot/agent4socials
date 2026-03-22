@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { metaGraphInsightsBaseUrl, META_GRAPH_INSIGHTS_VERSION } from '@/lib/meta-graph-insights';
-import { getOrDiscoverPageDayMetrics } from './discovery';
+import { getOrDiscoverPageDayMetrics, markPageDayMetricInvalidAfterFetchFailure } from './discovery';
 import type { FacebookInsightMetricRow, FacebookSyncSummary } from './types';
 import { startFacebookSyncRun, finishFacebookSyncRun } from './sync-run';
 
@@ -55,6 +55,14 @@ export async function fetchMergedFacebookPageDayInsights(params: {
         );
         if (res.data?.error) {
           invalidEncountered.push(metric);
+          const err = res.data.error;
+          await markPageDayMetricInvalidAfterFetchFailure({
+            socialAccountId,
+            pageId,
+            metricName: metric,
+            errorMessage: err.message ?? JSON.stringify(err),
+            errorCode: err.code,
+          });
           return;
         }
         const chunk = res.data?.data ?? [];

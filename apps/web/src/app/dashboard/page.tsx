@@ -1120,6 +1120,8 @@ export default function DashboardPage() {
                   demographics: insights.demographics,
                   firstConnectedAt: (insights as { firstConnectedAt?: string | null }).firstConnectedAt,
                   isBootstrap: (insights as { isBootstrap?: boolean }).isBootstrap,
+                  facebookPageMetricSeries: (insights as { facebookPageMetricSeries?: Record<string, Array<{ date: string; value: number }>> }).facebookPageMetricSeries,
+                  facebookInsightPersistence: (insights as { facebookInsightPersistence?: { dailyRowsUpserted: number } }).facebookInsightPersistence,
                 }),
               };
               return base;

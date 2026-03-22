@@ -5,24 +5,26 @@
  *
  * Full rationale and UI mapping: docs/FACEBOOK_ANALYTICS_CAPABILITY_MAP.md
  */
+/** Order: metrics that validate on typical Pages first (see live JSON probes); likely-invalid names last. */
 export const FACEBOOK_PAGE_DAY_METRIC_CANDIDATES: string[] = [
   'page_media_view',
   'page_views_total',
   'page_post_engagements',
-  'page_fan_adds',
-  'page_fan_removes',
-  'page_impressions',
   'page_video_views',
   'page_video_view_time',
   'page_follows',
   'page_daily_follows',
   'page_total_actions',
-  'page_cta_clicks_logged_in_total',
   'page_negative_feedback',
   'page_positive_feedback_by_type',
   'page_posts_impressions',
   'page_posts_impressions_nonviral',
   'page_posts_impressions_viral',
+  // Often return (#100) invalid metric on v22+ for many Pages; keep discoverable but probe last
+  'page_fan_adds',
+  'page_fan_removes',
+  'page_impressions',
+  'page_cta_clicks_logged_in_total',
 ];
 
 /**

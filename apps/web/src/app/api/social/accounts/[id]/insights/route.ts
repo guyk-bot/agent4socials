@@ -15,6 +15,7 @@ import {
 import { fetchMergedFacebookPageDayInsights } from '@/lib/facebook/resilient-insights';
 import { fetchPageProfile } from '@/lib/facebook/fetchers';
 import { facebookMetricDateFromEndTime } from '@/lib/facebook/dates';
+import { persistFacebookPageInsightsNormalized } from '@/lib/facebook/persist-page-insights';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 
 const fbBaseUrl = facebookGraphBaseUrl;
@@ -521,7 +522,7 @@ export async function GET(
           }
           const addsByDate = new Map<string, number>();
           const removesByDate = new Map<string, number>();
-          const fbSeriesByMetric: Record<string, Array<{ date: string; value: number }>> = {};
+          const fbSeriesByGraphMetric: Record<string, Array<{ date: string; value: number }>> = {};
           // Don't add explicit 0 for recent dates (Meta often returns 0 for "not yet available"); UI will carry forward last value
           const cutoffForZero = (() => {
             const d = new Date(untilForApi + 'T12:00:00');
@@ -541,8 +542,9 @@ export async function GET(
               }
             }
             const sortedSeries = series.sort((a, b) => a.date.localeCompare(b.date));
-            const persistMetricKey = d.name === 'page_media_view' ? 'page_impressions' : d.name;
-            if (sortedSeries.length > 0) fbSeriesByMetric[persistMetricKey] = sortedSeries;
+            if (sortedSeries.length > 0) {
+              fbSeriesByGraphMetric[d.name] = sortedSeries;
+            }
             if (d.name === 'page_impressions' || d.name === 'page_media_view') {
               out.impressionsTotal = total;
               out.impressionsTimeSeries = sortedSeries.length ? sortedSeries : (total ? [{ date: effectiveUntilParam?.slice(0, 10) || new Date().toISOString().slice(0, 10), value: total }] : []);
@@ -557,15 +559,18 @@ export async function GET(
               for (const { date, value } of sortedSeries) removesByDate.set(date, value);
             }
           }
-          if (Object.keys(fbSeriesByMetric).length > 0) {
+          if (Object.keys(fbSeriesByGraphMetric).length > 0) {
+            (out as Record<string, unknown>).facebookPageMetricSeries = fbSeriesByGraphMetric;
             try {
-              await persistInsightsSeries({
+              const { dailyRowsUpserted } = await persistFacebookPageInsightsNormalized({
                 userId,
                 socialAccountId: account.id,
-                platform: 'FACEBOOK',
-                externalAccountId: account.platformUserId,
-                seriesByMetric: fbSeriesByMetric,
+                pageId: account.platformUserId,
+                seriesByGraphMetric: fbSeriesByGraphMetric,
               });
+              if (request.nextUrl.searchParams.get('extended') === '1') {
+                (out as Record<string, unknown>).facebookInsightPersistence = { dailyRowsUpserted };
+              }
             } catch (e) {
               console.warn('[Insights] Persist FB insights:', (e as Error)?.message ?? e);
             }
