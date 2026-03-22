@@ -18,6 +18,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 |------|--------|
 | Dashboard home, sidebar, connect/disconnect | `apps/web/src/app/dashboard/page.tsx` |
 | Connect flow UI (per-platform) | `apps/web/src/components/dashboard/ConnectView.tsx` |
+| Branded full-page loader (logo + ring) for account select screens | `apps/web/src/components/BrandedPageLoader.tsx` |
 | Sidebar | `apps/web/src/components/Sidebar.tsx` |
 | App header (nav, logo) | `apps/web/src/components/AppHeader.tsx` |
 | Funnel / landing wordmark (red X font) | `apps/web/src/components/BrandWordmark.tsx`, `BrandMarkX` for inline platform name; `SiteHeader` + home hero subhead |

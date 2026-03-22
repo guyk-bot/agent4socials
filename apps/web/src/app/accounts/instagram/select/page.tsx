@@ -4,6 +4,7 @@ import React, { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
+import { BrandedPageLoader } from '@/components/BrandedPageLoader';
 import { Instagram, Loader2 } from 'lucide-react';
 
 type AccountItem = { id: string; username?: string; profilePicture?: string };
@@ -58,12 +59,7 @@ function InstagramSelectContent() {
   };
 
   if (loading) {
-    return (
-      <div className="max-w-md mx-auto mt-16 text-center">
-        <Loader2 className="w-10 h-10 animate-spin text-[var(--primary)] mx-auto mb-4" />
-        <p className="text-neutral-600">Loading your Instagram accounts…</p>
-      </div>
-    );
+    return <BrandedPageLoader message="Loading your Instagram accounts…" />;
   }
 
   if (error || accounts.length === 0) {
@@ -127,12 +123,7 @@ function InstagramSelectContent() {
 
 export default function InstagramSelectPage() {
   return (
-    <Suspense fallback={
-      <div className="max-w-md mx-auto mt-16 text-center">
-        <Loader2 className="w-10 h-10 animate-spin text-[var(--primary)] mx-auto mb-4" />
-        <p className="text-neutral-600">Loading…</p>
-      </div>
-    }>
+    <Suspense fallback={<BrandedPageLoader message="Loading…" />}>
       <InstagramSelectContent />
     </Suspense>
   );
