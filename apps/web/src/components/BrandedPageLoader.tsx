@@ -1,25 +1,34 @@
 'use client';
 
-import Image from 'next/image';
+import { useEffect, useRef } from 'react';
 
-/** Full-viewport loading state: app logo + light ring (not a generic platform-colored spinner). */
+/** Same asset as `LoadingVideoOverlay` (`apps/web/public/logo-loading-page.mp4`). */
+const LOGO_LOADING_VIDEO = '/logo-loading-page.mp4';
+
+/** Full-viewport loading state: branded logo loop video + optional status line. */
 export function BrandedPageLoader({ message }: { message: string }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    videoRef.current?.play().catch(() => {});
+  }, []);
+
   return (
-    <div className="min-h-[80vh] flex flex-col items-center justify-center gap-4 px-4">
-      <div className="relative flex h-[4.5rem] w-[4.5rem] items-center justify-center" aria-busy="true" aria-live="polite">
-        <span
-          className="absolute inset-0 rounded-full border-2 border-neutral-200 border-t-violet-600 animate-spin opacity-70"
-          aria-hidden
-        />
-        <Image
-          src="/logo.svg"
-          alt="Agent4Socials"
-          width={48}
-          height={48}
-          className="relative h-12 w-12 object-contain [background:transparent]"
-          priority
-        />
-      </div>
+    <div
+      className="min-h-[80vh] flex flex-col items-center justify-center gap-4 px-4"
+      aria-busy="true"
+      aria-live="polite"
+    >
+      <video
+        ref={videoRef}
+        src={LOGO_LOADING_VIDEO}
+        className="w-[min(92vw,680px)] h-auto max-h-[min(88vh,520px)] object-contain"
+        autoPlay
+        muted
+        playsInline
+        loop
+        aria-label="Loading"
+      />
       <p className="text-neutral-600 text-sm">{message}</p>
     </div>
   );
