@@ -7,6 +7,7 @@ export * from './dates';
 export * from './types';
 export * from './metric-candidates';
 export * from './discovery';
+export * from './discovery-db';
 export * from './resilient-insights';
 export * from './fetchers';
 export * from './sync-run';

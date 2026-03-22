@@ -28,18 +28,28 @@ export async function GET(
 
   const discovery = await getFacebookMetricDiscoveryReport(account.id);
 
+  const safeCount = async (fn: () => Promise<number>): Promise<number> => {
+    try {
+      return await fn();
+    } catch {
+      return 0;
+    }
+  };
+
   const [facebookPageInsightDailyCount, snapshotRowsWithInsights, importedPostCount, syncRunCount] = await Promise.all([
-    prisma.facebookPageInsightDaily.count({ where: { socialAccountId: account.id } }),
-    prisma.accountMetricSnapshot.count({
-      where: {
-        userId,
-        platform: Platform.FACEBOOK,
-        externalAccountId: account.platformUserId,
-        insightsJson: { not: Prisma.DbNull },
-      },
-    }),
-    prisma.importedPost.count({ where: { socialAccountId: account.id, platform: 'FACEBOOK' } }),
-    prisma.facebookSyncRun.count({ where: { socialAccountId: account.id } }),
+    safeCount(() => prisma.facebookPageInsightDaily.count({ where: { socialAccountId: account.id } })),
+    safeCount(() =>
+      prisma.accountMetricSnapshot.count({
+        where: {
+          userId,
+          platform: Platform.FACEBOOK,
+          externalAccountId: account.platformUserId,
+          insightsJson: { not: Prisma.DbNull },
+        },
+      })
+    ),
+    safeCount(() => prisma.importedPost.count({ where: { socialAccountId: account.id, platform: 'FACEBOOK' } })),
+    safeCount(() => prisma.facebookSyncRun.count({ where: { socialAccountId: account.id } })),
   ]);
 
   const debugSummary = {

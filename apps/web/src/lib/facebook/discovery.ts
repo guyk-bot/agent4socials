@@ -4,9 +4,17 @@ import { prisma } from '@/lib/db';
 import { metaGraphInsightsBaseUrl, META_GRAPH_INSIGHTS_VERSION } from '@/lib/meta-graph-insights';
 import { FACEBOOK_METRIC_DISCOVERY_TTL_MS } from './constants';
 import { FACEBOOK_PAGE_DAY_METRIC_CANDIDATES, FACEBOOK_POST_LIFETIME_METRIC_CANDIDATES } from './metric-candidates';
+import {
+  isFacebookMetricDiscoveryTableAvailable,
+  markFacebookMetricDiscoveryTableUnavailable,
+} from './discovery-db';
 
 export const PAGE_INSIGHTS_DAY_SCOPE = 'page_insights:day';
 export const POST_INSIGHTS_LIFETIME_SCOPE = 'post_insights:lifetime';
+
+/** If `FacebookMetricDiscovery` is missing, still fetch these day metrics (known-good prefix; invalid ones fail fast per request). */
+const PAGE_DAY_METRICS_FALLBACK_NO_TABLE = FACEBOOK_PAGE_DAY_METRIC_CANDIDATES.slice(0, 12);
+const POST_LIFETIME_METRICS_FALLBACK_NO_TABLE = FACEBOOK_POST_LIFETIME_METRIC_CANDIDATES.slice(0, 10);
 
 function classifyProbeError(code?: number, message?: string): FacebookMetricProbeStatus {
   const m = message ?? '';
@@ -18,12 +26,17 @@ function classifyProbeError(code?: number, message?: string): FacebookMetricProb
 
 /** Drop cached probes from a different Graph insights version so we re-probe after upgrades. */
 export async function invalidateStaleFacebookDiscovery(socialAccountId: string): Promise<void> {
-  await prisma.facebookMetricDiscovery.deleteMany({
-    where: {
-      socialAccountId,
-      graphVersion: { not: META_GRAPH_INSIGHTS_VERSION },
-    },
-  });
+  if (!(await isFacebookMetricDiscoveryTableAvailable())) return;
+  try {
+    await prisma.facebookMetricDiscovery.deleteMany({
+      where: {
+        socialAccountId,
+        graphVersion: { not: META_GRAPH_INSIGHTS_VERSION },
+      },
+    });
+  } catch {
+    markFacebookMetricDiscoveryTableUnavailable();
+  }
 }
 
 async function upsertProbe(params: {
@@ -35,28 +48,33 @@ async function upsertProbe(params: {
   lastError: string | null;
 }) {
   const { socialAccountId, pageId, scope, metricName, status, lastError } = params;
-  await prisma.facebookMetricDiscovery.upsert({
-    where: {
-      socialAccountId_scope_metricName: { socialAccountId, scope, metricName },
-    },
-    create: {
-      socialAccountId,
-      pageId,
-      scope,
-      metricName,
-      status,
-      lastError,
-      graphVersion: META_GRAPH_INSIGHTS_VERSION,
-      validatedAt: new Date(),
-    },
-    update: {
-      pageId,
-      status,
-      lastError,
-      graphVersion: META_GRAPH_INSIGHTS_VERSION,
-      validatedAt: new Date(),
-    },
-  });
+  if (!(await isFacebookMetricDiscoveryTableAvailable())) return;
+  try {
+    await prisma.facebookMetricDiscovery.upsert({
+      where: {
+        socialAccountId_scope_metricName: { socialAccountId, scope, metricName },
+      },
+      create: {
+        socialAccountId,
+        pageId,
+        scope,
+        metricName,
+        status,
+        lastError,
+        graphVersion: META_GRAPH_INSIGHTS_VERSION,
+        validatedAt: new Date(),
+      },
+      update: {
+        pageId,
+        status,
+        lastError,
+        graphVersion: META_GRAPH_INSIGHTS_VERSION,
+        validatedAt: new Date(),
+      },
+    });
+  } catch {
+    markFacebookMetricDiscoveryTableUnavailable();
+  }
 }
 
 export async function probePageDayMetric(
@@ -197,29 +215,41 @@ export async function discoverPostLifetimeMetrics(params: {
 }
 
 export async function getCachedValidPageDayMetrics(socialAccountId: string): Promise<string[]> {
-  const rows = await prisma.facebookMetricDiscovery.findMany({
-    where: {
-      socialAccountId,
-      scope: PAGE_INSIGHTS_DAY_SCOPE,
-      graphVersion: META_GRAPH_INSIGHTS_VERSION,
-      status: FacebookMetricProbeStatus.VALID,
-    },
-    select: { metricName: true },
-  });
-  return rows.map((r) => r.metricName);
+  if (!(await isFacebookMetricDiscoveryTableAvailable())) return [];
+  try {
+    const rows = await prisma.facebookMetricDiscovery.findMany({
+      where: {
+        socialAccountId,
+        scope: PAGE_INSIGHTS_DAY_SCOPE,
+        graphVersion: META_GRAPH_INSIGHTS_VERSION,
+        status: FacebookMetricProbeStatus.VALID,
+      },
+      select: { metricName: true },
+    });
+    return rows.map((r) => r.metricName);
+  } catch {
+    markFacebookMetricDiscoveryTableUnavailable();
+    return [];
+  }
 }
 
 export async function getCachedValidPostLifetimeMetrics(socialAccountId: string): Promise<string[]> {
-  const rows = await prisma.facebookMetricDiscovery.findMany({
-    where: {
-      socialAccountId,
-      scope: POST_INSIGHTS_LIFETIME_SCOPE,
-      graphVersion: META_GRAPH_INSIGHTS_VERSION,
-      status: FacebookMetricProbeStatus.VALID,
-    },
-    select: { metricName: true },
-  });
-  return rows.map((r) => r.metricName);
+  if (!(await isFacebookMetricDiscoveryTableAvailable())) return [];
+  try {
+    const rows = await prisma.facebookMetricDiscovery.findMany({
+      where: {
+        socialAccountId,
+        scope: POST_INSIGHTS_LIFETIME_SCOPE,
+        graphVersion: META_GRAPH_INSIGHTS_VERSION,
+        status: FacebookMetricProbeStatus.VALID,
+      },
+      select: { metricName: true },
+    });
+    return rows.map((r) => r.metricName);
+  } catch {
+    markFacebookMetricDiscoveryTableUnavailable();
+    return [];
+  }
 }
 
 function cacheNeedsRefresh(validatedAt: Date): boolean {
@@ -235,14 +265,23 @@ export async function getOrDiscoverPageDayMetrics(params: {
   until: string;
 }): Promise<{ metrics: string[]; discoveryRan: boolean }> {
   const { socialAccountId, pageId, accessToken, since, until } = params;
+  if (!(await isFacebookMetricDiscoveryTableAvailable())) {
+    return { metrics: [...PAGE_DAY_METRICS_FALLBACK_NO_TABLE], discoveryRan: false };
+  }
   await invalidateStaleFacebookDiscovery(socialAccountId);
-  const existing = await prisma.facebookMetricDiscovery.findMany({
-    where: {
-      socialAccountId,
-      scope: PAGE_INSIGHTS_DAY_SCOPE,
-      graphVersion: META_GRAPH_INSIGHTS_VERSION,
-    },
-  });
+  let existing: Awaited<ReturnType<typeof prisma.facebookMetricDiscovery.findMany>>;
+  try {
+    existing = await prisma.facebookMetricDiscovery.findMany({
+      where: {
+        socialAccountId,
+        scope: PAGE_INSIGHTS_DAY_SCOPE,
+        graphVersion: META_GRAPH_INSIGHTS_VERSION,
+      },
+    });
+  } catch {
+    markFacebookMetricDiscoveryTableUnavailable();
+    return { metrics: [...PAGE_DAY_METRICS_FALLBACK_NO_TABLE], discoveryRan: false };
+  }
   const anyStale = existing.some((r) => cacheNeedsRefresh(r.validatedAt));
   const validNames = existing
     .filter((r) => r.status === FacebookMetricProbeStatus.VALID)
@@ -251,9 +290,9 @@ export async function getOrDiscoverPageDayMetrics(params: {
   if (existing.length === 0 || anyStale) {
     await discoverPageDayMetrics({ socialAccountId, pageId, accessToken, since, until });
     const after = await getCachedValidPageDayMetrics(socialAccountId);
-    return { metrics: after, discoveryRan: true };
+    return { metrics: after.length ? after : [...PAGE_DAY_METRICS_FALLBACK_NO_TABLE], discoveryRan: true };
   }
-  return { metrics: validNames, discoveryRan: false };
+  return { metrics: validNames.length ? validNames : [...PAGE_DAY_METRICS_FALLBACK_NO_TABLE], discoveryRan: false };
 }
 
 export async function getOrDiscoverPostLifetimeMetrics(params: {
@@ -264,14 +303,23 @@ export async function getOrDiscoverPostLifetimeMetrics(params: {
 }): Promise<{ metrics: string[]; discoveryRan: boolean }> {
   const { socialAccountId, pageId, samplePostId, accessToken } = params;
   if (!samplePostId) return { metrics: [], discoveryRan: false };
+  if (!(await isFacebookMetricDiscoveryTableAvailable())) {
+    return { metrics: [...POST_LIFETIME_METRICS_FALLBACK_NO_TABLE], discoveryRan: false };
+  }
   await invalidateStaleFacebookDiscovery(socialAccountId);
-  const existing = await prisma.facebookMetricDiscovery.findMany({
-    where: {
-      socialAccountId,
-      scope: POST_INSIGHTS_LIFETIME_SCOPE,
-      graphVersion: META_GRAPH_INSIGHTS_VERSION,
-    },
-  });
+  let existing: Awaited<ReturnType<typeof prisma.facebookMetricDiscovery.findMany>>;
+  try {
+    existing = await prisma.facebookMetricDiscovery.findMany({
+      where: {
+        socialAccountId,
+        scope: POST_INSIGHTS_LIFETIME_SCOPE,
+        graphVersion: META_GRAPH_INSIGHTS_VERSION,
+      },
+    });
+  } catch {
+    markFacebookMetricDiscoveryTableUnavailable();
+    return { metrics: [...POST_LIFETIME_METRICS_FALLBACK_NO_TABLE], discoveryRan: false };
+  }
   const anyStale = existing.some((r) => cacheNeedsRefresh(r.validatedAt));
   const validNames = existing
     .filter((r) => r.status === FacebookMetricProbeStatus.VALID)
@@ -279,9 +327,15 @@ export async function getOrDiscoverPostLifetimeMetrics(params: {
   if (existing.length === 0 || anyStale) {
     await discoverPostLifetimeMetrics({ socialAccountId, pageId, samplePostId, accessToken });
     const after = await getCachedValidPostLifetimeMetrics(socialAccountId);
-    return { metrics: after, discoveryRan: true };
+    return {
+      metrics: after.length ? after : [...POST_LIFETIME_METRICS_FALLBACK_NO_TABLE],
+      discoveryRan: true,
+    };
   }
-  return { metrics: validNames, discoveryRan: false };
+  return {
+    metrics: validNames.length ? validNames : [...POST_LIFETIME_METRICS_FALLBACK_NO_TABLE],
+    discoveryRan: false,
+  };
 }
 
 /** When a metric was marked VALID but a later sync gets (#100) invalid insights metric, flip registry to INVALID. */
@@ -295,6 +349,7 @@ export async function markPageDayMetricInvalidAfterFetchFailure(params: {
   const { socialAccountId, pageId, metricName, errorMessage, errorCode } = params;
   if (errorCode !== 100) return;
   if (!errorMessage.toLowerCase().includes('insights metric')) return;
+  if (!(await isFacebookMetricDiscoveryTableAvailable())) return;
   await upsertProbe({
     socialAccountId,
     pageId,
@@ -306,11 +361,28 @@ export async function markPageDayMetricInvalidAfterFetchFailure(params: {
 }
 
 export async function getFacebookMetricDiscoveryReport(socialAccountId: string) {
-  const rows = await prisma.facebookMetricDiscovery.findMany({
-    where: { socialAccountId, graphVersion: META_GRAPH_INSIGHTS_VERSION },
-    select: { scope: true, metricName: true, status: true, lastError: true },
-    orderBy: [{ scope: 'asc' }, { metricName: 'asc' }],
-  });
+  const empty = {
+    pageDay: { valid: [] as string[], invalid: [] as string[], deprecated: [] as string[], unavailable: [] as string[] },
+    postLifetime: {
+      valid: [] as string[],
+      invalid: [] as string[],
+      deprecated: [] as string[],
+      unavailable: [] as string[],
+    },
+  };
+  if (!(await isFacebookMetricDiscoveryTableAvailable())) return empty;
+  type ReportRow = { scope: string; metricName: string; status: FacebookMetricProbeStatus; lastError: string | null };
+  let rows: ReportRow[];
+  try {
+    rows = await prisma.facebookMetricDiscovery.findMany({
+      where: { socialAccountId, graphVersion: META_GRAPH_INSIGHTS_VERSION },
+      select: { scope: true, metricName: true, status: true, lastError: true },
+      orderBy: [{ scope: 'asc' }, { metricName: 'asc' }],
+    });
+  } catch {
+    markFacebookMetricDiscoveryTableUnavailable();
+    return empty;
+  }
   const names = (scope: string, status: FacebookMetricProbeStatus) =>
     rows.filter((r) => r.scope === scope && r.status === status).map((r) => r.metricName);
   return {

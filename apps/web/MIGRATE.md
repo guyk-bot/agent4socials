@@ -212,3 +212,24 @@ ALTER TABLE "LinkItem" ADD CONSTRAINT "LinkItem_linkPageId_fkey" FOREIGN KEY ("l
 ```
 
 3. Save. Smart Links will be available in the dashboard.
+
+## Facebook analytics: `FacebookMetricDiscovery` does not exist
+
+If the dashboard shows **Page insights failed** and Prisma mentions **`FacebookMetricDiscovery` does not exist**, migrations did not apply on production (often `DATABASE_DIRECT_URL` wrong so `prisma migrate deploy` is skipped on Vercel; see top of this file).
+
+**Preferred fix:** set **`DATABASE_DIRECT_URL`** correctly and redeploy so `prisma migrate deploy` runs all pending migrations (including `20260322180000_facebook_analytics_discovery`).
+
+**One-off SQL (idempotent):** in Supabase **SQL Editor**, run:
+
+`apps/web/scripts/ensure-facebook-metric-discovery.sql`
+
+That creates **`FacebookMetricDiscovery`**, **`FacebookSyncRun`**, enum **`FacebookMetricProbeStatus`**, and adds **`ImportedPost.platformMetadata`** if missing.
+
+**Verify:**
+
+```sql
+SELECT COUNT(*) FROM "FacebookMetricDiscovery";
+SELECT "metricName", "status", "scope" FROM "FacebookMetricDiscovery" LIMIT 10;
+```
+
+The app also **falls back** when the table is missing: it skips the discovery cache and still requests Page insights using a safe metric list (no hard crash). After the table exists, discovery will populate valid/invalid rows on the next insights load.

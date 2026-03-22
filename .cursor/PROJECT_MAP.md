@@ -54,7 +54,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | Summary UI components | `apps/web/src/components/dashboard/summary/` (SummaryDashboard, KPICardsGrid, GrowthChartTabs, etc.) |
 | Insights API | `apps/web/src/app/api/social/accounts/[id]/insights/route.ts` |
 | Meta Graph: single version for Page REST + insights + OAuth dialog (default v22; env `META_GRAPH_API_VERSION`) | `apps/web/src/lib/meta-graph-insights.ts` (`facebookGraphBaseUrl`) |
-| Facebook analytics (discovery, resilient insights, fetchers, frontend bundle) | `apps/web/src/lib/facebook/` (`frontend-analytics-bundle.ts`) |
+| Facebook analytics (discovery, resilient insights, fetchers, frontend bundle) | `apps/web/src/lib/facebook/` (`discovery-db.ts` gates cache if `FacebookMetricDiscovery` missing) |
 | Facebook capability map / implementation report | `docs/FACEBOOK_ANALYTICS_CAPABILITY_MAP.md`, `docs/FACEBOOK_ANALYTICS_IMPLEMENTATION_REPORT.md` |
 | Facebook live JSON audit (notifications invalid, insights comma-list, version mix) | `docs/FACEBOOK_JSON_AUDIT_REPORT.md` |
 | Facebook pipeline validation script (page insights DB, post insights, comments/reactions; needs `DATABASE_URL`) | `apps/web/scripts/facebook-pipeline-validation.ts`, `docs/FACEBOOK_PIPELINE_VALIDATION.md` (`npm run validate:facebook-pipeline` in `apps/web`) |
