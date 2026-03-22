@@ -11,6 +11,7 @@
     "test": "jest",
     "test:instagram-media": "node scripts/test-instagram-media.mjs",
     "validate-meta-token": "node scripts/validate-meta-token.mjs",
+    "validate:facebook-pipeline": "npx tsx scripts/facebook-pipeline-validation.ts",
     "generate-favicons": "node scripts/generate-favicons.cjs"
   },
   "dependencies": {
