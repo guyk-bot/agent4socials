@@ -139,6 +139,15 @@ function inRange(dateIso: string, start: string, end: string): boolean {
   return d >= start && d <= end;
 }
 
+function isReelPost(p: FacebookPost): boolean {
+  const url = (p.permalinkUrl ?? '').toLowerCase();
+  if (url.includes('/reel/')) return true;
+  // Some Facebook video posts do not use /reel/ permalink but still expose reel/video metrics.
+  if (typeof p.facebookInsights?.post_video_views === 'number') return true;
+  if (typeof p.facebookInsights?.post_video_avg_time_watched === 'number') return true;
+  return (p.mediaType ?? '').toUpperCase() === 'VIDEO';
+}
+
 function seriesToMap(series: Array<{ date: string; value: number }>): Record<string, number> {
   const map: Record<string, number> = {};
   for (const p of series) map[p.date] = p.value;
@@ -599,7 +608,7 @@ export function FacebookAnalyticsView({
     return postsInRange.map((p) => {
       const fi = p.facebookInsights ?? {};
       const reactions = parseReactionTotal(fi.post_reactions_by_type_total);
-      const isReel = (p.permalinkUrl ?? '').toLowerCase().includes('/reel/');
+      const isReel = isReelPost(p);
       const hasCore = typeof fi.post_media_view === 'number' || typeof fi.post_impressions_unique === 'number';
       return {
         id: p.id,
@@ -657,7 +666,7 @@ export function FacebookAnalyticsView({
     return posts.map((p) => {
       const fi = p.facebookInsights ?? {};
       const reactions = parseReactionTotal(fi.post_reactions_by_type_total);
-      const isReel = (p.permalinkUrl ?? '').toLowerCase().includes('/reel/');
+      const isReel = isReelPost(p);
       const hasCore = typeof fi.post_media_view === 'number' || typeof fi.post_impressions_unique === 'number';
       return {
         id: p.id,
