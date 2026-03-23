@@ -158,6 +158,35 @@ function isReelPost(p: FacebookPost): boolean {
   return (p.mediaType ?? '').toUpperCase() === 'VIDEO';
 }
 
+/** Plays Meta reports per post; UI often shows one metric, API may return the other. */
+function bestPostPlayCount(p: FacebookPost): number {
+  const fi = p.facebookInsights ?? {};
+  const pv = typeof fi.post_video_views === 'number' ? fi.post_video_views : 0;
+  const pm = typeof fi.post_media_view === 'number' ? fi.post_media_view : 0;
+  if (pv > 0 || pm > 0) return Math.max(pv, pm);
+  return typeof fi.post_media_view === 'number'
+    ? fi.post_media_view
+    : typeof p.impressions === 'number'
+      ? p.impressions
+      : 0;
+}
+
+function isVideoishPost(p: FacebookPost): boolean {
+  return isReelPost(p) || (p.mediaType ?? '').toUpperCase() === 'VIDEO' || typeof p.facebookInsights?.post_video_views === 'number';
+}
+
+/** Sum of reel/video post plays in range; Page `page_video_views` often disagrees with what you see on each reel. */
+function sumPostLevelVideoPlays(posts: FacebookPost[]): number {
+  return posts.reduce((s, p) => {
+    if (!isVideoishPost(p)) return s;
+    const fi = p.facebookInsights ?? {};
+    const pv = typeof fi.post_video_views === 'number' ? fi.post_video_views : 0;
+    const pm = typeof fi.post_media_view === 'number' ? fi.post_media_view : 0;
+    const plays = Math.max(pv, pm);
+    return s + plays;
+  }, 0);
+}
+
 function seriesToMap(series: Array<{ date: string; value: number }>): Record<string, number> {
   const map: Record<string, number> = {};
   for (const p of series) map[p.date] = p.value;
@@ -649,7 +678,9 @@ export function FacebookAnalyticsView({
   const contentViews = bundle?.totals.contentViews ?? 0;
   const pageVisits = bundle?.totals.pageTabViews ?? 0;
   const engagements = bundle?.totals.engagement ?? 0;
-  const videoViews = bundle?.totals.videoViews ?? 0;
+  const pageVideoViews = bundle?.totals.videoViews ?? 0;
+  const postVideoPlaysInRange = useMemo(() => sumPostLevelVideoPlays(postsInRange), [postsInRange]);
+  const videoViews = Math.max(pageVideoViews, postVideoPlaysInRange);
   const postImpressions = bundle?.totals.postImpressions ?? 0;
   const nonviralImpressions = bundle?.totals.postImpressionsNonviral ?? 0;
   const viralImpressions = bundle?.totals.postImpressionsViral ?? 0;
@@ -708,7 +739,7 @@ export function FacebookAnalyticsView({
         type: isReel ? ('Reel' as const) : ('Post' as const),
         preview: p.content ?? '',
         permalink: p.permalinkUrl,
-        views: fi.post_media_view ?? p.impressions ?? 0,
+        views: bestPostPlayCount(p),
         uniqueReach: fi.post_impressions_unique ?? 0,
         clicks: fi.post_clicks ?? 0,
         likes: fi.post_reactions_like_total ?? p.likeCount ?? 0,
@@ -726,7 +757,7 @@ export function FacebookAnalyticsView({
       .filter((r) => r.type === 'Reel')
       .map((r) => ({
         post: r.rawPost,
-        views: r.rawPost.facebookInsights?.post_video_views ?? r.rawPost.facebookInsights?.post_media_view ?? r.views,
+        views: bestPostPlayCount(r.rawPost),
         organicViews: r.rawPost.facebookInsights?.post_video_views_organic ?? 0,
         avgWatchMs: r.rawPost.facebookInsights?.post_video_avg_time_watched ?? 0,
       }));
@@ -767,7 +798,7 @@ export function FacebookAnalyticsView({
         type: isReel ? ('Reel' as const) : ('Post' as const),
         preview: p.content ?? '',
         permalink: p.permalinkUrl,
-        views: fi.post_media_view ?? p.impressions ?? 0,
+        views: bestPostPlayCount(p),
         uniqueReach: fi.post_impressions_unique ?? 0,
         clicks: fi.post_clicks ?? 0,
         likes: fi.post_reactions_like_total ?? p.likeCount ?? 0,
@@ -784,7 +815,7 @@ export function FacebookAnalyticsView({
       .filter((r) => r.type === 'Reel')
       .map((r) => ({
         post: r.rawPost,
-        views: r.rawPost.facebookInsights?.post_video_views ?? r.rawPost.facebookInsights?.post_media_view ?? r.views,
+        views: bestPostPlayCount(r.rawPost),
         organicViews: r.rawPost.facebookInsights?.post_video_views_organic ?? 0,
         avgWatchMs: r.rawPost.facebookInsights?.post_video_avg_time_watched ?? 0,
       }));
@@ -888,7 +919,18 @@ export function FacebookAnalyticsView({
           <SparklineMetricCard label="Content Views" source="page_media_view" color={COLOR.cyan} value={formatCompact(contentViews)} series={series?.contentViews ?? []} />
           <SparklineMetricCard label="Page Visits" source="page_views_total" color={COLOR.cyan} value={formatCompact(pageVisits)} series={series?.pageTabViews ?? []} />
           <SparklineMetricCard label="Engagements" source="page_post_engagements" color={COLOR.violet} value={formatCompact(engagements)} series={series?.engagement ?? []} />
-          <SparklineMetricCard label="Video Views" source="page_video_views" color={COLOR.magenta} value={formatCompact(videoViews)} series={series?.videoViews ?? []} />
+          <SparklineMetricCard
+            label="Video Views"
+            source="page_video_views, post_video_views, post_media_view"
+            color={COLOR.magenta}
+            value={formatCompact(videoViews)}
+            series={series?.videoViews ?? []}
+            footnote={
+              postVideoPlaysInRange > pageVideoViews
+                ? 'Uses post and reel play counts when they are higher than Page video views for this range.'
+                : undefined
+            }
+          />
         </div>
 
         <InsightChartCard
