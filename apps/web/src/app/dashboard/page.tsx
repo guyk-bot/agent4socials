@@ -1140,6 +1140,7 @@ export default function DashboardPage() {
             onReconnectFacebook={selectedAccount?.platform === 'FACEBOOK' ? () => router.push('/dashboard?connect=facebook') : undefined}
             onDateRangeChange={selectedAccount?.platform === 'FACEBOOK' ? (r) => setDateRange(r) : undefined}
             followersLabel={selectedAccount.platform === 'YOUTUBE' ? 'Subscribers' : 'Followers'}
+            accountAvatarUrl={selectedAccount.profilePicture ?? null}
           />
         </div>
       )}

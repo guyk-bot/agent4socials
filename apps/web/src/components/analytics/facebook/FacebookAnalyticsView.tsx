@@ -35,6 +35,8 @@ export interface FacebookAnalyticsViewProps {
   onReconnectFacebook?: () => void;
   /** e.g. "Subscribers" for YouTube; defaults to "Followers" */
   followersLabel?: string;
+  /** Connected account avatar from sidebar/account record. */
+  accountAvatarUrl?: string | null;
 }
 
 type SectionId = (typeof FACEBOOK_ANALYTICS_SECTION_IDS)[keyof typeof FACEBOOK_ANALYTICS_SECTION_IDS];
@@ -508,6 +510,7 @@ export function FacebookAnalyticsView({
   onDateRangeChange,
   onReconnectFacebook,
   followersLabel,
+  accountAvatarUrl,
 }: FacebookAnalyticsViewProps) {
   const loading = insightsLoading || postsLoading;
   const [storyMode, setStoryMode] = useState<StoryMode>('views');
@@ -720,7 +723,26 @@ export function FacebookAnalyticsView({
       <section className="rounded-[20px] p-4 md:p-5" style={{ background: COLOR.section }}>
         <div className="flex flex-wrap items-center gap-4 justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-11 w-11 rounded-2xl flex items-center justify-center text-base font-semibold" style={{ background: '#eef2ff', color: COLOR.violet }}>
+            {accountAvatarUrl ? (
+              <img
+                src={accountAvatarUrl}
+                alt={profile?.name ? `${profile.name} avatar` : 'Account avatar'}
+                className="h-11 w-11 rounded-2xl object-cover"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = 'none';
+                  const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
+                  if (fallback) fallback.style.display = 'flex';
+                }}
+              />
+            ) : null}
+            <div
+              className="h-11 w-11 rounded-2xl items-center justify-center text-base font-semibold"
+              style={{
+                background: '#eef2ff',
+                color: COLOR.violet,
+                display: accountAvatarUrl ? 'none' : 'flex',
+              }}
+            >
               {(profile?.name || profile?.username || 'FB').slice(0, 2).toUpperCase()}
             </div>
             <div>
