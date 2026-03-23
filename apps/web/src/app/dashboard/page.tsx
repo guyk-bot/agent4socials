@@ -228,9 +228,17 @@ function profileUrlForAccount(account: { platform: string; username?: string | n
   return '#';
 }
 
-/** Scroll-to sections for single-page analytics (all platforms). */
+/** Scroll-to sections for single-page analytics. Facebook adds an explicit read_insights block for App Review recordings. */
 const ANALYTICS_SCROLL_SECTIONS = [
   { id: FACEBOOK_ANALYTICS_SECTION_IDS.overview, label: 'Overview' },
+  { id: FACEBOOK_ANALYTICS_SECTION_IDS.clicksTraffic, label: 'Clicks / Traffic' },
+  { id: FACEBOOK_ANALYTICS_SECTION_IDS.posts, label: 'Posts' },
+  { id: FACEBOOK_ANALYTICS_SECTION_IDS.reelsVideos, label: 'Reels / Videos' },
+] as const;
+
+const ANALYTICS_SCROLL_SECTIONS_FACEBOOK = [
+  { id: FACEBOOK_ANALYTICS_SECTION_IDS.overview, label: 'Overview' },
+  { id: FACEBOOK_ANALYTICS_SECTION_IDS.readInsightsApi, label: 'Page insights (API)' },
   { id: FACEBOOK_ANALYTICS_SECTION_IDS.clicksTraffic, label: 'Clicks / Traffic' },
   { id: FACEBOOK_ANALYTICS_SECTION_IDS.posts, label: 'Posts' },
   { id: FACEBOOK_ANALYTICS_SECTION_IDS.reelsVideos, label: 'Reels / Videos' },
@@ -1021,7 +1029,8 @@ export default function DashboardPage() {
         )}
         {selectedAccount && (
           <nav className="flex gap-0.5 p-0.5 bg-neutral-100 rounded-lg shrink-0" aria-label="Analytics sections">
-            {ANALYTICS_SCROLL_SECTIONS.map((sec) => (
+            {(selectedAccount.platform === 'FACEBOOK' ? ANALYTICS_SCROLL_SECTIONS_FACEBOOK : ANALYTICS_SCROLL_SECTIONS).map(
+              (sec) => (
               <button
                 key={sec.id}
                 type="button"
@@ -1030,7 +1039,8 @@ export default function DashboardPage() {
               >
                 {sec.label}
               </button>
-            ))}
+            )
+            )}
           </nav>
         )}
         <div className="ml-auto shrink-0 flex items-center gap-2">

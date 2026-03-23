@@ -7,14 +7,10 @@ import { FacebookPostsTab } from './FacebookPostsTab';
 import { OverviewGrowthSection } from '../OverviewGrowthSection';
 import type { GrowthDataPoint } from '../OverviewGrowthSection';
 import type { FacebookInsights, FacebookPost } from './types';
+import { FacebookReadInsightsPanel } from './FacebookReadInsightsPanel';
+import { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids';
 
-/** Section ids for scroll-to navigation. Must match dashboard scroll nav. Facebook does not provide demographics via API so that tab is omitted. */
-export const FACEBOOK_ANALYTICS_SECTION_IDS = {
-  overview: 'overview',
-  clicksTraffic: 'clicks-traffic',
-  posts: 'posts',
-  reelsVideos: 'reels-videos',
-} as const;
+export { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids';
 
 export interface FacebookAnalyticsViewProps {
   insights: FacebookInsights | null;
@@ -135,6 +131,7 @@ export function FacebookAnalyticsView({
             )}
           </div>
         )}
+        <FacebookReadInsightsPanel insights={insights} loading={insightsLoading} />
         <OverviewGrowthSection
           data={growthData}
           growthTimeSeries={insights?.growthTimeSeries}
