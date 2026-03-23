@@ -131,7 +131,7 @@ function CalendarGrid({
   const isCurrentMonth = (dateStr: string) => dateStr.startsWith(`${year}-${String(month + 1).padStart(2, '0')}-`);
 
   const gapX = compact ? 'gap-x-1' : 'gap-x-3';
-  const gapY = compact ? 'gap-y-1' : 'gap-y-2';
+  const gapY = compact ? 'gap-y-1' : 'gap-y-1';
   const cellSize = compact ? 'w-9 min-w-9 h-9 min-h-9 text-sm' : 'w-10 h-10 min-w-10 min-h-10 sm:w-12 sm:h-12 sm:min-w-12 sm:min-h-12 text-base';
   const headerSize = compact ? 'h-6 text-xs' : 'h-8 text-sm';
 
