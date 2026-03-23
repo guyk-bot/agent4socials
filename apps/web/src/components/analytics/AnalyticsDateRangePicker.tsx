@@ -148,7 +148,7 @@ function CalendarGrid({
           </div>
         ))}
       </div>
-      <div className={`grid grid-cols-7 ${gap} min-h-[240px]`}>
+      <div className={`grid grid-cols-7 ${gap} min-h-[240px] content-start`}>
         {rows.flat().map((dateStr, i) => {
           if (!dateStr) return <div key={i} />;
           const inRange = isInRange(dateStr);
