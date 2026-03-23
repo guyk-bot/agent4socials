@@ -21,7 +21,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | Branded full-page loader (logo loading video) for account select screens | `apps/web/src/components/BrandedPageLoader.tsx` (`public/logo-loading-page.mp4`) |
 | Sidebar | `apps/web/src/components/Sidebar.tsx` |
 | App header (nav, logo) | `apps/web/src/components/AppHeader.tsx` |
-| Funnel / landing wordmark (red X font) | `apps/web/src/components/BrandWordmark.tsx`, `BrandMarkX` for inline platform name; `SiteHeader` + home hero subhead |
+| Funnel / landing wordmark | `apps/web/src/components/BrandWordmark.tsx` (`BrandWordmark` plain Agent4Socials; `HeroHeadlineMultiplierX` red X in hero; `BrandMarkX` for inline platform name in copy) |
 
 ### Inbox (DMs, comments)
 

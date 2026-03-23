@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
 import { PricingBillingToggle, PricingCard } from '@/components/landing/pricing';
-import { BrandMarkX } from '@/components/BrandWordmark';
+import { BrandMarkX, HeroHeadlineMultiplierX } from '@/components/BrandWordmark';
 
 const FREE_HIGHLIGHTS = [
   '1 brand',
@@ -121,8 +121,15 @@ export default function Home() {
           <div className="relative mx-auto max-w-5xl px-4 sm:px-6 text-center">
             {/* Headline: 48-72px, gradient accent */}
             <h1 className="text-[48px] font-bold tracking-[-0.02em] leading-[1.1] sm:text-5xl md:text-6xl lg:text-7xl">
-              <span className="bg-[linear-gradient(135deg,#a78bfa,#8b5cf6,#df44dc)] bg-clip-text text-transparent">
-                2-7× Your Content Potential
+              <span className="inline-flex flex-wrap items-baseline justify-center gap-x-0">
+                <span className="bg-[linear-gradient(135deg,#a78bfa,#8b5cf6,#df44dc)] bg-clip-text text-transparent">
+                  2-7
+                </span>
+                <HeroHeadlineMultiplierX />
+                <span className="bg-[linear-gradient(135deg,#a78bfa,#8b5cf6,#df44dc)] bg-clip-text text-transparent">
+                  {' '}
+                  Your Content Potential
+                </span>
               </span>
               <br />
               <span className="text-[#ffffff]">Without Paying For Ads</span>
