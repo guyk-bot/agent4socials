@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import { useAuth } from '@/context/AuthContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
 import api from '@/lib/api';
+import { getDefaultAnalyticsDateRange } from '@/lib/calendar-date';
 
 export type CachedPost = {
   id: string;
@@ -122,12 +123,9 @@ function getInitialCommentsFromStorage(): Record<string, CachedComment[]> {
 
 const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
 
-/** Shared default date range (last 30 days) used by prefetch and analytics. */
+/** Shared default date range (last 30 local days) used by prefetch and analytics. */
 export function getDefaultDateRange() {
-  const end = new Date();
-  const start = new Date();
-  start.setDate(start.getDate() - 29);
-  return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+  return getDefaultAnalyticsDateRange();
 }
 
 export function AppDataProvider({ children }: { children: React.ReactNode }) {

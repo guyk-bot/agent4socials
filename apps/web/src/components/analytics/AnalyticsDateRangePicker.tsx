@@ -2,6 +2,7 @@
 
 import React, { useRef, useEffect, useMemo, useState } from 'react';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { toLocalCalendarDate } from '@/lib/calendar-date';
 
 /** Presets; anything beyond 30 days is premium (diamond). highlight = default purple tint for paid periods. */
 const PRESETS = [
@@ -26,47 +27,47 @@ function getPresetRange(
     start = new Date(now);
     start.setDate(start.getDate() - 1);
     start.setHours(0, 0, 0, 0);
-    return { start: start.toISOString().slice(0, 10), end: start.toISOString().slice(0, 10) };
+    return { start: toLocalCalendarDate(start), end: toLocalCalendarDate(start) };
   }
   if (id === 'last_week') {
     start = new Date(now);
     start.setDate(start.getDate() - 6);
     start.setHours(0, 0, 0, 0);
-    return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+    return { start: toLocalCalendarDate(start), end: toLocalCalendarDate(end) };
   }
   if (id === 'current_month') {
     start = new Date(now.getFullYear(), now.getMonth(), 1);
-    return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+    return { start: toLocalCalendarDate(start), end: toLocalCalendarDate(end) };
   }
   if (id === 'last_30') {
     start = new Date(now);
     start.setDate(start.getDate() - 29);
     start.setHours(0, 0, 0, 0);
-    return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+    return { start: toLocalCalendarDate(start), end: toLocalCalendarDate(end) };
   }
   if (id === 'last_3_months') {
     start = new Date(now);
     start.setMonth(start.getMonth() - 3);
     start.setHours(0, 0, 0, 0);
-    return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+    return { start: toLocalCalendarDate(start), end: toLocalCalendarDate(end) };
   }
   if (id === 'last_6_months') {
     start = new Date(now);
     start.setMonth(start.getMonth() - 6);
     start.setHours(0, 0, 0, 0);
-    return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+    return { start: toLocalCalendarDate(start), end: toLocalCalendarDate(end) };
   }
   if (id === 'last_12_months') {
     start = new Date(now);
     start.setFullYear(start.getFullYear() - 1);
     start.setHours(0, 0, 0, 0);
-    return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+    return { start: toLocalCalendarDate(start), end: toLocalCalendarDate(end) };
   }
 
   start = new Date(now);
   start.setDate(start.getDate() - 29);
   start.setHours(0, 0, 0, 0);
-  return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+  return { start: toLocalCalendarDate(start), end: toLocalCalendarDate(end) };
 }
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -200,7 +201,7 @@ export function AnalyticsDateRangePicker({
   const [open, setOpen] = useState(defaultOpen);
   const containerRef = useRef<HTMLDivElement>(null);
   const now = useMemo(() => new Date(), []);
-  const todayStr = useMemo(() => now.toISOString().slice(0, 10), [now]);
+  const todayStr = useMemo(() => toLocalCalendarDate(now), [now]);
 
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const s = start ? new Date(start + 'T12:00:00') : now;

@@ -9,6 +9,7 @@ import { useAppData, getDefaultDateRange } from '@/context/AppDataContext';
 import { useSelectedAccount, useResolvedSelectedAccount } from '@/context/SelectedAccountContext';
 import type { SocialAccount } from '@/context/SelectedAccountContext';
 import api from '@/lib/api';
+import { localCalendarDateFromIso, toLocalCalendarDate } from '@/lib/calendar-date';
 import { getSupabaseBrowser } from '@/lib/supabase/client';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import ConnectView from '@/components/dashboard/ConnectView';
@@ -779,7 +780,7 @@ export default function DashboardPage() {
   const postsByDateSeries = React.useMemo(() => {
     const map: Record<string, number> = {};
     for (const p of importedPosts) {
-      const d = p.publishedAt ? String(p.publishedAt).slice(0, 10) : '';
+      const d = p.publishedAt ? localCalendarDateFromIso(String(p.publishedAt)) : '';
       if (d) map[d] = (map[d] ?? 0) + 1;
     }
     return Object.entries(map).map(([date, value]) => ({ date, value })).sort((a, b) => a.date.localeCompare(b.date));
@@ -787,7 +788,7 @@ export default function DashboardPage() {
   const interactionsByDateSeries = React.useMemo(() => {
     const map: Record<string, number> = {};
     for (const p of importedPosts) {
-      const d = p.publishedAt ? String(p.publishedAt).slice(0, 10) : '';
+      const d = p.publishedAt ? localCalendarDateFromIso(String(p.publishedAt)) : '';
       if (d) map[d] = (map[d] ?? 0) + (p.interactions ?? 0);
     }
     return Object.entries(map).map(([date, value]) => ({ date, value })).sort((a, b) => a.date.localeCompare(b.date));
@@ -894,8 +895,8 @@ export default function DashboardPage() {
   const totalPostsPages = Math.max(1, Math.ceil(sortedPosts.length / postsPerPage));
   const currentPagePosts = sortedPosts.slice((postsPage - 1) * postsPerPage, postsPage * postsPerPage);
 
-  const postsTabDisplaySeries = postsByDateSeries.length > 0 ? postsByDateSeries : (importedPosts.length > 0 ? [{ date: dateRange.end || new Date().toISOString().slice(0, 10), value: importedPosts.length }] : []);
-  const interactionsTabDisplaySeries = interactionsByDateSeries.length > 0 ? interactionsByDateSeries : (totalInteractions > 0 ? [{ date: dateRange.end || new Date().toISOString().slice(0, 10), value: totalInteractions }] : []);
+  const postsTabDisplaySeries = postsByDateSeries.length > 0 ? postsByDateSeries : (importedPosts.length > 0 ? [{ date: dateRange.end || toLocalCalendarDate(new Date()), value: importedPosts.length }] : []);
+  const interactionsTabDisplaySeries = interactionsByDateSeries.length > 0 ? interactionsByDateSeries : (totalInteractions > 0 ? [{ date: dateRange.end || toLocalCalendarDate(new Date()), value: totalInteractions }] : []);
   const maxPostsTabValue = Math.max(...postsTabDisplaySeries.map((d) => d.value), 1);
   const maxInteractionsTabValue = Math.max(...interactionsTabDisplaySeries.map((d) => d.value), 1);
   void maxPostsTabValue; void maxInteractionsTabValue;
@@ -929,7 +930,7 @@ export default function DashboardPage() {
     : aggregatedLoading;
   const fallbackSeriesValue = effectiveImpressions || effectiveFollowers || 0;
   const hasNonZeroSeries = effectiveTimeSeries.length > 0 && effectiveTimeSeries.some((d) => d.value > 0);
-  const endDate = dateRange.end || new Date().toISOString().slice(0, 10);
+  const endDate = dateRange.end || toLocalCalendarDate(new Date());
   const startDate = dateRange.start || endDate;
   // Views/impressions (or Tweets for X) chart: use time series or flat line so we always show a real chart like other platforms
   const effectiveViewsOrTweets = isTwitter ? effectiveTweets : effectiveImpressions;

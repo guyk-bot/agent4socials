@@ -19,6 +19,7 @@ import { ChevronRight, ExternalLink, Info, MessageSquare, Star } from 'lucide-re
 import { AnalyticsDateRangePicker } from '../AnalyticsDateRangePicker';
 import type { FacebookInsights, FacebookPost } from './types';
 import { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids';
+import { localCalendarDateFromIso, toLocalCalendarDate } from '@/lib/calendar-date';
 
 export { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids';
 
@@ -145,7 +146,8 @@ function parseReactionTotal(v: unknown): number {
 }
 
 function inRange(dateIso: string, start: string, end: string): boolean {
-  const d = dateIso.slice(0, 10);
+  const d = localCalendarDateFromIso(dateIso);
+  if (!d) return false;
   return d >= start && d <= end;
 }
 
@@ -209,9 +211,17 @@ function carryForwardSeries(
 
 function buildDateAxis(start: string, end: string): string[] {
   const out: string[] = [];
-  const s = new Date(`${start}T12:00:00Z`);
-  const e = new Date(`${end}T12:00:00Z`);
-  for (let d = new Date(s); d <= e; d.setUTCDate(d.getUTCDate() + 1)) out.push(d.toISOString().slice(0, 10));
+  const n = (s: string) => s.split('-').map(Number);
+  const [ys, ms, ds] = n(start);
+  const [ye, me, de] = n(end);
+  if (!ys || !ms || !ds || !ye || !me || !de) return out;
+  let cur = new Date(ys, ms - 1, ds);
+  const last = new Date(ye, me - 1, de);
+  if (cur > last) return out;
+  while (cur <= last) {
+    out.push(toLocalCalendarDate(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
   return out;
 }
 

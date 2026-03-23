@@ -53,6 +53,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | Summary dashboard | `apps/web/src/app/dashboard/summary/page.tsx` |
 | Summary UI components | `apps/web/src/components/dashboard/summary/` (SummaryDashboard, KPICardsGrid, GrowthChartTabs, etc.) |
 | Insights API | `apps/web/src/app/api/social/accounts/[id]/insights/route.ts` |
+| **Local calendar dates** (YYYY-MM-DD in user TZ; presets, default range, FB post filter, chart axis) | `apps/web/src/lib/calendar-date.ts` |
 | Premium Facebook analytics UI (sticky Overview/Traffic/Posts/Reels, dark workspace, post detail drawer, reels intelligence) | `apps/web/src/components/analytics/facebook/FacebookAnalyticsView.tsx` |
 | Meta Graph: single version for Page REST + insights + OAuth dialog (default v22; env `META_GRAPH_API_VERSION`) | `apps/web/src/lib/meta-graph-insights.ts` (`facebookGraphBaseUrl`) |
 | Facebook analytics (discovery, resilient insights, fetchers, frontend bundle) | `apps/web/src/lib/facebook/` (`discovery-db.ts` gates cache if `FacebookMetricDiscovery` missing) |
