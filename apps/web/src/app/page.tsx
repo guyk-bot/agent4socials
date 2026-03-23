@@ -117,46 +117,47 @@ export default function Home() {
           </div>
 
           <div className="relative mx-auto max-w-5xl px-4 sm:px-6 text-center">
-            {/* Headline: 48-72px, gradient accent */}
-            <h1 className="text-[48px] font-bold tracking-[-0.02em] leading-[1.1] sm:text-5xl md:text-6xl lg:text-7xl">
-              <span className="inline-flex flex-wrap items-baseline justify-center gap-x-0">
-                <span className="text-[#fde047] pr-[0.2em]">2-7X</span>
-                <span className="bg-[linear-gradient(135deg,#a78bfa,#8b5cf6,#df44dc)] bg-clip-text text-transparent">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#8b5cf6]/40 bg-[rgba(17,24,39,0.55)] px-4 py-1.5 text-xs font-medium text-[#d8b4fe] shadow-[0_0_20px_rgba(139,92,246,0.22)] backdrop-blur-[14px]">
+              <Sparkles className="h-3.5 w-3.5 text-[#c4b5fd]" />
+              Grow faster without ad spend
+            </div>
+
+            <h1 className="mt-5 text-[44px] font-bold tracking-[-0.028em] leading-[1.04] sm:text-5xl md:text-[64px] lg:text-[76px]">
+              <span className="block">
+                <span className="text-[#fde047]">2-7X</span>{' '}
+                <span className="bg-[linear-gradient(135deg,#c4b5fd_10%,#8b5cf6_50%,#df44dc_95%)] bg-clip-text text-transparent">
                   Your Content Potential
                 </span>
               </span>
-              <br />
-              <span className="text-[#ffffff]">Without Paying For Ads</span>
+              <span className="mt-1.5 block text-white">Without Paying For Ads</span>
             </h1>
 
-            <p className="mx-auto mt-7 max-w-2xl text-base sm:text-lg text-[#9ca3af] leading-relaxed">
+            <p className="mx-auto mt-6 max-w-[760px] text-[15px] sm:text-lg text-[#a8b0c0] leading-relaxed">
               Schedule content, manage comments and DMs, and grow across Instagram, TikTok, YouTube, Facebook, Twitter/X,
               LinkedIn, and Pinterest from a single powerful dashboard.
             </p>
 
-            {/* CTAs: solid purple primary; gradient only on header Try for free and Pro plan */}
-            <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <div className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3.5 sm:gap-4">
               <button
                 type="button"
                 onClick={openSignup}
-                className="group inline-flex items-center justify-center gap-2 rounded-full bg-[#6b21a8] px-8 py-4 text-base font-semibold text-white shadow-[0_0_20px_rgba(107,33,168,0.5)] transition-all duration-300 hover:bg-[#7c3aed] hover:shadow-[0_0_25px_rgba(124,58,237,0.6)] hover:scale-[1.03] active:scale-[0.98]"
+                className="group inline-flex min-w-[196px] items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#7c3aed_0%,#6d28d9_45%,#db2777_100%)] px-8 py-3.5 text-base font-semibold text-white shadow-[0_10px_30px_rgba(124,58,237,0.36)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_14px_35px_rgba(124,58,237,0.5)] active:translate-y-0"
               >
                 Get started free
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </button>
               <Link
                 href="/pricing"
-                className="inline-flex items-center justify-center rounded-full border border-white/[0.1] bg-[rgba(255,255,255,0.05)] backdrop-blur-[20px] px-8 py-4 text-base font-medium text-white transition-all hover:bg-white/[0.08] hover:shadow-[0_0_10px_rgba(139,92,246,0.3)]"
+                className="inline-flex min-w-[196px] items-center justify-center rounded-full border border-white/[0.14] bg-[rgba(255,255,255,0.04)] backdrop-blur-[20px] px-8 py-3.5 text-base font-medium text-white transition-all hover:-translate-y-0.5 hover:border-[#a78bfa]/50 hover:bg-white/[0.08] hover:shadow-[0_12px_26px_rgba(139,92,246,0.22)]"
               >
                 See pricing
               </Link>
             </div>
 
-            {/* Trust bar */}
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-xs text-[#9ca3af]">
-              <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-white" /> No credit card required</span>
-              <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-white" /> Free plan forever</span>
-              <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-white" /> Cancel anytime</span>
+            <div className="mx-auto mt-8 inline-flex flex-wrap items-center justify-center gap-x-5 gap-y-2 rounded-full border border-white/[0.08] bg-[rgba(255,255,255,0.03)] px-4 py-2 text-xs text-[#b8c0d2] backdrop-blur-[12px] sm:px-5">
+              <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#c4b5fd]" /> No credit card required</span>
+              <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#c4b5fd]" /> Free plan forever</span>
+              <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#c4b5fd]" /> Cancel anytime</span>
             </div>
           </div>
 
