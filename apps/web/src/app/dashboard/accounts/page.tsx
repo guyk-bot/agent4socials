@@ -58,7 +58,9 @@ export default function AccountsPage() {
   const loadFacebookGraphDebug = async (accountId: string) => {
     setFbGraphDebug((m) => ({ ...m, [accountId]: { status: 'loading' } }));
     try {
-      const res = await api.get(`/social/accounts/${accountId}/facebook-graph-debug`);
+      const res = await api.get(`/social/accounts/${accountId}/facebook-graph-debug?full=1`, {
+        timeout: 120_000,
+      });
       setFbGraphDebug((m) => ({
         ...m,
         [accountId]: { status: 'done', body: JSON.stringify(res.data, null, 2) },
@@ -221,7 +223,7 @@ export default function AccountsPage() {
                         onClick={() => loadFacebookGraphDebug(acc.id)}
                         disabled={fbGraphDebug[acc.id]?.status === 'loading'}
                         className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-neutral-200 bg-white text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-50"
-                        title="Fetch raw Graph API responses (debug_token, page fields, insights, posts, conversations, etc.)"
+                        title="Fetch full Graph API debug bundle: all page day insight metrics, post lifetime insights (first published post), page fields, sample posts, conversations, ratings. Many requests; may take ~30s. Tokens in URLs are redacted."
                       >
                         {fbGraphDebug[acc.id]?.status === 'loading' ? (
                           <RefreshCw size={14} className="animate-spin shrink-0" />
@@ -231,14 +233,14 @@ export default function AccountsPage() {
                         Show Meta API JSON
                       </button>
                       <span className="text-xs text-neutral-500">
-                        Includes read_insights metrics, page fields, sample posts, and other edges your token can call.
+                        Full export: every page day insight we probe, lifetime insights on your first published post, plus page fields and sample edges. Can take a short while.
                       </span>
                     </div>
                     {fbGraphDebug[acc.id]?.status === 'error' && fbGraphDebug[acc.id]?.message && (
                       <p className="text-sm text-red-600">{fbGraphDebug[acc.id].message}</p>
                     )}
                     {fbGraphDebug[acc.id]?.body && (
-                      <pre className="text-xs font-mono bg-neutral-900 text-neutral-100 rounded-lg p-3 overflow-auto max-h-[28rem] whitespace-pre-wrap break-all border border-neutral-800">
+                      <pre className="text-xs font-mono bg-neutral-900 text-neutral-100 rounded-lg p-3 overflow-auto max-h-[min(70vh,40rem)] whitespace-pre-wrap break-all border border-neutral-800">
                         {fbGraphDebug[acc.id].body}
                       </pre>
                     )}
