@@ -232,16 +232,64 @@ export async function GET(
       }
     }
 
+    // Facebook fallback: when DB metadata is missing/outdated, fetch lifetime insights live for recent reel/video posts.
+    // This keeps Reels cards (views/watch time/clicks/reactions) populated even if platformMetadata could not be stored.
+    let liveFacebookInsightsByPostId: Record<string, Record<string, number>> = {};
+    if (account.platform === 'FACEBOOK' && importedRows.length > 0) {
+      try {
+        const candidates = importedRows
+          .filter((p) => {
+            const url = (p.permalinkUrl ?? '').toLowerCase();
+            const isVideoLike = (p.mediaType ?? '').toUpperCase() === 'VIDEO' || url.includes('/reel/');
+            if (!isVideoLike) return false;
+            const meta =
+              p.platformMetadata && typeof p.platformMetadata === 'object' && !Array.isArray(p.platformMetadata)
+                ? (p.platformMetadata as Record<string, unknown>)
+                : {};
+            return !(meta.facebookInsights && typeof meta.facebookInsights === 'object' && !Array.isArray(meta.facebookInsights));
+          })
+          .slice(0, 40);
+
+        if (candidates.length > 0) {
+          const samplePostId = candidates[0]?.platformPostId ?? importedRows[0]?.platformPostId ?? null;
+          const metricOrder = await resolvePostInsightMetricsForSync({
+            socialAccountId: account.id,
+            pageId: account.platformUserId,
+            accessToken: account.accessToken,
+            samplePostId,
+          });
+          const metrics = metricOrder.slice(0, 12);
+          if (metrics.length > 0) {
+            for (const row of candidates) {
+              try {
+                const map = await fetchPostLifetimeInsightMap(row.platformPostId, account.accessToken, metrics);
+                if (Object.keys(map).length > 0) {
+                  liveFacebookInsightsByPostId[row.platformPostId] = map;
+                }
+              } catch {
+                // best effort per post; keep response flowing
+              }
+            }
+          }
+        }
+      } catch {
+        // best effort; if live lookup fails, return DB-backed values
+      }
+    }
+
     const serialized = importedRows.map((p) => {
       const enrich = account.platform === 'TWITTER' ? twitterEnrich[p.platformPostId] : undefined;
       const meta =
         p.platformMetadata && typeof p.platformMetadata === 'object' && !Array.isArray(p.platformMetadata)
           ? (p.platformMetadata as Record<string, unknown>)
           : {};
-      const facebookInsights =
+      const dbFacebookInsights =
         p.platform === 'FACEBOOK' && meta.facebookInsights && typeof meta.facebookInsights === 'object' && !Array.isArray(meta.facebookInsights)
           ? (meta.facebookInsights as Record<string, number>)
           : undefined;
+      const facebookInsights = p.platform === 'FACEBOOK'
+        ? (dbFacebookInsights ?? liveFacebookInsightsByPostId[p.platformPostId])
+        : undefined;
       return {
         id: p.id,
         platformPostId: p.platformPostId,
