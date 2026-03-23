@@ -130,10 +130,10 @@ function CalendarGrid({
   const isEnd = (dateStr: string) => end === dateStr;
   const isCurrentMonth = (dateStr: string) => dateStr.startsWith(`${year}-${String(month + 1).padStart(2, '0')}-`);
 
-  const gapX = compact ? 'gap-x-1' : 'gap-x-3';
-  const gapY = compact ? 'gap-y-1' : 'gap-y-1';
-  const cellSize = compact ? 'w-9 min-w-9 h-9 min-h-9 text-sm' : 'w-10 h-10 min-w-10 min-h-10 sm:w-12 sm:h-12 sm:min-w-12 sm:min-h-12 text-base';
-  const headerSize = compact ? 'h-6 text-xs' : 'h-8 text-sm';
+  const gapX = compact ? 'gap-x-0.5' : 'gap-x-1';
+  const gapY = compact ? 'gap-y-0' : 'gap-y-0';
+  const cellSize = compact ? 'w-8 min-w-8 h-8 min-h-8 text-xs' : 'w-9 h-9 min-w-9 min-h-9 sm:w-10 sm:h-10 sm:min-w-10 sm:min-h-10 text-sm';
+  const headerSize = compact ? 'h-5 text-[10px]' : 'h-6 text-xs';
 
   return (
     <div className="calendar-grid shrink-0 w-full min-w-[336px]">
@@ -142,14 +142,14 @@ function CalendarGrid({
           {title ?? new Date(year, month).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
         </div>
       )}
-      <div className={`grid grid-cols-7 ${gapX} mb-2`}>
+      <div className={`grid grid-cols-7 ${gapX} mb-1`}>
         {WEEKDAYS.map((w, i) => (
           <div key={i} className={`${headerSize} flex items-center justify-center font-semibold text-neutral-500`}>
             {w}
           </div>
         ))}
       </div>
-      <div className={`grid grid-cols-7 ${gapX} ${gapY} min-h-[240px] content-start`}>
+      <div className={`grid grid-cols-7 ${gapX} ${gapY} min-h-0 content-start`}>
         {rows.flat().map((dateStr, i) => {
           if (!dateStr) return <div key={i} />;
           const inRange = isInRange(dateStr);
@@ -336,8 +336,8 @@ export function AnalyticsDateRangePicker({
                 className="flex-1 min-w-[140px] text-base border border-neutral-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
               />
             </div>
-            <div className="border border-neutral-200 rounded-xl p-6 bg-neutral-50/50 min-h-[320px] flex flex-col w-full">
-              <div className="flex items-center justify-between mb-4 shrink-0">
+            <div className="border border-neutral-200 rounded-xl p-4 bg-neutral-50/50 min-h-0 flex flex-col w-full">
+              <div className="flex items-center justify-between mb-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setCalendarMonth((m) => (m.month === 0 ? { year: m.year - 1, month: 11 } : { year: m.year, month: m.month - 1 }))}

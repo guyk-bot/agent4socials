@@ -188,7 +188,7 @@ function buildDateAxis(start: string, end: string): string[] {
 
 export function MetricTooltip({ label, hint }: { label: string; hint: string }) {
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] tracking-wide uppercase" style={{ color: COLOR.textMuted }}>
+    <span className="inline-flex items-center gap-1 text-xs font-medium tracking-tight" style={{ color: COLOR.textMuted }}>
       <span>{label}</span>
       <span className="inline-flex items-center" title={hint}>
         <Info size={12} />
