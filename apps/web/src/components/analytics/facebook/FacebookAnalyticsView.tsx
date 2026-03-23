@@ -145,6 +145,20 @@ function seriesToMap(series: Array<{ date: string; value: number }>): Record<str
   return map;
 }
 
+function carryForwardSeries(
+  dates: string[],
+  map: Record<string, number>,
+  fallback = 0
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  let prev = fallback;
+  for (const d of dates) {
+    if (typeof map[d] === 'number') prev = map[d];
+    out[d] = prev;
+  }
+  return out;
+}
+
 function buildDateAxis(start: string, end: string): string[] {
   const out: string[] = [];
   const s = new Date(`${start}T12:00:00Z`);
@@ -542,11 +556,16 @@ export function FacebookAnalyticsView({
   const uniqueReachProxy = postsInRange.reduce((s, p) => s + (p.facebookInsights?.post_impressions_unique ?? 0), 0);
 
   const chartByMode = useMemo(() => {
-    const media = seriesToMap(series?.contentViews ?? []);
-    const visits = seriesToMap(series?.pageTabViews ?? []);
-    const engagement = seriesToMap(series?.engagement ?? []);
-    const follows = seriesToMap(series?.follows ?? []);
-    const dailyFollows = seriesToMap(series?.dailyFollows ?? []);
+    const mediaRaw = seriesToMap(series?.contentViews ?? []);
+    const visitsRaw = seriesToMap(series?.pageTabViews ?? []);
+    const engagementRaw = seriesToMap(series?.engagement ?? []);
+    const followsRaw = seriesToMap(series?.follows ?? []);
+    const dailyFollowsRaw = seriesToMap(series?.dailyFollows ?? []);
+    const media = carryForwardSeries(dateAxis, mediaRaw, 0);
+    const visits = carryForwardSeries(dateAxis, visitsRaw, 0);
+    const engagement = carryForwardSeries(dateAxis, engagementRaw, 0);
+    const follows = carryForwardSeries(dateAxis, followsRaw, totalFollowers);
+    const dailyFollows = carryForwardSeries(dateAxis, dailyFollowsRaw, 0);
     return dateAxis.map((date) => ({
       date,
       primary:
