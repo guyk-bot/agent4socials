@@ -599,7 +599,8 @@ export function FacebookAnalyticsView({
   followersLabel,
   accountAvatarUrl,
 }: FacebookAnalyticsViewProps) {
-  const loading = insightsLoading || postsLoading;
+  /** Do not tie overview shell to post sync: posts load slower; show metrics immediately and refresh tables in place. */
+  const overviewSkeleton = insightsLoading;
   const [storyMode, setStoryMode] = useState<StoryMode>('views');
   const [activeSection, setActiveSection] = useState<SectionId>(FACEBOOK_ANALYTICS_SECTION_IDS.overview);
   const [selectedPost, setSelectedPost] = useState<FacebookPost | null>(null);
@@ -862,9 +863,14 @@ export function FacebookAnalyticsView({
         <div className="mt-4">
           <StickySectionNav sections={sections} activeSection={activeSection} />
         </div>
+        {postsLoading && !insightsLoading ? (
+          <p className="mt-3 text-xs font-medium animate-pulse" style={{ color: COLOR.textSecondary }}>
+            Updating posts and reels from Facebook, tables will refresh when sync finishes.
+          </p>
+        ) : null}
       </section>
 
-      {loading ? (
+      {overviewSkeleton ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="h-28 rounded-[20px] animate-pulse" style={{ background: COLOR.card }} />
@@ -1028,6 +1034,15 @@ export function FacebookAnalyticsView({
 
         {postsRows.length > 0 ? (
           <PostsPerformanceTable rows={postsRows} onOpenDetail={setSelectedPost} />
+        ) : postsLoading ? (
+          <div className="rounded-[20px] border p-6 space-y-3" style={{ background: COLOR.card, borderColor: COLOR.border }}>
+            <p className="text-sm font-medium" style={{ color: COLOR.text }}>Loading posts for this range…</p>
+            <div className="space-y-2">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="h-12 rounded-xl animate-pulse" style={{ background: 'rgba(15,23,42,0.06)' }} />
+              ))}
+            </div>
+          </div>
         ) : (
           <EmptyStateCard title="No posts in this range" subtitle="Try a wider date range or sync the account posts again." />
         )}
@@ -1095,7 +1110,20 @@ export function FacebookAnalyticsView({
             </button>
           ))}
         </div>
-        <PostsPerformanceTable rows={contentHistoryRows} onOpenDetail={setSelectedPost} />
+        {contentHistoryRows.length > 0 ? (
+          <PostsPerformanceTable rows={contentHistoryRows} onOpenDetail={setSelectedPost} />
+        ) : postsLoading ? (
+          <div className="rounded-[20px] border p-6 space-y-3" style={{ background: COLOR.card, borderColor: COLOR.border }}>
+            <p className="text-sm font-medium" style={{ color: COLOR.text }}>Loading content history…</p>
+            <div className="space-y-2">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="h-11 rounded-xl animate-pulse" style={{ background: 'rgba(15,23,42,0.06)' }} />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <PostsPerformanceTable rows={contentHistoryRows} onOpenDetail={setSelectedPost} />
+        )}
       </section>
 
       {selectedPost ? (

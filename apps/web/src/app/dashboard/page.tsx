@@ -954,9 +954,10 @@ export default function DashboardPage() {
   const maxImpressions = displayTimeSeries.length ? Math.max(...displayTimeSeries.map((d) => d.value), 1) : 1;
   const showViewsHint = hasFbOrIg && effectiveFollowers > 0 && effectiveImpressions === 0 && !effectiveTimeSeries.some((d) => d.value > 0) && (selectedAccount?.platform === 'INSTAGRAM' || !selectedAccount);
   const showTikTokFollowersHint = selectedAccount?.platform === 'TIKTOK' && effectiveFollowers === 0 && effectiveImpressions > 0;
+  /** Full-page Facebook shell only until we have insights. Post/reel sync continues in the background without hiding the dashboard. */
   const facebookLoadingOnly =
     selectedAccount?.platform === 'FACEBOOK' &&
-    (effectiveInsightsLoading || importedPostsLoading || connectingParam === '1');
+    (connectingParam === '1' || (insights == null && (insightsLoading || importedPostsLoading)));
 
   return (
     <div className="space-y-0">
