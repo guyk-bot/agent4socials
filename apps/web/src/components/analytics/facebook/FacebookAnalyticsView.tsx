@@ -41,6 +41,7 @@ export interface FacebookAnalyticsViewProps {
 
 type SectionId = (typeof FACEBOOK_ANALYTICS_SECTION_IDS)[keyof typeof FACEBOOK_ANALYTICS_SECTION_IDS];
 type StoryMode = 'views' | 'engagement' | 'growth';
+type ContentHistoryFilter = 'all' | 'posts' | 'reels';
 
 const COLOR = {
   pageBg: '#f6f7fb',
@@ -405,6 +406,7 @@ export function PostsPerformanceTable({
     clicks: number;
     likes: number;
     reactionsTotal: number;
+    watchTimeMs: number;
     reactionBreakdownRaw: unknown;
     status: 'Ready' | 'Partial';
     rawPost: FacebookPost;
@@ -417,7 +419,7 @@ export function PostsPerformanceTable({
         <table className="min-w-full text-sm">
           <thead style={{ background: 'rgba(255,255,255,0.02)', color: COLOR.textMuted }}>
             <tr>
-              {['Post preview', 'Publish date', 'Type', 'Views', 'Unique reach', 'Clicks', 'Likes', 'Reactions', 'Status'].map((h) => (
+              {['Post preview', 'Publish date', 'Type', 'Views', 'Unique reach', 'Clicks', 'Likes', 'Reactions', 'Watch time', 'Status'].map((h) => (
                 <th key={h} className="px-4 py-3 text-left font-medium">{h}</th>
               ))}
             </tr>
@@ -433,6 +435,7 @@ export function PostsPerformanceTable({
                 <td className="px-4 py-3" style={{ color: COLOR.text }}>{formatCompact(r.clicks)}</td>
                 <td className="px-4 py-3" style={{ color: COLOR.text }}>{formatCompact(r.likes)}</td>
                 <td className="px-4 py-3" style={{ color: COLOR.text }}>{formatCompact(r.reactionsTotal)}</td>
+                <td className="px-4 py-3" style={{ color: COLOR.textSecondary }}>{r.watchTimeMs > 0 ? formatDurationMs(r.watchTimeMs) : ' - '}</td>
                 <td className="px-4 py-3"><span className="rounded-full px-2 py-1 text-xs" style={{ background: r.status === 'Ready' ? 'rgba(94,230,168,0.2)' : 'rgba(247,198,106,0.2)', color: r.status === 'Ready' ? COLOR.mint : COLOR.amber }}>{r.status}</span></td>
               </tr>
             ))}
@@ -453,12 +456,72 @@ export function PostsPerformanceTable({
               <span>{new Date(r.date).toLocaleDateString()}</span>
               <span>{r.type}</span>
               <span>Views {formatCompact(r.views)}</span>
+              <span>{r.watchTimeMs > 0 ? `Watch ${formatDurationMs(r.watchTimeMs)}` : 'Watch -'}</span>
               <span>Clicks {formatCompact(r.clicks)}</span>
             </div>
           </button>
         ))}
       </div>
     </div>
+  );
+}
+
+function TopContentHighlights({
+  byViews,
+  byClicks,
+  byReactions,
+}: {
+  byViews: Array<{ id: string; preview: string; permalink?: string | null; value: number; type: 'Reel' | 'Post' }>;
+  byClicks: Array<{ id: string; preview: string; permalink?: string | null; value: number; type: 'Reel' | 'Post' }>;
+  byReactions: Array<{ id: string; preview: string; permalink?: string | null; value: number; type: 'Reel' | 'Post' }>;
+}) {
+  const col = (
+    title: string,
+    metricLabel: string,
+    color: string,
+    rows: Array<{ id: string; preview: string; permalink?: string | null; value: number; type: 'Reel' | 'Post' }>
+  ) => (
+    <div className="space-y-2">
+      <p className="text-sm font-semibold" style={{ color: COLOR.text }}>{title}</p>
+      {rows.length === 0 ? (
+        <p className="text-sm" style={{ color: COLOR.textMuted }}>No items yet</p>
+      ) : (
+        rows.map((r, idx) => (
+          <div key={`${title}-${r.id}-${idx}`} className="rounded-xl p-3" style={{ background: COLOR.elevated }}>
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-sm min-w-0" style={{ color: COLOR.textSecondary }}>
+                <span className="mr-2 rounded-md px-2 py-0.5 text-xs" style={{ color: COLOR.text, background: 'rgba(124,108,255,0.14)' }}>#{idx + 1}</span>
+                {clampText(firstWords(r.preview, 8) || 'View post', 66)}
+              </p>
+              <span className="shrink-0 text-sm font-semibold" style={{ color }}>{formatCompact(r.value)}</span>
+            </div>
+            <div className="mt-2 flex items-center justify-between text-xs" style={{ color: COLOR.textMuted }}>
+              <span>{metricLabel}</span>
+              <span>{r.type}</span>
+              {r.permalink ? (
+                <Link href={r.permalink} target="_blank" className="inline-flex items-center gap-1" style={{ color: COLOR.textSecondary }}>
+                  View <ExternalLink size={12} />
+                </Link>
+              ) : null}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+
+  return (
+    <section className="rounded-[20px] p-5" style={{ background: COLOR.card, boxShadow: '0 2px 16px rgba(15,23,42,0.05)' }}>
+      <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Top Content Highlights</h3>
+      <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
+        One editorial block showing what led in views, clicks, and reactions.
+      </p>
+      <div className="mt-4 grid gap-4 lg:grid-cols-3">
+        {col('Views leaders', 'Views', COLOR.cyan, byViews)}
+        {col('Clicks leaders', 'Clicks', COLOR.amber, byClicks)}
+        {col('Reactions leaders', 'Reactions', COLOR.violet, byReactions)}
+      </div>
+    </section>
   );
 }
 
@@ -535,6 +598,7 @@ export function FacebookAnalyticsView({
   const [storyMode, setStoryMode] = useState<StoryMode>('views');
   const [activeSection, setActiveSection] = useState<SectionId>(FACEBOOK_ANALYTICS_SECTION_IDS.overview);
   const [selectedPost, setSelectedPost] = useState<FacebookPost | null>(null);
+  const [historyFilter, setHistoryFilter] = useState<ContentHistoryFilter>('all');
   const sections = useMemo(
     () => [
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.overview, label: 'Overview' },
@@ -643,6 +707,7 @@ export function FacebookAnalyticsView({
         clicks: fi.post_clicks ?? 0,
         likes: fi.post_reactions_like_total ?? p.likeCount ?? 0,
         reactionsTotal: reactions || (fi.post_reactions_like_total ?? p.likeCount ?? 0),
+        watchTimeMs: fi.post_video_avg_time_watched ?? 0,
         reactionBreakdownRaw: fi.post_reactions_by_type_total,
         status: hasCore ? ('Ready' as const) : ('Partial' as const),
         rawPost: p,
@@ -701,6 +766,7 @@ export function FacebookAnalyticsView({
         clicks: fi.post_clicks ?? 0,
         likes: fi.post_reactions_like_total ?? p.likeCount ?? 0,
         reactionsTotal: reactions || (fi.post_reactions_like_total ?? p.likeCount ?? 0),
+        watchTimeMs: fi.post_video_avg_time_watched ?? 0,
         reactionBreakdownRaw: fi.post_reactions_by_type_total,
         status: hasCore ? ('Ready' as const) : ('Partial' as const),
         rawPost: p,
@@ -717,9 +783,14 @@ export function FacebookAnalyticsView({
         avgWatchMs: r.rawPost.facebookInsights?.post_video_avg_time_watched ?? 0,
       }));
   }, [allPostsRows]);
+  const contentHistoryRows = useMemo(() => {
+    if (historyFilter === 'posts') return allPostsRows.filter((r) => r.type === 'Post');
+    if (historyFilter === 'reels') return allPostsRows.filter((r) => r.type === 'Reel');
+    return allPostsRows;
+  }, [allPostsRows, historyFilter]);
 
   return (
-    <div className="p-1 md:p-2 space-y-10" style={{ background: COLOR.pageBg, maxWidth: 1400 }}>
+    <div className="p-1 md:p-2 space-y-14" style={{ background: COLOR.pageBg, maxWidth: 1400 }}>
       {onUpgrade ? (
         <section
           className="rounded-2xl px-4 py-3 md:px-5 md:py-3.5 flex flex-wrap items-center justify-between gap-3"
@@ -943,23 +1014,21 @@ export function FacebookAnalyticsView({
 
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.posts} className="scroll-mt-28 space-y-6">
         <div>
-          <h2 className="text-[28px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Posts</h2>
+          <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Posts</h2>
           <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
             Explore which posts drove views, clicks, and reactions.
           </p>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <MetricCard label="Total Posts" source="Derived from posts in date range" color={COLOR.text} value={formatCompact(postsInRange.length)} />
-          <MetricCard label="Avg Posts per Week" source="Derived from date range span" color={COLOR.cyan} value={avgPostsPerWeek.toFixed(1)} />
           <MetricCard label="Avg Clicks per Post" source="post_clicks" color={COLOR.amber} value={avgClicksPerPost.toFixed(1)} />
           <MetricCard label="Avg Reactions per Post" source="post_reactions_like_total / breakdown" color={COLOR.violet} value={avgReactionsPerPost.toFixed(1)} />
         </div>
-
-        <div className="grid gap-4 lg:grid-cols-3">
-          <TopPostsGrid title="Top by Views" metricLabel="Views" metricColor={COLOR.cyan} items={topByViews} />
-          <TopPostsGrid title="Top by Clicks" metricLabel="Clicks" metricColor={COLOR.amber} items={topByClicks} />
-          <TopPostsGrid title="Top by Reactions" metricLabel="Reactions" metricColor={COLOR.violet} items={topByReactions} />
-        </div>
+        <TopContentHighlights
+          byViews={topByViews.map((p) => ({ id: p.id, preview: p.preview, permalink: p.permalink, value: p.value, type: p.type }))}
+          byClicks={topByClicks.map((p) => ({ id: p.id, preview: p.preview, permalink: p.permalink, value: p.value, type: p.type }))}
+          byReactions={topByReactions.map((p) => ({ id: p.id, preview: p.preview, permalink: p.permalink, value: p.value, type: p.type }))}
+        />
 
         {postsRows.length > 0 ? (
           <PostsPerformanceTable rows={postsRows} onOpenDetail={setSelectedPost} />
@@ -967,27 +1036,18 @@ export function FacebookAnalyticsView({
           <EmptyStateCard title="No posts in this range" subtitle="Try a wider date range or sync the account posts again." />
         )}
 
-        <div className="space-y-3 pt-2">
-          <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>All Posts History</h3>
-          <p className="text-sm" style={{ color: COLOR.textSecondary }}>
-            Full archive of all synced posts for deeper investigation.
-          </p>
-          <PostsPerformanceTable rows={allPostsRows} onOpenDetail={setSelectedPost} />
-        </div>
       </section>
 
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.reels} className="scroll-mt-28 space-y-6">
         <div>
-          <h2 className="text-[28px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Reels</h2>
+          <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Reels</h2>
           <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
             Video performance intelligence with watch quality and organic share.
           </p>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <MetricCard label="Reel Count" source="Permalink contains /reel/" color={COLOR.text} value={formatCompact(reelsRows.length)} />
           <MetricCard label="Total Video Views" source="post_video_views" color={COLOR.magenta} value={formatCompact(totalReelVideoViews)} />
-          <MetricCard label="Organic Video Views" source="post_video_views_organic" color={COLOR.mint} value={formatCompact(totalOrganicVideoViews)} />
-          <MetricCard label="Total Watch Time" source="Sum post_video_avg_time_watched" color={COLOR.magenta} value={formatDurationMs(reelsRows.reduce((s, r) => s + r.avgWatchMs, 0))} />
           <MetricCard label="Avg Watch Time" source="Mean post_video_avg_time_watched" color={COLOR.magenta} value={formatDurationMs(avgWatchMs)} />
         </div>
 
@@ -995,7 +1055,7 @@ export function FacebookAnalyticsView({
           {reelsChartData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={reelsChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(17,24,39,0.08)" vertical={false} />
                 <XAxis dataKey="date" tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis yAxisId="left" tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis yAxisId="right" orientation="right" tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -1010,20 +1070,36 @@ export function FacebookAnalyticsView({
         </InsightChartCard>
 
         <ReelsPerformanceGrid reels={reelsRows} />
+      </section>
 
-        <div className="grid gap-4 md:grid-cols-3">
-          <MetricCard label="Avg Watch Quality" source="avg post_video_avg_time_watched" color={COLOR.magenta} value={formatDurationMs(avgWatchMs)} footnote="Derived metric" />
-          <MetricCard label="Organic Share of Views" source="organic_views / total_video_views" color={COLOR.mint} value={formatPercent(totalOrganicVideoViews / Math.max(1, totalReelVideoViews))} footnote="Derived metric" />
-          <MetricCard label="View-to-Click Efficiency" source="post_clicks / video_views" color={COLOR.amber} value={formatPercent(viewToClickEfficiency)} footnote="Derived metric" />
-        </div>
-
-        <div className="space-y-3 pt-2">
-          <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>All Reels History</h3>
-          <p className="text-sm" style={{ color: COLOR.textSecondary }}>
-            Complete reels archive with core video metrics and permalink actions.
+      <section className="scroll-mt-28 space-y-4">
+        <div>
+          <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Content History</h2>
+          <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
+            Unified archive for posts and reels with filters for faster investigation.
           </p>
-          <ReelsPerformanceGrid reels={allReelsRows} />
         </div>
+        <div className="flex flex-wrap gap-2">
+          {([
+            { id: 'all', label: 'All' },
+            { id: 'posts', label: 'Posts' },
+            { id: 'reels', label: 'Reels' },
+          ] as const).map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              onClick={() => setHistoryFilter(f.id)}
+              className="rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
+              style={{
+                background: historyFilter === f.id ? 'rgba(124,108,255,0.14)' : '#ffffff',
+                color: historyFilter === f.id ? COLOR.violet : COLOR.textSecondary,
+              }}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <PostsPerformanceTable rows={contentHistoryRows} onOpenDetail={setSelectedPost} />
       </section>
 
       {selectedPost ? (
