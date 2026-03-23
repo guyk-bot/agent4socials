@@ -118,12 +118,7 @@ export default function Home() {
 
           <div className="relative mx-auto max-w-5xl px-4 sm:px-6 text-center">
             <h1 className="mt-1 text-[44px] font-bold tracking-[-0.028em] leading-[1.04] sm:text-5xl md:text-[64px] lg:text-[76px]">
-              <span className="block">
-                <span className="text-[#fde047]">2-7X</span>{' '}
-                <span className="bg-[linear-gradient(135deg,#c4b5fd_10%,#8b5cf6_50%,#df44dc_95%)] bg-clip-text text-transparent">
-                  Your Content Potential
-                </span>
-              </span>
+              <span className="block text-[#c4b5fd]">2-7X Your Content Potential</span>
               <span className="mt-1.5 block text-white">Without Paying For Ads</span>
             </h1>
 
@@ -143,7 +138,7 @@ export default function Home() {
               </button>
               <Link
                 href="/pricing"
-                className="inline-flex min-w-[196px] items-center justify-center rounded-full border border-white/[0.14] bg-[rgba(255,255,255,0.04)] backdrop-blur-[20px] px-8 py-3.5 text-base font-medium text-white transition-all hover:-translate-y-0.5 hover:border-[#a78bfa]/50 hover:bg-white/[0.08] hover:shadow-[0_12px_26px_rgba(139,92,246,0.22)]"
+                className="inline-flex min-w-[196px] items-center justify-center rounded-full bg-[linear-gradient(135deg,#7c3aed_0%,#6d28d9_45%,#db2777_100%)] px-8 py-3.5 text-base font-semibold text-white shadow-[0_10px_30px_rgba(124,58,237,0.36)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_14px_35px_rgba(124,58,237,0.5)] active:translate-y-0"
               >
                 See pricing
               </Link>
