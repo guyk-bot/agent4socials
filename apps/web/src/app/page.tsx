@@ -117,12 +117,7 @@ export default function Home() {
           </div>
 
           <div className="relative mx-auto max-w-5xl px-4 sm:px-6 text-center">
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#8b5cf6]/40 bg-[rgba(17,24,39,0.55)] px-4 py-1.5 text-xs font-medium text-[#d8b4fe] shadow-[0_0_20px_rgba(139,92,246,0.22)] backdrop-blur-[14px]">
-              <Sparkles className="h-3.5 w-3.5 text-[#c4b5fd]" />
-              Grow faster without ad spend
-            </div>
-
-            <h1 className="mt-5 text-[44px] font-bold tracking-[-0.028em] leading-[1.04] sm:text-5xl md:text-[64px] lg:text-[76px]">
+            <h1 className="mt-1 text-[44px] font-bold tracking-[-0.028em] leading-[1.04] sm:text-5xl md:text-[64px] lg:text-[76px]">
               <span className="block">
                 <span className="text-[#fde047]">2-7X</span>{' '}
                 <span className="bg-[linear-gradient(135deg,#c4b5fd_10%,#8b5cf6_50%,#df44dc_95%)] bg-clip-text text-transparent">
