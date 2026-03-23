@@ -231,17 +231,9 @@ function profileUrlForAccount(account: { platform: string; username?: string | n
 /** Scroll-to sections for single-page analytics. Facebook adds an explicit read_insights block for App Review recordings. */
 const ANALYTICS_SCROLL_SECTIONS = [
   { id: FACEBOOK_ANALYTICS_SECTION_IDS.overview, label: 'Overview' },
-  { id: FACEBOOK_ANALYTICS_SECTION_IDS.clicksTraffic, label: 'Clicks / Traffic' },
+  { id: FACEBOOK_ANALYTICS_SECTION_IDS.traffic, label: 'Traffic' },
   { id: FACEBOOK_ANALYTICS_SECTION_IDS.posts, label: 'Posts' },
-  { id: FACEBOOK_ANALYTICS_SECTION_IDS.reelsVideos, label: 'Reels / Videos' },
-] as const;
-
-const ANALYTICS_SCROLL_SECTIONS_FACEBOOK = [
-  { id: FACEBOOK_ANALYTICS_SECTION_IDS.overview, label: 'Overview' },
-  { id: FACEBOOK_ANALYTICS_SECTION_IDS.readInsightsApi, label: 'Page insights (API)' },
-  { id: FACEBOOK_ANALYTICS_SECTION_IDS.clicksTraffic, label: 'Clicks / Traffic' },
-  { id: FACEBOOK_ANALYTICS_SECTION_IDS.posts, label: 'Posts' },
-  { id: FACEBOOK_ANALYTICS_SECTION_IDS.reelsVideos, label: 'Reels / Videos' },
+  { id: FACEBOOK_ANALYTICS_SECTION_IDS.reels, label: 'Reels' },
 ] as const;
 
 export default function DashboardPage() {
@@ -1027,10 +1019,9 @@ export default function DashboardPage() {
             />
           </div>
         )}
-        {selectedAccount && (
+        {selectedAccount && selectedAccount.platform !== 'FACEBOOK' && (
           <nav className="flex gap-0.5 p-0.5 bg-neutral-100 rounded-lg shrink-0" aria-label="Analytics sections">
-            {(selectedAccount.platform === 'FACEBOOK' ? ANALYTICS_SCROLL_SECTIONS_FACEBOOK : ANALYTICS_SCROLL_SECTIONS).map(
-              (sec) => (
+            {ANALYTICS_SCROLL_SECTIONS.map((sec) => (
               <button
                 key={sec.id}
                 type="button"
@@ -1039,19 +1030,20 @@ export default function DashboardPage() {
               >
                 {sec.label}
               </button>
-            )
-            )}
+            ))}
           </nav>
         )}
         <div className="ml-auto shrink-0 flex items-center gap-2">
           {selectedAccount && insightsLoading && insights != null && (
             <span className="text-xs text-neutral-500 animate-pulse">Updating…</span>
           )}
-          <AnalyticsDateRangePicker
-            start={dateRange.start}
-            end={dateRange.end}
-            onChange={(r) => setDateRange(r)}
-          />
+          {selectedAccount?.platform !== 'FACEBOOK' && (
+            <AnalyticsDateRangePicker
+              start={dateRange.start}
+              end={dateRange.end}
+              onChange={(r) => setDateRange(r)}
+            />
+          )}
         </div>
       </div>
 
@@ -1134,6 +1126,8 @@ export default function DashboardPage() {
                   facebookPageMetricSeries: (insights as { facebookPageMetricSeries?: Record<string, Array<{ date: string; value: number }>> }).facebookPageMetricSeries,
                   facebookInsightPersistence: (insights as { facebookInsightPersistence?: { dailyRowsUpserted: number } }).facebookInsightPersistence,
                   facebookAnalytics: (insights as { facebookAnalytics?: FacebookFrontendAnalyticsBundle }).facebookAnalytics,
+                  facebookPageProfile: (insights as { facebookPageProfile?: import('@/components/analytics/facebook/types').FacebookInsights['facebookPageProfile'] }).facebookPageProfile,
+                  facebookCommunity: (insights as { facebookCommunity?: import('@/components/analytics/facebook/types').FacebookInsights['facebookCommunity'] }).facebookCommunity,
                 }),
               };
               return base;
@@ -1158,6 +1152,7 @@ export default function DashboardPage() {
               }
             }}
             onReconnectFacebook={selectedAccount?.platform === 'FACEBOOK' ? () => router.push('/dashboard?connect=facebook') : undefined}
+            onDateRangeChange={selectedAccount?.platform === 'FACEBOOK' ? (r) => setDateRange(r) : undefined}
             followersLabel={selectedAccount.platform === 'YOUTUBE' ? 'Subscribers' : 'Followers'}
           />
         </div>

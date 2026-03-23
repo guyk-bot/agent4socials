@@ -1,9 +1,9 @@
 /** Section ids for scroll-to navigation on the dashboard Facebook analytics view. */
 export const FACEBOOK_ANALYTICS_SECTION_IDS = {
   overview: 'overview',
-  /** Explicit read_insights / Page Insights metrics (for App Review screen recordings). */
-  readInsightsApi: 'facebook-read-insights-api',
-  clicksTraffic: 'clicks-traffic',
+  /** Kept for compatibility with existing dev panel anchors. */
+  readInsightsApi: 'overview',
+  traffic: 'traffic',
   posts: 'posts',
-  reelsVideos: 'reels-videos',
+  reels: 'reels',
 } as const;

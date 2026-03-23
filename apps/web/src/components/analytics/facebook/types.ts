@@ -38,6 +38,26 @@ export interface FacebookInsights {
   facebookInsightPersistence?: { dailyRowsUpserted: number };
   /** Stable series + totals for dashboard widgets (followers, follows, views, engagement, video, actions, post impressions). */
   facebookAnalytics?: FacebookFrontendAnalyticsBundle;
+  /** Page profile strip data from Graph page endpoint. */
+  facebookPageProfile?: {
+    id?: string;
+    name?: string;
+    username?: string;
+    category?: string;
+    followers_count?: number;
+    fan_count?: number;
+    website?: string;
+    is_published?: boolean;
+    is_verified?: boolean;
+    verification_status?: string;
+  };
+  /** Supporting community data from cached sync tables. */
+  facebookCommunity?: {
+    conversationsCount: number;
+    latestConversationAt: string | null;
+    ratingsCount: number;
+    latestRecommendationText: string | null;
+  };
 }
 
 export interface FacebookPost {

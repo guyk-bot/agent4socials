@@ -478,6 +478,18 @@ export async function GET(
         const pageRes = await fetchPageProfile(account.platformUserId, token);
         if (pageRes.status === 200) {
           const p = pageRes.data;
+          (out as Record<string, unknown>).facebookPageProfile = {
+            id: p?.id,
+            name: p?.name,
+            username: p?.username,
+            category: p?.category ?? p?.category_list?.[0]?.name,
+            followers_count: typeof p?.followers_count === 'number' ? p.followers_count : undefined,
+            fan_count: typeof p?.fan_count === 'number' ? p.fan_count : undefined,
+            website: p?.website,
+            is_published: typeof p?.is_published === 'boolean' ? p.is_published : undefined,
+            is_verified: typeof p?.is_verified === 'boolean' ? p.is_verified : undefined,
+            verification_status: p?.verification_status,
+          };
           if (typeof p?.fan_count === 'number') out.followers = p.fan_count;
           else if (typeof p?.followers_count === 'number') out.followers = p.followers_count;
         }
@@ -486,6 +498,30 @@ export async function GET(
         if (!out.insightsHint) {
           out.insightsHint = 'Could not load follower count from Facebook. Reconnect from the sidebar (or use the button below) to refresh.';
         }
+      }
+      try {
+        const [conversationsCount, latestConversation, ratingsCount, latestReview] = await Promise.all([
+          prisma.facebookConversationCache.count({ where: { socialAccountId: account.id } }),
+          prisma.facebookConversationCache.findFirst({
+            where: { socialAccountId: account.id },
+            orderBy: { updatedTime: 'desc' },
+            select: { updatedTime: true },
+          }),
+          prisma.facebookReviewCache.count({ where: { socialAccountId: account.id } }),
+          prisma.facebookReviewCache.findFirst({
+            where: { socialAccountId: account.id, reviewText: { not: null } },
+            orderBy: { sourceCreatedAt: 'desc' },
+            select: { reviewText: true },
+          }),
+        ]);
+        (out as Record<string, unknown>).facebookCommunity = {
+          conversationsCount,
+          latestConversationAt: latestConversation?.updatedTime?.toISOString?.() ?? null,
+          ratingsCount,
+          latestRecommendationText: latestReview?.reviewText ?? null,
+        };
+      } catch (e) {
+        console.warn('[Insights] Facebook community summary:', (e as Error)?.message ?? e);
       }
       if (effectiveSinceTs != null && effectiveUntilTs != null) {
         try {
