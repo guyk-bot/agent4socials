@@ -969,6 +969,41 @@ export default function DashboardPage() {
           postsLoading={importedPostsLoading || connectingParam === '1'}
         />
       )}
+      {facebookLoadingOnly && (
+        <div className="mt-4 max-w-full space-y-4" style={{ maxWidth: 1400 }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={`fb-load-kpi-${i}`}
+                className="h-24 rounded-2xl animate-pulse"
+                style={{
+                  background: 'linear-gradient(180deg, rgba(255,255,255,0.95), rgba(248,250,252,0.95))',
+                  boxShadow: '0 10px 24px rgba(15,23,42,0.08)',
+                }}
+              />
+            ))}
+          </div>
+          <div
+            className="h-72 rounded-2xl animate-pulse"
+            style={{
+              background: 'linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,252,0.94))',
+              boxShadow: '0 14px 30px rgba(15,23,42,0.09)',
+            }}
+          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {Array.from({ length: 2 }).map((_, i) => (
+              <div
+                key={`fb-load-lower-${i}`}
+                className="h-44 rounded-2xl animate-pulse"
+                style={{
+                  background: 'linear-gradient(180deg, rgba(255,255,255,0.95), rgba(248,250,252,0.95))',
+                  boxShadow: '0 12px 26px rgba(15,23,42,0.08)',
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
       {!facebookLoadingOnly && showViewsHint && (
         <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <p className="font-medium">You're seeing follower counts. Views, reach, and trend graphs need Page/Instagram insights.</p>
