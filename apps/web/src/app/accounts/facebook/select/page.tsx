@@ -4,7 +4,7 @@ import React, { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
-import { BrandedPageLoader } from '@/components/BrandedPageLoader';
+import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 import { Facebook, Loader2 } from 'lucide-react';
 
 type PageItem = { id: string; name?: string; picture?: string };
@@ -59,7 +59,7 @@ function FacebookSelectContent() {
   };
 
   if (loading) {
-    return <BrandedPageLoader message="Loading your Pages…" />;
+    return <LoadingVideoOverlay loading={true} />;
   }
 
   if (error || pages.length === 0) {
@@ -131,7 +131,7 @@ function FacebookSelectContent() {
 
 export default function FacebookSelectPage() {
   return (
-    <Suspense fallback={<BrandedPageLoader message="Loading…" />}>
+    <Suspense fallback={<LoadingVideoOverlay loading={true} />}>
       <FacebookSelectContent />
     </Suspense>
   );
