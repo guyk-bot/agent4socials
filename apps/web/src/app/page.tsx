@@ -131,14 +131,14 @@ export default function Home() {
               <button
                 type="button"
                 onClick={openSignup}
-                className="group inline-flex min-w-[196px] items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#7c3aed_0%,#6d28d9_45%,#db2777_100%)] px-8 py-3.5 text-base font-semibold text-white shadow-[0_10px_30px_rgba(124,58,237,0.36)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_14px_35px_rgba(124,58,237,0.5)] active:translate-y-0"
+                className="group inline-flex min-w-[196px] items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#5ff6fd_0%,#8b5cf6_52%,#df44dc_100%)] px-8 py-3.5 text-base font-semibold text-white shadow-[0_10px_30px_rgba(95,246,253,0.24)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_14px_35px_rgba(139,92,246,0.42)] active:translate-y-0"
               >
                 Get started free
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </button>
               <Link
                 href="/pricing"
-                className="inline-flex min-w-[196px] items-center justify-center rounded-full bg-[linear-gradient(135deg,#7c3aed_0%,#6d28d9_45%,#db2777_100%)] px-8 py-3.5 text-base font-semibold text-white shadow-[0_10px_30px_rgba(124,58,237,0.36)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_14px_35px_rgba(124,58,237,0.5)] active:translate-y-0"
+                className="inline-flex min-w-[196px] items-center justify-center rounded-full bg-[linear-gradient(135deg,#5ff6fd_0%,#8b5cf6_52%,#df44dc_100%)] px-8 py-3.5 text-base font-semibold text-white shadow-[0_10px_30px_rgba(95,246,253,0.24)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_14px_35px_rgba(139,92,246,0.42)] active:translate-y-0"
               >
                 See pricing
               </Link>
