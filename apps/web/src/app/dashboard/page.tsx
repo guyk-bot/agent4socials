@@ -979,7 +979,13 @@ export default function DashboardPage() {
         </div>
       )}
       {/* Single row: compact profile | section nav | date range picker */}
-      <div className="flex flex-wrap items-center gap-3 pb-4 border-b border-neutral-200">
+      <div
+        className={
+          selectedAccount?.platform === 'FACEBOOK'
+            ? 'flex flex-wrap items-center gap-3 pb-2'
+            : 'flex flex-wrap items-center gap-3 pb-4 border-b border-neutral-200'
+        }
+      >
         {selectedAccount && selectedAccount.platform !== 'FACEBOOK' && (
           <div className="shrink-0">
             <PlatformAnalyticsHeader
@@ -1088,7 +1094,10 @@ export default function DashboardPage() {
 
       {/* Single-page analytics for any selected account (Overview, Demografic, Clicks/Traffic, Posts, Reels/Videos) */}
       {selectedAccount && (
-        <div className="mt-6 max-w-full" style={{ maxWidth: 1400 }}>
+        <div
+          className={selectedAccount?.platform === 'FACEBOOK' ? 'mt-3 max-w-full' : 'mt-6 max-w-full'}
+          style={{ maxWidth: 1400 }}
+        >
           <FacebookAnalyticsView
             insights={(() => {
               const base: import('@/components/analytics/facebook/types').FacebookInsights = {

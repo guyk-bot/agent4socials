@@ -790,7 +790,7 @@ export function FacebookAnalyticsView({
   }, [allPostsRows, historyFilter]);
 
   return (
-    <div className="p-1 md:p-2 space-y-14" style={{ background: COLOR.pageBg, maxWidth: 1400 }}>
+    <div className="p-1 md:p-2 space-y-8" style={{ background: COLOR.pageBg, maxWidth: 1400 }}>
       {onUpgrade ? (
         <section
           className="rounded-2xl px-4 py-3 md:px-5 md:py-3.5 flex flex-wrap items-center justify-between gap-3"
@@ -876,9 +876,6 @@ export function FacebookAnalyticsView({
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.overview} className="scroll-mt-28 space-y-6">
         <div>
           <h2 className="text-[28px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Overview</h2>
-          <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
-            Snapshot of followers, visibility, and engagement for the selected period.
-          </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
           <SparklineMetricCard label="Total Followers" source="fan_count/followers_count" color={COLOR.mint} value={formatCompact(totalFollowers)} series={series?.follows ?? []} />
