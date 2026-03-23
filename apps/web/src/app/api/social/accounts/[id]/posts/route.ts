@@ -14,6 +14,126 @@ import {
 import { syncFacebookAuxiliaryIngest } from '@/lib/facebook/sync-extras';
 import { fbRestBaseUrl } from '@/lib/facebook/constants';
 
+type ImportedPostListRow = {
+  id: string;
+  platformPostId: string;
+  platform: Platform;
+  content: string | null;
+  thumbnailUrl: string | null;
+  permalinkUrl: string | null;
+  impressions: number;
+  interactions: number;
+  likeCount: number | null;
+  commentsCount: number | null;
+  repostsCount: number | null;
+  sharesCount: number | null;
+  publishedAt: Date;
+  mediaType: string | null;
+  platformMetadata: unknown;
+};
+
+function isMissingImportedPostPlatformMetadataColumn(error: unknown): boolean {
+  const e = error as { code?: string; message?: string; meta?: { column?: string } };
+  const msg = (e?.message ?? '').toLowerCase();
+  const col = (e?.meta?.column ?? '').toLowerCase();
+  return e?.code === 'P2022' && (msg.includes('importedpost.platformmetadata') || msg.includes('platformmetadata') || col.includes('platformmetadata'));
+}
+
+async function listImportedPostsSafe(socialAccountId: string): Promise<ImportedPostListRow[]> {
+  try {
+    return await prisma.importedPost.findMany({
+      where: { socialAccountId },
+      orderBy: { publishedAt: 'desc' },
+      take: 500,
+      select: {
+        id: true,
+        platformPostId: true,
+        platform: true,
+        content: true,
+        thumbnailUrl: true,
+        permalinkUrl: true,
+        impressions: true,
+        interactions: true,
+        likeCount: true,
+        commentsCount: true,
+        repostsCount: true,
+        sharesCount: true,
+        publishedAt: true,
+        mediaType: true,
+        platformMetadata: true,
+      },
+    });
+  } catch (e) {
+    if (!isMissingImportedPostPlatformMetadataColumn(e)) throw e;
+    const rows = await prisma.importedPost.findMany({
+      where: { socialAccountId },
+      orderBy: { publishedAt: 'desc' },
+      take: 500,
+      select: {
+        id: true,
+        platformPostId: true,
+        platform: true,
+        content: true,
+        thumbnailUrl: true,
+        permalinkUrl: true,
+        impressions: true,
+        interactions: true,
+        likeCount: true,
+        commentsCount: true,
+        repostsCount: true,
+        sharesCount: true,
+        publishedAt: true,
+        mediaType: true,
+      },
+    });
+    return rows.map((r) => ({ ...r, platformMetadata: null }));
+  }
+}
+
+async function findImportedPostPrevSafe(socialAccountId: string, platformPostId: string): Promise<{ impressions: number; platformMetadata: unknown } | null> {
+  try {
+    const prev = await prisma.importedPost.findUnique({
+      where: { socialAccountId_platformPostId: { socialAccountId, platformPostId } },
+      select: { impressions: true, platformMetadata: true },
+    });
+    if (!prev) return null;
+    return { impressions: prev.impressions ?? 0, platformMetadata: prev.platformMetadata ?? null };
+  } catch (e) {
+    if (!isMissingImportedPostPlatformMetadataColumn(e)) throw e;
+    const prev = await prisma.importedPost.findUnique({
+      where: { socialAccountId_platformPostId: { socialAccountId, platformPostId } },
+      select: { impressions: true },
+    });
+    if (!prev) return null;
+    return { impressions: prev.impressions ?? 0, platformMetadata: null };
+  }
+}
+
+async function upsertImportedPostWithFallback(args: {
+  socialAccountId: string;
+  platformPostId: string;
+  createData: any;
+  updateData: any;
+}) {
+  const { socialAccountId, platformPostId, createData, updateData } = args;
+  try {
+    await prisma.importedPost.upsert({
+      where: { socialAccountId_platformPostId: { socialAccountId, platformPostId } },
+      update: updateData,
+      create: createData,
+    });
+  } catch (e) {
+    if (!isMissingImportedPostPlatformMetadataColumn(e)) throw e;
+    const { platformMetadata: _pmCreate, ...createWithoutMeta } = createData;
+    const { platformMetadata: _pmUpdate, ...updateWithoutMeta } = updateData;
+    await prisma.importedPost.upsert({
+      where: { socialAccountId_platformPostId: { socialAccountId, platformPostId } },
+      update: updateWithoutMeta,
+      create: createWithoutMeta,
+    });
+  }
+}
+
 /** GET: list imported posts for this account. ?sync=1 to sync from platform first then return. */
 export async function GET(
   request: NextRequest,
@@ -56,11 +176,7 @@ export async function GET(
     }
 
     // Get posts synced/imported from platform
-    const importedRows = await prisma.importedPost.findMany({
-      where: { socialAccountId: account.id },
-      orderBy: { publishedAt: 'desc' },
-      take: 500,
-    });
+    const importedRows = await listImportedPostsSafe(account.id);
     const importedPostIds = new Set(importedRows.map((p) => p.platformPostId));
 
     // Also include posts published via the app (postTargets) not already in importedPosts
@@ -404,10 +520,7 @@ async function syncImportedPosts(
         insightMap = await fetchPostLifetimeInsightMap(p.id, accessToken, postMetricsSlice);
         impressions = pickFacebookPostImpressionsFromInsightMap(insightMap).impressions;
       } else if (idx >= POST_INSIGHT_FETCH_CAP) {
-        const prev = await prisma.importedPost.findUnique({
-          where: { socialAccountId_platformPostId: { socialAccountId, platformPostId: p.id } },
-          select: { impressions: true, platformMetadata: true },
-        });
+        const prev = await findImportedPostPrevSafe(socialAccountId, p.id);
         impressions = prev?.impressions ?? 0;
         const prevMeta = prev?.platformMetadata && typeof prev.platformMetadata === 'object' ? prev.platformMetadata as Record<string, unknown> : {};
         if (prevMeta.facebookInsights && typeof prevMeta.facebookInsights === 'object') {
@@ -438,11 +551,10 @@ async function syncImportedPosts(
           : {}),
       };
 
-      await prisma.importedPost.upsert({
-        where: {
-          socialAccountId_platformPostId: { socialAccountId, platformPostId: p.id },
-        },
-        update: {
+      await upsertImportedPostWithFallback({
+        socialAccountId,
+        platformPostId: p.id,
+        updateData: {
           content: p.message ?? null,
           thumbnailUrl: p.full_picture ?? null,
           permalinkUrl: p.permalink_url ?? null,
@@ -456,7 +568,7 @@ async function syncImportedPosts(
           sharesCount: sharesCountFinal,
           syncedAt: new Date(),
         },
-        create: {
+        createData: {
           socialAccountId,
           platformPostId: p.id,
           platform,
