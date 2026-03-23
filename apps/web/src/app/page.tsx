@@ -24,8 +24,6 @@ import {
 } from 'lucide-react';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
 import { PricingBillingToggle, PricingCard } from '@/components/landing/pricing';
-import { HeroHeadlineMultiplierX } from '@/components/BrandWordmark';
-
 const FREE_HIGHLIGHTS = [
   '1 brand',
   '50 scheduled posts / month',
@@ -122,10 +120,7 @@ export default function Home() {
             {/* Headline: 48-72px, gradient accent */}
             <h1 className="text-[48px] font-bold tracking-[-0.02em] leading-[1.1] sm:text-5xl md:text-6xl lg:text-7xl">
               <span className="inline-flex flex-wrap items-baseline justify-center gap-x-0">
-                <span className="bg-[linear-gradient(135deg,#a78bfa,#8b5cf6,#df44dc)] bg-clip-text text-transparent">
-                  2-7
-                </span>
-                <HeroHeadlineMultiplierX />
+                <span className="text-[#fde047] pr-[0.2em]">2-7X</span>
                 <span className="bg-[linear-gradient(135deg,#a78bfa,#8b5cf6,#df44dc)] bg-clip-text text-transparent">
                   Your Content Potential
                 </span>

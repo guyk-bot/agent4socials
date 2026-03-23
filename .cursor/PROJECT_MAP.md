@@ -21,7 +21,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | Branded full-page loader (logo loading video) for account select screens | `apps/web/src/components/BrandedPageLoader.tsx` (`public/logo-loading-page.mp4`) |
 | Sidebar | `apps/web/src/components/Sidebar.tsx` |
 | App header (nav, logo) | `apps/web/src/components/AppHeader.tsx` |
-| Funnel / landing wordmark + header mark | `BrandWordmark.tsx` (`HeroHeadlineMultiplierX` hero only); `SiteHeader` / `SiteFooter` use `/favicon.svg` (vector mark; `logo.svg` is separate full asset) |
+| Funnel / landing wordmark + header mark | `BrandWordmark.tsx`; hero H1 copy in `app/page.tsx`; `SiteHeader` / `SiteFooter` use `/favicon.svg` (vector mark; `logo.svg` is separate full asset) |
 
 ### Inbox (DMs, comments)
 
