@@ -128,6 +128,13 @@ function clampText(v: string | null | undefined, max = 120): string {
   return one.length > max ? `${one.slice(0, max - 1)}…` : one;
 }
 
+function firstWords(v: string | null | undefined, words = 3): string {
+  const one = (v ?? '').replace(/\s+/g, ' ').trim();
+  if (!one) return '';
+  const parts = one.split(' ').filter(Boolean);
+  return parts.slice(0, words).join(' ');
+}
+
 function parseReactionTotal(v: unknown): number {
   if (typeof v === 'number') return v;
   if (v && typeof v === 'object') {
@@ -301,7 +308,7 @@ export function TopPostsGrid({
   metricColor,
 }: {
   title: string;
-  items: Array<{ id: string; content?: string | null; permalinkUrl?: string | null; value: number }>;
+  items: Array<{ id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; value: number }>;
   metricLabel: string;
   metricColor: string;
 }) {
@@ -315,10 +322,22 @@ export function TopPostsGrid({
           items.map((p, idx) => (
             <div key={`${p.id}-${idx}`} className="rounded-xl p-3" style={{ background: COLOR.elevated }}>
               <div className="flex items-start justify-between gap-3">
-                <p className="text-sm leading-5" style={{ color: COLOR.textSecondary }}>
-                  <span className="mr-2 rounded-md px-2 py-0.5 text-xs" style={{ color: COLOR.text, background: 'rgba(255,255,255,0.06)' }}>#{idx + 1}</span>
-                  {clampText(p.content || 'Untitled post', 76)}
-                </p>
+                <div className="flex items-start gap-2.5 min-w-0">
+                  {p.thumbnailUrl ? (
+                    <img
+                      src={p.thumbnailUrl}
+                      alt=""
+                      className="h-9 w-9 rounded-md object-cover shrink-0"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  ) : (
+                    <div className="h-9 w-9 rounded-md shrink-0" style={{ background: 'rgba(124,108,255,0.12)' }} />
+                  )}
+                  <p className="text-sm leading-5 min-w-0" style={{ color: COLOR.textSecondary }}>
+                    <span className="mr-2 rounded-md px-2 py-0.5 text-xs" style={{ color: COLOR.text, background: 'rgba(124,108,255,0.14)' }}>#{idx + 1}</span>
+                    {clampText(firstWords(p.content, 3) || 'View post', 76)}
+                  </p>
+                </div>
                 <span className="shrink-0 text-sm font-semibold" style={{ color: metricColor }}>{formatCompact(p.value)}</span>
               </div>
               <div className="mt-2 flex items-center justify-between text-xs">
@@ -662,9 +681,9 @@ export function FacebookAnalyticsView({
   const viewToClickEfficiency =
     reelsRows.reduce((s, r) => s + (r.post.facebookInsights?.post_clicks ?? 0), 0) / Math.max(1, totalReelVideoViews);
 
-  const topByViews = [...postsRows].sort((a, b) => b.views - a.views).slice(0, 3).map((p) => ({ ...p, value: p.views }));
-  const topByClicks = [...postsRows].sort((a, b) => b.clicks - a.clicks).slice(0, 3).map((p) => ({ ...p, value: p.clicks }));
-  const topByReactions = [...postsRows].sort((a, b) => b.reactionsTotal - a.reactionsTotal).slice(0, 3).map((p) => ({ ...p, value: p.reactionsTotal }));
+  const topByViews = [...postsRows].sort((a, b) => b.views - a.views).slice(0, 3).map((p) => ({ ...p, value: p.views, content: p.rawPost.content, thumbnailUrl: p.rawPost.thumbnailUrl }));
+  const topByClicks = [...postsRows].sort((a, b) => b.clicks - a.clicks).slice(0, 3).map((p) => ({ ...p, value: p.clicks, content: p.rawPost.content, thumbnailUrl: p.rawPost.thumbnailUrl }));
+  const topByReactions = [...postsRows].sort((a, b) => b.reactionsTotal - a.reactionsTotal).slice(0, 3).map((p) => ({ ...p, value: p.reactionsTotal, content: p.rawPost.content, thumbnailUrl: p.rawPost.thumbnailUrl }));
   const allPostsRows = useMemo(() => {
     return posts.map((p) => {
       const fi = p.facebookInsights ?? {};
