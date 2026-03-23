@@ -994,7 +994,7 @@ export default function DashboardPage() {
       )}
       {/* Single row: compact profile | section nav | date range picker */}
       <div className="flex flex-wrap items-center gap-3 pb-4 border-b border-neutral-200">
-        {selectedAccount && (
+        {selectedAccount && selectedAccount.platform !== 'FACEBOOK' && (
           <div className="shrink-0">
             <PlatformAnalyticsHeader
               account={{

@@ -16,7 +16,6 @@ import {
   YAxis,
 } from 'recharts';
 import { ChevronRight, ExternalLink, Info, MessageSquare, Star } from 'lucide-react';
-import { FacebookIcon } from '@/components/SocialPlatformIcons';
 import { AnalyticsDateRangePicker } from '../AnalyticsDateRangePicker';
 import type { FacebookInsights, FacebookPost } from './types';
 import { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids';
@@ -42,19 +41,21 @@ type SectionId = (typeof FACEBOOK_ANALYTICS_SECTION_IDS)[keyof typeof FACEBOOK_A
 type StoryMode = 'views' | 'engagement' | 'growth';
 
 const COLOR = {
-  pageBg: '#0A1020',
-  section: '#11182A',
-  card: '#141D31',
-  border: 'rgba(255,255,255,0.08)',
-  text: '#F5F7FB',
-  textSecondary: '#9AA4B2',
-  textMuted: '#6F7A8C',
-  cyan: '#5FF6FD',
-  violet: '#8B7CFF',
-  magenta: '#DF44DC',
-  mint: '#5EE6A8',
-  amber: '#F7C66A',
-  coral: '#FF8A7A',
+  pageBg: '#f6f7fb',
+  section: '#ffffff',
+  sectionAlt: '#f8fafc',
+  card: '#ffffff',
+  elevated: '#f8fafc',
+  border: 'rgba(17,24,39,0.06)',
+  text: '#111827',
+  textSecondary: '#667085',
+  textMuted: '#98a2b3',
+  cyan: '#42d9f5',
+  violet: '#7c6cff',
+  magenta: '#d946ef',
+  mint: '#31c48d',
+  amber: '#f5b942',
+  coral: '#ff8b7b',
 };
 
 type MetricDef = {
@@ -190,8 +191,8 @@ export function MetricCard({
 }) {
   return (
     <div
-      className="rounded-[20px] border p-4 transition-all hover:-translate-y-[1px]"
-      style={{ background: COLOR.card, borderColor: COLOR.border, boxShadow: '0 10px 28px rgba(0,0,0,0.22)' }}
+      className="rounded-[20px] p-5 transition-all hover:-translate-y-[1px]"
+      style={{ background: COLOR.card, boxShadow: '0 2px 16px rgba(15,23,42,0.05)' }}
     >
       <MetricTooltip label={label} hint={`Source metric: ${source}`} />
       <p className="mt-3 text-[28px] font-semibold tracking-tight" style={{ color }}>{value}</p>
@@ -207,33 +208,8 @@ export function SparklineMetricCard(props: {
   value: string;
   series: Array<{ date: string; value: number }>;
 }) {
-  const { label, source, color, value, series } = props;
-  return (
-    <div
-      className="rounded-[20px] border p-4 transition-all hover:-translate-y-[1px]"
-      style={{ background: COLOR.card, borderColor: COLOR.border, boxShadow: '0 10px 28px rgba(0,0,0,0.22)' }}
-    >
-      <MetricTooltip label={label} hint={`Source metric: ${source}`} />
-      <p className="mt-3 text-[28px] font-semibold tracking-tight" style={{ color }}>{value}</p>
-      <div className="mt-2 h-12">
-        {series.length > 1 ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={series}>
-              <defs>
-                <linearGradient id={`spark-${label}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={color} stopOpacity={0.35} />
-                  <stop offset="100%" stopColor={color} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <Area type="monotone" dataKey="value" stroke={color} strokeWidth={2} fill={`url(#spark-${label})`} />
-            </AreaChart>
-          </ResponsiveContainer>
-        ) : (
-          <p className="text-xs" style={{ color: COLOR.textMuted }}>No time-series yet</p>
-        )}
-      </div>
-    </div>
-  );
+  const { label, source, color, value } = props;
+  return <MetricCard label={label} source={source} color={color} value={value} />;
 }
 
 export function InsightChartCard({
@@ -248,7 +224,7 @@ export function InsightChartCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-[20px] border p-5" style={{ background: COLOR.card, borderColor: COLOR.border }}>
+    <div className="rounded-[20px] p-6" style={{ background: COLOR.card, boxShadow: '0 2px 20px rgba(15,23,42,0.06)' }}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>{title}</h3>
@@ -269,7 +245,7 @@ export function InsightChartCard({
           </div>
         ) : null}
       </div>
-      <div className="mt-4 h-[320px]">{children}</div>
+      <div className="mt-5 h-[320px]">{children}</div>
     </div>
   );
 }
@@ -282,7 +258,7 @@ export function StackedTrafficChart({ data }: { data: Array<{ date: string; nonv
         <XAxis dataKey="date" tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
         <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
         <Tooltip
-          contentStyle={{ background: '#0f1728', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
+          contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
           formatter={(v: number | string | undefined, n?: string) => [formatNumber(Number(v) || 0), n === 'nonviral' ? 'Non-viral' : 'Viral']}
           labelFormatter={(l) => formatShortDate(String(l))}
         />
@@ -305,14 +281,14 @@ export function TopPostsGrid({
   metricColor: string;
 }) {
   return (
-    <div className="rounded-[20px] border p-4" style={{ background: COLOR.card, borderColor: COLOR.border }}>
+    <div className="rounded-[20px] p-4" style={{ background: COLOR.card, boxShadow: '0 2px 14px rgba(15,23,42,0.05)' }}>
       <h4 className="text-sm font-semibold" style={{ color: COLOR.text }}>{title}</h4>
       <div className="mt-4 space-y-3">
         {items.length === 0 ? (
           <p className="text-sm" style={{ color: COLOR.textMuted }}>No ranked posts in range</p>
         ) : (
           items.map((p, idx) => (
-            <div key={`${p.id}-${idx}`} className="rounded-xl border p-3" style={{ borderColor: COLOR.border, background: 'rgba(255,255,255,0.015)' }}>
+            <div key={`${p.id}-${idx}`} className="rounded-xl p-3" style={{ background: COLOR.elevated }}>
               <div className="flex items-start justify-between gap-3">
                 <p className="text-sm leading-5" style={{ color: COLOR.textSecondary }}>
                   <span className="mr-2 rounded-md px-2 py-0.5 text-xs" style={{ color: COLOR.text, background: 'rgba(255,255,255,0.06)' }}>#{idx + 1}</span>
@@ -348,17 +324,17 @@ export function CommunitySummaryCard({
   latestRecommendationText: string | null;
 }) {
   return (
-    <div className="rounded-[20px] border p-5" style={{ background: COLOR.card, borderColor: COLOR.border }}>
+    <div className="rounded-[20px] p-5" style={{ background: COLOR.sectionAlt }}>
       <h3 className="text-base font-semibold" style={{ color: COLOR.text }}>Community and Reputation</h3>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <div className="rounded-xl border p-4" style={{ borderColor: COLOR.border, background: 'rgba(255,255,255,0.015)' }}>
+        <div className="rounded-xl p-4" style={{ background: COLOR.card }}>
           <p className="text-xs uppercase tracking-wide" style={{ color: COLOR.textMuted }}><MessageSquare size={12} className="inline mr-1" /> Conversations</p>
           <p className="mt-1 text-2xl font-semibold" style={{ color: COLOR.text }}>{formatNumber(conversationsCount)}</p>
           <p className="mt-1 text-xs" style={{ color: COLOR.textSecondary }}>
             Latest activity: {latestConversationAt ? new Date(latestConversationAt).toLocaleString() : 'No conversation timestamp yet'}
           </p>
         </div>
-        <div className="rounded-xl border p-4" style={{ borderColor: COLOR.border, background: 'rgba(255,255,255,0.015)' }}>
+        <div className="rounded-xl p-4" style={{ background: COLOR.card }}>
           <p className="text-xs uppercase tracking-wide" style={{ color: COLOR.textMuted }}><Star size={12} className="inline mr-1" /> Ratings</p>
           <p className="mt-1 text-2xl font-semibold" style={{ color: COLOR.text }}>{formatNumber(ratingsCount)}</p>
           <p className="mt-1 text-xs" style={{ color: COLOR.textSecondary }}>
@@ -392,7 +368,7 @@ export function PostsPerformanceTable({
   onOpenDetail: (p: FacebookPost) => void;
 }) {
   return (
-    <div className="rounded-[20px] border overflow-hidden" style={{ background: COLOR.card, borderColor: COLOR.border }}>
+    <div className="rounded-[20px] overflow-hidden" style={{ background: COLOR.card, boxShadow: '0 2px 16px rgba(15,23,42,0.06)' }}>
       <div className="hidden md:block overflow-x-auto">
         <table className="min-w-full text-sm">
           <thead style={{ background: 'rgba(255,255,255,0.02)', color: COLOR.textMuted }}>
@@ -404,7 +380,7 @@ export function PostsPerformanceTable({
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.id} className="border-t cursor-pointer" style={{ borderColor: COLOR.border }} onClick={() => onOpenDetail(r.rawPost)}>
+              <tr key={r.id} className="border-t cursor-pointer hover:bg-[#f8fafc]" style={{ borderColor: COLOR.border }} onClick={() => onOpenDetail(r.rawPost)}>
                 <td className="px-4 py-3" style={{ color: COLOR.textSecondary }}>{clampText(r.preview, 66)}</td>
                 <td className="px-4 py-3" style={{ color: COLOR.textSecondary }}>{new Date(r.date).toLocaleDateString()}</td>
                 <td className="px-4 py-3"><span className="rounded-full px-2 py-1 text-xs" style={{ background: 'rgba(255,255,255,0.08)', color: COLOR.text }}>{r.type}</span></td>
@@ -450,7 +426,7 @@ export function ReelsPerformanceGrid({
   return (
     <div className="grid gap-4 md:grid-cols-2">
       {reels.map(({ post, views, organicViews, avgWatchMs }) => (
-        <div key={post.id} className="rounded-[20px] border p-4" style={{ background: COLOR.card, borderColor: COLOR.border }}>
+        <div key={post.id} className="rounded-[20px] p-4" style={{ background: COLOR.card, boxShadow: '0 2px 14px rgba(15,23,42,0.06)' }}>
           <p className="text-sm font-medium" style={{ color: COLOR.text }}>{clampText(post.content || 'Untitled reel', 90)}</p>
           <p className="mt-1 text-xs" style={{ color: COLOR.textMuted }}>{new Date(post.publishedAt).toLocaleDateString()}</p>
           <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
@@ -473,8 +449,8 @@ export function StickySectionNav({
 }) {
   return (
     <nav
-      className="sticky z-30 rounded-2xl border px-2 py-2 backdrop-blur-[14px]"
-      style={{ top: 72, background: 'rgba(17,24,42,0.78)', borderColor: COLOR.border }}
+      className="sticky z-30 rounded-2xl px-2 py-2 backdrop-blur-[10px]"
+      style={{ top: 72, background: 'rgba(255,255,255,0.92)', boxShadow: '0 1px 10px rgba(15,23,42,0.06)' }}
       aria-label="Facebook analytics sections"
     >
       <div className="flex flex-wrap gap-2">
@@ -486,8 +462,8 @@ export function StickySectionNav({
             className="rounded-xl px-4 py-2 text-sm font-medium transition-all"
             style={{
               color: activeSection === sec.id ? COLOR.text : COLOR.textSecondary,
-              background: activeSection === sec.id ? 'rgba(139,124,255,0.25)' : 'transparent',
-              border: activeSection === sec.id ? `1px solid ${COLOR.violet}` : '1px solid transparent',
+              background: activeSection === sec.id ? 'rgba(124,108,255,0.12)' : 'transparent',
+              border: activeSection === sec.id ? `1px solid rgba(124,108,255,0.24)` : '1px solid transparent',
             }}
           >
             {sec.label}
@@ -658,14 +634,66 @@ export function FacebookAnalyticsView({
   const topByViews = [...postsRows].sort((a, b) => b.views - a.views).slice(0, 3).map((p) => ({ ...p, value: p.views }));
   const topByClicks = [...postsRows].sort((a, b) => b.clicks - a.clicks).slice(0, 3).map((p) => ({ ...p, value: p.clicks }));
   const topByReactions = [...postsRows].sort((a, b) => b.reactionsTotal - a.reactionsTotal).slice(0, 3).map((p) => ({ ...p, value: p.reactionsTotal }));
+  const allPostsRows = useMemo(() => {
+    return posts.map((p) => {
+      const fi = p.facebookInsights ?? {};
+      const reactions = parseReactionTotal(fi.post_reactions_by_type_total);
+      const isReel = (p.permalinkUrl ?? '').toLowerCase().includes('/reel/');
+      const hasCore = typeof fi.post_media_view === 'number' || typeof fi.post_impressions_unique === 'number';
+      return {
+        id: p.id,
+        date: p.publishedAt,
+        type: isReel ? ('Reel' as const) : ('Post' as const),
+        preview: p.content ?? '',
+        permalink: p.permalinkUrl,
+        views: fi.post_media_view ?? p.impressions ?? 0,
+        uniqueReach: fi.post_impressions_unique ?? 0,
+        clicks: fi.post_clicks ?? 0,
+        likes: fi.post_reactions_like_total ?? p.likeCount ?? 0,
+        reactionsTotal: reactions || (fi.post_reactions_like_total ?? p.likeCount ?? 0),
+        reactionBreakdownRaw: fi.post_reactions_by_type_total,
+        status: hasCore ? ('Ready' as const) : ('Partial' as const),
+        rawPost: p,
+      };
+    });
+  }, [posts]);
+  const allReelsRows = useMemo(() => {
+    return allPostsRows
+      .filter((r) => r.type === 'Reel')
+      .map((r) => ({
+        post: r.rawPost,
+        views: r.rawPost.facebookInsights?.post_video_views ?? r.rawPost.facebookInsights?.post_media_view ?? r.views,
+        organicViews: r.rawPost.facebookInsights?.post_video_views_organic ?? 0,
+        avgWatchMs: r.rawPost.facebookInsights?.post_video_avg_time_watched ?? 0,
+      }));
+  }, [allPostsRows]);
 
   return (
-    <div className="rounded-[24px] p-5 md:p-6 space-y-8" style={{ background: COLOR.pageBg, maxWidth: 1400 }}>
-      <section className="rounded-[20px] border p-4 md:p-5" style={{ background: COLOR.section, borderColor: COLOR.border }}>
+    <div className="p-1 md:p-2 space-y-10" style={{ background: COLOR.pageBg, maxWidth: 1400 }}>
+      {onUpgrade ? (
+        <section
+          className="rounded-2xl px-4 py-3 md:px-5 md:py-3.5 flex flex-wrap items-center justify-between gap-3"
+          style={{ background: 'linear-gradient(90deg, rgba(66,217,245,0.08), rgba(124,108,255,0.07), rgba(217,70,239,0.07))' }}
+        >
+          <p className="text-sm" style={{ color: COLOR.textSecondary }}>
+            Unlock longer history and premium exports with Pro analytics.
+          </p>
+          <button
+            type="button"
+            onClick={onUpgrade}
+            className="rounded-full px-4 py-2 text-sm font-semibold"
+            style={{ background: '#ffffff', color: COLOR.violet, boxShadow: '0 1px 8px rgba(15,23,42,0.08)' }}
+          >
+            Upgrade
+          </button>
+        </section>
+      ) : null}
+
+      <section className="rounded-[20px] p-4 md:p-5" style={{ background: COLOR.section }}>
         <div className="flex flex-wrap items-center gap-4 justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-11 w-11 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(95,246,253,0.1)' }}>
-              <FacebookIcon size={22} />
+            <div className="h-11 w-11 rounded-2xl flex items-center justify-center text-base font-semibold" style={{ background: '#eef2ff', color: COLOR.violet }}>
+              {(profile?.name || profile?.username || 'FB').slice(0, 2).toUpperCase()}
             </div>
             <div>
               <h1 className="text-xl font-semibold" style={{ color: COLOR.text }}>
@@ -706,6 +734,12 @@ export function FacebookAnalyticsView({
       ) : null}
 
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.overview} className="scroll-mt-28 space-y-6">
+        <div>
+          <h2 className="text-[28px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Overview</h2>
+          <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
+            Snapshot of followers, visibility, and engagement for the selected period.
+          </p>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
           <SparklineMetricCard label="Total Followers" source="fan_count/followers_count" color={COLOR.mint} value={formatCompact(totalFollowers)} series={series?.follows ?? []} />
           <SparklineMetricCard label="New Followers" source="page_daily_follows" color={COLOR.mint} value={formatCompact(newFollowers)} series={series?.dailyFollows ?? []} />
@@ -755,7 +789,7 @@ export function FacebookAnalyticsView({
               <XAxis dataKey="date" tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
               <Tooltip
-                contentStyle={{ background: '#0f1728', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
+                contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
                 formatter={(v: number | string | undefined, n?: string) => [formatNumber(Number(v) || 0), n === 'primary' ? (storyMode === 'views' ? 'Content Views' : storyMode === 'engagement' ? 'Engagements' : 'Followers') : (storyMode === 'views' ? 'Page Visits' : 'New Followers')]}
                 labelFormatter={(l) => formatShortDate(String(l))}
               />
@@ -786,6 +820,12 @@ export function FacebookAnalyticsView({
       </section>
 
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.traffic} className="scroll-mt-28 space-y-6">
+        <div>
+          <h2 className="text-[28px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Traffic</h2>
+          <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
+            Diagnose distribution quality across non-viral and viral attention sources.
+          </p>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard label="Post Impressions" source="page_posts_impressions" color={COLOR.cyan} value={formatCompact(postImpressions)} />
           <MetricCard label="Non-viral Impressions" source="page_posts_impressions_nonviral" color={COLOR.violet} value={formatCompact(nonviralImpressions)} />
@@ -814,7 +854,7 @@ export function FacebookAnalyticsView({
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
               <XAxis dataKey="date" tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ background: '#0f1728', border: `1px solid ${COLOR.border}`, borderRadius: 12 }} formatter={(v: number | string | undefined) => formatNumber(Number(v) || 0)} labelFormatter={(l) => formatShortDate(String(l))} />
+              <Tooltip contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }} formatter={(v: number | string | undefined) => formatNumber(Number(v) || 0)} labelFormatter={(l) => formatShortDate(String(l))} />
               <Line type="monotone" dataKey="views" stroke={COLOR.cyan} strokeWidth={2.2} dot={false} />
               <Line type="monotone" dataKey="visits" stroke={COLOR.violet} strokeWidth={2.2} dot={false} />
             </AreaChart>
@@ -833,6 +873,12 @@ export function FacebookAnalyticsView({
       </section>
 
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.posts} className="scroll-mt-28 space-y-6">
+        <div>
+          <h2 className="text-[28px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Posts</h2>
+          <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
+            Explore which posts drove views, clicks, and reactions.
+          </p>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard label="Total Posts" source="Derived from posts in date range" color={COLOR.text} value={formatCompact(postsInRange.length)} />
           <MetricCard label="Avg Posts per Week" source="Derived from date range span" color={COLOR.cyan} value={avgPostsPerWeek.toFixed(1)} />
@@ -851,9 +897,23 @@ export function FacebookAnalyticsView({
         ) : (
           <EmptyStateCard title="No posts in this range" subtitle="Try a wider date range or sync the account posts again." />
         )}
+
+        <div className="space-y-3 pt-2">
+          <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>All Posts History</h3>
+          <p className="text-sm" style={{ color: COLOR.textSecondary }}>
+            Full archive of all synced posts for deeper investigation.
+          </p>
+          <PostsPerformanceTable rows={allPostsRows} onOpenDetail={setSelectedPost} />
+        </div>
       </section>
 
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.reels} className="scroll-mt-28 space-y-6">
+        <div>
+          <h2 className="text-[28px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Reels</h2>
+          <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
+            Video performance intelligence with watch quality and organic share.
+          </p>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
           <MetricCard label="Reel Count" source="Permalink contains /reel/" color={COLOR.text} value={formatCompact(reelsRows.length)} />
           <MetricCard label="Total Video Views" source="post_video_views" color={COLOR.magenta} value={formatCompact(totalReelVideoViews)} />
@@ -870,7 +930,7 @@ export function FacebookAnalyticsView({
                 <XAxis dataKey="date" tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis yAxisId="left" tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis yAxisId="right" orientation="right" tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ background: '#0f1728', border: `1px solid ${COLOR.border}`, borderRadius: 12 }} formatter={(v: number | string | undefined, n?: string) => [n === 'watchSeconds' ? `${(Number(v) || 0).toFixed(1)}s` : formatNumber(Number(v) || 0), n === 'watchSeconds' ? 'Avg Watch' : 'Views']} />
+                <Tooltip contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }} formatter={(v: number | string | undefined, n?: string) => [n === 'watchSeconds' ? `${(Number(v) || 0).toFixed(1)}s` : formatNumber(Number(v) || 0), n === 'watchSeconds' ? 'Avg Watch' : 'Views']} />
                 <Bar yAxisId="left" dataKey="views" fill={COLOR.magenta} radius={[6, 6, 0, 0]} />
                 <Line yAxisId="right" dataKey="watchSeconds" stroke={COLOR.amber} strokeWidth={2.2} dot={false} />
               </ComposedChart>
@@ -887,13 +947,21 @@ export function FacebookAnalyticsView({
           <MetricCard label="Organic Share of Views" source="organic_views / total_video_views" color={COLOR.mint} value={formatPercent(totalOrganicVideoViews / Math.max(1, totalReelVideoViews))} footnote="Derived metric" />
           <MetricCard label="View-to-Click Efficiency" source="post_clicks / video_views" color={COLOR.amber} value={formatPercent(viewToClickEfficiency)} footnote="Derived metric" />
         </div>
+
+        <div className="space-y-3 pt-2">
+          <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>All Reels History</h3>
+          <p className="text-sm" style={{ color: COLOR.textSecondary }}>
+            Complete reels archive with core video metrics and permalink actions.
+          </p>
+          <ReelsPerformanceGrid reels={allReelsRows} />
+        </div>
       </section>
 
       {selectedPost ? (
         <div className="fixed inset-0 z-40 flex justify-end bg-black/40" onClick={() => setSelectedPost(null)}>
           <aside
             className="h-full w-full max-w-lg overflow-y-auto border-l p-5"
-            style={{ background: '#0d1426', borderColor: COLOR.border }}
+            style={{ background: '#ffffff', borderColor: COLOR.border }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3">
@@ -931,7 +999,7 @@ export function FacebookAnalyticsView({
                           <span>{k}</span>
                           <span>{formatNumber(n)}</span>
                         </div>
-                        <div className="mt-1 h-2 rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                        <div className="mt-1 h-2 rounded-full" style={{ background: 'rgba(15,23,42,0.08)' }}>
                           <div className="h-2 rounded-full" style={{ width: `${Math.min(100, (n / Math.max(1, parseReactionTotal(selectedPost.facebookInsights?.post_reactions_by_type_total))) * 100)}%`, background: COLOR.violet }} />
                         </div>
                       </div>
