@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
 import { PricingBillingToggle, PricingCard } from '@/components/landing/pricing';
-import { BrandMarkX, HeroHeadlineMultiplierX } from '@/components/BrandWordmark';
+import { HeroHeadlineMultiplierX } from '@/components/BrandWordmark';
 
 const FREE_HIGHLIGHTS = [
   '1 brand',
@@ -136,9 +136,8 @@ export default function Home() {
             </h1>
 
             <p className="mx-auto mt-7 max-w-2xl text-base sm:text-lg text-[#9ca3af] leading-relaxed">
-              Schedule content, manage comments and DMs, and grow across Instagram, TikTok, YouTube, Facebook,{' '}
-              <BrandMarkX />
-              {', LinkedIn, and Pinterest from a single powerful dashboard.'}
+              Schedule content, manage comments and DMs, and grow across Instagram, TikTok, YouTube, Facebook, Twitter/X,
+              LinkedIn, and Pinterest from a single powerful dashboard.
             </p>
 
             {/* CTAs: solid purple primary; gradient only on header Try for free and Pro plan */}

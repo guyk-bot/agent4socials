@@ -1,14 +1,19 @@
 'use client';
 
 /** Marketing / funnel header only (e.g. `SiteHeader`). Dashboard uses plain text in `AppHeader`. */
-import { Bebas_Neue } from 'next/font/google';
+import { Bebas_Neue, Fraunces } from 'next/font/google';
 
 const brandXFont = Bebas_Neue({ weight: '400', subsets: ['latin'] });
 
 const xSpanClass = `${brandXFont.className} text-red-500 uppercase inline-block align-middle mx-[0.04em] text-[1.22em] leading-none translate-y-[0.06em]`;
 
-/** Red capital X in Bebas Neue for hero headline multiplier (distinct from body font). */
-const heroHeadlineXClass = `${brandXFont.className} text-red-500 inline-block align-baseline mx-[0.02em] text-[0.88em] sm:text-[0.9em] leading-none translate-y-[0.04em]`;
+const heroMultiplierSerif = Fraunces({
+  subsets: ['latin'],
+  weight: '700',
+});
+
+/** Red capital X in Fraunces for hero headline only (serif contrast vs gradient sans). */
+const heroHeadlineXClass = `${heroMultiplierSerif.className} text-red-600 inline-block align-baseline mx-[0.03em] text-[0.82em] sm:text-[0.85em] md:text-[0.88em] leading-none translate-y-[0.02em]`;
 
 type BrandWordmarkProps = {
   /** Display name; default is plain Agent4Socials (no Twitter X in the logo). */
@@ -17,7 +22,7 @@ type BrandWordmarkProps = {
 };
 
 /**
- * Same stylized X as inline platform name copy (e.g. hero subhead listing X next to other networks).
+ * Optional inline stylized X (e.g. custom wordmarks that include "X"). Not used in hero body copy; use plain "Twitter/X" there.
  */
 export function BrandMarkX({ className, 'aria-label': ariaLabel }: { className?: string; 'aria-label'?: string }) {
   return (
@@ -28,7 +33,7 @@ export function BrandMarkX({ className, 'aria-label': ariaLabel }: { className?:
 }
 
 /**
- * Hero H1 only: "2-7" + this + " Your Content Potential" (red X, Bebas Neue, not the gradient sans).
+ * Hero H1 only: "2-7" + this + " Your Content Potential" (red serif X vs gradient sans).
  */
 export function HeroHeadlineMultiplierX({ className }: { className?: string }) {
   return (
