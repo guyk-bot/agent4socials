@@ -127,7 +127,6 @@ export default function Home() {
                 </span>
                 <HeroHeadlineMultiplierX />
                 <span className="bg-[linear-gradient(135deg,#a78bfa,#8b5cf6,#df44dc)] bg-clip-text text-transparent">
-                  {' '}
                   Your Content Potential
                 </span>
               </span>
