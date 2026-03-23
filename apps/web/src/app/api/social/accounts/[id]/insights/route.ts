@@ -17,6 +17,7 @@ import { fetchPageProfile } from '@/lib/facebook/fetchers';
 import { facebookMetricDateFromEndTime } from '@/lib/facebook/dates';
 import { persistFacebookPageInsightsNormalized } from '@/lib/facebook/persist-page-insights';
 import { buildFacebookFrontendAnalyticsBundle } from '@/lib/facebook/frontend-analytics-bundle';
+import { syncFacebookAuxiliaryIngest } from '@/lib/facebook/sync-extras';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 
 const fbBaseUrl = facebookGraphBaseUrl;
@@ -500,25 +501,66 @@ export async function GET(
         }
       }
       try {
-        const [conversationsCount, latestConversation, ratingsCount, latestReview] = await Promise.all([
-          prisma.facebookConversationCache.count({ where: { socialAccountId: account.id } }),
-          prisma.facebookConversationCache.findFirst({
-            where: { socialAccountId: account.id },
-            orderBy: { updatedTime: 'desc' },
-            select: { updatedTime: true },
-          }),
-          prisma.facebookReviewCache.count({ where: { socialAccountId: account.id } }),
-          prisma.facebookReviewCache.findFirst({
-            where: { socialAccountId: account.id, reviewText: { not: null } },
-            orderBy: { sourceCreatedAt: 'desc' },
-            select: { reviewText: true },
-          }),
-        ]);
+        const loadFacebookCommunity = async () =>
+          Promise.all([
+            prisma.facebookConversationCache.count({ where: { socialAccountId: account.id } }),
+            prisma.facebookConversationCache.findFirst({
+              where: { socialAccountId: account.id },
+              orderBy: { updatedTime: 'desc' },
+              select: { updatedTime: true },
+            }),
+            prisma.facebookReviewCache.count({ where: { socialAccountId: account.id } }),
+            prisma.facebookReviewCache.findFirst({
+              where: { socialAccountId: account.id },
+              orderBy: { sourceCreatedAt: 'desc' },
+              select: { reviewText: true, recommendationType: true },
+            }),
+          ]);
+
+        let [conversationsCount, latestConversation, ratingsCount, latestReview] = await loadFacebookCommunity();
+
+        const pageCacheRow = await prisma.facebookPageCache.findUnique({
+          where: { socialAccountId: account.id },
+          select: { fetchedAt: true },
+        });
+        const auxStaleMs = 10 * 60 * 1000;
+        const shouldAuxRefresh =
+          conversationsCount === 0 &&
+          ratingsCount === 0 &&
+          token &&
+          (!pageCacheRow?.fetchedAt || Date.now() - pageCacheRow.fetchedAt.getTime() > auxStaleMs);
+        if (shouldAuxRefresh) {
+          try {
+            const aux = await syncFacebookAuxiliaryIngest({
+              socialAccountId: account.id,
+              pageId: account.platformUserId,
+              accessToken: token,
+            });
+            if (aux.errors.length > 0) {
+              console.warn('[Insights] Facebook auxiliary ingest:', aux.errors.join('; '));
+            }
+            [conversationsCount, latestConversation, ratingsCount, latestReview] = await loadFacebookCommunity();
+          } catch (e) {
+            console.warn('[Insights] Facebook auxiliary ingest failed:', (e as Error)?.message ?? e);
+          }
+        }
+
+        const reviewSnippet = latestReview?.reviewText?.trim();
+        const latestRecommendationText =
+          reviewSnippet ||
+          (latestReview?.recommendationType
+            ? latestReview.recommendationType
+                .split(/[_\s]+/)
+                .filter(Boolean)
+                .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+                .join(' ')
+            : null);
+
         (out as Record<string, unknown>).facebookCommunity = {
           conversationsCount,
           latestConversationAt: latestConversation?.updatedTime?.toISOString?.() ?? null,
           ratingsCount,
-          latestRecommendationText: latestReview?.reviewText ?? null,
+          latestRecommendationText,
         };
       } catch (e) {
         console.warn('[Insights] Facebook community summary:', (e as Error)?.message ?? e);

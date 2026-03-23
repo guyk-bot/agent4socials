@@ -77,7 +77,7 @@ const METRIC_MAP: MetricDef[] = [
   { key: 'page_video_views', label: 'Video Views', section: 'overview', source: 'page_video_views', color: COLOR.magenta },
   { key: 'page_video_view_time', label: 'Watch Time', section: 'reels', source: 'page_video_view_time', color: COLOR.magenta, formatter: formatDurationMs },
   { key: 'page_follows', label: 'Followers', section: 'overview', source: 'page_follows', color: COLOR.mint },
-  { key: 'page_daily_follows', label: 'New Followers', section: 'overview', source: 'page_daily_follows', color: COLOR.mint },
+  { key: 'page_daily_follows', label: 'New followers', section: 'overview', source: 'page_daily_follows', color: COLOR.mint },
   { key: 'page_total_actions', label: 'Total Actions', section: 'traffic', source: 'page_total_actions', color: COLOR.amber },
   { key: 'page_posts_impressions', label: 'Post Impressions', section: 'traffic', source: 'page_posts_impressions', color: COLOR.cyan },
   { key: 'page_posts_impressions_nonviral', label: 'Non-viral Impressions', section: 'traffic', source: 'page_posts_impressions_nonviral', color: COLOR.violet },
@@ -240,9 +240,10 @@ export function SparklineMetricCard(props: {
   color: string;
   value: string;
   series: Array<{ date: string; value: number }>;
+  footnote?: string;
 }) {
-  const { label, source, color, value } = props;
-  return <MetricCard label={label} source={source} color={color} value={value} />;
+  const { label, source, color, value, footnote } = props;
+  return <MetricCard label={label} source={source} color={color} value={value} footnote={footnote} />;
 }
 
 export function InsightChartCard({
@@ -376,14 +377,18 @@ export function CommunitySummaryCard({
           <p className="text-xs uppercase tracking-wide" style={{ color: COLOR.textMuted }}><MessageSquare size={12} className="inline mr-1" /> Conversations</p>
           <p className="mt-1 text-2xl font-semibold" style={{ color: COLOR.text }}>{formatNumber(conversationsCount)}</p>
           <p className="mt-1 text-xs" style={{ color: COLOR.textSecondary }}>
-            Latest activity: {latestConversationAt ? new Date(latestConversationAt).toLocaleString() : 'No conversation timestamp yet'}
+            {latestConversationAt
+              ? `Latest activity: ${new Date(latestConversationAt).toLocaleString()}`
+              : 'No Messenger threads in cache yet. We pull these when analytics loads or when posts sync; ensure the Page token includes messaging permissions.'}
           </p>
         </div>
         <div className="rounded-xl p-4" style={{ background: COLOR.card }}>
           <p className="text-xs uppercase tracking-wide" style={{ color: COLOR.textMuted }}><Star size={12} className="inline mr-1" /> Ratings</p>
           <p className="mt-1 text-2xl font-semibold" style={{ color: COLOR.text }}>{formatNumber(ratingsCount)}</p>
           <p className="mt-1 text-xs" style={{ color: COLOR.textSecondary }}>
-            {latestRecommendationText ? clampText(latestRecommendationText, 96) : 'No recommendation text cached yet'}
+            {latestRecommendationText
+              ? clampText(latestRecommendationText, 96)
+              : 'No reviews in cache yet. We pull Page ratings when analytics loads or when posts sync.'}
           </p>
         </div>
       </div>
@@ -817,7 +822,7 @@ export function FacebookAnalyticsView({
               <img
                 src={accountAvatarUrl}
                 alt={profile?.name ? `${profile.name} avatar` : 'Account avatar'}
-                className="h-11 w-11 rounded-2xl object-cover"
+                className="h-11 w-11 rounded-full object-cover"
                 onError={(e) => {
                   (e.currentTarget as HTMLImageElement).style.display = 'none';
                   const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
@@ -826,7 +831,7 @@ export function FacebookAnalyticsView({
               />
             ) : null}
             <div
-              className="h-11 w-11 rounded-2xl items-center justify-center text-base font-semibold"
+              className="h-11 w-11 rounded-full items-center justify-center text-base font-semibold"
               style={{
                 background: '#eef2ff',
                 color: COLOR.violet,
@@ -845,12 +850,6 @@ export function FacebookAnalyticsView({
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-xl border px-2.5 py-1 text-xs" style={{ borderColor: COLOR.border, color: COLOR.textSecondary }}>
-              {profile?.is_published ? 'Published' : 'Draft'}
-            </span>
-            <span className="rounded-xl border px-2.5 py-1 text-xs" style={{ borderColor: COLOR.border, color: COLOR.textSecondary }}>
-              {profile?.is_verified ? 'Verified' : 'Not verified'}
-            </span>
             {onDateRangeChange ? (
               <AnalyticsDateRangePicker start={dateRange.start} end={dateRange.end} onChange={onDateRangeChange} />
             ) : (
@@ -878,8 +877,8 @@ export function FacebookAnalyticsView({
           <h2 className="text-[28px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Overview</h2>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-          <SparklineMetricCard label="Total Followers" source="fan_count/followers_count" color={COLOR.mint} value={formatCompact(totalFollowers)} series={series?.follows ?? []} />
-          <SparklineMetricCard label="New Followers" source="page_daily_follows" color={COLOR.mint} value={formatCompact(newFollowers)} series={series?.dailyFollows ?? []} />
+          <SparklineMetricCard label="Followers" source="fan_count/followers_count" color={COLOR.mint} value={formatCompact(totalFollowers)} series={series?.follows ?? []} footnote="Page total" />
+          <SparklineMetricCard label="Followers" source="page_daily_follows" color={COLOR.mint} value={formatCompact(newFollowers)} series={series?.dailyFollows ?? []} footnote="New in selected range" />
           <SparklineMetricCard label="Content Views" source="page_media_view" color={COLOR.cyan} value={formatCompact(contentViews)} series={series?.contentViews ?? []} />
           <SparklineMetricCard label="Page Visits" source="page_views_total" color={COLOR.cyan} value={formatCompact(pageVisits)} series={series?.pageTabViews ?? []} />
           <SparklineMetricCard label="Engagements" source="page_post_engagements" color={COLOR.violet} value={formatCompact(engagements)} series={series?.engagement ?? []} />
@@ -894,7 +893,7 @@ export function FacebookAnalyticsView({
               ? [{ label: 'Content Views', color: COLOR.cyan }, { label: 'Page Visits', color: COLOR.violet }]
               : storyMode === 'engagement'
                 ? [{ label: 'Engagements', color: COLOR.violet }]
-                : [{ label: 'Followers', color: COLOR.mint }, { label: 'New Followers', color: COLOR.amber }]
+                : [{ label: 'Followers', color: COLOR.mint }, { label: 'New followers', color: COLOR.amber }]
           }
         >
           <div className="mb-3 flex gap-2">
@@ -927,7 +926,7 @@ export function FacebookAnalyticsView({
               <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
               <Tooltip
                 contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
-                formatter={(v: number | string | undefined, n?: string) => [formatNumber(Number(v) || 0), n === 'primary' ? (storyMode === 'views' ? 'Content Views' : storyMode === 'engagement' ? 'Engagements' : 'Followers') : (storyMode === 'views' ? 'Page Visits' : 'New Followers')]}
+                formatter={(v: number | string | undefined, n?: string) => [formatNumber(Number(v) || 0), n === 'primary' ? (storyMode === 'views' ? 'Content Views' : storyMode === 'engagement' ? 'Engagements' : 'Followers') : (storyMode === 'views' ? 'Page Visits' : 'New followers')]}
                 labelFormatter={(l) => formatShortDate(String(l))}
               />
               <Area type="monotone" dataKey="primary" stroke={storyMode === 'growth' ? COLOR.mint : storyMode === 'views' ? COLOR.cyan : COLOR.violet} fill="url(#primaryStory)" strokeWidth={2.2} />
@@ -944,7 +943,7 @@ export function FacebookAnalyticsView({
             source="facebook_conversations cache"
             color={COLOR.violet}
             value={formatCompact(community?.conversationsCount ?? 0)}
-            footnote={community?.latestConversationAt ? `Latest: ${new Date(community.latestConversationAt).toLocaleString()}` : 'No latest timestamp yet'}
+            footnote={community?.latestConversationAt ? `Latest: ${new Date(community.latestConversationAt).toLocaleString()}` : 'Synced from Messenger; see Community section below'}
           />
         </div>
 
