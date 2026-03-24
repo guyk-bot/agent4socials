@@ -327,7 +327,7 @@ export default function Home() {
 
           <div className="relative mx-auto max-w-5xl px-4 sm:px-6 text-center">
             <h1 className="mt-1 text-[44px] font-bold tracking-[-0.028em] leading-[1.04] sm:text-5xl md:text-[64px] lg:text-[76px]">
-              <span className="block text-[#7b2cbf]">2-7X Your Content Potential</span>
+              <span className="block text-[#1a161f]">2-7X Your Content Potential</span>
               <span className="mt-1.5 block text-[#1a161f]">Without Paying For Ads</span>
             </h1>
 
