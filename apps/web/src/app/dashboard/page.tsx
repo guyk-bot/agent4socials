@@ -1134,7 +1134,7 @@ export default function DashboardPage() {
       {/* Single-page analytics for any selected account (Overview, Demografic, Clicks/Traffic, Posts, Reels/Videos) */}
       {!facebookLoadingOnly && selectedAccount && (
         <div
-          className={selectedAccount?.platform === 'FACEBOOK' ? 'mt-3 max-w-full' : 'mt-6 max-w-full'}
+          className={selectedAccount?.platform === 'FACEBOOK' ? 'mt-1 max-w-full' : 'mt-6 max-w-full'}
           style={{ maxWidth: 1400 }}
         >
           <FacebookAnalyticsView

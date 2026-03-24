@@ -325,7 +325,7 @@ export function InsightChartCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-[20px] p-6" style={{ background: COLOR.card, boxShadow: '0 2px 20px rgba(15,23,42,0.06)' }}>
+    <div className="rounded-[20px] p-5" style={{ background: COLOR.card, boxShadow: '0 2px 20px rgba(15,23,42,0.06)' }}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>{title}</h3>
@@ -346,7 +346,7 @@ export function InsightChartCard({
           </div>
         ) : null}
       </div>
-      <div className="mt-5 h-[320px] relative overflow-hidden">
+      <div className="mt-3 h-[300px] pb-5 relative">
         <div className="pointer-events-none absolute inset-0 z-0" aria-hidden>
           <span className="absolute left-[8%] top-[18%] text-[11px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.14)' }}>Agent4Socials</span>
           <span className="absolute left-[42%] top-[42%] text-[11px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.14)' }}>Agent4Socials</span>
@@ -880,7 +880,7 @@ export function FacebookAnalyticsView({
   }, [allPostsRows, historyFilter]);
 
   return (
-    <div className="p-0 md:p-0.5 space-y-4" style={{ background: COLOR.pageBg, maxWidth: 1400 }}>
+    <div className="p-0 md:p-0.5 space-y-3" style={{ background: COLOR.pageBg, maxWidth: 1400 }}>
       {onUpgrade ? (
         <section
           className="-mt-1 rounded-2xl px-4 py-2 md:px-4.5 md:py-2.5 flex flex-wrap items-center justify-between gap-2"
