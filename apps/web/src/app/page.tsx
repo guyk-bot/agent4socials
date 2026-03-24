@@ -78,42 +78,21 @@ const PLATFORM_COLORS: Record<string, string> = {
 };
 
 const RANDOM_ICON_SLOTS = [
-  // Mid band between subtitle and lower section, with side bias.
-  { x: 8, y: 68 },
-  { x: 14, y: 80 },
-  { x: 20, y: 86 },
-  { x: 26, y: 74 },
-  { x: 74, y: 74 },
-  { x: 80, y: 86 },
-  { x: 86, y: 80 },
-  { x: 92, y: 68 },
-  { x: 30, y: 84 },
-  { x: 70, y: 84 },
+  // Static scattered logo layout around the hero copy (no motion).
+  { x: 12, y: 34 },
+  { x: 16, y: 52 },
+  { x: 24, y: 72 },
+  { x: 40, y: 77 },
+  { x: 60, y: 77 },
+  { x: 78, y: 54 },
+  { x: 86, y: 70 },
 ] as const;
+
+const STATIC_ICON_ROTATIONS = [-9, 7, -6, 5, -5, 8, -7] as const;
 
 function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [positions, setPositions] = useState<Array<{ x: number; y: number }>>([]);
-  const [inView, setInView] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const shuffled = [...RANDOM_ICON_SLOTS].sort(() => Math.random() - 0.5);
-    setPositions(shuffled.slice(0, platforms.length));
-  }, [platforms.length]);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const onScroll = () => {
-      const rect = el.getBoundingClientRect();
-      const viewH = window.innerHeight;
-      setInView(rect.bottom > viewH * 0.08 && rect.top < viewH * 0.92);
-    };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    onScroll();
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -127,13 +106,14 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
   return (
     <div
       ref={ref}
-      className="pointer-events-none absolute inset-x-0 top-[15.5rem] z-[3] mx-auto h-[220px] max-w-6xl overflow-hidden px-2 sm:top-[16.5rem] sm:h-[230px] sm:px-0"
+      className="pointer-events-none absolute inset-x-0 top-[13.5rem] z-[3] mx-auto h-[250px] max-w-6xl overflow-hidden px-2 sm:top-[14.5rem] sm:h-[260px] sm:px-0"
       aria-hidden="true"
     >
       {platforms.map(({ Icon, label }, i) => {
-        const slot = positions[i] ?? RANDOM_ICON_SLOTS[i % RANDOM_ICON_SLOTS.length];
+        const slot = RANDOM_ICON_SLOTS[i % RANDOM_ICON_SLOTS.length];
         const color = PLATFORM_COLORS[label] ?? '#7b2cbf';
-        const iconSize = isMobile ? 36 : 48;
+        const iconSize = isMobile ? 30 : 40;
+        const rotation = STATIC_ICON_ROTATIONS[i % STATIC_ICON_ROTATIONS.length];
         return (
           <div
             key={label}
@@ -141,9 +121,8 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
             style={{
               left: `${slot.x}%`,
               top: `${slot.y}%`,
-              transform: 'translate(-50%, -50%)',
-              opacity: inView ? 1 : 0,
-              transition: `opacity 0.35s ease ${i * 0.03}s`,
+              transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
+              opacity: 1,
               zIndex: 8 + i,
             }}
           >
@@ -159,8 +138,6 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
             <div
               className="relative"
               style={{
-                animation: `platformAmbient${i} ${4.8 + (i % 2) * 0.45}s ease-in-out infinite`,
-                animationDelay: `${(i * 0.37).toFixed(2)}s`,
                 filter: `drop-shadow(0 0 12px ${color}aa)`,
               }}
             >
@@ -169,16 +146,6 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
           </div>
         );
       })}
-      <style>{`
-        ${platforms.map((_, i) => `
-          @keyframes platformAmbient${i} {
-            0%, 100% { transform: translate3d(0px, 0px, 0px) rotate(0deg) scale(1); }
-            25% { transform: translate3d(${(i % 2 === 0 ? 1 : -1) * (4 + i)}px, ${-3 - (i % 3)}px, 0px) rotate(${i % 2 === 0 ? 2.2 : -2.2}deg) scale(1.03); }
-            50% { transform: translate3d(${(i % 2 === 0 ? -1 : 1) * (3 + i)}px, ${3 + (i % 2)}px, 0px) rotate(${i % 2 === 0 ? -1.2 : 1.2}deg) scale(0.99); }
-            75% { transform: translate3d(${(i % 2 === 0 ? 1 : -1) * (5 + i)}px, ${-2 - (i % 2)}px, 0px) rotate(${i % 2 === 0 ? 1.8 : -1.8}deg) scale(1.02); }
-          }
-        `).join('')}
-      `}</style>
     </div>
   );
 }
