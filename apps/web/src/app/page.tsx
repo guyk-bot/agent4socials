@@ -78,17 +78,17 @@ const PLATFORM_COLORS: Record<string, string> = {
 };
 
 const RANDOM_ICON_SLOTS = [
-  // Static scattered logo layout around the hero copy (no motion).
-  { x: 12, y: 34 },
-  { x: 16, y: 52 },
-  { x: 24, y: 72 },
-  { x: 40, y: 77 },
-  { x: 60, y: 77 },
-  { x: 78, y: 54 },
-  { x: 86, y: 70 },
+  // Fixed placement matching marked hero zones (left, center-lower, right).
+  { x: 14, y: 30 },
+  { x: 18, y: 46 },
+  { x: 24, y: 64 },
+  { x: 50, y: 74 },
+  { x: 76, y: 30 },
+  { x: 82, y: 48 },
+  { x: 88, y: 66 },
 ] as const;
 
-const STATIC_ICON_ROTATIONS = [-9, 7, -6, 5, -5, 8, -7] as const;
+const STATIC_ICON_ROTATIONS = [-10, 8, -7, 4, -6, 7, -8] as const;
 
 function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -114,7 +114,7 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
   return (
     <div
       ref={ref}
-      className="pointer-events-none absolute inset-x-0 top-[13.5rem] z-[3] mx-auto h-[250px] max-w-6xl overflow-hidden px-2 sm:top-[14.5rem] sm:h-[260px] sm:px-0"
+      className="pointer-events-none absolute inset-x-0 top-[12.75rem] z-[3] mx-auto h-[245px] max-w-6xl overflow-hidden px-2 sm:top-[13.75rem] sm:h-[255px] sm:px-0"
       aria-hidden="true"
     >
       <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
