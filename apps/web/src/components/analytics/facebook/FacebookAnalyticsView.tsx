@@ -115,6 +115,22 @@ function formatShortDate(date: string): string {
   }
 }
 
+function formatSparseMonthTick(date: string, index: number, allDates: string[]): string {
+  try {
+    const d = new Date(`${date}T12:00:00Z`);
+    const day = d.getDate();
+    const month = d.toLocaleDateString(undefined, { month: 'short' });
+    if (index <= 0) return `${month} ${day}`;
+    const prev = allDates[index - 1];
+    if (!prev) return `${month} ${day}`;
+    const pd = new Date(`${prev}T12:00:00Z`);
+    const changedMonth = d.getMonth() !== pd.getMonth() || d.getFullYear() !== pd.getFullYear();
+    return changedMonth ? `${month} ${day}` : String(day);
+  } catch {
+    return date;
+  }
+}
+
 function formatDurationMs(ms: number): string {
   if (!Number.isFinite(ms) || ms <= 0) return '0s';
   const secs = ms / 1000;
@@ -274,11 +290,11 @@ export function MetricCard({
 }) {
   return (
     <div
-      className="rounded-[20px] p-4 transition-all hover:-translate-y-[1px]"
+      className="rounded-[18px] p-3 transition-all hover:-translate-y-[1px]"
       style={{ background: COLOR.card, boxShadow: '0 2px 16px rgba(15,23,42,0.05)' }}
     >
       <MetricTooltip label={label} hint={`Source metric: ${source}${typeof trendPercent === 'number' && Number.isFinite(trendPercent) ? `. Change in selected range: ${trendPercent >= 0 ? '+' : ''}${trendPercent.toFixed(1)}%.` : ""}`} />
-      <p className="mt-2 text-[30px] font-semibold tracking-tight" style={{ color }}>{value}</p>
+      <p className="mt-1.5 text-[28px] font-semibold tracking-tight" style={{ color }}>{value}</p>
       {footnote ? <p className="mt-1 text-xs" style={{ color: COLOR.textSecondary }}>{footnote}</p> : null}
     </div>
   );
@@ -340,7 +356,7 @@ export function StackedTrafficChart({ data }: { data: Array<{ date: string; nonv
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={data}>
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-        <XAxis dataKey="date" tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+        <XAxis dataKey="date" tickFormatter={(v, i) => formatSparseMonthTick(String(v), i, data.map((d) => d.date))} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
         <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
         <Tooltip
           contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
@@ -975,11 +991,11 @@ export function FacebookAnalyticsView({
         </div>
       ) : null}
 
-      <section id={FACEBOOK_ANALYTICS_SECTION_IDS.overview} className="scroll-mt-28 space-y-6">
+      <section id={FACEBOOK_ANALYTICS_SECTION_IDS.overview} className="scroll-mt-28 space-y-4">
         <div>
           <h2 className="text-[28px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Overview</h2>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <SparklineMetricCard label="Followers" source="fan_count/followers_count" color={COLOR.mint} value={formatCompact(totalFollowers)} series={series?.follows ?? []} />
           <SparklineMetricCard label="Content Views" source="page_media_view" color={COLOR.cyan} value={formatCompact(contentViews)} series={series?.contentViews ?? []} />
           <SparklineMetricCard label="Engagements" source="page_post_engagements" color={COLOR.violet} value={formatCompact(engagements)} series={series?.engagement ?? []} />
@@ -1030,7 +1046,7 @@ export function FacebookAnalyticsView({
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-              <XAxis dataKey="date" tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="date" tickFormatter={(v, i) => formatSparseMonthTick(String(v), i, chartByMode.map((d) => d.date))} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
               <Tooltip
                 contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
@@ -1096,7 +1112,7 @@ export function FacebookAnalyticsView({
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={viewVsVisit}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-              <XAxis dataKey="date" tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="date" tickFormatter={(v, i) => formatSparseMonthTick(String(v), i, viewVsVisit.map((d) => d.date))} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
               <Tooltip contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }} formatter={(v: number | string | undefined) => formatNumber(Number(v) || 0)} labelFormatter={(l) => formatShortDate(String(l))} />
               <Line type="monotone" dataKey="views" stroke={COLOR.cyan} strokeWidth={2.2} dot={false} />
@@ -1169,7 +1185,7 @@ export function FacebookAnalyticsView({
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={reelsChartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(17,24,39,0.08)" vertical={false} />
-                <XAxis dataKey="date" tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                <XAxis dataKey="date" tickFormatter={(v, i) => formatSparseMonthTick(String(v), i, reelsChartData.map((d) => d.date))} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis yAxisId="left" tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis yAxisId="right" orientation="right" tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                 <Tooltip contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }} formatter={(v: number | string | undefined, n?: string) => [n === 'watchSeconds' ? `${(Number(v) || 0).toFixed(1)}s` : formatNumber(Number(v) || 0), n === 'watchSeconds' ? 'Avg Watch' : 'Views']} />
