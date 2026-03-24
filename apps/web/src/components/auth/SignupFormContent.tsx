@@ -88,10 +88,6 @@ export default function SignupFormContent() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight text-[#1a161f]">Create an account</h2>
-        <p className="mt-1 text-sm text-[#5d5768]">Start scheduling your content today. $19.99/year.</p>
-      </div>
 
       {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-[#d7263d]">{error}</div>}
 
