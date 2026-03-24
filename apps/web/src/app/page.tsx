@@ -78,14 +78,14 @@ const PLATFORM_COLORS: Record<string, string> = {
 };
 
 const RANDOM_ICON_SLOTS = [
-  // Fixed logo points matching requested hero composition.
-  { x: 12, y: 22 },
-  { x: 20, y: 40 },
-  { x: 28, y: 60 },
-  { x: 50, y: 58 },
-  { x: 66, y: 60 },
-  { x: 74, y: 42 },
-  { x: 88, y: 24 },
+  // 4 down the left side, 3 down the right side – matching green circle positions.
+  { x: 8,  y: 18 },
+  { x: 13, y: 36 },
+  { x: 18, y: 56 },
+  { x: 24, y: 74 },
+  { x: 92, y: 18 },
+  { x: 85, y: 36 },
+  { x: 78, y: 58 },
 ] as const;
 
 const STATIC_ICON_ROTATIONS = [-10, 8, -7, 4, -6, 7, -8] as const;
@@ -104,14 +104,15 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
     return () => media.removeEventListener('change', update);
   }, []);
 
-  // Two side roads that flow down into the dashboard card.
-  const leftRoadPath = 'M 11 23 C 16 28, 19 35, 20 40 C 23 48, 27 55, 28 60 C 30 70, 31 84, 32 100';
-  const rightRoadPath = 'M 89 25 C 84 30, 77 37, 74 42 C 71 48, 68 55, 66 60 C 66 72, 67 86, 68 100';
+  // Left road threads through all 4 left logos and flows into the dashboard.
+  const leftRoadPath  = 'M 8 18 C 10 24, 12 30, 13 36 C 15 44, 17 50, 18 56 C 20 64, 22 70, 24 74 C 26 82, 28 92, 29 103';
+  // Right road threads through the 3 right logos and flows into the dashboard.
+  const rightRoadPath = 'M 92 18 C 90 24, 87 30, 85 36 C 83 45, 81 51, 78 58 C 76 66, 74 78, 73 103';
 
   return (
     <div
       ref={ref}
-      className="pointer-events-none absolute inset-x-0 top-[12.5rem] z-[3] mx-auto h-[260px] max-w-6xl overflow-hidden px-2 sm:top-[13.25rem] sm:h-[270px] sm:px-0"
+      className="pointer-events-none absolute inset-x-0 top-[8rem] z-[3] mx-auto h-[540px] max-w-6xl px-2 sm:top-[8.5rem] sm:h-[560px] sm:px-0"
       aria-hidden="true"
     >
       <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
