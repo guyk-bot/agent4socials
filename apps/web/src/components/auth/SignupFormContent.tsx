@@ -84,16 +84,16 @@ export default function SignupFormContent() {
     }
   };
 
-  const inputClass = 'block w-full pl-10 pr-3 py-2.5 border border-white/[0.08] rounded-xl bg-[rgba(255,255,255,0.05)] text-white placeholder-[#6b7280] focus:ring-2 focus:ring-[#5ff6fd]/50 focus:border-[#5ff6fd]/40 focus:outline-none transition-colors';
+  const inputClass = 'block w-full rounded-xl border border-[#efe7f7] bg-white py-2.5 pl-10 pr-3 text-[#1a161f] placeholder-[#8d8799] transition-colors focus:border-[#7b2cbf]/50 focus:outline-none focus:ring-2 focus:ring-[#7b2cbf]/25';
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white tracking-tight">Create an account</h2>
-        <p className="mt-1 text-sm text-[#9ca3af]">Start scheduling your content today. $19.99/year.</p>
+        <h2 className="text-2xl font-bold tracking-tight text-[#1a161f]">Create an account</h2>
+        <p className="mt-1 text-sm text-[#5d5768]">Start scheduling your content today. $19.99/year.</p>
       </div>
 
-      {error && <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl text-sm">{error}</div>}
+      {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-[#d7263d]">{error}</div>}
 
       {step === 'signup' && (
         <>
@@ -101,7 +101,7 @@ export default function SignupFormContent() {
             type="button"
             onClick={handleGoogle}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl border border-white/[0.1] bg-[rgba(255,255,255,0.05)] text-white hover:bg-white/[0.08] transition-colors disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-3 rounded-xl border border-[#efe7f7] bg-white px-4 py-3 text-[#1a161f] transition-colors hover:bg-[#faf7fd] disabled:opacity-50"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -113,37 +113,37 @@ export default function SignupFormContent() {
           </button>
 
           <div className="relative">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/[0.08]" /></div>
-            <div className="relative flex justify-center text-sm"><span className="px-2 bg-[rgba(11,15,26,0.95)] text-[#9ca3af]">or sign up with email</span></div>
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-[#efe7f7]" /></div>
+            <div className="relative flex justify-center text-sm"><span className="bg-[#fffdff] px-2 text-[#5d5768]">or sign up with email</span></div>
           </div>
 
           <form className="space-y-4" onSubmit={handleSignupSubmit}>
             <div>
-              <label className="text-sm font-medium text-[#9ca3af]">Full Name</label>
+              <label className="text-sm font-medium text-[#5d5768]">Full Name</label>
               <div className="mt-1 relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#6b7280]"><User size={18} /></div>
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#5d5768]"><User size={18} /></div>
                 <input type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputClass} placeholder="John Doe" />
               </div>
             </div>
             <div>
-              <label className="text-sm font-medium text-[#9ca3af]">Email address</label>
+              <label className="text-sm font-medium text-[#5d5768]">Email address</label>
               <div className="mt-1 relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#6b7280]"><Mail size={18} /></div>
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#5d5768]"><Mail size={18} /></div>
                 <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} placeholder="name@example.com" />
               </div>
             </div>
             <div>
-              <label className="text-sm font-medium text-[#9ca3af]">Password</label>
+              <label className="text-sm font-medium text-[#5d5768]">Password</label>
               <div className="mt-1 relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#6b7280]"><Lock size={18} /></div>
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#5d5768]"><Lock size={18} /></div>
                 <input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} className={inputClass} placeholder="Min. 6 characters" />
               </div>
             </div>
-            <label className="flex items-center gap-2 text-sm text-[#9ca3af] cursor-pointer">
-              <input type="checkbox" checked={marketingConsent} onChange={(e) => setMarketingConsent(e.target.checked)} className="rounded border-white/[0.2] bg-[rgba(255,255,255,0.05)] text-[#5ff6fd] focus:ring-[#5ff6fd]/50" />
+            <label className="flex items-center gap-2 text-sm text-[#5d5768] cursor-pointer">
+              <input type="checkbox" checked={marketingConsent} onChange={(e) => setMarketingConsent(e.target.checked)} className="rounded border-[#d7cae5] bg-white text-[#7b2cbf] focus:ring-[#7b2cbf]/40" />
               Send me product updates and tips (optional)
             </label>
-            <button type="submit" disabled={loading} className="w-full flex justify-center items-center gap-2 py-3.5 px-4 rounded-full text-sm font-semibold text-white bg-[#6b21a8] shadow-[0_0_15px_rgba(107,33,168,0.4)] hover:bg-[#7c3aed] hover:shadow-[0_0_20px_rgba(124,58,237,0.5)] disabled:opacity-50 transition-all">
+            <button type="submit" disabled={loading} className="w-full flex justify-center items-center gap-2 py-3.5 px-4 rounded-full text-sm font-semibold text-white bg-gradient-to-r from-[#7b2cbf] to-[#d7263d] shadow-[0_12px_24px_rgba(123,44,191,0.28)] hover:brightness-105 disabled:opacity-50 transition-all">
               {loading ? 'Sending code...' : 'Sign up'} <ArrowRight className="w-4 h-4" />
             </button>
           </form>
@@ -152,11 +152,11 @@ export default function SignupFormContent() {
 
       {step === 'verify' && (
         <form className="space-y-4" onSubmit={handleVerifySubmit}>
-          <p className="text-sm text-[#9ca3af]">We sent a 6-digit code to <strong className="text-white">{email}</strong>. Enter it below.</p>
+          <p className="text-sm text-[#5d5768]">We sent a 6-digit code to <strong className="text-[#1a161f]">{email}</strong>. Enter it below.</p>
           <div>
-            <label className="text-sm font-medium text-[#9ca3af]">Verification code</label>
+            <label className="text-sm font-medium text-[#5d5768]">Verification code</label>
             <div className="mt-1 relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#6b7280]"><KeyRound size={18} /></div>
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#5d5768]"><KeyRound size={18} /></div>
               <input
                 type="text"
                 inputMode="numeric"
@@ -169,22 +169,22 @@ export default function SignupFormContent() {
               />
             </div>
           </div>
-          <button type="submit" disabled={loading || code.length !== 6} className="w-full flex justify-center items-center gap-2 py-3.5 px-4 rounded-full text-sm font-semibold text-white bg-[#6b21a8] shadow-[0_0_15px_rgba(107,33,168,0.4)] hover:bg-[#7c3aed] hover:shadow-[0_0_20px_rgba(124,58,237,0.5)] disabled:opacity-50 transition-all">
+          <button type="submit" disabled={loading || code.length !== 6} className="w-full flex justify-center items-center gap-2 py-3.5 px-4 rounded-full text-sm font-semibold text-white bg-gradient-to-r from-[#7b2cbf] to-[#d7263d] shadow-[0_12px_24px_rgba(123,44,191,0.28)] hover:brightness-105 disabled:opacity-50 transition-all">
             {loading ? 'Verifying...' : 'Verify and sign in'} <ArrowRight className="w-4 h-4" />
           </button>
           <button
             type="button"
             onClick={() => setStep('signup')}
-            className="w-full text-sm text-[#9ca3af] hover:text-white transition-colors"
+            className="w-full text-sm text-[#7b2cbf] hover:text-[#6420a3] transition-colors"
           >
             Use a different email
           </button>
         </form>
       )}
 
-      <p className="text-center text-sm text-[#9ca3af]">
+      <p className="text-center text-sm text-[#5d5768]">
         Already have an account?{' '}
-        <button type="button" onClick={openLogin} className="font-semibold text-[#5ff6fd] hover:text-[#7dd3fc] transition-colors">
+        <button type="button" onClick={openLogin} className="font-semibold text-[#7b2cbf] hover:text-[#6420a3] transition-colors">
           Log in
         </button>
       </p>

@@ -61,27 +61,27 @@ export default function LoginFormContent({ profileFailedMessage, authError }: Pr
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white tracking-tight">Welcome back</h2>
-        <p className="mt-1 text-sm text-[#9ca3af]">Log in to your Agent4Socials account</p>
+        <h2 className="text-2xl font-bold tracking-tight text-[#1a161f]">Welcome back</h2>
+        <p className="mt-1 text-sm text-[#5d5768]">Log in to your Agent4Socials account</p>
       </div>
 
       {(profileFailedMessage || profileErrorDetail) && (
         <div className="space-y-2">
           {profileFailedMessage && (
-            <div className="bg-amber-500/10 border border-amber-500/30 text-amber-200 px-4 py-3 rounded-xl text-sm">{profileFailedMessage}</div>
+            <div className="rounded-xl border border-[#d9efdc] bg-[#f2fbf4] px-4 py-3 text-sm text-[#2f9e44]">{profileFailedMessage}</div>
           )}
           {profileErrorDetail && (
-            <div className="bg-white/[0.05] border border-white/[0.08] text-[#9ca3af] px-4 py-2 rounded-xl text-xs font-mono">Detail: {profileErrorDetail}</div>
+            <div className="rounded-xl border border-[#efe7f7] bg-[#faf7fd] px-4 py-2 font-mono text-xs text-[#5d5768]">Detail: {profileErrorDetail}</div>
           )}
         </div>
       )}
-      {error && <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl text-sm">{error}</div>}
+      {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-[#d7263d]">{error}</div>}
 
       <button
         type="button"
         onClick={handleGoogle}
         disabled={loading}
-        className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl border border-white/[0.1] bg-[rgba(255,255,255,0.05)] text-white hover:bg-white/[0.08] transition-colors disabled:opacity-50"
+        className="w-full flex items-center justify-center gap-3 rounded-xl border border-[#efe7f7] bg-white px-4 py-3 text-[#1a161f] transition-colors hover:bg-[#faf7fd] disabled:opacity-50"
       >
         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
           <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -93,33 +93,33 @@ export default function LoginFormContent({ profileFailedMessage, authError }: Pr
       </button>
 
       <div className="relative">
-        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/[0.08]" /></div>
-        <div className="relative flex justify-center text-sm"><span className="px-2 bg-[rgba(11,15,26,0.95)] text-[#9ca3af]">or log in with email</span></div>
+        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-[#efe7f7]" /></div>
+        <div className="relative flex justify-center text-sm"><span className="bg-[#fffdff] px-2 text-[#5d5768]">or log in with email</span></div>
       </div>
 
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div>
-          <label className="text-sm font-medium text-[#9ca3af]">Email address</label>
+          <label className="text-sm font-medium text-[#5d5768]">Email address</label>
           <div className="mt-1 relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#6b7280]"><Mail size={18} /></div>
-            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="block w-full pl-10 pr-3 py-2.5 border border-white/[0.08] rounded-xl bg-[rgba(255,255,255,0.05)] text-white placeholder-[#6b7280] focus:ring-2 focus:ring-[#5ff6fd]/50 focus:border-[#5ff6fd]/40 focus:outline-none transition-colors" placeholder="name@example.com" />
+            <div className="absolute inset-y-0 left-0 flex items-center pl-3 text-[#5d5768] pointer-events-none"><Mail size={18} /></div>
+            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="block w-full rounded-xl border border-[#efe7f7] bg-white py-2.5 pl-10 pr-3 text-[#1a161f] placeholder-[#8d8799] transition-colors focus:border-[#7b2cbf]/50 focus:outline-none focus:ring-2 focus:ring-[#7b2cbf]/25" placeholder="name@example.com" />
           </div>
         </div>
         <div>
-          <label className="text-sm font-medium text-[#9ca3af]">Password</label>
+          <label className="text-sm font-medium text-[#5d5768]">Password</label>
           <div className="mt-1 relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#6b7280]"><Lock size={18} /></div>
-            <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="block w-full pl-10 pr-3 py-2.5 border border-white/[0.08] rounded-xl bg-[rgba(255,255,255,0.05)] text-white placeholder-[#6b7280] focus:ring-2 focus:ring-[#5ff6fd]/50 focus:border-[#5ff6fd]/40 focus:outline-none transition-colors" placeholder="••••••••" />
+            <div className="absolute inset-y-0 left-0 flex items-center pl-3 text-[#5d5768] pointer-events-none"><Lock size={18} /></div>
+            <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="block w-full rounded-xl border border-[#efe7f7] bg-white py-2.5 pl-10 pr-3 text-[#1a161f] placeholder-[#8d8799] transition-colors focus:border-[#7b2cbf]/50 focus:outline-none focus:ring-2 focus:ring-[#7b2cbf]/25" placeholder="••••••••" />
           </div>
         </div>
-        <button type="submit" disabled={loading} className="w-full flex justify-center items-center gap-2 py-3.5 px-4 rounded-full text-sm font-semibold text-white bg-[#6b21a8] shadow-[0_0_15px_rgba(107,33,168,0.4)] hover:bg-[#7c3aed] hover:shadow-[0_0_20px_rgba(124,58,237,0.5)] disabled:opacity-50 transition-all">
+        <button type="submit" disabled={loading} className="w-full flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#7b2cbf] to-[#d7263d] px-4 py-3.5 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(123,44,191,0.28)] transition-all hover:brightness-105 disabled:opacity-50">
           {loading ? 'Logging in...' : 'Log in'} <ArrowRight className="w-4 h-4" />
         </button>
       </form>
 
-      <p className="text-center text-sm text-[#9ca3af]">
+      <p className="text-center text-sm text-[#5d5768]">
         Don&apos;t have an account?{' '}
-        <button type="button" onClick={openSignup} className="font-semibold text-[#5ff6fd] hover:text-[#7dd3fc] transition-colors">
+        <button type="button" onClick={openSignup} className="font-semibold text-[#7b2cbf] transition-colors hover:text-[#6420a3]">
           Sign up for free
         </button>
       </p>
