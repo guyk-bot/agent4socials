@@ -89,6 +89,7 @@ const RANDOM_ICON_SLOTS = [
 ] as const;
 
 const STATIC_ICON_ROTATIONS = [-10, 8, -7, 4, -6, 7, -8] as const;
+const LOGO_NOTIFICATIONS = [3, 1, 5, 2, 4, 1, 6] as const;
 
 function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -197,6 +198,7 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
         const color = PLATFORM_COLORS[label] ?? '#7b2cbf';
         const iconSize = isMobile ? 30 : 40;
         const rotation = STATIC_ICON_ROTATIONS[i % STATIC_ICON_ROTATIONS.length];
+        const notificationCount = LOGO_NOTIFICATIONS[i % LOGO_NOTIFICATIONS.length];
         return (
           <div
             key={label}
@@ -225,6 +227,21 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
               }}
             >
               <Icon size={iconSize} softenOnLight />
+              <span
+                className="absolute flex items-center justify-center rounded-full text-[9px] font-bold text-white"
+                style={{
+                  minWidth: isMobile ? 13 : 15,
+                  height: isMobile ? 13 : 15,
+                  padding: isMobile ? '0 3px' : '0 4px',
+                  right: isMobile ? -5 : -6,
+                  top: isMobile ? -5 : -6,
+                  background: 'linear-gradient(135deg, #ef4444, #e11d48)',
+                  boxShadow: '0 0 0 2px #ffffff, 0 6px 16px rgba(225,29,72,0.35)',
+                  lineHeight: 1,
+                }}
+              >
+                {notificationCount}
+              </span>
             </div>
           </div>
         );
