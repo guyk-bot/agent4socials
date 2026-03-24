@@ -50,18 +50,17 @@ export default function PricingPage() {
   const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('yearly');
 
   return (
-    <div className="min-h-screen bg-[var(--dark)] text-white">
+    <div className="min-h-screen bg-white text-[#1a161f]">
       <SiteHeader />
       <main className="relative">
         <div className="min-h-screen">
-          <PricingHero dark />
+          <PricingHero />
 
           <section className="pb-8">
             <div className="mx-auto max-w-6xl px-4 sm:px-6">
               <PricingBillingToggle
                 interval={billingInterval}
                 onIntervalChange={setBillingInterval}
-                dark
               />
             </div>
           </section>
@@ -77,7 +76,6 @@ export default function PricingPage() {
                   ctaText="Start Free"
                   onCta={openSignup}
                   billingInterval={billingInterval}
-                  dark
                 />
                 <PricingCard
                   plan="starter"
@@ -92,7 +90,6 @@ export default function PricingPage() {
                   ctaText="Get Starter"
                   onCta={openSignup}
                   billingInterval={billingInterval}
-                  dark
                 />
                 <PricingCard
                   plan="pro"
@@ -110,15 +107,14 @@ export default function PricingPage() {
                   onCta={openSignup}
                   highlighted
                   billingInterval={billingInterval}
-                  dark
                 />
               </div>
             </div>
           </section>
 
-          <PricingComparisonTable dark />
-          <PricingFAQ dark />
-          <PricingCTA onStartFree={openSignup} onGetPro={openSignup} dark />
+          <PricingComparisonTable />
+          <PricingFAQ />
+          <PricingCTA onStartFree={openSignup} onGetPro={openSignup} />
         </div>
       </main>
       <SiteFooter />

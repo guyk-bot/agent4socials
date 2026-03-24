@@ -53,131 +53,59 @@ export default function PricingCard({
   dark = false,
 }: PricingCardProps) {
   const isFree = plan === 'free';
-
-  if (dark) {
-    return (
-      <div
-        className={`relative flex flex-col rounded-[20px] border p-6 sm:p-8 backdrop-blur-[20px] transition-all duration-300 ${
-          highlighted
-            ? 'border-[#5ff6fd]/40 bg-[rgba(255,255,255,0.06)] shadow-[0_0_30px_rgba(139,92,246,0.5)] scale-[1.02]'
-            : 'border-white/[0.08] bg-[rgba(255,255,255,0.05)] hover:border-white/[0.12] hover:shadow-[0_0_20px_rgba(139,92,246,0.2)]'
-        }`}
-      >
-        {badge && (
-          <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[linear-gradient(135deg,#5ff6fd,#df44dc)] px-3 py-1 text-xs font-semibold text-white shadow-[0_0_15px_rgba(139,92,246,0.5)]">
-            {badge}
-          </div>
-        )}
-        <h2 className="text-xl font-bold text-white">
-          {plan === 'free' ? 'Free' : plan === 'starter' ? 'Starter' : 'Pro'}
-        </h2>
-        {bestValueLabel && (
-          <p className="mt-1 text-sm font-medium text-[#5ff6fd]">{bestValueLabel}</p>
-        )}
-        <p className="mt-1 text-sm text-[#9ca3af]">{description}</p>
-        <div className="mt-6">
-          {isFree ? (
-            <p className="flex items-baseline gap-1">
-              <span className="text-3xl font-bold tracking-tight text-white sm:text-4xl">{freePrice ?? '$0'}</span>
-            </p>
-          ) : billingInterval === 'monthly' ? (
-            <p className="flex items-baseline gap-1">
-              <span className="text-3xl font-bold tracking-tight text-white sm:text-4xl">${priceMonthly}</span>
-              <span className="text-[#9ca3af]">/ month</span>
-            </p>
-          ) : (
-            <p className="flex items-baseline gap-1">
-              <span className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                ${Math.round((priceYearly ?? 0) / 12)}
-              </span>
-              <span className="text-[#9ca3af]">/ month</span>
-            </p>
-          )}
-        </div>
-        <ul className="mt-6 flex-1 space-y-3">
-          {highlights.map((item, i) => (
-            <li key={i} className="flex items-start gap-3 text-sm text-[#9ca3af]">
-              <Check className="h-5 w-5 shrink-0 text-[#5ff6fd]" aria-hidden />
-              <span>{item}</span>
-            </li>
-          ))}
-        </ul>
-        {!isFree && (additionalBrandsMonthly != null || additionalBrandsYearly != null) && (
-          <div className="mt-4 pt-4 border-t border-white/[0.08]">
-            <p className="text-xs font-semibold uppercase tracking-wider text-[#6b7280] mb-1">Add-ons</p>
-            <p className="text-sm text-[#9ca3af]">
-              {billingInterval === 'monthly'
-                ? `+$${additionalBrandsMonthly} / brand monthly`
-                : `+$${additionalBrandsYearly} / brand yearly`}
-            </p>
-          </div>
-        )}
-        <button
-          type="button"
-          onClick={onCta}
-          className={`mt-8 w-full rounded-full py-3.5 font-semibold text-sm transition-all duration-300 ${
-            highlighted
-              ? 'bg-[linear-gradient(135deg,#5ff6fd,#8b5cf6,#df44dc)] text-white shadow-[0_0_20px_rgba(139,92,246,0.5)] hover:shadow-[0_0_30px_rgba(139,92,246,0.7)] hover:scale-[1.02]'
-              : 'bg-[#6b21a8] text-white hover:bg-[#7c3aed] shadow-[0_0_15px_rgba(107,33,168,0.4)] hover:shadow-[0_0_20px_rgba(124,58,237,0.5)] hover:scale-[1.02]'
-          }`}
-        >
-          {ctaText}
-        </button>
-      </div>
-    );
-  }
+  void dark;
 
   return (
     <div
       className={`relative flex flex-col rounded-2xl border-2 p-6 sm:p-8 transition-all duration-200 ${
         highlighted
-          ? 'border-[var(--secondary)] bg-white shadow-lg shadow-[var(--secondary)]/25'
-          : 'border-neutral-200 bg-white shadow-sm hover:border-neutral-300 hover:shadow-md'
+          ? 'border-[#d7263d]/40 bg-[#fff9fc] shadow-lg shadow-[#7b2cbf]/20'
+          : 'border-[#eee5f6] bg-white shadow-sm hover:border-[#ddc9ef] hover:shadow-md'
       }`}
     >
       {badge && (
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[var(--secondary)] px-3 py-1 text-xs font-semibold text-white shadow hover:bg-[var(--secondary-hover)]">
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[linear-gradient(135deg,#d7263d,#ff3d00)] px-3 py-1 text-xs font-semibold text-white shadow">
           {badge}
         </div>
       )}
-      <h2 className="text-xl font-bold text-neutral-900">
+      <h2 className="text-xl font-bold text-[#1a161f]">
         {plan === 'free' ? 'Free' : plan === 'starter' ? 'Starter' : 'Pro'}
       </h2>
       {bestValueLabel && (
-        <p className="mt-1 text-sm font-medium text-amber-800">{bestValueLabel}</p>
+        <p className="mt-1 text-sm font-medium text-[#3f37c9]">{bestValueLabel}</p>
       )}
-      <p className="mt-1 text-sm text-neutral-700">{description}</p>
+      <p className="mt-1 text-sm text-[#5d5768]">{description}</p>
       <div className="mt-6">
         {isFree ? (
           <p className="flex items-baseline gap-1">
-            <span className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl">{freePrice ?? '$0'}</span>
+            <span className="text-3xl font-bold tracking-tight text-[#1a161f] sm:text-4xl">{freePrice ?? '$0'}</span>
           </p>
         ) : billingInterval === 'monthly' ? (
           <p className="flex items-baseline gap-1">
-            <span className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl">${priceMonthly}</span>
-            <span className="text-neutral-600">/ month</span>
+            <span className="text-3xl font-bold tracking-tight text-[#1a161f] sm:text-4xl">${priceMonthly}</span>
+            <span className="text-[#756a88]">/ month</span>
           </p>
         ) : (
           <p className="flex items-baseline gap-1">
-            <span className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl">
+            <span className="text-3xl font-bold tracking-tight text-[#1a161f] sm:text-4xl">
               ${Math.round((priceYearly ?? 0) / 12)}
             </span>
-            <span className="text-neutral-600">/ month</span>
+            <span className="text-[#756a88]">/ month</span>
           </p>
         )}
       </div>
       <ul className="mt-6 flex-1 space-y-3">
         {highlights.map((item, i) => (
-          <li key={i} className="flex items-start gap-3 text-sm text-neutral-800">
-            <Check className="h-5 w-5 shrink-0 text-emerald-600" aria-hidden />
+          <li key={i} className="flex items-start gap-3 text-sm text-[#473f55]">
+            <Check className="h-5 w-5 shrink-0 text-[#2f9e44]" aria-hidden />
             <span>{item}</span>
           </li>
         ))}
       </ul>
       {!isFree && (additionalBrandsMonthly != null || additionalBrandsYearly != null) && (
-        <div className="mt-4 pt-4 border-t border-neutral-200">
-          <p className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-1">Add-ons</p>
-          <p className="text-sm text-neutral-700">
+        <div className="mt-4 pt-4 border-t border-[#efe7f7]">
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#8f7ca9] mb-1">Add-ons</p>
+          <p className="text-sm text-[#5d5768]">
             {billingInterval === 'monthly'
               ? `+$${additionalBrandsMonthly} / brand monthly`
               : `+$${additionalBrandsYearly} / brand yearly`}
@@ -189,10 +117,10 @@ export default function PricingCard({
         onClick={onCta}
         className={`mt-8 w-full rounded-xl py-3.5 font-semibold text-sm transition-all duration-200 ${
           highlighted
-            ? 'bg-[var(--secondary)] text-white shadow hover:bg-[var(--secondary-hover)] active:scale-[0.98]'
+            ? 'bg-[linear-gradient(135deg,#7b2cbf,#d7263d)] text-white shadow hover:opacity-95 active:scale-[0.98]'
             : isFree
-              ? 'border-2 border-neutral-300 bg-white text-neutral-900 hover:border-neutral-400 hover:bg-neutral-50'
-              : 'border-2 border-[var(--primary)] bg-[var(--primary)] text-neutral-900 hover:bg-[var(--primary-hover)] active:scale-[0.98]'
+              ? 'border border-[#d6c4ea] bg-white text-[#6f2dbd] hover:border-[#7b2cbf] hover:bg-[#f8f4fc]'
+              : 'bg-[linear-gradient(135deg,#7b2cbf,#e11d48)] text-white hover:opacity-95 active:scale-[0.98]'
         }`}
       >
         {ctaText}

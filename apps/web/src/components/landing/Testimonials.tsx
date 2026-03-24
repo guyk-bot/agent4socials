@@ -34,45 +34,45 @@ const testimonials = [
 
 export default function Testimonials() {
   return (
-    <section className="py-24 sm:py-32 bg-slate-950 border-t border-slate-800/50 relative overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-900/10 via-slate-950 to-slate-950 pointer-events-none" />
+    <section className="py-24 sm:py-32 bg-white border-t border-[#efe7f7] relative overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(123,44,191,0.08)_0%,rgba(215,38,61,0.03)_38%,transparent_72%)] pointer-events-none" />
       
       <div className="mx-auto max-w-7xl px-6 lg:px-8 relative z-10">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+          <h2 className="text-3xl font-bold tracking-tight text-[#1a161f] sm:text-4xl">
             Loved by creators and businesses
           </h2>
-          <p className="mt-6 text-lg leading-8 text-slate-400">
+          <p className="mt-6 text-lg leading-8 text-[#5d5768]">
             Join thousands who trust Agent4Socials to manage their online presence.
           </p>
         </div>
         
-        <div className="mx-auto mt-16 grid max-w-2xl grid-cols-1 grid-rows-1 gap-8 text-sm leading-6 text-slate-300 sm:mt-20 sm:grid-cols-2 xl:mx-0 xl:max-w-none xl:grid-cols-4">
+        <div className="mx-auto mt-16 grid max-w-2xl grid-cols-1 grid-rows-1 gap-8 text-sm leading-6 text-[#5d5768] sm:mt-20 sm:grid-cols-2 xl:mx-0 xl:max-w-none xl:grid-cols-4">
           {testimonials.map((testimonial) => (
-            <div key={testimonial.handle} className="group relative rounded-2xl border border-slate-800 bg-slate-900/50 p-6 shadow-lg backdrop-blur-sm transition-all hover:-translate-y-1 hover:border-emerald-500/30 hover:shadow-emerald-500/5">
-              <div className="flex items-center gap-x-4 border-b border-slate-800/50 pb-4 mb-4">
-                <img className="h-10 w-10 rounded-full bg-slate-800 object-cover" src={testimonial.avatar} alt="" />
+            <div key={testimonial.handle} className="group relative rounded-2xl border border-[#efe7f7] bg-white p-6 shadow-sm transition-all hover:-translate-y-1 hover:border-[#d7c5e9] hover:shadow-lg">
+              <div className="flex items-center gap-x-4 border-b border-[#f3ecf9] pb-4 mb-4">
+                <img className="h-10 w-10 rounded-full bg-[#f4ecfb] object-cover" src={testimonial.avatar} alt="" />
                 <div>
-                  <h3 className="font-semibold text-white">{testimonial.name}</h3>
-                  <p className="text-slate-500">{testimonial.handle}</p>
+                  <h3 className="font-semibold text-[#1a161f]">{testimonial.name}</h3>
+                  <p className="text-[#8f7ca9]">{testimonial.handle}</p>
                 </div>
               </div>
-              <div className="flex gap-0.5 text-emerald-500 mb-3">
+              <div className="flex gap-0.5 text-[#2f9e44] mb-3">
                 <Star className="h-4 w-4 fill-current" />
                 <Star className="h-4 w-4 fill-current" />
                 <Star className="h-4 w-4 fill-current" />
                 <Star className="h-4 w-4 fill-current" />
                 <Star className="h-4 w-4 fill-current" />
               </div>
-              <p className="text-slate-300 italic">"{testimonial.content}"</p>
+              <p className="text-[#5d5768] italic">"{testimonial.content}"</p>
             </div>
           ))}
         </div>
 
         {/* Scrolling logos */}
-        <div className="mt-24 border-t border-slate-800/50 pt-16">
-          <p className="text-center text-sm font-semibold text-slate-500 mb-8 uppercase tracking-widest">Trusted by teams at</p>
-          <div className="flex justify-center gap-8 md:gap-16 opacity-40 grayscale mix-blend-screen flex-wrap">
+        <div className="mt-24 border-t border-[#f1e9f8] pt-16">
+          <p className="text-center text-sm font-semibold text-[#8f7ca9] mb-8 uppercase tracking-widest">Trusted by teams at</p>
+          <div className="flex justify-center gap-8 md:gap-16 opacity-70 flex-wrap text-[#473f55]">
             {['Acme Corp', 'GlobalBank', 'Nebula', 'Sisyphus', 'Catalog'].map((logo) => (
                <span key={logo} className="text-xl font-bold font-serif">{logo}</span>
             ))}
