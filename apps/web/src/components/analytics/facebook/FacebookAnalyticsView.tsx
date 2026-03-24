@@ -209,6 +209,15 @@ function carryForwardSeries(
   return out;
 }
 
+function percentChangeFromSeries(series?: Array<{ date: string; value: number }>): number | null {
+  if (!series || series.length < 2) return null;
+  const first = series[0]?.value ?? 0;
+  const last = series[series.length - 1]?.value ?? 0;
+  if (!Number.isFinite(first) || !Number.isFinite(last)) return null;
+  if (first === 0) return last === 0 ? 0 : null;
+  return ((last - first) / Math.abs(first)) * 100;
+}
+
 function buildDateAxis(start: string, end: string): string[] {
   const out: string[] = [];
   const n = (s: string) => s.split('-').map(Number);
@@ -254,20 +263,22 @@ export function MetricCard({
   source,
   color,
   footnote,
+  trendPercent,
 }: {
   label: string;
   value: string;
   source: string;
   color: string;
   footnote?: string;
+  trendPercent?: number | null;
 }) {
   return (
     <div
-      className="rounded-[20px] p-5 transition-all hover:-translate-y-[1px]"
+      className="rounded-[20px] p-4 transition-all hover:-translate-y-[1px]"
       style={{ background: COLOR.card, boxShadow: '0 2px 16px rgba(15,23,42,0.05)' }}
     >
-      <MetricTooltip label={label} hint={`Source metric: ${source}`} />
-      <p className="mt-3 text-[28px] font-semibold tracking-tight" style={{ color }}>{value}</p>
+      <MetricTooltip label={label} hint={`Source metric: ${source}${typeof trendPercent === 'number' && Number.isFinite(trendPercent) ? `. Change in selected range: ${trendPercent >= 0 ? '+' : ''}${trendPercent.toFixed(1)}%.` : ""}`} />
+      <p className="mt-2 text-[30px] font-semibold tracking-tight" style={{ color }}>{value}</p>
       {footnote ? <p className="mt-1 text-xs" style={{ color: COLOR.textSecondary }}>{footnote}</p> : null}
     </div>
   );
@@ -281,8 +292,9 @@ export function SparklineMetricCard(props: {
   series: Array<{ date: string; value: number }>;
   footnote?: string;
 }) {
-  const { label, source, color, value, footnote } = props;
-  return <MetricCard label={label} source={source} color={color} value={value} footnote={footnote} />;
+  const { label, source, color, value, series, footnote } = props;
+  const trendPercent = percentChangeFromSeries(series);
+  return <MetricCard label={label} source={source} color={color} value={value} footnote={footnote} trendPercent={trendPercent} />;
 }
 
 export function InsightChartCard({
@@ -957,7 +969,7 @@ export function FacebookAnalyticsView({
 
       {overviewSkeleton ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
+          {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="h-28 rounded-[20px] animate-pulse" style={{ background: COLOR.card }} />
           ))}
         </div>
@@ -967,11 +979,10 @@ export function FacebookAnalyticsView({
         <div>
           <h2 className="text-[28px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Overview</h2>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-          <SparklineMetricCard label="Followers" source="fan_count/followers_count" color={COLOR.mint} value={formatCompact(totalFollowers)} series={series?.follows ?? []} footnote="Page total" />
-          <SparklineMetricCard label="Followers" source="page_daily_follows" color={COLOR.mint} value={formatCompact(newFollowers)} series={series?.dailyFollows ?? []} footnote="New in selected range" />
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <SparklineMetricCard label="Page Visits" source="page_views_total" color="#d72661" value={formatCompact(pageVisits)} series={series?.pageTabViews ?? []} />
+          <SparklineMetricCard label="Followers" source="fan_count/followers_count" color={COLOR.mint} value={formatCompact(totalFollowers)} series={series?.follows ?? []} />
           <SparklineMetricCard label="Content Views" source="page_media_view" color={COLOR.cyan} value={formatCompact(contentViews)} series={series?.contentViews ?? []} />
-          <SparklineMetricCard label="Page Visits" source="page_views_total" color={COLOR.cyan} value={formatCompact(pageVisits)} series={series?.pageTabViews ?? []} />
           <SparklineMetricCard label="Engagements" source="page_post_engagements" color={COLOR.violet} value={formatCompact(engagements)} series={series?.engagement ?? []} />
           <SparklineMetricCard
             label="Video Views"
@@ -979,11 +990,6 @@ export function FacebookAnalyticsView({
             color={COLOR.magenta}
             value={formatCompact(videoViews)}
             series={series?.videoViews ?? []}
-            footnote={
-              postVideoPlaysInRange > pageVideoViews
-                ? 'Uses post and reel play counts when they are higher than Page video views for this range.'
-                : undefined
-            }
           />
         </div>
 
@@ -1212,7 +1218,7 @@ export function FacebookAnalyticsView({
           <div className="rounded-[20px] border p-6 space-y-3" style={{ background: COLOR.card, borderColor: COLOR.border }}>
             <p className="text-sm font-medium" style={{ color: COLOR.text }}>Loading content history…</p>
             <div className="space-y-2">
-              {Array.from({ length: 6 }).map((_, i) => (
+              {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="h-11 rounded-xl animate-pulse" style={{ background: 'rgba(15,23,42,0.06)' }} />
               ))}
             </div>
