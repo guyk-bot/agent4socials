@@ -265,7 +265,7 @@ export default function Home() {
       <main>
 
         {/* HERO */}
-        <section className="relative overflow-hidden pt-28 pb-20 sm:pt-36 sm:pb-28">
+        <section className="relative overflow-hidden pt-20 pb-20 sm:pt-28 sm:pb-28">
           {/* Design system: radial glow + light streaks feel */}
           <div className="pointer-events-none absolute inset-0">
             <div className="absolute left-1/2 top-0 -translate-x-1/2 h-[600px] w-[900px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(123,44,191,0.14)_0%,rgba(215,38,61,0.06)_42%,transparent_72%)]" />
