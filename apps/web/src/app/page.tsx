@@ -88,15 +88,15 @@ const RANDOM_ICON_SLOTS = [
   { x: 76, y: 69 }, // Pinterest
 ] as const;
 
-// Mobile positions – icons pinned to extreme edges so they never touch text
+// Mobile positions
 const MOBILE_ICON_SLOTS = [
-  { x: 0,   y: 8  }, // Facebook  – far left, top
-  { x: 2,   y: 26 }, // Instagram – far left, beside title bottom
-  { x: 0,   y: 47 }, // YouTube   – far left, CTA area
-  { x: 3,   y: 65 }, // TikTok    – far left, trust pills area (still on screen)
-  { x: 100, y: 8  }, // X/Twitter – far right, top
-  { x: 97,  y: 30 }, // LinkedIn  – far right, beside title bottom
-  { x: 100, y: 55 }, // Pinterest – far right, CTA area
+  { x: 4,  y: 8  }, // Facebook  – nudged right
+  { x: 7,  y: 20 }, // Instagram – up and right
+  { x: 5,  y: 42 }, // YouTube   – up and right
+  { x: 8,  y: 60 }, // TikTok    – up and right
+  { x: 94, y: 8  }, // X/Twitter – nudged left
+  { x: 91, y: 25 }, // LinkedIn  – up and left
+  { x: 87, y: 53 }, // Pinterest – moved left
 ] as const;
 
 const STATIC_ICON_ROTATIONS = [-14, 9, -18, 6, 12, -9, 16] as const;
@@ -120,9 +120,9 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
   const leftRoadPath  = 'M 1 15 C 12 20, -3 28, 9 37 C 20 44, -2 52, 10 63 C 18 70, 26 72, 22 75 C 19 82, 22 92, 24 103';
   const rightRoadPath = 'M 97 12 C 84 18, 102 32, 91 42 C 80 52, 100 60, 76 69 C 66 78, 68 90, 70 103';
 
-  // Mobile roads – hug the screen edges (x≈0 left, x≈100 right), extend to dashboard
-  const mobileLeftRoadPath  = 'M 0 8 C 9 14, -3 21, 2 26 C 10 33, -4 42, 0 47 C 7 54, 8 60, 3 65 C 1 74, 6 86, 6 103';
-  const mobileRightRoadPath = 'M 100 8 C 90 14, 103 23, 97 30 C 89 39, 105 48, 100 55 C 95 64, 94 80, 94 103';
+  // Mobile roads – weave through icons then both converge to center at trust-pills strip
+  const mobileLeftRoadPath  = 'M 4 8 C 12 13, 1 17, 7 20 C 14 26, 0 37, 5 42 C 12 49, 8 55, 8 60 C 8 68, 26 78, 46 88 C 48 94, 49 99, 49 103';
+  const mobileRightRoadPath = 'M 94 8 C 83 13, 99 21, 91 25 C 83 32, 101 46, 87 53 C 78 61, 60 78, 54 88 C 52 94, 51 99, 51 103';
 
   const activeLeft  = isMobile ? mobileLeftRoadPath  : leftRoadPath;
   const activeRight = isMobile ? mobileRightRoadPath : rightRoadPath;
