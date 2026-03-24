@@ -925,8 +925,10 @@ export default function DashboardPage() {
   const effectiveProfileViews = selectedAccount
     ? (insights?.profileViewsTotal ?? aggregatedInsights?.totalProfileViews ?? 0)
     : (aggregatedInsights?.totalProfileViews ?? 0);
+  // For selected accounts, keep analytics in explicit loading state while a new range is fetching.
+  // This avoids rendering a brief mixed old/new graph during date-range switches.
   const effectiveInsightsLoading = selectedAccount
-    ? (insightsLoading && !insights && !plat)
+    ? insightsLoading
     : aggregatedLoading;
   const fallbackSeriesValue = effectiveImpressions || effectiveFollowers || 0;
   const hasNonZeroSeries = effectiveTimeSeries.length > 0 && effectiveTimeSeries.some((d) => d.value > 0);
