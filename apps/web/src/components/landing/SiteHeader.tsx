@@ -30,15 +30,15 @@ export default function SiteHeader() {
             height={36}
             className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 object-contain [background:transparent]"
           />
-          <BrandWordmark name="Agent4Socials" className="text-lg sm:text-xl font-semibold tracking-tight text-[#1a161f] truncate" />
+          <BrandWordmark name="Agent4Socials" className="text-lg sm:text-xl font-semibold tracking-tight text-white truncate" />
         </Link>
         <nav className="hidden items-center gap-6 lg:gap-8 md:flex">
           {navLinks.map((link) => (
-            <Link key={link.href} href={link.href} className="text-sm font-medium text-[#5d5768] hover:text-[#6f2dbd] transition-colors">
+            <Link key={link.href} href={link.href} className="text-sm font-medium text-white/80 hover:text-[#c084fc] active:text-[#f472b6] transition-colors">
               {link.label}
             </Link>
           ))}
-          <button type="button" onClick={openLogin} className="text-sm font-medium text-[#5d5768] hover:text-[#6f2dbd] transition-colors">
+          <button type="button" onClick={openLogin} className="text-sm font-medium text-white/80 hover:text-[#c084fc] active:text-[#f472b6] transition-colors">
             Log in
           </button>
           <button
@@ -60,7 +60,7 @@ export default function SiteHeader() {
           <button
             type="button"
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="p-2 text-white/80 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
+            className="p-2 text-white/80 hover:text-[#c084fc] active:text-[#f472b6] rounded-lg hover:bg-white/10 transition-colors"
             aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
           >
             {mobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -74,7 +74,7 @@ export default function SiteHeader() {
               key={link.href}
               href={link.href}
               onClick={() => setMobileOpen(false)}
-              className="py-3 px-3 rounded-xl text-white/80 hover:text-white hover:bg-white/10 font-medium transition-colors"
+              className="py-3 px-3 rounded-xl text-white/80 hover:text-[#c084fc] active:text-[#f472b6] hover:bg-white/10 font-medium transition-colors"
             >
               {link.label}
             </Link>
@@ -82,7 +82,7 @@ export default function SiteHeader() {
           <button
             type="button"
             onClick={() => { setMobileOpen(false); openLogin(); }}
-            className="py-3 px-3 rounded-xl text-white/80 hover:text-white hover:bg-white/10 font-medium transition-colors w-full text-left"
+            className="py-3 px-3 rounded-xl text-white/80 hover:text-[#c084fc] active:text-[#f472b6] hover:bg-white/10 font-medium transition-colors w-full text-left"
           >
             Log in
           </button>
