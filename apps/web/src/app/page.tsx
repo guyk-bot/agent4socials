@@ -77,20 +77,20 @@ const PLATFORM_COLORS: Record<string, string> = {
   Pinterest: '#e60023',
 };
 
-// Each icon starts from a different direction and converges to center on scroll
-const PLATFORM_OFFSETS = [
-  { x: -420, y: -180, rotate: -25 },
-  { x: -200, y: -340, rotate: 15 },
-  { x: 120, y: -320, rotate: -10 },
-  { x: 380, y: -150, rotate: 20 },
-  { x: 440, y: 120, rotate: -30 },
-  { x: 100, y: 300, rotate: 12 },
-  { x: -340, y: 220, rotate: -18 },
+// Entry vectors for a cinematic "assemble into a row" reveal on scroll
+const PLATFORM_ENTRY_VECTORS = [
+  { x: -320, y: -150, rotate: -26 },
+  { x: -210, y: 130, rotate: 19 },
+  { x: -80, y: -180, rotate: -13 },
+  { x: 0, y: 170, rotate: 14 },
+  { x: 110, y: -170, rotate: -20 },
+  { x: 230, y: 120, rotate: 16 },
+  { x: 340, y: -140, rotate: -24 },
 ];
 
 function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [progress, setProgress] = useState(0); // 0 = scattered, 1 = together
+  const [progress, setProgress] = useState(0); // 0 = scattered, 1 = assembled row
 
   useEffect(() => {
     const el = ref.current;
@@ -98,9 +98,9 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
     const onScroll = () => {
       const rect = el.getBoundingClientRect();
       const viewH = window.innerHeight;
-      // Start animating when top edge enters viewport, complete when centered
+      // Start when section enters, finish before dashboard preview starts
       const start = viewH * 0.9;
-      const end = viewH * 0.3;
+      const end = viewH * 0.42;
       const raw = (start - rect.top) / (start - end);
       setProgress(Math.min(1, Math.max(0, raw)));
     };
@@ -109,39 +109,44 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const eased = 1 - Math.pow(1 - progress, 3); // cubic ease-out
+  const eased = 1 - Math.pow(1 - progress, 3);
+  const settle = Math.min(1, Math.max(0, (eased - 0.55) / 0.45));
+  const spacing = 98 - settle * 12;
 
   return (
-    <div ref={ref} className="relative mx-auto mt-16 mb-2" style={{ height: 220, maxWidth: 700 }}>
-      {/* Central glow that appears as icons converge */}
+    <div ref={ref} className="relative mx-auto mt-16 mb-2" style={{ height: 220, maxWidth: 760 }}>
+      {/* Light ribbon behind final row */}
       <div
         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none"
         style={{
-          width: 180,
-          height: 180,
-          opacity: eased * 0.55,
-          background: 'radial-gradient(circle, rgba(123,44,191,0.4) 0%, rgba(215,38,61,0.2) 50%, transparent 75%)',
-          filter: 'blur(24px)',
-          transform: `translate(-50%, -50%) scale(${0.4 + eased * 0.8})`,
+          width: 560,
+          height: 68,
+          opacity: 0.1 + settle * 0.55,
+          background: 'linear-gradient(90deg, rgba(123,44,191,0.08), rgba(215,38,61,0.22), rgba(63,55,201,0.08))',
+          filter: 'blur(16px)',
+          transform: `translate(-50%, -50%) scale(${0.92 + settle * 0.1})`,
           transition: 'opacity 0.05s',
         }}
       />
       {platforms.map(({ Icon, label }, i) => {
-        const offset = PLATFORM_OFFSETS[i];
+        const vector = PLATFORM_ENTRY_VECTORS[i];
         const color = PLATFORM_COLORS[label] ?? '#7b2cbf';
-        const tx = offset.x * (1 - eased);
-        const ty = offset.y * (1 - eased);
-        const rot = offset.rotate * (1 - eased);
-        const scale = 0.45 + eased * 0.55;
+        const rowX = (i - (platforms.length - 1) / 2) * spacing;
+        const waveY = Math.sin(settle * Math.PI * 3 + i * 0.7) * (6 + i % 2);
+        const tx = vector.x * (1 - eased) + rowX;
+        const ty = vector.y * (1 - eased) + waveY * settle;
+        const rot = vector.rotate * (1 - eased);
+        const scale = 0.68 + eased * 0.55;
+        const glowScale = 2 + settle * 0.6;
         return (
           <div
             key={label}
             className="absolute left-1/2 top-1/2"
             style={{
               transform: `translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px)) rotate(${rot}deg) scale(${scale})`,
-              transition: `transform 0.1s ease-out ${i * 0.04}s`,
+              transition: `transform 0.09s cubic-bezier(0.2, 0.8, 0.2, 1) ${i * 0.03}s`,
               willChange: 'transform',
-              zIndex: 10 + i,
+              zIndex: 20 + i,
             }}
           >
             {/* Glow halo behind icon */}
@@ -149,21 +154,21 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
               className="absolute inset-0 rounded-full pointer-events-none"
               style={{
                 background: `radial-gradient(circle, ${color}55 0%, transparent 70%)`,
-                transform: 'scale(2.2)',
-                opacity: 0.6 + eased * 0.4,
-                filter: 'blur(6px)',
+                transform: `scale(${glowScale})`,
+                opacity: 0.5 + settle * 0.45,
+                filter: `blur(${4 + settle * 5}px)`,
               }}
             />
             {/* The icon itself */}
             <div
               className="relative"
               style={{
-                animation: `platformFloat${i} 2.8s ease-in-out infinite`,
-                animationDelay: `${(i * 0.41).toFixed(2)}s`,
-                filter: `drop-shadow(0 0 10px ${color}99)`,
+                animation: `platformPulse${i} ${2.2 + (i % 3) * 0.35}s ease-in-out infinite`,
+                animationDelay: `${(i * 0.27).toFixed(2)}s`,
+                filter: `drop-shadow(0 0 ${8 + settle * 10}px ${color}aa)`,
               }}
             >
-              <Icon size={62} />
+              <Icon size={64} />
             </div>
           </div>
         );
@@ -171,10 +176,10 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
       {/* Keyframe styles injected inline */}
       <style>{`
         ${platforms.map((_, i) => `
-          @keyframes platformFloat${i} {
+          @keyframes platformPulse${i} {
             0%, 100% { transform: translateY(0px) rotate(0deg); }
-            33%       { transform: translateY(${-6 - (i % 3) * 4}px) rotate(${(i % 2 === 0 ? 1 : -1) * 4}deg); }
-            66%       { transform: translateY(${3 + (i % 2) * 3}px) rotate(${(i % 2 === 0 ? -2 : 2)}deg); }
+            35% { transform: translateY(${-4 - (i % 2) * 2}px) scale(${1.04 + (i % 3) * 0.01}) rotate(${i % 2 === 0 ? 2 : -2}deg); }
+            70% { transform: translateY(${3 + (i % 3)}px) scale(0.98) rotate(${i % 2 === 0 ? -1 : 1}deg); }
           }
         `).join('')}
       `}</style>
