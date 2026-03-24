@@ -396,6 +396,7 @@ export function InsightChartCard({
 }
 
 export function StackedTrafficChart({ data }: { data: Array<{ date: string; nonviral: number; viral: number }> }) {
+  const trafficTicks = buildKeyDateTicks(data, (d) => (d.nonviral ?? 0) > 0 || (d.viral ?? 0) > 0, 10);
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={data}>
