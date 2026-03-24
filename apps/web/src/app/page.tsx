@@ -78,14 +78,14 @@ const PLATFORM_COLORS: Record<string, string> = {
 };
 
 const RANDOM_ICON_SLOTS = [
-  // Center logo cluster (roads stay on side branches).
+  // Fixed logo points based on the user-marked circles.
+  { x: 10, y: 24 },
   { x: 20, y: 44 },
-  { x: 26, y: 52 },
-  { x: 32, y: 60 },
-  { x: 50, y: 66 },
-  { x: 68, y: 60 },
-  { x: 74, y: 52 },
-  { x: 80, y: 46 },
+  { x: 30, y: 68 },
+  { x: 50, y: 62 },
+  { x: 70, y: 68 },
+  { x: 80, y: 44 },
+  { x: 90, y: 24 },
 ] as const;
 
 const STATIC_ICON_ROTATIONS = [-10, 8, -7, 4, -6, 7, -8] as const;
@@ -104,19 +104,13 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
     return () => media.removeEventListener('change', update);
   }, []);
 
-  // Side-only branch roads that flow toward the dashboard.
-  const leftRoadPath = 'M 8 24 C 10 30, 10 34, 14 36 C 20 39, 20 45, 22 50 C 24 57, 25 67, 30 72 C 34 77, 35 90, 35 100';
-  const rightRoadPath = 'M 92 26 C 88 30, 86 34, 80 36 C 76 39, 76 45, 74 50 C 72 57, 70 67, 70 72 C 70 80, 70 92, 70 100';
-  const leftRoadNodes = [
-    { x: 8, y: 24 },
-    { x: 22, y: 50 },
-    { x: 30, y: 72 },
-  ] as const;
-  const rightRoadNodes = [
-    { x: 92, y: 26 },
-    { x: 74, y: 50 },
-    { x: 70, y: 72 },
-  ] as const;
+  // One organic road that actually connects logo points.
+  const connectionPath = RANDOM_ICON_SLOTS.reduce((acc, point, idx) => {
+    if (idx === 0) return `M ${point.x} ${point.y}`;
+    const prev = RANDOM_ICON_SLOTS[idx - 1];
+    const midX = ((prev.x + point.x) / 2).toFixed(2);
+    return `${acc} C ${midX} ${prev.y}, ${midX} ${point.y}, ${point.x} ${point.y}`;
+  }, '');
 
   return (
     <div
@@ -133,7 +127,7 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
           </linearGradient>
         </defs>
         <path
-          d={leftRoadPath}
+          d={connectionPath}
           fill="none"
           stroke="url(#hero-logo-road)"
           strokeWidth={1.8}
@@ -143,7 +137,7 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
           style={{ filter: 'blur(2px)' }}
         />
         <path
-          d={leftRoadPath}
+          d={connectionPath}
           fill="none"
           stroke="url(#hero-logo-road)"
           strokeWidth={1}
@@ -152,46 +146,6 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
           strokeDasharray="2 2.2"
           opacity={0.7}
         />
-        {leftRoadNodes.map((node, idx) => (
-          <circle
-            key={`left-node-${idx}`}
-            cx={node.x}
-            cy={node.y}
-            r={2.6}
-            fill="#b8f17a"
-            opacity={0.8}
-          />
-        ))}
-        <path
-          d={rightRoadPath}
-          fill="none"
-          stroke="url(#hero-logo-road)"
-          strokeWidth={1.8}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          opacity={0.14}
-          style={{ filter: 'blur(2px)' }}
-        />
-        <path
-          d={rightRoadPath}
-          fill="none"
-          stroke="url(#hero-logo-road)"
-          strokeWidth={1}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeDasharray="2 2.2"
-          opacity={0.7}
-        />
-        {rightRoadNodes.map((node, idx) => (
-          <circle
-            key={`right-node-${idx}`}
-            cx={node.x}
-            cy={node.y}
-            r={2.6}
-            fill="#b8f17a"
-            opacity={0.8}
-          />
-        ))}
       </svg>
       {platforms.map(({ Icon, label }, i) => {
         const slot = RANDOM_ICON_SLOTS[i % RANDOM_ICON_SLOTS.length];
@@ -236,7 +190,7 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
                   right: isMobile ? -5 : -6,
                   top: isMobile ? -5 : -6,
                   background: 'linear-gradient(135deg, #ef4444, #e11d48)',
-                  boxShadow: '0 0 0 2px #ffffff, 0 6px 16px rgba(225,29,72,0.35)',
+                  boxShadow: '0 6px 16px rgba(225,29,72,0.35)',
                   lineHeight: 1,
                 }}
               >
