@@ -346,7 +346,14 @@ export function InsightChartCard({
           </div>
         ) : null}
       </div>
-      <div className="mt-5 h-[320px]">{children}</div>
+      <div className="mt-5 h-[320px] relative overflow-hidden">
+        <div className="pointer-events-none absolute inset-0 z-0" aria-hidden>
+          <span className="absolute left-[8%] top-[18%] text-[11px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.14)' }}>Agent4Socials</span>
+          <span className="absolute left-[42%] top-[42%] text-[11px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.14)' }}>Agent4Socials</span>
+          <span className="absolute left-[72%] top-[68%] text-[11px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.14)' }}>Agent4Socials</span>
+        </div>
+        <div className="relative z-[1] h-full">{children}</div>
+      </div>
     </div>
   );
 }
@@ -1011,7 +1018,6 @@ export function FacebookAnalyticsView({
 
         <InsightChartCard
           title="Performance Story"
-          subtitle="Switch perspective between visibility, engagement, and growth."
           legend={
             storyMode === 'views'
               ? [{ label: 'Content Views', color: COLOR.cyan }, { label: 'Page Visits', color: COLOR.violet }]
