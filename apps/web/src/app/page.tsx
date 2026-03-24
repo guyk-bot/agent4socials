@@ -78,14 +78,14 @@ const PLATFORM_COLORS: Record<string, string> = {
 };
 
 const RANDOM_ICON_SLOTS = [
-  // Fixed logo points based on the user-marked circles.
-  { x: 10, y: 24 },
-  { x: 20, y: 44 },
-  { x: 30, y: 68 },
-  { x: 50, y: 62 },
-  { x: 70, y: 68 },
-  { x: 80, y: 44 },
-  { x: 90, y: 24 },
+  // Fixed logo points matching requested hero composition.
+  { x: 12, y: 22 },
+  { x: 20, y: 40 },
+  { x: 28, y: 60 },
+  { x: 50, y: 58 },
+  { x: 66, y: 60 },
+  { x: 74, y: 42 },
+  { x: 88, y: 24 },
 ] as const;
 
 const STATIC_ICON_ROTATIONS = [-10, 8, -7, 4, -6, 7, -8] as const;
@@ -104,13 +104,9 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
     return () => media.removeEventListener('change', update);
   }, []);
 
-  // One organic road that actually connects logo points.
-  const connectionPath = RANDOM_ICON_SLOTS.reduce((acc, point, idx) => {
-    if (idx === 0) return `M ${point.x} ${point.y}`;
-    const prev = RANDOM_ICON_SLOTS[idx - 1];
-    const midX = ((prev.x + point.x) / 2).toFixed(2);
-    return `${acc} C ${midX} ${prev.y}, ${midX} ${point.y}, ${point.x} ${point.y}`;
-  }, '');
+  // Two side roads that flow down into the dashboard card.
+  const leftRoadPath = 'M 11 23 C 16 28, 19 35, 20 40 C 23 48, 27 55, 28 60 C 30 70, 31 84, 32 100';
+  const rightRoadPath = 'M 89 25 C 84 30, 77 37, 74 42 C 71 48, 68 55, 66 60 C 66 72, 67 86, 68 100';
 
   return (
     <div
@@ -127,7 +123,7 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
           </linearGradient>
         </defs>
         <path
-          d={connectionPath}
+          d={leftRoadPath}
           fill="none"
           stroke="url(#hero-logo-road)"
           strokeWidth={1.8}
@@ -137,14 +133,34 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
           style={{ filter: 'blur(2px)' }}
         />
         <path
-          d={connectionPath}
+          d={leftRoadPath}
           fill="none"
           stroke="url(#hero-logo-road)"
           strokeWidth={1}
           strokeLinecap="round"
           strokeLinejoin="round"
           strokeDasharray="2 2.2"
-          opacity={0.7}
+          opacity={0.72}
+        />
+        <path
+          d={rightRoadPath}
+          fill="none"
+          stroke="url(#hero-logo-road)"
+          strokeWidth={1.8}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          opacity={0.14}
+          style={{ filter: 'blur(2px)' }}
+        />
+        <path
+          d={rightRoadPath}
+          fill="none"
+          stroke="url(#hero-logo-road)"
+          strokeWidth={1}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeDasharray="2 2.2"
+          opacity={0.72}
         />
       </svg>
       {platforms.map(({ Icon, label }, i) => {
