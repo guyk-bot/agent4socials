@@ -145,6 +145,13 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
   const activeRightSegments = isMobile ? mobileRightRoadSegments : desktopRightRoadSegments;
   const activeSegments = [...activeLeftSegments, ...activeRightSegments];
 
+  // Tune mobile stroke rendering to visually match desktop roadmap pills.
+  const roadGlowStrokeWidth = isMobile ? 2.8 : 2.4;
+  const roadDashStrokeWidth = isMobile ? 1.35 : 1.1;
+  const roadDashArray = isMobile ? '2.7 3.1' : '2.2 2.6';
+  const roadGlowOpacity = isMobile ? 0.1 : 0.08;
+  const roadDashOpacity = isMobile ? 0.56 : 0.46;
+
   return (
     <div
       ref={ref}
@@ -174,21 +181,21 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
               d={segment.d}
               fill="none"
               stroke={`url(#grad-${segment.id})`}
-              strokeWidth={2.4}
+              strokeWidth={roadGlowStrokeWidth}
               strokeLinecap="round"
               strokeLinejoin="round"
-              opacity={0.08}
+              opacity={roadGlowOpacity}
               style={{ filter: 'blur(3px)' }}
             />
             <path
               d={segment.d}
               fill="none"
               stroke={`url(#grad-${segment.id})`}
-              strokeWidth={1.1}
+              strokeWidth={roadDashStrokeWidth}
               strokeLinecap="round"
               strokeLinejoin="round"
-              strokeDasharray="2.2 2.6"
-              opacity={0.46}
+              strokeDasharray={roadDashArray}
+              opacity={roadDashOpacity}
             />
           </g>
         ))}
@@ -198,21 +205,21 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
               d={segment.d}
               fill="none"
               stroke={`url(#grad-${segment.id})`}
-              strokeWidth={2.4}
+              strokeWidth={roadGlowStrokeWidth}
               strokeLinecap="round"
               strokeLinejoin="round"
-              opacity={0.08}
+              opacity={roadGlowOpacity}
               style={{ filter: 'blur(3px)' }}
             />
             <path
               d={segment.d}
               fill="none"
               stroke={`url(#grad-${segment.id})`}
-              strokeWidth={1.1}
+              strokeWidth={roadDashStrokeWidth}
               strokeLinecap="round"
               strokeLinejoin="round"
-              strokeDasharray="2.2 2.6"
-              opacity={0.46}
+              strokeDasharray={roadDashArray}
+              opacity={roadDashOpacity}
             />
           </g>
         ))}
