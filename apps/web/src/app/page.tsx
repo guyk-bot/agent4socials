@@ -78,16 +78,16 @@ const PLATFORM_COLORS: Record<string, string> = {
 };
 
 const RANDOM_ICON_SLOTS = [
-  { x: 10, y: 18 },
-  { x: 18, y: 62 },
-  { x: 30, y: 80 },
-  { x: 44, y: 16 },
-  { x: 58, y: 74 },
-  { x: 74, y: 28 },
-  { x: 86, y: 66 },
-  { x: 82, y: 46 },
-  { x: 24, y: 36 },
-  { x: 68, y: 86 },
+  { x: 7, y: 20 },
+  { x: 13, y: 42 },
+  { x: 18, y: 80 },
+  { x: 30, y: 91 },
+  { x: 70, y: 91 },
+  { x: 82, y: 79 },
+  { x: 88, y: 42 },
+  { x: 93, y: 20 },
+  { x: 24, y: 9 },
+  { x: 76, y: 9 },
 ] as const;
 
 function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
@@ -116,13 +116,13 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
   return (
     <div
       ref={ref}
-      className="pointer-events-none absolute inset-x-0 top-20 z-[3] mx-auto h-[460px] max-w-6xl px-2 sm:h-[520px] sm:px-0"
+      className="pointer-events-none absolute inset-x-0 top-16 z-[3] mx-auto h-[500px] max-w-6xl px-2 sm:h-[560px] sm:px-0"
       aria-hidden="true"
     >
       {platforms.map(({ Icon, label }, i) => {
         const slot = positions[i] ?? RANDOM_ICON_SLOTS[i % RANDOM_ICON_SLOTS.length];
         const color = PLATFORM_COLORS[label] ?? '#7b2cbf';
-        const iconSize = 42 + (i % 3) * 7;
+        const iconSize = 48;
         return (
           <div
             key={label}
@@ -148,7 +148,7 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
             <div
               className="relative"
               style={{
-                animation: `platformAmbient${i} ${4 + (i % 3) * 0.6}s ease-in-out infinite`,
+                animation: `platformAmbient${i} ${4.8 + (i % 2) * 0.45}s ease-in-out infinite`,
                 animationDelay: `${(i * 0.37).toFixed(2)}s`,
                 filter: `drop-shadow(0 0 12px ${color}aa)`,
               }}
@@ -162,9 +162,9 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
         ${platforms.map((_, i) => `
           @keyframes platformAmbient${i} {
             0%, 100% { transform: translate3d(0px, 0px, 0px) rotate(0deg) scale(1); }
-            25% { transform: translate3d(${(i % 2 === 0 ? 1 : -1) * (7 + i)}px, ${-7 - i}px, 0px) rotate(${i % 2 === 0 ? 4 : -4}deg) scale(1.05); }
-            50% { transform: translate3d(${(i % 2 === 0 ? -1 : 1) * (5 + i)}px, ${4 + (i % 3)}px, 0px) rotate(${i % 2 === 0 ? -2 : 2}deg) scale(0.98); }
-            75% { transform: translate3d(${(i % 2 === 0 ? 1 : -1) * (9 + i)}px, ${-2 - (i % 2) * 3}px, 0px) rotate(${i % 2 === 0 ? 3 : -3}deg) scale(1.03); }
+            25% { transform: translate3d(${(i % 2 === 0 ? 1 : -1) * (4 + i)}px, ${-3 - (i % 3)}px, 0px) rotate(${i % 2 === 0 ? 2.2 : -2.2}deg) scale(1.03); }
+            50% { transform: translate3d(${(i % 2 === 0 ? -1 : 1) * (3 + i)}px, ${3 + (i % 2)}px, 0px) rotate(${i % 2 === 0 ? -1.2 : 1.2}deg) scale(0.99); }
+            75% { transform: translate3d(${(i % 2 === 0 ? 1 : -1) * (5 + i)}px, ${-2 - (i % 2)}px, 0px) rotate(${i % 2 === 0 ? 1.8 : -1.8}deg) scale(1.02); }
           }
         `).join('')}
       `}</style>
