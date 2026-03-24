@@ -89,7 +89,7 @@ const RANDOM_ICON_SLOTS = [
 ] as const;
 
 const STATIC_ICON_ROTATIONS = [-10, 8, -7, 4, -6, 7, -8] as const;
-const LOGO_NOTIFICATIONS = [3, 1, 5, 2, 4, 1, 6] as const;
+const LOGO_NOTIFICATIONS = [12, 18, 24, 31, 37, 44, 50] as const;
 
 function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
   const ref = useRef<HTMLDivElement>(null);
