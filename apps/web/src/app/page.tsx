@@ -77,14 +77,26 @@ const PLATFORM_COLORS: Record<string, string> = {
   Pinterest: '#e60023',
 };
 
+// Desktop positions
 const RANDOM_ICON_SLOTS = [
-  { x: 1,  y: 15 }, // Facebook  – unchanged
-  { x: 9,  y: 37 }, // Instagram – unchanged
-  { x: 10, y: 63 }, // YouTube   – moved down a bit
-  { x: 22, y: 75 }, // TikTok    – moved a bit right
-  { x: 97, y: 12 }, // X/Twitter – unchanged
-  { x: 91, y: 42 }, // LinkedIn  – unchanged
-  { x: 76, y: 69 }, // Pinterest – moved right and down
+  { x: 1,  y: 15 }, // Facebook
+  { x: 9,  y: 37 }, // Instagram
+  { x: 10, y: 63 }, // YouTube
+  { x: 22, y: 75 }, // TikTok
+  { x: 97, y: 12 }, // X/Twitter
+  { x: 91, y: 42 }, // LinkedIn
+  { x: 76, y: 69 }, // Pinterest
+] as const;
+
+// Mobile positions – adjusted per feedback, hugging edges to avoid text/buttons
+const MOBILE_ICON_SLOTS = [
+  { x: 5,  y: 15 }, // Facebook  – nudged right
+  { x: 8,  y: 28 }, // Instagram – moved up
+  { x: 9,  y: 62 }, // YouTube
+  { x: 11, y: 80 }, // TikTok    – moved left, down
+  { x: 92, y: 12 }, // X/Twitter – moved left
+  { x: 90, y: 33 }, // LinkedIn  – moved up
+  { x: 84, y: 68 }, // Pinterest – moved right
 ] as const;
 
 const STATIC_ICON_ROTATIONS = [-14, 9, -18, 6, 12, -9, 16] as const;
@@ -104,15 +116,21 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
     return () => media.removeEventListener('change', update);
   }, []);
 
-  // Left road – hugs left side through all 4 logos, never enters center text.
+  // Desktop roads
   const leftRoadPath  = 'M 1 15 C 12 20, -3 28, 9 37 C 20 44, -2 52, 10 63 C 18 70, 26 72, 22 75 C 19 82, 22 92, 24 103';
-  // Right road – hugs right side, sweeps left only to Pinterest then back down.
   const rightRoadPath = 'M 97 12 C 84 18, 102 32, 91 42 C 80 52, 100 60, 76 69 C 66 78, 68 90, 70 103';
+
+  // Mobile roads – stay within x:5-13 on left and x:83-93 on right to avoid center text/buttons
+  const mobileLeftRoadPath  = 'M 5 15 C 14 20, 0 24, 8 28 C 16 34, -1 50, 9 62 C 15 70, 16 75, 11 80 C 8 87, 13 94, 13 103';
+  const mobileRightRoadPath = 'M 92 12 C 80 18, 100 27, 90 33 C 80 42, 102 58, 84 68 C 76 77, 79 92, 80 103';
+
+  const activeLeft  = isMobile ? mobileLeftRoadPath  : leftRoadPath;
+  const activeRight = isMobile ? mobileRightRoadPath : rightRoadPath;
 
   return (
     <div
       ref={ref}
-      className="pointer-events-none absolute inset-x-0 top-[8rem] z-[3] mx-auto h-[540px] max-w-6xl px-2 sm:top-[8.5rem] sm:h-[560px] sm:px-0"
+      className="pointer-events-none absolute inset-x-0 top-[8rem] z-[3] mx-auto h-[680px] max-w-6xl px-2 sm:top-[8.5rem] sm:h-[560px] sm:px-0"
       aria-hidden="true"
     >
       <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
@@ -132,24 +150,25 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
           </linearGradient>
         </defs>
         {/* Left road glow */}
-        <path d={leftRoadPath} fill="none" stroke="url(#road-left)"
+        <path d={activeLeft} fill="none" stroke="url(#road-left)"
           strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round"
           opacity={0.18} style={{ filter: 'blur(3px)' }} />
         {/* Left road dashed */}
-        <path d={leftRoadPath} fill="none" stroke="url(#road-left)"
+        <path d={activeLeft} fill="none" stroke="url(#road-left)"
           strokeWidth={1.1} strokeLinecap="round" strokeLinejoin="round"
           strokeDasharray="2.2 2.6" opacity={0.78} />
         {/* Right road glow */}
-        <path d={rightRoadPath} fill="none" stroke="url(#road-right)"
+        <path d={activeRight} fill="none" stroke="url(#road-right)"
           strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round"
           opacity={0.18} style={{ filter: 'blur(3px)' }} />
         {/* Right road dashed */}
-        <path d={rightRoadPath} fill="none" stroke="url(#road-right)"
+        <path d={activeRight} fill="none" stroke="url(#road-right)"
           strokeWidth={1.1} strokeLinecap="round" strokeLinejoin="round"
           strokeDasharray="2.2 2.6" opacity={0.78} />
       </svg>
       {platforms.map(({ Icon, label }, i) => {
-        const slot = RANDOM_ICON_SLOTS[i % RANDOM_ICON_SLOTS.length];
+        const slots = isMobile ? MOBILE_ICON_SLOTS : RANDOM_ICON_SLOTS;
+        const slot = slots[i % slots.length];
         const color = PLATFORM_COLORS[label] ?? '#7b2cbf';
         const iconSize = isMobile ? 30 : 40;
         const rotation = STATIC_ICON_ROTATIONS[i % STATIC_ICON_ROTATIONS.length];
@@ -283,7 +302,7 @@ export default function Home() {
               </Link>
             </div>
 
-            <div className="mx-auto mt-8 inline-flex flex-wrap items-center justify-center gap-x-5 gap-y-2 rounded-full border border-[#eadff5] bg-white px-4 py-2 text-xs text-[#5d5768] sm:px-5">
+            <div className="relative z-[4] mx-auto mt-8 inline-flex flex-wrap items-center justify-center gap-x-5 gap-y-2 rounded-full border border-[#eadff5] bg-white px-4 py-2 text-xs text-[#5d5768] sm:px-5">
               <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#2f9e44]" /> No credit card required</span>
               <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#2f9e44]" /> Free plan forever</span>
               <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#2f9e44]" /> Cancel anytime</span>
