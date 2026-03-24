@@ -29,6 +29,7 @@ function SocialIconImg({
   if (!src) return null;
   const softenWhiteEdges = softenOnLight && (name === 'instagram' || name === 'x' || name === 'linkedin');
   const clipToCircle = name === 'x';
+  const clipToRoundedSquare = name === 'instagram';
   return (
     <span
       className="inline-flex items-center justify-center shrink-0"
@@ -36,6 +37,7 @@ function SocialIconImg({
         width: size,
         height: size,
         ...(clipToCircle ? { borderRadius: '9999px', overflow: 'hidden' } : {}),
+        ...(clipToRoundedSquare ? { borderRadius: `${Math.round(size * 0.24)}px`, overflow: 'hidden' } : {}),
       }}
     >
       <img
@@ -51,6 +53,7 @@ function SocialIconImg({
           maxHeight: size,
           display: 'block',
           objectFit: 'contain',
+          ...(clipToRoundedSquare ? { transform: 'scale(1.08)' } : {}),
           ...(softenWhiteEdges
             ? { mixBlendMode: 'multiply', filter: 'contrast(1.05) saturate(1.03)' }
             : {}),
