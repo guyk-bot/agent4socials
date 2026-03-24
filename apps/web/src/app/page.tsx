@@ -79,16 +79,16 @@ const PLATFORM_COLORS: Record<string, string> = {
 
 const RANDOM_ICON_SLOTS = [
   // Mid band between subtitle and lower section, with side bias.
-  { x: 8, y: 60 },
-  { x: 14, y: 72 },
-  { x: 20, y: 78 },
-  { x: 26, y: 66 },
-  { x: 74, y: 66 },
-  { x: 80, y: 78 },
-  { x: 86, y: 72 },
-  { x: 92, y: 60 },
-  { x: 30, y: 76 },
-  { x: 70, y: 76 },
+  { x: 8, y: 68 },
+  { x: 14, y: 80 },
+  { x: 20, y: 86 },
+  { x: 26, y: 74 },
+  { x: 74, y: 74 },
+  { x: 80, y: 86 },
+  { x: 86, y: 80 },
+  { x: 92, y: 68 },
+  { x: 30, y: 84 },
+  { x: 70, y: 84 },
 ] as const;
 
 function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
@@ -127,7 +127,7 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
   return (
     <div
       ref={ref}
-      className="pointer-events-none absolute inset-x-0 top-56 z-[3] mx-auto h-[210px] max-w-6xl overflow-hidden px-2 sm:top-60 sm:h-[220px] sm:px-0"
+      className="pointer-events-none absolute inset-x-0 top-[15.5rem] z-[3] mx-auto h-[220px] max-w-6xl overflow-hidden px-2 sm:top-[16.5rem] sm:h-[230px] sm:px-0"
       aria-hidden="true"
     >
       {platforms.map(({ Icon, label }, i) => {
