@@ -13,6 +13,7 @@ import {
     Plus,
     Zap,
     Sparkles,
+    Gem,
     PanelLeftClose,
     HelpCircle,
 } from 'lucide-react';
@@ -163,7 +164,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                 <span className="truncate flex-1 font-medium">{PLATFORM_LABELS[platform]}</span>
                 {needsUpgrade ? (
                   <span className="shrink-0 flex items-center text-violet-600" aria-hidden title="Upgrade to connect">
-                    <img src="/dim.svg" alt="" className="h-4 w-4 object-contain" width={16} height={16} />
+                    <Gem size={14} className="text-violet-600" aria-hidden />
                   </span>
                 ) : null}
                 <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 hover:bg-neutral-300">

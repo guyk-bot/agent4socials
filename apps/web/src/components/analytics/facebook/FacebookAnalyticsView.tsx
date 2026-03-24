@@ -15,7 +15,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { ChevronRight, ExternalLink, Info, MessageSquare, Star } from 'lucide-react';
+import { ChevronRight, ExternalLink, Gem, Info, MessageSquare, Star } from 'lucide-react';
 import { AnalyticsDateRangePicker } from '../AnalyticsDateRangePicker';
 import type { FacebookInsights, FacebookPost } from './types';
 import { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids';
@@ -678,6 +678,13 @@ export function FacebookAnalyticsView({
   const bundle = insights?.facebookAnalytics;
   const profile = insights?.facebookPageProfile;
   const community = insights?.facebookCommunity;
+  const profileUrl = useMemo(() => {
+    const username = profile?.username?.trim();
+    if (username) return `https://www.facebook.com/${username}`;
+    const website = profile?.website?.trim();
+    if (website) return website;
+    return null;
+  }, [profile?.username, profile?.website]);
   const postsInRange = useMemo(
     () => posts.filter((p) => inRange(p.publishedAt, dateRange.start, dateRange.end)),
     [posts, dateRange.end, dateRange.start]
@@ -853,7 +860,7 @@ export function FacebookAnalyticsView({
             className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold"
             style={{ background: '#ffffff', color: COLOR.violet, boxShadow: '0 1px 8px rgba(15,23,42,0.08)' }}
           >
-            <img src="/dim.svg" alt="" className="h-3.5 w-3.5 object-contain" width={14} height={14} aria-hidden />
+            <Gem size={14} className="text-violet-500" aria-hidden />
             Upgrade
           </button>
         </section>
@@ -862,24 +869,53 @@ export function FacebookAnalyticsView({
       <section className="rounded-[20px] p-3 md:p-3.5" style={{ background: COLOR.section }}>
         <div className="flex flex-wrap items-center gap-3 justify-between">
           <div className="flex items-center gap-2.5">
-            <div
-              className="h-11 w-11 shrink-0 overflow-hidden rounded-full"
-              style={{ display: accountAvatarUrl ? 'block' : 'none' }}
-            >
-              {accountAvatarUrl ? (
-                <img
-                  src={accountAvatarUrl}
-                  alt={profile?.name ? `${profile.name} avatar` : 'Account avatar'}
-                  className="h-full w-full object-cover"
-                  onError={(e) => {
-                    const wrap = e.currentTarget.parentElement as HTMLElement | null;
-                    if (wrap) wrap.style.display = 'none';
-                    const fallback = wrap?.nextElementSibling as HTMLElement | null;
-                    if (fallback) fallback.style.display = 'flex';
-                  }}
-                />
-              ) : null}
-            </div>
+            {profileUrl ? (
+              <a
+                href={profileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Open Facebook profile"
+                className="shrink-0"
+              >
+                <div
+                  className="h-11 w-11 overflow-hidden rounded-full"
+                  style={{ display: accountAvatarUrl ? 'block' : 'none' }}
+                >
+                  {accountAvatarUrl ? (
+                    <img
+                      src={accountAvatarUrl}
+                      alt={profile?.name ? `${profile.name} avatar` : 'Account avatar'}
+                      className="h-full w-full object-cover"
+                      onError={(e) => {
+                        const wrap = e.currentTarget.parentElement as HTMLElement | null;
+                        if (wrap) wrap.style.display = 'none';
+                        const fallback = wrap?.parentElement?.nextElementSibling as HTMLElement | null;
+                        if (fallback) fallback.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                </div>
+              </a>
+            ) : (
+              <div
+                className="h-11 w-11 shrink-0 overflow-hidden rounded-full"
+                style={{ display: accountAvatarUrl ? 'block' : 'none' }}
+              >
+                {accountAvatarUrl ? (
+                  <img
+                    src={accountAvatarUrl}
+                    alt={profile?.name ? `${profile.name} avatar` : 'Account avatar'}
+                    className="h-full w-full object-cover"
+                    onError={(e) => {
+                      const wrap = e.currentTarget.parentElement as HTMLElement | null;
+                      if (wrap) wrap.style.display = 'none';
+                      const fallback = wrap?.nextElementSibling as HTMLElement | null;
+                      if (fallback) fallback.style.display = 'flex';
+                    }}
+                  />
+                ) : null}
+              </div>
+            )}
             <div
               className="h-11 w-11 rounded-full items-center justify-center text-base font-semibold"
               style={{

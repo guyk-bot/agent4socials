@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useEffect, useMemo, useState } from 'react';
-import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Gem } from 'lucide-react';
 import { toLocalCalendarDate } from '@/lib/calendar-date';
 
 /** Presets; anything beyond 30 days is premium (diamond). highlight = default purple tint for paid periods. */
@@ -132,13 +132,13 @@ function CalendarGrid({
   const isCurrentMonth = (dateStr: string) => dateStr.startsWith(`${year}-${String(month + 1).padStart(2, '0')}-`);
 
   // Tighten horizontal day spacing; keep vertical a little roomier.
-  const gapX = compact ? 'gap-x-0' : 'gap-x-0';
+  const gapX = compact ? 'gap-x-0.5' : 'gap-x-0.5';
   const gapY = compact ? 'gap-y-0.5' : 'gap-y-0.5';
-  const cellSize = compact ? 'w-8 min-w-8 h-8 min-h-8 text-xs' : 'w-9 h-9 min-w-9 min-h-9 sm:w-10 sm:h-10 sm:min-w-10 sm:min-h-10 text-sm';
+  const cellSize = compact ? 'w-full h-8 min-h-8 text-xs' : 'w-full h-9 min-h-9 sm:h-9 sm:min-h-9 text-sm';
   const headerSize = compact ? 'h-5 text-[10px]' : 'h-6 text-xs';
 
   return (
-    <div className="calendar-grid shrink-0 w-full min-w-[336px]">
+    <div className="calendar-grid shrink-0 w-full min-w-[308px]">
       {showMonthTitle && (title || !compact) && (
         <div className={`flex items-center justify-center font-semibold text-neutral-700 mb-2 ${compact ? 'text-xs' : 'text-base'}`}>
           {title ?? new Date(year, month).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
@@ -164,7 +164,7 @@ function CalendarGrid({
               type="button"
               onClick={() => onSelectDay(dateStr)}
               className={`
-                aspect-square ${cellSize} rounded-lg font-semibold
+                ${cellSize} rounded-lg font-semibold
                 flex items-center justify-center p-0 leading-none tabular-nums
                 ${!currentMonth ? 'text-neutral-300' : 'text-neutral-800'}
                 ${inRange && !startOrEnd ? 'bg-violet-100' : ''}
@@ -305,7 +305,7 @@ export function AnalyticsDateRangePicker({
                 >
                   <span>{p.label}</span>
                   {p.premium && (
-                    <img src="/dim.svg" alt="" className="h-4 w-4 object-contain shrink-0 opacity-80" width={16} height={16} aria-hidden />
+                    <Gem size={14} className="text-violet-500 shrink-0" aria-hidden />
                   )}
                 </button>
               ))}
