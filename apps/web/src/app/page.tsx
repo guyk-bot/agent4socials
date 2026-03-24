@@ -120,9 +120,11 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
   const leftRoadPath  = 'M 1 15 C 12 20, -3 28, 9 37 C 20 44, -2 52, 10 63 C 18 70, 26 72, 22 75 C 19 82, 22 92, 24 103';
   const rightRoadPath = 'M 97 12 C 84 18, 102 32, 91 42 C 80 52, 100 60, 76 69 C 66 78, 68 90, 70 103';
 
-  // Mobile roads – bow outward through the subtitle zone so the line never crosses the text
-  const mobileLeftRoadPath  = 'M 7 5 C 14 10, 2 16, 7 20 C 16 28, -4 36, 1 42 C -3 50, -2 57, 2 62 C 7 69, 26 79, 46 88 C 48 94, 49 99, 49 103';
-  const mobileRightRoadPath = 'M 94 4 C 84 10, 100 18, 91 20 C 100 28, 106 44, 100 53 C 104 61, 100 66, 94 70 C 78 80, 58 85, 53 88 C 51 94, 50 99, 50 103';
+  // Mobile roads – each segment ends exactly on an icon; control points bow outward around subtitle
+  // Left: Facebook(7,5)→Instagram(7,20)→[bow left past subtitle]→YouTube(9,42)→TikTok(8,60)→center(49,88)
+  const mobileLeftRoadPath  = 'M 7 5 C 12 10, 2 16, 7 20 C -8 27, -5 36, 9 42 C 12 50, 6 56, 8 60 C 9 68, 27 79, 46 88 C 48 94, 49 99, 49 103';
+  // Right: X(94,4)→LinkedIn(91,20)→[bow right past subtitle]→Pinterest(87,53)→center(51,88)
+  const mobileRightRoadPath = 'M 94 4 C 84 10, 100 17, 91 20 C 108 27, 106 44, 87 53 C 78 62, 60 79, 52 88 C 51 94, 50 99, 50 103';
 
   const activeLeft  = isMobile ? mobileLeftRoadPath  : leftRoadPath;
   const activeRight = isMobile ? mobileRightRoadPath : rightRoadPath;
