@@ -383,11 +383,11 @@ export function InsightChartCard({
       </div>
       <div className="mt-3 h-[300px] pb-5 relative">
         <div className="pointer-events-none absolute inset-0 z-0" aria-hidden>
-          <span className="absolute left-[4%] top-[8%] text-[13px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.16)' }}>Agent4Socials</span>
-          <span className="absolute right-[4%] top-[8%] text-[13px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.16)' }}>Agent4Socials</span>
+          <span className="absolute left-[1.5%] top-[14%] text-[13px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.16)' }}>Agent4Socials</span>
+          <span className="absolute right-[1.5%] top-[14%] text-[13px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.16)' }}>Agent4Socials</span>
           <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[13px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.16)' }}>Agent4Socials</span>
-          <span className="absolute left-[4%] bottom-[10%] text-[13px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.16)' }}>Agent4Socials</span>
-          <span className="absolute right-[4%] bottom-[10%] text-[13px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.16)' }}>Agent4Socials</span>
+          <span className="absolute left-[1.5%] bottom-[8%] text-[13px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.16)' }}>Agent4Socials</span>
+          <span className="absolute right-[1.5%] bottom-[8%] text-[13px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.16)' }}>Agent4Socials</span>
         </div>
         <div className="relative z-[1] h-full">{children}</div>
       </div>
