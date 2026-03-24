@@ -57,13 +57,15 @@ const PRO_HIGHLIGHTS = [
 ];
 
 const HERO_PLATFORMS = [
-  { Icon: FacebookIcon, label: 'Facebook' },
+  // Left column (indices 0-3)
+  { Icon: FacebookIcon,  label: 'Facebook' },
   { Icon: InstagramIcon, label: 'Instagram' },
-  { Icon: YoutubeIcon, label: 'YouTube' },
-  { Icon: TikTokIcon, label: 'TikTok' },
-  { Icon: XTwitterIcon, label: 'Twitter/X' },
-  { Icon: LinkedinIcon, label: 'LinkedIn' },
+  { Icon: LinkedinIcon,  label: 'LinkedIn' },
   { Icon: PinterestIcon, label: 'Pinterest' },
+  // Right column (indices 4-6)
+  { Icon: XTwitterIcon,  label: 'Twitter/X' },
+  { Icon: YoutubeIcon,   label: 'YouTube' },
+  { Icon: TikTokIcon,    label: 'TikTok' },
 ] as const;
 
 // Brand colors for each social platform icon
@@ -119,18 +121,18 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
     >
       <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
         <defs>
-          {/* Left road: Facebook blue → Instagram pink → YouTube red → TikTok teal */}
+          {/* Left road: Facebook blue → Instagram pink → LinkedIn blue → Pinterest red */}
           <linearGradient id="road-left" x1="3" y1="15" x2="14" y2="103" gradientUnits="userSpaceOnUse">
             <stop offset="0%"   stopColor="#1877f2" />
             <stop offset="33%"  stopColor="#e1306c" />
-            <stop offset="66%"  stopColor="#ff0000" />
-            <stop offset="100%" stopColor="#69c9d0" />
+            <stop offset="66%"  stopColor="#0a66c2" />
+            <stop offset="100%" stopColor="#e60023" />
           </linearGradient>
-          {/* Right road: Pinterest red → LinkedIn blue → X/Twitter black */}
+          {/* Right road: X black → YouTube red → TikTok black */}
           <linearGradient id="road-right" x1="97" y1="12" x2="84" y2="103" gradientUnits="userSpaceOnUse">
-            <stop offset="0%"   stopColor="#e60023" />
-            <stop offset="45%"  stopColor="#0a66c2" />
-            <stop offset="100%" stopColor="#333333" />
+            <stop offset="0%"   stopColor="#111111" />
+            <stop offset="50%"  stopColor="#ff0000" />
+            <stop offset="100%" stopColor="#111111" />
           </linearGradient>
         </defs>
         {/* Left road glow */}
