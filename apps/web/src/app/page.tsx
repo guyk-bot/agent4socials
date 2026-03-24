@@ -92,11 +92,11 @@ const RANDOM_ICON_SLOTS = [
 const MOBILE_ICON_SLOTS = [
   { x: 7,  y: 5  }, // Facebook
   { x: 7,  y: 20 }, // Instagram
-  { x: 9,  y: 39 }, // YouTube   – moved up
-  { x: 8,  y: 56 }, // TikTok    – moved up
+  { x: 11, y: 37 }, // YouTube   – moved up/right
+  { x: 8,  y: 54 }, // TikTok    – moved up
   { x: 94, y: 4  }, // X/Twitter
   { x: 91, y: 20 }, // LinkedIn
-  { x: 87, y: 49 }, // Pinterest – moved up
+  { x: 87, y: 47 }, // Pinterest – moved up
 ] as const;
 
 const STATIC_ICON_ROTATIONS = [-14, 9, -18, 6, 12, -9, 16] as const;
@@ -122,9 +122,9 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
 
   // Mobile roads – stay inside frame and pass through each mobile icon
   // Left: Facebook(7,5)→Instagram(7,20)→YouTube(9,39)→TikTok(8,56)→center(49,88)
-  const mobileLeftRoadPath  = 'M 7 5 C 12 10, 3 16, 7 20 C 13 27, 2 34, 9 39 C 14 46, 7 52, 8 56 C 9 66, 27 79, 46 88 C 48 94, 49 99, 49 103';
+  const mobileLeftRoadPath  = 'M 7 5 C 12 10, 3 16, 7 20 C 14 27, 4 33, 11 37 C 16 44, 8 50, 8 54 C 9 64, 27 79, 46 88 C 48 94, 49 99, 49 103';
   // Right: X(94,4)→LinkedIn(91,20)→Pinterest(87,49)→center(51,88)
-  const mobileRightRoadPath = 'M 94 4 C 85 10, 98 17, 91 20 C 96 28, 98 41, 87 49 C 79 58, 60 79, 52 88 C 51 94, 50 99, 50 103';
+  const mobileRightRoadPath = 'M 94 4 C 85 10, 98 17, 91 20 C 96 28, 98 40, 87 47 C 79 56, 60 79, 52 88 C 51 94, 50 99, 50 103';
 
   const activeLeft  = isMobile ? mobileLeftRoadPath  : leftRoadPath;
   const activeRight = isMobile ? mobileRightRoadPath : rightRoadPath;
