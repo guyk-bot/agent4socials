@@ -1078,7 +1078,7 @@ export function FacebookAnalyticsView({
               ? [{ label: 'Content Views', color: COLOR.amber }, { label: 'Page Visits', color: '#d72661' }]
               : storyMode === 'engagement'
                 ? [{ label: 'Engagements', color: COLOR.violet }]
-                : [{ label: 'Followers', color: COLOR.mint }, { label: 'New followers', color: COLOR.amber }]
+                : [{ label: 'Followers', color: COLOR.mint }]
           }
         >
           <div className="mb-3 flex gap-2">
@@ -1115,7 +1115,7 @@ export function FacebookAnalyticsView({
                 labelFormatter={(l) => formatShortDate(String(l))}
               />
               <Area type="monotone" dataKey="primary" stroke={storyMode === 'growth' ? COLOR.mint : storyMode === 'views' ? COLOR.amber : COLOR.violet} fill="url(#primaryStory)" strokeWidth={2.2} />
-              {storyMode !== 'engagement' ? <Line type="monotone" dataKey="secondary" stroke={storyMode === 'views' ? '#d72661' : COLOR.amber} strokeWidth={2} dot={false} /> : null}
+              {storyMode === 'views' ? <Line type="monotone" dataKey="secondary" stroke={'#d72661'} strokeWidth={2} dot={false} /> : null}
             </AreaChart>
           </ResponsiveContainer>
         </InsightChartCard>
