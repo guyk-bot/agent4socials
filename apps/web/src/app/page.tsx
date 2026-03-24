@@ -116,33 +116,34 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
     return () => media.removeEventListener('change', update);
   }, []);
 
-  // Road segments use explicit colors so each icon area matches exactly.
+  // Road segments use explicit per-segment gradients between neighboring icon colors.
   const desktopLeftRoadSegments = [
-    { d: 'M 1 15 C 12 20, -3 28, 9 37', color: '#fd1d8e' },
-    { d: 'M 9 37 C 20 44, -2 52, 10 63', color: '#ff0000' },
-    { d: 'M 10 63 C 18 70, 26 72, 22 75', color: '#111111' },
-    { d: 'M 22 75 C 19 82, 22 92, 24 103', color: '#111111' },
+    { id: 'dl-0', d: 'M 1 15 C 12 20, -3 28, 9 37', from: '#1877f2', to: '#fd1d8e', x1: 1, y1: 15, x2: 9, y2: 37 },
+    { id: 'dl-1', d: 'M 9 37 C 20 44, -2 52, 10 63', from: '#fd1d8e', to: '#ff0000', x1: 9, y1: 37, x2: 10, y2: 63 },
+    { id: 'dl-2', d: 'M 10 63 C 18 70, 26 72, 22 75', from: '#ff0000', to: '#111111', x1: 10, y1: 63, x2: 22, y2: 75 },
+    { id: 'dl-3', d: 'M 22 75 C 19 82, 22 92, 24 103', from: '#111111', to: '#111111', x1: 22, y1: 75, x2: 24, y2: 103 },
   ] as const;
   const desktopRightRoadSegments = [
-    { d: 'M 97 12 C 84 18, 102 32, 91 42', color: '#0a66c2' },
-    { d: 'M 91 42 C 80 52, 100 60, 76 69', color: '#e60023' },
-    { d: 'M 76 69 C 66 78, 68 90, 70 103', color: '#e60023' },
+    { id: 'dr-0', d: 'M 97 12 C 84 18, 102 32, 91 42', from: '#111111', to: '#0a66c2', x1: 97, y1: 12, x2: 91, y2: 42 },
+    { id: 'dr-1', d: 'M 91 42 C 80 52, 100 60, 76 69', from: '#0a66c2', to: '#e60023', x1: 91, y1: 42, x2: 76, y2: 69 },
+    { id: 'dr-2', d: 'M 76 69 C 66 78, 68 90, 70 103', from: '#e60023', to: '#e60023', x1: 76, y1: 69, x2: 70, y2: 103 },
   ] as const;
 
   const mobileLeftRoadSegments = [
-    { d: 'M 7 5 C 12 10, 3 16, 7 20', color: '#fd1d8e' },
-    { d: 'M 7 20 C 15 26, 5 32, 12 35', color: '#ff0000' },
-    { d: 'M 12 35 C 16 42, 8 48, 8 52', color: '#111111' },
-    { d: 'M 8 52 C 9 62, 27 79, 46 88 C 48 94, 49 99, 49 103', color: '#111111' },
+    { id: 'ml-0', d: 'M 7 5 C 12 10, 3 16, 7 20', from: '#1877f2', to: '#fd1d8e', x1: 7, y1: 5, x2: 7, y2: 20 },
+    { id: 'ml-1', d: 'M 7 20 C 15 26, 5 32, 12 35', from: '#fd1d8e', to: '#ff0000', x1: 7, y1: 20, x2: 12, y2: 35 },
+    { id: 'ml-2', d: 'M 12 35 C 16 42, 8 48, 8 52', from: '#ff0000', to: '#111111', x1: 12, y1: 35, x2: 8, y2: 52 },
+    { id: 'ml-3', d: 'M 8 52 C 9 62, 27 79, 46 88 C 48 94, 49 99, 49 103', from: '#111111', to: '#111111', x1: 8, y1: 52, x2: 49, y2: 103 },
   ] as const;
   const mobileRightRoadSegments = [
-    { d: 'M 94 4 C 85 10, 98 17, 91 20', color: '#0a66c2' },
-    { d: 'M 91 20 C 96 27, 98 38, 87 45', color: '#e60023' },
-    { d: 'M 87 45 C 79 54, 60 79, 52 88 C 51 94, 50 99, 50 103', color: '#e60023' },
+    { id: 'mr-0', d: 'M 94 4 C 85 10, 98 17, 91 20', from: '#111111', to: '#0a66c2', x1: 94, y1: 4, x2: 91, y2: 20 },
+    { id: 'mr-1', d: 'M 91 20 C 96 27, 98 38, 87 45', from: '#0a66c2', to: '#e60023', x1: 91, y1: 20, x2: 87, y2: 45 },
+    { id: 'mr-2', d: 'M 87 45 C 79 54, 60 79, 52 88 C 51 94, 50 99, 50 103', from: '#e60023', to: '#e60023', x1: 87, y1: 45, x2: 50, y2: 103 },
   ] as const;
 
   const activeLeftSegments = isMobile ? mobileLeftRoadSegments : desktopLeftRoadSegments;
   const activeRightSegments = isMobile ? mobileRightRoadSegments : desktopRightRoadSegments;
+  const activeSegments = [...activeLeftSegments, ...activeRightSegments];
 
   return (
     <div
@@ -151,12 +152,28 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
       aria-hidden="true"
     >
       <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-        {activeLeftSegments.map((segment, idx) => (
-          <g key={`left-segment-${idx}`}>
+        <defs>
+          {activeSegments.map((segment) => (
+            <linearGradient
+              key={`grad-${segment.id}`}
+              id={`grad-${segment.id}`}
+              x1={segment.x1}
+              y1={segment.y1}
+              x2={segment.x2}
+              y2={segment.y2}
+              gradientUnits="userSpaceOnUse"
+            >
+              <stop offset="0%" stopColor={segment.from} />
+              <stop offset="100%" stopColor={segment.to} />
+            </linearGradient>
+          ))}
+        </defs>
+        {activeLeftSegments.map((segment) => (
+          <g key={`left-segment-${segment.id}`}>
             <path
               d={segment.d}
               fill="none"
-              stroke={segment.color}
+              stroke={`url(#grad-${segment.id})`}
               strokeWidth={2.4}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -166,7 +183,7 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
             <path
               d={segment.d}
               fill="none"
-              stroke={segment.color}
+              stroke={`url(#grad-${segment.id})`}
               strokeWidth={1.1}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -175,12 +192,12 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
             />
           </g>
         ))}
-        {activeRightSegments.map((segment, idx) => (
-          <g key={`right-segment-${idx}`}>
+        {activeRightSegments.map((segment) => (
+          <g key={`right-segment-${segment.id}`}>
             <path
               d={segment.d}
               fill="none"
-              stroke={segment.color}
+              stroke={`url(#grad-${segment.id})`}
               strokeWidth={2.4}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -190,7 +207,7 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
             <path
               d={segment.d}
               fill="none"
-              stroke={segment.color}
+              stroke={`url(#grad-${segment.id})`}
               strokeWidth={1.1}
               strokeLinecap="round"
               strokeLinejoin="round"
