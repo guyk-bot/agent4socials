@@ -17,6 +17,7 @@ const SOCIAL_ICON_SRC: Record<string, string> = {
 function SocialIconImg({ name, size = 24, className = '' }: { name: keyof typeof SOCIAL_ICON_SRC; size?: number; className?: string }) {
   const src = SOCIAL_ICON_SRC[name];
   if (!src) return null;
+  const softenWhiteEdges = name === 'instagram' || name === 'x' || name === 'linkedin';
   return (
     <span className="inline-flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
       <img
@@ -25,7 +26,18 @@ function SocialIconImg({ name, size = 24, className = '' }: { name: keyof typeof
         width={size}
         height={size}
         className={className}
-        style={{ width: size, height: size, maxWidth: size, maxHeight: size, display: 'block', objectFit: 'contain' }}
+        style={{
+          width: size,
+          height: size,
+          maxWidth: size,
+          maxHeight: size,
+          display: 'block',
+          objectFit: 'contain',
+          // Remove visible white icon edges on light backgrounds.
+          ...(softenWhiteEdges
+            ? { mixBlendMode: 'multiply', filter: 'contrast(1.05) saturate(1.03)' }
+            : {}),
+        }}
       />
     </span>
   );
