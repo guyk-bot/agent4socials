@@ -120,8 +120,8 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
   const desktopLeftRoadSegments = [
     { id: 'dl-0', d: 'M 1 15 C 12 20, -3 28, 9 37', from: '#1877f2', to: '#fd1d8e', x1: 1, y1: 15, x2: 9, y2: 37 },
     { id: 'dl-1', d: 'M 9 37 C 20 44, -2 52, 10 63', from: '#fd1d8e', to: '#ff0000', x1: 9, y1: 37, x2: 10, y2: 63 },
-    { id: 'dl-2', d: 'M 10 63 C 18 70, 26 72, 22 75', from: '#ff0000', to: '#111111', x1: 10, y1: 63, x2: 22, y2: 75 },
-    { id: 'dl-3', d: 'M 22 75 C 18 78, 34 94, 50 103', from: '#111111', to: '#111111', x1: 22, y1: 75, x2: 50, y2: 103 },
+    { id: 'dl-2', d: 'M 10 63 C 18 68, 20 72, 22 75', from: '#ff0000', to: '#111111', x1: 10, y1: 63, x2: 22, y2: 75 },
+    { id: 'dl-3', d: 'M 22 75 C 24 82, 36 94, 50 103', from: '#111111', to: '#111111', x1: 22, y1: 75, x2: 50, y2: 103 },
   ] as const;
   const desktopRightRoadSegments = [
     { id: 'dr-0', d: 'M 97 12 C 84 18, 102 32, 91 42', from: '#111111', to: '#0a66c2', x1: 97, y1: 12, x2: 91, y2: 42 },
