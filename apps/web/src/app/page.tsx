@@ -78,17 +78,17 @@ const PLATFORM_COLORS: Record<string, string> = {
 };
 
 const RANDOM_ICON_SLOTS = [
-  // Keep logos in the CTA + trust-badges zone only
-  { x: 14, y: 68 },
-  { x: 22, y: 84 },
-  { x: 34, y: 90 },
-  { x: 48, y: 86 },
-  { x: 60, y: 90 },
-  { x: 74, y: 84 },
-  { x: 86, y: 68 },
-  { x: 28, y: 74 },
-  { x: 72, y: 74 },
-  { x: 50, y: 94 },
+  // Keep logos away from heading/copy: lower and wider side spread.
+  { x: 8, y: 62 },
+  { x: 16, y: 78 },
+  { x: 26, y: 92 },
+  { x: 38, y: 72 },
+  { x: 62, y: 72 },
+  { x: 74, y: 92 },
+  { x: 84, y: 78 },
+  { x: 92, y: 62 },
+  { x: 22, y: 58 },
+  { x: 78, y: 58 },
 ] as const;
 
 function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
@@ -127,7 +127,7 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
   return (
     <div
       ref={ref}
-      className="pointer-events-none absolute inset-x-0 top-44 z-[3] mx-auto h-[200px] max-w-5xl overflow-hidden px-2 sm:top-48 sm:h-[220px] sm:px-0"
+      className="pointer-events-none absolute inset-x-0 top-52 z-[3] mx-auto h-[220px] max-w-6xl overflow-hidden px-2 sm:top-56 sm:h-[240px] sm:px-0"
       aria-hidden="true"
     >
       {platforms.map(({ Icon, label }, i) => {
