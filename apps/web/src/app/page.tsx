@@ -90,13 +90,13 @@ const RANDOM_ICON_SLOTS = [
 
 // Mobile positions
 const MOBILE_ICON_SLOTS = [
-  { x: 7,  y: 5  }, // Facebook  – up and right
-  { x: 7,  y: 20 }, // Instagram – unchanged
-  { x: 9,  y: 42 }, // YouTube   – nudged right
-  { x: 8,  y: 60 }, // TikTok    – unchanged
-  { x: 94, y: 4  }, // X/Twitter – moved up
-  { x: 91, y: 20 }, // LinkedIn  – moved up
-  { x: 87, y: 53 }, // Pinterest – unchanged
+  { x: 7,  y: 5  }, // Facebook
+  { x: 7,  y: 20 }, // Instagram
+  { x: 9,  y: 39 }, // YouTube   – moved up
+  { x: 8,  y: 56 }, // TikTok    – moved up
+  { x: 94, y: 4  }, // X/Twitter
+  { x: 91, y: 20 }, // LinkedIn
+  { x: 87, y: 49 }, // Pinterest – moved up
 ] as const;
 
 const STATIC_ICON_ROTATIONS = [-14, 9, -18, 6, 12, -9, 16] as const;
@@ -120,11 +120,11 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
   const leftRoadPath  = 'M 1 15 C 12 20, -3 28, 9 37 C 20 44, -2 52, 10 63 C 18 70, 26 72, 22 75 C 19 82, 22 92, 24 103';
   const rightRoadPath = 'M 97 12 C 84 18, 102 32, 91 42 C 80 52, 100 60, 76 69 C 66 78, 68 90, 70 103';
 
-  // Mobile roads – each segment ends exactly on an icon; control points bow outward around subtitle
-  // Left: Facebook(7,5)→Instagram(7,20)→[bow left past subtitle]→YouTube(9,42)→TikTok(8,60)→center(49,88)
-  const mobileLeftRoadPath  = 'M 7 5 C 12 10, 2 16, 7 20 C -8 27, -5 36, 9 42 C 12 50, 6 56, 8 60 C 9 68, 27 79, 46 88 C 48 94, 49 99, 49 103';
-  // Right: X(94,4)→LinkedIn(91,20)→[bow right past subtitle]→Pinterest(87,53)→center(51,88)
-  const mobileRightRoadPath = 'M 94 4 C 84 10, 100 17, 91 20 C 108 27, 106 44, 87 53 C 78 62, 60 79, 52 88 C 51 94, 50 99, 50 103';
+  // Mobile roads – stay inside frame and pass through each mobile icon
+  // Left: Facebook(7,5)→Instagram(7,20)→YouTube(9,39)→TikTok(8,56)→center(49,88)
+  const mobileLeftRoadPath  = 'M 7 5 C 12 10, 3 16, 7 20 C 13 27, 2 34, 9 39 C 14 46, 7 52, 8 56 C 9 66, 27 79, 46 88 C 48 94, 49 99, 49 103';
+  // Right: X(94,4)→LinkedIn(91,20)→Pinterest(87,49)→center(51,88)
+  const mobileRightRoadPath = 'M 94 4 C 85 10, 98 17, 91 20 C 96 28, 98 41, 87 49 C 79 58, 60 79, 52 88 C 51 94, 50 99, 50 103';
 
   const activeLeft  = isMobile ? mobileLeftRoadPath  : leftRoadPath;
   const activeRight = isMobile ? mobileRightRoadPath : rightRoadPath;
