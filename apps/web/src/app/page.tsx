@@ -78,14 +78,14 @@ const PLATFORM_COLORS: Record<string, string> = {
 };
 
 const RANDOM_ICON_SLOTS = [
-  // Fixed placement matching marked hero zones (left, center-lower, right).
+  // Fixed placement matching user-marked circle zones.
   { x: 14, y: 30 },
-  { x: 18, y: 46 },
-  { x: 24, y: 64 },
-  { x: 50, y: 74 },
-  { x: 76, y: 30 },
-  { x: 82, y: 48 },
-  { x: 88, y: 66 },
+  { x: 22, y: 46 },
+  { x: 30, y: 66 },
+  { x: 46, y: 62 },
+  { x: 72, y: 64 },
+  { x: 80, y: 48 },
+  { x: 88, y: 36 },
 ] as const;
 
 const STATIC_ICON_ROTATIONS = [-10, 8, -7, 4, -6, 7, -8] as const;
@@ -103,18 +103,14 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
     return () => media.removeEventListener('change', update);
   }, []);
 
-  const connectionSlots = platforms.map((_, i) => RANDOM_ICON_SLOTS[i % RANDOM_ICON_SLOTS.length]);
-  const connectionPath = connectionSlots.reduce((acc, point, idx) => {
-    if (idx === 0) return `M ${point.x} ${point.y}`;
-    const prev = connectionSlots[idx - 1];
-    const midX = ((prev.x + point.x) / 2).toFixed(2);
-    return `${acc} C ${midX} ${prev.y}, ${midX} ${point.y}, ${point.x} ${point.y}`;
-  }, '');
+  // Two organic branches that flow down into the dashboard area.
+  const leftRoadPath = 'M 12 28 C 17 33, 18 41, 22 46 C 27 52, 28 60, 30 66 C 32 74, 33 84, 33 100';
+  const rightRoadPath = 'M 90 34 C 84 38, 82 44, 80 48 C 77 54, 75 60, 72 64 C 69 71, 68 82, 68 100';
 
   return (
     <div
       ref={ref}
-      className="pointer-events-none absolute inset-x-0 top-[12.75rem] z-[3] mx-auto h-[245px] max-w-6xl overflow-hidden px-2 sm:top-[13.75rem] sm:h-[255px] sm:px-0"
+      className="pointer-events-none absolute inset-x-0 top-[12.5rem] z-[3] mx-auto h-[255px] max-w-6xl overflow-hidden px-2 sm:top-[13.5rem] sm:h-[265px] sm:px-0"
       aria-hidden="true"
     >
       <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
@@ -126,7 +122,7 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
           </linearGradient>
         </defs>
         <path
-          d={connectionPath}
+          d={leftRoadPath}
           fill="none"
           stroke="url(#hero-logo-road)"
           strokeWidth={1.8}
@@ -136,7 +132,27 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
           style={{ filter: 'blur(2px)' }}
         />
         <path
-          d={connectionPath}
+          d={leftRoadPath}
+          fill="none"
+          stroke="url(#hero-logo-road)"
+          strokeWidth={1}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeDasharray="2 2.2"
+          opacity={0.7}
+        />
+        <path
+          d={rightRoadPath}
+          fill="none"
+          stroke="url(#hero-logo-road)"
+          strokeWidth={1.8}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          opacity={0.14}
+          style={{ filter: 'blur(2px)' }}
+        />
+        <path
+          d={rightRoadPath}
           fill="none"
           stroke="url(#hero-logo-road)"
           strokeWidth={1}
