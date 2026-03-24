@@ -148,7 +148,7 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
   return (
     <div
       ref={ref}
-      className="pointer-events-none absolute inset-x-0 top-[8rem] z-[3] mx-auto h-[680px] max-w-6xl px-2 sm:top-[8.5rem] sm:h-[560px] sm:px-0"
+      className="pointer-events-none absolute inset-x-0 top-[8rem] z-[3] mx-auto h-[680px] max-w-6xl px-2 sm:top-[6.75rem] sm:h-[560px] sm:px-0"
       aria-hidden="true"
     >
       <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
