@@ -120,7 +120,7 @@ export default function PricingCard({
             ? 'bg-[linear-gradient(135deg,#7b2cbf,#d7263d)] text-white shadow hover:opacity-95 active:scale-[0.98]'
             : isFree
               ? 'border border-[#d6c4ea] bg-white text-[#6f2dbd] hover:border-[#7b2cbf] hover:bg-[#f8f4fc]'
-              : 'bg-[linear-gradient(135deg,#7b2cbf,#e11d48)] text-white hover:opacity-95 active:scale-[0.98]'
+              : 'bg-[#7b2cbf] text-white shadow hover:bg-[#6f2dbd] active:scale-[0.98]'
         }`}
       >
         {ctaText}
