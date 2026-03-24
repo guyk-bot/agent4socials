@@ -95,6 +95,7 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
   const ref = useRef<HTMLDivElement>(null);
   const [positions, setPositions] = useState<Array<{ x: number; y: number }>>([]);
   const [inView, setInView] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     const shuffled = [...RANDOM_ICON_SLOTS].sort(() => Math.random() - 0.5);
@@ -114,6 +115,15 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const media = window.matchMedia('(max-width: 639px)');
+    const update = () => setIsMobile(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+
   return (
     <div
       ref={ref}
@@ -123,7 +133,7 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
       {platforms.map(({ Icon, label }, i) => {
         const slot = positions[i] ?? RANDOM_ICON_SLOTS[i % RANDOM_ICON_SLOTS.length];
         const color = PLATFORM_COLORS[label] ?? '#7b2cbf';
-        const iconSize = 48;
+        const iconSize = isMobile ? 36 : 48;
         return (
           <div
             key={label}
