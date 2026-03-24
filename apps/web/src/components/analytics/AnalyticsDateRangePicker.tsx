@@ -131,8 +131,8 @@ function CalendarGrid({
   const isEnd = (dateStr: string) => end === dateStr;
   const isCurrentMonth = (dateStr: string) => dateStr.startsWith(`${year}-${String(month + 1).padStart(2, '0')}-`);
 
-  const gapX = compact ? 'gap-x-0.5' : 'gap-x-1';
-  const gapY = compact ? 'gap-y-0' : 'gap-y-0';
+  // Keep horizontal/vertical spacing exactly equal for a balanced grid.
+  const gridGap = compact ? 'gap-0.5' : 'gap-0.5';
   const cellSize = compact ? 'w-8 min-w-8 h-8 min-h-8 text-xs' : 'w-9 h-9 min-w-9 min-h-9 sm:w-10 sm:h-10 sm:min-w-10 sm:min-h-10 text-sm';
   const headerSize = compact ? 'h-5 text-[10px]' : 'h-6 text-xs';
 
@@ -143,14 +143,14 @@ function CalendarGrid({
           {title ?? new Date(year, month).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
         </div>
       )}
-      <div className={`grid grid-cols-7 ${gapX} mb-1`}>
+      <div className={`grid grid-cols-7 ${gridGap} mb-1`}>
         {WEEKDAYS.map((w, i) => (
           <div key={i} className={`${headerSize} flex items-center justify-center font-semibold text-neutral-500`}>
             {w}
           </div>
         ))}
       </div>
-      <div className={`grid grid-cols-7 ${gapX} ${gapY} min-h-0 content-start`}>
+      <div className={`grid grid-cols-7 ${gridGap} min-h-0 content-start`}>
         {rows.flat().map((dateStr, i) => {
           if (!dateStr) return <div key={i} />;
           const inRange = isInRange(dateStr);
