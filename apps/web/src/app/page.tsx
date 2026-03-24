@@ -78,17 +78,17 @@ const PLATFORM_COLORS: Record<string, string> = {
 };
 
 const RANDOM_ICON_SLOTS = [
-  // Keep logos away from heading/copy: lower and wider side spread.
-  { x: 8, y: 62 },
-  { x: 16, y: 78 },
-  { x: 26, y: 92 },
-  { x: 38, y: 72 },
-  { x: 62, y: 72 },
-  { x: 74, y: 92 },
-  { x: 84, y: 78 },
-  { x: 92, y: 62 },
-  { x: 22, y: 58 },
-  { x: 78, y: 58 },
+  // Push logos below hero copy and bias them to side lanes.
+  { x: 5, y: 74 },
+  { x: 12, y: 90 },
+  { x: 22, y: 98 },
+  { x: 35, y: 88 },
+  { x: 65, y: 88 },
+  { x: 78, y: 98 },
+  { x: 88, y: 90 },
+  { x: 95, y: 74 },
+  { x: 30, y: 96 },
+  { x: 70, y: 96 },
 ] as const;
 
 function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
@@ -127,7 +127,7 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
   return (
     <div
       ref={ref}
-      className="pointer-events-none absolute inset-x-0 top-52 z-[3] mx-auto h-[220px] max-w-6xl overflow-hidden px-2 sm:top-56 sm:h-[240px] sm:px-0"
+      className="pointer-events-none absolute inset-x-0 top-64 z-[3] mx-auto h-[260px] max-w-6xl overflow-hidden px-2 sm:top-64 sm:h-[280px] sm:px-0"
       aria-hidden="true"
     >
       {platforms.map(({ Icon, label }, i) => {
