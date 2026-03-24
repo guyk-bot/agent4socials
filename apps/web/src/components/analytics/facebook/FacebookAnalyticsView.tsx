@@ -1020,7 +1020,7 @@ export function FacebookAnalyticsView({
           title="Performance Story"
           legend={
             storyMode === 'views'
-              ? [{ label: 'Content Views', color: COLOR.cyan }, { label: 'Page Visits', color: COLOR.violet }]
+              ? [{ label: 'Content Views', color: COLOR.cyan }, { label: 'Page Visits', color: '#d72661' }]
               : storyMode === 'engagement'
                 ? [{ label: 'Engagements', color: COLOR.violet }]
                 : [{ label: 'Followers', color: COLOR.mint }, { label: 'New followers', color: COLOR.amber }]
@@ -1060,7 +1060,7 @@ export function FacebookAnalyticsView({
                 labelFormatter={(l) => formatShortDate(String(l))}
               />
               <Area type="monotone" dataKey="primary" stroke={storyMode === 'growth' ? COLOR.mint : storyMode === 'views' ? COLOR.cyan : COLOR.violet} fill="url(#primaryStory)" strokeWidth={2.2} />
-              {storyMode !== 'engagement' ? <Line type="monotone" dataKey="secondary" stroke={storyMode === 'views' ? COLOR.violet : COLOR.amber} strokeWidth={2} dot={false} /> : null}
+              {storyMode !== 'engagement' ? <Line type="monotone" dataKey="secondary" stroke={storyMode === 'views' ? '#d72661' : COLOR.amber} strokeWidth={2} dot={false} /> : null}
             </AreaChart>
           </ResponsiveContainer>
         </InsightChartCard>
@@ -1113,7 +1113,7 @@ export function FacebookAnalyticsView({
 
         <InsightChartCard
           title="Content Views vs Page Visits"
-          legend={[{ label: 'Content Views', color: COLOR.cyan }, { label: 'Page Visits', color: COLOR.violet }]}
+          legend={[{ label: 'Content Views', color: COLOR.cyan }, { label: 'Page Visits', color: '#d72661' }]}
         >
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={viewVsVisit}>
@@ -1122,7 +1122,7 @@ export function FacebookAnalyticsView({
               <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
               <Tooltip contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }} formatter={(v: number | string | undefined) => formatNumber(Number(v) || 0)} labelFormatter={(l) => formatShortDate(String(l))} />
               <Line type="monotone" dataKey="views" stroke={COLOR.cyan} strokeWidth={2.2} dot={false} />
-              <Line type="monotone" dataKey="visits" stroke={COLOR.violet} strokeWidth={2.2} dot={false} />
+              <Line type="monotone" dataKey="visits" stroke={'#d72661'} strokeWidth={2.2} dot={false} />
             </AreaChart>
           </ResponsiveContainer>
         </InsightChartCard>
