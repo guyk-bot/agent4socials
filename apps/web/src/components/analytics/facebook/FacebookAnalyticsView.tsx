@@ -15,7 +15,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { ChevronRight, ExternalLink, Gem, Info, MessageSquare, Star } from 'lucide-react';
+import { ChevronRight, ExternalLink, Info, MessageSquare, Star } from 'lucide-react';
 import { AnalyticsDateRangePicker } from '../AnalyticsDateRangePicker';
 import type { FacebookInsights, FacebookPost } from './types';
 import { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids';
@@ -841,11 +841,11 @@ export function FacebookAnalyticsView({
     <div className="p-0 md:p-0.5 space-y-4" style={{ background: COLOR.pageBg, maxWidth: 1400 }}>
       {onUpgrade ? (
         <section
-          className="rounded-2xl px-4 py-2 md:px-4.5 md:py-2.5 flex flex-wrap items-center justify-between gap-2"
+          className="-mt-1 rounded-2xl px-4 py-2 md:px-4.5 md:py-2.5 flex flex-wrap items-center justify-between gap-2"
           style={{ background: 'linear-gradient(90deg, rgba(66,217,245,0.08), rgba(124,108,255,0.07), rgba(217,70,239,0.07))' }}
         >
           <p className="text-sm" style={{ color: COLOR.textSecondary }}>
-            Unlock more than 30 days of history without watermarks and more helpful features
+            Unlock more than 30 days of history without watermarks and more helpful features...
           </p>
           <button
             type="button"
@@ -853,7 +853,7 @@ export function FacebookAnalyticsView({
             className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold"
             style={{ background: '#ffffff', color: COLOR.violet, boxShadow: '0 1px 8px rgba(15,23,42,0.08)' }}
           >
-            <Gem size={14} />
+            <img src="/dim.svg" alt="" className="h-3.5 w-3.5 object-contain" width={14} height={14} aria-hidden />
             Upgrade
           </button>
         </section>
