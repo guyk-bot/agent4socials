@@ -28,8 +28,16 @@ function SocialIconImg({
   const src = SOCIAL_ICON_SRC[name];
   if (!src) return null;
   const softenWhiteEdges = softenOnLight && (name === 'instagram' || name === 'x' || name === 'linkedin');
+  const clipToCircle = name === 'x';
   return (
-    <span className="inline-flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
+    <span
+      className="inline-flex items-center justify-center shrink-0"
+      style={{
+        width: size,
+        height: size,
+        ...(clipToCircle ? { borderRadius: '9999px', overflow: 'hidden' } : {}),
+      }}
+    >
       <img
         src={src}
         alt=""

@@ -78,17 +78,17 @@ const PLATFORM_COLORS: Record<string, string> = {
 };
 
 const RANDOM_ICON_SLOTS = [
-  // Keep logos in side lanes only, avoid headline + CTA center column.
-  { x: 6, y: 64 },
-  { x: 10, y: 78 },
-  { x: 14, y: 90 },
-  { x: 20, y: 72 },
-  { x: 80, y: 72 },
-  { x: 86, y: 90 },
-  { x: 90, y: 78 },
-  { x: 94, y: 64 },
-  { x: 24, y: 86 },
-  { x: 76, y: 86 },
+  // Mid band between subtitle and lower section, with side bias.
+  { x: 8, y: 46 },
+  { x: 14, y: 58 },
+  { x: 20, y: 64 },
+  { x: 26, y: 52 },
+  { x: 74, y: 52 },
+  { x: 80, y: 64 },
+  { x: 86, y: 58 },
+  { x: 92, y: 46 },
+  { x: 30, y: 62 },
+  { x: 70, y: 62 },
 ] as const;
 
 function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
@@ -127,7 +127,7 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
   return (
     <div
       ref={ref}
-      className="pointer-events-none absolute inset-x-0 top-56 z-[3] mx-auto h-[240px] max-w-6xl overflow-hidden px-2 sm:top-58 sm:h-[250px] sm:px-0"
+      className="pointer-events-none absolute inset-x-0 top-48 z-[3] mx-auto h-[200px] max-w-6xl overflow-hidden px-2 sm:top-52 sm:h-[210px] sm:px-0"
       aria-hidden="true"
     >
       {platforms.map(({ Icon, label }, i) => {
