@@ -78,14 +78,14 @@ const PLATFORM_COLORS: Record<string, string> = {
 };
 
 const RANDOM_ICON_SLOTS = [
-  // Fixed placement matching user-marked circle zones.
-  { x: 14, y: 30 },
-  { x: 22, y: 46 },
-  { x: 30, y: 66 },
-  { x: 46, y: 62 },
-  { x: 72, y: 64 },
-  { x: 80, y: 48 },
-  { x: 88, y: 36 },
+  // Center logo cluster (roads stay on side branches).
+  { x: 20, y: 44 },
+  { x: 26, y: 52 },
+  { x: 32, y: 60 },
+  { x: 50, y: 66 },
+  { x: 68, y: 60 },
+  { x: 74, y: 52 },
+  { x: 80, y: 46 },
 ] as const;
 
 const STATIC_ICON_ROTATIONS = [-10, 8, -7, 4, -6, 7, -8] as const;
@@ -103,14 +103,24 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
     return () => media.removeEventListener('change', update);
   }, []);
 
-  // Two organic branches that flow down into the dashboard area.
-  const leftRoadPath = 'M 12 28 C 17 33, 18 41, 22 46 C 27 52, 28 60, 30 66 C 32 74, 33 84, 33 100';
-  const rightRoadPath = 'M 90 34 C 84 38, 82 44, 80 48 C 77 54, 75 60, 72 64 C 69 71, 68 82, 68 100';
+  // Side-only branch roads that flow toward the dashboard.
+  const leftRoadPath = 'M 8 24 C 10 30, 10 34, 14 36 C 20 39, 20 45, 22 50 C 24 57, 25 67, 30 72 C 34 77, 35 90, 35 100';
+  const rightRoadPath = 'M 92 26 C 88 30, 86 34, 80 36 C 76 39, 76 45, 74 50 C 72 57, 70 67, 70 72 C 70 80, 70 92, 70 100';
+  const leftRoadNodes = [
+    { x: 8, y: 24 },
+    { x: 22, y: 50 },
+    { x: 30, y: 72 },
+  ] as const;
+  const rightRoadNodes = [
+    { x: 92, y: 26 },
+    { x: 74, y: 50 },
+    { x: 70, y: 72 },
+  ] as const;
 
   return (
     <div
       ref={ref}
-      className="pointer-events-none absolute inset-x-0 top-[12.5rem] z-[3] mx-auto h-[255px] max-w-6xl overflow-hidden px-2 sm:top-[13.5rem] sm:h-[265px] sm:px-0"
+      className="pointer-events-none absolute inset-x-0 top-[12.5rem] z-[3] mx-auto h-[260px] max-w-6xl overflow-hidden px-2 sm:top-[13.25rem] sm:h-[270px] sm:px-0"
       aria-hidden="true"
     >
       <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
@@ -141,6 +151,16 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
           strokeDasharray="2 2.2"
           opacity={0.7}
         />
+        {leftRoadNodes.map((node, idx) => (
+          <circle
+            key={`left-node-${idx}`}
+            cx={node.x}
+            cy={node.y}
+            r={2.6}
+            fill="#b8f17a"
+            opacity={0.8}
+          />
+        ))}
         <path
           d={rightRoadPath}
           fill="none"
@@ -161,6 +181,16 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
           strokeDasharray="2 2.2"
           opacity={0.7}
         />
+        {rightRoadNodes.map((node, idx) => (
+          <circle
+            key={`right-node-${idx}`}
+            cx={node.x}
+            cy={node.y}
+            r={2.6}
+            fill="#b8f17a"
+            opacity={0.8}
+          />
+        ))}
       </svg>
       {platforms.map(({ Icon, label }, i) => {
         const slot = RANDOM_ICON_SLOTS[i % RANDOM_ICON_SLOTS.length];
