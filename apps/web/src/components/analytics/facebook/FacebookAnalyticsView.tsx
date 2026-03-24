@@ -383,9 +383,11 @@ export function InsightChartCard({
       </div>
       <div className="mt-3 h-[300px] pb-5 relative">
         <div className="pointer-events-none absolute inset-0 z-0" aria-hidden>
-          <span className="absolute left-[8%] top-[18%] text-[11px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.14)' }}>Agent4Socials</span>
-          <span className="absolute left-[42%] top-[42%] text-[11px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.14)' }}>Agent4Socials</span>
-          <span className="absolute left-[72%] top-[68%] text-[11px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.14)' }}>Agent4Socials</span>
+          <span className="absolute left-[4%] top-[8%] text-[13px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.16)' }}>Agent4Socials</span>
+          <span className="absolute right-[4%] top-[8%] text-[13px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.16)' }}>Agent4Socials</span>
+          <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[13px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.16)' }}>Agent4Socials</span>
+          <span className="absolute left-[4%] bottom-[10%] text-[13px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.16)' }}>Agent4Socials</span>
+          <span className="absolute right-[4%] bottom-[10%] text-[13px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.16)' }}>Agent4Socials</span>
         </div>
         <div className="relative z-[1] h-full">{children}</div>
       </div>
@@ -1079,7 +1081,7 @@ export function FacebookAnalyticsView({
           }
         >
           <div className="mb-3 flex gap-2">
-            {(['views', 'engagement', 'growth'] as const).map((mode) => (
+            {(['growth', 'engagement', 'views'] as const).map((mode) => (
               <button
                 key={mode}
                 type="button"
