@@ -140,14 +140,14 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
           {/* Left road: Facebook blue → Instagram hot-pink → YouTube red → TikTok black */}
           <linearGradient id="road-left" x1="1" y1="15" x2="24" y2="103" gradientUnits="userSpaceOnUse">
             <stop offset="0%"   stopColor="#1877f2" />
-            <stop offset="30%"  stopColor="#fd1d8e" />
-            <stop offset="62%"  stopColor="#ff0000" />
+            <stop offset="34%"  stopColor="#fd1d8e" />
+            <stop offset="70%"  stopColor="#ff0000" />
             <stop offset="100%" stopColor="#111111" />
           </linearGradient>
           {/* Right road: X black → LinkedIn blue → Pinterest red */}
           <linearGradient id="road-right" x1="97" y1="12" x2="70" y2="103" gradientUnits="userSpaceOnUse">
             <stop offset="0%"   stopColor="#111111" />
-            <stop offset="50%"  stopColor="#0a66c2" />
+            <stop offset="44%"  stopColor="#0a66c2" />
             <stop offset="100%" stopColor="#e60023" />
           </linearGradient>
         </defs>
@@ -172,7 +172,7 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
         const slots = isMobile ? MOBILE_ICON_SLOTS : RANDOM_ICON_SLOTS;
         const slot = slots[i % slots.length];
         const color = PLATFORM_COLORS[label] ?? '#7b2cbf';
-        const iconSize = isMobile ? 30 : 40;
+        const iconSize = isMobile ? 26 : 34;
         const rotation = STATIC_ICON_ROTATIONS[i % STATIC_ICON_ROTATIONS.length];
         const notificationCount = LOGO_NOTIFICATIONS[i % LOGO_NOTIFICATIONS.length];
         return (
