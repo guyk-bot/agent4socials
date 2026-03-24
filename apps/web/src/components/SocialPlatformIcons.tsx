@@ -30,6 +30,7 @@ function SocialIconImg({
   const softenWhiteEdges = softenOnLight && (name === 'instagram' || name === 'x' || name === 'linkedin');
   const clipToCircle = name === 'x';
   const clipToRoundedSquare = name === 'instagram';
+  const instagramInsetPx = Math.max(1, Math.round(size * 0.04));
   return (
     <span
       className="inline-flex items-center justify-center shrink-0"
@@ -53,7 +54,13 @@ function SocialIconImg({
           maxHeight: size,
           display: 'block',
           objectFit: 'contain',
-          ...(clipToRoundedSquare ? { transform: 'scale(1.08)' } : {}),
+          ...(clipToRoundedSquare
+            ? {
+                // Hard-crop tiny exported edge artifacts so no bottom border line is visible.
+                transform: 'scale(1.12)',
+                clipPath: `inset(${instagramInsetPx}px ${instagramInsetPx}px ${instagramInsetPx}px ${instagramInsetPx}px round ${Math.round(size * 0.24)}px)`,
+              }
+            : {}),
           ...(softenWhiteEdges
             ? { mixBlendMode: 'multiply', filter: 'contrast(1.05) saturate(1.03)' }
             : {}),
