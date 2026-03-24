@@ -56,7 +56,7 @@ export default function PricingPage() {
         <div className="min-h-screen">
           <PricingHero />
 
-          <section className="pb-8">
+          <section className="pb-4 sm:pb-5">
             <div className="mx-auto max-w-6xl px-4 sm:px-6">
               <PricingBillingToggle
                 interval={billingInterval}
@@ -65,9 +65,9 @@ export default function PricingPage() {
             </div>
           </section>
 
-          <section className="pb-8 sm:pb-12">
+          <section className="pb-6 sm:pb-8">
             <div className="mx-auto max-w-6xl px-4 sm:px-6">
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 lg:gap-8">
+              <div className="grid gap-4 sm:gap-5 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
                 <PricingCard
                   plan="free"
                   price="$0"
