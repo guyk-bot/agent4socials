@@ -78,13 +78,13 @@ const PLATFORM_COLORS: Record<string, string> = {
 };
 
 const RANDOM_ICON_SLOTS = [
-  { x: 1,  y: 15 }, // Facebook  – nudged further left
+  { x: 1,  y: 15 }, // Facebook  – unchanged
   { x: 9,  y: 37 }, // Instagram – unchanged
-  { x: 10, y: 58 }, // YouTube   – moved quite a bit right
-  { x: 17, y: 75 }, // TikTok    – moved a bit right
+  { x: 10, y: 63 }, // YouTube   – moved down a bit
+  { x: 22, y: 75 }, // TikTok    – moved a bit right
   { x: 97, y: 12 }, // X/Twitter – unchanged
   { x: 91, y: 42 }, // LinkedIn  – unchanged
-  { x: 72, y: 64 }, // Pinterest – moved a lot to the left
+  { x: 76, y: 69 }, // Pinterest – moved right and down
 ] as const;
 
 const STATIC_ICON_ROTATIONS = [-14, 9, -18, 6, 12, -9, 16] as const;
@@ -104,10 +104,10 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
     return () => media.removeEventListener('change', update);
   }, []);
 
-  // Left road – wavy through Facebook→Instagram→YouTube→TikTok, then sweeps to center.
-  const leftRoadPath  = 'M 1 15 C 12 20, -3 28, 9 37 C 20 44, -2 52, 10 58 C 18 65, 22 70, 17 75 C 14 82, 32 92, 48 103';
-  // Right road – X → LinkedIn → sweeps left to Pinterest → down to dashboard.
-  const rightRoadPath = 'M 97 12 C 84 18, 102 32, 91 42 C 80 52, 98 58, 72 64 C 58 72, 62 86, 65 103';
+  // Left road – hugs left side through all 4 logos, never enters center text.
+  const leftRoadPath  = 'M 1 15 C 12 20, -3 28, 9 37 C 20 44, -2 52, 10 63 C 18 70, 26 72, 22 75 C 19 82, 22 92, 24 103';
+  // Right road – hugs right side, sweeps left only to Pinterest then back down.
+  const rightRoadPath = 'M 97 12 C 84 18, 102 32, 91 42 C 80 52, 100 60, 76 69 C 66 78, 68 90, 70 103';
 
   return (
     <div
@@ -118,14 +118,14 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
       <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
         <defs>
           {/* Left road: Facebook blue → Instagram pink → YouTube red → TikTok black */}
-          <linearGradient id="road-left" x1="1" y1="15" x2="48" y2="103" gradientUnits="userSpaceOnUse">
+          <linearGradient id="road-left" x1="1" y1="15" x2="24" y2="103" gradientUnits="userSpaceOnUse">
             <stop offset="0%"   stopColor="#1877f2" />
             <stop offset="33%"  stopColor="#e1306c" />
             <stop offset="66%"  stopColor="#ff0000" />
             <stop offset="100%" stopColor="#111111" />
           </linearGradient>
           {/* Right road: X black → LinkedIn blue → Pinterest red */}
-          <linearGradient id="road-right" x1="97" y1="12" x2="65" y2="103" gradientUnits="userSpaceOnUse">
+          <linearGradient id="road-right" x1="97" y1="12" x2="70" y2="103" gradientUnits="userSpaceOnUse">
             <stop offset="0%"   stopColor="#111111" />
             <stop offset="50%"  stopColor="#0a66c2" />
             <stop offset="100%" stopColor="#e60023" />
