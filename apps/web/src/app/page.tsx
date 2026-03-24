@@ -57,15 +57,13 @@ const PRO_HIGHLIGHTS = [
 ];
 
 const HERO_PLATFORMS = [
-  // Left column (indices 0-3)
   { Icon: FacebookIcon,  label: 'Facebook' },
   { Icon: InstagramIcon, label: 'Instagram' },
-  { Icon: LinkedinIcon,  label: 'LinkedIn' },
-  { Icon: PinterestIcon, label: 'Pinterest' },
-  // Right column (indices 4-6)
-  { Icon: XTwitterIcon,  label: 'Twitter/X' },
   { Icon: YoutubeIcon,   label: 'YouTube' },
   { Icon: TikTokIcon,    label: 'TikTok' },
+  { Icon: XTwitterIcon,  label: 'Twitter/X' },
+  { Icon: LinkedinIcon,  label: 'LinkedIn' },
+  { Icon: PinterestIcon, label: 'Pinterest' },
 ] as const;
 
 // Brand colors for each social platform icon
@@ -80,15 +78,20 @@ const PLATFORM_COLORS: Record<string, string> = {
 };
 
 const RANDOM_ICON_SLOTS = [
-  // Left column (4 logos) – pushed far out, deliberately irregular y spacing.
-  { x: 3,  y: 15 },
-  { x: 9,  y: 37 },
-  { x: 2,  y: 58 },
-  { x: 12, y: 75 },
-  // Right column (3 logos) – far out, different y rhythm to avoid mirroring.
-  { x: 97, y: 12 },
-  { x: 91, y: 42 },
-  { x: 96, y: 64 },
+  // 0 Facebook  – left, top
+  { x: 4,  y: 16 },
+  // 1 Instagram – left, mid
+  { x: 9,  y: 40 },
+  // 2 YouTube   – RIGHT (moved), upper-right
+  { x: 91, y: 16 },
+  // 3 TikTok    – RIGHT (moved), mid-right
+  { x: 97, y: 44 },
+  // 4 X/Twitter – right, lower
+  { x: 92, y: 64 },
+  // 5 LinkedIn  – right, bottom
+  { x: 88, y: 80 },
+  // 6 Pinterest – LEFT (moved), lower-left
+  { x: 5,  y: 62 },
 ] as const;
 
 const STATIC_ICON_ROTATIONS = [-14, 9, -18, 6, 12, -9, 16] as const;
@@ -108,10 +111,10 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
     return () => media.removeEventListener('change', update);
   }, []);
 
-  // Left road – wavy S-curve threading through 4 left logos into dashboard.
-  const leftRoadPath  = 'M 3 15 C 14 20, -3 28, 9 37 C 18 44, -4 52, 2 58 C 8 65, 20 70, 12 75 C 6 82, 16 93, 14 103';
-  // Right road – opposing wave so both sides feel alive and unmatched.
-  const rightRoadPath = 'M 97 12 C 84 18, 102 32, 91 42 C 82 51, 104 57, 96 64 C 90 72, 80 84, 84 103';
+  // Left road – Facebook → Instagram → Pinterest (3 icons, wavy descent).
+  const leftRoadPath  = 'M 4 16 C 15 22, -3 30, 9 40 C 18 50, -5 56, 5 62 C 7 72, 12 85, 10 103';
+  // Right road – YouTube → TikTok → X → LinkedIn (4 icons, opposing wave).
+  const rightRoadPath = 'M 91 16 C 102 24, 84 34, 97 44 C 106 53, 86 58, 92 64 C 98 72, 82 76, 88 80 C 92 88, 88 96, 90 103';
 
   return (
     <div
@@ -121,18 +124,18 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
     >
       <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
         <defs>
-          {/* Left road: Facebook blue → Instagram pink → LinkedIn blue → Pinterest red */}
-          <linearGradient id="road-left" x1="3" y1="15" x2="14" y2="103" gradientUnits="userSpaceOnUse">
+          {/* Left road: Facebook blue → Instagram pink → Pinterest red */}
+          <linearGradient id="road-left" x1="4" y1="16" x2="10" y2="103" gradientUnits="userSpaceOnUse">
             <stop offset="0%"   stopColor="#1877f2" />
-            <stop offset="33%"  stopColor="#e1306c" />
-            <stop offset="66%"  stopColor="#0a66c2" />
+            <stop offset="50%"  stopColor="#e1306c" />
             <stop offset="100%" stopColor="#e60023" />
           </linearGradient>
-          {/* Right road: X black → YouTube red → TikTok black */}
-          <linearGradient id="road-right" x1="97" y1="12" x2="84" y2="103" gradientUnits="userSpaceOnUse">
-            <stop offset="0%"   stopColor="#111111" />
-            <stop offset="50%"  stopColor="#ff0000" />
-            <stop offset="100%" stopColor="#111111" />
+          {/* Right road: YouTube red → TikTok teal → X black → LinkedIn blue */}
+          <linearGradient id="road-right" x1="91" y1="16" x2="90" y2="103" gradientUnits="userSpaceOnUse">
+            <stop offset="0%"   stopColor="#ff0000" />
+            <stop offset="33%"  stopColor="#69c9d0" />
+            <stop offset="66%"  stopColor="#111111" />
+            <stop offset="100%" stopColor="#0a66c2" />
           </linearGradient>
         </defs>
         {/* Left road glow */}
