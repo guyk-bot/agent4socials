@@ -204,3 +204,23 @@ button {
   transform: translateY(0) scale(0.98);
   box-shadow: 0 2px 4px -2px rgb(0 0 0 / 0.2);
 }
+
+
+/* Remove default browser focus ring/outline globally to prevent blue borders. */
+*:focus,
+*:focus-visible,
+button:focus,
+button:focus-visible,
+a:focus,
+a:focus-visible,
+input:focus,
+input:focus-visible,
+select:focus,
+select:focus-visible,
+textarea:focus,
+textarea:focus-visible,
+[role="button"]:focus,
+[role="button"]:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
