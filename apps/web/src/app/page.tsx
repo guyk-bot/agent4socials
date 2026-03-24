@@ -177,7 +177,7 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
               strokeWidth={2.4}
               strokeLinecap="round"
               strokeLinejoin="round"
-              opacity={0.18}
+              opacity={0.12}
               style={{ filter: 'blur(3px)' }}
             />
             <path
@@ -188,7 +188,7 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeDasharray="2.2 2.6"
-              opacity={0.78}
+              opacity={0.62}
             />
           </g>
         ))}
@@ -201,7 +201,7 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
               strokeWidth={2.4}
               strokeLinecap="round"
               strokeLinejoin="round"
-              opacity={0.18}
+              opacity={0.12}
               style={{ filter: 'blur(3px)' }}
             />
             <path
@@ -212,7 +212,7 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeDasharray="2.2 2.6"
-              opacity={0.78}
+              opacity={0.62}
             />
           </g>
         ))}
@@ -232,7 +232,7 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
               left: `${slot.x}%`,
               top: `${slot.y}%`,
               transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
-              opacity: 1,
+              opacity: 0.9,
               zIndex: 8 + i,
             }}
           >
@@ -241,14 +241,14 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
               style={{
                 background: `radial-gradient(circle, ${color}55 0%, transparent 70%)`,
                 transform: 'scale(2)',
-                opacity: 0.66,
+                opacity: 0.5,
                 filter: 'blur(8px)',
               }}
             />
             <div
               className="relative"
               style={{
-                filter: `drop-shadow(0 0 12px ${color}aa)`,
+                filter: `drop-shadow(0 0 10px ${color}88)`,
               }}
             >
               <Icon size={iconSize} softenOnLight />
