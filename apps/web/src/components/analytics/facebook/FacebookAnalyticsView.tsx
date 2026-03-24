@@ -304,7 +304,7 @@ export function EmptyStateCard({ title, subtitle }: { title: string; subtitle: s
     >
       <p className="text-sm font-medium" style={{ color: COLOR.text }}>{title}</p>
       <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>{subtitle}</p>
-    </div>
+    </button>
   );
 }
 
@@ -315,6 +315,8 @@ export function MetricCard({
   color,
   footnote,
   trendPercent,
+  active = false,
+  onClick,
 }: {
   label: string;
   value: string;
@@ -322,11 +324,18 @@ export function MetricCard({
   color: string;
   footnote?: string;
   trendPercent?: number | null;
+  active?: boolean;
+  onClick?: () => void;
 }) {
   return (
-    <div
-      className="rounded-[18px] p-3 transition-all hover:-translate-y-[1px]"
-      style={{ background: COLOR.card, boxShadow: '0 2px 16px rgba(15,23,42,0.05)' }}
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-[18px] p-3 text-left transition-all hover:-translate-y-[1px]"
+      style={{
+        background: active ? `${color}10` : COLOR.card,
+        boxShadow: active ? `0 0 0 1px ${color}55, 0 2px 16px rgba(15,23,42,0.06)` : '0 2px 16px rgba(15,23,42,0.05)',
+      }}
     >
       <MetricTooltip label={label} hint={`Source metric: ${source}${typeof trendPercent === 'number' && Number.isFinite(trendPercent) ? `. Change in selected range: ${trendPercent >= 0 ? '+' : ''}${trendPercent.toFixed(1)}%.` : ""}`} />
       <p className="mt-1.5 text-[28px] font-semibold tracking-tight" style={{ color }}>{value}</p>
@@ -342,10 +351,12 @@ export function SparklineMetricCard(props: {
   value: string;
   series: Array<{ date: string; value: number }>;
   footnote?: string;
+  active?: boolean;
+  onClick?: () => void;
 }) {
-  const { label, source, color, value, series, footnote } = props;
+  const { label, source, color, value, series, footnote, active, onClick } = props;
   const trendPercent = percentChangeFromSeries(series);
-  return <MetricCard label={label} source={source} color={color} value={value} footnote={footnote} trendPercent={trendPercent} />;
+  return <MetricCard label={label} source={source} color={color} value={value} footnote={footnote} trendPercent={trendPercent} active={active} onClick={onClick} />;
 }
 
 export function InsightChartCard({
@@ -713,7 +724,7 @@ export function FacebookAnalyticsView({
 }: FacebookAnalyticsViewProps) {
   /** Do not tie overview shell to post sync: posts load slower; show metrics immediately and refresh tables in place. */
   const overviewSkeleton = insightsLoading && !insights?.facebookAnalytics;
-  const [storyMode, setStoryMode] = useState<StoryMode>('views');
+  const [storyMode, setStoryMode] = useState<StoryMode>('growth');
   const [activeSection, setActiveSection] = useState<SectionId>(FACEBOOK_ANALYTICS_SECTION_IDS.overview);
   const [selectedPost, setSelectedPost] = useState<FacebookPost | null>(null);
   const [historyFilter, setHistoryFilter] = useState<ContentHistoryFilter>('all');
@@ -765,6 +776,16 @@ export function FacebookAnalyticsView({
   const dateAxis = useMemo(() => buildDateAxis(dateRange.start, dateRange.end), [dateRange.end, dateRange.start]);
   const series = bundle?.series;
   const totalFollowers = profile?.followers_count ?? profile?.fan_count ?? insights?.followers ?? 0;
+  const isCardSelected = (label: string): boolean => {
+    if (storyMode === 'growth') return label === 'Followers';
+    if (storyMode === 'engagement') return label === 'Engagements';
+    return label === 'Content Views' || label === 'Page Visits';
+  };
+  const cardModeForLabel = (label: string): StoryMode => {
+    if (label === 'Followers') return 'growth';
+    if (label === 'Engagements') return 'engagement';
+    return 'views';
+  };
   const newFollowers = bundle?.totals.dailyFollows ?? 0;
   const contentViews = bundle?.totals.contentViews ?? 0;
   const pageVisits = bundle?.totals.pageTabViews ?? 0;
@@ -1058,17 +1079,51 @@ export function FacebookAnalyticsView({
           <h2 className="text-[28px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Overview</h2>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          <SparklineMetricCard label="Followers" source="fan_count/followers_count" color={COLOR.mint} value={formatCompact(totalFollowers)} series={series?.follows ?? []} />
-          <SparklineMetricCard label="Engagements" source="page_post_engagements" color={COLOR.violet} value={formatCompact(engagements)} series={series?.engagement ?? []} />
+          <SparklineMetricCard
+            label="Followers"
+            source="fan_count/followers_count"
+            color={COLOR.mint}
+            value={formatCompact(totalFollowers)}
+            series={series?.follows ?? []}
+            active={isCardSelected('Followers')}
+            onClick={() => setStoryMode(cardModeForLabel('Followers'))}
+          />
+          <SparklineMetricCard
+            label="Engagements"
+            source="page_post_engagements"
+            color={COLOR.violet}
+            value={formatCompact(engagements)}
+            series={series?.engagement ?? []}
+            active={isCardSelected('Engagements')}
+            onClick={() => setStoryMode(cardModeForLabel('Engagements'))}
+          />
           <SparklineMetricCard
             label="Video Views"
             source="page_video_views, post_video_views, post_media_view"
             color={COLOR.magenta}
             value={formatCompact(videoViews)}
             series={series?.videoViews ?? []}
+            active={isCardSelected('Video Views')}
+            onClick={() => setStoryMode(cardModeForLabel('Video Views'))}
           />
-          <SparklineMetricCard label="Content Views" source="page_media_view" color={COLOR.amber} value={formatCompact(contentViews)} series={series?.contentViews ?? []} />
-          <SparklineMetricCard label="Page Visits" source="page_views_total" color="#d72661" value={formatCompact(pageVisits)} series={series?.pageTabViews ?? []} />
+          <SparklineMetricCard
+            label="Content Views"
+            source="page_media_view"
+            color={COLOR.amber}
+            value={formatCompact(contentViews)}
+            series={series?.contentViews ?? []}
+            active={isCardSelected('Content Views')}
+            onClick={() => setStoryMode(cardModeForLabel('Content Views'))}
+          />
+          <SparklineMetricCard
+            label="Page Visits"
+            source="page_views_total"
+            color="#d72661"
+            value={formatCompact(pageVisits)}
+            series={series?.pageTabViews ?? []}
+            active={isCardSelected('Page Visits')}
+            onClick={() => setStoryMode(cardModeForLabel('Page Visits'))}
+          />
         </div>
 
         <InsightChartCard
