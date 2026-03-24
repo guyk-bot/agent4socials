@@ -304,7 +304,7 @@ export function EmptyStateCard({ title, subtitle }: { title: string; subtitle: s
     >
       <p className="text-sm font-medium" style={{ color: COLOR.text }}>{title}</p>
       <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>{subtitle}</p>
-    </button>
+    </div>
   );
 }
 
@@ -340,7 +340,7 @@ export function MetricCard({
       <MetricTooltip label={label} hint={`Source metric: ${source}${typeof trendPercent === 'number' && Number.isFinite(trendPercent) ? `. Change in selected range: ${trendPercent >= 0 ? '+' : ''}${trendPercent.toFixed(1)}%.` : ""}`} />
       <p className="mt-1.5 text-[28px] font-semibold tracking-tight" style={{ color }}>{value}</p>
       {footnote ? <p className="mt-1 text-xs" style={{ color: COLOR.textSecondary }}>{footnote}</p> : null}
-    </div>
+    </button>
   );
 }
 
