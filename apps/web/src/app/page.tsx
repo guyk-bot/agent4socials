@@ -116,18 +116,33 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
     return () => media.removeEventListener('change', update);
   }, []);
 
-  // Desktop roads
-  const leftRoadPath  = 'M 1 15 C 12 20, -3 28, 9 37 C 20 44, -2 52, 10 63 C 18 70, 26 72, 22 75 C 19 82, 22 92, 24 103';
-  const rightRoadPath = 'M 97 12 C 84 18, 102 32, 91 42 C 80 52, 100 60, 76 69 C 66 78, 68 90, 70 103';
+  // Road segments use explicit colors so each icon area matches exactly.
+  const desktopLeftRoadSegments = [
+    { d: 'M 1 15 C 12 20, -3 28, 9 37', color: '#fd1d8e' },
+    { d: 'M 9 37 C 20 44, -2 52, 10 63', color: '#ff0000' },
+    { d: 'M 10 63 C 18 70, 26 72, 22 75', color: '#111111' },
+    { d: 'M 22 75 C 19 82, 22 92, 24 103', color: '#111111' },
+  ] as const;
+  const desktopRightRoadSegments = [
+    { d: 'M 97 12 C 84 18, 102 32, 91 42', color: '#0a66c2' },
+    { d: 'M 91 42 C 80 52, 100 60, 76 69', color: '#e60023' },
+    { d: 'M 76 69 C 66 78, 68 90, 70 103', color: '#e60023' },
+  ] as const;
 
-  // Mobile roads – stay inside frame and pass through each mobile icon
-  // Left: Facebook(7,5)→Instagram(7,20)→YouTube(9,39)→TikTok(8,56)→center(49,88)
-  const mobileLeftRoadPath  = 'M 7 5 C 12 10, 3 16, 7 20 C 15 26, 5 32, 12 35 C 16 42, 8 48, 8 52 C 9 62, 27 79, 46 88 C 48 94, 49 99, 49 103';
-  // Right: X(94,4)→LinkedIn(91,20)→Pinterest(87,49)→center(51,88)
-  const mobileRightRoadPath = 'M 94 4 C 85 10, 98 17, 91 20 C 96 27, 98 38, 87 45 C 79 54, 60 79, 52 88 C 51 94, 50 99, 50 103';
+  const mobileLeftRoadSegments = [
+    { d: 'M 7 5 C 12 10, 3 16, 7 20', color: '#fd1d8e' },
+    { d: 'M 7 20 C 15 26, 5 32, 12 35', color: '#ff0000' },
+    { d: 'M 12 35 C 16 42, 8 48, 8 52', color: '#111111' },
+    { d: 'M 8 52 C 9 62, 27 79, 46 88 C 48 94, 49 99, 49 103', color: '#111111' },
+  ] as const;
+  const mobileRightRoadSegments = [
+    { d: 'M 94 4 C 85 10, 98 17, 91 20', color: '#0a66c2' },
+    { d: 'M 91 20 C 96 27, 98 38, 87 45', color: '#e60023' },
+    { d: 'M 87 45 C 79 54, 60 79, 52 88 C 51 94, 50 99, 50 103', color: '#e60023' },
+  ] as const;
 
-  const activeLeft  = isMobile ? mobileLeftRoadPath  : leftRoadPath;
-  const activeRight = isMobile ? mobileRightRoadPath : rightRoadPath;
+  const activeLeftSegments = isMobile ? mobileLeftRoadSegments : desktopLeftRoadSegments;
+  const activeRightSegments = isMobile ? mobileRightRoadSegments : desktopRightRoadSegments;
 
   return (
     <div
@@ -136,37 +151,54 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
       aria-hidden="true"
     >
       <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-        <defs>
-          {/* Left road: Facebook blue → Instagram hot-pink → YouTube red → TikTok black */}
-          <linearGradient id="road-left" x1="1" y1="15" x2="24" y2="103" gradientUnits="userSpaceOnUse">
-            <stop offset="0%"   stopColor="#1877f2" />
-            <stop offset="34%"  stopColor="#fd1d8e" />
-            <stop offset="70%"  stopColor="#ff0000" />
-            <stop offset="100%" stopColor="#111111" />
-          </linearGradient>
-          {/* Right road: X black → LinkedIn blue → Pinterest red */}
-          <linearGradient id="road-right" x1="97" y1="12" x2="70" y2="103" gradientUnits="userSpaceOnUse">
-            <stop offset="0%"   stopColor="#111111" />
-            <stop offset="44%"  stopColor="#0a66c2" />
-            <stop offset="100%" stopColor="#e60023" />
-          </linearGradient>
-        </defs>
-        {/* Left road glow */}
-        <path d={activeLeft} fill="none" stroke="url(#road-left)"
-          strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round"
-          opacity={0.18} style={{ filter: 'blur(3px)' }} />
-        {/* Left road dashed */}
-        <path d={activeLeft} fill="none" stroke="url(#road-left)"
-          strokeWidth={1.1} strokeLinecap="round" strokeLinejoin="round"
-          strokeDasharray="2.2 2.6" opacity={0.78} />
-        {/* Right road glow */}
-        <path d={activeRight} fill="none" stroke="url(#road-right)"
-          strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round"
-          opacity={0.18} style={{ filter: 'blur(3px)' }} />
-        {/* Right road dashed */}
-        <path d={activeRight} fill="none" stroke="url(#road-right)"
-          strokeWidth={1.1} strokeLinecap="round" strokeLinejoin="round"
-          strokeDasharray="2.2 2.6" opacity={0.78} />
+        {activeLeftSegments.map((segment, idx) => (
+          <g key={`left-segment-${idx}`}>
+            <path
+              d={segment.d}
+              fill="none"
+              stroke={segment.color}
+              strokeWidth={2.4}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              opacity={0.18}
+              style={{ filter: 'blur(3px)' }}
+            />
+            <path
+              d={segment.d}
+              fill="none"
+              stroke={segment.color}
+              strokeWidth={1.1}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeDasharray="2.2 2.6"
+              opacity={0.78}
+            />
+          </g>
+        ))}
+        {activeRightSegments.map((segment, idx) => (
+          <g key={`right-segment-${idx}`}>
+            <path
+              d={segment.d}
+              fill="none"
+              stroke={segment.color}
+              strokeWidth={2.4}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              opacity={0.18}
+              style={{ filter: 'blur(3px)' }}
+            />
+            <path
+              d={segment.d}
+              fill="none"
+              stroke={segment.color}
+              strokeWidth={1.1}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeDasharray="2.2 2.6"
+              opacity={0.78}
+            />
+          </g>
+        ))}
       </svg>
       {platforms.map(({ Icon, label }, i) => {
         const slots = isMobile ? MOBILE_ICON_SLOTS : RANDOM_ICON_SLOTS;
