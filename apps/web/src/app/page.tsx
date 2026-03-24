@@ -103,12 +103,49 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
     return () => media.removeEventListener('change', update);
   }, []);
 
+  const connectionSlots = platforms.map((_, i) => RANDOM_ICON_SLOTS[i % RANDOM_ICON_SLOTS.length]);
+  const connectionPath = connectionSlots.reduce((acc, point, idx) => {
+    if (idx === 0) return `M ${point.x} ${point.y}`;
+    const prev = connectionSlots[idx - 1];
+    const midX = ((prev.x + point.x) / 2).toFixed(2);
+    return `${acc} C ${midX} ${prev.y}, ${midX} ${point.y}, ${point.x} ${point.y}`;
+  }, '');
+
   return (
     <div
       ref={ref}
       className="pointer-events-none absolute inset-x-0 top-[13.5rem] z-[3] mx-auto h-[250px] max-w-6xl overflow-hidden px-2 sm:top-[14.5rem] sm:h-[260px] sm:px-0"
       aria-hidden="true"
     >
+      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="hero-logo-road" x1="0%" y1="50%" x2="100%" y2="50%">
+            <stop offset="0%" stopColor="#7b2cbf" />
+            <stop offset="50%" stopColor="#e11d48" />
+            <stop offset="100%" stopColor="#0ea5e9" />
+          </linearGradient>
+        </defs>
+        <path
+          d={connectionPath}
+          fill="none"
+          stroke="url(#hero-logo-road)"
+          strokeWidth={1.8}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          opacity={0.14}
+          style={{ filter: 'blur(2px)' }}
+        />
+        <path
+          d={connectionPath}
+          fill="none"
+          stroke="url(#hero-logo-road)"
+          strokeWidth={1}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeDasharray="2 2.2"
+          opacity={0.7}
+        />
+      </svg>
       {platforms.map(({ Icon, label }, i) => {
         const slot = RANDOM_ICON_SLOTS[i % RANDOM_ICON_SLOTS.length];
         const color = PLATFORM_COLORS[label] ?? '#7b2cbf';
