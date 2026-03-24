@@ -132,8 +132,8 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
   const mobileLeftRoadSegments = [
     { id: 'ml-0', d: 'M 7 5 C 12 10, 3 16, 7 20', from: '#1877f2', to: '#fd1d8e', x1: 7, y1: 5, x2: 7, y2: 20 },
     { id: 'ml-1', d: 'M 7 20 C 15 26, 5 32, 12 35', from: '#fd1d8e', to: '#ff0000', x1: 7, y1: 20, x2: 12, y2: 35 },
-    { id: 'ml-2', d: 'M 12 35 C 16 42, 8 48, 8 52', from: '#ff0000', to: '#111111', x1: 12, y1: 35, x2: 8, y2: 52 },
-    { id: 'ml-3', d: 'M 8 52 C 9 62, 27 79, 46 88 C 48 94, 49 99, 49 103', from: '#111111', to: '#111111', x1: 8, y1: 52, x2: 49, y2: 103 },
+    { id: 'ml-2', d: 'M 12 35 C 16 40, 10 48, 8 52', from: '#ff0000', to: '#111111', x1: 12, y1: 35, x2: 8, y2: 52 },
+    { id: 'ml-3', d: 'M 8 52 C 10 58, 28 78, 46 88 C 48 94, 49 99, 49 103', from: '#111111', to: '#111111', x1: 8, y1: 52, x2: 49, y2: 103 },
   ] as const;
   const mobileRightRoadSegments = [
     { id: 'mr-0', d: 'M 94 4 C 85 10, 98 17, 91 20', from: '#111111', to: '#0a66c2', x1: 94, y1: 4, x2: 91, y2: 20 },
