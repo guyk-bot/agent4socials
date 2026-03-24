@@ -6,4 +6,5 @@ export const FACEBOOK_ANALYTICS_SECTION_IDS = {
   traffic: 'traffic',
   posts: 'posts',
   reels: 'reels',
+  history: 'history',
 } as const;

@@ -15,7 +15,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { ChevronRight, ExternalLink, Info, MessageSquare, Star } from 'lucide-react';
+import { ChevronRight, ExternalLink, Info, MessageSquare, Sparkles, Star } from 'lucide-react';
 import { AnalyticsDateRangePicker } from '../AnalyticsDateRangePicker';
 import type { FacebookInsights, FacebookPost } from './types';
 import { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids';
@@ -650,6 +650,7 @@ export function FacebookAnalyticsView({
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.traffic, label: 'Traffic' },
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.posts, label: 'Posts' },
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.reels, label: 'Reels' },
+      { id: FACEBOOK_ANALYTICS_SECTION_IDS.history, label: 'History' },
     ],
     []
   );
@@ -837,41 +838,48 @@ export function FacebookAnalyticsView({
   }, [allPostsRows, historyFilter]);
 
   return (
-    <div className="p-1 md:p-2 space-y-8" style={{ background: COLOR.pageBg, maxWidth: 1400 }}>
+    <div className="p-0.5 md:p-1 space-y-6" style={{ background: COLOR.pageBg, maxWidth: 1400 }}>
       {onUpgrade ? (
         <section
-          className="rounded-2xl px-4 py-3 md:px-5 md:py-3.5 flex flex-wrap items-center justify-between gap-3"
+          className="rounded-2xl px-4 py-2.5 md:px-5 md:py-3 flex flex-wrap items-center justify-between gap-2.5"
           style={{ background: 'linear-gradient(90deg, rgba(66,217,245,0.08), rgba(124,108,255,0.07), rgba(217,70,239,0.07))' }}
         >
           <p className="text-sm" style={{ color: COLOR.textSecondary }}>
-            Unlock longer history and premium exports with Pro analytics.
+            Unlock more than 30 days of history without watermarks and more..
           </p>
           <button
             type="button"
             onClick={onUpgrade}
-            className="rounded-full px-4 py-2 text-sm font-semibold"
+            className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold"
             style={{ background: '#ffffff', color: COLOR.violet, boxShadow: '0 1px 8px rgba(15,23,42,0.08)' }}
           >
+            <Sparkles size={14} />
             Upgrade
           </button>
         </section>
       ) : null}
 
-      <section className="rounded-[20px] p-4 md:p-5" style={{ background: COLOR.section }}>
-        <div className="flex flex-wrap items-center gap-4 justify-between">
-          <div className="flex items-center gap-3">
-            {accountAvatarUrl ? (
-              <img
-                src={accountAvatarUrl}
-                alt={profile?.name ? `${profile.name} avatar` : 'Account avatar'}
-                className="h-11 w-11 rounded-full object-cover"
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).style.display = 'none';
-                  const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
-                  if (fallback) fallback.style.display = 'flex';
-                }}
-              />
-            ) : null}
+      <section className="rounded-[20px] p-3.5 md:p-4" style={{ background: COLOR.section }}>
+        <div className="flex flex-wrap items-center gap-3 justify-between">
+          <div className="flex items-center gap-2.5">
+            <div
+              className="h-11 w-11 shrink-0 overflow-hidden rounded-full"
+              style={{ display: accountAvatarUrl ? 'block' : 'none' }}
+            >
+              {accountAvatarUrl ? (
+                <img
+                  src={accountAvatarUrl}
+                  alt={profile?.name ? `${profile.name} avatar` : 'Account avatar'}
+                  className="h-full w-full object-cover"
+                  onError={(e) => {
+                    const wrap = e.currentTarget.parentElement as HTMLElement | null;
+                    if (wrap) wrap.style.display = 'none';
+                    const fallback = wrap?.nextElementSibling as HTMLElement | null;
+                    if (fallback) fallback.style.display = 'flex';
+                  }}
+                />
+              ) : null}
+            </div>
             <div
               className="h-11 w-11 rounded-full items-center justify-center text-base font-semibold"
               style={{
@@ -901,11 +909,11 @@ export function FacebookAnalyticsView({
             )}
           </div>
         </div>
-        <div className="mt-4">
+        <div className="mt-3">
           <StickySectionNav sections={sections} activeSection={activeSection} />
         </div>
         {postsLoading && !insightsLoading ? (
-          <p className="mt-3 text-xs font-medium animate-pulse" style={{ color: COLOR.textSecondary }}>
+          <p className="mt-2.5 text-xs font-medium animate-pulse" style={{ color: COLOR.textSecondary }}>
             Updating posts and reels from Facebook, tables will refresh when sync finishes.
           </p>
         ) : null}
@@ -1135,7 +1143,7 @@ export function FacebookAnalyticsView({
         <ReelsPerformanceGrid reels={reelsRows} />
       </section>
 
-      <section className="scroll-mt-28 space-y-4">
+      <section id={FACEBOOK_ANALYTICS_SECTION_IDS.history} className="scroll-mt-28 space-y-4">
         <div>
           <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Content History</h2>
           <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
