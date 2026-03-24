@@ -2,7 +2,7 @@
 
 import React from 'react';
 
-type IconProps = { size?: number; className?: string };
+type IconProps = { size?: number; className?: string; softenOnLight?: boolean };
 
 const SOCIAL_ICON_SRC: Record<string, string> = {
   tiktok: '/social-icons/tiktok.svg',
@@ -14,10 +14,20 @@ const SOCIAL_ICON_SRC: Record<string, string> = {
   x: '/social-icons/x.svg',
 };
 
-function SocialIconImg({ name, size = 24, className = '' }: { name: keyof typeof SOCIAL_ICON_SRC; size?: number; className?: string }) {
+function SocialIconImg({
+  name,
+  size = 24,
+  className = '',
+  softenOnLight = false,
+}: {
+  name: keyof typeof SOCIAL_ICON_SRC;
+  size?: number;
+  className?: string;
+  softenOnLight?: boolean;
+}) {
   const src = SOCIAL_ICON_SRC[name];
   if (!src) return null;
-  const softenWhiteEdges = name === 'instagram' || name === 'x' || name === 'linkedin';
+  const softenWhiteEdges = softenOnLight && (name === 'instagram' || name === 'x' || name === 'linkedin');
   return (
     <span className="inline-flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
       <img

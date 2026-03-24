@@ -164,7 +164,7 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
                 filter: `drop-shadow(0 0 12px ${color}aa)`,
               }}
             >
-              <Icon size={iconSize} />
+              <Icon size={iconSize} softenOnLight />
             </div>
           </div>
         );
