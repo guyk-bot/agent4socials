@@ -90,13 +90,13 @@ const RANDOM_ICON_SLOTS = [
 
 // Mobile positions
 const MOBILE_ICON_SLOTS = [
-  { x: 4,  y: 8  }, // Facebook  – nudged right
-  { x: 7,  y: 20 }, // Instagram – up and right
-  { x: 5,  y: 42 }, // YouTube   – up and right
-  { x: 8,  y: 60 }, // TikTok    – up and right
-  { x: 94, y: 8  }, // X/Twitter – nudged left
-  { x: 91, y: 25 }, // LinkedIn  – up and left
-  { x: 87, y: 53 }, // Pinterest – moved left
+  { x: 7,  y: 5  }, // Facebook  – up and right
+  { x: 7,  y: 20 }, // Instagram – unchanged
+  { x: 9,  y: 42 }, // YouTube   – nudged right
+  { x: 8,  y: 60 }, // TikTok    – unchanged
+  { x: 94, y: 4  }, // X/Twitter – moved up
+  { x: 91, y: 20 }, // LinkedIn  – moved up
+  { x: 87, y: 53 }, // Pinterest – unchanged
 ] as const;
 
 const STATIC_ICON_ROTATIONS = [-14, 9, -18, 6, 12, -9, 16] as const;
@@ -120,9 +120,9 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
   const leftRoadPath  = 'M 1 15 C 12 20, -3 28, 9 37 C 20 44, -2 52, 10 63 C 18 70, 26 72, 22 75 C 19 82, 22 92, 24 103';
   const rightRoadPath = 'M 97 12 C 84 18, 102 32, 91 42 C 80 52, 100 60, 76 69 C 66 78, 68 90, 70 103';
 
-  // Mobile roads – weave through icons then both converge to center at trust-pills strip
-  const mobileLeftRoadPath  = 'M 4 8 C 12 13, 1 17, 7 20 C 14 26, 0 37, 5 42 C 12 49, 8 55, 8 60 C 8 68, 26 78, 46 88 C 48 94, 49 99, 49 103';
-  const mobileRightRoadPath = 'M 94 8 C 83 13, 99 21, 91 25 C 83 32, 101 46, 87 53 C 78 61, 60 78, 54 88 C 52 94, 51 99, 51 103';
+  // Mobile roads – bow outward through the subtitle zone so the line never crosses the text
+  const mobileLeftRoadPath  = 'M 7 5 C 14 10, 2 16, 7 20 C 16 28, -4 36, 1 42 C -3 50, -2 57, 2 62 C 7 69, 26 79, 46 88 C 48 94, 49 99, 49 103';
+  const mobileRightRoadPath = 'M 94 4 C 84 10, 100 18, 91 20 C 100 28, 106 44, 100 53 C 104 61, 100 66, 94 70 C 78 80, 58 85, 53 88 C 51 94, 50 99, 50 103';
 
   const activeLeft  = isMobile ? mobileLeftRoadPath  : leftRoadPath;
   const activeRight = isMobile ? mobileRightRoadPath : rightRoadPath;
@@ -135,11 +135,11 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
     >
       <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
         <defs>
-          {/* Left road: Facebook blue → Instagram pink → YouTube red → TikTok black */}
+          {/* Left road: Facebook blue → Instagram hot-pink → YouTube red → TikTok black */}
           <linearGradient id="road-left" x1="1" y1="15" x2="24" y2="103" gradientUnits="userSpaceOnUse">
             <stop offset="0%"   stopColor="#1877f2" />
-            <stop offset="33%"  stopColor="#e1306c" />
-            <stop offset="66%"  stopColor="#ff0000" />
+            <stop offset="30%"  stopColor="#fd1d8e" />
+            <stop offset="62%"  stopColor="#ff0000" />
             <stop offset="100%" stopColor="#111111" />
           </linearGradient>
           {/* Right road: X black → LinkedIn blue → Pinterest red */}
