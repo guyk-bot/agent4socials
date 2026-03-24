@@ -1068,9 +1068,6 @@ export default function DashboardPage() {
           </nav>
         )}
         <div className="ml-auto shrink-0 flex items-center gap-2">
-          {selectedAccount && insightsLoading && insights != null && (
-            <span className="text-xs text-neutral-500 animate-pulse">Updating…</span>
-          )}
           {selectedAccount?.platform !== 'FACEBOOK' && (
             <AnalyticsDateRangePicker
               start={dateRange.start}

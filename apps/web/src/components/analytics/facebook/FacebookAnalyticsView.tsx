@@ -651,7 +651,7 @@ export function FacebookAnalyticsView({
   accountAvatarUrl,
 }: FacebookAnalyticsViewProps) {
   /** Do not tie overview shell to post sync: posts load slower; show metrics immediately and refresh tables in place. */
-  const overviewSkeleton = insightsLoading;
+  const overviewSkeleton = insightsLoading && !insights?.facebookAnalytics;
   const [storyMode, setStoryMode] = useState<StoryMode>('views');
   const [activeSection, setActiveSection] = useState<SectionId>(FACEBOOK_ANALYTICS_SECTION_IDS.overview);
   const [selectedPost, setSelectedPost] = useState<FacebookPost | null>(null);
@@ -980,7 +980,6 @@ export function FacebookAnalyticsView({
           <h2 className="text-[28px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Overview</h2>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-          <SparklineMetricCard label="Page Visits" source="page_views_total" color="#d72661" value={formatCompact(pageVisits)} series={series?.pageTabViews ?? []} />
           <SparklineMetricCard label="Followers" source="fan_count/followers_count" color={COLOR.mint} value={formatCompact(totalFollowers)} series={series?.follows ?? []} />
           <SparklineMetricCard label="Content Views" source="page_media_view" color={COLOR.cyan} value={formatCompact(contentViews)} series={series?.contentViews ?? []} />
           <SparklineMetricCard label="Engagements" source="page_post_engagements" color={COLOR.violet} value={formatCompact(engagements)} series={series?.engagement ?? []} />
@@ -991,6 +990,7 @@ export function FacebookAnalyticsView({
             value={formatCompact(videoViews)}
             series={series?.videoViews ?? []}
           />
+          <SparklineMetricCard label="Page Visits" source="page_views_total" color="#d72661" value={formatCompact(pageVisits)} series={series?.pageTabViews ?? []} />
         </div>
 
         <InsightChartCard
