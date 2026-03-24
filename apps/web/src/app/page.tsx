@@ -77,20 +77,28 @@ const PLATFORM_COLORS: Record<string, string> = {
   Pinterest: '#e60023',
 };
 
-// Entry vectors for a cinematic "assemble into a row" reveal on scroll
-const PLATFORM_ENTRY_VECTORS = [
-  { x: -320, y: -150, rotate: -26 },
-  { x: -210, y: 130, rotate: 19 },
-  { x: -80, y: -180, rotate: -13 },
-  { x: 0, y: 170, rotate: 14 },
-  { x: 110, y: -170, rotate: -20 },
-  { x: 230, y: 120, rotate: 16 },
-  { x: 340, y: -140, rotate: -24 },
-];
+const RANDOM_ICON_SLOTS = [
+  { x: 10, y: 18 },
+  { x: 18, y: 62 },
+  { x: 30, y: 80 },
+  { x: 44, y: 16 },
+  { x: 58, y: 74 },
+  { x: 74, y: 28 },
+  { x: 86, y: 66 },
+  { x: 82, y: 46 },
+  { x: 24, y: 36 },
+  { x: 68, y: 86 },
+] as const;
 
 function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [progress, setProgress] = useState(0); // 0 = scattered, 1 = assembled row
+  const [positions, setPositions] = useState<Array<{ x: number; y: number }>>([]);
+  const [inView, setInView] = useState(true);
+
+  useEffect(() => {
+    const shuffled = [...RANDOM_ICON_SLOTS].sort(() => Math.random() - 0.5);
+    setPositions(shuffled.slice(0, platforms.length));
+  }, [platforms.length]);
 
   useEffect(() => {
     const el = ref.current;
@@ -98,88 +106,65 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
     const onScroll = () => {
       const rect = el.getBoundingClientRect();
       const viewH = window.innerHeight;
-      // Start when section enters, finish before dashboard preview starts
-      const start = viewH * 0.9;
-      const end = viewH * 0.42;
-      const raw = (start - rect.top) / (start - end);
-      setProgress(Math.min(1, Math.max(0, raw)));
+      setInView(rect.bottom > viewH * 0.08 && rect.top < viewH * 0.92);
     };
     window.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const eased = 1 - Math.pow(1 - progress, 3);
-  const settle = Math.min(1, Math.max(0, (eased - 0.55) / 0.45));
-  const spacing = 98 - settle * 12;
-
   return (
-    <div ref={ref} className="relative mx-auto mt-16 mb-2" style={{ height: 220, maxWidth: 760 }}>
-      {/* Light ribbon behind final row */}
-      <div
-        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none"
-        style={{
-          width: 560,
-          height: 68,
-          opacity: 0.1 + settle * 0.55,
-          background: 'linear-gradient(90deg, rgba(123,44,191,0.08), rgba(215,38,61,0.22), rgba(63,55,201,0.08))',
-          filter: 'blur(16px)',
-          transform: `translate(-50%, -50%) scale(${0.92 + settle * 0.1})`,
-          transition: 'opacity 0.05s',
-        }}
-      />
+    <div
+      ref={ref}
+      className="pointer-events-none absolute inset-x-0 top-20 z-[3] mx-auto h-[460px] max-w-6xl px-2 sm:h-[520px] sm:px-0"
+      aria-hidden="true"
+    >
       {platforms.map(({ Icon, label }, i) => {
-        const vector = PLATFORM_ENTRY_VECTORS[i];
+        const slot = positions[i] ?? RANDOM_ICON_SLOTS[i % RANDOM_ICON_SLOTS.length];
         const color = PLATFORM_COLORS[label] ?? '#7b2cbf';
-        const rowX = (i - (platforms.length - 1) / 2) * spacing;
-        const waveY = Math.sin(settle * Math.PI * 3 + i * 0.7) * (6 + i % 2);
-        const tx = vector.x * (1 - eased) + rowX;
-        const ty = vector.y * (1 - eased) + waveY * settle;
-        const rot = vector.rotate * (1 - eased);
-        const scale = 0.68 + eased * 0.55;
-        const glowScale = 2 + settle * 0.6;
+        const iconSize = 42 + (i % 3) * 7;
         return (
           <div
             key={label}
-            className="absolute left-1/2 top-1/2"
+            className="absolute"
             style={{
-              transform: `translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px)) rotate(${rot}deg) scale(${scale})`,
-              transition: `transform 0.09s cubic-bezier(0.2, 0.8, 0.2, 1) ${i * 0.03}s`,
-              willChange: 'transform',
-              zIndex: 20 + i,
+              left: `${slot.x}%`,
+              top: `${slot.y}%`,
+              transform: 'translate(-50%, -50%)',
+              opacity: inView ? 1 : 0,
+              transition: `opacity 0.35s ease ${i * 0.03}s`,
+              zIndex: 8 + i,
             }}
           >
-            {/* Glow halo behind icon */}
             <div
               className="absolute inset-0 rounded-full pointer-events-none"
               style={{
                 background: `radial-gradient(circle, ${color}55 0%, transparent 70%)`,
-                transform: `scale(${glowScale})`,
-                opacity: 0.5 + settle * 0.45,
-                filter: `blur(${4 + settle * 5}px)`,
+                transform: 'scale(2)',
+                opacity: 0.66,
+                filter: 'blur(8px)',
               }}
             />
-            {/* The icon itself */}
             <div
               className="relative"
               style={{
-                animation: `platformPulse${i} ${2.2 + (i % 3) * 0.35}s ease-in-out infinite`,
-                animationDelay: `${(i * 0.27).toFixed(2)}s`,
-                filter: `drop-shadow(0 0 ${8 + settle * 10}px ${color}aa)`,
+                animation: `platformAmbient${i} ${4 + (i % 3) * 0.6}s ease-in-out infinite`,
+                animationDelay: `${(i * 0.37).toFixed(2)}s`,
+                filter: `drop-shadow(0 0 12px ${color}aa)`,
               }}
             >
-              <Icon size={64} />
+              <Icon size={iconSize} />
             </div>
           </div>
         );
       })}
-      {/* Keyframe styles injected inline */}
       <style>{`
         ${platforms.map((_, i) => `
-          @keyframes platformPulse${i} {
-            0%, 100% { transform: translateY(0px) rotate(0deg); }
-            35% { transform: translateY(${-4 - (i % 2) * 2}px) scale(${1.04 + (i % 3) * 0.01}) rotate(${i % 2 === 0 ? 2 : -2}deg); }
-            70% { transform: translateY(${3 + (i % 3)}px) scale(0.98) rotate(${i % 2 === 0 ? -1 : 1}deg); }
+          @keyframes platformAmbient${i} {
+            0%, 100% { transform: translate3d(0px, 0px, 0px) rotate(0deg) scale(1); }
+            25% { transform: translate3d(${(i % 2 === 0 ? 1 : -1) * (7 + i)}px, ${-7 - i}px, 0px) rotate(${i % 2 === 0 ? 4 : -4}deg) scale(1.05); }
+            50% { transform: translate3d(${(i % 2 === 0 ? -1 : 1) * (5 + i)}px, ${4 + (i % 3)}px, 0px) rotate(${i % 2 === 0 ? -2 : 2}deg) scale(0.98); }
+            75% { transform: translate3d(${(i % 2 === 0 ? 1 : -1) * (9 + i)}px, ${-2 - (i % 2) * 3}px, 0px) rotate(${i % 2 === 0 ? 3 : -3}deg) scale(1.03); }
           }
         `).join('')}
       `}</style>
