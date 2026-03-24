@@ -281,8 +281,7 @@ export default function Home() {
             </h1>
 
             <p className="mx-auto mt-6 max-w-[760px] text-[15px] sm:text-lg text-[#5d5768] leading-relaxed">
-              Schedule content, manage comments and DMs, and grow across Instagram, TikTok, YouTube, Facebook, Twitter/X,
-              LinkedIn, and Pinterest from a single powerful dashboard.
+              The only social media management tool you will ever need!
             </p>
 
             <div className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3.5 sm:gap-4">
