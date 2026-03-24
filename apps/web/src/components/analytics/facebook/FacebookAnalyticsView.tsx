@@ -1059,7 +1059,6 @@ export function FacebookAnalyticsView({
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <SparklineMetricCard label="Followers" source="fan_count/followers_count" color={COLOR.mint} value={formatCompact(totalFollowers)} series={series?.follows ?? []} />
-          <SparklineMetricCard label="Content Views" source="page_media_view" color={COLOR.cyan} value={formatCompact(contentViews)} series={series?.contentViews ?? []} />
           <SparklineMetricCard label="Engagements" source="page_post_engagements" color={COLOR.violet} value={formatCompact(engagements)} series={series?.engagement ?? []} />
           <SparklineMetricCard
             label="Video Views"
@@ -1068,6 +1067,7 @@ export function FacebookAnalyticsView({
             value={formatCompact(videoViews)}
             series={series?.videoViews ?? []}
           />
+          <SparklineMetricCard label="Content Views" source="page_media_view" color={COLOR.amber} value={formatCompact(contentViews)} series={series?.contentViews ?? []} />
           <SparklineMetricCard label="Page Visits" source="page_views_total" color="#d72661" value={formatCompact(pageVisits)} series={series?.pageTabViews ?? []} />
         </div>
 
@@ -1075,7 +1075,7 @@ export function FacebookAnalyticsView({
           title="Performance Story"
           legend={
             storyMode === 'views'
-              ? [{ label: 'Content Views', color: COLOR.cyan }, { label: 'Page Visits', color: '#d72661' }]
+              ? [{ label: 'Content Views', color: COLOR.amber }, { label: 'Page Visits', color: '#d72661' }]
               : storyMode === 'engagement'
                 ? [{ label: 'Engagements', color: COLOR.violet }]
                 : [{ label: 'Followers', color: COLOR.mint }, { label: 'New followers', color: COLOR.amber }]
@@ -1102,8 +1102,8 @@ export function FacebookAnalyticsView({
             <AreaChart data={chartByMode}>
               <defs>
                 <linearGradient id="primaryStory" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={storyMode === 'growth' ? COLOR.mint : storyMode === 'views' ? COLOR.cyan : COLOR.violet} stopOpacity={0.45} />
-                  <stop offset="100%" stopColor={storyMode === 'growth' ? COLOR.mint : storyMode === 'views' ? COLOR.cyan : COLOR.violet} stopOpacity={0.02} />
+                  <stop offset="0%" stopColor={storyMode === 'growth' ? COLOR.mint : storyMode === 'views' ? COLOR.amber : COLOR.violet} stopOpacity={0.45} />
+                  <stop offset="100%" stopColor={storyMode === 'growth' ? COLOR.mint : storyMode === 'views' ? COLOR.amber : COLOR.violet} stopOpacity={0.02} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
@@ -1114,7 +1114,7 @@ export function FacebookAnalyticsView({
                 formatter={(v: number | string | undefined, n?: string) => [formatNumber(Number(v) || 0), n === 'primary' ? (storyMode === 'views' ? 'Content Views' : storyMode === 'engagement' ? 'Engagements' : 'Followers') : (storyMode === 'views' ? 'Page Visits' : 'New followers')]}
                 labelFormatter={(l) => formatShortDate(String(l))}
               />
-              <Area type="monotone" dataKey="primary" stroke={storyMode === 'growth' ? COLOR.mint : storyMode === 'views' ? COLOR.cyan : COLOR.violet} fill="url(#primaryStory)" strokeWidth={2.2} />
+              <Area type="monotone" dataKey="primary" stroke={storyMode === 'growth' ? COLOR.mint : storyMode === 'views' ? COLOR.amber : COLOR.violet} fill="url(#primaryStory)" strokeWidth={2.2} />
               {storyMode !== 'engagement' ? <Line type="monotone" dataKey="secondary" stroke={storyMode === 'views' ? '#d72661' : COLOR.amber} strokeWidth={2} dot={false} /> : null}
             </AreaChart>
           </ResponsiveContainer>
@@ -1168,7 +1168,7 @@ export function FacebookAnalyticsView({
 
         <InsightChartCard
           title="Content Views vs Page Visits"
-          legend={[{ label: 'Content Views', color: COLOR.cyan }, { label: 'Page Visits', color: '#d72661' }]}
+          legend={[{ label: 'Content Views', color: COLOR.amber }, { label: 'Page Visits', color: '#d72661' }]}
         >
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={viewVsVisit}>
@@ -1176,7 +1176,7 @@ export function FacebookAnalyticsView({
               <XAxis dataKey="date" ticks={viewVisitTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} minTickGap={18} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
               <Tooltip contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }} formatter={(v: number | string | undefined) => formatNumber(Number(v) || 0)} labelFormatter={(l) => formatShortDate(String(l))} />
-              <Line type="monotone" dataKey="views" stroke={COLOR.cyan} strokeWidth={2.2} dot={false} />
+              <Line type="monotone" dataKey="views" stroke={COLOR.amber} strokeWidth={2.2} dot={false} />
               <Line type="monotone" dataKey="visits" stroke={'#d72661'} strokeWidth={2.2} dot={false} />
             </AreaChart>
           </ResponsiveContainer>
