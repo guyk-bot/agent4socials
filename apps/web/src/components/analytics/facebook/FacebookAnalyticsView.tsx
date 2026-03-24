@@ -226,11 +226,13 @@ function carryForwardSeries(
 }
 
 function percentChangeFromSeries(series?: Array<{ date: string; value: number }>): number | null {
-  if (!series || series.length < 2) return null;
-  const first = series[0]?.value ?? 0;
-  const last = series[series.length - 1]?.value ?? 0;
+  if (!series || series.length === 0) return null;
+  const sorted = [...series].sort((a, b) => a.date.localeCompare(b.date));
+  const first = sorted[0]?.value ?? 0;
+  const last = sorted[sorted.length - 1]?.value ?? 0;
   if (!Number.isFinite(first) || !Number.isFinite(last)) return null;
-  if (first === 0) return last === 0 ? 0 : null;
+  // Always return a usable % for the selected timeline, even from zero baseline.
+  if (first === 0) return last === 0 ? 0 : 100;
   return ((last - first) / Math.abs(first)) * 100;
 }
 
