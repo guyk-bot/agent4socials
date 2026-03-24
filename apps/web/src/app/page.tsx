@@ -283,7 +283,9 @@ export default function Home() {
             </h1>
 
             <p className="mx-auto mt-6 max-w-[760px] text-[15px] sm:text-lg text-[#5d5768] leading-relaxed">
-              The only social media management tool you will ever need!
+              The only social media management tool
+              <span className="sm:hidden"><br /></span>
+              you will ever need!
             </p>
 
             <div className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3.5 sm:gap-4">
