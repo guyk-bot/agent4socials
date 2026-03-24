@@ -78,18 +78,20 @@ const PLATFORM_COLORS: Record<string, string> = {
 };
 
 const RANDOM_ICON_SLOTS = [
-  // 4 down the left side, 3 down the right side – matching green circle positions.
-  { x: 8,  y: 18 },
-  { x: 13, y: 36 },
-  { x: 18, y: 56 },
-  { x: 24, y: 74 },
-  { x: 92, y: 18 },
-  { x: 85, y: 36 },
-  { x: 78, y: 58 },
+  // Left column (4 logos) – pushed far out, deliberately irregular y spacing.
+  { x: 3,  y: 15 },
+  { x: 9,  y: 37 },
+  { x: 2,  y: 58 },
+  { x: 12, y: 75 },
+  // Right column (3 logos) – far out, different y rhythm to avoid mirroring.
+  { x: 97, y: 12 },
+  { x: 91, y: 42 },
+  { x: 96, y: 64 },
 ] as const;
 
-const STATIC_ICON_ROTATIONS = [-10, 8, -7, 4, -6, 7, -8] as const;
-const LOGO_NOTIFICATIONS = [12, 18, 24, 31, 37, 44, 50] as const;
+const STATIC_ICON_ROTATIONS = [-14, 9, -18, 6, 12, -9, 16] as const;
+// Randomised notification counts (mixed realistic spread).
+const LOGO_NOTIFICATIONS = [7, 23, 41, 15, 38, 12, 29] as const;
 
 function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -104,10 +106,10 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
     return () => media.removeEventListener('change', update);
   }, []);
 
-  // Left road threads through all 4 left logos and flows into the dashboard.
-  const leftRoadPath  = 'M 8 18 C 10 24, 12 30, 13 36 C 15 44, 17 50, 18 56 C 20 64, 22 70, 24 74 C 26 82, 28 92, 29 103';
-  // Right road threads through the 3 right logos and flows into the dashboard.
-  const rightRoadPath = 'M 92 18 C 90 24, 87 30, 85 36 C 83 45, 81 51, 78 58 C 76 66, 74 78, 73 103';
+  // Left road – wavy S-curve threading through 4 left logos into dashboard.
+  const leftRoadPath  = 'M 3 15 C 14 20, -3 28, 9 37 C 18 44, -4 52, 2 58 C 8 65, 20 70, 12 75 C 6 82, 16 93, 14 103';
+  // Right road – opposing wave so both sides feel alive and unmatched.
+  const rightRoadPath = 'M 97 12 C 84 18, 102 32, 91 42 C 82 51, 104 57, 96 64 C 90 72, 80 84, 84 103';
 
   return (
     <div
@@ -117,52 +119,36 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
     >
       <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
         <defs>
-          <linearGradient id="hero-logo-road" x1="0%" y1="50%" x2="100%" y2="50%">
-            <stop offset="0%" stopColor="#7b2cbf" />
-            <stop offset="50%" stopColor="#e11d48" />
-            <stop offset="100%" stopColor="#0ea5e9" />
+          {/* Left road: Facebook blue → Instagram pink → YouTube red → TikTok teal */}
+          <linearGradient id="road-left" x1="3" y1="15" x2="14" y2="103" gradientUnits="userSpaceOnUse">
+            <stop offset="0%"   stopColor="#1877f2" />
+            <stop offset="33%"  stopColor="#e1306c" />
+            <stop offset="66%"  stopColor="#ff0000" />
+            <stop offset="100%" stopColor="#69c9d0" />
+          </linearGradient>
+          {/* Right road: Pinterest red → LinkedIn blue → X/Twitter black */}
+          <linearGradient id="road-right" x1="97" y1="12" x2="84" y2="103" gradientUnits="userSpaceOnUse">
+            <stop offset="0%"   stopColor="#e60023" />
+            <stop offset="45%"  stopColor="#0a66c2" />
+            <stop offset="100%" stopColor="#333333" />
           </linearGradient>
         </defs>
-        <path
-          d={leftRoadPath}
-          fill="none"
-          stroke="url(#hero-logo-road)"
-          strokeWidth={1.8}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          opacity={0.14}
-          style={{ filter: 'blur(2px)' }}
-        />
-        <path
-          d={leftRoadPath}
-          fill="none"
-          stroke="url(#hero-logo-road)"
-          strokeWidth={1}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeDasharray="2 2.2"
-          opacity={0.72}
-        />
-        <path
-          d={rightRoadPath}
-          fill="none"
-          stroke="url(#hero-logo-road)"
-          strokeWidth={1.8}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          opacity={0.14}
-          style={{ filter: 'blur(2px)' }}
-        />
-        <path
-          d={rightRoadPath}
-          fill="none"
-          stroke="url(#hero-logo-road)"
-          strokeWidth={1}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeDasharray="2 2.2"
-          opacity={0.72}
-        />
+        {/* Left road glow */}
+        <path d={leftRoadPath} fill="none" stroke="url(#road-left)"
+          strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round"
+          opacity={0.18} style={{ filter: 'blur(3px)' }} />
+        {/* Left road dashed */}
+        <path d={leftRoadPath} fill="none" stroke="url(#road-left)"
+          strokeWidth={1.1} strokeLinecap="round" strokeLinejoin="round"
+          strokeDasharray="2.2 2.6" opacity={0.78} />
+        {/* Right road glow */}
+        <path d={rightRoadPath} fill="none" stroke="url(#road-right)"
+          strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round"
+          opacity={0.18} style={{ filter: 'blur(3px)' }} />
+        {/* Right road dashed */}
+        <path d={rightRoadPath} fill="none" stroke="url(#road-right)"
+          strokeWidth={1.1} strokeLinecap="round" strokeLinejoin="round"
+          strokeDasharray="2.2 2.6" opacity={0.78} />
       </svg>
       {platforms.map(({ Icon, label }, i) => {
         const slot = RANDOM_ICON_SLOTS[i % RANDOM_ICON_SLOTS.length];
