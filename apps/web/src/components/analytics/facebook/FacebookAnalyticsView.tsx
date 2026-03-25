@@ -103,7 +103,7 @@ const STORY_METRIC_CONFIG: Record<StoryMetricKey, { label: string; color: string
   engagements: { label: 'Engagements', color: COLOR.violet, mode: 'engagement' },
   videoViews: { label: 'Video Views', color: COLOR.magenta, mode: 'views' },
   contentViews: { label: 'Content Views', color: COLOR.amber, mode: 'views' },
-  pageVisits: { label: 'Page Visits', color: '#2563eb', mode: 'views' },
+  pageVisits: { label: 'Page Visits', color: '#bb415e', mode: 'views' },
 };
 
 const STORY_MODE_DEFAULT_METRICS: Record<StoryMode, StoryMetricKey[]> = {
@@ -1292,7 +1292,7 @@ export function FacebookAnalyticsView({
             <SparklineMetricCard
               label="Page Visits"
               source="page_views_total"
-              color="#2563eb"
+              color="#bb415e"
               value={formatCompact(pageVisits)}
               series={series?.pageTabViews ?? []}
               active={isCardSelected('pageVisits')}
@@ -1575,7 +1575,7 @@ export function FacebookAnalyticsView({
 
         <InsightChartCard
           title="Content Views vs Page Visits"
-          legend={[{ label: 'Content Views', color: COLOR.amber }, { label: 'Page Visits', color: '#2563eb' }]}
+          legend={[{ label: 'Content Views', color: COLOR.amber }, { label: 'Page Visits', color: '#bb415e' }]}
         >
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={viewVsVisit}>
@@ -1584,7 +1584,7 @@ export function FacebookAnalyticsView({
               <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
               <Tooltip contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }} formatter={(v: number | string | undefined) => formatNumber(Number(v) || 0)} labelFormatter={(l) => formatShortDate(String(l))} />
               <Line type="monotone" dataKey="views" stroke={COLOR.amber} strokeWidth={2.2} dot={false} />
-              <Line type="monotone" dataKey="visits" stroke={'#2563eb'} strokeWidth={2.2} dot={false} />
+              <Line type="monotone" dataKey="visits" stroke={'#bb415e'} strokeWidth={2.2} dot={false} />
             </AreaChart>
           </ResponsiveContainer>
         </InsightChartCard>
