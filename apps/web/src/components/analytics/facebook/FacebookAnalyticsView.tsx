@@ -924,6 +924,14 @@ export function FacebookAnalyticsView({
   const totalReelVideoViews = reelsRows.reduce((s, r) => s + r.views, 0);
   const viewToClickEfficiency =
     reelsRows.reduce((s, r) => s + (r.post.facebookInsights?.post_clicks ?? 0), 0) / Math.max(1, totalReelVideoViews);
+  const storyModeHoverHint = useMemo(() => {
+    const fmt = (v: number | null | undefined) => (typeof v === 'number' && Number.isFinite(v) ? `${v >= 0 ? '+' : ''}${v.toFixed(1)}%` : 'n/a');
+    return {
+      growth: `Followers: ${fmt(percentChangeFromSeries(series?.follows ?? []))}`,
+      engagement: `Engagements: ${fmt(percentChangeFromSeries(series?.engagement ?? []))}`,
+      views: `Video Views: ${fmt(percentChangeFromSeries(series?.videoViews ?? []))} | Content Views: ${fmt(percentChangeFromSeries(series?.contentViews ?? []))} | Page Visits: ${fmt(percentChangeFromSeries(series?.pageTabViews ?? []))}`,
+    } as const;
+  }, [series?.contentViews, series?.engagement, series?.follows, series?.pageTabViews, series?.videoViews]);
 
   const topByViews = [...postsRows].sort((a, b) => b.views - a.views).slice(0, 3).map((p) => ({ ...p, value: p.views, content: p.rawPost.content, thumbnailUrl: p.rawPost.thumbnailUrl }));
   const topByClicks = [...postsRows].sort((a, b) => b.clicks - a.clicks).slice(0, 3).map((p) => ({ ...p, value: p.clicks, content: p.rawPost.content, thumbnailUrl: p.rawPost.thumbnailUrl }));
@@ -1140,7 +1148,7 @@ export function FacebookAnalyticsView({
         </div>
 
         <InsightChartCard
-          title="Performance Story"
+          title="Performance"
           legend={selectedStoryMetrics.map((metric) => ({ label: STORY_METRIC_CONFIG[metric].label, color: STORY_METRIC_CONFIG[metric].color }))}
         >
           <div className="mb-3 flex gap-2">
@@ -1149,6 +1157,8 @@ export function FacebookAnalyticsView({
                 key={mode}
                 type="button"
                 onClick={() => setStoryMode(mode)}
+                title={`Change in selected range: ${storyModeHoverHint[mode]}`}
+                aria-label={`${mode === 'views' ? 'Views' : mode === 'engagement' ? 'Engagement' : 'Growth'} mode. Change in selected range: ${storyModeHoverHint[mode]}`}
                 className="rounded-lg px-3 py-1.5 text-sm"
                 style={{
                   background: storyMode === mode ? 'rgba(139,124,255,0.2)' : 'rgba(255,255,255,0.03)',
