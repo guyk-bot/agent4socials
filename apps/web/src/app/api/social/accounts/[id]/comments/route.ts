@@ -108,6 +108,15 @@ export async function GET(
     where: { socialAccountId: account.id },
     orderBy: { publishedAt: 'desc' },
     take: 400,
+    // Avoid selecting columns that may not exist in production DB yet (e.g. platformMetaData).
+    select: {
+      id: true,
+      platformPostId: true,
+      content: true,
+      publishedAt: true,
+      thumbnailUrl: true,
+      permalinkUrl: true,
+    },
   });
   const importedPostsToFetch = imported.filter((p) => !targetPostIds.has(p.platformPostId));
 
