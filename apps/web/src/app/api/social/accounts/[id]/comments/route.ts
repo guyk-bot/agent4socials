@@ -6,6 +6,29 @@ import axios from 'axios';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 import { getValidYoutubeToken } from '@/lib/youtube-token';
 
+async function fetchAllPages<T>(
+  initialUrl: string,
+  initialParams: Record<string, string | number>,
+  pageLimit = 25
+): Promise<T[]> {
+  const out: T[] = [];
+  let nextUrl: string | null = initialUrl;
+  let nextParams: Record<string, string | number> | undefined = initialParams;
+  let pages = 0;
+
+  while (nextUrl && pages < pageLimit) {
+    const response: { data?: { data?: T[]; paging?: { next?: string } } } = await axios.get(nextUrl, {
+      ...(nextParams ? { params: nextParams } : {}),
+      timeout: 15_000,
+    });
+    out.push(...(response.data?.data ?? []));
+    nextUrl = response.data?.paging?.next ?? null;
+    nextParams = undefined;
+    pages += 1;
+  }
+  return out;
+}
+
 /**
  * GET /api/social/accounts/[id]/comments
  * Returns recent comments on this account's posts (Instagram, Facebook, or X).
@@ -76,7 +99,7 @@ export async function GET(
     },
     include: { post: { select: { id: true, content: true } } },
     orderBy: { updatedAt: 'desc' },
-    take: 20,
+    take: 150,
   });
   const targetPostIds = new Set(targets.map((t) => t.platformPostId!));
 
@@ -84,7 +107,7 @@ export async function GET(
   const imported = await prisma.importedPost.findMany({
     where: { socialAccountId: account.id },
     orderBy: { publishedAt: 'desc' },
-    take: 30,
+    take: 400,
   });
   const importedPostsToFetch = imported.filter((p) => !targetPostIds.has(p.platformPostId));
 
@@ -124,7 +147,7 @@ export async function GET(
         type InstagramMediaResponse = { data?: InstagramMediaItem[]; paging?: { next?: string } };
         const allMedia: InstagramMediaItem[] = [];
         let nextUrl: string | null = null;
-        for (let page = 0; page < 3; page++) {
+        for (let page = 0; page < 10; page++) {
           const requestUrl: string = nextUrl !== null ? nextUrl : mediaUrl;
           const requestConfig = page === 0
             ? { params: { fields: 'id,caption,media_url,thumbnail_url', limit: 50, access_token: liveToken }, timeout: 15_000 as const }
@@ -218,7 +241,7 @@ export async function GET(
   // old/synced posts and on recent platform-only posts both show up). Cap total to avoid too many API calls.
   const existingPostIds = new Set(dbSources.map((s) => s.platformPostId));
   const extraLive = liveSources.filter((s) => !existingPostIds.has(s.platformPostId));
-  const MAX_SOURCES = 60;
+  const MAX_SOURCES = 500;
   const sources: PostSource[] = [
     ...dbSources,
     ...extraLive.slice(0, Math.max(0, MAX_SOURCES - dbSources.length)),
@@ -387,18 +410,17 @@ export async function GET(
         }
         try {
           if (isInstagramBusinessLogin && igUserToken) {
-            const res = await axios.get<{
-              data?: Array<{
-                id: string;
-                from?: { id?: string; username?: string };
-                text?: string;
-                timestamp?: string;
-              }>;
-            }>(`https://graph.instagram.com/v25.0/${platformPostId}/comments`, {
-              params: { fields: 'id,from{id,username},text,timestamp', access_token: igUserToken, limit: 50 },
-              timeout: 15_000,
-            });
-            for (const c of res.data?.data ?? []) {
+            const list = await fetchAllPages<{
+              id: string;
+              from?: { id?: string; username?: string };
+              text?: string;
+              timestamp?: string;
+            }>(
+              `https://graph.instagram.com/v25.0/${platformPostId}/comments`,
+              { fields: 'id,from{id,username},text,timestamp', access_token: igUserToken, limit: 100 },
+              25
+            );
+            for (const c of list) {
               const fromId = c.from?.id;
               const isFromMe = fromId === account.platformUserId;
               comments.push({
@@ -410,44 +432,48 @@ export async function GET(
               });
             }
             // Fetch replies so user sees their own replies in the list
-            const topLevelIds = (res.data?.data ?? []).map((x) => x.id).slice(0, 8);
-            await Promise.all(topLevelIds.map(async (commentId) => {
-              try {
-                const replyRes = await axios.get<{ data?: Array<{ id: string; from?: { id?: string; username?: string }; text?: string; timestamp?: string }> }>(
-                  `https://graph.instagram.com/v25.0/${commentId}/replies`,
-                  { params: { fields: 'id,from{id,username},text,timestamp', access_token: igUserToken, limit: 25 }, timeout: 8_000 }
-                );
-                for (const r of replyRes.data?.data ?? []) {
-                  const rFromId = (r.from as { id?: string })?.id;
-                  const rIsFromMe = rFromId === account.platformUserId;
-                  comments.push({
-                    commentId: r.id, postTargetId, platformPostId, accountId, postPreview, postImageUrl,
-                    postPublishedAt: postPublishedAtResolved ?? null, postUrl,
-                    text: r.text ?? '', authorName: rIsFromMe ? 'You' : (r.from?.username ?? 'Unknown'),
-                    authorPictureUrl: null, createdAt: r.timestamp ?? new Date().toISOString(), platform,
-                    isFromMe: rIsFromMe, parentCommentId: commentId,
-                  });
-                }
-              } catch { /* ignore */ }
-            }));
+            const topLevelIds = list.map((x) => x.id);
+            const replyChunkSize = 8;
+            for (let ri = 0; ri < topLevelIds.length; ri += replyChunkSize) {
+              const chunkIds = topLevelIds.slice(ri, ri + replyChunkSize);
+              await Promise.all(chunkIds.map(async (commentId) => {
+                try {
+                  const replies = await fetchAllPages<{ id: string; from?: { id?: string; username?: string }; text?: string; timestamp?: string }>(
+                    `https://graph.instagram.com/v25.0/${commentId}/replies`,
+                    { fields: 'id,from{id,username},text,timestamp', access_token: igUserToken, limit: 100 },
+                    10
+                  );
+                  for (const r of replies) {
+                    const rFromId = (r.from as { id?: string })?.id;
+                    const rIsFromMe = rFromId === account.platformUserId;
+                    comments.push({
+                      commentId: r.id, postTargetId, platformPostId, accountId, postPreview, postImageUrl,
+                      postPublishedAt: postPublishedAtResolved ?? null, postUrl,
+                      text: r.text ?? '', authorName: rIsFromMe ? 'You' : (r.from?.username ?? 'Unknown'),
+                      authorPictureUrl: null, createdAt: r.timestamp ?? new Date().toISOString(), platform,
+                      isFromMe: rIsFromMe, parentCommentId: commentId,
+                    });
+                  }
+                } catch { /* ignore */ }
+              }));
+            }
           } else {
             const fields =
               platform === 'INSTAGRAM'
                 ? 'id,from{id,username},text,created_time'
                 : 'id,from{id,name,picture},message,created_time';
-            const res = await axios.get<{
-              data?: Array<{
-                id: string;
-                from?: { id?: string; username?: string; name?: string; picture?: { data?: { url?: string } } };
-                text?: string;
-                message?: string;
-                created_time?: string;
-              }>;
-            }>(`${facebookGraphBaseUrl}/${platformPostId}/comments`, {
-              params: { fields, access_token: token, limit: 50 },
-              timeout: 15_000,
-            });
-            for (const c of res.data?.data ?? []) {
+            const list = await fetchAllPages<{
+              id: string;
+              from?: { id?: string; username?: string; name?: string; picture?: { data?: { url?: string } } };
+              text?: string;
+              message?: string;
+              created_time?: string;
+            }>(
+              `${facebookGraphBaseUrl}/${platformPostId}/comments`,
+              { fields, access_token: token, limit: 100 },
+              25
+            );
+            for (const c of list) {
               const from = c.from;
               const authorName = (platform === 'INSTAGRAM' ? from?.username : from?.name) ?? 'Unknown';
               const authorPictureUrl = (from as { picture?: { data?: { url?: string } } })?.picture?.data?.url ?? null;
@@ -463,44 +489,47 @@ export async function GET(
               });
             }
             // Fetch replies so user sees their own replies in the list
-            const topLevelIds = (res.data?.data ?? []).map((x) => x.id).slice(0, 8);
+            const topLevelIds = list.map((x) => x.id);
             const replyFields = platform === 'INSTAGRAM'
               ? 'id,from{id,username},text,timestamp'
               : 'id,from{id,name,picture},message,created_time';
             const replyEndpoint = platform === 'INSTAGRAM' ? 'replies' : 'comments';
-            await Promise.all(topLevelIds.map(async (commentId) => {
-              try {
-                const replyRes = await axios.get<{
-                  data?: Array<{
+            const replyChunkSize = 8;
+            for (let ri = 0; ri < topLevelIds.length; ri += replyChunkSize) {
+              const chunkIds = topLevelIds.slice(ri, ri + replyChunkSize);
+              await Promise.all(chunkIds.map(async (commentId) => {
+                try {
+                  const replies = await fetchAllPages<{
                     id: string;
                     from?: { id?: string; username?: string; name?: string; picture?: { data?: { url?: string } } };
                     text?: string;
                     message?: string;
                     created_time?: string;
                     timestamp?: string;
-                  }>;
-                }>(`${facebookGraphBaseUrl}/${commentId}/${replyEndpoint}`, {
-                  params: { fields: replyFields, access_token: token, limit: 25 },
-                  timeout: 8_000,
-                });
-                for (const r of replyRes.data?.data ?? []) {
-                  const rFrom = r.from;
-                  const rAuthorName = (platform === 'INSTAGRAM' ? rFrom?.username : rFrom?.name) ?? 'Unknown';
-                  const rAuthorPictureUrl = (rFrom as { picture?: { data?: { url?: string } } })?.picture?.data?.url ?? null;
-                  const rText = (platform === 'INSTAGRAM' ? r.text : r.message) ?? '';
-                  const rFromId = (rFrom as { id?: string })?.id;
-                  const rIsFromMe = rFromId === account.platformUserId;
-                  const rCreated = r.created_time ?? (r as { timestamp?: string }).timestamp ?? new Date().toISOString();
-                  comments.push({
-                    commentId: r.id, postTargetId, platformPostId, accountId, postPreview, postImageUrl,
-                    postPublishedAt: postPublishedAtResolved ?? null, postUrl,
-                    text: rText, authorName: rIsFromMe ? 'You' : rAuthorName, authorPictureUrl: rAuthorPictureUrl || null,
-                    createdAt: rCreated, platform,
-                    isFromMe: rIsFromMe, parentCommentId: commentId,
-                  });
-                }
-              } catch { /* ignore */ }
-            }));
+                  }>(
+                    `${facebookGraphBaseUrl}/${commentId}/${replyEndpoint}`,
+                    { fields: replyFields, access_token: token, limit: 100 },
+                    10
+                  );
+                  for (const r of replies) {
+                    const rFrom = r.from;
+                    const rAuthorName = (platform === 'INSTAGRAM' ? rFrom?.username : rFrom?.name) ?? 'Unknown';
+                    const rAuthorPictureUrl = (rFrom as { picture?: { data?: { url?: string } } })?.picture?.data?.url ?? null;
+                    const rText = (platform === 'INSTAGRAM' ? r.text : r.message) ?? '';
+                    const rFromId = (rFrom as { id?: string })?.id;
+                    const rIsFromMe = rFromId === account.platformUserId;
+                    const rCreated = r.created_time ?? (r as { timestamp?: string }).timestamp ?? new Date().toISOString();
+                    comments.push({
+                      commentId: r.id, postTargetId, platformPostId, accountId, postPreview, postImageUrl,
+                      postPublishedAt: postPublishedAtResolved ?? null, postUrl,
+                      text: rText, authorName: rIsFromMe ? 'You' : rAuthorName, authorPictureUrl: rAuthorPictureUrl || null,
+                      createdAt: rCreated, platform,
+                      isFromMe: rIsFromMe, parentCommentId: commentId,
+                    });
+                  }
+                } catch { /* ignore */ }
+              }));
+            }
           }
         } catch (err) {
           if (!firstError) {
@@ -669,5 +698,5 @@ export async function GET(
     }
   }
 
-  return NextResponse.json({ comments: comments.slice(0, 50), ...(error ? { error } : {}) });
+  return NextResponse.json({ comments, ...(error ? { error } : {}) });
 }
