@@ -42,6 +42,24 @@ function mergeSeriesWithSnapshots(
     .filter((p): p is { date: string; value: number } => typeof p.value === 'number');
 }
 
+type AudienceCountryRow = { country: string; value: number; percent: number };
+
+function normalizeAudienceCountryRows(
+  input: Array<{ dimensionValue: string; value: number }>
+): AudienceCountryRow[] {
+  const cleaned = input
+    .map((r) => ({ country: String(r.dimensionValue || '').trim(), value: Number(r.value || 0) }))
+    .filter((r) => r.country.length > 0 && Number.isFinite(r.value) && r.value > 0)
+    .sort((a, b) => b.value - a.value);
+  const total = cleaned.reduce((s, r) => s + r.value, 0);
+  if (total <= 0) return [];
+  return cleaned.map((r) => ({
+    country: r.country,
+    value: r.value,
+    percent: Number(((r.value / total) * 100).toFixed(1)),
+  }));
+}
+
 /**
  * GET /api/social/accounts/[id]/insights?since=YYYY-MM-DD&until=YYYY-MM-DD&extended=1
  * Returns account-level analytics. If extended=1, also fetches demographics, traffic sources, and growth where available.
@@ -138,6 +156,7 @@ export async function GET(
     demographics?: import('@/types/analytics').Demographics;
     trafficSources?: import('@/types/analytics').TrafficSourceItem[];
     growthTimeSeries?: import('@/types/analytics').GrowthDataPoint[];
+    audienceByCountry?: { label: string; rows: AudienceCountryRow[] };
     /** Platform-specific metrics; values may be numbers, series, or structured objects. */
     extra?: Record<string, unknown>;
     raw?: Record<string, unknown>;
@@ -412,6 +431,15 @@ export async function GET(
             'last_30_days'
           );
           out.demographics = demographics;
+          const byCountry = normalizeAudienceCountryRows(demographics.byCountry ?? []);
+          if (byCountry.length > 0) {
+            const rawObj = (igRaw && typeof igRaw === 'object') ? (igRaw as Record<string, unknown>) : {};
+            const hasFollowerCountry = Boolean(rawObj.follower_demographics_country);
+            out.audienceByCountry = {
+              label: hasFollowerCountry ? 'Follower demographics by country' : 'Engaged audience demographics by country',
+              rows: byCountry,
+            };
+          }
           if (igRaw && typeof igRaw === 'object') out.raw = { ...(out.raw ?? {}), instagram: igRaw };
         } catch (e) {
           console.warn('[Insights] Instagram extended demographics:', (e as Error)?.message ?? e);
@@ -699,6 +727,15 @@ export async function GET(
             account.accessToken ?? ''
           );
           out.demographics = demographics;
+          const byCountry = normalizeAudienceCountryRows(demographics.byCountry ?? []);
+          if (byCountry.length > 0) {
+            const rawObj = (fbRaw && typeof fbRaw === 'object') ? (fbRaw as Record<string, unknown>) : {};
+            const hasFansCountry = Boolean(rawObj.page_fans_country);
+            out.audienceByCountry = {
+              label: hasFansCountry ? 'Page fans by country' : 'Audience by country (impressions)',
+              rows: byCountry,
+            };
+          }
           if (fbRaw && typeof fbRaw === 'object') out.raw = { ...(out.raw ?? {}), facebook: fbRaw };
         } catch (e) {
           console.warn('[Insights] Facebook extended demographics:', (e as Error)?.message ?? e);

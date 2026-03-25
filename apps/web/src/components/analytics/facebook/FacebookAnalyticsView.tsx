@@ -8,8 +8,11 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   ComposedChart,
   Line,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -905,6 +908,9 @@ export function FacebookAnalyticsView({
     const visits = seriesToMap(series?.pageTabViews ?? []);
     return dateAxis.map((date) => ({ date, views: media[date] ?? 0, visits: visits[date] ?? 0 }));
   }, [dateAxis, series?.contentViews, series?.pageTabViews]);
+  const audienceByCountry = insights?.audienceByCountry?.rows ?? [];
+  const audienceByCountryLabel = insights?.audienceByCountry?.label ?? 'Audience by country';
+  const audienceCountryColors = ['#7c6cff', '#42d9f5', '#f59e0b', '#31c48d', '#d946ef', '#ff8b7b', '#2563eb'];
 
   const postsRows = useMemo(() => {
     return postsInRange.map((p) => {
@@ -1567,6 +1573,57 @@ export function FacebookAnalyticsView({
               <Line type="monotone" dataKey="visits" stroke={'#2563eb'} strokeWidth={2.2} dot={false} />
             </AreaChart>
           </ResponsiveContainer>
+        </InsightChartCard>
+
+        <InsightChartCard
+          title="Audience by Country"
+          subtitle="Where your audience is coming from"
+        >
+          {audienceByCountry.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-[1fr_1fr] h-full">
+              <div className="min-h-[230px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={audienceByCountry.slice(0, 8)}
+                      dataKey="value"
+                      nameKey="country"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={62}
+                      outerRadius={96}
+                      paddingAngle={2}
+                    >
+                      {audienceByCountry.slice(0, 8).map((entry, index) => (
+                        <Cell key={`aud-country-${entry.country}-${index}`} fill={audienceCountryColors[index % audienceCountryColors.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
+                      formatter={(v: number | string | undefined, _n, item) => {
+                        const payload = item?.payload as { percent?: number };
+                        return [`${formatNumber(Number(v) || 0)} (${(payload?.percent ?? 0).toFixed(1)}%)`, 'Audience'];
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="space-y-2 overflow-auto pr-1">
+                <p className="text-xs" style={{ color: COLOR.textMuted }}>{audienceByCountryLabel}</p>
+                {audienceByCountry.slice(0, 8).map((row, index) => (
+                  <div key={`aud-row-${row.country}-${index}`} className="flex items-center justify-between rounded-lg border px-3 py-2" style={{ borderColor: COLOR.border }}>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: audienceCountryColors[index % audienceCountryColors.length] }} />
+                      <span className="truncate text-sm" style={{ color: COLOR.text }}>{row.country}</span>
+                    </div>
+                    <span className="text-sm font-medium" style={{ color: COLOR.textSecondary }}>{row.percent.toFixed(1)}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <EmptyStateCard title="Country demographics are unavailable for this account yet." subtitle="Meta provides this only when demographic privacy thresholds are met." />
+          )}
         </InsightChartCard>
 
         <div className="grid gap-4 md:grid-cols-3">

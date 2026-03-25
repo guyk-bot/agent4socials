@@ -32,6 +32,11 @@ export interface FacebookInsights {
   firstConnectedAt?: string | null;
   /** Demographics (age, gender, country) when requested with extended=1. */
   demographics?: import('@/types/analytics').Demographics;
+  /** Live Meta demographics normalized for Traffic widget. */
+  audienceByCountry?: {
+    label: string;
+    rows: Array<{ country: string; value: number; percent: number }>;
+  };
   /** Graph-native metric name → daily series (from live API merge). */
   facebookPageMetricSeries?: Record<string, Array<{ date: string; value: number }>>;
   /** When extended=1: rows upserted into `facebook_page_insight_daily` on last persist. */
