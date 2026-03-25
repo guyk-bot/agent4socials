@@ -43,7 +43,7 @@ export interface FacebookAnalyticsViewProps {
 type SectionId = (typeof FACEBOOK_ANALYTICS_SECTION_IDS)[keyof typeof FACEBOOK_ANALYTICS_SECTION_IDS];
 type StoryMode = 'views' | 'engagement' | 'growth';
 type StoryMetricKey = 'followers' | 'engagements' | 'videoViews' | 'contentViews' | 'pageVisits';
-type ActivityPreset = 'community' | 'publishing' | 'all';
+type ActivityPreset = 'publishing' | 'community';
 type ActivityMetricKey = 'actions' | 'posts' | 'reels' | 'conversations';
 type ContentHistoryFilter = 'all' | 'posts' | 'reels';
 
@@ -118,9 +118,8 @@ const ACTIVITY_METRIC_CONFIG: Record<ActivityMetricKey, { label: string; color: 
 };
 
 const ACTIVITY_PRESET_DEFAULTS: Record<ActivityPreset, ActivityMetricKey[]> = {
-  community: ['conversations'],
   publishing: ['posts', 'reels'],
-  all: ['actions', 'posts', 'reels', 'conversations'],
+  community: ['conversations', 'actions'],
 };
 
 function formatCompact(n: number): string {
@@ -756,8 +755,8 @@ export function FacebookAnalyticsView({
   const overviewSkeleton = insightsLoading && !insights?.facebookAnalytics;
   const [storyMode, setStoryMode] = useState<StoryMode>('growth');
   const [selectedStoryMetrics, setSelectedStoryMetrics] = useState<StoryMetricKey[]>(STORY_MODE_DEFAULT_METRICS.growth);
-  const [activityPreset, setActivityPreset] = useState<ActivityPreset>('all');
-  const [selectedActivityMetrics, setSelectedActivityMetrics] = useState<ActivityMetricKey[]>(ACTIVITY_PRESET_DEFAULTS.all);
+  const [activityPreset, setActivityPreset] = useState<ActivityPreset>('publishing');
+  const [selectedActivityMetrics, setSelectedActivityMetrics] = useState<ActivityMetricKey[]>(ACTIVITY_PRESET_DEFAULTS.publishing);
   const [activeSection, setActiveSection] = useState<SectionId>(FACEBOOK_ANALYTICS_SECTION_IDS.overview);
   const [selectedPost, setSelectedPost] = useState<FacebookPost | null>(null);
   const [historyFilter, setHistoryFilter] = useState<ContentHistoryFilter>('all');
@@ -962,6 +961,7 @@ export function FacebookAnalyticsView({
   const operationalData = useMemo(() => {
     const actionsRaw = seriesToMap(actionsSeries ?? []);
     const actions = carryForwardSeries(dateAxis, actionsRaw, 0);
+    const hasActionPoints = Object.keys(actionsRaw).length > 0;
     const postsByDate = postsInRange.reduce<Record<string, number>>((acc, post) => {
       const d = localCalendarDateFromIso(post.publishedAt);
       acc[d] = (acc[d] ?? 0) + 1;
@@ -981,12 +981,12 @@ export function FacebookAnalyticsView({
     }, {});
     return dateAxis.map((date) => ({
       date,
-      actions: actions[date] ?? 0,
+      actions: hasActionPoints ? (actions[date] ?? 0) : (date === (dateAxis[dateAxis.length - 1] ?? '') ? totalActions : 0),
       posts: postsByDate[date] ?? 0,
       reels: reelsByDate[date] ?? 0,
       conversations: conversationsByDate[date] ?? 0,
     }));
-  }, [actionsSeries, dateAxis, liveConversationDates, postsInRange]);
+  }, [actionsSeries, dateAxis, liveConversationDates, postsInRange, totalActions]);
   const operationalTicks = useMemo(
     () => buildKeyDateTicks(operationalData, (d) => (d.actions ?? 0) > 0 || (d.posts ?? 0) > 0 || (d.conversations ?? 0) > 0, 10),
     [operationalData]
@@ -1231,9 +1231,9 @@ export function FacebookAnalyticsView({
           </div>
           {selectedStoryMetrics.length === 0 ? (
             <div className="h-[300px] rounded-xl border border-dashed relative overflow-hidden" style={{ borderColor: COLOR.border }}>
-              <div className="absolute left-1/2 top-[42%] -translate-x-1/2 -translate-y-1/2 z-[2]">
-                <div className="rounded-full px-4 py-2 text-sm font-medium" style={{ background: 'rgba(255,255,255,0.92)', color: COLOR.textSecondary, boxShadow: '0 1px 10px rgba(15,23,42,0.08)' }}>
-                  📈 Select at least one metric card to display performance data.
+              <div className="absolute inset-0 z-[2] flex items-center justify-center">
+                <div className="rounded-xl px-4 py-2 text-sm font-medium" style={{ background: 'rgba(255,255,255,0.96)', color: COLOR.textSecondary, boxShadow: '0 1px 14px rgba(15,23,42,0.10)' }}>
+                  Select at least one metric card to display performance data.
                 </div>
               </div>
             </div>
@@ -1262,7 +1262,7 @@ export function FacebookAnalyticsView({
         >
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <div className="flex gap-2">
-              {(['community', 'publishing', 'all'] as const).map((preset) => (
+              {(['publishing', 'community'] as const).map((preset) => (
                 <button
                   key={preset}
                   type="button"
@@ -1274,7 +1274,7 @@ export function FacebookAnalyticsView({
                     border: `1px solid ${activityPreset === preset ? COLOR.violet : COLOR.border}`,
                   }}
                 >
-                  {preset === 'community' ? 'Community' : preset === 'publishing' ? 'Publishing' : 'All'}
+                  {preset === 'publishing' ? 'Publishing' : 'Community'}
                 </button>
               ))}
             </div>
@@ -1313,25 +1313,35 @@ export function FacebookAnalyticsView({
               />
             </div>
           </div>
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={operationalData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-              <XAxis dataKey="date" ticks={operationalTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} minTickGap={18} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
-              <Tooltip
-                contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
-                formatter={(v: number | string | undefined, n?: string) => [
-                  formatNumber(Number(v) || 0),
-                  n === 'actions' ? 'Actions' : n === 'posts' ? 'Posts' : n === 'reels' ? 'Reels' : 'Conversations',
-                ]}
-                labelFormatter={(l) => formatShortDate(String(l))}
-              />
-              {selectedActivityMetrics.includes('actions') ? <Line type="monotone" dataKey="actions" stroke={ACTIVITY_METRIC_CONFIG.actions.color} strokeWidth={2} dot={false} /> : null}
-              {selectedActivityMetrics.includes('posts') ? <Line type="monotone" dataKey="posts" stroke={ACTIVITY_METRIC_CONFIG.posts.color} strokeWidth={2} dot={false} /> : null}
-              {selectedActivityMetrics.includes('reels') ? <Line type="monotone" dataKey="reels" stroke={ACTIVITY_METRIC_CONFIG.reels.color} strokeWidth={2} dot={false} /> : null}
-              {selectedActivityMetrics.includes('conversations') ? <Line type="monotone" dataKey="conversations" stroke={ACTIVITY_METRIC_CONFIG.conversations.color} strokeWidth={2} dot={false} /> : null}
-            </ComposedChart>
-          </ResponsiveContainer>
+          {selectedActivityMetrics.length === 0 ? (
+            <div className="h-[300px] rounded-xl border border-dashed relative overflow-hidden" style={{ borderColor: COLOR.border }}>
+              <div className="absolute inset-0 z-[2] flex items-center justify-center">
+                <div className="rounded-xl px-4 py-2 text-sm font-medium" style={{ background: 'rgba(255,255,255,0.96)', color: COLOR.textSecondary, boxShadow: '0 1px 14px rgba(15,23,42,0.10)' }}>
+                  Select at least one metric card to display activity data.
+                </div>
+              </div>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={operationalData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+                <XAxis dataKey="date" ticks={operationalTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} minTickGap={18} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                <Tooltip
+                  contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
+                  formatter={(v: number | string | undefined, n?: string) => [
+                    formatNumber(Number(v) || 0),
+                    n === 'actions' ? 'Actions' : n === 'posts' ? 'Posts' : n === 'reels' ? 'Reels' : 'Conversations',
+                  ]}
+                  labelFormatter={(l) => formatShortDate(String(l))}
+                />
+                {selectedActivityMetrics.includes('actions') ? <Line type="monotone" dataKey="actions" stroke={ACTIVITY_METRIC_CONFIG.actions.color} strokeWidth={2} dot={false} /> : null}
+                {selectedActivityMetrics.includes('posts') ? <Line type="monotone" dataKey="posts" stroke={ACTIVITY_METRIC_CONFIG.posts.color} strokeWidth={2} dot={false} /> : null}
+                {selectedActivityMetrics.includes('reels') ? <Line type="monotone" dataKey="reels" stroke={ACTIVITY_METRIC_CONFIG.reels.color} strokeWidth={2} dot={false} /> : null}
+                {selectedActivityMetrics.includes('conversations') ? <Line type="monotone" dataKey="conversations" stroke={ACTIVITY_METRIC_CONFIG.conversations.color} strokeWidth={2} dot={false} /> : null}
+              </ComposedChart>
+            </ResponsiveContainer>
+          )}
         </InsightChartCard>
 
         <CommunitySummaryCard
