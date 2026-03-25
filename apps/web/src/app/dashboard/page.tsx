@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { useAuthModal } from '@/context/AuthModalContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
 import { useAppData, getDefaultDateRange } from '@/context/AppDataContext';
 import { useSelectedAccount, useResolvedSelectedAccount } from '@/context/SelectedAccountContext';
@@ -30,6 +31,7 @@ import { InteractiveLineChart } from '@/components/charts/InteractiveLineChart';
 import { FacebookAnalyticsView, FACEBOOK_ANALYTICS_SECTION_IDS, PlatformAnalyticsHeader, AnalyticsGrid, AnalyticsGridItem, AnalyticsWatermarkedChart } from '@/components/analytics';
 import type { FacebookFrontendAnalyticsBundle } from '@/lib/facebook/frontend-analytics-bundle';
 import { AnalyticsDateRangePicker } from '@/components/analytics/AnalyticsDateRangePicker';
+import { PricingBillingToggle, PricingCard } from '@/components/landing/pricing';
 import type { Demographics, GrowthDataPoint, TrafficSourceItem } from '@/types/analytics';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip as RechartTooltip,
@@ -237,10 +239,32 @@ const ANALYTICS_SCROLL_SECTIONS = [
   { id: FACEBOOK_ANALYTICS_SECTION_IDS.reels, label: 'Reels' },
 ] as const;
 
+const FREE_HIGHLIGHTS = [
+  '1 brand',
+  '50 posts per month',
+  '30 days analytics history',
+  'Basic inbox and comments',
+];
+
+const STARTER_HIGHLIGHTS = [
+  '3 brands',
+  'Unlimited scheduling',
+  '6 months analytics history',
+  'Unlimited AI writing tools',
+];
+
+const PRO_HIGHLIGHTS = [
+  '10 brands',
+  'Unlimited scheduling and inbox',
+  'Advanced analytics and exports',
+  'White-label and priority support',
+];
+
 export default function DashboardPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
+  const { openSignup } = useAuthModal();
   const { cachedAccounts, setCachedAccounts, accountsLoadError, setAccountsLoadError } = useAccountsCache() ?? { cachedAccounts: [], setCachedAccounts: () => {}, accountsLoadError: null, setAccountsLoadError: () => {} };
   const appData = useAppData();
   const { selectedPlatformForConnect, clearSelection, setSelectedAccountId, setSelectedPlatformForConnect } = useSelectedAccount() ?? { selectedPlatformForConnect: null, clearSelection: () => {}, setSelectedAccountId: () => {}, setSelectedPlatformForConnect: () => {} };
@@ -261,6 +285,8 @@ export default function DashboardPage() {
   const [allPostsSyncError, setAllPostsSyncError] = useState<string | null>(null);
   const [syncAllTrigger, setSyncAllTrigger] = useState(0);
   const [dateRange, setDateRange] = useState(() => getDefaultDateRange());
+  const [pricingModalOpen, setPricingModalOpen] = useState(false);
+  const [pricingInterval, setPricingInterval] = useState<'monthly' | 'yearly'>('yearly');
   const [postsPage, setPostsPage] = useState(1);
   const [postsSearch, setPostsSearch] = useState('');
   const [postsPerPage, setPostsPerPage] = useState(5);
@@ -839,7 +865,7 @@ export default function DashboardPage() {
             <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
               <button
                 type="button"
-                onClick={() => router.push('/pricing')}
+                onClick={openPricingPopup}
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#5ff6fd] to-[#b030ad] px-6 py-3 text-neutral-900 font-semibold text-sm hover:opacity-90"
               >
                 View plans
@@ -961,10 +987,86 @@ export default function DashboardPage() {
   const facebookLoadingOnly =
     selectedAccount?.platform === 'FACEBOOK' &&
     (connectingParam === '1' || (insights == null && (insightsLoading || importedPostsLoading)));
+  function openPricingPopup() {
+    setPricingModalOpen(true);
+  }
 
   return (
     <div className="space-y-0">
       <ConfirmModal open={alertMessage !== null} onClose={() => setAlertMessage(null)} message={alertMessage ?? ''} variant="alert" confirmLabel="OK" />
+      {pricingModalOpen ? (
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Pricing plans"
+        >
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/55 backdrop-blur-[2px]"
+            onClick={() => setPricingModalOpen(false)}
+            aria-label="Close pricing popup"
+          />
+          <div className="relative z-10 w-full max-w-6xl max-h-[90vh] overflow-auto rounded-3xl border border-[#eadff5] bg-white p-5 sm:p-8 shadow-2xl">
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#1a161f]">Choose your plan</h2>
+                <p className="mt-1 text-sm text-[#5d5768]">Unlock more history and premium analytics features.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPricingModalOpen(false)}
+                className="rounded-lg border border-[#e6d9f4] px-3 py-1.5 text-sm font-medium text-[#5d5768] hover:bg-[#faf7fe]"
+              >
+                Close
+              </button>
+            </div>
+            <div className="pb-6">
+              <PricingBillingToggle interval={pricingInterval} onIntervalChange={setPricingInterval} />
+            </div>
+            <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+              <PricingCard
+                plan="free"
+                price="$0"
+                description="Best for trying the platform"
+                highlights={FREE_HIGHLIGHTS}
+                ctaText="Start Free"
+                onCta={openSignup}
+                billingInterval={pricingInterval}
+              />
+              <PricingCard
+                plan="starter"
+                description="Best for creators and freelancers"
+                highlights={STARTER_HIGHLIGHTS}
+                priceMonthly={15}
+                priceYearly={144}
+                yearlyCrossedPrice={180}
+                additionalBrandsMonthly={5}
+                additionalBrandsYearly={48}
+                ctaText="Get Starter"
+                onCta={openSignup}
+                billingInterval={pricingInterval}
+              />
+              <PricingCard
+                plan="pro"
+                description="Best for professionals and agencies"
+                badge="Most Popular"
+                bestValueLabel="Best value for growing brands"
+                highlights={PRO_HIGHLIGHTS}
+                priceMonthly={24}
+                priceYearly={230}
+                yearlyCrossedPrice={288}
+                additionalBrandsMonthly={3}
+                additionalBrandsYearly={29}
+                ctaText="Get Pro"
+                onCta={openSignup}
+                highlighted
+                billingInterval={pricingInterval}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
       {/* Show sync banner only on first load (no data yet) or right after connect; date changes refetch in place without banner */}
       {(facebookLoadingOnly || connectingParam === '1' || justConnected || ((insightsLoading || importedPostsLoading) && insights == null && selectedAccount != null)) && (
         <DataSyncBanner
@@ -1170,7 +1272,7 @@ export default function DashboardPage() {
             dateRange={dateRange}
             insightsLoading={effectiveInsightsLoading}
             postsLoading={importedPostsLoading}
-            onUpgrade={() => router.push('/pricing')}
+            onUpgrade={openPricingPopup}
             onSync={async () => {
               if (!selectedAccount?.id || importedPostsLoading) return;
               setImportedPostsLoading(true);
@@ -1229,7 +1331,7 @@ export default function DashboardPage() {
               <div className="rounded-xl border border-[#5ff6fd]/30 bg-gradient-to-r from-[#5ff6fd]/10 to-[#b030ad]/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
                 <button
                   type="button"
-                  onClick={() => router.push('/pricing')}
+                  onClick={openPricingPopup}
                   className="shrink-0 w-full sm:w-auto inline-flex items-center justify-center px-5 py-2.5 rounded-lg bg-gradient-to-r from-[#5ff6fd] to-[#b030ad] text-neutral-900 font-semibold text-sm hover:opacity-90 transition-opacity"
                 >
                   Upgrade plan
