@@ -1192,18 +1192,25 @@ export function FacebookAnalyticsView({
         <div className="rounded-[20px] border p-4 sm:p-5 space-y-3" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Performance</h3>
-            <div className="flex flex-wrap gap-2">
-              {selectedStoryMetrics.map((metric) => (
-                <span
-                  key={metric}
-                  className="rounded-full border px-2.5 py-1 text-xs"
-                  style={{ borderColor: COLOR.border, color: COLOR.textSecondary, background: 'rgba(255,255,255,0.02)' }}
-                >
-                  <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ background: STORY_METRIC_CONFIG[metric].color }} />
-                  {STORY_METRIC_CONFIG[metric].label}
-                </span>
-              ))}
-            </div>
+          </div>
+          <div className="mb-1 flex gap-2">
+            {(['growth', 'engagement', 'views'] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setStoryMode(mode)}
+                title={`Change in selected range: ${storyModeHoverHint[mode]}`}
+                aria-label={`${mode === 'views' ? 'Views' : mode === 'engagement' ? 'Engagement' : 'Growth'} mode. Change in selected range: ${storyModeHoverHint[mode]}`}
+                className="rounded-lg px-3 py-1.5 text-sm"
+                style={{
+                  background: storyMode === mode ? 'rgba(139,124,255,0.2)' : 'rgba(255,255,255,0.03)',
+                  color: storyMode === mode ? COLOR.text : COLOR.textSecondary,
+                  border: `1px solid ${storyMode === mode ? COLOR.violet : COLOR.border}`,
+                }}
+              >
+                {mode === 'views' ? 'Views' : mode === 'engagement' ? 'Engagement' : 'Growth'}
+              </button>
+            ))}
           </div>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <SparklineMetricCard
@@ -1252,24 +1259,19 @@ export function FacebookAnalyticsView({
               onClick={() => toggleStoryMetric('pageVisits')}
             />
           </div>
-          <div className="mb-1 flex gap-2">
-            {(['growth', 'engagement', 'views'] as const).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => setStoryMode(mode)}
-                title={`Change in selected range: ${storyModeHoverHint[mode]}`}
-                aria-label={`${mode === 'views' ? 'Views' : mode === 'engagement' ? 'Engagement' : 'Growth'} mode. Change in selected range: ${storyModeHoverHint[mode]}`}
-                className="rounded-lg px-3 py-1.5 text-sm"
-                style={{
-                  background: storyMode === mode ? 'rgba(139,124,255,0.2)' : 'rgba(255,255,255,0.03)',
-                  color: storyMode === mode ? COLOR.text : COLOR.textSecondary,
-                  border: `1px solid ${storyMode === mode ? COLOR.violet : COLOR.border}`,
-                }}
-              >
-                {mode === 'views' ? 'Views' : mode === 'engagement' ? 'Engagement' : 'Growth'}
-              </button>
-            ))}
+          <div className="flex justify-end">
+            <div className="flex flex-wrap gap-2">
+              {selectedStoryMetrics.map((metric) => (
+                <span
+                  key={metric}
+                  className="rounded-full border px-2.5 py-1 text-xs"
+                  style={{ borderColor: COLOR.border, color: COLOR.textSecondary, background: 'rgba(255,255,255,0.02)' }}
+                >
+                  <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ background: STORY_METRIC_CONFIG[metric].color }} />
+                  {STORY_METRIC_CONFIG[metric].label}
+                </span>
+              ))}
+            </div>
           </div>
           <InsightChartCard title="Performance" hideHeader flat>
           {selectedStoryMetrics.length === 0 ? (
@@ -1306,18 +1308,23 @@ export function FacebookAnalyticsView({
         <div className="rounded-[20px] border p-4 sm:p-5 space-y-3" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Activity</h3>
-            <div className="flex flex-wrap gap-2">
-              {selectedActivityMetrics.map((m) => (
-                <span
-                  key={m}
-                  className="rounded-full border px-2.5 py-1 text-xs"
-                  style={{ borderColor: COLOR.border, color: COLOR.textSecondary, background: 'rgba(255,255,255,0.02)' }}
+          </div>
+          <div className="mb-3 flex gap-2">
+              {(['publishing', 'community', 'engagement'] as const).map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setActivityPreset(preset)}
+                  className="rounded-lg px-3 py-1.5 text-sm"
+                  style={{
+                    background: activityPreset === preset ? 'rgba(139,124,255,0.2)' : 'rgba(255,255,255,0.03)',
+                    color: activityPreset === preset ? COLOR.text : COLOR.textSecondary,
+                    border: `1px solid ${activityPreset === preset ? COLOR.violet : COLOR.border}`,
+                  }}
                 >
-                  <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ background: ACTIVITY_METRIC_CONFIG[m].color }} />
-                  {ACTIVITY_METRIC_CONFIG[m].label}
-                </span>
+                  {preset === 'publishing' ? 'Publishing' : preset === 'community' ? 'Community' : 'Engagement'}
+                </button>
               ))}
-            </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
           <MetricCard
@@ -1369,24 +1376,21 @@ export function FacebookAnalyticsView({
             onClick={() => setSelectedActivityMetrics((prev) => prev.includes('reposts') ? prev.filter((m) => m !== 'reposts') : [...prev, 'reposts'])}
           />
           </div>
-          <InsightChartCard title="Activity" hideHeader flat>
-          <div className="mb-3 flex gap-2">
-              {(['publishing', 'community', 'engagement'] as const).map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => setActivityPreset(preset)}
-                  className="rounded-lg px-3 py-1.5 text-sm"
-                  style={{
-                    background: activityPreset === preset ? 'rgba(139,124,255,0.2)' : 'rgba(255,255,255,0.03)',
-                    color: activityPreset === preset ? COLOR.text : COLOR.textSecondary,
-                    border: `1px solid ${activityPreset === preset ? COLOR.violet : COLOR.border}`,
-                  }}
+          <div className="flex justify-end">
+            <div className="flex flex-wrap gap-2">
+              {selectedActivityMetrics.map((m) => (
+                <span
+                  key={m}
+                  className="rounded-full border px-2.5 py-1 text-xs"
+                  style={{ borderColor: COLOR.border, color: COLOR.textSecondary, background: 'rgba(255,255,255,0.02)' }}
                 >
-                  {preset === 'publishing' ? 'Publishing' : preset === 'community' ? 'Community' : 'Engagement'}
-                </button>
+                  <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ background: ACTIVITY_METRIC_CONFIG[m].color }} />
+                  {ACTIVITY_METRIC_CONFIG[m].label}
+                </span>
               ))}
+            </div>
           </div>
+          <InsightChartCard title="Activity" hideHeader flat>
           {selectedActivityMetrics.length === 0 ? (
             <div className="h-[300px] rounded-xl border border-dashed relative overflow-hidden" style={{ borderColor: COLOR.border }}>
               <div className="absolute inset-0 z-[2] flex items-center justify-center">
