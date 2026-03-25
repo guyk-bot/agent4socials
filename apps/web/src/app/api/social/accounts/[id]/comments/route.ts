@@ -690,7 +690,7 @@ export async function GET(
   if (comments.length === 0 && firstError) {
     const msg = (firstError as string).toLowerCase();
     if (msg.includes('permission') || msg.includes('oauth') || msg.includes('scope') || msg.includes('capability') || msg.includes('code 10') || msg.includes('code 200') || msg.includes('#10') || msg.includes('#200')) {
-      error = 'Instagram comment permission required. Reconnect your Instagram account from the sidebar to grant the comments permission.';
+      error = `${platform} comment permission required. Reconnect your ${platform} account from the sidebar and grant comment permissions.`;
     } else if (msg.includes('token') || msg.includes('expired') || msg.includes('session')) {
       error = 'Your Instagram session has expired. Reconnect from the sidebar.';
     } else {

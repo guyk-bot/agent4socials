@@ -761,7 +761,7 @@ function InboxPage() {
     if (inboxMode !== 'messages' || !conversations.length) hasAutoOpenedRef.current = false;
   }, [inboxMode, conversations.length]);
 
-  const commentsSupportedPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK' || p === 'TWITTER' || p === 'YOUTUBE' || p === 'LINKEDIN');
+  const commentsSupportedPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK');
   const platformsToFetchComments = commentsSupportedPlatforms;
   useEffect(() => {
     if (platformsToFetchComments.length === 0) {
@@ -782,7 +782,7 @@ function InboxPage() {
         if (--pending === 0 && !cancelled) {
           setComments(merge.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
           setCommentsLoading(false);
-          setCommentsError(errorsFound[0] ?? null);
+          setCommentsError(merge.length === 0 ? (errorsFound[0] ?? null) : null);
         }
         return;
       }
@@ -810,7 +810,7 @@ function InboxPage() {
           if (apiError) errorsFound.push(apiError);
           if (--pending === 0) {
             setComments(merge.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-            setCommentsError(errorsFound.length > 0 ? errorsFound[0] : null);
+            setCommentsError(merge.length === 0 && errorsFound.length > 0 ? errorsFound[0] : null);
             setCommentsLoading(false);
           }
       })
@@ -825,7 +825,7 @@ function InboxPage() {
           }
           if (--pending === 0) {
             setComments(merge.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-            setCommentsError(errorsFound[0] ?? 'Could not load comments.');
+            setCommentsError(merge.length === 0 ? (errorsFound[0] ?? 'Could not load comments.') : null);
             setCommentsLoading(false);
           }
         });
