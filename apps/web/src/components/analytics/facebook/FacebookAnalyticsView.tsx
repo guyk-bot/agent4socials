@@ -1389,8 +1389,9 @@ export function FacebookAnalyticsView({
               </div>
             </div>
           ) : (
+            <div className="h-[240px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={engagementData}>
+              <BarChart data={engagementData} barCategoryGap={8}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                 <XAxis dataKey="date" ticks={engagementTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} dy={8} minTickGap={18} axisLine={false} tickLine={false} />
                 <YAxis domain={[0, 'auto']} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -1402,12 +1403,13 @@ export function FacebookAnalyticsView({
                   ]}
                   labelFormatter={(l) => formatShortDate(String(l))}
                 />
-                {selectedEngagementMetrics.includes('likes') ? <Bar dataKey="likes" fill={ENGAGEMENT_METRIC_CONFIG.likes.color} radius={[8, 8, 0, 0]} /> : null}
-                {selectedEngagementMetrics.includes('comments') ? <Bar dataKey="comments" fill={ENGAGEMENT_METRIC_CONFIG.comments.color} radius={[8, 8, 0, 0]} /> : null}
-                {selectedEngagementMetrics.includes('shares') ? <Bar dataKey="shares" fill={ENGAGEMENT_METRIC_CONFIG.shares.color} radius={[8, 8, 0, 0]} /> : null}
-                {selectedEngagementMetrics.includes('reposts') ? <Bar dataKey="reposts" fill={ENGAGEMENT_METRIC_CONFIG.reposts.color} radius={[8, 8, 0, 0]} /> : null}
+                {selectedEngagementMetrics.includes('likes') ? <Bar dataKey="likes" fill={ENGAGEMENT_METRIC_CONFIG.likes.color} radius={[8, 8, 0, 0]} barSize={16} /> : null}
+                {selectedEngagementMetrics.includes('comments') ? <Bar dataKey="comments" fill={ENGAGEMENT_METRIC_CONFIG.comments.color} radius={[8, 8, 0, 0]} barSize={16} /> : null}
+                {selectedEngagementMetrics.includes('shares') ? <Bar dataKey="shares" fill={ENGAGEMENT_METRIC_CONFIG.shares.color} radius={[8, 8, 0, 0]} barSize={16} /> : null}
+                {selectedEngagementMetrics.includes('reposts') ? <Bar dataKey="reposts" fill={ENGAGEMENT_METRIC_CONFIG.reposts.color} radius={[8, 8, 0, 0]} barSize={16} /> : null}
               </BarChart>
             </ResponsiveContainer>
+            </div>
           )}
           </InsightChartCard>
         </div>
