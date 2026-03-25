@@ -444,8 +444,10 @@ function InboxPage() {
 
   const connectedPlatforms = PLATFORMS.filter((p) => effectiveAccounts.some((a) => a.platform === p.id));
   const platformsForMessages = connectedPlatforms.filter((p) => p.id === 'INSTAGRAM' || p.id === 'FACEBOOK');
-  // Always show all connected platform icons so the user can always click something (in messages mode, non-IG/FB show a hint in the main area)
-  const platformsToShow = connectedPlatforms;
+  // In Comments mode, only IG/FB are supported, so only show those icons.
+  const platformsToShow = inboxMode === 'comments'
+    ? connectedPlatforms.filter((p) => p.id === 'INSTAGRAM' || p.id === 'FACEBOOK')
+    : connectedPlatforms;
   const byPlatform = appData?.notifications?.byPlatform ?? notifications.byPlatform ?? {};
   const effectiveNotifications = selectedPlatforms.length > 0
     ? {
@@ -763,6 +765,14 @@ function InboxPage() {
 
   const commentsSupportedPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK');
   const platformsToFetchComments = commentsSupportedPlatforms;
+
+  // If user switches to Comments mode while YouTube/other platform is selected, auto-switch to IG/FB.
+  useEffect(() => {
+    if (inboxMode !== 'comments') return;
+    if (selectedPlatform === 'INSTAGRAM' || selectedPlatform === 'FACEBOOK') return;
+    const next = commentsSupportedPlatforms[0] ?? null;
+    if (next) setSelectedPlatform(next);
+  }, [inboxMode, selectedPlatform, commentsSupportedPlatforms.join(',')]);
   useEffect(() => {
     if (platformsToFetchComments.length === 0) {
       setComments([]);
