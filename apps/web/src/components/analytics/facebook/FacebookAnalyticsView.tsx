@@ -1242,7 +1242,10 @@ export function FacebookAnalyticsView({
           {selectedStoryMetrics.length === 0 ? (
             <div className="h-[300px] rounded-xl border border-dashed relative overflow-hidden" style={{ borderColor: COLOR.border }}>
               <div className="absolute inset-0 z-[2] flex items-center justify-center">
-                <div className="rounded-xl px-4 py-2 text-sm font-medium" style={{ background: 'rgba(255,255,255,0.96)', color: COLOR.textSecondary, boxShadow: '0 1px 14px rgba(15,23,42,0.10)' }}>
+                <div
+                  className="rounded-2xl px-5 py-3 text-sm font-medium text-center max-w-[560px] w-[min(560px,92%)]"
+                  style={{ background: 'rgba(255,255,255,1)', color: COLOR.textSecondary, boxShadow: '0 1px 16px rgba(15,23,42,0.12)' }}
+                >
                   Select at least one metric card to display performance data.
                 </div>
               </div>
@@ -1266,12 +1269,46 @@ export function FacebookAnalyticsView({
           )}
         </InsightChartCard>
 
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard
+            label="Actions"
+            source={(bundle?.series.totalActions?.length ?? 0) > 0 ? 'page_total_actions' : 'page_post_engagements (fallback)'}
+            color={ACTIVITY_METRIC_CONFIG.actions.color}
+            value={formatCompact(totalActions)}
+            active={selectedActivityMetrics.includes('actions')}
+            onClick={() => setSelectedActivityMetrics((prev) => prev.includes('actions') ? prev.filter((m) => m !== 'actions') : [...prev, 'actions'])}
+          />
+          <MetricCard
+            label="Posts"
+            source="Derived from posts feed"
+            color={ACTIVITY_METRIC_CONFIG.posts.color}
+            value={formatCompact(postsInRange.length)}
+            active={selectedActivityMetrics.includes('posts')}
+            onClick={() => setSelectedActivityMetrics((prev) => prev.includes('posts') ? prev.filter((m) => m !== 'posts') : [...prev, 'posts'])}
+          />
+          <MetricCard
+            label="Reels"
+            source="Derived from posts feed"
+            color={ACTIVITY_METRIC_CONFIG.reels.color}
+            value={formatCompact(postsInRange.filter((p) => (p.permalinkUrl ?? '').includes('/reel/') || isReelPost(p)).length)}
+            active={selectedActivityMetrics.includes('reels')}
+            onClick={() => setSelectedActivityMetrics((prev) => prev.includes('reels') ? prev.filter((m) => m !== 'reels') : [...prev, 'reels'])}
+          />
+          <MetricCard
+            label="Conversations"
+            source="Messenger conversations"
+            color={ACTIVITY_METRIC_CONFIG.conversations.color}
+            value={formatCompact(conversationActivityCount)}
+            active={selectedActivityMetrics.includes('conversations')}
+            onClick={() => setSelectedActivityMetrics((prev) => prev.includes('conversations') ? prev.filter((m) => m !== 'conversations') : [...prev, 'conversations'])}
+          />
+        </div>
+
         <InsightChartCard
           title="Activity"
           legend={selectedActivityMetrics.map((m) => ({ label: ACTIVITY_METRIC_CONFIG[m].label, color: ACTIVITY_METRIC_CONFIG[m].color }))}
         >
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex gap-2">
+          <div className="mb-3 flex gap-2">
               {(['publishing', 'community'] as const).map((preset) => (
                 <button
                   key={preset}
@@ -1287,46 +1324,14 @@ export function FacebookAnalyticsView({
                   {preset === 'publishing' ? 'Publishing' : 'Community'}
                 </button>
               ))}
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 w-full lg:w-auto">
-              <MetricCard
-                label="Actions"
-                source={(bundle?.series.totalActions?.length ?? 0) > 0 ? 'page_total_actions' : 'page_post_engagements (fallback)'}
-                color={ACTIVITY_METRIC_CONFIG.actions.color}
-                value={formatCompact(totalActions)}
-                active={selectedActivityMetrics.includes('actions')}
-                onClick={() => setSelectedActivityMetrics((prev) => prev.includes('actions') ? prev.filter((m) => m !== 'actions') : [...prev, 'actions'])}
-              />
-              <MetricCard
-                label="Posts"
-                source="Derived from posts feed"
-                color={ACTIVITY_METRIC_CONFIG.posts.color}
-                value={formatCompact(postsInRange.length)}
-                active={selectedActivityMetrics.includes('posts')}
-                onClick={() => setSelectedActivityMetrics((prev) => prev.includes('posts') ? prev.filter((m) => m !== 'posts') : [...prev, 'posts'])}
-              />
-              <MetricCard
-                label="Reels"
-                source="Derived from posts feed"
-                color={ACTIVITY_METRIC_CONFIG.reels.color}
-                value={formatCompact(postsInRange.filter((p) => (p.permalinkUrl ?? '').includes('/reel/') || isReelPost(p)).length)}
-                active={selectedActivityMetrics.includes('reels')}
-                onClick={() => setSelectedActivityMetrics((prev) => prev.includes('reels') ? prev.filter((m) => m !== 'reels') : [...prev, 'reels'])}
-              />
-              <MetricCard
-                label="Conversations"
-                source="Messenger conversations"
-                color={ACTIVITY_METRIC_CONFIG.conversations.color}
-                value={formatCompact(conversationActivityCount)}
-                active={selectedActivityMetrics.includes('conversations')}
-                onClick={() => setSelectedActivityMetrics((prev) => prev.includes('conversations') ? prev.filter((m) => m !== 'conversations') : [...prev, 'conversations'])}
-              />
-            </div>
           </div>
           {selectedActivityMetrics.length === 0 ? (
             <div className="h-[300px] rounded-xl border border-dashed relative overflow-hidden" style={{ borderColor: COLOR.border }}>
               <div className="absolute inset-0 z-[2] flex items-center justify-center">
-                <div className="rounded-xl px-4 py-2 text-sm font-medium" style={{ background: 'rgba(255,255,255,0.96)', color: COLOR.textSecondary, boxShadow: '0 1px 14px rgba(15,23,42,0.10)' }}>
+                <div
+                  className="rounded-2xl px-5 py-3 text-sm font-medium text-center max-w-[560px] w-[min(560px,92%)]"
+                  style={{ background: 'rgba(255,255,255,1)', color: COLOR.textSecondary, boxShadow: '0 1px 16px rgba(15,23,42,0.12)' }}
+                >
                   Select at least one metric card to display activity data.
                 </div>
               </div>
