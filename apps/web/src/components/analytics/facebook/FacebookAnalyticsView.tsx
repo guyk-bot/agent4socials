@@ -1220,7 +1220,7 @@ export function FacebookAnalyticsView({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Performance</h3>
           </div>
-          <div className="mb-3 flex gap-2">
+          <div className="mb-5 flex gap-2">
             {(['growth', 'engagement', 'views'] as const).map((mode) => (
               <button
                 key={mode}
