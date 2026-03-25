@@ -28,7 +28,6 @@ const FREE_HIGHLIGHTS = [
   '1 brand',
   '50 scheduled posts / month',
   'Connect Instagram, Facebook, TikTok, YouTube, LinkedIn, and Pinterest',
-  'X (Twitter) available on Starter & Pro only',
   '30 days analytics',
   '1 smart link page',
   'Limited AI Assistant use',
