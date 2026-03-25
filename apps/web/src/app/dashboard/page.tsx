@@ -308,6 +308,7 @@ export default function DashboardPage() {
   } | null>(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [liveFbConversationsCount, setLiveFbConversationsCount] = useState<number | null>(null);
+  const [liveFbConversationDates, setLiveFbConversationDates] = useState<string[] | null>(null);
   const [sortBy, setSortBy] = useState<'date' | 'impressions' | 'interactions'>('date');
   const [sortDesc, setSortDesc] = useState(true);
   const [postsPlatformFilter, setPostsPlatformFilter] = useState<string>('all');
@@ -753,6 +754,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (selectedAccount?.platform !== 'FACEBOOK' || !selectedAccount?.id) {
       setLiveFbConversationsCount(null);
+      setLiveFbConversationDates(null);
       return;
     }
     let cancelled = false;
@@ -761,9 +763,16 @@ export default function DashboardPage() {
         if (cancelled) return;
         const list = Array.isArray(res.data?.conversations) ? res.data.conversations : [];
         setLiveFbConversationsCount(list.length);
+        const dates = list
+          .map((c: { updatedTime?: string | null }) => (c?.updatedTime ? String(c.updatedTime).slice(0, 10) : null))
+          .filter((d: string | null): d is string => Boolean(d));
+        setLiveFbConversationDates(dates);
       })
       .catch(() => {
-        if (!cancelled) setLiveFbConversationsCount(null);
+        if (!cancelled) {
+          setLiveFbConversationsCount(null);
+          setLiveFbConversationDates(null);
+        }
       });
     return () => { cancelled = true; };
   }, [selectedAccount?.id, selectedAccount?.platform]);
@@ -1284,6 +1293,7 @@ export default function DashboardPage() {
                   facebookPageProfile: (insights as { facebookPageProfile?: import('@/components/analytics/facebook/types').FacebookInsights['facebookPageProfile'] }).facebookPageProfile,
                   facebookCommunity: (insights as { facebookCommunity?: import('@/components/analytics/facebook/types').FacebookInsights['facebookCommunity'] }).facebookCommunity,
                   ...(selectedAccount.platform === 'FACEBOOK' && liveFbConversationsCount != null ? { facebookLiveConversationsCount: liveFbConversationsCount } : {}),
+                  ...(selectedAccount.platform === 'FACEBOOK' && liveFbConversationDates != null ? { facebookLiveConversationDates: liveFbConversationDates } : {}),
                 }),
               };
               return base;
