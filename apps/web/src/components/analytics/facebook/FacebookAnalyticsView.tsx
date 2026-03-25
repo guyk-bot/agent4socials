@@ -102,7 +102,7 @@ const STORY_METRIC_CONFIG: Record<StoryMetricKey, { label: string; color: string
   engagements: { label: 'Engagements', color: COLOR.violet, mode: 'engagement' },
   videoViews: { label: 'Video Views', color: COLOR.magenta, mode: 'views' },
   contentViews: { label: 'Content Views', color: COLOR.amber, mode: 'views' },
-  pageVisits: { label: 'Page Visits', color: '#d72661', mode: 'views' },
+  pageVisits: { label: 'Page Visits', color: '#f59e0b', mode: 'views' },
 };
 
 const STORY_MODE_DEFAULT_METRICS: Record<StoryMode, StoryMetricKey[]> = {
@@ -986,25 +986,25 @@ export function FacebookAnalyticsView({
       views: `Video Views: ${fmt(percentChangeFromSeries(series?.videoViews ?? []))} | Content Views: ${fmt(percentChangeFromSeries(series?.contentViews ?? []))} | Page Visits: ${fmt(percentChangeFromSeries(series?.pageTabViews ?? []))}`,
     } as const;
   }, [series?.contentViews, series?.engagement, series?.follows, series?.pageTabViews, series?.videoViews]);
-  const likesTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + (post.facebookInsights?.post_reactions_like_total ?? post.likeCount ?? 0), 0), [postsInRange]);
-  const commentsTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + (post.facebookInsights?.post_comments ?? 0), 0), [postsInRange]);
-  const sharesTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + (post.facebookInsights?.post_shares ?? 0), 0), [postsInRange]);
-  const repostsTotal = sharesTotal;
+  const likesTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + (post.facebookInsights?.post_reactions_like_total ?? post.likeCount ?? post.engagementBreakdown?.reactions ?? 0), 0), [postsInRange]);
+  const commentsTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + (post.facebookInsights?.post_comments ?? post.commentsCount ?? post.engagementBreakdown?.comments ?? 0), 0), [postsInRange]);
+  const sharesTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + (post.facebookInsights?.post_shares ?? post.sharesCount ?? post.engagementBreakdown?.shares ?? 0), 0), [postsInRange]);
+  const repostsTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + (post.repostsCount ?? post.facebookInsights?.post_shares ?? post.sharesCount ?? 0), 0), [postsInRange]);
   const totalActions = actionsTotal;
   const engagementData = useMemo(() => {
     const likesByDate = postsInRange.reduce<Record<string, number>>((acc, post) => {
       const d = localCalendarDateFromIso(post.publishedAt);
-      acc[d] = (acc[d] ?? 0) + (post.facebookInsights?.post_reactions_like_total ?? post.likeCount ?? 0);
+      acc[d] = (acc[d] ?? 0) + (post.facebookInsights?.post_reactions_like_total ?? post.likeCount ?? post.engagementBreakdown?.reactions ?? 0);
       return acc;
     }, {});
     const commentsByDate = postsInRange.reduce<Record<string, number>>((acc, post) => {
       const d = localCalendarDateFromIso(post.publishedAt);
-      acc[d] = (acc[d] ?? 0) + (post.facebookInsights?.post_comments ?? 0);
+      acc[d] = (acc[d] ?? 0) + (post.facebookInsights?.post_comments ?? post.commentsCount ?? post.engagementBreakdown?.comments ?? 0);
       return acc;
     }, {});
     const sharesByDate = postsInRange.reduce<Record<string, number>>((acc, post) => {
       const d = localCalendarDateFromIso(post.publishedAt);
-      acc[d] = (acc[d] ?? 0) + (post.facebookInsights?.post_shares ?? 0);
+      acc[d] = (acc[d] ?? 0) + (post.facebookInsights?.post_shares ?? post.sharesCount ?? post.engagementBreakdown?.shares ?? 0);
       return acc;
     }, {});
     return dateAxis.map((date) => ({
@@ -1012,7 +1012,9 @@ export function FacebookAnalyticsView({
       likes: likesByDate[date] ?? 0,
       comments: commentsByDate[date] ?? 0,
       shares: sharesByDate[date] ?? 0,
-      reposts: sharesByDate[date] ?? 0,
+      reposts: postsInRange
+        .filter((post) => localCalendarDateFromIso(post.publishedAt) === date)
+        .reduce((sum, post) => sum + (post.repostsCount ?? post.facebookInsights?.post_shares ?? post.sharesCount ?? 0), 0),
     }));
   }, [dateAxis, postsInRange]);
   const engagementTicks = useMemo(
@@ -1231,7 +1233,7 @@ export function FacebookAnalyticsView({
               </button>
             ))}
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="mt-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <SparklineMetricCard
               label="Followers"
               source="fan_count/followers_count"
@@ -1271,7 +1273,7 @@ export function FacebookAnalyticsView({
             <SparklineMetricCard
               label="Page Visits"
               source="page_views_total"
-              color="#d72661"
+              color="#f59e0b"
               value={formatCompact(pageVisits)}
               series={series?.pageTabViews ?? []}
               active={isCardSelected('pageVisits')}
@@ -1391,11 +1393,13 @@ export function FacebookAnalyticsView({
           ) : (
             <div className="h-[240px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={engagementData} barCategoryGap={8}>
+              <BarChart data={engagementData} barCategoryGap={4}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                 <XAxis dataKey="date" ticks={engagementTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} dy={8} minTickGap={18} axisLine={false} tickLine={false} />
                 <YAxis domain={[0, 'auto']} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                 <Tooltip
+                  shared={false}
+                  cursor={{ fill: 'rgba(17,24,39,0.05)' }}
                   contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
                   formatter={(v: number | string | undefined, n?: string) => [
                     formatNumber(Number(v) || 0),
@@ -1403,10 +1407,10 @@ export function FacebookAnalyticsView({
                   ]}
                   labelFormatter={(l) => formatShortDate(String(l))}
                 />
-                {selectedEngagementMetrics.includes('likes') ? <Bar dataKey="likes" fill={ENGAGEMENT_METRIC_CONFIG.likes.color} radius={[8, 8, 0, 0]} barSize={16} /> : null}
-                {selectedEngagementMetrics.includes('comments') ? <Bar dataKey="comments" fill={ENGAGEMENT_METRIC_CONFIG.comments.color} radius={[8, 8, 0, 0]} barSize={16} /> : null}
-                {selectedEngagementMetrics.includes('shares') ? <Bar dataKey="shares" fill={ENGAGEMENT_METRIC_CONFIG.shares.color} radius={[8, 8, 0, 0]} barSize={16} /> : null}
-                {selectedEngagementMetrics.includes('reposts') ? <Bar dataKey="reposts" fill={ENGAGEMENT_METRIC_CONFIG.reposts.color} radius={[8, 8, 0, 0]} barSize={16} /> : null}
+                {selectedEngagementMetrics.includes('likes') ? <Bar dataKey="likes" fill={ENGAGEMENT_METRIC_CONFIG.likes.color} radius={[8, 8, 0, 0]} barSize={22} /> : null}
+                {selectedEngagementMetrics.includes('comments') ? <Bar dataKey="comments" fill={ENGAGEMENT_METRIC_CONFIG.comments.color} radius={[8, 8, 0, 0]} barSize={22} /> : null}
+                {selectedEngagementMetrics.includes('shares') ? <Bar dataKey="shares" fill={ENGAGEMENT_METRIC_CONFIG.shares.color} radius={[8, 8, 0, 0]} barSize={22} /> : null}
+                {selectedEngagementMetrics.includes('reposts') ? <Bar dataKey="reposts" fill={ENGAGEMENT_METRIC_CONFIG.reposts.color} radius={[8, 8, 0, 0]} barSize={22} /> : null}
               </BarChart>
             </ResponsiveContainer>
             </div>
@@ -1552,7 +1556,7 @@ export function FacebookAnalyticsView({
 
         <InsightChartCard
           title="Content Views vs Page Visits"
-          legend={[{ label: 'Content Views', color: COLOR.amber }, { label: 'Page Visits', color: '#d72661' }]}
+          legend={[{ label: 'Content Views', color: COLOR.amber }, { label: 'Page Visits', color: '#f59e0b' }]}
         >
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={viewVsVisit}>
@@ -1561,7 +1565,7 @@ export function FacebookAnalyticsView({
               <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
               <Tooltip contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }} formatter={(v: number | string | undefined) => formatNumber(Number(v) || 0)} labelFormatter={(l) => formatShortDate(String(l))} />
               <Line type="monotone" dataKey="views" stroke={COLOR.amber} strokeWidth={2.2} dot={false} />
-              <Line type="monotone" dataKey="visits" stroke={'#d72661'} strokeWidth={2.2} dot={false} />
+              <Line type="monotone" dataKey="visits" stroke={'#f59e0b'} strokeWidth={2.2} dot={false} />
             </AreaChart>
           </ResponsiveContainer>
         </InsightChartCard>
