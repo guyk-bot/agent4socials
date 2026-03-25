@@ -1189,57 +1189,6 @@ export function FacebookAnalyticsView({
       ) : null}
 
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.overview} className="scroll-mt-28 space-y-4">
-        <div>
-          <h2 className="text-[28px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Overview</h2>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          <SparklineMetricCard
-            label="Followers"
-            source="fan_count/followers_count"
-            color={COLOR.mint}
-            value={formatCompact(totalFollowers)}
-            series={series?.follows ?? []}
-            active={isCardSelected('followers')}
-            onClick={() => toggleStoryMetric('followers')}
-          />
-          <SparklineMetricCard
-            label="Engagements"
-            source="page_post_engagements"
-            color={COLOR.violet}
-            value={formatCompact(engagements)}
-            series={series?.engagement ?? []}
-            active={isCardSelected('engagements')}
-            onClick={() => toggleStoryMetric('engagements')}
-          />
-          <SparklineMetricCard
-            label="Video Views"
-            source="page_video_views, post_video_views, post_media_view"
-            color={COLOR.magenta}
-            value={formatCompact(videoViews)}
-            series={series?.videoViews ?? []}
-            active={isCardSelected('videoViews')}
-            onClick={() => toggleStoryMetric('videoViews')}
-          />
-          <SparklineMetricCard
-            label="Content Views"
-            source="page_media_view"
-            color={COLOR.amber}
-            value={formatCompact(contentViews)}
-            series={series?.contentViews ?? []}
-            active={isCardSelected('contentViews')}
-            onClick={() => toggleStoryMetric('contentViews')}
-          />
-          <SparklineMetricCard
-            label="Page Visits"
-            source="page_views_total"
-            color="#d72661"
-            value={formatCompact(pageVisits)}
-            series={series?.pageTabViews ?? []}
-            active={isCardSelected('pageVisits')}
-            onClick={() => toggleStoryMetric('pageVisits')}
-          />
-        </div>
-
         <div className="rounded-[20px] border p-4 sm:p-5 space-y-3" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Performance</h3>
@@ -1255,6 +1204,53 @@ export function FacebookAnalyticsView({
                 </span>
               ))}
             </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <SparklineMetricCard
+              label="Followers"
+              source="fan_count/followers_count"
+              color={COLOR.mint}
+              value={formatCompact(totalFollowers)}
+              series={series?.follows ?? []}
+              active={isCardSelected('followers')}
+              onClick={() => toggleStoryMetric('followers')}
+            />
+            <SparklineMetricCard
+              label="Engagements"
+              source="page_post_engagements"
+              color={COLOR.violet}
+              value={formatCompact(engagements)}
+              series={series?.engagement ?? []}
+              active={isCardSelected('engagements')}
+              onClick={() => toggleStoryMetric('engagements')}
+            />
+            <SparklineMetricCard
+              label="Video Views"
+              source="page_video_views, post_video_views, post_media_view"
+              color={COLOR.magenta}
+              value={formatCompact(videoViews)}
+              series={series?.videoViews ?? []}
+              active={isCardSelected('videoViews')}
+              onClick={() => toggleStoryMetric('videoViews')}
+            />
+            <SparklineMetricCard
+              label="Content Views"
+              source="page_media_view"
+              color={COLOR.amber}
+              value={formatCompact(contentViews)}
+              series={series?.contentViews ?? []}
+              active={isCardSelected('contentViews')}
+              onClick={() => toggleStoryMetric('contentViews')}
+            />
+            <SparklineMetricCard
+              label="Page Visits"
+              source="page_views_total"
+              color="#d72661"
+              value={formatCompact(pageVisits)}
+              series={series?.pageTabViews ?? []}
+              active={isCardSelected('pageVisits')}
+              onClick={() => toggleStoryMetric('pageVisits')}
+            />
           </div>
           <div className="mb-1 flex gap-2">
             {(['growth', 'engagement', 'views'] as const).map((mode) => (
