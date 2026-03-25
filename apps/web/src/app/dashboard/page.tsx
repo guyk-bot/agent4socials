@@ -567,8 +567,7 @@ export default function DashboardPage() {
         setImportedPosts(sorted);
         setImportedPostsLoading(false);
         setAllPostsSyncError(null);
-        // Auto-sync in background so posts stay fresh without clicking "Sync posts"
-        runSync(true);
+        // Keep data stable after first render, do not auto-resync in background.
         return;
       }
     }
@@ -599,39 +598,13 @@ export default function DashboardPage() {
     const cached = usePrefetchedInsights ?? insightsCacheRef.current[cacheKey];
     const postsCached = postsCacheRef.current[accountId] ?? app?.getPosts(accountId);
 
-    // Helper: run background sync (posts + re-fetch insights) without blocking the UI
-    const runBackgroundSync = () => {
-      api.get(`/social/accounts/${accountId}/posts`, { params: { sync: 1 } })
-        .then((postsRes) => {
-          const list = postsRes.data?.posts ?? [];
-          postsCacheRef.current[accountId] = list;
-          appDataRef.current?.setPostsForAccount(accountId, list);
-          if (selectedAccountIdRef.current === accountId) setImportedPosts(list);
-          setPostsSyncError(postsRes.data?.syncError ?? null);
-          if ((platform === 'TIKTOK' || platform === 'YOUTUBE') && selectedAccountIdRef.current === accountId) {
-            delete insightsCacheRef.current[cacheKey];
-            return api.get(`/social/accounts/${accountId}/insights`, { params: { since: dateRange.start, until: dateRange.end, extended: 1 } });
-          }
-        })
-        .then((insightsRes) => {
-          if (!insightsRes?.data || selectedAccountIdRef.current !== accountId) return;
-          const next = insightsRes.data;
-          insightsCacheRef.current[cacheKey] = next;
-          appDataRef.current?.setInsightsForAccount(accountId, next);
-          setInsights(next);
-        })
-        .catch(() => {});
-    };
-
-    // If we already have cached data, show it immediately and sync in background
+    // If we already have cached data, show it immediately and keep it stable.
     if (cached) {
       setInsights(cached);
       setInsightsLoading(false);
       if (postsCached !== undefined && postsCached !== null) {
         setImportedPosts(postsCached);
         setImportedPostsLoading(false);
-        // Still refresh in background so posts/views stay up to date
-        runBackgroundSync();
       } else {
         setImportedPostsLoading(true);
         api.get(`/social/accounts/${accountId}/posts`, { params: { sync: 1 } })
@@ -682,7 +655,6 @@ export default function DashboardPage() {
       .catch(() => {})
       .finally(() => setImportedPostsLoading(false));
 
-    runBackgroundSync();
   }, [analyticsTab, selectedAccount?.id, selectedAccount?.platform, dateRange.start, dateRange.end, syncAllTrigger]);
 
   // Facebook Page reviews (pages_read_user_content)
