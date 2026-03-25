@@ -725,9 +725,19 @@ export function StickySectionNav({
             onClick={() => document.getElementById(sec.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
             className="rounded-xl px-4 py-2 text-sm font-medium transition-all"
             style={{
-              color: activeSection === sec.id ? COLOR.text : COLOR.textSecondary,
-              background: activeSection === sec.id ? 'rgba(124,108,255,0.12)' : 'transparent',
-              border: activeSection === sec.id ? `1px solid rgba(124,108,255,0.24)` : '1px solid transparent',
+              color: COLOR.textSecondary,
+              background: 'transparent',
+              border: '1px solid transparent',
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.color = COLOR.text;
+              (e.currentTarget as HTMLButtonElement).style.background = 'rgba(124,108,255,0.06)';
+              (e.currentTarget as HTMLButtonElement).style.border = '1px solid rgba(124,108,255,0.14)';
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.color = COLOR.textSecondary;
+              (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+              (e.currentTarget as HTMLButtonElement).style.border = '1px solid transparent';
             }}
           >
             {sec.label}
