@@ -307,6 +307,7 @@ export default function DashboardPage() {
     recentTweets?: Array<{ id: string; text: string; created_at: string | null; like_count: number; reply_count: number; retweet_count: number; impression_count: number }>;
   } | null>(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
+  const [liveFbConversationsCount, setLiveFbConversationsCount] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<'date' | 'impressions' | 'interactions'>('date');
   const [sortDesc, setSortDesc] = useState(true);
   const [postsPlatformFilter, setPostsPlatformFilter] = useState<string>('all');
@@ -748,6 +749,24 @@ export default function DashboardPage() {
       .catch(() => setAggregatedInsights(null))
       .finally(() => setAggregatedLoading(false));
   }, [analyticsTab, hasAccounts, dateRange.start, dateRange.end, accounts.map((a) => a.id).join(',')]);
+
+  useEffect(() => {
+    if (selectedAccount?.platform !== 'FACEBOOK' || !selectedAccount?.id) {
+      setLiveFbConversationsCount(null);
+      return;
+    }
+    let cancelled = false;
+    api.get(`/social/accounts/${selectedAccount.id}/conversations`)
+      .then((res) => {
+        if (cancelled) return;
+        const list = Array.isArray(res.data?.conversations) ? res.data.conversations : [];
+        setLiveFbConversationsCount(list.length);
+      })
+      .catch(() => {
+        if (!cancelled) setLiveFbConversationsCount(null);
+      });
+    return () => { cancelled = true; };
+  }, [selectedAccount?.id, selectedAccount?.platform]);
 
   const handleConnect = async (platform: string, method?: string) => {
     const getMessage = (err: unknown): string | null => {
@@ -1264,6 +1283,7 @@ export default function DashboardPage() {
                   facebookAnalytics: (insights as { facebookAnalytics?: FacebookFrontendAnalyticsBundle }).facebookAnalytics,
                   facebookPageProfile: (insights as { facebookPageProfile?: import('@/components/analytics/facebook/types').FacebookInsights['facebookPageProfile'] }).facebookPageProfile,
                   facebookCommunity: (insights as { facebookCommunity?: import('@/components/analytics/facebook/types').FacebookInsights['facebookCommunity'] }).facebookCommunity,
+                  ...(selectedAccount.platform === 'FACEBOOK' && liveFbConversationsCount != null ? { facebookLiveConversationsCount: liveFbConversationsCount } : {}),
                 }),
               };
               return base;

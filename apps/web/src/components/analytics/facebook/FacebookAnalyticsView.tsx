@@ -796,11 +796,13 @@ export function FacebookAnalyticsView({
   const dateAxis = useMemo(() => buildDateAxis(dateRange.start, dateRange.end), [dateRange.end, dateRange.start]);
   const series = bundle?.series;
   const totalFollowers = profile?.followers_count ?? profile?.fan_count ?? insights?.followers ?? 0;
+  const liveConversationCount =
+    ((insights as unknown as { facebookLiveConversationsCount?: number })?.facebookLiveConversationsCount ?? 0);
+  const conversationActivityCount = Math.max(community?.conversationsCount ?? 0, liveConversationCount);
   const isCardSelected = (metric: StoryMetricKey): boolean => selectedStoryMetrics.includes(metric);
   const toggleStoryMetric = (metric: StoryMetricKey) => {
     setSelectedStoryMetrics((prev) => {
       if (prev.includes(metric)) {
-        if (prev.length === 1) return prev;
         return prev.filter((m) => m !== metric);
       }
       return [...prev, metric];
@@ -932,6 +934,25 @@ export function FacebookAnalyticsView({
       views: `Video Views: ${fmt(percentChangeFromSeries(series?.videoViews ?? []))} | Content Views: ${fmt(percentChangeFromSeries(series?.contentViews ?? []))} | Page Visits: ${fmt(percentChangeFromSeries(series?.pageTabViews ?? []))}`,
     } as const;
   }, [series?.contentViews, series?.engagement, series?.follows, series?.pageTabViews, series?.videoViews]);
+  const operationalData = useMemo(() => {
+    const actionsRaw = seriesToMap(series?.engagement ?? []);
+    const actions = carryForwardSeries(dateAxis, actionsRaw, 0);
+    const postsByDate = postsInRange.reduce<Record<string, number>>((acc, post) => {
+      const d = localCalendarDateFromIso(post.publishedAt);
+      acc[d] = (acc[d] ?? 0) + 1;
+      return acc;
+    }, {});
+    return dateAxis.map((date) => ({
+      date,
+      actions: actions[date] ?? 0,
+      posts: postsByDate[date] ?? 0,
+      conversations: conversationActivityCount,
+    }));
+  }, [conversationActivityCount, dateAxis, postsInRange, series?.engagement]);
+  const operationalTicks = useMemo(
+    () => buildKeyDateTicks(operationalData, (d) => (d.actions ?? 0) > 0 || (d.posts ?? 0) > 0 || (d.conversations ?? 0) > 0, 10),
+    [operationalData]
+  );
 
   const topByViews = [...postsRows].sort((a, b) => b.views - a.views).slice(0, 3).map((p) => ({ ...p, value: p.views, content: p.rawPost.content, thumbnailUrl: p.rawPost.thumbnailUrl }));
   const topByClicks = [...postsRows].sort((a, b) => b.clicks - a.clicks).slice(0, 3).map((p) => ({ ...p, value: p.clicks, content: p.rawPost.content, thumbnailUrl: p.rawPost.thumbnailUrl }));
@@ -1170,33 +1191,52 @@ export function FacebookAnalyticsView({
               </button>
             ))}
           </div>
+          {selectedStoryMetrics.length === 0 ? (
+            <div className="h-[300px] flex items-center justify-center rounded-xl border border-dashed" style={{ borderColor: COLOR.border, color: COLOR.textSecondary }}>
+              Select at least one metric card to display performance data.
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={chartByMode}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+                <XAxis dataKey="date" ticks={storyTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} minTickGap={18} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                <Tooltip
+                  contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
+                  formatter={(v: number | string | undefined, n?: string) => [formatNumber(Number(v) || 0), n && n in STORY_METRIC_CONFIG ? STORY_METRIC_CONFIG[n as StoryMetricKey].label : String(n ?? '')]}
+                  labelFormatter={(l) => formatShortDate(String(l))}
+                />
+                {selectedStoryMetrics.map((metric) => (
+                  <Line key={metric} type="monotone" dataKey={metric} stroke={STORY_METRIC_CONFIG[metric].color} strokeWidth={2.2} dot={false} />
+                ))}
+              </ComposedChart>
+            </ResponsiveContainer>
+          )}
+        </InsightChartCard>
+
+        <InsightChartCard
+          title="Operational Activity"
+          subtitle="Actions, posting volume, and conversation activity in the selected range."
+          legend={[
+            { label: 'Actions', color: COLOR.amber },
+            { label: 'Posts', color: COLOR.text },
+            { label: 'Conversations', color: COLOR.violet },
+          ]}
+        >
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartByMode}>
-              <defs>
-                <linearGradient id="primaryStory" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={STORY_METRIC_CONFIG[selectedStoryMetrics[0] ?? STORY_MODE_DEFAULT_METRICS[storyMode][0]].color} stopOpacity={0.45} />
-                  <stop offset="100%" stopColor={STORY_METRIC_CONFIG[selectedStoryMetrics[0] ?? STORY_MODE_DEFAULT_METRICS[storyMode][0]].color} stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
+            <ComposedChart data={operationalData}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-              <XAxis dataKey="date" ticks={storyTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} minTickGap={18} axisLine={false} tickLine={false} />
+              <XAxis dataKey="date" ticks={operationalTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} minTickGap={18} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
               <Tooltip
                 contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
-                formatter={(v: number | string | undefined, n?: string) => [formatNumber(Number(v) || 0), n && n in STORY_METRIC_CONFIG ? STORY_METRIC_CONFIG[n as StoryMetricKey].label : String(n ?? '')]}
+                formatter={(v: number | string | undefined, n?: string) => [formatNumber(Number(v) || 0), n === 'actions' ? 'Actions' : n === 'posts' ? 'Posts' : 'Conversations']}
                 labelFormatter={(l) => formatShortDate(String(l))}
               />
-              <Area
-                type="monotone"
-                dataKey={selectedStoryMetrics[0] ?? STORY_MODE_DEFAULT_METRICS[storyMode][0]}
-                stroke={STORY_METRIC_CONFIG[selectedStoryMetrics[0] ?? STORY_MODE_DEFAULT_METRICS[storyMode][0]].color}
-                fill="url(#primaryStory)"
-                strokeWidth={2.2}
-              />
-              {selectedStoryMetrics.slice(1).map((metric) => (
-                <Line key={metric} type="monotone" dataKey={metric} stroke={STORY_METRIC_CONFIG[metric].color} strokeWidth={2} dot={false} />
-              ))}
-            </AreaChart>
+              <Line type="monotone" dataKey="actions" stroke={COLOR.amber} strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="posts" stroke={COLOR.text} strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="conversations" stroke={COLOR.violet} strokeWidth={2} dot={false} />
+            </ComposedChart>
           </ResponsiveContainer>
         </InsightChartCard>
 
@@ -1205,15 +1245,15 @@ export function FacebookAnalyticsView({
           <MetricCard label="Total Posts in Range" source="Derived from posts feed" color={COLOR.text} value={formatCompact(postsInRange.length)} footnote={`${postsInRange.filter((p) => (p.permalinkUrl ?? '').includes('/reel/')).length} reels`} />
           <MetricCard
             label="Conversation Activity"
-            source="facebook_conversations cache"
+            source="Messenger conversations"
             color={COLOR.violet}
-            value={formatCompact(community?.conversationsCount ?? 0)}
+            value={formatCompact(conversationActivityCount)}
             footnote={community?.latestConversationAt ? `Latest: ${new Date(community.latestConversationAt).toLocaleString()}` : 'Synced from Messenger; see Community section below'}
           />
         </div>
 
         <CommunitySummaryCard
-          conversationsCount={community?.conversationsCount ?? 0}
+          conversationsCount={conversationActivityCount}
           latestConversationAt={community?.latestConversationAt ?? null}
           ratingsCount={community?.ratingsCount ?? 0}
           latestRecommendationText={community?.latestRecommendationText ?? null}
