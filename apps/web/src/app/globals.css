@@ -80,6 +80,7 @@
 }
 
 :root {
+  font-size: 110%;
   --primary: #5ff6fd;
   --primary-hover: #3dd9e0;
   --secondary: #df44dc;

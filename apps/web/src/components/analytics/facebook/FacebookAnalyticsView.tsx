@@ -43,8 +43,8 @@ export interface FacebookAnalyticsViewProps {
 type SectionId = (typeof FACEBOOK_ANALYTICS_SECTION_IDS)[keyof typeof FACEBOOK_ANALYTICS_SECTION_IDS];
 type StoryMode = 'views' | 'engagement' | 'growth';
 type StoryMetricKey = 'followers' | 'engagements' | 'videoViews' | 'contentViews' | 'pageVisits';
-type ActivityPreset = 'publishing' | 'community';
-type ActivityMetricKey = 'actions' | 'posts' | 'reels' | 'conversations';
+type ActivityPreset = 'publishing' | 'community' | 'engagement';
+type ActivityMetricKey = 'posts' | 'conversations' | 'likes' | 'comments' | 'shares' | 'reposts';
 type ContentHistoryFilter = 'all' | 'posts' | 'reels';
 
 const COLOR = {
@@ -111,15 +111,18 @@ const STORY_MODE_DEFAULT_METRICS: Record<StoryMode, StoryMetricKey[]> = {
 };
 
 const ACTIVITY_METRIC_CONFIG: Record<ActivityMetricKey, { label: string; color: string }> = {
-  actions: { label: 'Actions', color: COLOR.violet },
   posts: { label: 'Posts', color: COLOR.magenta },
-  reels: { label: 'Reels', color: COLOR.amber },
   conversations: { label: 'Conversations', color: '#d72661' },
+  likes: { label: 'Likes', color: COLOR.violet },
+  comments: { label: 'Comments', color: COLOR.coral },
+  shares: { label: 'Shares', color: COLOR.amber },
+  reposts: { label: 'Reposts', color: '#111827' },
 };
 
 const ACTIVITY_PRESET_DEFAULTS: Record<ActivityPreset, ActivityMetricKey[]> = {
-  publishing: ['posts', 'reels'],
-  community: ['conversations', 'actions'],
+  publishing: ['posts'],
+  community: ['conversations'],
+  engagement: ['likes', 'comments', 'shares', 'reposts'],
 };
 
 function formatCompact(n: number): string {
@@ -393,35 +396,44 @@ export function InsightChartCard({
   subtitle,
   legend,
   children,
+  hideHeader = false,
+  flat = false,
 }: {
   title: string;
   subtitle?: string;
   legend?: Array<{ label: string; color: string }>;
   children: React.ReactNode;
+  hideHeader?: boolean;
+  flat?: boolean;
 }) {
   return (
-    <div className="rounded-[20px] p-5" style={{ background: COLOR.card, boxShadow: '0 2px 20px rgba(15,23,42,0.06)' }}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>{title}</h3>
-          {subtitle ? <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>{subtitle}</p> : null}
-        </div>
-        {legend?.length ? (
-          <div className="flex flex-wrap gap-2">
-            {legend.map((item) => (
-              <span
-                key={item.label}
-                className="rounded-full border px-2.5 py-1 text-xs"
-                style={{ borderColor: COLOR.border, color: COLOR.textSecondary, background: 'rgba(255,255,255,0.02)' }}
-              >
-                <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ background: item.color }} />
-                {item.label}
-              </span>
-            ))}
+    <div
+      className={flat ? '' : 'rounded-[20px] p-5'}
+      style={flat ? { background: COLOR.card } : { background: COLOR.card, boxShadow: '0 2px 20px rgba(15,23,42,0.06)' }}
+    >
+      {!hideHeader ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>{title}</h3>
+            {subtitle ? <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>{subtitle}</p> : null}
           </div>
-        ) : null}
-      </div>
-      <div className="mt-3 h-[300px] pb-5 relative">
+          {legend?.length ? (
+            <div className="flex flex-wrap gap-2">
+              {legend.map((item) => (
+                <span
+                  key={item.label}
+                  className="rounded-full border px-2.5 py-1 text-xs"
+                  style={{ borderColor: COLOR.border, color: COLOR.textSecondary, background: 'rgba(255,255,255,0.02)' }}
+                >
+                  <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ background: item.color }} />
+                  {item.label}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      <div className={`${hideHeader ? '' : 'mt-3 '}h-[300px] pb-5 relative`}>
         <div className="pointer-events-none absolute inset-0 z-0" aria-hidden>
           <span className="absolute left-[16%] top-[20%] text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>Agent4Socials</span>
           <span className="absolute right-[16%] top-[20%] text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>Agent4Socials</span>
@@ -844,15 +856,12 @@ export function FacebookAnalyticsView({
   const contentViews = bundle?.totals.contentViews ?? 0;
   const pageVisits = bundle?.totals.pageTabViews ?? 0;
   const engagements = bundle?.totals.engagement ?? 0;
-  const actionsSeries = (bundle?.series.totalActions?.length ?? 0) > 0 ? bundle?.series.totalActions : (bundle?.series.engagement ?? []);
-  const actionsTotal = (bundle?.totals.totalActions ?? 0) > 0 ? (bundle?.totals.totalActions ?? 0) : engagements;
   const pageVideoViews = bundle?.totals.videoViews ?? 0;
   const postVideoPlaysInRange = useMemo(() => sumPostLevelVideoPlays(postsInRange), [postsInRange]);
   const videoViews = Math.max(pageVideoViews, postVideoPlaysInRange);
   const postImpressions = bundle?.totals.postImpressions ?? 0;
   const nonviralImpressions = bundle?.totals.postImpressionsNonviral ?? 0;
   const viralImpressions = bundle?.totals.postImpressionsViral ?? 0;
-  const totalActions = actionsTotal;
   const uniqueReachProxy = postsInRange.reduce((s, p) => s + (p.facebookInsights?.post_impressions_unique ?? 0), 0);
 
   const chartByMode = useMemo(() => {
@@ -968,20 +977,29 @@ export function FacebookAnalyticsView({
       views: `Video Views: ${fmt(percentChangeFromSeries(series?.videoViews ?? []))} | Content Views: ${fmt(percentChangeFromSeries(series?.contentViews ?? []))} | Page Visits: ${fmt(percentChangeFromSeries(series?.pageTabViews ?? []))}`,
     } as const;
   }, [series?.contentViews, series?.engagement, series?.follows, series?.pageTabViews, series?.videoViews]);
+  const likesTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + (post.facebookInsights?.post_reactions_like_total ?? post.likeCount ?? 0), 0), [postsInRange]);
+  const commentsTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + (post.facebookInsights?.post_comments ?? 0), 0), [postsInRange]);
+  const sharesTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + (post.facebookInsights?.post_shares ?? 0), 0), [postsInRange]);
+  const repostsTotal = sharesTotal;
   const operationalData = useMemo(() => {
-    const actionsRaw = seriesToMap(actionsSeries ?? []);
-    const actions = carryForwardSeries(dateAxis, actionsRaw, 0);
-    const hasActionPoints = Object.keys(actionsRaw).length > 0;
     const postsByDate = postsInRange.reduce<Record<string, number>>((acc, post) => {
       const d = localCalendarDateFromIso(post.publishedAt);
       acc[d] = (acc[d] ?? 0) + 1;
       return acc;
     }, {});
-    const reelsByDate = postsInRange.reduce<Record<string, number>>((acc, post) => {
-      const isReel = (post.permalinkUrl ?? '').includes('/reel/') || isReelPost(post);
-      if (!isReel) return acc;
+    const likesByDate = postsInRange.reduce<Record<string, number>>((acc, post) => {
       const d = localCalendarDateFromIso(post.publishedAt);
-      acc[d] = (acc[d] ?? 0) + 1;
+      acc[d] = (acc[d] ?? 0) + (post.facebookInsights?.post_reactions_like_total ?? post.likeCount ?? 0);
+      return acc;
+    }, {});
+    const commentsByDate = postsInRange.reduce<Record<string, number>>((acc, post) => {
+      const d = localCalendarDateFromIso(post.publishedAt);
+      acc[d] = (acc[d] ?? 0) + (post.facebookInsights?.post_comments ?? 0);
+      return acc;
+    }, {});
+    const sharesByDate = postsInRange.reduce<Record<string, number>>((acc, post) => {
+      const d = localCalendarDateFromIso(post.publishedAt);
+      acc[d] = (acc[d] ?? 0) + (post.facebookInsights?.post_shares ?? 0);
       return acc;
     }, {});
     const conversationsByDate = liveConversationDates.reduce<Record<string, number>>((acc, d) => {
@@ -991,14 +1009,20 @@ export function FacebookAnalyticsView({
     }, {});
     return dateAxis.map((date) => ({
       date,
-      actions: hasActionPoints ? (actions[date] ?? 0) : (date === (dateAxis[dateAxis.length - 1] ?? '') ? totalActions : 0),
       posts: postsByDate[date] ?? 0,
-      reels: reelsByDate[date] ?? 0,
       conversations: conversationsByDate[date] ?? 0,
+      likes: likesByDate[date] ?? 0,
+      comments: commentsByDate[date] ?? 0,
+      shares: sharesByDate[date] ?? 0,
+      reposts: sharesByDate[date] ?? 0,
     }));
-  }, [actionsSeries, dateAxis, liveConversationDates, postsInRange, totalActions]);
+  }, [dateAxis, liveConversationDates, postsInRange]);
   const operationalTicks = useMemo(
-    () => buildKeyDateTicks(operationalData, (d) => (d.actions ?? 0) > 0 || (d.posts ?? 0) > 0 || (d.conversations ?? 0) > 0, 10),
+    () => buildKeyDateTicks(
+      operationalData,
+      (d) => (d.posts ?? 0) > 0 || (d.conversations ?? 0) > 0 || (d.likes ?? 0) > 0 || (d.comments ?? 0) > 0 || (d.shares ?? 0) > 0 || (d.reposts ?? 0) > 0,
+      10
+    ),
     [operationalData]
   );
 
@@ -1216,11 +1240,23 @@ export function FacebookAnalyticsView({
           />
         </div>
 
-        <InsightChartCard
-          title="Performance"
-          legend={selectedStoryMetrics.map((metric) => ({ label: STORY_METRIC_CONFIG[metric].label, color: STORY_METRIC_CONFIG[metric].color }))}
-        >
-          <div className="mb-3 flex gap-2">
+        <div className="rounded-[20px] border p-4 sm:p-5 space-y-3" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Performance</h3>
+            <div className="flex flex-wrap gap-2">
+              {selectedStoryMetrics.map((metric) => (
+                <span
+                  key={metric}
+                  className="rounded-full border px-2.5 py-1 text-xs"
+                  style={{ borderColor: COLOR.border, color: COLOR.textSecondary, background: 'rgba(255,255,255,0.02)' }}
+                >
+                  <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ background: STORY_METRIC_CONFIG[metric].color }} />
+                  {STORY_METRIC_CONFIG[metric].label}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="mb-1 flex gap-2">
             {(['growth', 'engagement', 'views'] as const).map((mode) => (
               <button
                 key={mode}
@@ -1239,6 +1275,7 @@ export function FacebookAnalyticsView({
               </button>
             ))}
           </div>
+          <InsightChartCard title="Performance" hideHeader flat>
           {selectedStoryMetrics.length === 0 ? (
             <div className="h-[300px] rounded-xl border border-dashed relative overflow-hidden" style={{ borderColor: COLOR.border }}>
               <div className="absolute inset-0 z-[2] flex items-center justify-center">
@@ -1267,17 +1304,26 @@ export function FacebookAnalyticsView({
               </ComposedChart>
             </ResponsiveContainer>
           )}
-        </InsightChartCard>
+          </InsightChartCard>
+        </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            label="Actions"
-            source={(bundle?.series.totalActions?.length ?? 0) > 0 ? 'page_total_actions' : 'page_post_engagements (fallback)'}
-            color={ACTIVITY_METRIC_CONFIG.actions.color}
-            value={formatCompact(totalActions)}
-            active={selectedActivityMetrics.includes('actions')}
-            onClick={() => setSelectedActivityMetrics((prev) => prev.includes('actions') ? prev.filter((m) => m !== 'actions') : [...prev, 'actions'])}
-          />
+        <div className="rounded-[20px] border p-4 sm:p-5 space-y-3" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Activity</h3>
+            <div className="flex flex-wrap gap-2">
+              {selectedActivityMetrics.map((m) => (
+                <span
+                  key={m}
+                  className="rounded-full border px-2.5 py-1 text-xs"
+                  style={{ borderColor: COLOR.border, color: COLOR.textSecondary, background: 'rgba(255,255,255,0.02)' }}
+                >
+                  <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ background: ACTIVITY_METRIC_CONFIG[m].color }} />
+                  {ACTIVITY_METRIC_CONFIG[m].label}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
           <MetricCard
             label="Posts"
             source="Derived from posts feed"
@@ -1287,14 +1333,6 @@ export function FacebookAnalyticsView({
             onClick={() => setSelectedActivityMetrics((prev) => prev.includes('posts') ? prev.filter((m) => m !== 'posts') : [...prev, 'posts'])}
           />
           <MetricCard
-            label="Reels"
-            source="Derived from posts feed"
-            color={ACTIVITY_METRIC_CONFIG.reels.color}
-            value={formatCompact(postsInRange.filter((p) => (p.permalinkUrl ?? '').includes('/reel/') || isReelPost(p)).length)}
-            active={selectedActivityMetrics.includes('reels')}
-            onClick={() => setSelectedActivityMetrics((prev) => prev.includes('reels') ? prev.filter((m) => m !== 'reels') : [...prev, 'reels'])}
-          />
-          <MetricCard
             label="Conversations"
             source="Messenger conversations"
             color={ACTIVITY_METRIC_CONFIG.conversations.color}
@@ -1302,14 +1340,42 @@ export function FacebookAnalyticsView({
             active={selectedActivityMetrics.includes('conversations')}
             onClick={() => setSelectedActivityMetrics((prev) => prev.includes('conversations') ? prev.filter((m) => m !== 'conversations') : [...prev, 'conversations'])}
           />
-        </div>
-
-        <InsightChartCard
-          title="Activity"
-          legend={selectedActivityMetrics.map((m) => ({ label: ACTIVITY_METRIC_CONFIG[m].label, color: ACTIVITY_METRIC_CONFIG[m].color }))}
-        >
+          <MetricCard
+            label="Likes"
+            source="post_reactions_like_total"
+            color={ACTIVITY_METRIC_CONFIG.likes.color}
+            value={formatCompact(likesTotal)}
+            active={selectedActivityMetrics.includes('likes')}
+            onClick={() => setSelectedActivityMetrics((prev) => prev.includes('likes') ? prev.filter((m) => m !== 'likes') : [...prev, 'likes'])}
+          />
+          <MetricCard
+            label="Comments"
+            source="post_comments"
+            color={ACTIVITY_METRIC_CONFIG.comments.color}
+            value={formatCompact(commentsTotal)}
+            active={selectedActivityMetrics.includes('comments')}
+            onClick={() => setSelectedActivityMetrics((prev) => prev.includes('comments') ? prev.filter((m) => m !== 'comments') : [...prev, 'comments'])}
+          />
+          <MetricCard
+            label="Shares"
+            source="post_shares"
+            color={ACTIVITY_METRIC_CONFIG.shares.color}
+            value={formatCompact(sharesTotal)}
+            active={selectedActivityMetrics.includes('shares')}
+            onClick={() => setSelectedActivityMetrics((prev) => prev.includes('shares') ? prev.filter((m) => m !== 'shares') : [...prev, 'shares'])}
+          />
+          <MetricCard
+            label="Reposts"
+            source="Proxy from post_shares"
+            color={ACTIVITY_METRIC_CONFIG.reposts.color}
+            value={formatCompact(repostsTotal)}
+            active={selectedActivityMetrics.includes('reposts')}
+            onClick={() => setSelectedActivityMetrics((prev) => prev.includes('reposts') ? prev.filter((m) => m !== 'reposts') : [...prev, 'reposts'])}
+          />
+          </div>
+          <InsightChartCard title="Activity" hideHeader flat>
           <div className="mb-3 flex gap-2">
-              {(['publishing', 'community'] as const).map((preset) => (
+              {(['publishing', 'community', 'engagement'] as const).map((preset) => (
                 <button
                   key={preset}
                   type="button"
@@ -1321,7 +1387,7 @@ export function FacebookAnalyticsView({
                     border: `1px solid ${activityPreset === preset ? COLOR.violet : COLOR.border}`,
                   }}
                 >
-                  {preset === 'publishing' ? 'Publishing' : 'Community'}
+                  {preset === 'publishing' ? 'Publishing' : preset === 'community' ? 'Community' : 'Engagement'}
                 </button>
               ))}
           </div>
@@ -1346,18 +1412,31 @@ export function FacebookAnalyticsView({
                   contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
                   formatter={(v: number | string | undefined, n?: string) => [
                     formatNumber(Number(v) || 0),
-                    n === 'actions' ? 'Actions' : n === 'posts' ? 'Posts' : n === 'reels' ? 'Reels' : 'Conversations',
+                    n === 'posts'
+                      ? 'Posts'
+                      : n === 'conversations'
+                        ? 'Conversations'
+                        : n === 'likes'
+                          ? 'Likes'
+                          : n === 'comments'
+                            ? 'Comments'
+                            : n === 'shares'
+                              ? 'Shares'
+                              : 'Reposts',
                   ]}
                   labelFormatter={(l) => formatShortDate(String(l))}
                 />
-                {selectedActivityMetrics.includes('actions') ? <Line type="monotone" dataKey="actions" stroke={ACTIVITY_METRIC_CONFIG.actions.color} strokeWidth={2} dot={false} /> : null}
                 {selectedActivityMetrics.includes('posts') ? <Line type="monotone" dataKey="posts" stroke={ACTIVITY_METRIC_CONFIG.posts.color} strokeWidth={2} dot={false} /> : null}
-                {selectedActivityMetrics.includes('reels') ? <Line type="monotone" dataKey="reels" stroke={ACTIVITY_METRIC_CONFIG.reels.color} strokeWidth={2} dot={false} /> : null}
                 {selectedActivityMetrics.includes('conversations') ? <Line type="monotone" dataKey="conversations" stroke={ACTIVITY_METRIC_CONFIG.conversations.color} strokeWidth={2} dot={false} /> : null}
+                {selectedActivityMetrics.includes('likes') ? <Line type="monotone" dataKey="likes" stroke={ACTIVITY_METRIC_CONFIG.likes.color} strokeWidth={2} dot={false} /> : null}
+                {selectedActivityMetrics.includes('comments') ? <Line type="monotone" dataKey="comments" stroke={ACTIVITY_METRIC_CONFIG.comments.color} strokeWidth={2} dot={false} /> : null}
+                {selectedActivityMetrics.includes('shares') ? <Line type="monotone" dataKey="shares" stroke={ACTIVITY_METRIC_CONFIG.shares.color} strokeWidth={2} dot={false} /> : null}
+                {selectedActivityMetrics.includes('reposts') ? <Line type="monotone" dataKey="reposts" stroke={ACTIVITY_METRIC_CONFIG.reposts.color} strokeWidth={2} dot={false} /> : null}
               </ComposedChart>
             </ResponsiveContainer>
           )}
-        </InsightChartCard>
+          </InsightChartCard>
+        </div>
 
         <CommunitySummaryCard
           conversationsCount={conversationActivityCount}
