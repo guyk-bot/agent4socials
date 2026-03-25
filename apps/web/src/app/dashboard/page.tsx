@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -241,23 +242,34 @@ const ANALYTICS_SCROLL_SECTIONS = [
 
 const FREE_HIGHLIGHTS = [
   '1 brand',
-  '50 posts per month',
-  '30 days analytics history',
-  'Basic inbox and comments',
+  '50 scheduled posts / month',
+  'Connect Instagram, Facebook, TikTok, YouTube, LinkedIn',
+  'X (Twitter) available on Starter & Pro only',
+  '30 days analytics',
+  '1 smart link page',
+  'Limited AI Assistant use',
 ];
 
 const STARTER_HIGHLIGHTS = [
-  '3 brands',
+  '1 brand included',
   'Unlimited scheduling',
-  '6 months analytics history',
-  'Unlimited AI writing tools',
+  'Reply to messages and comments',
+  'X (Twitter) and LinkedIn connections',
+  '6 months analytics',
+  'Unlimited AI Assistant use',
+  'Export analytics reports (no watermark)',
 ];
 
 const PRO_HIGHLIGHTS = [
-  '10 brands',
-  'Unlimited scheduling and inbox',
-  'Advanced analytics and exports',
-  'White-label and priority support',
+  '1 brand included',
+  'Unlimited analytic history',
+  'Bulk replies (messages and comments)',
+  'Keyword triggers',
+  '10 smart link pages',
+  'Custom domains',
+  'White-label reports',
+  'Client dashboard',
+  'Priority support',
 ];
 
 export default function DashboardPage() {
@@ -1022,79 +1034,91 @@ export default function DashboardPage() {
   return (
     <div className="space-y-0">
       <ConfirmModal open={alertMessage !== null} onClose={() => setAlertMessage(null)} message={alertMessage ?? ''} variant="alert" confirmLabel="OK" />
-      {pricingModalOpen ? (
-        <div
-          className="fixed inset-0 z-[120] flex items-center justify-center p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Pricing plans"
-        >
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/55 backdrop-blur-[2px]"
-            onClick={() => setPricingModalOpen(false)}
-            aria-label="Close pricing popup"
-          />
-          <div className="relative z-10 w-full max-w-6xl max-h-[90vh] overflow-auto rounded-3xl border border-[#eadff5] bg-white p-5 sm:p-8 shadow-2xl">
-            <div className="mb-6 flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#1a161f]">Choose your plan</h2>
-                <p className="mt-1 text-sm text-[#5d5768]">Unlock more history and premium analytics features.</p>
-              </div>
+      {pricingModalOpen && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Pricing plans"
+            >
               <button
                 type="button"
+                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
                 onClick={() => setPricingModalOpen(false)}
-                className="rounded-lg border border-[#e6d9f4] px-3 py-1.5 text-sm font-medium text-[#5d5768] hover:bg-[#faf7fe]"
-              >
-                Close
-              </button>
-            </div>
-            <div className="pb-6">
-              <PricingBillingToggle interval={pricingInterval} onIntervalChange={setPricingInterval} />
-            </div>
-            <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-              <PricingCard
-                plan="free"
-                price="$0"
-                description="Best for trying the platform"
-                highlights={FREE_HIGHLIGHTS}
-                ctaText="Start Free"
-                onCta={openSignup}
-                billingInterval={pricingInterval}
+                aria-label="Close pricing popup"
               />
-              <PricingCard
-                plan="starter"
-                description="Best for creators and freelancers"
-                highlights={STARTER_HIGHLIGHTS}
-                priceMonthly={15}
-                priceYearly={144}
-                yearlyCrossedPrice={180}
-                additionalBrandsMonthly={5}
-                additionalBrandsYearly={48}
-                ctaText="Get Starter"
-                onCta={openSignup}
-                billingInterval={pricingInterval}
-              />
-              <PricingCard
-                plan="pro"
-                description="Best for professionals and agencies"
-                badge="Most Popular"
-                bestValueLabel="Best value for growing brands"
-                highlights={PRO_HIGHLIGHTS}
-                priceMonthly={24}
-                priceYearly={230}
-                yearlyCrossedPrice={288}
-                additionalBrandsMonthly={3}
-                additionalBrandsYearly={29}
-                ctaText="Get Pro"
-                onCta={openSignup}
-                highlighted
-                billingInterval={pricingInterval}
-              />
-            </div>
-          </div>
-        </div>
-      ) : null}
+              <div className="relative z-10 w-full max-w-6xl max-h-[92vh] overflow-auto rounded-3xl bg-white shadow-2xl">
+                <button
+                  type="button"
+                  onClick={() => setPricingModalOpen(false)}
+                  className="absolute right-4 top-4 rounded-lg px-3 py-1.5 text-sm font-medium text-[#5d5768] hover:bg-[#f6f2fb]"
+                >
+                  Close
+                </button>
+
+                <div className="px-4 sm:px-6 pt-8 pb-4 sm:pb-5">
+                  <PricingBillingToggle interval={pricingInterval} onIntervalChange={setPricingInterval} />
+                </div>
+
+                <div className="px-4 sm:px-6 pb-6 sm:pb-8">
+                  <div className="grid gap-4 sm:gap-5 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+                    <PricingCard
+                      plan="free"
+                      price="$0"
+                      description="Best for trying the platform"
+                      highlights={FREE_HIGHLIGHTS}
+                      ctaText="Start Free"
+                      onCta={openSignup}
+                      billingInterval={pricingInterval}
+                    />
+                    <PricingCard
+                      plan="starter"
+                      description="Best for creators and freelancers"
+                      highlights={STARTER_HIGHLIGHTS}
+                      priceMonthly={15}
+                      priceYearly={144}
+                      yearlyCrossedPrice={180}
+                      savePerYear={36}
+                      additionalBrandsMonthly={5}
+                      additionalBrandsYearly={48}
+                      ctaText="Get Starter"
+                      onCta={openSignup}
+                      billingInterval={pricingInterval}
+                    />
+                    <PricingCard
+                      plan="pro"
+                      description="Best for professionals and agencies"
+                      badge="Most Popular"
+                      bestValueLabel="⭐ Best value for growing brands"
+                      highlights={PRO_HIGHLIGHTS}
+                      priceMonthly={24}
+                      priceYearly={230}
+                      yearlyCrossedPrice={288}
+                      savePerYear={58}
+                      additionalBrandsMonthly={3}
+                      additionalBrandsYearly={29}
+                      ctaText="Get Pro"
+                      onCta={openSignup}
+                      highlighted
+                      billingInterval={pricingInterval}
+                    />
+                  </div>
+                  <p className="mt-6 text-center">
+                    <button
+                      type="button"
+                      onClick={() => { setPricingModalOpen(false); router.push('/pricing'); }}
+                      className="text-[#7b2cbf] font-medium hover:text-[#d7263d] transition-colors"
+                    >
+                      Compare all features and yearly pricing &rarr;
+                    </button>
+                  </p>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
       {/* Show sync banner only on first load (no data yet) or right after connect; date changes refetch in place without banner */}
       {(facebookLoadingOnly || connectingParam === '1' || justConnected || ((insightsLoading || importedPostsLoading) && insights == null && selectedAccount != null)) && (
         <DataSyncBanner
