@@ -42,6 +42,7 @@ export interface FacebookAnalyticsViewProps {
 
 type SectionId = (typeof FACEBOOK_ANALYTICS_SECTION_IDS)[keyof typeof FACEBOOK_ANALYTICS_SECTION_IDS];
 type StoryMode = 'views' | 'engagement' | 'growth';
+type StoryMetricKey = 'followers' | 'engagements' | 'videoViews' | 'contentViews' | 'pageVisits';
 type ContentHistoryFilter = 'all' | 'posts' | 'reels';
 
 const COLOR = {
@@ -92,6 +93,20 @@ const METRIC_MAP: MetricDef[] = [
   { key: 'post_reactions_like_total', label: 'Likes', section: 'posts', source: 'post_reactions_like_total', color: COLOR.violet },
   { key: 'post_reactions_by_type_total', label: 'Reactions Breakdown', section: 'posts', source: 'post_reactions_by_type_total', color: COLOR.violet },
 ];
+
+const STORY_METRIC_CONFIG: Record<StoryMetricKey, { label: string; color: string; mode: StoryMode }> = {
+  followers: { label: 'Followers', color: COLOR.mint, mode: 'growth' },
+  engagements: { label: 'Engagements', color: COLOR.violet, mode: 'engagement' },
+  videoViews: { label: 'Video Views', color: COLOR.magenta, mode: 'views' },
+  contentViews: { label: 'Content Views', color: COLOR.amber, mode: 'views' },
+  pageVisits: { label: 'Page Visits', color: '#d72661', mode: 'views' },
+};
+
+const STORY_MODE_DEFAULT_METRICS: Record<StoryMode, StoryMetricKey[]> = {
+  growth: ['followers'],
+  engagement: ['engagements'],
+  views: ['videoViews', 'contentViews', 'pageVisits'],
+};
 
 function formatCompact(n: number): string {
   if (!Number.isFinite(n)) return '0';
@@ -725,6 +740,7 @@ export function FacebookAnalyticsView({
   /** Do not tie overview shell to post sync: posts load slower; show metrics immediately and refresh tables in place. */
   const overviewSkeleton = insightsLoading && !insights?.facebookAnalytics;
   const [storyMode, setStoryMode] = useState<StoryMode>('growth');
+  const [selectedStoryMetrics, setSelectedStoryMetrics] = useState<StoryMetricKey[]>(STORY_MODE_DEFAULT_METRICS.growth);
   const [activeSection, setActiveSection] = useState<SectionId>(FACEBOOK_ANALYTICS_SECTION_IDS.overview);
   const [selectedPost, setSelectedPost] = useState<FacebookPost | null>(null);
   const [historyFilter, setHistoryFilter] = useState<ContentHistoryFilter>('all');
@@ -759,6 +775,10 @@ export function FacebookAnalyticsView({
     return () => observer.disconnect();
   }, [sections]);
 
+  useEffect(() => {
+    setSelectedStoryMetrics(STORY_MODE_DEFAULT_METRICS[storyMode]);
+  }, [storyMode]);
+
   const bundle = insights?.facebookAnalytics;
   const profile = insights?.facebookPageProfile;
   const community = insights?.facebookCommunity;
@@ -776,15 +796,15 @@ export function FacebookAnalyticsView({
   const dateAxis = useMemo(() => buildDateAxis(dateRange.start, dateRange.end), [dateRange.end, dateRange.start]);
   const series = bundle?.series;
   const totalFollowers = profile?.followers_count ?? profile?.fan_count ?? insights?.followers ?? 0;
-  const isCardSelected = (label: string): boolean => {
-    if (storyMode === 'growth') return label === 'Followers';
-    if (storyMode === 'engagement') return label === 'Engagements';
-    return label === 'Content Views' || label === 'Page Visits';
-  };
-  const cardModeForLabel = (label: string): StoryMode => {
-    if (label === 'Followers') return 'growth';
-    if (label === 'Engagements') return 'engagement';
-    return 'views';
+  const isCardSelected = (metric: StoryMetricKey): boolean => selectedStoryMetrics.includes(metric);
+  const toggleStoryMetric = (metric: StoryMetricKey) => {
+    setSelectedStoryMetrics((prev) => {
+      if (prev.includes(metric)) {
+        if (prev.length === 1) return prev;
+        return prev.filter((m) => m !== metric);
+      }
+      return [...prev, metric];
+    });
   };
   const newFollowers = bundle?.totals.dailyFollows ?? 0;
   const contentViews = bundle?.totals.contentViews ?? 0;
@@ -802,30 +822,23 @@ export function FacebookAnalyticsView({
   const chartByMode = useMemo(() => {
     const mediaRaw = seriesToMap(series?.contentViews ?? []);
     const visitsRaw = seriesToMap(series?.pageTabViews ?? []);
+    const videoViewsRaw = seriesToMap(series?.videoViews ?? []);
     const engagementRaw = seriesToMap(series?.engagement ?? []);
     const followsRaw = seriesToMap(series?.follows ?? []);
-    const dailyFollowsRaw = seriesToMap(series?.dailyFollows ?? []);
     const media = carryForwardSeries(dateAxis, mediaRaw, 0);
     const visits = carryForwardSeries(dateAxis, visitsRaw, 0);
+    const videoViewsSeries = carryForwardSeries(dateAxis, videoViewsRaw, 0);
     const engagement = carryForwardSeries(dateAxis, engagementRaw, 0);
     const follows = carryForwardSeries(dateAxis, followsRaw, totalFollowers);
-    const dailyFollows = carryForwardSeries(dateAxis, dailyFollowsRaw, 0);
     return dateAxis.map((date) => ({
       date,
-      primary:
-        storyMode === 'views'
-          ? media[date] ?? 0
-          : storyMode === 'engagement'
-            ? engagement[date] ?? 0
-            : follows[date] ?? 0,
-      secondary:
-        storyMode === 'views'
-          ? visits[date] ?? 0
-          : storyMode === 'engagement'
-            ? 0
-            : dailyFollows[date] ?? 0,
+      followers: follows[date] ?? 0,
+      engagements: engagement[date] ?? 0,
+      videoViews: videoViewsSeries[date] ?? 0,
+      contentViews: media[date] ?? 0,
+      pageVisits: visits[date] ?? 0,
     }));
-  }, [dateAxis, series?.contentViews, series?.dailyFollows, series?.engagement, series?.follows, series?.pageTabViews, storyMode]);
+  }, [dateAxis, series?.contentViews, series?.engagement, series?.follows, series?.pageTabViews, series?.videoViews, totalFollowers]);
 
   const stackedTraffic = useMemo(() => {
     const nonviral = seriesToMap(series?.postImpressionsNonviral ?? []);
@@ -884,8 +897,8 @@ export function FacebookAnalyticsView({
   }, [reelsRows]);
 
   const storyTicks = useMemo(
-    () => buildKeyDateTicks(chartByMode, (d) => (d.primary ?? 0) > 0 || (d.secondary ?? 0) > 0, 10),
-    [chartByMode]
+    () => buildKeyDateTicks(chartByMode, (d) => selectedStoryMetrics.some((metric) => (d[metric] ?? 0) > 0), 10),
+    [chartByMode, selectedStoryMetrics]
   );
   const trafficTicks = useMemo(
     () => buildKeyDateTicks(stackedTraffic, (d) => (d.nonviral ?? 0) > 0 || (d.viral ?? 0) > 0, 10),
@@ -1085,8 +1098,8 @@ export function FacebookAnalyticsView({
             color={COLOR.mint}
             value={formatCompact(totalFollowers)}
             series={series?.follows ?? []}
-            active={isCardSelected('Followers')}
-            onClick={() => setStoryMode(cardModeForLabel('Followers'))}
+            active={isCardSelected('followers')}
+            onClick={() => toggleStoryMetric('followers')}
           />
           <SparklineMetricCard
             label="Engagements"
@@ -1094,8 +1107,8 @@ export function FacebookAnalyticsView({
             color={COLOR.violet}
             value={formatCompact(engagements)}
             series={series?.engagement ?? []}
-            active={isCardSelected('Engagements')}
-            onClick={() => setStoryMode(cardModeForLabel('Engagements'))}
+            active={isCardSelected('engagements')}
+            onClick={() => toggleStoryMetric('engagements')}
           />
           <SparklineMetricCard
             label="Video Views"
@@ -1103,8 +1116,8 @@ export function FacebookAnalyticsView({
             color={COLOR.magenta}
             value={formatCompact(videoViews)}
             series={series?.videoViews ?? []}
-            active={isCardSelected('Video Views')}
-            onClick={() => setStoryMode(cardModeForLabel('Video Views'))}
+            active={isCardSelected('videoViews')}
+            onClick={() => toggleStoryMetric('videoViews')}
           />
           <SparklineMetricCard
             label="Content Views"
@@ -1112,8 +1125,8 @@ export function FacebookAnalyticsView({
             color={COLOR.amber}
             value={formatCompact(contentViews)}
             series={series?.contentViews ?? []}
-            active={isCardSelected('Content Views')}
-            onClick={() => setStoryMode(cardModeForLabel('Content Views'))}
+            active={isCardSelected('contentViews')}
+            onClick={() => toggleStoryMetric('contentViews')}
           />
           <SparklineMetricCard
             label="Page Visits"
@@ -1121,20 +1134,14 @@ export function FacebookAnalyticsView({
             color="#d72661"
             value={formatCompact(pageVisits)}
             series={series?.pageTabViews ?? []}
-            active={isCardSelected('Page Visits')}
-            onClick={() => setStoryMode(cardModeForLabel('Page Visits'))}
+            active={isCardSelected('pageVisits')}
+            onClick={() => toggleStoryMetric('pageVisits')}
           />
         </div>
 
         <InsightChartCard
           title="Performance Story"
-          legend={
-            storyMode === 'views'
-              ? [{ label: 'Content Views', color: COLOR.amber }, { label: 'Page Visits', color: '#d72661' }]
-              : storyMode === 'engagement'
-                ? [{ label: 'Engagements', color: COLOR.violet }]
-                : [{ label: 'Followers', color: COLOR.mint }]
-          }
+          legend={selectedStoryMetrics.map((metric) => ({ label: STORY_METRIC_CONFIG[metric].label, color: STORY_METRIC_CONFIG[metric].color }))}
         >
           <div className="mb-3 flex gap-2">
             {(['growth', 'engagement', 'views'] as const).map((mode) => (
@@ -1157,8 +1164,8 @@ export function FacebookAnalyticsView({
             <AreaChart data={chartByMode}>
               <defs>
                 <linearGradient id="primaryStory" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={storyMode === 'growth' ? COLOR.mint : storyMode === 'views' ? COLOR.amber : COLOR.violet} stopOpacity={0.45} />
-                  <stop offset="100%" stopColor={storyMode === 'growth' ? COLOR.mint : storyMode === 'views' ? COLOR.amber : COLOR.violet} stopOpacity={0.02} />
+                  <stop offset="0%" stopColor={STORY_METRIC_CONFIG[selectedStoryMetrics[0] ?? STORY_MODE_DEFAULT_METRICS[storyMode][0]].color} stopOpacity={0.45} />
+                  <stop offset="100%" stopColor={STORY_METRIC_CONFIG[selectedStoryMetrics[0] ?? STORY_MODE_DEFAULT_METRICS[storyMode][0]].color} stopOpacity={0.02} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
@@ -1166,11 +1173,19 @@ export function FacebookAnalyticsView({
               <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
               <Tooltip
                 contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
-                formatter={(v: number | string | undefined, n?: string) => [formatNumber(Number(v) || 0), n === 'primary' ? (storyMode === 'views' ? 'Content Views' : storyMode === 'engagement' ? 'Engagements' : 'Followers') : (storyMode === 'views' ? 'Page Visits' : 'New followers')]}
+                formatter={(v: number | string | undefined, n?: string) => [formatNumber(Number(v) || 0), n && n in STORY_METRIC_CONFIG ? STORY_METRIC_CONFIG[n as StoryMetricKey].label : String(n ?? '')]}
                 labelFormatter={(l) => formatShortDate(String(l))}
               />
-              <Area type="monotone" dataKey="primary" stroke={storyMode === 'growth' ? COLOR.mint : storyMode === 'views' ? COLOR.amber : COLOR.violet} fill="url(#primaryStory)" strokeWidth={2.2} />
-              {storyMode === 'views' ? <Line type="monotone" dataKey="secondary" stroke={'#d72661'} strokeWidth={2} dot={false} /> : null}
+              <Area
+                type="monotone"
+                dataKey={selectedStoryMetrics[0] ?? STORY_MODE_DEFAULT_METRICS[storyMode][0]}
+                stroke={STORY_METRIC_CONFIG[selectedStoryMetrics[0] ?? STORY_MODE_DEFAULT_METRICS[storyMode][0]].color}
+                fill="url(#primaryStory)"
+                strokeWidth={2.2}
+              />
+              {selectedStoryMetrics.slice(1).map((metric) => (
+                <Line key={metric} type="monotone" dataKey={metric} stroke={STORY_METRIC_CONFIG[metric].color} strokeWidth={2} dot={false} />
+              ))}
             </AreaChart>
           </ResponsiveContainer>
         </InsightChartCard>
