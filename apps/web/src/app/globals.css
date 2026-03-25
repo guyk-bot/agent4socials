@@ -105,6 +105,10 @@
   --shadow-glow-cyan: 0 0 10px rgba(95, 246, 253, 0.5);
 }
 
+html {
+  zoom: 1.1;
+}
+
 [data-theme='dark'] {
   --background: #000000;
   --card-bg: #171717;
