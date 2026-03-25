@@ -529,20 +529,20 @@ export function CommunitySummaryCard({
         <div className="rounded-xl p-4" style={{ background: COLOR.card }}>
           <p className="text-xs uppercase tracking-wide" style={{ color: COLOR.textMuted }}><MessageSquare size={12} className="inline mr-1" /> Conversations</p>
           <p className="mt-1 text-2xl font-semibold" style={{ color: COLOR.text }}>{formatNumber(conversationsCount)}</p>
-          <p className="mt-1 text-xs" style={{ color: COLOR.textSecondary }}>
-            {latestConversationAt
-              ? `Latest activity: ${new Date(latestConversationAt).toLocaleString()}`
-              : 'No Messenger threads in cache yet. We pull these when analytics loads or when posts sync; ensure the Page token includes messaging permissions.'}
-          </p>
+          {latestConversationAt ? (
+            <p className="mt-1 text-xs" style={{ color: COLOR.textSecondary }}>
+              {`Latest activity: ${new Date(latestConversationAt).toLocaleString()}`}
+            </p>
+          ) : null}
         </div>
         <div className="rounded-xl p-4" style={{ background: COLOR.card }}>
           <p className="text-xs uppercase tracking-wide" style={{ color: COLOR.textMuted }}><Star size={12} className="inline mr-1" /> Ratings</p>
           <p className="mt-1 text-2xl font-semibold" style={{ color: COLOR.text }}>{formatNumber(ratingsCount)}</p>
-          <p className="mt-1 text-xs" style={{ color: COLOR.textSecondary }}>
-            {latestRecommendationText
-              ? clampText(latestRecommendationText, 96)
-              : 'No reviews in cache yet. We pull Page ratings when analytics loads or when posts sync.'}
-          </p>
+          {latestRecommendationText ? (
+            <p className="mt-1 text-xs" style={{ color: COLOR.textSecondary }}>
+              {clampText(latestRecommendationText, 96)}
+            </p>
+          ) : null}
         </div>
       </div>
     </div>
