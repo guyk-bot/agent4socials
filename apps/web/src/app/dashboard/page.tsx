@@ -63,13 +63,13 @@ function DataSyncBanner({
   postsLoading: boolean;
 }) {
   const platformIcons: Record<string, React.ReactNode> = {
-    INSTAGRAM: <InstagramIcon size={20} />,
-    FACEBOOK: <FacebookIcon size={20} />,
-    TIKTOK: <TikTokIcon size={20} />,
-    YOUTUBE: <YoutubeIcon size={20} />,
-    TWITTER: <XTwitterIcon size={20} className="text-neutral-800" />,
-    LINKEDIN: <LinkedinIcon size={20} />,
-    PINTEREST: <PinterestIcon size={20} />,
+    INSTAGRAM: <InstagramIcon size={26} />,
+    FACEBOOK: <FacebookIcon size={26} />,
+    TIKTOK: <TikTokIcon size={26} />,
+    YOUTUBE: <YoutubeIcon size={26} />,
+    TWITTER: <XTwitterIcon size={26} className="text-neutral-800" />,
+    LINKEDIN: <LinkedinIcon size={26} />,
+    PINTEREST: <PinterestIcon size={26} />,
   };
   const platformColors: Record<string, string> = {
     INSTAGRAM: 'from-pink-500 via-fuchsia-500 to-purple-600',
@@ -91,14 +91,14 @@ function DataSyncBanner({
     <div className="flex items-center gap-1.5 min-w-0">
       <div className={`shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
         state === 'done' ? 'bg-emerald-500 text-white' :
-        state === 'loading' ? 'bg-white text-[var(--primary)]' : 'bg-white/30 text-white/60'
+        state === 'loading' ? 'bg-neutral-200 text-neutral-500' : 'bg-white/30 text-white/60'
       }`}>
         {state === 'done' ? '✓' : state === 'loading' ? (
-          <span className="inline-block w-3 h-3 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
+          <span className="inline-block w-3 h-3 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin" />
         ) : '○'}
       </div>
       <span className={`text-xs font-medium truncate ${
-        state === 'done' ? 'text-emerald-100' : state === 'loading' ? 'text-white' : 'text-white/50'
+        state === 'done' ? 'text-emerald-100' : state === 'loading' ? 'text-neutral-200' : 'text-white/50'
       }`}>{label}</span>
     </div>
   );
