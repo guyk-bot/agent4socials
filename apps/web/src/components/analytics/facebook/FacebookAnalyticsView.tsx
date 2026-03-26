@@ -329,9 +329,12 @@ function buildDateAxis(start: string, end: string): string[] {
 }
 
 function EngagementHoverCursor(props: { x?: number; y?: number; height?: number; points?: Array<{ x?: number }>; }) {
-  const centerX = typeof props.x === 'number'
-    ? props.x
-    : (typeof props.points?.[0]?.x === 'number' ? props.points[0].x : null);
+  const pointXs = (props.points ?? [])
+    .map((p) => p.x)
+    .filter((x): x is number => typeof x === 'number');
+  const centerX = pointXs.length > 0
+    ? pointXs.reduce((sum, x) => sum + x, 0) / pointXs.length
+    : (typeof props.x === 'number' ? props.x : null);
   if (centerX == null) return null;
   const width = 36;
   return (
