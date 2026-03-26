@@ -1759,21 +1759,6 @@ export function FacebookAnalyticsView({
             byClicks={topByClicks.map((p) => ({ id: p.id, preview: p.preview, permalink: p.permalink, type: p.type, thumbnailUrl: p.rawPost.thumbnailUrl ?? null, views: p.views, clicks: p.clicks, reactions: p.reactionsTotal }))}
             byReactions={topByReactions.map((p) => ({ id: p.id, preview: p.preview, permalink: p.permalink, type: p.type, thumbnailUrl: p.rawPost.thumbnailUrl ?? null, views: p.views, clicks: p.clicks, reactions: p.reactionsTotal }))}
           />
-
-          {postsRows.length > 0 ? (
-            <PostsPerformanceTable rows={postsRows} onOpenDetail={setSelectedPost} />
-          ) : postsLoading ? (
-            <div className="rounded-[20px] border p-6 space-y-3" style={{ background: COLOR.card, borderColor: COLOR.border }}>
-              <p className="text-sm font-medium" style={{ color: COLOR.text }}>Loading posts for this range…</p>
-              <div className="space-y-2">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="h-12 rounded-xl animate-pulse" style={{ background: 'rgba(15,23,42,0.06)' }} />
-                ))}
-              </div>
-            </div>
-          ) : (
-            <EmptyStateCard title="No posts in this range" subtitle="Try a wider date range or sync the account posts again." />
-          )}
         </div>
 
       </section>
