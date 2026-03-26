@@ -867,9 +867,16 @@ export default function DashboardPage() {
       .then(() => fetchAccounts())
       .then(() => {
         fbIgAccounts.forEach((acc) => {
-          // Only invalidate insights cache; keep postsCacheRef so the chart doesn't blank mid-reload.
+          // Clear insights cache so the next load re-fetches fresh data.
+          // Keep postsCacheRef intact so the engagement chart doesn't blank during the reload.
           Object.keys(insightsCacheRef.current).forEach((k) => { if (k.startsWith(acc.id + '-')) delete insightsCacheRef.current[k]; });
-          appDataRef.current?.setInsightsForAccount(acc.id, {} as import('@/context/AppDataContext').CachedInsights);
+          appDataRef.current?.clearAccountData(acc.id);
+          // Re-populate posts cache from current importedPosts so the posts effect sees existing data on re-run.
+          const existingPosts = postsCacheRef.current[acc.id];
+          if (existingPosts) {
+            // Keep the local ref; clearAccountData wiped context but ref still lives here.
+            appDataRef.current?.setPostsForAccount(acc.id, existingPosts);
+          }
         });
         syncAllRequestedRef.current = null;
         setSyncAllTrigger((t) => t + 1);
