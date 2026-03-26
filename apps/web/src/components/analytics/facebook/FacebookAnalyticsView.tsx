@@ -1095,9 +1095,32 @@ export function FacebookAnalyticsView({
       acc[key] = (acc[key] ?? 0) + 1;
       return acc;
     }, {});
+    const distributedActionsByDate: Record<string, number> = {};
+    if (hasActionPoints) {
+      dateAxis.forEach((date) => {
+        distributedActionsByDate[date] = actions[date] ?? 0;
+      });
+    } else if (totalActions > 0) {
+      const postWeightTotal = Object.values(postsByDate).reduce((sum, value) => sum + value, 0);
+      const convoWeightTotal = Object.values(conversationsByDate).reduce((sum, value) => sum + value, 0);
+      if (postWeightTotal > 0) {
+        dateAxis.forEach((date) => {
+          distributedActionsByDate[date] = ((postsByDate[date] ?? 0) / postWeightTotal) * totalActions;
+        });
+      } else if (convoWeightTotal > 0) {
+        dateAxis.forEach((date) => {
+          distributedActionsByDate[date] = ((conversationsByDate[date] ?? 0) / convoWeightTotal) * totalActions;
+        });
+      } else {
+        const lastDate = dateAxis[dateAxis.length - 1] ?? '';
+        dateAxis.forEach((date) => {
+          distributedActionsByDate[date] = date === lastDate ? totalActions : 0;
+        });
+      }
+    }
     return dateAxis.map((date) => ({
       date,
-      actions: hasActionPoints ? (actions[date] ?? 0) : (date === (dateAxis[dateAxis.length - 1] ?? '') ? totalActions : 0),
+      actions: distributedActionsByDate[date] ?? 0,
       posts: postsByDate[date] ?? 0,
       conversations: conversationsByDate[date] ?? 0,
     }));
