@@ -63,13 +63,13 @@ function DataSyncBanner({
   postsLoading: boolean;
 }) {
   const platformIcons: Record<string, React.ReactNode> = {
-    INSTAGRAM: <InstagramIcon size={32} />,
-    FACEBOOK: <FacebookIcon size={32} />,
-    TIKTOK: <TikTokIcon size={32} />,
-    YOUTUBE: <YoutubeIcon size={32} />,
-    TWITTER: <XTwitterIcon size={32} className="text-neutral-800" />,
-    LINKEDIN: <LinkedinIcon size={32} />,
-    PINTEREST: <PinterestIcon size={32} />,
+    INSTAGRAM: <InstagramIcon size={29} />,
+    FACEBOOK: <FacebookIcon size={29} />,
+    TIKTOK: <TikTokIcon size={29} />,
+    YOUTUBE: <YoutubeIcon size={29} />,
+    TWITTER: <XTwitterIcon size={29} className="text-neutral-800" />,
+    LINKEDIN: <LinkedinIcon size={29} />,
+    PINTEREST: <PinterestIcon size={29} />,
   };
   const platformColors: Record<string, string> = {
     INSTAGRAM: 'from-pink-500 via-fuchsia-500 to-purple-600',
@@ -119,7 +119,7 @@ function DataSyncBanner({
         {icon && (
           <div className="relative shrink-0">
             {!allDone && <div className="absolute inset-0 rounded-full bg-white/30 animate-ping" />}
-            <div className="relative w-9 h-9 rounded-full bg-white flex items-center justify-center shadow-sm">
+            <div className="relative w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm">
               {icon}
             </div>
           </div>
