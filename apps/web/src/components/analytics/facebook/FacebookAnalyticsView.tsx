@@ -346,7 +346,7 @@ function MinWidthBarShape(props: { x?: number; y?: number; width?: number; heigh
   const width = typeof props.width === 'number' ? props.width : 0;
   const height = typeof props.height === 'number' ? props.height : 0;
   const fill = props.fill ?? COLOR.violet;
-  const minWidth = 6;
+  const minWidth = 10;
   const adjustedWidth = Math.max(width, minWidth);
   const adjustedX = x - ((adjustedWidth - width) / 2);
   const normalizedHeight = Math.abs(height);
@@ -478,9 +478,9 @@ export function InsightChartCard({
         <div className="pointer-events-none absolute inset-0 z-20" aria-hidden>
           <span className="absolute left-[16%] top-[20%] text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>Agent4Socials</span>
           <span className="absolute right-[16%] top-[20%] text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>Agent4Socials</span>
-          <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>Agent4Socials</span>
-          <span className="absolute left-[16%] bottom-[18%] text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>Agent4Socials</span>
-          <span className="absolute right-[16%] bottom-[18%] text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>Agent4Socials</span>
+          <span className="absolute left-1/2 top-[44%] -translate-x-1/2 -translate-y-1/2 text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>Agent4Socials</span>
+          <span className="absolute left-[16%] bottom-[30%] text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>Agent4Socials</span>
+          <span className="absolute right-[16%] bottom-[30%] text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>Agent4Socials</span>
         </div>
         <div className="relative z-10 h-full">{children}</div>
       </div>
@@ -1428,12 +1428,12 @@ export function FacebookAnalyticsView({
               </div>
             </div>
           ) : (
-            <div className="h-[240px]">
+            <div className="h-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={engagementData} barCategoryGap={0} barGap={-18}>
+              <BarChart data={engagementData} barCategoryGap={0} barGap={-18} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                 <XAxis dataKey="date" ticks={engagementTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} dy={8} minTickGap={18} axisLine={false} tickLine={false} />
-                <YAxis domain={[0, 'auto']} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis domain={[0, (dataMax: number) => Math.max(4, Math.ceil((dataMax || 0) + 1))]} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                 <Tooltip
                   shared
                   cursor={<EngagementHoverCursor />}
