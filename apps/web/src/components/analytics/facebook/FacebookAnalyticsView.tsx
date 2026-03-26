@@ -42,7 +42,6 @@ export interface FacebookAnalyticsViewProps {
 type SectionId = (typeof FACEBOOK_ANALYTICS_SECTION_IDS)[keyof typeof FACEBOOK_ANALYTICS_SECTION_IDS];
 type StoryMode = 'views' | 'engagement' | 'growth';
 type StoryMetricKey = 'followers' | 'engagements' | 'videoViews' | 'contentViews' | 'pageVisits';
-type ActivityPreset = 'publishing' | 'community';
 type ActivityMetricKey = 'actions' | 'posts' | 'conversations';
 type EngagementMetricKey = 'likes' | 'comments' | 'shares' | 'reposts';
 type TrafficMetricKey = 'postImpressions' | 'nonviral' | 'viral' | 'uniqueReachProxy';
@@ -122,11 +121,6 @@ const ENGAGEMENT_METRIC_CONFIG: Record<EngagementMetricKey, { label: string; col
   comments: { label: 'Comments', color: COLOR.coral },
   shares: { label: 'Shares', color: COLOR.amber },
   reposts: { label: 'Reposts', color: '#111827' },
-};
-
-const ACTIVITY_PRESET_DEFAULTS: Record<ActivityPreset, ActivityMetricKey[]> = {
-  publishing: ['posts', 'actions'],
-  community: ['conversations', 'actions'],
 };
 
 const TRAFFIC_METRIC_CONFIG: Record<TrafficMetricKey, { label: string; color: string }> = {
@@ -834,8 +828,7 @@ export function FacebookAnalyticsView({
   const overviewSkeleton = insightsLoading && !insights?.facebookAnalytics;
   const [storyMode, setStoryMode] = useState<StoryMode>('growth');
   const [selectedStoryMetrics, setSelectedStoryMetrics] = useState<StoryMetricKey[]>(STORY_MODE_DEFAULT_METRICS.growth);
-  const [activityPreset, setActivityPreset] = useState<ActivityPreset>('publishing');
-  const [selectedActivityMetrics, setSelectedActivityMetrics] = useState<ActivityMetricKey[]>(ACTIVITY_PRESET_DEFAULTS.publishing);
+  const [selectedActivityMetrics, setSelectedActivityMetrics] = useState<ActivityMetricKey[]>(['posts', 'actions']);
   const [selectedEngagementMetrics, setSelectedEngagementMetrics] = useState<EngagementMetricKey[]>(['likes', 'comments', 'shares', 'reposts']);
   const [selectedTrafficMetrics, setSelectedTrafficMetrics] = useState<TrafficMetricKey[]>(['postImpressions', 'nonviral', 'viral', 'uniqueReachProxy']);
   const [activeSection, setActiveSection] = useState<SectionId>(FACEBOOK_ANALYTICS_SECTION_IDS.overview);
@@ -875,10 +868,6 @@ export function FacebookAnalyticsView({
   useEffect(() => {
     setSelectedStoryMetrics(STORY_MODE_DEFAULT_METRICS[storyMode]);
   }, [storyMode]);
-
-  useEffect(() => {
-    setSelectedActivityMetrics(ACTIVITY_PRESET_DEFAULTS[activityPreset]);
-  }, [activityPreset]);
 
   const bundle = insights?.facebookAnalytics;
   const profile = insights?.facebookPageProfile;
@@ -1511,23 +1500,6 @@ export function FacebookAnalyticsView({
         <div className="rounded-[20px] border p-4 sm:p-5 space-y-3" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Activity</h3>
-          </div>
-          <div className="flex gap-2">
-              {(['publishing', 'community'] as const).map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => setActivityPreset(preset)}
-                  className="rounded-lg px-3 py-1.5 text-sm"
-                  style={{
-                    background: activityPreset === preset ? 'rgba(139,124,255,0.2)' : 'rgba(255,255,255,0.03)',
-                    color: activityPreset === preset ? COLOR.text : COLOR.textSecondary,
-                    border: `1px solid ${activityPreset === preset ? COLOR.violet : COLOR.border}`,
-                  }}
-                >
-                  {preset === 'publishing' ? 'Publishing' : 'Community'}
-                </button>
-              ))}
           </div>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <MetricCard
