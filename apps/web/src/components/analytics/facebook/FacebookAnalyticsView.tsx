@@ -349,19 +349,20 @@ function MinWidthBarShape(props: { x?: number; y?: number; width?: number; heigh
   const minWidth = 6;
   const adjustedWidth = Math.max(width, minWidth);
   const adjustedX = x - ((adjustedWidth - width) / 2);
-  const hasPositiveHeight = height > 0;
+  const normalizedHeight = Math.abs(height);
+  const normalizedY = height >= 0 ? y : y + height;
 
   const fallbackRadius: [number, number, number, number] = [6, 6, 0, 0];
 
   return (
     <Rectangle
       x={adjustedX}
-      y={y}
+      y={normalizedY}
       width={adjustedWidth}
-      height={height}
+      height={normalizedHeight}
       fill={fill}
       radius={props.radius ?? fallbackRadius}
-      opacity={hasPositiveHeight ? 1 : 0}
+      opacity={normalizedHeight > 0 ? 1 : 0}
     />
   );
 }

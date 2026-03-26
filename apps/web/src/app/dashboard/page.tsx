@@ -119,7 +119,7 @@ function DataSyncBanner({
         {icon && (
           <div className="relative shrink-0">
             {!allDone && <div className="absolute inset-0 rounded-full bg-white/30 animate-ping" />}
-            <div className="relative w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm">
+            <div className="relative w-8 h-8 flex items-center justify-center">
               {icon}
             </div>
           </div>
