@@ -732,11 +732,7 @@ function TopContentHighlights({
 
   return (
     <section className="rounded-[20px] p-5" style={{ background: COLOR.card, boxShadow: '0 2px 16px rgba(15,23,42,0.05)' }}>
-      <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Top Content Highlights</h3>
-      <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
-        One editorial block showing what led in views, clicks, and reactions.
-      </p>
-      <div className="mt-4 grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-3">
         {col('Views leaders', 'Views', COLOR.cyan, byViews)}
         {col('Clicks leaders', 'Clicks', COLOR.amber, byClicks)}
         {col('Reactions leaders', 'Reactions', COLOR.violet, byReactions)}
@@ -1674,14 +1670,11 @@ export function FacebookAnalyticsView({
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.posts} className="scroll-mt-28 space-y-6">
         <div>
           <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Posts</h2>
-          <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
-            Explore which posts drove views, clicks, and reactions.
-          </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <MetricCard label="Total Posts" source="Derived from posts in date range" color={COLOR.text} value={formatCompact(postsInRange.length)} />
-          <MetricCard label="Avg Clicks per Post" source="post_clicks" color={COLOR.amber} value={avgClicksPerPost.toFixed(1)} />
-          <MetricCard label="Avg Reactions per Post" source="post_reactions_like_total / breakdown" color={COLOR.violet} value={avgReactionsPerPost.toFixed(1)} />
+          <MetricCard label="Avg Clicks per Post" source="post_clicks" color={COLOR.text} value={avgClicksPerPost.toFixed(1)} />
+          <MetricCard label="Avg Reactions per Post" source="post_reactions_like_total / breakdown" color={COLOR.text} value={avgReactionsPerPost.toFixed(1)} />
         </div>
         <TopContentHighlights
           byViews={topByViews.map((p) => ({ id: p.id, preview: p.preview, permalink: p.permalink, value: p.value, type: p.type }))}
