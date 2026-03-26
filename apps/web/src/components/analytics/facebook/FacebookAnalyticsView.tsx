@@ -734,42 +734,44 @@ function TopContentHighlights({
     color: string,
     rows: Array<{ id: string; preview: string; permalink?: string | null; value: number; type: 'Reel' | 'Post'; thumbnailUrl?: string | null; views: number; clicks: number; reactions: number }>
   ) => (
-    <div className="space-y-2">
-      <p className="text-sm font-semibold" style={{ color: COLOR.text }}>{title}</p>
+    <div className="space-y-3">
+      <p className="text-base font-semibold tracking-tight" style={{ color: COLOR.text }}>{title}</p>
       {rows.length === 0 ? (
         <p className="text-sm" style={{ color: COLOR.textMuted }}>No items yet</p>
       ) : (
         rows.map((r, idx) => (
-          <div key={`${title}-${r.id}-${idx}`} className="rounded-xl p-3" style={{ background: COLOR.elevated }}>
-            <div className="flex items-start justify-between gap-3">
+          <div key={`${title}-${r.id}-${idx}`} className="rounded-2xl p-3.5" style={{ background: COLOR.elevated, boxShadow: '0 1px 8px rgba(15,23,42,0.04)' }}>
+            <div className="flex items-start justify-between gap-2.5">
               <div className="flex items-start gap-2.5 min-w-0">
-                <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold shrink-0" style={{ color: COLOR.text, background: 'rgba(124,108,255,0.14)' }}>
+                <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold shrink-0" style={{ color: COLOR.text, background: 'rgba(124,108,255,0.16)' }}>
                   {idx + 1} <Trophy size={12} style={{ color: trophyColor(idx) }} />
                 </span>
                 {r.thumbnailUrl ? (
                   <img
                     src={r.thumbnailUrl}
                     alt=""
-                    className="h-9 w-9 rounded-md object-cover shrink-0"
+                    className="h-10 w-10 rounded-lg object-cover shrink-0"
                     onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                   />
                 ) : (
-                  <div className="h-9 w-9 rounded-md shrink-0" style={{ background: 'rgba(124,108,255,0.12)' }} />
+                  <div className="h-10 w-10 rounded-lg shrink-0" style={{ background: 'rgba(124,108,255,0.12)' }} />
                 )}
-                <p className="text-sm min-w-0" style={{ color: COLOR.textSecondary }}>
-                  {clampText(firstWords(r.preview, 8) || 'View post', 66)}
+                <p className="text-sm min-w-0" style={{ color: COLOR.textSecondary, lineHeight: '1.3rem' }}>
+                  {clampText(firstWords(r.preview, 8) || 'View post', 58)}
                 </p>
               </div>
-              <span className="shrink-0 text-sm font-semibold" style={{ color }}>{formatCompact(r.value)}</span>
+              <span className="shrink-0 text-2xl font-semibold tabular-nums" style={{ color }}>{formatCompact(r.value)}</span>
             </div>
-            <div className="mt-2 flex items-center justify-between text-xs" style={{ color: COLOR.textMuted }}>
+            <div className="mt-2.5 flex items-center justify-between gap-2 text-xs" style={{ color: COLOR.textMuted }}>
               <span>Views {formatCompact(r.views)} · Clicks {formatCompact(r.clicks)} · Reactions {formatCompact(r.reactions)}</span>
-              <span>{r.type}</span>
-              {r.permalink ? (
-                <Link href={r.permalink} target="_blank" className="inline-flex items-center gap-1" style={{ color: COLOR.textSecondary }}>
-                  View <ExternalLink size={12} />
-                </Link>
-              ) : null}
+              <div className="flex items-center gap-2 shrink-0">
+                <span>{r.type}</span>
+                {r.permalink ? (
+                  <Link href={r.permalink} target="_blank" className="inline-flex items-center gap-1 rounded-md px-2 py-1 border" style={{ color: COLOR.textSecondary, borderColor: COLOR.border }}>
+                    View <ExternalLink size={11} />
+                  </Link>
+                ) : null}
+              </div>
             </div>
           </div>
         ))
