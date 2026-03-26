@@ -322,20 +322,10 @@ function buildDateAxis(start: string, end: string): string[] {
   return out;
 }
 
-function EngagementHoverCursor(props: { x?: number; y?: number; width?: number; height?: number; points?: Array<{ x?: number; width?: number }>; }) {
-  const spans = (props.points ?? [])
-    .map((p) => {
-      if (typeof p.x !== 'number') return null;
-      const w = typeof p.width === 'number' ? p.width : 0;
-      return { left: p.x, right: p.x + w };
-    })
-    .filter((v): v is { left: number; right: number } => v !== null);
-
-  const centerX = spans.length > 0
-    ? ((Math.min(...spans.map((s) => s.left)) + Math.max(...spans.map((s) => s.right))) / 2)
-    : (typeof props.x === 'number'
-      ? (props.x + ((typeof props.width === 'number' ? props.width : 0) / 2))
-      : null);
+function EngagementHoverCursor(props: { x?: number; y?: number; width?: number; height?: number; }) {
+  const centerX = typeof props.x === 'number'
+    ? (props.x + ((typeof props.width === 'number' ? props.width : 0) / 2))
+    : null;
   if (centerX == null) return null;
   const width = 36;
   return (
@@ -639,7 +629,7 @@ export function PostsPerformanceTable({
         <table className="min-w-full text-sm">
           <thead style={{ background: 'rgba(255,255,255,0.02)', color: COLOR.textMuted }}>
             <tr>
-              {['Post preview', 'Publish date', 'Type', 'Views', 'Unique reach', 'Clicks', 'Likes', 'Reactions', 'Watch time', 'Status'].map((h) => (
+              {['Post preview', 'Publish date', 'Type', 'Views', 'Unique reach', 'Clicks', 'Likes', 'Reactions', 'Watch time', 'Avg watch'].map((h) => (
                 <th key={h} className="px-4 py-3 text-left font-medium">{h}</th>
               ))}
             </tr>
@@ -647,7 +637,29 @@ export function PostsPerformanceTable({
           <tbody>
             {rows.map((r) => (
               <tr key={r.id} className="border-t cursor-pointer hover:bg-[#f8fafc]" style={{ borderColor: COLOR.border }} onClick={() => onOpenDetail(r.rawPost)}>
-                <td className="px-4 py-3" style={{ color: COLOR.textSecondary }}>{clampText(r.preview, 66)}</td>
+                <td className="px-4 py-3" style={{ color: COLOR.textSecondary }}>
+                  <div className="flex items-center gap-3 min-w-0">
+                    {r.rawPost.thumbnailUrl ? (
+                      <img src={r.rawPost.thumbnailUrl} alt="" className="w-10 h-10 rounded object-cover shrink-0" />
+                    ) : (
+                      <div className="w-10 h-10 rounded shrink-0" style={{ background: 'rgba(124,108,255,0.12)' }} />
+                    )}
+                    <div className="min-w-0">
+                      <p className="truncate">{clampText(r.preview, 66)}</p>
+                      {r.permalink ? (
+                        <Link
+                          href={r.permalink}
+                          target="_blank"
+                          className="inline-flex items-center gap-1 text-xs mt-1"
+                          style={{ color: COLOR.textSecondary }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Open <ExternalLink size={12} />
+                        </Link>
+                      ) : null}
+                    </div>
+                  </div>
+                </td>
                 <td className="px-4 py-3" style={{ color: COLOR.textSecondary }}>{new Date(r.date).toLocaleDateString()}</td>
                 <td className="px-4 py-3"><span className="rounded-full px-2 py-1 text-xs" style={{ background: 'rgba(255,255,255,0.08)', color: COLOR.text }}>{r.type}</span></td>
                 <td className="px-4 py-3" style={{ color: COLOR.text }}>{formatCompact(r.views)}</td>
@@ -656,7 +668,7 @@ export function PostsPerformanceTable({
                 <td className="px-4 py-3" style={{ color: COLOR.text }}>{formatCompact(r.likes)}</td>
                 <td className="px-4 py-3" style={{ color: COLOR.text }}>{formatCompact(r.reactionsTotal)}</td>
                 <td className="px-4 py-3" style={{ color: COLOR.textSecondary }}>{r.watchTimeMs > 0 ? formatDurationMs(r.watchTimeMs) : ' - '}</td>
-                <td className="px-4 py-3"><span className="rounded-full px-2 py-1 text-xs" style={{ background: r.status === 'Ready' ? 'rgba(94,230,168,0.2)' : 'rgba(247,198,106,0.2)', color: r.status === 'Ready' ? COLOR.mint : COLOR.amber }}>{r.status}</span></td>
+                <td className="px-4 py-3" style={{ color: COLOR.textSecondary }}>{r.watchTimeMs > 0 ? formatDurationMs(r.watchTimeMs) : ' - '}</td>
               </tr>
             ))}
           </tbody>
@@ -671,12 +683,33 @@ export function PostsPerformanceTable({
             className="w-full rounded-xl border p-3 text-left"
             style={{ borderColor: COLOR.border, background: 'rgba(255,255,255,0.015)' }}
           >
-            <p className="text-sm" style={{ color: COLOR.text }}>{clampText(r.preview, 80)}</p>
+            <div className="flex items-start gap-2">
+              {r.rawPost.thumbnailUrl ? (
+                <img src={r.rawPost.thumbnailUrl} alt="" className="w-10 h-10 rounded object-cover shrink-0" />
+              ) : (
+                <div className="w-10 h-10 rounded shrink-0" style={{ background: 'rgba(124,108,255,0.12)' }} />
+              )}
+              <div className="min-w-0">
+                <p className="text-sm" style={{ color: COLOR.text }}>{clampText(r.preview, 80)}</p>
+                {r.permalink ? (
+                  <Link
+                    href={r.permalink}
+                    target="_blank"
+                    className="inline-flex items-center gap-1 text-xs mt-1"
+                    style={{ color: COLOR.textSecondary }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Open <ExternalLink size={12} />
+                  </Link>
+                ) : null}
+              </div>
+            </div>
             <div className="mt-2 flex flex-wrap gap-2 text-xs" style={{ color: COLOR.textSecondary }}>
               <span>{new Date(r.date).toLocaleDateString()}</span>
               <span>{r.type}</span>
               <span>Views {formatCompact(r.views)}</span>
               <span>{r.watchTimeMs > 0 ? `Watch ${formatDurationMs(r.watchTimeMs)}` : 'Watch -'}</span>
+              <span>{r.watchTimeMs > 0 ? `Avg ${formatDurationMs(r.watchTimeMs)}` : 'Avg -'}</span>
               <span>Clicks {formatCompact(r.clicks)}</span>
             </div>
           </button>
@@ -1703,9 +1736,6 @@ export function FacebookAnalyticsView({
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.reels} className="scroll-mt-28 space-y-6">
         <div>
           <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Reels</h2>
-          <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
-            Video performance intelligence with watch quality and organic share.
-          </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <MetricCard label="Reel Count" source="Permalink contains /reel/" color={COLOR.text} value={formatCompact(reelsRows.length)} />
@@ -1713,7 +1743,7 @@ export function FacebookAnalyticsView({
           <MetricCard label="Avg Watch Time" source="Mean post_video_avg_time_watched" color={COLOR.magenta} value={formatDurationMs(avgWatchMs)} />
         </div>
 
-        <InsightChartCard title="Reel Performance" subtitle="Bars for views, line for average watch time (seconds)." legend={[{ label: 'Views', color: COLOR.magenta }, { label: 'Avg Watch (s)', color: COLOR.amber }]}>
+        <InsightChartCard title="Reel Performance" legend={[{ label: 'Views', color: COLOR.magenta }, { label: 'Avg Watch (s)', color: COLOR.amber }]}>
           {reelsChartData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={reelsChartData}>
@@ -1730,51 +1760,48 @@ export function FacebookAnalyticsView({
             <EmptyStateCard title="No reels in this period" subtitle="Reel analytics appears after reels are discovered in your post inventory." />
           )}
         </InsightChartCard>
-
-        <ReelsPerformanceGrid reels={reelsRows} />
       </section>
 
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.history} className="scroll-mt-28 space-y-4">
         <div>
           <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Content History</h2>
-          <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
-            Unified archive for posts and reels with filters for faster investigation.
-          </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {([
-            { id: 'all', label: 'All' },
-            { id: 'posts', label: 'Posts' },
-            { id: 'reels', label: 'Reels' },
-          ] as const).map((f) => (
-            <button
-              key={f.id}
-              type="button"
-              onClick={() => setHistoryFilter(f.id)}
-              className="rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
-              style={{
-                background: historyFilter === f.id ? 'rgba(124,108,255,0.14)' : '#ffffff',
-                color: historyFilter === f.id ? COLOR.violet : COLOR.textSecondary,
-              }}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-        {contentHistoryRows.length > 0 ? (
-          <PostsPerformanceTable rows={contentHistoryRows} onOpenDetail={setSelectedPost} />
-        ) : postsLoading ? (
-          <div className="rounded-[20px] border p-6 space-y-3" style={{ background: COLOR.card, borderColor: COLOR.border }}>
-            <p className="text-sm font-medium" style={{ color: COLOR.text }}>Loading content history…</p>
-            <div className="space-y-2">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="h-11 rounded-xl animate-pulse" style={{ background: 'rgba(15,23,42,0.06)' }} />
-              ))}
-            </div>
+        <div className="rounded-[20px] border p-4 sm:p-5 space-y-4" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
+          <div className="flex flex-wrap gap-2">
+            {([
+              { id: 'all', label: 'All' },
+              { id: 'posts', label: 'Posts' },
+              { id: 'reels', label: 'Reels' },
+            ] as const).map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setHistoryFilter(f.id)}
+                className="rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
+                style={{
+                  background: historyFilter === f.id ? 'rgba(124,108,255,0.14)' : '#ffffff',
+                  color: historyFilter === f.id ? COLOR.violet : COLOR.textSecondary,
+                }}
+              >
+                {f.label}
+              </button>
+            ))}
           </div>
-        ) : (
-          <PostsPerformanceTable rows={contentHistoryRows} onOpenDetail={setSelectedPost} />
-        )}
+          {contentHistoryRows.length > 0 ? (
+            <PostsPerformanceTable rows={contentHistoryRows} onOpenDetail={setSelectedPost} />
+          ) : postsLoading ? (
+            <div className="rounded-[20px] border p-6 space-y-3" style={{ background: COLOR.card, borderColor: COLOR.border }}>
+              <p className="text-sm font-medium" style={{ color: COLOR.text }}>Loading content history…</p>
+              <div className="space-y-2">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="h-11 rounded-xl animate-pulse" style={{ background: 'rgba(15,23,42,0.06)' }} />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <PostsPerformanceTable rows={contentHistoryRows} onOpenDetail={setSelectedPost} />
+          )}
+        </div>
       </section>
 
       {selectedPost ? (
