@@ -760,9 +760,9 @@ function TopContentHighlights({
         rows.map((r, idx) => (
           <div key={`${title}-${r.id}-${idx}`} className="rounded-xl p-3" style={{ background: COLOR.elevated }}>
             <div className="flex items-start gap-3">
-              <div className="shrink-0 w-[72px]">
-                <img src={rankBadge(idx)} alt={`Rank ${idx + 1}`} className="h-7 w-7 object-contain" />
-                <div className="relative mt-1.5 h-11 w-11 overflow-hidden rounded-lg border" style={{ borderColor: COLOR.border, background: '#f3f4f6' }}>
+              <div className="shrink-0 w-[112px]">
+                <img src={rankBadge(idx)} alt={`Rank ${idx + 1}`} className="h-9 w-9 object-contain" />
+                <div className="relative mt-2 h-20 w-20 overflow-hidden rounded-xl border" style={{ borderColor: COLOR.border, background: '#f3f4f6' }}>
                   {r.thumbnailUrl ? (
                     <img src={r.thumbnailUrl} alt="Post thumbnail" className="h-full w-full object-cover" />
                   ) : null}
@@ -770,11 +770,11 @@ function TopContentHighlights({
                     <Link
                       href={r.permalink}
                       target="_blank"
-                      className="absolute right-1 top-1 inline-flex h-4 w-4 items-center justify-center rounded-full"
+                      className="absolute right-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full"
                       style={{ background: 'rgba(17,24,39,0.72)', color: '#ffffff' }}
                       aria-label="Open post"
                     >
-                      <ExternalLink size={10} />
+                      <ExternalLink size={11} />
                     </Link>
                   ) : null}
                 </div>
