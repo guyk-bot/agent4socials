@@ -410,14 +410,14 @@ export function MetricCard({
       type="button"
       onClick={onClick}
       title={hint}
-      className="rounded-[14px] px-3 py-2 text-left transition-all hover:-translate-y-[1px]"
+      className="rounded-[12px] px-3 py-1.5 text-left transition-all hover:-translate-y-[1px]"
       style={{
         background: active ? `${color}10` : COLOR.card,
         boxShadow: active ? `0 0 0 1px ${color}55, 0 2px 16px rgba(15,23,42,0.06)` : '0 2px 16px rgba(15,23,42,0.05)',
       }}
     >
       <span className="text-xs font-medium tracking-tight" style={{ color: COLOR.textMuted }}>{label}</span>
-      <p className="mt-1.5 text-[28px] font-semibold tracking-tight" style={{ color }}>{value}</p>
+      <p className="mt-1 text-[24px] font-semibold tracking-tight" style={{ color }}>{value}</p>
       {footnote ? <p className="mt-1 text-xs" style={{ color: COLOR.textSecondary }}>{footnote}</p> : null}
     </button>
   );
