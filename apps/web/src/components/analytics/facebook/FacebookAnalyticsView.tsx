@@ -639,11 +639,16 @@ export function PostsPerformanceTable({
                 { label: 'Unique reach', className: 'w-[66px]' },
                 { label: 'Clicks', className: 'w-[52px]' },
                 { label: 'Likes', className: 'w-[52px]' },
-                { label: 'Reactions', className: 'w-[66px]' },
-                { label: 'Watch time', className: 'w-[70px]' },
+                { label: 'Reactions', className: 'w-[76px]' },
+                { label: 'Watch time', className: 'w-[84px]' },
                 { label: 'Avg watch', className: 'w-[68px]' },
               ].map((h) => (
-                <th key={h.label} className={`px-3 py-3 text-left font-medium ${h.className}`}>{h.label}</th>
+                <th
+                  key={h.label}
+                  className={`py-3 text-left font-medium ${h.className} ${h.label === 'Watch time' ? 'pl-5 pr-3' : 'px-3'}`}
+                >
+                  {h.label}
+                </th>
               ))}
             </tr>
           </thead>
@@ -680,7 +685,7 @@ export function PostsPerformanceTable({
                 <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatCompact(r.clicks)}</td>
                 <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatCompact(r.likes)}</td>
                 <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatCompact(r.reactionsTotal)}</td>
-                <td className="px-3 py-3" style={{ color: COLOR.textSecondary }}>{r.watchTimeMs > 0 ? formatDurationMs(r.watchTimeMs) : ' - '}</td>
+                <td className="pl-5 pr-3 py-3" style={{ color: COLOR.textSecondary }}>{r.watchTimeMs > 0 ? formatDurationMs(r.watchTimeMs) : ' - '}</td>
                 <td className="px-3 py-3" style={{ color: COLOR.textSecondary }}>{r.avgWatchMs > 0 ? formatDurationMs(r.avgWatchMs) : ' - '}</td>
               </tr>
             ))}
@@ -1774,9 +1779,10 @@ export function FacebookAnalyticsView({
       </section>
 
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.reels} className="scroll-mt-28 space-y-6">
-        <div>
-          <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Reels</h2>
-        </div>
+        <div className="rounded-[20px] border p-4 sm:p-5 space-y-4" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
+          <div>
+            <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Reels</h2>
+          </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <MetricCard label="Reel Count" source="Permalink contains /reel/" color={COLOR.text} value={formatCompact(reelsRows.length)} />
           <MetricCard label="Total Video Views" source="post_video_views" color={COLOR.magenta} value={formatCompact(totalReelVideoViews)} />
@@ -1800,13 +1806,14 @@ export function FacebookAnalyticsView({
             <EmptyStateCard title="No reels in this period" subtitle="Reel analytics appears after reels are discovered in your post inventory." />
           )}
         </InsightChartCard>
+        </div>
       </section>
 
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.history} className="scroll-mt-28 space-y-4">
-        <div>
-          <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Content History</h2>
-        </div>
         <div className="rounded-[20px] border p-4 sm:p-5 space-y-4" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
+          <div>
+            <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Content History</h2>
+          </div>
           <div className="flex flex-wrap gap-2">
             {([
               { id: 'all', label: 'All' },
