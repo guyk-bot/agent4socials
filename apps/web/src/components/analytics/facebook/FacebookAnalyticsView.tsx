@@ -416,7 +416,7 @@ export function MetricCard({
       className="rounded-[12px] px-3 py-1.5 text-left transition-all hover:-translate-y-[1px]"
       style={{
         background: active ? `${color}10` : COLOR.card,
-        boxShadow: active ? `0 0 0 1px ${color}55, 0 2px 16px rgba(15,23,42,0.06)` : '0 2px 16px rgba(15,23,42,0.05)',
+        boxShadow: active ? '0 2px 16px rgba(15,23,42,0.06)' : '0 2px 16px rgba(15,23,42,0.05)',
       }}
     >
       <span className="text-xs font-medium tracking-tight" style={{ color: COLOR.textMuted }}>{label}</span>
