@@ -118,14 +118,14 @@ export default function SignupFormContent() {
               <label className="text-sm font-medium text-[#5d5768]">Full Name</label>
               <div className="mt-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#5d5768]"><User size={18} /></div>
-                <input type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputClass} placeholder="John Doe" />
+                <input type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
               </div>
             </div>
             <div>
               <label className="text-sm font-medium text-[#5d5768]">Email address</label>
               <div className="mt-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#5d5768]"><Mail size={18} /></div>
-                <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} placeholder="name@example.com" />
+                <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} />
               </div>
             </div>
             <div>

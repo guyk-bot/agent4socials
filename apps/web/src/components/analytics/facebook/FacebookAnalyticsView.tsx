@@ -340,6 +340,30 @@ function EngagementHoverCursor(props: { x?: number; y?: number; height?: number;
   );
 }
 
+function MinWidthBarShape(props: { x?: number; y?: number; width?: number; height?: number; fill?: string; radius?: number[] }) {
+  const x = typeof props.x === 'number' ? props.x : 0;
+  const y = typeof props.y === 'number' ? props.y : 0;
+  const width = typeof props.width === 'number' ? props.width : 0;
+  const height = typeof props.height === 'number' ? props.height : 0;
+  const fill = props.fill ?? COLOR.violet;
+  const minWidth = 6;
+  const adjustedWidth = Math.max(width, minWidth);
+  const adjustedX = x - ((adjustedWidth - width) / 2);
+  const hasPositiveHeight = height > 0;
+
+  return (
+    <Rectangle
+      x={adjustedX}
+      y={y}
+      width={adjustedWidth}
+      height={height}
+      fill={fill}
+      radius={props.radius ?? [6, 6, 0, 0]}
+      opacity={hasPositiveHeight ? 1 : 0}
+    />
+  );
+}
+
 export function EmptyStateCard({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <div
@@ -448,14 +472,14 @@ export function InsightChartCard({
         </div>
       ) : null}
       <div className={`${hideHeader ? '' : 'mt-3 '}h-[300px] pb-5 relative`}>
-        <div className="pointer-events-none absolute inset-0 z-0" aria-hidden>
+        <div className="pointer-events-none absolute inset-0 z-20" aria-hidden>
           <span className="absolute left-[16%] top-[20%] text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>Agent4Socials</span>
           <span className="absolute right-[16%] top-[20%] text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>Agent4Socials</span>
           <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>Agent4Socials</span>
           <span className="absolute left-[16%] bottom-[18%] text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>Agent4Socials</span>
           <span className="absolute right-[16%] bottom-[18%] text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>Agent4Socials</span>
         </div>
-        <div className="relative z-[1] h-full">{children}</div>
+        <div className="relative z-10 h-full">{children}</div>
       </div>
     </div>
   );
@@ -474,8 +498,8 @@ export function StackedTrafficChart({ data }: { data: Array<{ date: string; nonv
           formatter={(v: number | string | undefined, n?: string) => [formatNumber(Number(v) || 0), n === 'nonviral' ? 'Non-viral' : 'Viral']}
           labelFormatter={(l) => formatShortDate(String(l))}
         />
-        <Bar dataKey="nonviral" stackId="a" fill={COLOR.violet} radius={[6, 6, 0, 0]} />
-        <Bar dataKey="viral" stackId="a" fill={COLOR.magenta} radius={[6, 6, 0, 0]} />
+        <Bar dataKey="nonviral" stackId="a" fill={COLOR.violet} radius={[6, 6, 0, 0]} shape={<MinWidthBarShape />} />
+        <Bar dataKey="viral" stackId="a" fill={COLOR.magenta} radius={[6, 6, 0, 0]} shape={<MinWidthBarShape />} />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -1417,10 +1441,10 @@ export function FacebookAnalyticsView({
                   ]}
                   labelFormatter={(l) => formatShortDate(String(l))}
                 />
-                {selectedEngagementMetrics.includes('likes') ? <Bar dataKey="likes" fill={ENGAGEMENT_METRIC_CONFIG.likes.color} radius={[8, 8, 0, 0]} barSize={34} /> : null}
-                {selectedEngagementMetrics.includes('comments') ? <Bar dataKey="comments" fill={ENGAGEMENT_METRIC_CONFIG.comments.color} radius={[8, 8, 0, 0]} barSize={34} /> : null}
-                {selectedEngagementMetrics.includes('shares') ? <Bar dataKey="shares" fill={ENGAGEMENT_METRIC_CONFIG.shares.color} radius={[8, 8, 0, 0]} barSize={34} /> : null}
-                {selectedEngagementMetrics.includes('reposts') ? <Bar dataKey="reposts" fill={ENGAGEMENT_METRIC_CONFIG.reposts.color} radius={[8, 8, 0, 0]} barSize={34} /> : null}
+                {selectedEngagementMetrics.includes('likes') ? <Bar dataKey="likes" fill={ENGAGEMENT_METRIC_CONFIG.likes.color} radius={[8, 8, 0, 0]} barSize={34} shape={<MinWidthBarShape />} /> : null}
+                {selectedEngagementMetrics.includes('comments') ? <Bar dataKey="comments" fill={ENGAGEMENT_METRIC_CONFIG.comments.color} radius={[8, 8, 0, 0]} barSize={34} shape={<MinWidthBarShape />} /> : null}
+                {selectedEngagementMetrics.includes('shares') ? <Bar dataKey="shares" fill={ENGAGEMENT_METRIC_CONFIG.shares.color} radius={[8, 8, 0, 0]} barSize={34} shape={<MinWidthBarShape />} /> : null}
+                {selectedEngagementMetrics.includes('reposts') ? <Bar dataKey="reposts" fill={ENGAGEMENT_METRIC_CONFIG.reposts.color} radius={[8, 8, 0, 0]} barSize={34} shape={<MinWidthBarShape />} /> : null}
               </BarChart>
             </ResponsiveContainer>
             </div>
