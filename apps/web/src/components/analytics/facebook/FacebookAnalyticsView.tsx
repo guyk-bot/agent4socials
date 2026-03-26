@@ -340,7 +340,7 @@ function EngagementHoverCursor(props: { x?: number; y?: number; height?: number;
   );
 }
 
-function MinWidthBarShape(props: { x?: number; y?: number; width?: number; height?: number; fill?: string; radius?: number[] }) {
+function MinWidthBarShape(props: { x?: number; y?: number; width?: number; height?: number; fill?: string; radius?: [number, number, number, number] }) {
   const x = typeof props.x === 'number' ? props.x : 0;
   const y = typeof props.y === 'number' ? props.y : 0;
   const width = typeof props.width === 'number' ? props.width : 0;
@@ -351,6 +351,8 @@ function MinWidthBarShape(props: { x?: number; y?: number; width?: number; heigh
   const adjustedX = x - ((adjustedWidth - width) / 2);
   const hasPositiveHeight = height > 0;
 
+  const fallbackRadius: [number, number, number, number] = [6, 6, 0, 0];
+
   return (
     <Rectangle
       x={adjustedX}
@@ -358,7 +360,7 @@ function MinWidthBarShape(props: { x?: number; y?: number; width?: number; heigh
       width={adjustedWidth}
       height={height}
       fill={fill}
-      radius={props.radius ?? [6, 6, 0, 0]}
+      radius={props.radius ?? fallbackRadius}
       opacity={hasPositiveHeight ? 1 : 0}
     />
   );
