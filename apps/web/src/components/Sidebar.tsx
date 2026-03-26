@@ -177,7 +177,6 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                 key={platform}
                 href={href}
                 className={platformRowClass}
-                style={isPlatformSelected ? { color: accent } : undefined}
                 title={needsUpgrade ? 'X (Twitter) is available on paid plans. Upgrade to connect.' : undefined}
               >
                 {platformRowInner}
@@ -188,7 +187,6 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                 href={href}
                 onClick={() => setSelectedPlatformForConnect(platform)}
                 className={platformRowClass}
-                style={isPlatformSelected ? { color: accent } : undefined}
                 title={needsUpgrade ? 'X (Twitter) is available on paid plans. Upgrade to connect.' : undefined}
               >
                 {platformRowInner}
@@ -232,7 +230,6 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                     href={dashboardUrl}
                     onClick={handleGoToAccountDashboard}
                     className={accountRowClass}
-                    style={isSelected ? { color: accent } : undefined}
                     title={`View ${platformLabel} analytics`}
                     aria-label={`View ${acc.username || platformLabel} analytics`}
                   >
