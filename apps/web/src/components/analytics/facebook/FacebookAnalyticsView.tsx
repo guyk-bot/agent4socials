@@ -14,7 +14,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { ChevronRight, ExternalLink, Gem, MessageSquare, Star, Trophy } from 'lucide-react';
+import { ChevronRight, ExternalLink, Gem, MessageSquare, Star } from 'lucide-react';
 import { AnalyticsDateRangePicker } from '../AnalyticsDateRangePicker';
 import type { FacebookInsights, FacebookPost } from './types';
 import { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids';
@@ -737,15 +737,15 @@ function TopContentHighlights({
   byClicks,
   byReactions,
 }: {
-  byViews: Array<{ id: string; preview: string; permalink?: string | null; value: number; type: 'Reel' | 'Post'; thumbnailUrl?: string | null; views: number; clicks: number; reactions: number }>;
-  byClicks: Array<{ id: string; preview: string; permalink?: string | null; value: number; type: 'Reel' | 'Post'; thumbnailUrl?: string | null; views: number; clicks: number; reactions: number }>;
-  byReactions: Array<{ id: string; preview: string; permalink?: string | null; value: number; type: 'Reel' | 'Post'; thumbnailUrl?: string | null; views: number; clicks: number; reactions: number }>;
+  byViews: Array<{ id: string; preview: string; permalink?: string | null; type: 'Reel' | 'Post'; thumbnailUrl?: string | null; views: number; clicks: number; reactions: number }>;
+  byClicks: Array<{ id: string; preview: string; permalink?: string | null; type: 'Reel' | 'Post'; thumbnailUrl?: string | null; views: number; clicks: number; reactions: number }>;
+  byReactions: Array<{ id: string; preview: string; permalink?: string | null; type: 'Reel' | 'Post'; thumbnailUrl?: string | null; views: number; clicks: number; reactions: number }>;
 }) {
-  const trophyColor = (rank: number) => rank === 0 ? '#d4a017' : rank === 1 ? '#9ca3af' : '#b8742b';
+  const rankBadge = (idx: number) => `/rank-badges/${Math.min(3, idx + 1)}.svg`;
   const col = (
     title: string,
-    color: string,
-    rows: Array<{ id: string; preview: string; permalink?: string | null; value: number; type: 'Reel' | 'Post'; thumbnailUrl?: string | null; views: number; clicks: number; reactions: number }>
+    metricLabel: 'Views' | 'Clicks' | 'Reactions',
+    rows: Array<{ id: string; preview: string; permalink?: string | null; type: 'Reel' | 'Post'; thumbnailUrl?: string | null; views: number; clicks: number; reactions: number }>
   ) => (
     <div className="space-y-3">
       <p className="text-base font-semibold tracking-tight" style={{ color: COLOR.text }}>{title}</p>
@@ -753,37 +753,36 @@ function TopContentHighlights({
         <p className="text-sm" style={{ color: COLOR.textMuted }}>No items yet</p>
       ) : (
         rows.map((r, idx) => (
-          <div key={`${title}-${r.id}-${idx}`} className="rounded-2xl p-3.5" style={{ background: COLOR.elevated, boxShadow: '0 1px 8px rgba(15,23,42,0.04)' }}>
-            <div className="flex items-start justify-between gap-2.5">
-              <div className="flex items-start gap-2.5 min-w-0">
-                <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold shrink-0" style={{ color: COLOR.text, background: 'rgba(124,108,255,0.16)' }}>
-                  {idx + 1} <Trophy size={12} style={{ color: trophyColor(idx) }} />
-                </span>
-                {r.thumbnailUrl ? (
-                  <img
-                    src={r.thumbnailUrl}
-                    alt=""
-                    className="h-10 w-10 rounded-lg object-cover shrink-0"
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                  />
-                ) : (
-                  <div className="h-10 w-10 rounded-lg shrink-0" style={{ background: 'rgba(124,108,255,0.12)' }} />
-                )}
-                <p className="text-sm min-w-0" style={{ color: COLOR.textSecondary, lineHeight: '1.3rem' }}>
-                  {clampText(firstWords(r.preview, 8) || 'View post', 58)}
-                </p>
+          <div key={`${title}-${r.id}-${idx}`} className="rounded-xl p-3" style={{ background: COLOR.elevated }}>
+            <div className="flex items-start gap-3">
+              <div className="shrink-0 w-[72px]">
+                <img src={rankBadge(idx)} alt={`Rank ${idx + 1}`} className="h-7 w-7 object-contain" />
+                <div className="relative mt-1.5 h-11 w-11 overflow-hidden rounded-lg border" style={{ borderColor: COLOR.border, background: '#f3f4f6' }}>
+                  {r.thumbnailUrl ? (
+                    <img src={r.thumbnailUrl} alt="Post thumbnail" className="h-full w-full object-cover" />
+                  ) : null}
+                  {r.permalink ? (
+                    <Link
+                      href={r.permalink}
+                      target="_blank"
+                      className="absolute right-1 top-1 inline-flex h-4 w-4 items-center justify-center rounded-full"
+                      style={{ background: 'rgba(17,24,39,0.72)', color: '#ffffff' }}
+                      aria-label="Open post"
+                    >
+                      <ExternalLink size={10} />
+                    </Link>
+                  ) : null}
+                </div>
               </div>
-              <span className="shrink-0 text-2xl font-semibold tabular-nums" style={{ color }}>{formatCompact(r.value)}</span>
-            </div>
-            <div className="mt-2.5 flex items-center justify-between gap-2 text-xs" style={{ color: COLOR.textMuted }}>
-              <span>Views {formatCompact(r.views)} · Clicks {formatCompact(r.clicks)} · Reactions {formatCompact(r.reactions)}</span>
-              <div className="flex items-center gap-2 shrink-0">
-                <span>{r.type}</span>
-                {r.permalink ? (
-                  <Link href={r.permalink} target="_blank" className="inline-flex items-center gap-1 rounded-md px-2 py-1 border" style={{ color: COLOR.textSecondary, borderColor: COLOR.border }}>
-                    View <ExternalLink size={11} />
-                  </Link>
-                ) : null}
+              <div className="min-w-0 flex-1">
+                <p className="text-sm" style={{ color: COLOR.textSecondary }}>
+                  {clampText(firstWords(r.preview, 8) || 'View post', 66)}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs" style={{ color: COLOR.textMuted }}>
+                  <span style={metricLabel === 'Views' ? { color: COLOR.text, fontWeight: 700, fontSize: 13 } : undefined}>Views {formatCompact(r.views)}</span>
+                  <span style={metricLabel === 'Clicks' ? { color: COLOR.text, fontWeight: 700, fontSize: 13 } : undefined}>Clicks {formatCompact(r.clicks)}</span>
+                  <span style={metricLabel === 'Reactions' ? { color: COLOR.text, fontWeight: 700, fontSize: 13 } : undefined}>Reactions {formatCompact(r.reactions)}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -794,10 +793,14 @@ function TopContentHighlights({
 
   return (
     <section className="rounded-[20px] p-5" style={{ background: COLOR.card, boxShadow: '0 2px 16px rgba(15,23,42,0.05)' }}>
-      <div className="grid gap-4 lg:grid-cols-3">
-        {col('Views leaders', COLOR.cyan, byViews)}
-        {col('Clicks leaders', COLOR.amber, byClicks)}
-        {col('Reactions leaders', COLOR.violet, byReactions)}
+      <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Top Content Highlights</h3>
+      <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
+        One editorial block showing what led in views, clicks, and reactions.
+      </p>
+      <div className="mt-4 grid gap-4 lg:grid-cols-3">
+        {col('Views leaders', 'Views', byViews)}
+        {col('Clicks leaders', 'Clicks', byClicks)}
+        {col('Reactions leaders', 'Reactions', byReactions)}
       </div>
     </section>
   );
@@ -1734,21 +1737,39 @@ export function FacebookAnalyticsView({
       </section>
 
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.posts} className="scroll-mt-28 space-y-6">
-        <div>
-          <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Posts</h2>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <MetricCard label="Total Posts" source="Derived from posts in date range" color={COLOR.text} value={formatCompact(postsInRange.length)} />
-          <MetricCard label="Avg Clicks per Post" source="post_clicks" color={COLOR.text} value={avgClicksPerPost.toFixed(1)} />
-          <MetricCard label="Avg Reactions per Post" source="post_reactions_like_total / breakdown" color={COLOR.text} value={avgReactionsPerPost.toFixed(1)} />
-        </div>
-        {postsRows.length > 0 ? (
+        <div className="rounded-[20px] border p-4 sm:p-5 space-y-4" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
+          <div>
+            <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Posts</h2>
+            <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
+              Explore which posts drove views, clicks, and reactions.
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <MetricCard label="Total Posts" source="Derived from posts in date range" color={COLOR.text} value={formatCompact(postsInRange.length)} />
+            <MetricCard label="Avg Clicks per Post" source="post_clicks" color={COLOR.amber} value={avgClicksPerPost.toFixed(1)} />
+            <MetricCard label="Avg Reactions per Post" source="post_reactions_like_total / breakdown" color={COLOR.violet} value={avgReactionsPerPost.toFixed(1)} />
+          </div>
           <TopContentHighlights
-            byViews={topByViews.map((p) => ({ id: p.id, preview: p.preview, permalink: p.permalink, value: p.value, type: p.type, thumbnailUrl: p.thumbnailUrl, views: p.views, clicks: p.clicks, reactions: p.reactionsTotal }))}
-            byClicks={topByClicks.map((p) => ({ id: p.id, preview: p.preview, permalink: p.permalink, value: p.value, type: p.type, thumbnailUrl: p.thumbnailUrl, views: p.views, clicks: p.clicks, reactions: p.reactionsTotal }))}
-            byReactions={topByReactions.map((p) => ({ id: p.id, preview: p.preview, permalink: p.permalink, value: p.value, type: p.type, thumbnailUrl: p.thumbnailUrl, views: p.views, clicks: p.clicks, reactions: p.reactionsTotal }))}
+            byViews={topByViews.map((p) => ({ id: p.id, preview: p.preview, permalink: p.permalink, type: p.type, thumbnailUrl: p.rawPost.thumbnailUrl ?? null, views: p.views, clicks: p.clicks, reactions: p.reactionsTotal }))}
+            byClicks={topByClicks.map((p) => ({ id: p.id, preview: p.preview, permalink: p.permalink, type: p.type, thumbnailUrl: p.rawPost.thumbnailUrl ?? null, views: p.views, clicks: p.clicks, reactions: p.reactionsTotal }))}
+            byReactions={topByReactions.map((p) => ({ id: p.id, preview: p.preview, permalink: p.permalink, type: p.type, thumbnailUrl: p.rawPost.thumbnailUrl ?? null, views: p.views, clicks: p.clicks, reactions: p.reactionsTotal }))}
           />
-        ) : null}
+
+          {postsRows.length > 0 ? (
+            <PostsPerformanceTable rows={postsRows} onOpenDetail={setSelectedPost} />
+          ) : postsLoading ? (
+            <div className="rounded-[20px] border p-6 space-y-3" style={{ background: COLOR.card, borderColor: COLOR.border }}>
+              <p className="text-sm font-medium" style={{ color: COLOR.text }}>Loading posts for this range…</p>
+              <div className="space-y-2">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="h-12 rounded-xl animate-pulse" style={{ background: 'rgba(15,23,42,0.06)' }} />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <EmptyStateCard title="No posts in this range" subtitle="Try a wider date range or sync the account posts again." />
+          )}
+        </div>
 
       </section>
 
