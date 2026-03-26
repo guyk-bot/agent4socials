@@ -322,24 +322,6 @@ function buildDateAxis(start: string, end: string): string[] {
   return out;
 }
 
-function EngagementHoverCursor(props: { x?: number; y?: number; width?: number; height?: number; }) {
-  const centerX = typeof props.x === 'number'
-    ? (props.x + ((typeof props.width === 'number' ? props.width : 0) / 2))
-    : null;
-  if (centerX == null) return null;
-  const width = 36;
-  return (
-    <Rectangle
-      x={centerX - (width / 2)}
-      y={typeof props.y === 'number' ? props.y : 0}
-      width={width}
-      height={typeof props.height === 'number' ? props.height : 0}
-      fill="rgba(107,114,128,0.20)"
-      radius={8}
-    />
-  );
-}
-
 function MinWidthBarShape(props: { x?: number; y?: number; width?: number; height?: number; fill?: string; radius?: [number, number, number, number] }) {
   const x = typeof props.x === 'number' ? props.x : 0;
   const y = typeof props.y === 'number' ? props.y : 0;
@@ -1523,7 +1505,7 @@ export function FacebookAnalyticsView({
                 <YAxis domain={[0, (dataMax: number) => Math.max(4, Math.ceil((dataMax || 0) + 1))]} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                 <Tooltip
                   shared
-                  cursor={<EngagementHoverCursor />}
+                  cursor={{ fill: 'rgba(107,114,128,0.20)' }}
                   contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
                   formatter={(v: number | string | undefined, n?: string) => [
                     formatNumber(Number(v) || 0),
