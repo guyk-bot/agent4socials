@@ -16,7 +16,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { ChevronRight, ExternalLink, Gem, Info, MessageSquare, Star } from 'lucide-react';
+import { ChevronRight, ExternalLink, Gem, MessageSquare, Star } from 'lucide-react';
 import { AnalyticsDateRangePicker } from '../AnalyticsDateRangePicker';
 import type { FacebookInsights, FacebookPost } from './types';
 import { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids';
@@ -322,17 +322,6 @@ function buildDateAxis(start: string, end: string): string[] {
   return out;
 }
 
-export function MetricTooltip({ label, hint }: { label: string; hint: string }) {
-  return (
-    <span className="inline-flex items-center gap-1 text-xs font-medium tracking-tight" style={{ color: COLOR.textMuted }}>
-      <span>{label}</span>
-      <span className="inline-flex items-center" title={hint}>
-        <Info size={12} />
-      </span>
-    </span>
-  );
-}
-
 function EngagementHoverCursor(props: { x?: number; y?: number; height?: number; points?: Array<{ x?: number }>; }) {
   const centerX = typeof props.x === 'number'
     ? props.x
@@ -382,17 +371,19 @@ export function MetricCard({
   active?: boolean;
   onClick?: () => void;
 }) {
+  const hint = `Source metric: ${source}${typeof trendPercent === 'number' && Number.isFinite(trendPercent) ? `. Change in selected range: ${trendPercent >= 0 ? '+' : ''}${trendPercent.toFixed(1)}%.` : ''}`;
   return (
     <button
       type="button"
       onClick={onClick}
+      title={hint}
       className="rounded-[18px] p-3 text-left transition-all hover:-translate-y-[1px]"
       style={{
         background: active ? `${color}10` : COLOR.card,
         boxShadow: active ? `0 0 0 1px ${color}55, 0 2px 16px rgba(15,23,42,0.06)` : '0 2px 16px rgba(15,23,42,0.05)',
       }}
     >
-      <MetricTooltip label={label} hint={`Source metric: ${source}${typeof trendPercent === 'number' && Number.isFinite(trendPercent) ? `. Change in selected range: ${trendPercent >= 0 ? '+' : ''}${trendPercent.toFixed(1)}%.` : ""}`} />
+      <span className="text-xs font-medium tracking-tight" style={{ color: COLOR.textMuted }}>{label}</span>
       <p className="mt-1.5 text-[28px] font-semibold tracking-tight" style={{ color }}>{value}</p>
       {footnote ? <p className="mt-1 text-xs" style={{ color: COLOR.textSecondary }}>{footnote}</p> : null}
     </button>
