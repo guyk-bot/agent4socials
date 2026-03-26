@@ -490,20 +490,34 @@ export default function DashboardPage() {
       const accountId = selectedAccount.id;
       const refList = postsCacheRef.current[accountId];
       const ctxList = appCtx?.getPosts(accountId);
+      const refreshPostsInBackground = () => {
+        api.get(`/social/accounts/${accountId}/posts`)
+          .then((res) => {
+            const list = res.data?.posts ?? [];
+            postsCacheRef.current[accountId] = list;
+            accountPostsHydratedRef.current[accountId] = true;
+            appDataRef.current?.setPostsForAccount(accountId, list);
+            if (selectedAccountIdRef.current === accountId) setImportedPosts(list);
+          })
+          .catch(() => {});
+      };
       // Prefer dashboard ref (last successful fetch) over AppData prefetch: context can briefly hold [] or stale rows and would win with ?? and wipe charts.
       if (refList !== undefined) {
         setImportedPosts(refList);
         setImportedPostsLoading(false);
+        refreshPostsInBackground();
         return;
       }
-      if (ctxList != null && ctxList.length > 0) {
+      if (ctxList != null) {
         setImportedPosts(ctxList);
         setImportedPostsLoading(false);
+        refreshPostsInBackground();
         return;
       }
       if (accountPostsHydratedRef.current[accountId]) {
         // Already loaded once — keep whatever is already displayed; do not blank the chart.
         setImportedPostsLoading(false);
+        refreshPostsInBackground();
         return;
       }
       // First load for this account: show spinner without blanking existing data.
@@ -621,6 +635,16 @@ export default function DashboardPage() {
     if (cached) {
       setInsights(cached);
       setInsightsLoading(false);
+      // SWR: refresh silently in background so UI stays instant.
+      api.get(`/social/accounts/${accountId}/insights`, { params: { since: dateRange.start, until: dateRange.end, extended: 1 } })
+        .then((res) => {
+          const data = res.data ?? null;
+          if (!data) return;
+          insightsCacheRef.current[cacheKey] = data;
+          appDataRef.current?.setInsightsForAccount(accountId, data);
+          if (selectedAccountIdRef.current === accountId) setInsights(data);
+        })
+        .catch(() => {});
       if (!accountTabOwnsPosts) {
         if (postsCached !== undefined && postsCached !== null) {
           setImportedPosts(postsCached);
@@ -996,6 +1020,14 @@ export default function DashboardPage() {
   const effectiveInsightsLoading = selectedAccount
     ? insightsLoading
     : aggregatedLoading;
+  const hasWarmCacheForSelected = Boolean(
+    selectedAccount?.id && (
+      appDataRef.current?.getInsights(selectedAccount.id) != null ||
+      appDataRef.current?.getPosts(selectedAccount.id) !== undefined ||
+      insights != null ||
+      importedPosts.length > 0
+    )
+  );
   const fallbackSeriesValue = effectiveImpressions || effectiveFollowers || 0;
   const hasNonZeroSeries = effectiveTimeSeries.length > 0 && effectiveTimeSeries.some((d) => d.value > 0);
   const endDate = dateRange.end || toLocalCalendarDate(new Date());
@@ -1120,7 +1152,7 @@ export default function DashboardPage() {
           )
         : null}
       {/* Show sync banner only on first load (no data yet) or right after connect; date changes refetch in place without banner */}
-      {(facebookLoadingOnly || connectingParam === '1' || justConnected || ((insightsLoading || importedPostsLoading) && insights == null && selectedAccount != null)) && (
+      {(facebookLoadingOnly || connectingParam === '1' || justConnected || (((insightsLoading || importedPostsLoading) && insights == null && selectedAccount != null) && !hasWarmCacheForSelected)) && (
         <DataSyncBanner
           platform={selectedAccount?.platform}
           insightsLoading={insightsLoading || connectingParam === '1'}
