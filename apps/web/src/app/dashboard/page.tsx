@@ -278,6 +278,9 @@ export default function DashboardPage() {
   const { openSignup } = useAuthModal();
   const { cachedAccounts, setCachedAccounts, accountsLoadError, setAccountsLoadError } = useAccountsCache() ?? { cachedAccounts: [], setCachedAccounts: () => {}, accountsLoadError: null, setAccountsLoadError: () => {} };
   const appData = useAppData();
+  /** Stable ref so effects do not re-run on every AppDataProvider render (prefetch updates replace context value). */
+  const appDataRef = useRef(appData);
+  appDataRef.current = appData;
   const { selectedPlatformForConnect, clearSelection, setSelectedAccountId, setSelectedPlatformForConnect } = useSelectedAccount() ?? { selectedPlatformForConnect: null, clearSelection: () => {}, setSelectedAccountId: () => {}, setSelectedPlatformForConnect: () => {} };
   const selectedAccount = useResolvedSelectedAccount(cachedAccounts as SocialAccount[]);
   const [justConnected, setJustConnected] = useState(false);
@@ -480,8 +483,9 @@ export default function DashboardPage() {
   }, [selectedAccount?.id]);
 
   useEffect(() => {
+    const appCtx = appDataRef.current;
     if (selectedAccount?.id) {
-      const fromCache = appData?.getPosts(selectedAccount.id);
+      const fromCache = appCtx?.getPosts(selectedAccount.id);
       const cached = fromCache ?? postsCacheRef.current[selectedAccount.id];
       if (cached !== undefined && cached !== null) {
         setImportedPosts(cached);
@@ -495,7 +499,7 @@ export default function DashboardPage() {
         .then((res) => {
           const list = res.data?.posts ?? [];
           postsCacheRef.current[selectedAccount.id] = list;
-          appData?.setPostsForAccount(selectedAccount.id, list);
+          appDataRef.current?.setPostsForAccount(selectedAccount.id, list);
           setImportedPosts(list);
           setPostsSyncError(res.data?.syncError ?? null);
         })
@@ -531,7 +535,7 @@ export default function DashboardPage() {
             if (outcome.status === 'fulfilled' && outcome.value) {
               results.push({ posts: outcome.value.posts ?? [], syncError: outcome.value.syncError });
               if (outcome.value.syncError) errors.push(outcome.value.syncError);
-              appData?.setPostsForAccount(outcome.value.id, outcome.value.posts ?? []);
+              appDataRef.current?.setPostsForAccount(outcome.value.id, outcome.value.posts ?? []);
             } else if (outcome.status === 'rejected') {
               const err = outcome.reason;
               const msg = err?.response?.data?.message ?? err?.message ?? 'Request failed';
@@ -551,11 +555,11 @@ export default function DashboardPage() {
         .finally(() => setImportedPostsLoading(false));
     };
 
-    if (appData && accountIds.length > 0) {
+    if (appCtx && accountIds.length > 0) {
       const merged: Array<{ id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; impressions: number; interactions: number; publishedAt: string; mediaType?: string | null; platform: string }> = [];
       let allCached = true;
       for (const id of accountIds) {
-        const list = appData.getPosts(id);
+        const list = appCtx.getPosts(id);
         if (list === undefined) {
           allCached = false;
           break;
@@ -574,13 +578,12 @@ export default function DashboardPage() {
     setImportedPostsLoading(true);
     setAllPostsSyncError(null);
     runSync(syncAllFirst);
-  }, [selectedAccount?.id, hasAccounts, syncAllTrigger, accounts.map((a) => a.id).join(','), appData]);
+    // Intentionally omit appData: context value changes every prefetch tick and would fight analytics post state.
+  }, [selectedAccount?.id, hasAccounts, syncAllTrigger, accounts.map((a) => a.id).join(','), analyticsTab]);
 
   const insightsCacheRef = useRef<Record<string, { platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number; profileViewsTotal?: number }>>({});
   const selectedAccountIdRef = useRef<string | null>(null);
   const aggregatedCacheRef = useRef<{ key: string; data: { totalFollowers: number; totalImpressions: number; totalReach: number; totalProfileViews: number; totalPageViews: number; byPlatform: Record<string, { followers: number; impressions: number; timeSeries: Array<{ date: string; value: number }> }>; combinedTimeSeries: Array<{ date: string; value: number }> } } | null>(null);
-  const appDataRef = useRef(appData);
-  appDataRef.current = appData;
 
   // Single-account insights: when an account is selected. Load once; on date change refetch in place without clearing UI.
   // Use appDataRef so context updates (after setInsightsForAccount/setPostsForAccount) don't re-run this effect and cause a loading loop.
@@ -590,48 +593,50 @@ export default function DashboardPage() {
     selectedAccountIdRef.current = selectedAccount.id;
     const accountId = selectedAccount.id;
     const isSameAccount = prevAccountId === accountId;
-    const platform = selectedAccount.platform;
     const cacheKey = `${accountId}-${dateRange.start}-${dateRange.end}`;
     const defaultRange = getDefaultDateRange();
     const app = appDataRef.current;
     const usePrefetchedInsights = dateRange.start === defaultRange.start && dateRange.end === defaultRange.end && app?.getInsights(accountId);
     const cached = usePrefetchedInsights ?? insightsCacheRef.current[cacheKey];
     const postsCached = postsCacheRef.current[accountId] ?? app?.getPosts(accountId);
+    /** Per-account analytics: posts are loaded only by the posts effect (avoids racing sync vs non-sync and prefetch churn). */
+    const accountTabOwnsPosts = analyticsTab === 'account';
 
     // If we already have cached data, show it immediately and keep it stable.
     if (cached) {
       setInsights(cached);
       setInsightsLoading(false);
-      if (postsCached !== undefined && postsCached !== null) {
-        setImportedPosts(postsCached);
-        setImportedPostsLoading(false);
-      } else {
-        setImportedPostsLoading(true);
-        api.get(`/social/accounts/${accountId}/posts`, { params: { sync: 1 } })
-          .then((postsRes) => {
-            const list = postsRes.data?.posts ?? [];
-            postsCacheRef.current[accountId] = list;
-            appDataRef.current?.setPostsForAccount(accountId, list);
-            if (selectedAccountIdRef.current === accountId) setImportedPosts(list);
-            setPostsSyncError(postsRes.data?.syncError ?? null);
-          })
-          .catch(() => setPostsSyncError(null))
-          .finally(() => setImportedPostsLoading(false));
+      if (!accountTabOwnsPosts) {
+        if (postsCached !== undefined && postsCached !== null) {
+          setImportedPosts(postsCached);
+          setImportedPostsLoading(false);
+        } else {
+          setImportedPostsLoading(true);
+          api.get(`/social/accounts/${accountId}/posts`, { params: { sync: 1 } })
+            .then((postsRes) => {
+              const list = postsRes.data?.posts ?? [];
+              postsCacheRef.current[accountId] = list;
+              appDataRef.current?.setPostsForAccount(accountId, list);
+              if (selectedAccountIdRef.current === accountId) setImportedPosts(list);
+              setPostsSyncError(postsRes.data?.syncError ?? null);
+            })
+            .catch(() => setPostsSyncError(null))
+            .finally(() => setImportedPostsLoading(false));
+        }
       }
       return;
     }
 
-    // No cache: only clear data when switching account so UI doesn't flash on date change
-    if (!isSameAccount) {
+    // No cache: only clear when switching to a different account (not first mount) so posts/engagement charts don't thrash on refresh.
+    if (!isSameAccount && prevAccountId !== null) {
       setInsights(null);
       setImportedPosts([]);
     }
     setInsightsLoading(true);
-    setImportedPostsLoading(true);
+    if (!accountTabOwnsPosts) setImportedPostsLoading(true);
 
-    // Fetch insights + posts; keep previous data visible until response arrives
+    // Fetch insights; optional fast posts only when not on per-account analytics (single owner for posts there).
     const insightsPromise = api.get(`/social/accounts/${accountId}/insights`, { params: { since: dateRange.start, until: dateRange.end, extended: 1 } });
-    const fastPostsPromise = api.get(`/social/accounts/${accountId}/posts`);
 
     insightsPromise
       .then((res) => {
@@ -645,15 +650,18 @@ export default function DashboardPage() {
       .catch(() => { if (selectedAccountIdRef.current === accountId && !isSameAccount) setInsights(null); })
       .finally(() => setInsightsLoading(false));
 
-    fastPostsPromise
-      .then((postsRes) => {
-        const list = postsRes.data?.posts ?? [];
-        postsCacheRef.current[accountId] = list;
-        appDataRef.current?.setPostsForAccount(accountId, list);
-        if (selectedAccountIdRef.current === accountId) setImportedPosts(list);
-      })
-      .catch(() => {})
-      .finally(() => setImportedPostsLoading(false));
+    if (!accountTabOwnsPosts) {
+      const fastPostsPromise = api.get(`/social/accounts/${accountId}/posts`);
+      fastPostsPromise
+        .then((postsRes) => {
+          const list = postsRes.data?.posts ?? [];
+          postsCacheRef.current[accountId] = list;
+          appDataRef.current?.setPostsForAccount(accountId, list);
+          if (selectedAccountIdRef.current === accountId) setImportedPosts(list);
+        })
+        .catch(() => {})
+        .finally(() => setImportedPostsLoading(false));
+    }
 
   }, [analyticsTab, selectedAccount?.id, selectedAccount?.platform, dateRange.start, dateRange.end, syncAllTrigger]);
 

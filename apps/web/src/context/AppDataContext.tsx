@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
 import api from '@/lib/api';
@@ -347,30 +347,56 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     return () => { cancelled = true; };
   }, [user?.id, setCachedAccounts]);
 
-  const value: AppDataContextType = {
-    notifications,
-    postsByAccountId,
-    insightsByAccountId,
-    commentsByAccountId,
-    conversationsByAccountId,
-    scheduledPosts,
-    prefetchStatus,
-    prefetchHasLoadedOnce,
-    getPosts,
-    getInsights,
-    getComments,
-    getConversations,
-    getScheduledPosts,
-    setPostsForAccount,
-    setInsightsForAccount,
-    clearAccountData,
-    setCommentsForAccount,
-    setConversationsForAccount,
-    setScheduledPosts,
-    setNotifications,
-    invalidate,
-    invalidateConversations,
-  };
+  const value: AppDataContextType = useMemo(
+    () => ({
+      notifications,
+      postsByAccountId,
+      insightsByAccountId,
+      commentsByAccountId,
+      conversationsByAccountId,
+      scheduledPosts,
+      prefetchStatus,
+      prefetchHasLoadedOnce,
+      getPosts,
+      getInsights,
+      getComments,
+      getConversations,
+      getScheduledPosts,
+      setPostsForAccount,
+      setInsightsForAccount,
+      clearAccountData,
+      setCommentsForAccount,
+      setConversationsForAccount,
+      setScheduledPosts,
+      setNotifications,
+      invalidate,
+      invalidateConversations,
+    }),
+    [
+      notifications,
+      postsByAccountId,
+      insightsByAccountId,
+      commentsByAccountId,
+      conversationsByAccountId,
+      scheduledPosts,
+      prefetchStatus,
+      prefetchHasLoadedOnce,
+      getPosts,
+      getInsights,
+      getComments,
+      getConversations,
+      getScheduledPosts,
+      setPostsForAccount,
+      setInsightsForAccount,
+      clearAccountData,
+      setCommentsForAccount,
+      setConversationsForAccount,
+      setScheduledPosts,
+      setNotifications,
+      invalidate,
+      invalidateConversations,
+    ]
+  );
 
   return (
     <AppDataContext.Provider value={value}>
