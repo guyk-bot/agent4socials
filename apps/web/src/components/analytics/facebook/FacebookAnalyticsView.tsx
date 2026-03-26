@@ -231,6 +231,25 @@ function parseReactionTotal(v: unknown): number {
   return 0;
 }
 
+function toFiniteNumber(v: unknown): number {
+  return typeof v === 'number' && Number.isFinite(v) ? v : 0;
+}
+
+function getWatchTimes(post: FacebookPost): { watchTimeMs: number; avgWatchMs: number } {
+  const fi = (post.facebookInsights ?? {}) as Record<string, unknown>;
+  const avgWatchMs = toFiniteNumber(fi.post_video_avg_time_watched);
+  const totalWatchRaw = toFiniteNumber(fi.post_video_view_time);
+  if (totalWatchRaw > 0) {
+    return { watchTimeMs: totalWatchRaw, avgWatchMs };
+  }
+  // Fallback when API sends only avg watch metric.
+  const views = Math.max(0, bestPostPlayCount(post));
+  if (avgWatchMs > 0 && views > 0) {
+    return { watchTimeMs: avgWatchMs * views, avgWatchMs };
+  }
+  return { watchTimeMs: 0, avgWatchMs };
+}
+
 function inRange(dateIso: string, start: string, end: string): boolean {
   const d = localCalendarDateFromIso(dateIso);
   if (!d) return false;
@@ -599,6 +618,7 @@ export function PostsPerformanceTable({
     likes: number;
     reactionsTotal: number;
     watchTimeMs: number;
+    avgWatchMs: number;
     reactionBreakdownRaw: unknown;
     status: 'Ready' | 'Partial';
     rawPost: FacebookPost;
@@ -608,26 +628,37 @@ export function PostsPerformanceTable({
   return (
     <div className="rounded-[20px] overflow-hidden" style={{ background: COLOR.card, boxShadow: '0 2px 16px rgba(15,23,42,0.06)' }}>
       <div className="hidden md:block overflow-x-auto">
-        <table className="min-w-full text-sm">
+        <table className="w-full table-fixed text-sm">
           <thead style={{ background: 'rgba(255,255,255,0.02)', color: COLOR.textMuted }}>
             <tr>
-              {['Post preview', 'Publish date', 'Type', 'Views', 'Unique reach', 'Clicks', 'Likes', 'Reactions', 'Watch time', 'Avg watch'].map((h) => (
-                <th key={h} className="px-4 py-3 text-left font-medium">{h}</th>
+              {[
+                { label: 'Post preview', className: 'w-[180px]' },
+                { label: 'Publish date', className: 'w-[92px]' },
+                { label: 'Type', className: 'w-[60px]' },
+                { label: 'Views', className: 'w-[58px]' },
+                { label: 'Unique reach', className: 'w-[66px]' },
+                { label: 'Clicks', className: 'w-[52px]' },
+                { label: 'Likes', className: 'w-[52px]' },
+                { label: 'Reactions', className: 'w-[66px]' },
+                { label: 'Watch time', className: 'w-[70px]' },
+                { label: 'Avg watch', className: 'w-[68px]' },
+              ].map((h) => (
+                <th key={h.label} className={`px-3 py-3 text-left font-medium ${h.className}`}>{h.label}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.id} className="border-t cursor-pointer hover:bg-[#f8fafc]" style={{ borderColor: COLOR.border }} onClick={() => onOpenDetail(r.rawPost)}>
-                <td className="px-4 py-3" style={{ color: COLOR.textSecondary }}>
+                <td className="px-3 py-3" style={{ color: COLOR.textSecondary }}>
                   <div className="flex items-center gap-3 min-w-0">
                     {r.rawPost.thumbnailUrl ? (
-                      <img src={r.rawPost.thumbnailUrl} alt="" className="w-10 h-10 rounded object-cover shrink-0" />
+                      <img src={r.rawPost.thumbnailUrl} alt="" className="w-9 h-9 rounded object-cover shrink-0" />
                     ) : (
-                      <div className="w-10 h-10 rounded shrink-0" style={{ background: 'rgba(124,108,255,0.12)' }} />
+                      <div className="w-9 h-9 rounded shrink-0" style={{ background: 'rgba(124,108,255,0.12)' }} />
                     )}
                     <div className="min-w-0">
-                      <p className="truncate">{clampText(r.preview, 66)}</p>
+                      <p className="truncate">{clampText(r.preview, 34)}</p>
                       {r.permalink ? (
                         <Link
                           href={r.permalink}
@@ -642,15 +673,15 @@ export function PostsPerformanceTable({
                     </div>
                   </div>
                 </td>
-                <td className="px-4 py-3" style={{ color: COLOR.textSecondary }}>{new Date(r.date).toLocaleDateString()}</td>
-                <td className="px-4 py-3"><span className="rounded-full px-2 py-1 text-xs" style={{ background: 'rgba(255,255,255,0.08)', color: COLOR.text }}>{r.type}</span></td>
-                <td className="px-4 py-3" style={{ color: COLOR.text }}>{formatCompact(r.views)}</td>
-                <td className="px-4 py-3" style={{ color: COLOR.text }}>{formatCompact(r.uniqueReach)}</td>
-                <td className="px-4 py-3" style={{ color: COLOR.text }}>{formatCompact(r.clicks)}</td>
-                <td className="px-4 py-3" style={{ color: COLOR.text }}>{formatCompact(r.likes)}</td>
-                <td className="px-4 py-3" style={{ color: COLOR.text }}>{formatCompact(r.reactionsTotal)}</td>
-                <td className="px-4 py-3" style={{ color: COLOR.textSecondary }}>{r.watchTimeMs > 0 ? formatDurationMs(r.watchTimeMs) : ' - '}</td>
-                <td className="px-4 py-3" style={{ color: COLOR.textSecondary }}>{r.watchTimeMs > 0 ? formatDurationMs(r.watchTimeMs) : ' - '}</td>
+                <td className="px-3 py-3" style={{ color: COLOR.textSecondary }}>{new Date(r.date).toLocaleDateString()}</td>
+                <td className="px-3 py-3"><span className="rounded-full px-2 py-1 text-xs" style={{ background: 'rgba(255,255,255,0.08)', color: COLOR.text }}>{r.type}</span></td>
+                <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatCompact(r.views)}</td>
+                <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatCompact(r.uniqueReach)}</td>
+                <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatCompact(r.clicks)}</td>
+                <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatCompact(r.likes)}</td>
+                <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatCompact(r.reactionsTotal)}</td>
+                <td className="px-3 py-3" style={{ color: COLOR.textSecondary }}>{r.watchTimeMs > 0 ? formatDurationMs(r.watchTimeMs) : ' - '}</td>
+                <td className="px-3 py-3" style={{ color: COLOR.textSecondary }}>{r.avgWatchMs > 0 ? formatDurationMs(r.avgWatchMs) : ' - '}</td>
               </tr>
             ))}
           </tbody>
@@ -691,7 +722,7 @@ export function PostsPerformanceTable({
               <span>{r.type}</span>
               <span>Views {formatCompact(r.views)}</span>
               <span>{r.watchTimeMs > 0 ? `Watch ${formatDurationMs(r.watchTimeMs)}` : 'Watch -'}</span>
-              <span>{r.watchTimeMs > 0 ? `Avg ${formatDurationMs(r.watchTimeMs)}` : 'Avg -'}</span>
+              <span>{r.avgWatchMs > 0 ? `Avg ${formatDurationMs(r.avgWatchMs)}` : 'Avg -'}</span>
               <span>Clicks {formatCompact(r.clicks)}</span>
             </div>
           </button>
@@ -1002,6 +1033,7 @@ export function FacebookAnalyticsView({
       const reactions = parseReactionTotal(fi.post_reactions_by_type_total);
       const isReel = isReelPost(p);
       const hasCore = typeof fi.post_media_view === 'number' || typeof fi.post_impressions_unique === 'number';
+      const { watchTimeMs, avgWatchMs } = getWatchTimes(p);
       return {
         id: p.id,
         date: p.publishedAt,
@@ -1013,7 +1045,8 @@ export function FacebookAnalyticsView({
         clicks: fi.post_clicks ?? 0,
         likes: fi.post_reactions_like_total ?? p.likeCount ?? 0,
         reactionsTotal: reactions || (fi.post_reactions_like_total ?? p.likeCount ?? 0),
-        watchTimeMs: fi.post_video_avg_time_watched ?? 0,
+        watchTimeMs,
+        avgWatchMs,
         reactionBreakdownRaw: fi.post_reactions_by_type_total,
         status: hasCore ? ('Ready' as const) : ('Partial' as const),
         rawPost: p,
@@ -1162,6 +1195,7 @@ export function FacebookAnalyticsView({
       const reactions = parseReactionTotal(fi.post_reactions_by_type_total);
       const isReel = isReelPost(p);
       const hasCore = typeof fi.post_media_view === 'number' || typeof fi.post_impressions_unique === 'number';
+      const { watchTimeMs, avgWatchMs } = getWatchTimes(p);
       return {
         id: p.id,
         date: p.publishedAt,
@@ -1173,7 +1207,8 @@ export function FacebookAnalyticsView({
         clicks: fi.post_clicks ?? 0,
         likes: fi.post_reactions_like_total ?? p.likeCount ?? 0,
         reactionsTotal: reactions || (fi.post_reactions_like_total ?? p.likeCount ?? 0),
-        watchTimeMs: fi.post_video_avg_time_watched ?? 0,
+        watchTimeMs,
+        avgWatchMs,
         reactionBreakdownRaw: fi.post_reactions_by_type_total,
         status: hasCore ? ('Ready' as const) : ('Partial' as const),
         rawPost: p,
