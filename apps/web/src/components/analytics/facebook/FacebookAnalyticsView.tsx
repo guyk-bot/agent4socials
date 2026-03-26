@@ -3,8 +3,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
-  Area,
-  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -47,6 +45,7 @@ type StoryMetricKey = 'followers' | 'engagements' | 'videoViews' | 'contentViews
 type ActivityPreset = 'publishing' | 'community';
 type ActivityMetricKey = 'actions' | 'posts' | 'conversations';
 type EngagementMetricKey = 'likes' | 'comments' | 'shares' | 'reposts';
+type TrafficMetricKey = 'postImpressions' | 'nonviral' | 'viral' | 'uniqueReachProxy';
 type ContentHistoryFilter = 'all' | 'posts' | 'reels';
 
 const COLOR = {
@@ -103,7 +102,7 @@ const STORY_METRIC_CONFIG: Record<StoryMetricKey, { label: string; color: string
   engagements: { label: 'Engagements', color: COLOR.violet, mode: 'engagement' },
   videoViews: { label: 'Video Views', color: COLOR.magenta, mode: 'views' },
   contentViews: { label: 'Content Views', color: COLOR.amber, mode: 'views' },
-  pageVisits: { label: 'Page Visits', color: '#bb415e', mode: 'views' },
+  pageVisits: { label: 'Page Visits', color: COLOR.coral, mode: 'views' },
 };
 
 const STORY_MODE_DEFAULT_METRICS: Record<StoryMode, StoryMetricKey[]> = {
@@ -128,6 +127,13 @@ const ENGAGEMENT_METRIC_CONFIG: Record<EngagementMetricKey, { label: string; col
 const ACTIVITY_PRESET_DEFAULTS: Record<ActivityPreset, ActivityMetricKey[]> = {
   publishing: ['posts', 'actions'],
   community: ['conversations', 'actions'],
+};
+
+const TRAFFIC_METRIC_CONFIG: Record<TrafficMetricKey, { label: string; color: string }> = {
+  postImpressions: { label: 'Post Impressions', color: COLOR.cyan },
+  nonviral: { label: 'Non-viral Impressions', color: COLOR.violet },
+  viral: { label: 'Viral Impressions', color: COLOR.magenta },
+  uniqueReachProxy: { label: 'Unique Reach Proxy', color: COLOR.amber },
 };
 
 function formatCompact(n: number): string {
@@ -821,6 +827,7 @@ export function FacebookAnalyticsView({
   const [activityPreset, setActivityPreset] = useState<ActivityPreset>('publishing');
   const [selectedActivityMetrics, setSelectedActivityMetrics] = useState<ActivityMetricKey[]>(ACTIVITY_PRESET_DEFAULTS.publishing);
   const [selectedEngagementMetrics, setSelectedEngagementMetrics] = useState<EngagementMetricKey[]>(['likes', 'comments', 'shares', 'reposts']);
+  const [selectedTrafficMetrics, setSelectedTrafficMetrics] = useState<TrafficMetricKey[]>(['postImpressions', 'nonviral', 'viral', 'uniqueReachProxy']);
   const [activeSection, setActiveSection] = useState<SectionId>(FACEBOOK_ANALYTICS_SECTION_IDS.overview);
   const [selectedPost, setSelectedPost] = useState<FacebookPost | null>(null);
   const [historyFilter, setHistoryFilter] = useState<ContentHistoryFilter>('all');
@@ -937,11 +944,31 @@ export function FacebookAnalyticsView({
     return dateAxis.map((date) => ({ date, nonviral: nonviral[date] ?? 0, viral: viral[date] ?? 0 }));
   }, [dateAxis, series?.postImpressionsNonviral, series?.postImpressionsViral]);
 
-  const viewVsVisit = useMemo(() => {
-    const media = seriesToMap(series?.contentViews ?? []);
-    const visits = seriesToMap(series?.pageTabViews ?? []);
-    return dateAxis.map((date) => ({ date, views: media[date] ?? 0, visits: visits[date] ?? 0 }));
-  }, [dateAxis, series?.contentViews, series?.pageTabViews]);
+  const uniqueReachByDate = useMemo(() => {
+    const map: Record<string, number> = {};
+    postsInRange.forEach((p) => {
+      const d = localCalendarDateFromIso(p.publishedAt);
+      map[d] = (map[d] ?? 0) + (p.facebookInsights?.post_impressions_unique ?? 0);
+    });
+    return map;
+  }, [postsInRange]);
+  const trafficTimelineData = useMemo(() => {
+    const postImpressionsMap = seriesToMap(series?.postImpressions ?? []);
+    const nonviralMap = seriesToMap(series?.postImpressionsNonviral ?? []);
+    const viralMap = seriesToMap(series?.postImpressionsViral ?? []);
+    return dateAxis.map((date) => {
+      const nonviral = nonviralMap[date] ?? 0;
+      const viral = viralMap[date] ?? 0;
+      const postImpressionsFromApi = postImpressionsMap[date] ?? 0;
+      return {
+        date,
+        postImpressions: postImpressionsFromApi > 0 ? postImpressionsFromApi : nonviral + viral,
+        nonviral,
+        viral,
+        uniqueReachProxy: uniqueReachByDate[date] ?? 0,
+      };
+    });
+  }, [dateAxis, series?.postImpressions, series?.postImpressionsNonviral, series?.postImpressionsViral, uniqueReachByDate]);
 
   const postsRows = useMemo(() => {
     return postsInRange.map((p) => {
@@ -992,12 +1019,8 @@ export function FacebookAnalyticsView({
     [chartByMode, selectedStoryMetrics]
   );
   const trafficTicks = useMemo(
-    () => buildKeyDateTicks(stackedTraffic, (d) => (d.nonviral ?? 0) > 0 || (d.viral ?? 0) > 0, 10),
-    [stackedTraffic]
-  );
-  const viewVisitTicks = useMemo(
-    () => buildKeyDateTicks(viewVsVisit, (d) => (d.views ?? 0) > 0 || (d.visits ?? 0) > 0, 10),
-    [viewVsVisit]
+    () => buildKeyDateTicks(trafficTimelineData, (d) => (d.postImpressions ?? 0) > 0 || (d.nonviral ?? 0) > 0 || (d.viral ?? 0) > 0 || (d.uniqueReachProxy ?? 0) > 0, 10),
+    [trafficTimelineData]
   );
   const reelsTicks = useMemo(
     () => buildKeyDateTicks(reelsChartData, (d) => (d.views ?? 0) > 0 || (d.watchSeconds ?? 0) > 0, 10),
@@ -1007,9 +1030,6 @@ export function FacebookAnalyticsView({
   const avgPostsPerWeek = postsInRange.length / Math.max(1, dateAxis.length / 7);
   const avgClicksPerPost = postsRows.reduce((s, r) => s + r.clicks, 0) / Math.max(1, postsRows.length);
   const avgReactionsPerPost = postsRows.reduce((s, r) => s + r.reactionsTotal, 0) / Math.max(1, postsRows.length);
-  const engagementRate = engagements / Math.max(1, postImpressions);
-  const videoViewRate = videoViews / Math.max(1, contentViews);
-  const viralShare = viralImpressions / Math.max(1, postImpressions);
   const avgWatchMs = reelsRows.reduce((s, r) => s + r.avgWatchMs, 0) / Math.max(1, reelsRows.length);
   const totalOrganicVideoViews = reelsRows.reduce((s, r) => s + r.organicViews, 0);
   const totalReelVideoViews = reelsRows.reduce((s, r) => s + r.views, 0);
@@ -1061,7 +1081,7 @@ export function FacebookAnalyticsView({
   const operationalData = useMemo(() => {
     const actionsRaw = seriesToMap(actionsSeries ?? []);
     const actions = carryForwardSeries(dateAxis, actionsRaw, 0);
-    const hasActionPoints = Object.keys(actionsRaw).length > 0;
+    const hasActionPoints = Object.values(actionsRaw).some((value) => Number(value) > 0);
     const postsByDate = postsInRange.reduce<Record<string, number>>((acc, post) => {
       const d = localCalendarDateFromIso(post.publishedAt);
       acc[d] = (acc[d] ?? 0) + 1;
@@ -1310,7 +1330,7 @@ export function FacebookAnalyticsView({
             <SparklineMetricCard
               label="Page Visits"
               source="page_views_total"
-              color="#bb415e"
+              color={COLOR.coral}
               value={formatCompact(pageVisits)}
               series={series?.pageTabViews ?? []}
               active={isCardSelected('pageVisits')}
@@ -1557,64 +1577,92 @@ export function FacebookAnalyticsView({
           </InsightChartCard>
         </div>
 
-        <CommunitySummaryCard
-          conversationsCount={conversationActivityCount}
-          latestConversationAt={community?.latestConversationAt ?? null}
-          ratingsCount={community?.ratingsCount ?? 0}
-          latestRecommendationText={community?.latestRecommendationText ?? null}
-        />
       </section>
 
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.traffic} className="scroll-mt-28 space-y-6">
-        <div>
-          <h2 className="text-[28px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Traffic</h2>
-          <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
-            Diagnose distribution quality across non-viral and viral attention sources.
-          </p>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard label="Post Impressions" source="page_posts_impressions" color={COLOR.cyan} value={formatCompact(postImpressions)} />
-          <MetricCard label="Non-viral Impressions" source="page_posts_impressions_nonviral" color={COLOR.violet} value={formatCompact(nonviralImpressions)} />
-          <MetricCard label="Viral Impressions" source="page_posts_impressions_viral" color={COLOR.magenta} value={formatCompact(viralImpressions)} />
-          <MetricCard label="Unique Reach Proxy" source="Sum of post_impressions_unique" color={COLOR.amber} value={formatCompact(uniqueReachProxy)} footnote="Derived from post-layer metrics" />
-        </div>
-
-        <InsightChartCard
-          title="Visibility Composition"
-          subtitle="Stacked non-viral and viral impressions over time."
-          legend={[{ label: 'Non-viral', color: COLOR.violet }, { label: 'Viral', color: COLOR.magenta }]}
-        >
-          {stackedTraffic.some((d) => d.nonviral > 0 || d.viral > 0) ? (
-            <StackedTrafficChart data={stackedTraffic} />
-          ) : (
-            <EmptyStateCard title="No traffic composition yet" subtitle="Meta has not returned viral and non-viral rows for this date range." />
-          )}
-        </InsightChartCard>
-
-        <InsightChartCard
-          title="Content Views vs Page Visits"
-          legend={[{ label: 'Content Views', color: COLOR.amber }, { label: 'Page Visits', color: '#bb415e' }]}
-        >
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={viewVsVisit}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-              <XAxis dataKey="date" ticks={viewVisitTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} minTickGap={18} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }} formatter={(v: number | string | undefined) => formatNumber(Number(v) || 0)} labelFormatter={(l) => formatShortDate(String(l))} />
-              <Line type="monotone" dataKey="views" stroke={COLOR.amber} strokeWidth={2.2} dot={false} />
-              <Line type="monotone" dataKey="visits" stroke={'#bb415e'} strokeWidth={2.2} dot={false} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </InsightChartCard>
-
-        <div className="grid gap-4 md:grid-cols-3">
-          <MetricCard label="Engagement Rate" source="page_post_engagements / page_posts_impressions" color={COLOR.violet} value={formatPercent(engagementRate)} footnote="Derived metric" />
-          <MetricCard label="Video View Rate" source="page_video_views / page_media_view" color={COLOR.magenta} value={formatPercent(videoViewRate)} footnote="Derived metric" />
-          <MetricCard label="Viral Share of Impressions" source="viral / total impressions" color={COLOR.cyan} value={formatPercent(viralShare)} footnote="Derived metric" />
-        </div>
-
-        <div className="rounded-[20px] border p-4 text-sm" style={{ background: COLOR.card, borderColor: COLOR.border, color: COLOR.textSecondary }}>
-          <p><span style={{ color: COLOR.text }}>Insight note:</span> Non-viral impressions represent direct and organic post visibility. Viral impressions represent social amplification and redistribution.</p>
+        <div className="rounded-[20px] border p-4 sm:p-5 space-y-3" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Traffic</h3>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <MetricCard
+              label="Post Impressions"
+              source="page_posts_impressions"
+              color={COLOR.cyan}
+              value={formatCompact(postImpressions)}
+              active={selectedTrafficMetrics.includes('postImpressions')}
+              onClick={() => setSelectedTrafficMetrics((prev) => prev.includes('postImpressions') ? prev.filter((m) => m !== 'postImpressions') : [...prev, 'postImpressions'])}
+            />
+            <MetricCard
+              label="Non-viral Impressions"
+              source="page_posts_impressions_nonviral"
+              color={COLOR.violet}
+              value={formatCompact(nonviralImpressions)}
+              active={selectedTrafficMetrics.includes('nonviral')}
+              onClick={() => setSelectedTrafficMetrics((prev) => prev.includes('nonviral') ? prev.filter((m) => m !== 'nonviral') : [...prev, 'nonviral'])}
+            />
+            <MetricCard
+              label="Viral Impressions"
+              source="page_posts_impressions_viral"
+              color={COLOR.magenta}
+              value={formatCompact(viralImpressions)}
+              active={selectedTrafficMetrics.includes('viral')}
+              onClick={() => setSelectedTrafficMetrics((prev) => prev.includes('viral') ? prev.filter((m) => m !== 'viral') : [...prev, 'viral'])}
+            />
+            <MetricCard
+              label="Unique Reach Proxy"
+              source="Sum of post_impressions_unique"
+              color={COLOR.amber}
+              value={formatCompact(uniqueReachProxy)}
+              active={selectedTrafficMetrics.includes('uniqueReachProxy')}
+              onClick={() => setSelectedTrafficMetrics((prev) => prev.includes('uniqueReachProxy') ? prev.filter((m) => m !== 'uniqueReachProxy') : [...prev, 'uniqueReachProxy'])}
+            />
+          </div>
+          <div className="flex justify-end">
+            <div className="flex flex-wrap gap-2">
+              {selectedTrafficMetrics.map((m) => (
+                <span
+                  key={m}
+                  className="rounded-full border px-2.5 py-1 text-xs"
+                  style={{ borderColor: COLOR.border, color: COLOR.textSecondary, background: 'rgba(255,255,255,0.02)' }}
+                >
+                  <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ background: TRAFFIC_METRIC_CONFIG[m].color }} />
+                  {TRAFFIC_METRIC_CONFIG[m].label}
+                </span>
+              ))}
+            </div>
+          </div>
+          <InsightChartCard title="Visibility Composition" hideHeader flat>
+            {selectedTrafficMetrics.length === 0 ? (
+              <div className="h-[300px] rounded-xl border border-dashed relative overflow-hidden" style={{ borderColor: COLOR.border }}>
+                <div className="absolute inset-0 z-[2] flex items-center justify-center">
+                  <div
+                    className="rounded-2xl px-5 py-3 text-sm font-medium text-center max-w-[560px] w-[min(560px,92%)]"
+                    style={{ background: 'rgba(255,255,255,1)', color: COLOR.textSecondary, boxShadow: '0 1px 16px rgba(15,23,42,0.12)' }}
+                  >
+                    Select at least one metric card to display traffic data.
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={trafficTimelineData} barCategoryGap={12} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+                  <XAxis dataKey="date" ticks={trafficTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} dy={8} minTickGap={18} axisLine={false} tickLine={false} />
+                  <YAxis domain={[0, 'auto']} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
+                    formatter={(v: number | string | undefined, n?: string) => [formatNumber(Number(v) || 0), n && n in TRAFFIC_METRIC_CONFIG ? TRAFFIC_METRIC_CONFIG[n as TrafficMetricKey].label : String(n ?? '')]}
+                    labelFormatter={(l) => formatShortDate(String(l))}
+                  />
+                  {selectedTrafficMetrics.includes('postImpressions') ? <Bar dataKey="postImpressions" fill={COLOR.cyan} radius={[6, 6, 0, 0]} shape={<MinWidthBarShape />} /> : null}
+                  {selectedTrafficMetrics.includes('nonviral') ? <Bar dataKey="nonviral" fill={COLOR.violet} radius={[6, 6, 0, 0]} shape={<MinWidthBarShape />} /> : null}
+                  {selectedTrafficMetrics.includes('viral') ? <Bar dataKey="viral" fill={COLOR.magenta} radius={[6, 6, 0, 0]} shape={<MinWidthBarShape />} /> : null}
+                  {selectedTrafficMetrics.includes('uniqueReachProxy') ? <Bar dataKey="uniqueReachProxy" fill={COLOR.amber} radius={[6, 6, 0, 0]} shape={<MinWidthBarShape />} /> : null}
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </InsightChartCard>
         </div>
       </section>
 
