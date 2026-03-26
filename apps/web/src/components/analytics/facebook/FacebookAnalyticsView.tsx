@@ -14,7 +14,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { ChevronRight, ExternalLink, Gem, MessageSquare, Star } from 'lucide-react';
+import { ChevronRight, ExternalLink, Gem, MessageSquare, Star, Trophy } from 'lucide-react';
 import { AnalyticsDateRangePicker } from '../AnalyticsDateRangePicker';
 import type { FacebookInsights, FacebookPost } from './types';
 import { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids';
@@ -113,7 +113,7 @@ const STORY_MODE_DEFAULT_METRICS: Record<StoryMode, StoryMetricKey[]> = {
 const ACTIVITY_METRIC_CONFIG: Record<ActivityMetricKey, { label: string; color: string }> = {
   actions: { label: 'Actions', color: COLOR.violet },
   posts: { label: 'Posts', color: COLOR.magenta },
-  conversations: { label: 'Conversations', color: '#d72661' },
+  conversations: { label: 'Conversations', color: COLOR.amber },
 };
 
 const ENGAGEMENT_METRIC_CONFIG: Record<EngagementMetricKey, { label: string; color: string }> = {
@@ -691,15 +691,15 @@ function TopContentHighlights({
   byClicks,
   byReactions,
 }: {
-  byViews: Array<{ id: string; preview: string; permalink?: string | null; value: number; type: 'Reel' | 'Post' }>;
-  byClicks: Array<{ id: string; preview: string; permalink?: string | null; value: number; type: 'Reel' | 'Post' }>;
-  byReactions: Array<{ id: string; preview: string; permalink?: string | null; value: number; type: 'Reel' | 'Post' }>;
+  byViews: Array<{ id: string; preview: string; permalink?: string | null; value: number; type: 'Reel' | 'Post'; thumbnailUrl?: string | null; views: number; clicks: number; reactions: number }>;
+  byClicks: Array<{ id: string; preview: string; permalink?: string | null; value: number; type: 'Reel' | 'Post'; thumbnailUrl?: string | null; views: number; clicks: number; reactions: number }>;
+  byReactions: Array<{ id: string; preview: string; permalink?: string | null; value: number; type: 'Reel' | 'Post'; thumbnailUrl?: string | null; views: number; clicks: number; reactions: number }>;
 }) {
+  const trophyColor = (rank: number) => rank === 0 ? '#d4a017' : rank === 1 ? '#9ca3af' : '#b8742b';
   const col = (
     title: string,
-    metricLabel: string,
     color: string,
-    rows: Array<{ id: string; preview: string; permalink?: string | null; value: number; type: 'Reel' | 'Post' }>
+    rows: Array<{ id: string; preview: string; permalink?: string | null; value: number; type: 'Reel' | 'Post'; thumbnailUrl?: string | null; views: number; clicks: number; reactions: number }>
   ) => (
     <div className="space-y-2">
       <p className="text-sm font-semibold" style={{ color: COLOR.text }}>{title}</p>
@@ -709,14 +709,28 @@ function TopContentHighlights({
         rows.map((r, idx) => (
           <div key={`${title}-${r.id}-${idx}`} className="rounded-xl p-3" style={{ background: COLOR.elevated }}>
             <div className="flex items-start justify-between gap-3">
-              <p className="text-sm min-w-0" style={{ color: COLOR.textSecondary }}>
-                <span className="mr-2 rounded-md px-2 py-0.5 text-xs" style={{ color: COLOR.text, background: 'rgba(124,108,255,0.14)' }}>#{idx + 1}</span>
-                {clampText(firstWords(r.preview, 8) || 'View post', 66)}
-              </p>
+              <div className="flex items-start gap-2.5 min-w-0">
+                <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold shrink-0" style={{ color: COLOR.text, background: 'rgba(124,108,255,0.14)' }}>
+                  {idx + 1} <Trophy size={12} style={{ color: trophyColor(idx) }} />
+                </span>
+                {r.thumbnailUrl ? (
+                  <img
+                    src={r.thumbnailUrl}
+                    alt=""
+                    className="h-9 w-9 rounded-md object-cover shrink-0"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                  />
+                ) : (
+                  <div className="h-9 w-9 rounded-md shrink-0" style={{ background: 'rgba(124,108,255,0.12)' }} />
+                )}
+                <p className="text-sm min-w-0" style={{ color: COLOR.textSecondary }}>
+                  {clampText(firstWords(r.preview, 8) || 'View post', 66)}
+                </p>
+              </div>
               <span className="shrink-0 text-sm font-semibold" style={{ color }}>{formatCompact(r.value)}</span>
             </div>
             <div className="mt-2 flex items-center justify-between text-xs" style={{ color: COLOR.textMuted }}>
-              <span>{metricLabel}</span>
+              <span>Views {formatCompact(r.views)} · Clicks {formatCompact(r.clicks)} · Reactions {formatCompact(r.reactions)}</span>
               <span>{r.type}</span>
               {r.permalink ? (
                 <Link href={r.permalink} target="_blank" className="inline-flex items-center gap-1" style={{ color: COLOR.textSecondary }}>
@@ -733,9 +747,9 @@ function TopContentHighlights({
   return (
     <section className="rounded-[20px] p-5" style={{ background: COLOR.card, boxShadow: '0 2px 16px rgba(15,23,42,0.05)' }}>
       <div className="grid gap-4 lg:grid-cols-3">
-        {col('Views leaders', 'Views', COLOR.cyan, byViews)}
-        {col('Clicks leaders', 'Clicks', COLOR.amber, byClicks)}
-        {col('Reactions leaders', 'Reactions', COLOR.violet, byReactions)}
+        {col('Views leaders', COLOR.cyan, byViews)}
+        {col('Clicks leaders', COLOR.amber, byClicks)}
+        {col('Reactions leaders', COLOR.violet, byReactions)}
       </div>
     </section>
   );
@@ -1676,26 +1690,13 @@ export function FacebookAnalyticsView({
           <MetricCard label="Avg Clicks per Post" source="post_clicks" color={COLOR.text} value={avgClicksPerPost.toFixed(1)} />
           <MetricCard label="Avg Reactions per Post" source="post_reactions_like_total / breakdown" color={COLOR.text} value={avgReactionsPerPost.toFixed(1)} />
         </div>
-        <TopContentHighlights
-          byViews={topByViews.map((p) => ({ id: p.id, preview: p.preview, permalink: p.permalink, value: p.value, type: p.type }))}
-          byClicks={topByClicks.map((p) => ({ id: p.id, preview: p.preview, permalink: p.permalink, value: p.value, type: p.type }))}
-          byReactions={topByReactions.map((p) => ({ id: p.id, preview: p.preview, permalink: p.permalink, value: p.value, type: p.type }))}
-        />
-
         {postsRows.length > 0 ? (
-          <PostsPerformanceTable rows={postsRows} onOpenDetail={setSelectedPost} />
-        ) : postsLoading ? (
-          <div className="rounded-[20px] border p-6 space-y-3" style={{ background: COLOR.card, borderColor: COLOR.border }}>
-            <p className="text-sm font-medium" style={{ color: COLOR.text }}>Loading posts for this range…</p>
-            <div className="space-y-2">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="h-12 rounded-xl animate-pulse" style={{ background: 'rgba(15,23,42,0.06)' }} />
-              ))}
-            </div>
-          </div>
-        ) : (
-          <EmptyStateCard title="No posts in this range" subtitle="Try a wider date range or sync the account posts again." />
-        )}
+          <TopContentHighlights
+            byViews={topByViews.map((p) => ({ id: p.id, preview: p.preview, permalink: p.permalink, value: p.value, type: p.type, thumbnailUrl: p.thumbnailUrl, views: p.views, clicks: p.clicks, reactions: p.reactionsTotal }))}
+            byClicks={topByClicks.map((p) => ({ id: p.id, preview: p.preview, permalink: p.permalink, value: p.value, type: p.type, thumbnailUrl: p.thumbnailUrl, views: p.views, clicks: p.clicks, reactions: p.reactionsTotal }))}
+            byReactions={topByReactions.map((p) => ({ id: p.id, preview: p.preview, permalink: p.permalink, value: p.value, type: p.type, thumbnailUrl: p.thumbnailUrl, views: p.views, clicks: p.clicks, reactions: p.reactionsTotal }))}
+          />
+        ) : null}
 
       </section>
 
