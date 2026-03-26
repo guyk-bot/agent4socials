@@ -1803,7 +1803,12 @@ export function FacebookAnalyticsView({
               </ComposedChart>
             </ResponsiveContainer>
           ) : (
-            <EmptyStateCard title="No reels in this period" subtitle="Reel analytics appears after reels are discovered in your post inventory." />
+            <div className="h-[240px] rounded-[20px] border flex flex-col items-center justify-center text-center px-6" style={{ background: COLOR.card, borderColor: COLOR.border }}>
+              <p className="text-sm font-semibold" style={{ color: COLOR.text }}>No reels in this period</p>
+              <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
+                Reel analytics appears after reels are discovered in your post inventory.
+              </p>
+            </div>
           )}
         </InsightChartCard>
         </div>
