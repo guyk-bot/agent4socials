@@ -502,11 +502,11 @@ export default function DashboardPage() {
         return;
       }
       if (accountPostsHydratedRef.current[accountId]) {
-        setImportedPosts(ctxList ?? []);
+        // Already loaded once — keep whatever is already displayed; do not blank the chart.
         setImportedPostsLoading(false);
         return;
       }
-      setImportedPosts([]);
+      // First load for this account: show spinner without blanking existing data.
       setImportedPostsLoading(true);
       const syncFirst = !postsCacheRef.current[accountId];
       api.get(`/social/accounts/${accountId}/posts`, { params: syncFirst ? { sync: 1 } : {} })
@@ -518,7 +518,7 @@ export default function DashboardPage() {
           setImportedPosts(list);
           setPostsSyncError(res.data?.syncError ?? null);
         })
-        .catch(() => { setImportedPosts([]); setPostsSyncError(null); })
+        .catch(() => { setPostsSyncError(null); })
         .finally(() => setImportedPostsLoading(false));
       return;
     }
@@ -642,10 +642,9 @@ export default function DashboardPage() {
       return;
     }
 
-    // No cache: only clear when switching to a different account (not first mount) so posts/engagement charts don't thrash on refresh.
+    // Only clear insights (not posts) when switching accounts; the posts effect manages its own state.
     if (!isSameAccount && prevAccountId !== null) {
       setInsights(null);
-      setImportedPosts([]);
     }
     setInsightsLoading(true);
     if (!accountTabOwnsPosts) setImportedPostsLoading(true);
@@ -868,10 +867,9 @@ export default function DashboardPage() {
       .then(() => fetchAccounts())
       .then(() => {
         fbIgAccounts.forEach((acc) => {
-          appData?.clearAccountData(acc.id);
-          delete postsCacheRef.current[acc.id];
-          delete accountPostsHydratedRef.current[acc.id];
+          // Only invalidate insights cache; keep postsCacheRef so the chart doesn't blank mid-reload.
           Object.keys(insightsCacheRef.current).forEach((k) => { if (k.startsWith(acc.id + '-')) delete insightsCacheRef.current[k]; });
+          appDataRef.current?.setInsightsForAccount(acc.id, {} as import('@/context/AppDataContext').CachedInsights);
         });
         syncAllRequestedRef.current = null;
         setSyncAllTrigger((t) => t + 1);
