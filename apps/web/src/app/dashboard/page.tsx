@@ -473,6 +473,8 @@ export default function DashboardPage() {
   }, []);
 
   const postsCacheRef = useRef<Record<string, Array<{ id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; impressions: number; interactions: number; publishedAt: string; mediaType?: string | null; platform: string }>>>({});
+  /** After we have loaded this account's posts from the API once, avoid replacing with empty AppData prefetch noise. */
+  const accountPostsHydratedRef = useRef<Record<string, boolean>>({});
   const syncAllRequestedRef = useRef<string | null>(null);
 
   // Auto-select the platform filter when switching accounts (or reset to 'all' for Summary)
@@ -485,21 +487,34 @@ export default function DashboardPage() {
   useEffect(() => {
     const appCtx = appDataRef.current;
     if (selectedAccount?.id) {
-      const fromCache = appCtx?.getPosts(selectedAccount.id);
-      const cached = fromCache ?? postsCacheRef.current[selectedAccount.id];
-      if (cached !== undefined && cached !== null) {
-        setImportedPosts(cached);
+      const accountId = selectedAccount.id;
+      const refList = postsCacheRef.current[accountId];
+      const ctxList = appCtx?.getPosts(accountId);
+      // Prefer dashboard ref (last successful fetch) over AppData prefetch: context can briefly hold [] or stale rows and would win with ?? and wipe charts.
+      if (refList !== undefined) {
+        setImportedPosts(refList);
+        setImportedPostsLoading(false);
+        return;
+      }
+      if (ctxList != null && ctxList.length > 0) {
+        setImportedPosts(ctxList);
+        setImportedPostsLoading(false);
+        return;
+      }
+      if (accountPostsHydratedRef.current[accountId]) {
+        setImportedPosts(ctxList ?? []);
         setImportedPostsLoading(false);
         return;
       }
       setImportedPosts([]);
       setImportedPostsLoading(true);
-      const syncFirst = !postsCacheRef.current[selectedAccount.id];
-      api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: syncFirst ? { sync: 1 } : {} })
+      const syncFirst = !postsCacheRef.current[accountId];
+      api.get(`/social/accounts/${accountId}/posts`, { params: syncFirst ? { sync: 1 } : {} })
         .then((res) => {
           const list = res.data?.posts ?? [];
-          postsCacheRef.current[selectedAccount.id] = list;
-          appDataRef.current?.setPostsForAccount(selectedAccount.id, list);
+          postsCacheRef.current[accountId] = list;
+          accountPostsHydratedRef.current[accountId] = true;
+          appDataRef.current?.setPostsForAccount(accountId, list);
           setImportedPosts(list);
           setPostsSyncError(res.data?.syncError ?? null);
         })
@@ -855,6 +870,7 @@ export default function DashboardPage() {
         fbIgAccounts.forEach((acc) => {
           appData?.clearAccountData(acc.id);
           delete postsCacheRef.current[acc.id];
+          delete accountPostsHydratedRef.current[acc.id];
           Object.keys(insightsCacheRef.current).forEach((k) => { if (k.startsWith(acc.id + '-')) delete insightsCacheRef.current[k]; });
         });
         syncAllRequestedRef.current = null;
@@ -1312,6 +1328,10 @@ export default function DashboardPage() {
               try {
                 const res = await api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: { sync: 1 } });
                 const list = res.data?.posts ?? [];
+                const aid = selectedAccount.id;
+                postsCacheRef.current[aid] = list;
+                accountPostsHydratedRef.current[aid] = true;
+                appDataRef.current?.setPostsForAccount(aid, list);
                 setImportedPosts((prev) => prev.filter((p: { platform: string }) => p.platform !== selectedAccount.platform).concat(list));
                 setPostsSyncError(res.data?.syncError ?? null);
               } catch (_) {
