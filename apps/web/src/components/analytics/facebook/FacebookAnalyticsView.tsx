@@ -45,7 +45,7 @@ type StoryMetricKey = 'followers' | 'engagements' | 'videoViews' | 'contentViews
 type ActivityMetricKey = 'actions' | 'posts' | 'conversations';
 type EngagementMetricKey = 'likes' | 'comments' | 'shares' | 'reposts';
 type TrafficMetricKey = 'postImpressions' | 'nonviral' | 'viral' | 'uniqueReachProxy';
-type ReelMetricKey = 'views' | 'watchTime' | 'avgWatch' | 'likes' | 'comments' | 'shares' | 'reposts';
+type ReelMetricKey = 'views' | 'watchTime' | 'avgWatch' | 'clicks' | 'likes' | 'comments' | 'shares' | 'reposts';
 type ContentHistoryFilter = 'all' | 'posts' | 'reels';
 
 const COLOR = {
@@ -135,6 +135,7 @@ const REEL_METRIC_CONFIG: Record<ReelMetricKey, { label: string; color: string }
   views: { label: 'Total Video Views', color: COLOR.magenta },
   watchTime: { label: 'Watch Time', color: COLOR.mint },
   avgWatch: { label: 'Avg Watch Time', color: COLOR.cyan },
+  clicks: { label: 'Clicks', color: '#ef4444' },
   likes: { label: 'Likes', color: COLOR.violet },
   comments: { label: 'Comments', color: COLOR.coral },
   shares: { label: 'Shares', color: COLOR.amber },
@@ -1087,6 +1088,7 @@ export function FacebookAnalyticsView({
         views: bestPostPlayCount(r.rawPost),
         organicViews: r.rawPost.facebookInsights?.post_video_views_organic ?? 0,
         avgWatchMs: r.rawPost.facebookInsights?.post_video_avg_time_watched ?? 0,
+        watchTimeMs: r.watchTimeMs ?? 0,
       }));
   }, [postsRows]);
 
@@ -1096,7 +1098,9 @@ export function FacebookAnalyticsView({
       return {
         date,
         views: r.views,
-        watchSeconds: r.avgWatchMs / 1000,
+        watchTimeSeconds: (r.watchTimeMs ?? 0) / 1000,
+        avgWatchSeconds: r.avgWatchMs / 1000,
+        clicks: r.post.facebookInsights?.post_clicks ?? 0,
         likes: r.post.facebookInsights?.post_reactions_like_total ?? r.post.likeCount ?? 0,
         comments: r.post.facebookInsights?.post_comments ?? r.post.commentsCount ?? 0,
         shares: r.post.facebookInsights?.post_shares ?? r.post.sharesCount ?? 0,
@@ -1124,6 +1128,7 @@ export function FacebookAnalyticsView({
   const avgReactionsPerPost = postsRows.reduce((s, r) => s + r.reactionsTotal, 0) / Math.max(1, postsRows.length);
   const avgWatchMs = reelsRows.reduce((s, r) => s + r.avgWatchMs, 0) / Math.max(1, reelsRows.length);
   const totalReelWatchTimeMs = postsRows.filter((r) => r.type === 'Reel').reduce((s, r) => s + r.watchTimeMs, 0);
+  const reelClicks = reelsRows.reduce((s, r) => s + (r.post.facebookInsights?.post_clicks ?? 0), 0);
   const reelLikes = reelsRows.reduce((s, r) => s + (r.post.facebookInsights?.post_reactions_like_total ?? r.post.likeCount ?? 0), 0);
   const reelComments = reelsRows.reduce((s, r) => s + (r.post.facebookInsights?.post_comments ?? r.post.commentsCount ?? 0), 0);
   const reelShares = reelsRows.reduce((s, r) => s + (r.post.facebookInsights?.post_shares ?? r.post.sharesCount ?? 0), 0);
@@ -1821,6 +1826,14 @@ export function FacebookAnalyticsView({
             onClick={() => setSelectedReelMetrics((prev) => prev.includes('avgWatch') ? prev.filter((m) => m !== 'avgWatch') : [...prev, 'avgWatch'])}
           />
           <MetricCard
+            label="Clicks"
+            source="post_clicks"
+            color={REEL_METRIC_CONFIG.clicks.color}
+            value={formatCompact(reelClicks)}
+            active={selectedReelMetrics.includes('clicks')}
+            onClick={() => setSelectedReelMetrics((prev) => prev.includes('clicks') ? prev.filter((m) => m !== 'clicks') : [...prev, 'clicks'])}
+          />
+          <MetricCard
             label="Likes"
             source="post_reactions_like_total"
             color={REEL_METRIC_CONFIG.likes.color}
@@ -1872,14 +1885,14 @@ export function FacebookAnalyticsView({
                     const row = payload[0]?.payload;
                     const kv = payload
                       .filter((p) => typeof p.value === 'number' && typeof p.dataKey === 'string')
-                      .map((p) => ({ key: p.dataKey as ReelMetricKey | 'watchSeconds', value: p.value ?? 0 }));
+                      .map((p) => ({ key: p.dataKey as ReelMetricKey | 'watchTimeSeconds' | 'avgWatchSeconds', value: p.value ?? 0 }));
                     return (
                       <div className="rounded-xl border px-3 py-2 text-xs shadow-lg" style={{ background: '#ffffff', borderColor: COLOR.border }}>
                         <p className="font-medium mb-1.5" style={{ color: COLOR.text }}>{formatShortDate(String(label ?? ''))}</p>
                         {row?.thumbnailUrl ? <img src={row.thumbnailUrl} alt="" className="mb-2 h-10 w-10 rounded object-cover" /> : null}
                         {kv.map((item) => (
                           <p key={item.key} style={{ color: COLOR.textSecondary }}>
-                            {item.key === 'watchSeconds' ? 'Avg Watch' : REEL_METRIC_CONFIG[item.key as ReelMetricKey]?.label ?? item.key}: {item.key === 'watchSeconds' ? `${item.value.toFixed(1)}s` : formatNumber(item.value)}
+                            {(item.key === 'watchTimeSeconds' ? 'Watch Time' : item.key === 'avgWatchSeconds' ? 'Avg Watch' : REEL_METRIC_CONFIG[item.key as ReelMetricKey]?.label ?? item.key)}: {(item.key === 'watchTimeSeconds' || item.key === 'avgWatchSeconds') ? `${item.value.toFixed(1)}s` : formatNumber(item.value)}
                           </p>
                         ))}
                       </div>
@@ -1887,12 +1900,13 @@ export function FacebookAnalyticsView({
                   }}
                 />
                 {selectedReelMetrics.includes('views') ? <Bar yAxisId="left" dataKey="views" fill={REEL_METRIC_CONFIG.views.color} radius={[6, 6, 0, 0]} barSize={22} /> : null}
+                {selectedReelMetrics.includes('clicks') ? <Bar yAxisId="left" dataKey="clicks" fill={REEL_METRIC_CONFIG.clicks.color} radius={[6, 6, 0, 0]} barSize={22} /> : null}
                 {selectedReelMetrics.includes('likes') ? <Bar yAxisId="left" dataKey="likes" fill={REEL_METRIC_CONFIG.likes.color} radius={[6, 6, 0, 0]} barSize={22} /> : null}
                 {selectedReelMetrics.includes('comments') ? <Bar yAxisId="left" dataKey="comments" fill={REEL_METRIC_CONFIG.comments.color} radius={[6, 6, 0, 0]} barSize={22} /> : null}
                 {selectedReelMetrics.includes('shares') ? <Bar yAxisId="left" dataKey="shares" fill={REEL_METRIC_CONFIG.shares.color} radius={[6, 6, 0, 0]} barSize={22} /> : null}
                 {selectedReelMetrics.includes('reposts') ? <Bar yAxisId="left" dataKey="reposts" fill={REEL_METRIC_CONFIG.reposts.color} radius={[6, 6, 0, 0]} barSize={22} /> : null}
-                {selectedReelMetrics.includes('avgWatch') ? <Line yAxisId="right" dataKey="watchSeconds" stroke={REEL_METRIC_CONFIG.avgWatch.color} strokeWidth={2.2} dot={false} /> : null}
-                {selectedReelMetrics.includes('watchTime') ? <Line yAxisId="right" dataKey="watchSeconds" stroke={REEL_METRIC_CONFIG.watchTime.color} strokeDasharray="4 3" strokeWidth={1.8} dot={false} /> : null}
+                {selectedReelMetrics.includes('watchTime') ? <Bar yAxisId="right" dataKey="watchTimeSeconds" fill={REEL_METRIC_CONFIG.watchTime.color} radius={[6, 6, 0, 0]} barSize={14} /> : null}
+                {selectedReelMetrics.includes('avgWatch') ? <Bar yAxisId="right" dataKey="avgWatchSeconds" fill={REEL_METRIC_CONFIG.avgWatch.color} radius={[6, 6, 0, 0]} barSize={14} /> : null}
               </ComposedChart>
             </ResponsiveContainer>
           ) : (
