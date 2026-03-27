@@ -1007,11 +1007,9 @@ export function FacebookAnalyticsView({
     const videoViewsSeries = carryForwardSeries(dateAxis, videoViewsRaw, 0);
     const engagement = carryForwardSeries(dateAxis, engagementRaw, 0);
     const follows = carryForwardSeries(dateAxis, followsRaw, totalFollowers);
-    // Normalize followers to "growth within selected range" so the chart always starts at 0.
-    const followersBaseline = follows[dateAxis[0] ?? ''] ?? 0;
     return dateAxis.map((date) => ({
       date,
-      followers: Math.max(0, (follows[date] ?? 0) - followersBaseline),
+      followers: follows[date] ?? 0,
       engagements: engagement[date] ?? 0,
       videoViews: videoViewsSeries[date] ?? 0,
       contentViews: media[date] ?? 0,
