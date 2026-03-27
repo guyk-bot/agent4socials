@@ -780,7 +780,7 @@ function TopContentHighlights({
                   <img
                     src={rankBadge(idx)}
                     alt={`Rank ${idx + 1}`}
-                    className="absolute right-1 top-1 h-7 w-7 object-contain"
+                    className="absolute left-1 top-1 h-9 w-9 object-contain"
                   />
                   {r.permalink ? (
                     <Link
@@ -796,8 +796,11 @@ function TopContentHighlights({
                 </div>
               </div>
               <div className="min-w-0 flex-1 h-[84px] flex flex-col justify-between">
-                <p className="text-sm leading-5 max-h-10 overflow-hidden" style={{ color: COLOR.textSecondary }}>
-                  {clampText(firstWords(r.preview, 5) || 'View post', 30)}
+                <p className="text-[13px] leading-[18px] h-9 overflow-hidden" style={{ color: COLOR.textSecondary }}>
+                  {(() => {
+                    const text = firstWords(r.preview, 7) || 'View post';
+                    return text.length > 36 ? `${text.slice(0, 34)}..` : text;
+                  })()}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs" style={{ color: COLOR.textMuted }}>
                   <span style={metricLabel === 'Views' ? { color: COLOR.text, fontWeight: 700, fontSize: 13 } : undefined}>Views {formatCompact(r.views)}</span>
