@@ -508,7 +508,7 @@ export default function DashboardPage() {
         refreshPostsInBackground();
         return;
       }
-      if (ctxList != null) {
+      if (ctxList != null && (ctxList.length > 0 || accountPostsHydratedRef.current[accountId])) {
         setImportedPosts(ctxList);
         setImportedPostsLoading(false);
         refreshPostsInBackground();
