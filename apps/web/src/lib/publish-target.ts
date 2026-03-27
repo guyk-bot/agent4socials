@@ -553,50 +553,50 @@ export async function publishTarget(
           validateStatus: (s: number) => s >= 200 && s < 300,
         });
 
-        // Prefer canonical "video_id". If API account expects another source type, try a safe fallback.
+        // Wait for Pinterest to finish processing uploaded media before creating a pin.
+        const waitStart = Date.now();
+        let mediaStatus: 'registered' | 'processing' | 'succeeded' | 'failed' | undefined;
+        while (Date.now() - waitStart < 120_000) {
+          const mediaRes = await axiosInstance.get(
+            `https://api.pinterest.com/v5/media/${mediaId}`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+          const mediaData = mediaRes.data as { status?: 'registered' | 'processing' | 'succeeded' | 'failed' } | undefined;
+          mediaStatus = mediaData?.status;
+          if (mediaStatus === 'succeeded') break;
+          if (mediaStatus === 'failed') {
+            return { ok: false, error: 'Pinterest video upload failed during processing.' };
+          }
+          await new Promise((r) => setTimeout(r, 2000));
+        }
+        if (mediaStatus !== 'succeeded') {
+          return { ok: false, error: 'Pinterest video is still processing. Please retry in a moment.' };
+        }
+
         const payloadBase = {
           board_id: boardId,
           ...(caption?.trim() ? { description: caption.trim().slice(0, 800) } : {}),
         };
-        try {
-          const pinRes = await axiosInstance.post(
-            'https://api.pinterest.com/v5/pins',
-            {
-              ...payloadBase,
-              media_source: {
-                source_type: 'video_id',
-                media_id: mediaId,
-              },
+        const pinRes = await axiosInstance.post(
+          'https://api.pinterest.com/v5/pins',
+          {
+            ...payloadBase,
+            media_source: {
+              source_type: 'video_id',
+              media_id: mediaId,
             },
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
-            }
-          );
-          const pinId = (pinRes.data as { id?: string })?.id;
-          return { ok: true, platformPostId: pinId };
-        } catch {
-          const fallbackRes = await axiosInstance.post(
-            'https://api.pinterest.com/v5/pins',
-            {
-              ...payloadBase,
-              media_source: {
-                source_type: 'media_id',
-                media_id: mediaId,
-              },
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
             },
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
-            }
-          );
-          const pinId = (fallbackRes.data as { id?: string })?.id;
-          return { ok: true, platformPostId: pinId };
-        }
+          }
+        );
+        const pinId = (pinRes.data as { id?: string })?.id;
+        return { ok: true, platformPostId: pinId };
       }
 
       return { ok: false, error: 'Pinterest requires image or video media for a Pin.' };
