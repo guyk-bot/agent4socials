@@ -780,7 +780,7 @@ function TopContentHighlights({
                   <img
                     src={rankBadge(idx)}
                     alt={`Rank ${idx + 1}`}
-                    className="absolute left-1 top-1 h-9 w-9 object-contain"
+                    className="absolute left-1 top-1 h-8 w-8 object-contain"
                   />
                   {r.permalink ? (
                     <Link
@@ -1575,7 +1575,7 @@ export function FacebookAnalyticsView({
           ) : (
             <div className="h-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={engagementData} barCategoryGap={12} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+              <BarChart data={engagementData} barCategoryGap={14} barGap={2} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                 <XAxis dataKey="date" ticks={engagementTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} dy={8} minTickGap={18} axisLine={false} tickLine={false} />
                 <YAxis domain={[0, (dataMax: number) => Math.max(4, Math.ceil((dataMax || 0) + 1))]} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -1871,7 +1871,7 @@ export function FacebookAnalyticsView({
         >
           {reelsChartData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={reelsChartData} barCategoryGap={12} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+              <BarChart data={reelsChartData} barCategoryGap={8} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(17,24,39,0.08)" vertical={false} />
                 <XAxis dataKey="date" tickFormatter={formatShortDate} interval={0} tick={{ fill: COLOR.textMuted, fontSize: 11 }} minTickGap={0} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
