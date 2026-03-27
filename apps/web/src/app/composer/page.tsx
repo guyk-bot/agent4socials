@@ -1614,7 +1614,7 @@ export default function ComposerPage() {
                                 type="checkbox"
                                 checked={differentMediaPerPlatform}
                                 onChange={(e) => setDifferentMediaPerPlatform(e.target.checked)}
-                                className="rounded border-neutral-300 text-[var(--primary)] focus:ring-[var(--primary)]"
+                                className="rounded border-neutral-300 text-neutral-500 focus:ring-neutral-400"
                             />
                             <span className="text-sm text-neutral-700">Use different media per platform</span>
                         </label>
@@ -1638,7 +1638,7 @@ export default function ComposerPage() {
                                                 }
                                             }}
                                             className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${mediaType === type
-                                                ? 'bg-white text-[var(--primary)] shadow-sm ring-1 ring-neutral-200'
+                                                ? 'bg-white text-neutral-700 shadow-sm ring-1 ring-neutral-200'
                                                 : 'text-neutral-600 hover:text-neutral-900 hover:bg-white/60'
                                                 }`}
                                         >
@@ -2469,7 +2469,7 @@ function PlatformToggle({ platform, label, icon, active, onClick, connected }: {
                     !connected
                         ? 'border-neutral-100 bg-neutral-50 text-neutral-300 cursor-not-allowed opacity-50'
                         : active
-                    ? 'border-indigo-600 bg-[var(--primary)]/15 text-[var(--primary)] shadow-sm'
+                    ? 'border-neutral-400 bg-neutral-100 text-neutral-700 shadow-sm'
                     : 'border-neutral-200 bg-white text-neutral-500 hover:border-neutral-300 hover:bg-neutral-50'
                 }`}
         >
