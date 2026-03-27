@@ -46,6 +46,7 @@ type ActivityMetricKey = 'actions' | 'posts' | 'conversations';
 type EngagementMetricKey = 'likes' | 'comments' | 'shares' | 'reposts';
 type TrafficMetricKey = 'postImpressions' | 'nonviral' | 'viral' | 'uniqueReachProxy';
 type ReelMetricKey = 'views' | 'watchTime' | 'avgWatch' | 'clicks' | 'likes' | 'comments' | 'shares' | 'reposts';
+type ReelPresetKey = 'performance' | 'engagement' | 'watch';
 type ContentHistoryFilter = 'all' | 'posts' | 'reels';
 
 const COLOR = {
@@ -147,6 +148,12 @@ const REEL_METRIC_CONFIG: Record<ReelMetricKey, { label: string; color: string }
   comments: { label: 'Comments', color: COLOR.coral },
   shares: { label: 'Shares', color: COLOR.amber },
   reposts: { label: 'Reposts', color: '#111827' },
+};
+
+const REEL_PRESET_METRICS: Record<ReelPresetKey, ReelMetricKey[]> = {
+  performance: ['views', 'watchTime', 'avgWatch'],
+  engagement: ['clicks', 'likes', 'comments', 'shares', 'reposts'],
+  watch: ['watchTime', 'avgWatch'],
 };
 
 function formatCompact(n: number): string {
@@ -920,6 +927,7 @@ export function FacebookAnalyticsView({
   const [selectedEngagementMetrics, setSelectedEngagementMetrics] = useState<EngagementMetricKey[]>(['likes', 'comments', 'shares', 'reposts']);
   const [selectedTrafficMetrics, setSelectedTrafficMetrics] = useState<TrafficMetricKey[]>(['postImpressions', 'nonviral', 'viral', 'uniqueReachProxy']);
   const [selectedReelMetrics, setSelectedReelMetrics] = useState<ReelMetricKey[]>(['views', 'avgWatch']);
+  const [reelPreset, setReelPreset] = useState<ReelPresetKey>('performance');
   const [activeSection, setActiveSection] = useState<SectionId>(FACEBOOK_ANALYTICS_SECTION_IDS.overview);
   const [selectedPost, setSelectedPost] = useState<FacebookPost | null>(null);
   const [historyFilter, setHistoryFilter] = useState<ContentHistoryFilter>('all');
@@ -1819,6 +1827,30 @@ export function FacebookAnalyticsView({
           <div>
             <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Reels</h2>
           </div>
+        <div className="flex gap-2">
+          {([
+            { id: 'performance', label: 'Performance' },
+            { id: 'engagement', label: 'Engagement' },
+            { id: 'watch', label: 'Watch' },
+          ] as const).map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              onClick={() => {
+                setReelPreset(preset.id);
+                setSelectedReelMetrics(REEL_PRESET_METRICS[preset.id]);
+              }}
+              className="rounded-lg px-3 py-1.5 text-sm"
+              style={{
+                background: reelPreset === preset.id ? 'rgba(139,124,255,0.2)' : 'rgba(255,255,255,0.03)',
+                color: reelPreset === preset.id ? COLOR.text : COLOR.textSecondary,
+                border: `1px solid ${reelPreset === preset.id ? COLOR.violet : COLOR.border}`,
+              }}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             label="Total Video Views"
