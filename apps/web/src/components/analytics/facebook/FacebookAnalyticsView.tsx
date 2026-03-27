@@ -777,16 +777,11 @@ function TopContentHighlights({
                   {r.thumbnailUrl ? (
                     <img src={r.thumbnailUrl} alt="Post thumbnail" className="h-full w-full object-cover" />
                   ) : null}
-                  <span
-                    className="absolute left-1 top-1 inline-flex h-7 w-7 items-center justify-center rounded-full border backdrop-blur-sm"
-                    style={{ borderColor: 'rgba(255,255,255,0.75)', background: 'rgba(255,255,255,0.36)' }}
-                  >
-                    <img
-                      src={rankBadge(idx)}
-                      alt={`Rank ${idx + 1}`}
-                      className="h-5 w-5 object-contain"
-                    />
-                  </span>
+                  <img
+                    src={rankBadge(idx)}
+                    alt={`Rank ${idx + 1}`}
+                    className="absolute right-1 top-1 h-7 w-7 object-contain"
+                  />
                   {r.permalink ? (
                     <Link
                       href={r.permalink}
@@ -801,8 +796,8 @@ function TopContentHighlights({
                 </div>
               </div>
               <div className="min-w-0 flex-1 h-[84px] flex flex-col justify-between">
-                <p className="text-sm leading-5" style={{ color: COLOR.textSecondary }}>
-                  {clampText(firstWords(r.preview, 6) || 'View post', 42)}
+                <p className="text-sm leading-5 max-h-10 overflow-hidden" style={{ color: COLOR.textSecondary }}>
+                  {clampText(firstWords(r.preview, 5) || 'View post', 30)}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs" style={{ color: COLOR.textMuted }}>
                   <span style={metricLabel === 'Views' ? { color: COLOR.text, fontWeight: 700, fontSize: 13 } : undefined}>Views {formatCompact(r.views)}</span>
