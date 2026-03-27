@@ -1284,6 +1284,9 @@ export default function ComposerPage() {
                                 else if (failed.includes('spam_risk_too_many_pending_share')) hint = (hint ? hint + ' ' : '') + 'For TikTok: too many pending posts. Fix: go to TikTok Developer Portal, remove your sandbox test user, re-add them, then reconnect TikTok in Dashboard.';
                                 else hint = (hint ? hint + ' ' : '') + 'For TikTok: ensure your app has Content Posting API access and the video meets requirements (MP4, under 10 min). Reconnect the account from Dashboard if needed.';
                             }
+                            if (failed.includes('PINTEREST') && (failed.includes('"code":29') || failed.includes('Trial access'))) {
+                                hint = (hint ? hint + ' ' : '') + 'For Pinterest: your app is still in Trial access and cannot create Pins in production. Upgrade to Standard access in Pinterest Developer Platform, or use api-sandbox.pinterest.com for trial testing.';
+                            }
                             setAlertMessage(`Post updated but some platforms failed: ${failed}. ${hint}`);
                             return;
                         }
@@ -1344,6 +1347,9 @@ export default function ComposerPage() {
                                 else if (failed.includes('scope_not_authorized')) hint = (hint ? hint + ' ' : '') + 'For TikTok: reconnect your TikTok account from the Dashboard to grant the video.publish permission.';
                                 else if (failed.includes('spam_risk_too_many_pending_share')) hint = (hint ? hint + ' ' : '') + 'For TikTok: too many pending posts. Fix: go to TikTok Developer Portal, remove your sandbox test user, re-add them, then reconnect TikTok in Dashboard.';
                                 else hint = (hint ? hint + ' ' : '') + 'For TikTok: ensure your app has Content Posting API access and the video meets requirements (MP4, under 10 min). Reconnect the account from Dashboard if needed.';
+                            }
+                            if (failed.includes('PINTEREST') && (failed.includes('"code":29') || failed.includes('Trial access'))) {
+                                hint = (hint ? hint + ' ' : '') + 'For Pinterest: your app is still in Trial access and cannot create Pins in production. Upgrade to Standard access in Pinterest Developer Platform, or use api-sandbox.pinterest.com for trial testing.';
                             }
                             setAlertMessage(`Post created but some platforms failed: ${failed}. ${hint}`);
                             return;
