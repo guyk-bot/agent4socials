@@ -29,9 +29,8 @@ import {
 } from 'lucide-react';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
 import { InteractiveLineChart } from '@/components/charts/InteractiveLineChart';
-import { FacebookAnalyticsView, FACEBOOK_ANALYTICS_SECTION_IDS, PlatformAnalyticsHeader, AnalyticsGrid, AnalyticsGridItem, AnalyticsWatermarkedChart } from '@/components/analytics';
+import { FacebookAnalyticsView, AnalyticsGrid, AnalyticsGridItem, AnalyticsWatermarkedChart } from '@/components/analytics';
 import type { FacebookFrontendAnalyticsBundle } from '@/lib/facebook/frontend-analytics-bundle';
-import { AnalyticsDateRangePicker } from '@/components/analytics/AnalyticsDateRangePicker';
 import { PricingBillingToggle, PricingCard } from '@/components/landing/pricing';
 import type { Demographics, GrowthDataPoint, TrafficSourceItem } from '@/types/analytics';
 import {
@@ -217,28 +216,6 @@ const PLATFORM_ICON: Record<string, React.ReactNode> = {
   LINKEDIN: <LinkedinIcon size={22} />,
   PINTEREST: <PinterestIcon size={22} />,
 };
-
-function profileUrlForAccount(account: { platform: string; username?: string | null; platformUserId?: string }): string {
-  const platform = (account.platform || '').toUpperCase();
-  const username = account.username?.trim();
-  const pid = (account as { platformUserId?: string }).platformUserId;
-  if (platform === 'INSTAGRAM' && username) return `https://instagram.com/${username.replace(/^@/, '')}`;
-  if (platform === 'FACEBOOK' && pid) return `https://www.facebook.com/${pid}`;
-  if (platform === 'TIKTOK' && username) return `https://www.tiktok.com/@${username.replace(/^@/, '')}`;
-  if (platform === 'YOUTUBE') return 'https://www.youtube.com';
-  if (platform === 'TWITTER' && username) return `https://x.com/${username.replace(/^@/, '')}`;
-  if (platform === 'LINKEDIN') return 'https://www.linkedin.com';
-  if (platform === 'PINTEREST' && username) return `https://www.pinterest.com/${username.replace(/^@/, '')}/`;
-  return '#';
-}
-
-/** Scroll-to sections for single-page analytics. Facebook adds an explicit read_insights block for App Review recordings. */
-const ANALYTICS_SCROLL_SECTIONS = [
-  { id: FACEBOOK_ANALYTICS_SECTION_IDS.overview, label: 'Overview' },
-  { id: FACEBOOK_ANALYTICS_SECTION_IDS.traffic, label: 'Traffic' },
-  { id: FACEBOOK_ANALYTICS_SECTION_IDS.posts, label: 'Posts' },
-  { id: FACEBOOK_ANALYTICS_SECTION_IDS.reels, label: 'Reels' },
-] as const;
 
 const FREE_HIGHLIGHTS = [
   '1 brand',
@@ -1206,64 +1183,6 @@ export default function DashboardPage() {
           <p className="mt-1 text-xs text-amber-700">Use Reconnect in the sidebar and approve all requested permissions to see your follower count here. Views are from your synced videos.</p>
         </div>
       )}
-      {/* Single row: compact profile | section nav | date range picker */}
-      {!facebookLoadingOnly && <div
-        className={
-          selectedAccount?.platform === 'FACEBOOK'
-            ? 'flex flex-wrap items-center gap-3 pb-2'
-            : 'flex flex-wrap items-center gap-3 pb-4 border-b border-neutral-200'
-        }
-      >
-        {selectedAccount && selectedAccount.platform !== 'FACEBOOK' && (
-          <div className="shrink-0">
-            <PlatformAnalyticsHeader
-              account={{
-                id: selectedAccount.id,
-                platform: selectedAccount.platform,
-                username: selectedAccount.username,
-                profilePicture: selectedAccount.profilePicture,
-              }}
-              profileUrl={profileUrlForAccount(selectedAccount)}
-              platformLabel={
-                selectedAccount.platform === 'TWITTER'
-                  ? 'Twitter/X'
-                  : selectedAccount.platform === 'PINTEREST'
-                    ? 'Pinterest'
-                    : selectedAccount.platform.charAt(0) + selectedAccount.platform.slice(1).toLowerCase()
-              }
-              icon={PLATFORM_ICON[selectedAccount.platform]}
-              onReconnect={() => {}}
-              onDisconnectClick={() => {}}
-              compact
-              className="shrink-0"
-            />
-          </div>
-        )}
-        {selectedAccount && selectedAccount.platform !== 'FACEBOOK' && (
-          <nav className="flex gap-0.5 p-0.5 bg-neutral-100 rounded-lg shrink-0" aria-label="Analytics sections">
-            {ANALYTICS_SCROLL_SECTIONS.map((sec) => (
-              <button
-                key={sec.id}
-                type="button"
-                onClick={() => document.getElementById(sec.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                className="px-3 py-1.5 rounded-md text-sm font-medium text-neutral-700 hover:bg-white hover:text-neutral-900 transition-colors"
-              >
-                {sec.label}
-              </button>
-            ))}
-          </nav>
-        )}
-        <div className="ml-auto shrink-0 flex items-center gap-2">
-          {selectedAccount?.platform !== 'FACEBOOK' && (
-            <AnalyticsDateRangePicker
-              start={dateRange.start}
-              end={dateRange.end}
-              onChange={(r) => setDateRange(r)}
-            />
-          )}
-        </div>
-      </div>}
-
       {/* Instagram-only: analytics and posts not available; CTA to connect with Facebook */}
       {!facebookLoadingOnly && selectedAccount?.platform === 'INSTAGRAM' && (selectedAccount as { instagramLoginOnly?: boolean }).instagramLoginOnly && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-4 px-4 py-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -1320,7 +1239,7 @@ export default function DashboardPage() {
       {/* Single-page analytics for any selected account (Overview, Demografic, Clicks/Traffic, Posts, Reels/Videos) */}
       {!facebookLoadingOnly && selectedAccount && (
         <div
-          className={selectedAccount?.platform === 'FACEBOOK' ? 'mt-1 max-w-full' : 'mt-6 max-w-full'}
+          className="mt-1 max-w-full"
           style={{ maxWidth: 1400 }}
         >
           <FacebookAnalyticsView
@@ -1378,7 +1297,7 @@ export default function DashboardPage() {
               }
             }}
             onReconnectFacebook={selectedAccount?.platform === 'FACEBOOK' ? () => router.push('/dashboard?connect=facebook') : undefined}
-            onDateRangeChange={selectedAccount?.platform === 'FACEBOOK' ? (r) => setDateRange(r) : undefined}
+            onDateRangeChange={(r) => setDateRange(r)}
             followersLabel={selectedAccount.platform === 'YOUTUBE' ? 'Subscribers' : 'Followers'}
             accountAvatarUrl={selectedAccount.profilePicture ?? null}
           />
