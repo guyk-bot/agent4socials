@@ -462,6 +462,25 @@ export async function publishTarget(
         }
       }
       if (!boardId) {
+        // If the account has no boards yet, create one and use it.
+        try {
+          const createBoardRes = await axiosInstance.post(
+            'https://api.pinterest.com/v5/boards',
+            { name: 'Agent4Socials Posts' },
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            }
+          );
+          const created = createBoardRes.data as { id?: string } | undefined;
+          boardId = created?.id ?? '';
+        } catch {
+          // keep empty and return clear error below
+        }
+      }
+      if (!boardId) {
         return {
           ok: false,
           error:
