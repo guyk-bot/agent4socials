@@ -411,7 +411,6 @@ export function MetricCard({
   onClick?: () => void;
 }) {
   const hint = `Source metric: ${source}${typeof trendPercent === 'number' && Number.isFinite(trendPercent) ? `. Change in selected range: ${trendPercent >= 0 ? '+' : ''}${trendPercent.toFixed(1)}%.` : ''}`;
-  const isPageInsightsMetric = /\bpage_[a-z0-9_]+/i.test(source);
   return (
     <button
       type="button"
@@ -420,19 +419,9 @@ export function MetricCard({
       className="rounded-[12px] px-3 py-1.5 text-left transition-all hover:-translate-y-[1px]"
       style={{
         background: active ? `${color}10` : COLOR.card,
-        boxShadow: isPageInsightsMetric
-          ? '0 0 0 2px rgba(250, 255, 0, 0.98), 0 0 18px rgba(250, 255, 0, 0.9), 0 2px 16px rgba(15,23,42,0.06)'
-          : (active ? '0 2px 16px rgba(15,23,42,0.06)' : '0 2px 16px rgba(15,23,42,0.05)'),
+        boxShadow: active ? '0 2px 16px rgba(15,23,42,0.06)' : '0 2px 16px rgba(15,23,42,0.05)',
       }}
     >
-      {isPageInsightsMetric ? (
-        <span
-          className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
-          style={{ background: 'rgba(250,255,0,0.22)', color: '#6b5f00' }}
-        >
-          page_insights
-        </span>
-      ) : null}
       <span className="text-xs font-medium tracking-tight" style={{ color: COLOR.textMuted }}>{label}</span>
       <p className="mt-1 text-[24px] font-semibold tracking-tight" style={{ color }}>{value}</p>
       {footnote ? <p className="mt-1 text-xs" style={{ color: COLOR.textSecondary }}>{footnote}</p> : null}
