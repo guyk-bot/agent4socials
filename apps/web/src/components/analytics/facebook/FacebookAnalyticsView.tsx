@@ -1572,7 +1572,7 @@ export function FacebookAnalyticsView({
           ) : (
             <div className="h-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={engagementData} barCategoryGap={0} barGap={-18} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+              <BarChart data={engagementData} barCategoryGap={12} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                 <XAxis dataKey="date" ticks={engagementTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} dy={8} minTickGap={18} axisLine={false} tickLine={false} />
                 <YAxis domain={[0, (dataMax: number) => Math.max(4, Math.ceil((dataMax || 0) + 1))]} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -1586,10 +1586,10 @@ export function FacebookAnalyticsView({
                   ]}
                   labelFormatter={(l) => formatShortDate(String(l))}
                 />
-                {selectedEngagementMetrics.includes('likes') ? <Bar dataKey="likes" fill={ENGAGEMENT_METRIC_CONFIG.likes.color} radius={[8, 8, 0, 0]} barSize={34} shape={<MinWidthBarShape />} /> : null}
-                {selectedEngagementMetrics.includes('comments') ? <Bar dataKey="comments" fill={ENGAGEMENT_METRIC_CONFIG.comments.color} radius={[8, 8, 0, 0]} barSize={34} shape={<MinWidthBarShape />} /> : null}
-                {selectedEngagementMetrics.includes('shares') ? <Bar dataKey="shares" fill={ENGAGEMENT_METRIC_CONFIG.shares.color} radius={[8, 8, 0, 0]} barSize={34} shape={<MinWidthBarShape />} /> : null}
-                {selectedEngagementMetrics.includes('reposts') ? <Bar dataKey="reposts" fill={ENGAGEMENT_METRIC_CONFIG.reposts.color} radius={[8, 8, 0, 0]} barSize={34} shape={<MinWidthBarShape />} /> : null}
+                {selectedEngagementMetrics.includes('likes') ? <Bar dataKey="likes" fill={ENGAGEMENT_METRIC_CONFIG.likes.color} radius={[6, 6, 0, 0]} shape={<MinWidthBarShape />} /> : null}
+                {selectedEngagementMetrics.includes('comments') ? <Bar dataKey="comments" fill={ENGAGEMENT_METRIC_CONFIG.comments.color} radius={[6, 6, 0, 0]} shape={<MinWidthBarShape />} /> : null}
+                {selectedEngagementMetrics.includes('shares') ? <Bar dataKey="shares" fill={ENGAGEMENT_METRIC_CONFIG.shares.color} radius={[6, 6, 0, 0]} shape={<MinWidthBarShape />} /> : null}
+                {selectedEngagementMetrics.includes('reposts') ? <Bar dataKey="reposts" fill={ENGAGEMENT_METRIC_CONFIG.reposts.color} radius={[6, 6, 0, 0]} shape={<MinWidthBarShape />} /> : null}
               </BarChart>
             </ResponsiveContainer>
             </div>
@@ -1868,12 +1868,12 @@ export function FacebookAnalyticsView({
         >
           {reelsChartData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={reelsChartData}>
+              <BarChart data={reelsChartData} barCategoryGap={12} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(17,24,39,0.08)" vertical={false} />
                 <XAxis dataKey="date" tickFormatter={formatShortDate} interval={0} tick={{ fill: COLOR.textMuted, fontSize: 11 }} minTickGap={0} axisLine={false} tickLine={false} />
-                <YAxis yAxisId="left" tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis yAxisId="right" orientation="right" tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                 <Tooltip
+                  cursor={{ fill: 'rgba(107,114,128,0.20)' }}
                   content={(props) => {
                     const { active, payload, label } = props as unknown as { active?: boolean; payload?: Array<{ dataKey?: string; value?: number; payload?: { thumbnailUrl?: string | null } }>; label?: string };
                     if (!active || !payload?.length) return null;
@@ -1894,15 +1894,15 @@ export function FacebookAnalyticsView({
                     );
                   }}
                 />
-                {selectedReelMetrics.includes('views') ? <Bar yAxisId="left" dataKey="views" fill={REEL_METRIC_CONFIG.views.color} radius={[6, 6, 0, 0]} barSize={22} /> : null}
-                {selectedReelMetrics.includes('clicks') ? <Bar yAxisId="left" dataKey="clicks" fill={REEL_METRIC_CONFIG.clicks.color} radius={[6, 6, 0, 0]} barSize={22} /> : null}
-                {selectedReelMetrics.includes('likes') ? <Bar yAxisId="left" dataKey="likes" fill={REEL_METRIC_CONFIG.likes.color} radius={[6, 6, 0, 0]} barSize={22} /> : null}
-                {selectedReelMetrics.includes('comments') ? <Bar yAxisId="left" dataKey="comments" fill={REEL_METRIC_CONFIG.comments.color} radius={[6, 6, 0, 0]} barSize={22} /> : null}
-                {selectedReelMetrics.includes('shares') ? <Bar yAxisId="left" dataKey="shares" fill={REEL_METRIC_CONFIG.shares.color} radius={[6, 6, 0, 0]} barSize={22} /> : null}
-                {selectedReelMetrics.includes('reposts') ? <Bar yAxisId="left" dataKey="reposts" fill={REEL_METRIC_CONFIG.reposts.color} radius={[6, 6, 0, 0]} barSize={22} /> : null}
-                {selectedReelMetrics.includes('watchTime') ? <Bar yAxisId="right" dataKey="watchTimeSeconds" fill={REEL_METRIC_CONFIG.watchTime.color} radius={[6, 6, 0, 0]} barSize={14} /> : null}
-                {selectedReelMetrics.includes('avgWatch') ? <Bar yAxisId="right" dataKey="avgWatchSeconds" fill={REEL_METRIC_CONFIG.avgWatch.color} radius={[6, 6, 0, 0]} barSize={14} /> : null}
-              </ComposedChart>
+                {selectedReelMetrics.includes('views') ? <Bar dataKey="views" fill={REEL_METRIC_CONFIG.views.color} radius={[6, 6, 0, 0]} shape={<MinWidthBarShape />} /> : null}
+                {selectedReelMetrics.includes('clicks') ? <Bar dataKey="clicks" fill={REEL_METRIC_CONFIG.clicks.color} radius={[6, 6, 0, 0]} shape={<MinWidthBarShape />} /> : null}
+                {selectedReelMetrics.includes('likes') ? <Bar dataKey="likes" fill={REEL_METRIC_CONFIG.likes.color} radius={[6, 6, 0, 0]} shape={<MinWidthBarShape />} /> : null}
+                {selectedReelMetrics.includes('comments') ? <Bar dataKey="comments" fill={REEL_METRIC_CONFIG.comments.color} radius={[6, 6, 0, 0]} shape={<MinWidthBarShape />} /> : null}
+                {selectedReelMetrics.includes('shares') ? <Bar dataKey="shares" fill={REEL_METRIC_CONFIG.shares.color} radius={[6, 6, 0, 0]} shape={<MinWidthBarShape />} /> : null}
+                {selectedReelMetrics.includes('reposts') ? <Bar dataKey="reposts" fill={REEL_METRIC_CONFIG.reposts.color} radius={[6, 6, 0, 0]} shape={<MinWidthBarShape />} /> : null}
+                {selectedReelMetrics.includes('watchTime') ? <Bar dataKey="watchTimeSeconds" fill={REEL_METRIC_CONFIG.watchTime.color} radius={[6, 6, 0, 0]} shape={<MinWidthBarShape />} /> : null}
+                {selectedReelMetrics.includes('avgWatch') ? <Bar dataKey="avgWatchSeconds" fill={REEL_METRIC_CONFIG.avgWatch.color} radius={[6, 6, 0, 0]} shape={<MinWidthBarShape />} /> : null}
+              </BarChart>
             </ResponsiveContainer>
           ) : (
             <div className="h-[240px] rounded-[20px] border flex flex-col items-center justify-center text-center px-6" style={{ background: COLOR.card, borderColor: COLOR.border }}>
