@@ -134,8 +134,9 @@ const TRAFFIC_METRIC_CONFIG: Record<TrafficMetricKey, { label: string; color: st
 // Shared bar geometry across Engagement/Traffic/Reels so overlap behavior is consistent.
 // barGap = -(barSize/2) makes each next selected series cross at the midpoint of previous one.
 const UNIFIED_BAR_SIZE = 22;
-const UNIFIED_BAR_GAP = -11;
-const UNIFIED_BAR_CATEGORY_GAP = 12;
+// Use slightly stronger overlap than 50% to make the crossing visually clear at all widths.
+const UNIFIED_BAR_GAP = -12;
+const UNIFIED_BAR_CATEGORY_GAP = 10;
 
 const REEL_METRIC_CONFIG: Record<ReelMetricKey, { label: string; color: string }> = {
   views: { label: 'Total Video Views', color: COLOR.magenta },
