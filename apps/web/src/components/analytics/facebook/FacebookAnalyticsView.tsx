@@ -133,8 +133,8 @@ const TRAFFIC_METRIC_CONFIG: Record<TrafficMetricKey, { label: string; color: st
 
 // Shared bar geometry across Engagement/Traffic/Reels so overlap behavior is consistent.
 // barGap = -(barSize/2) makes each next selected series cross at the midpoint of previous one.
-const UNIFIED_BAR_SIZE = 20;
-const UNIFIED_BAR_GAP = -10;
+const UNIFIED_BAR_SIZE = 22;
+const UNIFIED_BAR_GAP = -11;
 const UNIFIED_BAR_CATEGORY_GAP = 12;
 
 const REEL_METRIC_CONFIG: Record<ReelMetricKey, { label: string; color: string }> = {
@@ -1100,7 +1100,7 @@ export function FacebookAnalyticsView({
       return {
         date,
         views: r.views,
-        watchTimeSeconds: (r.watchTimeMs ?? 0) / 1000,
+        watchTimeMinutes: (r.watchTimeMs ?? 0) / 60000,
         avgWatchSeconds: r.avgWatchMs / 1000,
         clicks: r.post.facebookInsights?.post_clicks ?? 0,
         likes: r.post.facebookInsights?.post_reactions_like_total ?? r.post.likeCount ?? 0,
@@ -1121,7 +1121,7 @@ export function FacebookAnalyticsView({
     [trafficTimelineData]
   );
   const reelsTicks = useMemo(
-    () => buildKeyDateTicks(reelsChartData, (d) => (d.views ?? 0) > 0 || (d.watchTimeSeconds ?? 0) > 0 || (d.avgWatchSeconds ?? 0) > 0, 10),
+    () => buildKeyDateTicks(reelsChartData, (d) => (d.views ?? 0) > 0 || (d.watchTimeMinutes ?? 0) > 0 || (d.avgWatchSeconds ?? 0) > 0, 10),
     [reelsChartData]
   );
 
@@ -1908,14 +1908,14 @@ export function FacebookAnalyticsView({
                     const row = payload[0]?.payload;
                     const kv = payload
                       .filter((p) => typeof p.value === 'number' && typeof p.dataKey === 'string')
-                      .map((p) => ({ key: p.dataKey as ReelMetricKey | 'watchTimeSeconds' | 'avgWatchSeconds', value: p.value ?? 0 }));
+                      .map((p) => ({ key: p.dataKey as ReelMetricKey | 'watchTimeMinutes' | 'avgWatchSeconds', value: p.value ?? 0 }));
                     return (
                       <div className="rounded-xl border px-3 py-2 text-xs shadow-lg" style={{ background: '#ffffff', borderColor: COLOR.border }}>
                         <p className="font-medium mb-1.5" style={{ color: COLOR.text }}>{formatShortDate(String(label ?? ''))}</p>
                         {row?.thumbnailUrl ? <img src={row.thumbnailUrl} alt="" className="mb-2 h-10 w-10 rounded object-cover" /> : null}
                         {kv.map((item) => (
                           <p key={item.key} style={{ color: COLOR.textSecondary }}>
-                            {(item.key === 'watchTimeSeconds' ? 'Watch Time' : item.key === 'avgWatchSeconds' ? 'Avg Watch' : REEL_METRIC_CONFIG[item.key as ReelMetricKey]?.label ?? item.key)}: {(item.key === 'watchTimeSeconds' || item.key === 'avgWatchSeconds') ? `${item.value.toFixed(1)}s` : formatNumber(item.value)}
+                            {(item.key === 'watchTimeMinutes' ? 'Watch Time' : item.key === 'avgWatchSeconds' ? 'Avg Watch' : REEL_METRIC_CONFIG[item.key as ReelMetricKey]?.label ?? item.key)}: {item.key === 'watchTimeMinutes' ? `${item.value.toFixed(1)}m` : item.key === 'avgWatchSeconds' ? `${item.value.toFixed(1)}s` : formatNumber(item.value)}
                           </p>
                         ))}
                       </div>
@@ -1928,7 +1928,7 @@ export function FacebookAnalyticsView({
                 {selectedReelMetrics.includes('comments') ? <Bar dataKey="comments" fill={REEL_METRIC_CONFIG.comments.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                 {selectedReelMetrics.includes('shares') ? <Bar dataKey="shares" fill={REEL_METRIC_CONFIG.shares.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                 {selectedReelMetrics.includes('reposts') ? <Bar dataKey="reposts" fill={REEL_METRIC_CONFIG.reposts.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
-                {selectedReelMetrics.includes('watchTime') ? <Bar dataKey="watchTimeSeconds" fill={REEL_METRIC_CONFIG.watchTime.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                {selectedReelMetrics.includes('watchTime') ? <Bar dataKey="watchTimeMinutes" fill={REEL_METRIC_CONFIG.watchTime.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                 {selectedReelMetrics.includes('avgWatch') ? <Bar dataKey="avgWatchSeconds" fill={REEL_METRIC_CONFIG.avgWatch.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
               </BarChart>
             </ResponsiveContainer>
