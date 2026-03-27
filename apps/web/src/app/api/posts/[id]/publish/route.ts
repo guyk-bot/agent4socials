@@ -161,6 +161,9 @@ export async function POST(
     if (platform === 'PINTEREST' && firstImageUrl) {
       firstImageUrl = publicMediaUrlForMeta(firstImageUrl);
     }
+    if (platform === 'PINTEREST' && firstMediaUrl) {
+      firstMediaUrl = publicMediaUrlForMeta(firstMediaUrl);
+    }
     if (platform === 'INSTAGRAM' || platform === 'FACEBOOK') {
       const isInstagram = platform === 'INSTAGRAM';
       const firstIsImage = targetMedia[0]?.type === 'IMAGE';
@@ -239,15 +242,15 @@ export async function POST(
         ? creds.pinterestDefaultBoardId
         : null;
 
-    if (platform === 'PINTEREST' && !firstImageUrl) {
+    if (platform === 'PINTEREST' && !firstImageUrl && !firstMediaUrl) {
       await prisma.postTarget.update({
         where: { id: target.id },
         data: {
           status: PostStatus.FAILED,
-          error: 'Pinterest needs at least one image in the post.',
+          error: 'Pinterest needs at least one image or video in the post.',
         },
       });
-      results.push({ platform, ok: false, error: 'Pinterest needs at least one image.' });
+      results.push({ platform, ok: false, error: 'Pinterest needs at least one image or video.' });
       continue;
     }
 

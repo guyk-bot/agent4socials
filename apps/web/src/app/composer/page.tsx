@@ -1134,10 +1134,11 @@ export default function ComposerPage() {
             if (platforms.includes('PINTEREST')) {
                 const pinMedia = differentMediaPerPlatform ? (mediaByPlatform['PINTEREST'] ?? []) : mediaList;
                 const hasPinImage = pinMedia.some((m) => m.type === 'IMAGE');
-                if (!hasPinImage) {
+                const hasPinVideo = pinMedia.some((m) => m.type === 'VIDEO');
+                if (!hasPinImage && !hasPinVideo) {
                     setLoading(false);
                     setAlertMessage(
-                        'Pinterest needs at least one image for this post (we publish image Pins to your default board). Add a photo or remove Pinterest from the selected platforms.'
+                        'Pinterest needs at least one image or video for this post. Add media or remove Pinterest from the selected platforms.'
                     );
                     return;
                 }
