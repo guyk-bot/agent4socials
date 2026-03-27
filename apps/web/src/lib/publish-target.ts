@@ -448,14 +448,15 @@ export async function publishTarget(
       if (!boardId) {
         // Fallback: fetch boards at publish time and use the first available board.
         try {
-          const boardsRes = await axiosInstance.get<{ items?: Array<{ id?: string }> }>(
+          const boardsRes = await axiosInstance.get(
             'https://api.pinterest.com/v5/boards',
             {
               headers: { Authorization: `Bearer ${token}` },
               params: { page_size: 25 },
             }
           );
-          boardId = (boardsRes.data?.items ?? []).find((b) => typeof b?.id === 'string')?.id ?? '';
+          const boardsData = (boardsRes.data as { items?: Array<{ id?: string }> } | undefined);
+          boardId = (boardsData?.items ?? []).find((b) => typeof b?.id === 'string')?.id ?? '';
         } catch {
           // keep empty and return user-facing guidance below
         }
