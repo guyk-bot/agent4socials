@@ -772,8 +772,8 @@ function TopContentHighlights({
         rows.map((r, idx) => (
           <div key={`${title}-${r.id}-${idx}`} className="rounded-xl p-3" style={{ background: COLOR.elevated }}>
             <div className="flex items-start gap-3">
-              <div className="shrink-0 w-[96px]">
-                <div className="relative mt-1 h-[84px] w-[84px] overflow-hidden rounded-xl border" style={{ borderColor: COLOR.border, background: '#f3f4f6' }}>
+              <div className="shrink-0 w-[104px]">
+                <div className="relative mt-1 h-[92px] w-[92px] overflow-hidden rounded-xl border" style={{ borderColor: COLOR.border, background: '#f3f4f6' }}>
                   {r.thumbnailUrl ? (
                     <img src={r.thumbnailUrl} alt="Post thumbnail" className="h-full w-full object-cover" />
                   ) : null}
@@ -795,7 +795,7 @@ function TopContentHighlights({
                   ) : null}
                 </div>
               </div>
-              <div className="min-w-0 flex-1 h-[84px] flex flex-col justify-between">
+              <div className="min-w-0 flex-1 h-[92px] flex flex-col justify-between">
                 <p className="text-[13px] leading-[18px] h-9 overflow-hidden" style={{ color: COLOR.textSecondary }}>
                   {(() => {
                     const text = firstWords(r.preview, 7) || 'View post';
