@@ -133,8 +133,8 @@ const TRAFFIC_METRIC_CONFIG: Record<TrafficMetricKey, { label: string; color: st
 
 const REEL_METRIC_CONFIG: Record<ReelMetricKey, { label: string; color: string }> = {
   views: { label: 'Total Video Views', color: COLOR.magenta },
-  watchTime: { label: 'Watch Time', color: COLOR.text },
-  avgWatch: { label: 'Avg Watch Time', color: COLOR.amber },
+  watchTime: { label: 'Watch Time', color: COLOR.mint },
+  avgWatch: { label: 'Avg Watch Time', color: COLOR.cyan },
   likes: { label: 'Likes', color: COLOR.violet },
   comments: { label: 'Comments', color: COLOR.coral },
   shares: { label: 'Shares', color: COLOR.amber },
