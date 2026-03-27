@@ -1114,7 +1114,7 @@ export function FacebookAnalyticsView({
     [trafficTimelineData]
   );
   const reelsTicks = useMemo(
-    () => buildKeyDateTicks(reelsChartData, (d) => (d.views ?? 0) > 0 || (d.watchSeconds ?? 0) > 0, 10),
+    () => buildKeyDateTicks(reelsChartData, (d) => (d.views ?? 0) > 0 || (d.watchTimeSeconds ?? 0) > 0 || (d.avgWatchSeconds ?? 0) > 0, 10),
     [reelsChartData]
   );
 
