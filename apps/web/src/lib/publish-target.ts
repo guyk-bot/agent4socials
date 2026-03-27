@@ -444,7 +444,22 @@ export async function publishTarget(
     }
 
     if (platform === 'PINTEREST') {
-      const boardId = pinterestBoardId?.trim();
+      let boardId = pinterestBoardId?.trim() || '';
+      if (!boardId) {
+        // Fallback: fetch boards at publish time and use the first available board.
+        try {
+          const boardsRes = await axiosInstance.get<{ items?: Array<{ id?: string }> }>(
+            'https://api.pinterest.com/v5/boards',
+            {
+              headers: { Authorization: `Bearer ${token}` },
+              params: { page_size: 25 },
+            }
+          );
+          boardId = (boardsRes.data?.items ?? []).find((b) => typeof b?.id === 'string')?.id ?? '';
+        } catch {
+          // keep empty and return user-facing guidance below
+        }
+      }
       if (!boardId) {
         return {
           ok: false,

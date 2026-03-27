@@ -1345,7 +1345,7 @@ export default function ComposerPage() {
                                 else if (failed.includes('spam_risk_too_many_pending_share')) hint = (hint ? hint + ' ' : '') + 'For TikTok: too many pending posts. Fix: go to TikTok Developer Portal, remove your sandbox test user, re-add them, then reconnect TikTok in Dashboard.';
                                 else hint = (hint ? hint + ' ' : '') + 'For TikTok: ensure your app has Content Posting API access and the video meets requirements (MP4, under 10 min). Reconnect the account from Dashboard if needed.';
                             }
-                            setAlertMessage(`Post created but TikTok or some platforms failed: ${failed}. ${hint}`);
+                            setAlertMessage(`Post created but some platforms failed: ${failed}. ${hint}`);
                             return;
                         }
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1749,7 +1749,7 @@ export default function ComposerPage() {
                                                         : mediaList[0].thumbnailUrl;
                                                     return effectiveThumbnail ? (
                                                     <>
-                                                        <img src={mediaDisplayUrl(effectiveThumbnail)} alt="Thumbnail" className="w-full h-full object-contain" />
+                                                        <img src={mediaDisplayUrl(effectiveThumbnail)} alt="Thumbnail" className={`w-full h-full ${mediaType === 'reel' ? 'object-cover' : 'object-contain'}`} />
                                                         <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveMedia(0); }} className="absolute top-1 right-1 p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow"><X size={12} /></button>
                                                         <a href={mediaList[0].fileUrl} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="absolute bottom-1 right-1 p-1.5 bg-black/60 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow" title="Download"><Download size={12} /></a>
                                                     </>
@@ -1758,7 +1758,7 @@ export default function ComposerPage() {
                                                         <video
                                                             ref={videoThumbnailRef}
                                                             src={mediaCanvasUrl(mediaList[0].fileUrl)}
-                                                            className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+                                                            className={`absolute inset-0 w-full h-full ${mediaType === 'reel' ? 'object-cover' : 'object-contain'} pointer-events-none`}
                                                             style={{ zIndex: 1 }}
                                                             crossOrigin={mediaList[0].fileUrl.startsWith('blob:') ? undefined : 'anonymous'}
                                                             muted
@@ -1794,11 +1794,11 @@ export default function ComposerPage() {
                                                                 <p className="text-xs text-neutral-400 mt-1">Try re-uploading or choose another thumbnail option.</p>
                                                             </div>
                                                         )}
-                                                        <canvas ref={thumbnailCanvasRef} className="absolute inset-0 w-full h-full object-contain opacity-0 pointer-events-none" style={{ width: '100%', height: '100%', zIndex: 0 }} aria-hidden />
+                                                        <canvas ref={thumbnailCanvasRef} className={`absolute inset-0 w-full h-full ${mediaType === 'reel' ? 'object-cover' : 'object-contain'} opacity-0 pointer-events-none`} style={{ width: '100%', height: '100%', zIndex: 0 }} aria-hidden />
                                                     </div>
                                                 ) : (
                                                     <>
-                                                        <video src={mediaDisplayUrl(mediaList[0].fileUrl)} className="w-full h-full object-contain" muted playsInline />
+                                                        <video src={mediaDisplayUrl(mediaList[0].fileUrl)} className={`w-full h-full ${mediaType === 'reel' ? 'object-cover' : 'object-contain'}`} muted playsInline />
                                                         <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveMedia(0); }} className="absolute top-1 right-1 p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow"><X size={12} /></button>
                                                         <a href={mediaList[0].fileUrl} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="absolute bottom-1 right-1 p-1.5 bg-black/60 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow" title="Download"><Download size={12} /></a>
                                                     </>
