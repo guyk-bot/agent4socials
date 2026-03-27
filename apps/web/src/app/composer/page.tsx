@@ -273,6 +273,7 @@ export default function ComposerPage() {
     const searchParams = useSearchParams();
     const editPostId = searchParams.get('edit');
     const [platforms, setPlatforms] = useState<string[]>([]);
+    const [pinterestSandbox, setPinterestSandbox] = useState(false);
     const [content, setContent] = useState('');
     const [contentByPlatform, setContentByPlatform] = useState<Record<string, string>>({});
     const [differentContentPerPlatform, setDifferentContentPerPlatform] = useState(false);
@@ -1263,7 +1264,11 @@ export default function ComposerPage() {
                     try {
                         const debug = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('publish_debug') === '1';
                         if (debug) sessionStorage.removeItem('publish_debug');
-                        const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string; debugInfo?: { mediaUrlsByPlatform?: Record<string, string>; fullErrors?: Record<string, string> } }>(`/posts/${editPostId}/publish${debug ? '?debug=1' : ''}`, undefined, { timeout: 90_000 });
+                        const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string; debugInfo?: { mediaUrlsByPlatform?: Record<string, string>; fullErrors?: Record<string, string> } }>(
+                            `/posts/${editPostId}/publish${debug ? '?debug=1' : ''}`,
+                            { pinterestSandbox: pinterestSandbox && platforms.includes('PINTEREST') },
+                            { timeout: 90_000 }
+                        );
                         const results = publishRes.data?.results;
                         if (publishRes.data?.debugInfo) console.log('[Publish Debug]', publishRes.data.debugInfo);
                         if (results?.some((r) => !r.ok)) {
@@ -1327,7 +1332,11 @@ export default function ComposerPage() {
                 try {
                         const debug = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('publish_debug') === '1';
                         if (debug) sessionStorage.removeItem('publish_debug');
-                        const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string; debugInfo?: { mediaUrlsByPlatform?: Record<string, string>; fullErrors?: Record<string, string> } }>(`/posts/${postId}/publish${debug ? '?debug=1' : ''}`, undefined, { timeout: 90_000 });
+                        const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string; debugInfo?: { mediaUrlsByPlatform?: Record<string, string>; fullErrors?: Record<string, string> } }>(
+                            `/posts/${postId}/publish${debug ? '?debug=1' : ''}`,
+                            { pinterestSandbox: pinterestSandbox && platforms.includes('PINTEREST') },
+                            { timeout: 90_000 }
+                        );
                     const results = publishRes.data?.results;
                         if (publishRes.data?.debugInfo) console.log('[Publish Debug]', publishRes.data.debugInfo);
                     if (results?.some((r) => !r.ok)) {
@@ -1580,6 +1589,7 @@ export default function ComposerPage() {
                             {sectionOpen.platforms ? <ChevronUp size={20} className="text-neutral-400 shrink-0" /> : <ChevronDown size={20} className="text-neutral-400 shrink-0" />}
                         </button>
                         {sectionOpen.platforms && (
+                        <>
                         <div className="pt-4 grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-3">
                             {(['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'LINKEDIN', 'PINTEREST', 'TWITTER'] as const).map((p) => {
                                 const connected = accounts.some((a) => a.platform === p);
@@ -1606,6 +1616,20 @@ export default function ComposerPage() {
                                 );
                             })}
                         </div>
+                        {platforms.includes('PINTEREST') && (
+                            <label className="mt-3 inline-flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                                <input
+                                    type="checkbox"
+                                    checked={pinterestSandbox}
+                                    onChange={(e) => setPinterestSandbox(e.target.checked)}
+                                    className="mt-0.5 rounded border-amber-300 text-amber-600 focus:ring-amber-400"
+                                />
+                                <span className="text-xs text-amber-900">
+                                    Use Pinterest sandbox mode for demo uploads (Trial app). Sandbox pins are for testing only and do not post to your live profile.
+                                </span>
+                            </label>
+                        )}
+                        </>
                         )}
                     </div>
 

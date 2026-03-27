@@ -24,6 +24,8 @@ export type PublishTargetOptions = {
   twitterOAuth1?: { accessToken: string; accessTokenSecret: string };
   /** Pinterest Pin target board (from account credentials after connect). */
   pinterestBoardId?: string | null;
+  /** Use Pinterest sandbox API host (trial/demo mode). */
+  pinterestSandbox?: boolean;
 };
 
 export type PublishTargetResult = {
@@ -77,8 +79,10 @@ export async function publishTarget(
     videoThumbnailUrl,
     twitterOAuth1,
     pinterestBoardId,
+    pinterestSandbox,
   } = options;
   const { fetch: fetchFn, axios: axiosInstance } = deps;
+  const pinterestApiBase = pinterestSandbox ? 'https://api-sandbox.pinterest.com/v5' : 'https://api.pinterest.com/v5';
 
   /** Poll Instagram container until status_code is FINISHED or ERROR. Required before media_publish. */
   async function waitForInstagramContainer(containerId: string, token: string, maxWaitMs = 90_000): Promise<{ ok: boolean; error?: string }> {
@@ -449,7 +453,7 @@ export async function publishTarget(
         // Fallback: fetch boards at publish time and use the first available board.
         try {
           const boardsRes = await axiosInstance.get(
-            'https://api.pinterest.com/v5/boards',
+            `${pinterestApiBase}/boards`,
             {
               headers: { Authorization: `Bearer ${token}` },
               params: { page_size: 25 },
@@ -465,7 +469,7 @@ export async function publishTarget(
         // If the account has no boards yet, create one and use it.
         try {
           const createBoardRes = await axiosInstance.post(
-            'https://api.pinterest.com/v5/boards',
+            `${pinterestApiBase}/boards`,
             { name: 'Agent4Socials Posts' },
             {
               headers: {
@@ -489,7 +493,7 @@ export async function publishTarget(
       }
       if (firstImageUrl) {
         const pinRes = await axiosInstance.post(
-          'https://api.pinterest.com/v5/pins',
+          `${pinterestApiBase}/pins`,
           {
             board_id: boardId,
             ...(caption?.trim() ? { description: caption.trim().slice(0, 800) } : {}),
@@ -512,7 +516,7 @@ export async function publishTarget(
       if (firstMediaUrl) {
         // Pinterest video pins: register media -> upload binary to provided URL -> create pin from media_id.
         const mediaInitRes = await axiosInstance.post(
-          'https://api.pinterest.com/v5/media',
+          `${pinterestApiBase}/media`,
           { media_type: 'video' },
           {
             headers: {
@@ -558,7 +562,7 @@ export async function publishTarget(
         let mediaStatus: 'registered' | 'processing' | 'succeeded' | 'failed' | undefined;
         while (Date.now() - waitStart < 120_000) {
           const mediaRes = await axiosInstance.get(
-            `https://api.pinterest.com/v5/media/${mediaId}`,
+            `${pinterestApiBase}/media/${mediaId}`,
             {
               headers: { Authorization: `Bearer ${token}` },
             }
@@ -580,7 +584,7 @@ export async function publishTarget(
           ...(caption?.trim() ? { description: caption.trim().slice(0, 800) } : {}),
         };
         const pinRes = await axiosInstance.post(
-          'https://api.pinterest.com/v5/pins',
+          `${pinterestApiBase}/pins`,
           {
             ...payloadBase,
             media_source: {

@@ -20,6 +20,11 @@ export async function POST(
     return NextResponse.json({ message: 'DATABASE_URL required' }, { status: 503 });
   }
   const { id: postId } = await params;
+  const requestBody = (await request.json().catch(() => ({}))) as {
+    token?: string;
+    contentByPlatform?: Record<string, string>;
+    pinterestSandbox?: boolean;
+  };
   const cronSecret = request.headers.get('X-Cron-Secret');
   const isCron = process.env.CRON_SECRET && cronSecret === process.env.CRON_SECRET;
   let userId: string | null = null;
@@ -28,12 +33,11 @@ export async function POST(
     userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
     if (!userId) {
       try {
-        const body = (await request.json().catch(() => ({}))) as { token?: string; contentByPlatform?: Record<string, string> };
-        linkToken = typeof body?.token === 'string' ? body.token.trim() : null;
-        if (linkToken && body?.contentByPlatform && typeof body.contentByPlatform === 'object' && Object.keys(body.contentByPlatform).length > 0) {
+        linkToken = typeof requestBody?.token === 'string' ? requestBody.token.trim() : null;
+        if (linkToken && requestBody?.contentByPlatform && typeof requestBody.contentByPlatform === 'object' && Object.keys(requestBody.contentByPlatform).length > 0) {
           await prisma.post.updateMany({
             where: { id: postId, emailOpenToken: linkToken, emailOpenTokenExpiresAt: { gte: new Date() } },
-            data: { contentByPlatform: body.contentByPlatform },
+            data: { contentByPlatform: requestBody.contentByPlatform },
           });
         }
       } catch {
@@ -266,6 +270,7 @@ export async function POST(
         videoThumbnailUrl,
         twitterOAuth1,
         pinterestBoardId,
+        pinterestSandbox: requestBody.pinterestSandbox === true,
       },
       { fetch, axios }
     );
@@ -295,6 +300,7 @@ export async function POST(
             videoThumbnailUrl,
             twitterOAuth1,
             pinterestBoardId,
+            pinterestSandbox: requestBody.pinterestSandbox === true,
           },
           { fetch, axios }
         );
@@ -330,6 +336,7 @@ export async function POST(
             videoThumbnailUrl,
             twitterOAuth1,
             pinterestBoardId,
+            pinterestSandbox: requestBody.pinterestSandbox === true,
           },
           { fetch, axios }
         );
