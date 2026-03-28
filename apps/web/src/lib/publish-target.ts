@@ -41,6 +41,27 @@ export type PublishTargetResult = {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type PublishDeps = { fetch: typeof globalThis.fetch; axios: any };
 
+/** Human-readable Pinterest API error for publish failures and support. */
+function pinterestApiErrorDetail(status: number | undefined, data: unknown): string {
+  if (data && typeof data === 'object' && !Array.isArray(data)) {
+    const o = data as Record<string, unknown>;
+    const parts: string[] = [];
+    if (o.message != null) parts.push(String(o.message));
+    if (o.code != null) parts.push(`code ${String(o.code)}`);
+    if (o.details != null) {
+      parts.push(typeof o.details === 'string' ? o.details : JSON.stringify(o.details));
+    }
+    if (o.reason != null) parts.push(String(o.reason));
+    if (parts.length) return parts.join(' · ');
+  }
+  if (typeof data === 'string' && data.trim()) return data.trim();
+  try {
+    const s = JSON.stringify(data);
+    if (s && s !== '{}') return s;
+  } catch (_) {}
+  return status != null ? `HTTP ${status}` : 'Unknown error';
+}
+
 /** Pinterest video pins require a cover; content type pairs with cover_image_url per API validation. */
 function pinterestCoverContentTypeFromUrl(url: string): 'image/jpeg' | 'image/png' {
   try {
@@ -466,10 +487,13 @@ export async function publishTarget(
             {
               headers: { Authorization: `Bearer ${token}` },
               params: { page_size: 25 },
+              validateStatus: () => true,
             }
           );
-          const boardsData = (boardsRes.data as { items?: Array<{ id?: string }> } | undefined);
-          boardId = (boardsData?.items ?? []).find((b) => typeof b?.id === 'string')?.id ?? '';
+          if (boardsRes.status >= 200 && boardsRes.status < 300) {
+            const boardsData = (boardsRes.data as { items?: Array<{ id?: string }> } | undefined);
+            boardId = (boardsData?.items ?? []).find((b) => typeof b?.id === 'string')?.id ?? '';
+          }
         } catch {
           // keep empty and return user-facing guidance below
         }
@@ -485,10 +509,13 @@ export async function publishTarget(
                 Authorization: `Bearer ${token}`,
                 'Content-Type': 'application/json',
               },
+              validateStatus: () => true,
             }
           );
-          const created = createBoardRes.data as { id?: string } | undefined;
-          boardId = created?.id ?? '';
+          if (createBoardRes.status >= 200 && createBoardRes.status < 300) {
+            const created = createBoardRes.data as { id?: string } | undefined;
+            boardId = created?.id ?? '';
+          }
         } catch {
           // keep empty and return clear error below
         }
@@ -516,8 +543,15 @@ export async function publishTarget(
               Authorization: `Bearer ${token}`,
               'Content-Type': 'application/json',
             },
+            validateStatus: () => true,
           }
         );
+        if (pinRes.status < 200 || pinRes.status >= 300) {
+          return {
+            ok: false,
+            error: `Pinterest image Pin failed (${pinRes.status}): ${pinterestApiErrorDetail(pinRes.status, pinRes.data)}`,
+          };
+        }
         const pinId = (pinRes.data as { id?: string })?.id;
         return { ok: true, platformPostId: pinId };
       }
@@ -532,8 +566,15 @@ export async function publishTarget(
               Authorization: `Bearer ${token}`,
               'Content-Type': 'application/json',
             },
+            validateStatus: () => true,
           }
         );
+        if (mediaInitRes.status < 200 || mediaInitRes.status >= 300) {
+          return {
+            ok: false,
+            error: `Pinterest video register failed (${mediaInitRes.status}): ${pinterestApiErrorDetail(mediaInitRes.status, mediaInitRes.data)}`,
+          };
+        }
 
         const mediaInit = mediaInitRes.data as {
           media_id?: string;
@@ -558,13 +599,19 @@ export async function publishTarget(
         const uploadForm = new FormData();
         Object.entries(uploadParams).forEach(([k, v]) => uploadForm.append(k, v));
         uploadForm.append('file', buffer, { filename: 'video.mp4', contentType: contentType || 'video/mp4' });
-        await axiosInstance.post(uploadUrl, uploadForm, {
+        const uploadRes = await axiosInstance.post(uploadUrl, uploadForm, {
           headers: uploadForm.getHeaders(),
           maxBodyLength: Infinity,
           maxContentLength: Infinity,
           timeout: 120_000,
-          validateStatus: (s: number) => s >= 200 && s < 300,
+          validateStatus: () => true,
         });
+        if (uploadRes.status < 200 || uploadRes.status >= 300) {
+          return {
+            ok: false,
+            error: `Pinterest video binary upload failed (${uploadRes.status}): ${pinterestApiErrorDetail(uploadRes.status, uploadRes.data)}`,
+          };
+        }
 
         // Wait for Pinterest to finish processing uploaded media before creating a pin.
         const waitStart = Date.now();
@@ -574,13 +621,23 @@ export async function publishTarget(
             `${pinterestApiBase}/media/${mediaId}`,
             {
               headers: { Authorization: `Bearer ${token}` },
+              validateStatus: () => true,
             }
           );
+          if (mediaRes.status < 200 || mediaRes.status >= 300) {
+            return {
+              ok: false,
+              error: `Pinterest media status HTTP ${mediaRes.status}: ${pinterestApiErrorDetail(mediaRes.status, mediaRes.data)}`,
+            };
+          }
           const mediaData = mediaRes.data as { status?: 'registered' | 'processing' | 'succeeded' | 'failed' } | undefined;
           mediaStatus = mediaData?.status;
           if (mediaStatus === 'succeeded') break;
           if (mediaStatus === 'failed') {
-            return { ok: false, error: 'Pinterest video upload failed during processing.' };
+            return {
+              ok: false,
+              error: `Pinterest video processing failed: ${pinterestApiErrorDetail(mediaRes.status, mediaRes.data)}`,
+            };
           }
           await new Promise((r) => setTimeout(r, 2000));
         }
@@ -612,7 +669,14 @@ export async function publishTarget(
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
+          validateStatus: () => true,
         });
+        if (pinRes.status < 200 || pinRes.status >= 300) {
+          return {
+            ok: false,
+            error: `Pinterest video Pin failed (${pinRes.status}). Request had ${thumb ? 'cover_image_url' : 'cover_image_key_frame_time only'}. ${pinterestApiErrorDetail(pinRes.status, pinRes.data)}`,
+          };
+        }
         const pinId = (pinRes.data as { id?: string })?.id;
         return { ok: true, platformPostId: pinId };
       }

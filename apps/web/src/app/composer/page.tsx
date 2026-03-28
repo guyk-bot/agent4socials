@@ -304,8 +304,8 @@ export default function ComposerPage() {
     const toggleSection = (key: keyof typeof sectionOpen) => setSectionOpen((s) => ({ ...s, [key]: !s[key] }));
 
 
-    // Resizable right preview panel (px); min 280, max 720
-    const [previewWidthPx, setPreviewWidthPx] = useState(480);
+    // Resizable right preview panel (px); min 300, max 920
+    const [previewWidthPx, setPreviewWidthPx] = useState(600);
     const previewResizeRef = useRef<{ startX: number; startW: number } | null>(null);
     const saveAsDraftRef = useRef(false);
 
@@ -314,7 +314,7 @@ export default function ComposerPage() {
             const r = previewResizeRef.current;
             if (!r) return;
             const delta = r.startX - e.clientX;
-            setPreviewWidthPx((w) => Math.min(720, Math.max(280, r.startW + delta)));
+            setPreviewWidthPx((w) => Math.min(920, Math.max(300, r.startW + delta)));
         };
         const onUp = () => { previewResizeRef.current = null; };
         window.addEventListener('mousemove', onMove);
@@ -887,6 +887,34 @@ export default function ComposerPage() {
         return { fileUrl, type };
     }
 
+    /** Capture current frame from the frame-picker video (same-origin proxy URL) and upload as JPEG. */
+    async function captureFrameFromThumbnailVideo(): Promise<string | null> {
+        const video = videoThumbnailRef.current;
+        if (!video || mediaList.length === 0 || mediaList[0].type !== 'VIDEO') return null;
+        const w = video.videoWidth;
+        const h = video.videoHeight;
+        if (!w || !h) return null;
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return null;
+        try {
+            ctx.drawImage(video, 0, 0);
+        } catch {
+            return null;
+        }
+        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+        if (!blob) return null;
+        const file = new File([blob], 'thumbnail.jpg', { type: 'image/jpeg' });
+        try {
+            const { fileUrl } = await uploadFile(file);
+            return fileUrl;
+        } catch {
+            return null;
+        }
+    }
+
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (!files?.length) return;
@@ -963,32 +991,23 @@ export default function ComposerPage() {
     };
 
     const handleUseFrameAsThumbnail = useCallback(async () => {
-        const video = videoThumbnailRef.current;
-        if (!video || mediaList.length === 0 || mediaList[0].type !== 'VIDEO') return;
+        if (mediaList.length === 0 || mediaList[0].type !== 'VIDEO') return;
         setMediaUploadError(null);
         setThumbnailPicking(true);
         try {
-            const canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) throw new Error('Canvas not available');
-            ctx.drawImage(video, 0, 0);
-            const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
-            if (!blob) throw new Error('Failed to capture frame');
-            const file = new File([blob], 'thumbnail.jpg', { type: 'image/jpeg' });
-            const { fileUrl } = await uploadFile(file);
+            const fileUrl = await captureFrameFromThumbnailVideo();
+            if (!fileUrl) throw new Error('Failed to capture frame');
             setMediaList((prev) => prev.map((item, i) => (i === 0 ? { ...item, thumbnailUrl: fileUrl } : item)));
             setThumbnailChoice('frame');
             if (differentThumbnailPerPlatform && selectedPlatformForThumbnail) {
                 setThumbnailByPlatform((prev) => ({ ...prev, [selectedPlatformForThumbnail]: fileUrl }));
             }
-        } catch (err) {
+        } catch {
             setMediaUploadError('Failed to use frame. Try again or upload an image.');
         } finally {
             setThumbnailPicking(false);
         }
-    }, [mediaList]);
+    }, [mediaList, differentThumbnailPerPlatform, selectedPlatformForThumbnail]);
 
     const handleRemoveThumbnail = () => {
         if (differentThumbnailPerPlatform && selectedPlatformForThumbnail) {
@@ -1004,21 +1023,27 @@ export default function ComposerPage() {
     };
 
     const drawVideoFrameToCanvas = useCallback(() => {
-        const video = videoThumbnailRef.current;
-        const canvas = thumbnailCanvasRef.current;
-        if (!video || !canvas) return;
-        const w = video.videoWidth;
-        const h = video.videoHeight;
-        if (!w || !h) return;
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        try {
-            ctx.drawImage(video, 0, 0);
-        } catch (_) {
-            // drawImage can throw if canvas is tainted or video not ready — ignore
-        }
+        const paint = () => {
+            const video = videoThumbnailRef.current;
+            const canvas = thumbnailCanvasRef.current;
+            if (!video || !canvas) return;
+            const w = video.videoWidth;
+            const h = video.videoHeight;
+            if (!w || !h) return;
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+            try {
+                ctx.drawImage(video, 0, 0);
+            } catch (_) {
+                // drawImage can throw if canvas is tainted or video not ready — ignore
+            }
+        };
+        paint();
+        requestAnimationFrame(() => {
+            requestAnimationFrame(paint);
+        });
     }, []);
 
     const handleThumbnailSliderChange = useCallback((t: number) => {
@@ -1031,12 +1056,14 @@ export default function ComposerPage() {
             drawVideoFrameToCanvas();
         };
         v.addEventListener('seeked', onSeekedOnce);
-        v.currentTime = t;
+        const duration = Number.isFinite(v.duration) && v.duration > 0 ? v.duration : undefined;
+        const clamped = duration !== undefined ? Math.min(Math.max(0, t), duration) : Math.max(0, t);
+        v.currentTime = clamped;
         if (v.readyState >= 2) {
             drawVideoFrameToCanvas();
         }
-        setTimeout(() => drawVideoFrameToCanvas(), 200);
-        setTimeout(() => drawVideoFrameToCanvas(), 500);
+        setTimeout(() => drawVideoFrameToCanvas(), 120);
+        setTimeout(() => drawVideoFrameToCanvas(), 350);
     }, [drawVideoFrameToCanvas]);
 
     const handleRemoveMediaForPlatform = (platform: string, index: number) => {
@@ -1145,6 +1172,46 @@ export default function ComposerPage() {
                 }
             }
 
+            let pinterestAutoCoverUrl: string | undefined;
+            if (platforms.includes('PINTEREST') && !saveAsDraft && thumbnailChoice === 'frame') {
+                const pinMedia = differentMediaPerPlatform ? (mediaByPlatform['PINTEREST'] ?? []) : mediaList;
+                const pinFirst = pinMedia[0] as MediaItem | undefined;
+                if (pinFirst?.type === 'VIDEO') {
+                    const hasCover = differentThumbnailPerPlatform
+                        ? Boolean(thumbnailByPlatform['PINTEREST'] ?? pinFirst.thumbnailUrl)
+                        : Boolean((mediaList[0] as MediaItem | undefined)?.thumbnailUrl);
+                    if (!hasCover) {
+                        const main = mediaList[0];
+                        const sameMainVideo = main?.type === 'VIDEO' && pinFirst.fileUrl === main.fileUrl;
+                        if (!sameMainVideo) {
+                            setLoading(false);
+                            setAlertMessage(
+                                'Pinterest needs a cover image for video Pins. Upload a thumbnail for your Pinterest video, or use the same video in the main composer so a frame can be captured.'
+                            );
+                            return;
+                        }
+                        setThumbnailPicking(true);
+                        setMediaUploadError(null);
+                        const captured = await captureFrameFromThumbnailVideo();
+                        setThumbnailPicking(false);
+                        if (!captured) {
+                            setLoading(false);
+                            setAlertMessage(
+                                'Pinterest needs a video cover. Move the frame slider until the preview updates, then click "Use this frame", or upload a thumbnail image.'
+                            );
+                            return;
+                        }
+                        pinterestAutoCoverUrl = captured;
+                        setMediaList((prev) =>
+                            prev.map((item, i) => (i === 0 && item.type === 'VIDEO' ? { ...item, thumbnailUrl: captured } : item))
+                        );
+                        if (differentThumbnailPerPlatform) {
+                            setThumbnailByPlatform((prev) => ({ ...prev, PINTEREST: captured }));
+                        }
+                    }
+                }
+            }
+
             const payload: {
                 title?: string;
                 content: string;
@@ -1161,7 +1228,7 @@ export default function ComposerPage() {
                     if (i === 0 && m.type === 'VIDEO') {
                         return {
                             ...m,
-                            thumbnailUrl: (m as MediaItem).thumbnailUrl,
+                            thumbnailUrl: pinterestAutoCoverUrl ?? (m as MediaItem).thumbnailUrl,
                             useVideoDefaultForPublish: thumbnailChoice === 'none',
                         };
                     }
@@ -1228,10 +1295,17 @@ export default function ComposerPage() {
             }
             if (differentMediaPerPlatform) {
                 payload.mediaByPlatform = platforms.reduce((acc, p) => {
-                    const list = mediaByPlatform[p];
-                    if (list?.length) acc[p] = list;
+                    let list = mediaByPlatform[p];
+                    if (list?.length) {
+                        if (p === 'PINTEREST' && pinterestAutoCoverUrl && list[0]?.type === 'VIDEO') {
+                            list = list.map((m, idx) =>
+                                idx === 0 && m.type === 'VIDEO' ? { ...m, thumbnailUrl: pinterestAutoCoverUrl } : m
+                            );
+                        }
+                        acc[p] = list;
+                    }
                     return acc;
-                }, {} as Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[]>);
+                }, {} as Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO'; thumbnailUrl?: string }[]>);
                 const firstWithMedia = platforms.find((p) => (mediaByPlatform[p]?.length ?? 0) > 0);
                 const baseMedia = firstWithMedia ? mediaByPlatform[firstWithMedia]! : mediaList;
                 payload.media = baseMedia.map((m, i) => {
@@ -1239,7 +1313,7 @@ export default function ComposerPage() {
                         const first = mediaList[0] as MediaItem;
                         return {
                             ...m,
-                            thumbnailUrl: first?.thumbnailUrl,
+                            thumbnailUrl: pinterestAutoCoverUrl ?? first?.thumbnailUrl,
                             useVideoDefaultForPublish: thumbnailChoice === 'none',
                         };
                     }
@@ -1762,7 +1836,7 @@ export default function ComposerPage() {
                                                 </label>
                                                 {thumbnailChoice === 'frame' && (
                                                     <div className="ml-6 flex flex-col gap-1.5">
-                                                        <input type="range" min={0} max={thumbnailVideoDuration} step={0.1} value={thumbnailPickerTime} onChange={(e) => handleThumbnailSliderChange(parseFloat(e.target.value))} onInput={(e) => handleThumbnailSliderChange(parseFloat((e.target as HTMLInputElement).value))} className="w-full max-w-[200px] h-2 rounded-full accent-[var(--primary)]" />
+                                                        <input type="range" min={0} max={Math.max(0.01, Number.isFinite(thumbnailVideoDuration) && thumbnailVideoDuration > 0 ? thumbnailVideoDuration : 0.01)} step={0.01} value={Math.min(thumbnailPickerTime, Math.max(0.01, Number.isFinite(thumbnailVideoDuration) && thumbnailVideoDuration > 0 ? thumbnailVideoDuration : 0.01))} onChange={(e) => handleThumbnailSliderChange(parseFloat(e.target.value))} onInput={(e) => handleThumbnailSliderChange(parseFloat((e.target as HTMLInputElement).value))} className="w-full max-w-[240px] h-2 rounded-full accent-[var(--primary)]" />
                                                         <button type="button" onClick={handleUseFrameAsThumbnail} disabled={thumbnailPicking || mediaUploading} className="inline-flex items-center gap-1.5 px-3 py-2 bg-[var(--button)] hover:bg-[var(--button-hover)] text-white rounded-lg text-xs font-medium disabled:opacity-50 w-fit">
                                                             {thumbnailPicking ? <Loader2 size={14} className="animate-spin shrink-0" /> : <ImageIcon size={14} className="shrink-0" />}
                                                             Use this frame
@@ -1788,8 +1862,8 @@ export default function ComposerPage() {
                                                         <video
                                                             ref={videoThumbnailRef}
                                                             src={mediaCanvasUrl(mediaList[0].fileUrl)}
-                                                            className={`absolute inset-0 w-full h-full ${mediaType === 'reel' ? 'object-cover' : 'object-contain'} pointer-events-none`}
-                                                            style={{ zIndex: 1 }}
+                                                            className={`absolute inset-0 w-full h-full ${mediaType === 'reel' ? 'object-cover' : 'object-contain'} pointer-events-none opacity-0`}
+                                                            style={{ zIndex: 0 }}
                                                             crossOrigin={mediaList[0].fileUrl.startsWith('blob:') ? undefined : 'anonymous'}
                                                             muted
                                                             playsInline
@@ -1799,7 +1873,7 @@ export default function ComposerPage() {
                                                             onLoadedMetadata={(e) => {
                                                                 const v = e.currentTarget;
                                                                 const d = v.duration;
-                                                                setThumbnailVideoDuration(Number.isFinite(d) ? d : 1);
+                                                                setThumbnailVideoDuration(Number.isFinite(d) && d > 0 ? d : 1);
                                                                 setThumbnailPickerTime(0);
                                                             }}
                                                             onLoadedData={() => {
@@ -1814,17 +1888,17 @@ export default function ComposerPage() {
                                                             onError={() => setThumbnailVideoLoadState('error')}
                                                         />
                                                         {thumbnailVideoLoadState === 'loading' && (
-                                                            <div className="absolute inset-0 flex items-center justify-center bg-neutral-900/80 z-10">
+                                                            <div className="absolute inset-0 flex items-center justify-center bg-neutral-900/80 z-20">
                                                                 <Loader2 size={28} className="animate-spin text-white" />
                                                             </div>
                                                         )}
                                                         {thumbnailVideoLoadState === 'error' && (
-                                                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-neutral-900/95 z-10 p-3 text-center">
+                                                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-neutral-900/95 z-20 p-3 text-center">
                                                                 <p className="text-sm text-white font-medium">Video failed to load</p>
                                                                 <p className="text-xs text-neutral-400 mt-1">Try re-uploading or choose another thumbnail option.</p>
                                                             </div>
                                                         )}
-                                                        <canvas ref={thumbnailCanvasRef} className={`absolute inset-0 w-full h-full ${mediaType === 'reel' ? 'object-cover' : 'object-contain'} opacity-0 pointer-events-none`} style={{ width: '100%', height: '100%', zIndex: 0 }} aria-hidden />
+                                                        <canvas ref={thumbnailCanvasRef} className={`absolute inset-0 w-full h-full ${mediaType === 'reel' ? 'object-cover' : 'object-contain'} pointer-events-none z-10`} style={{ width: '100%', height: '100%' }} aria-hidden />
                                                     </div>
                                                 ) : (
                                                     <>
@@ -2369,7 +2443,7 @@ export default function ComposerPage() {
                 />
                 <div
                     className="hidden lg:flex flex-col flex-shrink-0 space-y-3 lg:pl-2"
-                    style={{ width: `${previewWidthPx}px`, minWidth: 280, maxWidth: 720 }}
+                    style={{ width: `${previewWidthPx}px`, minWidth: 300, maxWidth: 920 }}
                 >
                     <h2 className="text-sm font-semibold text-neutral-600 uppercase tracking-wide">Preview</h2>
                     <div className="sticky top-6 space-y-3 overflow-y-auto max-h-[calc(100vh-8rem)]">
@@ -2377,7 +2451,7 @@ export default function ComposerPage() {
                             <div className="rounded-xl border-2 border-dashed border-neutral-200 bg-neutral-50/50 flex flex-col items-center justify-center py-8 text-neutral-400">
                                 {mediaList.length > 0 ? (
                                     <>
-                                        <div className={`w-full max-w-[320px] mx-auto rounded-lg overflow-hidden border border-neutral-200 bg-neutral-100 ${(mediaType === 'video' && mediaList[0].type === 'VIDEO') ? 'aspect-video' : (mediaType === 'reel' && mediaList[0].type === 'VIDEO') ? 'aspect-[9/16]' : 'aspect-square'}`}>
+                                        <div className={`w-full max-w-[min(100%,480px)] mx-auto rounded-lg overflow-hidden border border-neutral-200 bg-neutral-100 ${(mediaType === 'video' && mediaList[0].type === 'VIDEO') ? 'aspect-video' : (mediaType === 'reel' && mediaList[0].type === 'VIDEO') ? 'aspect-[9/16]' : 'aspect-square'} ${mediaType === 'reel' ? 'border-0 ring-0' : ''}`}>
                                             {mediaList[0].type === 'VIDEO' ? (
                                                 (mediaList[0] as MediaItem).thumbnailUrl ? (
                                                     <img src={mediaDisplayUrl((mediaList[0] as MediaItem).thumbnailUrl!)} alt="Video" className="w-full h-full object-contain" />
@@ -2434,7 +2508,7 @@ export default function ComposerPage() {
                             <div className="rounded-xl border-2 border-dashed border-neutral-200 bg-neutral-50/50 flex flex-col items-center justify-center py-8 text-neutral-400">
                                 {mediaList.length > 0 ? (
                                     <>
-                                        <div className={`w-full max-w-[320px] mx-auto rounded-lg overflow-hidden border border-neutral-200 bg-neutral-100 ${(mediaType === 'video' && mediaList[0].type === 'VIDEO') ? 'aspect-video' : (mediaType === 'reel' && mediaList[0].type === 'VIDEO') ? 'aspect-[9/16]' : 'aspect-square'}`}>
+                                        <div className={`w-full max-w-[min(100%,480px)] mx-auto rounded-lg overflow-hidden border border-neutral-200 bg-neutral-100 ${(mediaType === 'video' && mediaList[0].type === 'VIDEO') ? 'aspect-video' : (mediaType === 'reel' && mediaList[0].type === 'VIDEO') ? 'aspect-[9/16]' : 'aspect-square'} ${mediaType === 'reel' ? 'border-0 ring-0' : ''}`}>
                                             {mediaList[0].type === 'VIDEO' ? (
                                                 (mediaList[0] as MediaItem).thumbnailUrl ? (
                                                     <img src={mediaDisplayUrl((mediaList[0] as MediaItem).thumbnailUrl!)} alt="Video" className="w-full h-full object-contain" />
@@ -2545,9 +2619,12 @@ function PostPreview({
             default: return <Video size={compact ? 16 : 22} className="text-neutral-500" />;
         }
     };
+    const reelPreview = mediaType === 'reel';
     return (
-        <div className={`rounded-xl overflow-hidden border border-neutral-200 bg-white shadow-sm ${compact ? 'max-w-[220px]' : 'max-w-sm mx-auto shadow-lg'}`}>
-            <div className={`border-b border-neutral-100 flex items-center gap-1.5 ${compact ? 'p-1.5' : 'p-3'}`}>
+        <div
+            className={`rounded-xl overflow-hidden bg-white shadow-sm ${reelPreview ? '' : 'border border-neutral-200'} ${compact ? 'max-w-[260px]' : 'w-full max-w-none mx-auto shadow-lg'}`}
+        >
+            <div className={`${reelPreview ? '' : 'border-b border-neutral-100'} flex items-center gap-1.5 ${compact ? 'p-1.5' : 'p-3'}`}>
                 <div className={`rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden ${compact ? 'w-6 h-6' : 'w-9 h-9'}`}>
                     {profilePicture ? (
                         <img src={profilePicture} alt="" className="w-full h-full object-cover" />
@@ -2560,7 +2637,9 @@ function PostPreview({
                     <p className={`truncate text-neutral-500 ${compact ? 'text-[9px]' : 'text-xs'}`}>{PLATFORM_LABELS[platform] || platform}</p>
                 </div>
             </div>
-            <div className={`bg-neutral-50 flex items-center justify-center overflow-hidden relative ${mediaType === 'video' ? 'aspect-video' : mediaType === 'reel' || (media.length === 1 && media[0]?.type === 'VIDEO') ? 'aspect-[9/16]' : 'aspect-square'}`}>
+            <div
+                className={`${reelPreview ? 'bg-black' : 'bg-neutral-50'} flex items-center justify-center overflow-hidden relative ${mediaType === 'video' ? 'aspect-video' : mediaType === 'reel' || (media.length === 1 && media[0]?.type === 'VIDEO') ? 'aspect-[9/16]' : 'aspect-square'}`}
+            >
                 {mediaUploading && !currentMedia ? (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-neutral-100 animate-pulse">
                         <Loader2 size={compact ? 18 : 28} className="animate-spin text-neutral-400" />
