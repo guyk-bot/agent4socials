@@ -52,8 +52,30 @@ export default function AccountsPage() {
   const [metaGraphDebug, setMetaGraphDebug] = useState<
     Record<string, { status: 'idle' | 'loading' | 'done' | 'error'; body?: string; message?: string }>
   >({});
+  const [pinterestDebug, setPinterestDebug] = useState<
+    Record<string, { status: 'idle' | 'loading' | 'done' | 'error'; body?: string; message?: string }>
+  >({});
 
   const accounts = (cachedAccounts as SocialAccount[]) ?? [];
+
+  const loadPinterestDebug = async (accountId: string) => {
+    setPinterestDebug((m) => ({ ...m, [accountId]: { status: 'loading' } }));
+    try {
+      const res = await api.get(`/social/accounts/${accountId}/pinterest-debug`, {
+        timeout: 60_000,
+      });
+      setPinterestDebug((m) => ({
+        ...m,
+        [accountId]: { status: 'done', body: JSON.stringify(res.data, null, 2) },
+      }));
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string }; status?: number } };
+      const msg =
+        err?.response?.data?.message ??
+        (err?.response?.status === 401 ? 'Session expired. Sign out and sign back in.' : 'Could not load Pinterest API JSON.');
+      setPinterestDebug((m) => ({ ...m, [accountId]: { status: 'error', message: msg } }));
+    }
+  };
 
   const loadMetaGraphDebug = async (accountId: string, kind: 'facebook' | 'instagram') => {
     setMetaGraphDebug((m) => ({ ...m, [accountId]: { status: 'loading' } }));
@@ -277,6 +299,37 @@ export default function AccountsPage() {
                     {metaGraphDebug[acc.id]?.body && (
                       <pre className="text-xs font-mono bg-neutral-900 text-neutral-100 rounded-lg p-3 overflow-auto max-h-[min(70vh,40rem)] whitespace-pre-wrap break-all border border-neutral-800">
                         {metaGraphDebug[acc.id].body}
+                      </pre>
+                    )}
+                  </div>
+                )}
+                {acc.platform === 'PINTEREST' && (
+                  <div className="border-t border-neutral-100 px-4 py-3 bg-neutral-50/90 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => loadPinterestDebug(acc.id)}
+                        disabled={pinterestDebug[acc.id]?.status === 'loading'}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-neutral-200 bg-white text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-50"
+                        title="Fetch Pinterest v5: user_account, user_account analytics, top_pins, boards, and first page of pins."
+                      >
+                        {pinterestDebug[acc.id]?.status === 'loading' ? (
+                          <RefreshCw size={14} className="animate-spin shrink-0" />
+                        ) : (
+                          <Braces size={14} className="shrink-0" />
+                        )}
+                        Show Pinterest API JSON
+                      </button>
+                      <span className="text-xs text-neutral-500">
+                        Includes profile, analytics for the last 30 days (override with ?start_date= and ?end_date= on the API if needed), top pins, boards, and pins list.
+                      </span>
+                    </div>
+                    {pinterestDebug[acc.id]?.status === 'error' && pinterestDebug[acc.id]?.message && (
+                      <p className="text-sm text-red-600">{pinterestDebug[acc.id].message}</p>
+                    )}
+                    {pinterestDebug[acc.id]?.body && (
+                      <pre className="text-xs font-mono bg-neutral-900 text-neutral-100 rounded-lg p-3 overflow-auto max-h-[min(70vh,40rem)] whitespace-pre-wrap break-all border border-neutral-800">
+                        {pinterestDebug[acc.id].body}
                       </pre>
                     )}
                   </div>

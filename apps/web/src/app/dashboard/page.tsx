@@ -1296,7 +1296,13 @@ export default function DashboardPage() {
                 setImportedPostsLoading(false);
               }
             }}
-            onReconnectFacebook={selectedAccount?.platform === 'FACEBOOK' ? () => router.push('/dashboard?connect=facebook') : undefined}
+            onReconnectFacebook={
+              selectedAccount?.platform === 'FACEBOOK'
+                ? () => router.push('/dashboard?connect=facebook')
+                : selectedAccount?.platform === 'PINTEREST'
+                  ? () => router.push('/dashboard?connect=pinterest')
+                  : undefined
+            }
             onDateRangeChange={(r) => setDateRange(r)}
             followersLabel={selectedAccount.platform === 'YOUTUBE' ? 'Subscribers' : 'Followers'}
             accountAvatarUrl={selectedAccount.profilePicture ?? null}

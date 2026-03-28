@@ -970,12 +970,16 @@ export function FacebookAnalyticsView({
   const profile = insights?.facebookPageProfile;
   const community = insights?.facebookCommunity;
   const profileUrl = useMemo(() => {
+    const plat = insights?.platform?.toUpperCase();
     const username = profile?.username?.trim();
+    if (plat === 'PINTEREST' && username) {
+      return `https://www.pinterest.com/${username.replace(/^@/, '')}/`;
+    }
     if (username) return `https://www.facebook.com/${username}`;
     const website = profile?.website?.trim();
     if (website) return website;
     return null;
-  }, [profile?.username, profile?.website]);
+  }, [insights?.platform, profile?.username, profile?.website]);
   const postsInRange = useMemo(
     () => posts.filter((p) => inRange(p.publishedAt, dateRange.start, dateRange.end)),
     [posts, dateRange.end, dateRange.start]
@@ -1315,7 +1319,7 @@ export function FacebookAnalyticsView({
                 href={profileUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                title="Open Facebook profile"
+                title={insights?.platform === 'PINTEREST' ? 'Open Pinterest profile' : 'Open Facebook profile'}
                 className="shrink-0"
               >
                 <div
@@ -1365,11 +1369,14 @@ export function FacebookAnalyticsView({
                 display: accountAvatarUrl ? 'none' : 'flex',
               }}
             >
-              {(profile?.name || profile?.username || 'FB').slice(0, 2).toUpperCase()}
+              {(profile?.name || profile?.username || (insights?.platform === 'PINTEREST' ? 'PI' : 'FB')).slice(0, 2).toUpperCase()}
             </div>
             <div>
               <h1 className="text-xl font-semibold" style={{ color: COLOR.text }}>
-                {profile?.name || insights?.facebookPageProfile?.username || followersLabel || 'Facebook Page'}
+                {profile?.name ||
+                  insights?.facebookPageProfile?.username ||
+                  followersLabel ||
+                  (insights?.platform === 'PINTEREST' ? 'Pinterest' : 'Facebook Page')}
               </h1>
               <p className="text-sm" style={{ color: COLOR.textSecondary }}>
                 @{profile?.username || 'unknown'}{profile?.category ? `  •  ${profile.category}` : ''}
@@ -1391,7 +1398,9 @@ export function FacebookAnalyticsView({
         </div>
         {postsLoading && !insightsLoading ? (
           <p className="mt-2.5 text-xs font-medium animate-pulse" style={{ color: COLOR.textSecondary }}>
-            Updating posts and reels from Facebook, tables will refresh when sync finishes.
+            {insights?.platform === 'PINTEREST'
+              ? 'Updating pins from Pinterest, tables will refresh when sync finishes.'
+              : 'Updating posts and reels from Facebook, tables will refresh when sync finishes.'}
           </p>
         ) : null}
       </section>
