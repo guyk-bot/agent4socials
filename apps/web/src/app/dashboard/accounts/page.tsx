@@ -49,19 +49,23 @@ export default function AccountsPage() {
   const [tokenDebugLoading, setTokenDebugLoading] = useState<string | null>(null);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const [enablingTwitter1oa, setEnablingTwitter1oa] = useState(false);
-  const [fbGraphDebug, setFbGraphDebug] = useState<
+  const [metaGraphDebug, setMetaGraphDebug] = useState<
     Record<string, { status: 'idle' | 'loading' | 'done' | 'error'; body?: string; message?: string }>
   >({});
 
   const accounts = (cachedAccounts as SocialAccount[]) ?? [];
 
-  const loadFacebookGraphDebug = async (accountId: string) => {
-    setFbGraphDebug((m) => ({ ...m, [accountId]: { status: 'loading' } }));
+  const loadMetaGraphDebug = async (accountId: string, kind: 'facebook' | 'instagram') => {
+    setMetaGraphDebug((m) => ({ ...m, [accountId]: { status: 'loading' } }));
+    const path =
+      kind === 'facebook'
+        ? `/social/accounts/${accountId}/facebook-graph-debug?full=1`
+        : `/social/accounts/${accountId}/instagram-graph-debug?full=1`;
     try {
-      const res = await api.get(`/social/accounts/${accountId}/facebook-graph-debug?full=1`, {
+      const res = await api.get(path, {
         timeout: 120_000,
       });
-      setFbGraphDebug((m) => ({
+      setMetaGraphDebug((m) => ({
         ...m,
         [accountId]: { status: 'done', body: JSON.stringify(res.data, null, 2) },
       }));
@@ -70,7 +74,7 @@ export default function AccountsPage() {
       const msg =
         err?.response?.data?.message ??
         (err?.response?.status === 401 ? 'Session expired. Sign out and sign back in.' : 'Could not load Meta Graph debug JSON.');
-      setFbGraphDebug((m) => ({ ...m, [accountId]: { status: 'error', message: msg } }));
+      setMetaGraphDebug((m) => ({ ...m, [accountId]: { status: 'error', message: msg } }));
     }
   };
 
@@ -220,12 +224,12 @@ export default function AccountsPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => loadFacebookGraphDebug(acc.id)}
-                        disabled={fbGraphDebug[acc.id]?.status === 'loading'}
+                        onClick={() => loadMetaGraphDebug(acc.id, 'facebook')}
+                        disabled={metaGraphDebug[acc.id]?.status === 'loading'}
                         className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-neutral-200 bg-white text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-50"
                         title="Fetch full Graph API debug bundle: all page day insight metrics, post lifetime insights (first published post), page fields, sample posts, conversations, ratings. Many requests; may take ~30s. Tokens in URLs are redacted."
                       >
-                        {fbGraphDebug[acc.id]?.status === 'loading' ? (
+                        {metaGraphDebug[acc.id]?.status === 'loading' ? (
                           <RefreshCw size={14} className="animate-spin shrink-0" />
                         ) : (
                           <Braces size={14} className="shrink-0" />
@@ -236,12 +240,43 @@ export default function AccountsPage() {
                         Full export: every page day insight we probe, lifetime insights on your first published post, plus page fields and sample edges. Can take a short while.
                       </span>
                     </div>
-                    {fbGraphDebug[acc.id]?.status === 'error' && fbGraphDebug[acc.id]?.message && (
-                      <p className="text-sm text-red-600">{fbGraphDebug[acc.id].message}</p>
+                    {metaGraphDebug[acc.id]?.status === 'error' && metaGraphDebug[acc.id]?.message && (
+                      <p className="text-sm text-red-600">{metaGraphDebug[acc.id].message}</p>
                     )}
-                    {fbGraphDebug[acc.id]?.body && (
+                    {metaGraphDebug[acc.id]?.body && (
                       <pre className="text-xs font-mono bg-neutral-900 text-neutral-100 rounded-lg p-3 overflow-auto max-h-[min(70vh,40rem)] whitespace-pre-wrap break-all border border-neutral-800">
-                        {fbGraphDebug[acc.id].body}
+                        {metaGraphDebug[acc.id].body}
+                      </pre>
+                    )}
+                  </div>
+                )}
+                {acc.platform === 'INSTAGRAM' && (
+                  <div className="border-t border-neutral-100 px-4 py-3 bg-neutral-50/90 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => loadMetaGraphDebug(acc.id, 'instagram')}
+                        disabled={metaGraphDebug[acc.id]?.status === 'loading'}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-neutral-200 bg-white text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-50"
+                        title="Fetch Instagram Meta debug bundle: graph.facebook.com and graph.instagram.com profile, media samples, combined and per-metric day insights (28 days), follows/unfollows breakdown, demographics probes, first media lifetime insights. Many requests; may take up to ~2 minutes. Tokens in URLs are redacted."
+                      >
+                        {metaGraphDebug[acc.id]?.status === 'loading' ? (
+                          <RefreshCw size={14} className="animate-spin shrink-0" />
+                        ) : (
+                          <Braces size={14} className="shrink-0" />
+                        )}
+                        Show Meta API JSON
+                      </button>
+                      <span className="text-xs text-neutral-500">
+                        Full export mirrors what we use for analytics: both Graph hosts, insights, demographics-style calls, and sample media insights. Can take a short while.
+                      </span>
+                    </div>
+                    {metaGraphDebug[acc.id]?.status === 'error' && metaGraphDebug[acc.id]?.message && (
+                      <p className="text-sm text-red-600">{metaGraphDebug[acc.id].message}</p>
+                    )}
+                    {metaGraphDebug[acc.id]?.body && (
+                      <pre className="text-xs font-mono bg-neutral-900 text-neutral-100 rounded-lg p-3 overflow-auto max-h-[min(70vh,40rem)] whitespace-pre-wrap break-all border border-neutral-800">
+                        {metaGraphDebug[acc.id].body}
                       </pre>
                     )}
                   </div>
