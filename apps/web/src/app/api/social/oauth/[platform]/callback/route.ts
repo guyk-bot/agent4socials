@@ -609,6 +609,8 @@ export async function GET(
     callbackUrl = process.env.TWITTER_REDIRECT_URI.replace(/\/+$/, '');
   } else if (plat === 'PINTEREST' && process.env.PINTEREST_REDIRECT_URI) {
     callbackUrl = process.env.PINTEREST_REDIRECT_URI.replace(/\/+$/, '');
+  } else if (plat === 'LINKEDIN' && process.env.LINKEDIN_REDIRECT_URI?.trim()) {
+    callbackUrl = process.env.LINKEDIN_REDIRECT_URI.replace(/\/+$/, '');
   }
 
   let tokenData: TokenResult;

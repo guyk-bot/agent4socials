@@ -74,13 +74,21 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
       return `https://twitter.com/i/oauth2/authorize?client_id=${process.env.TWITTER_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.TWITTER_REDIRECT_URI || callbackUrl)}&response_type=code&scope=${encodeURIComponent(twitterScope)}&state=${state}&code_challenge=challenge&code_challenge_method=plain`;
     }
     case 'LINKEDIN': {
-      // r_organization_social / w_organization_social require Marketing/Community Management product approval.
-      // Request them only when explicitly enabled so the Page flow doesn't fail with "Bummer, something went wrong".
+      // Request minimal scopes: invalid or unapproved scopes cause LinkedIn to show a generic error before consent.
+      // r_member_social is not provisioned on many apps; omit unless you set LINKEDIN_OAUTH_SCOPES explicitly.
+      // r_organization_social / w_organization_social need Marketing (etc.) product approval; opt-in via LINKEDIN_REQUEST_ORG_SCOPES + page method.
       const requestOrgScopes = process.env.LINKEDIN_REQUEST_ORG_SCOPES === 'true' && method === 'page';
-      const linkedInScopes = requestOrgScopes
-        ? 'openid profile email w_member_social r_member_social r_organization_social w_organization_social'
-        : 'openid profile email w_member_social r_member_social';
-      return `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${process.env.LINKEDIN_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.LINKEDIN_REDIRECT_URI || callbackUrl)}&state=${encodeURIComponent(state)}&scope=${encodeURIComponent(linkedInScopes)}`;
+      const defaultScopes = requestOrgScopes
+        ? 'openid profile email w_member_social r_organization_social w_organization_social'
+        : 'openid profile email w_member_social';
+      const linkedInScopes =
+        typeof process.env.LINKEDIN_OAUTH_SCOPES === 'string' && process.env.LINKEDIN_OAUTH_SCOPES.trim()
+          ? process.env.LINKEDIN_OAUTH_SCOPES.trim()
+          : defaultScopes;
+      const redirect = encodeURIComponent((process.env.LINKEDIN_REDIRECT_URI || callbackUrl).replace(/\/+$/, ''));
+      const clientId = encodeURIComponent(process.env.LINKEDIN_CLIENT_ID || '');
+      // enable_extended_login helps LinkedIn show Google/Apple/passkey login on supported browsers (LinkedIn docs).
+      return `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${clientId}&redirect_uri=${redirect}&state=${encodeURIComponent(state)}&scope=${encodeURIComponent(linkedInScopes)}&enable_extended_login=true`;
     }
     case 'PINTEREST': {
       const pinRedirect = (process.env.PINTEREST_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
