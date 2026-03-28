@@ -6,6 +6,9 @@ import axios from 'axios';
 import { Platform } from '@prisma/client';
 import { META_GRAPH_FACEBOOK_API_VERSION } from '@/lib/meta-graph-insights';
 
+/** OAuth start must never be statically cached. */
+export const dynamic = 'force-dynamic';
+
 const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN', 'PINTEREST'] as const;
 
 function getOAuthUrl(platform: Platform, userId: string, method?: string): string {
@@ -162,6 +165,7 @@ export async function GET(
         );
       }
     } else if (plat === 'TWITTER') {
+      // X (Twitter) is allowed for every plan; do not add a tier/Stripe gate here.
       // Prefer OAuth 2.0 PKCE (recommended for DMs: Bearer token for GET /2/dm_events and POST send).
       const twitterClientId = process.env.TWITTER_CLIENT_ID?.trim();
       const apiKey = process.env.TWITTER_API_KEY?.trim();
