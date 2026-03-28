@@ -41,6 +41,15 @@ export type PublishTargetResult = {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type PublishDeps = { fetch: typeof globalThis.fetch; axios: any };
 
+/** Pinterest video pins require a cover; content type pairs with cover_image_url per API validation. */
+function pinterestCoverContentTypeFromUrl(url: string): 'image/jpeg' | 'image/png' {
+  try {
+    const p = new URL(url).pathname.toLowerCase();
+    if (p.endsWith('.png')) return 'image/png';
+  } catch (_) {}
+  return 'image/jpeg';
+}
+
 async function fetchImageBuffer(
   url: string,
   fetchFn: typeof globalThis.fetch
@@ -583,22 +592,27 @@ export async function publishTarget(
           board_id: boardId,
           ...(caption?.trim() ? { description: caption.trim().slice(0, 800) } : {}),
         };
-        const pinRes = await axiosInstance.post(
-          `${pinterestApiBase}/pins`,
-          {
-            ...payloadBase,
-            media_source: {
-              source_type: 'video_id',
-              media_id: mediaId,
-            },
+        const pinBody: Record<string, unknown> = {
+          ...payloadBase,
+          media_source: {
+            source_type: 'video_id',
+            media_id: mediaId,
           },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
+        };
+        const thumb = videoThumbnailUrl?.trim();
+        if (thumb) {
+          pinBody.cover_image_url = thumb;
+          pinBody.cover_image_content_type = pinterestCoverContentTypeFromUrl(thumb);
+        } else {
+          // No custom thumbnail: ask Pinterest to pick a frame (uploaded cover is otherwise required).
+          pinBody.cover_image_key_frame_time = 1;
+        }
+        const pinRes = await axiosInstance.post(`${pinterestApiBase}/pins`, pinBody, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
         const pinId = (pinRes.data as { id?: string })?.id;
         return { ok: true, platformPostId: pinId };
       }

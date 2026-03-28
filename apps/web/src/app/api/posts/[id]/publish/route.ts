@@ -168,6 +168,10 @@ export async function POST(
     if (platform === 'PINTEREST' && firstMediaUrl) {
       firstMediaUrl = publicMediaUrlForMeta(firstMediaUrl);
     }
+    // Video Pin cover must be a fetchable image URL for Pinterest (same tokenized /api/media/serve as image pins).
+    if (platform === 'PINTEREST' && videoThumbnailUrl) {
+      videoThumbnailUrl = publicMediaUrlForMeta(videoThumbnailUrl);
+    }
     if (platform === 'INSTAGRAM' || platform === 'FACEBOOK') {
       const isInstagram = platform === 'INSTAGRAM';
       const firstIsImage = targetMedia[0]?.type === 'IMAGE';
