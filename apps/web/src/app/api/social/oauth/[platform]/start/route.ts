@@ -71,13 +71,19 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
       return `https://twitter.com/i/oauth2/authorize?client_id=${process.env.TWITTER_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.TWITTER_REDIRECT_URI || callbackUrl)}&response_type=code&scope=${encodeURIComponent(twitterScope)}&state=${state}&code_challenge=challenge&code_challenge_method=plain`;
     }
     case 'LINKEDIN': {
-      // Request minimal scopes: invalid or unapproved scopes cause LinkedIn to show a generic error before consent.
-      // r_member_social is not provisioned on many apps; omit unless you set LINKEDIN_OAUTH_SCOPES explicitly.
-      // r_organization_social / w_organization_social need Marketing (etc.) product approval; opt-in via LINKEDIN_REQUEST_ORG_SCOPES + page method.
+      // OpenID scopes (Sign in with LinkedIn using OpenID Connect) work once that product is on the app.
+      // w_member_social needs the separate "Share on LinkedIn" product; requesting it without that product causes
+      // LinkedIn's generic "Bummer, something went wrong" (invalid scope). Opt in with LINKEDIN_INCLUDE_W_MEMBER_SOCIAL
+      // or set LINKEDIN_OAUTH_SCOPES to the full list you have approved in the portal.
+      // r_organization_social / w_organization_social need Community Management / Marketing API; opt-in via LINKEDIN_REQUEST_ORG_SCOPES + page method.
       const requestOrgScopes = process.env.LINKEDIN_REQUEST_ORG_SCOPES === 'true' && method === 'page';
+      const includeWrite =
+        process.env.LINKEDIN_INCLUDE_W_MEMBER_SOCIAL === 'true' ||
+        process.env.LINKEDIN_REQUEST_ORG_SCOPES === 'true';
+      const baseScopes = includeWrite ? 'openid profile email w_member_social' : 'openid profile email';
       const defaultScopes = requestOrgScopes
-        ? 'openid profile email w_member_social r_organization_social w_organization_social'
-        : 'openid profile email w_member_social';
+        ? `${baseScopes} r_organization_social w_organization_social`.replace(/\s+/g, ' ').trim()
+        : baseScopes;
       const linkedInScopes =
         typeof process.env.LINKEDIN_OAUTH_SCOPES === 'string' && process.env.LINKEDIN_OAUTH_SCOPES.trim()
           ? process.env.LINKEDIN_OAUTH_SCOPES.trim()

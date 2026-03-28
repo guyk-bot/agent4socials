@@ -214,12 +214,13 @@ If you use the same app for both flows, you can leave these unset and use `META_
    - Click the pencil icon next to "Authorized redirect URLs for your app".
    - Add `https://agent4socials.com/api/social/oauth/linkedin/callback`.
 6. Go to the **Products** tab.
-   - Request access to **"Share on LinkedIn"** and **"Sign In with LinkedIn"**.
+   - Add **Sign in with LinkedIn using OpenID Connect** (required for connect: scopes `openid`, `profile`, `email`).
+   - Optional: add **Share on LinkedIn** if you need posting from the Composer. Then set **`LINKEDIN_INCLUDE_W_MEMBER_SOCIAL`** = `true` in Vercel (or set **`LINKEDIN_OAUTH_SCOPES`** to `openid profile email w_member_social`) and redeploy. Without the Share product, requesting `w_member_social` makes LinkedIn show a generic error before the consent screen.
 7. Back in the **Auth** tab, **copy these values:**
    - `LINKEDIN_CLIENT_ID`
    - `LINKEDIN_CLIENT_SECRET`
 
-**Connect a LinkedIn Page (company page):** The app offers two options: **Personal profile** and **LinkedIn Page**. The Page flow uses the same scopes as personal by default so authorization does not fail with LinkedIn’s “Bummer, something went wrong” (that error appears when you request `r_organization_social` / `w_organization_social` without the **Marketing Developer Platform** or **Community Management API** product approved). With default scopes, the connection completes and the account is labeled “LinkedIn Page” in the app; the callback cannot fetch the real Page name until the app has org access. To request org scopes and resolve the Page name (after LinkedIn approves the product), set **`LINKEDIN_REQUEST_ORG_SCOPES`** = `true` in your environment and redeploy. Then add/request the **Community Management API** (or **Marketing Developer Platform**) in the LinkedIn Developer Portal so the authorization succeeds with those scopes.
+**Connect a LinkedIn Page (company page):** The app offers **Personal profile** and **LinkedIn Page**. By default the app only requests **OpenID Connect** scopes so connect works with that product alone. LinkedIn’s “Bummer, something went wrong” usually means a **scope your app does not have** (for example `w_member_social` without **Share on LinkedIn**, or org scopes without **Community Management API** / **Marketing Developer Platform**). To request org scopes (after LinkedIn approves the product), set **`LINKEDIN_REQUEST_ORG_SCOPES`** = `true` and redeploy; that flow includes `w_member_social`, so **Share on LinkedIn** must also be on the app.
 
 ---
 
