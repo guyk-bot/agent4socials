@@ -46,8 +46,8 @@ const PLATFORM_ICON: Record<string, React.ReactNode> = {
 
 const PLATFORM_ORDER = ['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'LINKEDIN', 'PINTEREST', 'TWITTER'];
 
-/** X (Twitter) is paid-only; highlight and send to pricing when unconnected. LinkedIn stays connectable. */
-const UPGRADE_TO_CONNECT_PLATFORMS = ['TWITTER'];
+/** Platforms that show a gem / upgrade styling on the connect row (empty = same as other networks). */
+const UPGRADE_TO_CONNECT_PLATFORMS: string[] = [];
 
 type SidebarProps = {
   sidebarOpen?: boolean;
@@ -151,7 +151,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
           if (accounts.length === 0) {
             const connectParam = platform.toLowerCase();
             const needsUpgrade = UPGRADE_TO_CONNECT_PLATFORMS.includes(platform);
-            /** Same connect URL for all (testing: premium platforms connectable); visuals (diamond, tooltip) still show for needsUpgrade. */
+            /** Connect URL per platform; optional gem styling when platform is in UPGRADE_TO_CONNECT_PLATFORMS. */
             const href = `/dashboard?connect=${connectParam}`;
             const platformRowClass = `w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors ${
               isPlatformSelected ? 'bg-white shadow-sm ring-1 ring-neutral-200' : 'hover:bg-white/70'
@@ -177,7 +177,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                 key={platform}
                 href={href}
                 className={platformRowClass}
-                title={needsUpgrade ? 'X (Twitter) is available on paid plans. Upgrade to connect.' : undefined}
+                title={needsUpgrade ? 'Upgrade to connect this network.' : undefined}
               >
                 {platformRowInner}
               </a>
@@ -187,7 +187,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                 href={href}
                 onClick={() => setSelectedPlatformForConnect(platform)}
                 className={platformRowClass}
-                title={needsUpgrade ? 'X (Twitter) is available on paid plans. Upgrade to connect.' : undefined}
+                title={needsUpgrade ? 'Upgrade to connect this network.' : undefined}
               >
                 {platformRowInner}
               </Link>
