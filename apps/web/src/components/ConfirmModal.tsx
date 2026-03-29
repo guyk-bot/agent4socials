@@ -54,7 +54,16 @@ export function ConfirmModal({
 
   return createPortal(
     <div
-      style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 9999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '1rem',
+        minHeight: '100dvh',
+      }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="confirm-modal-title"
@@ -62,7 +71,13 @@ export function ConfirmModal({
     >
       {/* Backdrop */}
       <div
-        style={{ position: 'absolute', inset: 0, background: 'rgba(15,15,15,0.65)', backdropFilter: 'blur(4px)' }}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          minHeight: '100dvh',
+          background: 'rgba(15,15,15,0.65)',
+          backdropFilter: 'blur(4px)',
+        }}
         onClick={onClose}
         aria-hidden="true"
       />
