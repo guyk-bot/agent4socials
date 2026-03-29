@@ -87,6 +87,47 @@ function mediaCanvasUrl(fileUrl: string): string {
     return fileUrl;
 }
 
+/** Live frame preview in PostPreview while "Pick a frame from video" is selected (seeks with slider). */
+function ComposerScrubVideoPreview({
+    src,
+    timeSec,
+    className,
+}: {
+    src: string;
+    timeSec: number;
+    className?: string;
+}) {
+    const ref = useRef<HTMLVideoElement>(null);
+    useEffect(() => {
+        const v = ref.current;
+        if (!v) return;
+        const seek = () => {
+            if (!Number.isFinite(timeSec) || timeSec < 0) return;
+            const d = v.duration;
+            const cap = Number.isFinite(d) && d > 0.08 ? Math.min(timeSec, d - 0.05) : timeSec;
+            try {
+                if (Math.abs(v.currentTime - cap) > 0.04) v.currentTime = cap;
+            } catch {
+                /* seek can throw before metadata */
+            }
+        };
+        seek();
+        v.addEventListener('loadedmetadata', seek);
+        return () => v.removeEventListener('loadedmetadata', seek);
+    }, [src, timeSec]);
+    return (
+        <video
+            ref={ref}
+            src={src}
+            className={className}
+            muted
+            playsInline
+            preload="auto"
+            crossOrigin={src.startsWith('blob:') ? undefined : 'anonymous'}
+        />
+    );
+}
+
 const PLATFORM_LABELS: Record<string, string> = {
     INSTAGRAM: 'Instagram',
     TIKTOK: 'TikTok',
@@ -273,7 +314,6 @@ export default function ComposerPage() {
     const searchParams = useSearchParams();
     const editPostId = searchParams.get('edit');
     const [platforms, setPlatforms] = useState<string[]>([]);
-    const [pinterestSandbox, setPinterestSandbox] = useState(false);
     const [content, setContent] = useState('');
     const [contentByPlatform, setContentByPlatform] = useState<Record<string, string>>({});
     const [differentContentPerPlatform, setDifferentContentPerPlatform] = useState(false);
@@ -1340,7 +1380,7 @@ export default function ComposerPage() {
                         if (debug) sessionStorage.removeItem('publish_debug');
                         const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string; debugInfo?: { mediaUrlsByPlatform?: Record<string, string>; fullErrors?: Record<string, string> } }>(
                             `/posts/${editPostId}/publish${debug ? '?debug=1' : ''}`,
-                            { pinterestSandbox: pinterestSandbox && platforms.includes('PINTEREST') },
+                            {},
                             { timeout: 90_000 }
                         );
                         const results = publishRes.data?.results;
@@ -1364,7 +1404,7 @@ export default function ComposerPage() {
                                 else hint = (hint ? hint + ' ' : '') + 'For TikTok: ensure your app has Content Posting API access and the video meets requirements (MP4, under 10 min). Reconnect the account from Dashboard if needed.';
                             }
                             if (failed.includes('PINTEREST') && (failed.includes('"code":29') || failed.includes('Trial access'))) {
-                                hint = (hint ? hint + ' ' : '') + 'For Pinterest: your app is still in Trial access and cannot create Pins in production. Upgrade to Standard access in Pinterest Developer Platform, or use api-sandbox.pinterest.com for trial testing.';
+                                hint = (hint ? hint + ' ' : '') + 'For Pinterest: your app may still be in Trial access. Request Standard access in the Pinterest Developer Platform to publish Pins to your live profile.';
                             }
                             setAlertMessage(`Post updated but some platforms failed: ${failed}. ${hint}`);
                             return;
@@ -1408,7 +1448,7 @@ export default function ComposerPage() {
                         if (debug) sessionStorage.removeItem('publish_debug');
                         const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string; debugInfo?: { mediaUrlsByPlatform?: Record<string, string>; fullErrors?: Record<string, string> } }>(
                             `/posts/${postId}/publish${debug ? '?debug=1' : ''}`,
-                            { pinterestSandbox: pinterestSandbox && platforms.includes('PINTEREST') },
+                            {},
                             { timeout: 90_000 }
                         );
                     const results = publishRes.data?.results;
@@ -1432,7 +1472,7 @@ export default function ComposerPage() {
                                 else hint = (hint ? hint + ' ' : '') + 'For TikTok: ensure your app has Content Posting API access and the video meets requirements (MP4, under 10 min). Reconnect the account from Dashboard if needed.';
                             }
                             if (failed.includes('PINTEREST') && (failed.includes('"code":29') || failed.includes('Trial access'))) {
-                                hint = (hint ? hint + ' ' : '') + 'For Pinterest: your app is still in Trial access and cannot create Pins in production. Upgrade to Standard access in Pinterest Developer Platform, or use api-sandbox.pinterest.com for trial testing.';
+                                hint = (hint ? hint + ' ' : '') + 'For Pinterest: your app may still be in Trial access. Request Standard access in the Pinterest Developer Platform to publish Pins to your live profile.';
                             }
                             setAlertMessage(`Post created but some platforms failed: ${failed}. ${hint}`);
                             return;
@@ -1506,6 +1546,14 @@ export default function ComposerPage() {
     };
 
     const composerReady = draftRestored && (!editPostId || editLoaded) && accountsFetched;
+
+    const composerFramePreview =
+        (mediaType === 'video' || mediaType === 'reel') &&
+        mediaList.length === 1 &&
+        mediaList[0]?.type === 'VIDEO' &&
+        thumbnailChoice === 'frame'
+            ? { timeSec: thumbnailPickerTime, videoSrc: mediaCanvasUrl(mediaList[0].fileUrl) }
+            : undefined;
 
     // After load: show any alert passed from a redirect (e.g. publish failure) so user always sees status
     useEffect(() => {
@@ -1690,19 +1738,6 @@ export default function ComposerPage() {
                                 );
                             })}
                         </div>
-                        {platforms.includes('PINTEREST') && (
-                            <label className="mt-3 inline-flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-                                <input
-                                    type="checkbox"
-                                    checked={pinterestSandbox}
-                                    onChange={(e) => setPinterestSandbox(e.target.checked)}
-                                    className="mt-0.5 rounded border-amber-300 text-amber-600 focus:ring-amber-400"
-                                />
-                                <span className="text-xs text-amber-900">
-                                    Use Pinterest sandbox mode for demo uploads (Trial app). Sandbox pins are for testing only and do not post to your live profile.
-                                </span>
-                            </label>
-                        )}
                         </>
                         )}
                     </div>
@@ -2493,6 +2528,7 @@ export default function ComposerPage() {
                                             mediaType={mediaType}
                                             compact={platforms.length > 1}
                                             mediaUploading={mediaUploading}
+                                            composerFramePreview={composerFramePreview}
                                     />
                                 );
                                 })}
@@ -2550,6 +2586,7 @@ export default function ComposerPage() {
                                             mediaType={mediaType}
                                             compact={platforms.length > 1}
                                             mediaUploading={mediaUploading}
+                                            composerFramePreview={composerFramePreview}
                                         />
                                     );
                                 })}
@@ -2593,6 +2630,7 @@ function PostPreview({
     mediaType = 'photo',
     compact = false,
     mediaUploading = false,
+    composerFramePreview,
 }: {
     platform: string;
     profileName: string;
@@ -2602,10 +2640,21 @@ function PostPreview({
     mediaType?: MediaTypeChoice;
     compact?: boolean;
     mediaUploading?: boolean;
+    /** When set with a single video, preview seeks with the composer frame slider. */
+    composerFramePreview?: { timeSec: number; videoSrc: string };
 }) {
     const [currentSlide, setCurrentSlide] = useState(0);
+    const [videoHover, setVideoHover] = useState(false);
     const slideIndex = media.length > 0 ? Math.min(currentSlide, media.length - 1) : 0;
     const currentMedia = media[slideIndex];
+    const isVideoMedia = currentMedia?.type === 'VIDEO';
+    const useLiveFrameScrub = Boolean(
+        composerFramePreview && isVideoMedia && media.length === 1 && slideIndex === 0
+    );
+
+    useEffect(() => {
+        setVideoHover(false);
+    }, [slideIndex, currentMedia?.type, currentMedia?.fileUrl]);
 
     const PlatformIcon = () => {
         switch (platform) {
@@ -2620,6 +2669,22 @@ function PostPreview({
         }
     };
     const reelPreview = mediaType === 'reel';
+    const aspectBase =
+        mediaType === 'video'
+            ? 'aspect-video'
+            : mediaType === 'reel' || (media.length === 1 && media[0]?.type === 'VIDEO')
+              ? 'aspect-[9/16]'
+              : 'aspect-square';
+    const hoverExpand = Boolean(isVideoMedia && videoHover);
+    const mediaShellClass =
+        `${reelPreview ? 'bg-black' : 'bg-neutral-50'} flex items-center justify-center relative transition-all duration-300 ease-out ` +
+        (hoverExpand
+            ? compact
+                ? 'aspect-auto min-h-[200px] max-h-[min(72vh,440px)] overflow-y-auto py-1'
+                : 'aspect-auto min-h-[260px] max-h-[min(84vh,680px)] overflow-y-auto py-2'
+            : `overflow-hidden ${aspectBase}`);
+    const videoVisualClass = `w-full object-contain ${hoverExpand ? (compact ? 'max-h-[min(68vh,400px)]' : 'max-h-[min(80vh,620px)]') : 'h-full'}`;
+
     return (
         <div
             className={`rounded-xl overflow-hidden bg-white shadow-sm ${reelPreview ? '' : 'border border-neutral-200'} ${compact ? 'max-w-[260px]' : 'w-full max-w-none mx-auto shadow-lg'}`}
@@ -2638,7 +2703,9 @@ function PostPreview({
                 </div>
             </div>
             <div
-                className={`${reelPreview ? 'bg-black' : 'bg-neutral-50'} flex items-center justify-center overflow-hidden relative ${mediaType === 'video' ? 'aspect-video' : mediaType === 'reel' || (media.length === 1 && media[0]?.type === 'VIDEO') ? 'aspect-[9/16]' : 'aspect-square'}`}
+                className={mediaShellClass}
+                onMouseEnter={() => isVideoMedia && setVideoHover(true)}
+                onMouseLeave={() => setVideoHover(false)}
             >
                 {mediaUploading && !currentMedia ? (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-neutral-100 animate-pulse">
@@ -2648,10 +2715,25 @@ function PostPreview({
                 ) : currentMedia ? (
                     <>
                         {currentMedia.type === 'VIDEO' ? (
-                            (currentMedia as { thumbnailUrl?: string }).thumbnailUrl ? (
-                                <img src={mediaDisplayUrl((currentMedia as { thumbnailUrl?: string }).thumbnailUrl!)} alt="Video cover" className="w-full h-full object-contain" />
+                            useLiveFrameScrub && composerFramePreview ? (
+                                <ComposerScrubVideoPreview
+                                    src={composerFramePreview.videoSrc}
+                                    timeSec={composerFramePreview.timeSec}
+                                    className={videoVisualClass}
+                                />
+                            ) : (currentMedia as { thumbnailUrl?: string }).thumbnailUrl ? (
+                                <img
+                                    src={mediaDisplayUrl((currentMedia as { thumbnailUrl?: string }).thumbnailUrl!)}
+                                    alt="Video cover"
+                                    className={videoVisualClass}
+                                />
                             ) : (
-                                <video src={mediaDisplayUrl(currentMedia.fileUrl)} className="w-full h-full object-contain" muted playsInline />
+                                <video
+                                    src={mediaDisplayUrl(currentMedia.fileUrl)}
+                                    className={videoVisualClass}
+                                    muted
+                                    playsInline
+                                />
                             )
                         ) : (
                             <img src={mediaDisplayUrl(currentMedia.fileUrl)} alt="preview" className="w-full h-full object-cover" />

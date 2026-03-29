@@ -62,12 +62,12 @@ function pinterestApiErrorDetail(status: number | undefined, data: unknown): str
   return status != null ? `HTTP ${status}` : 'Unknown error';
 }
 
-/** Pinterest video pins require a cover; content type pairs with cover_image_url per API validation. */
-function pinterestCoverContentTypeFromUrl(url: string): 'image/jpeg' | 'image/png' {
-  try {
-    const p = new URL(url).pathname.toLowerCase();
-    if (p.endsWith('.png')) return 'image/png';
-  } catch (_) {}
+/** Max raw bytes for Pinterest video cover when sending Base64 (avoid huge JSON bodies). */
+const PINTEREST_COVER_MAX_BYTES = 2 * 1024 * 1024;
+
+function pinterestCoverContentTypeFromBuffer(contentType: string): 'image/jpeg' | 'image/png' {
+  const c = contentType.toLowerCase();
+  if (c.includes('png')) return 'image/png';
   return 'image/jpeg';
 }
 
@@ -658,10 +658,21 @@ export async function publishTarget(
         };
         const thumb = videoThumbnailUrl?.trim();
         if (thumb) {
-          pinBody.cover_image_url = thumb;
-          pinBody.cover_image_content_type = pinterestCoverContentTypeFromUrl(thumb);
+          // OpenAPI: `cover_image_content_type` is for Base64 covers only, not for `cover_image_url`.
+          // Sending URL + content_type triggers validation error. Prefer fetching the image ourselves
+          // and sending cover_image_data so Pinterest does not need to reach our signed URLs.
+          try {
+            const { buffer, contentType } = await fetchImageBuffer(thumb, fetchFn);
+            if (buffer.length > 0 && buffer.length <= PINTEREST_COVER_MAX_BYTES) {
+              pinBody.cover_image_data = buffer.toString('base64');
+              pinBody.cover_image_content_type = pinterestCoverContentTypeFromBuffer(contentType);
+            } else {
+              pinBody.cover_image_url = thumb;
+            }
+          } catch {
+            pinBody.cover_image_url = thumb;
+          }
         } else {
-          // No custom thumbnail: ask Pinterest to pick a frame (uploaded cover is otherwise required).
           pinBody.cover_image_key_frame_time = 1;
         }
         const pinRes = await axiosInstance.post(`${pinterestApiBase}/pins`, pinBody, {
@@ -672,9 +683,14 @@ export async function publishTarget(
           validateStatus: () => true,
         });
         if (pinRes.status < 200 || pinRes.status >= 300) {
+          const coverMode = thumb
+            ? pinBody.cover_image_data
+              ? 'cover_image_data (base64)'
+              : 'cover_image_url'
+            : 'cover_image_key_frame_time';
           return {
             ok: false,
-            error: `Pinterest video Pin failed (${pinRes.status}). Request had ${thumb ? 'cover_image_url' : 'cover_image_key_frame_time only'}. ${pinterestApiErrorDetail(pinRes.status, pinRes.data)}`,
+            error: `Pinterest video Pin failed (${pinRes.status}). Cover: ${coverMode}. ${pinterestApiErrorDetail(pinRes.status, pinRes.data)}`,
           };
         }
         const pinId = (pinRes.data as { id?: string })?.id;
