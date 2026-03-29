@@ -53,38 +53,29 @@ export function ConfirmModal({
   const accentLine = isDanger ? 'bg-red-500' : isInfo ? 'bg-blue-500' : 'bg-amber-500';
 
   return createPortal(
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 9999,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '1rem',
-        minHeight: '100dvh',
-      }}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="confirm-modal-title"
-      aria-describedby="confirm-modal-desc"
-    >
-      {/* Backdrop */}
+    <>
       <div
+        className="fixed z-[9999] min-h-screen min-h-[100dvh] min-h-[100lvh] w-screen"
         style={{
-          position: 'absolute',
-          inset: 0,
-          minHeight: '100dvh',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
           background: 'rgba(15,15,15,0.65)',
           backdropFilter: 'blur(4px)',
         }}
         onClick={onClose}
         aria-hidden="true"
       />
-
-      {/* Panel */}
       <div
-        className="relative w-full max-w-sm rounded-2xl bg-white shadow-2xl overflow-hidden"
+        className="fixed inset-0 z-[10000] flex items-center justify-center p-4 pointer-events-none"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-modal-title"
+        aria-describedby="confirm-modal-desc"
+      >
+      <div
+        className="pointer-events-auto relative w-full max-w-sm rounded-2xl bg-white shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
         style={{ animation: 'modal-pop 0.18s cubic-bezier(0.34,1.56,0.64,1) both' }}
       >
@@ -132,6 +123,7 @@ export function ConfirmModal({
           </div>
         </div>
       </div>
+      </div>
 
       <style>{`
         @keyframes modal-pop {
@@ -139,7 +131,7 @@ export function ConfirmModal({
           to   { opacity: 1; transform: scale(1) translateY(0); }
         }
       `}</style>
-    </div>,
+    </>,
     document.body,
   );
 }

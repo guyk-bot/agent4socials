@@ -265,6 +265,15 @@ function formatPostCardDateTime(iso: string): string {
   }
 }
 
+/** Pinterest CDN often rejects hotlinked images when a referrer is sent. */
+function pinterestCdnImgProps(url: string | null | undefined): React.ImgHTMLAttributes<HTMLImageElement> {
+  const u = typeof url === 'string' ? url : '';
+  if (u.includes('pinimg.com') || u.includes('pinterest.com')) {
+    return { referrerPolicy: 'no-referrer' };
+  }
+  return {};
+}
+
 function clampText(v: string | null | undefined, max = 120): string {
   if (!v) return '';
   const one = v.replace(/\s+/g, ' ').trim();
@@ -591,6 +600,7 @@ export function TopPostsGrid({
                       src={p.thumbnailUrl}
                       alt=""
                       className="h-9 w-9 rounded-md object-cover shrink-0"
+                      {...pinterestCdnImgProps(p.thumbnailUrl)}
                       onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                     />
                   ) : (
@@ -713,7 +723,12 @@ export function PostsPerformanceTable({
                 <td className="px-3 py-3" style={{ color: COLOR.textSecondary }}>
                   <div className="flex items-center gap-3 min-w-0">
                     {r.rawPost.thumbnailUrl ? (
-                      <img src={r.rawPost.thumbnailUrl} alt="" className="w-9 h-9 rounded object-cover shrink-0" />
+                      <img
+                        src={r.rawPost.thumbnailUrl}
+                        alt=""
+                        className="w-9 h-9 rounded object-cover shrink-0"
+                        {...pinterestCdnImgProps(r.rawPost.thumbnailUrl)}
+                      />
                     ) : (
                       <div className="w-9 h-9 rounded shrink-0" style={{ background: 'rgba(124,108,255,0.12)' }} />
                     )}
@@ -766,7 +781,12 @@ export function PostsPerformanceTable({
           >
             <div className="flex items-start gap-2">
               {r.rawPost.thumbnailUrl ? (
-                <img src={r.rawPost.thumbnailUrl} alt="" className="w-10 h-10 rounded object-cover shrink-0" />
+                <img
+                  src={r.rawPost.thumbnailUrl}
+                  alt=""
+                  className="w-10 h-10 rounded object-cover shrink-0"
+                  {...pinterestCdnImgProps(r.rawPost.thumbnailUrl)}
+                />
               ) : (
                 <div className="w-10 h-10 rounded shrink-0" style={{ background: 'rgba(124,108,255,0.12)' }} />
               )}
@@ -838,7 +858,12 @@ function TopContentHighlights({
                 <div className="relative isolate mt-1 h-[92px] w-[92px]">
                   <div className="absolute inset-0 overflow-hidden rounded-xl border" style={{ borderColor: COLOR.border, background: '#f3f4f6' }}>
                     {r.thumbnailUrl ? (
-                      <img src={r.thumbnailUrl} alt="Post thumbnail" className="h-full w-full object-cover" />
+                      <img
+                        src={r.thumbnailUrl}
+                        alt="Post thumbnail"
+                        className="h-full w-full object-cover"
+                        {...pinterestCdnImgProps(r.thumbnailUrl)}
+                      />
                     ) : null}
                     {r.permalink ? (
                       <Link

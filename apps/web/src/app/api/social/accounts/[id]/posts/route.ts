@@ -1017,11 +1017,17 @@ async function syncImportedPosts(
       link?: string;
       media?: {
         media_type?: string;
+        /** Video pins expose a dedicated cover URL (see PinMediaWithVideo in Pinterest v5 OpenAPI). */
+        cover_image_url?: string;
         images?: Record<string, PinMediaImage>;
       };
     };
     function pickPinThumbnail(media: PinItem['media']): string | null {
-      const images = media?.images;
+      if (!media || typeof media !== 'object') return null;
+      if (media.media_type === 'video' && typeof media.cover_image_url === 'string' && media.cover_image_url.trim()) {
+        return media.cover_image_url.trim();
+      }
+      const images = media.images;
       if (!images || typeof images !== 'object') return null;
       let best: PinMediaImage | undefined;
       let bestArea = 0;

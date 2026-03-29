@@ -21,6 +21,8 @@ import {
     Loader2,
     Download,
     HelpCircle,
+    Play,
+    Pause,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -127,6 +129,189 @@ function ComposerScrubVideoPreview({
         />
     );
 }
+
+function formatPeekTimeSec(sec: number): string {
+    if (!Number.isFinite(sec) || sec < 0) return '0:00';
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Small composer preview: fixed box size (parent overflow-hidden + aspect ratio).
+ * No native `controls` (they grow layout). Custom play + scrub bar.
+ */
+const ComposerMediaPeekPlayer = React.forwardRef<
+    HTMLVideoElement,
+    {
+        src: string;
+        active: boolean;
+        fitClass: string;
+        crossOrigin?: 'anonymous';
+        /** Mirror main frame slider while open (frame-picker mode). */
+        frameSyncTime?: number;
+        /** When false, used as the only layer (plain video): show first frame when idle. */
+        variant?: 'overlay' | 'inline';
+    }
+>(function ComposerMediaPeekPlayer(
+    { src, active, fitClass, crossOrigin, frameSyncTime, variant = 'overlay' },
+    forwardedRef,
+) {
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const setVideoRef = useCallback(
+        (el: HTMLVideoElement | null) => {
+            videoRef.current = el;
+            if (typeof forwardedRef === 'function') forwardedRef(el);
+            else if (forwardedRef && typeof forwardedRef === 'object') {
+                (forwardedRef as React.MutableRefObject<HTMLVideoElement | null>).current = el;
+            }
+        },
+        [forwardedRef],
+    );
+    const [duration, setDuration] = useState(1);
+    const [displayTime, setDisplayTime] = useState(0);
+    const [playing, setPlaying] = useState(false);
+
+    useEffect(() => {
+        const v = videoRef.current;
+        if (!v) return;
+        const onMeta = () => {
+            const d = v.duration;
+            setDuration(Number.isFinite(d) && d > 0 ? d : 1);
+        };
+        const onTime = () => setDisplayTime(v.currentTime);
+        const onPlay = () => setPlaying(true);
+        const onPause = () => setPlaying(false);
+        v.addEventListener('loadedmetadata', onMeta);
+        v.addEventListener('timeupdate', onTime);
+        v.addEventListener('play', onPlay);
+        v.addEventListener('pause', onPause);
+        onMeta();
+        return () => {
+            v.removeEventListener('loadedmetadata', onMeta);
+            v.removeEventListener('timeupdate', onTime);
+            v.removeEventListener('play', onPlay);
+            v.removeEventListener('pause', onPause);
+        };
+    }, [src]);
+
+    useEffect(() => {
+        const v = videoRef.current;
+        if (!v) return;
+        if (!active) {
+            v.pause();
+            setPlaying(false);
+            if (variant === 'inline') {
+                try {
+                    v.currentTime = 0;
+                } catch {
+                    /* */
+                }
+            }
+            return;
+        }
+        void v.play().catch(() => {});
+    }, [active, src, variant]);
+
+    /** Scrub main frame slider while hover preview is open (frame-picker mode). */
+    useEffect(() => {
+        if (!active || frameSyncTime === undefined) return;
+        const v = videoRef.current;
+        if (!v) return;
+        try {
+            if (Math.abs(v.currentTime - frameSyncTime) > 0.12) {
+                v.currentTime = frameSyncTime;
+            }
+        } catch {
+            /* */
+        }
+    }, [frameSyncTime, active]);
+
+    const togglePlay = useCallback(() => {
+        const v = videoRef.current;
+        if (!v) return;
+        if (v.paused) void v.play();
+        else v.pause();
+    }, []);
+
+    const onScrub = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        const v = videoRef.current;
+        if (!v) return;
+        const t = parseFloat(e.target.value);
+        v.currentTime = t;
+        setDisplayTime(t);
+    }, []);
+
+    const dim = Math.max(0.01, duration);
+    const rangeVal = Math.min(Math.max(0, displayTime), dim);
+
+    return (
+        <div
+            className={`absolute inset-0 z-[3] flex flex-col justify-end overflow-hidden ${
+                variant === 'overlay' ? 'bg-black' : 'bg-neutral-900'
+            }`}
+        >
+            <video
+                ref={setVideoRef}
+                src={src}
+                className={`absolute inset-0 z-[1] h-full w-full ${fitClass}`}
+                playsInline
+                muted
+                preload="metadata"
+                crossOrigin={crossOrigin}
+            />
+            {active ? (
+                <>
+                    {!playing ? (
+                        <button
+                            type="button"
+                            className="absolute inset-0 z-20 flex items-center justify-center bg-black/30 transition-colors hover:bg-black/40"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                togglePlay();
+                            }}
+                            aria-label="Play video"
+                        >
+                            <span className="rounded-full bg-black/70 p-3 shadow-lg">
+                                <Play className="h-8 w-8 text-white" fill="currentColor" aria-hidden />
+                            </span>
+                        </button>
+                    ) : null}
+                    <div className="relative z-30 flex flex-col gap-1 bg-gradient-to-t from-black/95 via-black/70 to-transparent px-2 pb-1.5 pt-6">
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                className="rounded-md bg-white/20 p-1.5 text-white hover:bg-white/30"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    togglePlay();
+                                }}
+                                aria-label={playing ? 'Pause' : 'Play'}
+                            >
+                                {playing ? <Pause className="h-4 w-4" aria-hidden /> : <Play className="h-4 w-4" fill="currentColor" aria-hidden />}
+                            </button>
+                            <span className="text-[10px] tabular-nums text-white/90">
+                                {formatPeekTimeSec(displayTime)} / {formatPeekTimeSec(duration)}
+                            </span>
+                        </div>
+                        <input
+                            type="range"
+                            min={0}
+                            max={dim}
+                            step={0.01}
+                            value={rangeVal}
+                            onChange={onScrub}
+                            className="h-1.5 w-full cursor-pointer accent-[var(--primary)]"
+                            onClick={(e) => e.stopPropagation()}
+                            aria-label="Seek video"
+                        />
+                    </div>
+                </>
+            ) : null}
+        </div>
+    );
+});
+ComposerMediaPeekPlayer.displayName = 'ComposerMediaPeekPlayer';
 
 const PLATFORM_LABELS: Record<string, string> = {
     INSTAGRAM: 'Instagram',
@@ -332,7 +517,6 @@ export default function ComposerPage() {
     const justAutoGeneratedThumbRef = useRef(false);
     /** Hover playback layer for the small media preview (thumbnail / frame / plain video). */
     const mediaPeekPlayRef = useRef<HTMLVideoElement>(null);
-    const simplePeekVideoRef = useRef<HTMLVideoElement>(null);
     const [mediaPeekHover, setMediaPeekHover] = useState(false);
     const [thumbnailPickerTime, setThumbnailPickerTime] = useState(0);
     const [thumbnailVideoDuration, setThumbnailVideoDuration] = useState(1);
@@ -401,48 +585,15 @@ export default function ComposerPage() {
         setMediaPeekHover(false);
     }, [mediaList[0]?.fileUrl, thumbnailChoice]);
 
-    /** Keep hover preview in sync when scrubbing the frame slider while peek is open. */
-    useEffect(() => {
-        if (!mediaPeekHover || thumbnailChoice !== 'frame') return;
-        const v = mediaPeekPlayRef.current;
-        if (!v || !Number.isFinite(thumbnailPickerTime)) return;
-        try {
-            if (Math.abs(v.currentTime - thumbnailPickerTime) > 0.12) {
-                ignoreTimeUpdateUntilRef.current = Date.now() + 350;
-                v.currentTime = thumbnailPickerTime;
-            }
-        } catch {
-            /* seek can throw before metadata */
-        }
-    }, [thumbnailPickerTime, mediaPeekHover, thumbnailChoice]);
-
     const firstVideo = mediaList[0];
     const handleMediaPeekEnter = useCallback(() => {
         if (firstVideo?.type !== 'VIDEO') return;
         setMediaPeekHover(true);
-        requestAnimationFrame(() => {
-            const overlay = mediaPeekPlayRef.current;
-            const simple = simplePeekVideoRef.current;
-            const target = overlay ?? simple;
-            if (!target) return;
-            let t = 0;
-            if (thumbnailChoice === 'frame') {
-                const hidden = videoThumbnailRef.current;
-                t = hidden && Number.isFinite(hidden.currentTime) ? hidden.currentTime : thumbnailPickerTime;
-            }
-            try {
-                target.currentTime = Math.max(0, t);
-            } catch {
-                /* */
-            }
-            void target.play().catch(() => {});
-        });
-    }, [firstVideo?.type, firstVideo?.fileUrl, thumbnailChoice, thumbnailPickerTime]);
+    }, [firstVideo?.type]);
 
     const handleMediaPeekLeave = useCallback(() => {
         setMediaPeekHover(false);
         mediaPeekPlayRef.current?.pause();
-        simplePeekVideoRef.current?.pause();
     }, []);
 
     // Auto-capture video frame for thumbnail when user chose "No custom thumbnail" (for History display only; publish uses video default)
@@ -527,6 +678,19 @@ export default function ComposerPage() {
     const [dmReplyAiLoading, setDmReplyAiLoading] = useState(false);
     const [aiError, setAiError] = useState<string | null>(null);
     const [hasBrandContext, setHasBrandContext] = useState<boolean | null>(null);
+
+    useEffect(() => {
+        if (typeof document === 'undefined') return;
+        if (!aiModalOpen) return;
+        const prevBody = document.body.style.overflow;
+        const prevHtml = document.documentElement.style.overflow;
+        document.body.style.overflow = 'hidden';
+        document.documentElement.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = prevBody;
+            document.documentElement.style.overflow = prevHtml;
+        };
+    }, [aiModalOpen]);
 
     useEffect(() => {
         try {
@@ -1650,19 +1814,19 @@ export default function ComposerPage() {
                 confirmLabel="OK"
             />
             {aiModalOpen && typeof document !== 'undefined' && createPortal(
-                <div
-                    className="fixed inset-0 z-[10050] flex min-h-[100dvh] w-full items-center justify-center p-4"
-                    style={{ top: 0, left: 0, right: 0, bottom: 0 }}
-                    role="dialog"
-                    aria-modal="true"
-                >
+                <>
                     <div
-                        className="absolute inset-0 min-h-[100dvh] w-full bg-neutral-900/50 backdrop-blur-sm"
+                        className="fixed z-[10050] min-h-screen min-h-[100dvh] min-h-[100lvh] w-screen bg-neutral-900/50 backdrop-blur-sm"
                         style={{ top: 0, left: 0, right: 0, bottom: 0 }}
                         onClick={() => !aiLoading && setAiModalOpen(false)}
                         aria-hidden="true"
                     />
-                    <div className="relative z-10 w-full max-w-md rounded-xl border border-neutral-200 bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+                    <div
+                        className="fixed inset-0 z-[10051] flex items-center justify-center p-4 pointer-events-none"
+                        role="dialog"
+                        aria-modal="true"
+                    >
+                    <div className="pointer-events-auto relative w-full max-w-md rounded-xl border border-neutral-200 bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
                         <h3 className="text-lg font-semibold text-neutral-900">Generate with AI</h3>
                         {hasBrandContext === false && (
                             <p className="mt-2 text-sm text-amber-700 bg-amber-50 rounded-lg p-3">
@@ -1758,7 +1922,8 @@ export default function ComposerPage() {
                             </div>
                         )}
                     </div>
-                </div>,
+                    </div>
+                </>,
                 document.body,
             )}
             <div>
@@ -1945,7 +2110,7 @@ export default function ComposerPage() {
                                         </div>
                                         <div className="shrink-0 sm:pt-0 pt-0">
                                             <div
-                                                className={`relative group rounded-lg overflow-hidden border-2 border-neutral-200 bg-neutral-100 shrink-0 ${mediaType === 'video' ? 'aspect-video w-64 max-w-full' : (mediaType === 'reel' ? 'aspect-[9/16] w-44' : 'aspect-video w-52')}`}
+                                                className={`relative group min-h-0 self-start overflow-hidden rounded-lg border-2 border-neutral-200 bg-neutral-100 shrink-0 ${mediaType === 'video' ? 'aspect-video w-64 max-w-full' : (mediaType === 'reel' ? 'aspect-[9/16] w-44' : 'aspect-video w-52')}`}
                                                 onMouseEnter={handleMediaPeekEnter}
                                                 onMouseLeave={handleMediaPeekLeave}
                                             >
@@ -1954,21 +2119,21 @@ export default function ComposerPage() {
                                                         ? (thumbnailByPlatform[selectedPlatformForThumbnail] ?? mediaList[0].thumbnailUrl)
                                                         : mediaList[0].thumbnailUrl;
                                                     const fitClass = mediaType === 'reel' ? 'object-cover' : 'object-contain';
-                                                    const peekLayerClass = `absolute inset-0 w-full h-full ${fitClass} bg-black z-[3] ${mediaPeekHover ? 'opacity-100' : 'opacity-0 pointer-events-none'}`;
                                                     const cors = mediaList[0].fileUrl.startsWith('blob:') ? undefined : 'anonymous' as const;
                                                     return effectiveThumbnail ? (
                                                     <>
                                                         <img src={mediaDisplayUrl(effectiveThumbnail)} alt="Thumbnail" className={`absolute inset-0 w-full h-full ${fitClass} z-[1] ${mediaPeekHover ? 'opacity-0' : 'opacity-100'}`} />
-                                                        <video
-                                                            ref={mediaPeekPlayRef}
-                                                            key={`peek-thumb-${mediaList[0].fileUrl}`}
-                                                            src={mediaCanvasUrl(mediaList[0].fileUrl)}
-                                                            className={peekLayerClass}
-                                                            playsInline
-                                                            controls={mediaPeekHover}
-                                                            crossOrigin={cors}
-                                                            preload="metadata"
-                                                        />
+                                                        <div className={`absolute inset-0 z-[4] transition-opacity duration-100 ${mediaPeekHover ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
+                                                            <ComposerMediaPeekPlayer
+                                                                ref={mediaPeekPlayRef}
+                                                                key={`peek-thumb-${mediaList[0].fileUrl}`}
+                                                                src={mediaCanvasUrl(mediaList[0].fileUrl)}
+                                                                active={mediaPeekHover}
+                                                                fitClass={fitClass}
+                                                                crossOrigin={cors}
+                                                                variant="overlay"
+                                                            />
+                                                        </div>
                                                         <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveMedia(0); }} className="absolute top-1 right-1 z-[5] p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow"><X size={12} /></button>
                                                         <a href={mediaList[0].fileUrl} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="absolute bottom-1 right-1 z-[5] p-1.5 bg-black/60 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow" title="Download"><Download size={12} /></a>
                                                     </>
@@ -2014,26 +2179,29 @@ export default function ComposerPage() {
                                                             </div>
                                                         )}
                                                         <canvas ref={thumbnailCanvasRef} className={`absolute inset-0 w-full h-full ${fitClass} pointer-events-none z-10 transition-opacity duration-75 ${mediaPeekHover ? 'opacity-0' : 'opacity-100'}`} style={{ width: '100%', height: '100%' }} aria-hidden />
-                                                        <video
-                                                            ref={mediaPeekPlayRef}
-                                                            key={`peek-frame-${mediaList[0].fileUrl}`}
-                                                            src={mediaCanvasUrl(mediaList[0].fileUrl)}
-                                                            className={peekLayerClass}
-                                                            playsInline
-                                                            controls={mediaPeekHover}
-                                                            crossOrigin={cors}
-                                                            preload="metadata"
-                                                        />
+                                                        <div className={`absolute inset-0 z-[15] transition-opacity duration-100 ${mediaPeekHover ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
+                                                            <ComposerMediaPeekPlayer
+                                                                ref={mediaPeekPlayRef}
+                                                                key={`peek-frame-${mediaList[0].fileUrl}`}
+                                                                src={mediaCanvasUrl(mediaList[0].fileUrl)}
+                                                                active={mediaPeekHover}
+                                                                fitClass={fitClass}
+                                                                crossOrigin={cors}
+                                                                frameSyncTime={thumbnailPickerTime}
+                                                                variant="overlay"
+                                                            />
+                                                        </div>
                                                     </div>
                                                 ) : (
                                                     <>
-                                                        <video
-                                                            ref={simplePeekVideoRef}
+                                                        <ComposerMediaPeekPlayer
+                                                            ref={mediaPeekPlayRef}
+                                                            key={`peek-inline-${mediaList[0].fileUrl}`}
                                                             src={mediaDisplayUrl(mediaList[0].fileUrl)}
-                                                            className={`w-full h-full ${fitClass}`}
-                                                            playsInline
-                                                            muted={!mediaPeekHover}
-                                                            controls={mediaPeekHover}
+                                                            active={mediaPeekHover}
+                                                            fitClass={fitClass}
+                                                            crossOrigin={cors}
+                                                            variant="inline"
                                                         />
                                                         <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveMedia(0); }} className="absolute top-1 right-1 z-[5] p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow"><X size={12} /></button>
                                                         <a href={mediaList[0].fileUrl} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="absolute bottom-1 right-1 z-[5] p-1.5 bg-black/60 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow" title="Download"><Download size={12} /></a>
