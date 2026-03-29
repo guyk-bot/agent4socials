@@ -1547,6 +1547,11 @@ export default function DashboardPage() {
                                     src={thumbnailSrc}
                                     alt=""
                                     className="w-12 h-12 rounded object-cover shrink-0"
+                                    referrerPolicy={
+                                      /pinimg\.com|pinterest\.com/i.test(String(post.thumbnailUrl ?? ''))
+                                        ? 'no-referrer'
+                                        : undefined
+                                    }
                                     onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.nextElementSibling as HTMLElement | null)?.style.removeProperty('display'); }}
                                   />
                                 ) : null}

@@ -91,6 +91,69 @@ async function listImportedPostsSafe(socialAccountId: string): Promise<ImportedP
   }
 }
 
+/** Pinterest list pins often omit image URLs; GET /v5/pins/{id} returns full PinMedia. */
+function pickPinThumbnailFromMedia(media: unknown): string | null {
+  if (!media || typeof media !== 'object') return null;
+  const m = media as Record<string, unknown>;
+  if (typeof m.cover_image_url === 'string' && m.cover_image_url.trim()) {
+    return m.cover_image_url.trim();
+  }
+  const images = m.images;
+  if (images && typeof images === 'object' && !Array.isArray(images)) {
+    let bestUrl: string | null = null;
+    let bestArea = 0;
+    for (const img of Object.values(images as Record<string, { url?: unknown; width?: unknown; height?: unknown }>)) {
+      if (!img || typeof img !== 'object') continue;
+      const rec = img as { url?: unknown; width?: unknown; height?: unknown };
+      if (typeof rec.url !== 'string' || !rec.url) continue;
+      const w = typeof rec.width === 'number' ? rec.width : 0;
+      const h = typeof rec.height === 'number' ? rec.height : 0;
+      const area = w * h || 1;
+      if (area >= bestArea) {
+        bestArea = area;
+        bestUrl = rec.url;
+      }
+    }
+    if (bestUrl) return bestUrl;
+  }
+  return null;
+}
+
+async function fetchPinterestPinMedia(
+  pinId: string,
+  headers: Record<string, string>,
+): Promise<unknown | null> {
+  try {
+    const res = await axios.get<{ media?: unknown }>(`https://api.pinterest.com/v5/pins/${encodeURIComponent(pinId)}`, {
+      headers,
+      validateStatus: () => true,
+      timeout: 12_000,
+    });
+    if (res.status !== 200) return null;
+    return res.data?.media ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function thumbnailUrlFromFirstPostMedia(m: {
+  fileUrl: string;
+  type: string;
+  metadata: unknown;
+} | undefined): string | null {
+  if (!m) return null;
+  if (m.type === 'IMAGE') return m.fileUrl;
+  if (m.type === 'VIDEO') {
+    const meta =
+      m.metadata && typeof m.metadata === 'object' && !Array.isArray(m.metadata)
+        ? (m.metadata as Record<string, unknown>)
+        : {};
+    const t = meta.thumbnailUrl;
+    return typeof t === 'string' && t.trim() ? t.trim() : null;
+  }
+  return null;
+}
+
 async function findImportedPostPrevSafe(socialAccountId: string, platformPostId: string): Promise<{ impressions: number; platformMetadata: unknown } | null> {
   try {
     const prev = await prisma.importedPost.findUnique({
@@ -195,7 +258,7 @@ export async function GET(
         status: PostStatus.POSTED,
         platformPostId: { not: null },
       },
-      include: { post: { select: { content: true, media: { select: { fileUrl: true, type: true }, take: 1 } } } },
+      include: { post: { select: { content: true, media: { select: { fileUrl: true, type: true, metadata: true }, take: 1 } } } },
       orderBy: { updatedAt: 'desc' },
       take: 200,
     });
@@ -238,6 +301,42 @@ export async function GET(
         }
       } catch (_) {
         // ignore; use DB values
+      }
+    }
+
+    /** Pinterest: list endpoint often omits thumbnails; fill gaps via GET /v5/pins/{id} and persist. */
+    const pinterestThumbByPinId: Record<string, string> = {};
+    if (account.platform === 'PINTEREST' && importedRows.length > 0 && account.accessToken) {
+      try {
+        const headers = { Authorization: `Bearer ${account.accessToken}` };
+        const missing = importedRows.filter((r) => !r.thumbnailUrl?.trim()).slice(0, 40);
+        const batchSize = 8;
+        for (let i = 0; i < missing.length; i += batchSize) {
+          const slice = missing.slice(i, i + batchSize);
+          await Promise.all(
+            slice.map(async (r) => {
+              const media = await fetchPinterestPinMedia(r.platformPostId, headers);
+              const url = pickPinThumbnailFromMedia(media);
+              if (!url) return;
+              pinterestThumbByPinId[r.platformPostId] = url;
+              try {
+                await prisma.importedPost.update({
+                  where: {
+                    socialAccountId_platformPostId: {
+                      socialAccountId: account.id,
+                      platformPostId: r.platformPostId,
+                    },
+                  },
+                  data: { thumbnailUrl: url, syncedAt: new Date() },
+                });
+              } catch {
+                /* row missing or race */
+              }
+            }),
+          );
+        }
+      } catch (e) {
+        console.warn('[Imported posts] Pinterest thumb enrich on read:', (e as Error)?.message ?? e);
       }
     }
 
@@ -303,7 +402,11 @@ export async function GET(
         id: p.id,
         platformPostId: p.platformPostId,
         content: p.content,
-        thumbnailUrl: enrich?.thumbnailUrl ?? p.thumbnailUrl ?? null,
+        thumbnailUrl:
+          enrich?.thumbnailUrl ??
+          (account.platform === 'PINTEREST' ? pinterestThumbByPinId[p.platformPostId] : undefined) ??
+          p.thumbnailUrl ??
+          null,
         permalinkUrl: p.permalinkUrl,
         impressions: p.impressions ?? 0,
         interactions: p.interactions ?? 0,
@@ -335,7 +438,7 @@ export async function GET(
         id: `target-${t.id}`,
         platformPostId: t.platformPostId ?? null,
         content: t.post?.content ?? null,
-        thumbnailUrl: t.post?.media[0]?.fileUrl ?? null,
+        thumbnailUrl: thumbnailUrlFromFirstPostMedia(t.post?.media[0]),
         permalinkUrl: null,
         impressions: 0,
         interactions: 0,
@@ -1008,41 +1111,14 @@ async function syncImportedPosts(
   }
 
   if (platform === 'PINTEREST') {
-    type PinMediaImage = { url?: string; width?: number; height?: number };
     type PinItem = {
       id?: string;
       title?: string;
       description?: string;
       created_at?: string;
       link?: string;
-      media?: {
-        media_type?: string;
-        /** Video pins expose a dedicated cover URL (see PinMediaWithVideo in Pinterest v5 OpenAPI). */
-        cover_image_url?: string;
-        images?: Record<string, PinMediaImage>;
-      };
+      media?: unknown;
     };
-    function pickPinThumbnail(media: PinItem['media']): string | null {
-      if (!media || typeof media !== 'object') return null;
-      if (media.media_type === 'video' && typeof media.cover_image_url === 'string' && media.cover_image_url.trim()) {
-        return media.cover_image_url.trim();
-      }
-      const images = media.images;
-      if (!images || typeof images !== 'object') return null;
-      let best: PinMediaImage | undefined;
-      let bestArea = 0;
-      for (const img of Object.values(images)) {
-        if (!img?.url) continue;
-        const w = img.width ?? 0;
-        const h = img.height ?? 0;
-        const area = w * h || 1;
-        if (area >= bestArea) {
-          bestArea = area;
-          best = img;
-        }
-      }
-      return best?.url ?? null;
-    }
     try {
       const headers = { Authorization: `Bearer ${accessToken}` };
       const collected: PinItem[] = [];
@@ -1075,9 +1151,17 @@ async function syncImportedPosts(
         if (!pinId) continue;
         const publishedAt = pin.created_at ? new Date(pin.created_at) : new Date();
         const content = (pin.title ?? pin.description ?? '').trim() || null;
-        const thumbnailUrl = pickPinThumbnail(pin.media);
+        let thumbnailUrl = pickPinThumbnailFromMedia(pin.media);
+        if (!thumbnailUrl) {
+          const detailMedia = await fetchPinterestPinMedia(pinId, headers);
+          thumbnailUrl = pickPinThumbnailFromMedia(detailMedia);
+        }
         const permalinkUrl = `https://www.pinterest.com/pin/${pinId}/`;
-        const mediaType = pin.media?.media_type === 'video' ? 'VIDEO' : 'IMAGE';
+        const listMt =
+          pin.media && typeof pin.media === 'object' && 'media_type' in pin.media
+            ? String((pin.media as { media_type?: string }).media_type ?? '').toLowerCase()
+            : '';
+        const mediaType = listMt === 'video' ? 'VIDEO' : 'IMAGE';
         const impressions = 0;
         const interactions = 0;
         await prisma.importedPost.upsert({
