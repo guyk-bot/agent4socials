@@ -35,7 +35,7 @@ export function AnalyticsWatermarkedChart({
       <div className="relative" style={{ minHeight: height }}>
         {showWatermark && (
           <div
-            className="absolute inset-0 flex items-center justify-center pointer-events-none select-none"
+            className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none select-none"
             style={{ opacity: 0.04 }}
             aria-hidden
           >

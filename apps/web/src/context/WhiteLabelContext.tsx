@@ -12,26 +12,11 @@ type WhiteLabelState = {
 
 const defaultState: WhiteLabelState = {
   logoUrl: null,
-  primaryColor: '#52525b',
+  primaryColor: '#5ff6fd',
   backgroundColor: '#f5f5f5',
   textColor: '#171717',
   appName: 'Agent4Socials',
 };
-
-function normalizeStoredPrimary(color: string): string {
-  const c = color.trim().toLowerCase().replace(/\s/g, '');
-  const legacyCyan = new Set([
-    '#5ff6fd',
-    '#5ce1e6',
-    '#00ffff',
-    '#22d3ee',
-    '#06b6d4',
-    '#67e8f9',
-    '#7dd3fc',
-  ]);
-  if (legacyCyan.has(c)) return defaultState.primaryColor;
-  return color.trim();
-}
 
 const STORAGE_KEY = 'agent4socials-whitelabel';
 
@@ -68,7 +53,7 @@ export function WhiteLabelProvider({ children }: { children: React.ReactNode }) 
       if (raw) {
         const parsed = JSON.parse(raw) as Partial<WhiteLabelState>;
         if (parsed.logoUrl != null) setLogoUrlState(parsed.logoUrl);
-        if (parsed.primaryColor) setPrimaryColorState(normalizeStoredPrimary(parsed.primaryColor));
+        if (parsed.primaryColor) setPrimaryColorState(parsed.primaryColor);
         if (parsed.backgroundColor) setBackgroundColorState(parsed.backgroundColor);
         if (parsed.textColor) setTextColorState(parsed.textColor);
         if (parsed.appName != null && parsed.appName !== '') setAppNameState(parsed.appName);
@@ -89,9 +74,8 @@ export function WhiteLabelProvider({ children }: { children: React.ReactNode }) 
   }, [primaryColor, backgroundColor, textColor, appName, save]);
 
   const setPrimaryColor = useCallback((color: string) => {
-    const next = normalizeStoredPrimary(color);
-    setPrimaryColorState(next);
-    save({ logoUrl, primaryColor: next, backgroundColor, textColor, appName });
+    setPrimaryColorState(color);
+    save({ logoUrl, primaryColor: color, backgroundColor, textColor, appName });
   }, [logoUrl, backgroundColor, textColor, appName, save]);
 
   const setBackgroundColor = useCallback((color: string) => {

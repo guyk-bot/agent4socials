@@ -20,6 +20,11 @@ export async function POST(
     return NextResponse.json({ message: 'DATABASE_URL required' }, { status: 503 });
   }
   const { id: postId } = await params;
+  const requestBody = (await request.json().catch(() => ({}))) as {
+    token?: string;
+    contentByPlatform?: Record<string, string>;
+    pinterestSandbox?: boolean;
+  };
   const cronSecret = request.headers.get('X-Cron-Secret');
   const isCron = process.env.CRON_SECRET && cronSecret === process.env.CRON_SECRET;
   let userId: string | null = null;
@@ -28,12 +33,11 @@ export async function POST(
     userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
     if (!userId) {
       try {
-        const body = (await request.json().catch(() => ({}))) as { token?: string; contentByPlatform?: Record<string, string> };
-        linkToken = typeof body?.token === 'string' ? body.token.trim() : null;
-        if (linkToken && body?.contentByPlatform && typeof body.contentByPlatform === 'object' && Object.keys(body.contentByPlatform).length > 0) {
+        linkToken = typeof requestBody?.token === 'string' ? requestBody.token.trim() : null;
+        if (linkToken && requestBody?.contentByPlatform && typeof requestBody.contentByPlatform === 'object' && Object.keys(requestBody.contentByPlatform).length > 0) {
           await prisma.post.updateMany({
             where: { id: postId, emailOpenToken: linkToken, emailOpenTokenExpiresAt: { gte: new Date() } },
-            data: { contentByPlatform: body.contentByPlatform },
+            data: { contentByPlatform: requestBody.contentByPlatform },
           });
         }
       } catch {
@@ -161,6 +165,13 @@ export async function POST(
     if (platform === 'PINTEREST' && firstImageUrl) {
       firstImageUrl = publicMediaUrlForMeta(firstImageUrl);
     }
+    if (platform === 'PINTEREST' && firstMediaUrl) {
+      firstMediaUrl = publicMediaUrlForMeta(firstMediaUrl);
+    }
+    // Video Pin cover must be a fetchable image URL for Pinterest (same tokenized /api/media/serve as image pins).
+    if (platform === 'PINTEREST' && videoThumbnailUrl) {
+      videoThumbnailUrl = publicMediaUrlForMeta(videoThumbnailUrl);
+    }
     if (platform === 'INSTAGRAM' || platform === 'FACEBOOK') {
       const isInstagram = platform === 'INSTAGRAM';
       const firstIsImage = targetMedia[0]?.type === 'IMAGE';
@@ -239,15 +250,15 @@ export async function POST(
         ? creds.pinterestDefaultBoardId
         : null;
 
-    if (platform === 'PINTEREST' && !firstImageUrl) {
+    if (platform === 'PINTEREST' && !firstImageUrl && !firstMediaUrl) {
       await prisma.postTarget.update({
         where: { id: target.id },
         data: {
           status: PostStatus.FAILED,
-          error: 'Pinterest needs at least one image in the post.',
+          error: 'Pinterest needs at least one image or video in the post.',
         },
       });
-      results.push({ platform, ok: false, error: 'Pinterest needs at least one image.' });
+      results.push({ platform, ok: false, error: 'Pinterest needs at least one image or video.' });
       continue;
     }
 
@@ -263,6 +274,7 @@ export async function POST(
         videoThumbnailUrl,
         twitterOAuth1,
         pinterestBoardId,
+        pinterestSandbox: requestBody.pinterestSandbox === true,
       },
       { fetch, axios }
     );
@@ -292,6 +304,7 @@ export async function POST(
             videoThumbnailUrl,
             twitterOAuth1,
             pinterestBoardId,
+            pinterestSandbox: requestBody.pinterestSandbox === true,
           },
           { fetch, axios }
         );
@@ -327,6 +340,7 @@ export async function POST(
             videoThumbnailUrl,
             twitterOAuth1,
             pinterestBoardId,
+            pinterestSandbox: requestBody.pinterestSandbox === true,
           },
           { fetch, axios }
         );

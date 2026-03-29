@@ -3,13 +3,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
-  Area,
-  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   ComposedChart,
+  Legend,
   Line,
+  Pie,
+  PieChart,
   Rectangle,
   ResponsiveContainer,
   Tooltip,
@@ -39,15 +41,32 @@ export interface FacebookAnalyticsViewProps {
   followersLabel?: string;
   /** Connected account avatar from sidebar/account record. */
   accountAvatarUrl?: string | null;
+  /** @handle from connected account (Instagram, etc.) when Graph page profile is not present. */
+  accountUsername?: string | null;
 }
 
 type SectionId = (typeof FACEBOOK_ANALYTICS_SECTION_IDS)[keyof typeof FACEBOOK_ANALYTICS_SECTION_IDS];
 type StoryMode = 'views' | 'engagement' | 'growth';
 type StoryMetricKey = 'followers' | 'engagements' | 'videoViews' | 'contentViews' | 'pageVisits';
-type ActivityPreset = 'publishing' | 'community';
 type ActivityMetricKey = 'actions' | 'posts' | 'conversations';
 type EngagementMetricKey = 'likes' | 'comments' | 'shares' | 'reposts';
+type TrafficMetricKey = 'postImpressions' | 'nonviral' | 'viral' | 'uniqueReachProxy';
+type ReelMetricKey = 'views' | 'watchTime' | 'avgWatch' | 'clicks' | 'likes' | 'comments' | 'shares' | 'reposts';
+type ReelPresetKey = 'performance' | 'engagement' | 'watch';
 type ContentHistoryFilter = 'all' | 'posts' | 'reels';
+
+const AUDIENCE_COUNTRY_PIE_COLORS = [
+  '#42d9f5',
+  '#7c6cff',
+  '#d946ef',
+  '#31c48d',
+  '#f5b942',
+  '#ff8b7b',
+  '#6366f1',
+  '#ec4899',
+  '#14b8a6',
+  '#f97316',
+];
 
 const COLOR = {
   pageBg: '#f6f7fb',
@@ -103,7 +122,7 @@ const STORY_METRIC_CONFIG: Record<StoryMetricKey, { label: string; color: string
   engagements: { label: 'Engagements', color: COLOR.violet, mode: 'engagement' },
   videoViews: { label: 'Video Views', color: COLOR.magenta, mode: 'views' },
   contentViews: { label: 'Content Views', color: COLOR.amber, mode: 'views' },
-  pageVisits: { label: 'Page Visits', color: '#bb415e', mode: 'views' },
+  pageVisits: { label: 'Page Visits', color: COLOR.coral, mode: 'views' },
 };
 
 const STORY_MODE_DEFAULT_METRICS: Record<StoryMode, StoryMetricKey[]> = {
@@ -115,7 +134,7 @@ const STORY_MODE_DEFAULT_METRICS: Record<StoryMode, StoryMetricKey[]> = {
 const ACTIVITY_METRIC_CONFIG: Record<ActivityMetricKey, { label: string; color: string }> = {
   actions: { label: 'Actions', color: COLOR.violet },
   posts: { label: 'Posts', color: COLOR.magenta },
-  conversations: { label: 'Conversations', color: '#d72661' },
+  conversations: { label: 'Conversations', color: COLOR.amber },
 };
 
 const ENGAGEMENT_METRIC_CONFIG: Record<EngagementMetricKey, { label: string; color: string }> = {
@@ -125,9 +144,35 @@ const ENGAGEMENT_METRIC_CONFIG: Record<EngagementMetricKey, { label: string; col
   reposts: { label: 'Reposts', color: '#111827' },
 };
 
-const ACTIVITY_PRESET_DEFAULTS: Record<ActivityPreset, ActivityMetricKey[]> = {
-  publishing: ['posts', 'actions'],
-  community: ['conversations', 'actions'],
+const TRAFFIC_METRIC_CONFIG: Record<TrafficMetricKey, { label: string; color: string }> = {
+  postImpressions: { label: 'Post Impressions', color: COLOR.cyan },
+  nonviral: { label: 'Non-viral Impressions', color: COLOR.violet },
+  viral: { label: 'Viral Impressions', color: COLOR.magenta },
+  uniqueReachProxy: { label: 'Unique Reach Proxy', color: COLOR.amber },
+};
+
+// Shared bar geometry across Engagement/Traffic/Reels so overlap behavior is consistent.
+// barGap = -(barSize/2) makes each next selected series cross at the midpoint of previous one.
+const UNIFIED_BAR_SIZE = 22;
+// Use slightly stronger overlap than 50% to make the crossing visually clear at all widths.
+const UNIFIED_BAR_GAP = -12;
+const UNIFIED_BAR_CATEGORY_GAP = 10;
+
+const REEL_METRIC_CONFIG: Record<ReelMetricKey, { label: string; color: string }> = {
+  views: { label: 'Total Video Views', color: COLOR.magenta },
+  watchTime: { label: 'Watch Time', color: COLOR.mint },
+  avgWatch: { label: 'Avg Watch Time', color: COLOR.cyan },
+  clicks: { label: 'Clicks', color: '#ef4444' },
+  likes: { label: 'Likes', color: COLOR.violet },
+  comments: { label: 'Comments', color: COLOR.coral },
+  shares: { label: 'Shares', color: COLOR.amber },
+  reposts: { label: 'Reposts', color: '#111827' },
+};
+
+const REEL_PRESET_METRICS: Record<ReelPresetKey, ReelMetricKey[]> = {
+  performance: ['views', 'watchTime', 'avgWatch'],
+  engagement: ['clicks', 'likes', 'comments', 'shares', 'reposts'],
+  watch: ['watchTime', 'avgWatch'],
 };
 
 function formatCompact(n: number): string {
@@ -231,6 +276,25 @@ function parseReactionTotal(v: unknown): number {
   return 0;
 }
 
+function toFiniteNumber(v: unknown): number {
+  return typeof v === 'number' && Number.isFinite(v) ? v : 0;
+}
+
+function getWatchTimes(post: FacebookPost): { watchTimeMs: number; avgWatchMs: number } {
+  const fi = (post.facebookInsights ?? {}) as Record<string, unknown>;
+  const avgWatchMs = toFiniteNumber(fi.post_video_avg_time_watched);
+  const totalWatchRaw = toFiniteNumber(fi.post_video_view_time);
+  if (totalWatchRaw > 0) {
+    return { watchTimeMs: totalWatchRaw, avgWatchMs };
+  }
+  // Fallback when API sends only avg watch metric.
+  const views = Math.max(0, bestPostPlayCount(post));
+  if (avgWatchMs > 0 && views > 0) {
+    return { watchTimeMs: avgWatchMs * views, avgWatchMs };
+  }
+  return { watchTimeMs: 0, avgWatchMs };
+}
+
 function inRange(dateIso: string, start: string, end: string): boolean {
   const d = localCalendarDateFromIso(dateIso);
   if (!d) return false;
@@ -322,20 +386,29 @@ function buildDateAxis(start: string, end: string): string[] {
   return out;
 }
 
-function EngagementHoverCursor(props: { x?: number; y?: number; height?: number; points?: Array<{ x?: number }>; }) {
-  const centerX = typeof props.x === 'number'
-    ? props.x
-    : (typeof props.points?.[0]?.x === 'number' ? props.points[0].x : null);
-  if (centerX == null) return null;
-  const width = 36;
+function MinWidthBarShape(props: { x?: number; y?: number; width?: number; height?: number; fill?: string; radius?: [number, number, number, number] }) {
+  const x = typeof props.x === 'number' ? props.x : 0;
+  const y = typeof props.y === 'number' ? props.y : 0;
+  const width = typeof props.width === 'number' ? props.width : 0;
+  const height = typeof props.height === 'number' ? props.height : 0;
+  const fill = props.fill ?? COLOR.violet;
+  const minWidth = 10;
+  const adjustedWidth = Math.max(width, minWidth);
+  const adjustedX = x - ((adjustedWidth - width) / 2);
+  const normalizedHeight = Math.abs(height);
+  const normalizedY = height >= 0 ? y : y + height;
+
+  const fallbackRadius: [number, number, number, number] = [6, 6, 0, 0];
+
   return (
     <Rectangle
-      x={centerX - (width / 2)}
-      y={typeof props.y === 'number' ? props.y : 0}
-      width={width}
-      height={typeof props.height === 'number' ? props.height : 0}
-      fill="rgba(107,114,128,0.20)"
-      radius={8}
+      x={adjustedX}
+      y={normalizedY}
+      width={adjustedWidth}
+      height={normalizedHeight}
+      fill={fill}
+      radius={props.radius ?? fallbackRadius}
+      opacity={normalizedHeight > 0 ? 1 : 0}
     />
   );
 }
@@ -377,14 +450,14 @@ export function MetricCard({
       type="button"
       onClick={onClick}
       title={hint}
-      className="rounded-[18px] p-3 text-left transition-all hover:-translate-y-[1px]"
+      className="rounded-[12px] px-3 py-1.5 text-left transition-all hover:-translate-y-[1px]"
       style={{
         background: active ? `${color}10` : COLOR.card,
-        boxShadow: active ? `0 0 0 1px ${color}55, 0 2px 16px rgba(15,23,42,0.06)` : '0 2px 16px rgba(15,23,42,0.05)',
+        boxShadow: active ? '0 2px 16px rgba(15,23,42,0.06)' : '0 2px 16px rgba(15,23,42,0.05)',
       }}
     >
       <span className="text-xs font-medium tracking-tight" style={{ color: COLOR.textMuted }}>{label}</span>
-      <p className="mt-1.5 text-[28px] font-semibold tracking-tight" style={{ color }}>{value}</p>
+      <p className="mt-1 text-[24px] font-semibold tracking-tight" style={{ color }}>{value}</p>
       {footnote ? <p className="mt-1 text-xs" style={{ color: COLOR.textSecondary }}>{footnote}</p> : null}
     </button>
   );
@@ -448,14 +521,14 @@ export function InsightChartCard({
         </div>
       ) : null}
       <div className={`${hideHeader ? '' : 'mt-3 '}h-[300px] pb-5 relative`}>
-        <div className="pointer-events-none absolute inset-0 z-0" aria-hidden>
+        <div className="pointer-events-none absolute inset-0 z-20" aria-hidden>
           <span className="absolute left-[16%] top-[20%] text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>Agent4Socials</span>
           <span className="absolute right-[16%] top-[20%] text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>Agent4Socials</span>
-          <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>Agent4Socials</span>
-          <span className="absolute left-[16%] bottom-[18%] text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>Agent4Socials</span>
-          <span className="absolute right-[16%] bottom-[18%] text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>Agent4Socials</span>
+          <span className="absolute left-1/2 top-[44%] -translate-x-1/2 -translate-y-1/2 text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>Agent4Socials</span>
+          <span className="absolute left-[16%] bottom-[30%] text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>Agent4Socials</span>
+          <span className="absolute right-[16%] bottom-[30%] text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>Agent4Socials</span>
         </div>
-        <div className="relative z-[1] h-full">{children}</div>
+        <div className="relative z-10 h-full">{children}</div>
       </div>
     </div>
   );
@@ -474,8 +547,8 @@ export function StackedTrafficChart({ data }: { data: Array<{ date: string; nonv
           formatter={(v: number | string | undefined, n?: string) => [formatNumber(Number(v) || 0), n === 'nonviral' ? 'Non-viral' : 'Viral']}
           labelFormatter={(l) => formatShortDate(String(l))}
         />
-        <Bar dataKey="nonviral" stackId="a" fill={COLOR.violet} radius={[6, 6, 0, 0]} />
-        <Bar dataKey="viral" stackId="a" fill={COLOR.magenta} radius={[6, 6, 0, 0]} />
+        <Bar dataKey="nonviral" stackId="a" fill={COLOR.violet} radius={[6, 6, 0, 0]} shape={<MinWidthBarShape />} />
+        <Bar dataKey="viral" stackId="a" fill={COLOR.magenta} radius={[6, 6, 0, 0]} shape={<MinWidthBarShape />} />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -590,6 +663,7 @@ export function PostsPerformanceTable({
     likes: number;
     reactionsTotal: number;
     watchTimeMs: number;
+    avgWatchMs: number;
     reactionBreakdownRaw: unknown;
     status: 'Ready' | 'Partial';
     rawPost: FacebookPost;
@@ -599,27 +673,65 @@ export function PostsPerformanceTable({
   return (
     <div className="rounded-[20px] overflow-hidden" style={{ background: COLOR.card, boxShadow: '0 2px 16px rgba(15,23,42,0.06)' }}>
       <div className="hidden md:block overflow-x-auto">
-        <table className="min-w-full text-sm">
+        <table className="w-full table-fixed text-sm">
           <thead style={{ background: 'rgba(255,255,255,0.02)', color: COLOR.textMuted }}>
             <tr>
-              {['Post preview', 'Publish date', 'Type', 'Views', 'Unique reach', 'Clicks', 'Likes', 'Reactions', 'Watch time', 'Status'].map((h) => (
-                <th key={h} className="px-4 py-3 text-left font-medium">{h}</th>
+              {[
+                { label: 'Post preview', className: 'w-[180px]' },
+                { label: 'Publish date', className: 'w-[92px]' },
+                { label: 'Type', className: 'w-[60px]' },
+                { label: 'Views', className: 'w-[58px]' },
+                { label: 'Unique reach', className: 'w-[66px]' },
+                { label: 'Clicks', className: 'w-[52px]' },
+                { label: 'Likes', className: 'w-[52px]' },
+                { label: 'Reactions', className: 'w-[76px]' },
+                { label: 'Watch time', className: 'w-[84px]' },
+                { label: 'Avg watch', className: 'w-[68px]' },
+              ].map((h) => (
+                <th
+                  key={h.label}
+                  className={`py-3 text-left font-medium ${h.className} ${h.label === 'Watch time' ? 'pl-5 pr-3' : 'px-3'}`}
+                >
+                  {h.label}
+                </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.id} className="border-t cursor-pointer hover:bg-[#f8fafc]" style={{ borderColor: COLOR.border }} onClick={() => onOpenDetail(r.rawPost)}>
-                <td className="px-4 py-3" style={{ color: COLOR.textSecondary }}>{clampText(r.preview, 66)}</td>
-                <td className="px-4 py-3" style={{ color: COLOR.textSecondary }}>{new Date(r.date).toLocaleDateString()}</td>
-                <td className="px-4 py-3"><span className="rounded-full px-2 py-1 text-xs" style={{ background: 'rgba(255,255,255,0.08)', color: COLOR.text }}>{r.type}</span></td>
-                <td className="px-4 py-3" style={{ color: COLOR.text }}>{formatCompact(r.views)}</td>
-                <td className="px-4 py-3" style={{ color: COLOR.text }}>{formatCompact(r.uniqueReach)}</td>
-                <td className="px-4 py-3" style={{ color: COLOR.text }}>{formatCompact(r.clicks)}</td>
-                <td className="px-4 py-3" style={{ color: COLOR.text }}>{formatCompact(r.likes)}</td>
-                <td className="px-4 py-3" style={{ color: COLOR.text }}>{formatCompact(r.reactionsTotal)}</td>
-                <td className="px-4 py-3" style={{ color: COLOR.textSecondary }}>{r.watchTimeMs > 0 ? formatDurationMs(r.watchTimeMs) : ' - '}</td>
-                <td className="px-4 py-3"><span className="rounded-full px-2 py-1 text-xs" style={{ background: r.status === 'Ready' ? 'rgba(94,230,168,0.2)' : 'rgba(247,198,106,0.2)', color: r.status === 'Ready' ? COLOR.mint : COLOR.amber }}>{r.status}</span></td>
+                <td className="px-3 py-3" style={{ color: COLOR.textSecondary }}>
+                  <div className="flex items-center gap-3 min-w-0">
+                    {r.rawPost.thumbnailUrl ? (
+                      <img src={r.rawPost.thumbnailUrl} alt="" className="w-9 h-9 rounded object-cover shrink-0" />
+                    ) : (
+                      <div className="w-9 h-9 rounded shrink-0" style={{ background: 'rgba(124,108,255,0.12)' }} />
+                    )}
+                    <div className="min-w-0">
+                      <p className="truncate">{clampText(r.preview, 34)}</p>
+                      {r.permalink ? (
+                        <Link
+                          href={r.permalink}
+                          target="_blank"
+                          className="inline-flex items-center gap-1 text-xs mt-1"
+                          style={{ color: COLOR.textSecondary }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Open <ExternalLink size={12} />
+                        </Link>
+                      ) : null}
+                    </div>
+                  </div>
+                </td>
+                <td className="px-3 py-3" style={{ color: COLOR.textSecondary }}>{new Date(r.date).toLocaleDateString()}</td>
+                <td className="px-3 py-3"><span className="rounded-full px-2 py-1 text-xs" style={{ background: 'rgba(255,255,255,0.08)', color: COLOR.text }}>{r.type}</span></td>
+                <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatCompact(r.views)}</td>
+                <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatCompact(r.uniqueReach)}</td>
+                <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatCompact(r.clicks)}</td>
+                <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatCompact(r.likes)}</td>
+                <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatCompact(r.reactionsTotal)}</td>
+                <td className="pl-5 pr-3 py-3" style={{ color: COLOR.textSecondary }}>{r.watchTimeMs > 0 ? formatDurationMs(r.watchTimeMs) : ' - '}</td>
+                <td className="px-3 py-3" style={{ color: COLOR.textSecondary }}>{r.avgWatchMs > 0 ? formatDurationMs(r.avgWatchMs) : ' - '}</td>
               </tr>
             ))}
           </tbody>
@@ -634,12 +746,33 @@ export function PostsPerformanceTable({
             className="w-full rounded-xl border p-3 text-left"
             style={{ borderColor: COLOR.border, background: 'rgba(255,255,255,0.015)' }}
           >
-            <p className="text-sm" style={{ color: COLOR.text }}>{clampText(r.preview, 80)}</p>
+            <div className="flex items-start gap-2">
+              {r.rawPost.thumbnailUrl ? (
+                <img src={r.rawPost.thumbnailUrl} alt="" className="w-10 h-10 rounded object-cover shrink-0" />
+              ) : (
+                <div className="w-10 h-10 rounded shrink-0" style={{ background: 'rgba(124,108,255,0.12)' }} />
+              )}
+              <div className="min-w-0">
+                <p className="text-sm" style={{ color: COLOR.text }}>{clampText(r.preview, 80)}</p>
+                {r.permalink ? (
+                  <Link
+                    href={r.permalink}
+                    target="_blank"
+                    className="inline-flex items-center gap-1 text-xs mt-1"
+                    style={{ color: COLOR.textSecondary }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Open <ExternalLink size={12} />
+                  </Link>
+                ) : null}
+              </div>
+            </div>
             <div className="mt-2 flex flex-wrap gap-2 text-xs" style={{ color: COLOR.textSecondary }}>
               <span>{new Date(r.date).toLocaleDateString()}</span>
               <span>{r.type}</span>
               <span>Views {formatCompact(r.views)}</span>
               <span>{r.watchTimeMs > 0 ? `Watch ${formatDurationMs(r.watchTimeMs)}` : 'Watch -'}</span>
+              <span>{r.avgWatchMs > 0 ? `Avg ${formatDurationMs(r.avgWatchMs)}` : 'Avg -'}</span>
               <span>Clicks {formatCompact(r.clicks)}</span>
             </div>
           </button>
@@ -649,43 +782,91 @@ export function PostsPerformanceTable({
   );
 }
 
+type TopHighlightRow = {
+  id: string;
+  preview: string;
+  permalink?: string | null;
+  type: 'Reel' | 'Post';
+  thumbnailUrl?: string | null;
+  views: number;
+  clicks: number;
+  reactions: number;
+  /** ISO or parseable publish time */
+  publishedAt: string;
+};
+
+function formatPostCardDateTime(iso: string): string {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  } catch {
+    return '';
+  }
+}
+
 function TopContentHighlights({
   byViews,
   byClicks,
   byReactions,
 }: {
-  byViews: Array<{ id: string; preview: string; permalink?: string | null; value: number; type: 'Reel' | 'Post' }>;
-  byClicks: Array<{ id: string; preview: string; permalink?: string | null; value: number; type: 'Reel' | 'Post' }>;
-  byReactions: Array<{ id: string; preview: string; permalink?: string | null; value: number; type: 'Reel' | 'Post' }>;
+  byViews: TopHighlightRow[];
+  byClicks: TopHighlightRow[];
+  byReactions: TopHighlightRow[];
 }) {
-  const col = (
-    title: string,
-    metricLabel: string,
-    color: string,
-    rows: Array<{ id: string; preview: string; permalink?: string | null; value: number; type: 'Reel' | 'Post' }>
-  ) => (
-    <div className="space-y-2">
-      <p className="text-sm font-semibold" style={{ color: COLOR.text }}>{title}</p>
+  const rankBadge = (idx: number) => `/rank-badges/${Math.min(3, idx + 1)}.svg`;
+  const col = (title: string, metricLabel: 'Views' | 'Clicks' | 'Reactions', rows: TopHighlightRow[]) => (
+    <div className="space-y-3">
+      <p className="text-base font-semibold tracking-tight" style={{ color: COLOR.text }}>{title}</p>
       {rows.length === 0 ? (
         <p className="text-sm" style={{ color: COLOR.textMuted }}>No items yet</p>
       ) : (
         rows.map((r, idx) => (
           <div key={`${title}-${r.id}-${idx}`} className="rounded-xl p-3" style={{ background: COLOR.elevated }}>
-            <div className="flex items-start justify-between gap-3">
-              <p className="text-sm min-w-0" style={{ color: COLOR.textSecondary }}>
-                <span className="mr-2 rounded-md px-2 py-0.5 text-xs" style={{ color: COLOR.text, background: 'rgba(124,108,255,0.14)' }}>#{idx + 1}</span>
-                {clampText(firstWords(r.preview, 8) || 'View post', 66)}
-              </p>
-              <span className="shrink-0 text-sm font-semibold" style={{ color }}>{formatCompact(r.value)}</span>
-            </div>
-            <div className="mt-2 flex items-center justify-between text-xs" style={{ color: COLOR.textMuted }}>
-              <span>{metricLabel}</span>
-              <span>{r.type}</span>
-              {r.permalink ? (
-                <Link href={r.permalink} target="_blank" className="inline-flex items-center gap-1" style={{ color: COLOR.textSecondary }}>
-                  View <ExternalLink size={12} />
-                </Link>
-              ) : null}
+            <div className="flex items-start gap-3">
+              <div className="shrink-0 w-[104px] pt-1">
+                <div className="relative isolate mt-1 h-[92px] w-[92px]">
+                  <div className="absolute inset-0 overflow-hidden rounded-xl border" style={{ borderColor: COLOR.border, background: '#f3f4f6' }}>
+                    {r.thumbnailUrl ? (
+                      <img src={r.thumbnailUrl} alt="Post thumbnail" className="h-full w-full object-cover" />
+                    ) : null}
+                    {r.permalink ? (
+                      <Link
+                        href={r.permalink}
+                        target="_blank"
+                        className="absolute right-1.5 bottom-1.5 z-[1] inline-flex h-5 w-5 items-center justify-center rounded-full"
+                        style={{ background: 'rgba(17,24,39,0.72)', color: '#ffffff' }}
+                        aria-label="Open post"
+                      >
+                        <ExternalLink size={11} />
+                      </Link>
+                    ) : null}
+                  </div>
+                  <img
+                    src={rankBadge(idx)}
+                    alt={`Rank ${idx + 1}`}
+                    className="pointer-events-none absolute z-10 h-11 w-11 -translate-x-2 -translate-y-2 object-contain drop-shadow-md sm:h-12 sm:w-12 sm:-translate-x-2.5 sm:-translate-y-2.5"
+                    style={{ left: 0, top: 0 }}
+                  />
+                </div>
+              </div>
+              <div className="min-w-0 flex-1 min-h-[92px] flex flex-col">
+                <p className="text-[11px] leading-4 tabular-nums shrink-0" style={{ color: COLOR.textMuted }}>
+                  {formatPostCardDateTime(r.publishedAt) || '—'}
+                </p>
+                <p
+                  className="mt-1 min-h-0 text-[13px] leading-[18px] line-clamp-4"
+                  style={{ color: COLOR.textSecondary }}
+                  title={(r.preview || '').trim() || undefined}
+                >
+                  {(r.preview || '').trim() || 'View post'}
+                </p>
+                <div className="mt-auto pt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs" style={{ color: COLOR.textMuted }}>
+                  <span style={metricLabel === 'Views' ? { color: COLOR.text, fontWeight: 700, fontSize: 13 } : undefined}>Views {formatCompact(r.views)}</span>
+                  <span style={metricLabel === 'Clicks' ? { color: COLOR.text, fontWeight: 700, fontSize: 13 } : undefined}>Clicks {formatCompact(r.clicks)}</span>
+                  <span style={metricLabel === 'Reactions' ? { color: COLOR.text, fontWeight: 700, fontSize: 13 } : undefined}>Reactions {formatCompact(r.reactions)}</span>
+                </div>
+              </div>
             </div>
           </div>
         ))
@@ -695,14 +876,10 @@ function TopContentHighlights({
 
   return (
     <section className="rounded-[20px] p-5" style={{ background: COLOR.card, boxShadow: '0 2px 16px rgba(15,23,42,0.05)' }}>
-      <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Top Content Highlights</h3>
-      <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
-        One editorial block showing what led in views, clicks, and reactions.
-      </p>
-      <div className="mt-4 grid gap-4 lg:grid-cols-3">
-        {col('Views leaders', 'Views', COLOR.cyan, byViews)}
-        {col('Clicks leaders', 'Clicks', COLOR.amber, byClicks)}
-        {col('Reactions leaders', 'Reactions', COLOR.violet, byReactions)}
+      <div className="grid gap-4 lg:grid-cols-3">
+        {col('Views leaders', 'Views', byViews)}
+        {col('Clicks leaders', 'Clicks', byClicks)}
+        {col('Reactions leaders', 'Reactions', byReactions)}
       </div>
     </section>
   );
@@ -786,14 +963,21 @@ export function FacebookAnalyticsView({
   onReconnectFacebook,
   followersLabel,
   accountAvatarUrl,
+  accountUsername,
 }: FacebookAnalyticsViewProps) {
-  /** Do not tie overview shell to post sync: posts load slower; show metrics immediately and refresh tables in place. */
-  const overviewSkeleton = insightsLoading && !insights?.facebookAnalytics;
+  /**
+   * Shimmer placeholders only while the Facebook Graph bundle is loading.
+   * Instagram and other platforms never receive `facebookAnalytics`; tying skeleton to that field caused empty boxes during every IG refetch.
+   */
+  const overviewSkeleton =
+    insightsLoading && insights?.platform === 'FACEBOOK' && !insights?.facebookAnalytics;
   const [storyMode, setStoryMode] = useState<StoryMode>('growth');
   const [selectedStoryMetrics, setSelectedStoryMetrics] = useState<StoryMetricKey[]>(STORY_MODE_DEFAULT_METRICS.growth);
-  const [activityPreset, setActivityPreset] = useState<ActivityPreset>('publishing');
-  const [selectedActivityMetrics, setSelectedActivityMetrics] = useState<ActivityMetricKey[]>(ACTIVITY_PRESET_DEFAULTS.publishing);
+  const [selectedActivityMetrics, setSelectedActivityMetrics] = useState<ActivityMetricKey[]>(['posts', 'actions']);
   const [selectedEngagementMetrics, setSelectedEngagementMetrics] = useState<EngagementMetricKey[]>(['likes', 'comments', 'shares', 'reposts']);
+  const [selectedTrafficMetrics, setSelectedTrafficMetrics] = useState<TrafficMetricKey[]>(['postImpressions', 'nonviral', 'viral', 'uniqueReachProxy']);
+  const [selectedReelMetrics, setSelectedReelMetrics] = useState<ReelMetricKey[]>(['views', 'avgWatch']);
+  const [reelPreset, setReelPreset] = useState<ReelPresetKey>('performance');
   const [activeSection, setActiveSection] = useState<SectionId>(FACEBOOK_ANALYTICS_SECTION_IDS.overview);
   const [selectedPost, setSelectedPost] = useState<FacebookPost | null>(null);
   const [historyFilter, setHistoryFilter] = useState<ContentHistoryFilter>('all');
@@ -832,20 +1016,26 @@ export function FacebookAnalyticsView({
     setSelectedStoryMetrics(STORY_MODE_DEFAULT_METRICS[storyMode]);
   }, [storyMode]);
 
-  useEffect(() => {
-    setSelectedActivityMetrics(ACTIVITY_PRESET_DEFAULTS[activityPreset]);
-  }, [activityPreset]);
-
   const bundle = insights?.facebookAnalytics;
   const profile = insights?.facebookPageProfile;
   const community = insights?.facebookCommunity;
+  const resolvedUsername = (profile?.username ?? accountUsername ?? '').trim().replace(/^@/, '');
+
   const profileUrl = useMemo(() => {
-    const username = profile?.username?.trim();
-    if (username) return `https://www.facebook.com/${username}`;
+    const plat = insights?.platform?.toUpperCase();
+    const username = profile?.username?.trim().replace(/^@/, '') || accountUsername?.trim().replace(/^@/, '');
+    if (plat === 'INSTAGRAM' && username) {
+      return `https://www.instagram.com/${username}/`;
+    }
+    if (plat === 'PINTEREST' && username) {
+      return `https://www.pinterest.com/${username}/`;
+    }
+    if (username && plat === 'FACEBOOK') return `https://www.facebook.com/${username}`;
+    if (profile?.username?.trim()) return `https://www.facebook.com/${profile.username.trim()}`;
     const website = profile?.website?.trim();
     if (website) return website;
     return null;
-  }, [profile?.username, profile?.website]);
+  }, [accountUsername, insights?.platform, profile?.username, profile?.website]);
   const postsInRange = useMemo(
     () => posts.filter((p) => inRange(p.publishedAt, dateRange.start, dateRange.end)),
     [posts, dateRange.end, dateRange.start]
@@ -892,11 +1082,9 @@ export function FacebookAnalyticsView({
     const videoViewsSeries = carryForwardSeries(dateAxis, videoViewsRaw, 0);
     const engagement = carryForwardSeries(dateAxis, engagementRaw, 0);
     const follows = carryForwardSeries(dateAxis, followsRaw, totalFollowers);
-    // Normalize followers to "growth within selected range" so the chart always starts at 0.
-    const followersBaseline = follows[dateAxis[0] ?? ''] ?? 0;
     return dateAxis.map((date) => ({
       date,
-      followers: Math.max(0, (follows[date] ?? 0) - followersBaseline),
+      followers: follows[date] ?? 0,
       engagements: engagement[date] ?? 0,
       videoViews: videoViewsSeries[date] ?? 0,
       contentViews: media[date] ?? 0,
@@ -910,11 +1098,31 @@ export function FacebookAnalyticsView({
     return dateAxis.map((date) => ({ date, nonviral: nonviral[date] ?? 0, viral: viral[date] ?? 0 }));
   }, [dateAxis, series?.postImpressionsNonviral, series?.postImpressionsViral]);
 
-  const viewVsVisit = useMemo(() => {
-    const media = seriesToMap(series?.contentViews ?? []);
-    const visits = seriesToMap(series?.pageTabViews ?? []);
-    return dateAxis.map((date) => ({ date, views: media[date] ?? 0, visits: visits[date] ?? 0 }));
-  }, [dateAxis, series?.contentViews, series?.pageTabViews]);
+  const uniqueReachByDate = useMemo(() => {
+    const map: Record<string, number> = {};
+    postsInRange.forEach((p) => {
+      const d = localCalendarDateFromIso(p.publishedAt);
+      map[d] = (map[d] ?? 0) + (p.facebookInsights?.post_impressions_unique ?? 0);
+    });
+    return map;
+  }, [postsInRange]);
+  const trafficTimelineData = useMemo(() => {
+    const postImpressionsMap = seriesToMap(series?.postImpressions ?? []);
+    const nonviralMap = seriesToMap(series?.postImpressionsNonviral ?? []);
+    const viralMap = seriesToMap(series?.postImpressionsViral ?? []);
+    return dateAxis.map((date) => {
+      const nonviral = nonviralMap[date] ?? 0;
+      const viral = viralMap[date] ?? 0;
+      const postImpressionsFromApi = postImpressionsMap[date] ?? 0;
+      return {
+        date,
+        postImpressions: postImpressionsFromApi > 0 ? postImpressionsFromApi : nonviral + viral,
+        nonviral,
+        viral,
+        uniqueReachProxy: uniqueReachByDate[date] ?? 0,
+      };
+    });
+  }, [dateAxis, series?.postImpressions, series?.postImpressionsNonviral, series?.postImpressionsViral, uniqueReachByDate]);
 
   const postsRows = useMemo(() => {
     return postsInRange.map((p) => {
@@ -922,6 +1130,7 @@ export function FacebookAnalyticsView({
       const reactions = parseReactionTotal(fi.post_reactions_by_type_total);
       const isReel = isReelPost(p);
       const hasCore = typeof fi.post_media_view === 'number' || typeof fi.post_impressions_unique === 'number';
+      const { watchTimeMs, avgWatchMs } = getWatchTimes(p);
       return {
         id: p.id,
         date: p.publishedAt,
@@ -933,7 +1142,8 @@ export function FacebookAnalyticsView({
         clicks: fi.post_clicks ?? 0,
         likes: fi.post_reactions_like_total ?? p.likeCount ?? 0,
         reactionsTotal: reactions || (fi.post_reactions_like_total ?? p.likeCount ?? 0),
-        watchTimeMs: fi.post_video_avg_time_watched ?? 0,
+        watchTimeMs,
+        avgWatchMs,
         reactionBreakdownRaw: fi.post_reactions_by_type_total,
         status: hasCore ? ('Ready' as const) : ('Partial' as const),
         rawPost: p,
@@ -949,15 +1159,26 @@ export function FacebookAnalyticsView({
         views: bestPostPlayCount(r.rawPost),
         organicViews: r.rawPost.facebookInsights?.post_video_views_organic ?? 0,
         avgWatchMs: r.rawPost.facebookInsights?.post_video_avg_time_watched ?? 0,
+        watchTimeMs: r.watchTimeMs ?? 0,
       }));
   }, [postsRows]);
 
   const reelsChartData = useMemo(() => {
-    return reelsRows.map((r) => ({
-      date: r.post.publishedAt.slice(0, 10),
-      views: r.views,
-      watchSeconds: r.avgWatchMs / 1000,
-    }));
+    return reelsRows.map((r) => {
+      const date = r.post.publishedAt.slice(0, 10);
+      return {
+        date,
+        views: r.views,
+        watchTimeMinutes: (r.watchTimeMs ?? 0) / 60000,
+        avgWatchSeconds: r.avgWatchMs / 1000,
+        clicks: r.post.facebookInsights?.post_clicks ?? 0,
+        likes: r.post.facebookInsights?.post_reactions_like_total ?? r.post.likeCount ?? 0,
+        comments: r.post.facebookInsights?.post_comments ?? r.post.commentsCount ?? 0,
+        shares: r.post.facebookInsights?.post_shares ?? r.post.sharesCount ?? 0,
+        reposts: r.post.repostsCount ?? r.post.facebookInsights?.post_shares ?? 0,
+        thumbnailUrl: r.post.thumbnailUrl ?? null,
+      };
+    });
   }, [reelsRows]);
 
   const storyTicks = useMemo(
@@ -965,25 +1186,28 @@ export function FacebookAnalyticsView({
     [chartByMode, selectedStoryMetrics]
   );
   const trafficTicks = useMemo(
-    () => buildKeyDateTicks(stackedTraffic, (d) => (d.nonviral ?? 0) > 0 || (d.viral ?? 0) > 0, 10),
-    [stackedTraffic]
+    () => buildKeyDateTicks(trafficTimelineData, (d) => (d.postImpressions ?? 0) > 0 || (d.nonviral ?? 0) > 0 || (d.viral ?? 0) > 0 || (d.uniqueReachProxy ?? 0) > 0, 10),
+    [trafficTimelineData]
   );
-  const viewVisitTicks = useMemo(
-    () => buildKeyDateTicks(viewVsVisit, (d) => (d.views ?? 0) > 0 || (d.visits ?? 0) > 0, 10),
-    [viewVsVisit]
-  );
+  const audienceCountryPieData = useMemo(() => {
+    const rows = insights?.audienceByCountry?.rows ?? [];
+    return rows.map((r) => ({ name: r.country, value: r.value, percent: r.percent }));
+  }, [insights?.audienceByCountry?.rows]);
   const reelsTicks = useMemo(
-    () => buildKeyDateTicks(reelsChartData, (d) => (d.views ?? 0) > 0 || (d.watchSeconds ?? 0) > 0, 10),
+    () => buildKeyDateTicks(reelsChartData, (d) => (d.views ?? 0) > 0 || (d.watchTimeMinutes ?? 0) > 0 || (d.avgWatchSeconds ?? 0) > 0, 10),
     [reelsChartData]
   );
 
   const avgPostsPerWeek = postsInRange.length / Math.max(1, dateAxis.length / 7);
   const avgClicksPerPost = postsRows.reduce((s, r) => s + r.clicks, 0) / Math.max(1, postsRows.length);
   const avgReactionsPerPost = postsRows.reduce((s, r) => s + r.reactionsTotal, 0) / Math.max(1, postsRows.length);
-  const engagementRate = engagements / Math.max(1, postImpressions);
-  const videoViewRate = videoViews / Math.max(1, contentViews);
-  const viralShare = viralImpressions / Math.max(1, postImpressions);
   const avgWatchMs = reelsRows.reduce((s, r) => s + r.avgWatchMs, 0) / Math.max(1, reelsRows.length);
+  const totalReelWatchTimeMs = postsRows.filter((r) => r.type === 'Reel').reduce((s, r) => s + r.watchTimeMs, 0);
+  const reelClicks = reelsRows.reduce((s, r) => s + (r.post.facebookInsights?.post_clicks ?? 0), 0);
+  const reelLikes = reelsRows.reduce((s, r) => s + (r.post.facebookInsights?.post_reactions_like_total ?? r.post.likeCount ?? 0), 0);
+  const reelComments = reelsRows.reduce((s, r) => s + (r.post.facebookInsights?.post_comments ?? r.post.commentsCount ?? 0), 0);
+  const reelShares = reelsRows.reduce((s, r) => s + (r.post.facebookInsights?.post_shares ?? r.post.sharesCount ?? 0), 0);
+  const reelReposts = reelsRows.reduce((s, r) => s + (r.post.repostsCount ?? r.post.facebookInsights?.post_shares ?? 0), 0);
   const totalOrganicVideoViews = reelsRows.reduce((s, r) => s + r.organicViews, 0);
   const totalReelVideoViews = reelsRows.reduce((s, r) => s + r.views, 0);
   const viewToClickEfficiency =
@@ -1034,7 +1258,7 @@ export function FacebookAnalyticsView({
   const operationalData = useMemo(() => {
     const actionsRaw = seriesToMap(actionsSeries ?? []);
     const actions = carryForwardSeries(dateAxis, actionsRaw, 0);
-    const hasActionPoints = Object.keys(actionsRaw).length > 0;
+    const hasActionPoints = Object.values(actionsRaw).some((value) => Number(value) > 0);
     const postsByDate = postsInRange.reduce<Record<string, number>>((acc, post) => {
       const d = localCalendarDateFromIso(post.publishedAt);
       acc[d] = (acc[d] ?? 0) + 1;
@@ -1045,9 +1269,32 @@ export function FacebookAnalyticsView({
       acc[key] = (acc[key] ?? 0) + 1;
       return acc;
     }, {});
+    const distributedActionsByDate: Record<string, number> = {};
+    if (hasActionPoints) {
+      dateAxis.forEach((date) => {
+        distributedActionsByDate[date] = actions[date] ?? 0;
+      });
+    } else if (totalActions > 0) {
+      const postWeightTotal = Object.values(postsByDate).reduce((sum, value) => sum + value, 0);
+      const convoWeightTotal = Object.values(conversationsByDate).reduce((sum, value) => sum + value, 0);
+      if (postWeightTotal > 0) {
+        dateAxis.forEach((date) => {
+          distributedActionsByDate[date] = ((postsByDate[date] ?? 0) / postWeightTotal) * totalActions;
+        });
+      } else if (convoWeightTotal > 0) {
+        dateAxis.forEach((date) => {
+          distributedActionsByDate[date] = ((conversationsByDate[date] ?? 0) / convoWeightTotal) * totalActions;
+        });
+      } else {
+        const lastDate = dateAxis[dateAxis.length - 1] ?? '';
+        dateAxis.forEach((date) => {
+          distributedActionsByDate[date] = date === lastDate ? totalActions : 0;
+        });
+      }
+    }
     return dateAxis.map((date) => ({
       date,
-      actions: hasActionPoints ? (actions[date] ?? 0) : (date === (dateAxis[dateAxis.length - 1] ?? '') ? totalActions : 0),
+      actions: distributedActionsByDate[date] ?? 0,
       posts: postsByDate[date] ?? 0,
       conversations: conversationsByDate[date] ?? 0,
     }));
@@ -1066,6 +1313,7 @@ export function FacebookAnalyticsView({
       const reactions = parseReactionTotal(fi.post_reactions_by_type_total);
       const isReel = isReelPost(p);
       const hasCore = typeof fi.post_media_view === 'number' || typeof fi.post_impressions_unique === 'number';
+      const { watchTimeMs, avgWatchMs } = getWatchTimes(p);
       return {
         id: p.id,
         date: p.publishedAt,
@@ -1077,7 +1325,8 @@ export function FacebookAnalyticsView({
         clicks: fi.post_clicks ?? 0,
         likes: fi.post_reactions_like_total ?? p.likeCount ?? 0,
         reactionsTotal: reactions || (fi.post_reactions_like_total ?? p.likeCount ?? 0),
-        watchTimeMs: fi.post_video_avg_time_watched ?? 0,
+        watchTimeMs,
+        avgWatchMs,
         reactionBreakdownRaw: fi.post_reactions_by_type_total,
         status: hasCore ? ('Ready' as const) : ('Partial' as const),
         rawPost: p,
@@ -1130,7 +1379,13 @@ export function FacebookAnalyticsView({
                 href={profileUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                title="Open Facebook profile"
+                title={
+                  insights?.platform === 'PINTEREST'
+                    ? 'Open Pinterest profile'
+                    : insights?.platform === 'INSTAGRAM'
+                      ? 'Open Instagram profile'
+                      : 'Open Facebook profile'
+                }
                 className="shrink-0"
               >
                 <div
@@ -1180,14 +1435,27 @@ export function FacebookAnalyticsView({
                 display: accountAvatarUrl ? 'none' : 'flex',
               }}
             >
-              {(profile?.name || profile?.username || 'FB').slice(0, 2).toUpperCase()}
+              {(
+                profile?.name ||
+                resolvedUsername ||
+                (insights?.platform === 'PINTEREST' ? 'PI' : insights?.platform === 'INSTAGRAM' ? 'IG' : insights?.platform === 'YOUTUBE' ? 'YT' : 'FB')
+              ).slice(0, 2).toUpperCase()}
             </div>
             <div>
               <h1 className="text-xl font-semibold" style={{ color: COLOR.text }}>
-                {profile?.name || insights?.facebookPageProfile?.username || followersLabel || 'Facebook Page'}
+                {profile?.name?.trim() ||
+                  resolvedUsername ||
+                  (insights?.platform === 'INSTAGRAM'
+                    ? 'Instagram'
+                    : insights?.platform === 'PINTEREST'
+                      ? 'Pinterest'
+                      : insights?.platform === 'YOUTUBE'
+                        ? 'YouTube'
+                        : 'Facebook Page')}
               </h1>
               <p className="text-sm" style={{ color: COLOR.textSecondary }}>
-                @{profile?.username || 'unknown'}{profile?.category ? `  •  ${profile.category}` : ''}
+                {resolvedUsername ? `@${resolvedUsername}` : '@unknown'}
+                {profile?.category ? `  •  ${profile.category}` : ''}
               </p>
             </div>
           </div>
@@ -1206,7 +1474,9 @@ export function FacebookAnalyticsView({
         </div>
         {postsLoading && !insightsLoading ? (
           <p className="mt-2.5 text-xs font-medium animate-pulse" style={{ color: COLOR.textSecondary }}>
-            Updating posts and reels from Facebook, tables will refresh when sync finishes.
+            {insights?.platform === 'PINTEREST'
+              ? 'Updating pins from Pinterest, tables will refresh when sync finishes.'
+              : 'Updating posts and reels from Facebook, tables will refresh when sync finishes.'}
           </p>
         ) : null}
       </section>
@@ -1283,7 +1553,7 @@ export function FacebookAnalyticsView({
             <SparklineMetricCard
               label="Page Visits"
               source="page_views_total"
-              color="#bb415e"
+              color={COLOR.coral}
               value={formatCompact(pageVisits)}
               series={series?.pageTabViews ?? []}
               active={isCardSelected('pageVisits')}
@@ -1321,7 +1591,13 @@ export function FacebookAnalyticsView({
               <ComposedChart data={chartByMode}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                 <XAxis dataKey="date" ticks={storyTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} dy={8} minTickGap={18} axisLine={false} tickLine={false} />
-                <YAxis domain={[0, 'auto']} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis
+                  domain={[0, 'auto']}
+                  allowDecimals={selectedStoryMetrics.some((metric) => metric !== 'followers')}
+                  tick={{ fill: COLOR.textMuted, fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
                 <Tooltip
                   contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
                   formatter={(v: number | string | undefined, n?: string) => [formatNumber(Number(v) || 0), n && n in STORY_METRIC_CONFIG ? STORY_METRIC_CONFIG[n as StoryMetricKey].label : String(n ?? '')]}
@@ -1401,15 +1677,20 @@ export function FacebookAnalyticsView({
               </div>
             </div>
           ) : (
-            <div className="h-[240px]">
+            <div className="h-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={engagementData} barCategoryGap={0} barGap={-18}>
+              <BarChart
+                data={engagementData}
+                barCategoryGap={UNIFIED_BAR_CATEGORY_GAP}
+                barGap={UNIFIED_BAR_GAP}
+                margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                 <XAxis dataKey="date" ticks={engagementTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} dy={8} minTickGap={18} axisLine={false} tickLine={false} />
-                <YAxis domain={[0, 'auto']} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis domain={[0, (dataMax: number) => Math.max(4, Math.ceil((dataMax || 0) + 1))]} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                 <Tooltip
                   shared
-                  cursor={<EngagementHoverCursor />}
+                  cursor={{ fill: 'rgba(107,114,128,0.20)' }}
                   contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
                   formatter={(v: number | string | undefined, n?: string) => [
                     formatNumber(Number(v) || 0),
@@ -1417,10 +1698,10 @@ export function FacebookAnalyticsView({
                   ]}
                   labelFormatter={(l) => formatShortDate(String(l))}
                 />
-                {selectedEngagementMetrics.includes('likes') ? <Bar dataKey="likes" fill={ENGAGEMENT_METRIC_CONFIG.likes.color} radius={[8, 8, 0, 0]} barSize={34} /> : null}
-                {selectedEngagementMetrics.includes('comments') ? <Bar dataKey="comments" fill={ENGAGEMENT_METRIC_CONFIG.comments.color} radius={[8, 8, 0, 0]} barSize={34} /> : null}
-                {selectedEngagementMetrics.includes('shares') ? <Bar dataKey="shares" fill={ENGAGEMENT_METRIC_CONFIG.shares.color} radius={[8, 8, 0, 0]} barSize={34} /> : null}
-                {selectedEngagementMetrics.includes('reposts') ? <Bar dataKey="reposts" fill={ENGAGEMENT_METRIC_CONFIG.reposts.color} radius={[8, 8, 0, 0]} barSize={34} /> : null}
+                {selectedEngagementMetrics.includes('likes') ? <Bar dataKey="likes" fill={ENGAGEMENT_METRIC_CONFIG.likes.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                {selectedEngagementMetrics.includes('comments') ? <Bar dataKey="comments" fill={ENGAGEMENT_METRIC_CONFIG.comments.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                {selectedEngagementMetrics.includes('shares') ? <Bar dataKey="shares" fill={ENGAGEMENT_METRIC_CONFIG.shares.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                {selectedEngagementMetrics.includes('reposts') ? <Bar dataKey="reposts" fill={ENGAGEMENT_METRIC_CONFIG.reposts.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
               </BarChart>
             </ResponsiveContainer>
             </div>
@@ -1431,23 +1712,6 @@ export function FacebookAnalyticsView({
         <div className="rounded-[20px] border p-4 sm:p-5 space-y-3" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Activity</h3>
-          </div>
-          <div className="flex gap-2">
-              {(['publishing', 'community'] as const).map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => setActivityPreset(preset)}
-                  className="rounded-lg px-3 py-1.5 text-sm"
-                  style={{
-                    background: activityPreset === preset ? 'rgba(139,124,255,0.2)' : 'rgba(255,255,255,0.03)',
-                    color: activityPreset === preset ? COLOR.text : COLOR.textSecondary,
-                    border: `1px solid ${activityPreset === preset ? COLOR.violet : COLOR.border}`,
-                  }}
-                >
-                  {preset === 'publishing' ? 'Publishing' : 'Community'}
-                </button>
-              ))}
           </div>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <MetricCard
@@ -1530,177 +1794,409 @@ export function FacebookAnalyticsView({
           </InsightChartCard>
         </div>
 
-        <CommunitySummaryCard
-          conversationsCount={conversationActivityCount}
-          latestConversationAt={community?.latestConversationAt ?? null}
-          ratingsCount={community?.ratingsCount ?? 0}
-          latestRecommendationText={community?.latestRecommendationText ?? null}
-        />
       </section>
 
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.traffic} className="scroll-mt-28 space-y-6">
-        <div>
-          <h2 className="text-[28px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Traffic</h2>
-          <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
-            Diagnose distribution quality across non-viral and viral attention sources.
-          </p>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard label="Post Impressions" source="page_posts_impressions" color={COLOR.cyan} value={formatCompact(postImpressions)} />
-          <MetricCard label="Non-viral Impressions" source="page_posts_impressions_nonviral" color={COLOR.violet} value={formatCompact(nonviralImpressions)} />
-          <MetricCard label="Viral Impressions" source="page_posts_impressions_viral" color={COLOR.magenta} value={formatCompact(viralImpressions)} />
-          <MetricCard label="Unique Reach Proxy" source="Sum of post_impressions_unique" color={COLOR.amber} value={formatCompact(uniqueReachProxy)} footnote="Derived from post-layer metrics" />
-        </div>
+        <div className="rounded-[20px] border p-4 sm:p-5 space-y-3" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Traffic</h3>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <MetricCard
+              label="Post Impressions"
+              source="page_posts_impressions"
+              color={COLOR.cyan}
+              value={formatCompact(postImpressions)}
+              active={selectedTrafficMetrics.includes('postImpressions')}
+              onClick={() => setSelectedTrafficMetrics((prev) => prev.includes('postImpressions') ? prev.filter((m) => m !== 'postImpressions') : [...prev, 'postImpressions'])}
+            />
+            <MetricCard
+              label="Non-viral Impressions"
+              source="page_posts_impressions_nonviral"
+              color={COLOR.violet}
+              value={formatCompact(nonviralImpressions)}
+              active={selectedTrafficMetrics.includes('nonviral')}
+              onClick={() => setSelectedTrafficMetrics((prev) => prev.includes('nonviral') ? prev.filter((m) => m !== 'nonviral') : [...prev, 'nonviral'])}
+            />
+            <MetricCard
+              label="Viral Impressions"
+              source="page_posts_impressions_viral"
+              color={COLOR.magenta}
+              value={formatCompact(viralImpressions)}
+              active={selectedTrafficMetrics.includes('viral')}
+              onClick={() => setSelectedTrafficMetrics((prev) => prev.includes('viral') ? prev.filter((m) => m !== 'viral') : [...prev, 'viral'])}
+            />
+            <MetricCard
+              label="Unique Reach Proxy"
+              source="Sum of post_impressions_unique"
+              color={COLOR.amber}
+              value={formatCompact(uniqueReachProxy)}
+              active={selectedTrafficMetrics.includes('uniqueReachProxy')}
+              onClick={() => setSelectedTrafficMetrics((prev) => prev.includes('uniqueReachProxy') ? prev.filter((m) => m !== 'uniqueReachProxy') : [...prev, 'uniqueReachProxy'])}
+            />
+          </div>
+          <div className="flex justify-end">
+            <div className="flex flex-wrap gap-2">
+              {selectedTrafficMetrics.map((m) => (
+                <span
+                  key={m}
+                  className="rounded-full border px-2.5 py-1 text-xs"
+                  style={{ borderColor: COLOR.border, color: COLOR.textSecondary, background: 'rgba(255,255,255,0.02)' }}
+                >
+                  <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ background: TRAFFIC_METRIC_CONFIG[m].color }} />
+                  {TRAFFIC_METRIC_CONFIG[m].label}
+                </span>
+              ))}
+            </div>
+          </div>
+          <InsightChartCard title="Visibility Composition" hideHeader flat>
+            {selectedTrafficMetrics.length === 0 ? (
+              <div className="h-[300px] rounded-xl border border-dashed relative overflow-hidden" style={{ borderColor: COLOR.border }}>
+                <div className="absolute inset-0 z-[2] flex items-center justify-center">
+                  <div
+                    className="rounded-2xl px-5 py-3 text-sm font-medium text-center max-w-[560px] w-[min(560px,92%)]"
+                    style={{ background: 'rgba(255,255,255,1)', color: COLOR.textSecondary, boxShadow: '0 1px 16px rgba(15,23,42,0.12)' }}
+                  >
+                    Select at least one metric card to display traffic data.
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={trafficTimelineData}
+                  barCategoryGap={UNIFIED_BAR_CATEGORY_GAP}
+                  barGap={UNIFIED_BAR_GAP}
+                  margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+                  <XAxis dataKey="date" ticks={trafficTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} dy={8} minTickGap={18} axisLine={false} tickLine={false} />
+                  <YAxis domain={[0, 'auto']} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
+                    formatter={(v: number | string | undefined, n?: string) => [formatNumber(Number(v) || 0), n && n in TRAFFIC_METRIC_CONFIG ? TRAFFIC_METRIC_CONFIG[n as TrafficMetricKey].label : String(n ?? '')]}
+                    labelFormatter={(l) => formatShortDate(String(l))}
+                  />
+                  {selectedTrafficMetrics.includes('postImpressions') ? <Bar dataKey="postImpressions" fill={COLOR.cyan} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                  {selectedTrafficMetrics.includes('nonviral') ? <Bar dataKey="nonviral" fill={COLOR.violet} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                  {selectedTrafficMetrics.includes('uniqueReachProxy') ? <Bar dataKey="uniqueReachProxy" fill={COLOR.amber} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                  {selectedTrafficMetrics.includes('viral') ? <Bar dataKey="viral" fill={COLOR.magenta} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </InsightChartCard>
 
-        <InsightChartCard
-          title="Visibility Composition"
-          subtitle="Stacked non-viral and viral impressions over time."
-          legend={[{ label: 'Non-viral', color: COLOR.violet }, { label: 'Viral', color: COLOR.magenta }]}
-        >
-          {stackedTraffic.some((d) => d.nonviral > 0 || d.viral > 0) ? (
-            <StackedTrafficChart data={stackedTraffic} />
-          ) : (
-            <EmptyStateCard title="No traffic composition yet" subtitle="Meta has not returned viral and non-viral rows for this date range." />
-          )}
-        </InsightChartCard>
-
-        <InsightChartCard
-          title="Content Views vs Page Visits"
-          legend={[{ label: 'Content Views', color: COLOR.amber }, { label: 'Page Visits', color: '#bb415e' }]}
-        >
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={viewVsVisit}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-              <XAxis dataKey="date" ticks={viewVisitTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} minTickGap={18} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }} formatter={(v: number | string | undefined) => formatNumber(Number(v) || 0)} labelFormatter={(l) => formatShortDate(String(l))} />
-              <Line type="monotone" dataKey="views" stroke={COLOR.amber} strokeWidth={2.2} dot={false} />
-              <Line type="monotone" dataKey="visits" stroke={'#bb415e'} strokeWidth={2.2} dot={false} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </InsightChartCard>
-
-        <div className="grid gap-4 md:grid-cols-3">
-          <MetricCard label="Engagement Rate" source="page_post_engagements / page_posts_impressions" color={COLOR.violet} value={formatPercent(engagementRate)} footnote="Derived metric" />
-          <MetricCard label="Video View Rate" source="page_video_views / page_media_view" color={COLOR.magenta} value={formatPercent(videoViewRate)} footnote="Derived metric" />
-          <MetricCard label="Viral Share of Impressions" source="viral / total impressions" color={COLOR.cyan} value={formatPercent(viralShare)} footnote="Derived metric" />
-        </div>
-
-        <div className="rounded-[20px] border p-4 text-sm" style={{ background: COLOR.card, borderColor: COLOR.border, color: COLOR.textSecondary }}>
-          <p><span style={{ color: COLOR.text }}>Insight note:</span> Non-viral impressions represent direct and organic post visibility. Viral impressions represent social amplification and redistribution.</p>
+          <div className="mt-6 rounded-xl border p-4 sm:p-5" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
+            <h4 className="text-base font-semibold mb-1" style={{ color: COLOR.text }}>
+              Audience by country
+            </h4>
+            <p className="text-xs mb-4" style={{ color: COLOR.textSecondary }}>
+              {insights?.audienceByCountry?.label ??
+                'Share of your audience by country (from Meta demographics when available).'}
+            </p>
+            {audienceCountryPieData.length > 0 ? (
+              <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+                <div className="w-full lg:w-[min(100%,420px)] h-[280px] shrink-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={audienceCountryPieData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={52}
+                        outerRadius={100}
+                        paddingAngle={2}
+                        labelLine={false}
+                        label={({ name, percent: p }) =>
+                          `${String(name).slice(0, 14)}${String(name).length > 14 ? '…' : ''} ${((Number(p) || 0) * 100).toFixed(0)}%`
+                        }
+                      >
+                        {audienceCountryPieData.map((_, i) => (
+                          <Cell key={i} fill={AUDIENCE_COUNTRY_PIE_COLORS[i % AUDIENCE_COUNTRY_PIE_COLORS.length]} stroke="rgba(255,255,255,0.85)" strokeWidth={1} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
+                        formatter={(value: number | string | undefined, _n, item) => {
+                          const payload = (item as { payload?: { percent?: number } })?.payload;
+                          const pct = payload?.percent;
+                          const v = Number(value) || 0;
+                          return [`${formatNumber(v)}${typeof pct === 'number' ? ` (${pct}% of chart)` : ''}`, 'Audience'];
+                        }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: 12, color: COLOR.textSecondary }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <ul className="flex-1 space-y-2 text-sm min-w-0" style={{ color: COLOR.text }}>
+                  {audienceCountryPieData.slice(0, 12).map((row, i) => (
+                    <li key={row.name} className="flex items-center justify-between gap-2 border-b border-neutral-100 pb-2 last:border-0">
+                      <span className="flex items-center gap-2 min-w-0">
+                        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: AUDIENCE_COUNTRY_PIE_COLORS[i % AUDIENCE_COUNTRY_PIE_COLORS.length] }} />
+                        <span className="truncate font-medium">{row.name}</span>
+                      </span>
+                      <span className="tabular-nums shrink-0" style={{ color: COLOR.textSecondary }}>
+                        {formatNumber(row.value)} <span className="text-neutral-400">({row.percent}%)</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <p className="text-sm py-6 text-center" style={{ color: COLOR.textSecondary }}>
+                No country breakdown yet. Meta returns this when your account has enough follower or engaged-audience demographics. Try again after more activity, or confirm insights permissions when you reconnect.
+              </p>
+            )}
+          </div>
         </div>
       </section>
 
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.posts} className="scroll-mt-28 space-y-6">
-        <div>
-          <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Posts</h2>
-          <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
-            Explore which posts drove views, clicks, and reactions.
-          </p>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <MetricCard label="Total Posts" source="Derived from posts in date range" color={COLOR.text} value={formatCompact(postsInRange.length)} />
-          <MetricCard label="Avg Clicks per Post" source="post_clicks" color={COLOR.amber} value={avgClicksPerPost.toFixed(1)} />
-          <MetricCard label="Avg Reactions per Post" source="post_reactions_like_total / breakdown" color={COLOR.violet} value={avgReactionsPerPost.toFixed(1)} />
-        </div>
-        <TopContentHighlights
-          byViews={topByViews.map((p) => ({ id: p.id, preview: p.preview, permalink: p.permalink, value: p.value, type: p.type }))}
-          byClicks={topByClicks.map((p) => ({ id: p.id, preview: p.preview, permalink: p.permalink, value: p.value, type: p.type }))}
-          byReactions={topByReactions.map((p) => ({ id: p.id, preview: p.preview, permalink: p.permalink, value: p.value, type: p.type }))}
-        />
-
-        {postsRows.length > 0 ? (
-          <PostsPerformanceTable rows={postsRows} onOpenDetail={setSelectedPost} />
-        ) : postsLoading ? (
-          <div className="rounded-[20px] border p-6 space-y-3" style={{ background: COLOR.card, borderColor: COLOR.border }}>
-            <p className="text-sm font-medium" style={{ color: COLOR.text }}>Loading posts for this range…</p>
-            <div className="space-y-2">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="h-12 rounded-xl animate-pulse" style={{ background: 'rgba(15,23,42,0.06)' }} />
-              ))}
-            </div>
+        <div className="rounded-[20px] border p-4 sm:p-5 space-y-4" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
+          <div>
+            <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Posts</h2>
           </div>
-        ) : (
-          <EmptyStateCard title="No posts in this range" subtitle="Try a wider date range or sync the account posts again." />
-        )}
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <MetricCard label="Total Posts" source="Derived from posts in date range" color={COLOR.text} value={formatCompact(postsInRange.length)} />
+            <MetricCard label="Avg Clicks per Post" source="post_clicks" color={COLOR.text} value={avgClicksPerPost.toFixed(1)} />
+            <MetricCard label="Avg Reactions per Post" source="post_reactions_like_total / breakdown" color={COLOR.text} value={avgReactionsPerPost.toFixed(1)} />
+          </div>
+          <TopContentHighlights
+            byViews={topByViews.map((p) => ({
+              id: p.id,
+              preview: p.preview,
+              permalink: p.permalink,
+              type: p.type,
+              thumbnailUrl: p.rawPost.thumbnailUrl ?? null,
+              views: p.views,
+              clicks: p.clicks,
+              reactions: p.reactionsTotal,
+              publishedAt: p.date,
+            }))}
+            byClicks={topByClicks.map((p) => ({
+              id: p.id,
+              preview: p.preview,
+              permalink: p.permalink,
+              type: p.type,
+              thumbnailUrl: p.rawPost.thumbnailUrl ?? null,
+              views: p.views,
+              clicks: p.clicks,
+              reactions: p.reactionsTotal,
+              publishedAt: p.date,
+            }))}
+            byReactions={topByReactions.map((p) => ({
+              id: p.id,
+              preview: p.preview,
+              permalink: p.permalink,
+              type: p.type,
+              thumbnailUrl: p.rawPost.thumbnailUrl ?? null,
+              views: p.views,
+              clicks: p.clicks,
+              reactions: p.reactionsTotal,
+              publishedAt: p.date,
+            }))}
+          />
+        </div>
 
       </section>
 
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.reels} className="scroll-mt-28 space-y-6">
-        <div>
-          <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Reels</h2>
-          <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
-            Video performance intelligence with watch quality and organic share.
-          </p>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <MetricCard label="Reel Count" source="Permalink contains /reel/" color={COLOR.text} value={formatCompact(reelsRows.length)} />
-          <MetricCard label="Total Video Views" source="post_video_views" color={COLOR.magenta} value={formatCompact(totalReelVideoViews)} />
-          <MetricCard label="Avg Watch Time" source="Mean post_video_avg_time_watched" color={COLOR.magenta} value={formatDurationMs(avgWatchMs)} />
-        </div>
-
-        <InsightChartCard title="Reel Performance" subtitle="Bars for views, line for average watch time (seconds)." legend={[{ label: 'Views', color: COLOR.magenta }, { label: 'Avg Watch (s)', color: COLOR.amber }]}>
-          {reelsChartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={reelsChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(17,24,39,0.08)" vertical={false} />
-                <XAxis dataKey="date" ticks={reelsTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} minTickGap={18} axisLine={false} tickLine={false} />
-                <YAxis yAxisId="left" tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis yAxisId="right" orientation="right" tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }} formatter={(v: number | string | undefined, n?: string) => [n === 'watchSeconds' ? `${(Number(v) || 0).toFixed(1)}s` : formatNumber(Number(v) || 0), n === 'watchSeconds' ? 'Avg Watch' : 'Views']} />
-                <Bar yAxisId="left" dataKey="views" fill={COLOR.magenta} radius={[6, 6, 0, 0]} />
-                <Line yAxisId="right" dataKey="watchSeconds" stroke={COLOR.amber} strokeWidth={2.2} dot={false} />
-              </ComposedChart>
-            </ResponsiveContainer>
-          ) : (
-            <EmptyStateCard title="No reels in this period" subtitle="Reel analytics appears after reels are discovered in your post inventory." />
-          )}
-        </InsightChartCard>
-
-        <ReelsPerformanceGrid reels={reelsRows} />
-      </section>
-
-      <section id={FACEBOOK_ANALYTICS_SECTION_IDS.history} className="scroll-mt-28 space-y-4">
-        <div>
-          <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Content History</h2>
-          <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
-            Unified archive for posts and reels with filters for faster investigation.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="rounded-[20px] border p-4 sm:p-5 space-y-4" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
+          <div>
+            <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Reels</h2>
+          </div>
+        <div className="flex gap-2">
           {([
-            { id: 'all', label: 'All' },
-            { id: 'posts', label: 'Posts' },
-            { id: 'reels', label: 'Reels' },
-          ] as const).map((f) => (
+            { id: 'performance', label: 'Performance' },
+            { id: 'engagement', label: 'Engagement' },
+            { id: 'watch', label: 'Watch' },
+          ] as const).map((preset) => (
             <button
-              key={f.id}
+              key={preset.id}
               type="button"
-              onClick={() => setHistoryFilter(f.id)}
-              className="rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
+              onClick={() => {
+                setReelPreset(preset.id);
+                setSelectedReelMetrics(REEL_PRESET_METRICS[preset.id]);
+              }}
+              className="rounded-lg px-3 py-1.5 text-sm"
               style={{
-                background: historyFilter === f.id ? 'rgba(124,108,255,0.14)' : '#ffffff',
-                color: historyFilter === f.id ? COLOR.violet : COLOR.textSecondary,
+                background: reelPreset === preset.id ? 'rgba(139,124,255,0.2)' : 'rgba(255,255,255,0.03)',
+                color: reelPreset === preset.id ? COLOR.text : COLOR.textSecondary,
+                border: `1px solid ${reelPreset === preset.id ? COLOR.violet : COLOR.border}`,
               }}
             >
-              {f.label}
+              {preset.label}
             </button>
           ))}
         </div>
-        {contentHistoryRows.length > 0 ? (
-          <PostsPerformanceTable rows={contentHistoryRows} onOpenDetail={setSelectedPost} />
-        ) : postsLoading ? (
-          <div className="rounded-[20px] border p-6 space-y-3" style={{ background: COLOR.card, borderColor: COLOR.border }}>
-            <p className="text-sm font-medium" style={{ color: COLOR.text }}>Loading content history…</p>
-            <div className="space-y-2">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="h-11 rounded-xl animate-pulse" style={{ background: 'rgba(15,23,42,0.06)' }} />
-              ))}
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard
+            label="Total Video Views"
+            source="post_video_views"
+            color={REEL_METRIC_CONFIG.views.color}
+            value={formatCompact(totalReelVideoViews)}
+            active={selectedReelMetrics.includes('views')}
+            onClick={() => setSelectedReelMetrics((prev) => prev.includes('views') ? prev.filter((m) => m !== 'views') : [...prev, 'views'])}
+          />
+          <MetricCard
+            label="Watch Time"
+            source="post_video_view_time"
+            color={REEL_METRIC_CONFIG.watchTime.color}
+            value={formatDurationMs(totalReelWatchTimeMs)}
+            active={selectedReelMetrics.includes('watchTime')}
+            onClick={() => setSelectedReelMetrics((prev) => prev.includes('watchTime') ? prev.filter((m) => m !== 'watchTime') : [...prev, 'watchTime'])}
+          />
+          <MetricCard
+            label="Avg Watch Time"
+            source="Mean post_video_avg_time_watched"
+            color={REEL_METRIC_CONFIG.avgWatch.color}
+            value={formatDurationMs(avgWatchMs)}
+            active={selectedReelMetrics.includes('avgWatch')}
+            onClick={() => setSelectedReelMetrics((prev) => prev.includes('avgWatch') ? prev.filter((m) => m !== 'avgWatch') : [...prev, 'avgWatch'])}
+          />
+          <MetricCard
+            label="Clicks"
+            source="post_clicks"
+            color={REEL_METRIC_CONFIG.clicks.color}
+            value={formatCompact(reelClicks)}
+            active={selectedReelMetrics.includes('clicks')}
+            onClick={() => setSelectedReelMetrics((prev) => prev.includes('clicks') ? prev.filter((m) => m !== 'clicks') : [...prev, 'clicks'])}
+          />
+          <MetricCard
+            label="Likes"
+            source="post_reactions_like_total"
+            color={REEL_METRIC_CONFIG.likes.color}
+            value={formatCompact(reelLikes)}
+            active={selectedReelMetrics.includes('likes')}
+            onClick={() => setSelectedReelMetrics((prev) => prev.includes('likes') ? prev.filter((m) => m !== 'likes') : [...prev, 'likes'])}
+          />
+          <MetricCard
+            label="Comments"
+            source="post_comments"
+            color={REEL_METRIC_CONFIG.comments.color}
+            value={formatCompact(reelComments)}
+            active={selectedReelMetrics.includes('comments')}
+            onClick={() => setSelectedReelMetrics((prev) => prev.includes('comments') ? prev.filter((m) => m !== 'comments') : [...prev, 'comments'])}
+          />
+          <MetricCard
+            label="Shares"
+            source="post_shares"
+            color={REEL_METRIC_CONFIG.shares.color}
+            value={formatCompact(reelShares)}
+            active={selectedReelMetrics.includes('shares')}
+            onClick={() => setSelectedReelMetrics((prev) => prev.includes('shares') ? prev.filter((m) => m !== 'shares') : [...prev, 'shares'])}
+          />
+          <MetricCard
+            label="Reposts"
+            source="repostsCount"
+            color={REEL_METRIC_CONFIG.reposts.color}
+            value={formatCompact(reelReposts)}
+            active={selectedReelMetrics.includes('reposts')}
+            onClick={() => setSelectedReelMetrics((prev) => prev.includes('reposts') ? prev.filter((m) => m !== 'reposts') : [...prev, 'reposts'])}
+          />
+        </div>
+
+        <InsightChartCard
+          title="Reel Performance"
+          legend={selectedReelMetrics.map((m) => ({ label: REEL_METRIC_CONFIG[m].label, color: REEL_METRIC_CONFIG[m].color }))}
+        >
+          {reelsChartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={reelsChartData}
+                barCategoryGap={UNIFIED_BAR_CATEGORY_GAP}
+                barGap={UNIFIED_BAR_GAP}
+                margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(17,24,39,0.08)" vertical={false} />
+                <XAxis dataKey="date" tickFormatter={formatShortDate} interval={0} tick={{ fill: COLOR.textMuted, fontSize: 11 }} minTickGap={0} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                <Tooltip
+                  cursor={{ fill: 'rgba(107,114,128,0.20)' }}
+                  content={(props) => {
+                    const { active, payload, label } = props as unknown as { active?: boolean; payload?: Array<{ dataKey?: string; value?: number; payload?: { thumbnailUrl?: string | null } }>; label?: string };
+                    if (!active || !payload?.length) return null;
+                    const row = payload[0]?.payload;
+                    const kv = payload
+                      .filter((p) => typeof p.value === 'number' && typeof p.dataKey === 'string')
+                      .map((p) => ({ key: p.dataKey as ReelMetricKey | 'watchTimeMinutes' | 'avgWatchSeconds', value: p.value ?? 0 }));
+                    return (
+                      <div className="rounded-xl border px-3 py-2 text-xs shadow-lg" style={{ background: '#ffffff', borderColor: COLOR.border }}>
+                        <p className="font-medium mb-1.5" style={{ color: COLOR.text }}>{formatShortDate(String(label ?? ''))}</p>
+                        {row?.thumbnailUrl ? <img src={row.thumbnailUrl} alt="" className="mb-2 h-10 w-10 rounded object-cover" /> : null}
+                        {kv.map((item) => (
+                          <p key={item.key} style={{ color: COLOR.textSecondary }}>
+                            {(item.key === 'watchTimeMinutes' ? 'Watch Time' : item.key === 'avgWatchSeconds' ? 'Avg Watch' : REEL_METRIC_CONFIG[item.key as ReelMetricKey]?.label ?? item.key)}: {item.key === 'watchTimeMinutes' ? `${item.value.toFixed(1)}m` : item.key === 'avgWatchSeconds' ? `${item.value.toFixed(1)}s` : formatNumber(item.value)}
+                          </p>
+                        ))}
+                      </div>
+                    );
+                  }}
+                />
+                {selectedReelMetrics.includes('views') ? <Bar dataKey="views" fill={REEL_METRIC_CONFIG.views.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                {selectedReelMetrics.includes('clicks') ? <Bar dataKey="clicks" fill={REEL_METRIC_CONFIG.clicks.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                {selectedReelMetrics.includes('likes') ? <Bar dataKey="likes" fill={REEL_METRIC_CONFIG.likes.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                {selectedReelMetrics.includes('comments') ? <Bar dataKey="comments" fill={REEL_METRIC_CONFIG.comments.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                {selectedReelMetrics.includes('shares') ? <Bar dataKey="shares" fill={REEL_METRIC_CONFIG.shares.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                {selectedReelMetrics.includes('reposts') ? <Bar dataKey="reposts" fill={REEL_METRIC_CONFIG.reposts.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                {selectedReelMetrics.includes('watchTime') ? <Bar dataKey="watchTimeMinutes" fill={REEL_METRIC_CONFIG.watchTime.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                {selectedReelMetrics.includes('avgWatch') ? <Bar dataKey="avgWatchSeconds" fill={REEL_METRIC_CONFIG.avgWatch.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-[240px] rounded-[20px] border flex flex-col items-center justify-center text-center px-6" style={{ background: COLOR.card, borderColor: COLOR.border }}>
+              <p className="text-sm font-semibold" style={{ color: COLOR.text }}>No reels in this period</p>
+              <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
+                Reel analytics appears after reels are discovered in your post inventory.
+              </p>
             </div>
+          )}
+        </InsightChartCard>
+        </div>
+      </section>
+
+      <section id={FACEBOOK_ANALYTICS_SECTION_IDS.history} className="scroll-mt-28 space-y-4">
+        <div className="rounded-[20px] border p-4 sm:p-5 space-y-4" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
+          <div>
+            <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Content History</h2>
           </div>
-        ) : (
-          <PostsPerformanceTable rows={contentHistoryRows} onOpenDetail={setSelectedPost} />
-        )}
+          <div className="flex flex-wrap gap-2">
+            {([
+              { id: 'all', label: 'All' },
+              { id: 'posts', label: 'Posts' },
+              { id: 'reels', label: 'Reels' },
+            ] as const).map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setHistoryFilter(f.id)}
+                className="rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
+                style={{
+                  background: historyFilter === f.id ? 'rgba(124,108,255,0.14)' : '#ffffff',
+                  color: historyFilter === f.id ? COLOR.violet : COLOR.textSecondary,
+                }}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          {contentHistoryRows.length > 0 ? (
+            <PostsPerformanceTable rows={contentHistoryRows} onOpenDetail={setSelectedPost} />
+          ) : postsLoading ? (
+            <div className="rounded-[20px] border p-6 space-y-3" style={{ background: COLOR.card, borderColor: COLOR.border }}>
+              <p className="text-sm font-medium" style={{ color: COLOR.text }}>Loading content history…</p>
+              <div className="space-y-2">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="h-11 rounded-xl animate-pulse" style={{ background: 'rgba(15,23,42,0.06)' }} />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <PostsPerformanceTable rows={contentHistoryRows} onOpenDetail={setSelectedPost} />
+          )}
+        </div>
       </section>
 
       {selectedPost ? (

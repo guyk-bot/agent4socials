@@ -17,6 +17,7 @@ import { fetchPageProfile } from '@/lib/facebook/fetchers';
 import { facebookMetricDateFromEndTime } from '@/lib/facebook/dates';
 import { persistFacebookPageInsightsNormalized } from '@/lib/facebook/persist-page-insights';
 import { buildFacebookFrontendAnalyticsBundle } from '@/lib/facebook/frontend-analytics-bundle';
+import { buildPinterestFrontendAnalyticsBundle } from '@/lib/pinterest-analytics-bundle';
 import { syncFacebookAuxiliaryIngest } from '@/lib/facebook/sync-extras';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 
@@ -1058,13 +1059,19 @@ export async function GET(
     if (account.platform === 'PINTEREST') {
       const token = await getValidPinterestToken(account);
       const headers = { Authorization: `Bearer ${token}` };
+      type PinUserAccount = {
+        follower_count?: number;
+        monthly_views?: number;
+        pin_count?: number;
+        username?: string;
+        business_name?: string;
+        profile_image?: string;
+        website_url?: string;
+      };
+      let uaBody: PinUserAccount | undefined;
       try {
-        const ua = await axios.get<{
-          follower_count?: number;
-          monthly_views?: number;
-          pin_count?: number;
-          username?: string;
-        }>('https://api.pinterest.com/v5/user_account', { headers });
+        const ua = await axios.get<PinUserAccount>('https://api.pinterest.com/v5/user_account', { headers });
+        uaBody = ua.data;
         if (typeof ua.data?.follower_count === 'number') out.followers = ua.data.follower_count;
         out.extra = {
           ...(out.extra ?? {}),
@@ -1072,11 +1079,22 @@ export async function GET(
           pinterestPinCount: ua.data?.pin_count,
           pinterestMonthlyViews: ua.data?.monthly_views,
         };
+        (out as Record<string, unknown>).facebookPageProfile = {
+          username: ua.data?.username ?? account.username ?? undefined,
+          name: (ua.data?.business_name ?? ua.data?.username ?? account.username ?? 'Pinterest') as string,
+          followers_count: ua.data?.follower_count,
+          website: ua.data?.website_url,
+        };
+        if (typeof ua.data?.monthly_views === 'number') {
+          out.profileViewsTotal = ua.data.monthly_views;
+        }
       } catch (e) {
         console.warn('[Insights] Pinterest user_account:', (e as Error)?.message ?? e);
         out.insightsHint = 'Could not load Pinterest profile. Reconnect from the sidebar.';
       }
 
+      let analyticsBody: unknown;
+      let analyticsStatus = 0;
       try {
         const analyticsRes = await axios.get<{
           all?: {
@@ -1088,6 +1106,8 @@ export async function GET(
           params: { start_date: sinceParam, end_date: untilParam },
           validateStatus: () => true,
         });
+        analyticsStatus = analyticsRes.status;
+        analyticsBody = analyticsRes.data;
         if (analyticsRes.status === 200 && analyticsRes.data?.all) {
           const daily = analyticsRes.data.all.daily_metrics ?? [];
           const byDate: Record<string, number> = {};
@@ -1111,35 +1131,55 @@ export async function GET(
           else out.impressionsTotal = out.impressionsTimeSeries.reduce((s, p) => s + p.value, 0);
         } else if (analyticsRes.status === 403 || analyticsRes.status === 401) {
           out.insightsHint =
-            'Pinterest analytics for this date range may require Standard API access or approved trial on your Pinterest app. Follower and profile data still load when the API allows.';
+            'Pinterest analytics for this date range may require Standard API access and analytics scopes. Reconnect Pinterest from Accounts. Follower and profile data may still load.';
         }
       } catch (e) {
         console.warn('[Insights] Pinterest analytics:', (e as Error)?.message ?? e);
+        analyticsBody = { error: (e as Error)?.message ?? String(e) };
       }
 
-      const extended = request.nextUrl.searchParams.get('extended') === '1';
-      if (extended) {
-        try {
-          const topRes = await axios.get(
-            'https://api.pinterest.com/v5/user_account/analytics/top_pins',
-            {
-              headers,
-              params: {
-                start_date: sinceParam,
-                end_date: untilParam,
-                sort_by: 'IMPRESSION',
-                num_of_pins: 10,
-              },
-              validateStatus: () => true,
-            }
-          );
-          if (topRes.status === 200 && topRes.data && typeof topRes.data === 'object') {
-            out.extra = { ...(out.extra ?? {}), pinterestTopPins: topRes.data };
-          }
-        } catch (_) {
-          // optional
+      let topPinsBody: unknown;
+      try {
+        const topRes = await axios.get('https://api.pinterest.com/v5/user_account/analytics/top_pins', {
+          headers,
+          params: {
+            start_date: sinceParam,
+            end_date: untilParam,
+            sort_by: 'IMPRESSION',
+            num_of_pins: 10,
+          },
+          validateStatus: () => true,
+        });
+        topPinsBody = topRes.status === 200 ? topRes.data : { status: topRes.status, data: topRes.data };
+        if (topRes.status === 200 && topRes.data && typeof topRes.data === 'object') {
+          out.extra = { ...(out.extra ?? {}), pinterestTopPins: topRes.data };
         }
+      } catch (e) {
+        topPinsBody = { error: (e as Error)?.message ?? String(e) };
       }
+
+      out.raw = {
+        ...(out.raw ?? {}),
+        pinterest: {
+          user_account: uaBody ?? null,
+          analytics: analyticsStatus ? { httpStatus: analyticsStatus, body: analyticsBody } : { body: analyticsBody },
+          top_pins: topPinsBody,
+        },
+      };
+
+      const dailyForBundle =
+        analyticsStatus === 200 &&
+        analyticsBody &&
+        typeof analyticsBody === 'object' &&
+        (analyticsBody as { all?: { daily_metrics?: Array<{ date?: string; metrics?: Record<string, number> }> } }).all
+          ?.daily_metrics
+          ? (analyticsBody as { all: { daily_metrics: Array<{ date?: string; metrics?: Record<string, number> }> } }).all
+              .daily_metrics
+          : [];
+      (out as Record<string, unknown>).facebookAnalytics = buildPinterestFrontendAnalyticsBundle({
+        followerCount: out.followers,
+        daily: dailyForBundle,
+      });
 
       return NextResponse.json(out);
     }

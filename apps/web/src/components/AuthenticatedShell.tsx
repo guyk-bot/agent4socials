@@ -10,12 +10,6 @@ import { useWhiteLabel } from '@/context/WhiteLabelContext';
 
 const CHROME_Z = 9999;
 
-/** Dashboard never uses neon brand primaries for UI tokens (Windows Chrome accent-color / focus follow these). */
-const DASHBOARD_PRIMARY = '#52525b';
-const DASHBOARD_PRIMARY_HOVER = '#3f3f46';
-const DASHBOARD_BUTTON = '#404040';
-const DASHBOARD_BUTTON_HOVER = '#262626';
-
 function AuthenticatedContent({
     sidebarOpen,
     onSidebarToggle,
@@ -27,32 +21,25 @@ function AuthenticatedContent({
 }) {
     const { backgroundColor, primaryColor, textColor } = useWhiteLabel();
 
-    const shellTokens: React.CSSProperties = {
-        ['--wl-primary' as string]: primaryColor || undefined,
-        ['--primary' as string]: DASHBOARD_PRIMARY,
-        ['--primary-hover' as string]: DASHBOARD_PRIMARY_HOVER,
-        ['--button' as string]: DASHBOARD_BUTTON,
-        ['--button-hover' as string]: DASHBOARD_BUTTON_HOVER,
-        ['--wl-text' as string]: textColor || undefined,
-        ['--wl-sidebar-bg' as string]: backgroundColor || '#f5f5f5',
-        accentColor: DASHBOARD_PRIMARY,
-        colorScheme: 'light',
-    };
-
     const chromeStyle: React.CSSProperties = {
         color: textColor || undefined,
-        ...shellTokens,
+        ['--wl-primary' as string]: primaryColor || undefined,
+        ['--primary' as string]: primaryColor || undefined,
+        ['--wl-text' as string]: textColor || undefined,
+        ['--wl-sidebar-bg' as string]: backgroundColor || '#f5f5f5',
         pointerEvents: 'auto',
     };
 
     return (
         <div
             className="min-h-screen bg-neutral-100"
-            data-app-shell="authenticated"
             style={{
                 backgroundColor: backgroundColor || 'var(--background)',
                 color: textColor || undefined,
-                ...shellTokens,
+                ['--wl-primary' as string]: primaryColor || undefined,
+                ['--primary' as string]: primaryColor || undefined,
+                ['--wl-text' as string]: textColor || undefined,
+                ['--wl-sidebar-bg' as string]: backgroundColor || '#f5f5f5',
             }}
         >
             {/* Main content: low stacking order so chrome can sit on top */}

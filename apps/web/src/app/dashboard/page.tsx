@@ -29,9 +29,9 @@ import {
 } from 'lucide-react';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
 import { InteractiveLineChart } from '@/components/charts/InteractiveLineChart';
-import { FacebookAnalyticsView, FACEBOOK_ANALYTICS_SECTION_IDS, PlatformAnalyticsHeader, AnalyticsGrid, AnalyticsGridItem, AnalyticsWatermarkedChart } from '@/components/analytics';
+import { FacebookAnalyticsView, AnalyticsGrid, AnalyticsGridItem, AnalyticsWatermarkedChart } from '@/components/analytics';
 import type { FacebookFrontendAnalyticsBundle } from '@/lib/facebook/frontend-analytics-bundle';
-import { AnalyticsDateRangePicker } from '@/components/analytics/AnalyticsDateRangePicker';
+import type { FacebookInsights } from '@/components/analytics/facebook/types';
 import { PricingBillingToggle, PricingCard } from '@/components/landing/pricing';
 import type { Demographics, GrowthDataPoint, TrafficSourceItem } from '@/types/analytics';
 import {
@@ -63,13 +63,13 @@ function DataSyncBanner({
   postsLoading: boolean;
 }) {
   const platformIcons: Record<string, React.ReactNode> = {
-    INSTAGRAM: <InstagramIcon size={20} />,
-    FACEBOOK: <FacebookIcon size={20} />,
-    TIKTOK: <TikTokIcon size={20} />,
-    YOUTUBE: <YoutubeIcon size={20} />,
-    TWITTER: <XTwitterIcon size={20} className="text-neutral-800" />,
-    LINKEDIN: <LinkedinIcon size={20} />,
-    PINTEREST: <PinterestIcon size={20} />,
+    INSTAGRAM: <InstagramIcon size={29} />,
+    FACEBOOK: <FacebookIcon size={29} />,
+    TIKTOK: <TikTokIcon size={29} />,
+    YOUTUBE: <YoutubeIcon size={29} />,
+    TWITTER: <XTwitterIcon size={29} className="text-neutral-800" />,
+    LINKEDIN: <LinkedinIcon size={29} />,
+    PINTEREST: <PinterestIcon size={29} />,
   };
   const platformColors: Record<string, string> = {
     INSTAGRAM: 'from-pink-500 via-fuchsia-500 to-purple-600',
@@ -91,14 +91,14 @@ function DataSyncBanner({
     <div className="flex items-center gap-1.5 min-w-0">
       <div className={`shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
         state === 'done' ? 'bg-emerald-500 text-white' :
-        state === 'loading' ? 'bg-white text-[var(--primary)]' : 'bg-white/30 text-white/60'
+        state === 'loading' ? 'bg-neutral-200 text-neutral-500' : 'bg-white/30 text-white/60'
       }`}>
         {state === 'done' ? '✓' : state === 'loading' ? (
-          <span className="inline-block w-3 h-3 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
+          <span className="inline-block w-3 h-3 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin" />
         ) : '○'}
       </div>
       <span className={`text-xs font-medium truncate ${
-        state === 'done' ? 'text-emerald-100' : state === 'loading' ? 'text-white' : 'text-white/50'
+        state === 'done' ? 'text-emerald-100' : state === 'loading' ? 'text-neutral-200' : 'text-white/50'
       }`}>{label}</span>
     </div>
   );
@@ -119,7 +119,7 @@ function DataSyncBanner({
         {icon && (
           <div className="relative shrink-0">
             {!allDone && <div className="absolute inset-0 rounded-full bg-white/30 animate-ping" />}
-            <div className="relative w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm">
+            <div className="relative w-8 h-8 flex items-center justify-center">
               {icon}
             </div>
           </div>
@@ -217,28 +217,6 @@ const PLATFORM_ICON: Record<string, React.ReactNode> = {
   LINKEDIN: <LinkedinIcon size={22} />,
   PINTEREST: <PinterestIcon size={22} />,
 };
-
-function profileUrlForAccount(account: { platform: string; username?: string | null; platformUserId?: string }): string {
-  const platform = (account.platform || '').toUpperCase();
-  const username = account.username?.trim();
-  const pid = (account as { platformUserId?: string }).platformUserId;
-  if (platform === 'INSTAGRAM' && username) return `https://instagram.com/${username.replace(/^@/, '')}`;
-  if (platform === 'FACEBOOK' && pid) return `https://www.facebook.com/${pid}`;
-  if (platform === 'TIKTOK' && username) return `https://www.tiktok.com/@${username.replace(/^@/, '')}`;
-  if (platform === 'YOUTUBE') return 'https://www.youtube.com';
-  if (platform === 'TWITTER' && username) return `https://x.com/${username.replace(/^@/, '')}`;
-  if (platform === 'LINKEDIN') return 'https://www.linkedin.com';
-  if (platform === 'PINTEREST' && username) return `https://www.pinterest.com/${username.replace(/^@/, '')}/`;
-  return '#';
-}
-
-/** Scroll-to sections for single-page analytics. Facebook adds an explicit read_insights block for App Review recordings. */
-const ANALYTICS_SCROLL_SECTIONS = [
-  { id: FACEBOOK_ANALYTICS_SECTION_IDS.overview, label: 'Overview' },
-  { id: FACEBOOK_ANALYTICS_SECTION_IDS.traffic, label: 'Traffic' },
-  { id: FACEBOOK_ANALYTICS_SECTION_IDS.posts, label: 'Posts' },
-  { id: FACEBOOK_ANALYTICS_SECTION_IDS.reels, label: 'Reels' },
-] as const;
 
 const FREE_HIGHLIGHTS = [
   '1 brand',
@@ -339,7 +317,6 @@ export default function DashboardPage() {
   const [pageReviews, setPageReviews] = useState<Array<{ created_time: string | null; rating: number | null; recommendation_type: string | null; review_text: string | null; has_rating: boolean; has_review: boolean }>>([]);
   const [pageReviewsLoading, setPageReviewsLoading] = useState(false);
   const [pageReviewsError, setPageReviewsError] = useState<string | null>(null);
-  const [canConnectTwitter, setCanConnectTwitter] = useState<boolean | null>(null);
   const accounts = (cachedAccounts as SocialAccount[]) ?? [];
   const hasAccounts = accounts.length > 0;
 
@@ -370,25 +347,6 @@ export default function DashboardPage() {
       router.replace('/dashboard', { scroll: false });
     }
   }, [connectParam, router, setSelectedPlatformForConnect]);
-
-  // X (Twitter) is paid-only: check if user can connect when they land on connect=twitter
-  useEffect(() => {
-    const platform = (selectedPlatformForConnect || connectFromUrl) as string;
-    if (platform !== 'TWITTER') {
-      setCanConnectTwitter(null);
-      return;
-    }
-    let cancelled = false;
-    setCanConnectTwitter(null);
-    api.get<{ canConnectTwitter?: boolean }>('/user/can-connect-twitter')
-      .then((res) => {
-        if (!cancelled) setCanConnectTwitter(res.data?.canConnectTwitter ?? false);
-      })
-      .catch(() => {
-        if (!cancelled) setCanConnectTwitter(false);
-      });
-    return () => { cancelled = true; };
-  }, [selectedPlatformForConnect, connectFromUrl]);
 
   // When accountId is in URL: select that account and clean URL. Only clear cache when just connected (connecting=1) so sidebar navigation reuses saved data like inbox.
   useEffect(() => {
@@ -490,20 +448,34 @@ export default function DashboardPage() {
       const accountId = selectedAccount.id;
       const refList = postsCacheRef.current[accountId];
       const ctxList = appCtx?.getPosts(accountId);
+      const refreshPostsInBackground = () => {
+        api.get(`/social/accounts/${accountId}/posts`)
+          .then((res) => {
+            const list = res.data?.posts ?? [];
+            postsCacheRef.current[accountId] = list;
+            accountPostsHydratedRef.current[accountId] = true;
+            appDataRef.current?.setPostsForAccount(accountId, list);
+            if (selectedAccountIdRef.current === accountId) setImportedPosts(list);
+          })
+          .catch(() => {});
+      };
       // Prefer dashboard ref (last successful fetch) over AppData prefetch: context can briefly hold [] or stale rows and would win with ?? and wipe charts.
       if (refList !== undefined) {
         setImportedPosts(refList);
         setImportedPostsLoading(false);
+        refreshPostsInBackground();
         return;
       }
-      if (ctxList != null && ctxList.length > 0) {
+      if (ctxList != null && (ctxList.length > 0 || accountPostsHydratedRef.current[accountId])) {
         setImportedPosts(ctxList);
         setImportedPostsLoading(false);
+        refreshPostsInBackground();
         return;
       }
       if (accountPostsHydratedRef.current[accountId]) {
         // Already loaded once — keep whatever is already displayed; do not blank the chart.
         setImportedPostsLoading(false);
+        refreshPostsInBackground();
         return;
       }
       // First load for this account: show spinner without blanking existing data.
@@ -621,6 +593,16 @@ export default function DashboardPage() {
     if (cached) {
       setInsights(cached);
       setInsightsLoading(false);
+      // SWR: refresh silently in background so UI stays instant.
+      api.get(`/social/accounts/${accountId}/insights`, { params: { since: dateRange.start, until: dateRange.end, extended: 1 } })
+        .then((res) => {
+          const data = res.data ?? null;
+          if (!data) return;
+          insightsCacheRef.current[cacheKey] = data;
+          appDataRef.current?.setInsightsForAccount(accountId, data);
+          if (selectedAccountIdRef.current === accountId) setInsights(data);
+        })
+        .catch(() => {});
       if (!accountTabOwnsPosts) {
         if (postsCached !== undefined && postsCached !== null) {
           setImportedPosts(postsCached);
@@ -891,37 +873,6 @@ export default function DashboardPage() {
 
   if (showConnectView) {
     const connectPlatform = (selectedPlatformForConnect || connectFromUrl) as string;
-    const isTwitterConnect = connectPlatform === 'TWITTER';
-
-    if (isTwitterConnect && canConnectTwitter === false) {
-      return (
-        <>
-          <ConfirmModal open={alertMessage !== null} onClose={() => setAlertMessage(null)} message={alertMessage ?? ''} variant="alert" confirmLabel="OK" />
-          <div className="rounded-2xl border-2 border-[#5ff6fd]/40 bg-gradient-to-r from-[#5ff6fd]/10 to-[#b030ad]/10 p-8 max-w-lg mx-auto text-center">
-            <h2 className="text-xl font-bold text-neutral-900">X (Twitter) is for paid plans</h2>
-            <p className="mt-2 text-neutral-700">
-              Connect X (Twitter) on Starter or Pro. Upgrade to add X to your dashboard.
-            </p>
-            <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={openPricingPopup}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#5ff6fd] to-[#b030ad] px-6 py-3 text-neutral-900 font-semibold text-sm hover:opacity-90"
-              >
-                View plans
-              </button>
-              <button
-                type="button"
-                onClick={() => { setSelectedPlatformForConnect(null); router.replace('/dashboard', { scroll: false }); }}
-                className="text-sm font-medium text-neutral-600 hover:text-neutral-900"
-              >
-                Back to dashboard
-              </button>
-            </div>
-          </div>
-        </>
-      );
-    }
 
     return (
       <>
@@ -996,6 +947,14 @@ export default function DashboardPage() {
   const effectiveInsightsLoading = selectedAccount
     ? insightsLoading
     : aggregatedLoading;
+  const hasWarmCacheForSelected = Boolean(
+    selectedAccount?.id && (
+      appDataRef.current?.getInsights(selectedAccount.id) != null ||
+      appDataRef.current?.getPosts(selectedAccount.id) !== undefined ||
+      insights != null ||
+      importedPosts.length > 0
+    )
+  );
   const fallbackSeriesValue = effectiveImpressions || effectiveFollowers || 0;
   const hasNonZeroSeries = effectiveTimeSeries.length > 0 && effectiveTimeSeries.some((d) => d.value > 0);
   const endDate = dateRange.end || toLocalCalendarDate(new Date());
@@ -1120,7 +1079,7 @@ export default function DashboardPage() {
           )
         : null}
       {/* Show sync banner only on first load (no data yet) or right after connect; date changes refetch in place without banner */}
-      {(facebookLoadingOnly || connectingParam === '1' || justConnected || ((insightsLoading || importedPostsLoading) && insights == null && selectedAccount != null)) && (
+      {(facebookLoadingOnly || connectingParam === '1' || justConnected || (((insightsLoading || importedPostsLoading) && insights == null && selectedAccount != null) && !hasWarmCacheForSelected)) && (
         <DataSyncBanner
           platform={selectedAccount?.platform}
           insightsLoading={insightsLoading || connectingParam === '1'}
@@ -1174,64 +1133,6 @@ export default function DashboardPage() {
           <p className="mt-1 text-xs text-amber-700">Use Reconnect in the sidebar and approve all requested permissions to see your follower count here. Views are from your synced videos.</p>
         </div>
       )}
-      {/* Single row: compact profile | section nav | date range picker */}
-      {!facebookLoadingOnly && <div
-        className={
-          selectedAccount?.platform === 'FACEBOOK'
-            ? 'flex flex-wrap items-center gap-3 pb-2'
-            : 'flex flex-wrap items-center gap-3 pb-4 border-b border-neutral-200'
-        }
-      >
-        {selectedAccount && selectedAccount.platform !== 'FACEBOOK' && (
-          <div className="shrink-0">
-            <PlatformAnalyticsHeader
-              account={{
-                id: selectedAccount.id,
-                platform: selectedAccount.platform,
-                username: selectedAccount.username,
-                profilePicture: selectedAccount.profilePicture,
-              }}
-              profileUrl={profileUrlForAccount(selectedAccount)}
-              platformLabel={
-                selectedAccount.platform === 'TWITTER'
-                  ? 'Twitter/X'
-                  : selectedAccount.platform === 'PINTEREST'
-                    ? 'Pinterest'
-                    : selectedAccount.platform.charAt(0) + selectedAccount.platform.slice(1).toLowerCase()
-              }
-              icon={PLATFORM_ICON[selectedAccount.platform]}
-              onReconnect={() => {}}
-              onDisconnectClick={() => {}}
-              compact
-              className="shrink-0"
-            />
-          </div>
-        )}
-        {selectedAccount && selectedAccount.platform !== 'FACEBOOK' && (
-          <nav className="flex gap-0.5 p-0.5 bg-neutral-100 rounded-lg shrink-0" aria-label="Analytics sections">
-            {ANALYTICS_SCROLL_SECTIONS.map((sec) => (
-              <button
-                key={sec.id}
-                type="button"
-                onClick={() => document.getElementById(sec.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                className="px-3 py-1.5 rounded-md text-sm font-medium text-neutral-700 hover:bg-white hover:text-neutral-900 transition-colors"
-              >
-                {sec.label}
-              </button>
-            ))}
-          </nav>
-        )}
-        <div className="ml-auto shrink-0 flex items-center gap-2">
-          {selectedAccount?.platform !== 'FACEBOOK' && (
-            <AnalyticsDateRangePicker
-              start={dateRange.start}
-              end={dateRange.end}
-              onChange={(r) => setDateRange(r)}
-            />
-          )}
-        </div>
-      </div>}
-
       {/* Instagram-only: analytics and posts not available; CTA to connect with Facebook */}
       {!facebookLoadingOnly && selectedAccount?.platform === 'INSTAGRAM' && (selectedAccount as { instagramLoginOnly?: boolean }).instagramLoginOnly && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-4 px-4 py-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -1288,7 +1189,7 @@ export default function DashboardPage() {
       {/* Single-page analytics for any selected account (Overview, Demografic, Clicks/Traffic, Posts, Reels/Videos) */}
       {!facebookLoadingOnly && selectedAccount && (
         <div
-          className={selectedAccount?.platform === 'FACEBOOK' ? 'mt-1 max-w-full' : 'mt-6 max-w-full'}
+          className="mt-1 max-w-full"
           style={{ maxWidth: 1400 }}
         >
           <FacebookAnalyticsView
@@ -1309,6 +1210,7 @@ export default function DashboardPage() {
                   growthTimeSeries: insights.growthTimeSeries as Array<{ date: string; gained: number; lost: number; net?: number }> | undefined,
                   pageViewsTimeSeries: (insights as { pageViewsTimeSeries?: Array<{ date: string; value: number }> }).pageViewsTimeSeries,
                   demographics: insights.demographics,
+                  audienceByCountry: (insights as { audienceByCountry?: FacebookInsights['audienceByCountry'] }).audienceByCountry,
                   firstConnectedAt: (insights as { firstConnectedAt?: string | null }).firstConnectedAt,
                   isBootstrap: (insights as { isBootstrap?: boolean }).isBootstrap,
                   facebookPageMetricSeries: (insights as { facebookPageMetricSeries?: Record<string, Array<{ date: string; value: number }>> }).facebookPageMetricSeries,
@@ -1345,10 +1247,17 @@ export default function DashboardPage() {
                 setImportedPostsLoading(false);
               }
             }}
-            onReconnectFacebook={selectedAccount?.platform === 'FACEBOOK' ? () => router.push('/dashboard?connect=facebook') : undefined}
-            onDateRangeChange={selectedAccount?.platform === 'FACEBOOK' ? (r) => setDateRange(r) : undefined}
+            onReconnectFacebook={
+              selectedAccount?.platform === 'FACEBOOK'
+                ? () => router.push('/dashboard?connect=facebook')
+                : selectedAccount?.platform === 'PINTEREST'
+                  ? () => router.push('/dashboard?connect=pinterest')
+                  : undefined
+            }
+            onDateRangeChange={(r) => setDateRange(r)}
             followersLabel={selectedAccount.platform === 'YOUTUBE' ? 'Subscribers' : 'Followers'}
             accountAvatarUrl={selectedAccount.profilePicture ?? null}
+            accountUsername={selectedAccount.username ?? null}
           />
         </div>
       )}

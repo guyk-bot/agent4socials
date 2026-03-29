@@ -34,7 +34,7 @@ const FAQ_ITEMS: { question: string; answer: string }[] = [
   },
   {
     question: 'Is X (Twitter) included on the Free plan?',
-    answer: 'No. X (Twitter) connection is available on Starter and Pro plans only. Free plan includes Instagram, Facebook, TikTok, YouTube, and LinkedIn. Upgrade to connect X (Twitter).',
+    answer: 'Yes. You can connect X (Twitter) on any plan, including Free.',
   },
 ];
 

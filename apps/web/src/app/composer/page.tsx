@@ -87,6 +87,47 @@ function mediaCanvasUrl(fileUrl: string): string {
     return fileUrl;
 }
 
+/** Live frame preview in PostPreview while "Pick a frame from video" is selected (seeks with slider). */
+function ComposerScrubVideoPreview({
+    src,
+    timeSec,
+    className,
+}: {
+    src: string;
+    timeSec: number;
+    className?: string;
+}) {
+    const ref = useRef<HTMLVideoElement>(null);
+    useEffect(() => {
+        const v = ref.current;
+        if (!v) return;
+        const seek = () => {
+            if (!Number.isFinite(timeSec) || timeSec < 0) return;
+            const d = v.duration;
+            const cap = Number.isFinite(d) && d > 0.08 ? Math.min(timeSec, d - 0.05) : timeSec;
+            try {
+                if (Math.abs(v.currentTime - cap) > 0.04) v.currentTime = cap;
+            } catch {
+                /* seek can throw before metadata */
+            }
+        };
+        seek();
+        v.addEventListener('loadedmetadata', seek);
+        return () => v.removeEventListener('loadedmetadata', seek);
+    }, [src, timeSec]);
+    return (
+        <video
+            ref={ref}
+            src={src}
+            className={className}
+            muted
+            playsInline
+            preload="auto"
+            crossOrigin={src.startsWith('blob:') ? undefined : 'anonymous'}
+        />
+    );
+}
+
 const PLATFORM_LABELS: Record<string, string> = {
     INSTAGRAM: 'Instagram',
     TIKTOK: 'TikTok',
@@ -303,8 +344,8 @@ export default function ComposerPage() {
     const toggleSection = (key: keyof typeof sectionOpen) => setSectionOpen((s) => ({ ...s, [key]: !s[key] }));
 
 
-    // Resizable right preview panel (px); min 280, max 720
-    const [previewWidthPx, setPreviewWidthPx] = useState(480);
+    // Resizable right preview panel (px); min 300, max 920
+    const [previewWidthPx, setPreviewWidthPx] = useState(600);
     const previewResizeRef = useRef<{ startX: number; startW: number } | null>(null);
     const saveAsDraftRef = useRef(false);
 
@@ -313,7 +354,7 @@ export default function ComposerPage() {
             const r = previewResizeRef.current;
             if (!r) return;
             const delta = r.startX - e.clientX;
-            setPreviewWidthPx((w) => Math.min(720, Math.max(280, r.startW + delta)));
+            setPreviewWidthPx((w) => Math.min(920, Math.max(300, r.startW + delta)));
         };
         const onUp = () => { previewResizeRef.current = null; };
         window.addEventListener('mousemove', onMove);
@@ -886,6 +927,34 @@ export default function ComposerPage() {
         return { fileUrl, type };
     }
 
+    /** Capture current frame from the frame-picker video (same-origin proxy URL) and upload as JPEG. */
+    async function captureFrameFromThumbnailVideo(): Promise<string | null> {
+        const video = videoThumbnailRef.current;
+        if (!video || mediaList.length === 0 || mediaList[0].type !== 'VIDEO') return null;
+        const w = video.videoWidth;
+        const h = video.videoHeight;
+        if (!w || !h) return null;
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return null;
+        try {
+            ctx.drawImage(video, 0, 0);
+        } catch {
+            return null;
+        }
+        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+        if (!blob) return null;
+        const file = new File([blob], 'thumbnail.jpg', { type: 'image/jpeg' });
+        try {
+            const { fileUrl } = await uploadFile(file);
+            return fileUrl;
+        } catch {
+            return null;
+        }
+    }
+
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (!files?.length) return;
@@ -962,32 +1031,23 @@ export default function ComposerPage() {
     };
 
     const handleUseFrameAsThumbnail = useCallback(async () => {
-        const video = videoThumbnailRef.current;
-        if (!video || mediaList.length === 0 || mediaList[0].type !== 'VIDEO') return;
+        if (mediaList.length === 0 || mediaList[0].type !== 'VIDEO') return;
         setMediaUploadError(null);
         setThumbnailPicking(true);
         try {
-            const canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) throw new Error('Canvas not available');
-            ctx.drawImage(video, 0, 0);
-            const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
-            if (!blob) throw new Error('Failed to capture frame');
-            const file = new File([blob], 'thumbnail.jpg', { type: 'image/jpeg' });
-            const { fileUrl } = await uploadFile(file);
+            const fileUrl = await captureFrameFromThumbnailVideo();
+            if (!fileUrl) throw new Error('Failed to capture frame');
             setMediaList((prev) => prev.map((item, i) => (i === 0 ? { ...item, thumbnailUrl: fileUrl } : item)));
             setThumbnailChoice('frame');
             if (differentThumbnailPerPlatform && selectedPlatformForThumbnail) {
                 setThumbnailByPlatform((prev) => ({ ...prev, [selectedPlatformForThumbnail]: fileUrl }));
             }
-        } catch (err) {
+        } catch {
             setMediaUploadError('Failed to use frame. Try again or upload an image.');
         } finally {
             setThumbnailPicking(false);
         }
-    }, [mediaList]);
+    }, [mediaList, differentThumbnailPerPlatform, selectedPlatformForThumbnail]);
 
     const handleRemoveThumbnail = () => {
         if (differentThumbnailPerPlatform && selectedPlatformForThumbnail) {
@@ -1003,21 +1063,27 @@ export default function ComposerPage() {
     };
 
     const drawVideoFrameToCanvas = useCallback(() => {
-        const video = videoThumbnailRef.current;
-        const canvas = thumbnailCanvasRef.current;
-        if (!video || !canvas) return;
-        const w = video.videoWidth;
-        const h = video.videoHeight;
-        if (!w || !h) return;
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        try {
-            ctx.drawImage(video, 0, 0);
-        } catch (_) {
-            // drawImage can throw if canvas is tainted or video not ready — ignore
-        }
+        const paint = () => {
+            const video = videoThumbnailRef.current;
+            const canvas = thumbnailCanvasRef.current;
+            if (!video || !canvas) return;
+            const w = video.videoWidth;
+            const h = video.videoHeight;
+            if (!w || !h) return;
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+            try {
+                ctx.drawImage(video, 0, 0);
+            } catch (_) {
+                // drawImage can throw if canvas is tainted or video not ready — ignore
+            }
+        };
+        paint();
+        requestAnimationFrame(() => {
+            requestAnimationFrame(paint);
+        });
     }, []);
 
     const handleThumbnailSliderChange = useCallback((t: number) => {
@@ -1030,12 +1096,14 @@ export default function ComposerPage() {
             drawVideoFrameToCanvas();
         };
         v.addEventListener('seeked', onSeekedOnce);
-        v.currentTime = t;
+        const duration = Number.isFinite(v.duration) && v.duration > 0 ? v.duration : undefined;
+        const clamped = duration !== undefined ? Math.min(Math.max(0, t), duration) : Math.max(0, t);
+        v.currentTime = clamped;
         if (v.readyState >= 2) {
             drawVideoFrameToCanvas();
         }
-        setTimeout(() => drawVideoFrameToCanvas(), 200);
-        setTimeout(() => drawVideoFrameToCanvas(), 500);
+        setTimeout(() => drawVideoFrameToCanvas(), 120);
+        setTimeout(() => drawVideoFrameToCanvas(), 350);
     }, [drawVideoFrameToCanvas]);
 
     const handleRemoveMediaForPlatform = (platform: string, index: number) => {
@@ -1134,12 +1202,53 @@ export default function ComposerPage() {
             if (platforms.includes('PINTEREST')) {
                 const pinMedia = differentMediaPerPlatform ? (mediaByPlatform['PINTEREST'] ?? []) : mediaList;
                 const hasPinImage = pinMedia.some((m) => m.type === 'IMAGE');
-                if (!hasPinImage) {
+                const hasPinVideo = pinMedia.some((m) => m.type === 'VIDEO');
+                if (!hasPinImage && !hasPinVideo) {
                     setLoading(false);
                     setAlertMessage(
-                        'Pinterest needs at least one image for this post (we publish image Pins to your default board). Add a photo or remove Pinterest from the selected platforms.'
+                        'Pinterest needs at least one image or video for this post. Add media or remove Pinterest from the selected platforms.'
                     );
                     return;
+                }
+            }
+
+            let pinterestAutoCoverUrl: string | undefined;
+            if (platforms.includes('PINTEREST') && !saveAsDraft && thumbnailChoice === 'frame') {
+                const pinMedia = differentMediaPerPlatform ? (mediaByPlatform['PINTEREST'] ?? []) : mediaList;
+                const pinFirst = pinMedia[0] as MediaItem | undefined;
+                if (pinFirst?.type === 'VIDEO') {
+                    const hasCover = differentThumbnailPerPlatform
+                        ? Boolean(thumbnailByPlatform['PINTEREST'] ?? pinFirst.thumbnailUrl)
+                        : Boolean((mediaList[0] as MediaItem | undefined)?.thumbnailUrl);
+                    if (!hasCover) {
+                        const main = mediaList[0];
+                        const sameMainVideo = main?.type === 'VIDEO' && pinFirst.fileUrl === main.fileUrl;
+                        if (!sameMainVideo) {
+                            setLoading(false);
+                            setAlertMessage(
+                                'Pinterest needs a cover image for video Pins. Upload a thumbnail for your Pinterest video, or use the same video in the main composer so a frame can be captured.'
+                            );
+                            return;
+                        }
+                        setThumbnailPicking(true);
+                        setMediaUploadError(null);
+                        const captured = await captureFrameFromThumbnailVideo();
+                        setThumbnailPicking(false);
+                        if (!captured) {
+                            setLoading(false);
+                            setAlertMessage(
+                                'Pinterest needs a video cover. Move the frame slider until the preview updates, then click "Use this frame", or upload a thumbnail image.'
+                            );
+                            return;
+                        }
+                        pinterestAutoCoverUrl = captured;
+                        setMediaList((prev) =>
+                            prev.map((item, i) => (i === 0 && item.type === 'VIDEO' ? { ...item, thumbnailUrl: captured } : item))
+                        );
+                        if (differentThumbnailPerPlatform) {
+                            setThumbnailByPlatform((prev) => ({ ...prev, PINTEREST: captured }));
+                        }
+                    }
                 }
             }
 
@@ -1159,7 +1268,7 @@ export default function ComposerPage() {
                     if (i === 0 && m.type === 'VIDEO') {
                         return {
                             ...m,
-                            thumbnailUrl: (m as MediaItem).thumbnailUrl,
+                            thumbnailUrl: pinterestAutoCoverUrl ?? (m as MediaItem).thumbnailUrl,
                             useVideoDefaultForPublish: thumbnailChoice === 'none',
                         };
                     }
@@ -1226,10 +1335,17 @@ export default function ComposerPage() {
             }
             if (differentMediaPerPlatform) {
                 payload.mediaByPlatform = platforms.reduce((acc, p) => {
-                    const list = mediaByPlatform[p];
-                    if (list?.length) acc[p] = list;
+                    let list = mediaByPlatform[p];
+                    if (list?.length) {
+                        if (p === 'PINTEREST' && pinterestAutoCoverUrl && list[0]?.type === 'VIDEO') {
+                            list = list.map((m, idx) =>
+                                idx === 0 && m.type === 'VIDEO' ? { ...m, thumbnailUrl: pinterestAutoCoverUrl } : m
+                            );
+                        }
+                        acc[p] = list;
+                    }
                     return acc;
-                }, {} as Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[]>);
+                }, {} as Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO'; thumbnailUrl?: string }[]>);
                 const firstWithMedia = platforms.find((p) => (mediaByPlatform[p]?.length ?? 0) > 0);
                 const baseMedia = firstWithMedia ? mediaByPlatform[firstWithMedia]! : mediaList;
                 payload.media = baseMedia.map((m, i) => {
@@ -1237,7 +1353,7 @@ export default function ComposerPage() {
                         const first = mediaList[0] as MediaItem;
                         return {
                             ...m,
-                            thumbnailUrl: first?.thumbnailUrl,
+                            thumbnailUrl: pinterestAutoCoverUrl ?? first?.thumbnailUrl,
                             useVideoDefaultForPublish: thumbnailChoice === 'none',
                         };
                     }
@@ -1262,7 +1378,11 @@ export default function ComposerPage() {
                     try {
                         const debug = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('publish_debug') === '1';
                         if (debug) sessionStorage.removeItem('publish_debug');
-                        const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string; debugInfo?: { mediaUrlsByPlatform?: Record<string, string>; fullErrors?: Record<string, string> } }>(`/posts/${editPostId}/publish${debug ? '?debug=1' : ''}`, undefined, { timeout: 90_000 });
+                        const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string; debugInfo?: { mediaUrlsByPlatform?: Record<string, string>; fullErrors?: Record<string, string> } }>(
+                            `/posts/${editPostId}/publish${debug ? '?debug=1' : ''}`,
+                            {},
+                            { timeout: 90_000 }
+                        );
                         const results = publishRes.data?.results;
                         if (publishRes.data?.debugInfo) console.log('[Publish Debug]', publishRes.data.debugInfo);
                         if (results?.some((r) => !r.ok)) {
@@ -1282,6 +1402,9 @@ export default function ComposerPage() {
                                 else if (failed.includes('scope_not_authorized')) hint = (hint ? hint + ' ' : '') + 'For TikTok: reconnect your TikTok account from the Dashboard to grant the video.publish permission.';
                                 else if (failed.includes('spam_risk_too_many_pending_share')) hint = (hint ? hint + ' ' : '') + 'For TikTok: too many pending posts. Fix: go to TikTok Developer Portal, remove your sandbox test user, re-add them, then reconnect TikTok in Dashboard.';
                                 else hint = (hint ? hint + ' ' : '') + 'For TikTok: ensure your app has Content Posting API access and the video meets requirements (MP4, under 10 min). Reconnect the account from Dashboard if needed.';
+                            }
+                            if (failed.includes('PINTEREST') && (failed.includes('"code":29') || failed.includes('Trial access'))) {
+                                hint = (hint ? hint + ' ' : '') + 'For Pinterest: your app may still be in Trial access. Request Standard access in the Pinterest Developer Platform to publish Pins to your live profile.';
                             }
                             setAlertMessage(`Post updated but some platforms failed: ${failed}. ${hint}`);
                             return;
@@ -1323,7 +1446,11 @@ export default function ComposerPage() {
                 try {
                         const debug = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('publish_debug') === '1';
                         if (debug) sessionStorage.removeItem('publish_debug');
-                        const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string; debugInfo?: { mediaUrlsByPlatform?: Record<string, string>; fullErrors?: Record<string, string> } }>(`/posts/${postId}/publish${debug ? '?debug=1' : ''}`, undefined, { timeout: 90_000 });
+                        const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string; debugInfo?: { mediaUrlsByPlatform?: Record<string, string>; fullErrors?: Record<string, string> } }>(
+                            `/posts/${postId}/publish${debug ? '?debug=1' : ''}`,
+                            {},
+                            { timeout: 90_000 }
+                        );
                     const results = publishRes.data?.results;
                         if (publishRes.data?.debugInfo) console.log('[Publish Debug]', publishRes.data.debugInfo);
                     if (results?.some((r) => !r.ok)) {
@@ -1344,7 +1471,10 @@ export default function ComposerPage() {
                                 else if (failed.includes('spam_risk_too_many_pending_share')) hint = (hint ? hint + ' ' : '') + 'For TikTok: too many pending posts. Fix: go to TikTok Developer Portal, remove your sandbox test user, re-add them, then reconnect TikTok in Dashboard.';
                                 else hint = (hint ? hint + ' ' : '') + 'For TikTok: ensure your app has Content Posting API access and the video meets requirements (MP4, under 10 min). Reconnect the account from Dashboard if needed.';
                             }
-                            setAlertMessage(`Post created but TikTok or some platforms failed: ${failed}. ${hint}`);
+                            if (failed.includes('PINTEREST') && (failed.includes('"code":29') || failed.includes('Trial access'))) {
+                                hint = (hint ? hint + ' ' : '') + 'For Pinterest: your app may still be in Trial access. Request Standard access in the Pinterest Developer Platform to publish Pins to your live profile.';
+                            }
+                            setAlertMessage(`Post created but some platforms failed: ${failed}. ${hint}`);
                             return;
                         }
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1416,6 +1546,14 @@ export default function ComposerPage() {
     };
 
     const composerReady = draftRestored && (!editPostId || editLoaded) && accountsFetched;
+
+    const composerFramePreview =
+        (mediaType === 'video' || mediaType === 'reel') &&
+        mediaList.length === 1 &&
+        mediaList[0]?.type === 'VIDEO' &&
+        thumbnailChoice === 'frame'
+            ? { timeSec: thumbnailPickerTime, videoSrc: mediaCanvasUrl(mediaList[0].fileUrl) }
+            : undefined;
 
     // After load: show any alert passed from a redirect (e.g. publish failure) so user always sees status
     useEffect(() => {
@@ -1573,6 +1711,7 @@ export default function ComposerPage() {
                             {sectionOpen.platforms ? <ChevronUp size={20} className="text-neutral-400 shrink-0" /> : <ChevronDown size={20} className="text-neutral-400 shrink-0" />}
                         </button>
                         {sectionOpen.platforms && (
+                        <>
                         <div className="pt-4 grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-3">
                             {(['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'LINKEDIN', 'PINTEREST', 'TWITTER'] as const).map((p) => {
                                 const connected = accounts.some((a) => a.platform === p);
@@ -1599,6 +1738,7 @@ export default function ComposerPage() {
                                 );
                             })}
                         </div>
+                        </>
                         )}
                     </div>
 
@@ -1614,7 +1754,7 @@ export default function ComposerPage() {
                                 type="checkbox"
                                 checked={differentMediaPerPlatform}
                                 onChange={(e) => setDifferentMediaPerPlatform(e.target.checked)}
-                                className="rounded border-neutral-300 text-[var(--primary)] focus:ring-[var(--primary)]"
+                                className="rounded border-neutral-300 text-neutral-500 focus:ring-neutral-400"
                             />
                             <span className="text-sm text-neutral-700">Use different media per platform</span>
                         </label>
@@ -1638,7 +1778,7 @@ export default function ComposerPage() {
                                                 }
                                             }}
                                             className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${mediaType === type
-                                                ? 'bg-white text-[var(--primary)] shadow-sm ring-1 ring-neutral-200'
+                                                ? 'bg-white text-neutral-700 shadow-sm ring-1 ring-neutral-200'
                                                 : 'text-neutral-600 hover:text-neutral-900 hover:bg-white/60'
                                                 }`}
                                         >
@@ -1731,7 +1871,7 @@ export default function ComposerPage() {
                                                 </label>
                                                 {thumbnailChoice === 'frame' && (
                                                     <div className="ml-6 flex flex-col gap-1.5">
-                                                        <input type="range" min={0} max={thumbnailVideoDuration} step={0.1} value={thumbnailPickerTime} onChange={(e) => handleThumbnailSliderChange(parseFloat(e.target.value))} onInput={(e) => handleThumbnailSliderChange(parseFloat((e.target as HTMLInputElement).value))} className="w-full max-w-[200px] h-2 rounded-full accent-[var(--primary)]" />
+                                                        <input type="range" min={0} max={Math.max(0.01, Number.isFinite(thumbnailVideoDuration) && thumbnailVideoDuration > 0 ? thumbnailVideoDuration : 0.01)} step={0.01} value={Math.min(thumbnailPickerTime, Math.max(0.01, Number.isFinite(thumbnailVideoDuration) && thumbnailVideoDuration > 0 ? thumbnailVideoDuration : 0.01))} onChange={(e) => handleThumbnailSliderChange(parseFloat(e.target.value))} onInput={(e) => handleThumbnailSliderChange(parseFloat((e.target as HTMLInputElement).value))} className="w-full max-w-[240px] h-2 rounded-full accent-[var(--primary)]" />
                                                         <button type="button" onClick={handleUseFrameAsThumbnail} disabled={thumbnailPicking || mediaUploading} className="inline-flex items-center gap-1.5 px-3 py-2 bg-[var(--button)] hover:bg-[var(--button-hover)] text-white rounded-lg text-xs font-medium disabled:opacity-50 w-fit">
                                                             {thumbnailPicking ? <Loader2 size={14} className="animate-spin shrink-0" /> : <ImageIcon size={14} className="shrink-0" />}
                                                             Use this frame
@@ -1748,7 +1888,7 @@ export default function ComposerPage() {
                                                         : mediaList[0].thumbnailUrl;
                                                     return effectiveThumbnail ? (
                                                     <>
-                                                        <img src={mediaDisplayUrl(effectiveThumbnail)} alt="Thumbnail" className="w-full h-full object-contain" />
+                                                        <img src={mediaDisplayUrl(effectiveThumbnail)} alt="Thumbnail" className={`w-full h-full ${mediaType === 'reel' ? 'object-cover' : 'object-contain'}`} />
                                                         <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveMedia(0); }} className="absolute top-1 right-1 p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow"><X size={12} /></button>
                                                         <a href={mediaList[0].fileUrl} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="absolute bottom-1 right-1 p-1.5 bg-black/60 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow" title="Download"><Download size={12} /></a>
                                                     </>
@@ -1757,8 +1897,8 @@ export default function ComposerPage() {
                                                         <video
                                                             ref={videoThumbnailRef}
                                                             src={mediaCanvasUrl(mediaList[0].fileUrl)}
-                                                            className="absolute inset-0 w-full h-full object-contain pointer-events-none"
-                                                            style={{ zIndex: 1 }}
+                                                            className={`absolute inset-0 w-full h-full ${mediaType === 'reel' ? 'object-cover' : 'object-contain'} pointer-events-none opacity-0`}
+                                                            style={{ zIndex: 0 }}
                                                             crossOrigin={mediaList[0].fileUrl.startsWith('blob:') ? undefined : 'anonymous'}
                                                             muted
                                                             playsInline
@@ -1768,7 +1908,7 @@ export default function ComposerPage() {
                                                             onLoadedMetadata={(e) => {
                                                                 const v = e.currentTarget;
                                                                 const d = v.duration;
-                                                                setThumbnailVideoDuration(Number.isFinite(d) ? d : 1);
+                                                                setThumbnailVideoDuration(Number.isFinite(d) && d > 0 ? d : 1);
                                                                 setThumbnailPickerTime(0);
                                                             }}
                                                             onLoadedData={() => {
@@ -1783,21 +1923,21 @@ export default function ComposerPage() {
                                                             onError={() => setThumbnailVideoLoadState('error')}
                                                         />
                                                         {thumbnailVideoLoadState === 'loading' && (
-                                                            <div className="absolute inset-0 flex items-center justify-center bg-neutral-900/80 z-10">
+                                                            <div className="absolute inset-0 flex items-center justify-center bg-neutral-900/80 z-20">
                                                                 <Loader2 size={28} className="animate-spin text-white" />
                                                             </div>
                                                         )}
                                                         {thumbnailVideoLoadState === 'error' && (
-                                                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-neutral-900/95 z-10 p-3 text-center">
+                                                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-neutral-900/95 z-20 p-3 text-center">
                                                                 <p className="text-sm text-white font-medium">Video failed to load</p>
                                                                 <p className="text-xs text-neutral-400 mt-1">Try re-uploading or choose another thumbnail option.</p>
                                                             </div>
                                                         )}
-                                                        <canvas ref={thumbnailCanvasRef} className="absolute inset-0 w-full h-full object-contain opacity-0 pointer-events-none" style={{ width: '100%', height: '100%', zIndex: 0 }} aria-hidden />
+                                                        <canvas ref={thumbnailCanvasRef} className={`absolute inset-0 w-full h-full ${mediaType === 'reel' ? 'object-cover' : 'object-contain'} pointer-events-none z-10`} style={{ width: '100%', height: '100%' }} aria-hidden />
                                                     </div>
                                                 ) : (
                                                     <>
-                                                        <video src={mediaDisplayUrl(mediaList[0].fileUrl)} className="w-full h-full object-contain" muted playsInline />
+                                                        <video src={mediaDisplayUrl(mediaList[0].fileUrl)} className={`w-full h-full ${mediaType === 'reel' ? 'object-cover' : 'object-contain'}`} muted playsInline />
                                                         <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveMedia(0); }} className="absolute top-1 right-1 p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow"><X size={12} /></button>
                                                         <a href={mediaList[0].fileUrl} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="absolute bottom-1 right-1 p-1.5 bg-black/60 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow" title="Download"><Download size={12} /></a>
                                                     </>
@@ -2338,7 +2478,7 @@ export default function ComposerPage() {
                 />
                 <div
                     className="hidden lg:flex flex-col flex-shrink-0 space-y-3 lg:pl-2"
-                    style={{ width: `${previewWidthPx}px`, minWidth: 280, maxWidth: 720 }}
+                    style={{ width: `${previewWidthPx}px`, minWidth: 300, maxWidth: 920 }}
                 >
                     <h2 className="text-sm font-semibold text-neutral-600 uppercase tracking-wide">Preview</h2>
                     <div className="sticky top-6 space-y-3 overflow-y-auto max-h-[calc(100vh-8rem)]">
@@ -2346,7 +2486,7 @@ export default function ComposerPage() {
                             <div className="rounded-xl border-2 border-dashed border-neutral-200 bg-neutral-50/50 flex flex-col items-center justify-center py-8 text-neutral-400">
                                 {mediaList.length > 0 ? (
                                     <>
-                                        <div className={`w-full max-w-[320px] mx-auto rounded-lg overflow-hidden border border-neutral-200 bg-neutral-100 ${(mediaType === 'video' && mediaList[0].type === 'VIDEO') ? 'aspect-video' : (mediaType === 'reel' && mediaList[0].type === 'VIDEO') ? 'aspect-[9/16]' : 'aspect-square'}`}>
+                                        <div className={`w-full max-w-[min(100%,480px)] mx-auto rounded-lg overflow-hidden border border-neutral-200 bg-neutral-100 ${(mediaType === 'video' && mediaList[0].type === 'VIDEO') ? 'aspect-video' : (mediaType === 'reel' && mediaList[0].type === 'VIDEO') ? 'aspect-[9/16]' : 'aspect-square'} ${mediaType === 'reel' ? 'border-0 ring-0' : ''}`}>
                                             {mediaList[0].type === 'VIDEO' ? (
                                                 (mediaList[0] as MediaItem).thumbnailUrl ? (
                                                     <img src={mediaDisplayUrl((mediaList[0] as MediaItem).thumbnailUrl!)} alt="Video" className="w-full h-full object-contain" />
@@ -2388,6 +2528,7 @@ export default function ComposerPage() {
                                             mediaType={mediaType}
                                             compact={platforms.length > 1}
                                             mediaUploading={mediaUploading}
+                                            composerFramePreview={composerFramePreview}
                                     />
                                 );
                                 })}
@@ -2403,7 +2544,7 @@ export default function ComposerPage() {
                             <div className="rounded-xl border-2 border-dashed border-neutral-200 bg-neutral-50/50 flex flex-col items-center justify-center py-8 text-neutral-400">
                                 {mediaList.length > 0 ? (
                                     <>
-                                        <div className={`w-full max-w-[320px] mx-auto rounded-lg overflow-hidden border border-neutral-200 bg-neutral-100 ${(mediaType === 'video' && mediaList[0].type === 'VIDEO') ? 'aspect-video' : (mediaType === 'reel' && mediaList[0].type === 'VIDEO') ? 'aspect-[9/16]' : 'aspect-square'}`}>
+                                        <div className={`w-full max-w-[min(100%,480px)] mx-auto rounded-lg overflow-hidden border border-neutral-200 bg-neutral-100 ${(mediaType === 'video' && mediaList[0].type === 'VIDEO') ? 'aspect-video' : (mediaType === 'reel' && mediaList[0].type === 'VIDEO') ? 'aspect-[9/16]' : 'aspect-square'} ${mediaType === 'reel' ? 'border-0 ring-0' : ''}`}>
                                             {mediaList[0].type === 'VIDEO' ? (
                                                 (mediaList[0] as MediaItem).thumbnailUrl ? (
                                                     <img src={mediaDisplayUrl((mediaList[0] as MediaItem).thumbnailUrl!)} alt="Video" className="w-full h-full object-contain" />
@@ -2445,6 +2586,7 @@ export default function ComposerPage() {
                                             mediaType={mediaType}
                                             compact={platforms.length > 1}
                                             mediaUploading={mediaUploading}
+                                            composerFramePreview={composerFramePreview}
                                         />
                                     );
                                 })}
@@ -2469,7 +2611,7 @@ function PlatformToggle({ platform, label, icon, active, onClick, connected }: {
                     !connected
                         ? 'border-neutral-100 bg-neutral-50 text-neutral-300 cursor-not-allowed opacity-50'
                         : active
-                    ? 'border-indigo-600 bg-[var(--primary)]/15 text-[var(--primary)] shadow-sm'
+                    ? 'border-neutral-400 bg-neutral-100 text-neutral-700 shadow-sm'
                     : 'border-neutral-200 bg-white text-neutral-500 hover:border-neutral-300 hover:bg-neutral-50'
                 }`}
         >
@@ -2488,6 +2630,7 @@ function PostPreview({
     mediaType = 'photo',
     compact = false,
     mediaUploading = false,
+    composerFramePreview,
 }: {
     platform: string;
     profileName: string;
@@ -2497,10 +2640,21 @@ function PostPreview({
     mediaType?: MediaTypeChoice;
     compact?: boolean;
     mediaUploading?: boolean;
+    /** When set with a single video, preview seeks with the composer frame slider. */
+    composerFramePreview?: { timeSec: number; videoSrc: string };
 }) {
     const [currentSlide, setCurrentSlide] = useState(0);
+    const [videoHover, setVideoHover] = useState(false);
     const slideIndex = media.length > 0 ? Math.min(currentSlide, media.length - 1) : 0;
     const currentMedia = media[slideIndex];
+    const isVideoMedia = currentMedia?.type === 'VIDEO';
+    const useLiveFrameScrub = Boolean(
+        composerFramePreview && isVideoMedia && media.length === 1 && slideIndex === 0
+    );
+
+    useEffect(() => {
+        setVideoHover(false);
+    }, [slideIndex, currentMedia?.type, currentMedia?.fileUrl]);
 
     const PlatformIcon = () => {
         switch (platform) {
@@ -2514,9 +2668,28 @@ function PostPreview({
             default: return <Video size={compact ? 16 : 22} className="text-neutral-500" />;
         }
     };
+    const reelPreview = mediaType === 'reel';
+    const aspectBase =
+        mediaType === 'video'
+            ? 'aspect-video'
+            : mediaType === 'reel' || (media.length === 1 && media[0]?.type === 'VIDEO')
+              ? 'aspect-[9/16]'
+              : 'aspect-square';
+    const hoverExpand = Boolean(isVideoMedia && videoHover);
+    const mediaShellClass =
+        `${reelPreview ? 'bg-black' : 'bg-neutral-50'} flex items-center justify-center relative transition-all duration-300 ease-out ` +
+        (hoverExpand
+            ? compact
+                ? 'aspect-auto min-h-[200px] max-h-[min(72vh,440px)] overflow-y-auto py-1'
+                : 'aspect-auto min-h-[260px] max-h-[min(84vh,680px)] overflow-y-auto py-2'
+            : `overflow-hidden ${aspectBase}`);
+    const videoVisualClass = `w-full object-contain ${hoverExpand ? (compact ? 'max-h-[min(68vh,400px)]' : 'max-h-[min(80vh,620px)]') : 'h-full'}`;
+
     return (
-        <div className={`rounded-xl overflow-hidden border border-neutral-200 bg-white shadow-sm ${compact ? 'max-w-[220px]' : 'max-w-sm mx-auto shadow-lg'}`}>
-            <div className={`border-b border-neutral-100 flex items-center gap-1.5 ${compact ? 'p-1.5' : 'p-3'}`}>
+        <div
+            className={`rounded-xl overflow-hidden bg-white shadow-sm ${reelPreview ? '' : 'border border-neutral-200'} ${compact ? 'max-w-[260px]' : 'w-full max-w-none mx-auto shadow-lg'}`}
+        >
+            <div className={`${reelPreview ? '' : 'border-b border-neutral-100'} flex items-center gap-1.5 ${compact ? 'p-1.5' : 'p-3'}`}>
                 <div className={`rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden ${compact ? 'w-6 h-6' : 'w-9 h-9'}`}>
                     {profilePicture ? (
                         <img src={profilePicture} alt="" className="w-full h-full object-cover" />
@@ -2529,7 +2702,11 @@ function PostPreview({
                     <p className={`truncate text-neutral-500 ${compact ? 'text-[9px]' : 'text-xs'}`}>{PLATFORM_LABELS[platform] || platform}</p>
                 </div>
             </div>
-            <div className={`bg-neutral-50 flex items-center justify-center overflow-hidden relative ${mediaType === 'video' ? 'aspect-video' : mediaType === 'reel' || (media.length === 1 && media[0]?.type === 'VIDEO') ? 'aspect-[9/16]' : 'aspect-square'}`}>
+            <div
+                className={mediaShellClass}
+                onMouseEnter={() => isVideoMedia && setVideoHover(true)}
+                onMouseLeave={() => setVideoHover(false)}
+            >
                 {mediaUploading && !currentMedia ? (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-neutral-100 animate-pulse">
                         <Loader2 size={compact ? 18 : 28} className="animate-spin text-neutral-400" />
@@ -2538,10 +2715,25 @@ function PostPreview({
                 ) : currentMedia ? (
                     <>
                         {currentMedia.type === 'VIDEO' ? (
-                            (currentMedia as { thumbnailUrl?: string }).thumbnailUrl ? (
-                                <img src={mediaDisplayUrl((currentMedia as { thumbnailUrl?: string }).thumbnailUrl!)} alt="Video cover" className="w-full h-full object-contain" />
+                            useLiveFrameScrub && composerFramePreview ? (
+                                <ComposerScrubVideoPreview
+                                    src={composerFramePreview.videoSrc}
+                                    timeSec={composerFramePreview.timeSec}
+                                    className={videoVisualClass}
+                                />
+                            ) : (currentMedia as { thumbnailUrl?: string }).thumbnailUrl ? (
+                                <img
+                                    src={mediaDisplayUrl((currentMedia as { thumbnailUrl?: string }).thumbnailUrl!)}
+                                    alt="Video cover"
+                                    className={videoVisualClass}
+                                />
                             ) : (
-                                <video src={mediaDisplayUrl(currentMedia.fileUrl)} className="w-full h-full object-contain" muted playsInline />
+                                <video
+                                    src={mediaDisplayUrl(currentMedia.fileUrl)}
+                                    className={videoVisualClass}
+                                    muted
+                                    playsInline
+                                />
                             )
                         ) : (
                             <img src={mediaDisplayUrl(currentMedia.fileUrl)} alt="preview" className="w-full h-full object-cover" />

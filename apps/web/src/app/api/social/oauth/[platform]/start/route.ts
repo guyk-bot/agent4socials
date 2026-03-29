@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma, databaseUrlLooksDirect } from '@/lib/db';
 import { getTwitterOAuth1 } from '@/lib/twitter-oauth1';
-import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import axios from 'axios';
 import { Platform } from '@prisma/client';
 import { META_GRAPH_FACEBOOK_API_VERSION } from '@/lib/meta-graph-insights';
 
-const PAID_TIERS = ['starter', 'pro'];
+/** OAuth start must never be statically cached. */
+export const dynamic = 'force-dynamic';
 
 const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN', 'PINTEREST'] as const;
 
@@ -74,13 +74,27 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
       return `https://twitter.com/i/oauth2/authorize?client_id=${process.env.TWITTER_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.TWITTER_REDIRECT_URI || callbackUrl)}&response_type=code&scope=${encodeURIComponent(twitterScope)}&state=${state}&code_challenge=challenge&code_challenge_method=plain`;
     }
     case 'LINKEDIN': {
-      // r_organization_social / w_organization_social require Marketing/Community Management product approval.
-      // Request them only when explicitly enabled so the Page flow doesn't fail with "Bummer, something went wrong".
+      // OpenID scopes (Sign in with LinkedIn using OpenID Connect) work once that product is on the app.
+      // w_member_social needs the separate "Share on LinkedIn" product; requesting it without that product causes
+      // LinkedIn's generic "Bummer, something went wrong" (invalid scope). Opt in with LINKEDIN_INCLUDE_W_MEMBER_SOCIAL
+      // or set LINKEDIN_OAUTH_SCOPES to the full list you have approved in the portal.
+      // r_organization_social / w_organization_social need Community Management / Marketing API; opt-in via LINKEDIN_REQUEST_ORG_SCOPES + page method.
       const requestOrgScopes = process.env.LINKEDIN_REQUEST_ORG_SCOPES === 'true' && method === 'page';
-      const linkedInScopes = requestOrgScopes
-        ? 'openid profile email w_member_social r_member_social r_organization_social w_organization_social'
-        : 'openid profile email w_member_social r_member_social';
-      return `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${process.env.LINKEDIN_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.LINKEDIN_REDIRECT_URI || callbackUrl)}&state=${encodeURIComponent(state)}&scope=${encodeURIComponent(linkedInScopes)}`;
+      const includeWrite =
+        process.env.LINKEDIN_INCLUDE_W_MEMBER_SOCIAL === 'true' ||
+        process.env.LINKEDIN_REQUEST_ORG_SCOPES === 'true';
+      const baseScopes = includeWrite ? 'openid profile email w_member_social' : 'openid profile email';
+      const defaultScopes = requestOrgScopes
+        ? `${baseScopes} r_organization_social w_organization_social`.replace(/\s+/g, ' ').trim()
+        : baseScopes;
+      const linkedInScopes =
+        typeof process.env.LINKEDIN_OAUTH_SCOPES === 'string' && process.env.LINKEDIN_OAUTH_SCOPES.trim()
+          ? process.env.LINKEDIN_OAUTH_SCOPES.trim()
+          : defaultScopes;
+      const redirect = encodeURIComponent((process.env.LINKEDIN_REDIRECT_URI || callbackUrl).replace(/\/+$/, ''));
+      const clientId = encodeURIComponent(process.env.LINKEDIN_CLIENT_ID || '');
+      // enable_extended_login helps LinkedIn show Google/Apple/passkey login on supported browsers (LinkedIn docs).
+      return `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${clientId}&redirect_uri=${redirect}&state=${encodeURIComponent(state)}&scope=${encodeURIComponent(linkedInScopes)}&enable_extended_login=true`;
     }
     case 'PINTEREST': {
       const pinRedirect = (process.env.PINTEREST_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
@@ -151,24 +165,7 @@ export async function GET(
         );
       }
     } else if (plat === 'TWITTER') {
-      // X (Twitter) is paid-only: reject free-tier users
-      const dbUser = await prisma.user.findUnique({ where: { id: userId }, select: { supabaseId: true } });
-      const admin = getSupabaseAdmin();
-      if (admin && dbUser?.supabaseId) {
-        const { data: profile } = await admin
-          .from('user_profiles')
-          .select('tier')
-          .eq('user_id', dbUser.supabaseId)
-          .maybeSingle();
-        const tier = (profile?.tier ?? 'account')?.toString().toLowerCase();
-        if (!PAID_TIERS.includes(tier)) {
-          return NextResponse.json(
-            { message: 'X (Twitter) connection is available on Starter and Pro plans only. Upgrade at agent4socials.com/pricing to connect.' },
-            { status: 403 }
-          );
-        }
-      }
-
+      // X (Twitter) is allowed for every plan; do not add a tier/Stripe gate here.
       // Prefer OAuth 2.0 PKCE (recommended for DMs: Bearer token for GET /2/dm_events and POST send).
       const twitterClientId = process.env.TWITTER_CLIENT_ID?.trim();
       const apiKey = process.env.TWITTER_API_KEY?.trim();

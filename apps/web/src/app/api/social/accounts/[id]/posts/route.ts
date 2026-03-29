@@ -13,6 +13,7 @@ import {
 } from '@/lib/facebook/fetchers';
 import { syncFacebookAuxiliaryIngest } from '@/lib/facebook/sync-extras';
 import { fbRestBaseUrl } from '@/lib/facebook/constants';
+import { getValidPinterestToken } from '@/lib/pinterest-token';
 
 type ImportedPostListRow = {
   id: string;
@@ -162,6 +163,14 @@ export async function GET(
     if (account.platform === 'YOUTUBE') {
       account.accessToken = await getValidYoutubeToken(account);
     }
+    if (account.platform === 'PINTEREST') {
+      account.accessToken = await getValidPinterestToken({
+        id: account.id,
+        accessToken: account.accessToken,
+        refreshToken: account.refreshToken,
+        expiresAt: account.expiresAt,
+      });
+    }
     const sync = request.nextUrl.searchParams.get('sync') === '1';
     let syncError: string | undefined;
     if (sync) {
@@ -306,7 +315,7 @@ export async function GET(
         mediaType: p.mediaType,
         platform: p.platform,
         ...(facebookInsights && Object.keys(facebookInsights).length > 0 ? { facebookInsights } : {}),
-        ...(p.platform === 'FACEBOOK'
+        ...(p.platform === 'FACEBOOK' || p.platform === 'PINTEREST'
           ? {
               engagementBreakdown: {
                 reactions: p.likeCount ?? 0,
@@ -987,6 +996,108 @@ async function syncImportedPosts(
       }
       console.error('[YouTube sync] unexpected error:', msg);
       return `YouTube sync failed: ${msg.slice(0, 200)}`;
+    }
+  }
+
+  if (platform === 'PINTEREST') {
+    type PinMediaImage = { url?: string; width?: number; height?: number };
+    type PinItem = {
+      id?: string;
+      title?: string;
+      description?: string;
+      created_at?: string;
+      link?: string;
+      media?: {
+        media_type?: string;
+        images?: Record<string, PinMediaImage>;
+      };
+    };
+    function pickPinThumbnail(media: PinItem['media']): string | null {
+      const images = media?.images;
+      if (!images || typeof images !== 'object') return null;
+      let best: PinMediaImage | undefined;
+      let bestArea = 0;
+      for (const img of Object.values(images)) {
+        if (!img?.url) continue;
+        const w = img.width ?? 0;
+        const h = img.height ?? 0;
+        const area = w * h || 1;
+        if (area >= bestArea) {
+          bestArea = area;
+          best = img;
+        }
+      }
+      return best?.url ?? null;
+    }
+    try {
+      const headers = { Authorization: `Bearer ${accessToken}` };
+      const collected: PinItem[] = [];
+      let bookmark: string | undefined;
+      let pages = 0;
+      while (pages < 15) {
+        const res = await axios.get<{ items?: PinItem[]; bookmark?: string }>('https://api.pinterest.com/v5/pins', {
+          headers,
+          params: { page_size: 25, ...(bookmark ? { bookmark } : {}) },
+          validateStatus: () => true,
+          timeout: 25_000,
+        });
+        if (res.status !== 200) {
+          const err = res.data as { message?: string; code?: number };
+          const msg = typeof err === 'object' && err && 'message' in err ? String(err.message) : JSON.stringify(res.data).slice(0, 200);
+          if (res.status === 401 || res.status === 403) {
+            return 'Reconnect your Pinterest account to sync pins (pins:read scope).';
+          }
+          return `Pinterest pins sync failed (${res.status}): ${msg}`;
+        }
+        const items = res.data?.items ?? [];
+        collected.push(...items);
+        bookmark = res.data?.bookmark;
+        if (!bookmark || items.length === 0) break;
+        pages++;
+      }
+
+      for (const pin of collected) {
+        const pinId = pin.id;
+        if (!pinId) continue;
+        const publishedAt = pin.created_at ? new Date(pin.created_at) : new Date();
+        const content = (pin.title ?? pin.description ?? '').trim() || null;
+        const thumbnailUrl = pickPinThumbnail(pin.media);
+        const permalinkUrl = `https://www.pinterest.com/pin/${pinId}/`;
+        const mediaType = pin.media?.media_type === 'video' ? 'VIDEO' : 'IMAGE';
+        const impressions = 0;
+        const interactions = 0;
+        await prisma.importedPost.upsert({
+          where: { socialAccountId_platformPostId: { socialAccountId, platformPostId: pinId } },
+          update: {
+            content,
+            thumbnailUrl,
+            permalinkUrl,
+            publishedAt,
+            mediaType,
+            impressions,
+            interactions,
+            syncedAt: new Date(),
+          },
+          create: {
+            socialAccountId,
+            platformPostId: pinId,
+            platform: 'PINTEREST',
+            content,
+            thumbnailUrl,
+            permalinkUrl,
+            publishedAt,
+            mediaType,
+            impressions,
+            interactions,
+          },
+        });
+      }
+      return undefined;
+    } catch (e) {
+      const msg = (e as Error)?.message ?? '';
+      if (msg.includes('401') || msg.includes('403')) return 'Reconnect your Pinterest account to sync pins.';
+      console.error('[Pinterest sync]', msg);
+      return `Pinterest sync failed: ${msg.slice(0, 200)}`;
     }
   }
 
