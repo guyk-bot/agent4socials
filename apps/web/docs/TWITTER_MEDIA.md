@@ -1,0 +1,49 @@
+# X (Twitter) media upload
+
+## What we do
+
+When publishing a post with an image to X (Twitter), we:
+
+1. Fetch the image from your stored URL (e.g. S3).
+2. Upload it via **v1.1** only: **POST https://upload.twitter.com/1.1/media/upload.json** (multipart/form-data). The v2 media endpoint does not accept OAuth 2.0 Bearer; we use v1.1 with OAuth 1.0a when configured, otherwise Bearer.
+3. Create the tweet with the returned `media_id` via **POST https://api.twitter.com/2/tweets**.
+
+We use the **form-data** npm package so the multipart request has the correct `Content-Type` boundary (Node’s built-in `FormData` can produce invalid boundaries and lead to 403).
+
+Authentication is your app’s **OAuth 2.0 PKCE** access token (Bearer). X’s docs state that PKCE tokens can be used for v1.1 media upload.
+
+## "Something went wrong" when connecting or reconnecting (OAuth 2.0)
+
+If X shows **"Something went wrong"** or **"You weren't able to give access to the App"** during connect/reconnect:
+
+1. **Redirect URI**  
+   In the [X Developer Portal](https://developer.x.com) go to your app → **User authentication settings** → **OAuth 2.0** → **Redirect URI**. It must match **exactly** what we send (no trailing slash, same scheme and host). For Agent4Socials that is:  
+   `https://agent4socials.com/api/social/oauth/twitter/callback`  
+   If you use a different domain, set `TWITTER_REDIRECT_URI` in Vercel to that URL and add the same URL in the Portal.
+
+2. **App type and users**  
+   If the app is in **Development** mode, only the developer account (and any added test users) can authorize. Use the same X account that owns the app, or add the account as a test user.
+
+3. **Try again**  
+   Sometimes the error is temporary. Log out of X in the browser, then try Reconnect again.
+
+## 401 Unauthorized (expired token)
+
+X access tokens expire after 2 hours. When publish gets a 401 from X, we **automatically refresh** the token (using the stored refresh token and `TWITTER_CLIENT_ID` / `TWITTER_CLIENT_SECRET`) and retry the publish once. If refresh fails (e.g. refresh token revoked or expired), the user must reconnect the X account in **Dashboard > Accounts**.
+
+## Pricing (pay-per-use, not tiers)
+
+As of 2025–2026, the X API uses **pay-per-use** pricing rather than fixed tiers (Free/Basic/Pro). You pay for what you use (e.g. around $0.01 per post created or media upload). Media upload (v2 **POST /2/media/upload**) and posting with media (**POST /2/tweets** with `media_ids`) are fully supported as long as you have credits or usage billing set up in the [X Developer Console](https://developer.x.com) (or console.x.com). There is no separate "tier" that blocks media; low-volume usage stays cheap. X Premium (blue checkmark) is unrelated to API access.
+
+## If you still get 403 or no image
+
+- **App permissions:** In the [X Developer Portal](https://developer.x.com), your app must have **Read and write** (or Read and write and Direct message). Then **reconnect** the X account in Agent4Socials (Accounts) so the new permissions apply.
+- **App in a Project:** The app must be attached to a **Project**. Keys from apps outside a project can cause 403 on some endpoints.
+- **Logs:** In Vercel (or your host) logs, search for `[Twitter media upload] 403 body:` to see the response body from X (if any).
+- **OAuth 1.0a for media:** The v1.1 media upload endpoint often requires **OAuth 1.0a** (signed requests). To enable image uploads:
+  1. In the [X Developer Portal](https://developer.x.com), open your Project and App. Under "Keys and tokens", copy the **API Key** and **API Key Secret** (these are OAuth 1.0a consumer key/secret).
+  2. In the same app, open **User authentication settings** (or App settings) and add a **Callback URL** exactly: `https://agent4socials.com/api/social/oauth/twitter-1oa/callback` (or your app URL + `/api/social/oauth/twitter-1oa/callback`). X requires this for the OAuth 1.0a "enable image upload" flow. If you get **"Twitter request token failed (HTTP 403)"**, see [docs/TWITTER_1OA_REQUEST_TOKEN_403.md](../../docs/TWITTER_1OA_REQUEST_TOKEN_403.md) for step-by-step fix.
+  3. In Vercel (or your host), add environment variables: `TWITTER_API_KEY` and `TWITTER_API_SECRET` (the API Key and API Key Secret), then redeploy.
+  4. When users **connect** (or reconnect) their X account in Agent4Socials, they are automatically sent through the OAuth 1.0a step once so image upload is enabled without a separate action. If an X account was connected before this flow existed, they can still use **Enable image upload** in Dashboard > Accounts (shown only when image upload is not yet enabled).
+- **Node deprecation:** A `url.parse()` deprecation warning in logs usually comes from a dependency (e.g. form-data/axios). It is safe to ignore; to hide it in Vercel you can set `NODE_OPTIONS=--no-deprecation` in Environment Variables (optional).
+- If 403 persists after enabling OAuth 1.0a, the post is still sent as **text only** and we set `mediaSkipped: true`.

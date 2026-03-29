@@ -1,0 +1,367 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // Used by prisma migrate deploy at build time. Set to same as DATABASE_URL (Transaction pooler) so build and runtime both work.
+  directUrl = env("DATABASE_DIRECT_URL")
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+}
+
+model User {
+  id                     String   @id @default(cuid())
+  supabaseId             String?  @unique
+  email                  String   @unique
+  password               String?
+  name                   String?
+  provider               AuthProvider @default(LOCAL)
+  brandContext           Json?    // { targetAudience?, toneOfVoice?, toneExamples?, productDescription?, additionalContext? }
+  automationSettings     Json?    // { dmWelcomeEnabled?, dmWelcomeMessage?, dmNewFollowerEnabled?, dmNewFollowerMessage? }
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  socialAccounts         SocialAccount[]
+  posts                  Post[]
+  automationFollowerWelcomes AutomationFollowerWelcome[]
+  linkPage               LinkPage?
+}
+
+enum Platform {
+  INSTAGRAM
+  TIKTOK
+  YOUTUBE
+  FACEBOOK
+  TWITTER
+  LINKEDIN
+  PINTEREST
+}
+
+model SocialAccount {
+  id                String    @id @default(cuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform          Platform
+  username          String
+  platformUserId    String    @unique  // stable external provider id (IG business id, FB page id, etc.)
+  profilePicture    String?
+  accessToken       String
+  refreshToken      String?
+  expiresAt         DateTime?
+  scopes            String[]  @default([])
+  status            String    @default("connected")  // "connected" | "disconnected"
+  credentialsJson   Json?     // Optional: e.g. Twitter OAuth 1.0a tokens for media upload
+  firstConnectedAt  DateTime? // set once on first ever connect; preserved across disconnect/reconnect
+  connectedAt       DateTime? // set on each connect/reconnect
+  disconnectedAt    DateTime? // set on disconnect; cleared on reconnect
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  postTargets       PostTarget[]
+  importedPosts     ImportedPost[]
+  metricSnapshots   AccountMetricSnapshot[]
+  facebookMetricDiscoveries FacebookMetricDiscovery[]
+  facebookSyncRuns          FacebookSyncRun[]
+  facebookPageCache         FacebookPageCache?
+  facebookConversationCaches FacebookConversationCache[]
+  facebookReviewCaches      FacebookReviewCache[]
+  facebookPageInsightDailies FacebookPageInsightDaily[]
+
+  @@unique([userId, platform, platformUserId])
+}
+
+/// Normalized Page insight values per day (one row per metric per date). Complements `AccountMetricSnapshot.insightsJson` for explicit queries and debug counts.
+model FacebookPageInsightDaily {
+  id               String        @id @default(cuid())
+  userId           String
+  socialAccountId  String
+  socialAccount    SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  pageId           String
+  metricDate       String
+  metricKey        String
+  value            Float
+  source           String        @default("insights_api")
+  fetchedAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@unique([socialAccountId, metricKey, metricDate])
+  @@index([userId, pageId, metricDate])
+  @@map("facebook_page_insight_daily")
+}
+
+/// Latest Graph `/{page-id}` profile JSON for this connected Page (normalized “facebook_pages” store).
+model FacebookPageCache {
+  id               String        @id @default(cuid())
+  socialAccountId  String        @unique
+  socialAccount    SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  pageId           String
+  profileJson      Json?
+  fetchedAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@map("facebook_pages")
+}
+
+/// Messenger conversations for a Page (from `/{page-id}/conversations`).
+model FacebookConversationCache {
+  id                     String        @id @default(cuid())
+  socialAccountId        String
+  socialAccount          SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  platformConversationId String
+  link                   String?
+  updatedTime            DateTime?
+  fetchedAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+
+  @@unique([socialAccountId, platformConversationId])
+  @@index([socialAccountId, updatedTime])
+  @@map("facebook_conversations")
+}
+
+/// Page ratings/recommendations (`/{page-id}/ratings`).
+model FacebookReviewCache {
+  id                 String        @id @default(cuid())
+  socialAccountId    String
+  socialAccount      SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  sourceCreatedAt    DateTime
+  recommendationType String?
+  reviewText         String?       @db.Text
+  contentHash        String
+  fetchedAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@unique([socialAccountId, contentHash])
+  @@index([socialAccountId, sourceCreatedAt])
+  @@map("facebook_reviews")
+}
+
+/// Cached results of probing Graph `/{page-id}/insights` metric names so we never rely on one brittle comma-separated list.
+enum FacebookMetricProbeStatus {
+  VALID
+  INVALID
+  DEPRECATED
+  UNAVAILABLE
+}
+
+model FacebookMetricDiscovery {
+  id               String                    @id @default(cuid())
+  socialAccountId  String
+  socialAccount    SocialAccount             @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  pageId           String
+  /// e.g. page_insights:day, post_insights:lifetime
+  scope            String
+  metricName       String
+  status           FacebookMetricProbeStatus
+  lastError        String?
+  graphVersion     String
+  validatedAt      DateTime                  @default(now())
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+
+  @@unique([socialAccountId, scope, metricName])
+  @@index([socialAccountId, scope, status])
+}
+
+/// Observability for Facebook ingestion / discovery (dev-friendly summaries in `summary` JSON).
+model FacebookSyncRun {
+  id               String        @id @default(cuid())
+  socialAccountId  String
+  socialAccount    SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  runKind          String
+  startedAt        DateTime      @default(now())
+  completedAt      DateTime?
+  success          Boolean       @default(false)
+  summary          Json?
+  errorMessage     String?
+
+  @@index([socialAccountId, startedAt])
+}
+
+model AccountMetricSnapshot {
+  id               String   @id @default(cuid())
+  userId           String
+  socialAccountId  String
+  socialAccount    SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  platform         Platform
+  externalAccountId String   // same as SocialAccount.platformUserId for history by external id
+  metricDate       String   // YYYY-MM-DD bucket
+  metricTimestamp  DateTime
+  followersCount   Int?
+  followingCount   Int?
+  fansCount        Int?
+  insightsJson     Json?    // Per-day API metrics (impressions, reach, profile_views, page_impressions, etc.) so we keep full history beyond Meta 28/90-day window
+  source           String   @default("bootstrap")  // "bootstrap" | "scheduled_sync" | "manual_refresh"
+  createdAt        DateTime @default(now())
+
+  @@unique([userId, platform, externalAccountId, metricDate])
+  @@index([userId, platform, externalAccountId, metricTimestamp])
+  @@index([socialAccountId, metricDate])
+}
+
+model ImportedPost {
+  id               String   @id @default(cuid())
+  socialAccountId  String
+  socialAccount    SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  platformPostId  String
+  platform        Platform
+  content         String?
+  thumbnailUrl    String?
+  permalinkUrl   String?
+  impressions     Int      @default(0)
+  interactions    Int      @default(0)
+  likeCount       Int?     @default(0)
+  commentsCount   Int?     @default(0)
+  repostsCount    Int?     @default(0)
+  sharesCount     Int?     @default(0)
+  publishedAt     DateTime
+  mediaType       String?  // IMAGE, VIDEO, etc.
+  /// Platform-specific payload (e.g. Facebook status_type, attachment types) for analytics / UI.
+  platformMetadata Json?
+  syncedAt        DateTime @default(now())
+
+  @@unique([socialAccountId, platformPostId])
+}
+
+model PendingConnection {
+  id        String    @id @default(cuid())
+  userId    String
+  platform  String    // FACEBOOK | INSTAGRAM | TWITTER
+  payload   Json      // { accessToken?, pages?, accounts?, requestToken?, requestTokenSecret? }
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([userId, platform])
+}
+
+enum PostStatus {
+  DRAFT
+  SCHEDULED
+  POSTING
+  POSTED
+  FAILED
+}
+
+model Post {
+  id                    String     @id @default(cuid())
+  userId                String
+  user                  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title                 String?
+  content               String?
+  contentByPlatform     Json?      // { INSTAGRAM?: string, FACEBOOK?: string, ... }
+  mediaByPlatform       Json?      // { INSTAGRAM?: { fileUrl: string; type: string }[], ... }
+  commentAutomation     Json?      // { keywords: string[], replyTemplate: string, replyTemplateByPlatform?: Record<platform, string>, usePrivateReply?: boolean }
+  status                PostStatus @default(DRAFT)
+  scheduledAt           DateTime?
+  scheduleDelivery      String?    // 'auto' | 'email_links'; when 'email_links', at scheduled time we send email with links to post manually
+  scheduleEmailSentAt   DateTime?  // set when we sent the "post manually" email so we don't send twice
+  emailOpenToken        String?    // one-time token for /post/[id]/open?t= so user can open share links without logging in
+  emailOpenTokenExpiresAt DateTime?
+  postedAt              DateTime?
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+
+  targetPlatforms       String[]   @default([]) // Platform names stored at Post level so they survive account reconnect
+  media         MediaAsset[]
+  targets       PostTarget[]
+}
+
+model AutomationFollowerWelcome {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform       String   // TWITTER
+  platformUserId String   // The follower's platform user id we welcomed
+  welcomedAt     DateTime @default(now())
+
+  @@unique([userId, platform, platformUserId])
+  @@index([userId, platform])
+}
+
+model PostTarget {
+  id              String       @id @default(cuid())
+  postId          String
+  post            Post         @relation(fields: [postId], references: [id], onDelete: Cascade)
+  platform        Platform
+  socialAccountId String
+  socialAccount   SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  status          PostStatus   @default(SCHEDULED)
+  platformPostId  String?
+  error           String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  commentReplies  CommentAutomationReply[]
+
+  @@unique([postId, platform, socialAccountId])
+}
+
+model CommentAutomationReply {
+  id                String     @id @default(cuid())
+  postTargetId      String
+  postTarget        PostTarget @relation(fields: [postTargetId], references: [id], onDelete: Cascade)
+  platformCommentId String     // Instagram comment id, Twitter tweet id, etc.
+  repliedAt         DateTime   @default(now())
+
+  @@unique([postTargetId, platformCommentId])
+  @@index([postTargetId])
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+model MediaAsset {
+  id        String    @id @default(cuid())
+  postId    String
+  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  fileUrl   String
+  type      MediaType
+  size      Int?
+  duration  Float?
+  metadata  Json?
+  createdAt DateTime @default(now())
+}
+
+model DeployTriggerState {
+  id            String    @id @default("default")
+  lastCommitSha String?
+  updatedAt     DateTime  @updatedAt
+}
+
+model LinkPage {
+  id          String     @id @default(cuid())
+  userId      String     @unique
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slug        String     @unique
+  title       String?
+  bio         String?
+  avatarUrl   String?
+  design      Json?
+  links       LinkItem[]
+  isPublished Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([slug])
+}
+
+model LinkItem {
+  id          String    @id @default(cuid())
+  linkPageId  String
+  linkPage    LinkPage  @relation(fields: [linkPageId], references: [id], onDelete: Cascade)
+  type        String    @default("link")
+  label       String?
+  url         String?
+  icon        String?
+  order       Int       @default(0)
+  isVisible   Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([linkPageId])
+}

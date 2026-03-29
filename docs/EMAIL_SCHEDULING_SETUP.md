@@ -1,0 +1,49 @@
+# Email Scheduling Setup ("Email me a link" option)
+
+## Reset stuck posts (emails never sent)
+
+If you have posts marked as "sent" but Resend shows no emails (due to a previous bug), reset them and re-send:
+
+```bash
+# 1. Reset the stuck posts (clears scheduleEmailSentAt so they can be re-processed)
+curl -X POST "https://agent4socials.com/api/cron/reset-email-posts" \
+  -H "X-Cron-Secret: YOUR_CRON_SECRET"
+
+# 2. Trigger the cron to actually send the emails
+curl -X GET "https://agent4socials.com/api/cron/process-scheduled" \
+  -H "X-Cron-Secret: YOUR_CRON_SECRET"
+```
+
+When you schedule a post and choose **"Email me a link per platform"**, the app sends you an email at the scheduled time with a link to open your post and publish manually to each platform.
+
+## Test Resend before scheduling
+
+Verify Resend works without waiting for a scheduled post:
+
+```bash
+curl -X GET "https://YOUR_DOMAIN/api/cron/test-email?to=YOUR_EMAIL" \
+  -H "X-Cron-Secret: YOUR_CRON_SECRET"
+```
+
+If you get `"ok": true`, check your inbox. The **test email** has subject "Test: Agent4Socials email is working" and links to the calendar (no real post). **Real scheduled post emails** have subject "Your scheduled post is ready" and link directly to your post with platform buttons.
+
+## Why emails might not arrive
+
+1. **RESEND_FROM_EMAIL typo** – Use the **verified** domain exactly. If you verified `agent4socials.com` in Resend, the sender must be `guyk@agent4socials.com` (with the "s"). A typo like `agent4social.com` will fail silently in Resend’s dashboard.
+2. **CRON_SECRET not set** – The cron endpoint requires this header. Add `CRON_SECRET` to Vercel Environment Variables (use a long random string, e.g. `openssl rand -hex 32`).
+3. **No cron hitting the endpoint** – Something must call `/api/cron/process-scheduled` when posts are due. Options:
+   - **cron-job.org (free):** Create a job that calls `https://YOUR_DOMAIN/api/cron/process-scheduled` every 1–5 minutes with header `X-Cron-Secret: YOUR_CRON_SECRET`.
+   - **Vercel Cron (Pro):** The `vercel.json` cron runs only once per day on the Hobby plan. For frequent runs, use cron-job.org.
+4. **RESEND_API_KEY not set** – Add your Resend API key to Vercel. Ensure the key belongs to the same Resend project where you verified the domain.
+5. **Scheduled time in the future** – The cron only processes posts whose `scheduledAt` has already passed.
+
+## Quick test
+
+After scheduling a post with "Email me a link" and setting `CRON_SECRET` and `RESEND_API_KEY`:
+
+```bash
+curl -X GET "https://YOUR_DOMAIN/api/cron/process-scheduled" \
+  -H "X-Cron-Secret: YOUR_CRON_SECRET"
+```
+
+If the post is due, the response will show `"ok": true` for the email send. Check your inbox (and spam).

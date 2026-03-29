@@ -1,0 +1,6 @@
+{
+  "error": true,
+  "status": 401,
+  "message": "Unauthorized",
+  "nextSteps": "Regenerate Access Token and Secret in developer.x.com → your app → Keys and tokens → Access Token and Secret. Then update .env."
+}

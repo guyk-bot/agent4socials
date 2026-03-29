@@ -1,0 +1,995 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
+import { prisma } from '@/lib/db';
+import { Platform, PostStatus } from '@prisma/client';
+import axios, { type AxiosResponse } from 'axios';
+import { getValidYoutubeToken } from '@/lib/youtube-token';
+import {
+  fetchAllPublishedPostsForPage,
+  fetchAllPostsFeedForPage,
+  resolvePostInsightMetricsForSync,
+  fetchPostLifetimeInsightMap,
+  pickFacebookPostImpressionsFromInsightMap,
+} from '@/lib/facebook/fetchers';
+import { syncFacebookAuxiliaryIngest } from '@/lib/facebook/sync-extras';
+import { fbRestBaseUrl } from '@/lib/facebook/constants';
+
+type ImportedPostListRow = {
+  id: string;
+  platformPostId: string;
+  platform: Platform;
+  content: string | null;
+  thumbnailUrl: string | null;
+  permalinkUrl: string | null;
+  impressions: number;
+  interactions: number;
+  likeCount: number | null;
+  commentsCount: number | null;
+  repostsCount: number | null;
+  sharesCount: number | null;
+  publishedAt: Date;
+  mediaType: string | null;
+  platformMetadata: unknown;
+};
+
+function isMissingImportedPostPlatformMetadataColumn(error: unknown): boolean {
+  const e = error as { code?: string; message?: string; meta?: { column?: string } };
+  const msg = (e?.message ?? '').toLowerCase();
+  const col = (e?.meta?.column ?? '').toLowerCase();
+  return e?.code === 'P2022' && (msg.includes('importedpost.platformmetadata') || msg.includes('platformmetadata') || col.includes('platformmetadata'));
+}
+
+async function listImportedPostsSafe(socialAccountId: string): Promise<ImportedPostListRow[]> {
+  try {
+    return await prisma.importedPost.findMany({
+      where: { socialAccountId },
+      orderBy: { publishedAt: 'desc' },
+      take: 500,
+      select: {
+        id: true,
+        platformPostId: true,
+        platform: true,
+        content: true,
+        thumbnailUrl: true,
+        permalinkUrl: true,
+        impressions: true,
+        interactions: true,
+        likeCount: true,
+        commentsCount: true,
+        repostsCount: true,
+        sharesCount: true,
+        publishedAt: true,
+        mediaType: true,
+        platformMetadata: true,
+      },
+    });
+  } catch (e) {
+    if (!isMissingImportedPostPlatformMetadataColumn(e)) throw e;
+    const rows = await prisma.importedPost.findMany({
+      where: { socialAccountId },
+      orderBy: { publishedAt: 'desc' },
+      take: 500,
+      select: {
+        id: true,
+        platformPostId: true,
+        platform: true,
+        content: true,
+        thumbnailUrl: true,
+        permalinkUrl: true,
+        impressions: true,
+        interactions: true,
+        likeCount: true,
+        commentsCount: true,
+        repostsCount: true,
+        sharesCount: true,
+        publishedAt: true,
+        mediaType: true,
+      },
+    });
+    return rows.map((r) => ({ ...r, platformMetadata: null }));
+  }
+}
+
+async function findImportedPostPrevSafe(socialAccountId: string, platformPostId: string): Promise<{ impressions: number; platformMetadata: unknown } | null> {
+  try {
+    const prev = await prisma.importedPost.findUnique({
+      where: { socialAccountId_platformPostId: { socialAccountId, platformPostId } },
+      select: { impressions: true, platformMetadata: true },
+    });
+    if (!prev) return null;
+    return { impressions: prev.impressions ?? 0, platformMetadata: prev.platformMetadata ?? null };
+  } catch (e) {
+    if (!isMissingImportedPostPlatformMetadataColumn(e)) throw e;
+    const prev = await prisma.importedPost.findUnique({
+      where: { socialAccountId_platformPostId: { socialAccountId, platformPostId } },
+      select: { impressions: true },
+    });
+    if (!prev) return null;
+    return { impressions: prev.impressions ?? 0, platformMetadata: null };
+  }
+}
+
+async function upsertImportedPostWithFallback(args: {
+  socialAccountId: string;
+  platformPostId: string;
+  createData: any;
+  updateData: any;
+}) {
+  const { socialAccountId, platformPostId, createData, updateData } = args;
+  try {
+    await prisma.importedPost.upsert({
+      where: { socialAccountId_platformPostId: { socialAccountId, platformPostId } },
+      update: updateData,
+      create: createData,
+    });
+  } catch (e) {
+    if (!isMissingImportedPostPlatformMetadataColumn(e)) throw e;
+    const { platformMetadata: _pmCreate, ...createWithoutMeta } = createData;
+    const { platformMetadata: _pmUpdate, ...updateWithoutMeta } = updateData;
+    await prisma.importedPost.upsert({
+      where: { socialAccountId_platformPostId: { socialAccountId, platformPostId } },
+      update: updateWithoutMeta,
+      create: createWithoutMeta,
+    });
+  }
+}
+
+/** GET: list imported posts for this account. ?sync=1 to sync from platform first then return. */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  if (!process.env.DATABASE_URL) {
+    return NextResponse.json({ message: 'DATABASE_URL required' }, { status: 503 });
+  }
+  try {
+    const userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
+    if (!userId) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+    const { id } = await params;
+    const account = await prisma.socialAccount.findFirst({
+      where: { id, userId },
+      select: { id: true, platform: true, platformUserId: true, accessToken: true, refreshToken: true, expiresAt: true, username: true },
+    });
+    if (!account) {
+      return NextResponse.json({ message: 'Account not found' }, { status: 404 });
+    }
+    if (!account.accessToken) {
+      return NextResponse.json({ posts: [], syncError: 'Reconnect your account to sync posts.' }, { status: 200 });
+    }
+    // Auto-refresh YouTube tokens before sync
+    if (account.platform === 'YOUTUBE') {
+      account.accessToken = await getValidYoutubeToken(account);
+    }
+    const sync = request.nextUrl.searchParams.get('sync') === '1';
+    let syncError: string | undefined;
+    if (sync) {
+      try {
+        syncError = await syncImportedPosts(account.id, account.platform, account.platformUserId, account.accessToken);
+      } catch (e) {
+        console.error('[Imported posts] sync error:', e);
+        const msg = (e as Error)?.message ?? '';
+        const metaMsg = (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
+        syncError = metaMsg || msg || 'Sync failed. Try reconnecting your account.';
+      }
+    }
+
+    // Get posts synced/imported from platform
+    const importedRows = await listImportedPostsSafe(account.id);
+    const importedPostIds = new Set(importedRows.map((p) => p.platformPostId));
+
+    // Also include posts published via the app (postTargets) not already in importedPosts
+    const appTargets = await prisma.postTarget.findMany({
+      where: {
+        socialAccountId: account.id,
+        status: PostStatus.POSTED,
+        platformPostId: { not: null },
+      },
+      include: { post: { select: { content: true, media: { select: { fileUrl: true, type: true }, take: 1 } } } },
+      orderBy: { updatedAt: 'desc' },
+      take: 200,
+    });
+
+    // For Twitter: live-enrich from API so we show likes/comments/reposts/images even if sync failed or is stale
+    let twitterEnrich: Record<string, { likeCount: number; commentsCount: number; repostsCount: number; thumbnailUrl: string | null }> = {};
+    if (account.platform === 'TWITTER' && importedRows.length > 0) {
+      try {
+        const tweetsRes = await axios.get<{
+          data?: Array<{
+            id: string;
+            attachments?: { media_keys?: string[] };
+            public_metrics?: { like_count?: number; reply_count?: number; retweet_count?: number };
+          }>;
+          includes?: { media?: Array<{ media_key: string; url?: string; preview_image_url?: string }> };
+        }>(`https://api.twitter.com/2/users/${account.platformUserId}/tweets`, {
+          params: {
+            max_results: 50,
+            'tweet.fields': 'public_metrics,attachments',
+            expansions: 'attachments.media_keys',
+            'media.fields': 'url,preview_image_url',
+            exclude: 'retweets,replies',
+          },
+          headers: { Authorization: `Bearer ${account.accessToken}` },
+          timeout: 12_000,
+        });
+        const items = tweetsRes.data?.data ?? [];
+        const mediaList = tweetsRes.data?.includes?.media ?? [];
+        const mediaByKey = new Map(mediaList.map((m) => [m.media_key, m]));
+        for (const t of items) {
+          const firstMediaKey = t.attachments?.media_keys?.[0];
+          const firstMedia = firstMediaKey ? mediaByKey.get(firstMediaKey) : undefined;
+          const thumbnailUrl = firstMedia?.preview_image_url ?? firstMedia?.url ?? null;
+          twitterEnrich[t.id] = {
+            likeCount: t.public_metrics?.like_count ?? 0,
+            commentsCount: t.public_metrics?.reply_count ?? 0,
+            repostsCount: t.public_metrics?.retweet_count ?? 0,
+            thumbnailUrl,
+          };
+        }
+      } catch (_) {
+        // ignore; use DB values
+      }
+    }
+
+    // Facebook fallback: when DB metadata is missing/outdated, fetch lifetime insights live for recent reel/video posts.
+    // This keeps Reels cards (views/watch time/clicks/reactions) populated even if platformMetadata could not be stored.
+    let liveFacebookInsightsByPostId: Record<string, Record<string, number>> = {};
+    if (account.platform === 'FACEBOOK' && importedRows.length > 0) {
+      try {
+        const candidates = importedRows
+          .filter((p) => {
+            const url = (p.permalinkUrl ?? '').toLowerCase();
+            const isVideoLike = (p.mediaType ?? '').toUpperCase() === 'VIDEO' || url.includes('/reel/');
+            if (!isVideoLike) return false;
+            const meta =
+              p.platformMetadata && typeof p.platformMetadata === 'object' && !Array.isArray(p.platformMetadata)
+                ? (p.platformMetadata as Record<string, unknown>)
+                : {};
+            return !(meta.facebookInsights && typeof meta.facebookInsights === 'object' && !Array.isArray(meta.facebookInsights));
+          })
+          .slice(0, 40);
+
+        if (candidates.length > 0) {
+          const samplePostId = candidates[0]?.platformPostId ?? importedRows[0]?.platformPostId ?? null;
+          const metricOrder = await resolvePostInsightMetricsForSync({
+            socialAccountId: account.id,
+            pageId: account.platformUserId,
+            accessToken: account.accessToken,
+            samplePostId,
+          });
+          const metrics = metricOrder.slice(0, 12);
+          if (metrics.length > 0) {
+            for (const row of candidates) {
+              try {
+                const map = await fetchPostLifetimeInsightMap(row.platformPostId, account.accessToken, metrics);
+                if (Object.keys(map).length > 0) {
+                  liveFacebookInsightsByPostId[row.platformPostId] = map;
+                }
+              } catch {
+                // best effort per post; keep response flowing
+              }
+            }
+          }
+        }
+      } catch {
+        // best effort; if live lookup fails, return DB-backed values
+      }
+    }
+
+    const serialized = importedRows.map((p) => {
+      const enrich = account.platform === 'TWITTER' ? twitterEnrich[p.platformPostId] : undefined;
+      const meta =
+        p.platformMetadata && typeof p.platformMetadata === 'object' && !Array.isArray(p.platformMetadata)
+          ? (p.platformMetadata as Record<string, unknown>)
+          : {};
+      const dbFacebookInsights =
+        p.platform === 'FACEBOOK' && meta.facebookInsights && typeof meta.facebookInsights === 'object' && !Array.isArray(meta.facebookInsights)
+          ? (meta.facebookInsights as Record<string, number>)
+          : undefined;
+      const facebookInsights = p.platform === 'FACEBOOK'
+        ? (dbFacebookInsights ?? liveFacebookInsightsByPostId[p.platformPostId])
+        : undefined;
+      return {
+        id: p.id,
+        platformPostId: p.platformPostId,
+        content: p.content,
+        thumbnailUrl: enrich?.thumbnailUrl ?? p.thumbnailUrl ?? null,
+        permalinkUrl: p.permalinkUrl,
+        impressions: p.impressions ?? 0,
+        interactions: p.interactions ?? 0,
+        likeCount: enrich?.likeCount ?? p.likeCount ?? 0,
+        commentsCount: enrich?.commentsCount ?? p.commentsCount ?? 0,
+        repostsCount: enrich?.repostsCount ?? p.repostsCount ?? 0,
+        sharesCount: p.sharesCount ?? 0,
+        publishedAt: p.publishedAt instanceof Date ? p.publishedAt.toISOString() : String(p.publishedAt),
+        mediaType: p.mediaType,
+        platform: p.platform,
+        ...(facebookInsights && Object.keys(facebookInsights).length > 0 ? { facebookInsights } : {}),
+        ...(p.platform === 'FACEBOOK'
+          ? {
+              engagementBreakdown: {
+                reactions: p.likeCount ?? 0,
+                comments: p.commentsCount ?? 0,
+                shares: p.sharesCount ?? 0,
+                totalEngagement: (p.likeCount ?? 0) + (p.commentsCount ?? 0) + (p.sharesCount ?? 0),
+              },
+            }
+          : {}),
+      };
+    });
+
+    // App-published targets not yet in importedPosts
+    const appExtra = appTargets
+      .filter((t) => !importedPostIds.has(t.platformPostId!))
+      .map((t) => ({
+        id: `target-${t.id}`,
+        platformPostId: t.platformPostId ?? null,
+        content: t.post?.content ?? null,
+        thumbnailUrl: t.post?.media[0]?.fileUrl ?? null,
+        permalinkUrl: null,
+        impressions: 0,
+        interactions: 0,
+        likeCount: 0,
+        commentsCount: 0,
+        repostsCount: 0,
+        sharesCount: 0,
+        publishedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : String(t.updatedAt),
+        mediaType: t.post?.media[0]?.type ?? null,
+        platform: account.platform,
+      }));
+
+    const posts = [...serialized, ...appExtra].sort(
+      (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+    );
+
+    return NextResponse.json({ posts, syncError });
+  } catch (e) {
+    console.error('[Imported posts] GET error:', e);
+    const msg = (e as Error)?.message ?? 'Server error while loading posts.';
+    return NextResponse.json({ posts: [], syncError: msg }, { status: 200 });
+  }
+}
+
+async function syncImportedPosts(
+  socialAccountId: string,
+  platform: Platform,
+  platformUserId: string,
+  accessToken: string
+): Promise<string | undefined> {
+  const baseUrl = fbRestBaseUrl;
+  if (platform === 'INSTAGRAM') {
+    type MediaItem = {
+      id: string;
+      media_type?: string;
+      media_url?: string;
+      permalink?: string;
+      caption?: string;
+      timestamp?: string;
+      thumbnail_url?: string;
+      like_count?: number;
+      comments_count?: number;
+    };
+    type MediaPage = {
+      data?: Array<MediaItem>;
+      paging?: { next?: string; cursors?: { before?: string; after?: string } };
+    };
+    const fields = 'id,media_type,media_url,permalink,caption,timestamp,thumbnail_url,like_count,comments_count';
+    const allItems: Array<MediaItem> = [];
+    const maxMedia = 500;
+    const pageLimit = 50;
+    // Do NOT use since/until timestamps — they can incorrectly restrict results when the Instagram
+    // Media API interprets them as time-window filters. Use pure cursor-based pagination instead.
+    const firstParams: Record<string, string | number> = {
+      fields,
+      access_token: accessToken,
+      limit: pageLimit,
+    };
+    let nextUrl: string | null = `${baseUrl}/${platformUserId}/media`;
+    try {
+      while (nextUrl && allItems.length < maxMedia) {
+        const isFirst = !nextUrl.includes('?');
+        const res: AxiosResponse<MediaPage> = await axios.get<MediaPage>(
+          nextUrl,
+          isFirst ? { params: firstParams } : {}
+        );
+        const page = res.data?.data ?? [];
+        allItems.push(...page);
+        const paging = res.data?.paging;
+        const nextFromMeta = paging?.next;
+        const afterCursor = paging?.cursors?.after;
+        const gotFullPage = page.length >= pageLimit;
+        if (nextFromMeta && allItems.length < maxMedia) {
+          nextUrl = nextFromMeta;
+        } else if (!nextFromMeta && afterCursor && gotFullPage && allItems.length < maxMedia) {
+          nextUrl = `${baseUrl}/${platformUserId}/media?fields=${encodeURIComponent(fields)}&access_token=${encodeURIComponent(accessToken)}&limit=${pageLimit}&after=${encodeURIComponent(afterCursor)}`;
+        } else {
+          nextUrl = null;
+        }
+      }
+    } catch (e) {
+      const msg = (e as Error)?.message ?? '';
+      const metaMsg = (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
+      if (msg.includes('OAuth') || msg.includes('permission') || msg.includes('access') || metaMsg?.toLowerCase().includes('token') || metaMsg?.toLowerCase().includes('permission')) {
+        return 'Reconnect your Instagram account to sync posts.';
+      }
+      if (metaMsg) return metaMsg;
+      throw e;
+    }
+    const items = allItems;
+    for (const m of items) {
+      const publishedAt = m.timestamp ? new Date(m.timestamp) : new Date();
+      // For VIDEO posts, thumbnail_url is the poster frame; media_url is the video file itself.
+      // Always prefer thumbnail_url for videos so we get an image, not a playable file URL.
+      let thumbnailUrl: string | null =
+        m.media_type === 'VIDEO'
+          ? (m.thumbnail_url ?? m.media_url ?? null)
+          : (m.media_url ?? m.thumbnail_url ?? null);
+      if (!thumbnailUrl && m.media_type === 'CAROUSEL_ALBUM') {
+        try {
+          const childRes = await axios.get<{ data?: Array<{ media_url?: string }> }>(
+            `${baseUrl}/${m.id}/children`,
+            { params: { fields: 'media_url', access_token: accessToken } }
+          );
+          const first = childRes.data?.data?.[0];
+          if (first?.media_url) thumbnailUrl = first.media_url;
+        } catch {
+          // ignore
+        }
+      }
+      const likeCount = m.like_count ?? 0;
+      const commentsCount = m.comments_count ?? 0;
+      const interactions = likeCount + commentsCount;
+      let impressions = 0;
+      try {
+        // Fetch both impressions (total views) and reach (unique viewers).
+        // Prefer impressions for the "Views" column — it matches what Instagram shows in-app.
+        // Fall back to reach if impressions is unavailable (older accounts, Reels, Stories).
+        const insightsRes = await axios.get<{
+          data?: Array<{ name: string; values?: Array<{ value: number }>; total_value?: { value: number } }>;
+        }>(
+          `${baseUrl}/${m.id}/insights`,
+          { params: { metric: 'impressions,reach', access_token: accessToken } }
+        );
+        const data = insightsRes.data?.data ?? [];
+        let reachVal = 0;
+        for (const d of data) {
+          const val = d.total_value?.value ?? d.values?.[0]?.value ?? 0;
+          if (d.name === 'impressions') impressions = val;
+          if (d.name === 'reach') reachVal = val;
+        }
+        // If impressions was not returned (e.g. Reels/Stories only return reach), use reach
+        if (impressions === 0 && reachVal > 0) impressions = reachVal;
+      } catch {
+        // insights not available for all media types (e.g. stories)
+      }
+      await prisma.importedPost.upsert({
+        where: {
+          socialAccountId_platformPostId: { socialAccountId, platformPostId: m.id },
+        },
+        update: {
+          content: m.caption ?? null,
+          thumbnailUrl,
+          permalinkUrl: m.permalink ?? null,
+          publishedAt,
+          mediaType: m.media_type ?? null,
+          impressions,
+          interactions,
+          likeCount,
+          commentsCount,
+          syncedAt: new Date(),
+        },
+        create: {
+          socialAccountId,
+          platformPostId: m.id,
+          platform,
+          content: m.caption ?? null,
+          thumbnailUrl,
+          permalinkUrl: m.permalink ?? null,
+          publishedAt,
+          mediaType: m.media_type ?? null,
+          impressions,
+          interactions,
+          likeCount,
+          commentsCount,
+        },
+      });
+    }
+    return undefined;
+  }
+
+  if (platform === 'FACEBOOK') {
+    const maxPosts = 500;
+    let items: Awaited<ReturnType<typeof fetchAllPublishedPostsForPage>>['items'] = [];
+    try {
+      const fetched = await fetchAllPublishedPostsForPage(platformUserId, accessToken, maxPosts);
+      items = fetched.items;
+      const publishedIds = new Set(items.map((i) => i.id));
+      try {
+        const feed = await fetchAllPostsFeedForPage(platformUserId, accessToken, maxPosts);
+        for (const f of feed.items) {
+          if (publishedIds.has(f.id)) continue;
+          publishedIds.add(f.id);
+          items.push({
+            id: f.id,
+            message: f.message,
+            created_time: f.created_time,
+            permalink_url: f.permalink_url,
+          });
+        }
+      } catch {
+        // feed backfill is best-effort
+      }
+
+      try {
+        const aux = await syncFacebookAuxiliaryIngest({
+          socialAccountId,
+          pageId: platformUserId,
+          accessToken,
+        });
+        if (aux.errors.length > 0) {
+          console.warn('[FB sync] auxiliary ingest:', aux.errors.join('; '));
+        }
+      } catch (e) {
+        console.warn('[FB sync] auxiliary ingest failed:', (e as Error)?.message ?? e);
+      }
+    } catch (e) {
+      const msg = (e as Error)?.message ?? '';
+      const metaMsg = (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
+      if (msg.includes('OAuth') || msg.includes('permission') || msg.includes('access') || metaMsg?.toLowerCase().includes('token') || metaMsg?.toLowerCase().includes('permission')) {
+        return 'Reconnect your Facebook Page to sync posts.';
+      }
+      if (metaMsg) return metaMsg;
+      throw e;
+    }
+
+    const samplePostId = items[0]?.id ?? null;
+    const postMetricsOrder = await resolvePostInsightMetricsForSync({
+      socialAccountId,
+      pageId: platformUserId,
+      accessToken,
+      samplePostId,
+    });
+
+    const POST_INSIGHT_FETCH_CAP = 150;
+    /** Cap Graph calls per post: registry may list many names; fetch the most useful subset. */
+    const POST_METRICS_MAX = 12;
+    const postMetricsSlice = postMetricsOrder.slice(0, POST_METRICS_MAX);
+    const slice = items.slice(0, maxPosts);
+    for (let idx = 0; idx < slice.length; idx++) {
+      const p = slice[idx];
+      const publishedAt = p.created_time ? new Date(p.created_time) : new Date();
+      const likeCountFinal = p.reactions?.summary?.total_count ?? 0;
+      const commentsCountFinal = p.comments?.summary?.total_count ?? 0;
+
+      let impressions = 0;
+      let insightMap: Record<string, number> = {};
+      if (idx < POST_INSIGHT_FETCH_CAP && postMetricsSlice.length > 0) {
+        insightMap = await fetchPostLifetimeInsightMap(p.id, accessToken, postMetricsSlice);
+        impressions = pickFacebookPostImpressionsFromInsightMap(insightMap).impressions;
+      } else if (idx >= POST_INSIGHT_FETCH_CAP) {
+        const prev = await findImportedPostPrevSafe(socialAccountId, p.id);
+        impressions = prev?.impressions ?? 0;
+        const prevMeta = prev?.platformMetadata && typeof prev.platformMetadata === 'object' ? prev.platformMetadata as Record<string, unknown> : {};
+        if (prevMeta.facebookInsights && typeof prevMeta.facebookInsights === 'object') {
+          insightMap = prevMeta.facebookInsights as Record<string, number>;
+        }
+      }
+
+      const sharesCountFinal = typeof insightMap.post_shares === 'number' ? insightMap.post_shares : 0;
+      const interactionsFinal = likeCountFinal + commentsCountFinal + sharesCountFinal;
+
+      const mediaTypeGuess =
+        p.status_type?.includes('VIDEO') || p.status_type?.includes('REEL')
+          ? 'VIDEO'
+          : p.attachments?.data?.[0]?.media_type === 'photo'
+            ? 'IMAGE'
+            : p.attachments?.data?.[0]?.media_type === 'video'
+              ? 'VIDEO'
+              : null;
+
+      const platformMetadata = {
+        status_type: p.status_type ?? null,
+        attachmentTypes: (p.attachments?.data ?? []).map((a) => a.media_type ?? a.type).filter(Boolean),
+        ...(Object.keys(insightMap).length > 0
+          ? {
+              facebookInsights: insightMap,
+              impressionsMetricKey: pickFacebookPostImpressionsFromInsightMap(insightMap).metricUsed,
+            }
+          : {}),
+      };
+
+      await upsertImportedPostWithFallback({
+        socialAccountId,
+        platformPostId: p.id,
+        updateData: {
+          content: p.message ?? null,
+          thumbnailUrl: p.full_picture ?? null,
+          permalinkUrl: p.permalink_url ?? null,
+          publishedAt,
+          mediaType: mediaTypeGuess,
+          platformMetadata: platformMetadata as object,
+          impressions,
+          interactions: interactionsFinal,
+          likeCount: likeCountFinal,
+          commentsCount: commentsCountFinal,
+          sharesCount: sharesCountFinal,
+          syncedAt: new Date(),
+        },
+        createData: {
+          socialAccountId,
+          platformPostId: p.id,
+          platform,
+          content: p.message ?? null,
+          thumbnailUrl: p.full_picture ?? null,
+          permalinkUrl: p.permalink_url ?? null,
+          publishedAt,
+          mediaType: mediaTypeGuess,
+          platformMetadata: platformMetadata as object,
+          impressions,
+          interactions: interactionsFinal,
+          likeCount: likeCountFinal,
+          commentsCount: commentsCountFinal,
+          sharesCount: sharesCountFinal,
+        },
+      });
+    }
+    return;
+  }
+
+  if (platform === 'TWITTER') {
+    try {
+      const tweetsRes = await axios.get<{
+        data?: Array<{
+          id: string;
+          text?: string;
+          created_at?: string;
+          attachments?: { media_keys?: string[] };
+          public_metrics?: {
+            like_count?: number;
+            retweet_count?: number;
+            reply_count?: number;
+            impression_count?: number;
+            quote_count?: number;
+          };
+        }>;
+        includes?: { media?: Array<{ media_key: string; url?: string; preview_image_url?: string }> };
+      }>(`https://api.twitter.com/2/users/${platformUserId}/tweets`, {
+        params: {
+          max_results: 50,
+          'tweet.fields': 'created_at,public_metrics,attachments',
+          expansions: 'attachments.media_keys',
+          'media.fields': 'url,preview_image_url',
+          exclude: 'retweets,replies',
+        },
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const items = tweetsRes.data?.data ?? [];
+      const mediaList = tweetsRes.data?.includes?.media ?? [];
+      const mediaByKey = new Map(mediaList.map((m) => [m.media_key, m]));
+      for (const t of items) {
+        const publishedAt = t.created_at ? new Date(t.created_at) : new Date();
+        const permalinkUrl = `https://x.com/i/status/${t.id}`;
+        const impressions = t.public_metrics?.impression_count ?? 0;
+        const likeCount = t.public_metrics?.like_count ?? 0;
+        const replyCount = t.public_metrics?.reply_count ?? 0;
+        const retweetCount = t.public_metrics?.retweet_count ?? 0;
+        const quoteCount = t.public_metrics?.quote_count ?? 0;
+        const interactions = likeCount + replyCount + retweetCount + quoteCount;
+        const firstMediaKey = t.attachments?.media_keys?.[0];
+        const firstMedia = firstMediaKey ? mediaByKey.get(firstMediaKey) : undefined;
+        const thumbnailUrl = firstMedia?.preview_image_url ?? firstMedia?.url ?? null;
+        await prisma.importedPost.upsert({
+          where: {
+            socialAccountId_platformPostId: { socialAccountId, platformPostId: t.id },
+          },
+          update: {
+            content: t.text ?? null,
+            permalinkUrl,
+            publishedAt,
+            impressions,
+            interactions,
+            likeCount,
+            commentsCount: replyCount,
+            repostsCount: retweetCount,
+            sharesCount: 0,
+            thumbnailUrl,
+            syncedAt: new Date(),
+          },
+          create: {
+            socialAccountId,
+            platformPostId: t.id,
+            platform: 'TWITTER',
+            content: t.text ?? null,
+            permalinkUrl,
+            publishedAt,
+            impressions,
+            interactions,
+            likeCount,
+            commentsCount: replyCount,
+            repostsCount: retweetCount,
+            sharesCount: 0,
+            thumbnailUrl,
+          },
+        });
+      }
+      return undefined;
+    } catch (e) {
+      const msg = (e as Error)?.message ?? '';
+      if (msg.includes('OAuth') || msg.includes('401') || msg.includes('403')) return 'Reconnect your X (Twitter) account to sync posts.';
+      throw e;
+    }
+  }
+
+  if (platform === 'LINKEDIN') {
+    try {
+      // Fetch personal LinkedIn posts using the UGC Posts API (requires w_member_social scope)
+      const personUrn = `urn:li:person:${platformUserId}`;
+      const postsRes = await axios.get<{
+        elements?: Array<{
+          id?: string;
+          specificContent?: {
+            'com.linkedin.ugc.ShareContent'?: {
+              shareCommentary?: { text?: string };
+              shareMediaCategory?: string;
+              media?: Array<{ thumbnails?: Array<{ url?: string }> }>;
+            };
+          };
+          firstPublishedAt?: number;
+          lifecycleState?: string;
+        }>;
+      }>('https://api.linkedin.com/v2/ugcPosts', {
+        params: {
+          q: 'authors',
+          authors: `List(${encodeURIComponent(personUrn)})`,
+          count: 50,
+        },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'X-Restli-Protocol-Version': '2.0.0',
+        },
+      });
+      const items = postsRes.data?.elements ?? [];
+      for (const p of items) {
+        if (p.lifecycleState === 'DELETED') continue;
+        const postId = p.id;
+        if (!postId) continue;
+        const publishedAt = p.firstPublishedAt ? new Date(p.firstPublishedAt) : new Date();
+        const shareContent = p.specificContent?.['com.linkedin.ugc.ShareContent'];
+        const content = shareContent?.shareCommentary?.text ?? null;
+        const thumbnailUrl = shareContent?.media?.[0]?.thumbnails?.[0]?.url ?? null;
+        const permalinkUrl = `https://www.linkedin.com/feed/update/${encodeURIComponent(postId)}`;
+        await prisma.importedPost.upsert({
+          where: {
+            socialAccountId_platformPostId: { socialAccountId, platformPostId: postId },
+          },
+          update: {
+            content,
+            thumbnailUrl,
+            permalinkUrl,
+            publishedAt,
+            mediaType: shareContent?.shareMediaCategory ?? null,
+            impressions: 0,
+            interactions: 0,
+            syncedAt: new Date(),
+          },
+          create: {
+            socialAccountId,
+            platformPostId: postId,
+            platform: 'LINKEDIN',
+            content,
+            thumbnailUrl,
+            permalinkUrl,
+            publishedAt,
+            mediaType: shareContent?.shareMediaCategory ?? null,
+            impressions: 0,
+            interactions: 0,
+          },
+        });
+      }
+      return undefined;
+    } catch (e) {
+      const msg = (e as Error)?.message ?? '';
+      if (msg.includes('401') || msg.includes('403') || msg.includes('permission')) {
+        return 'Reconnect your LinkedIn account to sync posts.';
+      }
+      // LinkedIn sync failure is non-fatal
+      return undefined;
+    }
+  }
+
+  if (platform === 'TIKTOK') {
+    try {
+      type TikTokVideo = {
+        id?: string;
+        title?: string;
+        cover_image_url?: string;
+        create_time?: number;
+        share_url?: string;
+        like_count?: number;
+        comment_count?: number;
+        view_count?: number;
+      };
+      const fields = 'cover_image_url,id,title,create_time,share_url,like_count,comment_count,view_count';
+      const allVideos: TikTokVideo[] = [];
+      let cursor: number | string | undefined;
+      let hasMore = true;
+      let pages = 0;
+      while (hasMore && pages < 10) {
+        const body: { max_count: number; cursor?: number | string } = { max_count: 20 };
+        if (cursor != null) body.cursor = cursor;
+        const res = await axios.post<{
+          data?: { videos?: TikTokVideo[]; cursor?: number | string; has_more?: boolean };
+          error?: { code?: string; message?: string };
+        }>(
+          `https://open.tiktokapis.com/v2/video/list/?fields=${encodeURIComponent(fields)}`,
+          body,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+        const list = res.data?.data?.videos ?? [];
+        allVideos.push(...list);
+        if (res.data?.error?.code && res.data.error.code !== 'ok') {
+          const msg = res.data.error.message || res.data.error.code;
+          if (msg.includes('scope') || msg.includes('video.list')) return 'Add video.list scope in TikTok Developer Portal and reconnect to sync videos.';
+          return msg;
+        }
+        cursor = res.data?.data?.cursor;
+        // Rely on has_more only: TikTok can return fewer than 20 per page (e.g. 1 or 10), so don't require list.length >= 20
+        hasMore = res.data?.data?.has_more === true;
+        pages++;
+      }
+
+      for (const v of allVideos) {
+        const videoId = v.id;
+        if (!videoId) continue;
+        const publishedAt = v.create_time ? new Date(v.create_time * 1000) : new Date();
+        const title = v.title ?? null;
+        const thumbnailUrl = v.cover_image_url ?? null;
+        const permalinkUrl = v.share_url ?? `https://www.tiktok.com/@user/video/${videoId}`;
+        const impressions = v.view_count ?? 0;
+        const likeCount = v.like_count ?? 0;
+        const commentsCount = v.comment_count ?? 0;
+        const interactions = likeCount + commentsCount;
+        await prisma.importedPost.upsert({
+          where: { socialAccountId_platformPostId: { socialAccountId, platformPostId: videoId } },
+          update: { content: title, thumbnailUrl, permalinkUrl, publishedAt, mediaType: 'VIDEO', impressions, interactions, likeCount, commentsCount, syncedAt: new Date() },
+          create: { socialAccountId, platformPostId: videoId, platform: 'TIKTOK', content: title, thumbnailUrl, permalinkUrl, publishedAt, mediaType: 'VIDEO', impressions, interactions, likeCount, commentsCount },
+        });
+      }
+      return undefined;
+    } catch (e) {
+      const ax = e as { response?: { data?: { error?: { message?: string; code?: string } } } };
+      const msg = (e as Error)?.message ?? '';
+      const apiMsg = ax?.response?.data?.error?.message;
+      if (msg.includes('403') || apiMsg?.toLowerCase().includes('scope')) return 'Add video.list scope and reconnect to sync TikTok videos.';
+      if (msg.includes('401')) return 'Reconnect your TikTok account to sync videos.';
+      return undefined;
+    }
+  }
+
+  if (platform === 'YOUTUBE') {
+    try {
+      type YtPlaylistItem = {
+        snippet?: {
+          publishedAt?: string;
+          title?: string;
+          thumbnails?: { medium?: { url?: string }; default?: { url?: string } };
+          resourceId?: { videoId?: string };
+        };
+      };
+
+      // Derive the uploads playlist ID directly from the channel ID.
+      // YouTube channel IDs start with "UC"; their uploads playlist starts with "UU".
+      // This avoids an extra API call and works even when contentDetails is unavailable.
+      let uploadsPlaylistId: string | null = null;
+      if (platformUserId.startsWith('UC')) {
+        uploadsPlaylistId = 'UU' + platformUserId.slice(2);
+      } else {
+        // Fallback: fetch via contentDetails if channel ID is in unexpected format
+        try {
+          const chRes = await axios.get<{ items?: Array<{ contentDetails?: { relatedPlaylists?: { uploads?: string } } }> }>(
+            'https://www.googleapis.com/youtube/v3/channels',
+            { params: { part: 'contentDetails', mine: 'true' }, headers: { Authorization: `Bearer ${accessToken}` } }
+          );
+          uploadsPlaylistId = chRes.data?.items?.[0]?.contentDetails?.relatedPlaylists?.uploads ?? null;
+        } catch (e) {
+          console.warn('[YouTube sync] channels.contentDetails fallback failed:', (e as Error)?.message ?? e);
+        }
+      }
+
+      if (!uploadsPlaylistId) {
+        return 'Could not determine YouTube uploads playlist. Try reconnecting your account.';
+      }
+
+      const allItems: YtPlaylistItem[] = [];
+      let nextPageToken: string | null = null;
+      let pages = 0;
+      do {
+        const params: Record<string, string | number | boolean> = {
+          part: 'snippet',
+          playlistId: uploadsPlaylistId,
+          maxResults: 50,
+        };
+        if (nextPageToken) params.pageToken = nextPageToken;
+        const res = await axios.get<{ items?: YtPlaylistItem[]; nextPageToken?: string }>(
+          'https://www.googleapis.com/youtube/v3/playlistItems',
+          { params, headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        allItems.push(...(res.data?.items ?? []));
+        nextPageToken = res.data?.nextPageToken ?? null;
+        pages++;
+      } while (nextPageToken && allItems.length < 500 && pages < 10);
+
+      // Fetch video statistics in batches of 50
+      const videoIds = allItems
+        .map((v) => v.snippet?.resourceId?.videoId)
+        .filter((id): id is string => Boolean(id));
+
+      const statsMap: Record<string, { viewCount: number; likeCount: number; commentCount: number }> = {};
+      for (let i = 0; i < videoIds.length; i += 50) {
+        const batch = videoIds.slice(i, i + 50);
+        try {
+          const statsRes = await axios.get<{
+            items?: Array<{ id: string; statistics?: { viewCount?: string; likeCount?: string; commentCount?: string } }>;
+          }>('https://www.googleapis.com/youtube/v3/videos', {
+            params: { part: 'statistics', id: batch.join(',') },
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          for (const v of statsRes.data?.items ?? []) {
+            statsMap[v.id] = {
+              viewCount: v.statistics?.viewCount ? parseInt(v.statistics.viewCount, 10) : 0,
+              likeCount: v.statistics?.likeCount ? parseInt(v.statistics.likeCount, 10) : 0,
+              commentCount: v.statistics?.commentCount ? parseInt(v.statistics.commentCount, 10) : 0,
+            };
+          }
+        } catch (e) {
+          console.warn('[YouTube sync] videos.statistics batch failed:', (e as Error)?.message ?? e);
+        }
+      }
+
+      for (const v of allItems) {
+        const videoId = v.snippet?.resourceId?.videoId;
+        if (!videoId) continue;
+        const publishedAt = v.snippet?.publishedAt ? new Date(v.snippet.publishedAt) : new Date();
+        const title = v.snippet?.title ?? null;
+        // Skip YouTube's placeholder titles for deleted/private videos
+        if (title === 'Deleted video' || title === 'Private video') continue;
+        const thumbnailUrl = v.snippet?.thumbnails?.medium?.url ?? v.snippet?.thumbnails?.default?.url
+          ?? `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
+        const permalinkUrl = `https://www.youtube.com/watch?v=${videoId}`;
+        const stats = statsMap[videoId] ?? { viewCount: 0, likeCount: 0, commentCount: 0 };
+        const impressions = stats.viewCount;
+        const likeCount = stats.likeCount;
+        const commentsCount = stats.commentCount;
+        const interactions = likeCount + commentsCount;
+        await prisma.importedPost.upsert({
+          where: { socialAccountId_platformPostId: { socialAccountId, platformPostId: videoId } },
+          update: { content: title, thumbnailUrl, permalinkUrl, publishedAt, mediaType: 'VIDEO', impressions, interactions, likeCount, commentsCount, syncedAt: new Date() },
+          create: { socialAccountId, platformPostId: videoId, platform: 'YOUTUBE', content: title, thumbnailUrl, permalinkUrl, publishedAt, mediaType: 'VIDEO', impressions, interactions, likeCount, commentsCount },
+        });
+      }
+
+      return undefined;
+    } catch (e) {
+      const msg = (e as Error)?.message ?? '';
+      const apiErr = (e as { response?: { data?: { error?: { message?: string; status?: string } } } })?.response?.data?.error;
+      if (apiErr?.message) {
+        console.error('[YouTube sync] API error:', apiErr);
+        return `YouTube sync error: ${apiErr.message}`;
+      }
+      if (msg.includes('401') || msg.includes('403') || msg.includes('invalid_grant')) {
+        return 'Reconnect your YouTube account to sync videos.';
+      }
+      console.error('[YouTube sync] unexpected error:', msg);
+      return `YouTube sync failed: ${msg.slice(0, 200)}`;
+    }
+  }
+
+  // Other platforms: no sync for now
+  return undefined;
+}

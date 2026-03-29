@@ -1,0 +1,9 @@
+---
+description: Copy and pricing conventions
+alwaysApply: true
+---
+
+# Copy and pricing
+
+- **Yearly price**: Always use **$19.99/year** (not $20). Monthly equivalent: ~$1.67/mo.
+- **No em dashes or en dashes**: Do not use "—" (U+2014) or "–" (U+2013). Use commas, colons, or " to " for ranges instead.
