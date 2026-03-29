@@ -6,8 +6,12 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   ComposedChart,
+  Legend,
   Line,
+  Pie,
+  PieChart,
   Rectangle,
   ResponsiveContainer,
   Tooltip,
@@ -37,6 +41,8 @@ export interface FacebookAnalyticsViewProps {
   followersLabel?: string;
   /** Connected account avatar from sidebar/account record. */
   accountAvatarUrl?: string | null;
+  /** @handle from connected account (Instagram, etc.) when Graph page profile is not present. */
+  accountUsername?: string | null;
 }
 
 type SectionId = (typeof FACEBOOK_ANALYTICS_SECTION_IDS)[keyof typeof FACEBOOK_ANALYTICS_SECTION_IDS];
@@ -48,6 +54,19 @@ type TrafficMetricKey = 'postImpressions' | 'nonviral' | 'viral' | 'uniqueReachP
 type ReelMetricKey = 'views' | 'watchTime' | 'avgWatch' | 'clicks' | 'likes' | 'comments' | 'shares' | 'reposts';
 type ReelPresetKey = 'performance' | 'engagement' | 'watch';
 type ContentHistoryFilter = 'all' | 'posts' | 'reels';
+
+const AUDIENCE_COUNTRY_PIE_COLORS = [
+  '#42d9f5',
+  '#7c6cff',
+  '#d946ef',
+  '#31c48d',
+  '#f5b942',
+  '#ff8b7b',
+  '#6366f1',
+  '#ec4899',
+  '#14b8a6',
+  '#f97316',
+];
 
 const COLOR = {
   pageBg: '#f6f7fb',
@@ -918,9 +937,14 @@ export function FacebookAnalyticsView({
   onReconnectFacebook,
   followersLabel,
   accountAvatarUrl,
+  accountUsername,
 }: FacebookAnalyticsViewProps) {
-  /** Do not tie overview shell to post sync: posts load slower; show metrics immediately and refresh tables in place. */
-  const overviewSkeleton = insightsLoading && !insights?.facebookAnalytics;
+  /**
+   * Shimmer placeholders only while the Facebook Graph bundle is loading.
+   * Instagram and other platforms never receive `facebookAnalytics`; tying skeleton to that field caused empty boxes during every IG refetch.
+   */
+  const overviewSkeleton =
+    insightsLoading && insights?.platform === 'FACEBOOK' && !insights?.facebookAnalytics;
   const [storyMode, setStoryMode] = useState<StoryMode>('growth');
   const [selectedStoryMetrics, setSelectedStoryMetrics] = useState<StoryMetricKey[]>(STORY_MODE_DEFAULT_METRICS.growth);
   const [selectedActivityMetrics, setSelectedActivityMetrics] = useState<ActivityMetricKey[]>(['posts', 'actions']);
@@ -969,17 +993,23 @@ export function FacebookAnalyticsView({
   const bundle = insights?.facebookAnalytics;
   const profile = insights?.facebookPageProfile;
   const community = insights?.facebookCommunity;
+  const resolvedUsername = (profile?.username ?? accountUsername ?? '').trim().replace(/^@/, '');
+
   const profileUrl = useMemo(() => {
     const plat = insights?.platform?.toUpperCase();
-    const username = profile?.username?.trim();
-    if (plat === 'PINTEREST' && username) {
-      return `https://www.pinterest.com/${username.replace(/^@/, '')}/`;
+    const username = profile?.username?.trim().replace(/^@/, '') || accountUsername?.trim().replace(/^@/, '');
+    if (plat === 'INSTAGRAM' && username) {
+      return `https://www.instagram.com/${username}/`;
     }
-    if (username) return `https://www.facebook.com/${username}`;
+    if (plat === 'PINTEREST' && username) {
+      return `https://www.pinterest.com/${username}/`;
+    }
+    if (username && plat === 'FACEBOOK') return `https://www.facebook.com/${username}`;
+    if (profile?.username?.trim()) return `https://www.facebook.com/${profile.username.trim()}`;
     const website = profile?.website?.trim();
     if (website) return website;
     return null;
-  }, [insights?.platform, profile?.username, profile?.website]);
+  }, [accountUsername, insights?.platform, profile?.username, profile?.website]);
   const postsInRange = useMemo(
     () => posts.filter((p) => inRange(p.publishedAt, dateRange.start, dateRange.end)),
     [posts, dateRange.end, dateRange.start]
@@ -1133,6 +1163,10 @@ export function FacebookAnalyticsView({
     () => buildKeyDateTicks(trafficTimelineData, (d) => (d.postImpressions ?? 0) > 0 || (d.nonviral ?? 0) > 0 || (d.viral ?? 0) > 0 || (d.uniqueReachProxy ?? 0) > 0, 10),
     [trafficTimelineData]
   );
+  const audienceCountryPieData = useMemo(() => {
+    const rows = insights?.audienceByCountry?.rows ?? [];
+    return rows.map((r) => ({ name: r.country, value: r.value, percent: r.percent }));
+  }, [insights?.audienceByCountry?.rows]);
   const reelsTicks = useMemo(
     () => buildKeyDateTicks(reelsChartData, (d) => (d.views ?? 0) > 0 || (d.watchTimeMinutes ?? 0) > 0 || (d.avgWatchSeconds ?? 0) > 0, 10),
     [reelsChartData]
@@ -1319,7 +1353,13 @@ export function FacebookAnalyticsView({
                 href={profileUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                title={insights?.platform === 'PINTEREST' ? 'Open Pinterest profile' : 'Open Facebook profile'}
+                title={
+                  insights?.platform === 'PINTEREST'
+                    ? 'Open Pinterest profile'
+                    : insights?.platform === 'INSTAGRAM'
+                      ? 'Open Instagram profile'
+                      : 'Open Facebook profile'
+                }
                 className="shrink-0"
               >
                 <div
@@ -1369,17 +1409,21 @@ export function FacebookAnalyticsView({
                 display: accountAvatarUrl ? 'none' : 'flex',
               }}
             >
-              {(profile?.name || profile?.username || (insights?.platform === 'PINTEREST' ? 'PI' : 'FB')).slice(0, 2).toUpperCase()}
+              {(profile?.name || resolvedUsername || (insights?.platform === 'PINTEREST' ? 'PI' : insights?.platform === 'INSTAGRAM' ? 'IG' : 'FB')).slice(0, 2).toUpperCase()}
             </div>
             <div>
               <h1 className="text-xl font-semibold" style={{ color: COLOR.text }}>
-                {profile?.name ||
-                  insights?.facebookPageProfile?.username ||
-                  followersLabel ||
-                  (insights?.platform === 'PINTEREST' ? 'Pinterest' : 'Facebook Page')}
+                {profile?.name?.trim() ||
+                  resolvedUsername ||
+                  (insights?.platform === 'INSTAGRAM'
+                    ? 'Instagram'
+                    : insights?.platform === 'PINTEREST'
+                      ? 'Pinterest'
+                      : 'Facebook Page')}
               </h1>
               <p className="text-sm" style={{ color: COLOR.textSecondary }}>
-                @{profile?.username || 'unknown'}{profile?.category ? `  •  ${profile.category}` : ''}
+                {resolvedUsername ? `@${resolvedUsername}` : '@unknown'}
+                {profile?.category ? `  •  ${profile.category}` : ''}
               </p>
             </div>
           </div>
@@ -1809,6 +1853,71 @@ export function FacebookAnalyticsView({
               </ResponsiveContainer>
             )}
           </InsightChartCard>
+
+          <div className="mt-6 rounded-xl border p-4 sm:p-5" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
+            <h4 className="text-base font-semibold mb-1" style={{ color: COLOR.text }}>
+              Audience by country
+            </h4>
+            <p className="text-xs mb-4" style={{ color: COLOR.textSecondary }}>
+              {insights?.audienceByCountry?.label ??
+                'Share of your audience by country (from Meta demographics when available).'}
+            </p>
+            {audienceCountryPieData.length > 0 ? (
+              <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+                <div className="w-full lg:w-[min(100%,420px)] h-[280px] shrink-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={audienceCountryPieData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={52}
+                        outerRadius={100}
+                        paddingAngle={2}
+                        labelLine={false}
+                        label={({ name, percent: p }) =>
+                          `${String(name).slice(0, 14)}${String(name).length > 14 ? '…' : ''} ${((Number(p) || 0) * 100).toFixed(0)}%`
+                        }
+                      >
+                        {audienceCountryPieData.map((_, i) => (
+                          <Cell key={i} fill={AUDIENCE_COUNTRY_PIE_COLORS[i % AUDIENCE_COUNTRY_PIE_COLORS.length]} stroke="rgba(255,255,255,0.85)" strokeWidth={1} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
+                        formatter={(value: number | string | undefined, _n, item) => {
+                          const payload = (item as { payload?: { percent?: number } })?.payload;
+                          const pct = payload?.percent;
+                          const v = Number(value) || 0;
+                          return [`${formatNumber(v)}${typeof pct === 'number' ? ` (${pct}% of chart)` : ''}`, 'Audience'];
+                        }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: 12, color: COLOR.textSecondary }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <ul className="flex-1 space-y-2 text-sm min-w-0" style={{ color: COLOR.text }}>
+                  {audienceCountryPieData.slice(0, 12).map((row, i) => (
+                    <li key={row.name} className="flex items-center justify-between gap-2 border-b border-neutral-100 pb-2 last:border-0">
+                      <span className="flex items-center gap-2 min-w-0">
+                        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: AUDIENCE_COUNTRY_PIE_COLORS[i % AUDIENCE_COUNTRY_PIE_COLORS.length] }} />
+                        <span className="truncate font-medium">{row.name}</span>
+                      </span>
+                      <span className="tabular-nums shrink-0" style={{ color: COLOR.textSecondary }}>
+                        {formatNumber(row.value)} <span className="text-neutral-400">({row.percent}%)</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <p className="text-sm py-6 text-center" style={{ color: COLOR.textSecondary }}>
+                No country breakdown yet. Meta returns this when your account has enough follower or engaged-audience demographics. Try again after more activity, or confirm insights permissions when you reconnect.
+              </p>
+            )}
+          </div>
         </div>
       </section>
 

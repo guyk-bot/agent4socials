@@ -31,6 +31,7 @@ import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, Lin
 import { InteractiveLineChart } from '@/components/charts/InteractiveLineChart';
 import { FacebookAnalyticsView, AnalyticsGrid, AnalyticsGridItem, AnalyticsWatermarkedChart } from '@/components/analytics';
 import type { FacebookFrontendAnalyticsBundle } from '@/lib/facebook/frontend-analytics-bundle';
+import type { FacebookInsights } from '@/components/analytics/facebook/types';
 import { PricingBillingToggle, PricingCard } from '@/components/landing/pricing';
 import type { Demographics, GrowthDataPoint, TrafficSourceItem } from '@/types/analytics';
 import {
@@ -1209,6 +1210,7 @@ export default function DashboardPage() {
                   growthTimeSeries: insights.growthTimeSeries as Array<{ date: string; gained: number; lost: number; net?: number }> | undefined,
                   pageViewsTimeSeries: (insights as { pageViewsTimeSeries?: Array<{ date: string; value: number }> }).pageViewsTimeSeries,
                   demographics: insights.demographics,
+                  audienceByCountry: (insights as { audienceByCountry?: FacebookInsights['audienceByCountry'] }).audienceByCountry,
                   firstConnectedAt: (insights as { firstConnectedAt?: string | null }).firstConnectedAt,
                   isBootstrap: (insights as { isBootstrap?: boolean }).isBootstrap,
                   facebookPageMetricSeries: (insights as { facebookPageMetricSeries?: Record<string, Array<{ date: string; value: number }>> }).facebookPageMetricSeries,
@@ -1255,6 +1257,7 @@ export default function DashboardPage() {
             onDateRangeChange={(r) => setDateRange(r)}
             followersLabel={selectedAccount.platform === 'YOUTUBE' ? 'Subscribers' : 'Followers'}
             accountAvatarUrl={selectedAccount.profilePicture ?? null}
+            accountUsername={selectedAccount.username ?? null}
           />
         </div>
       )}
