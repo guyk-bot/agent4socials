@@ -782,21 +782,40 @@ export function PostsPerformanceTable({
   );
 }
 
+type TopHighlightRow = {
+  id: string;
+  preview: string;
+  permalink?: string | null;
+  type: 'Reel' | 'Post';
+  thumbnailUrl?: string | null;
+  views: number;
+  clicks: number;
+  reactions: number;
+  /** ISO or parseable publish time */
+  publishedAt: string;
+};
+
+function formatPostCardDateTime(iso: string): string {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  } catch {
+    return '';
+  }
+}
+
 function TopContentHighlights({
   byViews,
   byClicks,
   byReactions,
 }: {
-  byViews: Array<{ id: string; preview: string; permalink?: string | null; type: 'Reel' | 'Post'; thumbnailUrl?: string | null; views: number; clicks: number; reactions: number }>;
-  byClicks: Array<{ id: string; preview: string; permalink?: string | null; type: 'Reel' | 'Post'; thumbnailUrl?: string | null; views: number; clicks: number; reactions: number }>;
-  byReactions: Array<{ id: string; preview: string; permalink?: string | null; type: 'Reel' | 'Post'; thumbnailUrl?: string | null; views: number; clicks: number; reactions: number }>;
+  byViews: TopHighlightRow[];
+  byClicks: TopHighlightRow[];
+  byReactions: TopHighlightRow[];
 }) {
   const rankBadge = (idx: number) => `/rank-badges/${Math.min(3, idx + 1)}.svg`;
-  const col = (
-    title: string,
-    metricLabel: 'Views' | 'Clicks' | 'Reactions',
-    rows: Array<{ id: string; preview: string; permalink?: string | null; type: 'Reel' | 'Post'; thumbnailUrl?: string | null; views: number; clicks: number; reactions: number }>
-  ) => (
+  const col = (title: string, metricLabel: 'Views' | 'Clicks' | 'Reactions', rows: TopHighlightRow[]) => (
     <div className="space-y-3">
       <p className="text-base font-semibold tracking-tight" style={{ color: COLOR.text }}>{title}</p>
       {rows.length === 0 ? (
@@ -805,37 +824,44 @@ function TopContentHighlights({
         rows.map((r, idx) => (
           <div key={`${title}-${r.id}-${idx}`} className="rounded-xl p-3" style={{ background: COLOR.elevated }}>
             <div className="flex items-start gap-3">
-              <div className="shrink-0 w-[104px]">
-                <div className="relative mt-1 h-[92px] w-[92px] overflow-hidden rounded-xl border" style={{ borderColor: COLOR.border, background: '#f3f4f6' }}>
-                  {r.thumbnailUrl ? (
-                    <img src={r.thumbnailUrl} alt="Post thumbnail" className="h-full w-full object-cover" />
-                  ) : null}
+              <div className="shrink-0 w-[104px] pt-1">
+                <div className="relative isolate mt-1 h-[92px] w-[92px]">
+                  <div className="absolute inset-0 overflow-hidden rounded-xl border" style={{ borderColor: COLOR.border, background: '#f3f4f6' }}>
+                    {r.thumbnailUrl ? (
+                      <img src={r.thumbnailUrl} alt="Post thumbnail" className="h-full w-full object-cover" />
+                    ) : null}
+                    {r.permalink ? (
+                      <Link
+                        href={r.permalink}
+                        target="_blank"
+                        className="absolute right-1.5 bottom-1.5 z-[1] inline-flex h-5 w-5 items-center justify-center rounded-full"
+                        style={{ background: 'rgba(17,24,39,0.72)', color: '#ffffff' }}
+                        aria-label="Open post"
+                      >
+                        <ExternalLink size={11} />
+                      </Link>
+                    ) : null}
+                  </div>
                   <img
                     src={rankBadge(idx)}
                     alt={`Rank ${idx + 1}`}
-                    className="absolute left-1 top-1 h-8 w-8 object-contain"
+                    className="pointer-events-none absolute z-10 h-11 w-11 -translate-x-2 -translate-y-2 object-contain drop-shadow-md sm:h-12 sm:w-12 sm:-translate-x-2.5 sm:-translate-y-2.5"
+                    style={{ left: 0, top: 0 }}
                   />
-                  {r.permalink ? (
-                    <Link
-                      href={r.permalink}
-                      target="_blank"
-                      className="absolute right-1.5 bottom-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full"
-                      style={{ background: 'rgba(17,24,39,0.72)', color: '#ffffff' }}
-                      aria-label="Open post"
-                    >
-                      <ExternalLink size={11} />
-                    </Link>
-                  ) : null}
                 </div>
               </div>
-              <div className="min-w-0 flex-1 h-[92px] flex flex-col justify-between">
-                <p className="text-[13px] leading-[18px] h-9 overflow-hidden" style={{ color: COLOR.textSecondary }}>
-                  {(() => {
-                    const text = firstWords(r.preview, 7) || 'View post';
-                    return text.length > 36 ? `${text.slice(0, 34)}..` : text;
-                  })()}
+              <div className="min-w-0 flex-1 min-h-[92px] flex flex-col">
+                <p className="text-[11px] leading-4 tabular-nums shrink-0" style={{ color: COLOR.textMuted }}>
+                  {formatPostCardDateTime(r.publishedAt) || '—'}
                 </p>
-                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs" style={{ color: COLOR.textMuted }}>
+                <p
+                  className="mt-1 min-h-0 text-[13px] leading-[18px] line-clamp-4"
+                  style={{ color: COLOR.textSecondary }}
+                  title={(r.preview || '').trim() || undefined}
+                >
+                  {(r.preview || '').trim() || 'View post'}
+                </p>
+                <div className="mt-auto pt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs" style={{ color: COLOR.textMuted }}>
                   <span style={metricLabel === 'Views' ? { color: COLOR.text, fontWeight: 700, fontSize: 13 } : undefined}>Views {formatCompact(r.views)}</span>
                   <span style={metricLabel === 'Clicks' ? { color: COLOR.text, fontWeight: 700, fontSize: 13 } : undefined}>Clicks {formatCompact(r.clicks)}</span>
                   <span style={metricLabel === 'Reactions' ? { color: COLOR.text, fontWeight: 700, fontSize: 13 } : undefined}>Reactions {formatCompact(r.reactions)}</span>
@@ -1938,9 +1964,39 @@ export function FacebookAnalyticsView({
             <MetricCard label="Avg Reactions per Post" source="post_reactions_like_total / breakdown" color={COLOR.text} value={avgReactionsPerPost.toFixed(1)} />
           </div>
           <TopContentHighlights
-            byViews={topByViews.map((p) => ({ id: p.id, preview: p.preview, permalink: p.permalink, type: p.type, thumbnailUrl: p.rawPost.thumbnailUrl ?? null, views: p.views, clicks: p.clicks, reactions: p.reactionsTotal }))}
-            byClicks={topByClicks.map((p) => ({ id: p.id, preview: p.preview, permalink: p.permalink, type: p.type, thumbnailUrl: p.rawPost.thumbnailUrl ?? null, views: p.views, clicks: p.clicks, reactions: p.reactionsTotal }))}
-            byReactions={topByReactions.map((p) => ({ id: p.id, preview: p.preview, permalink: p.permalink, type: p.type, thumbnailUrl: p.rawPost.thumbnailUrl ?? null, views: p.views, clicks: p.clicks, reactions: p.reactionsTotal }))}
+            byViews={topByViews.map((p) => ({
+              id: p.id,
+              preview: p.preview,
+              permalink: p.permalink,
+              type: p.type,
+              thumbnailUrl: p.rawPost.thumbnailUrl ?? null,
+              views: p.views,
+              clicks: p.clicks,
+              reactions: p.reactionsTotal,
+              publishedAt: p.date,
+            }))}
+            byClicks={topByClicks.map((p) => ({
+              id: p.id,
+              preview: p.preview,
+              permalink: p.permalink,
+              type: p.type,
+              thumbnailUrl: p.rawPost.thumbnailUrl ?? null,
+              views: p.views,
+              clicks: p.clicks,
+              reactions: p.reactionsTotal,
+              publishedAt: p.date,
+            }))}
+            byReactions={topByReactions.map((p) => ({
+              id: p.id,
+              preview: p.preview,
+              permalink: p.permalink,
+              type: p.type,
+              thumbnailUrl: p.rawPost.thumbnailUrl ?? null,
+              views: p.views,
+              clicks: p.clicks,
+              reactions: p.reactionsTotal,
+              publishedAt: p.date,
+            }))}
           />
         </div>
 
