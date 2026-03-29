@@ -8,6 +8,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   type TooltipProps,
+  type PieLabelRenderProps,
 } from 'recharts';
 import { ChevronDown } from 'lucide-react';
 import { aggregateTopNWithOther, formatBreakdownTotal, resolveSliceColor } from '@/lib/analytics/breakdown-helpers';
@@ -204,7 +205,7 @@ export function DonutBreakdownCard({
                     paddingAngle={2}
                     strokeWidth={0}
                     labelLine={false}
-                    label={(props: Record<string, unknown>) => {
+                    label={(props: PieLabelRenderProps) => {
                       const cx = Number(props.cx);
                       const cy = Number(props.cy);
                       const midAngle = Number(props.midAngle);
