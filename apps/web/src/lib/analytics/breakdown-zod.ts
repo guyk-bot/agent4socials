@@ -36,7 +36,8 @@ export const breakdownResponseSchema = z.object({
     end: z.string(),
     label: z.string(),
   }),
-  meta: z.record(z.any()).optional(),
+  // Zod 4 requires key + value schemas; two-arg form is valid in Zod 3.22+ as well.
+  meta: z.record(z.string(), z.unknown()).optional(),
 });
 
 /** Meta Graph API: Instagram insights with breakdown */
