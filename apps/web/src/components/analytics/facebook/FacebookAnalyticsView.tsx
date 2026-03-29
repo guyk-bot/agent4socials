@@ -255,6 +255,16 @@ function formatDurationMs(ms: number): string {
   return `${mins}m ${rem}s`;
 }
 
+function formatPostCardDateTime(iso: string): string {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  } catch {
+    return '';
+  }
+}
+
 function clampText(v: string | null | undefined, max = 120): string {
   if (!v) return '';
   const one = v.replace(/\s+/g, ' ').trim();
@@ -677,8 +687,8 @@ export function PostsPerformanceTable({
           <thead style={{ background: 'rgba(255,255,255,0.02)', color: COLOR.textMuted }}>
             <tr>
               {[
-                { label: 'Post preview', className: 'w-[180px]' },
-                { label: 'Publish date', className: 'w-[92px]' },
+                { label: 'Post preview', className: 'w-[240px]' },
+                { label: 'Publish date', className: 'w-[132px]' },
                 { label: 'Type', className: 'w-[60px]' },
                 { label: 'Views', className: 'w-[58px]' },
                 { label: 'Unique reach', className: 'w-[66px]' },
@@ -708,7 +718,13 @@ export function PostsPerformanceTable({
                       <div className="w-9 h-9 rounded shrink-0" style={{ background: 'rgba(124,108,255,0.12)' }} />
                     )}
                     <div className="min-w-0">
-                      <p className="truncate">{clampText(r.preview, 34)}</p>
+                      <p
+                        className="text-[13px] leading-snug line-clamp-4"
+                        style={{ color: COLOR.textSecondary }}
+                        title={(r.preview || '').trim() || undefined}
+                      >
+                        {(r.preview || '').trim() || '—'}
+                      </p>
                       {r.permalink ? (
                         <Link
                           href={r.permalink}
@@ -723,7 +739,9 @@ export function PostsPerformanceTable({
                     </div>
                   </div>
                 </td>
-                <td className="px-3 py-3" style={{ color: COLOR.textSecondary }}>{new Date(r.date).toLocaleDateString()}</td>
+                <td className="px-3 py-3 align-top text-xs leading-tight" style={{ color: COLOR.textSecondary }}>
+                  {formatPostCardDateTime(r.date) || new Date(r.date).toLocaleDateString()}
+                </td>
                 <td className="px-3 py-3"><span className="rounded-full px-2 py-1 text-xs" style={{ background: 'rgba(255,255,255,0.08)', color: COLOR.text }}>{r.type}</span></td>
                 <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatCompact(r.views)}</td>
                 <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatCompact(r.uniqueReach)}</td>
@@ -753,7 +771,9 @@ export function PostsPerformanceTable({
                 <div className="w-10 h-10 rounded shrink-0" style={{ background: 'rgba(124,108,255,0.12)' }} />
               )}
               <div className="min-w-0">
-                <p className="text-sm" style={{ color: COLOR.text }}>{clampText(r.preview, 80)}</p>
+                <p className="text-sm line-clamp-5 leading-snug" style={{ color: COLOR.text }} title={(r.preview || '').trim() || undefined}>
+                  {(r.preview || '').trim() || '—'}
+                </p>
                 {r.permalink ? (
                   <Link
                     href={r.permalink}
@@ -768,7 +788,7 @@ export function PostsPerformanceTable({
               </div>
             </div>
             <div className="mt-2 flex flex-wrap gap-2 text-xs" style={{ color: COLOR.textSecondary }}>
-              <span>{new Date(r.date).toLocaleDateString()}</span>
+              <span>{formatPostCardDateTime(r.date) || new Date(r.date).toLocaleDateString()}</span>
               <span>{r.type}</span>
               <span>Views {formatCompact(r.views)}</span>
               <span>{r.watchTimeMs > 0 ? `Watch ${formatDurationMs(r.watchTimeMs)}` : 'Watch -'}</span>
@@ -794,16 +814,6 @@ type TopHighlightRow = {
   /** ISO or parseable publish time */
   publishedAt: string;
 };
-
-function formatPostCardDateTime(iso: string): string {
-  try {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return '';
-    return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-  } catch {
-    return '';
-  }
-}
 
 function TopContentHighlights({
   byViews,

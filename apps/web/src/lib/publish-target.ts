@@ -649,32 +649,31 @@ export async function publishTarget(
           board_id: boardId,
           ...(caption?.trim() ? { description: caption.trim().slice(0, 800) } : {}),
         };
-        const pinBody: Record<string, unknown> = {
-          ...payloadBase,
-          media_source: {
-            source_type: 'video_id',
-            media_id: mediaId,
-          },
+        // PinCreate.media_source is PinMediaSourceVideoID: cover fields belong INSIDE media_source, not on the pin root.
+        const mediaSource: Record<string, unknown> = {
+          source_type: 'video_id',
+          media_id: mediaId,
         };
         const thumb = videoThumbnailUrl?.trim();
         if (thumb) {
-          // OpenAPI: `cover_image_content_type` is for Base64 covers only, not for `cover_image_url`.
-          // Sending URL + content_type triggers validation error. Prefer fetching the image ourselves
-          // and sending cover_image_data so Pinterest does not need to reach our signed URLs.
           try {
             const { buffer, contentType } = await fetchImageBuffer(thumb, fetchFn);
             if (buffer.length > 0 && buffer.length <= PINTEREST_COVER_MAX_BYTES) {
-              pinBody.cover_image_data = buffer.toString('base64');
-              pinBody.cover_image_content_type = pinterestCoverContentTypeFromBuffer(contentType);
+              mediaSource.cover_image_data = buffer.toString('base64');
+              mediaSource.cover_image_content_type = pinterestCoverContentTypeFromBuffer(contentType);
             } else {
-              pinBody.cover_image_url = thumb;
+              mediaSource.cover_image_url = thumb;
             }
           } catch {
-            pinBody.cover_image_url = thumb;
+            mediaSource.cover_image_url = thumb;
           }
         } else {
-          pinBody.cover_image_key_frame_time = 1;
+          mediaSource.cover_image_key_frame_time = 1;
         }
+        const pinBody = {
+          ...payloadBase,
+          media_source: mediaSource,
+        };
         const pinRes = await axiosInstance.post(`${pinterestApiBase}/pins`, pinBody, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -683,11 +682,12 @@ export async function publishTarget(
           validateStatus: () => true,
         });
         if (pinRes.status < 200 || pinRes.status >= 300) {
+          const ms = mediaSource as Record<string, unknown>;
           const coverMode = thumb
-            ? pinBody.cover_image_data
-              ? 'cover_image_data (base64)'
-              : 'cover_image_url'
-            : 'cover_image_key_frame_time';
+            ? ms.cover_image_data
+              ? 'media_source.cover_image_data (base64)'
+              : 'media_source.cover_image_url'
+            : 'media_source.cover_image_key_frame_time';
           return {
             ok: false,
             error: `Pinterest video Pin failed (${pinRes.status}). Cover: ${coverMode}. ${pinterestApiErrorDetail(pinRes.status, pinRes.data)}`,
