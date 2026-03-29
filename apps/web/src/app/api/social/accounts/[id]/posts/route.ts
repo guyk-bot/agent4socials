@@ -426,83 +426,91 @@ async function syncImportedPosts(
       throw e;
     }
     const items = allItems;
-    for (const m of items) {
-      const publishedAt = m.timestamp ? new Date(m.timestamp) : new Date();
-      // For VIDEO posts, thumbnail_url is the poster frame; media_url is the video file itself.
-      // Always prefer thumbnail_url for videos so we get an image, not a playable file URL.
-      let thumbnailUrl: string | null =
-        m.media_type === 'VIDEO'
-          ? (m.thumbnail_url ?? m.media_url ?? null)
-          : (m.media_url ?? m.thumbnail_url ?? null);
-      if (!thumbnailUrl && m.media_type === 'CAROUSEL_ALBUM') {
-        try {
-          const childRes = await axios.get<{ data?: Array<{ media_url?: string }> }>(
-            `${baseUrl}/${m.id}/children`,
-            { params: { fields: 'media_url', access_token: accessToken } }
-          );
-          const first = childRes.data?.data?.[0];
-          if (first?.media_url) thumbnailUrl = first.media_url;
-        } catch {
-          // ignore
-        }
-      }
-      const likeCount = m.like_count ?? 0;
-      const commentsCount = m.comments_count ?? 0;
-      const interactions = likeCount + commentsCount;
-      let impressions = 0;
+
+    async function impressionsForMedia(mediaId: string): Promise<number> {
       try {
-        // Fetch both impressions (total views) and reach (unique viewers).
-        // Prefer impressions for the "Views" column — it matches what Instagram shows in-app.
-        // Fall back to reach if impressions is unavailable (older accounts, Reels, Stories).
         const insightsRes = await axios.get<{
           data?: Array<{ name: string; values?: Array<{ value: number }>; total_value?: { value: number } }>;
-        }>(
-          `${baseUrl}/${m.id}/insights`,
-          { params: { metric: 'impressions,reach', access_token: accessToken } }
-        );
+        }>(`${baseUrl}/${mediaId}/insights`, {
+          params: { metric: 'impressions,reach', access_token: accessToken },
+          timeout: 8000,
+        });
         const data = insightsRes.data?.data ?? [];
+        let impressions = 0;
         let reachVal = 0;
         for (const d of data) {
           const val = d.total_value?.value ?? d.values?.[0]?.value ?? 0;
           if (d.name === 'impressions') impressions = val;
           if (d.name === 'reach') reachVal = val;
         }
-        // If impressions was not returned (e.g. Reels/Stories only return reach), use reach
         if (impressions === 0 && reachVal > 0) impressions = reachVal;
+        return impressions;
       } catch {
-        // insights not available for all media types (e.g. stories)
+        return 0;
       }
-      await prisma.importedPost.upsert({
-        where: {
-          socialAccountId_platformPostId: { socialAccountId, platformPostId: m.id },
-        },
-        update: {
-          content: m.caption ?? null,
-          thumbnailUrl,
-          permalinkUrl: m.permalink ?? null,
-          publishedAt,
-          mediaType: m.media_type ?? null,
-          impressions,
-          interactions,
-          likeCount,
-          commentsCount,
-          syncedAt: new Date(),
-        },
-        create: {
-          socialAccountId,
-          platformPostId: m.id,
-          platform,
-          content: m.caption ?? null,
-          thumbnailUrl,
-          permalinkUrl: m.permalink ?? null,
-          publishedAt,
-          mediaType: m.media_type ?? null,
-          impressions,
-          interactions,
-          likeCount,
-          commentsCount,
-        },
-      });
+    }
+
+    // Parallelize insights (was strictly sequential: N round-trips timed out serverless sync after only a few posts).
+    const INSIGHT_CHUNK = 8;
+    for (let start = 0; start < items.length; start += INSIGHT_CHUNK) {
+      const slice = items.slice(start, start + INSIGHT_CHUNK);
+      const impressionResults = await Promise.all(slice.map((m) => impressionsForMedia(m.id)));
+      for (let j = 0; j < slice.length; j++) {
+        const m = slice[j];
+        const impressions = impressionResults[j];
+        const publishedAt = m.timestamp ? new Date(m.timestamp) : new Date();
+        const isVideoLike =
+          m.media_type === 'VIDEO' || m.media_type === 'REELS' || (m.media_type ?? '').toUpperCase() === 'REEL';
+        let thumbnailUrl: string | null = isVideoLike
+          ? (m.thumbnail_url ?? m.media_url ?? null)
+          : (m.media_url ?? m.thumbnail_url ?? null);
+        if (!thumbnailUrl && m.media_type === 'CAROUSEL_ALBUM') {
+          try {
+            const childRes = await axios.get<{ data?: Array<{ media_url?: string }> }>(
+              `${baseUrl}/${m.id}/children`,
+              { params: { fields: 'media_url', access_token: accessToken }, timeout: 8000 }
+            );
+            const first = childRes.data?.data?.[0];
+            if (first?.media_url) thumbnailUrl = first.media_url;
+          } catch {
+            // ignore
+          }
+        }
+        const likeCount = m.like_count ?? 0;
+        const commentsCount = m.comments_count ?? 0;
+        const interactions = likeCount + commentsCount;
+        await prisma.importedPost.upsert({
+          where: {
+            socialAccountId_platformPostId: { socialAccountId, platformPostId: m.id },
+          },
+          update: {
+            content: m.caption ?? null,
+            thumbnailUrl,
+            permalinkUrl: m.permalink ?? null,
+            publishedAt,
+            mediaType: m.media_type ?? null,
+            impressions,
+            interactions,
+            likeCount,
+            commentsCount,
+            syncedAt: new Date(),
+          },
+          create: {
+            socialAccountId,
+            platformPostId: m.id,
+            platform,
+            content: m.caption ?? null,
+            thumbnailUrl,
+            permalinkUrl: m.permalink ?? null,
+            publishedAt,
+            mediaType: m.media_type ?? null,
+            impressions,
+            interactions,
+            likeCount,
+            commentsCount,
+          },
+        });
+      }
     }
     return undefined;
   }

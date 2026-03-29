@@ -34,12 +34,15 @@ export async function GET(request: NextRequest) {
 
   let freshImageUrl: string | null = null;
 
-  // Try ImportedPost first (fast, often has thumbnail)
   const imp = await prisma.importedPost.findFirst({
     where: { platformPostId: postId, socialAccountId: accountId },
     select: { thumbnailUrl: true },
   });
-  if (imp?.thumbnailUrl) freshImageUrl = imp.thumbnailUrl;
+
+  // Instagram/Facebook: prefer live Graph metadata so Reels use thumbnail_url (media_url is often video bytes in <img>).
+  if (platform !== 'INSTAGRAM' && platform !== 'FACEBOOK' && imp?.thumbnailUrl) {
+    freshImageUrl = imp.thumbnailUrl;
+  }
 
   if (!freshImageUrl)
   try {
@@ -47,11 +50,15 @@ export async function GET(request: NextRequest) {
       const apiBase = isBusinessLogin
         ? `https://graph.instagram.com/v25.0/${postId}`
         : `${facebookGraphBaseUrl}/${postId}`;
-      const res = await axios.get<{ media_url?: string; thumbnail_url?: string }>(apiBase, {
-        params: { fields: 'media_url,thumbnail_url', access_token: token },
+      const res = await axios.get<{ media_url?: string; thumbnail_url?: string; media_type?: string }>(apiBase, {
+        params: { fields: 'media_url,thumbnail_url,media_type', access_token: token },
         timeout: 10_000,
       });
-      freshImageUrl = res.data?.media_url ?? res.data?.thumbnail_url ?? null;
+      const mt = (res.data?.media_type ?? '').toUpperCase();
+      const isVideoLike = mt === 'VIDEO' || mt === 'REELS' || mt === 'REEL';
+      freshImageUrl = isVideoLike
+        ? (res.data?.thumbnail_url ?? res.data?.media_url ?? null)
+        : (res.data?.media_url ?? res.data?.thumbnail_url ?? null);
     } else if (platform === 'FACEBOOK') {
       const res = await axios.get<{
         full_picture?: string;
@@ -90,6 +97,10 @@ export async function GET(request: NextRequest) {
     }
   } catch {
     // keep freshImageUrl from ImportedPost or null
+  }
+
+  if (!freshImageUrl && imp?.thumbnailUrl) {
+    freshImageUrl = imp.thumbnailUrl;
   }
 
   if (!freshImageUrl) {
