@@ -1409,7 +1409,11 @@ export function FacebookAnalyticsView({
                 display: accountAvatarUrl ? 'none' : 'flex',
               }}
             >
-              {(profile?.name || resolvedUsername || (insights?.platform === 'PINTEREST' ? 'PI' : insights?.platform === 'INSTAGRAM' ? 'IG' : 'FB')).slice(0, 2).toUpperCase()}
+              {(
+                profile?.name ||
+                resolvedUsername ||
+                (insights?.platform === 'PINTEREST' ? 'PI' : insights?.platform === 'INSTAGRAM' ? 'IG' : insights?.platform === 'YOUTUBE' ? 'YT' : 'FB')
+              ).slice(0, 2).toUpperCase()}
             </div>
             <div>
               <h1 className="text-xl font-semibold" style={{ color: COLOR.text }}>
@@ -1419,7 +1423,9 @@ export function FacebookAnalyticsView({
                     ? 'Instagram'
                     : insights?.platform === 'PINTEREST'
                       ? 'Pinterest'
-                      : 'Facebook Page')}
+                      : insights?.platform === 'YOUTUBE'
+                        ? 'YouTube'
+                        : 'Facebook Page')}
               </h1>
               <p className="text-sm" style={{ color: COLOR.textSecondary }}>
                 {resolvedUsername ? `@${resolvedUsername}` : '@unknown'}
