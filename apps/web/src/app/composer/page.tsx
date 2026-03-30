@@ -1304,7 +1304,6 @@ export default function ComposerPage() {
         try {
             const ready = await seekThumbnailVideoTo(thumbnailPickerTime);
             if (!ready) throw new Error('Video frame is not ready yet');
-            drawVideoFrameToCanvas();
             const fileUrl = await captureFrameFromThumbnailVideo();
             if (!fileUrl) throw new Error('Failed to capture frame');
             setThumbnailChoice('frame');
@@ -1318,7 +1317,7 @@ export default function ComposerPage() {
         } finally {
             setThumbnailPicking(false);
         }
-    }, [mediaList, differentThumbnailPerPlatform, selectedPlatformForThumbnail, thumbnailPickerTime, drawVideoFrameToCanvas]);
+    }, [mediaList, differentThumbnailPerPlatform, selectedPlatformForThumbnail, thumbnailPickerTime]);
 
     const handleRemoveThumbnail = () => {
         if (differentThumbnailPerPlatform && selectedPlatformForThumbnail) {
