@@ -325,6 +325,7 @@ const PLATFORM_LABELS: Record<string, string> = {
 
 // Platforms that support comment-automation (replies to keyword comments)
 const COMMENT_AUTOMATION_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER']);
+const TWITTER_AI_MAX_CHARS = 230;
 
 const HASHTAG_POOL_KEY = 'agent4socials_hashtag_pool';
 const MAX_HASHTAGS_PER_POST = 5;
@@ -912,6 +913,14 @@ export default function ComposerPage() {
         }).catch(() => setHasBrandContext(false));
     }, [platforms]);
 
+    const clampTwitterAiText = useCallback((text: string): string => {
+        const raw = text.trim();
+        if (raw.length <= TWITTER_AI_MAX_CHARS) return raw;
+        const sliced = raw.slice(0, TWITTER_AI_MAX_CHARS);
+        const lastSpace = sliced.lastIndexOf(' ');
+        return (lastSpace > 120 ? sliced.slice(0, lastSpace) : sliced).trim();
+    }, []);
+
     const handleAiGenerate = useCallback(() => {
         if (!aiTopic.trim()) {
             setAiError('Describe what this post is about.');
@@ -922,11 +931,15 @@ export default function ComposerPage() {
         const topic = aiTopic.trim();
         const prompt = aiPrompt.trim() || undefined;
 
-        const applyCtaAndAutomation = (data: { content?: string; cta?: string; keywords?: string[]; replyTemplate?: string }) => {
+        const applyCtaAndAutomation = (
+            data: { content?: string; cta?: string; keywords?: string[]; replyTemplate?: string },
+            platformForContent?: string
+        ) => {
             if (!data) return;
             if (data.cta && typeof data.content === 'string') {
                 const withCta = data.content.trim() + '\n\n' + data.cta.trim();
-                setContent(withCta);
+                const isTwitter = (platformForContent ?? aiPlatform).toUpperCase() === 'TWITTER';
+                setContent(isTwitter ? clampTwitterAiText(withCta) : withCta);
             }
             if (Array.isArray(data.keywords) && data.keywords.length > 0) {
                 setCommentAutomationEnabled(true);
@@ -962,11 +975,14 @@ export default function ComposerPage() {
                             if (aiIncludeCtaAndAutomation && ctaText) {
                                 text = text.trim() + '\n\n' + ctaText;
                             }
+                            if (platform === 'TWITTER') {
+                                text = clampTwitterAiText(text);
+                            }
                             next[platform] = text;
                         }
                         return next;
                     });
-                    if (aiIncludeCtaAndAutomation && first?.data) applyCtaAndAutomation(first.data);
+                    if (aiIncludeCtaAndAutomation && first?.data) applyCtaAndAutomation(first.data, first.platform);
                     setAiModalOpen(false);
                 })
                 .catch((err) => {
@@ -983,7 +999,8 @@ export default function ComposerPage() {
                 ctaAutomationPrompt: aiIncludeCtaAndAutomation ? aiCtaAutomationPrompt.trim() || undefined : undefined,
             }).then((res) => {
                 const data = res.data;
-                setContent(data?.content ?? '');
+                const isTwitter = (aiPlatform || '').toUpperCase() === 'TWITTER';
+                setContent(isTwitter ? clampTwitterAiText(data?.content ?? '') : (data?.content ?? ''));
                 if (aiIncludeCtaAndAutomation && data) applyCtaAndAutomation(data);
                 setAiModalOpen(false);
             }).catch((err) => {
@@ -991,7 +1008,7 @@ export default function ComposerPage() {
                 setAiError(msg);
             }).finally(() => setAiLoading(false));
         }
-    }, [aiTopic, aiPrompt, aiPlatform, aiIncludeCtaAndAutomation, aiCtaAutomationPrompt, differentContentPerPlatform, platforms]);
+    }, [aiTopic, aiPrompt, aiPlatform, aiIncludeCtaAndAutomation, aiCtaAutomationPrompt, differentContentPerPlatform, platforms, clampTwitterAiText]);
 
     // Persist composer draft when state changes (debounced; shorter delay when only media changed so carousel keeps all images after upload)
     const mediaSignature = mediaList.map((m) => m.fileUrl).join('|');
@@ -1893,7 +1910,7 @@ export default function ComposerPage() {
                                 <textarea
                                     value={aiPrompt}
                                     onChange={(e) => setAiPrompt(e.target.value)}
-                                    placeholder="e.g. Keep it under 280 chars for X, add a CTA"
+                                    placeholder="e.g. Keep it under 230 chars for X, add a CTA"
                                     rows={2}
                                     className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
                                 />

@@ -3,6 +3,8 @@ import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import { openAiChat } from '@/lib/openai-client';
 
+const TWITTER_AI_MAX_CHARS = 230;
+
 function buildSystemPrompt(brand: {
   targetAudience: string | null;
   toneOfVoice: string | null;
@@ -50,7 +52,7 @@ function cleanGeneratedText(text: string): string {
 
 function getPlatformHint(platform: string): string {
   const p = platform.toUpperCase();
-  if (p === 'TWITTER') return 'X (Twitter) has a 280 character limit including spaces. Keep the main post text under 280 characters. Do not include hashtags. Be concise. A clear CTA works well.';
+  if (p === 'TWITTER') return `X (Twitter) has a ${TWITTER_AI_MAX_CHARS} character target including spaces. Keep the main post text under ${TWITTER_AI_MAX_CHARS} characters. Do not include hashtags. Be concise. A clear CTA works well.`;
   if (p === 'LINKEDIN') return 'Professional tone. One to three short paragraphs. Suitable for a business audience.';
   if (p === 'INSTAGRAM') return 'Engaging and visual. Line breaks work well.';
   if (p === 'FACEBOOK') return 'Conversational. One or two short paragraphs.';
@@ -140,10 +142,10 @@ export async function POST(request: NextRequest) {
       const cta = typeof parsed.cta === 'string' ? cleanGeneratedText(parsed.cta).slice(0, 200) : undefined;
       const platformUpper = platform.toUpperCase();
       if (platformUpper === 'TWITTER' || platformUpper === 'X') {
-        // Keep content + CTA within 280 chars (no hashtags in AI output)
+        // Keep content + CTA within Twitter AI target.
         const combined = cta ? `${content.trim()}\n\n${cta.trim()}` : content;
-        if (combined.length > 280) {
-          const maxContent = cta ? Math.max(0, 280 - cta.length - 2) : 280;
+        if (combined.length > TWITTER_AI_MAX_CHARS) {
+          const maxContent = cta ? Math.max(0, TWITTER_AI_MAX_CHARS - cta.length - 2) : TWITTER_AI_MAX_CHARS;
           content = content.slice(0, maxContent).trim();
         }
       }
@@ -163,8 +165,8 @@ export async function POST(request: NextRequest) {
   let content = cleanGeneratedText(raw);
   const platformUpper = platform.toUpperCase();
   if (platformUpper === 'TWITTER' || platformUpper === 'X') {
-    // Strict 280 character limit for X (no hashtags in generated content)
-    const max = 280;
+    // Strict Twitter AI target for generated content.
+    const max = TWITTER_AI_MAX_CHARS;
     if (content.length > max) content = content.slice(0, max).trim();
   }
   return NextResponse.json({ content });
