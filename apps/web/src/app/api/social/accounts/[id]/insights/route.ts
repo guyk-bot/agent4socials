@@ -224,6 +224,21 @@ export async function GET(
       if (!profileOk || out.followers === 0) {
         await tryProfile(igBaseUrl);
       }
+      // Final fallback: use /me endpoint with token directly (bypasses any platformUserId mismatch).
+      if (out.followers === 0) {
+        try {
+          const meRes = await axios.get<{ followers_count?: number; follows_count?: number }>(
+            `${igBaseUrl}/me`,
+            { params: { fields: 'followers_count,follows_count', access_token: token }, timeout: 8_000 }
+          );
+          if (typeof meRes.data?.followers_count === 'number' && meRes.data.followers_count > 0) {
+            out.followers = meRes.data.followers_count;
+          }
+          if (typeof meRes.data?.follows_count === 'number' && !out.followingCount) {
+            out.followingCount = meRes.data.follows_count;
+          }
+        } catch (_) { /* silent — best-effort */ }
+      }
 
       const igSeriesByMetric: Record<string, Array<{ date: string; value: number }>> = {};
       const tryInsights = async (base: string): Promise<boolean> => {
@@ -306,8 +321,11 @@ export async function GET(
       };
 
       let insightsOk = await tryInsights(fbBaseUrl);
-      if (!insightsOk && (isInstagramBusinessLogin || (out.followers > 0 && !out.impressionsTotal && !out.reachTotal))) {
-        insightsOk = await tryInsights(igBaseUrl);
+      // Always try igBaseUrl for Instagram Business Login accounts, or when fbBaseUrl succeeded
+      // but profile_views / impressions are still 0 (IG Business Login accounts may need the IG base URL).
+      if (!insightsOk || isInstagramBusinessLogin || !out.profileViewsTotal) {
+        const igOk = await tryInsights(igBaseUrl);
+        if (!insightsOk) insightsOk = igOk;
       }
       /** Fallback metric sets can omit accounts_engaged; fetch it alone so the Performance card is not stuck at 0. */
       const supplementIgAccountsEngaged = async (base: string): Promise<void> => {
