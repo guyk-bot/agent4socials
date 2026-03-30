@@ -1317,13 +1317,13 @@ export function FacebookAnalyticsView({
   };
   const newFollowers = bundle?.totals.dailyFollows ?? 0;
   const contentViews = isInstagram
-    ? (insights.impressionsTotal ?? bundle?.totals.contentViews ?? 0)
+    ? Math.max(0, insights.impressionsTotal ?? 0, bundle?.totals.contentViews ?? 0)
     : (bundle?.totals.contentViews ?? 0);
   const pageVisits = isInstagram
-    ? Math.max(0, insights.profileViewsTotal ?? bundle?.totals.pageTabViews ?? 0)
+    ? Math.max(0, insights.profileViewsTotal ?? 0, bundle?.totals.pageTabViews ?? 0)
     : (bundle?.totals.pageTabViews ?? 0);
   const engagements = isInstagram
-    ? (insights?.accountsEngaged ?? bundle?.totals.engagement ?? 0)
+    ? Math.max(0, insights?.accountsEngaged ?? 0, bundle?.totals.engagement ?? 0)
     : (bundle?.totals.engagement ?? 0);
   const actionsSeries = (bundle?.series.totalActions?.length ?? 0) > 0 ? bundle?.series.totalActions : (bundle?.series.engagement ?? []);
   const actionsTotal = (bundle?.totals.totalActions ?? 0) > 0 ? (bundle?.totals.totalActions ?? 0) : engagements;
@@ -1350,8 +1350,10 @@ export function FacebookAnalyticsView({
         : ms?.impressions ?? [];
       if (ms && Object.keys(ms).length > 0) {
         mediaRaw = seriesToMap(mergedImpressionsSeries);
-        visitsRaw = seriesToMap(ms.profile_views ?? []);
-        engagementRaw = seriesToMap(ms.accounts_engaged ?? []);
+        const msProfileViews = seriesToMap(ms.profile_views ?? []);
+        const msAccountsEngaged = seriesToMap(ms.accounts_engaged ?? []);
+        visitsRaw = Object.keys(msProfileViews).length > 0 ? msProfileViews : seriesToMap(series?.pageTabViews ?? []);
+        engagementRaw = Object.keys(msAccountsEngaged).length > 0 ? msAccountsEngaged : seriesToMap(series?.engagement ?? []);
         followsRaw = insights?.followersTimeSeries?.length
           ? seriesToMap(insights.followersTimeSeries)
           : seriesToMap(series?.follows ?? []);
@@ -1530,9 +1532,13 @@ export function FacebookAnalyticsView({
     });
   }, [reelsRows]);
 
+  const selectedStoryMetricsForMode = useMemo(
+    () => selectedStoryMetrics.filter((metric) => STORY_METRIC_CONFIG[metric].mode === storyMode),
+    [selectedStoryMetrics, storyMode]
+  );
   const storyTicks = useMemo(
-    () => buildKeyDateTicks(chartByMode, (d) => selectedStoryMetrics.some((metric) => (d[metric] ?? 0) > 0), 10),
-    [chartByMode, selectedStoryMetrics]
+    () => buildKeyDateTicks(chartByMode, (d) => selectedStoryMetricsForMode.some((metric) => (d[metric] ?? 0) > 0), 10),
+    [chartByMode, selectedStoryMetricsForMode]
   );
   const trafficTicks = useMemo(
     () => buildKeyDateTicks(trafficTimelineData, (d) => (d.postImpressions ?? 0) > 0 || (d.nonviral ?? 0) > 0 || (d.viral ?? 0) > 0 || (d.uniqueReachProxy ?? 0) > 0, 10),
@@ -1992,7 +1998,7 @@ export function FacebookAnalyticsView({
           </div>
           <div className="flex justify-end">
             <div className="flex flex-wrap gap-2">
-              {selectedStoryMetrics.map((metric) => (
+              {selectedStoryMetricsForMode.map((metric) => (
                 <span
                   key={metric}
                   className="rounded-full border px-2.5 py-1 text-xs"
@@ -2005,7 +2011,7 @@ export function FacebookAnalyticsView({
             </div>
           </div>
           <InsightChartCard title="Performance" hideHeader flat>
-          {selectedStoryMetrics.length === 0 ? (
+          {selectedStoryMetricsForMode.length === 0 ? (
             <div className="h-[300px] rounded-xl border border-dashed relative overflow-hidden" style={{ borderColor: COLOR.border }}>
               <div className="absolute inset-0 z-[2] flex items-center justify-center">
                 <div
@@ -2023,7 +2029,7 @@ export function FacebookAnalyticsView({
                 <XAxis dataKey="date" ticks={storyTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} dy={8} minTickGap={18} axisLine={false} tickLine={false} />
                 <YAxis
                   domain={[0, 'auto']}
-                  allowDecimals={selectedStoryMetrics.some((metric) => metric !== 'followers')}
+                  allowDecimals={selectedStoryMetricsForMode.some((metric) => metric !== 'followers')}
                   tick={{ fill: COLOR.textMuted, fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
@@ -2033,7 +2039,7 @@ export function FacebookAnalyticsView({
                   formatter={(v: number | string | undefined, n?: string) => [formatNumber(Number(v) || 0), n && n in STORY_METRIC_CONFIG ? STORY_METRIC_CONFIG[n as StoryMetricKey].label : String(n ?? '')]}
                   labelFormatter={(l) => formatShortDate(String(l))}
                 />
-                {selectedStoryMetrics.map((metric) => (
+                {selectedStoryMetricsForMode.map((metric) => (
                   <Line key={metric} type="monotone" dataKey={metric} stroke={STORY_METRIC_CONFIG[metric].color} strokeWidth={2.2} dot={false} />
                 ))}
               </ComposedChart>
