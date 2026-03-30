@@ -290,12 +290,22 @@ function firstWords(v: string | null | undefined, words = 3): string {
 }
 
 function normalizePostPreview(v: string | null | undefined): string {
-  const one = (v ?? '').replace(/\s+/g, ' ').trim();
-  if (!one) return '';
-  const parts = one.split(' ').filter(Boolean);
-  const withoutHashLead = parts.filter((p) => !p.startsWith('#') && !/^https?:\/\//i.test(p) && !/^www\./i.test(p));
-  const rebuilt = withoutHashLead.join(' ').trim();
-  return rebuilt || one;
+  const raw = (v ?? '').trim();
+  if (!raw) return '';
+  // Scan line-by-line so captions like "Real text\n\n#hash #tags" return the first real line.
+  const lines = raw.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  for (const line of lines) {
+    const words = line.split(/\s+/).filter(Boolean);
+    const meaningful = words.filter(
+      (w) => !w.startsWith('#') && !/^https?:\/\//i.test(w) && !/^www\./i.test(w)
+    );
+    if (meaningful.length > 0) {
+      // Return the meaningful words only (strips inline hashtags/urls from within the line too)
+      return meaningful.join(' ');
+    }
+  }
+  // Every line is hashtags/URLs — show the first line as-is so there is still something visible
+  return lines[0] ?? raw;
 }
 
 function parseReactionTotal(v: unknown): number {
@@ -1037,7 +1047,7 @@ export function PostsPerformanceTable({
                         style={{ color: COLOR.textSecondary }}
                         title={(r.preview || '').trim() || undefined}
                       >
-                        {(r.preview || '').trim() || '—'}
+                        {normalizePostPreview(r.preview || '') || '—'}
                       </p>
                       {r.permalink ? (
                         <Link
@@ -1091,7 +1101,7 @@ export function PostsPerformanceTable({
               )}
               <div className="min-w-0">
                 <p className="text-sm line-clamp-5 leading-snug" style={{ color: COLOR.text }} title={(r.preview || '').trim() || undefined}>
-                  {(r.preview || '').trim() || '—'}
+                  {normalizePostPreview(r.preview || '') || '—'}
                 </p>
                 {r.permalink ? (
                   <Link
