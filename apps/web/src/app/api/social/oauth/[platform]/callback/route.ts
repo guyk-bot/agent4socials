@@ -5,6 +5,7 @@ import axios from 'axios';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 import { ensureBootstrapSnapshotForToday } from '@/lib/analytics/metric-snapshots';
 import { ensurePinterestPlatformEnum } from '@/lib/ensure-pinterest-platform-enum';
+import { ensureSocialAccountOAuthSchema } from '@/lib/ensure-social-account-oauth-schema';
 const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN', 'PINTEREST'] as const;
 
 const OAUTH_HEAD = '<meta charset="utf-8"><meta name="robots" content="noindex, nofollow">';
@@ -625,6 +626,12 @@ export async function GET(
     console.error('[Social OAuth] exchange error:', err?.message ?? e, err);
     const message = err?.message?.includes('Instagram') ? err.message : 'Failed to connect account';
     return oauthErrorHtml(baseUrl, message, 500);
+  }
+
+  try {
+    await ensureSocialAccountOAuthSchema();
+  } catch (e) {
+    console.warn('[Social OAuth] ensureSocialAccountOAuthSchema:', (e as Error)?.message ?? e);
   }
 
   if (plat === 'LINKEDIN' && isLinkedInPage && tokenData.accessToken) {
