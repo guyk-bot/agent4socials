@@ -773,6 +773,12 @@ export async function publishTarget(
       } else if (firstMediaUrl) {
         // Chunked video upload: INIT -> APPEND (per chunk) -> FINALIZE -> STATUS until processing complete
         try {
+          if (!useOAuth1) {
+            return {
+              ok: false,
+              error: 'Twitter/X video upload requires OAuth 1.0a media credentials. Reconnect X from Accounts and click "Enable image upload", then try again.',
+            };
+          }
           const { buffer } = await fetchMediaBuffer(firstMediaUrl, fetchFn);
           const totalBytes = buffer.length;
           const CHUNK_SIZE = 5 * 1024 * 1024; // 5 MB max per Twitter chunk
@@ -791,7 +797,10 @@ export async function publishTarget(
           if (!initOk) {
             if (initRes.status === 403) {
               if (typeof console !== 'undefined' && console.error) console.error('[Twitter video INIT] 403:', JSON.stringify(initRes.data).slice(0, 300));
-              mediaSkipped = true;
+              return {
+                ok: false,
+                error: 'Twitter/X rejected video upload (403). Enable media upload for this account in Dashboard -> Accounts, then reconnect and retry.',
+              };
             } else {
               throw new Error(`Twitter video INIT failed: ${initRes.status} ${JSON.stringify(initRes.data)}`);
             }
