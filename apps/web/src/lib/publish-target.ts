@@ -1022,20 +1022,41 @@ export async function publishTarget(
         return { publishId: nextPublishId };
       };
 
-      // 1) Creator info to get allowed privacy_level.
+      // 1) Creator info to get allowed privacy_level and identity diagnostics.
       //    This call is optional — if it times out or fails we continue with a safe default.
       let privacyLevel = 'PUBLIC_TO_EVERYONE';
+      let tiktokIdentity = '';
       try {
         const creatorRes = await axiosInstance.post(
           `${tiktokBase}/v2/post/publish/creator_info/query/`,
           {},
           { headers, timeout: 10_000, validateStatus: () => true }
-        ) as { data?: { data?: { privacy_level_options?: string[] }; error?: { code?: string; message?: string } } };
+        ) as {
+          data?: {
+            data?: {
+              privacy_level_options?: string[];
+              creator_username?: string;
+              creator_nickname?: string;
+              open_id?: string;
+            };
+            error?: { code?: string; message?: string };
+          };
+        };
         const body = creatorRes.data ?? {};
         const options = body.data?.privacy_level_options;
         if (Array.isArray(options) && options.length > 0) {
           privacyLevel = options.includes('PUBLIC_TO_EVERYONE') ? 'PUBLIC_TO_EVERYONE' : options[0];
         }
+        const creatorUsername = body.data?.creator_username;
+        const creatorNickname = body.data?.creator_nickname;
+        const openId = body.data?.open_id;
+        tiktokIdentity = creatorUsername
+          ? `@${creatorUsername}`
+          : creatorNickname
+            ? creatorNickname
+            : openId
+              ? `open_id:${openId.slice(0, 8)}...`
+              : '';
       } catch {
         // creator_info timed out or errored; continue with default privacy level
       }
@@ -1101,7 +1122,7 @@ export async function publishTarget(
           return {
             ok: false,
             error:
-              'TikTok sandbox: too many pending posts in your test account inbox. Open the TikTok mobile app logged in as the sandbox test user, go to Inbox, and accept or delete all pending posts. Then try posting again.',
+              `TikTok sandbox${tiktokIdentity ? ` (${tiktokIdentity})` : ''}: too many pending posts. Open TikTok mobile app on the SAME connected account, check Inbox and Drafts, then accept or delete all pending items and retry.`,
           };
         } else {
           // Fallback to inbox FILE_UPLOAD when URL pull is not allowed/available.
@@ -1131,7 +1152,7 @@ export async function publishTarget(
               return {
                 ok: false,
                 error:
-                  'TikTok sandbox: too many pending posts in your test account inbox. Open the TikTok mobile app logged in as the sandbox test user, go to Inbox, and accept or delete all pending posts. Then try posting again.',
+                  `TikTok sandbox${tiktokIdentity ? ` (${tiktokIdentity})` : ''}: too many pending posts. Open TikTok mobile app on the SAME connected account, check Inbox and Drafts, then accept or delete all pending items and retry.`,
               };
             }
             return { ok: false, error: `TikTok: ${uaInboxFileErr.message || uaInboxFileErr.code || 'Init failed'}`.slice(0, 300) };
@@ -1181,7 +1202,7 @@ export async function publishTarget(
         return {
           ok: false,
           error:
-            'TikTok sandbox: too many pending posts in your test account inbox. Open the TikTok mobile app logged in as the sandbox test user, go to Inbox, and accept or delete all pending posts. Then try posting again.',
+            `TikTok sandbox${tiktokIdentity ? ` (${tiktokIdentity})` : ''}: too many pending posts. Open TikTok mobile app on the SAME connected account, check Inbox and Drafts, then accept or delete all pending items and retry.`,
         };
       } else if (!urlOwnershipError) {
         // Some other error from TikTok
