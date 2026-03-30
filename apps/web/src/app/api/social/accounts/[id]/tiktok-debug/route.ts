@@ -14,7 +14,7 @@ const USER_INFO_FIELDS_FULL =
  * Raw TikTok Open API responses for this connection: user info (full field set), video list (first page), creator_info (posting).
  * Use to see exactly what we can show on the TikTok dashboard. No secrets — access token is never returned.
  */
-export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
   if (!userId) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
