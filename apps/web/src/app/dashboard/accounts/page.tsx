@@ -133,8 +133,9 @@ export default function AccountsPage() {
   const handleDisconnectConfirm = async () => {
     const acc = pendingDisconnectRef.current ?? accountToDisconnect;
     pendingDisconnectRef.current = null;
+    setDisconnectConfirmOpen(false);
+    setAccountToDisconnect(null);
     if (!acc) {
-      setDisconnectConfirmOpen(false);
       return;
     }
     const accountIdToRemove = acc.id;
@@ -406,7 +407,7 @@ export default function AccountsPage() {
         confirmLabel="Disconnect"
         cancelLabel="Keep connected"
         variant="danger"
-        onConfirm={handleDisconnectConfirm}
+        onConfirm={() => { void handleDisconnectConfirm(); }}
       />
     </div>
   );
