@@ -982,6 +982,45 @@ export async function publishTarget(
         }
         return { data: { error: { code: 'internal', message: 'internal' } } };
       };
+      const inboxFileUploadInit = async (): Promise<{ publishId: string }> => {
+        const { buffer, contentType } = await fetchMediaBuffer(videoUrl, fetchFn);
+        const videoSize = buffer.length;
+        const { chunkSize, totalChunkCount } = tiktokFileUploadChunkPlan(videoSize);
+        const mimeType = contentType && /video\/(mp4|webm|quicktime)/i.test(contentType) ? contentType : 'video/mp4';
+        const inboxInitRes = await tiktokPostWithRetry(
+          `${tiktokBase}/v2/post/publish/inbox/video/init/`,
+          { source_info: { source: 'FILE_UPLOAD', video_size: videoSize, chunk_size: chunkSize, total_chunk_count: totalChunkCount } },
+          30_000,
+          'internal fallback inbox FILE_UPLOAD init'
+        ) as { data?: { data?: { publish_id?: string; upload_url?: string }; error?: { code?: string; message?: string } } };
+        const inboxInitBody = inboxInitRes.data ?? {};
+        const inboxInitErr = inboxInitBody.error;
+        console.log('[TikTok] internal fallback inbox FILE_UPLOAD init response', { error: inboxInitErr, publishId: inboxInitBody.data?.publish_id });
+        if (inboxInitErr && inboxInitErr.code !== 'ok') {
+          throw new Error(`TikTok: ${inboxInitErr.message || inboxInitErr.code || 'Init failed'}`.slice(0, 300));
+        }
+        const nextPublishId = inboxInitBody.data?.publish_id;
+        const uploadUrl = inboxInitBody.data?.upload_url;
+        if (!nextPublishId || !uploadUrl) {
+          throw new Error('TikTok inbox FILE_UPLOAD init did not return publish_id or upload_url.');
+        }
+        for (let off = 0; off < videoSize; off += chunkSize) {
+          const end = Math.min(off + chunkSize, videoSize);
+          const chunk = buffer.subarray(off, end);
+          const putRes = await fetchFn(uploadUrl, {
+            method: 'PUT',
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            body: chunk as any,
+            headers: { 'Content-Type': mimeType, 'Content-Range': `bytes ${off}-${end - 1}/${videoSize}` },
+            signal: AbortSignal.timeout(120_000),
+          });
+          if (putRes.status !== 200 && putRes.status !== 201 && putRes.status !== 206) {
+            const errText = await putRes.text().catch(() => `status ${putRes.status}`);
+            throw new Error(`TikTok upload: ${putRes.status} ${errText}`.slice(0, 300));
+          }
+        }
+        return { publishId: nextPublishId };
+      };
 
       // 1) Creator info to get allowed privacy_level.
       //    This call is optional — if it times out or fails we continue with a safe default.
@@ -1228,6 +1267,7 @@ export async function publishTarget(
       const maxWait = isPullFromUrl ? 12_000 : 120_000;
       const pollInterval = isPullFromUrl ? 2_000 : 3_000;
       let platformPostId: string | undefined;
+      let retriedAfterInternalFailure = false;
       for (let elapsed = 0; elapsed < maxWait; elapsed += pollInterval) {
         await new Promise((r) => setTimeout(r, pollInterval));
         const statusRes = await tiktokPostWithRetry(
@@ -1254,6 +1294,21 @@ export async function publishTarget(
         }
         if (status === 'FAILED') {
           const reason = statusBody.data?.fail_reason ?? 'Publish failed';
+          if (
+            reason.toLowerCase() === 'internal' &&
+            !retriedAfterInternalFailure &&
+            (publishId.startsWith('v_inbox_url') || publishId.startsWith('inbox'))
+          ) {
+            try {
+              const fallback = await inboxFileUploadInit();
+              publishId = fallback.publishId;
+              retriedAfterInternalFailure = true;
+              elapsed = -pollInterval; // restart polling window for fallback publish_id
+              continue;
+            } catch (e) {
+              return { ok: false, error: (e as Error).message.slice(0, 300) };
+            }
+          }
           return { ok: false, error: `TikTok: ${reason}`.slice(0, 300) };
         }
         // status === 'PROCESSING_UPLOAD' or 'PROCESSING_DOWNLOAD' — keep polling
