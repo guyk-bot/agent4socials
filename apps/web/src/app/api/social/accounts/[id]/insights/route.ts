@@ -169,6 +169,10 @@ export async function GET(
     firstConnectedAt?: string | null;
     /** Per-day following count from our snapshots (Instagram); when present chart uses this instead of flat followingCount. */
     followingTimeSeries?: Array<{ date: string; value: number }>;
+    /** Instagram: sum of accounts_engaged in range (from Graph insights). */
+    accountsEngaged?: number;
+    /** Instagram: daily series keyed by Graph metric name (impressions, profile_views, accounts_engaged, …). */
+    facebookPageMetricSeries?: Record<string, Array<{ date: string; value: number }>>;
   } = {
     platform: account.platform,
     followers: 0,
@@ -273,7 +277,7 @@ export async function GET(
               } else if (d.name === 'profile_views') {
                 out.profileViewsTotal = total;
               } else if (d.name === 'accounts_engaged') {
-                (out as Record<string, unknown>).accountsEngaged = total;
+                out.accountsEngaged = total;
               }
             }
             return true;
@@ -498,6 +502,9 @@ export async function GET(
         } catch (e) {
           console.warn('[Insights] Merge IG impressions from snapshots:', (e as Error)?.message ?? e);
         }
+      }
+      if (Object.keys(igSeriesByMetric).length > 0) {
+        out.facebookPageMetricSeries = igSeriesByMetric;
       }
       return NextResponse.json(out);
     }

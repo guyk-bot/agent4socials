@@ -17,6 +17,8 @@ export interface FacebookInsights {
   pageViewsTimeSeries?: Array<{ date: string; value: number }>;
   reachTotal?: number;
   profileViewsTotal?: number;
+  /** Instagram: accounts engaged total for the insights window (from Graph). */
+  accountsEngaged?: number;
   insightsHint?: string;
   /** New followers by date: { date, gained, lost, net }. */
   growthTimeSeries?: Array<{ date: string; gained: number; lost: number; net?: number }>;

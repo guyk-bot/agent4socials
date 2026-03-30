@@ -1053,6 +1053,8 @@ export function FacebookAnalyticsView({
 
   const bundle = insights?.facebookAnalytics;
   const profile = insights?.facebookPageProfile;
+  const isInstagram = insights?.platform?.toUpperCase() === 'INSTAGRAM';
+  const igMetricSeries = insights?.facebookPageMetricSeries;
   const community = insights?.facebookCommunity;
   const resolvedUsername = (profile?.username ?? accountUsername ?? '').trim().replace(/^@/, '');
 
@@ -1075,6 +1077,16 @@ export function FacebookAnalyticsView({
     () => posts.filter((p) => inRange(p.publishedAt, dateRange.start, dateRange.end)),
     [posts, dateRange.end, dateRange.start]
   );
+  const videoPlaysDailySeries = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const p of postsInRange) {
+      const d = localCalendarDateFromIso(p.publishedAt);
+      map[d] = (map[d] ?? 0) + bestPostPlayCount(p);
+    }
+    return Object.entries(map)
+      .map(([date, value]) => ({ date, value }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [postsInRange]);
   const dateAxis = useMemo(() => buildDateAxis(dateRange.start, dateRange.end), [dateRange.end, dateRange.start]);
   const series = bundle?.series;
   const totalFollowers = profile?.followers_count ?? profile?.fan_count ?? insights?.followers ?? 0;
@@ -1093,9 +1105,15 @@ export function FacebookAnalyticsView({
     });
   };
   const newFollowers = bundle?.totals.dailyFollows ?? 0;
-  const contentViews = bundle?.totals.contentViews ?? 0;
-  const pageVisits = bundle?.totals.pageTabViews ?? 0;
-  const engagements = bundle?.totals.engagement ?? 0;
+  const contentViews = isInstagram
+    ? (insights.impressionsTotal ?? bundle?.totals.contentViews ?? 0)
+    : (bundle?.totals.contentViews ?? 0);
+  const pageVisits = isInstagram
+    ? (insights.profileViewsTotal ?? bundle?.totals.pageTabViews ?? 0)
+    : (bundle?.totals.pageTabViews ?? 0);
+  const engagements = isInstagram
+    ? (insights.accountsEngaged ?? bundle?.totals.engagement ?? 0)
+    : (bundle?.totals.engagement ?? 0);
   const actionsSeries = (bundle?.series.totalActions?.length ?? 0) > 0 ? bundle?.series.totalActions : (bundle?.series.engagement ?? []);
   const actionsTotal = (bundle?.totals.totalActions ?? 0) > 0 ? (bundle?.totals.totalActions ?? 0) : engagements;
   const pageVideoViews = bundle?.totals.videoViews ?? 0;
@@ -1107,11 +1125,39 @@ export function FacebookAnalyticsView({
   const uniqueReachProxy = postsInRange.reduce((s, p) => s + (p.facebookInsights?.post_impressions_unique ?? 0), 0);
 
   const chartByMode = useMemo(() => {
-    const mediaRaw = seriesToMap(series?.contentViews ?? []);
-    const visitsRaw = seriesToMap(series?.pageTabViews ?? []);
-    const videoViewsRaw = seriesToMap(series?.videoViews ?? []);
-    const engagementRaw = seriesToMap(series?.engagement ?? []);
-    const followsRaw = seriesToMap(series?.follows ?? []);
+    let mediaRaw: Record<string, number>;
+    let visitsRaw: Record<string, number>;
+    let videoViewsRaw: Record<string, number>;
+    let engagementRaw: Record<string, number>;
+    let followsRaw: Record<string, number>;
+
+    if (isInstagram) {
+      const ms = igMetricSeries;
+      if (ms && Object.keys(ms).length > 0) {
+        mediaRaw = seriesToMap(ms.impressions ?? []);
+        visitsRaw = seriesToMap(ms.profile_views ?? []);
+        engagementRaw = seriesToMap(ms.accounts_engaged ?? []);
+        followsRaw = insights?.followersTimeSeries?.length
+          ? seriesToMap(insights.followersTimeSeries)
+          : seriesToMap(series?.follows ?? []);
+        videoViewsRaw = seriesToMap(videoPlaysDailySeries);
+      } else {
+        mediaRaw = seriesToMap(insights?.impressionsTimeSeries ?? []);
+        visitsRaw = {};
+        engagementRaw = {};
+        followsRaw = insights?.followersTimeSeries?.length
+          ? seriesToMap(insights.followersTimeSeries)
+          : seriesToMap(series?.follows ?? []);
+        videoViewsRaw = seriesToMap(videoPlaysDailySeries);
+      }
+    } else {
+      mediaRaw = seriesToMap(series?.contentViews ?? []);
+      visitsRaw = seriesToMap(series?.pageTabViews ?? []);
+      videoViewsRaw = seriesToMap(series?.videoViews ?? []);
+      engagementRaw = seriesToMap(series?.engagement ?? []);
+      followsRaw = seriesToMap(series?.follows ?? []);
+    }
+
     const media = carryForwardSeries(dateAxis, mediaRaw, 0);
     const visits = carryForwardSeries(dateAxis, visitsRaw, 0);
     const videoViewsSeries = carryForwardSeries(dateAxis, videoViewsRaw, 0);
@@ -1125,7 +1171,51 @@ export function FacebookAnalyticsView({
       contentViews: media[date] ?? 0,
       pageVisits: visits[date] ?? 0,
     }));
-  }, [dateAxis, series?.contentViews, series?.engagement, series?.follows, series?.pageTabViews, series?.videoViews, totalFollowers]);
+  }, [
+    isInstagram,
+    igMetricSeries,
+    dateAxis,
+    series?.contentViews,
+    series?.engagement,
+    series?.follows,
+    series?.pageTabViews,
+    series?.videoViews,
+    insights?.followersTimeSeries,
+    insights?.impressionsTimeSeries,
+    videoPlaysDailySeries,
+    totalFollowers,
+  ]);
+
+  const growthSparklineSeries = useMemo(() => {
+    if (!isInstagram) {
+      return {
+        follows: series?.follows ?? [],
+        engagement: series?.engagement ?? [],
+        videoViews: series?.videoViews ?? [],
+        contentViews: series?.contentViews ?? [],
+        pageVisits: series?.pageTabViews ?? [],
+      };
+    }
+    const ms = igMetricSeries;
+    return {
+      follows: insights?.followersTimeSeries ?? series?.follows ?? [],
+      engagement: ms?.accounts_engaged ?? [],
+      videoViews: videoPlaysDailySeries,
+      contentViews: ms?.impressions?.length ? ms.impressions : (insights?.impressionsTimeSeries ?? []),
+      pageVisits: ms?.profile_views ?? [],
+    };
+  }, [
+    isInstagram,
+    igMetricSeries,
+    series?.follows,
+    series?.engagement,
+    series?.videoViews,
+    series?.contentViews,
+    series?.pageTabViews,
+    insights?.followersTimeSeries,
+    insights?.impressionsTimeSeries,
+    videoPlaysDailySeries,
+  ]);
 
   const stackedTraffic = useMemo(() => {
     const nonviral = seriesToMap(series?.postImpressionsNonviral ?? []);
@@ -1551,46 +1641,50 @@ export function FacebookAnalyticsView({
           <div className="mt-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <SparklineMetricCard
               label="Followers"
-              source="fan_count/followers_count"
+              source={isInstagram ? 'Instagram profile (followers_count)' : 'fan_count/followers_count'}
               color={COLOR.mint}
-              value={formatCompact(totalFollowers)}
-              series={series?.follows ?? []}
+              value={formatNumber(totalFollowers)}
+              series={growthSparklineSeries.follows}
               active={isCardSelected('followers')}
               onClick={() => toggleStoryMetric('followers')}
             />
             <SparklineMetricCard
               label="Engagements"
-              source="page_post_engagements"
+              source={isInstagram ? 'accounts_engaged' : 'page_post_engagements'}
               color={COLOR.violet}
               value={formatCompact(engagements)}
-              series={series?.engagement ?? []}
+              series={growthSparklineSeries.engagement}
               active={isCardSelected('engagements')}
               onClick={() => toggleStoryMetric('engagements')}
             />
             <SparklineMetricCard
               label="Video Views"
-              source="page_video_views, post_video_views, post_media_view"
+              source={
+                isInstagram
+                  ? 'Synced post and reel plays in range'
+                  : 'page_video_views, post_video_views, post_media_view'
+              }
               color={COLOR.magenta}
               value={formatCompact(videoViews)}
-              series={series?.videoViews ?? []}
+              series={growthSparklineSeries.videoViews}
               active={isCardSelected('videoViews')}
               onClick={() => toggleStoryMetric('videoViews')}
             />
             <SparklineMetricCard
               label="Content Views"
-              source="page_media_view"
+              source={isInstagram ? 'impressions (media)' : 'page_media_view'}
               color={COLOR.amber}
               value={formatCompact(contentViews)}
-              series={series?.contentViews ?? []}
+              series={growthSparklineSeries.contentViews}
               active={isCardSelected('contentViews')}
               onClick={() => toggleStoryMetric('contentViews')}
             />
             <SparklineMetricCard
               label="Page Visits"
-              source="page_views_total"
+              source={isInstagram ? 'profile_views' : 'page_views_total'}
               color={COLOR.coral}
               value={formatCompact(pageVisits)}
-              series={series?.pageTabViews ?? []}
+              series={growthSparklineSeries.pageVisits}
               active={isCardSelected('pageVisits')}
               onClick={() => toggleStoryMetric('pageVisits')}
             />
