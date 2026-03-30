@@ -45,7 +45,16 @@ export function ConfirmModal({
 
   if (!open || !mounted) return null;
 
-  const handleConfirm = () => { onConfirm?.(); onClose(); };
+  const handleConfirm = () => {
+    const result = onConfirm?.();
+    if (result != null && typeof (result as Promise<unknown>).then === 'function') {
+      (result as Promise<unknown>).finally(() => {
+        onClose();
+      });
+    } else {
+      onClose();
+    }
+  };
 
   const iconBg = isDanger ? 'bg-red-100' : isInfo ? 'bg-blue-100' : 'bg-amber-100';
   const Icon = isDanger ? Trash2 : isInfo ? Info : isAlert ? CheckCircle : AlertTriangle;

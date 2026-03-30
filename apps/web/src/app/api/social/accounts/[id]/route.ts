@@ -37,10 +37,13 @@ export async function DELETE(
 
     const account = await prisma.socialAccount.findFirst({
       where: { id, userId },
-      select: { id: true },
+      select: { id: true, status: true },
     });
     if (!account) {
       return NextResponse.json({ message: 'Account not found. It may already be disconnected.' }, { status: 404 });
+    }
+    if (account.status === 'disconnected') {
+      return NextResponse.json({ ok: true });
     }
     await prisma.socialAccount.update({
       where: { id: account.id },
@@ -64,10 +67,13 @@ export async function DELETE(
         const { id } = await params;
         const account = await prisma.socialAccount.findFirst({
           where: { id, userId },
-          select: { id: true },
+          select: { id: true, status: true },
         });
         if (!account) {
           return NextResponse.json({ message: 'Account not found. It may already be disconnected.' }, { status: 404 });
+        }
+        if (account.status === 'disconnected') {
+          return NextResponse.json({ ok: true });
         }
         await prisma.socialAccount.update({
           where: { id: account.id },

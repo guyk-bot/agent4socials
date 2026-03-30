@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
@@ -45,6 +45,8 @@ export default function AccountsPage() {
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
   const [disconnectConfirmOpen, setDisconnectConfirmOpen] = useState(false);
   const [accountToDisconnect, setAccountToDisconnect] = useState<SocialAccount | null>(null);
+  /** Survives ConfirmModal onClose timing so async disconnect always has the row to remove. */
+  const pendingDisconnectRef = useRef<SocialAccount | null>(null);
   const [reconnectingId, setReconnectingId] = useState<string | null>(null);
   const [tokenDebugLoading, setTokenDebugLoading] = useState<string | null>(null);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
@@ -123,20 +125,20 @@ export default function AccountsPage() {
   };
 
   const handleDisconnectClick = (acc: SocialAccount) => {
+    pendingDisconnectRef.current = acc;
     setAccountToDisconnect(acc);
     setDisconnectConfirmOpen(true);
   };
 
   const handleDisconnectConfirm = async () => {
-    const acc = accountToDisconnect;
+    const acc = pendingDisconnectRef.current ?? accountToDisconnect;
+    pendingDisconnectRef.current = null;
     if (!acc) {
       setDisconnectConfirmOpen(false);
       return;
     }
     const accountIdToRemove = acc.id;
     const disconnectedAccountWasSelected = selectedAccountId === accountIdToRemove;
-    setDisconnectConfirmOpen(false);
-    setAccountToDisconnect(null);
     setDisconnectingId(accountIdToRemove);
     try {
       await api.delete(`/social/accounts/${accountIdToRemove}`);
