@@ -1213,7 +1213,7 @@ export async function publishTarget(
       // Poll longer for FILE_UPLOAD (TikTok processes synchronously after upload)
       // and shorter for PULL_FROM_URL (async — TikTok fetches on its own schedule).
       const isPullFromUrl = !useInbox && !publishId.startsWith('v_inbox') && !publishId.startsWith('inbox');
-      const maxWait = isPullFromUrl ? 8_000 : 55_000;
+      const maxWait = isPullFromUrl ? 12_000 : 120_000;
       const pollInterval = isPullFromUrl ? 2_000 : 3_000;
       let platformPostId: string | undefined;
       for (let elapsed = 0; elapsed < maxWait; elapsed += pollInterval) {
@@ -1246,8 +1246,10 @@ export async function publishTarget(
         // status === 'PROCESSING_UPLOAD' or 'PROCESSING_DOWNLOAD' — keep polling
       }
       if (!platformPostId) {
-        // Still processing after poll window — TikTok will complete async; check TikTok app
-        return { ok: true, platformPostId: publishId, sentToInbox: true };
+        return {
+          ok: false,
+          error: `TikTok upload is still processing and was not confirmed yet (publish_id: ${publishId}). Open TikTok app -> Inbox/Drafts, then retry in a minute if it is not visible.`,
+        };
       }
       return { ok: true, platformPostId };
     }
