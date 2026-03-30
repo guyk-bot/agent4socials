@@ -17,13 +17,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { runScheduledSyncForScope } from '@/lib/sync/engine';
 
 function isAuthorized(request: NextRequest): boolean {
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) return false;
+  const rawEnvSecret = process.env.CRON_SECRET;
+  if (!rawEnvSecret) return false;
+
+  // Normalize to avoid production mismatches caused by accidental quotes/spaces in env vars.
+  const cronSecret = rawEnvSecret.trim().replace(/^['"]|['"]$/g, '');
   const provided =
-    request.headers.get('X-Cron-Secret') ??
-    request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ??
-    request.nextUrl.searchParams.get('secret');
-  return provided === cronSecret;
+    request.headers.get('X-Cron-Secret') ||
+    request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ||
+    request.nextUrl.searchParams.get('secret') ||
+    '';
+
+  return provided.trim() === cronSecret;
 }
 
 async function handle(request: NextRequest) {
