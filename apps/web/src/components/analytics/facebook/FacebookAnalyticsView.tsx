@@ -20,6 +20,7 @@ import {
 } from 'recharts';
 import { ChevronRight, ExternalLink, Gem, MessageSquare, Star } from 'lucide-react';
 import { AnalyticsDateRangePicker } from '../AnalyticsDateRangePicker';
+import type { FacebookFrontendAnalyticsBundle } from '@/lib/facebook/frontend-analytics-bundle';
 import type { FacebookInsights, FacebookPost } from './types';
 import { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids';
 import { localCalendarDateFromIso, toLocalCalendarDate } from '@/lib/calendar-date';
@@ -349,6 +350,99 @@ function sumPostLevelVideoPlays(posts: FacebookPost[]): number {
     const plays = Math.max(pv, pm);
     return s + plays;
   }, 0);
+}
+
+function sumMetricSeriesPoints(s: Array<{ date: string; value: number }>): number {
+  return s.reduce((a, p) => a + (typeof p.value === 'number' ? p.value : 0), 0);
+}
+
+/**
+ * Instagram accounts never get Meta Page `facebookAnalytics`. Map IG account insights + per-post metrics
+ * into the same bundle shape so overview/traffic/reels widgets populate.
+ */
+function buildInstagramSyntheticFacebookBundle(
+  insights: FacebookInsights,
+  postsInRange: FacebookPost[]
+): FacebookFrontendAnalyticsBundle {
+  const contentViews = [...(insights.impressionsTimeSeries ?? [])];
+  const pageTabViews = [...(insights.pageViewsTimeSeries ?? [])];
+  const follows = insights.followersTimeSeries ?? [];
+
+  const engagementByDate = new Map<string, number>();
+  const videoViewsByDate = new Map<string, number>();
+  const videoTimeMsByDate = new Map<string, number>();
+
+  for (const p of postsInRange) {
+    const d = localCalendarDateFromIso(p.publishedAt);
+    if (!d) continue;
+    const eb = p.engagementBreakdown;
+    const eng =
+      eb?.totalEngagement ?? (p.likeCount ?? 0) + (p.commentsCount ?? 0) + (p.sharesCount ?? 0);
+    if (eng > 0) engagementByDate.set(d, (engagementByDate.get(d) ?? 0) + eng);
+
+    if (!isVideoishPost(p)) continue;
+    const plays = bestPostPlayCount(p);
+    if (plays > 0) videoViewsByDate.set(d, (videoViewsByDate.get(d) ?? 0) + plays);
+    const { watchTimeMs } = getWatchTimes(p);
+    if (watchTimeMs > 0) videoTimeMsByDate.set(d, (videoTimeMsByDate.get(d) ?? 0) + watchTimeMs);
+  }
+
+  const sortSeries = (m: Map<string, number>) =>
+    Array.from(m.entries())
+      .map(([date, value]) => ({ date, value }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+  const engagement = sortSeries(engagementByDate);
+  const videoViews = sortSeries(videoViewsByDate);
+  const videoViewTime = sortSeries(videoTimeMsByDate);
+
+  const dailyFollows: Array<{ date: string; value: number }> = [];
+  if (follows.length >= 2) {
+    for (let i = 1; i < follows.length; i++) {
+      const prev = follows[i - 1].value;
+      const cur = follows[i].value;
+      dailyFollows.push({ date: follows[i].date, value: Math.max(0, cur - prev) });
+    }
+  }
+
+  const postImpressions = contentViews.length > 0 ? contentViews : [];
+  const engagementTotal = sumMetricSeriesPoints(engagement);
+  const sourceKeys: string[] = [];
+  if (contentViews.length) sourceKeys.push('impressions');
+  if (pageTabViews.length) sourceKeys.push('profile_views');
+  if (engagement.length) sourceKeys.push('post_engagement_proxy');
+  if (videoViews.length) sourceKeys.push('post_video_views');
+
+  return {
+    followers: insights.followers ?? 0,
+    series: {
+      contentViews,
+      pageTabViews,
+      engagement,
+      videoViews,
+      videoViewTime,
+      follows,
+      dailyFollows,
+      totalActions: engagement,
+      postImpressions,
+      postImpressionsNonviral: [],
+      postImpressionsViral: [],
+    },
+    totals: {
+      contentViews: sumMetricSeriesPoints(contentViews),
+      pageTabViews: sumMetricSeriesPoints(pageTabViews),
+      engagement: engagementTotal,
+      videoViews: sumMetricSeriesPoints(videoViews),
+      videoViewTime: sumMetricSeriesPoints(videoViewTime),
+      follows: follows.length >= 2 ? Math.max(0, follows[follows.length - 1].value - follows[0].value) : 0,
+      dailyFollows: sumMetricSeriesPoints(dailyFollows),
+      totalActions: engagementTotal,
+      postImpressions: sumMetricSeriesPoints(postImpressions),
+      postImpressionsNonviral: 0,
+      postImpressionsViral: 0,
+    },
+    sourceGraphMetricsIncluded: sourceKeys,
+  };
 }
 
 function seriesToMap(series: Array<{ date: string; value: number }>): Record<string, number> {
@@ -1061,7 +1155,6 @@ export function FacebookAnalyticsView({
     setSelectedStoryMetrics(STORY_MODE_DEFAULT_METRICS[storyMode]);
   }, [storyMode]);
 
-  const bundle = insights?.facebookAnalytics;
   const profile = insights?.facebookPageProfile;
   const isInstagram = insights?.platform?.toUpperCase() === 'INSTAGRAM';
   const igMetricSeries = insights?.facebookPageMetricSeries;
@@ -1098,6 +1191,14 @@ export function FacebookAnalyticsView({
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [postsInRange]);
   const dateAxis = useMemo(() => buildDateAxis(dateRange.start, dateRange.end), [dateRange.end, dateRange.start]);
+  const bundle = useMemo(() => {
+    const native = insights?.facebookAnalytics;
+    if (native) return native;
+    if (insights && String(insights.platform).toUpperCase() === 'INSTAGRAM') {
+      return buildInstagramSyntheticFacebookBundle(insights, postsInRange);
+    }
+    return undefined;
+  }, [insights, postsInRange]);
   const series = bundle?.series;
   const totalFollowers = profile?.followers_count ?? profile?.fan_count ?? insights?.followers ?? 0;
   const liveConversationCount =

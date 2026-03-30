@@ -298,7 +298,6 @@ export async function GET(
       if (!insightsOk && (isInstagramBusinessLogin || (out.followers > 0 && !out.impressionsTotal && !out.reachTotal))) {
         insightsOk = await tryInsights(igBaseUrl);
       }
-
       /** Fallback metric sets can omit accounts_engaged; fetch it alone so the Performance card is not stuck at 0. */
       const supplementIgAccountsEngaged = async (base: string): Promise<void> => {
         if (effectiveSinceTs == null || effectiveUntilTs == null) return;
@@ -394,6 +393,10 @@ export async function GET(
       await supplementIgViews(fbBaseUrl);
       if (!igSeriesByMetric.views?.length) await supplementIgViews(igBaseUrl);
 
+      const profileViewsSeries = igSeriesByMetric.profile_views;
+      if (profileViewsSeries && profileViewsSeries.length > 0) {
+        out.pageViewsTimeSeries = profileViewsSeries;
+      }
       if (Object.keys(igSeriesByMetric).length > 0) {
         try {
           await persistInsightsSeries({
@@ -1042,12 +1045,34 @@ export async function GET(
     }
 
     if (account.platform === 'TIKTOK') {
+      const parseTk = (v: unknown): number | undefined => {
+        if (v == null) return undefined;
+        if (typeof v === 'number' && Number.isFinite(v)) return v;
+        if (typeof v === 'string') {
+          const n = parseInt(v, 10);
+          return Number.isNaN(n) ? undefined : n;
+        }
+        return undefined;
+      };
       try {
         const userRes = await axios.get<{
-          data?: { user?: { follower_count?: number | string; video_count?: number | string; likes_count?: number | string } };
+          data?: {
+            user?: {
+              follower_count?: number | string;
+              following_count?: number | string;
+              video_count?: number | string;
+              likes_count?: number | string;
+              display_name?: string;
+              bio_description?: string;
+              is_verified?: boolean;
+            };
+          };
           error?: { code?: string; message?: string };
         }>('https://open.tiktokapis.com/v2/user/info/', {
-          params: { fields: 'open_id,follower_count,video_count,likes_count' },
+          params: {
+            fields:
+              'open_id,union_id,avatar_url,avatar_large_url,display_name,bio_description,profile_deep_link,is_verified,follower_count,following_count,likes_count,video_count',
+          },
           headers: {
             Authorization: `Bearer ${account.accessToken}`,
             'Content-Type': 'application/json',
@@ -1058,11 +1083,21 @@ export async function GET(
         if (err?.code && err.code !== 'ok') {
           console.warn('[Insights] TikTok user/info error:', err.code, err.message ?? '');
         }
-        if (err?.code === 'ok' || !err?.code) {
-          if (user?.follower_count != null) {
-            const n = typeof user.follower_count === 'string' ? parseInt(user.follower_count, 10) : user.follower_count;
-            if (!Number.isNaN(n)) out.followers = n;
-          }
+        if (user && (err?.code === 'ok' || !err?.code)) {
+          const fc = parseTk(user.follower_count);
+          if (fc != null) out.followers = fc;
+          const following = parseTk(user.following_count);
+          const videos = parseTk(user.video_count);
+          const likes = parseTk(user.likes_count);
+          (out as Record<string, unknown>).tiktokUser = {
+            followerCount: fc ?? 0,
+            followingCount: following,
+            videoCount: videos,
+            likesCount: likes,
+            displayName: user.display_name ?? undefined,
+            bioDescription: user.bio_description ?? undefined,
+            isVerified: user.is_verified === true,
+          };
         }
       } catch (e) {
         console.warn('[Insights] TikTok user/info:', (e as Error)?.message ?? e);

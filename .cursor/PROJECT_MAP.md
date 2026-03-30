@@ -1,6 +1,8 @@
 # Agent4Socials – Project map
 
-**Read this first.** The repo is large; do not repo-wide search until this map fails you.
+**Read this first.** The repo is large; do not repo-wide search until this map fails you. Companion: **`docs/CODEBASE_MAP.md`** — compact API-route index + “where do I change X?” table.
+
+Use this map to go straight to the right files. Prefer **targeted reads** and **grep** in these paths over broad codebase search.
 
 1. **Pick the row** in [Task → files](#task--files-first) or the feature table below.
 2. **Open 1–3 paths** with `read_file`; **grep** only inside that folder (e.g. `apps/web/src/app/composer`).
@@ -186,15 +188,22 @@ Layouts worth knowing: `composer/layout.tsx` uses `AuthenticatedShell`.
 | What | Where |
 |------|--------|
 | Summary dashboard | `apps/web/src/app/dashboard/summary/page.tsx` |
-| Summary UI | `apps/web/src/components/dashboard/summary/` |
-| Insights API | `apps/web/src/app/api/social/accounts/[id]/insights/route.ts` |
-| Local calendar dates | `apps/web/src/lib/calendar-date.ts` |
-| Premium FB analytics UI | `apps/web/src/components/analytics/facebook/FacebookAnalyticsView.tsx` |
-| Meta Graph version | `apps/web/src/lib/meta-graph-insights.ts` (`META_GRAPH_API_VERSION`) |
-| Facebook lib | `apps/web/src/lib/facebook/` |
-| Docs | `docs/FACEBOOK_ANALYTICS_CAPABILITY_MAP.md`, `docs/FACEBOOK_ANALYTICS_IMPLEMENTATION_REPORT.md`, `docs/FACEBOOK_JSON_AUDIT_REPORT.md`, `docs/FACEBOOK_PIPELINE_VALIDATION.md`, `docs/FACEBOOK_STORAGE_EVIDENCE.md` |
-| Metric snapshots | `apps/web/src/lib/analytics/metric-snapshots.ts`, `apps/web/src/app/api/cron/metric-snapshots/route.ts`, `docs/METRIC_SNAPSHOTS_AND_HISTORY.md` |
-| Types / fetchers | `apps/web/src/types/analytics.ts`, `apps/web/src/lib/analytics/extended-fetchers.ts` |
+| Summary UI components | `apps/web/src/components/dashboard/summary/` (SummaryDashboard, KPICardsGrid, GrowthChartTabs, etc.) |
+| Insights API (account-level: FB Page bundle, IG impressions series, demographics, TikTok user stats) | `apps/web/src/app/api/social/accounts/[id]/insights/route.ts` |
+| **Imported posts API** (sync `?sync=1`, IG/FB/Pinterest media, `platformMetadata`, live insight refresh on GET) | `apps/web/src/app/api/social/accounts/[id]/posts/route.ts` |
+| **Local calendar dates** (YYYY-MM-DD in user TZ; presets, default range, FB post filter, chart axis) | `apps/web/src/lib/calendar-date.ts` |
+| Premium Facebook analytics UI (sticky Overview/Traffic/Posts/Reels, dark workspace, post detail drawer, reels intelligence) | `apps/web/src/components/analytics/facebook/FacebookAnalyticsView.tsx` |
+| Meta Graph: single version for Page REST + insights + OAuth dialog (default v22; env `META_GRAPH_API_VERSION`) | `apps/web/src/lib/meta-graph-insights.ts` (`facebookGraphBaseUrl`) |
+| Facebook analytics (discovery, resilient insights, fetchers, frontend bundle) | `apps/web/src/lib/facebook/` (`discovery-db.ts` gates cache if `FacebookMetricDiscovery` missing) |
+| Facebook capability map / implementation report | `docs/FACEBOOK_ANALYTICS_CAPABILITY_MAP.md`, `docs/FACEBOOK_ANALYTICS_IMPLEMENTATION_REPORT.md` |
+| Facebook live JSON audit | `docs/FACEBOOK_JSON_AUDIT_REPORT.md` |
+| Facebook pipeline validation | `apps/web/scripts/facebook-pipeline-validation.ts`, `docs/FACEBOOK_PIPELINE_VALIDATION.md` |
+| Facebook **storage evidence** | `GET .../facebook-storage-evidence`, `docs/FACEBOOK_STORAGE_EVIDENCE.md` |
+| Facebook **read_insights** App Review panel (dashboard) | `FacebookReadInsightsPanel.tsx`, scroll nav **Page insights (API)** on `dashboard` when account is Facebook |
+| Facebook Page/profile + conversations + reviews DB cache (sync with posts) | `apps/web/src/lib/facebook/sync-extras.ts`, Prisma `FacebookPageCache`, `FacebookConversationCache`, `FacebookReviewCache` |
+| Analytics types & fetchers | `apps/web/src/types/analytics.ts`, `apps/web/src/lib/analytics/extended-fetchers.ts` |
+| **Follower/following history (IG & FB only)** | `apps/web/src/lib/analytics/metric-snapshots.ts`; **YouTube excluded** |
+| **Daily metric snapshot cron** | `apps/web/src/app/api/cron/metric-snapshots/route.ts` (X-Cron-Secret); `docs/METRIC_SNAPSHOTS_AND_HISTORY.md` |
 
 ### Auth & layout
 
@@ -211,12 +220,14 @@ Layouts worth knowing: `composer/layout.tsx` uses `AuthenticatedShell`.
 
 | What | Where |
 |------|--------|
-| OAuth start/callback | `apps/web/src/app/api/social/oauth/[platform]/start/route.ts`, `callback/route.ts` |
-| Pinterest token | `apps/web/src/lib/pinterest-token.ts` |
-| Pinterest doc | `docs/PINTEREST_SETUP.md` |
-| Twitter 1.0a | `apps/web/src/app/api/social/oauth/twitter-1oa/` |
-| Instagram / Facebook connect | `apps/web/src/app/api/social/instagram/`, `facebook/` |
-| Accounts list / disconnect | `apps/web/src/app/api/social/accounts/route.ts`, `accounts/[id]/route.ts` |
+| OAuth start/callback (generic) | `apps/web/src/app/api/social/oauth/[platform]/start/route.ts`, `callback/route.ts` (includes Pinterest v5) |
+| Pinterest token refresh | `apps/web/src/lib/pinterest-token.ts` |
+| Pinterest setup doc | `docs/PINTEREST_SETUP.md` |
+| TikTok raw API JSON (user info, video list, creator_info) on Accounts page | `GET .../social/accounts/[id]/tiktok-debug`, `docs/TIKTOK_CONNECT_SETUP.md` |
+| Twitter 1OA | `apps/web/src/app/api/social/oauth/twitter-1oa/start/route.ts`, `callback/route.ts` |
+| Instagram connect | `apps/web/src/app/api/social/instagram/connect-account/route.ts`, `pending/route.ts` |
+| Facebook connect | `apps/web/src/app/api/social/facebook/connect-page/route.ts`, `pending/route.ts` |
+| Accounts list (connected only) / soft disconnect | `apps/web/src/app/api/social/accounts/route.ts`, `accounts/[id]/route.ts` – disconnect sets status + disconnectedAt; firstConnectedAt preserved for IG/FB history |
 
 ### Other pages & API
 

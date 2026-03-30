@@ -55,8 +55,30 @@ export default function AccountsPage() {
   const [pinterestDebug, setPinterestDebug] = useState<
     Record<string, { status: 'idle' | 'loading' | 'done' | 'error'; body?: string; message?: string }>
   >({});
+  const [tiktokDebug, setTiktokDebug] = useState<
+    Record<string, { status: 'idle' | 'loading' | 'done' | 'error'; body?: string; message?: string }>
+  >({});
 
   const accounts = (cachedAccounts as SocialAccount[]) ?? [];
+
+  const loadTiktokDebug = async (accountId: string) => {
+    setTiktokDebug((m) => ({ ...m, [accountId]: { status: 'loading' } }));
+    try {
+      const res = await api.get(`/social/accounts/${accountId}/tiktok-debug`, {
+        timeout: 90_000,
+      });
+      setTiktokDebug((m) => ({
+        ...m,
+        [accountId]: { status: 'done', body: JSON.stringify(res.data, null, 2) },
+      }));
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string }; status?: number } };
+      const msg =
+        err?.response?.data?.message ??
+        (err?.response?.status === 401 ? 'Session expired. Sign out and sign back in.' : 'Could not load TikTok API JSON.');
+      setTiktokDebug((m) => ({ ...m, [accountId]: { status: 'error', message: msg } }));
+    }
+  };
 
   const loadPinterestDebug = async (accountId: string) => {
     setPinterestDebug((m) => ({ ...m, [accountId]: { status: 'loading' } }));
@@ -299,6 +321,40 @@ export default function AccountsPage() {
                     {metaGraphDebug[acc.id]?.body && (
                       <pre className="text-xs font-mono bg-neutral-900 text-neutral-100 rounded-lg p-3 overflow-auto max-h-[min(70vh,40rem)] whitespace-pre-wrap break-all border border-neutral-800">
                         {metaGraphDebug[acc.id].body}
+                      </pre>
+                    )}
+                  </div>
+                )}
+                {acc.platform === 'TIKTOK' && (
+                  <div className="border-t border-neutral-100 px-4 py-3 bg-neutral-50/90 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => loadTiktokDebug(acc.id)}
+                        disabled={tiktokDebug[acc.id]?.status === 'loading'}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-neutral-200 bg-white text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-50"
+                        title="Fetch TikTok Open API: user/info (full profile + stats), video/list first page, post/publish/creator_info. See exact fields available for the dashboard."
+                      >
+                        {tiktokDebug[acc.id]?.status === 'loading' ? (
+                          <RefreshCw size={14} className="animate-spin shrink-0" />
+                        ) : (
+                          <Braces size={14} className="shrink-0" />
+                        )}
+                        Show TikTok API JSON
+                      </button>
+                      <span className="text-xs text-neutral-500">
+                        Includes full <code className="text-[11px] bg-neutral-200/80 px-1 rounded">user.info</code> fields, first page of{' '}
+                        <code className="text-[11px] bg-neutral-200/80 px-1 rounded">video/list</code>, and{' '}
+                        <code className="text-[11px] bg-neutral-200/80 px-1 rounded">creator_info</code> for publishing. Follower count uses{' '}
+                        <code className="text-[11px] bg-neutral-200/80 px-1 rounded">user.info.stats</code> (reconnect if empty).
+                      </span>
+                    </div>
+                    {tiktokDebug[acc.id]?.status === 'error' && tiktokDebug[acc.id]?.message && (
+                      <p className="text-sm text-red-600">{tiktokDebug[acc.id].message}</p>
+                    )}
+                    {tiktokDebug[acc.id]?.body && (
+                      <pre className="text-xs font-mono bg-neutral-900 text-neutral-100 rounded-lg p-3 overflow-auto max-h-[min(70vh,40rem)] whitespace-pre-wrap break-all border border-neutral-800">
+                        {tiktokDebug[acc.id].body}
                       </pre>
                     )}
                   </div>

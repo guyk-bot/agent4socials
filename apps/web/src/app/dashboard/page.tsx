@@ -1534,12 +1534,8 @@ export default function DashboardPage() {
                       <tbody className="bg-white divide-y divide-neutral-200">
                         {currentPagePosts.map((post) => {
                           const postAny = post as { platformPostId?: string };
-                          const usePostImageProxy =
-                            !!postAny.platformPostId &&
-                            !!selectedAccount?.id &&
-                            (post.platform === 'TWITTER' || post.platform === 'INSTAGRAM');
-                          const thumbnailSrc = usePostImageProxy
-                            ? `/api/post-image?accountId=${encodeURIComponent(selectedAccount.id)}&postId=${encodeURIComponent(postAny.platformPostId!)}`
+                          const thumbnailSrc = post.platform === 'TWITTER' && postAny.platformPostId && selectedAccount?.id
+                            ? `/api/post-image?accountId=${encodeURIComponent(selectedAccount.id)}&postId=${encodeURIComponent(postAny.platformPostId)}`
                             : post.thumbnailUrl;
                           return (
                           <tr key={post.id} className="hover:bg-neutral-50">

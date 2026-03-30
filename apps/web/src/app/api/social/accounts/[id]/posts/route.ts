@@ -15,6 +15,9 @@ import { syncFacebookAuxiliaryIngest } from '@/lib/facebook/sync-extras';
 import { fbRestBaseUrl } from '@/lib/facebook/constants';
 import { getValidPinterestToken } from '@/lib/pinterest-token';
 
+/** Fallback host for IG user/media when graph.facebook.com omits items (matches insights route). */
+const igGraphRestBaseUrl = 'https://graph.instagram.com/v18.0';
+
 type ImportedPostListRow = {
   id: string;
   platformPostId: string;
@@ -385,6 +388,61 @@ export async function GET(
       }
     }
 
+    /** Instagram: refresh media insights + thumbnails on read when DB/sync returned zeros (mirrors Facebook live path). */
+    const liveInstagramInsightBundles: Record<string, IgMediaInsightBundle> = {};
+    const liveInstagramThumbnails: Record<string, string | null> = {};
+    if (account.platform === 'INSTAGRAM' && account.accessToken && importedRows.length > 0) {
+      const bundleFromRow = (row: ImportedPostListRow): IgMediaInsightBundle => {
+        const meta =
+          row.platformMetadata && typeof row.platformMetadata === 'object' && !Array.isArray(row.platformMetadata)
+            ? (row.platformMetadata as Record<string, unknown>).instagram
+            : null;
+        const ig = meta && typeof meta === 'object' && !Array.isArray(meta) ? (meta as Record<string, unknown>) : {};
+        return {
+          views: typeof ig.views === 'number' ? ig.views : row.impressions ?? 0,
+          impressionsLegacy: typeof ig.impressionsLegacy === 'number' ? ig.impressionsLegacy : 0,
+          reach: typeof ig.reach === 'number' ? ig.reach : 0,
+          avgWatchSeconds: typeof ig.avgWatchSeconds === 'number' ? ig.avgWatchSeconds : 0,
+          totalWatchSeconds: typeof ig.totalWatchSeconds === 'number' ? ig.totalWatchSeconds : 0,
+        };
+      };
+      const insightCandidates = importedRows
+        .filter((row) => !igInsightBundleHasMetrics(bundleFromRow(row)))
+        .slice(0, 30);
+      await runWithConcurrency(insightCandidates, 6, async (row) => {
+        try {
+          const reelish = isInstagramLikelyReel({
+            media_type: row.mediaType ?? undefined,
+            permalink: row.permalinkUrl ?? undefined,
+          });
+          const bundle = await fetchInstagramMediaInsightsBestEffort(row.platformPostId, account.accessToken, {
+            isReel: reelish,
+          });
+          if (igInsightBundleHasMetrics(bundle)) {
+            liveInstagramInsightBundles[row.platformPostId] = bundle;
+          }
+        } catch {
+          // per-post best effort
+        }
+      });
+      const thumbCandidates = importedRows
+        .filter((row) => {
+          if (row.thumbnailUrl) return false;
+          const mt = (row.mediaType ?? '').toUpperCase();
+          const url = (row.permalinkUrl ?? '').toLowerCase();
+          return mt === 'VIDEO' || url.includes('/reel/');
+        })
+        .slice(0, 20);
+      await runWithConcurrency(thumbCandidates, 8, async (row) => {
+        try {
+          const u = await refetchIgMediaThumbnail(row.platformPostId, account.accessToken);
+          if (u) liveInstagramThumbnails[row.platformPostId] = u;
+        } catch {
+          // ignore
+        }
+      });
+    }
+
     const serialized = importedRows.map((p) => {
       const enrich = account.platform === 'TWITTER' ? twitterEnrich[p.platformPostId] : undefined;
       const meta =
@@ -395,20 +453,82 @@ export async function GET(
         p.platform === 'FACEBOOK' && meta.facebookInsights && typeof meta.facebookInsights === 'object' && !Array.isArray(meta.facebookInsights)
           ? (meta.facebookInsights as Record<string, number>)
           : undefined;
-      const facebookInsights = p.platform === 'FACEBOOK'
-        ? (dbFacebookInsights ?? liveFacebookInsightsByPostId[p.platformPostId])
-        : undefined;
+      const igMetaDb =
+        p.platform === 'INSTAGRAM' && meta.instagram && typeof meta.instagram === 'object' && !Array.isArray(meta.instagram)
+          ? (meta.instagram as {
+              views?: number;
+              reach?: number;
+              impressionsLegacy?: number;
+              avgWatchSeconds?: number;
+              totalWatchSeconds?: number;
+            })
+          : null;
+      const liveIgBundle = liveInstagramInsightBundles[p.platformPostId];
+      const mergedIgInsight: IgMediaInsightBundle | null =
+        p.platform === 'INSTAGRAM'
+          ? {
+              views: Math.max(liveIgBundle?.views ?? 0, typeof igMetaDb?.views === 'number' ? igMetaDb.views : 0),
+              impressionsLegacy: Math.max(
+                liveIgBundle?.impressionsLegacy ?? 0,
+                typeof igMetaDb?.impressionsLegacy === 'number' ? igMetaDb.impressionsLegacy : 0
+              ),
+              reach: Math.max(liveIgBundle?.reach ?? 0, typeof igMetaDb?.reach === 'number' ? igMetaDb.reach : 0),
+              avgWatchSeconds: Math.max(
+                liveIgBundle?.avgWatchSeconds ?? 0,
+                typeof igMetaDb?.avgWatchSeconds === 'number' ? igMetaDb.avgWatchSeconds : 0
+              ),
+              totalWatchSeconds: Math.max(
+                liveIgBundle?.totalWatchSeconds ?? 0,
+                typeof igMetaDb?.totalWatchSeconds === 'number' ? igMetaDb.totalWatchSeconds : 0
+              ),
+            }
+          : null;
+      const igImpressionsSerialized =
+        mergedIgInsight && p.platform === 'INSTAGRAM'
+          ? mergedIgInsight.views > 0
+            ? mergedIgInsight.views
+            : mergedIgInsight.impressionsLegacy > 0
+              ? mergedIgInsight.impressionsLegacy
+              : mergedIgInsight.reach > 0
+                ? mergedIgInsight.reach
+                : p.impressions ?? 0
+          : p.impressions ?? 0;
+      const igCompatInsights =
+        p.platform === 'INSTAGRAM' && mergedIgInsight
+          ? (() => {
+              const views = igImpressionsSerialized;
+              const reach = mergedIgInsight.reach;
+              const avgSec = mergedIgInsight.avgWatchSeconds;
+              const totSec = mergedIgInsight.totalWatchSeconds;
+              return {
+                post_video_views: views,
+                post_media_view: views,
+                post_impressions_unique: reach,
+                post_video_avg_time_watched: Math.round(avgSec * 1000),
+                post_video_view_time: Math.round(totSec * 1000),
+                post_reactions_like_total: p.likeCount ?? 0,
+                post_comments: p.commentsCount ?? 0,
+              };
+            })()
+          : undefined;
+      const facebookInsights =
+        p.platform === 'FACEBOOK'
+          ? (dbFacebookInsights ?? liveFacebookInsightsByPostId[p.platformPostId])
+          : p.platform === 'INSTAGRAM'
+            ? igCompatInsights
+            : undefined;
       return {
         id: p.id,
         platformPostId: p.platformPostId,
         content: p.content,
         thumbnailUrl:
           enrich?.thumbnailUrl ??
+          liveInstagramThumbnails[p.platformPostId] ??
           (account.platform === 'PINTEREST' ? pinterestThumbByPinId[p.platformPostId] : undefined) ??
           p.thumbnailUrl ??
           null,
         permalinkUrl: p.permalinkUrl,
-        impressions: p.impressions ?? 0,
+        impressions: igImpressionsSerialized,
         interactions: p.interactions ?? 0,
         likeCount: enrich?.likeCount ?? p.likeCount ?? 0,
         commentsCount: enrich?.commentsCount ?? p.commentsCount ?? 0,
@@ -418,7 +538,7 @@ export async function GET(
         mediaType: p.mediaType,
         platform: p.platform,
         ...(facebookInsights && Object.keys(facebookInsights).length > 0 ? { facebookInsights } : {}),
-        ...(p.platform === 'FACEBOOK' || p.platform === 'PINTEREST'
+        ...(p.platform === 'FACEBOOK' || p.platform === 'PINTEREST' || p.platform === 'INSTAGRAM'
           ? {
               engagementBreakdown: {
                 reactions: p.likeCount ?? 0,
@@ -463,157 +583,356 @@ export async function GET(
   }
 }
 
+type IgMediaInsightBundle = {
+  views: number;
+  impressionsLegacy: number;
+  reach: number;
+  /** Seconds (IG API) */
+  avgWatchSeconds: number;
+  /** Seconds (IG API) */
+  totalWatchSeconds: number;
+};
+
+function igInsightMetricValue(row: { name?: string; values?: Array<{ value?: number }>; total_value?: { value?: number } }): number {
+  if (typeof row.total_value?.value === 'number' && Number.isFinite(row.total_value.value)) {
+    return row.total_value.value;
+  }
+  let sum = 0;
+  for (const v of row.values ?? []) {
+    if (typeof v.value === 'number' && Number.isFinite(v.value)) sum += v.value;
+  }
+  return sum;
+}
+
+function mergeIgInsightBundles(a: IgMediaInsightBundle, b: IgMediaInsightBundle): IgMediaInsightBundle {
+  return {
+    views: Math.max(a.views, b.views),
+    impressionsLegacy: Math.max(a.impressionsLegacy, b.impressionsLegacy),
+    reach: Math.max(a.reach, b.reach),
+    avgWatchSeconds: Math.max(a.avgWatchSeconds, b.avgWatchSeconds),
+    totalWatchSeconds: Math.max(a.totalWatchSeconds, b.totalWatchSeconds),
+  };
+}
+
+function igInsightBundleHasMetrics(b: IgMediaInsightBundle): boolean {
+  return (
+    b.views > 0 ||
+    b.reach > 0 ||
+    b.impressionsLegacy > 0 ||
+    b.avgWatchSeconds > 0 ||
+    b.totalWatchSeconds > 0
+  );
+}
+
+async function fetchInstagramMediaInsightsBestEffort(
+  mediaId: string,
+  accessToken: string,
+  opts: { isReel: boolean }
+): Promise<IgMediaInsightBundle> {
+  const primary = await fetchInstagramMediaInsights(fbRestBaseUrl, mediaId, accessToken, opts);
+  if (igInsightBundleHasMetrics(primary)) return primary;
+  const secondary = await fetchInstagramMediaInsights(igGraphRestBaseUrl, mediaId, accessToken, opts);
+  return mergeIgInsightBundles(primary, secondary);
+}
+
+/** Reels created after ~July 2024 need `views` (not deprecated `impressions`) per Meta IG Media Insights. */
+async function fetchInstagramMediaInsights(
+  baseUrl: string,
+  mediaId: string,
+  accessToken: string,
+  opts: { isReel: boolean }
+): Promise<IgMediaInsightBundle> {
+  const out: IgMediaInsightBundle = {
+    views: 0,
+    impressionsLegacy: 0,
+    reach: 0,
+    avgWatchSeconds: 0,
+    totalWatchSeconds: 0,
+  };
+  const metricSets = opts.isReel
+    ? [
+        'views,reach,ig_reels_avg_watch_time,ig_reels_video_view_total_time',
+        'views,reach,total_interactions',
+        'views,reach',
+        'reach',
+      ]
+    : [
+        'views,reach,impressions',
+        'views,reach',
+        'impressions,reach',
+        'reach',
+      ];
+  for (const metric of metricSets) {
+    try {
+      const insightsRes = await axios.get<{
+        data?: Array<{ name: string; values?: Array<{ value: number }>; total_value?: { value: number } }>;
+        error?: { message?: string };
+      }>(`${baseUrl}/${mediaId}/insights`, {
+        params: { metric, access_token: accessToken },
+        timeout: 12_000,
+        validateStatus: () => true,
+      });
+      if (insightsRes.status >= 400 || insightsRes.data?.error) continue;
+      const data = insightsRes.data?.data ?? [];
+      if (data.length === 0) continue;
+      for (const d of data) {
+        const val = igInsightMetricValue(d);
+        if (d.name === 'views') out.views = val;
+        if (d.name === 'impressions') out.impressionsLegacy = val;
+        if (d.name === 'reach') out.reach = val;
+        if (d.name === 'ig_reels_avg_watch_time') out.avgWatchSeconds = val;
+        if (d.name === 'ig_reels_video_view_total_time') out.totalWatchSeconds = val;
+      }
+      break;
+    } catch {
+      // try next metric set
+    }
+  }
+  return out;
+}
+
+function isInstagramLikelyReel(m: {
+  media_type?: string;
+  media_product_type?: string;
+  permalink?: string;
+}): boolean {
+  const p = (m.permalink ?? '').toLowerCase();
+  if (p.includes('/reel/')) return true;
+  if ((m.media_product_type ?? '').toUpperCase() === 'REELS') return true;
+  return (m.media_type ?? '').toUpperCase() === 'VIDEO';
+}
+
+type IgSyncMediaItem = {
+  id: string;
+  media_type?: string;
+  media_product_type?: string;
+  media_url?: string;
+  permalink?: string;
+  caption?: string;
+  timestamp?: string;
+  thumbnail_url?: string;
+  like_count?: number;
+  comments_count?: number;
+};
+
+type IgSyncMediaPage = {
+  data?: Array<IgSyncMediaItem>;
+  paging?: { next?: string; cursors?: { before?: string; after?: string } };
+};
+
+function mergeIgSyncMediaItem(a: IgSyncMediaItem, b: IgSyncMediaItem): IgSyncMediaItem {
+  return {
+    id: a.id,
+    thumbnail_url: a.thumbnail_url || b.thumbnail_url,
+    media_url: a.media_url || b.media_url,
+    like_count: Math.max(a.like_count ?? 0, b.like_count ?? 0),
+    comments_count: Math.max(a.comments_count ?? 0, b.comments_count ?? 0),
+    caption: (a.caption?.length ?? 0) >= (b.caption?.length ?? 0) ? a.caption : b.caption,
+    timestamp: a.timestamp || b.timestamp,
+    media_type: a.media_type || b.media_type,
+    media_product_type: a.media_product_type || b.media_product_type,
+    permalink: a.permalink || b.permalink,
+  };
+}
+
+async function collectInstagramMediaEdgeItems(
+  apiBase: string,
+  platformUserId: string,
+  accessToken: string,
+  edge: 'media' | 'tags',
+  maxItems: number
+): Promise<IgSyncMediaItem[]> {
+  const fields =
+    'id,media_type,media_product_type,media_url,permalink,caption,timestamp,thumbnail_url,like_count,comments_count';
+  const pageLimit = 50;
+  const out: IgSyncMediaItem[] = [];
+  let nextUrl: string | null = `${apiBase}/${platformUserId}/${edge}`;
+  const firstParams: Record<string, string | number> = {
+    fields,
+    access_token: accessToken,
+    limit: pageLimit,
+  };
+  while (nextUrl && out.length < maxItems) {
+    const isFirst = !nextUrl.includes('?');
+    const res: AxiosResponse<IgSyncMediaPage> = await axios.get<IgSyncMediaPage>(
+      nextUrl,
+      isFirst ? { params: firstParams } : {}
+    );
+    const page = res.data?.data ?? [];
+    for (const row of page) {
+      if (out.length >= maxItems) break;
+      out.push(row);
+    }
+    const paging = res.data?.paging;
+    const nextFromMeta = paging?.next;
+    const afterCursor = paging?.cursors?.after;
+    const gotFullPage = page.length >= pageLimit;
+    if (nextFromMeta && out.length < maxItems) {
+      nextUrl = nextFromMeta;
+    } else if (!nextFromMeta && afterCursor && gotFullPage && out.length < maxItems) {
+      nextUrl = `${apiBase}/${platformUserId}/${edge}?fields=${encodeURIComponent(fields)}&access_token=${encodeURIComponent(accessToken)}&limit=${pageLimit}&after=${encodeURIComponent(afterCursor)}`;
+    } else {
+      nextUrl = null;
+    }
+  }
+  return out;
+}
+
+async function refetchIgMediaThumbnail(mediaId: string, accessToken: string): Promise<string | null> {
+  for (const apiBase of [fbRestBaseUrl, igGraphRestBaseUrl]) {
+    try {
+      const refetch = await axios.get<{ thumbnail_url?: string; media_url?: string }>(
+        `${apiBase}/${mediaId}`,
+        { params: { fields: 'thumbnail_url,media_url', access_token: accessToken }, timeout: 8000 }
+      );
+      const u = refetch.data?.thumbnail_url ?? refetch.data?.media_url;
+      if (u) return u;
+    } catch {
+      // try next host
+    }
+  }
+  return null;
+}
+
+async function runWithConcurrency<T>(items: T[], concurrency: number, fn: (item: T) => Promise<void>): Promise<void> {
+  for (let i = 0; i < items.length; i += concurrency) {
+    const chunk = items.slice(i, i + concurrency);
+    await Promise.all(chunk.map((item) => fn(item)));
+  }
+}
+
 async function syncImportedPosts(
   socialAccountId: string,
   platform: Platform,
   platformUserId: string,
   accessToken: string
 ): Promise<string | undefined> {
-  const baseUrl = fbRestBaseUrl;
   if (platform === 'INSTAGRAM') {
-    type MediaItem = {
-      id: string;
-      media_type?: string;
-      media_url?: string;
-      permalink?: string;
-      caption?: string;
-      timestamp?: string;
-      thumbnail_url?: string;
-      like_count?: number;
-      comments_count?: number;
-    };
-    type MediaPage = {
-      data?: Array<MediaItem>;
-      paging?: { next?: string; cursors?: { before?: string; after?: string } };
-    };
-    const fields = 'id,media_type,media_url,permalink,caption,timestamp,thumbnail_url,like_count,comments_count';
-    const allItems: Array<MediaItem> = [];
     const maxMedia = 500;
-    const pageLimit = 50;
-    // Do NOT use since/until timestamps — they can incorrectly restrict results when the Instagram
-    // Media API interprets them as time-window filters. Use pure cursor-based pagination instead.
-    const firstParams: Record<string, string | number> = {
-      fields,
-      access_token: accessToken,
-      limit: pageLimit,
-    };
-    let nextUrl: string | null = `${baseUrl}/${platformUserId}/media`;
-    try {
-      while (nextUrl && allItems.length < maxMedia) {
-        const isFirst = !nextUrl.includes('?');
-        const res: AxiosResponse<MediaPage> = await axios.get<MediaPage>(
-          nextUrl,
-          isFirst ? { params: firstParams } : {}
-        );
-        const page = res.data?.data ?? [];
-        allItems.push(...page);
-        const paging = res.data?.paging;
-        const nextFromMeta = paging?.next;
-        const afterCursor = paging?.cursors?.after;
-        const gotFullPage = page.length >= pageLimit;
-        if (nextFromMeta && allItems.length < maxMedia) {
-          nextUrl = nextFromMeta;
-        } else if (!nextFromMeta && afterCursor && gotFullPage && allItems.length < maxMedia) {
-          nextUrl = `${baseUrl}/${platformUserId}/media?fields=${encodeURIComponent(fields)}&access_token=${encodeURIComponent(accessToken)}&limit=${pageLimit}&after=${encodeURIComponent(afterCursor)}`;
-        } else {
-          nextUrl = null;
+    const merged = new Map<string, IgSyncMediaItem>();
+    const igBases = [fbRestBaseUrl, igGraphRestBaseUrl];
+    let primaryError: Error | null = null;
+
+    for (const apiBase of igBases) {
+      if (merged.size >= maxMedia) break;
+      for (const edge of ['media', 'tags'] as const) {
+        if (merged.size >= maxMedia) break;
+        try {
+          const chunk = await collectInstagramMediaEdgeItems(
+            apiBase,
+            platformUserId,
+            accessToken,
+            edge,
+            maxMedia - merged.size
+          );
+          for (const m of chunk) {
+            if (!m?.id) continue;
+            const prev = merged.get(m.id);
+            merged.set(m.id, prev ? mergeIgSyncMediaItem(prev, m) : m);
+          }
+        } catch (e) {
+          if (apiBase === fbRestBaseUrl && edge === 'media') {
+            primaryError = e instanceof Error ? e : new Error(String(e));
+          }
         }
       }
-    } catch (e) {
-      const msg = (e as Error)?.message ?? '';
-      const metaMsg = (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
+    }
+
+    if (merged.size === 0 && primaryError) {
+      const msg = primaryError.message ?? '';
+      const metaMsg = (primaryError as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error
+        ?.message;
       if (msg.includes('OAuth') || msg.includes('permission') || msg.includes('access') || metaMsg?.toLowerCase().includes('token') || metaMsg?.toLowerCase().includes('permission')) {
         return 'Reconnect your Instagram account to sync posts.';
       }
       if (metaMsg) return metaMsg;
-      throw e;
-    }
-    const items = allItems;
-
-    async function impressionsForMedia(mediaId: string): Promise<number> {
-      try {
-        const insightsRes = await axios.get<{
-          data?: Array<{ name: string; values?: Array<{ value: number }>; total_value?: { value: number } }>;
-        }>(`${baseUrl}/${mediaId}/insights`, {
-          params: { metric: 'impressions,reach', access_token: accessToken },
-          timeout: 8000,
-        });
-        const data = insightsRes.data?.data ?? [];
-        let impressions = 0;
-        let reachVal = 0;
-        for (const d of data) {
-          const val = d.total_value?.value ?? d.values?.[0]?.value ?? 0;
-          if (d.name === 'impressions') impressions = val;
-          if (d.name === 'reach') reachVal = val;
-        }
-        if (impressions === 0 && reachVal > 0) impressions = reachVal;
-        return impressions;
-      } catch {
-        return 0;
-      }
+      throw primaryError;
     }
 
-    // Parallelize insights (was strictly sequential: N round-trips timed out serverless sync after only a few posts).
-    const INSIGHT_CHUNK = 8;
-    for (let start = 0; start < items.length; start += INSIGHT_CHUNK) {
-      const slice = items.slice(start, start + INSIGHT_CHUNK);
-      const impressionResults = await Promise.all(slice.map((m) => impressionsForMedia(m.id)));
-      for (let j = 0; j < slice.length; j++) {
-        const m = slice[j];
-        const impressions = impressionResults[j];
-        const publishedAt = m.timestamp ? new Date(m.timestamp) : new Date();
-        const isVideoLike =
-          m.media_type === 'VIDEO' || m.media_type === 'REELS' || (m.media_type ?? '').toUpperCase() === 'REEL';
-        let thumbnailUrl: string | null = isVideoLike
+    const items = Array.from(merged.values());
+
+    for (const m of items) {
+      const publishedAt = m.timestamp ? new Date(m.timestamp) : new Date();
+      let thumbnailUrl: string | null =
+        m.media_type === 'VIDEO'
           ? (m.thumbnail_url ?? m.media_url ?? null)
           : (m.media_url ?? m.thumbnail_url ?? null);
-        if (!thumbnailUrl && m.media_type === 'CAROUSEL_ALBUM') {
+      if (!thumbnailUrl && m.media_type === 'CAROUSEL_ALBUM') {
+        for (const apiBase of igBases) {
           try {
             const childRes = await axios.get<{ data?: Array<{ media_url?: string }> }>(
-              `${baseUrl}/${m.id}/children`,
-              { params: { fields: 'media_url', access_token: accessToken }, timeout: 8000 }
+              `${apiBase}/${m.id}/children`,
+              { params: { fields: 'media_url', access_token: accessToken } }
             );
             const first = childRes.data?.data?.[0];
-            if (first?.media_url) thumbnailUrl = first.media_url;
+            if (first?.media_url) {
+              thumbnailUrl = first.media_url;
+              break;
+            }
           } catch {
-            // ignore
+            // try next host
           }
         }
-        const likeCount = m.like_count ?? 0;
-        const commentsCount = m.comments_count ?? 0;
-        const interactions = likeCount + commentsCount;
-        await prisma.importedPost.upsert({
-          where: {
-            socialAccountId_platformPostId: { socialAccountId, platformPostId: m.id },
-          },
-          update: {
-            content: m.caption ?? null,
-            thumbnailUrl,
-            permalinkUrl: m.permalink ?? null,
-            publishedAt,
-            mediaType: m.media_type ?? null,
-            impressions,
-            interactions,
-            likeCount,
-            commentsCount,
-            syncedAt: new Date(),
-          },
-          create: {
-            socialAccountId,
-            platformPostId: m.id,
-            platform,
-            content: m.caption ?? null,
-            thumbnailUrl,
-            permalinkUrl: m.permalink ?? null,
-            publishedAt,
-            mediaType: m.media_type ?? null,
-            impressions,
-            interactions,
-            likeCount,
-            commentsCount,
-          },
-        });
       }
+      if (!thumbnailUrl && (m.media_type === 'VIDEO' || isInstagramLikelyReel(m))) {
+        const refetched = await refetchIgMediaThumbnail(m.id, accessToken);
+        if (refetched) thumbnailUrl = refetched;
+      }
+      const likeCount = m.like_count ?? 0;
+      const commentsCount = m.comments_count ?? 0;
+      const interactions = likeCount + commentsCount;
+      const reelish = isInstagramLikelyReel(m);
+      const insightBundle = await fetchInstagramMediaInsightsBestEffort(m.id, accessToken, { isReel: reelish });
+      const views = insightBundle.views;
+      const impressions =
+        views > 0
+          ? views
+          : insightBundle.impressionsLegacy > 0
+            ? insightBundle.impressionsLegacy
+            : insightBundle.reach > 0
+              ? insightBundle.reach
+              : 0;
+      const instagramMeta = {
+        views,
+        reach: insightBundle.reach,
+        impressionsLegacy: insightBundle.impressionsLegacy,
+        avgWatchSeconds: insightBundle.avgWatchSeconds,
+        totalWatchSeconds: insightBundle.totalWatchSeconds,
+        mediaProductType: m.media_product_type ?? null,
+      };
+      await prisma.importedPost.upsert({
+        where: {
+          socialAccountId_platformPostId: { socialAccountId, platformPostId: m.id },
+        },
+        update: {
+          content: m.caption ?? null,
+          thumbnailUrl,
+          permalinkUrl: m.permalink ?? null,
+          publishedAt,
+          mediaType: m.media_type ?? null,
+          impressions,
+          interactions,
+          likeCount,
+          commentsCount,
+          platformMetadata: { instagram: instagramMeta },
+          syncedAt: new Date(),
+        },
+        create: {
+          socialAccountId,
+          platformPostId: m.id,
+          platform,
+          content: m.caption ?? null,
+          thumbnailUrl,
+          permalinkUrl: m.permalink ?? null,
+          publishedAt,
+          mediaType: m.media_type ?? null,
+          impressions,
+          interactions,
+          likeCount,
+          commentsCount,
+          platformMetadata: { instagram: instagramMeta },
+        },
+      });
     }
     return undefined;
   }

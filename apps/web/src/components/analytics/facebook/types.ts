@@ -67,6 +67,16 @@ export interface FacebookInsights {
     ratingsCount: number;
     latestRecommendationText: string | null;
   };
+  /** TikTok: `user.info` stats (requires user.info.stats scope). Shown in analytics; full raw payloads via tiktok-debug on Accounts. */
+  tiktokUser?: {
+    followerCount: number;
+    followingCount?: number;
+    videoCount?: number;
+    likesCount?: number;
+    displayName?: string;
+    bioDescription?: string;
+    isVerified?: boolean;
+  };
 }
 
 export interface FacebookPost {
