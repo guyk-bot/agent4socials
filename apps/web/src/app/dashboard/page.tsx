@@ -1258,6 +1258,7 @@ export default function DashboardPage() {
             followersLabel={selectedAccount.platform === 'YOUTUBE' ? 'Subscribers' : 'Followers'}
             accountAvatarUrl={selectedAccount.profilePicture ?? null}
             accountUsername={selectedAccount.username ?? null}
+            hasApiInsightsFetched={insights != null}
           />
         </div>
       )}

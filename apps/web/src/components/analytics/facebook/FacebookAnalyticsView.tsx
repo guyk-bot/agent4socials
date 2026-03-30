@@ -38,6 +38,8 @@ export interface FacebookAnalyticsViewProps {
   onDateRangeChange?: (range: { start: string; end: string }) => void;
   /** Called when user taps "Reconnect Facebook" to refresh followers/views; opens connect flow. */
   onReconnectFacebook?: () => void;
+  /** False until the first GET /insights response for this account (avoids flashing zeros on Instagram and other non-Facebook platforms). */
+  hasApiInsightsFetched?: boolean;
   /** e.g. "Subscribers" for YouTube; defaults to "Followers" */
   followersLabel?: string;
   /** Connected account avatar from sidebar/account record. */
@@ -987,16 +989,19 @@ export function FacebookAnalyticsView({
   onSync,
   onDateRangeChange,
   onReconnectFacebook,
+  hasApiInsightsFetched = true,
   followersLabel,
   accountAvatarUrl,
   accountUsername,
 }: FacebookAnalyticsViewProps) {
   /**
-   * Shimmer placeholders only while the Facebook Graph bundle is loading.
-   * Instagram and other platforms never receive `facebookAnalytics`; tying skeleton to that field caused empty boxes during every IG refetch.
+   * Overview skeleton: first insights fetch (hasApiInsightsFetched false), or Facebook Page waiting for Graph bundle.
+   * When the parent still has insights === null from the API, hasApiInsightsFetched is false so we do not flash zeros (e.g. Instagram).
+   * Date-range refetches keep prior insights so hasApiInsightsFetched stays true and the UI stays stable.
    */
   const overviewSkeleton =
-    insightsLoading && insights?.platform === 'FACEBOOK' && !insights?.facebookAnalytics;
+    insightsLoading &&
+    (!hasApiInsightsFetched || (insights?.platform === 'FACEBOOK' && !insights?.facebookAnalytics));
   const [storyMode, setStoryMode] = useState<StoryMode>('growth');
   const [selectedStoryMetrics, setSelectedStoryMetrics] = useState<StoryMetricKey[]>(STORY_MODE_DEFAULT_METRICS.growth);
   const [selectedActivityMetrics, setSelectedActivityMetrics] = useState<ActivityMetricKey[]>(['posts', 'actions']);
@@ -1597,15 +1602,92 @@ export function FacebookAnalyticsView({
         ) : null}
       </section>
 
-      {overviewSkeleton ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-28 rounded-[20px] animate-pulse" style={{ background: COLOR.card }} />
-          ))}
-        </div>
-      ) : null}
-
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.overview} className="scroll-mt-28 space-y-4">
+        {overviewSkeleton ? (
+          <>
+            <div
+              className="rounded-[20px] border p-4 sm:p-5 space-y-4"
+              style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}
+            >
+              <div className="h-6 w-36 max-w-[50%] rounded-md animate-pulse bg-neutral-200/90" />
+              <div className="flex flex-wrap gap-2">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="h-9 w-[88px] rounded-lg animate-pulse bg-neutral-200/80" />
+                ))}
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="h-28 rounded-[20px] animate-pulse"
+                    style={{
+                      background: 'linear-gradient(180deg, rgba(255,255,255,0.95), rgba(248,250,252,0.95))',
+                      boxShadow: '0 10px 24px rgba(15,23,42,0.08)',
+                    }}
+                  />
+                ))}
+              </div>
+              <div
+                className="h-[300px] rounded-xl animate-pulse"
+                style={{
+                  background: 'linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,252,0.94))',
+                  boxShadow: '0 14px 30px rgba(15,23,42,0.09)',
+                }}
+              />
+            </div>
+            <div
+              className="rounded-[20px] border p-4 sm:p-5 space-y-4"
+              style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}
+            >
+              <div className="h-6 w-32 max-w-[45%] rounded-md animate-pulse bg-neutral-200/90" />
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="h-24 rounded-[20px] animate-pulse"
+                    style={{
+                      background: 'linear-gradient(180deg, rgba(255,255,255,0.95), rgba(248,250,252,0.95))',
+                      boxShadow: '0 10px 24px rgba(15,23,42,0.08)',
+                    }}
+                  />
+                ))}
+              </div>
+              <div
+                className="h-[300px] rounded-xl animate-pulse"
+                style={{
+                  background: 'linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,252,0.94))',
+                  boxShadow: '0 14px 30px rgba(15,23,42,0.09)',
+                }}
+              />
+            </div>
+            <div
+              className="rounded-[20px] border p-4 sm:p-5 space-y-4"
+              style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}
+            >
+              <div className="h-6 w-28 max-w-[40%] rounded-md animate-pulse bg-neutral-200/90" />
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="h-24 rounded-[20px] animate-pulse"
+                    style={{
+                      background: 'linear-gradient(180deg, rgba(255,255,255,0.95), rgba(248,250,252,0.95))',
+                      boxShadow: '0 10px 24px rgba(15,23,42,0.08)',
+                    }}
+                  />
+                ))}
+              </div>
+              <div
+                className="h-[300px] rounded-xl animate-pulse"
+                style={{
+                  background: 'linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,252,0.94))',
+                  boxShadow: '0 14px 30px rgba(15,23,42,0.09)',
+                }}
+              />
+            </div>
+          </>
+        ) : (
+        <>
         <div className="rounded-[20px] border p-4 sm:p-5 space-y-3" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Performance</h3>
@@ -1913,6 +1995,8 @@ export function FacebookAnalyticsView({
           )}
           </InsightChartCard>
         </div>
+        </>
+        )}
 
       </section>
 
