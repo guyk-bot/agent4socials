@@ -23,6 +23,7 @@ import { AnalyticsDateRangePicker } from '../AnalyticsDateRangePicker';
 import type { FacebookInsights, FacebookPost } from './types';
 import { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids';
 import { localCalendarDateFromIso, toLocalCalendarDate } from '@/lib/calendar-date';
+import { formatMetricNumber as formatNumber } from '@/lib/metric-format';
 
 export { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids';
 
@@ -174,16 +175,6 @@ const REEL_PRESET_METRICS: Record<ReelPresetKey, ReelMetricKey[]> = {
   engagement: ['clicks', 'likes', 'comments', 'shares', 'reposts'],
   watch: ['watchTime', 'avgWatch'],
 };
-
-function formatCompact(n: number): string {
-  if (!Number.isFinite(n)) return '0';
-  return Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(n);
-}
-
-function formatNumber(n: number): string {
-  if (!Number.isFinite(n)) return '0';
-  return Intl.NumberFormat().format(Math.round(n));
-}
 
 function formatPercent(v: number): string {
   return `${(v * 100).toFixed(v < 0.1 ? 2 : 1)}%`;
@@ -611,7 +602,7 @@ export function TopPostsGrid({
                     {clampText(firstWords(p.content, 3) || 'View post', 76)}
                   </p>
                 </div>
-                <span className="shrink-0 text-sm font-semibold" style={{ color: metricColor }}>{formatCompact(p.value)}</span>
+                <span className="shrink-0 text-sm font-semibold" style={{ color: metricColor }}>{formatNumber(p.value)}</span>
               </div>
               <div className="mt-2 flex items-center justify-between text-xs">
                 <span style={{ color: COLOR.textMuted }}>{metricLabel}</span>
@@ -758,11 +749,11 @@ export function PostsPerformanceTable({
                   {formatPostCardDateTime(r.date) || new Date(r.date).toLocaleDateString()}
                 </td>
                 <td className="px-3 py-3"><span className="rounded-full px-2 py-1 text-xs" style={{ background: 'rgba(255,255,255,0.08)', color: COLOR.text }}>{r.type}</span></td>
-                <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatCompact(r.views)}</td>
-                <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatCompact(r.uniqueReach)}</td>
-                <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatCompact(r.clicks)}</td>
-                <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatCompact(r.likes)}</td>
-                <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatCompact(r.reactionsTotal)}</td>
+                <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.views)}</td>
+                <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.uniqueReach)}</td>
+                <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.clicks)}</td>
+                <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.likes)}</td>
+                <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.reactionsTotal)}</td>
                 <td className="pl-5 pr-3 py-3" style={{ color: COLOR.textSecondary }}>{r.watchTimeMs > 0 ? formatDurationMs(r.watchTimeMs) : ' - '}</td>
                 <td className="px-3 py-3" style={{ color: COLOR.textSecondary }}>{r.avgWatchMs > 0 ? formatDurationMs(r.avgWatchMs) : ' - '}</td>
               </tr>
@@ -810,10 +801,10 @@ export function PostsPerformanceTable({
             <div className="mt-2 flex flex-wrap gap-2 text-xs" style={{ color: COLOR.textSecondary }}>
               <span>{formatPostCardDateTime(r.date) || new Date(r.date).toLocaleDateString()}</span>
               <span>{r.type}</span>
-              <span>Views {formatCompact(r.views)}</span>
+              <span>Views {formatNumber(r.views)}</span>
               <span>{r.watchTimeMs > 0 ? `Watch ${formatDurationMs(r.watchTimeMs)}` : 'Watch -'}</span>
               <span>{r.avgWatchMs > 0 ? `Avg ${formatDurationMs(r.avgWatchMs)}` : 'Avg -'}</span>
-              <span>Clicks {formatCompact(r.clicks)}</span>
+              <span>Clicks {formatNumber(r.clicks)}</span>
             </div>
           </button>
         ))}
@@ -897,9 +888,9 @@ function TopContentHighlights({
                   {(r.preview || '').trim() || 'View post'}
                 </p>
                 <div className="mt-auto pt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs" style={{ color: COLOR.textMuted }}>
-                  <span style={metricLabel === 'Views' ? { color: COLOR.text, fontWeight: 700, fontSize: 13 } : undefined}>Views {formatCompact(r.views)}</span>
-                  <span style={metricLabel === 'Clicks' ? { color: COLOR.text, fontWeight: 700, fontSize: 13 } : undefined}>Clicks {formatCompact(r.clicks)}</span>
-                  <span style={metricLabel === 'Reactions' ? { color: COLOR.text, fontWeight: 700, fontSize: 13 } : undefined}>Reactions {formatCompact(r.reactions)}</span>
+                  <span style={metricLabel === 'Views' ? { color: COLOR.text, fontWeight: 700, fontSize: 13 } : undefined}>Views {formatNumber(r.views)}</span>
+                  <span style={metricLabel === 'Clicks' ? { color: COLOR.text, fontWeight: 700, fontSize: 13 } : undefined}>Clicks {formatNumber(r.clicks)}</span>
+                  <span style={metricLabel === 'Reactions' ? { color: COLOR.text, fontWeight: 700, fontSize: 13 } : undefined}>Reactions {formatNumber(r.reactions)}</span>
                 </div>
               </div>
             </div>
@@ -932,8 +923,8 @@ export function ReelsPerformanceGrid({
           <p className="text-sm font-medium" style={{ color: COLOR.text }}>{clampText(post.content || 'Untitled reel', 90)}</p>
           <p className="mt-1 text-xs" style={{ color: COLOR.textMuted }}>{new Date(post.publishedAt).toLocaleDateString()}</p>
           <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-            <div className="rounded-lg p-2" style={{ background: 'rgba(95,246,253,0.09)', color: COLOR.cyan }}>Views<br /><span className="text-sm font-semibold">{formatCompact(views)}</span></div>
-            <div className="rounded-lg p-2" style={{ background: 'rgba(94,230,168,0.09)', color: COLOR.mint }}>Organic<br /><span className="text-sm font-semibold">{formatCompact(organicViews)}</span></div>
+            <div className="rounded-lg p-2" style={{ background: 'rgba(95,246,253,0.09)', color: COLOR.cyan }}>Views<br /><span className="text-sm font-semibold">{formatNumber(views)}</span></div>
+            <div className="rounded-lg p-2" style={{ background: 'rgba(94,230,168,0.09)', color: COLOR.mint }}>Organic<br /><span className="text-sm font-semibold">{formatNumber(organicViews)}</span></div>
             <div className="rounded-lg p-2" style={{ background: 'rgba(223,68,220,0.09)', color: COLOR.magenta }}>Avg watch<br /><span className="text-sm font-semibold">{formatDurationMs(avgWatchMs)}</span></div>
           </div>
         </div>
@@ -1652,7 +1643,7 @@ export function FacebookAnalyticsView({
               label="Engagements"
               source={isInstagram ? 'accounts_engaged' : 'page_post_engagements'}
               color={COLOR.violet}
-              value={formatCompact(engagements)}
+              value={formatNumber(engagements)}
               series={growthSparklineSeries.engagement}
               active={isCardSelected('engagements')}
               onClick={() => toggleStoryMetric('engagements')}
@@ -1665,7 +1656,7 @@ export function FacebookAnalyticsView({
                   : 'page_video_views, post_video_views, post_media_view'
               }
               color={COLOR.magenta}
-              value={formatCompact(videoViews)}
+              value={formatNumber(videoViews)}
               series={growthSparklineSeries.videoViews}
               active={isCardSelected('videoViews')}
               onClick={() => toggleStoryMetric('videoViews')}
@@ -1674,7 +1665,7 @@ export function FacebookAnalyticsView({
               label="Content Views"
               source={isInstagram ? 'impressions (media)' : 'page_media_view'}
               color={COLOR.amber}
-              value={formatCompact(contentViews)}
+              value={formatNumber(contentViews)}
               series={growthSparklineSeries.contentViews}
               active={isCardSelected('contentViews')}
               onClick={() => toggleStoryMetric('contentViews')}
@@ -1683,7 +1674,7 @@ export function FacebookAnalyticsView({
               label="Page Visits"
               source={isInstagram ? 'profile_views' : 'page_views_total'}
               color={COLOR.coral}
-              value={formatCompact(pageVisits)}
+              value={formatNumber(pageVisits)}
               series={growthSparklineSeries.pageVisits}
               active={isCardSelected('pageVisits')}
               onClick={() => toggleStoryMetric('pageVisits')}
@@ -1750,7 +1741,7 @@ export function FacebookAnalyticsView({
               label="Likes"
               source="post_reactions_like_total"
               color={ENGAGEMENT_METRIC_CONFIG.likes.color}
-              value={formatCompact(likesTotal)}
+              value={formatNumber(likesTotal)}
               active={selectedEngagementMetrics.includes('likes')}
               onClick={() => setSelectedEngagementMetrics((prev) => prev.includes('likes') ? prev.filter((m) => m !== 'likes') : [...prev, 'likes'])}
             />
@@ -1758,7 +1749,7 @@ export function FacebookAnalyticsView({
               label="Comments"
               source="post_comments"
               color={ENGAGEMENT_METRIC_CONFIG.comments.color}
-              value={formatCompact(commentsTotal)}
+              value={formatNumber(commentsTotal)}
               active={selectedEngagementMetrics.includes('comments')}
               onClick={() => setSelectedEngagementMetrics((prev) => prev.includes('comments') ? prev.filter((m) => m !== 'comments') : [...prev, 'comments'])}
             />
@@ -1766,7 +1757,7 @@ export function FacebookAnalyticsView({
               label="Shares"
               source="post_shares"
               color={ENGAGEMENT_METRIC_CONFIG.shares.color}
-              value={formatCompact(sharesTotal)}
+              value={formatNumber(sharesTotal)}
               active={selectedEngagementMetrics.includes('shares')}
               onClick={() => setSelectedEngagementMetrics((prev) => prev.includes('shares') ? prev.filter((m) => m !== 'shares') : [...prev, 'shares'])}
             />
@@ -1774,7 +1765,7 @@ export function FacebookAnalyticsView({
               label="Reposts"
               source="Proxy from post_shares"
               color={ENGAGEMENT_METRIC_CONFIG.reposts.color}
-              value={formatCompact(repostsTotal)}
+              value={formatNumber(repostsTotal)}
               active={selectedEngagementMetrics.includes('reposts')}
               onClick={() => setSelectedEngagementMetrics((prev) => prev.includes('reposts') ? prev.filter((m) => m !== 'reposts') : [...prev, 'reposts'])}
             />
@@ -1847,7 +1838,7 @@ export function FacebookAnalyticsView({
             label="Actions"
             source={(bundle?.series.totalActions?.length ?? 0) > 0 ? 'page_total_actions' : 'page_post_engagements (fallback)'}
             color={ACTIVITY_METRIC_CONFIG.actions.color}
-            value={formatCompact(totalActions)}
+            value={formatNumber(totalActions)}
             active={selectedActivityMetrics.includes('actions')}
             onClick={() => setSelectedActivityMetrics((prev) => prev.includes('actions') ? prev.filter((m) => m !== 'actions') : [...prev, 'actions'])}
           />
@@ -1855,7 +1846,7 @@ export function FacebookAnalyticsView({
             label="Posts"
             source="Derived from posts feed"
             color={ACTIVITY_METRIC_CONFIG.posts.color}
-            value={formatCompact(postsInRange.length)}
+            value={formatNumber(postsInRange.length)}
             active={selectedActivityMetrics.includes('posts')}
             onClick={() => setSelectedActivityMetrics((prev) => prev.includes('posts') ? prev.filter((m) => m !== 'posts') : [...prev, 'posts'])}
           />
@@ -1863,7 +1854,7 @@ export function FacebookAnalyticsView({
             label="Conversations"
             source="Messenger conversations"
             color={ACTIVITY_METRIC_CONFIG.conversations.color}
-            value={formatCompact(conversationActivityCount)}
+            value={formatNumber(conversationActivityCount)}
             active={selectedActivityMetrics.includes('conversations')}
             onClick={() => setSelectedActivityMetrics((prev) => prev.includes('conversations') ? prev.filter((m) => m !== 'conversations') : [...prev, 'conversations'])}
           />
@@ -1935,7 +1926,7 @@ export function FacebookAnalyticsView({
               label="Post Impressions"
               source="page_posts_impressions"
               color={COLOR.cyan}
-              value={formatCompact(postImpressions)}
+              value={formatNumber(postImpressions)}
               active={selectedTrafficMetrics.includes('postImpressions')}
               onClick={() => setSelectedTrafficMetrics((prev) => prev.includes('postImpressions') ? prev.filter((m) => m !== 'postImpressions') : [...prev, 'postImpressions'])}
             />
@@ -1943,7 +1934,7 @@ export function FacebookAnalyticsView({
               label="Non-viral Impressions"
               source="page_posts_impressions_nonviral"
               color={COLOR.violet}
-              value={formatCompact(nonviralImpressions)}
+              value={formatNumber(nonviralImpressions)}
               active={selectedTrafficMetrics.includes('nonviral')}
               onClick={() => setSelectedTrafficMetrics((prev) => prev.includes('nonviral') ? prev.filter((m) => m !== 'nonviral') : [...prev, 'nonviral'])}
             />
@@ -1951,7 +1942,7 @@ export function FacebookAnalyticsView({
               label="Viral Impressions"
               source="page_posts_impressions_viral"
               color={COLOR.magenta}
-              value={formatCompact(viralImpressions)}
+              value={formatNumber(viralImpressions)}
               active={selectedTrafficMetrics.includes('viral')}
               onClick={() => setSelectedTrafficMetrics((prev) => prev.includes('viral') ? prev.filter((m) => m !== 'viral') : [...prev, 'viral'])}
             />
@@ -1959,7 +1950,7 @@ export function FacebookAnalyticsView({
               label="Unique Reach Proxy"
               source="Sum of post_impressions_unique"
               color={COLOR.amber}
-              value={formatCompact(uniqueReachProxy)}
+              value={formatNumber(uniqueReachProxy)}
               active={selectedTrafficMetrics.includes('uniqueReachProxy')}
               onClick={() => setSelectedTrafficMetrics((prev) => prev.includes('uniqueReachProxy') ? prev.filter((m) => m !== 'uniqueReachProxy') : [...prev, 'uniqueReachProxy'])}
             />
@@ -2088,7 +2079,7 @@ export function FacebookAnalyticsView({
             <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Posts</h2>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <MetricCard label="Total Posts" source="Derived from posts in date range" color={COLOR.text} value={formatCompact(postsInRange.length)} />
+            <MetricCard label="Total Posts" source="Derived from posts in date range" color={COLOR.text} value={formatNumber(postsInRange.length)} />
             <MetricCard label="Avg Clicks per Post" source="post_clicks" color={COLOR.text} value={avgClicksPerPost.toFixed(1)} />
             <MetricCard label="Avg Reactions per Post" source="post_reactions_like_total / breakdown" color={COLOR.text} value={avgReactionsPerPost.toFixed(1)} />
           </div>
@@ -2165,7 +2156,7 @@ export function FacebookAnalyticsView({
             label="Total Video Views"
             source="post_video_views"
             color={REEL_METRIC_CONFIG.views.color}
-            value={formatCompact(totalReelVideoViews)}
+            value={formatNumber(totalReelVideoViews)}
             active={selectedReelMetrics.includes('views')}
             onClick={() => setSelectedReelMetrics((prev) => prev.includes('views') ? prev.filter((m) => m !== 'views') : [...prev, 'views'])}
           />
@@ -2189,7 +2180,7 @@ export function FacebookAnalyticsView({
             label="Clicks"
             source="post_clicks"
             color={REEL_METRIC_CONFIG.clicks.color}
-            value={formatCompact(reelClicks)}
+            value={formatNumber(reelClicks)}
             active={selectedReelMetrics.includes('clicks')}
             onClick={() => setSelectedReelMetrics((prev) => prev.includes('clicks') ? prev.filter((m) => m !== 'clicks') : [...prev, 'clicks'])}
           />
@@ -2197,7 +2188,7 @@ export function FacebookAnalyticsView({
             label="Likes"
             source="post_reactions_like_total"
             color={REEL_METRIC_CONFIG.likes.color}
-            value={formatCompact(reelLikes)}
+            value={formatNumber(reelLikes)}
             active={selectedReelMetrics.includes('likes')}
             onClick={() => setSelectedReelMetrics((prev) => prev.includes('likes') ? prev.filter((m) => m !== 'likes') : [...prev, 'likes'])}
           />
@@ -2205,7 +2196,7 @@ export function FacebookAnalyticsView({
             label="Comments"
             source="post_comments"
             color={REEL_METRIC_CONFIG.comments.color}
-            value={formatCompact(reelComments)}
+            value={formatNumber(reelComments)}
             active={selectedReelMetrics.includes('comments')}
             onClick={() => setSelectedReelMetrics((prev) => prev.includes('comments') ? prev.filter((m) => m !== 'comments') : [...prev, 'comments'])}
           />
@@ -2213,7 +2204,7 @@ export function FacebookAnalyticsView({
             label="Shares"
             source="post_shares"
             color={REEL_METRIC_CONFIG.shares.color}
-            value={formatCompact(reelShares)}
+            value={formatNumber(reelShares)}
             active={selectedReelMetrics.includes('shares')}
             onClick={() => setSelectedReelMetrics((prev) => prev.includes('shares') ? prev.filter((m) => m !== 'shares') : [...prev, 'shares'])}
           />
@@ -2221,7 +2212,7 @@ export function FacebookAnalyticsView({
             label="Reposts"
             source="repostsCount"
             color={REEL_METRIC_CONFIG.reposts.color}
-            value={formatCompact(reelReposts)}
+            value={formatNumber(reelReposts)}
             active={selectedReelMetrics.includes('reposts')}
             onClick={() => setSelectedReelMetrics((prev) => prev.includes('reposts') ? prev.filter((m) => m !== 'reposts') : [...prev, 'reposts'])}
           />

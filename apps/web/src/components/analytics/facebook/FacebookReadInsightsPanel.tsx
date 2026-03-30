@@ -23,9 +23,8 @@ const TOTAL_ROWS: Array<{ key: keyof FacebookFrontendAnalyticsBundle['totals']; 
 
 function fmt(n: number): string {
   if (!Number.isFinite(n)) return '—';
-  if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
-  if (Math.abs(n) >= 10_000) return `${(n / 1000).toFixed(1)}k`;
-  return n.toLocaleString(undefined, { maximumFractionDigits: n % 1 ? 2 : 0 });
+  if (n % 1) return n.toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 0 });
+  return Math.round(n).toLocaleString();
 }
 
 export function FacebookReadInsightsPanel({

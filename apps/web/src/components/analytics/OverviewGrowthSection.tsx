@@ -195,16 +195,14 @@ const METRIC_COLORS: Record<LineMetricId, { stroke: string; fill: string }> = {
 const POSTS_CHART_COLOR = { stroke: '#d97706', fill: '#fcd34d' }; // amber-600 / amber-300
 
 function formatYAxisValue(v: number): string {
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
-  if (v >= 1000) return `${(v / 1000).toFixed(1)}k`;
-  return String(v);
+  if (!Number.isFinite(v)) return '0';
+  return Math.round(v).toLocaleString();
 }
 
-/** Tooltip: show exact integer for followers/following so users see real counts (e.g. 1,049 not 1.0k). */
+/** Tooltips and axis: full grouped integers (no K/M suffix). */
 function formatTooltipValue(metricId: ChartMetricId, value: number): string {
-  if (metricId === 'followers' || metricId === 'following') return Math.round(value).toLocaleString();
-  if (metricId === 'posts') return String(value);
-  return formatYAxisValue(value);
+  if (metricId === 'posts') return String(Math.round(value));
+  return Math.round(value).toLocaleString();
 }
 
 // —— FollowersGrowthChart ——

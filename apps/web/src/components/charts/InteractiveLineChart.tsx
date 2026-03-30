@@ -12,6 +12,7 @@ import {
   CartesianGrid,
   TooltipProps,
 } from 'recharts';
+import { formatMetricNumber } from '@/lib/metric-format';
 
 export type TimeSeriesPoint = { date: string; value: number };
 
@@ -152,7 +153,7 @@ export function InteractiveLineChart({
             tick={{ fontSize: 11, fill: '#6b7280' }}
             axisLine={false}
             tickLine={false}
-            tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v))}
+            tickFormatter={(v) => formatMetricNumber(Number(v))}
           />
           <Tooltip
             content={<CustomTooltip />}

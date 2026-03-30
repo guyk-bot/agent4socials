@@ -71,9 +71,8 @@ export function aggregateTopNWithOther(items: BreakdownItem[], topN = 5): Breakd
 export function formatBreakdownTotal(value: number, kind: 'count' | 'minutes' | 'views' = 'count'): string {
   if (!Number.isFinite(value)) return '—';
   if (kind === 'minutes') {
-    if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M min`;
-    if (value >= 10_000) return `${(value / 1000).toFixed(1)}k min`;
-    return `${Math.round(value).toLocaleString()} min`;
+    const n = value >= 100 ? Math.round(value) : Math.round(value * 10) / 10;
+    return `${n.toLocaleString()} min`;
   }
   if (kind === 'views') {
     return Math.round(value).toLocaleString();

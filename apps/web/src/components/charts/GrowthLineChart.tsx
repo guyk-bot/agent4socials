@@ -11,6 +11,7 @@ import {
   CartesianGrid,
   TooltipProps,
 } from 'recharts';
+import { formatMetricNumber } from '@/lib/metric-format';
 
 export type TimeSeriesPoint = { date: string; value: number };
 
@@ -106,7 +107,7 @@ export function GrowthLineChart({ data, metric, height = 320, className = '' }: 
             tick={{ fontSize: 11, fill: '#64748b' }}
             axisLine={false}
             tickLine={false}
-            tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v))}
+            tickFormatter={(v) => formatMetricNumber(Number(v))}
           />
           <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#94a3b8', strokeDasharray: '4 4' }} />
           <Area

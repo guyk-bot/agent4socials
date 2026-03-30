@@ -47,7 +47,7 @@
 | `app/` | Routes: `page.tsx`, `layout.tsx`, `route.ts` under `app/api/` |
 | `components/` | Shared UI: `analytics/`, `dashboard/`, `auth/`, `landing/`, `smart-links/` |
 | `context/` | React context (auth, theme, accounts, selected account, app data) |
-| `lib/` | Server and shared logic: `facebook/`, `analytics/`, publish, tokens, DB |
+| `lib/` | Server and shared logic: `facebook/`, `analytics/`, `metric-format.ts` (full KPI numbers), publish, tokens, DB |
 | `types/` | Shared TS types (e.g. analytics) |
 | `middleware.ts` | Edge middleware |
 

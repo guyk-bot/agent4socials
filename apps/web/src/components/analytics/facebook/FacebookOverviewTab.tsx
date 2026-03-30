@@ -12,6 +12,7 @@ import {
   Legend,
 } from 'recharts';
 import type { FacebookInsights, FacebookPost } from './types';
+import { formatMetricNumber } from '@/lib/metric-format';
 
 interface FacebookOverviewTabProps {
   insights: FacebookInsights | null;
@@ -159,7 +160,7 @@ export function FacebookOverviewTab({
                   tick={{ fontSize: 12, fill: '#6b7280' }}
                   axisLine={false}
                   tickLine={false}
-                  tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v))}
+                  tickFormatter={(v) => formatMetricNumber(Number(v))}
                 />
                 <YAxis
                   yAxisId="right"
