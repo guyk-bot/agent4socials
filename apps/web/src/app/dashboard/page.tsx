@@ -352,23 +352,38 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!accountIdFromUrl || twitter1oaNext === '1') return;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    let cancelled = false;
     const justConnected = connectingParam === '1';
-    fetchAccounts().then(() => {
+
+    // Normal sidebar account switches should be immediate and race-free.
+    if (!justConnected) {
       setSelectedAccountId(accountIdFromUrl);
-      if (justConnected) {
+      router.replace('/dashboard', { scroll: false });
+      return;
+    }
+
+    // After OAuth connect we refresh account cache once, then clear stale per-account caches.
+    fetchAccounts()
+      .then(() => {
+        if (cancelled) return;
+        setSelectedAccountId(accountIdFromUrl);
         delete postsCacheRef.current[accountIdFromUrl];
         Object.keys(insightsCacheRef.current).forEach((k) => {
           if (k.startsWith(accountIdFromUrl + '-')) delete insightsCacheRef.current[k];
         });
         appData?.clearAccountData(accountIdFromUrl);
-      }
-      router.replace('/dashboard', { scroll: false });
-      if (justConnected) {
+        router.replace('/dashboard', { scroll: false });
         setJustConnected(true);
         timeoutId = setTimeout(() => setJustConnected(false), 5000);
-      }
-    }).catch(() => router.replace('/dashboard', { scroll: false }));
-    return () => { if (timeoutId) clearTimeout(timeoutId); };
+      })
+      .catch(() => {
+        if (!cancelled) router.replace('/dashboard', { scroll: false });
+      });
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [accountIdFromUrl, connectingParam, twitter1oaNext, router, setSelectedAccountId, appData]);
 
   useEffect(() => {
