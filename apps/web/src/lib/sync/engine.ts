@@ -10,7 +10,7 @@
 
 import { prisma } from '@/lib/db';
 import { buildIdempotencyKey, getStaleThresholdMs, MIN_MANUAL_SYNC_INTERVAL_MS, PLATFORM_SCOPES, type SyncScope, type SyncType } from './config';
-import { getAdapterForPlatform } from './adapters';
+import { getAdapterForPlatform, type Adapter } from './adapters';
 
 export interface SyncAccountOptions {
   userId: string;
@@ -285,20 +285,6 @@ async function finalizeJob(
   };
 }
 
-interface PlatformAdapter {
-  syncAccountOverview?: (account: AccountRow) => Promise<AdapterResult>;
-  syncRecentContent?: (account: AccountRow) => Promise<AdapterResult>;
-  syncContentMetrics?: (account: AccountRow) => Promise<AdapterResult>;
-  syncComments?: (account: AccountRow) => Promise<AdapterResult>;
-  syncMessages?: (account: AccountRow) => Promise<AdapterResult>;
-  syncAudienceDemographics?: (account: AccountRow) => Promise<AdapterResult>;
-}
-
-interface AdapterResult {
-  itemsProcessed: number;
-  partial?: boolean;
-}
-
 interface AccountRow {
   id: string;
   userId: string;
@@ -311,10 +297,10 @@ interface AccountRow {
 }
 
 async function runAdapterScope(
-  adapter: PlatformAdapter,
+  adapter: Adapter,
   account: AccountRow,
   scope: SyncScope
-): Promise<AdapterResult> {
+): Promise<{ itemsProcessed: number; partial?: boolean }> {
   switch (scope) {
     case 'account_overview':
       return (await adapter.syncAccountOverview?.(account)) ?? { itemsProcessed: 0 };
