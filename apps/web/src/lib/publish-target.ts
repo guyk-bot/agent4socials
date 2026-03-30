@@ -64,7 +64,26 @@ function pinterestApiErrorDetail(status: number | undefined, data: unknown): str
 
 /** Max raw bytes for Pinterest video cover when sending Base64 (avoid huge JSON bodies). */
 const PINTEREST_COVER_MAX_BYTES = 2 * 1024 * 1024;
-const TIKTOK_CHUNK_SIZE = 5 * 1024 * 1024;
+
+/** TikTok FILE_UPLOAD init: see https://developers.tiktok.com/doc/content-posting-api-media-transfer-guide */
+const TIKTOK_MIN_CHUNK_BYTES = 5 * 1024 * 1024;
+const TIKTOK_MAX_SINGLE_UPLOAD_BYTES = 64 * 1024 * 1024;
+/** When video exceeds 64MB, split into 10MB parts (matches TikTok docs example). */
+const TIKTOK_MULTIPART_CHUNK_BYTES = 10 * 1024 * 1024;
+
+function tiktokFileUploadChunkPlan(videoSize: number): { chunkSize: number; totalChunkCount: number } {
+  const n = Math.max(0, Math.floor(videoSize));
+  if (n <= 0) return { chunkSize: 1, totalChunkCount: 1 };
+  if (n < TIKTOK_MIN_CHUNK_BYTES) {
+    return { chunkSize: n, totalChunkCount: 1 };
+  }
+  if (n <= TIKTOK_MAX_SINGLE_UPLOAD_BYTES) {
+    return { chunkSize: n, totalChunkCount: 1 };
+  }
+  const chunkSize = TIKTOK_MULTIPART_CHUNK_BYTES;
+  const totalChunkCount = Math.ceil(n / chunkSize);
+  return { chunkSize, totalChunkCount };
+}
 
 function pinterestCoverContentTypeFromBuffer(contentType: string): 'image/jpeg' | 'image/png' {
   const c = contentType.toLowerCase();
@@ -998,8 +1017,7 @@ export async function publishTarget(
         console.log('[TikTok] Unaudited app — switching to FILE_UPLOAD with SELF_ONLY privacy');
         const { buffer: unauditedBuf, contentType: unauditedCt } = await fetchMediaBuffer(videoUrl, fetchFn);
         const unauditedSize = unauditedBuf.length;
-        const unauditedChunk = TIKTOK_CHUNK_SIZE;
-        const unauditedChunkCount = Math.max(1, Math.ceil(unauditedSize / unauditedChunk));
+        const { chunkSize: unauditedChunk, totalChunkCount: unauditedChunkCount } = tiktokFileUploadChunkPlan(unauditedSize);
         const unauditedMime = unauditedCt && /video\/(mp4|webm|quicktime)/i.test(unauditedCt) ? unauditedCt : 'video/mp4';
         const uaInitRes = await axiosInstance.post(
           `${tiktokBase}/v2/post/publish/video/init/`,
@@ -1078,8 +1096,7 @@ export async function publishTarget(
       if (!publishId) {
         const { buffer, contentType: videoContentType } = await fetchMediaBuffer(videoUrl, fetchFn);
         const videoSize = buffer.length;
-        const CHUNK_SIZE = TIKTOK_CHUNK_SIZE;
-        const totalChunkCount = Math.max(1, Math.ceil(videoSize / CHUNK_SIZE));
+        const { chunkSize: CHUNK_SIZE, totalChunkCount } = tiktokFileUploadChunkPlan(videoSize);
         const mimeType = videoContentType && /video\/(mp4|webm|quicktime)/i.test(videoContentType) ? videoContentType : 'video/mp4';
 
         const fileInitRes = await axiosInstance.post(

@@ -46,6 +46,31 @@ const PLATFORM_ICON: Record<string, React.ReactNode> = {
 
 const PLATFORM_ORDER = ['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'LINKEDIN', 'PINTEREST', 'TWITTER'];
 
+/** Public profile URL for the platform icon (opens in a new tab). */
+function externalProfileUrlForAccount(platform: string, username?: string | null): string | null {
+  const raw = (username || '').trim().replace(/^@/, '');
+  if (!raw) return null;
+  const u = encodeURIComponent(raw);
+  switch (platform) {
+    case 'FACEBOOK':
+      return `https://www.facebook.com/${u}`;
+    case 'INSTAGRAM':
+      return `https://www.instagram.com/${u}/`;
+    case 'TIKTOK':
+      return `https://www.tiktok.com/@${u}`;
+    case 'YOUTUBE':
+      return `https://www.youtube.com/@${u}`;
+    case 'TWITTER':
+      return `https://x.com/${u}`;
+    case 'LINKEDIN':
+      return `https://www.linkedin.com/in/${u}/`;
+    case 'PINTEREST':
+      return `https://www.pinterest.com/${u}/`;
+    default:
+      return null;
+  }
+}
+
 /** Platforms that show a gem / upgrade styling on the connect row (empty = same as other networks). */
 const UPGRADE_TO_CONNECT_PLATFORMS: string[] = [];
 
@@ -201,10 +226,47 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                 const accountRowClass = `w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors min-w-0 ${
                   isSelected ? 'bg-white shadow-sm ring-1 ring-neutral-200' : 'hover:bg-white/70'
                 }`;
-                const accountRowInner = (
-                  <>
+                // From Inbox or any page: go to this account's analytics via client-side nav (keeps cache, no reload).
+                const dashboardUrl = `/dashboard?accountId=${encodeURIComponent(acc.id)}`;
+                const platformLabel = PLATFORM_LABELS[platform] ?? platform;
+                const externalUrl = externalProfileUrlForAccount(platform, acc.username);
+                const goToAccountDashboard = () => {
+                  setSelectedAccount(acc);
+                  router.push(dashboardUrl);
+                };
+                return (
+                  <div
+                    key={acc.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={goToAccountDashboard}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        goToAccountDashboard();
+                      }
+                    }}
+                    className={`${accountRowClass} cursor-pointer`}
+                    title={`View ${platformLabel} analytics`}
+                    aria-label={`View ${acc.username || platformLabel} analytics`}
+                  >
                     <div className="w-10 h-10 flex items-center justify-center shrink-0">
-                      {PLATFORM_ICON[platform]}
+                      {externalUrl ? (
+                        <a
+                          href={externalUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => e.stopPropagation()}
+                          className="flex items-center justify-center w-full h-full rounded-lg hover:bg-neutral-100/80"
+                          title={`Open ${platformLabel} profile in a new tab`}
+                          aria-label={`Open ${platformLabel} profile in a new tab`}
+                        >
+                          {PLATFORM_ICON[platform]}
+                        </a>
+                      ) : (
+                        PLATFORM_ICON[platform]
+                      )}
                     </div>
                     <span className="truncate flex-1 font-medium">{acc.username || PLATFORM_LABELS[platform]}</span>
                     <div className={`w-8 h-8 flex items-center justify-center shrink-0 rounded-full overflow-hidden ${acc.profilePicture ? '' : 'bg-neutral-200'}`}>
@@ -214,27 +276,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                         PLATFORM_ICON[platform] ?? <span className="font-bold text-xs text-neutral-500">?</span>
                       )}
                     </div>
-                  </>
-                );
-                // From Inbox or any page: go to this account's analytics via client-side nav (keeps cache, no reload).
-                const dashboardUrl = `/dashboard?accountId=${encodeURIComponent(acc.id)}`;
-                const handleGoToAccountDashboard = (e: React.MouseEvent) => {
-                  e.preventDefault();
-                  setSelectedAccount(acc);
-                  router.push(dashboardUrl);
-                };
-                const platformLabel = PLATFORM_LABELS[platform] ?? platform;
-                return (
-                  <Link
-                    key={acc.id}
-                    href={dashboardUrl}
-                    onClick={handleGoToAccountDashboard}
-                    className={accountRowClass}
-                    title={`View ${platformLabel} analytics`}
-                    aria-label={`View ${acc.username || platformLabel} analytics`}
-                  >
-                    {accountRowInner}
-                  </Link>
+                  </div>
                 );
               })}
             </div>
