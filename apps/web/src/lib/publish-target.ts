@@ -960,6 +960,28 @@ export async function publishTarget(
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json; charset=UTF-8',
       };
+      const isRetryableTikTokInternal = (err?: { code?: string; message?: string }): boolean => {
+        if (!err) return false;
+        const code = (err.code ?? '').toLowerCase();
+        const msg = (err.message ?? '').toLowerCase();
+        return code === 'internal' || code === 'internal_error' || msg.includes('internal');
+      };
+      const tiktokPostWithRetry = async (
+        url: string,
+        payload: unknown,
+        timeoutMs: number,
+        label: string
+      ): Promise<{ data?: { data?: Record<string, unknown>; error?: { code?: string; message?: string } } }> => {
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const res = await axiosInstance.post(url, payload, { headers, timeout: timeoutMs, validateStatus: () => true }) as { data?: { data?: Record<string, unknown>; error?: { code?: string; message?: string } } };
+          const err = res.data?.error;
+          if (!isRetryableTikTokInternal(err) || attempt === 2) return res;
+          const waitMs = 1200 * (attempt + 1);
+          console.log(`[TikTok] ${label} retrying after internal error`, { attempt: attempt + 1, error: err, waitMs });
+          await new Promise((r) => setTimeout(r, waitMs));
+        }
+        return { data: { error: { code: 'internal', message: 'internal' } } };
+      };
 
       // 1) Creator info to get allowed privacy_level.
       //    This call is optional — if it times out or fails we continue with a safe default.
@@ -985,7 +1007,7 @@ export async function publishTarget(
       let publishId: string | undefined;
 
       console.log('[TikTok] Starting PULL_FROM_URL init', { videoUrl: videoUrl?.slice(0, 120) });
-      const pullInitRes = await axiosInstance.post(
+      const pullInitRes = await tiktokPostWithRetry(
         `${tiktokBase}/v2/post/publish/video/init/`,
         {
           post_info: {
@@ -998,7 +1020,8 @@ export async function publishTarget(
           },
           source_info: { source: 'PULL_FROM_URL', video_url: videoUrl },
         },
-        { headers, timeout: 30_000, validateStatus: () => true }
+        30_000,
+        'direct PULL_FROM_URL init'
       ) as { data?: { data?: { publish_id?: string }; error?: { code?: string; message?: string } } };
       const pullBody = pullInitRes.data ?? {};
       const pullErr = pullBody.error;
@@ -1024,10 +1047,11 @@ export async function publishTarget(
         console.log('[TikTok] Unaudited app — trying inbox init flow');
 
         // First try inbox PULL_FROM_URL (no upload required if accepted).
-        const uaInboxPullRes = await axiosInstance.post(
+        const uaInboxPullRes = await tiktokPostWithRetry(
           `${tiktokBase}/v2/post/publish/inbox/video/init/`,
           { source_info: { source: 'PULL_FROM_URL', video_url: videoUrl } },
-          { headers, timeout: 30_000, validateStatus: () => true }
+          30_000,
+          'inbox PULL_FROM_URL init'
         ) as { data?: { data?: { publish_id?: string }; error?: { code?: string; message?: string } } };
         const uaInboxPullBody = uaInboxPullRes.data ?? {};
         const uaInboxPullErr = uaInboxPullBody.error;
@@ -1041,7 +1065,7 @@ export async function publishTarget(
           const { chunkSize: unauditedChunk, totalChunkCount: unauditedChunkCount } = tiktokFileUploadChunkPlan(unauditedSize);
           const unauditedMime = unauditedCt && /video\/(mp4|webm|quicktime)/i.test(unauditedCt) ? unauditedCt : 'video/mp4';
 
-          const uaInboxFileInitRes = await axiosInstance.post(
+          const uaInboxFileInitRes = await tiktokPostWithRetry(
             `${tiktokBase}/v2/post/publish/inbox/video/init/`,
             {
               source_info: {
@@ -1051,7 +1075,8 @@ export async function publishTarget(
                 total_chunk_count: unauditedChunkCount,
               },
             },
-            { headers, timeout: 30_000, validateStatus: () => true }
+            30_000,
+            'inbox FILE_UPLOAD init'
           ) as { data?: { data?: { publish_id?: string; upload_url?: string }; error?: { code?: string; message?: string } } };
           const uaInboxFileBody = uaInboxFileInitRes.data ?? {};
           const uaInboxFileErr = uaInboxFileBody.error;
@@ -1083,10 +1108,11 @@ export async function publishTarget(
       } else if (pullErr && (pullErr.code === 'scope_not_authorized' || pullErr.code === 'access_token_invalid')) {
         // video.publish scope missing — try inbox via PULL_FROM_URL
         useInbox = true;
-        const inboxPullRes = await axiosInstance.post(
+        const inboxPullRes = await tiktokPostWithRetry(
           `${tiktokBase}/v2/post/publish/inbox/video/init/`,
           { source_info: { source: 'PULL_FROM_URL', video_url: videoUrl } },
-          { headers, timeout: 30_000, validateStatus: () => true }
+          30_000,
+          'scope fallback inbox PULL_FROM_URL init'
         ) as { data?: { data?: { publish_id?: string }; error?: { code?: string; message?: string } } };
         const inboxPullBody = inboxPullRes.data ?? {};
         const inboxPullErr = inboxPullBody.error;
@@ -1113,7 +1139,7 @@ export async function publishTarget(
         const { chunkSize: CHUNK_SIZE, totalChunkCount } = tiktokFileUploadChunkPlan(videoSize);
         const mimeType = videoContentType && /video\/(mp4|webm|quicktime)/i.test(videoContentType) ? videoContentType : 'video/mp4';
 
-        const fileInitRes = await axiosInstance.post(
+        const fileInitRes = await tiktokPostWithRetry(
           `${tiktokBase}/v2/post/publish/video/init/`,
           {
             post_info: {
@@ -1126,7 +1152,8 @@ export async function publishTarget(
             },
             source_info: { source: 'FILE_UPLOAD', video_size: videoSize, chunk_size: CHUNK_SIZE, total_chunk_count: totalChunkCount },
           },
-          { headers, timeout: 30_000, validateStatus: () => true }
+          30_000,
+          'direct FILE_UPLOAD init'
         ) as { data?: { data?: { publish_id?: string; upload_url?: string }; error?: { code?: string; message?: string } } };
         let fileInitBody = fileInitRes.data ?? {};
         let fileInitErr = fileInitBody.error;
@@ -1134,22 +1161,24 @@ export async function publishTarget(
         if (fileInitErr && fileInitErr.code === 'unaudited_client_can_only_post_to_private_accounts') {
           // Retry with SELF_ONLY privacy
           console.log('[TikTok] FILE_UPLOAD fallback: retrying with SELF_ONLY');
-          const selfFileRes = await axiosInstance.post(
+          const selfFileRes = await tiktokPostWithRetry(
             `${tiktokBase}/v2/post/publish/video/init/`,
             {
               post_info: { title: caption.slice(0, 2200) || undefined, privacy_level: 'SELF_ONLY', brand_content_toggle: false, disable_duet: false, disable_comment: false, disable_stitch: false },
               source_info: { source: 'FILE_UPLOAD', video_size: videoSize, chunk_size: CHUNK_SIZE, total_chunk_count: totalChunkCount },
             },
-            { headers, timeout: 30_000, validateStatus: () => true }
+            30_000,
+            'direct FILE_UPLOAD SELF_ONLY init'
           ) as { data?: { data?: { publish_id?: string; upload_url?: string }; error?: { code?: string; message?: string } } };
           fileInitBody = selfFileRes.data ?? {};
           fileInitErr = fileInitBody.error;
         } else if (fileInitErr && (fileInitErr.code === 'scope_not_authorized' || fileInitErr.code === 'access_token_invalid')) {
           useInbox = true;
-          const inboxFileRes = await axiosInstance.post(
+          const inboxFileRes = await tiktokPostWithRetry(
             `${tiktokBase}/v2/post/publish/inbox/video/init/`,
             { source_info: { source: 'FILE_UPLOAD', video_size: videoSize, chunk_size: CHUNK_SIZE, total_chunk_count: totalChunkCount } },
-            { headers, timeout: 30_000, validateStatus: () => true }
+            30_000,
+            'scope fallback inbox FILE_UPLOAD init'
           ) as { data?: { data?: { publish_id?: string; upload_url?: string }; error?: { code?: string; message?: string } } };
           fileInitBody = inboxFileRes.data ?? {};
           fileInitErr = fileInitBody.error;
@@ -1201,10 +1230,11 @@ export async function publishTarget(
       let platformPostId: string | undefined;
       for (let elapsed = 0; elapsed < maxWait; elapsed += pollInterval) {
         await new Promise((r) => setTimeout(r, pollInterval));
-        const statusRes = await axiosInstance.post(
+        const statusRes = await tiktokPostWithRetry(
           `${tiktokBase}/v2/post/publish/status/fetch/`,
           { publish_id: publishId },
-          { headers, timeout: 10_000, validateStatus: () => true }
+          10_000,
+          'status fetch'
         ) as { data?: { data?: { status?: string; fail_reason?: string; publicly_available_post_id?: string }; error?: { code?: string; message?: string } } };
         const statusBody = statusRes.data ?? {};
         const statusErr = statusBody.error;
