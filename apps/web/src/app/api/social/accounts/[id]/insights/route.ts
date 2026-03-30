@@ -1102,6 +1102,56 @@ export async function GET(
       } catch (e) {
         console.warn('[Insights] TikTok user/info:', (e as Error)?.message ?? e);
       }
+      try {
+        const creatorRes = await axios.post<{
+          data?: {
+            creator_nickname?: string;
+            creator_username?: string;
+            creator_avatar_url?: string;
+            max_video_post_duration_sec?: number;
+            privacy_level_options?: string[];
+            duet_disabled?: boolean;
+            stitch_disabled?: boolean;
+            comment_disabled?: boolean;
+          };
+          error?: { code?: string; message?: string };
+        }>('https://open.tiktokapis.com/v2/post/publish/creator_info/query/', {}, {
+          headers: {
+            Authorization: `Bearer ${account.accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 15_000,
+          validateStatus: () => true,
+        });
+        const err = creatorRes.data?.error;
+        const raw = creatorRes.data?.data as
+          | ({
+              creator_nickname?: string;
+              creator_username?: string;
+              creator_avatar_url?: string;
+              max_video_post_duration_sec?: number;
+              privacy_level_options?: string[];
+              duet_disabled?: boolean;
+              stitch_disabled?: boolean;
+              comment_disabled?: boolean;
+            } & { data?: Record<string, unknown> })
+          | undefined;
+        const d = raw?.creator_nickname != null || raw?.creator_username != null ? raw : (raw?.data as typeof raw | undefined);
+        if (creatorRes.status === 200 && err?.code === 'ok' && d) {
+          (out as Record<string, unknown>).tiktokCreatorInfo = {
+            creatorNickname: d.creator_nickname,
+            creatorUsername: d.creator_username,
+            creatorAvatarUrl: d.creator_avatar_url,
+            maxVideoPostDurationSec: d.max_video_post_duration_sec,
+            privacyLevelOptions: d.privacy_level_options,
+            duetDisabled: d.duet_disabled,
+            stitchDisabled: d.stitch_disabled,
+            commentDisabled: d.comment_disabled,
+          };
+        }
+      } catch (_) {
+        // creator_info is optional for dashboard totals
+      }
       // Account-level "Views" = sum of view counts from synced videos (not likes_count)
       try {
         const posts = await prisma.importedPost.findMany({

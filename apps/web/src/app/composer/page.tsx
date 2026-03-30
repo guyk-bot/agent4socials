@@ -2003,7 +2003,7 @@ export default function ComposerPage() {
                         </button>
                         {sectionOpen.platforms && (
                         <>
-                        <div className="pt-4 grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+                        <div className="pt-4 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3">
                             {(['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'LINKEDIN', 'PINTEREST', 'TWITTER'] as const).map((p) => {
                                 const connected = accounts.some((a) => a.platform === p);
                                 const icons: Record<string, React.ReactNode> = {
@@ -2948,7 +2948,7 @@ function PlatformToggle({ platform, label, icon, active, onClick, connected }: {
                 onClick={connected ? onClick : undefined}
                 title={connected ? label : `Connect ${label} first in the sidebar`}
                 aria-label={label}
-                className={`w-full min-w-[72px] max-w-[96px] aspect-square rounded-xl border-2 flex flex-col items-center justify-center transition-all duration-200 ${
+                className={`w-full aspect-square rounded-xl border-2 flex flex-col items-center justify-center transition-all duration-200 ${
                     !connected
                         ? 'border-neutral-100 bg-neutral-50 text-neutral-300 cursor-not-allowed opacity-50'
                         : active

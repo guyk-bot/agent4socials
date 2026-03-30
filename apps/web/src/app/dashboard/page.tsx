@@ -1235,6 +1235,8 @@ export default function DashboardPage() {
                   facebookCommunity: (insights as { facebookCommunity?: import('@/components/analytics/facebook/types').FacebookInsights['facebookCommunity'] }).facebookCommunity,
                   accountsEngaged: (insights as { accountsEngaged?: number }).accountsEngaged,
                   instagramAccountVideoViewsTotal: (insights as { instagramAccountVideoViewsTotal?: number }).instagramAccountVideoViewsTotal,
+                  tiktokUser: (insights as { tiktokUser?: import('@/components/analytics/facebook/types').FacebookInsights['tiktokUser'] }).tiktokUser,
+                  tiktokCreatorInfo: (insights as { tiktokCreatorInfo?: import('@/components/analytics/facebook/types').FacebookInsights['tiktokCreatorInfo'] }).tiktokCreatorInfo,
                   ...(selectedAccount.platform === 'FACEBOOK' && liveFbConversationsCount != null ? { facebookLiveConversationsCount: liveFbConversationsCount } : {}),
                   ...(selectedAccount.platform === 'FACEBOOK' && liveFbConversationDates != null ? { facebookLiveConversationDates: liveFbConversationDates } : {}),
                 }),

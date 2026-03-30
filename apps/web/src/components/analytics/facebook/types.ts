@@ -77,6 +77,17 @@ export interface FacebookInsights {
     bioDescription?: string;
     isVerified?: boolean;
   };
+  /** TikTok: `v2/post/publish/creator_info/query` (publish scopes). */
+  tiktokCreatorInfo?: {
+    creatorNickname?: string;
+    creatorUsername?: string;
+    creatorAvatarUrl?: string;
+    maxVideoPostDurationSec?: number;
+    privacyLevelOptions?: string[];
+    duetDisabled?: boolean;
+    stitchDisabled?: boolean;
+    commentDisabled?: boolean;
+  };
 }
 
 export interface FacebookPost {

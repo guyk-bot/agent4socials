@@ -90,6 +90,10 @@ const COLOR = {
   coral: '#ff8b7b',
 };
 
+/** Neon outline for metrics sourced from TikTok Open API (user.info, video/list, creator_info). */
+const TIKTOK_API_CARD_CLASS =
+  'ring-2 ring-[#facc15] shadow-[0_0_22px_rgba(250,204,21,0.5)] bg-[rgba(250,204,21,0.07)]';
+
 type MetricDef = {
   key: string;
   label: string;
@@ -337,12 +341,16 @@ function bestPostPlayCount(p: FacebookPost): number {
 }
 
 function isVideoishPost(p: FacebookPost): boolean {
+  if ((p.platform ?? '').toUpperCase() === 'TIKTOK') return true;
   return isReelPost(p) || (p.mediaType ?? '').toUpperCase() === 'VIDEO' || typeof p.facebookInsights?.post_video_views === 'number';
 }
 
 /** Sum of reel/video post plays in range; Page `page_video_views` often disagrees with what you see on each reel. */
 function sumPostLevelVideoPlays(posts: FacebookPost[]): number {
   return posts.reduce((s, p) => {
+    if ((p.platform ?? '').toUpperCase() === 'TIKTOK') {
+      return s + Math.max(0, p.impressions ?? bestPostPlayCount(p));
+    }
     if (!isVideoishPost(p)) return s;
     const fi = p.facebookInsights ?? {};
     const pv = typeof fi.post_video_views === 'number' ? fi.post_video_views : 0;
@@ -354,6 +362,21 @@ function sumPostLevelVideoPlays(posts: FacebookPost[]): number {
 
 function sumMetricSeriesPoints(s: Array<{ date: string; value: number }>): number {
   return s.reduce((a, p) => a + (typeof p.value === 'number' ? p.value : 0), 0);
+}
+
+function aggregatePostsByDayValue(
+  posts: FacebookPost[],
+  getValue: (p: FacebookPost) => number
+): Array<{ date: string; value: number }> {
+  const m: Record<string, number> = {};
+  for (const p of posts) {
+    const d = localCalendarDateFromIso(p.publishedAt);
+    if (!d) continue;
+    m[d] = (m[d] ?? 0) + getValue(p);
+  }
+  return Object.entries(m)
+    .map(([date, value]) => ({ date, value }))
+    .sort((a, b) => a.date.localeCompare(b.date));
 }
 
 /**
@@ -654,6 +677,7 @@ export function MetricCard({
   trendPercent,
   active = false,
   onClick,
+  tiktokApiHighlight,
 }: {
   label: string;
   value: string;
@@ -663,6 +687,8 @@ export function MetricCard({
   trendPercent?: number | null;
   active?: boolean;
   onClick?: () => void;
+  /** TikTok Open API–sourced metric (yellow neon ring). */
+  tiktokApiHighlight?: boolean;
 }) {
   const hint = `Source metric: ${source}${typeof trendPercent === 'number' && Number.isFinite(trendPercent) ? `. Change in selected range: ${trendPercent >= 0 ? '+' : ''}${trendPercent.toFixed(1)}%.` : ''}`;
   return (
@@ -670,7 +696,7 @@ export function MetricCard({
       type="button"
       onClick={onClick}
       title={hint}
-      className="rounded-[12px] px-3 py-1.5 text-left transition-all hover:-translate-y-[1px]"
+      className={`rounded-[12px] px-3 py-1.5 text-left transition-all hover:-translate-y-[1px] ${tiktokApiHighlight ? TIKTOK_API_CARD_CLASS : ''}`}
       style={{
         background: active ? `${color}10` : COLOR.card,
         boxShadow: active ? '0 2px 16px rgba(15,23,42,0.06)' : '0 2px 16px rgba(15,23,42,0.05)',
@@ -692,10 +718,23 @@ export function SparklineMetricCard(props: {
   footnote?: string;
   active?: boolean;
   onClick?: () => void;
+  tiktokApiHighlight?: boolean;
 }) {
-  const { label, source, color, value, series, footnote, active, onClick } = props;
+  const { label, source, color, value, series, footnote, active, onClick, tiktokApiHighlight } = props;
   const trendPercent = percentChangeFromSeries(series);
-  return <MetricCard label={label} source={source} color={color} value={value} footnote={footnote} trendPercent={trendPercent} active={active} onClick={onClick} />;
+  return (
+    <MetricCard
+      label={label}
+      source={source}
+      color={color}
+      value={value}
+      footnote={footnote}
+      trendPercent={trendPercent}
+      active={active}
+      onClick={onClick}
+      tiktokApiHighlight={tiktokApiHighlight}
+    />
+  );
 }
 
 export function InsightChartCard({
@@ -1257,13 +1296,29 @@ export function FacebookAnalyticsView({
 
   const profile = insights?.facebookPageProfile;
   const isInstagram = insights?.platform?.toUpperCase() === 'INSTAGRAM';
+  const isTikTok = insights?.platform?.toUpperCase() === 'TIKTOK';
+  const tiktokUser = insights?.tiktokUser;
+  const tiktokCreatorInfo = insights?.tiktokCreatorInfo;
   const igMetricSeries = insights?.facebookPageMetricSeries;
   const community = insights?.facebookCommunity;
   const resolvedUsername = (profile?.username ?? accountUsername ?? '').trim().replace(/^@/, '');
+  const headerAvatarUrl = isTikTok ? (tiktokCreatorInfo?.creatorAvatarUrl ?? accountAvatarUrl) : accountAvatarUrl;
 
   const profileUrl = useMemo(() => {
     const plat = insights?.platform?.toUpperCase();
     const username = profile?.username?.trim().replace(/^@/, '') || accountUsername?.trim().replace(/^@/, '');
+    if (plat === 'TIKTOK' && username) {
+      return `https://www.tiktok.com/@${username}`;
+    }
+    if (plat === 'YOUTUBE' && username) {
+      return `https://www.youtube.com/@${username}`;
+    }
+    if (plat === 'LINKEDIN' && username) {
+      return `https://www.linkedin.com/in/${username}`;
+    }
+    if (plat === 'TWITTER' && username) {
+      return `https://x.com/${username}`;
+    }
     if (plat === 'INSTAGRAM' && username) {
       return `https://www.instagram.com/${username}/`;
     }
@@ -1280,6 +1335,23 @@ export function FacebookAnalyticsView({
     () => posts.filter((p) => inRange(p.publishedAt, dateRange.start, dateRange.end)),
     [posts, dateRange.end, dateRange.start]
   );
+  const tiktokViewsInRange = useMemo(
+    () => postsInRange.reduce((s, p) => s + (p.impressions ?? bestPostPlayCount(p)), 0),
+    [postsInRange]
+  );
+  const tiktokEngagementsInRange = useMemo(
+    () =>
+      postsInRange.reduce((s, p) => s + (p.likeCount ?? 0) + (p.commentsCount ?? 0) + (p.sharesCount ?? 0), 0),
+    [postsInRange]
+  );
+  const tiktokFlatSparkline = useMemo(() => {
+    const s = dateRange.start.slice(0, 10);
+    const e = dateRange.end.slice(0, 10);
+    return (v: number) => [
+      { date: s, value: v },
+      { date: e, value: v },
+    ];
+  }, [dateRange.end, dateRange.start]);
   const videoPlaysDailySeries = useMemo(() => {
     const map: Record<string, number> = {};
     for (const p of postsInRange) {
@@ -1300,7 +1372,9 @@ export function FacebookAnalyticsView({
     return undefined;
   }, [insights, postsInRange]);
   const series = bundle?.series;
-  const totalFollowers = profile?.followers_count ?? profile?.fan_count ?? insights?.followers ?? 0;
+  const totalFollowers = isTikTok
+    ? (tiktokUser?.followerCount ?? insights?.followers ?? 0)
+    : (profile?.followers_count ?? profile?.fan_count ?? insights?.followers ?? 0);
   const liveConversationCount =
     ((insights as unknown as { facebookLiveConversationsCount?: number })?.facebookLiveConversationsCount ?? 0);
   const liveConversationDates =
@@ -1316,27 +1390,63 @@ export function FacebookAnalyticsView({
     });
   };
   const newFollowers = bundle?.totals.dailyFollows ?? 0;
-  const contentViews = isInstagram
-    ? Math.max(0, insights.impressionsTotal ?? 0, bundle?.totals.contentViews ?? 0)
-    : (bundle?.totals.contentViews ?? 0);
-  const pageVisits = isInstagram
-    ? Math.max(0, insights.profileViewsTotal ?? 0, bundle?.totals.pageTabViews ?? 0)
-    : (bundle?.totals.pageTabViews ?? 0);
-  const engagements = isInstagram
-    ? Math.max(0, insights?.accountsEngaged ?? 0, bundle?.totals.engagement ?? 0)
-    : (bundle?.totals.engagement ?? 0);
+  const contentViews = isTikTok
+    ? tiktokViewsInRange
+    : isInstagram
+      ? Math.max(0, insights.impressionsTotal ?? 0, bundle?.totals.contentViews ?? 0)
+      : (bundle?.totals.contentViews ?? 0);
+  const pageVisits = isTikTok
+    ? 0
+    : isInstagram
+      ? Math.max(0, insights.profileViewsTotal ?? bundle?.totals.pageTabViews ?? 0)
+      : (bundle?.totals.pageTabViews ?? 0);
+  const engagements = isTikTok
+    ? tiktokEngagementsInRange
+    : isInstagram
+      ? Math.max(0, insights?.accountsEngaged ?? 0, bundle?.totals.engagement ?? 0)
+      : (bundle?.totals.engagement ?? 0);
   const actionsSeries = (bundle?.series.totalActions?.length ?? 0) > 0 ? bundle?.series.totalActions : (bundle?.series.engagement ?? []);
   const actionsTotal = (bundle?.totals.totalActions ?? 0) > 0 ? (bundle?.totals.totalActions ?? 0) : engagements;
   const pageVideoViews = bundle?.totals.videoViews ?? 0;
   const postVideoPlaysInRange = useMemo(() => sumPostLevelVideoPlays(postsInRange), [postsInRange]);
   const igAccountVideoViewsTotal = insights?.instagramAccountVideoViewsTotal ?? 0;
-  const videoViews = Math.max(pageVideoViews, postVideoPlaysInRange, isInstagram ? igAccountVideoViewsTotal : 0);
+  const videoViews = isTikTok
+    ? tiktokViewsInRange
+    : Math.max(pageVideoViews, postVideoPlaysInRange, isInstagram ? igAccountVideoViewsTotal : 0);
   const postImpressions = bundle?.totals.postImpressions ?? 0;
   const nonviralImpressions = bundle?.totals.postImpressionsNonviral ?? 0;
   const viralImpressions = bundle?.totals.postImpressionsViral ?? 0;
   const uniqueReachProxy = postsInRange.reduce((s, p) => s + (p.facebookInsights?.post_impressions_unique ?? 0), 0);
 
   const chartByMode = useMemo(() => {
+    if (isTikTok) {
+      const viewsByDate: Record<string, number> = {};
+      const engagementByDate: Record<string, number> = {};
+      for (const p of postsInRange) {
+        const d = localCalendarDateFromIso(p.publishedAt);
+        if (!d) continue;
+        viewsByDate[d] = (viewsByDate[d] ?? 0) + (p.impressions ?? bestPostPlayCount(p));
+        engagementByDate[d] =
+          (engagementByDate[d] ?? 0) + (p.likeCount ?? 0) + (p.commentsCount ?? 0) + (p.sharesCount ?? 0);
+      }
+      const followsRaw: Record<string, number> = {};
+      dateAxis.forEach((d) => {
+        followsRaw[d] = totalFollowers;
+      });
+      const media = carryForwardSeries(dateAxis, viewsByDate, 0);
+      const visits = carryForwardSeries(dateAxis, {}, 0);
+      const videoViewsSeries = carryForwardSeries(dateAxis, viewsByDate, 0);
+      const engagement = carryForwardSeries(dateAxis, engagementByDate, 0);
+      const follows = carryForwardSeries(dateAxis, followsRaw, totalFollowers);
+      return dateAxis.map((date) => ({
+        date,
+        followers: follows[date] ?? 0,
+        engagements: engagement[date] ?? 0,
+        videoViews: videoViewsSeries[date] ?? 0,
+        contentViews: media[date] ?? 0,
+        pageVisits: visits[date] ?? 0,
+      }));
+    }
     let mediaRaw: Record<string, number>;
     let visitsRaw: Record<string, number>;
     let videoViewsRaw: Record<string, number>;
@@ -1389,9 +1499,11 @@ export function FacebookAnalyticsView({
       pageVisits: visits[date] ?? 0,
     }));
   }, [
+    isTikTok,
     isInstagram,
     igMetricSeries,
     dateAxis,
+    postsInRange,
     series?.contentViews,
     series?.engagement,
     series?.follows,
@@ -1404,6 +1516,26 @@ export function FacebookAnalyticsView({
   ]);
 
   const growthSparklineSeries = useMemo(() => {
+    if (isTikTok) {
+      const viewsSeries = aggregatePostsByDayValue(postsInRange, (p) => p.impressions ?? bestPostPlayCount(p));
+      const engSeries = aggregatePostsByDayValue(
+        postsInRange,
+        (p) => (p.likeCount ?? 0) + (p.commentsCount ?? 0) + (p.sharesCount ?? 0)
+      );
+      const start = dateRange.start.slice(0, 10);
+      const end = dateRange.end.slice(0, 10);
+      const ff = totalFollowers;
+      return {
+        follows: [
+          { date: start, value: ff },
+          { date: end, value: ff },
+        ],
+        engagement: engSeries,
+        videoViews: viewsSeries,
+        contentViews: viewsSeries,
+        pageVisits: [],
+      };
+    }
     if (!isInstagram) {
       return {
         follows: series?.follows ?? [],
@@ -1431,6 +1563,7 @@ export function FacebookAnalyticsView({
       pageVisits: ms?.profile_views ?? [],
     };
   }, [
+    isTikTok,
     isInstagram,
     igMetricSeries,
     series?.follows,
@@ -1441,6 +1574,10 @@ export function FacebookAnalyticsView({
     insights?.followersTimeSeries,
     insights?.impressionsTimeSeries,
     videoPlaysDailySeries,
+    postsInRange,
+    dateRange.end,
+    dateRange.start,
+    totalFollowers,
   ]);
 
   const stackedTraffic = useMemo(() => {
@@ -1569,12 +1706,17 @@ export function FacebookAnalyticsView({
     reelsRows.reduce((s, r) => s + (r.post.facebookInsights?.post_clicks ?? 0), 0) / Math.max(1, totalReelVideoViews);
   const storyModeHoverHint = useMemo(() => {
     const fmt = (v: number | null | undefined) => (typeof v === 'number' && Number.isFinite(v) ? `${v >= 0 ? '+' : ''}${v.toFixed(1)}%` : 'n/a');
+    const follows = growthSparklineSeries.follows;
+    const engagement = growthSparklineSeries.engagement;
+    const videoViewsS = growthSparklineSeries.videoViews;
+    const contentViewsS = growthSparklineSeries.contentViews;
+    const pageTabS = growthSparklineSeries.pageVisits;
     return {
-      growth: `Followers: ${fmt(percentChangeFromSeries(series?.follows ?? []))}`,
-      engagement: `Engagements: ${fmt(percentChangeFromSeries(series?.engagement ?? []))}`,
-      views: `Video Views: ${fmt(percentChangeFromSeries(series?.videoViews ?? []))} | Content Views: ${fmt(percentChangeFromSeries(series?.contentViews ?? []))} | Page Visits: ${fmt(percentChangeFromSeries(series?.pageTabViews ?? []))}`,
+      growth: `Followers: ${fmt(percentChangeFromSeries(follows))}`,
+      engagement: `Engagements: ${fmt(percentChangeFromSeries(engagement))}`,
+      views: `Video Views: ${fmt(percentChangeFromSeries(videoViewsS))} | Content Views: ${fmt(percentChangeFromSeries(contentViewsS))} | Page Visits: ${fmt(percentChangeFromSeries(pageTabS))}`,
     } as const;
-  }, [series?.contentViews, series?.engagement, series?.follows, series?.pageTabViews, series?.videoViews]);
+  }, [growthSparklineSeries]);
   const likesTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + (post.facebookInsights?.post_reactions_like_total ?? post.likeCount ?? post.engagementBreakdown?.reactions ?? 0), 0), [postsInRange]);
   const commentsTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + (post.facebookInsights?.post_comments ?? post.commentsCount ?? post.engagementBreakdown?.comments ?? 0), 0), [postsInRange]);
   const sharesTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + (post.facebookInsights?.post_shares ?? post.sharesCount ?? post.engagementBreakdown?.shares ?? 0), 0), [postsInRange]);
@@ -1739,17 +1881,25 @@ export function FacebookAnalyticsView({
                     ? 'Open Pinterest profile'
                     : insights?.platform === 'INSTAGRAM'
                       ? 'Open Instagram profile'
-                      : 'Open Facebook profile'
+                      : insights?.platform === 'TIKTOK'
+                        ? 'Open TikTok profile'
+                        : insights?.platform === 'YOUTUBE'
+                          ? 'Open YouTube profile'
+                          : insights?.platform === 'LINKEDIN'
+                            ? 'Open LinkedIn profile'
+                            : insights?.platform === 'TWITTER'
+                              ? 'Open X profile'
+                        : 'Open Facebook profile'
                 }
                 className="shrink-0"
               >
                 <div
                   className="h-11 w-11 overflow-hidden rounded-full"
-                  style={{ display: accountAvatarUrl ? 'block' : 'none' }}
+                  style={{ display: headerAvatarUrl ? 'block' : 'none' }}
                 >
-                  {accountAvatarUrl ? (
+                  {headerAvatarUrl ? (
                     <img
-                      src={accountAvatarUrl}
+                      src={headerAvatarUrl}
                       alt={profile?.name ? `${profile.name} avatar` : 'Account avatar'}
                       className="h-full w-full object-cover"
                       onError={(e) => {
@@ -1765,11 +1915,11 @@ export function FacebookAnalyticsView({
             ) : (
               <div
                 className="h-11 w-11 shrink-0 overflow-hidden rounded-full"
-                style={{ display: accountAvatarUrl ? 'block' : 'none' }}
+                style={{ display: headerAvatarUrl ? 'block' : 'none' }}
               >
-                {accountAvatarUrl ? (
+                {headerAvatarUrl ? (
                   <img
-                    src={accountAvatarUrl}
+                    src={headerAvatarUrl}
                     alt={profile?.name ? `${profile.name} avatar` : 'Account avatar'}
                     className="h-full w-full object-cover"
                     onError={(e) => {
@@ -1787,29 +1937,40 @@ export function FacebookAnalyticsView({
               style={{
                 background: '#eef2ff',
                 color: COLOR.violet,
-                display: accountAvatarUrl ? 'none' : 'flex',
+                display: headerAvatarUrl ? 'none' : 'flex',
               }}
             >
               {(
                 profile?.name ||
                 resolvedUsername ||
-                (insights?.platform === 'PINTEREST' ? 'PI' : insights?.platform === 'INSTAGRAM' ? 'IG' : insights?.platform === 'YOUTUBE' ? 'YT' : 'FB')
+                (insights?.platform === 'PINTEREST'
+                  ? 'PI'
+                  : insights?.platform === 'INSTAGRAM'
+                    ? 'IG'
+                    : insights?.platform === 'YOUTUBE'
+                      ? 'YT'
+                      : insights?.platform === 'TIKTOK'
+                        ? 'TT'
+                        : 'FB')
               ).slice(0, 2).toUpperCase()}
             </div>
             <div>
               <h1 className="text-xl font-semibold" style={{ color: COLOR.text }}>
-                {profile?.name?.trim() ||
-                  resolvedUsername ||
-                  (insights?.platform === 'INSTAGRAM'
-                    ? 'Instagram'
-                    : insights?.platform === 'PINTEREST'
-                      ? 'Pinterest'
-                      : insights?.platform === 'YOUTUBE'
-                        ? 'YouTube'
-                        : 'Facebook Page')}
+                {isTikTok
+                  ? (tiktokCreatorInfo?.creatorNickname ?? tiktokUser?.displayName ?? resolvedUsername || 'TikTok')
+                  : profile?.name?.trim() ||
+                    resolvedUsername ||
+                    (insights?.platform === 'INSTAGRAM'
+                      ? 'Instagram'
+                      : insights?.platform === 'PINTEREST'
+                        ? 'Pinterest'
+                        : insights?.platform === 'YOUTUBE'
+                          ? 'YouTube'
+                          : 'Facebook Page')}
               </h1>
               <p className="text-sm" style={{ color: COLOR.textSecondary }}>
-                {resolvedUsername ? `@${resolvedUsername}` : '@unknown'}
+                @
+                {isTikTok ? (tiktokCreatorInfo?.creatorUsername ?? resolvedUsername || 'unknown') : resolvedUsername || 'unknown'}
                 {profile?.category ? `  •  ${profile.category}` : ''}
               </p>
             </div>
@@ -1831,7 +1992,9 @@ export function FacebookAnalyticsView({
           <p className="mt-2.5 text-xs font-medium animate-pulse" style={{ color: COLOR.textSecondary }}>
             {insights?.platform === 'PINTEREST'
               ? 'Updating pins from Pinterest, tables will refresh when sync finishes.'
-              : 'Updating posts and reels from Facebook, tables will refresh when sync finishes.'}
+              : insights?.platform === 'TIKTOK'
+                ? 'Syncing videos from TikTok, tables will refresh when sync finishes.'
+                : 'Updating posts and reels from Facebook, tables will refresh when sync finishes.'}
           </p>
         ) : null}
       </section>
@@ -1945,6 +2108,96 @@ export function FacebookAnalyticsView({
               </button>
             ))}
           </div>
+          {isTikTok ? (
+            <>
+              <div className="mb-3 rounded-xl border border-[#ca8a04]/50 bg-[rgba(250,204,21,0.09)] px-3 py-2 text-xs text-neutral-800">
+                <span className="font-semibold text-[#854d0e]">TikTok Open API</span> — Yellow outline = data from{' '}
+                <code className="rounded bg-neutral-200/80 px-1 font-mono text-[11px]">user.info</code>,{' '}
+                <code className="rounded bg-neutral-200/80 px-1 font-mono text-[11px]">video/list</code> (synced posts), or{' '}
+                <code className="rounded bg-neutral-200/80 px-1 font-mono text-[11px]">post/publish/creator_info</code>. Sparklines use the selected date range where applicable.
+              </div>
+              {tiktokCreatorInfo ? (
+                <div className={`mb-3 rounded-[16px] p-4 space-y-2 ${TIKTOK_API_CARD_CLASS}`}>
+                  <p className="text-sm font-semibold text-neutral-900">Creator &amp; publish settings</p>
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 text-sm text-neutral-800">
+                    {typeof tiktokCreatorInfo.maxVideoPostDurationSec === 'number' ? (
+                      <p>
+                        <span className="text-neutral-500">Max upload length · </span>
+                        {Math.round(tiktokCreatorInfo.maxVideoPostDurationSec / 60)} min (
+                        {tiktokCreatorInfo.maxVideoPostDurationSec}s)
+                      </p>
+                    ) : null}
+                    {tiktokCreatorInfo.privacyLevelOptions && tiktokCreatorInfo.privacyLevelOptions.length > 0 ? (
+                      <p>
+                        <span className="text-neutral-500">Privacy options · </span>
+                        {tiktokCreatorInfo.privacyLevelOptions.join(', ')}
+                      </p>
+                    ) : null}
+                    <p>
+                      <span className="text-neutral-500">Interaction toggles · </span>
+                      comments {tiktokCreatorInfo.commentDisabled ? 'off' : 'on'}, duets{' '}
+                      {tiktokCreatorInfo.duetDisabled ? 'off' : 'on'}, stitch {tiktokCreatorInfo.stitchDisabled ? 'off' : 'on'}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+              <div className="mt-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                <SparklineMetricCard
+                  label="Followers"
+                  source="user.info (stats) · follower_count"
+                  color={COLOR.mint}
+                  value={formatNumber(totalFollowers)}
+                  series={growthSparklineSeries.follows}
+                  active={isCardSelected('followers')}
+                  onClick={() => toggleStoryMetric('followers')}
+                  tiktokApiHighlight
+                />
+                <SparklineMetricCard
+                  label="Profile likes"
+                  source="user.info (stats) · likes_count (lifetime on account)"
+                  color={COLOR.violet}
+                  value={
+                    typeof tiktokUser?.likesCount === 'number' ? formatNumber(tiktokUser.likesCount) : '—'
+                  }
+                  series={tiktokFlatSparkline(typeof tiktokUser?.likesCount === 'number' ? tiktokUser.likesCount : 0)}
+                  active={false}
+                  tiktokApiHighlight
+                />
+                <SparklineMetricCard
+                  label="Public videos"
+                  source="user.info (stats) · video_count"
+                  color={COLOR.magenta}
+                  value={
+                    typeof tiktokUser?.videoCount === 'number' ? formatNumber(tiktokUser.videoCount) : '—'
+                  }
+                  series={tiktokFlatSparkline(typeof tiktokUser?.videoCount === 'number' ? tiktokUser.videoCount : 0)}
+                  active={false}
+                  tiktokApiHighlight
+                />
+                <SparklineMetricCard
+                  label="Total video views"
+                  source="video/list · view_count summed from synced videos (all-time)"
+                  color={COLOR.amber}
+                  value={formatNumber(insights?.impressionsTotal ?? 0)}
+                  series={growthSparklineSeries.videoViews}
+                  footnote="Sparkline = views in selected range; headline = all-time synced total"
+                  active={isCardSelected('videoViews')}
+                  onClick={() => toggleStoryMetric('videoViews')}
+                  tiktokApiHighlight
+                />
+                <SparklineMetricCard
+                  label="Engagements (range)"
+                  source="video/list · like_count + comment_count + shares on posts in range"
+                  color={COLOR.coral}
+                  value={formatNumber(tiktokEngagementsInRange)}
+                  series={growthSparklineSeries.engagement}
+                  active={isCardSelected('engagements')}
+                  onClick={() => toggleStoryMetric('engagements')}
+                  tiktokApiHighlight
+                />
+              </div>
+            </>
+          ) : (
           <div className="mt-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <SparklineMetricCard
               label="Followers"
@@ -1996,6 +2249,7 @@ export function FacebookAnalyticsView({
               onClick={() => toggleStoryMetric('pageVisits')}
             />
           </div>
+          )}
           <div className="flex justify-end">
             <div className="flex flex-wrap gap-2">
               {selectedStoryMetricsForMode.map((metric) => (
@@ -2055,31 +2309,34 @@ export function FacebookAnalyticsView({
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <MetricCard
               label="Likes"
-              source="post_reactions_like_total"
+              source={isTikTok ? 'video/list · like_count (synced posts)' : 'post_reactions_like_total'}
               color={ENGAGEMENT_METRIC_CONFIG.likes.color}
               value={formatNumber(likesTotal)}
               active={selectedEngagementMetrics.includes('likes')}
               onClick={() => setSelectedEngagementMetrics((prev) => prev.includes('likes') ? prev.filter((m) => m !== 'likes') : [...prev, 'likes'])}
+              tiktokApiHighlight={isTikTok}
             />
             <MetricCard
               label="Comments"
-              source="post_comments"
+              source={isTikTok ? 'video/list · comment_count (synced posts)' : 'post_comments'}
               color={ENGAGEMENT_METRIC_CONFIG.comments.color}
               value={formatNumber(commentsTotal)}
               active={selectedEngagementMetrics.includes('comments')}
               onClick={() => setSelectedEngagementMetrics((prev) => prev.includes('comments') ? prev.filter((m) => m !== 'comments') : [...prev, 'comments'])}
+              tiktokApiHighlight={isTikTok}
             />
             <MetricCard
               label="Shares"
-              source="post_shares"
+              source={isTikTok ? 'video/list · share_count when present (synced)' : 'post_shares'}
               color={ENGAGEMENT_METRIC_CONFIG.shares.color}
               value={formatNumber(sharesTotal)}
               active={selectedEngagementMetrics.includes('shares')}
               onClick={() => setSelectedEngagementMetrics((prev) => prev.includes('shares') ? prev.filter((m) => m !== 'shares') : [...prev, 'shares'])}
+              tiktokApiHighlight={isTikTok}
             />
             <MetricCard
               label="Reposts"
-              source="Proxy from post_shares"
+              source={isTikTok ? 'Not in standard video/list fields; often 0' : 'Proxy from post_shares'}
               color={ENGAGEMENT_METRIC_CONFIG.reposts.color}
               value={formatNumber(repostsTotal)}
               active={selectedEngagementMetrics.includes('reposts')}
