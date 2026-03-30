@@ -40,7 +40,18 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
     case 'TIKTOK': {
       const tiktokRedirect = (process.env.TIKTOK_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
       // video.list = list user's videos for sync; user.info.basic = profile/avatar; user.info.stats = follower count
-      return `https://www.tiktok.com/v2/auth/authorize/?client_key=${encodeURIComponent(process.env.TIKTOK_CLIENT_KEY || '')}&scope=user.info.basic,user.info.stats,video.upload,video.publish,video.list&response_type=code&redirect_uri=${encodeURIComponent(tiktokRedirect)}&state=${encodeURIComponent(state)}`;
+      const oauthParams = new URLSearchParams({
+        client_key: process.env.TIKTOK_CLIENT_KEY || '',
+        scope: 'user.info.basic,user.info.stats,video.upload,video.publish,video.list',
+        response_type: 'code',
+        redirect_uri: tiktokRedirect,
+        state,
+      });
+      const target = (process.env.TIKTOK_OAUTH_TARGET || '').trim();
+      if (target) oauthParams.set('target', target);
+      const disableAutoAuth = (process.env.TIKTOK_DISABLE_AUTO_AUTH || '').trim();
+      if (disableAutoAuth) oauthParams.set('disable_auto_auth', disableAutoAuth);
+      return `https://www.tiktok.com/v2/auth/authorize/?${oauthParams.toString()}`;
     }
     case 'YOUTUBE': {
       const ytRedirect = (process.env.YOUTUBE_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
