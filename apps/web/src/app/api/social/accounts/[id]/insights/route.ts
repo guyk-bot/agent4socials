@@ -269,10 +269,10 @@ export async function GET(
       const igSeriesByMetric: Record<string, Array<{ date: string; value: number }>> = {};
       const tryInsights = async (base: string): Promise<boolean> => {
         if (effectiveSinceTs == null || effectiveUntilTs == null) return false;
+        /** profile_views must be requested with metric_type=total_value (see supplementIgProfileViews); omit from batches. */
         const metricSets = [
-          'impressions,reach,profile_views,accounts_engaged',
-          'impressions,reach,profile_views',
-          'reach,profile_views',
+          'impressions,reach,accounts_engaged',
+          'impressions,reach',
           'reach',
         ];
         for (const metricSet of metricSets) {
@@ -347,9 +347,8 @@ export async function GET(
       };
 
       let insightsOk = await tryInsights(fbBaseUrl);
-      // Always try igBaseUrl for Instagram Business Login accounts, or when fbBaseUrl succeeded
-      // but profile_views / impressions are still 0 (IG Business Login accounts may need the IG base URL).
-      if (!insightsOk || isInstagramBusinessLogin || !out.profileViewsTotal) {
+      // graph.instagram.com only accepts Instagram User tokens (Instagram Business Login). Page tokens fail with "Cannot parse access token".
+      if (!insightsOk || isInstagramBusinessLogin) {
         const igOk = await tryInsights(igBaseUrl);
         if (!insightsOk) insightsOk = igOk;
       }
@@ -397,7 +396,7 @@ export async function GET(
         }
       };
       await supplementIgAccountsEngaged(fbBaseUrl);
-      if (!igSeriesByMetric.accounts_engaged?.length) {
+      if (!igSeriesByMetric.accounts_engaged?.length && isInstagramBusinessLogin) {
         await supplementIgAccountsEngaged(igBaseUrl);
       }
 
@@ -446,64 +445,98 @@ export async function GET(
         }
       };
       await supplementIgViews(fbBaseUrl);
-      if (!igSeriesByMetric.views?.length) await supplementIgViews(igBaseUrl);
+      if (!igSeriesByMetric.views?.length && isInstagramBusinessLogin) await supplementIgViews(igBaseUrl);
 
       /**
-       * profile_views is often omitted from batched /insights. Single-metric requests can 400 on some
-       * version/host pairs; try combined metrics, week period, and always use validateStatus (Meta error JSON).
+       * Meta requires profile_views with metric_type=total_value (IG User Insights). Page tokens only work on graph.facebook.com.
        */
       const supplementIgProfileViews = async (): Promise<void> => {
         if (effectiveSinceTs == null || effectiveUntilTs == null) return;
         if (igSeriesByMetric.profile_views?.length) return;
 
         const parseProfileViewsRow = (
-          data: Array<{
-            name: string;
-            values?: Array<{ value: number; end_time?: string }>;
-            total_value?: { value: number };
-          }> | undefined
+          data:
+            | Array<{
+                name: string;
+                values?: Array<{ value: number; end_time?: string }>;
+                total_value?: {
+                  value?: number;
+                  breakdowns?: Array<{
+                    dimension_keys?: string[];
+                    results?: Array<{ dimension_values?: string[]; value: number; end_time?: string }>;
+                  }>;
+                };
+              }>
+            | undefined
         ): { total: number; series: Array<{ date: string; value: number }> } | null => {
           const d = data?.find((x) => x.name === 'profile_views');
           if (!d) return null;
-          const sumDaily = (d.values ?? []).reduce((s, v) => s + (typeof v.value === 'number' ? v.value : 0), 0);
-          const totalRaw = typeof d.total_value?.value === 'number' ? d.total_value.value : sumDaily;
-          const total = Math.max(0, Math.round(Number.isFinite(totalRaw) ? totalRaw : 0));
-          const series: Array<{ date: string; value: number }> =
-            (d.values ?? []).length > 0
-              ? (d.values ?? [])
+          const fromValues = (d.values ?? []).filter((v) => typeof v.value === 'number');
+          let series: Array<{ date: string; value: number }> =
+            fromValues.length > 0
+              ? fromValues
                   .map((v) => ({
                     date: v.end_time ? facebookMetricDateFromEndTime(v.end_time) : '',
-                    value: Math.max(0, typeof v.value === 'number' ? v.value : 0),
+                    value: Math.max(0, v.value),
                   }))
                   .filter((x) => x.date)
                   .sort((a, b) => a.date.localeCompare(b.date))
               : [];
+          const byDate = new Map<string, number>();
+          for (const b of d.total_value?.breakdowns ?? []) {
+            for (const r of b.results ?? []) {
+              const date = r.end_time ? facebookMetricDateFromEndTime(r.end_time) : '';
+              if (!date) continue;
+              const val = typeof r.value === 'number' ? r.value : 0;
+              byDate.set(date, (byDate.get(date) ?? 0) + val);
+            }
+          }
+          if (series.length === 0 && byDate.size > 0) {
+            series = Array.from(byDate.entries())
+              .map(([date, value]) => ({ date, value: Math.max(0, value) }))
+              .sort((a, b) => a.date.localeCompare(b.date));
+          }
+          const sumDaily = fromValues.reduce((s, v) => s + v.value, 0);
+          const totalFromSeries = series.reduce((s, p) => s + p.value, 0);
+          const totalRaw =
+            series.length > 0
+              ? totalFromSeries
+              : typeof d.total_value?.value === 'number'
+                ? d.total_value.value
+                : sumDaily;
+          const total = Math.max(0, Math.round(Number.isFinite(totalRaw) ? totalRaw : 0));
+          if (series.length === 0 && total > 0) {
+            series = [{ date: untilParam.slice(0, 10), value: total }];
+          }
           if (total === 0 && series.length === 0) return null;
           return { total, series };
         };
 
-        const probes: Array<{ metric: string; period: 'day' | 'week' }> = [
-          { metric: 'reach,profile_views', period: 'day' },
-          { metric: 'impressions,profile_views', period: 'day' },
-          { metric: 'profile_views', period: 'day' },
-          { metric: 'profile_views', period: 'week' },
-        ];
+        const probes: Array<{ period: 'day' | 'week' }> = [{ period: 'day' }, { period: 'week' }];
+        const bases = isInstagramBusinessLogin ? [fbBaseUrl, igBaseUrl] : [fbBaseUrl];
 
-        for (const base of [fbBaseUrl, igBaseUrl]) {
+        for (const base of bases) {
           const host = base.includes('instagram.com') ? 'ig' : 'fb';
-          for (const { metric, period } of probes) {
+          for (const { period } of probes) {
             try {
               const res = await axios.get<{
                 data?: Array<{
                   name: string;
                   values?: Array<{ value: number; end_time?: string }>;
-                  total_value?: { value: number };
+                  total_value?: {
+                    value?: number;
+                    breakdowns?: Array<{
+                      dimension_keys?: string[];
+                      results?: Array<{ dimension_values?: string[]; value: number; end_time?: string }>;
+                    }>;
+                  };
                 }>;
                 error?: { message?: string; code?: number };
               }>(`${base}/${account.platformUserId}/insights`, {
                 params: {
-                  metric,
+                  metric: 'profile_views',
                   period,
+                  metric_type: 'total_value',
                   since: effectiveSinceTs,
                   until: effectiveUntilTs,
                   access_token: token,
@@ -513,7 +546,7 @@ export async function GET(
               });
               if (res.status >= 400) {
                 const msg = res.data?.error?.message ?? `HTTP ${res.status}`;
-                console.warn(`[Insights] IG profile_views ${host} ${period} ${metric.split(',')[0]}…`, msg.slice(0, 160));
+                console.warn(`[Insights] IG profile_views ${host} ${period}…`, msg.slice(0, 160));
                 continue;
               }
               const parsed = parseProfileViewsRow(res.data?.data);
@@ -621,7 +654,7 @@ export async function GET(
         }
       };
       await supplementIgInteractionMetrics(fbBaseUrl);
-      await supplementIgInteractionMetrics(igBaseUrl);
+      if (isInstagramBusinessLogin) await supplementIgInteractionMetrics(igBaseUrl);
 
       const profileViewsSeries = igSeriesByMetric.profile_views;
       if (profileViewsSeries && profileViewsSeries.length > 0) {
