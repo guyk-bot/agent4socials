@@ -26,6 +26,16 @@ const fbBaseUrl = facebookGraphBaseUrl;
 const igBaseUrl = instagramGraphHostBaseUrl;
 const baseUrl = fbBaseUrl; // used by Facebook and other platforms
 
+/** Meta sometimes returns counts as strings; normalize so we do not show 0 when the API sent a parseable value. */
+function parseIgFollowerCount(raw: unknown): number | null {
+  if (typeof raw === 'number' && Number.isFinite(raw)) return Math.max(0, Math.round(raw));
+  if (typeof raw === 'string' && raw.trim() !== '') {
+    const n = Number(raw.replace(/,/g, ''));
+    if (Number.isFinite(n)) return Math.max(0, Math.round(n));
+  }
+  return null;
+}
+
 /** Merge API time series with snapshot-backed series. API values take precedence. Only include dates that have a value so the UI can carry forward the last known value for missing dates (avoids showing zeros when Meta has no data yet for recent days). */
 function mergeSeriesWithSnapshots(
   apiSeries: Array<{ date: string; value: number }>,
@@ -201,18 +211,25 @@ export async function GET(
 
       const tryProfile = async (base: string): Promise<boolean> => {
         try {
-          const profileRes = await axios.get<{ followers_count?: number; media_count?: number; follows_count?: number; error?: { message?: string; code?: number } }>(
-            `${base}/${account.platformUserId}`,
-            { params: { fields: 'followers_count,media_count,follows_count', access_token: token }, timeout: 8_000, validateStatus: () => true }
-          );
+          const profileRes = await axios.get<{
+            followers_count?: number | string;
+            media_count?: number;
+            follows_count?: number | string;
+            error?: { message?: string; code?: number };
+          }>(`${base}/${account.platformUserId}`, {
+            params: { fields: 'followers_count,media_count,follows_count', access_token: token },
+            timeout: 8_000,
+            validateStatus: () => true,
+          });
           if (profileRes.status >= 400) return false;
-          if (typeof profileRes.data?.followers_count === 'number') {
-            out.followers = profileRes.data.followers_count;
+          if (profileRes.data?.error?.message) {
+            console.warn('[Insights] Instagram profile:', base, profileRes.data.error.message.slice(0, 120));
           }
-          if (typeof profileRes.data?.follows_count === 'number') {
-            out.followingCount = profileRes.data.follows_count;
-          }
-          return typeof profileRes.data?.followers_count === 'number';
+          const fc = parseIgFollowerCount(profileRes.data?.followers_count);
+          if (fc != null) out.followers = fc;
+          const fwing = parseIgFollowerCount(profileRes.data?.follows_count);
+          if (fwing != null) out.followingCount = fwing;
+          return fc != null;
         } catch (e) {
           console.warn('[Insights] Instagram profile:', base, (e as Error)?.message ?? e);
         }
@@ -238,31 +255,85 @@ export async function GET(
             validateStatus: () => true,
           });
           const igba = pageRes.data?.instagram_business_account;
-          if (igba && (!igba.id || igba.id === account.platformUserId)) {
-            if (typeof igba.followers_count === 'number' && igba.followers_count >= 0) {
-              out.followers = igba.followers_count;
-            }
-            if (typeof igba.follows_count === 'number') {
-              out.followingCount = igba.follows_count;
-            }
+          if (igba && igba.id === account.platformUserId) {
+            const fc = parseIgFollowerCount(igba.followers_count);
+            if (fc != null) out.followers = fc;
+            const fwing = parseIgFollowerCount(igba.follows_count);
+            if (fwing != null) out.followingCount = fwing;
           }
         } catch (e) {
           console.warn('[Insights] Instagram followers via linked Page:', (e as Error)?.message?.slice(0, 120));
         }
       }
+      // Page access token: Graph /me is the Page; read instagram_business_account for the connected IG user (fixes missing/wrong linkedPageId in DB).
+      if (out.followers === 0 && token) {
+        try {
+          const meFb = await axios.get<{ id?: string; error?: { message?: string } }>(`${fbBaseUrl}/me`, {
+            params: { fields: 'id', access_token: token },
+            timeout: 8_000,
+            validateStatus: () => true,
+          });
+          if (meFb.status < 400 && meFb.data?.id && !meFb.data.error) {
+            const pageNode = await axios.get<{
+              instagram_business_account?: { id?: string; followers_count?: number | string; follows_count?: number | string };
+              error?: { message?: string };
+            }>(`${fbBaseUrl}/${meFb.data.id}`, {
+              params: { fields: 'instagram_business_account{id,followers_count,follows_count}', access_token: token },
+              timeout: 8_000,
+              validateStatus: () => true,
+            });
+            if (pageNode.status < 400 && !pageNode.data?.error) {
+              const iba = pageNode.data?.instagram_business_account;
+              if (iba?.id === account.platformUserId) {
+                const fc = parseIgFollowerCount(iba.followers_count);
+                if (fc != null) out.followers = fc;
+                const fwing = parseIgFollowerCount(iba.follows_count);
+                if (fwing != null) out.followingCount = fwing;
+              }
+            }
+          }
+        } catch (_) {
+          /* best-effort */
+        }
+      }
+      // User access token: enumerate Pages and match the Instagram Business account id.
+      if (out.followers === 0 && token) {
+        try {
+          const accountsRes = await axios.get<{
+            data?: Array<{ instagram_business_account?: { id?: string; followers_count?: number | string; follows_count?: number | string } }>;
+            error?: { message?: string };
+          }>(`${fbBaseUrl}/me/accounts`, {
+            params: { fields: 'instagram_business_account{id,followers_count,follows_count}', access_token: token },
+            timeout: 10_000,
+            validateStatus: () => true,
+          });
+          if (accountsRes.status < 400 && !accountsRes.data?.error) {
+            for (const row of accountsRes.data?.data ?? []) {
+              const iba = row.instagram_business_account;
+              if (iba?.id === account.platformUserId) {
+                const fc = parseIgFollowerCount(iba.followers_count);
+                if (fc != null) out.followers = fc;
+                const fwing = parseIgFollowerCount(iba.follows_count);
+                if (fwing != null) out.followingCount = fwing;
+                break;
+              }
+            }
+          }
+        } catch (_) {
+          /* best-effort */
+        }
+      }
       // Final fallback: use /me endpoint with token directly (bypasses any platformUserId mismatch).
       if (out.followers === 0) {
         try {
-          const meRes = await axios.get<{ followers_count?: number; follows_count?: number; error?: { message?: string } }>(
+          const meRes = await axios.get<{ followers_count?: number | string; follows_count?: number | string; error?: { message?: string } }>(
             `${igBaseUrl}/me`,
             { params: { fields: 'followers_count,follows_count', access_token: token }, timeout: 8_000, validateStatus: () => true }
           );
-          if (typeof meRes.data?.followers_count === 'number' && meRes.data.followers_count > 0) {
-            out.followers = meRes.data.followers_count;
-          }
-          if (typeof meRes.data?.follows_count === 'number' && !out.followingCount) {
-            out.followingCount = meRes.data.follows_count;
-          }
+          const fc = parseIgFollowerCount(meRes.data?.followers_count);
+          if (fc != null && fc > 0) out.followers = fc;
+          const fwing = parseIgFollowerCount(meRes.data?.follows_count);
+          if (fwing != null && out.followingCount === undefined) out.followingCount = fwing;
         } catch (_) { /* silent — best-effort */ }
       }
 
