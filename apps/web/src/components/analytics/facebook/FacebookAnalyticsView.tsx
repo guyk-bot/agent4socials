@@ -470,10 +470,15 @@ function buildInstagramSyntheticFacebookBundle(
     }
   }
 
-  const postImpressions = contentViews.length > 0 ? contentViews : [];
+  /** Account-level `impressions` can be empty or zero while per-media views/reach exist; use post-aggregated plays/impressions as fallback. */
+  const postAggregatedImpressions = aggregatePostsByDayValue(postsInRange, (p) => p.impressions ?? bestPostPlayCount(p));
+  const accountImpSum = sumMetricSeriesPoints(contentViews);
+  const postAggSum = sumMetricSeriesPoints(postAggregatedImpressions);
+  const postImpressions =
+    accountImpSum > 0 ? contentViews : postAggSum > 0 ? postAggregatedImpressions : contentViews;
   const engagementTotal = sumMetricSeriesPoints(engagement);
   const sourceKeys: string[] = [];
-  if (contentViews.length) sourceKeys.push('impressions');
+  if (contentViews.length || postAggregatedImpressions.length) sourceKeys.push('impressions');
   if (pageTabViews.length) sourceKeys.push('profile_views');
   if (engagement.length) sourceKeys.push('post_engagement_proxy');
   if (videoViews.length) sourceKeys.push('post_video_views');
@@ -952,6 +957,7 @@ export function CommunitySummaryCard({
 export function PostsPerformanceTable({
   rows,
   onOpenDetail,
+  clicksColumnLabel = 'Clicks',
 }: {
   rows: Array<{
     id: string;
@@ -971,6 +977,7 @@ export function PostsPerformanceTable({
     rawPost: FacebookPost;
   }>;
   onOpenDetail: (p: FacebookPost) => void;
+  clicksColumnLabel?: string;
 }) {
   return (
     <div className="rounded-[20px] overflow-hidden" style={{ background: COLOR.card, boxShadow: '0 2px 16px rgba(15,23,42,0.06)' }}>
@@ -984,7 +991,7 @@ export function PostsPerformanceTable({
                 { label: 'Type', className: 'w-[60px]' },
                 { label: 'Views', className: 'w-[58px]' },
                 { label: 'Unique reach', className: 'w-[66px]' },
-                { label: 'Clicks', className: 'w-[52px]' },
+                { label: clicksColumnLabel, className: 'w-[52px]' },
                 { label: 'Likes', className: 'w-[52px]' },
                 { label: 'Reactions', className: 'w-[76px]' },
                 { label: 'Watch time', className: 'w-[84px]' },
@@ -1095,7 +1102,9 @@ export function PostsPerformanceTable({
               <span>Views {formatNumber(r.views)}</span>
               <span>{r.watchTimeMs > 0 ? `Watch ${formatDurationMs(r.watchTimeMs)}` : 'Watch -'}</span>
               <span>{r.avgWatchMs > 0 ? `Avg ${formatDurationMs(r.avgWatchMs)}` : 'Avg -'}</span>
-              <span>Clicks {formatNumber(r.clicks)}</span>
+              <span>
+                {clicksColumnLabel} {formatNumber(r.clicks)}
+              </span>
             </div>
           </button>
         ))}
@@ -1121,13 +1130,18 @@ function TopContentHighlights({
   byViews,
   byClicks,
   byReactions,
+  clicksLeaderTitle = 'Clicks leaders',
+  clicksMetricLabel = 'Clicks',
 }: {
   byViews: TopHighlightRow[];
   byClicks: TopHighlightRow[];
   byReactions: TopHighlightRow[];
+  /** Instagram uses Meta interactions, not Facebook Page link clicks. */
+  clicksLeaderTitle?: string;
+  clicksMetricLabel?: 'Clicks' | 'Interactions';
 }) {
   const rankBadge = (idx: number) => `/rank-badges/${Math.min(3, idx + 1)}.svg`;
-  const col = (title: string, metricLabel: 'Views' | 'Clicks' | 'Reactions', rows: TopHighlightRow[]) => (
+  const col = (title: string, metricLabel: 'Views' | 'Clicks' | 'Reactions' | 'Interactions', rows: TopHighlightRow[]) => (
     <div className="space-y-3">
       <p className="text-base font-semibold tracking-tight" style={{ color: COLOR.text }}>{title}</p>
       {rows.length === 0 ? (
@@ -1180,7 +1194,15 @@ function TopContentHighlights({
                 </p>
                 <div className="mt-auto pt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs" style={{ color: COLOR.textMuted }}>
                   <span style={metricLabel === 'Views' ? { color: COLOR.text, fontWeight: 700, fontSize: 13 } : undefined}>Views {formatNumber(r.views)}</span>
-                  <span style={metricLabel === 'Clicks' ? { color: COLOR.text, fontWeight: 700, fontSize: 13 } : undefined}>Clicks {formatNumber(r.clicks)}</span>
+                  <span
+                    style={
+                      metricLabel === 'Clicks' || metricLabel === 'Interactions'
+                        ? { color: COLOR.text, fontWeight: 700, fontSize: 13 }
+                        : undefined
+                    }
+                  >
+                    {metricLabel === 'Interactions' ? 'Interactions' : 'Clicks'} {formatNumber(r.clicks)}
+                  </span>
                   <span style={metricLabel === 'Reactions' ? { color: COLOR.text, fontWeight: 700, fontSize: 13 } : undefined}>Reactions {formatNumber(r.reactions)}</span>
                 </div>
               </div>
@@ -1195,7 +1217,7 @@ function TopContentHighlights({
     <section className="rounded-[20px] p-5" style={{ background: COLOR.card, boxShadow: '0 2px 16px rgba(15,23,42,0.05)' }}>
       <div className="grid gap-4 lg:grid-cols-3">
         {col('Views leaders', 'Views', byViews)}
-        {col('Clicks leaders', 'Clicks', byClicks)}
+        {col(clicksLeaderTitle, clicksMetricLabel, byClicks)}
         {col('Reactions leaders', 'Reactions', byReactions)}
       </div>
     </section>
@@ -1688,7 +1710,10 @@ export function FacebookAnalyticsView({
         permalink: p.permalinkUrl,
         views: bestPostPlayCount(p),
         uniqueReach: fi.post_impressions_unique ?? 0,
-        clicks: fi.post_clicks ?? 0,
+        clicks:
+          p.platform === 'INSTAGRAM'
+            ? (fi.instagram_total_interactions ?? fi.post_clicks ?? 0)
+            : (fi.post_clicks ?? 0),
         likes: bestCount(fi.post_reactions_like_total, p.likeCount),
         reactionsTotal: reactions || bestCount(fi.post_reactions_like_total, p.likeCount),
         watchTimeMs,
@@ -1720,7 +1745,10 @@ export function FacebookAnalyticsView({
         views: r.views,
         watchTimeMinutes: (r.watchTimeMs ?? 0) / 60000,
         avgWatchSeconds: r.avgWatchMs / 1000,
-        clicks: r.post.facebookInsights?.post_clicks ?? 0,
+        clicks:
+          r.post.platform === 'INSTAGRAM'
+            ? (r.post.facebookInsights?.instagram_total_interactions ?? r.post.facebookInsights?.post_clicks ?? 0)
+            : (r.post.facebookInsights?.post_clicks ?? 0),
         likes: bestCount(r.post.facebookInsights?.post_reactions_like_total, r.post.likeCount),
         comments: r.post.facebookInsights?.post_comments ?? r.post.commentsCount ?? 0,
         shares: r.post.facebookInsights?.post_shares ?? r.post.sharesCount ?? 0,
@@ -1751,7 +1779,15 @@ export function FacebookAnalyticsView({
   const avgClicksPerPost = postsRows.reduce((s, r) => s + r.clicks, 0) / Math.max(1, postsRows.length);
   const avgReactionsPerPost = postsRows.reduce((s, r) => s + r.reactionsTotal, 0) / Math.max(1, postsRows.length);
   const totalReelWatchTimeMs = postsRows.filter((r) => r.type === 'Reel').reduce((s, r) => s + r.watchTimeMs, 0);
-  const reelClicks = reelsRows.reduce((s, r) => s + (r.post.facebookInsights?.post_clicks ?? 0), 0);
+  const reelClicks = reelsRows.reduce((s, r) => {
+    const fi = r.post.facebookInsights ?? {};
+    return (
+      s +
+      (r.post.platform === 'INSTAGRAM'
+        ? (fi.instagram_total_interactions ?? fi.post_clicks ?? 0)
+        : (fi.post_clicks ?? 0))
+    );
+  }, 0);
   const reelLikes = reelsRows.reduce((s, r) => s + bestCount(r.post.facebookInsights?.post_reactions_like_total, r.post.likeCount), 0);
   const reelComments = reelsRows.reduce((s, r) => s + (r.post.facebookInsights?.post_comments ?? r.post.commentsCount ?? 0), 0);
   const reelShares = reelsRows.reduce((s, r) => s + (r.post.facebookInsights?.post_shares ?? r.post.sharesCount ?? 0), 0);
@@ -1760,7 +1796,15 @@ export function FacebookAnalyticsView({
   const totalReelVideoViews = reelsRows.reduce((s, r) => s + r.views, 0);
   const avgWatchMs = totalReelVideoViews > 0 ? totalReelWatchTimeMs / totalReelVideoViews : 0;
   const viewToClickEfficiency =
-    reelsRows.reduce((s, r) => s + (r.post.facebookInsights?.post_clicks ?? 0), 0) / Math.max(1, totalReelVideoViews);
+    reelsRows.reduce((s, r) => {
+      const fi = r.post.facebookInsights ?? {};
+      return (
+        s +
+        (r.post.platform === 'INSTAGRAM'
+          ? (fi.instagram_total_interactions ?? fi.post_clicks ?? 0)
+          : (fi.post_clicks ?? 0))
+      );
+    }, 0) / Math.max(1, totalReelVideoViews);
   const storyModeHoverHint = useMemo(() => {
     const fmt = (v: number | null | undefined) => (typeof v === 'number' && Number.isFinite(v) ? `${v >= 0 ? '+' : ''}${v.toFixed(1)}%` : 'n/a');
     const follows = growthSparklineSeries.follows;
@@ -1878,7 +1922,10 @@ export function FacebookAnalyticsView({
         permalink: p.permalinkUrl,
         views: bestPostPlayCount(p),
         uniqueReach: fi.post_impressions_unique ?? 0,
-        clicks: fi.post_clicks ?? 0,
+        clicks:
+          p.platform === 'INSTAGRAM'
+            ? (fi.instagram_total_interactions ?? fi.post_clicks ?? 0)
+            : (fi.post_clicks ?? 0),
         likes: fi.post_reactions_like_total ?? p.likeCount ?? 0,
         reactionsTotal: reactions || (fi.post_reactions_like_total ?? p.likeCount ?? 0),
         watchTimeMs,
@@ -2594,6 +2641,11 @@ export function FacebookAnalyticsView({
               onClick={() => setSelectedTrafficMetrics((prev) => prev.includes('uniqueReachProxy') ? prev.filter((m) => m !== 'uniqueReachProxy') : [...prev, 'uniqueReachProxy'])}
             />
           </div>
+          {isInstagram ? (
+            <p className="text-xs leading-relaxed max-w-[920px]" style={{ color: COLOR.textSecondary }}>
+              Non-viral and viral breakdown are Facebook Page metrics, so they stay at 0 for Instagram. Post impressions use account-level data from Meta, or per-post views when that series is empty.
+            </p>
+          ) : null}
           <div className="flex justify-end">
             <div className="flex flex-wrap gap-2">
               {selectedTrafficMetrics.map((m) => (
@@ -2723,10 +2775,17 @@ export function FacebookAnalyticsView({
           </div>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <MetricCard label="Total Posts" source="Derived from posts in date range" color={COLOR.text} value={formatNumber(postsInRange.length)} />
-            <MetricCard label="Avg Clicks per Post" source="post_clicks" color={COLOR.text} value={avgClicksPerPost.toFixed(1)} />
+            <MetricCard
+              label={isInstagram ? 'Avg interactions per post' : 'Avg Clicks per Post'}
+              source={isInstagram ? 'instagram_total_interactions (Reels)' : 'post_clicks'}
+              color={COLOR.text}
+              value={avgClicksPerPost.toFixed(1)}
+            />
             <MetricCard label="Avg Reactions per Post" source="post_reactions_like_total / breakdown" color={COLOR.text} value={avgReactionsPerPost.toFixed(1)} />
           </div>
           <TopContentHighlights
+            clicksLeaderTitle={isInstagram ? 'Interactions leaders' : 'Clicks leaders'}
+            clicksMetricLabel={isInstagram ? 'Interactions' : 'Clicks'}
             byViews={topByViews.map((p) => ({
               id: p.id,
               preview: p.preview,
@@ -2824,8 +2883,8 @@ export function FacebookAnalyticsView({
             onClick={() => setSelectedReelMetrics((prev) => prev.includes('avgWatch') ? prev.filter((m) => m !== 'avgWatch') : [...prev, 'avgWatch'])}
           />
           <MetricCard
-            label="Clicks"
-            source="post_clicks"
+            label={isInstagram ? 'Interactions' : 'Clicks'}
+            source={isInstagram ? 'instagram_total_interactions' : 'post_clicks'}
             color={REEL_METRIC_CONFIG.clicks.color}
             value={formatNumber(reelClicks)}
             active={selectedReelMetrics.includes('clicks')}
@@ -2954,7 +3013,11 @@ export function FacebookAnalyticsView({
             ))}
           </div>
           {contentHistoryRows.length > 0 ? (
-            <PostsPerformanceTable rows={contentHistoryRows} onOpenDetail={setSelectedPost} />
+            <PostsPerformanceTable
+              rows={contentHistoryRows}
+              onOpenDetail={setSelectedPost}
+              clicksColumnLabel={isInstagram ? 'Interactions' : 'Clicks'}
+            />
           ) : postsLoading ? (
             <div className="rounded-[20px] border p-6 space-y-3" style={{ background: COLOR.card, borderColor: COLOR.border }}>
               <p className="text-sm font-medium" style={{ color: COLOR.text }}>Loading content history…</p>
@@ -2965,7 +3028,11 @@ export function FacebookAnalyticsView({
               </div>
             </div>
           ) : (
-            <PostsPerformanceTable rows={contentHistoryRows} onOpenDetail={setSelectedPost} />
+            <PostsPerformanceTable
+              rows={contentHistoryRows}
+              onOpenDetail={setSelectedPost}
+              clicksColumnLabel={isInstagram ? 'Interactions' : 'Clicks'}
+            />
           )}
         </div>
         )}

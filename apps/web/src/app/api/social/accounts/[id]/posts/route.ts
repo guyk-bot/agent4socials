@@ -402,6 +402,7 @@ export async function GET(
           views: typeof ig.views === 'number' ? ig.views : row.impressions ?? 0,
           impressionsLegacy: typeof ig.impressionsLegacy === 'number' ? ig.impressionsLegacy : 0,
           reach: typeof ig.reach === 'number' ? ig.reach : 0,
+          totalInteractions: typeof ig.totalInteractions === 'number' ? ig.totalInteractions : 0,
           avgWatchSeconds: typeof ig.avgWatchSeconds === 'number' ? ig.avgWatchSeconds : 0,
           totalWatchSeconds: typeof ig.totalWatchSeconds === 'number' ? ig.totalWatchSeconds : 0,
         };
@@ -459,6 +460,7 @@ export async function GET(
               views?: number;
               reach?: number;
               impressionsLegacy?: number;
+              totalInteractions?: number;
               avgWatchSeconds?: number;
               totalWatchSeconds?: number;
             })
@@ -473,6 +475,10 @@ export async function GET(
                 typeof igMetaDb?.impressionsLegacy === 'number' ? igMetaDb.impressionsLegacy : 0
               ),
               reach: Math.max(liveIgBundle?.reach ?? 0, typeof igMetaDb?.reach === 'number' ? igMetaDb.reach : 0),
+              totalInteractions: Math.max(
+                liveIgBundle?.totalInteractions ?? 0,
+                typeof igMetaDb?.totalInteractions === 'number' ? igMetaDb.totalInteractions : 0
+              ),
               avgWatchSeconds: Math.max(
                 liveIgBundle?.avgWatchSeconds ?? 0,
                 typeof igMetaDb?.avgWatchSeconds === 'number' ? igMetaDb.avgWatchSeconds : 0
@@ -504,6 +510,8 @@ export async function GET(
                 post_video_views: views,
                 post_media_view: views,
                 post_impressions_unique: reach,
+                /** Reels `total_interactions` — not Facebook Page link clicks. */
+                instagram_total_interactions: mergedIgInsight.totalInteractions,
                 post_video_avg_time_watched: Math.round(avgSec * 1000),
                 post_video_view_time: Math.round(totSec * 1000),
                 post_reactions_like_total: p.likeCount ?? 0,
@@ -587,6 +595,8 @@ type IgMediaInsightBundle = {
   views: number;
   impressionsLegacy: number;
   reach: number;
+  /** Reels: Meta `total_interactions` (not the same as Facebook Page link clicks). */
+  totalInteractions: number;
   /** Seconds (IG API) */
   avgWatchSeconds: number;
   /** Seconds (IG API) */
@@ -609,6 +619,7 @@ function mergeIgInsightBundles(a: IgMediaInsightBundle, b: IgMediaInsightBundle)
     views: Math.max(a.views, b.views),
     impressionsLegacy: Math.max(a.impressionsLegacy, b.impressionsLegacy),
     reach: Math.max(a.reach, b.reach),
+    totalInteractions: Math.max(a.totalInteractions, b.totalInteractions),
     avgWatchSeconds: Math.max(a.avgWatchSeconds, b.avgWatchSeconds),
     totalWatchSeconds: Math.max(a.totalWatchSeconds, b.totalWatchSeconds),
   };
@@ -619,6 +630,7 @@ function igInsightBundleHasMetrics(b: IgMediaInsightBundle): boolean {
     b.views > 0 ||
     b.reach > 0 ||
     b.impressionsLegacy > 0 ||
+    b.totalInteractions > 0 ||
     b.avgWatchSeconds > 0 ||
     b.totalWatchSeconds > 0
   );
@@ -646,6 +658,7 @@ async function fetchInstagramMediaInsights(
     views: 0,
     impressionsLegacy: 0,
     reach: 0,
+    totalInteractions: 0,
     avgWatchSeconds: 0,
     totalWatchSeconds: 0,
   };
@@ -658,6 +671,7 @@ async function fetchInstagramMediaInsights(
       ]
     : [
         'views,reach,impressions',
+        'views,reach,total_interactions',
         'views,reach',
         'impressions,reach',
         'reach',
@@ -680,6 +694,7 @@ async function fetchInstagramMediaInsights(
         if (d.name === 'views') out.views = val;
         if (d.name === 'impressions') out.impressionsLegacy = val;
         if (d.name === 'reach') out.reach = val;
+        if (d.name === 'total_interactions') out.totalInteractions = val;
         if (d.name === 'ig_reels_avg_watch_time') out.avgWatchSeconds = val;
         if (d.name === 'ig_reels_video_view_total_time') out.totalWatchSeconds = val;
       }
