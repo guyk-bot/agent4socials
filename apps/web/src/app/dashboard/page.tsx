@@ -754,7 +754,7 @@ export default function DashboardPage() {
   }, [analyticsTab, hasAccounts, dateRange.start, dateRange.end, accounts.map((a) => a.id).join(',')]);
 
   useEffect(() => {
-    if (selectedAccount?.platform !== 'FACEBOOK' || !selectedAccount?.id) {
+    if ((selectedAccount?.platform !== 'FACEBOOK' && selectedAccount?.platform !== 'INSTAGRAM') || !selectedAccount?.id) {
       setLiveFbConversationsCount(null);
       setLiveFbConversationDates(null);
       return;
@@ -1237,8 +1237,8 @@ export default function DashboardPage() {
                   instagramAccountVideoViewsTotal: (insights as { instagramAccountVideoViewsTotal?: number }).instagramAccountVideoViewsTotal,
                   tiktokUser: (insights as { tiktokUser?: import('@/components/analytics/facebook/types').FacebookInsights['tiktokUser'] }).tiktokUser,
                   tiktokCreatorInfo: (insights as { tiktokCreatorInfo?: import('@/components/analytics/facebook/types').FacebookInsights['tiktokCreatorInfo'] }).tiktokCreatorInfo,
-                  ...(selectedAccount.platform === 'FACEBOOK' && liveFbConversationsCount != null ? { facebookLiveConversationsCount: liveFbConversationsCount } : {}),
-                  ...(selectedAccount.platform === 'FACEBOOK' && liveFbConversationDates != null ? { facebookLiveConversationDates: liveFbConversationDates } : {}),
+                  ...((selectedAccount.platform === 'FACEBOOK' || selectedAccount.platform === 'INSTAGRAM') && liveFbConversationsCount != null ? { facebookLiveConversationsCount: liveFbConversationsCount } : {}),
+                  ...((selectedAccount.platform === 'FACEBOOK' || selectedAccount.platform === 'INSTAGRAM') && liveFbConversationDates != null ? { facebookLiveConversationDates: liveFbConversationDates } : {}),
                 }),
               };
               return base;

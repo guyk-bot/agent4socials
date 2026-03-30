@@ -19,10 +19,11 @@ import { persistFacebookPageInsightsNormalized } from '@/lib/facebook/persist-pa
 import { buildFacebookFrontendAnalyticsBundle } from '@/lib/facebook/frontend-analytics-bundle';
 import { buildPinterestFrontendAnalyticsBundle } from '@/lib/pinterest-analytics-bundle';
 import { syncFacebookAuxiliaryIngest, ensureFacebookTables } from '@/lib/facebook/sync-extras';
-import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
+import { facebookGraphBaseUrl, META_GRAPH_FACEBOOK_API_VERSION } from '@/lib/meta-graph-insights';
 
 const fbBaseUrl = facebookGraphBaseUrl;
-const igBaseUrl = 'https://graph.instagram.com/v18.0';
+// Use same version as fbBaseUrl; graph.instagram.com/v18.0 is deprecated
+const igBaseUrl = `https://graph.instagram.com/${META_GRAPH_FACEBOOK_API_VERSION}`;
 const baseUrl = fbBaseUrl; // used by Facebook and other platforms
 
 /** Merge API time series with snapshot-backed series. API values take precedence. Only include dates that have a value so the UI can carry forward the last known value for missing dates (avoids showing zeros when Meta has no data yet for recent days). */
@@ -208,10 +209,11 @@ export async function GET(
         return false;
       };
 
-      // Prefer graph.facebook.com for Page-linked; fall back to graph.instagram.com for Instagram-only (Business Login)
+      // Prefer graph.facebook.com for Page-linked; fall back to graph.instagram.com for Instagram-only (Business Login).
+      // Also retry with igBaseUrl when fbBaseUrl returned followers_count=0 (profileOk can be true yet followers=0).
       let profileOk = await tryProfile(fbBaseUrl);
-      if (!profileOk && (isInstagramBusinessLogin || out.followers === 0)) {
-        profileOk = await tryProfile(igBaseUrl);
+      if (!profileOk || out.followers === 0) {
+        await tryProfile(igBaseUrl);
       }
 
       const igSeriesByMetric: Record<string, Array<{ date: string; value: number }>> = {};
