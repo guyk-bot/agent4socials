@@ -147,7 +147,14 @@ function MessagesConversationList({
       if (inboxFilter === 'unread') return unreadConversationIds.has(c.id);
       return true;
     })
-    .filter((c) => !searchQuery || (c.senders?.[0]?.username ?? c.senders?.[0]?.name ?? c.id).toLowerCase().includes(searchQuery.toLowerCase()));
+    .filter((c) => !searchQuery || (c.senders?.[0]?.username ?? c.senders?.[0]?.name ?? c.id).toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => {
+      // Primary: newest updatedTime first
+      const timeDiff = (b.updatedTime ?? '').localeCompare(a.updatedTime ?? '');
+      if (timeDiff !== 0) return timeDiff;
+      // Tiebreaker: unread conversations rise above read ones at the same timestamp
+      return (unreadConversationIds.has(b.id) ? 1 : 0) - (unreadConversationIds.has(a.id) ? 1 : 0);
+    });
   return (
     <div className="p-2 space-y-0">
       {filtered.map((c) => {
@@ -1201,7 +1208,12 @@ function InboxPage() {
                       : !hasRepliedByParent.has(c.commentId)
                 )
                 .filter((c) => !searchQuery || c.text.toLowerCase().includes(searchQuery.toLowerCase()) || c.authorName.toLowerCase().includes(searchQuery.toLowerCase()))
-                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+                .sort((a, b) => {
+                  const timeDiff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                  if (timeDiff !== 0) return timeDiff;
+                  // Tiebreaker: unread comments rise above read ones with the same timestamp
+                  return (unreadCommentIds.has(b.commentId) ? 1 : 0) - (unreadCommentIds.has(a.commentId) ? 1 : 0);
+                });
               return filtered.map((c) => {
                 const isUnread = unreadCommentIds.has(c.commentId);
                 const hasReplied = hasRepliedByParent.has(c.commentId);
