@@ -1957,7 +1957,7 @@ export function FacebookAnalyticsView({
             <div>
               <h1 className="text-xl font-semibold" style={{ color: COLOR.text }}>
                 {isTikTok
-                  ? (tiktokCreatorInfo?.creatorNickname ?? tiktokUser?.displayName ?? resolvedUsername || 'TikTok')
+                  ? (tiktokCreatorInfo?.creatorNickname ?? tiktokUser?.displayName ?? resolvedUsername ?? 'TikTok')
                   : profile?.name?.trim() ||
                     resolvedUsername ||
                     (insights?.platform === 'INSTAGRAM'
@@ -1970,7 +1970,7 @@ export function FacebookAnalyticsView({
               </h1>
               <p className="text-sm" style={{ color: COLOR.textSecondary }}>
                 @
-                {isTikTok ? (tiktokCreatorInfo?.creatorUsername ?? resolvedUsername || 'unknown') : resolvedUsername || 'unknown'}
+                {isTikTok ? (tiktokCreatorInfo?.creatorUsername ?? resolvedUsername ?? 'unknown') : resolvedUsername || 'unknown'}
                 {profile?.category ? `  •  ${profile.category}` : ''}
               </p>
             </div>
