@@ -2313,7 +2313,7 @@ export function FacebookAnalyticsView({
           )}
           <div className="flex justify-end">
             <div className="flex flex-wrap gap-2">
-              {selectedStoryMetricsForMode.map((metric) => (
+              {selectedStoryMetrics.map((metric) => (
                 <span
                   key={metric}
                   className="rounded-full border px-2.5 py-1 text-xs"
@@ -2326,7 +2326,7 @@ export function FacebookAnalyticsView({
             </div>
           </div>
           <InsightChartCard title="Performance" hideHeader flat>
-          {selectedStoryMetricsForMode.length === 0 ? (
+          {selectedStoryMetrics.length === 0 ? (
             <div className="h-[300px] rounded-xl border border-dashed relative overflow-hidden" style={{ borderColor: COLOR.border }}>
               <div className="absolute inset-0 z-[2] flex items-center justify-center">
                 <div
