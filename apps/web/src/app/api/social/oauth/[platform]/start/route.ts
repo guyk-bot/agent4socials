@@ -47,7 +47,9 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
         redirect_uri: tiktokRedirect,
         state,
       });
-      const target = (process.env.TIKTOK_OAUTH_TARGET || '').trim();
+      // Default to sandbox target to avoid immediate non_sandbox_target failures.
+      // Override with TIKTOK_OAUTH_TARGET=production when moving to reviewed/live setup.
+      const target = (process.env.TIKTOK_OAUTH_TARGET || 'sandbox').trim();
       if (target) oauthParams.set('target', target);
       const disableAutoAuth = (process.env.TIKTOK_DISABLE_AUTO_AUTH || '').trim();
       if (disableAutoAuth) oauthParams.set('disable_auto_auth', disableAutoAuth);
