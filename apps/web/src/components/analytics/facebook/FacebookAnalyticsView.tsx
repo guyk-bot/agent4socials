@@ -285,6 +285,15 @@ function firstWords(v: string | null | undefined, words = 3): string {
   return parts.slice(0, words).join(' ');
 }
 
+function normalizePostPreview(v: string | null | undefined): string {
+  const one = (v ?? '').replace(/\s+/g, ' ').trim();
+  if (!one) return '';
+  const parts = one.split(' ').filter(Boolean);
+  const withoutHashLead = parts.filter((p) => !p.startsWith('#') && !/^https?:\/\//i.test(p) && !/^www\./i.test(p));
+  const rebuilt = withoutHashLead.join(' ').trim();
+  return rebuilt || one;
+}
+
 function parseReactionTotal(v: unknown): number {
   if (typeof v === 'number') return v;
   if (v && typeof v === 'object') {
@@ -310,15 +319,34 @@ function normalizeAvgWatchMs(raw: number): number {
   return raw;
 }
 
+function normalizeTotalWatchMs(raw: number, views: number, avgWatchMs: number): number {
+  if (!Number.isFinite(raw) || raw <= 0) return 0;
+  const v = Math.max(1, views);
+  let ms = raw;
+  // If implied average watch exceeds 10 minutes, treat as microseconds.
+  if (ms / v > 10 * 60 * 1000) ms = ms / 1000;
+  // Guard against seconds values sneaking in (very tiny implied avg under 50ms).
+  if (ms / v < 50) ms = ms * 1000;
+  // If avgWatch is present and differs wildly, prefer the scale that is closer.
+  if (avgWatchMs > 0) {
+    const c1 = ms;
+    const c2 = ms / 1000;
+    const d1 = Math.abs(c1 / v - avgWatchMs);
+    const d2 = Math.abs(c2 / v - avgWatchMs);
+    ms = d2 < d1 ? c2 : c1;
+  }
+  return ms;
+}
+
 function getWatchTimes(post: FacebookPost): { watchTimeMs: number; avgWatchMs: number } {
   const fi = (post.facebookInsights ?? {}) as Record<string, unknown>;
   const avgWatchMs = normalizeAvgWatchMs(toFiniteNumber(fi.post_video_avg_time_watched));
-  const totalWatchRaw = toFiniteNumber(fi.post_video_view_time);
+  const views = Math.max(0, bestPostPlayCount(post));
+  const totalWatchRaw = normalizeTotalWatchMs(toFiniteNumber(fi.post_video_view_time), views, avgWatchMs);
   if (totalWatchRaw > 0) {
     return { watchTimeMs: totalWatchRaw, avgWatchMs };
   }
   // Fallback when API sends only avg watch metric.
-  const views = Math.max(0, bestPostPlayCount(post));
   if (avgWatchMs > 0 && views > 0) {
     return { watchTimeMs: avgWatchMs * views, avgWatchMs };
   }
@@ -334,6 +362,7 @@ function inRange(dateIso: string, start: string, end: string): boolean {
 function isReelPost(p: FacebookPost): boolean {
   const url = (p.permalinkUrl ?? '').toLowerCase();
   if (url.includes('/reel/')) return true;
+  if ((p.mediaType ?? '').toUpperCase() === 'REEL') return true;
   // Some Facebook video posts do not use /reel/ permalink but still expose reel/video metrics.
   if (typeof p.facebookInsights?.post_video_views === 'number') return true;
   if (typeof p.facebookInsights?.post_video_avg_time_watched === 'number') return true;
@@ -1105,7 +1134,7 @@ function TopContentHighlights({
         <p className="text-sm" style={{ color: COLOR.textMuted }}>No items yet</p>
       ) : (
         rows.map((r, idx) => (
-          <div key={`${title}-${r.id}-${idx}`} className="rounded-xl p-3" style={{ background: COLOR.elevated }}>
+          <div key={`${title}-${r.id}-${idx}`} className="rounded-xl p-3 h-[124px]" style={{ background: COLOR.elevated }}>
             <div className="flex items-start gap-3">
               <div className="shrink-0 w-[104px] pt-1">
                 <div className="relative isolate mt-1 h-[92px] w-[92px]">
@@ -1147,7 +1176,7 @@ function TopContentHighlights({
                   style={{ color: COLOR.textSecondary }}
                   title={(r.preview || '').trim() || undefined}
                 >
-                  {(r.preview || '').trim() || 'View post'}
+                  {normalizePostPreview(r.preview || '').trim() || 'View post'}
                 </p>
                 <div className="mt-auto pt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs" style={{ color: COLOR.textMuted }}>
                   <span style={metricLabel === 'Views' ? { color: COLOR.text, fontWeight: 700, fontSize: 13 } : undefined}>Views {formatNumber(r.views)}</span>
@@ -1403,10 +1432,14 @@ export function FacebookAnalyticsView({
     });
   };
   const newFollowers = bundle?.totals.dailyFollows ?? 0;
+  const derivedPostViewsInRange = useMemo(
+    () => postsInRange.reduce((s, p) => s + bestPostPlayCount(p), 0),
+    [postsInRange]
+  );
   const contentViews = isTikTok
     ? tiktokViewsInRange
     : isInstagram
-      ? Math.max(0, insights.impressionsTotal ?? 0, bundle?.totals.contentViews ?? 0)
+      ? Math.max(0, insights.impressionsTotal ?? 0, bundle?.totals.contentViews ?? 0, derivedPostViewsInRange)
       : (bundle?.totals.contentViews ?? 0);
   const pageVisits = isTikTok
     ? 0
