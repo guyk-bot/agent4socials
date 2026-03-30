@@ -3,6 +3,112 @@ import { prisma } from '@/lib/db';
 import { fbRestBaseUrl } from './constants';
 import { fetchPageProfile, reviewContentHash } from './fetchers';
 
+let _fbTablesEnsured = false;
+/** Create Facebook cache + insight tables if they were skipped by a failed migration. Safe to call many times. */
+export async function ensureFacebookTables(): Promise<void> {
+  if (_fbTablesEnsured) return;
+  try {
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "facebook_pages" (
+        "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+        "socialAccountId" TEXT NOT NULL,
+        "pageId" TEXT NOT NULL,
+        "profileJson" JSONB,
+        "fetchedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "facebook_pages_pkey" PRIMARY KEY ("id")
+      )
+    `);
+    await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "facebook_pages_socialAccountId_key" ON "facebook_pages"("socialAccountId")`);
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'facebook_pages_socialAccountId_fkey') THEN
+          ALTER TABLE "facebook_pages" ADD CONSTRAINT "facebook_pages_socialAccountId_fkey"
+            FOREIGN KEY ("socialAccountId") REFERENCES "SocialAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        END IF;
+      END $$
+    `);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "facebook_conversations" (
+        "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+        "socialAccountId" TEXT NOT NULL,
+        "platformConversationId" TEXT NOT NULL,
+        "link" TEXT,
+        "updatedTime" TIMESTAMP(3),
+        "fetchedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "facebook_conversations_pkey" PRIMARY KEY ("id")
+      )
+    `);
+    await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "facebook_conversations_socialAccountId_platformConversationId_key" ON "facebook_conversations"("socialAccountId", "platformConversationId")`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "facebook_conversations_socialAccountId_updatedTime_idx" ON "facebook_conversations"("socialAccountId", "updatedTime")`);
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'facebook_conversations_socialAccountId_fkey') THEN
+          ALTER TABLE "facebook_conversations" ADD CONSTRAINT "facebook_conversations_socialAccountId_fkey"
+            FOREIGN KEY ("socialAccountId") REFERENCES "SocialAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        END IF;
+      END $$
+    `);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "facebook_reviews" (
+        "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+        "socialAccountId" TEXT NOT NULL,
+        "sourceCreatedAt" TIMESTAMP(3) NOT NULL,
+        "recommendationType" TEXT,
+        "reviewText" TEXT,
+        "contentHash" TEXT NOT NULL,
+        "fetchedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "facebook_reviews_pkey" PRIMARY KEY ("id")
+      )
+    `);
+    await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "facebook_reviews_socialAccountId_contentHash_key" ON "facebook_reviews"("socialAccountId", "contentHash")`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "facebook_reviews_socialAccountId_sourceCreatedAt_idx" ON "facebook_reviews"("socialAccountId", "sourceCreatedAt")`);
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'facebook_reviews_socialAccountId_fkey') THEN
+          ALTER TABLE "facebook_reviews" ADD CONSTRAINT "facebook_reviews_socialAccountId_fkey"
+            FOREIGN KEY ("socialAccountId") REFERENCES "SocialAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        END IF;
+      END $$
+    `);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "facebook_page_insight_daily" (
+        "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+        "userId" TEXT NOT NULL,
+        "socialAccountId" TEXT NOT NULL,
+        "pageId" TEXT NOT NULL,
+        "metricDate" TEXT NOT NULL,
+        "metricKey" TEXT NOT NULL,
+        "value" DOUBLE PRECISION NOT NULL,
+        "source" TEXT NOT NULL DEFAULT 'insights_api',
+        "fetchedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "facebook_page_insight_daily_pkey" PRIMARY KEY ("id")
+      )
+    `);
+    await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "facebook_page_insight_daily_socialAccountId_metricKey_metricDate_key" ON "facebook_page_insight_daily"("socialAccountId", "metricKey", "metricDate")`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "facebook_page_insight_daily_userId_pageId_metricDate_idx" ON "facebook_page_insight_daily"("userId", "pageId", "metricDate")`);
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'facebook_page_insight_daily_socialAccountId_fkey') THEN
+          ALTER TABLE "facebook_page_insight_daily" ADD CONSTRAINT "facebook_page_insight_daily_socialAccountId_fkey"
+            FOREIGN KEY ("socialAccountId") REFERENCES "SocialAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        END IF;
+      END $$
+    `);
+
+    _fbTablesEnsured = true;
+    console.log('[Facebook] Cache + insight tables ensured.');
+  } catch (e) {
+    console.warn('[Facebook] ensureFacebookTables failed (non-fatal):', (e as Error)?.message?.slice(0, 200));
+  }
+}
+
 export type FacebookAuxSyncReport = {
   pageProfileCached: boolean;
   conversationsPages: number;
@@ -24,6 +130,8 @@ export async function syncFacebookAuxiliaryIngest(params: {
   const { socialAccountId, pageId, accessToken } = params;
   const errors: string[] = [];
   let pageProfileCached = false;
+
+  await ensureFacebookTables();
 
   try {
     const prof = await fetchPageProfile(pageId, accessToken);

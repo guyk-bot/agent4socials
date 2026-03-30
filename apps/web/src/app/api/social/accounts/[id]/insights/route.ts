@@ -18,7 +18,7 @@ import { facebookMetricDateFromEndTime } from '@/lib/facebook/dates';
 import { persistFacebookPageInsightsNormalized } from '@/lib/facebook/persist-page-insights';
 import { buildFacebookFrontendAnalyticsBundle } from '@/lib/facebook/frontend-analytics-bundle';
 import { buildPinterestFrontendAnalyticsBundle } from '@/lib/pinterest-analytics-bundle';
-import { syncFacebookAuxiliaryIngest } from '@/lib/facebook/sync-extras';
+import { syncFacebookAuxiliaryIngest, ensureFacebookTables } from '@/lib/facebook/sync-extras';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 
 const fbBaseUrl = facebookGraphBaseUrl;
@@ -642,6 +642,7 @@ export async function GET(
         }
       }
       try {
+        await ensureFacebookTables();
         const loadFacebookCommunity = async () =>
           Promise.all([
             prisma.facebookConversationCache.count({ where: { socialAccountId: account.id } }),

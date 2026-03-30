@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db';
 import { Platform } from '@prisma/client';
 import { persistInsightsSeries } from '@/lib/analytics/metric-snapshots';
+import { ensureFacebookTables } from './sync-extras';
 
 /**
  * Writes Facebook Page day metrics to (1) `AccountMetricSnapshot.insightsJson` merged by date and
@@ -30,35 +31,41 @@ export async function persistFacebookPageInsightsNormalized(params: {
     seriesByMetric: forSnapshots,
   });
 
+  await ensureFacebookTables();
+
   let dailyRowsUpserted = 0;
   for (const [metricKey, series] of Object.entries(seriesByGraphMetric)) {
     if (!series?.length) continue;
     for (const { date, value } of series) {
       if (!date || typeof value !== 'number') continue;
-      await prisma.facebookPageInsightDaily.upsert({
-        where: {
-          socialAccountId_metricKey_metricDate: {
-            socialAccountId,
-            metricKey,
-            metricDate: date,
+      try {
+        await prisma.facebookPageInsightDaily.upsert({
+          where: {
+            socialAccountId_metricKey_metricDate: {
+              socialAccountId,
+              metricKey,
+              metricDate: date,
+            },
           },
-        },
-        create: {
-          userId,
-          socialAccountId,
-          pageId,
-          metricDate: date,
-          metricKey,
-          value,
-          source: 'insights_api',
-        },
-        update: {
-          value,
-          pageId,
-          fetchedAt: new Date(),
-        },
-      });
-      dailyRowsUpserted += 1;
+          create: {
+            userId,
+            socialAccountId,
+            pageId,
+            metricDate: date,
+            metricKey,
+            value,
+            source: 'insights_api',
+          },
+          update: {
+            value,
+            pageId,
+            fetchedAt: new Date(),
+          },
+        });
+        dailyRowsUpserted += 1;
+      } catch (e) {
+        console.warn('[Facebook] facebookPageInsightDaily upsert skipped:', (e as Error)?.message?.slice(0, 120));
+      }
     }
   }
 
