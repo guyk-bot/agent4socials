@@ -25,6 +25,27 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const disconnectById = async (id: string, userId: string) => {
+    const now = new Date();
+    const updated = await prisma.socialAccount.updateMany({
+      where: { id, userId, status: { not: 'disconnected' } },
+      data: {
+        status: 'disconnected',
+        disconnectedAt: now,
+        accessToken: '',
+        refreshToken: null,
+      },
+    });
+    if (updated.count > 0) return { ok: true as const };
+
+    const account = await prisma.socialAccount.findFirst({
+      where: { id, userId },
+      select: { status: true },
+    });
+    if (!account) return { ok: false as const, notFound: true as const };
+    return { ok: true as const };
+  };
+
   try {
     if (!process.env.DATABASE_URL) {
       return NextResponse.json({ message: 'DATABASE_URL required' }, { status: 503 });
@@ -34,26 +55,10 @@ export async function DELETE(
       return NextResponse.json({ message: 'Unauthorized. Sign in again and try disconnecting.' }, { status: 401 });
     }
     const { id } = await params;
-
-    const account = await prisma.socialAccount.findFirst({
-      where: { id, userId },
-      select: { id: true, status: true },
-    });
-    if (!account) {
+    const result = await disconnectById(id, userId);
+    if (!result.ok && result.notFound) {
       return NextResponse.json({ message: 'Account not found. It may already be disconnected.' }, { status: 404 });
     }
-    if (account.status === 'disconnected') {
-      return NextResponse.json({ ok: true });
-    }
-    await prisma.socialAccount.update({
-      where: { id: account.id },
-      data: {
-        status: 'disconnected',
-        disconnectedAt: new Date(),
-        accessToken: '',
-        refreshToken: null,
-      },
-    });
     return NextResponse.json({ ok: true });
   } catch (e) {
     const errMsg = (e as Error)?.message ?? '';
@@ -65,25 +70,10 @@ export async function DELETE(
           return NextResponse.json({ message: 'Unauthorized. Sign in again and try disconnecting.' }, { status: 401 });
         }
         const { id } = await params;
-        const account = await prisma.socialAccount.findFirst({
-          where: { id, userId },
-          select: { id: true, status: true },
-        });
-        if (!account) {
+        const result = await disconnectById(id, userId);
+        if (!result.ok && result.notFound) {
           return NextResponse.json({ message: 'Account not found. It may already be disconnected.' }, { status: 404 });
         }
-        if (account.status === 'disconnected') {
-          return NextResponse.json({ ok: true });
-        }
-        await prisma.socialAccount.update({
-          where: { id: account.id },
-          data: {
-            status: 'disconnected',
-            disconnectedAt: new Date(),
-            accessToken: '',
-            refreshToken: null,
-          },
-        });
         return NextResponse.json({ ok: true });
       } catch (_) {
         // fall through to generic error below
