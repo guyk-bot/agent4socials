@@ -224,6 +224,30 @@ export async function GET(
       if (!profileOk || out.followers === 0) {
         await tryProfile(igBaseUrl);
       }
+      // Page-linked IG: user node sometimes returns followers_count=0; Page → instagram_business_account is authoritative.
+      const credLinked = credJson as { loginMethod?: string; linkedPageId?: string };
+      if (out.followers === 0 && credLinked.linkedPageId && token) {
+        try {
+          const pageRes = await axios.get<{
+            instagram_business_account?: { id?: string; followers_count?: number; follows_count?: number };
+          }>(`${fbBaseUrl}/${credLinked.linkedPageId}`, {
+            params: { fields: 'instagram_business_account{id,followers_count,follows_count}', access_token: token },
+            timeout: 8_000,
+            validateStatus: () => true,
+          });
+          const igba = pageRes.data?.instagram_business_account;
+          if (igba && (!igba.id || igba.id === account.platformUserId)) {
+            if (typeof igba.followers_count === 'number' && igba.followers_count >= 0) {
+              out.followers = igba.followers_count;
+            }
+            if (typeof igba.follows_count === 'number') {
+              out.followingCount = igba.follows_count;
+            }
+          }
+        } catch (e) {
+          console.warn('[Insights] Instagram followers via linked Page:', (e as Error)?.message?.slice(0, 120));
+        }
+      }
       // Final fallback: use /me endpoint with token directly (bypasses any platformUserId mismatch).
       if (out.followers === 0) {
         try {
@@ -422,6 +446,52 @@ export async function GET(
       await supplementIgViews(fbBaseUrl);
       if (!igSeriesByMetric.views?.length) await supplementIgViews(igBaseUrl);
 
+      /** profile_views is sometimes omitted from batched /insights; fetch alone (Page Visits in UI). */
+      const supplementIgProfileViews = async (base: string): Promise<void> => {
+        if (effectiveSinceTs == null || effectiveUntilTs == null) return;
+        if (igSeriesByMetric.profile_views?.length) return;
+        try {
+          const res = await axios.get<{
+            data?: Array<{
+              name: string;
+              values?: Array<{ value: number; end_time?: string }>;
+              total_value?: { value: number };
+            }>;
+            error?: { message?: string };
+          }>(`${base}/${account.platformUserId}/insights`, {
+            params: {
+              metric: 'profile_views',
+              period: 'day',
+              since: effectiveSinceTs,
+              until: effectiveUntilTs,
+              access_token: token,
+            },
+            timeout: 10_000,
+          });
+          if (res.data?.error || !res.data?.data?.length) return;
+          const d = res.data.data.find((x) => x.name === 'profile_views');
+          if (!d) return;
+          const sumDaily = (d.values ?? []).reduce((s, v) => s + (typeof v.value === 'number' ? v.value : 0), 0);
+          const totalRaw = typeof d.total_value?.value === 'number' ? d.total_value.value : sumDaily;
+          out.profileViewsTotal = Math.max(0, Math.round(Number.isFinite(totalRaw) ? totalRaw : 0));
+          const series: Array<{ date: string; value: number }> =
+            (d.values ?? []).length > 0
+              ? (d.values ?? [])
+                  .map((v) => ({
+                    date: v.end_time ? facebookMetricDateFromEndTime(v.end_time) : '',
+                    value: Math.max(0, typeof v.value === 'number' ? v.value : 0),
+                  }))
+                  .filter((x) => x.date)
+                  .sort((a, b) => a.date.localeCompare(b.date))
+              : [];
+          if (series.length > 0) igSeriesByMetric.profile_views = series;
+        } catch {
+          /* metric may be unavailable */
+        }
+      };
+      await supplementIgProfileViews(fbBaseUrl);
+      await supplementIgProfileViews(igBaseUrl);
+
       /** IG User /insights: likes, comments, shares, saves, reposts, total_interactions (period=day). */
       const mergeIgInteractionTotals = (
         prev: NonNullable<(typeof out)['instagramInteractionTotals']>,
@@ -598,7 +668,8 @@ export async function GET(
         }
       };
       const tryFollowerCount = async (base: string): Promise<boolean> => {
-        if (effectiveSinceTs == null || effectiveUntilTs == null || out.followers < 100) return false;
+        // Do not require followers >= 100: small accounts still get daily follower_count from Insights.
+        if (effectiveSinceTs == null || effectiveUntilTs == null) return false;
         try {
           const res = await axios.get<{
             data?: Array<{
@@ -723,6 +794,41 @@ export async function GET(
           );
         } catch (e) {
           console.warn('[Insights] Merge IG impressions from snapshots:', (e as Error)?.message ?? e);
+        }
+        try {
+          const snapshotProfileViews = await getInsightsTimeSeries({
+            userId,
+            platform: 'INSTAGRAM',
+            externalAccountId: account.platformUserId,
+            since: sinceParam,
+            until: untilParam,
+            metricKey: 'profile_views',
+          });
+          if (snapshotProfileViews.length > 0) {
+            const mergedPv = mergeSeriesWithSnapshots(
+              out.pageViewsTimeSeries ?? [],
+              snapshotProfileViews,
+              sinceParam,
+              untilParam
+            );
+            if (mergedPv.length > 0) {
+              out.pageViewsTimeSeries = mergedPv;
+              const pvSum = mergedPv.reduce((s, p) => s + p.value, 0);
+              out.profileViewsTotal = Math.max(out.profileViewsTotal ?? 0, pvSum);
+            }
+          }
+        } catch (e) {
+          console.warn('[Insights] Merge IG profile_views from snapshots:', (e as Error)?.message ?? e);
+        }
+      }
+      // When live profile API returned 0 followers, use last known from snapshot-backed series.
+      if (out.followers === 0 && out.followersTimeSeries?.length) {
+        const lastPoint = out.followersTimeSeries[out.followersTimeSeries.length - 1];
+        if (typeof lastPoint?.value === 'number' && lastPoint.value > 0) {
+          out.followers = lastPoint.value;
+          if (!out.insightsHint) {
+            out.insightsHint = 'Follower count is from our last sync. Reconnect Instagram to refresh.';
+          }
         }
       }
       if (Object.keys(igSeriesByMetric).length > 0) {
