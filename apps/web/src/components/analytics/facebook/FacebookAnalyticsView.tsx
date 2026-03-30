@@ -2344,7 +2344,7 @@ export function FacebookAnalyticsView({
                 <XAxis dataKey="date" ticks={storyTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} dy={8} minTickGap={18} axisLine={false} tickLine={false} />
                 <YAxis
                   domain={[0, 'auto']}
-                  allowDecimals={selectedStoryMetricsForMode.some((metric) => metric !== 'followers')}
+                  allowDecimals={selectedStoryMetrics.some((metric) => metric !== 'followers')}
                   tick={{ fill: COLOR.textMuted, fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
@@ -2354,7 +2354,7 @@ export function FacebookAnalyticsView({
                   formatter={(v: number | string | undefined, n?: string) => [formatNumber(Number(v) || 0), n && n in STORY_METRIC_CONFIG ? STORY_METRIC_CONFIG[n as StoryMetricKey].label : String(n ?? '')]}
                   labelFormatter={(l) => formatShortDate(String(l))}
                 />
-                {selectedStoryMetricsForMode.map((metric) => (
+                {selectedStoryMetrics.map((metric) => (
                   <Line key={metric} type="monotone" dataKey={metric} stroke={STORY_METRIC_CONFIG[metric].color} strokeWidth={2.2} dot={false} />
                 ))}
               </ComposedChart>
