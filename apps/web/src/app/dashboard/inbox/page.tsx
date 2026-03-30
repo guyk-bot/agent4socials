@@ -618,16 +618,8 @@ function InboxPage() {
             addInboxInitializedAccountForConversations(account.id, user.id);
           }
         }
-        if (--pending === 0 && !cancelled) {
-          const sorted = merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
-          setConversations(sorted);
-          if (sorted.length > 0) conversationsLoadedRef.current = true;
-          setConversationsError(null);
-          setConversationsDebug(null);
-          setConversationsLoading(false);
-        }
-        return;
       }
+      // Even when cache exists, always refresh in background so recent conversations appear.
       needsFetch = true;
       platformsToFetch.push({ platform, account });
     });

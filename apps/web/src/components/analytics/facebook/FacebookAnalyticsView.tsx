@@ -297,9 +297,22 @@ function toFiniteNumber(v: unknown): number {
   return typeof v === 'number' && Number.isFinite(v) ? v : 0;
 }
 
+function bestCount(primary: number | undefined | null, fallback: number | undefined | null): number {
+  const a = typeof primary === 'number' && Number.isFinite(primary) ? primary : 0;
+  const b = typeof fallback === 'number' && Number.isFinite(fallback) ? fallback : 0;
+  return Math.max(a, b);
+}
+
+function normalizeAvgWatchMs(raw: number): number {
+  if (!Number.isFinite(raw) || raw <= 0) return 0;
+  // Some integrations surface microseconds for avg watch; convert to ms when implausibly high.
+  if (raw > 5 * 60 * 1000) return raw / 1000;
+  return raw;
+}
+
 function getWatchTimes(post: FacebookPost): { watchTimeMs: number; avgWatchMs: number } {
   const fi = (post.facebookInsights ?? {}) as Record<string, unknown>;
-  const avgWatchMs = toFiniteNumber(fi.post_video_avg_time_watched);
+  const avgWatchMs = normalizeAvgWatchMs(toFiniteNumber(fi.post_video_avg_time_watched));
   const totalWatchRaw = toFiniteNumber(fi.post_video_view_time);
   if (totalWatchRaw > 0) {
     return { watchTimeMs: totalWatchRaw, avgWatchMs };
@@ -1344,14 +1357,6 @@ export function FacebookAnalyticsView({
       postsInRange.reduce((s, p) => s + (p.likeCount ?? 0) + (p.commentsCount ?? 0) + (p.sharesCount ?? 0), 0),
     [postsInRange]
   );
-  const tiktokFlatSparkline = useMemo(() => {
-    const s = dateRange.start.slice(0, 10);
-    const e = dateRange.end.slice(0, 10);
-    return (v: number) => [
-      { date: s, value: v },
-      { date: e, value: v },
-    ];
-  }, [dateRange.end, dateRange.start]);
   const videoPlaysDailySeries = useMemo(() => {
     const map: Record<string, number> = {};
     for (const p of postsInRange) {
@@ -1372,9 +1377,17 @@ export function FacebookAnalyticsView({
     return undefined;
   }, [insights, postsInRange]);
   const series = bundle?.series;
+  const latestFollowersFromSeries = insights?.followersTimeSeries?.length
+    ? (insights.followersTimeSeries[insights.followersTimeSeries.length - 1]?.value ?? 0)
+    : 0;
   const totalFollowers = isTikTok
     ? (tiktokUser?.followerCount ?? insights?.followers ?? 0)
-    : (profile?.followers_count ?? profile?.fan_count ?? insights?.followers ?? 0);
+    : Math.max(
+        profile?.followers_count ?? 0,
+        profile?.fan_count ?? 0,
+        insights?.followers ?? 0,
+        latestFollowersFromSeries
+      );
   const liveConversationCount =
     ((insights as unknown as { facebookLiveConversationsCount?: number })?.facebookLiveConversationsCount ?? 0);
   const liveConversationDates =
@@ -1430,11 +1443,15 @@ export function FacebookAnalyticsView({
           (engagementByDate[d] ?? 0) + (p.likeCount ?? 0) + (p.commentsCount ?? 0) + (p.sharesCount ?? 0);
       }
       const followsRaw: Record<string, number> = {};
+      const likesRaw: Record<string, number> = {};
+      const videoCountRaw: Record<string, number> = {};
       dateAxis.forEach((d) => {
         followsRaw[d] = totalFollowers;
+        likesRaw[d] = tiktokUser?.likesCount ?? 0;
+        videoCountRaw[d] = tiktokUser?.videoCount ?? 0;
       });
-      const media = carryForwardSeries(dateAxis, viewsByDate, 0);
-      const visits = carryForwardSeries(dateAxis, {}, 0);
+      const media = carryForwardSeries(dateAxis, likesRaw, 0);
+      const visits = carryForwardSeries(dateAxis, videoCountRaw, 0);
       const videoViewsSeries = carryForwardSeries(dateAxis, viewsByDate, 0);
       const engagement = carryForwardSeries(dateAxis, engagementByDate, 0);
       const follows = carryForwardSeries(dateAxis, followsRaw, totalFollowers);
@@ -1525,6 +1542,8 @@ export function FacebookAnalyticsView({
       const start = dateRange.start.slice(0, 10);
       const end = dateRange.end.slice(0, 10);
       const ff = totalFollowers;
+      const profileLikes = tiktokUser?.likesCount ?? 0;
+      const profileVideos = tiktokUser?.videoCount ?? 0;
       return {
         follows: [
           { date: start, value: ff },
@@ -1532,8 +1551,14 @@ export function FacebookAnalyticsView({
         ],
         engagement: engSeries,
         videoViews: viewsSeries,
-        contentViews: viewsSeries,
-        pageVisits: [],
+        contentViews: [
+          { date: start, value: profileLikes },
+          { date: end, value: profileLikes },
+        ],
+        pageVisits: [
+          { date: start, value: profileVideos },
+          { date: end, value: profileVideos },
+        ],
       };
     }
     if (!isInstagram) {
@@ -1578,6 +1603,8 @@ export function FacebookAnalyticsView({
     dateRange.end,
     dateRange.start,
     totalFollowers,
+    tiktokUser?.likesCount,
+    tiktokUser?.videoCount,
   ]);
 
   const stackedTraffic = useMemo(() => {
@@ -1628,8 +1655,8 @@ export function FacebookAnalyticsView({
         views: bestPostPlayCount(p),
         uniqueReach: fi.post_impressions_unique ?? 0,
         clicks: fi.post_clicks ?? 0,
-        likes: fi.post_reactions_like_total ?? p.likeCount ?? 0,
-        reactionsTotal: reactions || (fi.post_reactions_like_total ?? p.likeCount ?? 0),
+        likes: bestCount(fi.post_reactions_like_total, p.likeCount),
+        reactionsTotal: reactions || bestCount(fi.post_reactions_like_total, p.likeCount),
         watchTimeMs,
         avgWatchMs,
         reactionBreakdownRaw: fi.post_reactions_by_type_total,
@@ -1646,7 +1673,7 @@ export function FacebookAnalyticsView({
         post: r.rawPost,
         views: bestPostPlayCount(r.rawPost),
         organicViews: r.rawPost.facebookInsights?.post_video_views_organic ?? 0,
-        avgWatchMs: r.rawPost.facebookInsights?.post_video_avg_time_watched ?? 0,
+        avgWatchMs: r.avgWatchMs ?? 0,
         watchTimeMs: r.watchTimeMs ?? 0,
       }));
   }, [postsRows]);
@@ -1660,7 +1687,7 @@ export function FacebookAnalyticsView({
         watchTimeMinutes: (r.watchTimeMs ?? 0) / 60000,
         avgWatchSeconds: r.avgWatchMs / 1000,
         clicks: r.post.facebookInsights?.post_clicks ?? 0,
-        likes: r.post.facebookInsights?.post_reactions_like_total ?? r.post.likeCount ?? 0,
+        likes: bestCount(r.post.facebookInsights?.post_reactions_like_total, r.post.likeCount),
         comments: r.post.facebookInsights?.post_comments ?? r.post.commentsCount ?? 0,
         shares: r.post.facebookInsights?.post_shares ?? r.post.sharesCount ?? 0,
         reposts: r.post.repostsCount ?? r.post.facebookInsights?.post_shares ?? 0,
@@ -1693,15 +1720,15 @@ export function FacebookAnalyticsView({
   const avgPostsPerWeek = postsInRange.length / Math.max(1, dateAxis.length / 7);
   const avgClicksPerPost = postsRows.reduce((s, r) => s + r.clicks, 0) / Math.max(1, postsRows.length);
   const avgReactionsPerPost = postsRows.reduce((s, r) => s + r.reactionsTotal, 0) / Math.max(1, postsRows.length);
-  const avgWatchMs = reelsRows.reduce((s, r) => s + r.avgWatchMs, 0) / Math.max(1, reelsRows.length);
   const totalReelWatchTimeMs = postsRows.filter((r) => r.type === 'Reel').reduce((s, r) => s + r.watchTimeMs, 0);
   const reelClicks = reelsRows.reduce((s, r) => s + (r.post.facebookInsights?.post_clicks ?? 0), 0);
-  const reelLikes = reelsRows.reduce((s, r) => s + (r.post.facebookInsights?.post_reactions_like_total ?? r.post.likeCount ?? 0), 0);
+  const reelLikes = reelsRows.reduce((s, r) => s + bestCount(r.post.facebookInsights?.post_reactions_like_total, r.post.likeCount), 0);
   const reelComments = reelsRows.reduce((s, r) => s + (r.post.facebookInsights?.post_comments ?? r.post.commentsCount ?? 0), 0);
   const reelShares = reelsRows.reduce((s, r) => s + (r.post.facebookInsights?.post_shares ?? r.post.sharesCount ?? 0), 0);
   const reelReposts = reelsRows.reduce((s, r) => s + (r.post.repostsCount ?? r.post.facebookInsights?.post_shares ?? 0), 0);
   const totalOrganicVideoViews = reelsRows.reduce((s, r) => s + r.organicViews, 0);
   const totalReelVideoViews = reelsRows.reduce((s, r) => s + r.views, 0);
+  const avgWatchMs = totalReelVideoViews > 0 ? totalReelWatchTimeMs / totalReelVideoViews : 0;
   const viewToClickEfficiency =
     reelsRows.reduce((s, r) => s + (r.post.facebookInsights?.post_clicks ?? 0), 0) / Math.max(1, totalReelVideoViews);
   const storyModeHoverHint = useMemo(() => {
@@ -1717,7 +1744,7 @@ export function FacebookAnalyticsView({
       views: `Video Views: ${fmt(percentChangeFromSeries(videoViewsS))} | Content Views: ${fmt(percentChangeFromSeries(contentViewsS))} | Page Visits: ${fmt(percentChangeFromSeries(pageTabS))}`,
     } as const;
   }, [growthSparklineSeries]);
-  const likesTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + (post.facebookInsights?.post_reactions_like_total ?? post.likeCount ?? post.engagementBreakdown?.reactions ?? 0), 0), [postsInRange]);
+  const likesTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + bestCount(post.facebookInsights?.post_reactions_like_total, post.likeCount ?? post.engagementBreakdown?.reactions), 0), [postsInRange]);
   const commentsTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + (post.facebookInsights?.post_comments ?? post.commentsCount ?? post.engagementBreakdown?.comments ?? 0), 0), [postsInRange]);
   const sharesTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + (post.facebookInsights?.post_shares ?? post.sharesCount ?? post.engagementBreakdown?.shares ?? 0), 0), [postsInRange]);
   const repostsTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + (post.repostsCount ?? post.facebookInsights?.post_shares ?? post.sharesCount ?? 0), 0), [postsInRange]);
@@ -1725,7 +1752,7 @@ export function FacebookAnalyticsView({
   const engagementData = useMemo(() => {
     const likesByDate = postsInRange.reduce<Record<string, number>>((acc, post) => {
       const d = localCalendarDateFromIso(post.publishedAt);
-      acc[d] = (acc[d] ?? 0) + (post.facebookInsights?.post_reactions_like_total ?? post.likeCount ?? post.engagementBreakdown?.reactions ?? 0);
+      acc[d] = (acc[d] ?? 0) + bestCount(post.facebookInsights?.post_reactions_like_total, post.likeCount ?? post.engagementBreakdown?.reactions);
       return acc;
     }, {});
     const commentsByDate = postsInRange.reduce<Record<string, number>>((acc, post) => {
@@ -1754,7 +1781,9 @@ export function FacebookAnalyticsView({
   );
   const operationalData = useMemo(() => {
     const actionsRaw = seriesToMap(actionsSeries ?? []);
-    const actions = carryForwardSeries(dateAxis, actionsRaw, 0);
+    // Use per-day values for Actions so the line reflects daily fluctuation
+    // instead of turning into a step/flat line from carry-forwarded totals.
+    const actions = dailyValuesOnAxis(dateAxis, actionsRaw);
     const hasActionPoints = Object.values(actionsRaw).some((value) => Number(value) > 0);
     const postsByDate = postsInRange.reduce<Record<string, number>>((acc, post) => {
       const d = localCalendarDateFromIso(post.publishedAt);
@@ -2159,8 +2188,9 @@ export function FacebookAnalyticsView({
                   value={
                     typeof tiktokUser?.likesCount === 'number' ? formatNumber(tiktokUser.likesCount) : '—'
                   }
-                  series={tiktokFlatSparkline(typeof tiktokUser?.likesCount === 'number' ? tiktokUser.likesCount : 0)}
-                  active={false}
+                  series={growthSparklineSeries.contentViews}
+                  active={isCardSelected('contentViews')}
+                  onClick={() => toggleStoryMetric('contentViews')}
                   tiktokApiHighlight
                 />
                 <SparklineMetricCard
@@ -2170,8 +2200,9 @@ export function FacebookAnalyticsView({
                   value={
                     typeof tiktokUser?.videoCount === 'number' ? formatNumber(tiktokUser.videoCount) : '—'
                   }
-                  series={tiktokFlatSparkline(typeof tiktokUser?.videoCount === 'number' ? tiktokUser.videoCount : 0)}
-                  active={false}
+                  series={growthSparklineSeries.pageVisits}
+                  active={isCardSelected('pageVisits')}
+                  onClick={() => toggleStoryMetric('pageVisits')}
                   tiktokApiHighlight
                 />
                 <SparklineMetricCard
