@@ -704,7 +704,15 @@ export async function GET(
           latestRecommendationText,
         };
       } catch (e) {
-        console.warn('[Insights] Facebook community summary:', (e as Error)?.message ?? e);
+        const msg = (e as Error)?.message ?? String(e);
+        const missingTable =
+          msg.includes('facebook_conversations') ||
+          msg.includes('facebook_reviews') ||
+          msg.includes('does not exist') ||
+          msg.includes('P2021');
+        if (!missingTable) {
+          console.warn('[Insights] Facebook community summary:', msg);
+        }
       }
       if (effectiveSinceTs != null && effectiveUntilTs != null) {
         try {

@@ -46,6 +46,14 @@ export async function PATCH(
         }
       } catch (meErr: unknown) {
         const err = meErr as { response?: { data?: unknown; status?: number } };
+        const fbMsg = JSON.stringify(err.response?.data ?? (meErr as Error)?.message ?? '');
+        const unsupportedAccountsField =
+          fbMsg.includes('Tried accessing nonexisting field (accounts)') ||
+          fbMsg.includes('"code":100');
+        if (unsupportedAccountsField) {
+          // Some tokens (page-scoped) cannot call /me/accounts. Keep existing account values without failing refresh.
+          return NextResponse.json({ ok: true, warning: 'Facebook token cannot query /me/accounts for this connection.' });
+        }
         console.warn('[Social accounts] Facebook me/accounts request failed:', err.response?.status, err.response?.data ?? (meErr as Error)?.message);
         return NextResponse.json(
           { message: 'Facebook returned an error when loading your Pages. Disconnect and reconnect Facebook, and when asked grant "Manage your business and its assets" (business_management) so we can see your Page.' },

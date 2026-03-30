@@ -793,18 +793,18 @@ export default function DashboardPage() {
       const supabase = getSupabaseBrowser();
       await supabase.auth.getSession();
       await api.get('/auth/profile').catch(() => null);
-      let res;
-      try {
-        res = await api.get(`/social/oauth/${platform}/start`, { params: method ? { method } : {} });
-      } catch (firstErr: unknown) {
-        if ((firstErr as { response?: { status?: number } })?.response?.status === 401) {
-          await api.get('/auth/profile').catch(() => null);
-          res = await api.get(`/social/oauth/${platform}/start`, { params: method ? { method } : {} });
-        } else {
-          throw firstErr;
-        }
+      // Always start OAuth from same-origin /api to avoid stale NEXT_PUBLIC_API_URL deployments.
+      const qs = method ? `?method=${encodeURIComponent(method)}` : '';
+      const startRes = await fetch(`/api/social/oauth/${encodeURIComponent(platform)}/start${qs}`, {
+        headers: { Authorization: `Bearer ${((await supabase.auth.getSession()).data.session?.access_token) || ''}` },
+        credentials: 'include',
+        cache: 'no-store',
+      });
+      const data = await startRes.json().catch(() => ({}));
+      if (!startRes.ok) {
+        throw { response: { status: startRes.status, data } };
       }
-      const url = res?.data?.url;
+      const url = data?.url;
       if (url && typeof url === 'string') {
         redirecting = true;
         window.location.href = url;
