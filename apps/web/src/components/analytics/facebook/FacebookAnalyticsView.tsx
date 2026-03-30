@@ -569,6 +569,16 @@ function carryForwardSeries(
   return out;
 }
 
+/** Daily-rate metrics (impressions, engagements, views): one value per day in range; gaps are 0, not forward-filled. */
+function dailyValuesOnAxis(dates: string[], map: Record<string, number>): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const d of dates) {
+    const v = map[d];
+    out[d] = typeof v === 'number' && Number.isFinite(v) ? Math.max(0, v) : 0;
+  }
+  return out;
+}
+
 function percentChangeFromSeries(series?: Array<{ date: string; value: number }>): number | null {
   if (!series || series.length === 0) return null;
   const sorted = [...series].sort((a, b) => a.date.localeCompare(b.date));
@@ -1363,10 +1373,10 @@ export function FacebookAnalyticsView({
       followsRaw = seriesToMap(series?.follows ?? []);
     }
 
-    const media = carryForwardSeries(dateAxis, mediaRaw, 0);
-    const visits = carryForwardSeries(dateAxis, visitsRaw, 0);
-    const videoViewsSeries = carryForwardSeries(dateAxis, videoViewsRaw, 0);
-    const engagement = carryForwardSeries(dateAxis, engagementRaw, 0);
+    const media = dailyValuesOnAxis(dateAxis, mediaRaw);
+    const visits = dailyValuesOnAxis(dateAxis, visitsRaw);
+    const videoViewsSeries = dailyValuesOnAxis(dateAxis, videoViewsRaw);
+    const engagement = dailyValuesOnAxis(dateAxis, engagementRaw);
     const follows = carryForwardSeries(dateAxis, followsRaw, totalFollowers);
     return dateAxis.map((date) => ({
       date,
