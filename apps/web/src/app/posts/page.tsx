@@ -8,12 +8,7 @@ import {
     Search,
     Filter,
     MoreVertical,
-    Instagram,
-    Youtube,
     Video,
-    Facebook,
-    Twitter,
-    Linkedin,
     ExternalLink,
     ChevronRight,
     Loader2,
@@ -21,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useAppData } from '@/context/AppDataContext';
 import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
-import { PinterestIcon } from '@/components/SocialPlatformIcons';
+import { InstagramIcon, YoutubeIcon, TikTokIcon, FacebookIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
 
 function postMediaThumbUrl(mediaItem: { fileUrl: string; type: string; metadata?: { thumbnailUrl?: string } | null } | undefined): string | null {
     if (!mediaItem?.fileUrl) return null;
@@ -230,12 +225,12 @@ export default function PostsPage() {
                                                         title={typeof t === 'object' && t.socialAccount?.username ? `${t.platform} @${t.socialAccount.username} · ${t.status}` : t.platform || t}
                                                         className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${(t.status || post.status) === 'POSTED' ? 'bg-green-100 text-green-800' : (t.status || post.status) === 'FAILED' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-700'}`}
                                                     >
-                                                        {t.platform === 'INSTAGRAM' && <Instagram size={14} />}
-                                                        {t.platform === 'YOUTUBE' && <Youtube size={14} />}
-                                                        {t.platform === 'TIKTOK' && <Video size={14} />}
-                                                        {t.platform === 'FACEBOOK' && <Facebook size={14} />}
-                                                        {t.platform === 'TWITTER' && <Twitter size={14} />}
-                                                        {t.platform === 'LINKEDIN' && <Linkedin size={14} />}
+                                                        {t.platform === 'INSTAGRAM' && <InstagramIcon size={14} />}
+                                                        {t.platform === 'YOUTUBE' && <YoutubeIcon size={14} />}
+                                                        {t.platform === 'TIKTOK' && <TikTokIcon size={14} />}
+                                                        {t.platform === 'FACEBOOK' && <FacebookIcon size={14} />}
+                                                        {t.platform === 'TWITTER' && <XTwitterIcon size={14} />}
+                                                        {t.platform === 'LINKEDIN' && <LinkedinIcon size={14} />}
                                                         {t.platform === 'PINTEREST' && <PinterestIcon size={14} />}
                                                         <span>{t.platform}</span>
                                                     </span>
