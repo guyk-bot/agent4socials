@@ -19,11 +19,11 @@ import { persistFacebookPageInsightsNormalized } from '@/lib/facebook/persist-pa
 import { buildFacebookFrontendAnalyticsBundle } from '@/lib/facebook/frontend-analytics-bundle';
 import { buildPinterestFrontendAnalyticsBundle } from '@/lib/pinterest-analytics-bundle';
 import { syncFacebookAuxiliaryIngest, ensureFacebookTables } from '@/lib/facebook/sync-extras';
-import { facebookGraphBaseUrl, META_GRAPH_FACEBOOK_API_VERSION } from '@/lib/meta-graph-insights';
+import { facebookGraphBaseUrl, instagramGraphHostBaseUrl } from '@/lib/meta-graph-insights';
 
 const fbBaseUrl = facebookGraphBaseUrl;
-// Use same version as fbBaseUrl; graph.instagram.com/v18.0 is deprecated
-const igBaseUrl = `https://graph.instagram.com/${META_GRAPH_FACEBOOK_API_VERSION}`;
+/** graph.instagram.com — use Instagram host version (see meta-graph-insights), not Facebook Graph version. */
+const igBaseUrl = instagramGraphHostBaseUrl;
 const baseUrl = fbBaseUrl; // used by Facebook and other platforms
 
 /** Merge API time series with snapshot-backed series. API values take precedence. Only include dates that have a value so the UI can carry forward the last known value for missing dates (avoids showing zeros when Meta has no data yet for recent days). */
@@ -205,7 +205,6 @@ export async function GET(
             `${base}/${account.platformUserId}`,
             { params: { fields: 'followers_count,media_count,follows_count', access_token: token }, timeout: 8_000, validateStatus: () => true }
           );
-          console.log('[Insights] tryProfile', base.includes('instagram.com') ? 'igBase' : 'fbBase', 'status:', profileRes.status, 'followers_count:', profileRes.data?.followers_count, 'error:', profileRes.data?.error?.message);
           if (profileRes.status >= 400) return false;
           if (typeof profileRes.data?.followers_count === 'number') {
             out.followers = profileRes.data.followers_count;
@@ -228,7 +227,6 @@ export async function GET(
       }
       // Page-linked IG: user node sometimes returns followers_count=0; Page → instagram_business_account is authoritative.
       const credLinked = credJson as { loginMethod?: string; linkedPageId?: string };
-      console.log('[Insights] IG followers after tryProfile:', out.followers, 'loginMethod:', credLinked.loginMethod, 'linkedPageId:', credLinked.linkedPageId ?? 'none');
       if (out.followers === 0 && credLinked.linkedPageId && token) {
         try {
           const pageRes = await axios.get<{
@@ -240,7 +238,6 @@ export async function GET(
             validateStatus: () => true,
           });
           const igba = pageRes.data?.instagram_business_account;
-          console.log('[Insights] IG via linkedPage status:', pageRes.status, 'igba.followers_count:', igba?.followers_count, 'igba.id:', igba?.id, 'error:', pageRes.data?.error?.message);
           if (igba && (!igba.id || igba.id === account.platformUserId)) {
             if (typeof igba.followers_count === 'number' && igba.followers_count >= 0) {
               out.followers = igba.followers_count;
@@ -260,7 +257,6 @@ export async function GET(
             `${igBaseUrl}/me`,
             { params: { fields: 'followers_count,follows_count', access_token: token }, timeout: 8_000, validateStatus: () => true }
           );
-          console.log('[Insights] IG /me fallback followers_count:', meRes.data?.followers_count, 'status:', meRes.status, 'error:', meRes.data?.error?.message);
           if (typeof meRes.data?.followers_count === 'number' && meRes.data.followers_count > 0) {
             out.followers = meRes.data.followers_count;
           }
@@ -269,7 +265,6 @@ export async function GET(
           }
         } catch (_) { /* silent — best-effort */ }
       }
-      console.log('[Insights] IG followers final:', out.followers);
 
       const igSeriesByMetric: Record<string, Array<{ date: string; value: number }>> = {};
       const tryInsights = async (base: string): Promise<boolean> => {
@@ -453,35 +448,26 @@ export async function GET(
       await supplementIgViews(fbBaseUrl);
       if (!igSeriesByMetric.views?.length) await supplementIgViews(igBaseUrl);
 
-      console.log('[Insights] IG profile_views after batched insights:', out.profileViewsTotal, 'pageViewsTimeSeries length:', out.pageViewsTimeSeries?.length ?? 0);
-      /** profile_views is sometimes omitted from batched /insights; fetch alone (Page Visits in UI). */
-      const supplementIgProfileViews = async (base: string): Promise<void> => {
+      /**
+       * profile_views is often omitted from batched /insights. Single-metric requests can 400 on some
+       * version/host pairs; try combined metrics, week period, and always use validateStatus (Meta error JSON).
+       */
+      const supplementIgProfileViews = async (): Promise<void> => {
         if (effectiveSinceTs == null || effectiveUntilTs == null) return;
         if (igSeriesByMetric.profile_views?.length) return;
-        try {
-          const res = await axios.get<{
-            data?: Array<{
-              name: string;
-              values?: Array<{ value: number; end_time?: string }>;
-              total_value?: { value: number };
-            }>;
-            error?: { message?: string };
-          }>(`${base}/${account.platformUserId}/insights`, {
-            params: {
-              metric: 'profile_views',
-              period: 'day',
-              since: effectiveSinceTs,
-              until: effectiveUntilTs,
-              access_token: token,
-            },
-            timeout: 10_000,
-          });
-          if (res.data?.error || !res.data?.data?.length) return;
-          const d = res.data.data.find((x) => x.name === 'profile_views');
-          if (!d) return;
+
+        const parseProfileViewsRow = (
+          data: Array<{
+            name: string;
+            values?: Array<{ value: number; end_time?: string }>;
+            total_value?: { value: number };
+          }> | undefined
+        ): { total: number; series: Array<{ date: string; value: number }> } | null => {
+          const d = data?.find((x) => x.name === 'profile_views');
+          if (!d) return null;
           const sumDaily = (d.values ?? []).reduce((s, v) => s + (typeof v.value === 'number' ? v.value : 0), 0);
           const totalRaw = typeof d.total_value?.value === 'number' ? d.total_value.value : sumDaily;
-          out.profileViewsTotal = Math.max(0, Math.round(Number.isFinite(totalRaw) ? totalRaw : 0));
+          const total = Math.max(0, Math.round(Number.isFinite(totalRaw) ? totalRaw : 0));
           const series: Array<{ date: string; value: number }> =
             (d.values ?? []).length > 0
               ? (d.values ?? [])
@@ -492,14 +478,59 @@ export async function GET(
                   .filter((x) => x.date)
                   .sort((a, b) => a.date.localeCompare(b.date))
               : [];
-          console.log('[Insights] supplementIgProfileViews', base.includes('instagram.com') ? 'igBase' : 'fbBase', 'total:', out.profileViewsTotal, 'series length:', series.length);
-          if (series.length > 0) igSeriesByMetric.profile_views = series;
-        } catch (e) {
-          console.warn('[Insights] supplementIgProfileViews error:', base.includes('instagram.com') ? 'igBase' : 'fbBase', (e as Error)?.message?.slice(0, 120));
+          if (total === 0 && series.length === 0) return null;
+          return { total, series };
+        };
+
+        const probes: Array<{ metric: string; period: 'day' | 'week' }> = [
+          { metric: 'reach,profile_views', period: 'day' },
+          { metric: 'impressions,profile_views', period: 'day' },
+          { metric: 'profile_views', period: 'day' },
+          { metric: 'profile_views', period: 'week' },
+        ];
+
+        for (const base of [fbBaseUrl, igBaseUrl]) {
+          const host = base.includes('instagram.com') ? 'ig' : 'fb';
+          for (const { metric, period } of probes) {
+            try {
+              const res = await axios.get<{
+                data?: Array<{
+                  name: string;
+                  values?: Array<{ value: number; end_time?: string }>;
+                  total_value?: { value: number };
+                }>;
+                error?: { message?: string; code?: number };
+              }>(`${base}/${account.platformUserId}/insights`, {
+                params: {
+                  metric,
+                  period,
+                  since: effectiveSinceTs,
+                  until: effectiveUntilTs,
+                  access_token: token,
+                },
+                timeout: 12_000,
+                validateStatus: () => true,
+              });
+              if (res.status >= 400) {
+                const msg = res.data?.error?.message ?? `HTTP ${res.status}`;
+                console.warn(`[Insights] IG profile_views ${host} ${period} ${metric.split(',')[0]}…`, msg.slice(0, 160));
+                continue;
+              }
+              const parsed = parseProfileViewsRow(res.data?.data);
+              if (!parsed) continue;
+              out.profileViewsTotal = parsed.total;
+              if (parsed.series.length > 0) {
+                igSeriesByMetric.profile_views = parsed.series;
+                out.pageViewsTimeSeries = parsed.series;
+              }
+              return;
+            } catch (e) {
+              console.warn('[Insights] IG profile_views request failed:', host, (e as Error)?.message?.slice(0, 120));
+            }
+          }
         }
       };
-      await supplementIgProfileViews(fbBaseUrl);
-      await supplementIgProfileViews(igBaseUrl);
+      await supplementIgProfileViews();
 
       /** IG User /insights: likes, comments, shares, saves, reposts, total_interactions (period=day). */
       const mergeIgInteractionTotals = (

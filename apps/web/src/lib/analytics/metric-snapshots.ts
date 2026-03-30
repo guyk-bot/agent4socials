@@ -10,7 +10,7 @@
 import { prisma } from '@/lib/db';
 import { Platform } from '@prisma/client';
 import axios from 'axios';
-import { facebookGraphBaseUrl, META_GRAPH_FACEBOOK_API_VERSION } from '@/lib/meta-graph-insights';
+import { facebookGraphBaseUrl, instagramGraphHostBaseUrl } from '@/lib/meta-graph-insights';
 
 const INSTAGRAM_FACEBOOK = ['INSTAGRAM', 'FACEBOOK'] as const;
 
@@ -78,7 +78,7 @@ async function ensureSnapshotTable(): Promise<void> {
   }
 }
 const fbBaseUrl = facebookGraphBaseUrl;
-const igBaseUrl = `https://graph.instagram.com/${META_GRAPH_FACEBOOK_API_VERSION}`;
+const igBaseUrl = instagramGraphHostBaseUrl;
 
 export type SnapshotSource = 'bootstrap' | 'scheduled_sync' | 'manual_refresh';
 

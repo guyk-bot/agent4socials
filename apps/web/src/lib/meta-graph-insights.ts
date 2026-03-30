@@ -22,3 +22,18 @@ export const facebookGraphBaseUrl = `https://graph.facebook.com/${META_GRAPH_FAC
 
 /** Alias: insights use the same host/version as profile/posts in production. */
 export const metaGraphInsightsBaseUrl = facebookGraphBaseUrl;
+
+/**
+ * graph.instagram.com uses its own version line (often newer than graph.facebook.com).
+ * Using the Facebook Graph version here caused 400s on some IG User /insights calls (e.g. profile_views).
+ * Override with INSTAGRAM_GRAPH_HOST_VERSION (e.g. v25.0).
+ */
+function normalizeInstagramGraphHostVersion(): string {
+  const raw = process.env.INSTAGRAM_GRAPH_HOST_VERSION?.trim();
+  if (!raw) return 'v25.0';
+  return raw.startsWith('v') ? raw : `v${raw}`;
+}
+
+export const INSTAGRAM_GRAPH_HOST_VERSION = normalizeInstagramGraphHostVersion();
+
+export const instagramGraphHostBaseUrl = `https://graph.instagram.com/${INSTAGRAM_GRAPH_HOST_VERSION}`;
