@@ -64,6 +64,7 @@ function pinterestApiErrorDetail(status: number | undefined, data: unknown): str
 
 /** Max raw bytes for Pinterest video cover when sending Base64 (avoid huge JSON bodies). */
 const PINTEREST_COVER_MAX_BYTES = 2 * 1024 * 1024;
+const TIKTOK_CHUNK_SIZE = 5 * 1024 * 1024;
 
 function pinterestCoverContentTypeFromBuffer(contentType: string): 'image/jpeg' | 'image/png' {
   const c = contentType.toLowerCase();
@@ -997,7 +998,8 @@ export async function publishTarget(
         console.log('[TikTok] Unaudited app — switching to FILE_UPLOAD with SELF_ONLY privacy');
         const { buffer: unauditedBuf, contentType: unauditedCt } = await fetchMediaBuffer(videoUrl, fetchFn);
         const unauditedSize = unauditedBuf.length;
-        const unauditedChunk = Math.min(10 * 1024 * 1024, unauditedSize);
+        const unauditedChunk = TIKTOK_CHUNK_SIZE;
+        const unauditedChunkCount = Math.max(1, Math.ceil(unauditedSize / unauditedChunk));
         const unauditedMime = unauditedCt && /video\/(mp4|webm|quicktime)/i.test(unauditedCt) ? unauditedCt : 'video/mp4';
         const uaInitRes = await axiosInstance.post(
           `${tiktokBase}/v2/post/publish/video/init/`,
@@ -1014,7 +1016,7 @@ export async function publishTarget(
               source: 'FILE_UPLOAD',
               video_size: unauditedSize,
               chunk_size: unauditedChunk,
-              total_chunk_count: Math.ceil(unauditedSize / unauditedChunk),
+              total_chunk_count: unauditedChunkCount,
             },
           },
           { headers, timeout: 30_000, validateStatus: () => true }
@@ -1076,9 +1078,8 @@ export async function publishTarget(
       if (!publishId) {
         const { buffer, contentType: videoContentType } = await fetchMediaBuffer(videoUrl, fetchFn);
         const videoSize = buffer.length;
-        const MAX_CHUNK = 10 * 1024 * 1024;
-        const CHUNK_SIZE = Math.min(MAX_CHUNK, videoSize);
-        const totalChunkCount = Math.ceil(videoSize / CHUNK_SIZE);
+        const CHUNK_SIZE = TIKTOK_CHUNK_SIZE;
+        const totalChunkCount = Math.max(1, Math.ceil(videoSize / CHUNK_SIZE));
         const mimeType = videoContentType && /video\/(mp4|webm|quicktime)/i.test(videoContentType) ? videoContentType : 'video/mp4';
 
         const fileInitRes = await axiosInstance.post(
