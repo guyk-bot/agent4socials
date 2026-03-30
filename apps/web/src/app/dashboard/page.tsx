@@ -372,7 +372,7 @@ export default function DashboardPage() {
         Object.keys(insightsCacheRef.current).forEach((k) => {
           if (k.startsWith(accountIdFromUrl + '-')) delete insightsCacheRef.current[k];
         });
-        appData?.clearAccountData(accountIdFromUrl);
+        appDataRef.current?.clearAccountData(accountIdFromUrl);
         router.replace('/dashboard', { scroll: false });
         setJustConnected(true);
         timeoutId = setTimeout(() => setJustConnected(false), 5000);
@@ -385,7 +385,15 @@ export default function DashboardPage() {
       cancelled = true;
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [accountIdFromUrl, connectingParam, twitter1oaNext, router, setSelectedAccountId, appData]);
+  }, [accountIdFromUrl, connectingParam, twitter1oaNext, router, setSelectedAccountId]);
+
+  useEffect(() => {
+    if (connectingParam !== '1' || accountIdFromUrl) return;
+    const timeoutId = setTimeout(() => setJustConnected(false), 5000);
+    setJustConnected(true);
+    router.replace('/dashboard', { scroll: false });
+    return () => clearTimeout(timeoutId);
+  }, [connectingParam, accountIdFromUrl, router]);
 
   useEffect(() => {
     if (twitter1oaNext !== '1') return;
@@ -1001,7 +1009,7 @@ export default function DashboardPage() {
   /** Full-page Facebook shell only until we have insights. Post/reel sync continues in the background without hiding the dashboard. */
   const facebookLoadingOnly =
     selectedAccount?.platform === 'FACEBOOK' &&
-    (connectingParam === '1' || (insights == null && (insightsLoading || importedPostsLoading)));
+    (justConnected || (insights == null && (insightsLoading || importedPostsLoading)));
   function openPricingPopup() {
     setPricingModalOpen(true);
   }
@@ -1095,11 +1103,11 @@ export default function DashboardPage() {
           )
         : null}
       {/* Show sync banner only on first load (no data yet) or right after connect; date changes refetch in place without banner */}
-      {(facebookLoadingOnly || connectingParam === '1' || justConnected || (((insightsLoading || importedPostsLoading) && insights == null && selectedAccount != null) && !hasWarmCacheForSelected)) && (
+      {(facebookLoadingOnly || justConnected || (((insightsLoading || importedPostsLoading) && insights == null && selectedAccount != null) && !hasWarmCacheForSelected)) && (
         <DataSyncBanner
           platform={selectedAccount?.platform}
-          insightsLoading={insightsLoading || connectingParam === '1'}
-          postsLoading={importedPostsLoading || connectingParam === '1'}
+          insightsLoading={insightsLoading}
+          postsLoading={importedPostsLoading}
         />
       )}
       {facebookLoadingOnly && (

@@ -904,6 +904,14 @@ export async function GET(
           }
         }
       }
+      if (
+        !out.insightsHint &&
+        out.followers === 0 &&
+        (out.profileViewsTotal ?? 0) === 0 &&
+        ((out.accountsEngaged ?? 0) > 0 || (out.impressionsTotal ?? 0) > 0)
+      ) {
+        out.insightsHint = 'Instagram connected, but Meta did not return follower/profile view totals. Reconnect with Edit previous settings and grant Instagram insights permissions.';
+      }
       if (Object.keys(igSeriesByMetric).length > 0) {
         out.facebookPageMetricSeries = {
           ...igSeriesByMetric,
