@@ -15,6 +15,7 @@ import { localCalendarDateFromIso, toLocalCalendarDate } from '@/lib/calendar-da
 import { getSupabaseBrowser } from '@/lib/supabase/client';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import ConnectView from '@/components/dashboard/ConnectView';
+import SyncStatusBanner from '@/components/SyncStatusBanner';
 import {
   Users,
   CheckCircle,
@@ -1207,6 +1208,13 @@ export default function DashboardPage() {
           className="mt-1 max-w-full"
           style={{ maxWidth: 1400 }}
         >
+          {/* Sync status row — auto-triggers refresh when stale, shows last-updated time */}
+          <SyncStatusBanner
+            accountId={selectedAccount.id}
+            platform={selectedAccount.platform}
+            compact
+            className="mb-2"
+          />
           <FacebookAnalyticsView
             insights={(() => {
               const base: import('@/components/analytics/facebook/types').FacebookInsights = {

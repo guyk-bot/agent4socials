@@ -85,5 +85,64 @@ async function run(request: NextRequest) {
     results.push(`insightsJson: ${(e as Error)?.message}`);
   }
 
+  // Sync infrastructure columns on SocialAccount
+  for (const col of [
+    `ALTER TABLE "SocialAccount" ADD COLUMN IF NOT EXISTS "lastSuccessfulSyncAt" TIMESTAMP(3)`,
+    `ALTER TABLE "SocialAccount" ADD COLUMN IF NOT EXISTS "lastSyncAttemptAt" TIMESTAMP(3)`,
+    `ALTER TABLE "SocialAccount" ADD COLUMN IF NOT EXISTS "lastSyncStatus" TEXT`,
+    `ALTER TABLE "SocialAccount" ADD COLUMN IF NOT EXISTS "lastSyncError" TEXT`,
+    `ALTER TABLE "SocialAccount" ADD COLUMN IF NOT EXISTS "initialBackfillDone" BOOLEAN NOT NULL DEFAULT false`,
+    `ALTER TABLE "SocialAccount" ADD COLUMN IF NOT EXISTS "permissionsSnapshot" JSONB`,
+  ]) {
+    try {
+      await prisma.$executeRawUnsafe(col);
+      results.push(col.match(/"(\w+)" (TIMESTAMP|TEXT|BOOLEAN|JSONB)/)?.[1] ?? 'sync col');
+    } catch (e) {
+      results.push(`sync col: ${(e as Error)?.message?.slice(0, 80)}`);
+    }
+  }
+
+  // sync_jobs table
+  try {
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "sync_jobs" (
+        "id"               TEXT         NOT NULL DEFAULT gen_random_uuid()::text,
+        "userId"           TEXT         NOT NULL,
+        "socialAccountId"  TEXT         NOT NULL,
+        "platform"         TEXT         NOT NULL,
+        "scope"            TEXT         NOT NULL,
+        "syncType"         TEXT         NOT NULL DEFAULT 'scheduled',
+        "status"           TEXT         NOT NULL DEFAULT 'queued',
+        "idempotencyKey"   TEXT         NOT NULL,
+        "startedAt"        TIMESTAMP(3),
+        "finishedAt"       TIMESTAMP(3),
+        "errorDetails"     TEXT,
+        "itemsProcessed"   INTEGER,
+        "cursorState"      JSONB,
+        "triggeredBy"      TEXT,
+        "createdAt"        TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt"        TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "sync_jobs_pkey" PRIMARY KEY ("id")
+      )
+    `);
+    results.push('sync_jobs table');
+  } catch (e) {
+    results.push(`sync_jobs: ${(e as Error)?.message?.slice(0, 80)}`);
+  }
+  try {
+    await prisma.$executeRawUnsafe(
+      `CREATE UNIQUE INDEX IF NOT EXISTS "sync_jobs_idempotencyKey_key" ON "sync_jobs"("idempotencyKey")`
+    );
+    results.push('sync_jobs unique idx');
+  } catch (e) {
+    results.push(`sync_jobs idx: ${(e as Error)?.message?.slice(0, 80)}`);
+  }
+  try {
+    await prisma.$executeRawUnsafe(
+      `CREATE INDEX IF NOT EXISTS "sync_jobs_socialAccountId_scope_status_idx" ON "sync_jobs"("socialAccountId","scope","status")`
+    );
+    results.push('sync_jobs scope idx');
+  } catch (e) { /* non-fatal */ }
+
   return NextResponse.json({ ok: true, results });
 }

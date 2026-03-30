@@ -58,6 +58,13 @@ model SocialAccount {
   firstConnectedAt  DateTime? // set once on first ever connect; preserved across disconnect/reconnect
   connectedAt       DateTime? // set on each connect/reconnect
   disconnectedAt    DateTime? // set on disconnect; cleared on reconnect
+  // Sync-tracking fields
+  lastSuccessfulSyncAt  DateTime? // last time a full or partial sync completed successfully
+  lastSyncAttemptAt     DateTime? // last time we tried to sync (includes failures)
+  lastSyncStatus        String?   // "idle" | "syncing" | "success" | "partial" | "error" | "needs_reconnect"
+  lastSyncError         String?   // last error message if status is "error"
+  initialBackfillDone   Boolean   @default(false) // true once the first-connect backfill finished
+  permissionsSnapshot   Json?     // cached scopes/permissions at last sync
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -70,6 +77,7 @@ model SocialAccount {
   facebookConversationCaches FacebookConversationCache[]
   facebookReviewCaches      FacebookReviewCache[]
   facebookPageInsightDailies FacebookPageInsightDaily[]
+  syncJobs          SyncJob[]
 
   @@unique([userId, platform, platformUserId])
 }
@@ -364,4 +372,36 @@ model LinkItem {
   updatedAt   DateTime  @updatedAt
 
   @@index([linkPageId])
+}
+
+/// Tracks every sync job — scheduled, manual, or page-refresh triggered.
+/// Idempotency key prevents duplicate jobs for the same account/scope/time-bucket.
+model SyncJob {
+  id               String        @id @default(cuid())
+  userId           String
+  socialAccountId  String
+  socialAccount    SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  platform         String
+  /// "account_overview" | "posts" | "post_metrics" | "comments" | "messages" | "demographics" | "full"
+  scope            String
+  /// "scheduled" | "manual" | "initial_backfill" | "page_refresh" | "webhook_followup"
+  syncType         String        @default("scheduled")
+  /// "queued" | "running" | "success" | "partial_success" | "failed"
+  status           String        @default("queued")
+  idempotencyKey   String        @unique  // userId+accountId+scope+timeBucket
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  errorDetails     String?
+  /// How many items were processed (posts synced, comments fetched, etc.)
+  itemsProcessed   Int?
+  /// Cursor/pagination state for resumable jobs
+  cursorState      Json?
+  triggeredBy      String?       // e.g. "cron", "user", "page_load"
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([userId, status])
+  @@index([socialAccountId, scope, status])
+  @@index([socialAccountId, createdAt])
+  @@map("sync_jobs")
 }
