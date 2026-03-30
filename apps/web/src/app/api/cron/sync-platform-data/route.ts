@@ -16,27 +16,40 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runScheduledSyncForScope } from '@/lib/sync/engine';
 
-function isAuthorized(request: NextRequest): boolean {
+function checkAuthorization(request: NextRequest): {
+  ok: boolean;
+  reason: 'ok' | 'missing_env' | 'missing_provided' | 'mismatch';
+} {
   const rawEnvSecret = process.env.CRON_SECRET;
-  if (!rawEnvSecret) return false;
+  if (!rawEnvSecret) return { ok: false, reason: 'missing_env' };
 
   // Normalize to avoid production mismatches caused by accidental quotes/spaces in env vars.
   const cronSecret = rawEnvSecret.trim().replace(/^['"]|['"]$/g, '');
   const provided =
     request.headers.get('X-Cron-Secret') ||
+    request.headers.get('x-cron-secret') ||
     request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ||
     request.nextUrl.searchParams.get('secret') ||
     '';
 
-  return provided.trim() === cronSecret;
+  if (!provided.trim()) return { ok: false, reason: 'missing_provided' };
+  if (provided.trim() !== cronSecret) return { ok: false, reason: 'mismatch' };
+  return { ok: true, reason: 'ok' };
 }
 
 async function handle(request: NextRequest) {
   if (!process.env.DATABASE_URL) {
     return NextResponse.json({ message: 'DATABASE_URL required' }, { status: 503 });
   }
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  const auth = checkAuthorization(request);
+  if (!auth.ok) {
+    return NextResponse.json(
+      {
+        message: 'Unauthorized',
+        reason: auth.reason,
+      },
+      { status: 401 }
+    );
   }
 
   const scopes = ['account_overview', 'posts', 'post_metrics'] as const;
