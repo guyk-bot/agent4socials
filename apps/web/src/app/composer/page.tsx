@@ -1170,6 +1170,29 @@ export default function ComposerPage() {
         return { fileUrl, type };
     }
 
+    /** Seek thumbnail video to target time and wait until frame is ready. */
+    async function seekThumbnailVideoTo(targetTime: number): Promise<boolean> {
+        const video = videoThumbnailRef.current;
+        if (!video || mediaList.length === 0 || mediaList[0].type !== 'VIDEO') return false;
+        const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : null;
+        const clamped = duration != null ? Math.min(Math.max(0, targetTime), duration) : Math.max(0, targetTime);
+        if (Math.abs(video.currentTime - clamped) < 0.02 && video.readyState >= 2) return true;
+        await new Promise<void>((resolve) => {
+            const done = () => {
+                video.removeEventListener('seeked', done);
+                resolve();
+            };
+            video.addEventListener('seeked', done, { once: true });
+            try {
+                video.currentTime = clamped;
+            } catch {
+                resolve();
+            }
+            setTimeout(done, 450);
+        });
+        return video.readyState >= 2;
+    }
+
     /** Capture current frame from the frame-picker video (same-origin proxy URL) and upload as JPEG. */
     async function captureFrameFromThumbnailVideo(): Promise<string | null> {
         const video = videoThumbnailRef.current;
@@ -1279,6 +1302,9 @@ export default function ComposerPage() {
         setMediaUploadError(null);
         setThumbnailPicking(true);
         try {
+            const ready = await seekThumbnailVideoTo(thumbnailPickerTime);
+            if (!ready) throw new Error('Video frame is not ready yet');
+            drawVideoFrameToCanvas();
             const fileUrl = await captureFrameFromThumbnailVideo();
             if (!fileUrl) throw new Error('Failed to capture frame');
             setThumbnailChoice('frame');
@@ -1292,7 +1318,7 @@ export default function ComposerPage() {
         } finally {
             setThumbnailPicking(false);
         }
-    }, [mediaList, differentThumbnailPerPlatform, selectedPlatformForThumbnail]);
+    }, [mediaList, differentThumbnailPerPlatform, selectedPlatformForThumbnail, thumbnailPickerTime, drawVideoFrameToCanvas]);
 
     const handleRemoveThumbnail = () => {
         if (differentThumbnailPerPlatform && selectedPlatformForThumbnail) {
