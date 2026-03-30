@@ -47,25 +47,43 @@ const PLATFORM_ICON: Record<string, React.ReactNode> = {
 const PLATFORM_ORDER = ['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'LINKEDIN', 'PINTEREST', 'TWITTER'];
 
 /** Public profile URL for the platform icon (opens in a new tab). */
-function externalProfileUrlForAccount(platform: string, username?: string | null): string | null {
-  const raw = (username || '').trim().replace(/^@/, '');
-  if (!raw) return null;
-  const u = encodeURIComponent(raw);
+function externalProfileUrlForAccount(platform: string, username?: string | null, platformUserId?: string | null): string | null {
+  const raw = (username || '').trim();
+  const normalized = raw.replace(/^@/, '');
+  const encodedUsername = encodeURIComponent(normalized);
+  const encodedPlatformUserId = encodeURIComponent((platformUserId || '').trim());
+  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
   switch (platform) {
     case 'FACEBOOK':
-      return `https://www.facebook.com/${u}`;
+      if (normalized) return `https://www.facebook.com/${encodedUsername}`;
+      if (encodedPlatformUserId) return `https://www.facebook.com/${encodedPlatformUserId}`;
+      return 'https://www.facebook.com/';
     case 'INSTAGRAM':
-      return `https://www.instagram.com/${u}/`;
+      if (normalized) return `https://www.instagram.com/${encodedUsername}/`;
+      return 'https://www.instagram.com/';
     case 'TIKTOK':
-      return `https://www.tiktok.com/@${u}`;
+      if (normalized) return `https://www.tiktok.com/@${encodedUsername}`;
+      return 'https://www.tiktok.com/';
     case 'YOUTUBE':
-      return `https://www.youtube.com/@${u}`;
+      if ((platformUserId || '').startsWith('UC')) return `https://www.youtube.com/channel/${encodedPlatformUserId}`;
+      if (normalized.startsWith('UC')) return `https://www.youtube.com/channel/${encodedUsername}`;
+      if (raw.startsWith('@')) return `https://www.youtube.com/${encodeURIComponent(raw)}`;
+      if (normalized) return `https://www.youtube.com/@${encodedUsername}`;
+      return 'https://www.youtube.com/';
     case 'TWITTER':
-      return `https://x.com/${u}`;
+      if (normalized) return `https://x.com/${encodedUsername}`;
+      if (encodedPlatformUserId) return `https://x.com/i/user/${encodedPlatformUserId}`;
+      return 'https://x.com/';
     case 'LINKEDIN':
-      return `https://www.linkedin.com/in/${u}/`;
+      if (normalized.includes('/')) {
+        const withoutLeadingSlash = normalized.replace(/^\/+/, '');
+        return `https://www.linkedin.com/${withoutLeadingSlash}`;
+      }
+      if (normalized) return `https://www.linkedin.com/in/${encodedUsername}/`;
+      return 'https://www.linkedin.com/';
     case 'PINTEREST':
-      return `https://www.pinterest.com/${u}/`;
+      if (normalized) return `https://www.pinterest.com/${encodedUsername}/`;
+      return 'https://www.pinterest.com/';
     default:
       return null;
   }
@@ -229,7 +247,11 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                 // From Inbox or any page: go to this account's analytics via client-side nav (keeps cache, no reload).
                 const dashboardUrl = `/dashboard?accountId=${encodeURIComponent(acc.id)}`;
                 const platformLabel = PLATFORM_LABELS[platform] ?? platform;
-                const externalUrl = externalProfileUrlForAccount(platform, acc.username);
+                const externalUrl = externalProfileUrlForAccount(
+                  platform,
+                  acc.username as string | undefined,
+                  (acc as { platformUserId?: string }).platformUserId
+                );
                 const goToAccountDashboard = () => {
                   setSelectedAccount(acc);
                   router.push(dashboardUrl);
