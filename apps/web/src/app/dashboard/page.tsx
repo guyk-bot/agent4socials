@@ -1218,6 +1218,8 @@ export default function DashboardPage() {
                   facebookAnalytics: (insights as { facebookAnalytics?: FacebookFrontendAnalyticsBundle }).facebookAnalytics,
                   facebookPageProfile: (insights as { facebookPageProfile?: import('@/components/analytics/facebook/types').FacebookInsights['facebookPageProfile'] }).facebookPageProfile,
                   facebookCommunity: (insights as { facebookCommunity?: import('@/components/analytics/facebook/types').FacebookInsights['facebookCommunity'] }).facebookCommunity,
+                  accountsEngaged: (insights as { accountsEngaged?: number }).accountsEngaged,
+                  instagramAccountVideoViewsTotal: (insights as { instagramAccountVideoViewsTotal?: number }).instagramAccountVideoViewsTotal,
                   ...(selectedAccount.platform === 'FACEBOOK' && liveFbConversationsCount != null ? { facebookLiveConversationsCount: liveFbConversationsCount } : {}),
                   ...(selectedAccount.platform === 'FACEBOOK' && liveFbConversationDates != null ? { facebookLiveConversationDates: liveFbConversationDates } : {}),
                 }),

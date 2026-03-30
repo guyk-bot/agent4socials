@@ -357,6 +357,20 @@ function seriesToMap(series: Array<{ date: string; value: number }>): Record<str
   return map;
 }
 
+function mergeSeriesMapsMax(a: Record<string, number>, b: Record<string, number>): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) {
+    out[k] = Math.max(a[k] ?? 0, b[k] ?? 0);
+  }
+  return out;
+}
+
+function mapToSortedSeries(map: Record<string, number>): Array<{ date: string; value: number }> {
+  return Object.entries(map)
+    .map(([date, value]) => ({ date, value }))
+    .sort((x, y) => x.date.localeCompare(y.date));
+}
+
 function carryForwardSeries(
   dates: string[],
   map: Record<string, number>,
@@ -1105,16 +1119,17 @@ export function FacebookAnalyticsView({
     ? (insights.impressionsTotal ?? bundle?.totals.contentViews ?? 0)
     : (bundle?.totals.contentViews ?? 0);
   const pageVisits = isInstagram
-    ? (insights.profileViewsTotal ?? bundle?.totals.pageTabViews ?? 0)
+    ? Math.max(0, insights.profileViewsTotal ?? bundle?.totals.pageTabViews ?? 0)
     : (bundle?.totals.pageTabViews ?? 0);
   const engagements = isInstagram
-    ? (insights.accountsEngaged ?? bundle?.totals.engagement ?? 0)
+    ? (insights?.accountsEngaged ?? bundle?.totals.engagement ?? 0)
     : (bundle?.totals.engagement ?? 0);
   const actionsSeries = (bundle?.series.totalActions?.length ?? 0) > 0 ? bundle?.series.totalActions : (bundle?.series.engagement ?? []);
   const actionsTotal = (bundle?.totals.totalActions ?? 0) > 0 ? (bundle?.totals.totalActions ?? 0) : engagements;
   const pageVideoViews = bundle?.totals.videoViews ?? 0;
   const postVideoPlaysInRange = useMemo(() => sumPostLevelVideoPlays(postsInRange), [postsInRange]);
-  const videoViews = Math.max(pageVideoViews, postVideoPlaysInRange);
+  const igAccountVideoViewsTotal = insights?.instagramAccountVideoViewsTotal ?? 0;
+  const videoViews = Math.max(pageVideoViews, postVideoPlaysInRange, isInstagram ? igAccountVideoViewsTotal : 0);
   const postImpressions = bundle?.totals.postImpressions ?? 0;
   const nonviralImpressions = bundle?.totals.postImpressionsNonviral ?? 0;
   const viralImpressions = bundle?.totals.postImpressionsViral ?? 0;
@@ -1129,14 +1144,17 @@ export function FacebookAnalyticsView({
 
     if (isInstagram) {
       const ms = igMetricSeries;
+      const mergedImpressionsSeries = insights?.impressionsTimeSeries?.length
+        ? insights.impressionsTimeSeries
+        : ms?.impressions ?? [];
       if (ms && Object.keys(ms).length > 0) {
-        mediaRaw = seriesToMap(ms.impressions ?? []);
+        mediaRaw = seriesToMap(mergedImpressionsSeries);
         visitsRaw = seriesToMap(ms.profile_views ?? []);
         engagementRaw = seriesToMap(ms.accounts_engaged ?? []);
         followsRaw = insights?.followersTimeSeries?.length
           ? seriesToMap(insights.followersTimeSeries)
           : seriesToMap(series?.follows ?? []);
-        videoViewsRaw = seriesToMap(videoPlaysDailySeries);
+        videoViewsRaw = mergeSeriesMapsMax(seriesToMap(ms.views ?? []), seriesToMap(videoPlaysDailySeries));
       } else {
         mediaRaw = seriesToMap(insights?.impressionsTimeSeries ?? []);
         visitsRaw = {};
@@ -1193,11 +1211,20 @@ export function FacebookAnalyticsView({
       };
     }
     const ms = igMetricSeries;
+    const contentSpark = insights?.impressionsTimeSeries?.length
+      ? insights.impressionsTimeSeries
+      : ms?.impressions?.length
+        ? ms.impressions
+        : (insights?.impressionsTimeSeries ?? []);
+    const videoSparkMap = mergeSeriesMapsMax(
+      seriesToMap(ms?.views ?? []),
+      seriesToMap(videoPlaysDailySeries)
+    );
     return {
       follows: insights?.followersTimeSeries ?? series?.follows ?? [],
       engagement: ms?.accounts_engaged ?? [],
-      videoViews: videoPlaysDailySeries,
-      contentViews: ms?.impressions?.length ? ms.impressions : (insights?.impressionsTimeSeries ?? []),
+      videoViews: mapToSortedSeries(videoSparkMap),
+      contentViews: contentSpark,
       pageVisits: ms?.profile_views ?? [],
     };
   }, [

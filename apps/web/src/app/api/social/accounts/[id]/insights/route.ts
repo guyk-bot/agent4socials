@@ -171,6 +171,8 @@ export async function GET(
     followingTimeSeries?: Array<{ date: string; value: number }>;
     /** Instagram: sum of accounts_engaged in range (from Graph insights). */
     accountsEngaged?: number;
+    /** Instagram: Graph `views` total in range when available. */
+    instagramAccountVideoViewsTotal?: number;
     /** Instagram: daily series keyed by Graph metric name (impressions, profile_views, accounts_engaged, …). */
     facebookPageMetricSeries?: Record<string, Array<{ date: string; value: number }>>;
   } = {
@@ -250,16 +252,17 @@ export async function GET(
             if (data.length === 0) continue;
 
             for (const d of data) {
-              const total =
-                typeof d.total_value?.value === 'number'
-                  ? d.total_value.value
-                  : (d.values ?? []).reduce((s, v) => s + (typeof v.value === 'number' ? v.value : 0), 0);
+              const sumDaily =
+                (d.values ?? []).reduce((s, v) => s + (typeof v.value === 'number' ? v.value : 0), 0);
+              const totalRaw =
+                typeof d.total_value?.value === 'number' ? d.total_value.value : sumDaily;
+              const total = Math.max(0, Math.round(Number.isFinite(totalRaw) ? totalRaw : 0));
               const series: Array<{ date: string; value: number }> =
                 (d.values ?? []).length > 0
                   ? (d.values ?? [])
                       .map((v) => ({
-                        date: v.end_time ? v.end_time.slice(0, 10) : '',
-                        value: typeof v.value === 'number' ? v.value : 0,
+                        date: v.end_time ? facebookMetricDateFromEndTime(v.end_time) : '',
+                        value: Math.max(0, typeof v.value === 'number' ? v.value : 0),
                       }))
                       .filter((x) => x.date)
                       .sort((a, b) => a.date.localeCompare(b.date))
@@ -295,6 +298,102 @@ export async function GET(
       if (!insightsOk && (isInstagramBusinessLogin || (out.followers > 0 && !out.impressionsTotal && !out.reachTotal))) {
         insightsOk = await tryInsights(igBaseUrl);
       }
+
+      /** Fallback metric sets can omit accounts_engaged; fetch it alone so the Performance card is not stuck at 0. */
+      const supplementIgAccountsEngaged = async (base: string): Promise<void> => {
+        if (effectiveSinceTs == null || effectiveUntilTs == null) return;
+        if (igSeriesByMetric.accounts_engaged?.length) return;
+        try {
+          const res = await axios.get<{
+            data?: Array<{
+              name: string;
+              values?: Array<{ value: number; end_time?: string }>;
+              total_value?: { value: number };
+            }>;
+            error?: { message?: string };
+          }>(`${base}/${account.platformUserId}/insights`, {
+            params: {
+              metric: 'accounts_engaged',
+              period: 'day',
+              since: effectiveSinceTs,
+              until: effectiveUntilTs,
+              access_token: token,
+            },
+            timeout: 10_000,
+          });
+          if (res.data?.error || !res.data?.data?.length) return;
+          const d = res.data.data.find((x) => x.name === 'accounts_engaged');
+          if (!d) return;
+          const sumDaily = (d.values ?? []).reduce((s, v) => s + (typeof v.value === 'number' ? v.value : 0), 0);
+          const totalRaw = typeof d.total_value?.value === 'number' ? d.total_value.value : sumDaily;
+          out.accountsEngaged = Math.max(0, Math.round(Number.isFinite(totalRaw) ? totalRaw : 0));
+          const series: Array<{ date: string; value: number }> =
+            (d.values ?? []).length > 0
+              ? (d.values ?? [])
+                  .map((v) => ({
+                    date: v.end_time ? facebookMetricDateFromEndTime(v.end_time) : '',
+                    value: Math.max(0, typeof v.value === 'number' ? v.value : 0),
+                  }))
+                  .filter((x) => x.date)
+                  .sort((a, b) => a.date.localeCompare(b.date))
+              : [];
+          if (series.length > 0) igSeriesByMetric.accounts_engaged = series;
+        } catch {
+          /* ignore */
+        }
+      };
+      await supplementIgAccountsEngaged(fbBaseUrl);
+      if (!igSeriesByMetric.accounts_engaged?.length) {
+        await supplementIgAccountsEngaged(igBaseUrl);
+      }
+
+      /** Account-level video views (reels + feed video); complements post-synced plays in the UI. */
+      const supplementIgViews = async (base: string): Promise<void> => {
+        if (effectiveSinceTs == null || effectiveUntilTs == null) return;
+        if (igSeriesByMetric.views?.length) return;
+        try {
+          const res = await axios.get<{
+            data?: Array<{
+              name: string;
+              values?: Array<{ value: number; end_time?: string }>;
+              total_value?: { value: number };
+            }>;
+            error?: { message?: string };
+          }>(`${base}/${account.platformUserId}/insights`, {
+            params: {
+              metric: 'views',
+              period: 'day',
+              since: effectiveSinceTs,
+              until: effectiveUntilTs,
+              access_token: token,
+            },
+            timeout: 10_000,
+          });
+          if (res.data?.error || !res.data?.data?.length) return;
+          const d = res.data.data.find((x) => x.name === 'views');
+          if (!d) return;
+          const sumDaily = (d.values ?? []).reduce((s, v) => s + (typeof v.value === 'number' ? v.value : 0), 0);
+          const totalRaw = typeof d.total_value?.value === 'number' ? d.total_value.value : sumDaily;
+          const total = Math.max(0, Math.round(Number.isFinite(totalRaw) ? totalRaw : 0));
+          const series: Array<{ date: string; value: number }> =
+            (d.values ?? []).length > 0
+              ? (d.values ?? [])
+                  .map((v) => ({
+                    date: v.end_time ? facebookMetricDateFromEndTime(v.end_time) : '',
+                    value: Math.max(0, typeof v.value === 'number' ? v.value : 0),
+                  }))
+                  .filter((x) => x.date)
+                  .sort((a, b) => a.date.localeCompare(b.date))
+              : [];
+          if (series.length > 0) igSeriesByMetric.views = series;
+          out.instagramAccountVideoViewsTotal = total;
+        } catch {
+          /* metric may be unavailable for some account types */
+        }
+      };
+      await supplementIgViews(fbBaseUrl);
+      if (!igSeriesByMetric.views?.length) await supplementIgViews(igBaseUrl);
+
       if (Object.keys(igSeriesByMetric).length > 0) {
         try {
           await persistInsightsSeries({
@@ -504,7 +603,10 @@ export async function GET(
         }
       }
       if (Object.keys(igSeriesByMetric).length > 0) {
-        out.facebookPageMetricSeries = igSeriesByMetric;
+        out.facebookPageMetricSeries = {
+          ...igSeriesByMetric,
+          ...(out.impressionsTimeSeries?.length ? { impressions: out.impressionsTimeSeries } : {}),
+        };
       }
       return NextResponse.json(out);
     }
