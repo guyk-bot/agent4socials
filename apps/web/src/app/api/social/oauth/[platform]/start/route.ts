@@ -46,9 +46,12 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
         response_type: 'code',
         redirect_uri: tiktokRedirect,
         state,
+        // Always show TikTok's login page so the user can pick the sandbox target account.
+        // Without this, TikTok auto-authenticates with whatever account is already logged in
+        // the browser; if that account isn't a sandbox target user it immediately errors with
+        // non_sandbox_target before the user ever sees a login form.
+        disable_auto_auth: '1',
       });
-      // Note: TikTok OAuth v2 has no "target" URL parameter. The sandbox target user must be added
-      // in TikTok Developer Portal → Manage app → Sandbox → Target users, then connect from there.
       return `https://www.tiktok.com/v2/auth/authorize/?${oauthParams.toString()}`;
     }
     case 'YOUTUBE': {
