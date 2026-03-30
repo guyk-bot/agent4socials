@@ -1415,7 +1415,8 @@ export function FacebookAnalyticsView({
         profile?.followers_count ?? 0,
         profile?.fan_count ?? 0,
         insights?.followers ?? 0,
-        latestFollowersFromSeries
+        latestFollowersFromSeries,
+        (series?.follows?.length ? (series.follows[series.follows.length - 1]?.value ?? 0) : 0)
       );
   const liveConversationCount =
     ((insights as unknown as { facebookLiveConversationsCount?: number })?.facebookLiveConversationsCount ?? 0);
@@ -1520,8 +1521,8 @@ export function FacebookAnalyticsView({
         videoViewsRaw = mergeSeriesMapsMax(seriesToMap(ms.views ?? []), seriesToMap(videoPlaysDailySeries));
       } else {
         mediaRaw = seriesToMap(insights?.impressionsTimeSeries ?? []);
-        visitsRaw = {};
-        engagementRaw = {};
+        visitsRaw = seriesToMap(series?.pageTabViews ?? []);
+        engagementRaw = seriesToMap(series?.engagement ?? []);
         followsRaw = insights?.followersTimeSeries?.length
           ? seriesToMap(insights.followersTimeSeries)
           : seriesToMap(series?.follows ?? []);
@@ -1729,13 +1730,9 @@ export function FacebookAnalyticsView({
     });
   }, [reelsRows]);
 
-  const selectedStoryMetricsForMode = useMemo(
-    () => selectedStoryMetrics.filter((metric) => STORY_METRIC_CONFIG[metric].mode === storyMode),
-    [selectedStoryMetrics, storyMode]
-  );
   const storyTicks = useMemo(
-    () => buildKeyDateTicks(chartByMode, (d) => selectedStoryMetricsForMode.some((metric) => (d[metric] ?? 0) > 0), 10),
-    [chartByMode, selectedStoryMetricsForMode]
+    () => buildKeyDateTicks(chartByMode, (d) => selectedStoryMetrics.some((metric) => (d[metric] ?? 0) > 0), 10),
+    [chartByMode, selectedStoryMetrics]
   );
   const trafficTicks = useMemo(
     () => buildKeyDateTicks(trafficTimelineData, (d) => (d.postImpressions ?? 0) > 0 || (d.nonviral ?? 0) > 0 || (d.viral ?? 0) > 0 || (d.uniqueReachProxy ?? 0) > 0, 10),
