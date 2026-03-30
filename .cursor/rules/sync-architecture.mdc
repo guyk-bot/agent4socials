@@ -1,0 +1,75 @@
+---
+description: Platform sync system — architecture, key files, cron setup, and rules for modifying sync behavior
+alwaysApply: true
+---
+
+# Platform Sync Architecture
+
+## What Was Built
+
+A full background sync system so the app always renders from **our own DB** and never blocks the UI on live API calls.
+
+### New DB fields on `SocialAccount`
+- `lastSuccessfulSyncAt` — when a sync last completed successfully
+- `lastSyncAttemptAt` — when we last tried (includes failures)
+- `lastSyncStatus` — `"idle" | "syncing" | "success" | "partial" | "error" | "needs_reconnect"`
+- `lastSyncError` — error message on failure
+- `initialBackfillDone` — true once first-connect backfill is done
+
+### New `sync_jobs` table
+Every sync is recorded with: `scope`, `syncType`, `status`, `idempotencyKey`, timing, `errorDetails`, `itemsProcessed`.
+
+---
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `src/lib/sync/config.ts` | Stale thresholds per platform+scope, idempotency key builder |
+| `src/lib/sync/engine.ts` | `syncAccount()`, `runScheduledSyncForScope()`, `getAccountSyncStatus()` |
+| `src/lib/sync/adapters/instagram.ts` | Instagram: followers, post discovery, post metrics |
+| `src/lib/sync/adapters/facebook.ts` | Facebook: fans, posts, post metrics |
+| `src/lib/sync/adapters/tiktok.ts` | TikTok: follower count, video list + metrics |
+| `src/lib/sync/adapters/youtube.ts` | YouTube: subscriber count, video list |
+| `src/lib/sync/adapters/generic.ts` | No-op for Twitter/LinkedIn/Pinterest |
+| `src/app/api/social/accounts/[id]/sync/route.ts` | `POST` — trigger sync |
+| `src/app/api/social/accounts/[id]/sync-status/route.ts` | `GET` — sync state for UI |
+| `src/app/api/cron/sync-platform-data/route.ts` | Master cron — runs all scopes for all accounts |
+| `src/hooks/useSyncStatus.ts` | React hook: polls status, auto-triggers stale refresh |
+| `src/components/SyncStatusBanner.tsx` | UI banner: "Up to date / Syncing… / Error / Reconnect" |
+
+---
+
+## Cron Setup (External Cron — NOT Vercel Crons)
+
+The app uses **external cron-jobs** (e.g. cron-job.org), not Vercel's built-in crons.
+
+Call these URLs with header `X-Cron-Secret: <CRON_SECRET>`:
+
+| Endpoint | Recommended interval | What it does |
+|----------|---------------------|--------------|
+| `/api/cron/sync-platform-data` | Every 15–30 min | Account overview + post discovery + post metrics for all connected accounts |
+| `/api/cron/metric-snapshots` | Daily | Follower/fan count daily snapshot (Instagram + Facebook) |
+| `/api/cron/comment-automation` | Every 1–5 min | Comment replies automation |
+| `/api/cron/process-scheduled` | Every 1–2 min | Publish scheduled posts |
+
+---
+
+## Rules When Modifying Sync
+
+1. **Never overwrite historical data** — always use `upsert` with merge, not replace.
+2. **Deduplication is via idempotency key** — `userId:accountId:scope:syncType:timeBucket`. Do not bypass this.
+3. **Partial is not a failure** — adapters can return `{ partial: true }` meaning some items succeeded; use `partial_success` job status.
+4. **Adapter interface** — all adapters must satisfy the `Adapter` interface from `adapters/index.ts`. Return type is `Promise<{ itemsProcessed: number; partial?: boolean }>` (partial is optional, not required).
+5. **Data must render from DB first** — never block the UI on a live API call. Load cached data, then sync in background.
+6. **Adding a new platform adapter** — add to `adapters/`, export from `adapters/index.ts`, add scopes to `PLATFORM_SCOPES` in `config.ts`.
+
+---
+
+## Stale Thresholds (summary)
+
+| Platform | account_overview | posts | post_metrics | comments/messages |
+|----------|-----------------|-------|-------------|-------------------|
+| Instagram/Facebook | 6 h | 30 min | 2 h | 3 min |
+| TikTok/YouTube | 12 h | 60 min | 4–6 h | 10 min |
+| Others | 12 h | 60 min | 6 h | 10 min |
