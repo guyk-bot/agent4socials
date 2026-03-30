@@ -1048,12 +1048,34 @@ export async function publishTarget(
           },
           { headers, timeout: 30_000, validateStatus: () => true }
         ) as { data?: { data?: { publish_id?: string; upload_url?: string }; error?: { code?: string; message?: string } } };
-        const uaBody = uaInitRes.data ?? {};
-        const uaErr = uaBody.error;
+        let uaBody = uaInitRes.data ?? {};
+        let uaErr = uaBody.error;
         console.log('[TikTok] FILE_UPLOAD SELF_ONLY init response', { error: uaErr, publishId: uaBody.data?.publish_id });
+
+        // Some unaudited apps are blocked on direct /video/init even with SELF_ONLY.
+        // In that case, use inbox init directly and upload there.
+        if (uaErr && uaErr.code === 'unaudited_client_can_only_post_to_private_accounts') {
+          useInbox = true;
+          const uaInboxInitRes = await axiosInstance.post(
+            `${tiktokBase}/v2/post/publish/inbox/video/init/`,
+            {
+              source_info: {
+                source: 'FILE_UPLOAD',
+                video_size: unauditedSize,
+                chunk_size: unauditedChunk,
+                total_chunk_count: unauditedChunkCount,
+              },
+            },
+            { headers, timeout: 30_000, validateStatus: () => true }
+          ) as { data?: { data?: { publish_id?: string; upload_url?: string }; error?: { code?: string; message?: string } } };
+          uaBody = uaInboxInitRes.data ?? {};
+          uaErr = uaBody.error;
+          console.log('[TikTok] FILE_UPLOAD inbox init response', { error: uaErr, publishId: uaBody.data?.publish_id });
+        }
         if (uaErr && uaErr.code !== 'ok') {
           return { ok: false, error: `TikTok: ${uaErr.message || uaErr.code || 'Init failed'}`.slice(0, 300) };
         }
+
         publishId = uaBody.data?.publish_id;
         const uaUploadUrl = uaBody.data?.upload_url;
         if (!publishId || !uaUploadUrl) {
