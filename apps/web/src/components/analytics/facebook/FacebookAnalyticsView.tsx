@@ -476,6 +476,8 @@ function buildInstagramSyntheticFacebookBundle(
   const postAggSum = sumMetricSeriesPoints(postAggregatedImpressions);
   const postImpressions =
     accountImpSum > 0 ? contentViews : postAggSum > 0 ? postAggregatedImpressions : contentViews;
+  /** Same series drives Overview growth chart + Traffic; must match headline when account impressions are empty. */
+  const seriesContentViews = postImpressions;
   const engagementTotal = sumMetricSeriesPoints(engagement);
   const sourceKeys: string[] = [];
   if (contentViews.length || postAggregatedImpressions.length) sourceKeys.push('impressions');
@@ -486,7 +488,7 @@ function buildInstagramSyntheticFacebookBundle(
   return {
     followers: insights.followers ?? 0,
     series: {
-      contentViews,
+      contentViews: seriesContentViews,
       pageTabViews,
       engagement,
       videoViews,
@@ -499,7 +501,7 @@ function buildInstagramSyntheticFacebookBundle(
       postImpressionsViral: [],
     },
     totals: {
-      contentViews: sumMetricSeriesPoints(contentViews),
+      contentViews: sumMetricSeriesPoints(seriesContentViews),
       pageTabViews: sumMetricSeriesPoints(pageTabViews),
       engagement: engagementTotal,
       videoViews: sumMetricSeriesPoints(videoViews),
@@ -1531,18 +1533,26 @@ export function FacebookAnalyticsView({
       const mergedImpressionsSeries = insights?.impressionsTimeSeries?.length
         ? insights.impressionsTimeSeries
         : ms?.impressions ?? [];
+      const postDailyContentMap = seriesToMap(
+        aggregatePostsByDayValue(postsInRange, (p) => p.impressions ?? bestPostPlayCount(p))
+      );
+      mediaRaw = mergeSeriesMapsMax(
+        mergeSeriesMapsMax(seriesToMap(mergedImpressionsSeries), postDailyContentMap),
+        seriesToMap(series?.contentViews ?? [])
+      );
       if (ms && Object.keys(ms).length > 0) {
-        mediaRaw = seriesToMap(mergedImpressionsSeries);
         const msProfileViews = seriesToMap(ms.profile_views ?? []);
         const msAccountsEngaged = seriesToMap(ms.accounts_engaged ?? []);
-        visitsRaw = Object.keys(msProfileViews).length > 0 ? msProfileViews : seriesToMap(series?.pageTabViews ?? []);
+        visitsRaw = mergeSeriesMapsMax(
+          Object.keys(msProfileViews).length > 0 ? msProfileViews : seriesToMap(series?.pageTabViews ?? []),
+          seriesToMap(series?.pageTabViews ?? [])
+        );
         engagementRaw = Object.keys(msAccountsEngaged).length > 0 ? msAccountsEngaged : seriesToMap(series?.engagement ?? []);
         followsRaw = insights?.followersTimeSeries?.length
           ? seriesToMap(insights.followersTimeSeries)
           : seriesToMap(series?.follows ?? []);
         videoViewsRaw = mergeSeriesMapsMax(seriesToMap(ms.views ?? []), seriesToMap(videoPlaysDailySeries));
       } else {
-        mediaRaw = seriesToMap(insights?.impressionsTimeSeries ?? []);
         visitsRaw = seriesToMap(series?.pageTabViews ?? []);
         engagementRaw = seriesToMap(series?.engagement ?? []);
         followsRaw = insights?.followersTimeSeries?.length
@@ -1627,21 +1637,33 @@ export function FacebookAnalyticsView({
       };
     }
     const ms = igMetricSeries;
-    const contentSpark = insights?.impressionsTimeSeries?.length
+    const contentSparkBase = insights?.impressionsTimeSeries?.length
       ? insights.impressionsTimeSeries
       : ms?.impressions?.length
         ? ms.impressions
         : (insights?.impressionsTimeSeries ?? []);
+    const igPostDailyMap = seriesToMap(
+      aggregatePostsByDayValue(postsInRange, (p) => p.impressions ?? bestPostPlayCount(p))
+    );
+    const contentSparkMap = mergeSeriesMapsMax(
+      mergeSeriesMapsMax(seriesToMap(contentSparkBase), igPostDailyMap),
+      seriesToMap(series?.contentViews ?? [])
+    );
+    const contentSpark = mapToSortedSeries(contentSparkMap);
     const videoSparkMap = mergeSeriesMapsMax(
       seriesToMap(ms?.views ?? []),
       seriesToMap(videoPlaysDailySeries)
+    );
+    const pageVisitsSparkMap = mergeSeriesMapsMax(
+      seriesToMap(ms?.profile_views ?? []),
+      seriesToMap(series?.pageTabViews ?? [])
     );
     return {
       follows: insights?.followersTimeSeries ?? series?.follows ?? [],
       engagement: ms?.accounts_engaged ?? [],
       videoViews: mapToSortedSeries(videoSparkMap),
       contentViews: contentSpark,
-      pageVisits: ms?.profile_views ?? [],
+      pageVisits: mapToSortedSeries(pageVisitsSparkMap),
     };
   }, [
     isTikTok,
