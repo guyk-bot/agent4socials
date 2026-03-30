@@ -201,10 +201,12 @@ export async function GET(
 
       const tryProfile = async (base: string): Promise<boolean> => {
         try {
-          const profileRes = await axios.get<{ followers_count?: number; media_count?: number; follows_count?: number }>(
+          const profileRes = await axios.get<{ followers_count?: number; media_count?: number; follows_count?: number; error?: { message?: string; code?: number } }>(
             `${base}/${account.platformUserId}`,
-            { params: { fields: 'followers_count,media_count,follows_count', access_token: token }, timeout: 8_000 }
+            { params: { fields: 'followers_count,media_count,follows_count', access_token: token }, timeout: 8_000, validateStatus: () => true }
           );
+          console.log('[Insights] tryProfile', base.includes('instagram.com') ? 'igBase' : 'fbBase', 'status:', profileRes.status, 'followers_count:', profileRes.data?.followers_count, 'error:', profileRes.data?.error?.message);
+          if (profileRes.status >= 400) return false;
           if (typeof profileRes.data?.followers_count === 'number') {
             out.followers = profileRes.data.followers_count;
           }
@@ -226,16 +228,19 @@ export async function GET(
       }
       // Page-linked IG: user node sometimes returns followers_count=0; Page → instagram_business_account is authoritative.
       const credLinked = credJson as { loginMethod?: string; linkedPageId?: string };
+      console.log('[Insights] IG followers after tryProfile:', out.followers, 'loginMethod:', credLinked.loginMethod, 'linkedPageId:', credLinked.linkedPageId ?? 'none');
       if (out.followers === 0 && credLinked.linkedPageId && token) {
         try {
           const pageRes = await axios.get<{
             instagram_business_account?: { id?: string; followers_count?: number; follows_count?: number };
+            error?: { message?: string };
           }>(`${fbBaseUrl}/${credLinked.linkedPageId}`, {
             params: { fields: 'instagram_business_account{id,followers_count,follows_count}', access_token: token },
             timeout: 8_000,
             validateStatus: () => true,
           });
           const igba = pageRes.data?.instagram_business_account;
+          console.log('[Insights] IG via linkedPage status:', pageRes.status, 'igba.followers_count:', igba?.followers_count, 'igba.id:', igba?.id, 'error:', pageRes.data?.error?.message);
           if (igba && (!igba.id || igba.id === account.platformUserId)) {
             if (typeof igba.followers_count === 'number' && igba.followers_count >= 0) {
               out.followers = igba.followers_count;
@@ -251,10 +256,11 @@ export async function GET(
       // Final fallback: use /me endpoint with token directly (bypasses any platformUserId mismatch).
       if (out.followers === 0) {
         try {
-          const meRes = await axios.get<{ followers_count?: number; follows_count?: number }>(
+          const meRes = await axios.get<{ followers_count?: number; follows_count?: number; error?: { message?: string } }>(
             `${igBaseUrl}/me`,
-            { params: { fields: 'followers_count,follows_count', access_token: token }, timeout: 8_000 }
+            { params: { fields: 'followers_count,follows_count', access_token: token }, timeout: 8_000, validateStatus: () => true }
           );
+          console.log('[Insights] IG /me fallback followers_count:', meRes.data?.followers_count, 'status:', meRes.status, 'error:', meRes.data?.error?.message);
           if (typeof meRes.data?.followers_count === 'number' && meRes.data.followers_count > 0) {
             out.followers = meRes.data.followers_count;
           }
@@ -263,6 +269,7 @@ export async function GET(
           }
         } catch (_) { /* silent — best-effort */ }
       }
+      console.log('[Insights] IG followers final:', out.followers);
 
       const igSeriesByMetric: Record<string, Array<{ date: string; value: number }>> = {};
       const tryInsights = async (base: string): Promise<boolean> => {
@@ -446,6 +453,7 @@ export async function GET(
       await supplementIgViews(fbBaseUrl);
       if (!igSeriesByMetric.views?.length) await supplementIgViews(igBaseUrl);
 
+      console.log('[Insights] IG profile_views after batched insights:', out.profileViewsTotal, 'pageViewsTimeSeries length:', out.pageViewsTimeSeries?.length ?? 0);
       /** profile_views is sometimes omitted from batched /insights; fetch alone (Page Visits in UI). */
       const supplementIgProfileViews = async (base: string): Promise<void> => {
         if (effectiveSinceTs == null || effectiveUntilTs == null) return;
@@ -484,9 +492,10 @@ export async function GET(
                   .filter((x) => x.date)
                   .sort((a, b) => a.date.localeCompare(b.date))
               : [];
+          console.log('[Insights] supplementIgProfileViews', base.includes('instagram.com') ? 'igBase' : 'fbBase', 'total:', out.profileViewsTotal, 'series length:', series.length);
           if (series.length > 0) igSeriesByMetric.profile_views = series;
-        } catch {
-          /* metric may be unavailable */
+        } catch (e) {
+          console.warn('[Insights] supplementIgProfileViews error:', base.includes('instagram.com') ? 'igBase' : 'fbBase', (e as Error)?.message?.slice(0, 120));
         }
       };
       await supplementIgProfileViews(fbBaseUrl);
