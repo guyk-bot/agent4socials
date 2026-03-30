@@ -465,6 +465,96 @@ function mapToSortedSeries(map: Record<string, number>): Array<{ date: string; v
     .sort((x, y) => x.date.localeCompare(y.date));
 }
 
+const SKELETON_GRADIENT_CARD = {
+  background: 'linear-gradient(180deg, rgba(255,255,255,0.95), rgba(248,250,252,0.95))',
+  boxShadow: '0 10px 24px rgba(15,23,42,0.08)',
+} as const;
+const SKELETON_CHART = {
+  background: 'linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,252,0.94))',
+  boxShadow: '0 14px 30px rgba(15,23,42,0.09)',
+} as const;
+
+/** Full-section placeholders while insights are loading (all platforms). */
+function AnalyticsTrafficSkeleton() {
+  return (
+    <div className="rounded-[20px] border p-4 sm:p-5 space-y-4" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
+      <div className="h-6 w-28 rounded-md animate-pulse bg-neutral-200/90" />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-24 rounded-[20px] animate-pulse" style={SKELETON_GRADIENT_CARD} />
+        ))}
+      </div>
+      <div className="h-[300px] rounded-xl animate-pulse" style={SKELETON_CHART} />
+      <div className="mt-6 rounded-xl border p-4 space-y-3" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
+        <div className="h-5 w-48 rounded-md animate-pulse bg-neutral-200/80" />
+        <div className="flex flex-col lg:flex-row gap-4">
+          <div className="h-[220px] w-full lg:w-[min(100%,420px)] shrink-0 rounded-xl animate-pulse bg-neutral-200/50" />
+          <div className="flex-1 space-y-2">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-9 rounded-lg animate-pulse bg-neutral-200/40" />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AnalyticsPostsSkeleton() {
+  return (
+    <div className="rounded-[20px] border p-4 sm:p-5 space-y-4" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
+      <div className="h-9 w-32 rounded-md animate-pulse bg-neutral-200/90" />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-20 rounded-[20px] animate-pulse" style={SKELETON_GRADIENT_CARD} />
+        ))}
+      </div>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-32 rounded-xl animate-pulse bg-neutral-200/50" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AnalyticsReelsSkeleton() {
+  return (
+    <div className="rounded-[20px] border p-4 sm:p-5 space-y-4" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
+      <div className="h-9 w-28 rounded-md animate-pulse bg-neutral-200/90" />
+      <div className="flex flex-wrap gap-2">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-9 w-[88px] rounded-lg animate-pulse bg-neutral-200/70" />
+        ))}
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="h-24 rounded-[20px] animate-pulse" style={SKELETON_GRADIENT_CARD} />
+        ))}
+      </div>
+      <div className="h-[300px] rounded-xl animate-pulse" style={SKELETON_CHART} />
+    </div>
+  );
+}
+
+function AnalyticsHistorySkeleton() {
+  return (
+    <div className="rounded-[20px] border p-4 sm:p-5 space-y-4" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
+      <div className="h-9 w-52 rounded-md animate-pulse bg-neutral-200/90" />
+      <div className="flex flex-wrap gap-2">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-9 w-16 rounded-full animate-pulse bg-neutral-200/70" />
+        ))}
+      </div>
+      <div className="space-y-2">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="h-12 rounded-xl animate-pulse" style={{ background: 'rgba(15,23,42,0.06)' }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function carryForwardSeries(
   dates: string[],
   map: Record<string, number>,
@@ -1103,8 +1193,8 @@ export function FacebookAnalyticsView({
   accountUsername,
 }: FacebookAnalyticsViewProps) {
   /**
-   * Overview skeleton: first insights fetch (hasApiInsightsFetched false), or Facebook Page waiting for Graph bundle.
-   * When the parent still has insights === null from the API, hasApiInsightsFetched is false so we do not flash zeros (e.g. Instagram).
+   * Full analytics shell (Overview, Traffic, Posts, Reels, History): first insights fetch (hasApiInsightsFetched false), or Facebook Page waiting for Graph bundle.
+   * When the parent still has insights === null from the API, hasApiInsightsFetched is false so we do not flash zeros on any section.
    * Date-range refetches keep prior insights so hasApiInsightsFetched stays true and the UI stays stable.
    */
   const overviewSkeleton =
@@ -2129,6 +2219,9 @@ export function FacebookAnalyticsView({
       </section>
 
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.traffic} className="scroll-mt-28 space-y-6">
+        {overviewSkeleton ? (
+          <AnalyticsTrafficSkeleton />
+        ) : (
         <div className="rounded-[20px] border p-4 sm:p-5 space-y-3" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Traffic</h3>
@@ -2283,9 +2376,13 @@ export function FacebookAnalyticsView({
             )}
           </div>
         </div>
+        )}
       </section>
 
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.posts} className="scroll-mt-28 space-y-6">
+        {overviewSkeleton ? (
+          <AnalyticsPostsSkeleton />
+        ) : (
         <div className="rounded-[20px] border p-4 sm:p-5 space-y-4" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
           <div>
             <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Posts</h2>
@@ -2331,10 +2428,14 @@ export function FacebookAnalyticsView({
             }))}
           />
         </div>
+        )}
 
       </section>
 
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.reels} className="scroll-mt-28 space-y-6">
+        {overviewSkeleton ? (
+          <AnalyticsReelsSkeleton />
+        ) : (
         <div className="rounded-[20px] border p-4 sm:p-5 space-y-4" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
           <div>
             <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Reels</h2>
@@ -2487,9 +2588,13 @@ export function FacebookAnalyticsView({
           )}
         </InsightChartCard>
         </div>
+        )}
       </section>
 
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.history} className="scroll-mt-28 space-y-4">
+        {overviewSkeleton ? (
+          <AnalyticsHistorySkeleton />
+        ) : (
         <div className="rounded-[20px] border p-4 sm:p-5 space-y-4" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
           <div>
             <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Content History</h2>
@@ -2529,6 +2634,7 @@ export function FacebookAnalyticsView({
             <PostsPerformanceTable rows={contentHistoryRows} onOpenDetail={setSelectedPost} />
           )}
         </div>
+        )}
       </section>
 
       {selectedPost ? (
