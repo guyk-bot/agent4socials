@@ -566,6 +566,16 @@ export default function ComposerPage() {
         if (platforms.length === 0) return;
         setSelectedPlatformForThumbnail((prev) => (platforms.includes(prev) ? prev : platforms[0]));
     }, [platforms]);
+    // Keep only currently selected platforms in per-platform thumbnail map.
+    useEffect(() => {
+        setThumbnailByPlatform((prev) => {
+            const next: Record<string, string> = {};
+            for (const p of platforms) {
+                if (prev[p]) next[p] = prev[p];
+            }
+            return next;
+        });
+    }, [platforms]);
 
     // When we have a thumbnail (e.g. from draft), show a selected option so UI matches state.
     // Skip if we auto-generated (thumbnailChoice stayed 'none' by design).
@@ -1233,11 +1243,12 @@ export default function ComposerPage() {
         setMediaUploading(true);
         try {
             const { fileUrl } = await uploadFile(file);
-            setMediaList((prev) => prev.map((item, i) => (i === 0 ? { ...item, thumbnailUrl: fileUrl } : item)));
-            setThumbnailChoice('upload');
             if (differentThumbnailPerPlatform && selectedPlatformForThumbnail) {
                 setThumbnailByPlatform((prev) => ({ ...prev, [selectedPlatformForThumbnail]: fileUrl }));
+            } else {
+                setMediaList((prev) => prev.map((item, i) => (i === 0 ? { ...item, thumbnailUrl: fileUrl } : item)));
             }
+            setThumbnailChoice('upload');
         } catch (err) {
             setMediaUploadError('Thumbnail upload failed. Try again.');
         } finally {
@@ -1253,10 +1264,11 @@ export default function ComposerPage() {
         try {
             const fileUrl = await captureFrameFromThumbnailVideo();
             if (!fileUrl) throw new Error('Failed to capture frame');
-            setMediaList((prev) => prev.map((item, i) => (i === 0 ? { ...item, thumbnailUrl: fileUrl } : item)));
             setThumbnailChoice('frame');
             if (differentThumbnailPerPlatform && selectedPlatformForThumbnail) {
                 setThumbnailByPlatform((prev) => ({ ...prev, [selectedPlatformForThumbnail]: fileUrl }));
+            } else {
+                setMediaList((prev) => prev.map((item, i) => (i === 0 ? { ...item, thumbnailUrl: fileUrl } : item)));
             }
         } catch {
             setMediaUploadError('Failed to use frame. Try again or upload an image.');
@@ -1276,6 +1288,24 @@ export default function ComposerPage() {
             setMediaList((prev) => prev.map((item, i) => (i === 0 ? { ...item, thumbnailUrl: undefined } : item)));
         }
         setThumbnailChoice('none');
+    };
+    const handleDifferentThumbnailToggle = (enabled: boolean) => {
+        setDifferentThumbnailPerPlatform(enabled);
+        if (!enabled) {
+            // Going back to one thumbnail: keep current global thumbnail and clear per-platform overrides.
+            setThumbnailByPlatform({});
+            return;
+        }
+        // Turning on per-platform thumbnails: seed selected platforms with current shared thumbnail for easier editing.
+        const base = mediaList[0]?.thumbnailUrl;
+        if (!base) return;
+        setThumbnailByPlatform((prev) => {
+            const next = { ...prev };
+            for (const p of platforms) {
+                if (!next[p]) next[p] = base;
+            }
+            return next;
+        });
     };
 
     const drawVideoFrameToCanvas = useCallback(() => {
@@ -1575,6 +1605,22 @@ export default function ComposerPage() {
                     }
                     return m;
                 });
+            } else if (differentThumbnailPerPlatform && (mediaType === 'video' || mediaType === 'reel') && mediaList.length > 0) {
+                payload.mediaByPlatform = platforms.reduce((acc, p) => {
+                    acc[p] = mediaList.map((m, i) => {
+                        if (i === 0 && m.type === 'VIDEO') {
+                            const platformThumb = thumbnailByPlatform[p];
+                            const finalThumb = platformThumb ?? (m as MediaItem).thumbnailUrl;
+                            return {
+                                ...m,
+                                ...(finalThumb ? { thumbnailUrl: finalThumb } : {}),
+                                useVideoDefaultForPublish: !finalThumb && thumbnailChoice === 'none',
+                            };
+                        }
+                        return m;
+                    });
+                    return acc;
+                }, {} as Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO'; thumbnailUrl?: string }[]>);
             }
             // If editing an already-posted post, create a new post (and publish/schedule) instead of updating the original
             const updateExisting = editPostId && !editPostAlreadyPosted;
@@ -2049,7 +2095,7 @@ export default function ComposerPage() {
                                                         <input
                                                             type="checkbox"
                                                             checked={differentThumbnailPerPlatform}
-                                                            onChange={(e) => setDifferentThumbnailPerPlatform(e.target.checked)}
+                                                            onChange={(e) => handleDifferentThumbnailToggle(e.target.checked)}
                                                             className="rounded border-neutral-300 text-[var(--primary)] focus:ring-[var(--primary)]"
                                                         />
                                                         <span className="text-sm text-neutral-700">Use different thumbnail per platform</span>
@@ -2057,16 +2103,29 @@ export default function ComposerPage() {
                                                 )}
                                                 {differentThumbnailPerPlatform && platforms.length > 1 && (
                                                     <div className="mt-2">
-                                                        <label className="text-xs font-medium text-neutral-500">Thumbnail for:</label>
-                                                        <select
-                                                            value={selectedPlatformForThumbnail}
-                                                            onChange={(e) => setSelectedPlatformForThumbnail(e.target.value)}
-                                                            className="ml-2 mt-0.5 rounded-lg border border-neutral-200 px-2 py-1.5 text-sm text-neutral-800"
-                                                        >
-                                                            {platforms.map((p) => (
-                                                                <option key={p} value={p}>{PLATFORM_LABELS[p] ?? p}</option>
-                                                            ))}
-                                                        </select>
+                                                        <label className="text-xs font-medium text-neutral-500">Editing thumbnail for:</label>
+                                                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                                            {platforms.map((p) => {
+                                                                const active = selectedPlatformForThumbnail === p;
+                                                                const hasThumb = Boolean(thumbnailByPlatform[p]);
+                                                                return (
+                                                                    <button
+                                                                        key={p}
+                                                                        type="button"
+                                                                        onClick={() => setSelectedPlatformForThumbnail(p)}
+                                                                        className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition-colors ${
+                                                                            active
+                                                                                ? 'border-[var(--primary)] bg-[var(--primary)]/15/80 text-[var(--primary)]'
+                                                                                : 'border-neutral-200 text-neutral-600 hover:border-neutral-300'
+                                                                        }`}
+                                                                    >
+                                                                        {PLATFORM_LABELS[p] ?? p}
+                                                                        <span className={`inline-block h-1.5 w-1.5 rounded-full ${hasThumb ? 'bg-emerald-500' : 'bg-neutral-300'}`} />
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                        <p className="mt-1 text-[11px] text-neutral-500">Green dot means this platform has its own thumbnail.</p>
                                                     </div>
                                                 )}
                                                 <p className="text-xs text-neutral-400 mt-1 font-medium">Choose one option:</p>
