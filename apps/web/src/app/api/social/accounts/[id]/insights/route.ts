@@ -174,6 +174,15 @@ export async function GET(
     accountsEngaged?: number;
     /** Instagram: Graph `views` total in range when available. */
     instagramAccountVideoViewsTotal?: number;
+    /** Instagram User /insights interaction totals (likes, comments, …) for the selected range. */
+    instagramInteractionTotals?: {
+      likes?: number;
+      comments?: number;
+      shares?: number;
+      saves?: number;
+      reposts?: number;
+      totalInteractions?: number;
+    };
     /** Instagram: daily series keyed by Graph metric name (impressions, profile_views, accounts_engaged, …). */
     facebookPageMetricSeries?: Record<string, Array<{ date: string; value: number }>>;
   } = {
@@ -394,6 +403,97 @@ export async function GET(
       };
       await supplementIgViews(fbBaseUrl);
       if (!igSeriesByMetric.views?.length) await supplementIgViews(igBaseUrl);
+
+      /** IG User /insights: likes, comments, shares, saves, reposts, total_interactions (period=day). */
+      const mergeIgInteractionTotals = (
+        prev: NonNullable<(typeof out)['instagramInteractionTotals']>,
+        next: NonNullable<(typeof out)['instagramInteractionTotals']>
+      ): NonNullable<(typeof out)['instagramInteractionTotals']> => ({
+        likes: Math.max(prev.likes ?? 0, next.likes ?? 0),
+        comments: Math.max(prev.comments ?? 0, next.comments ?? 0),
+        shares: Math.max(prev.shares ?? 0, next.shares ?? 0),
+        saves: Math.max(prev.saves ?? 0, next.saves ?? 0),
+        reposts: Math.max(prev.reposts ?? 0, next.reposts ?? 0),
+        totalInteractions: Math.max(prev.totalInteractions ?? 0, next.totalInteractions ?? 0),
+      });
+      const supplementIgInteractionMetrics = async (base: string): Promise<void> => {
+        if (effectiveSinceTs == null || effectiveUntilTs == null) return;
+        const metricSets = [
+          'likes,comments,shares,saves,total_interactions,reposts',
+          'likes,comments,shares,saves,total_interactions',
+          'likes,comments,shares,saves',
+          'likes,comments',
+          'likes',
+          'comments',
+          'shares',
+          'saves',
+          'reposts',
+          'total_interactions',
+        ];
+        for (const metricSet of metricSets) {
+          try {
+            const insightsRes = await axios.get<{
+              data?: Array<{
+                name: string;
+                values?: Array<{ value: number; end_time?: string }>;
+                total_value?: { value: number };
+              }>;
+              error?: { message?: string };
+            }>(`${base}/${account.platformUserId}/insights`, {
+              params: {
+                metric: metricSet,
+                period: 'day',
+                since: effectiveSinceTs,
+                until: effectiveUntilTs,
+                access_token: token,
+              },
+              timeout: 12_000,
+            });
+            if (insightsRes.data?.error || !insightsRes.data?.data?.length) continue;
+            const picked: NonNullable<(typeof out)['instagramInteractionTotals']> = {};
+            for (const d of insightsRes.data.data) {
+              const sumDaily = (d.values ?? []).reduce((s, v) => s + (typeof v.value === 'number' ? v.value : 0), 0);
+              const totalRaw = typeof d.total_value?.value === 'number' ? d.total_value.value : sumDaily;
+              const total = Math.max(0, Math.round(Number.isFinite(totalRaw) ? totalRaw : 0));
+              const series: Array<{ date: string; value: number }> =
+                (d.values ?? []).length > 0
+                  ? (d.values ?? [])
+                      .map((v) => ({
+                        date: v.end_time ? facebookMetricDateFromEndTime(v.end_time) : '',
+                        value: Math.max(0, typeof v.value === 'number' ? v.value : 0),
+                      }))
+                      .filter((x) => x.date)
+                      .sort((a, b) => a.date.localeCompare(b.date))
+                  : [];
+              if (series.length > 0) igSeriesByMetric[d.name] = series;
+              if (d.name === 'likes') picked.likes = total;
+              else if (d.name === 'comments') picked.comments = total;
+              else if (d.name === 'shares') picked.shares = total;
+              else if (d.name === 'saves') picked.saves = total;
+              else if (d.name === 'reposts') picked.reposts = total;
+              else if (d.name === 'total_interactions') picked.totalInteractions = total;
+            }
+            if (Object.keys(picked).length > 0) {
+              out.instagramInteractionTotals = mergeIgInteractionTotals(
+                out.instagramInteractionTotals ?? {
+                  likes: 0,
+                  comments: 0,
+                  shares: 0,
+                  saves: 0,
+                  reposts: 0,
+                  totalInteractions: 0,
+                },
+                picked
+              );
+            }
+            return;
+          } catch {
+            /* try next set */
+          }
+        }
+      };
+      await supplementIgInteractionMetrics(fbBaseUrl);
+      await supplementIgInteractionMetrics(igBaseUrl);
 
       const profileViewsSeries = igSeriesByMetric.profile_views;
       if (profileViewsSeries && profileViewsSeries.length > 0) {

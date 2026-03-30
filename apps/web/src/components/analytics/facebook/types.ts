@@ -21,6 +21,18 @@ export interface FacebookInsights {
   accountsEngaged?: number;
   /** Instagram: account-level views total (Graph metric `views` when available). */
   instagramAccountVideoViewsTotal?: number;
+  /**
+   * Instagram User `/insights` interaction totals for the selected range (Meta may omit rows under thresholds or delay up to ~48h).
+   * See https://developers.facebook.com/docs/instagram-platform/insights
+   */
+  instagramInteractionTotals?: {
+    likes?: number;
+    comments?: number;
+    shares?: number;
+    saves?: number;
+    reposts?: number;
+    totalInteractions?: number;
+  };
   insightsHint?: string;
   /** New followers by date: { date, gained, lost, net }. */
   growthTimeSeries?: Array<{ date: string; gained: number; lost: number; net?: number }>;

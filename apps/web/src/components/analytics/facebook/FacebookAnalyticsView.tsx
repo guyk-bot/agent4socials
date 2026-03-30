@@ -94,6 +94,10 @@ const COLOR = {
 const TIKTOK_API_CARD_CLASS =
   'ring-2 ring-[#facc15] shadow-[0_0_22px_rgba(250,204,21,0.5)] bg-[rgba(250,204,21,0.07)]';
 
+/** Outline for metrics sourced from Instagram Graph API (IG User /insights). */
+const INSTAGRAM_GRAPH_API_CARD_CLASS =
+  'ring-2 ring-[#e4405f] shadow-[0_0_18px_rgba(228,64,95,0.32)] bg-[rgba(228,64,95,0.06)]';
+
 type MetricDef = {
   key: string;
   label: string;
@@ -727,6 +731,7 @@ export function MetricCard({
   active = false,
   onClick,
   tiktokApiHighlight,
+  instagramGraphHighlight,
 }: {
   label: string;
   value: string;
@@ -738,14 +743,17 @@ export function MetricCard({
   onClick?: () => void;
   /** TikTok Open API–sourced metric (yellow neon ring). */
   tiktokApiHighlight?: boolean;
+  /** Instagram Graph API (IG User insights) metric (rose ring). */
+  instagramGraphHighlight?: boolean;
 }) {
   const hint = `Source metric: ${source}${typeof trendPercent === 'number' && Number.isFinite(trendPercent) ? `. Change in selected range: ${trendPercent >= 0 ? '+' : ''}${trendPercent.toFixed(1)}%.` : ''}`;
+  const apiRing = tiktokApiHighlight ? TIKTOK_API_CARD_CLASS : instagramGraphHighlight ? INSTAGRAM_GRAPH_API_CARD_CLASS : '';
   return (
     <button
       type="button"
       onClick={onClick}
       title={hint}
-      className={`rounded-[12px] px-3 py-1.5 text-left transition-all hover:-translate-y-[1px] ${tiktokApiHighlight ? TIKTOK_API_CARD_CLASS : ''}`}
+      className={`rounded-[12px] px-3 py-1.5 text-left transition-all hover:-translate-y-[1px] ${apiRing}`}
       style={{
         background: active ? `${color}10` : COLOR.card,
         boxShadow: active ? '0 2px 16px rgba(15,23,42,0.06)' : '0 2px 16px rgba(15,23,42,0.05)',
@@ -2431,6 +2439,100 @@ export function FacebookAnalyticsView({
           )}
           </InsightChartCard>
         </div>
+
+        {isInstagram && !isTikTok ? (
+          <div
+            className="rounded-[20px] border p-4 sm:p-5 space-y-3"
+            style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}
+          >
+            <div>
+              <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>
+                Instagram · Meta account insights
+              </h3>
+              <p className="mt-1 text-xs leading-relaxed max-w-[960px]" style={{ color: COLOR.textSecondary }}>
+                Official Instagram User{' '}
+                <code className="rounded bg-neutral-100 px-1 text-[11px]">/insights</code> metrics for your selected
+                date range (typically up to 28 days per request). Meta may delay data up to 48 hours, omit rows when
+                thresholds are not met (for example some follower metrics require 100+ followers), and is replacing
+                legacy <code className="rounded bg-neutral-100 px-1 text-[11px]">impressions</code> with{' '}
+                <code className="rounded bg-neutral-100 px-1 text-[11px]">views</code> on newer API versions. Cards
+                with the rose outline are sourced directly from this API.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <MetricCard
+                label="Reach (accounts)"
+                source="IG User insights · reach (day)"
+                color={COLOR.cyan}
+                value={formatNumber(insights?.reachTotal ?? 0)}
+                instagramGraphHighlight
+              />
+              <MetricCard
+                label="Profile views"
+                source="IG User insights · profile_views (day)"
+                color={COLOR.coral}
+                value={formatNumber(insights?.profileViewsTotal ?? 0)}
+                instagramGraphHighlight
+              />
+              <MetricCard
+                label="Accounts engaged"
+                source="IG User insights · accounts_engaged (day)"
+                color={COLOR.violet}
+                value={formatNumber(insights?.accountsEngaged ?? 0)}
+                instagramGraphHighlight
+              />
+              <MetricCard
+                label="Content views (account)"
+                source="IG User insights · views (day)"
+                color={COLOR.amber}
+                value={formatNumber(insights?.instagramAccountVideoViewsTotal ?? 0)}
+                instagramGraphHighlight
+              />
+              <MetricCard
+                label="Likes (account)"
+                source="IG User insights · likes (day)"
+                color={ENGAGEMENT_METRIC_CONFIG.likes.color}
+                value={formatNumber(insights?.instagramInteractionTotals?.likes ?? 0)}
+                instagramGraphHighlight
+              />
+              <MetricCard
+                label="Comments (account)"
+                source="IG User insights · comments (day)"
+                color={ENGAGEMENT_METRIC_CONFIG.comments.color}
+                value={formatNumber(insights?.instagramInteractionTotals?.comments ?? 0)}
+                instagramGraphHighlight
+              />
+              <MetricCard
+                label="Shares (account)"
+                source="IG User insights · shares (day)"
+                color={ENGAGEMENT_METRIC_CONFIG.shares.color}
+                value={formatNumber(insights?.instagramInteractionTotals?.shares ?? 0)}
+                instagramGraphHighlight
+              />
+              <MetricCard
+                label="Saves (account)"
+                source="IG User insights · saves (day)"
+                color={COLOR.magenta}
+                value={formatNumber(insights?.instagramInteractionTotals?.saves ?? 0)}
+                instagramGraphHighlight
+              />
+              <MetricCard
+                label="Reposts (account)"
+                source="IG User insights · reposts (day)"
+                color={COLOR.textSecondary}
+                value={formatNumber(insights?.instagramInteractionTotals?.reposts ?? 0)}
+                instagramGraphHighlight
+              />
+              <MetricCard
+                label="Total interactions"
+                source="IG User insights · total_interactions (day)"
+                color={COLOR.mint}
+                value={formatNumber(insights?.instagramInteractionTotals?.totalInteractions ?? 0)}
+                instagramGraphHighlight
+              />
+            </div>
+          </div>
+        ) : null}
 
         <div className="rounded-[20px] border p-4 sm:p-5 space-y-3" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
           <div className="flex flex-wrap items-center justify-between gap-3">
