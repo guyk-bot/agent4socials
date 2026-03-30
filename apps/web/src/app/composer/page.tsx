@@ -1660,7 +1660,7 @@ export default function ComposerPage() {
                         const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string; debugInfo?: { mediaUrlsByPlatform?: Record<string, string>; fullErrors?: Record<string, string> } }>(
                             `/posts/${editPostId}/publish${debug ? '?debug=1' : ''}`,
                             {},
-                            { timeout: 90_000 }
+                            { timeout: 330_000 }
                         );
                         const results = publishRes.data?.results;
                         if (publishRes.data?.debugInfo) console.log('[Publish Debug]', publishRes.data.debugInfo);
@@ -1728,7 +1728,7 @@ export default function ComposerPage() {
                         const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string; debugInfo?: { mediaUrlsByPlatform?: Record<string, string>; fullErrors?: Record<string, string> } }>(
                             `/posts/${postId}/publish${debug ? '?debug=1' : ''}`,
                             {},
-                            { timeout: 90_000 }
+                            { timeout: 330_000 }
                         );
                     const results = publishRes.data?.results;
                         if (publishRes.data?.debugInfo) console.log('[Publish Debug]', publishRes.data.debugInfo);
