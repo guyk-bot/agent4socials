@@ -13,6 +13,70 @@ import axios from 'axios';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 
 const INSTAGRAM_FACEBOOK = ['INSTAGRAM', 'FACEBOOK'] as const;
+
+let _tableEnsured = false;
+/**
+ * Best-effort: create AccountMetricSnapshot table + indexes if they don't exist yet.
+ * This handles the case where DATABASE_DIRECT_URL was missing during deploy so the
+ * Prisma migration silently skipped. Safe to call multiple times (uses IF NOT EXISTS).
+ */
+async function ensureSnapshotTable(): Promise<void> {
+  if (_tableEnsured) return;
+  try {
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "AccountMetricSnapshot" (
+        "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+        "userId" TEXT NOT NULL,
+        "socialAccountId" TEXT NOT NULL,
+        "platform" "Platform" NOT NULL,
+        "externalAccountId" TEXT NOT NULL,
+        "metricDate" TEXT NOT NULL,
+        "metricTimestamp" TIMESTAMP(3) NOT NULL,
+        "followersCount" INTEGER,
+        "followingCount" INTEGER,
+        "fansCount" INTEGER,
+        "insightsJson" JSONB,
+        "source" TEXT NOT NULL DEFAULT 'bootstrap',
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "AccountMetricSnapshot_pkey" PRIMARY KEY ("id")
+      )
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "AccountMetricSnapshot_userId_platform_externalAccountId_metricDate_key"
+        ON "AccountMetricSnapshot"("userId", "platform", "externalAccountId", "metricDate")
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "AccountMetricSnapshot_socialAccountId_metricDate_idx"
+        ON "AccountMetricSnapshot"("socialAccountId", "metricDate")
+    `);
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'AccountMetricSnapshot_userId_fkey'
+        ) THEN
+          ALTER TABLE "AccountMetricSnapshot"
+            ADD CONSTRAINT "AccountMetricSnapshot_userId_fkey"
+            FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        END IF;
+      END $$
+    `);
+    await prisma.$executeRawUnsafe(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'AccountMetricSnapshot_socialAccountId_fkey'
+        ) THEN
+          ALTER TABLE "AccountMetricSnapshot"
+            ADD CONSTRAINT "AccountMetricSnapshot_socialAccountId_fkey"
+            FOREIGN KEY ("socialAccountId") REFERENCES "SocialAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+        END IF;
+      END $$
+    `);
+    _tableEnsured = true;
+    console.log('[MetricSnapshot] AccountMetricSnapshot table ensured.');
+  } catch (e) {
+    console.warn('[MetricSnapshot] ensureSnapshotTable failed (non-fatal):', (e as Error)?.message?.slice(0, 200));
+  }
+}
 const fbBaseUrl = facebookGraphBaseUrl;
 const igBaseUrl = 'https://graph.instagram.com/v18.0';
 
@@ -88,36 +152,41 @@ export async function upsertDailyMetricSnapshot(params: {
   const { userId, socialAccountId, platform, externalAccountId, metricDate, source } = params;
   const metricTimestamp = new Date(metricDate + 'T12:00:00Z');
 
-  await prisma.accountMetricSnapshot.upsert({
-    where: {
-      userId_platform_externalAccountId_metricDate: {
+  await ensureSnapshotTable();
+  try {
+    await prisma.accountMetricSnapshot.upsert({
+      where: {
+        userId_platform_externalAccountId_metricDate: {
+          userId,
+          platform,
+          externalAccountId,
+          metricDate,
+        },
+      },
+      update: {
+        metricTimestamp,
+        // Only update fields we have values for; do not overwrite with null
+        ...(params.followersCount != null && { followersCount: params.followersCount }),
+        ...(params.followingCount != null && { followingCount: params.followingCount }),
+        ...(params.fansCount != null && { fansCount: params.fansCount }),
+        source,
+      },
+      create: {
         userId,
+        socialAccountId,
         platform,
         externalAccountId,
         metricDate,
+        metricTimestamp,
+        followersCount: params.followersCount ?? undefined,
+        followingCount: params.followingCount ?? undefined,
+        fansCount: params.fansCount ?? undefined,
+        source,
       },
-    },
-    update: {
-      metricTimestamp,
-      // Only update fields we have values for; do not overwrite with null
-      ...(params.followersCount != null && { followersCount: params.followersCount }),
-      ...(params.followingCount != null && { followingCount: params.followingCount }),
-      ...(params.fansCount != null && { fansCount: params.fansCount }),
-      source,
-    },
-    create: {
-      userId,
-      socialAccountId,
-      platform,
-      externalAccountId,
-      metricDate,
-      metricTimestamp,
-      followersCount: params.followersCount ?? undefined,
-      followingCount: params.followingCount ?? undefined,
-      fansCount: params.fansCount ?? undefined,
-      source,
-    },
-  });
+    });
+  } catch (e) {
+    console.warn('[MetricSnapshot] upsertDailyMetricSnapshot skipped:', (e as Error)?.message?.slice(0, 120));
+  }
 }
 
 /** Per-day metrics from APIs (e.g. impressions, reach, profile_views, page_impressions). Stored in insightsJson so we keep full history beyond Meta 28/90-day window. */
@@ -138,44 +207,49 @@ export async function upsertDailyInsightsSnapshot(params: {
   const { userId, socialAccountId, platform, externalAccountId, metricDate, insightsPayload } = params;
   const metricTimestamp = new Date(metricDate + 'T12:00:00Z');
 
-  const existing = await prisma.accountMetricSnapshot.findUnique({
-    where: {
-      userId_platform_externalAccountId_metricDate: {
+  await ensureSnapshotTable();
+  try {
+    const existing = await prisma.accountMetricSnapshot.findUnique({
+      where: {
+        userId_platform_externalAccountId_metricDate: {
+          userId,
+          platform,
+          externalAccountId,
+          metricDate,
+        },
+      },
+      select: { insightsJson: true },
+    });
+
+    const merged =
+      existing?.insightsJson && typeof existing.insightsJson === 'object' && !Array.isArray(existing.insightsJson)
+        ? { ...(existing.insightsJson as Record<string, number>), ...insightsPayload }
+        : insightsPayload;
+
+    await prisma.accountMetricSnapshot.upsert({
+      where: {
+        userId_platform_externalAccountId_metricDate: {
+          userId,
+          platform,
+          externalAccountId,
+          metricDate,
+        },
+      },
+      update: { insightsJson: merged, metricTimestamp },
+      create: {
         userId,
+        socialAccountId,
         platform,
         externalAccountId,
         metricDate,
+        metricTimestamp,
+        insightsJson: merged,
+        source: 'manual_refresh',
       },
-    },
-    select: { insightsJson: true },
-  });
-
-  const merged =
-    existing?.insightsJson && typeof existing.insightsJson === 'object' && !Array.isArray(existing.insightsJson)
-      ? { ...(existing.insightsJson as Record<string, number>), ...insightsPayload }
-      : insightsPayload;
-
-  await prisma.accountMetricSnapshot.upsert({
-    where: {
-      userId_platform_externalAccountId_metricDate: {
-        userId,
-        platform,
-        externalAccountId,
-        metricDate,
-      },
-    },
-    update: { insightsJson: merged, metricTimestamp },
-    create: {
-      userId,
-      socialAccountId,
-      platform,
-      externalAccountId,
-      metricDate,
-      metricTimestamp,
-      insightsJson: merged,
-      source: 'manual_refresh',
-    },
-  });
+    });
+  } catch (e) {
+    console.warn('[MetricSnapshot] upsertDailyInsightsSnapshot skipped (table missing?):', (e as Error)?.message?.slice(0, 120));
+  }
 }
 
 /**
@@ -229,24 +303,30 @@ export async function getInsightsTimeSeries(params: {
 }): Promise<Array<{ date: string; value: number }>> {
   const { userId, platform, externalAccountId, since, until, metricKey } = params;
 
-  const snapshots = await prisma.accountMetricSnapshot.findMany({
-    where: {
-      userId,
-      platform,
-      externalAccountId,
-      metricDate: { gte: since, lte: until },
-    },
-    orderBy: { metricDate: 'asc' },
-    select: { metricDate: true, insightsJson: true },
-  });
+  await ensureSnapshotTable();
+  try {
+    const snapshots = await prisma.accountMetricSnapshot.findMany({
+      where: {
+        userId,
+        platform,
+        externalAccountId,
+        metricDate: { gte: since, lte: until },
+      },
+      orderBy: { metricDate: 'asc' },
+      select: { metricDate: true, insightsJson: true },
+    });
 
-  const out: Array<{ date: string; value: number }> = [];
-  for (const s of snapshots) {
-    const json = s.insightsJson as Record<string, unknown> | null | undefined;
-    const val = json != null && typeof json[metricKey] === 'number' ? json[metricKey] : null;
-    if (val != null) out.push({ date: s.metricDate, value: val });
+    const out: Array<{ date: string; value: number }> = [];
+    for (const s of snapshots) {
+      const json = s.insightsJson as Record<string, unknown> | null | undefined;
+      const val = json != null && typeof json[metricKey] === 'number' ? json[metricKey] : null;
+      if (val != null) out.push({ date: s.metricDate, value: val });
+    }
+    return out;
+  } catch (e) {
+    console.warn('[MetricSnapshot] getInsightsTimeSeries skipped (table missing?):', (e as Error)?.message?.slice(0, 120));
+    return [];
   }
-  return out;
 }
 
 /**
@@ -268,41 +348,47 @@ export async function getAccountHistorySeries(params: {
 }> {
   const { userId, platform, externalAccountId, since, until } = params;
 
-  const snapshots = await prisma.accountMetricSnapshot.findMany({
-    where: {
-      userId,
-      platform,
-      externalAccountId,
-      metricDate: { gte: since, lte: until },
-    },
-    orderBy: { metricDate: 'asc' },
-    select: { metricDate: true, followersCount: true, followingCount: true, fansCount: true },
-  });
+  await ensureSnapshotTable();
+  try {
+    const snapshots = await prisma.accountMetricSnapshot.findMany({
+      where: {
+        userId,
+        platform,
+        externalAccountId,
+        metricDate: { gte: since, lte: until },
+      },
+      orderBy: { metricDate: 'asc' },
+      select: { metricDate: true, followersCount: true, followingCount: true, fansCount: true },
+    });
 
-  const followersTimeSeries: Array<{ date: string; value: number }> = [];
-  const followingTimeSeries: Array<{ date: string; value: number }> = [];
-  let lastF = 0;
-  let lastFollowing: number | null = null;
+    const followersTimeSeries: Array<{ date: string; value: number }> = [];
+    const followingTimeSeries: Array<{ date: string; value: number }> = [];
+    let lastF = 0;
+    let lastFollowing: number | null = null;
 
-  for (const s of snapshots) {
-    const f = s.followersCount ?? s.fansCount ?? lastF;
-    lastF = f;
-    followersTimeSeries.push({ date: s.metricDate, value: f });
-    if (s.followingCount != null) {
-      lastFollowing = s.followingCount;
-      followingTimeSeries.push({ date: s.metricDate, value: s.followingCount });
-    } else if (lastFollowing != null) {
-      followingTimeSeries.push({ date: s.metricDate, value: lastFollowing });
+    for (const s of snapshots) {
+      const f = s.followersCount ?? s.fansCount ?? lastF;
+      lastF = f;
+      followersTimeSeries.push({ date: s.metricDate, value: f });
+      if (s.followingCount != null) {
+        lastFollowing = s.followingCount;
+        followingTimeSeries.push({ date: s.metricDate, value: s.followingCount });
+      } else if (lastFollowing != null) {
+        followingTimeSeries.push({ date: s.metricDate, value: lastFollowing });
+      }
     }
-  }
 
-  const firstSnapshotAt = snapshots.length > 0 ? snapshots[0].metricDate : null;
-  return {
-    followersTimeSeries,
-    followingTimeSeries: followingTimeSeries.length > 0 ? followingTimeSeries : null,
-    firstSnapshotAt,
-    snapshotCount: snapshots.length,
-  };
+    const firstSnapshotAt = snapshots.length > 0 ? snapshots[0].metricDate : null;
+    return {
+      followersTimeSeries,
+      followingTimeSeries: followingTimeSeries.length > 0 ? followingTimeSeries : null,
+      firstSnapshotAt,
+      snapshotCount: snapshots.length,
+    };
+  } catch (e) {
+    console.warn('[MetricSnapshot] getAccountHistorySeries skipped (table missing?):', (e as Error)?.message?.slice(0, 120));
+    return { followersTimeSeries: [], followingTimeSeries: null, firstSnapshotAt: null, snapshotCount: 0 };
+  }
 }
 
 /**

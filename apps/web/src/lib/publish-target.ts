@@ -1097,6 +1097,12 @@ export async function publishTarget(
         console.log('[TikTok] inbox PULL_FROM_URL init response', { error: uaInboxPullErr, publishId: uaInboxPullBody.data?.publish_id });
         if (!uaInboxPullErr || uaInboxPullErr.code === 'ok') {
           publishId = uaInboxPullBody.data?.publish_id;
+        } else if (uaInboxPullErr.code === 'spam_risk_too_many_pending_share') {
+          return {
+            ok: false,
+            error:
+              'TikTok sandbox: too many pending posts in your test account inbox. Open the TikTok mobile app logged in as the sandbox test user, go to Inbox, and accept or delete all pending posts. Then try posting again.',
+          };
         } else {
           // Fallback to inbox FILE_UPLOAD when URL pull is not allowed/available.
           const { buffer: unauditedBuf, contentType: unauditedCt } = await fetchMediaBuffer(videoUrl, fetchFn);
@@ -1121,6 +1127,13 @@ export async function publishTarget(
           const uaInboxFileErr = uaInboxFileBody.error;
           console.log('[TikTok] inbox FILE_UPLOAD init response', { error: uaInboxFileErr, publishId: uaInboxFileBody.data?.publish_id });
           if (uaInboxFileErr && uaInboxFileErr.code !== 'ok') {
+            if (uaInboxFileErr.code === 'spam_risk_too_many_pending_share') {
+              return {
+                ok: false,
+                error:
+                  'TikTok sandbox: too many pending posts in your test account inbox. Open the TikTok mobile app logged in as the sandbox test user, go to Inbox, and accept or delete all pending posts. Then try posting again.',
+              };
+            }
             return { ok: false, error: `TikTok: ${uaInboxFileErr.message || uaInboxFileErr.code || 'Init failed'}`.slice(0, 300) };
           }
           publishId = uaInboxFileBody.data?.publish_id;
@@ -1163,8 +1176,13 @@ export async function publishTarget(
           return { ok: false, error: `TikTok: ${inboxPullErr.message || inboxPullErr.code || 'Init failed'}`.slice(0, 300) };
         }
       } else if (pullErr && pullErr.code === 'spam_risk_too_many_pending_share') {
-        // TikTok's pending-post limit hit from previous failed attempts — do not retry.
-        return { ok: false, error: 'TikTok: spam_risk_too_many_pending_share' };
+        // TikTok's pending-post limit hit from previous failed attempts.
+        // For sandbox: open TikTok app with the test account → Inbox → accept/delete all pending posts, then retry.
+        return {
+          ok: false,
+          error:
+            'TikTok sandbox: too many pending posts in your test account inbox. Open the TikTok mobile app logged in as the sandbox test user, go to Inbox, and accept or delete all pending posts. Then try posting again.',
+        };
       } else if (!urlOwnershipError) {
         // Some other error from TikTok
         return { ok: false, error: `TikTok: ${pullErr.message || pullErr.code || 'Init failed'}`.slice(0, 300) };

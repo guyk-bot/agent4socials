@@ -1077,13 +1077,18 @@ export async function GET(
             Authorization: `Bearer ${account.accessToken}`,
             'Content-Type': 'application/json',
           },
+          // Don't throw on 401/403 — sandbox tokens may lack user.info.basic scope
+          validateStatus: () => true,
+          timeout: 15_000,
         });
         const user = userRes.data?.data?.user;
         const err = userRes.data?.error;
-        if (err?.code && err.code !== 'ok') {
+        if (userRes.status === 401 || userRes.status === 403) {
+          console.warn('[Insights] TikTok user/info: HTTP', userRes.status, '(sandbox token may lack user.info.basic scope)');
+        } else if (err?.code && err.code !== 'ok') {
           console.warn('[Insights] TikTok user/info error:', err.code, err.message ?? '');
         }
-        if (user && (err?.code === 'ok' || !err?.code)) {
+        if (user && (err?.code === 'ok' || !err?.code) && userRes.status < 400) {
           const fc = parseTk(user.follower_count);
           if (fc != null) out.followers = fc;
           const following = parseTk(user.following_count);
