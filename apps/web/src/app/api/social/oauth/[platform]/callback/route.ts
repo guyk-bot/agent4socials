@@ -765,7 +765,9 @@ export async function GET(
         if (igAccount) {
           try { await ensureBootstrapSnapshotForToday(igAccount); } catch (_) {}
         }
-        const dashboardUrl = fbAccount?.id ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(fbAccount.id)}` : `${baseUrl}/dashboard`;
+        const dashboardUrl = fbAccount?.id
+          ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(fbAccount.id)}&connecting=1`
+          : `${baseUrl}/dashboard`;
         return NextResponse.redirect(dashboardUrl);
       } catch (e) {
         console.error('[Social OAuth] Facebook single-page connect error:', e);
@@ -876,7 +878,9 @@ export async function GET(
           select: { id: true, userId: true, platform: true, platformUserId: true, accessToken: true },
         }) : null;
         if (igAccountForBootstrap) { try { await ensureBootstrapSnapshotForToday(igAccountForBootstrap); } catch (_) {} }
-      const dashboardUrl = fbAccount?.id ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(fbAccount.id)}` : `${baseUrl}/dashboard`;
+      const dashboardUrl = fbAccount?.id
+        ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(fbAccount.id)}&connecting=1`
+        : `${baseUrl}/dashboard`;
       return NextResponse.redirect(dashboardUrl);
       } catch (fallbackErr) {
         console.error('[Social OAuth] Facebook fallback connect error:', fallbackErr);
@@ -988,7 +992,9 @@ export async function GET(
         select: { id: true, userId: true, platform: true, platformUserId: true, accessToken: true },
       });
       if (igAccount) { try { await ensureBootstrapSnapshotForToday(igAccount); } catch (_) {} }
-      const dashboardUrl = igAccount?.id ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(igAccount.id)}` : `${baseUrl}/dashboard`;
+      const dashboardUrl = igAccount?.id
+        ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(igAccount.id)}&connecting=1`
+        : `${baseUrl}/dashboard`;
       return NextResponse.redirect(dashboardUrl);
     } catch (autoConnectErr) {
       console.error('[Social OAuth] Instagram auto-connect error:', autoConnectErr);
@@ -1155,7 +1161,7 @@ export async function GET(
     }
   }
   const successRedirectUrl = mainAccount?.id
-    ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(mainAccount.id)}`
+    ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(mainAccount.id)}&connecting=1`
     : `${baseUrl}/dashboard`;
   return NextResponse.redirect(successRedirectUrl);
 }
