@@ -618,7 +618,7 @@ export default function DashboardPage() {
       setInsights(cached);
       setInsightsLoading(false);
       // SWR: refresh silently in background so UI stays instant.
-      api.get(`/social/accounts/${accountId}/insights`, { params: { since: dateRange.start, until: dateRange.end } })
+      api.get(`/social/accounts/${accountId}/insights`, { params: selectedAccount?.platform === 'FACEBOOK' ? { since: dateRange.start, until: dateRange.end, refresh: 1, persist: 1 } : { since: dateRange.start, until: dateRange.end } })
         .then((res) => {
           const data = res.data ?? null;
           if (!data) return;
@@ -656,7 +656,7 @@ export default function DashboardPage() {
     if (!accountTabOwnsPosts) setImportedPostsLoading(true);
 
     // Fetch insights; optional fast posts only when not on per-account analytics (single owner for posts there).
-    const insightsPromise = api.get(`/social/accounts/${accountId}/insights`, { params: { since: dateRange.start, until: dateRange.end } });
+    const insightsPromise = api.get(`/social/accounts/${accountId}/insights`, { params: selectedAccount?.platform === 'FACEBOOK' ? { since: dateRange.start, until: dateRange.end, refresh: 1, persist: 1 } : { since: dateRange.start, until: dateRange.end } });
 
     insightsPromise
       .then(async (res) => {
@@ -1240,6 +1240,18 @@ export default function DashboardPage() {
             compact
             className="mb-2"
           />
+          {selectedAccount.platform === 'FACEBOOK' && (
+            <div className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              {(() => {
+                const dbg = (insights as { facebookDataSourceDebug?: { liveMetricRows?: number; fallbackDailyRows?: number; fallbackMetricKeys?: string[] } } | null)?.facebookDataSourceDebug;
+                const hint = (insights as { insightsHint?: string } | null)?.insightsHint;
+                const sourceText = dbg
+                  ? `FB source: liveRows=${dbg.liveMetricRows ?? 0}, fallbackRows=${dbg.fallbackDailyRows ?? 0}, keys=${(dbg.fallbackMetricKeys ?? []).slice(0, 6).join(',') || '-'}`
+                  : 'FB source: no debug payload';
+                return hint ? `${sourceText} | ${hint}` : sourceText;
+              })()}
+            </div>
+          )}
           <FacebookAnalyticsView
             insights={(() => {
               const base: import('@/components/analytics/facebook/types').FacebookInsights = {
