@@ -1103,7 +1103,7 @@ export default function DashboardPage() {
           )
         : null}
       {/* Show sync banner only on first load (no data yet) or right after connect; date changes refetch in place without banner */}
-      {(!facebookLoadingOnly && (justConnected || (((insightsLoading || importedPostsLoading) && insights == null && selectedAccount != null) && !hasWarmCacheForSelected))) && (
+      {(facebookLoadingOnly || justConnected || (((insightsLoading || importedPostsLoading) && insights == null && selectedAccount != null) && !hasWarmCacheForSelected)) && (
         <DataSyncBanner
           platform={selectedAccount?.platform}
           insightsLoading={insightsLoading}
@@ -1112,17 +1112,27 @@ export default function DashboardPage() {
       )}
       {facebookLoadingOnly && (
         <div className="mt-4 max-w-full space-y-4" style={{ maxWidth: 1400 }}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div
-                key={`fb-load-kpi-${i}`}
-                className="h-24 rounded-2xl animate-pulse"
-                style={{
-                  background: 'linear-gradient(180deg, rgba(255,255,255,0.95), rgba(248,250,252,0.95))',
-                  boxShadow: '0 10px 24px rgba(15,23,42,0.08)',
-                }}
-              />
-            ))}
+          <div
+            className="rounded-2xl p-4 animate-pulse"
+            style={{
+              background: 'linear-gradient(180deg, rgba(255,255,255,0.97), rgba(248,250,252,0.95))',
+              boxShadow: '0 14px 30px rgba(15,23,42,0.09)',
+            }}
+          >
+            <div className="flex gap-2 mb-4">
+              <div className="h-5 w-24 rounded-md bg-neutral-200/80" />
+              <div className="h-5 w-16 rounded-md bg-neutral-200/70" />
+              <div className="h-5 w-16 rounded-md bg-neutral-200/70" />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div
+                  key={`fb-load-kpi-${i}`}
+                  className="h-20 rounded-xl bg-white/90"
+                  style={{ boxShadow: '0 8px 18px rgba(15,23,42,0.07)' }}
+                />
+              ))}
+            </div>
           </div>
           <div
             className="h-72 rounded-2xl animate-pulse"

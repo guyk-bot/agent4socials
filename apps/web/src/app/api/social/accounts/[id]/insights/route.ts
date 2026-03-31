@@ -1316,6 +1316,14 @@ export async function GET(
               sinceParam,
               untilParam
             );
+          } else if (snapshotPageViews.length > 0) {
+            out.pageViewsTimeSeries = mergeSeriesWithSnapshots([], snapshotPageViews, sinceParam, untilParam);
+          }
+          if (!out.impressionsTotal && out.impressionsTimeSeries?.length) {
+            out.impressionsTotal = out.impressionsTimeSeries.reduce((s, p) => s + (Number.isFinite(p.value) ? p.value : 0), 0);
+          }
+          if (!out.pageViewsTotal && out.pageViewsTimeSeries?.length) {
+            out.pageViewsTotal = out.pageViewsTimeSeries.reduce((s, p) => s + (Number.isFinite(p.value) ? p.value : 0), 0);
           }
         } catch (e) {
           console.warn('[Insights] Merge FB insights from snapshots:', (e as Error)?.message ?? e);
