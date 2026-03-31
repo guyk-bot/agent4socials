@@ -994,9 +994,11 @@ export async function GET(
 
     if (account.platform === 'FACEBOOK') {
       const token = account.accessToken;
+      let fbTokenValid = false;
       try {
         const pageRes = await fetchPageProfile(account.platformUserId, token);
         if (pageRes.status === 200) {
+          fbTokenValid = true;
           const p = pageRes.data;
           (out as Record<string, unknown>).facebookPageProfile = {
             id: p?.id,
@@ -1012,6 +1014,13 @@ export async function GET(
           };
           if (typeof p?.fan_count === 'number') out.followers = p.fan_count;
           else if (typeof p?.followers_count === 'number') out.followers = p.followers_count;
+        } else {
+          const errData = pageRes.data as Record<string, unknown> | null;
+          const errCode = (errData?.error as Record<string, unknown> | null)?.code;
+          console.warn('[Insights] Facebook page profile non-200:', pageRes.status, JSON.stringify(errData)?.slice(0, 200));
+          if (pageRes.status === 400 || pageRes.status === 401 || errCode === 190 || errCode === 102) {
+            out.insightsHint = 'Facebook session expired. Please reconnect your Facebook account from the Accounts page.';
+          }
         }
       } catch (e) {
         console.warn('[Insights] Facebook page profile:', (e as Error)?.message ?? e);
@@ -1156,16 +1165,42 @@ export async function GET(
             d.setUTCDate(d.getUTCDate() + 1);
             return d.toISOString().slice(0, 10);
           })();
-          const logSync = process.env.FACEBOOK_LOG_SYNC_RUNS === '1';
-          const { rows, summary } = await fetchMergedFacebookPageDayInsights({
-            socialAccountId: account.id,
-            pageId: account.platformUserId,
-            accessToken: token,
-            since: effectiveSinceParam,
-            until: untilApi,
-            logSync,
-          });
-          if (request.nextUrl.searchParams.get('extended') === '1' && summary) {
+          // Direct parallel fetch of core metrics - bypasses the discovery probe system
+          // (discovery runs up to 16 sequential API calls per metric which can exceed the 30s Vercel limit).
+          // The cron/sync path still uses fetchMergedFacebookPageDayInsights for full discovery.
+          const CORE_FB_METRICS = [
+            'page_views_total',
+            'page_post_engagements',
+            'page_video_views',
+            'page_media_view',
+            'page_follows',
+            'page_impressions',
+          ];
+          type FbInsightRow = { name: string; values?: Array<{ value: number | string; end_time?: string }> };
+          const coreResults = await Promise.allSettled(
+            CORE_FB_METRICS.map((metric) =>
+              axios.get<{ data?: FbInsightRow[]; error?: { message?: string; code?: number } }>(
+                `${fbBaseUrl}/${account.platformUserId}/insights`,
+                {
+                  params: { metric, period: 'day', since: effectiveSinceParam, until: untilApi, access_token: token },
+                  timeout: 12_000,
+                  validateStatus: () => true,
+                }
+              )
+            )
+          );
+          const rows: FbInsightRow[] = [];
+          for (let i = 0; i < coreResults.length; i++) {
+            const result = coreResults[i];
+            if (result.status === 'fulfilled' && !result.value.data?.error) {
+              const chunk = result.value.data?.data ?? [];
+              for (const r of chunk) {
+                if (r?.name) rows.push(r);
+              }
+            }
+          }
+          const summary = { metricsFetched: CORE_FB_METRICS };
+          if (request.nextUrl.searchParams.get('extended') === '1') {
             (out as Record<string, unknown>).facebookInsightsSync = summary;
           }
           const data = rows;
@@ -1233,7 +1268,8 @@ export async function GET(
           // Fallback: when live Graph returns no usable rows, read normalized daily rows we already persisted.
           if (Object.keys(fbSeriesByGraphMetric).length === 0 && sinceParam && untilParam) {
             try {
-              const daily = await prisma.facebookPageInsightDaily.findMany({
+              // Try exact date range first; if empty, broaden to last 90 days so we always show something.
+              let daily = await prisma.facebookPageInsightDaily.findMany({
                 where: {
                   socialAccountId: account.id,
                   metricDate: { gte: sinceParam, lte: untilParam },
@@ -1241,6 +1277,15 @@ export async function GET(
                 select: { metricDate: true, metricKey: true, value: true },
                 orderBy: [{ metricDate: 'asc' }],
               });
+              if (daily.length === 0) {
+                const ninetyDaysAgo = new Date();
+                ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+                daily = await prisma.facebookPageInsightDaily.findMany({
+                  where: { socialAccountId: account.id, metricDate: { gte: ninetyDaysAgo.toISOString().slice(0, 10) } },
+                  select: { metricDate: true, metricKey: true, value: true },
+                  orderBy: [{ metricDate: 'asc' }],
+                });
+              }
               if (daily.length > 0) {
                 const byMetric = new Map<string, Array<{ date: string; value: number }>>();
                 for (const row of daily) {

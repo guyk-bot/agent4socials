@@ -292,7 +292,6 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="truncate font-medium">{acc.username || PLATFORM_LABELS[platform]}</div>
-                      <div className="text-[11px] leading-4 text-neutral-500 truncate">{platformLabel}</div>
                     </div>
                     <div className={`w-8 h-8 flex items-center justify-center shrink-0 rounded-full overflow-hidden ${acc.profilePicture ? '' : 'bg-neutral-200'}`}>
                       {acc.profilePicture ? (
