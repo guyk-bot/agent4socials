@@ -36,6 +36,24 @@ function parseIgFollowerCount(raw: unknown): number | null {
   return null;
 }
 
+/** Only skip live Graph when cached daily rows actually contain non-zero Page insight signal (not just empty/zeroed rows). */
+const FB_DAILY_SIGNAL_KEYS = new Set([
+  'page_impressions',
+  'page_media_view',
+  'page_views_total',
+  'page_post_engagements',
+  'page_video_views',
+]);
+
+function fbDailyRowsHavePositiveCoreSignal(daily: Array<{ metricKey: string; value: unknown }>): boolean {
+  for (const row of daily) {
+    if (!FB_DAILY_SIGNAL_KEYS.has(row.metricKey)) continue;
+    const v = typeof row.value === 'number' ? row.value : Number(row.value);
+    if (Number.isFinite(v) && v > 0) return true;
+  }
+  return false;
+}
+
 /** Merge API time series with snapshot-backed series. API values take precedence. Only include dates that have a value so the UI can carry forward the last known value for missing dates (avoids showing zeros when Meta has no data yet for recent days). */
 function mergeSeriesWithSnapshots(
   apiSeries: Array<{ date: string; value: number }>,
@@ -1012,8 +1030,10 @@ export async function GET(
             is_verified: typeof p?.is_verified === 'boolean' ? p.is_verified : undefined,
             verification_status: p?.verification_status,
           };
-          if (typeof p?.fan_count === 'number') out.followers = p.fan_count;
-          else if (typeof p?.followers_count === 'number') out.followers = p.followers_count;
+          const fanN = parseIgFollowerCount(p?.fan_count);
+          const folN = parseIgFollowerCount(p?.followers_count);
+          if (fanN != null) out.followers = fanN;
+          else if (folN != null) out.followers = folN;
         } else {
           const errData = pageRes.data as Record<string, unknown> | null;
           const errCode = (errData?.error as Record<string, unknown> | null)?.code;
@@ -1117,11 +1137,12 @@ export async function GET(
               select: { metricDate: true, metricKey: true, value: true },
               orderBy: [{ metricDate: 'asc' }],
             });
-            if (daily.length > 0) {
+            // Do not skip live Graph when DB only has placeholder/zero rows: that would lock the UI at 0 forever.
+            if (daily.length > 0 && fbDailyRowsHavePositiveCoreSignal(daily)) {
               const byMetric = new Map<string, Array<{ date: string; value: number }>>();
               for (const row of daily) {
                 const list = byMetric.get(row.metricKey) ?? [];
-                list.push({ date: row.metricDate, value: Math.max(0, Math.round(row.value)) });
+                list.push({ date: row.metricDate, value: Math.max(0, Math.round(Number(row.value) || 0)) });
                 byMetric.set(row.metricKey, list);
               }
               const toSeries = (key: string) => (byMetric.get(key) ?? []).sort((a, b) => a.date.localeCompare(b.date));
@@ -1180,38 +1201,57 @@ export async function GET(
             'page_fan_removes',
           ];
           type FbInsightRow = { name: string; values?: Array<{ value: number | string; end_time?: string }> };
-          const coreResults = await Promise.allSettled(
-            CORE_FB_METRICS.map((metric) =>
-              axios.get<{ data?: FbInsightRow[]; error?: { message?: string; code?: number } }>(
-                `${fbBaseUrl}/${account.platformUserId}/insights`,
-                {
-                  params: { metric, period: 'day', since: effectiveSinceParam, until: untilApi, access_token: token },
-                  timeout: 12_000,
-                  validateStatus: () => true,
-                }
-              )
-            )
-          );
           const rows: FbInsightRow[] = [];
-          for (let i = 0; i < coreResults.length; i++) {
-            const result = coreResults[i];
-            if (result.status === 'fulfilled' && !result.value.data?.error) {
-              const chunk = result.value.data?.data ?? [];
-              for (const r of chunk) {
+          const graphErrors: string[] = [];
+          /** Small batches reduce Meta rate-limit (#613) bursts from firing 9 insights calls at once. */
+          const FB_INSIGHT_PARALLEL = 3;
+          for (let bi = 0; bi < CORE_FB_METRICS.length; bi += FB_INSIGHT_PARALLEL) {
+            const chunk = CORE_FB_METRICS.slice(bi, bi + FB_INSIGHT_PARALLEL);
+            const chunkResults = await Promise.allSettled(
+              chunk.map((metric) =>
+                axios.get<{ data?: FbInsightRow[]; error?: { message?: string; code?: number } }>(
+                  `${fbBaseUrl}/${account.platformUserId}/insights`,
+                  {
+                    params: { metric, period: 'day', since: effectiveSinceParam, until: untilApi, access_token: token },
+                    timeout: 12_000,
+                    validateStatus: () => true,
+                  }
+                )
+              )
+            );
+            for (let j = 0; j < chunkResults.length; j++) {
+              const result = chunkResults[j];
+              const metric = chunk[j] ?? '?';
+              if (result.status !== 'fulfilled') {
+                graphErrors.push(`${metric}: ${(result.reason as Error)?.message ?? 'request failed'}`);
+                continue;
+              }
+              const res = result.value;
+              if (res.status !== 200) {
+                graphErrors.push(`${metric}: HTTP ${res.status}`);
+                continue;
+              }
+              const body = res.data;
+              if (body?.error?.message) {
+                graphErrors.push(`${metric}: ${body.error.message}`);
+                continue;
+              }
+              for (const r of body?.data ?? []) {
                 if (r?.name) rows.push(r);
               }
             }
           }
-          const summary = { metricsFetched: CORE_FB_METRICS };
+          const summary = { metricsFetched: CORE_FB_METRICS, graphErrors: graphErrors.length ? graphErrors : undefined };
           if (request.nextUrl.searchParams.get('extended') === '1') {
             (out as Record<string, unknown>).facebookInsightsSync = summary;
           }
           const data = rows;
           liveMetricCount = data.length;
           if (data.length === 0 && !out.impressionsTotal && !out.pageViewsTotal) {
+            const errTail = graphErrors.length ? ` Meta: ${graphErrors.slice(0, 3).join(' | ')}` : '';
             out.insightsHint = !summary.metricsFetched?.length
               ? 'No Page insight metrics passed discovery for this Graph version. Confirm read_insights on the Page token, or set META_GRAPH_API_VERSION in env to match Meta (see docs/FACEBOOK_ANALYTICS_CAPABILITY_MAP.md).'
-              : 'Page insights returned no data for this range. Try a different date range or reconnect and ensure read_insights is granted.';
+              : `Page insights returned no data for this range.${errTail} Try a different date range, reconnect Facebook, or add ?refresh=1 once.`;
           }
           const addsByDate = new Map<string, number>();
           const removesByDate = new Map<string, number>();
