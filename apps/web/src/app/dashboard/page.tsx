@@ -618,7 +618,7 @@ export default function DashboardPage() {
       setInsights(cached);
       setInsightsLoading(false);
       // SWR: refresh silently in background so UI stays instant.
-      api.get(`/social/accounts/${accountId}/insights`, { params: { since: dateRange.start, until: dateRange.end, extended: 1 } })
+      api.get(`/social/accounts/${accountId}/insights`, { params: { since: dateRange.start, until: dateRange.end } })
         .then((res) => {
           const data = res.data ?? null;
           if (!data) return;
@@ -656,7 +656,7 @@ export default function DashboardPage() {
     if (!accountTabOwnsPosts) setImportedPostsLoading(true);
 
     // Fetch insights; optional fast posts only when not on per-account analytics (single owner for posts there).
-    const insightsPromise = api.get(`/social/accounts/${accountId}/insights`, { params: { since: dateRange.start, until: dateRange.end, extended: 1 } });
+    const insightsPromise = api.get(`/social/accounts/${accountId}/insights`, { params: { since: dateRange.start, until: dateRange.end } });
 
     insightsPromise
       .then((res) => {
@@ -728,7 +728,7 @@ export default function DashboardPage() {
     }
     Promise.all(
       insightAccounts.map((acc) =>
-        api.get(`/social/accounts/${acc.id}/insights`, { params: { since: dateRange.start, until: dateRange.end, extended: 1 } }).then((r) => ({ platform: acc.platform, data: r.data }))
+        api.get(`/social/accounts/${acc.id}/insights`, { params: { since: dateRange.start, until: dateRange.end } }).then((r) => ({ platform: acc.platform, data: r.data }))
       )
     )
       .then((results) => {
