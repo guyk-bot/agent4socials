@@ -504,8 +504,7 @@ export default function DashboardPage() {
       }
       // First load for this account: show spinner without blanking existing data.
       setImportedPostsLoading(true);
-      const syncFirst = !postsCacheRef.current[accountId];
-      api.get(`/social/accounts/${accountId}/posts`, { params: syncFirst ? { sync: 1 } : {} })
+      api.get(`/social/accounts/${accountId}/posts`)
         .then((res) => {
           const list = res.data?.posts ?? [];
           postsCacheRef.current[accountId] = list;
@@ -588,11 +587,12 @@ export default function DashboardPage() {
     }
     setImportedPostsLoading(true);
     setAllPostsSyncError(null);
-    runSync(syncAllFirst);
+    runSync(false);
     // Intentionally omit appData: context value changes every prefetch tick and would fight analytics post state.
   }, [selectedAccount?.id, hasAccounts, syncAllTrigger, accounts.map((a) => a.id).join(','), analyticsTab]);
 
   const insightsCacheRef = useRef<Record<string, { platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number; profileViewsTotal?: number }>>({});
+  const fbForcedRefreshRef = useRef<Record<string, boolean>>({});
   const selectedAccountIdRef = useRef<string | null>(null);
   const aggregatedCacheRef = useRef<{ key: string; data: { totalFollowers: number; totalImpressions: number; totalReach: number; totalProfileViews: number; totalPageViews: number; byPlatform: Record<string, { followers: number; impressions: number; timeSeries: Array<{ date: string; value: number }> }>; combinedTimeSeries: Array<{ date: string; value: number }> } } | null>(null);
 
@@ -633,7 +633,7 @@ export default function DashboardPage() {
           setImportedPostsLoading(false);
         } else {
           setImportedPostsLoading(true);
-          api.get(`/social/accounts/${accountId}/posts`, { params: { sync: 1 } })
+          api.get(`/social/accounts/${accountId}/posts`)
             .then((postsRes) => {
               const list = postsRes.data?.posts ?? [];
               postsCacheRef.current[accountId] = list;
@@ -659,8 +659,26 @@ export default function DashboardPage() {
     const insightsPromise = api.get(`/social/accounts/${accountId}/insights`, { params: { since: dateRange.start, until: dateRange.end } });
 
     insightsPromise
-      .then((res) => {
-        const data = res.data ?? null;
+      .then(async (res) => {
+        let data = res.data ?? null;
+        const isFacebookZeroState = Boolean(
+          selectedAccount?.platform === 'FACEBOOK' &&
+          data &&
+          Number(data.followers ?? 0) === 0 &&
+          Number(data.impressionsTotal ?? 0) === 0 &&
+          Number(data.pageViewsTotal ?? 0) === 0
+        );
+        if (isFacebookZeroState && !fbForcedRefreshRef.current[cacheKey]) {
+          fbForcedRefreshRef.current[cacheKey] = true;
+          try {
+            const refreshed = await api.get(`/social/accounts/${accountId}/insights`, {
+              params: { since: dateRange.start, until: dateRange.end, refresh: 1, persist: 1 },
+            });
+            data = refreshed.data ?? data;
+          } catch {
+            // Keep initial payload when forced refresh fails.
+          }
+        }
         if (data) {
           insightsCacheRef.current[cacheKey] = data;
           appDataRef.current?.setInsightsForAccount(accountId, data);
