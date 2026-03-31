@@ -200,7 +200,7 @@ function MessagesConversationList({
             }}
             className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors ${
               selectMode && selectedConversationIds.has(c.id) ? 'bg-indigo-50 border border-indigo-200' :
-              selectedConversationId === c.id ? 'bg-indigo-50 border-indigo-100' : unreadConversationIds.has(c.id) ? 'bg-sky-50/80 hover:bg-sky-100/80' : 'hover:bg-neutral-50'
+              selectedConversationId === c.id ? 'bg-indigo-50 border-indigo-100' : unreadConversationIds.has(c.id) ? 'bg-violet-50/80 hover:bg-violet-100/80' : 'hover:bg-neutral-50'
             }`}
           >
             {selectMode ? (
@@ -1065,7 +1065,7 @@ function InboxPage() {
                     });
                   }}
                   className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors ${
-                    selectedEngagement?.platformPostId === e.platformPostId ? 'bg-indigo-50 border border-indigo-100' : isUnread ? 'bg-sky-50/80 hover:bg-sky-100/80' : 'hover:bg-neutral-50'
+                    selectedEngagement?.platformPostId === e.platformPostId ? 'bg-indigo-50 border border-indigo-100' : isUnread ? 'bg-violet-50/80 hover:bg-violet-100/80' : 'hover:bg-neutral-50'
                   }`}
                 >
                   <div className="w-12 h-12 rounded-lg bg-neutral-100 shrink-0 overflow-hidden flex items-center justify-center">
@@ -1251,7 +1251,7 @@ function InboxPage() {
                     }}
                     className={`w-full px-3 py-3 text-left transition-colors flex items-center gap-2 cursor-pointer ${
                       isSelected ? 'bg-indigo-50 border-l-2 border-l-indigo-500' :
-                      selectedComment?.commentId === c.commentId ? 'bg-indigo-50 border-l-2 border-l-indigo-500' : isUnread ? 'bg-sky-50/80 hover:bg-sky-100/80' : 'hover:bg-neutral-50'
+                      selectedComment?.commentId === c.commentId ? 'bg-indigo-50 border-l-2 border-l-indigo-500' : isUnread ? 'bg-violet-50/80 hover:bg-violet-100/80' : 'hover:bg-neutral-50'
                     }`}
                   >
                     {selectMode ? (
@@ -1396,7 +1396,7 @@ function InboxPage() {
                           if (url && typeof url === 'string') window.location.href = url;
                         } catch (_) {}
                       }}
-                      className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
+                      className="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700"
                     >
                       Reconnect Facebook
                     </button>
@@ -1431,7 +1431,7 @@ function InboxPage() {
                           if (url && typeof url === 'string') window.location.href = url;
                         } catch (_) {}
                       }}
-                      className="px-3 py-1.5 rounded-lg border border-blue-300 bg-white text-blue-700 text-sm font-medium hover:bg-blue-50"
+                      className="px-3 py-1.5 rounded-lg border border-violet-300 bg-white text-violet-700 text-sm font-medium hover:bg-violet-50"
                     >
                       Reconnect Facebook
                     </button>
@@ -1496,7 +1496,7 @@ function InboxPage() {
                       if (url && typeof url === 'string') window.location.href = url;
                     } catch (_) {}
                   }}
-                  className="text-xs px-2 py-1 rounded bg-blue-600 text-white font-medium hover:bg-blue-700"
+                  className="text-xs px-2 py-1 rounded bg-violet-600 text-white font-medium hover:bg-violet-700"
                 >
                   Reconnect Facebook
                 </button>

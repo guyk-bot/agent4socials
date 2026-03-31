@@ -2,8 +2,8 @@
 
 @theme {
   /* Futuristic Neon Glass SaaS design system */
-  --color-primary: #5ff6fd;
-  --color-primary-hover: #3dd9e0;
+  --color-primary: #8b5cf6;
+  --color-primary-hover: #7c3aed;
   --color-secondary: #df44dc;
   --color-secondary-hover: #c93dd0;
   --color-tertiary: #8b5cf6;
@@ -12,7 +12,7 @@
   --color-text-primary: #ffffff;
   --color-text-secondary: #9ca3af;
   --glow-purple: 0 0 20px rgba(139, 92, 246, 0.6);
-  --glow-cyan: 0 0 10px rgba(95, 246, 253, 0.5);
+  --glow-cyan: 0 0 10px rgba(139, 92, 246, 0.45);
   --glass-bg: rgba(255, 255, 255, 0.05);
   --glass-border: rgba(255, 255, 255, 0.08);
   --animate-fade-in: fade-in 0.5s ease-out forwards;
@@ -81,8 +81,8 @@
 
 :root {
   font-size: 110%;
-  --primary: #5ff6fd;
-  --primary-hover: #3dd9e0;
+  --primary: #8b5cf6;
+  --primary-hover: #7c3aed;
   --secondary: #df44dc;
   --secondary-hover: #c93dd0;
   --tertiary: #8b5cf6;
@@ -99,10 +99,10 @@
   --radius-glass: 20px;
   --font-main: var(--font-inter), ui-sans-serif, sans-serif;
   --font-heading: var(--font-outfit), ui-sans-serif, sans-serif;
-  --gradient-primary: linear-gradient(135deg, #5ff6fd, #8b5cf6, #df44dc);
+  --gradient-primary: linear-gradient(135deg, #8b5cf6, #a855f7, #df44dc);
   --gradient-glow: radial-gradient(circle, rgba(139, 92, 246, 0.4), transparent);
   --shadow-glow: 0 0 20px rgba(139, 92, 246, 0.6);
-  --shadow-glow-cyan: 0 0 10px rgba(95, 246, 253, 0.5);
+  --shadow-glow-cyan: 0 0 10px rgba(139, 92, 246, 0.45);
 }
 
 
@@ -166,6 +166,14 @@ body {
   min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Keep native controls on brand violet instead of Windows cyan/blue. */
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"],
+progress {
+  accent-color: var(--button);
 }
 
 /* Keep text-selection and click-highlight neutral (avoids Windows default cyan/blue highlights). */

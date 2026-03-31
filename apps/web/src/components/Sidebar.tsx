@@ -312,8 +312,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
         {isInboxPage ? (
           <a
             href="/posts"
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isPostsPage ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
-            style={isPostsPage ? { color: accent } : undefined}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isPostsPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
           >
             <FileText size={18} className="shrink-0" />
             <span>History</span>
@@ -321,8 +320,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
         ) : (
         <Link
           href="/posts"
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isPostsPage ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
-          style={isPostsPage ? { color: accent } : undefined}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isPostsPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
         >
           <FileText size={18} className="shrink-0" />
           <span>History</span>

@@ -340,6 +340,7 @@ const PLATFORM_LABELS: Record<string, string> = {
 // Platforms that support comment-automation (replies to keyword comments)
 const COMMENT_AUTOMATION_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER']);
 const TWITTER_AI_MAX_CHARS = 230;
+const TWITTER_POST_LIMIT = 280;
 
 const HASHTAG_POOL_KEY = 'agent4socials_hashtag_pool';
 const MAX_HASHTAGS_PER_POST = 5;
@@ -420,6 +421,22 @@ function minSchedulableDateTimeLocal(): string {
     d.setMinutes(d.getMinutes() + 1, 0, 0);
     return toLocalDateTimeInputValue(d);
 }
+
+function scheduleDatePart(value: string): string {
+    return value.includes('T') ? value.split('T')[0] : '';
+}
+
+function scheduleTimePart(value: string): string {
+    if (!value.includes('T')) return '';
+    const t = value.split('T')[1] ?? '';
+    return t.slice(0, 5);
+}
+
+const TIME_OPTIONS_24H = Array.from({ length: 24 * 12 }, (_, i) => {
+    const hour = Math.floor(i / 12);
+    const minute = (i % 12) * 5;
+    return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+});
 
 const MEDIA_SPECS: Record<string, { platform: PlatformKey; name: string; specs: { label: string; value: string; tag?: string }[] }[]> = {
     photo: [
@@ -1508,7 +1525,7 @@ export default function ComposerPage() {
                 }, {} as Record<string, string>);
             }
 
-            const TWITTER_CHAR_LIMIT = 230;
+            const TWITTER_CHAR_LIMIT = TWITTER_POST_LIMIT;
             if (platforms.includes('TWITTER')) {
                 const twitterText = (contentByPlatformFinal?.['TWITTER'] ?? contentFinal).trim();
                 if (twitterText.length > TWITTER_CHAR_LIMIT) {
@@ -1953,6 +1970,17 @@ export default function ComposerPage() {
                     >
                     <div className="pointer-events-auto relative w-full max-w-md rounded-xl border border-neutral-200 bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
                         <h3 className="text-lg font-semibold text-neutral-900">Generate with AI</h3>
+                        {platforms.length > 1 && (
+                            <label className="mt-3 flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={differentContentPerPlatform}
+                                    onChange={(e) => setDifferentContentPerPlatform(e.target.checked)}
+                                    className="rounded border-neutral-300 text-[var(--button)] focus:ring-[var(--button)]"
+                                />
+                                <span className="text-sm text-neutral-700">Use different content per platform</span>
+                            </label>
+                        )}
                         {hasBrandContext === false && (
                             <p className="mt-2 text-sm text-amber-700 bg-amber-50 rounded-lg p-3">
                                 Set up your brand context first in <Link href="/dashboard/ai-assistant" className="underline font-medium">Dashboard → AI Assistant</Link> so the AI can match your voice and audience.
@@ -1981,7 +2009,7 @@ export default function ComposerPage() {
                                         type="checkbox"
                                         checked={aiIncludeCtaAndAutomation}
                                         onChange={(e) => setAiIncludeCtaAndAutomation(e.target.checked)}
-                                        className="rounded border-neutral-300 text-[var(--primary)] focus:ring-[var(--primary)]"
+                                        className="rounded border-neutral-300 text-[var(--button)] focus:ring-[var(--button)]"
                                     />
                                     <span className="text-sm text-neutral-700">Also generate CTA and comment automation (keyword + reply)</span>
                                 </label>
@@ -1996,17 +2024,6 @@ export default function ComposerPage() {
                                             className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm placeholder:text-neutral-400"
                                         />
                                     </>
-                                )}
-                                {platforms.length > 1 && (
-                                    <label className="mt-2 flex items-center gap-2 cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={differentContentPerPlatform}
-                                            onChange={(e) => setDifferentContentPerPlatform(e.target.checked)}
-                                            className="rounded border-neutral-300 text-[var(--primary)] focus:ring-[var(--primary)]"
-                                        />
-                                        <span className="text-sm text-neutral-700">Use different content per platform</span>
-                                    </label>
                                 )}
                                 {differentContentPerPlatform && platforms.length > 0 ? (
                                     <p className="mt-3 text-sm text-neutral-600">
@@ -2182,7 +2199,6 @@ export default function ComposerPage() {
                                                 )}
                                                 {differentThumbnailPerPlatform && platforms.length > 1 && (
                                                     <div className="mt-2">
-                                                        <label className="text-xs font-medium text-neutral-500">Platform thumbnails (click to edit):</label>
                                                         <div className="mt-1.5 grid grid-cols-1 gap-2">
                                                             {platforms.map((p) => {
                                                                 const active = selectedPlatformForThumbnail === p;
@@ -2211,7 +2227,7 @@ export default function ComposerPage() {
                                                                 );
                                                             })}
                                                         </div>
-                                                        <p className="mt-1 text-[11px] text-neutral-500">Each platform keeps its own thumbnail with the same options below.</p>
+                                                        <p className="mt-1 text-[11px] text-neutral-500">Pick a platform, then set thumbnail options below for that platform.</p>
                                                     </div>
                                                 )}
                                                 <p className="text-xs text-neutral-400 mt-1 font-medium">Choose one option:</p>
@@ -2480,12 +2496,11 @@ export default function ComposerPage() {
                             <button
                                 type="button"
                                 onClick={openAiModal}
-                                className="inline-flex items-center gap-1.5 px-3 py-2 bg-[var(--primary)]/15 text-[var(--primary)] hover:bg-[var(--primary)]/20 rounded-lg text-sm font-medium transition-colors"
+                                className="inline-flex items-center gap-1.5 px-3 py-2 bg-[var(--button)]/15 text-[var(--button)] hover:bg-[var(--button)]/25 rounded-lg text-sm font-medium transition-colors"
                             >
                                 <Sparkles size={16} />
                                 Generate with AI
                             </button>
-                            <span className="text-xs text-neutral-500">Optional. Set brand context in Dashboard → AI Assistant first.</span>
                         </div>
                         {!differentContentPerPlatform ? (
                             <div>
@@ -2501,8 +2516,8 @@ export default function ComposerPage() {
                                     const withTags = content.trim() + (selectedHashtags.length ? ' ' + selectedHashtags.join(' ') : '');
                                     return (
                                         <div className="mt-1 space-y-0.5">
-                                            <p className={`text-xs ${withTags.length > 230 ? 'text-amber-600 font-medium' : 'text-neutral-500'}`}>
-                                                X (Twitter) limit: 230 chars (including spaces + emojis). Current (with hashtags): {withTags.length}
+                                            <p className={`text-xs ${withTags.length > TWITTER_POST_LIMIT ? 'text-amber-600 font-medium' : 'text-neutral-500'}`}>
+                                                X (Twitter) limit: 280 chars (including spaces + emojis). Current (with hashtags): {withTags.length}
                                             </p>
                                             {mediaList.length > 0 && (
                                                 <p className="text-xs text-neutral-400">Image on X: if upload is not allowed for your app, the post will go out as text only.</p>
@@ -2528,8 +2543,8 @@ export default function ComposerPage() {
                                                 className="w-full min-h-[6rem] p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)] text-sm resize-none overflow-hidden"
                                         />
                                             {p === 'TWITTER' && (
-                                                <p className={`text-xs ${fullLength > 230 ? 'text-amber-600 font-medium' : 'text-neutral-500'}`}>
-                                                    X limit: 230 (including spaces + emojis). Current (with hashtags): {fullLength}
+                                                <p className={`text-xs ${fullLength > TWITTER_POST_LIMIT ? 'text-amber-600 font-medium' : 'text-neutral-500'}`}>
+                                                    X limit: 280 (including spaces + emojis). Current (with hashtags): {fullLength}
                                                 </p>
                                             )}
                                     </div>
@@ -2802,14 +2817,34 @@ export default function ComposerPage() {
                         {scheduledAt.trim() !== '' && (
                         <>
                         <div className="flex items-center gap-3">
-                            <Calendar size={22} className="text-neutral-400 shrink-0" />
-                            <input
-                                type="datetime-local"
-                                value={scheduledAt}
-                                onChange={(e) => setScheduledAt(e.target.value)}
-                                min={minSchedulableDateTimeLocal()}
-                                className="flex-1 p-3 border border-neutral-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)]"
-                            />
+                            <Calendar size={22} className="text-violet-500 shrink-0" />
+                            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <input
+                                    type="date"
+                                    value={scheduleDatePart(scheduledAt)}
+                                    min={scheduleDatePart(minSchedulableDateTimeLocal())}
+                                    onChange={(e) => {
+                                        const d = e.target.value;
+                                        const t = scheduleTimePart(scheduledAt) || scheduleTimePart(minSchedulableDateTimeLocal());
+                                        setScheduledAt(d ? `${d}T${t}` : '');
+                                    }}
+                                    className="w-full p-3 border border-violet-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                                />
+                                <select
+                                    value={scheduleTimePart(scheduledAt)}
+                                    onChange={(e) => {
+                                        const t = e.target.value;
+                                        const d = scheduleDatePart(scheduledAt) || scheduleDatePart(minSchedulableDateTimeLocal());
+                                        setScheduledAt(t ? `${d}T${t}` : '');
+                                    }}
+                                    className="w-full max-h-40 overflow-y-auto p-3 border border-violet-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                                >
+                                    <option value="">Select time</option>
+                                    {TIME_OPTIONS_24H.map((t) => (
+                                        <option key={t} value={t}>{t}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                         <div className="space-y-2">
                             <p className="text-sm font-medium text-neutral-700">

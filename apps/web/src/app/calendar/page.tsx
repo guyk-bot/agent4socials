@@ -27,7 +27,7 @@ const PLATFORM_SHORT: Record<string, string> = {
 
 const STATUS_STYLE: Record<string, { bg: string; border: string; text: string; label: string }> = {
     SCHEDULED: { bg: 'bg-violet-50', border: 'border-violet-200', text: 'text-violet-800', label: 'Pending' },
-    DRAFT:      { bg: 'bg-sky-50',  border: 'border-sky-200', text: 'text-sky-800',  label: 'Draft' },
+    DRAFT:      { bg: 'bg-violet-50',  border: 'border-violet-200', text: 'text-violet-800',  label: 'Draft' },
     POSTED:     { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-800', label: 'Published' },
     FAILED:     { bg: 'bg-red-50',  border: 'border-red-200', text: 'text-red-800',  label: 'With errors' },
     POSTING:    { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-800', label: 'Posting' },
@@ -37,7 +37,7 @@ const PLATFORM_CARD_STYLE: Record<string, { bg: string; border: string; text: st
     INSTAGRAM: { bg: 'bg-pink-50', border: 'border-pink-200', text: 'text-pink-900' },
     FACEBOOK:  { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-900' },
     TWITTER:   { bg: 'bg-slate-100', border: 'border-slate-300', text: 'text-slate-900' },
-    LINKEDIN:  { bg: 'bg-sky-50', border: 'border-sky-200', text: 'text-sky-900' },
+    LINKEDIN:  { bg: 'bg-violet-50', border: 'border-violet-200', text: 'text-violet-900' },
     PINTEREST: { bg: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-900' },
     TIKTOK:    { bg: 'bg-zinc-100', border: 'border-zinc-300', text: 'text-zinc-900' },
     YOUTUBE:   { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-900' },
@@ -47,8 +47,24 @@ function formatTime(date: Date): string {
     return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 }
 
-function postContentPreview(p: { content?: string | null; title?: string | null }): string {
-    return (p.title || p.content || 'Scheduled post').replace(/\s+/g, ' ').slice(0, 40);
+function stripHashtags(text: string): string {
+    return text.replace(/#[\w]+/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function postContentPreview(p: any): string {
+    const candidates: string[] = [];
+    if (typeof p?.content === 'string' && p.content.trim()) candidates.push(p.content);
+    if (typeof p?.title === 'string' && p.title.trim()) candidates.push(p.title);
+    if (p?.contentByPlatform && typeof p.contentByPlatform === 'object') {
+        for (const value of Object.values(p.contentByPlatform)) {
+            if (typeof value === 'string' && value.trim()) candidates.push(value);
+        }
+    }
+    for (const raw of candidates) {
+        const cleaned = stripHashtags(raw);
+        if (cleaned) return cleaned.slice(0, 64);
+    }
+    return 'Scheduled post';
 }
 
 function postTimeAndPlatforms(p: any): string {
@@ -353,7 +369,7 @@ export default function CalendarPage() {
                                                                 >
                                                                     <div className="flex items-center gap-1 mb-1">
                                                                         <div className="flex items-center -space-x-1">
-                                                                            {platforms.slice(0, 3).map((pl: string) => (
+                                                                            {platforms.map((pl: string) => (
                                                                                 <span key={pl} className="flex shrink-0 rounded-full bg-white/80 p-0.5 border border-white">
                                                                                     <PlatformIcon platform={pl as keyof typeof PLATFORM_ICON_MAP} size={11} className="opacity-95" />
                                                                                 </span>
@@ -438,7 +454,7 @@ export default function CalendarPage() {
                                                             )}
                                                             <div className="min-w-0 flex-1">
                                                                 <div className="flex items-center gap-1 mb-0.5">
-                                                                    {platforms.slice(0, 3).map((pl: string) => (
+                                                                    {platforms.map((pl: string) => (
                                                                         <PlatformIcon key={pl} platform={pl as keyof typeof PLATFORM_ICON_MAP} size={10} className="opacity-90" />
                                                                     ))}
                                                                 </div>
