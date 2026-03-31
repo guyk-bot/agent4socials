@@ -154,6 +154,10 @@ export default function CalendarPage() {
         fetchPosts();
     }, [appData]);
 
+    const weekStart = getWeekStart(currentDate);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+
     useEffect(() => {
         if (view !== 'week') return;
         const now = new Date();
@@ -164,10 +168,6 @@ export default function CalendarPage() {
         const target = Math.max(0, (currentHour - HOURS_START) * rowHeight - rowHeight * 2);
         weekScrollRef.current.scrollTo({ top: target, behavior: 'smooth' });
     }, [view, weekStart, weekEnd]);
-
-    const weekStart = getWeekStart(currentDate);
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekEnd.getDate() + 7);
 
     const postsInWeek = posts.filter((p: any) => {
         if (!p.scheduledAt) return false;
