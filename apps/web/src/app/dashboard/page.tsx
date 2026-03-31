@@ -971,14 +971,6 @@ export default function DashboardPage() {
   const effectiveInsightsLoading = selectedAccount
     ? insightsLoading
     : aggregatedLoading;
-  const hasWarmCacheForSelected = Boolean(
-    selectedAccount?.id && (
-      appDataRef.current?.getInsights(selectedAccount.id) != null ||
-      appDataRef.current?.getPosts(selectedAccount.id) !== undefined ||
-      insights != null ||
-      importedPosts.length > 0
-    )
-  );
   const fallbackSeriesValue = effectiveImpressions || effectiveFollowers || 0;
   const hasNonZeroSeries = effectiveTimeSeries.length > 0 && effectiveTimeSeries.some((d) => d.value > 0);
   const endDate = dateRange.end || toLocalCalendarDate(new Date());
@@ -1006,10 +998,16 @@ export default function DashboardPage() {
   const maxImpressions = displayTimeSeries.length ? Math.max(...displayTimeSeries.map((d) => d.value), 1) : 1;
   const showViewsHint = hasFbOrIg && effectiveFollowers > 0 && effectiveImpressions === 0 && !effectiveTimeSeries.some((d) => d.value > 0) && (selectedAccount?.platform === 'INSTAGRAM' || !selectedAccount);
   const showTikTokFollowersHint = selectedAccount?.platform === 'TIKTOK' && effectiveFollowers === 0 && effectiveImpressions > 0;
-  /** Full-page Facebook shell only until we have insights. Post/reel sync continues in the background without hiding the dashboard. */
-  const facebookLoadingOnly =
-    selectedAccount?.platform === 'FACEBOOK' &&
-    (justConnected || (insights == null && (insightsLoading || importedPostsLoading)));
+  /** Full-page analytics skeleton until first insights load for selected account; keeps scroll and layout stable. */
+  const analyticsLoadingOnly = Boolean(
+    selectedAccount &&
+    (justConnected || (insights == null && (insightsLoading || importedPostsLoading)))
+  );
+  const showDataSyncBanner = Boolean(
+    justConnected ||
+    analyticsLoadingOnly ||
+    (selectedAccount?.platform === 'INSTAGRAM' && (insightsLoading || importedPostsLoading))
+  );
   function openPricingPopup() {
     setPricingModalOpen(true);
   }
@@ -1103,14 +1101,14 @@ export default function DashboardPage() {
           )
         : null}
       {/* Show sync banner only on first load (no data yet) or right after connect; date changes refetch in place without banner */}
-      {(facebookLoadingOnly || justConnected || (((insightsLoading || importedPostsLoading) && insights == null && selectedAccount != null) && !hasWarmCacheForSelected)) && (
+      {showDataSyncBanner && (
         <DataSyncBanner
           platform={selectedAccount?.platform}
           insightsLoading={insightsLoading}
           postsLoading={importedPostsLoading}
         />
       )}
-      {facebookLoadingOnly && (
+      {analyticsLoadingOnly && (
         <div className="mt-4 max-w-full space-y-4" style={{ maxWidth: 1400 }}>
           <div
             className="rounded-2xl p-4 animate-pulse"
@@ -1153,22 +1151,29 @@ export default function DashboardPage() {
               />
             ))}
           </div>
+          <div
+            className="h-64 rounded-2xl animate-pulse"
+            style={{
+              background: 'linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,252,0.94))',
+              boxShadow: '0 12px 24px rgba(15,23,42,0.08)',
+            }}
+          />
         </div>
       )}
-      {!facebookLoadingOnly && showViewsHint && (
+      {!analyticsLoadingOnly && showViewsHint && (
         <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <p className="font-medium">You're seeing follower counts. Views, reach, and trend graphs need Page/Instagram insights.</p>
           <p className="mt-1 text-xs text-amber-700">Data will sync automatically when your Page is linked.</p>
         </div>
       )}
-      {!facebookLoadingOnly && showTikTokFollowersHint && (
+      {!analyticsLoadingOnly && showTikTokFollowersHint && (
         <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <p className="font-medium">TikTok follower count needs the user.info.stats scope.</p>
           <p className="mt-1 text-xs text-amber-700">Use Reconnect in the sidebar and approve all requested permissions to see your follower count here. Views are from your synced videos.</p>
         </div>
       )}
       {/* Instagram-only: analytics and posts not available; CTA to connect with Facebook */}
-      {!facebookLoadingOnly && selectedAccount?.platform === 'INSTAGRAM' && (selectedAccount as { instagramLoginOnly?: boolean }).instagramLoginOnly && (
+      {!analyticsLoadingOnly && selectedAccount?.platform === 'INSTAGRAM' && (selectedAccount as { instagramLoginOnly?: boolean }).instagramLoginOnly && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-4 px-4 py-4 bg-blue-50 border border-blue-200 rounded-lg">
           <p className="text-sm text-blue-900">
             <strong>Analytics and posts are not available</strong> when connected with Instagram only. Connect with Facebook to unlock full analytics, post history, and insights on both the Account and Posts tabs.
@@ -1184,7 +1189,7 @@ export default function DashboardPage() {
       )}
 
       {/* When no account selected: show "All connected" or connect CTA. Disconnect is on Accounts page. */}
-      {!facebookLoadingOnly && !selectedAccount && (
+      {!analyticsLoadingOnly && !selectedAccount && (
       <div className="mt-6 flex flex-col gap-3">
         {hasAccounts ? (
           <div className="flex gap-3 p-3 bg-white rounded-xl border border-neutral-200 w-fit">
@@ -1221,7 +1226,7 @@ export default function DashboardPage() {
       )}
 
       {/* Single-page analytics for any selected account (Overview, Demografic, Clicks/Traffic, Posts, Reels/Videos) */}
-      {!facebookLoadingOnly && selectedAccount && (
+      {!analyticsLoadingOnly && selectedAccount && (
         <div
           className="mt-1 max-w-full"
           style={{ maxWidth: 1400 }}
@@ -1308,7 +1313,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {!facebookLoadingOnly && !selectedAccount && hasAccounts && (
+      {!analyticsLoadingOnly && !selectedAccount && hasAccounts && (
         <p className="text-sm text-neutral-500 py-8">Select an account in the left sidebar to see its analytics.</p>
       )}
 
