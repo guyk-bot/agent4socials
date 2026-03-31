@@ -33,6 +33,16 @@ const STATUS_STYLE: Record<string, { bg: string; border: string; text: string; l
     POSTING:    { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-800', label: 'Posting' },
 };
 
+const PLATFORM_CARD_STYLE: Record<string, { bg: string; border: string; text: string }> = {
+    INSTAGRAM: { bg: 'bg-pink-50', border: 'border-pink-200', text: 'text-pink-900' },
+    FACEBOOK:  { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-900' },
+    TWITTER:   { bg: 'bg-slate-100', border: 'border-slate-300', text: 'text-slate-900' },
+    LINKEDIN:  { bg: 'bg-sky-50', border: 'border-sky-200', text: 'text-sky-900' },
+    PINTEREST: { bg: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-900' },
+    TIKTOK:    { bg: 'bg-zinc-100', border: 'border-zinc-300', text: 'text-zinc-900' },
+    YOUTUBE:   { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-900' },
+};
+
 function formatTime(date: Date): string {
     return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 }
@@ -48,6 +58,21 @@ function postTimeAndPlatforms(p: { targets?: { platform: string }[]; scheduledAt
     if (time) parts.push(time);
     if (platforms.length) parts.push(platforms.join(', '));
     return parts.join(' · ') || 'Scheduled';
+}
+
+function getPostThumbnail(p: any): string | null {
+    if (p?.thumbnailUrl && typeof p.thumbnailUrl === 'string') return p.thumbnailUrl;
+    if (Array.isArray(p?.media) && p.media[0]?.fileUrl) return p.media[0].fileUrl;
+    if (p?.mediaByPlatform && typeof p.mediaByPlatform === 'object') {
+        const firstPlatformMedia = Object.values(p.mediaByPlatform).find((arr) => Array.isArray(arr) && arr.length > 0) as Array<{ fileUrl?: string }> | undefined;
+        if (firstPlatformMedia?.[0]?.fileUrl) return firstPlatformMedia[0].fileUrl;
+    }
+    return null;
+}
+
+function getPrimaryPlatformStyle(platforms: string[]) {
+    if (!platforms.length) return STATUS_STYLE.SCHEDULED;
+    return PLATFORM_CARD_STYLE[platforms[0]] ?? STATUS_STYLE.SCHEDULED;
 }
 
 /** Week starts Sunday; return Date at 00:00 for that Sunday */
@@ -209,7 +234,6 @@ export default function CalendarPage() {
             <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Calendar</h1>
-                    <p className="text-gray-500">Visualize your scheduled content. Week view shows posts by day and time.</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <div className="flex rounded-lg border border-gray-200 p-0.5 bg-gray-50">
@@ -283,25 +307,40 @@ export default function CalendarPage() {
                                                 >
                                                     <div className="space-y-1">
                                                         {slotPosts.map((p: any) => {
-                                                            const style = STATUS_STYLE[p.status] || STATUS_STYLE.SCHEDULED;
                                                             const platforms = (p.targets || []).map((t: { platform: string }) => t.platform).filter(Boolean);
+                                                            const style = getPrimaryPlatformStyle(platforms);
+                                                            const thumb = getPostThumbnail(p);
                                                             return (
                                                                 <Link
                                                                     key={p.id}
                                                                     href={`/composer?edit=${p.id}`}
-                                                                    className={`block rounded-lg border p-2 ${style.bg} ${style.border} ${style.text} hover:opacity-90 transition-opacity`}
+                                                                    className={`block rounded-md border px-1.5 py-1.5 ${style.bg} ${style.border} ${style.text} hover:opacity-95 transition-all`}
                                                                 >
-                                                                    <div className="flex items-center gap-1.5 mb-1">
-                                                                        {platforms.slice(0, 3).map((pl: string) => (
-                                                                            <span key={pl} className="flex shrink-0">
-                                                                                <PlatformIcon platform={pl as keyof typeof PLATFORM_ICON_MAP} size={14} className="opacity-90" />
-                                                                            </span>
-                                                                        ))}
-                                                                        {platforms.length > 3 && <span className="text-[10px]">+{platforms.length - 3}</span>}
-                                                                        <span className="ml-auto text-[10px] font-medium shrink-0">{formatTime(new Date(p.scheduledAt))}</span>
+                                                                    <div className="flex items-center gap-1 mb-1">
+                                                                        <div className="flex items-center -space-x-1">
+                                                                            {platforms.slice(0, 3).map((pl: string) => (
+                                                                                <span key={pl} className="flex shrink-0 rounded-full bg-white/80 p-0.5 border border-white">
+                                                                                    <PlatformIcon platform={pl as keyof typeof PLATFORM_ICON_MAP} size={11} className="opacity-95" />
+                                                                                </span>
+                                                                            ))}
+                                                                        </div>
+                                                                        <span className="ml-auto text-[9px] font-medium shrink-0">{formatTime(new Date(p.scheduledAt))}</span>
                                                                     </div>
-                                                                    <div className="text-[11px] leading-tight truncate" title={postContentPreview(p)}>
-                                                                        {postContentPreview(p)}
+                                                                    <div className="flex items-center gap-1.5 min-w-0">
+                                                                        {thumb && (
+                                                                            <img
+                                                                                src={thumb}
+                                                                                alt="Post thumbnail"
+                                                                                className="h-6 w-6 rounded object-cover border border-white/70 shrink-0"
+                                                                                loading="lazy"
+                                                                            />
+                                                                        )}
+                                                                        <div className="min-w-0 flex-1">
+                                                                            <div className="text-[10px] leading-tight truncate font-medium" title={postContentPreview(p)}>
+                                                                                {postContentPreview(p)}
+                                                                            </div>
+                                                                        </div>
+                                                                        <span className="text-[9px] font-semibold rounded bg-white/80 px-1 py-0.5 shrink-0">Edit</span>
                                                                     </div>
                                                                 </Link>
                                                             );
@@ -342,19 +381,36 @@ export default function CalendarPage() {
                                         <span className="text-sm font-medium text-gray-400">{day}</span>
                                         <div className="mt-2 space-y-1.5">
                                             {getPostsForDay(day).map((p: any) => {
-                                                const style = STATUS_STYLE[p.status] || STATUS_STYLE.SCHEDULED;
+                                                const platforms = (p.targets || []).map((t: { platform: string }) => t.platform).filter(Boolean);
+                                                const style = getPrimaryPlatformStyle(platforms);
+                                                const thumb = getPostThumbnail(p);
                                                 return (
                                                     <Link
                                                         key={p.id}
                                                         href={`/composer?edit=${p.id}`}
-                                                        className={`block p-2 rounded-lg border ${style.bg} ${style.border} ${style.text}`}
+                                                        className={`block p-1.5 rounded-md border ${style.bg} ${style.border} ${style.text} hover:opacity-95 transition-all`}
                                                     >
                                                         <div className="flex items-start gap-1.5">
-                                                            <Clock size={12} className="shrink-0 mt-0.5 opacity-80" />
+                                                            {thumb ? (
+                                                                <img
+                                                                    src={thumb}
+                                                                    alt="Post thumbnail"
+                                                                    className="h-6 w-6 rounded object-cover border border-white/70 shrink-0 mt-0.5"
+                                                                    loading="lazy"
+                                                                />
+                                                            ) : (
+                                                                <Clock size={12} className="shrink-0 mt-0.5 opacity-80" />
+                                                            )}
                                                             <div className="min-w-0 flex-1">
-                                                                <div className="text-[11px] font-medium leading-tight truncate" title={postContentPreview(p)}>{postContentPreview(p)}</div>
-                                                                <div className="text-[10px] opacity-80 mt-0.5 font-medium">{postTimeAndPlatforms(p)}</div>
+                                                                <div className="flex items-center gap-1 mb-0.5">
+                                                                    {platforms.slice(0, 3).map((pl: string) => (
+                                                                        <PlatformIcon key={pl} platform={pl as keyof typeof PLATFORM_ICON_MAP} size={10} className="opacity-90" />
+                                                                    ))}
+                                                                </div>
+                                                                <div className="text-[10px] font-medium leading-tight truncate" title={postContentPreview(p)}>{postContentPreview(p)}</div>
+                                                                <div className="text-[9px] opacity-80 mt-0.5 font-medium">{postTimeAndPlatforms(p)}</div>
                                                             </div>
+                                                            <span className="text-[9px] font-semibold rounded bg-white/80 px-1 py-0.5 shrink-0">Edit</span>
                                                         </div>
                                                     </Link>
                                                 );
