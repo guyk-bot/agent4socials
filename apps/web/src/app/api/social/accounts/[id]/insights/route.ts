@@ -1182,6 +1182,53 @@ export async function GET(
               console.warn('[Insights] Persist FB insights:', (e as Error)?.message ?? e);
             }
           }
+          // Fallback: when live Graph returns no usable rows, read normalized daily rows we already persisted.
+          if (Object.keys(fbSeriesByGraphMetric).length === 0 && sinceParam && untilParam) {
+            try {
+              const daily = await prisma.facebookPageInsightDaily.findMany({
+                where: {
+                  socialAccountId: account.id,
+                  metricDate: { gte: sinceParam, lte: untilParam },
+                },
+                select: { metricDate: true, metricKey: true, value: true },
+                orderBy: [{ metricDate: 'asc' }],
+              });
+              if (daily.length > 0) {
+                const byMetric = new Map<string, Array<{ date: string; value: number }>>();
+                for (const row of daily) {
+                  const list = byMetric.get(row.metricKey) ?? [];
+                  list.push({ date: row.metricDate, value: Math.max(0, Math.round(row.value)) });
+                  byMetric.set(row.metricKey, list);
+                }
+                const toSeries = (key: string) => (byMetric.get(key) ?? []).sort((a, b) => a.date.localeCompare(b.date));
+                const impressionsSeries = toSeries('page_impressions');
+                const mediaViewSeries = toSeries('page_media_view');
+                const chosenImpressions = impressionsSeries.length ? impressionsSeries : mediaViewSeries;
+                const pageViewsSeries = toSeries('page_views_total');
+                const engagementsSeries = toSeries('page_post_engagements');
+                if (!out.impressionsTimeSeries.length && chosenImpressions.length) {
+                  out.impressionsTimeSeries = chosenImpressions;
+                }
+                if (!out.impressionsTotal && chosenImpressions.length) {
+                  out.impressionsTotal = chosenImpressions.reduce((s, p) => s + p.value, 0);
+                }
+                if (!out.pageViewsTimeSeries?.length && pageViewsSeries.length) {
+                  out.pageViewsTimeSeries = pageViewsSeries;
+                }
+                if (!out.pageViewsTotal && pageViewsSeries.length) {
+                  out.pageViewsTotal = pageViewsSeries.reduce((s, p) => s + p.value, 0);
+                }
+                if (!out.reachTotal && engagementsSeries.length) {
+                  out.reachTotal = engagementsSeries.reduce((s, p) => s + p.value, 0);
+                }
+                (out as Record<string, unknown>).facebookPageMetricSeries = Object.fromEntries(
+                  Array.from(byMetric.entries()).map(([k, v]) => [k, v.sort((a, b) => a.date.localeCompare(b.date))])
+                );
+              }
+            } catch (e) {
+              console.warn('[Insights] FB normalized daily fallback:', (e as Error)?.message ?? e);
+            }
+          }
           const allDates = [...new Set([...addsByDate.keys(), ...removesByDate.keys()])].sort((a, b) => a.localeCompare(b));
           if (allDates.length > 0) {
             out.growthTimeSeries = allDates.map((date) => {
