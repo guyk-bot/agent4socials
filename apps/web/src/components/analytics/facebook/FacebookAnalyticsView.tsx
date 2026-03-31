@@ -1379,6 +1379,22 @@ export function FacebookAnalyticsView({
   }, [storyMode]);
 
   const profile = insights?.facebookPageProfile;
+  const platformName =
+    insights?.platform === 'INSTAGRAM'
+      ? 'Instagram'
+      : insights?.platform === 'FACEBOOK'
+        ? 'Facebook'
+        : insights?.platform === 'TIKTOK'
+          ? 'TikTok'
+          : insights?.platform === 'YOUTUBE'
+            ? 'YouTube'
+            : insights?.platform === 'PINTEREST'
+              ? 'Pinterest'
+              : insights?.platform === 'LINKEDIN'
+                ? 'LinkedIn'
+                : insights?.platform === 'TWITTER'
+                  ? 'X'
+                  : (insights?.platform ?? 'Account');
   const isInstagram = insights?.platform?.toUpperCase() === 'INSTAGRAM';
   const isTikTok = insights?.platform?.toUpperCase() === 'TIKTOK';
   const tiktokUser = insights?.tiktokUser;
@@ -2114,9 +2130,12 @@ export function FacebookAnalyticsView({
                           ? 'YouTube'
                           : 'Facebook Page')}
               </h1>
-              <p className="text-sm" style={{ color: COLOR.textSecondary }}>
+              <p className="text-sm flex items-center gap-2" style={{ color: COLOR.textSecondary }}>
                 @
                 {isTikTok ? (tiktokCreatorInfo?.creatorUsername ?? resolvedUsername ?? 'unknown') : resolvedUsername || 'unknown'}
+                <span className="inline-flex items-center rounded-full border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-[11px] font-medium text-neutral-700">
+                  {platformName}
+                </span>
                 {profile?.category ? `  •  ${profile.category}` : ''}
               </p>
             </div>

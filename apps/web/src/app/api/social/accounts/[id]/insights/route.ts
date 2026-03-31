@@ -1095,6 +1095,7 @@ export async function GET(
       }
       if (effectiveSinceTs != null && effectiveUntilTs != null) {
         try {
+          let liveMetricCount = 0;
           const untilForApi = (() => {
             const d = new Date(effectiveUntilParam + 'T12:00:00');
             const today = new Date();
@@ -1122,6 +1123,7 @@ export async function GET(
             (out as Record<string, unknown>).facebookInsightsSync = summary;
           }
           const data = rows;
+          liveMetricCount = data.length;
           if (data.length === 0 && !out.impressionsTotal && !out.pageViewsTotal) {
             out.insightsHint = !summary.metricsFetched?.length
               ? 'No Page insight metrics passed discovery for this Graph version. Confirm read_insights on the Page token, or set META_GRAPH_API_VERSION in env to match Meta (see docs/FACEBOOK_ANALYTICS_CAPABILITY_MAP.md).'
@@ -1224,10 +1226,21 @@ export async function GET(
                 (out as Record<string, unknown>).facebookPageMetricSeries = Object.fromEntries(
                   Array.from(byMetric.entries()).map(([k, v]) => [k, v.sort((a, b) => a.date.localeCompare(b.date))])
                 );
+                (out as Record<string, unknown>).facebookDataSourceDebug = {
+                  liveMetricRows: liveMetricCount,
+                  fallbackDailyRows: daily.length,
+                  fallbackMetricKeys: Array.from(byMetric.keys()),
+                };
               }
             } catch (e) {
               console.warn('[Insights] FB normalized daily fallback:', (e as Error)?.message ?? e);
             }
+          } else {
+            (out as Record<string, unknown>).facebookDataSourceDebug = {
+              liveMetricRows: liveMetricCount,
+              fallbackDailyRows: 0,
+              fallbackMetricKeys: [],
+            };
           }
           const allDates = [...new Set([...addsByDate.keys(), ...removesByDate.keys()])].sort((a, b) => a.localeCompare(b));
           if (allDates.length > 0) {
