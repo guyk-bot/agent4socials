@@ -1103,7 +1103,7 @@ export default function DashboardPage() {
           )
         : null}
       {/* Show sync banner only on first load (no data yet) or right after connect; date changes refetch in place without banner */}
-      {(facebookLoadingOnly || justConnected || (((insightsLoading || importedPostsLoading) && insights == null && selectedAccount != null) && !hasWarmCacheForSelected)) && (
+      {(!facebookLoadingOnly && (justConnected || (((insightsLoading || importedPostsLoading) && insights == null && selectedAccount != null) && !hasWarmCacheForSelected))) && (
         <DataSyncBanner
           platform={selectedAccount?.platform}
           insightsLoading={insightsLoading}
