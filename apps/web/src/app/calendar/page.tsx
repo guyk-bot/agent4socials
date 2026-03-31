@@ -51,8 +51,8 @@ function postContentPreview(p: { content?: string | null; title?: string | null 
     return (p.title || p.content || 'Scheduled post').replace(/\s+/g, ' ').slice(0, 40);
 }
 
-function postTimeAndPlatforms(p: { targets?: { platform: string }[]; scheduledAt?: string | Date | null }): string {
-    const platforms = (p.targets || []).map((t: { platform: string }) => PLATFORM_SHORT[t.platform] || t.platform).filter(Boolean);
+function postTimeAndPlatforms(p: any): string {
+    const platforms = getPostPlatforms(p).map((pl) => PLATFORM_SHORT[pl] || pl).filter(Boolean);
     const time = p.scheduledAt ? formatTime(new Date(p.scheduledAt)) : '';
     const parts: string[] = [];
     if (time) parts.push(time);
@@ -60,14 +60,37 @@ function postTimeAndPlatforms(p: { targets?: { platform: string }[]; scheduledAt
     return parts.join(' · ') || 'Scheduled';
 }
 
+function getPostPlatforms(p: any): string[] {
+    const fromTargets = Array.isArray(p?.targets)
+        ? p.targets.map((t: { platform?: string }) => t?.platform).filter(Boolean)
+        : [];
+    if (fromTargets.length > 0) return fromTargets as string[];
+    const fromPostField = Array.isArray(p?.targetPlatforms) ? p.targetPlatforms.filter(Boolean) : [];
+    return fromPostField as string[];
+}
+
 function getPostThumbnail(p: any): string | null {
     if (p?.thumbnailUrl && typeof p.thumbnailUrl === 'string') return p.thumbnailUrl;
-    if (Array.isArray(p?.media) && p.media[0]?.fileUrl) return p.media[0].fileUrl;
+    if (Array.isArray(p?.media) && p.media.length > 0) {
+        const first = p.media[0];
+        const metaThumb = first?.metadata && typeof first.metadata === 'object'
+            ? (first.metadata as { thumbnailUrl?: string }).thumbnailUrl
+            : null;
+        if (typeof metaThumb === 'string' && metaThumb) return metaThumb;
+        if (typeof first?.fileUrl === 'string' && first.fileUrl) return first.fileUrl;
+    }
     if (p?.mediaByPlatform && typeof p.mediaByPlatform === 'object') {
         const firstPlatformMedia = Object.values(p.mediaByPlatform).find((arr) => Array.isArray(arr) && arr.length > 0) as Array<{ fileUrl?: string }> | undefined;
         if (firstPlatformMedia?.[0]?.fileUrl) return firstPlatformMedia[0].fileUrl;
     }
     return null;
+}
+
+function toSafeImageSrc(url: string | null): string | null {
+    if (!url) return null;
+    // Use the existing media proxy when possible for stable rendering in production.
+    if (/^https?:\/\//i.test(url)) return `/api/media/proxy?url=${encodeURIComponent(url)}`;
+    return url;
 }
 
 function getPrimaryPlatformStyle(platforms: string[]) {
@@ -307,9 +330,9 @@ export default function CalendarPage() {
                                                 >
                                                     <div className="space-y-1">
                                                         {slotPosts.map((p: any) => {
-                                                            const platforms = (p.targets || []).map((t: { platform: string }) => t.platform).filter(Boolean);
+                                                            const platforms = getPostPlatforms(p);
                                                             const style = getPrimaryPlatformStyle(platforms);
-                                                            const thumb = getPostThumbnail(p);
+                                                            const thumb = toSafeImageSrc(getPostThumbnail(p));
                                                             return (
                                                                 <Link
                                                                     key={p.id}
@@ -381,9 +404,9 @@ export default function CalendarPage() {
                                         <span className="text-sm font-medium text-gray-400">{day}</span>
                                         <div className="mt-2 space-y-1.5">
                                             {getPostsForDay(day).map((p: any) => {
-                                                const platforms = (p.targets || []).map((t: { platform: string }) => t.platform).filter(Boolean);
+                                                const platforms = getPostPlatforms(p);
                                                 const style = getPrimaryPlatformStyle(platforms);
-                                                const thumb = getPostThumbnail(p);
+                                                const thumb = toSafeImageSrc(getPostThumbnail(p));
                                                 return (
                                                     <Link
                                                         key={p.id}
