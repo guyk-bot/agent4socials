@@ -18,6 +18,26 @@ import { getValidPinterestToken } from '@/lib/pinterest-token';
 /** Fallback host for IG user/media when graph.facebook.com omits items (matches insights route). */
 const igGraphRestBaseUrl = 'https://graph.instagram.com/v18.0';
 
+
+async function resolveFacebookPageAccessToken(pageId: string, token: string): Promise<string> {
+  try {
+    const res = await axios.get<{ data?: Array<{ id?: string; access_token?: string }>; error?: { message?: string } }>(
+      `${fbRestBaseUrl}/me/accounts`,
+      {
+        params: { fields: 'id,access_token', limit: 200, access_token: token },
+        timeout: 10_000,
+        validateStatus: () => true,
+      }
+    );
+    if (res.status !== 200 || res.data?.error) return token;
+    const rows = res.data?.data ?? [];
+    const match = rows.find((r) => r?.id === pageId && typeof r?.access_token === 'string' && r.access_token.trim() !== '');
+    return match?.access_token?.trim() || token;
+  } catch {
+    return token;
+  }
+}
+
 type ImportedPostListRow = {
   id: string;
   platformPostId: string;
@@ -954,13 +974,14 @@ async function syncImportedPosts(
 
   if (platform === 'FACEBOOK') {
     const maxPosts = 500;
+    const fbPageToken = await resolveFacebookPageAccessToken(platformUserId, accessToken);
     let items: Awaited<ReturnType<typeof fetchAllPublishedPostsForPage>>['items'] = [];
     try {
-      const fetched = await fetchAllPublishedPostsForPage(platformUserId, accessToken, maxPosts);
+      const fetched = await fetchAllPublishedPostsForPage(platformUserId, fbPageToken, maxPosts);
       items = fetched.items;
       const publishedIds = new Set(items.map((i) => i.id));
       try {
-        const feed = await fetchAllPostsFeedForPage(platformUserId, accessToken, maxPosts);
+        const feed = await fetchAllPostsFeedForPage(platformUserId, fbPageToken, maxPosts);
         for (const f of feed.items) {
           if (publishedIds.has(f.id)) continue;
           publishedIds.add(f.id);
@@ -979,7 +1000,7 @@ async function syncImportedPosts(
         const aux = await syncFacebookAuxiliaryIngest({
           socialAccountId,
           pageId: platformUserId,
-          accessToken,
+          accessToken: fbPageToken,
         });
         if (aux.errors.length > 0) {
           console.warn('[FB sync] auxiliary ingest:', aux.errors.join('; '));
@@ -1019,7 +1040,7 @@ async function syncImportedPosts(
       let insightMap: Record<string, number> = {};
       if (idx < POST_INSIGHT_FETCH_CAP && postMetricsSlice.length > 0 && Date.now() < budgetDeadline) {
         try {
-          insightMap = await fetchPostLifetimeInsightMap(p.id, accessToken, postMetricsSlice);
+          insightMap = await fetchPostLifetimeInsightMap(p.id, fbPageToken, postMetricsSlice);
         } catch { /* best-effort */ }
         impressions = pickFacebookPostImpressionsFromInsightMap(insightMap).impressions;
       } else if (idx >= POST_INSIGHT_FETCH_CAP) {

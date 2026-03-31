@@ -36,6 +36,26 @@ function parseIgFollowerCount(raw: unknown): number | null {
   return null;
 }
 
+
+async function resolveFacebookPageAccessToken(pageId: string, token: string): Promise<string> {
+  try {
+    const res = await axios.get<{ data?: Array<{ id?: string; access_token?: string }>; error?: { message?: string } }>(
+      `${fbBaseUrl}/me/accounts`,
+      {
+        params: { fields: 'id,access_token', limit: 200, access_token: token },
+        timeout: 10_000,
+        validateStatus: () => true,
+      }
+    );
+    if (res.status !== 200 || res.data?.error) return token;
+    const rows = res.data?.data ?? [];
+    const match = rows.find((r) => r?.id === pageId && typeof r?.access_token === 'string' && r.access_token.trim() !== '');
+    return match?.access_token?.trim() || token;
+  } catch {
+    return token;
+  }
+}
+
 /** Only skip live Graph when cached daily rows actually contain non-zero Page insight signal (not just empty/zeroed rows). */
 const FB_DAILY_SIGNAL_KEYS = new Set([
   'page_impressions',
@@ -223,7 +243,8 @@ export async function GET(
 
   try {
     if (account.platform === 'INSTAGRAM') {
-      const token = account.accessToken;
+      let token = account.accessToken;
+      token = await resolveFacebookPageAccessToken(account.platformUserId, token);
       const credJson = (account.credentialsJson && typeof account.credentialsJson === 'object' ? account.credentialsJson : {}) as { loginMethod?: string };
       const isInstagramBusinessLogin = credJson?.loginMethod === 'instagram_business';
 
@@ -1011,7 +1032,9 @@ export async function GET(
     }
 
     if (account.platform === 'FACEBOOK') {
-      const token = account.accessToken;
+      (out as Record<string, unknown>).facebookDataSourceDebug = { liveMetricRows: -1, fallbackDailyRows: -1, fallbackMetricKeys: [] };
+      let token = account.accessToken;
+      token = await resolveFacebookPageAccessToken(account.platformUserId, token);
       let fbTokenValid = false;
       try {
         const pageRes = await fetchPageProfile(account.platformUserId, token);
