@@ -9,12 +9,27 @@ export const revalidate = 0;
 
 type Params = Promise<{ username: string }>;
 
+function normalizeSlug(raw: string): string {
+  return decodeURIComponent(raw).replace(/^@/, '').trim().toLowerCase();
+}
+
+function compactSlug(raw: string): string {
+  return normalizeSlug(raw).replace(/[^a-z0-9_]/g, '');
+}
+
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   try {
     const { username } = await params;
-    const slug = decodeURIComponent(username).replace(/^@/, '').toLowerCase();
-    const linkPage = await prisma.linkPage.findUnique({
-      where: { slug },
+    const slug = normalizeSlug(username);
+    const slugCompact = compactSlug(username);
+    const linkPage = await prisma.linkPage.findFirst({
+      where: {
+        OR: [
+          { slug },
+          { slug: { equals: slug, mode: 'insensitive' } },
+          ...(slugCompact && slugCompact !== slug ? [{ slug: slugCompact }, { slug: { equals: slugCompact, mode: 'insensitive' } }] : []),
+        ],
+      },
       select: { title: true, bio: true, avatarUrl: true },
     });
     if (!linkPage) return { title: 'Not Found' };
@@ -57,12 +72,19 @@ function sanitizeDesign(design: unknown): LinkPageDesign | null {
 export default async function SmartLinkPublicPage({ params }: { params: Params }) {
   try {
     const { username } = await params;
-    const slug = decodeURIComponent(username).replace(/^@/, '').toLowerCase();
+    const slug = normalizeSlug(username);
+    const slugCompact = compactSlug(username);
 
     let linkPage = null;
     try {
-      linkPage = await prisma.linkPage.findUnique({
-        where: { slug },
+      linkPage = await prisma.linkPage.findFirst({
+        where: {
+          OR: [
+            { slug },
+            { slug: { equals: slug, mode: 'insensitive' } },
+            ...(slugCompact && slugCompact !== slug ? [{ slug: slugCompact }, { slug: { equals: slugCompact, mode: 'insensitive' } }] : []),
+          ],
+        },
         include: {
           links: {
             where: { isVisible: true },
