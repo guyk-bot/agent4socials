@@ -3,7 +3,11 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { Resend } from 'resend';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
-const FROM = process.env.RESEND_FROM_EMAIL || process.env.RESEND_FROM || 'Agent4Socials <guyk@agent4socials.com>';
+const FROM =
+  process.env.RESEND_WELCOME_FROM_EMAIL ||
+  process.env.RESEND_FROM_EMAIL ||
+  process.env.RESEND_FROM ||
+  'Agent4Socials <guyk@agent4socials.com>';
 
 function randomOtp(): string {
   return String(Math.floor(100000 + Math.random() * 900000));

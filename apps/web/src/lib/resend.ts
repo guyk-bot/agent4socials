@@ -3,6 +3,19 @@ import { Resend } from 'resend';
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 const DEFAULT_FROM = 'Agent4Socials <guyk@agent4socials.com>';
+const DEFAULT_SCHEDULED_FROM = 'Agent4Socials <noreply@agent4socials.com>';
+
+function getGeneralFrom(): string {
+  return process.env.RESEND_FROM_EMAIL || process.env.RESEND_FROM || DEFAULT_FROM;
+}
+
+function getWelcomeFrom(): string {
+  return process.env.RESEND_WELCOME_FROM_EMAIL || getGeneralFrom();
+}
+
+function getScheduledFrom(): string {
+  return process.env.RESEND_SCHEDULED_FROM_EMAIL || DEFAULT_SCHEDULED_FROM;
+}
 
 /**
  * Sends a welcome email to a new user. No-op if RESEND_API_KEY is not set.
@@ -12,7 +25,7 @@ export async function sendWelcomeEmail(to: string, name: string | null): Promise
     console.warn('[Resend] RESEND_API_KEY not set; skipping welcome email');
     return;
   }
-  const from = process.env.RESEND_FROM_EMAIL || process.env.RESEND_FROM || DEFAULT_FROM;
+  const from = getWelcomeFrom();
   const displayName = name || 'there';
   try {
     const { error } = await resend.emails.send({
@@ -45,7 +58,7 @@ export async function sendTestEmail(to: string): Promise<{ ok: boolean; error?: 
   if (!resend) {
     return { ok: false, error: 'RESEND_API_KEY not set' };
   }
-  const from = process.env.RESEND_FROM_EMAIL || process.env.RESEND_FROM || DEFAULT_FROM;
+  const from = getScheduledFrom();
   const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
   try {
     const { error } = await resend.emails.send({
@@ -79,7 +92,7 @@ export async function sendScheduledPostLinksEmail(to: string, openLink: string):
     console.warn('[Resend] RESEND_API_KEY not set; skipping scheduled post links email');
     return { ok: false, error: 'RESEND_API_KEY not set' };
   }
-  const from = process.env.RESEND_FROM_EMAIL || process.env.RESEND_FROM || DEFAULT_FROM;
+  const from = getScheduledFrom();
   try {
     const { error } = await resend.emails.send({
       from,
@@ -126,7 +139,7 @@ export async function sendSupportTicketEmail(
   if (!resend) {
     return { ok: false, error: 'Email service is not configured' };
   }
-  const from = process.env.RESEND_FROM_EMAIL || process.env.RESEND_FROM || DEFAULT_FROM;
+  const from = getGeneralFrom();
   const displayName = senderName || senderEmail;
   const safeSubject = subject.slice(0, 200).trim() || 'Support request | Agent4Socials';
   const safeMessage = message.slice(0, 10000).replace(/\n/g, '<br>');
