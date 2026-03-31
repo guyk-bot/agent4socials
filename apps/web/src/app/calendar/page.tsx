@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import api from '@/lib/api';
 import {
     ChevronLeft,
@@ -26,7 +26,7 @@ const PLATFORM_SHORT: Record<string, string> = {
 };
 
 const STATUS_STYLE: Record<string, { bg: string; border: string; text: string; label: string }> = {
-    SCHEDULED: { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-800', label: 'Pending' },
+    SCHEDULED: { bg: 'bg-violet-50', border: 'border-violet-200', text: 'text-violet-800', label: 'Pending' },
     DRAFT:      { bg: 'bg-sky-50',  border: 'border-sky-200', text: 'text-sky-800',  label: 'Draft' },
     POSTED:     { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-800', label: 'Published' },
     FAILED:     { bg: 'bg-red-50',  border: 'border-red-200', text: 'text-red-800',  label: 'With errors' },
@@ -119,7 +119,7 @@ function formatWeekRange(weekStart: Date): string {
     return `${a} – ${b}`;
 }
 
-const HOURS_START = 6;
+const HOURS_START = 0;
 const HOURS_END = 24;
 
 export default function CalendarPage() {
@@ -130,6 +130,7 @@ export default function CalendarPage() {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [posts, setPosts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const weekScrollRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
         const fromCache = appData?.getScheduledPosts?.();
@@ -152,6 +153,17 @@ export default function CalendarPage() {
         };
         fetchPosts();
     }, [appData]);
+
+    useEffect(() => {
+        if (view !== 'week') return;
+        const now = new Date();
+        const isSameWeek = now >= weekStart && now < weekEnd;
+        if (!isSameWeek || !weekScrollRef.current) return;
+        const currentHour = now.getHours();
+        const rowHeight = 52;
+        const target = Math.max(0, (currentHour - HOURS_START) * rowHeight - rowHeight * 2);
+        weekScrollRef.current.scrollTo({ top: target, behavior: 'smooth' });
+    }, [view, weekStart, weekEnd]);
 
     const weekStart = getWeekStart(currentDate);
     const weekEnd = new Date(weekStart);
@@ -262,14 +274,14 @@ export default function CalendarPage() {
                     <div className="flex rounded-lg border border-gray-200 p-0.5 bg-gray-50">
                         <button
                             onClick={() => setView('week')}
-                            className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium ${view === 'week' ? 'bg-white shadow text-indigo-600' : 'text-gray-600 hover:text-gray-900'}`}
+                            className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium ${view === 'week' ? 'bg-white shadow text-violet-700' : 'text-gray-600 hover:text-gray-900'}`}
                         >
                             <LayoutGrid size={16} />
                             Week
                         </button>
                         <button
                             onClick={() => setView('month')}
-                            className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium ${view === 'month' ? 'bg-white shadow text-indigo-600' : 'text-gray-600 hover:text-gray-900'}`}
+                            className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium ${view === 'month' ? 'bg-white shadow text-violet-700' : 'text-gray-600 hover:text-gray-900'}`}
                         >
                             <CalendarIcon size={16} />
                             Month
@@ -284,7 +296,7 @@ export default function CalendarPage() {
                             <button onClick={nextWeek} className="p-2 hover:bg-gray-50 rounded" aria-label="Next week">
                                 <ChevronRight size={20} />
                             </button>
-                            <button onClick={goToday} className="ml-1 px-2 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 rounded">Today</button>
+                            <button onClick={goToday} className="ml-1 px-2 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-50 rounded">Today</button>
                         </div>
                     ) : (
                         <div className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-1">
@@ -315,11 +327,11 @@ export default function CalendarPage() {
                                     </div>
                                 ))}
                             </div>
-                            <div className="max-h-[70vh] overflow-y-auto">
+                            <div ref={weekScrollRef} className="max-h-[70vh] overflow-y-auto">
                                 {Array.from({ length: HOURS_END - HOURS_START }, (_, i) => HOURS_START + i).map((hour) => (
                                     <div key={hour} className="grid grid-cols-[56px_1fr_1fr_1fr_1fr_1fr_1fr_1fr] border-b border-gray-100 min-h-[52px]">
                                         <div className="py-1 pr-2 text-right text-[11px] font-medium text-gray-400 border-r border-gray-100 bg-gray-50/50">
-                                            {hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour === 0 ? 12 : hour} AM`}
+                                            {String(hour).padStart(2, '0')}:00
                                         </div>
                                         {[0, 1, 2, 3, 4, 5, 6].map((dayIndex) => {
                                             const slotPosts = getPostsForSlot(dayIndex, hour);

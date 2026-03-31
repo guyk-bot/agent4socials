@@ -396,30 +396,33 @@ function stripTrailingHashtags(text: string): string {
     return text.replace(/(?:\s+#[\w]+)+\s*$/, '').trimEnd();
 }
 
-const MEDIA_SPECS: Record<string, { icon: string; name: string; specs: { label: string; value: string; tag?: string }[] }[]> = {
+const MEDIA_SPECS: Record<string, { platform: keyof typeof PLATFORM_ICON_MAP; name: string; specs: { label: string; value: string; tag?: string }[] }[]> = {
     photo: [
-        { icon: '📸', name: 'Instagram', specs: [{ label: 'Square', value: '1080×1080 (1:1)', tag: 'Safe for all' }, { label: 'Portrait', value: '1080×1350 (4:5)', tag: 'Best reach' }, { label: 'Landscape', value: '1080×566 (1.91:1)' }] },
-        { icon: '📘', name: 'Facebook', specs: [{ label: 'Portrait', value: '1080×1350 (4:5)', tag: 'Best reach' }, { label: 'Square', value: '1080×1080 (1:1)' }, { label: 'Landscape', value: '1200×630 (1.91:1)' }] },
-        { icon: '💼', name: 'LinkedIn', specs: [{ label: 'Portrait', value: '1080×1350 (4:5)', tag: 'Best reach' }, { label: 'Square', value: '1200×1200 (1:1)' }, { label: 'Landscape', value: '1200×627 (1.91:1)' }] },
-        { icon: '🐦', name: 'Twitter/X', specs: [{ label: 'Landscape', value: '1600×900 (16:9)', tag: 'Recommended' }, { label: 'Square', value: '1080×1080 (1:1)' }] },
+        { platform: 'INSTAGRAM', name: 'Instagram', specs: [{ label: 'Square', value: '1080×1080 (1:1)', tag: 'Safe for all' }, { label: 'Portrait', value: '1080×1350 (4:5)', tag: 'Best reach' }, { label: 'Landscape', value: '1080×566 (1.91:1)' }] },
+        { platform: 'FACEBOOK', name: 'Facebook', specs: [{ label: 'Portrait', value: '1080×1350 (4:5)', tag: 'Best reach' }, { label: 'Square', value: '1080×1080 (1:1)' }, { label: 'Landscape', value: '1200×630 (1.91:1)' }] },
+        { platform: 'LINKEDIN', name: 'LinkedIn', specs: [{ label: 'Portrait', value: '1080×1350 (4:5)', tag: 'Best reach' }, { label: 'Square', value: '1200×1200 (1:1)' }, { label: 'Landscape', value: '1200×627 (1.91:1)' }] },
+        { platform: 'TWITTER', name: 'Twitter/X', specs: [{ label: 'Landscape', value: '1600×900 (16:9)', tag: 'Recommended' }, { label: 'Square', value: '1080×1080 (1:1)' }] },
     ],
     video: [
-        { icon: '▶️', name: 'YouTube', specs: [{ label: 'Standard', value: '1920×1080 (16:9)', tag: 'Recommended' }, { label: 'Thumbnail', value: '1280×720 (16:9)' }] },
-        { icon: '💼', name: 'LinkedIn', specs: [{ label: 'Landscape', value: '1920×1080 (16:9)', tag: 'Recommended' }, { label: 'Square', value: '1080×1080 (1:1)' }, { label: 'Vertical', value: '1080×1920 (9:16)' }] },
-        { icon: '🐦', name: 'Twitter/X', specs: [{ label: 'Landscape', value: '1280×720 (16:9)', tag: 'Recommended' }] },
-        { icon: '📘', name: 'Facebook', specs: [{ label: 'Portrait', value: '1080×1350 (4:5)', tag: 'Best reach' }, { label: 'Landscape', value: '1200×630 (1.91:1)' }] },
+        { platform: 'YOUTUBE', name: 'YouTube', specs: [{ label: 'Standard', value: '1920×1080 (16:9)', tag: 'Recommended' }, { label: 'Thumbnail', value: '1280×720 (16:9)' }] },
+        { platform: 'LINKEDIN', name: 'LinkedIn', specs: [{ label: 'Landscape', value: '1920×1080 (16:9)', tag: 'Recommended' }, { label: 'Square', value: '1080×1080 (1:1)' }, { label: 'Vertical', value: '1080×1920 (9:16)' }] },
+        { platform: 'TWITTER', name: 'Twitter/X', specs: [{ label: 'Landscape', value: '1280×720 (16:9)', tag: 'Recommended' }] },
+        { platform: 'FACEBOOK', name: 'Facebook', specs: [{ label: 'Portrait', value: '1080×1350 (4:5)', tag: 'Best reach' }, { label: 'Landscape', value: '1200×630 (1.91:1)' }] },
     ],
     reel: [
-        { icon: '📸', name: 'Instagram Reels', specs: [{ label: 'Vertical', value: '1080×1920 (9:16)', tag: 'Required' }] },
-        { icon: '🎵', name: 'TikTok', specs: [{ label: 'Vertical', value: '1080×1920 (9:16)', tag: 'Required' }] },
-        { icon: '▶️', name: 'YouTube Shorts', specs: [{ label: 'Vertical', value: '1080×1920 (9:16)', tag: 'Required' }, { label: 'Max duration', value: '60 sec' }] },
-        { icon: '🐦', name: 'Twitter/X', specs: [{ label: 'Square', value: '1080×1080 (1:1)', tag: 'Best' }, { label: 'Vertical', value: '1080×1920 (9:16)', tag: 'Under 60s' }] },
+        { platform: 'INSTAGRAM', name: 'Instagram Reels', specs: [{ label: 'Vertical', value: '1080×1920 (9:16)', tag: 'Required' }] },
+        { platform: 'TIKTOK', name: 'TikTok', specs: [{ label: 'Vertical', value: '1080×1920 (9:16)', tag: 'Required' }] },
+        { platform: 'YOUTUBE', name: 'YouTube Shorts', specs: [{ label: 'Vertical', value: '1080×1920 (9:16)', tag: 'Required' }, { label: 'Max duration', value: '60 sec' }] },
+        { platform: 'FACEBOOK', name: 'Facebook Reels', specs: [{ label: 'Vertical', value: '1080×1920 (9:16)', tag: 'Recommended' }] },
+        { platform: 'LINKEDIN', name: 'LinkedIn', specs: [{ label: 'Vertical', value: '1080×1920 (9:16)', tag: 'Supported' }] },
+        { platform: 'PINTEREST', name: 'Pinterest', specs: [{ label: 'Vertical', value: '1080×1920 (9:16)', tag: 'Recommended' }] },
+        { platform: 'TWITTER', name: 'Twitter/X', specs: [{ label: 'Square', value: '1080×1080 (1:1)', tag: 'Best' }, { label: 'Vertical', value: '1080×1920 (9:16)', tag: 'Under 60s' }] },
     ],
     carousel: [
-        { icon: '📸', name: 'Instagram', specs: [{ label: 'Per slide', value: '1080×1080 (1:1)', tag: 'Recommended' }, { label: 'Slides', value: '2–10 images' }] },
-        { icon: '📘', name: 'Facebook', specs: [{ label: 'Per slide', value: '1080×1080 (1:1)', tag: 'Recommended' }] },
-        { icon: '💼', name: 'LinkedIn', specs: [{ label: 'Per slide', value: '1080×1080 (1:1)', tag: 'Recommended' }] },
-        { icon: '🐦', name: 'Twitter/X', specs: [{ label: 'Per slide', value: '1080×1080 (1:1)' }] },
+        { platform: 'INSTAGRAM', name: 'Instagram', specs: [{ label: 'Per slide', value: '1080×1080 (1:1)', tag: 'Recommended' }, { label: 'Slides', value: '2–10 images' }] },
+        { platform: 'FACEBOOK', name: 'Facebook', specs: [{ label: 'Per slide', value: '1080×1080 (1:1)', tag: 'Recommended' }] },
+        { platform: 'LINKEDIN', name: 'LinkedIn', specs: [{ label: 'Per slide', value: '1080×1080 (1:1)', tag: 'Recommended' }] },
+        { platform: 'TWITTER', name: 'Twitter/X', specs: [{ label: 'Per slide', value: '1080×1080 (1:1)' }] },
     ],
 };
 
@@ -473,7 +476,10 @@ function MediaRequirementsHint({ mediaType }: { mediaType: keyof typeof MEDIA_SP
                     <div className="divide-y divide-neutral-100 max-h-72 overflow-y-auto">
                         {specs.map((platform) => (
                             <div key={platform.name} className="px-4 py-2.5">
-                                <p className="text-xs font-semibold text-neutral-700 mb-1.5">{platform.icon} {platform.name}</p>
+                                <p className="text-xs font-semibold text-neutral-700 mb-1.5 flex items-center gap-1.5">
+                                    <PlatformIcon platform={platform.platform} size={14} />
+                                    {platform.name}
+                                </p>
                                 <div className="space-y-1">
                                     {platform.specs.map((s) => (
                                         <div key={s.label} className="flex items-center justify-between gap-2">
@@ -1477,7 +1483,7 @@ export default function ComposerPage() {
                 }, {} as Record<string, string>);
             }
 
-            const TWITTER_CHAR_LIMIT = 280;
+            const TWITTER_CHAR_LIMIT = 230;
             if (platforms.includes('TWITTER')) {
                 const twitterText = (contentByPlatformFinal?.['TWITTER'] ?? contentFinal).trim();
                 if (twitterText.length > TWITTER_CHAR_LIMIT) {
@@ -2138,48 +2144,55 @@ export default function ComposerPage() {
                                                             type="checkbox"
                                                             checked={differentThumbnailPerPlatform}
                                                             onChange={(e) => handleDifferentThumbnailToggle(e.target.checked)}
-                                                            className="rounded border-neutral-300 text-[var(--primary)] focus:ring-[var(--primary)]"
+                                                            className="rounded border-neutral-300 text-neutral-500 focus:ring-neutral-300"
                                                         />
                                                         <span className="text-sm text-neutral-700">Use different thumbnail per platform</span>
                                                     </label>
                                                 )}
                                                 {differentThumbnailPerPlatform && platforms.length > 1 && (
                                                     <div className="mt-2">
-                                                        <label className="text-xs font-medium text-neutral-500">Editing thumbnail for:</label>
-                                                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                                        <label className="text-xs font-medium text-neutral-500">Platform thumbnails (click to edit):</label>
+                                                        <div className="mt-1.5 grid grid-cols-1 gap-2">
                                                             {platforms.map((p) => {
                                                                 const active = selectedPlatformForThumbnail === p;
                                                                 const hasThumb = Boolean(thumbnailByPlatform[p]);
+                                                                const thumb = thumbnailByPlatform[p] ?? mediaList[0].thumbnailUrl;
                                                                 return (
                                                                     <button
                                                                         key={p}
                                                                         type="button"
                                                                         onClick={() => setSelectedPlatformForThumbnail(p)}
-                                                                        className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition-colors ${
+                                                                        className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-xs transition-colors ${
                                                                             active
-                                                                                ? 'border-[var(--primary)] bg-[var(--primary)]/15/80 text-[var(--primary)]'
+                                                                                ? 'border-violet-300 bg-violet-50 text-violet-700'
                                                                                 : 'border-neutral-200 text-neutral-600 hover:border-neutral-300'
                                                                         }`}
                                                                     >
-                                                                        {PLATFORM_LABELS[p] ?? p}
+                                                                        <PlatformIcon platform={p as keyof typeof PLATFORM_ICON_MAP} size={14} />
+                                                                        <span className="font-medium">{PLATFORM_LABELS[p] ?? p}</span>
                                                                         <span className={`inline-block h-1.5 w-1.5 rounded-full ${hasThumb ? 'bg-emerald-500' : 'bg-neutral-300'}`} />
+                                                                        {thumb ? (
+                                                                            <img src={mediaDisplayUrl(thumb)} alt="" className="ml-auto h-7 w-7 rounded object-cover border border-neutral-200" />
+                                                                        ) : (
+                                                                            <span className="ml-auto text-[10px] text-neutral-400">No thumb</span>
+                                                                        )}
                                                                     </button>
                                                                 );
                                                             })}
                                                         </div>
-                                                        <p className="mt-1 text-[11px] text-neutral-500">Green dot means this platform has its own thumbnail.</p>
+                                                        <p className="mt-1 text-[11px] text-neutral-500">Each platform keeps its own thumbnail with the same options below.</p>
                                                     </div>
                                                 )}
                                                 <p className="text-xs text-neutral-400 mt-1 font-medium">Choose one option:</p>
                                             </div>
                                             <div className="flex flex-col gap-2">
-                                                <label className={`flex items-center gap-2.5 p-2.5 rounded-lg border-2 cursor-pointer transition-colors ${thumbnailChoice === 'none' ? 'border-[var(--primary)] bg-[var(--primary)]/15/80' : 'border-neutral-200 hover:border-neutral-300'}`}>
-                                                    <input type="radio" name="thumbnailOption" checked={thumbnailChoice === 'none'} onChange={() => { setThumbnailChoice('none'); handleRemoveThumbnail(); }} className="text-[var(--primary)] focus:ring-[var(--primary)]" />
+                                                <label className={`flex items-center gap-2.5 p-2.5 rounded-lg border-2 cursor-pointer transition-colors ${thumbnailChoice === 'none' ? 'border-neutral-400 bg-neutral-100' : 'border-neutral-200 hover:border-neutral-300'}`}>
+                                                    <input type="radio" name="thumbnailOption" checked={thumbnailChoice === 'none'} onChange={() => { setThumbnailChoice('none'); handleRemoveThumbnail(); }} className="text-neutral-500 focus:ring-neutral-300" />
                                                     <span className="text-sm font-medium text-neutral-800">No custom thumbnail</span>
                                                     <span className="text-xs text-neutral-500">(use video default)</span>
                                                 </label>
-                                                <label className={`flex items-center gap-2.5 p-2.5 rounded-lg border-2 cursor-pointer transition-colors ${thumbnailChoice === 'upload' ? 'border-[var(--primary)] bg-[var(--primary)]/15/80' : 'border-neutral-200 hover:border-neutral-300'}`}>
-                                                    <input type="radio" name="thumbnailOption" checked={thumbnailChoice === 'upload'} onChange={() => setThumbnailChoice('upload')} className="text-[var(--primary)] focus:ring-[var(--primary)]" />
+                                                <label className={`flex items-center gap-2.5 p-2.5 rounded-lg border-2 cursor-pointer transition-colors ${thumbnailChoice === 'upload' ? 'border-neutral-400 bg-neutral-100' : 'border-neutral-200 hover:border-neutral-300'}`}>
+                                                    <input type="radio" name="thumbnailOption" checked={thumbnailChoice === 'upload'} onChange={() => setThumbnailChoice('upload')} className="text-neutral-500 focus:ring-neutral-300" />
                                                     <span className="text-sm font-medium text-neutral-800">Upload image</span>
                                                 </label>
                                                 {thumbnailChoice === 'upload' && (
@@ -2194,13 +2207,13 @@ export default function ComposerPage() {
                                                         )}
                                                     </div>
                                                 )}
-                                                <label className={`flex items-center gap-2.5 p-2.5 rounded-lg border-2 cursor-pointer transition-colors ${thumbnailChoice === 'frame' ? 'border-[var(--primary)] bg-[var(--primary)]/15/80' : 'border-neutral-200 hover:border-neutral-300'}`}>
-                                                    <input type="radio" name="thumbnailOption" checked={thumbnailChoice === 'frame'} onChange={() => setThumbnailChoice('frame')} className="text-[var(--primary)] focus:ring-[var(--primary)]" />
+                                                <label className={`flex items-center gap-2.5 p-2.5 rounded-lg border-2 cursor-pointer transition-colors ${thumbnailChoice === 'frame' ? 'border-neutral-400 bg-neutral-100' : 'border-neutral-200 hover:border-neutral-300'}`}>
+                                                    <input type="radio" name="thumbnailOption" checked={thumbnailChoice === 'frame'} onChange={() => setThumbnailChoice('frame')} className="text-neutral-500 focus:ring-neutral-300" />
                                                     <span className="text-sm font-medium text-neutral-800">Pick a frame from video</span>
                                                 </label>
                                                 {thumbnailChoice === 'frame' && (
                                                     <div className="ml-6 flex flex-col gap-1.5">
-                                                        <input type="range" min={0} max={Math.max(0.01, Number.isFinite(thumbnailVideoDuration) && thumbnailVideoDuration > 0 ? thumbnailVideoDuration : 0.01)} step={0.01} value={Math.min(thumbnailPickerTime, Math.max(0.01, Number.isFinite(thumbnailVideoDuration) && thumbnailVideoDuration > 0 ? thumbnailVideoDuration : 0.01))} onChange={(e) => handleThumbnailSliderChange(parseFloat(e.target.value))} onInput={(e) => handleThumbnailSliderChange(parseFloat((e.target as HTMLInputElement).value))} className="w-full max-w-[240px] h-2 rounded-full accent-[var(--primary)]" />
+                                                        <input type="range" min={0} max={Math.max(0.01, Number.isFinite(thumbnailVideoDuration) && thumbnailVideoDuration > 0 ? thumbnailVideoDuration : 0.01)} step={0.01} value={Math.min(thumbnailPickerTime, Math.max(0.01, Number.isFinite(thumbnailVideoDuration) && thumbnailVideoDuration > 0 ? thumbnailVideoDuration : 0.01))} onChange={(e) => handleThumbnailSliderChange(parseFloat(e.target.value))} onInput={(e) => handleThumbnailSliderChange(parseFloat((e.target as HTMLInputElement).value))} className="w-full max-w-[240px] h-2 rounded-full accent-neutral-500" />
                                                         <button type="button" onClick={handleUseFrameAsThumbnail} disabled={thumbnailPicking || mediaUploading} className="inline-flex items-center gap-1.5 px-3 py-2 bg-[var(--button)] hover:bg-[var(--button-hover)] text-white rounded-lg text-xs font-medium disabled:opacity-50 w-fit">
                                                             {thumbnailPicking ? <Loader2 size={14} className="animate-spin shrink-0" /> : <ImageIcon size={14} className="shrink-0" />}
                                                             Use this frame
@@ -2221,24 +2234,7 @@ export default function ComposerPage() {
                                                         : mediaList[0].thumbnailUrl;
                                                     const fitClass = mediaType === 'reel' ? 'object-cover' : 'object-contain';
                                                     const cors = mediaList[0].fileUrl.startsWith('blob:') ? undefined : 'anonymous' as const;
-                                                    return effectiveThumbnail ? (
-                                                    <>
-                                                        <img src={mediaDisplayUrl(effectiveThumbnail)} alt="Thumbnail" className={`absolute inset-0 w-full h-full ${fitClass} z-[1] ${mediaPeekHover ? 'opacity-0' : 'opacity-100'}`} />
-                                                        <div className={`absolute inset-0 z-[4] transition-opacity duration-100 ${mediaPeekHover ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
-                                                            <ComposerMediaPeekPlayer
-                                                                ref={mediaPeekPlayRef}
-                                                                key={`peek-thumb-${mediaList[0].fileUrl}`}
-                                                                src={mediaCanvasUrl(mediaList[0].fileUrl)}
-                                                                active={mediaPeekHover}
-                                                                fitClass={fitClass}
-                                                                crossOrigin={cors}
-                                                                variant="overlay"
-                                                            />
-                                                        </div>
-                                                        <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveMedia(0); }} className="absolute top-1 right-1 z-[5] p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow"><X size={12} /></button>
-                                                        <a href={mediaList[0].fileUrl} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="absolute bottom-1 right-1 z-[5] p-1.5 bg-black/60 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow" title="Download"><Download size={12} /></a>
-                                                    </>
-                                                ) : thumbnailChoice === 'frame' ? (
+                                                    return thumbnailChoice === 'frame' ? (
                                                     <div className="absolute inset-0 w-full h-full bg-neutral-900 flex items-center justify-center">
                                                         <video
                                                             ref={videoThumbnailRef}
@@ -2293,6 +2289,23 @@ export default function ComposerPage() {
                                                             />
                                                         </div>
                                                     </div>
+                                                ) : effectiveThumbnail ? (
+                                                    <>
+                                                        <img src={mediaDisplayUrl(effectiveThumbnail)} alt="Thumbnail" className={`absolute inset-0 w-full h-full ${fitClass} z-[1] ${mediaPeekHover ? 'opacity-0' : 'opacity-100'}`} />
+                                                        <div className={`absolute inset-0 z-[4] transition-opacity duration-100 ${mediaPeekHover ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
+                                                            <ComposerMediaPeekPlayer
+                                                                ref={mediaPeekPlayRef}
+                                                                key={`peek-thumb-${mediaList[0].fileUrl}`}
+                                                                src={mediaCanvasUrl(mediaList[0].fileUrl)}
+                                                                active={mediaPeekHover}
+                                                                fitClass={fitClass}
+                                                                crossOrigin={cors}
+                                                                variant="overlay"
+                                                            />
+                                                        </div>
+                                                        <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveMedia(0); }} className="absolute top-1 right-1 z-[5] p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow"><X size={12} /></button>
+                                                        <a href={mediaList[0].fileUrl} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="absolute bottom-1 right-1 z-[5] p-1.5 bg-black/60 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow" title="Download"><Download size={12} /></a>
+                                                    </>
                                                 ) : (
                                                     <>
                                                         <ComposerMediaPeekPlayer
@@ -2457,8 +2470,8 @@ export default function ComposerPage() {
                                     const withTags = content.trim() + (selectedHashtags.length ? ' ' + selectedHashtags.join(' ') : '');
                                     return (
                                         <div className="mt-1 space-y-0.5">
-                                            <p className={`text-xs ${withTags.length > 280 ? 'text-amber-600 font-medium' : 'text-neutral-500'}`}>
-                                                X (Twitter) limit: 280 chars (including spaces). Current (with hashtags): {withTags.length}
+                                            <p className={`text-xs ${withTags.length > 230 ? 'text-amber-600 font-medium' : 'text-neutral-500'}`}>
+                                                X (Twitter) limit: 230 chars (including spaces + emojis). Current (with hashtags): {withTags.length}
                                             </p>
                                             {mediaList.length > 0 && (
                                                 <p className="text-xs text-neutral-400">Image on X: if upload is not allowed for your app, the post will go out as text only.</p>
@@ -2484,8 +2497,8 @@ export default function ComposerPage() {
                                                 className="w-full min-h-[6rem] p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)] text-sm resize-none overflow-hidden"
                                         />
                                             {p === 'TWITTER' && (
-                                                <p className={`text-xs ${fullLength > 280 ? 'text-amber-600 font-medium' : 'text-neutral-500'}`}>
-                                                    X limit: 280 (including spaces). Current (with hashtags): {fullLength}
+                                                <p className={`text-xs ${fullLength > 230 ? 'text-amber-600 font-medium' : 'text-neutral-500'}`}>
+                                                    X limit: 230 (including spaces + emojis). Current (with hashtags): {fullLength}
                                                 </p>
                                             )}
                                     </div>

@@ -165,6 +165,17 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Keep text-selection and click-highlight neutral (avoids Windows default cyan/blue highlights). */
+::selection {
+  background: #d1d5db;
+  color: inherit;
+}
+::-moz-selection {
+  background: #d1d5db;
+  color: inherit;
 }
 
 h1, h2, h3, h4, h5, h6 {
