@@ -473,7 +473,7 @@ export default function DashboardPage() {
       const refList = postsCacheRef.current[accountId];
       const ctxList = appCtx?.getPosts(accountId);
       const refreshPostsInBackground = () => {
-        api.get(`/social/accounts/${accountId}/posts`)
+        api.get(`/social/accounts/${accountId}/posts`, { params: selectedAccount?.platform === 'FACEBOOK' ? { sync: 1 } : {} })
           .then((res) => {
             const list = res.data?.posts ?? [];
             postsCacheRef.current[accountId] = list;
@@ -504,7 +504,7 @@ export default function DashboardPage() {
       }
       // First load for this account: show spinner without blanking existing data.
       setImportedPostsLoading(true);
-      api.get(`/social/accounts/${accountId}/posts`)
+      api.get(`/social/accounts/${accountId}/posts`, { params: selectedAccount?.platform === 'FACEBOOK' ? { sync: 1 } : {} })
         .then((res) => {
           const list = res.data?.posts ?? [];
           postsCacheRef.current[accountId] = list;
@@ -633,7 +633,7 @@ export default function DashboardPage() {
           setImportedPostsLoading(false);
         } else {
           setImportedPostsLoading(true);
-          api.get(`/social/accounts/${accountId}/posts`)
+          api.get(`/social/accounts/${accountId}/posts`, { params: selectedAccount?.platform === 'FACEBOOK' ? { sync: 1 } : {} })
             .then((postsRes) => {
               const list = postsRes.data?.posts ?? [];
               postsCacheRef.current[accountId] = list;

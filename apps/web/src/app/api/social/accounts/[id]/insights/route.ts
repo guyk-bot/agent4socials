@@ -1126,7 +1126,6 @@ export async function GET(
       }
       if (effectiveSinceTs != null && effectiveUntilTs != null) {
         const shouldForceLiveFetch = request.nextUrl.searchParams.get('refresh') === '1';
-        const shouldPersistLiveRows = shouldForceLiveFetch || request.nextUrl.searchParams.get('persist') === '1';
         let skipLiveFetch = false;
         if (!shouldForceLiveFetch && effectiveSinceParam && effectiveUntilParam) {
           try {
@@ -1295,20 +1294,18 @@ export async function GET(
           }
           if (Object.keys(fbSeriesByGraphMetric).length > 0) {
             (out as Record<string, unknown>).facebookPageMetricSeries = fbSeriesByGraphMetric;
-            if (shouldPersistLiveRows) {
-              try {
-                const { dailyRowsUpserted } = await persistFacebookPageInsightsNormalized({
-                  userId,
-                  socialAccountId: account.id,
-                  pageId: account.platformUserId,
-                  seriesByGraphMetric: fbSeriesByGraphMetric,
-                });
-                if (request.nextUrl.searchParams.get('extended') === '1') {
-                  (out as Record<string, unknown>).facebookInsightPersistence = { dailyRowsUpserted };
-                }
-              } catch (e) {
-                console.warn('[Insights] Persist FB insights:', (e as Error)?.message ?? e);
+            try {
+              const { dailyRowsUpserted } = await persistFacebookPageInsightsNormalized({
+                userId,
+                socialAccountId: account.id,
+                pageId: account.platformUserId,
+                seriesByGraphMetric: fbSeriesByGraphMetric,
+              });
+              if (request.nextUrl.searchParams.get('extended') === '1') {
+                (out as Record<string, unknown>).facebookInsightPersistence = { dailyRowsUpserted };
               }
+            } catch (e) {
+              console.warn('[Insights] Persist FB insights:', (e as Error)?.message ?? e);
             }
           }
           // Fallback: when live Graph returns no usable rows, read normalized daily rows we already persisted.
