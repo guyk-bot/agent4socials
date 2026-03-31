@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
+import { Prisma } from '@prisma/client';
 import { LinkPageRenderer } from '@/components/smart-links/LinkPageRenderer';
 import type { LinkPageDesign } from '@/components/smart-links/themes';
 import type { Metadata } from 'next';
@@ -26,8 +27,8 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
       where: {
         OR: [
           { slug },
-          { slug: { equals: slug, mode: 'insensitive' } },
-          ...(slugCompact && slugCompact !== slug ? [{ slug: slugCompact }, { slug: { equals: slugCompact, mode: 'insensitive' } }] : []),
+          { slug: { equals: slug, mode: Prisma.QueryMode.insensitive } },
+          ...(slugCompact && slugCompact !== slug ? [{ slug: slugCompact }, { slug: { equals: slugCompact, mode: Prisma.QueryMode.insensitive } }] : []),
         ],
       },
       select: { title: true, bio: true, avatarUrl: true },
@@ -81,8 +82,8 @@ export default async function SmartLinkPublicPage({ params }: { params: Params }
         where: {
           OR: [
             { slug },
-            { slug: { equals: slug, mode: 'insensitive' } },
-            ...(slugCompact && slugCompact !== slug ? [{ slug: slugCompact }, { slug: { equals: slugCompact, mode: 'insensitive' } }] : []),
+            { slug: { equals: slug, mode: Prisma.QueryMode.insensitive } },
+            ...(slugCompact && slugCompact !== slug ? [{ slug: slugCompact }, { slug: { equals: slugCompact, mode: Prisma.QueryMode.insensitive } }] : []),
           ],
         },
         include: {
