@@ -33,6 +33,20 @@ import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 const COMPOSER_DRAFT_KEY = 'agent4socials_composer_draft';
 
 type MediaItem = { fileUrl: string; type: 'IMAGE' | 'VIDEO'; thumbnailUrl?: string };
+type PlatformKey = 'INSTAGRAM' | 'FACEBOOK' | 'TIKTOK' | 'YOUTUBE' | 'TWITTER' | 'LINKEDIN' | 'PINTEREST';
+
+function PlatformGlyph({ platform, size = 14 }: { platform: PlatformKey; size?: number }) {
+    switch (platform) {
+        case 'INSTAGRAM': return <InstagramIcon size={size} />;
+        case 'FACEBOOK': return <FacebookIcon size={size} />;
+        case 'TIKTOK': return <TikTokIcon size={size} />;
+        case 'YOUTUBE': return <YoutubeIcon size={size} />;
+        case 'TWITTER': return <XTwitterIcon size={size} className="text-neutral-800" />;
+        case 'LINKEDIN': return <LinkedinIcon size={size} />;
+        case 'PINTEREST': return <PinterestIcon size={size} />;
+        default: return <Video size={size} className="text-neutral-500" />;
+    }
+}
 
 type ComposerDraft = {
     platforms: string[];
@@ -407,7 +421,7 @@ function minSchedulableDateTimeLocal(): string {
     return toLocalDateTimeInputValue(d);
 }
 
-const MEDIA_SPECS: Record<string, { platform: keyof typeof PLATFORM_ICON_MAP; name: string; specs: { label: string; value: string; tag?: string }[] }[]> = {
+const MEDIA_SPECS: Record<string, { platform: PlatformKey; name: string; specs: { label: string; value: string; tag?: string }[] }[]> = {
     photo: [
         { platform: 'INSTAGRAM', name: 'Instagram', specs: [{ label: 'Square', value: '1080×1080 (1:1)', tag: 'Safe for all' }, { label: 'Portrait', value: '1080×1350 (4:5)', tag: 'Best reach' }, { label: 'Landscape', value: '1080×566 (1.91:1)' }] },
         { platform: 'FACEBOOK', name: 'Facebook', specs: [{ label: 'Portrait', value: '1080×1350 (4:5)', tag: 'Best reach' }, { label: 'Square', value: '1080×1080 (1:1)' }, { label: 'Landscape', value: '1200×630 (1.91:1)' }] },
@@ -488,7 +502,7 @@ function MediaRequirementsHint({ mediaType }: { mediaType: keyof typeof MEDIA_SP
                         {specs.map((platform) => (
                             <div key={platform.name} className="px-4 py-2.5">
                                 <p className="text-xs font-semibold text-neutral-700 mb-1.5 flex items-center gap-1.5">
-                                    <PlatformIcon platform={platform.platform} size={14} />
+                                    <PlatformGlyph platform={platform.platform} size={14} />
                                     {platform.name}
                                 </p>
                                 <div className="space-y-1">
@@ -2185,7 +2199,7 @@ export default function ComposerPage() {
                                                                                 : 'border-neutral-200 text-neutral-600 hover:border-neutral-300'
                                                                         }`}
                                                                     >
-                                                                        <PlatformIcon platform={p as keyof typeof PLATFORM_ICON_MAP} size={14} />
+                                                                        <PlatformGlyph platform={p as PlatformKey} size={14} />
                                                                         <span className="font-medium">{PLATFORM_LABELS[p] ?? p}</span>
                                                                         <span className={`inline-block h-1.5 w-1.5 rounded-full ${hasThumb ? 'bg-emerald-500' : 'bg-neutral-300'}`} />
                                                                         {thumb ? (
