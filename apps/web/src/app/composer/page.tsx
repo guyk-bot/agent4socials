@@ -396,6 +396,17 @@ function stripTrailingHashtags(text: string): string {
     return text.replace(/(?:\s+#[\w]+)+\s*$/, '').trimEnd();
 }
 
+function toLocalDateTimeInputValue(date: Date): string {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function minSchedulableDateTimeLocal(): string {
+    const d = new Date();
+    d.setMinutes(d.getMinutes() + 1, 0, 0);
+    return toLocalDateTimeInputValue(d);
+}
+
 const MEDIA_SPECS: Record<string, { platform: keyof typeof PLATFORM_ICON_MAP; name: string; specs: { label: string; value: string; tag?: string }[] }[]> = {
     photo: [
         { platform: 'INSTAGRAM', name: 'Instagram', specs: [{ label: 'Square', value: '1080×1080 (1:1)', tag: 'Safe for all' }, { label: 'Portrait', value: '1080×1350 (4:5)', tag: 'Best reach' }, { label: 'Landscape', value: '1080×566 (1.91:1)' }] },
@@ -1582,8 +1593,14 @@ export default function ComposerPage() {
             } else if (scheduledAt && scheduledAt.trim()) {
                 try {
                     const localDate = new Date(scheduledAt.trim());
-                    if (!Number.isNaN(localDate.getTime())) payload.scheduledAt = localDate.toISOString();
-                    else payload.scheduledAt = scheduledAt.trim();
+                    if (!Number.isNaN(localDate.getTime())) {
+                        if (localDate.getTime() <= Date.now()) {
+                            setLoading(false);
+                            setAlertMessage('Please choose a future date/time for scheduling.');
+                            return;
+                        }
+                        payload.scheduledAt = localDate.toISOString();
+                    } else payload.scheduledAt = scheduledAt.trim();
                 } catch {
                     payload.scheduledAt = scheduledAt.trim();
                 }
@@ -2022,7 +2039,7 @@ export default function ComposerPage() {
             )}
             <div>
                 <h1 className="text-2xl font-bold text-neutral-900">{editPostId ? 'Edit Post' : 'Create Post'}</h1>
-                <p className="text-neutral-500 mt-1">{editPostId ? 'Update content, schedule, or platforms.' : 'Draft, preview and schedule your content across platforms.'}</p>
+                {!editPostId && <p className="text-neutral-500 mt-1">Draft, preview and schedule your content across platforms.</p>}
             </div>
 
             <div className="flex flex-col lg:flex-row gap-0 lg:gap-0 items-stretch">
@@ -2762,7 +2779,7 @@ export default function ComposerPage() {
                                     type="radio"
                                     name="scheduleMode"
                                     checked={scheduledAt.trim() !== ''}
-                                    onChange={() => { if (!scheduledAt.trim()) setScheduledAt(new Date().toISOString().slice(0, 16)); }}
+                                    onChange={() => { if (!scheduledAt.trim()) setScheduledAt(minSchedulableDateTimeLocal()); }}
                                     className="text-[var(--primary)] focus:ring-[var(--primary)]"
                                 />
                                 <span className="text-sm font-medium text-neutral-800">Schedule for later</span>
@@ -2776,6 +2793,7 @@ export default function ComposerPage() {
                                 type="datetime-local"
                                 value={scheduledAt}
                                 onChange={(e) => setScheduledAt(e.target.value)}
+                                min={minSchedulableDateTimeLocal()}
                                 className="flex-1 p-3 border border-neutral-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)]"
                             />
                         </div>

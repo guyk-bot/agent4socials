@@ -91,6 +91,15 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
+  if (scheduledAt) {
+    const parsed = new Date(scheduledAt);
+    if (Number.isNaN(parsed.getTime())) {
+      return NextResponse.json({ message: 'Invalid scheduled date/time' }, { status: 400 });
+    }
+    if (parsed.getTime() <= Date.now()) {
+      return NextResponse.json({ message: 'Scheduled date/time must be in the future' }, { status: 400 });
+    }
+  }
   const status: PostStatus = scheduledAt ? PostStatus.SCHEDULED : PostStatus.DRAFT;
   try {
   const post = await prisma.post.create({

@@ -94,6 +94,15 @@ export async function PATCH(
       return NextResponse.json({ message: 'One or more selected accounts are invalid.' }, { status: 400 });
     }
   }
+  if (scheduledAt) {
+    const parsed = new Date(scheduledAt);
+    if (Number.isNaN(parsed.getTime())) {
+      return NextResponse.json({ message: 'Invalid scheduled date/time' }, { status: 400 });
+    }
+    if (parsed.getTime() <= Date.now()) {
+      return NextResponse.json({ message: 'Scheduled date/time must be in the future' }, { status: 400 });
+    }
+  }
   const status: PostStatus = scheduledAt ? PostStatus.SCHEDULED : PostStatus.DRAFT;
   try {
     if (validTargets.length > 0) {
