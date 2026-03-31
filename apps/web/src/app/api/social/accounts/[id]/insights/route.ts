@@ -1175,6 +1175,9 @@ export async function GET(
             'page_media_view',
             'page_follows',
             'page_impressions',
+            'page_total_actions',
+            'page_fan_adds',
+            'page_fan_removes',
           ];
           type FbInsightRow = { name: string; values?: Array<{ value: number | string; end_time?: string }> };
           const coreResults = await Promise.allSettled(

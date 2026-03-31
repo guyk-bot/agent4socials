@@ -997,29 +997,30 @@ async function syncImportedPosts(
       throw e;
     }
 
-    const samplePostId = items[0]?.id ?? null;
-    const postMetricsOrder = await resolvePostInsightMetricsForSync({
-      socialAccountId,
-      pageId: platformUserId,
-      accessToken,
-      samplePostId,
-    });
-
-    const POST_INSIGHT_FETCH_CAP = 150;
-    /** Cap Graph calls per post: registry may list many names; fetch the most useful subset. */
-    const POST_METRICS_MAX = 12;
-    const postMetricsSlice = postMetricsOrder.slice(0, POST_METRICS_MAX);
+    /** Skip discovery for the dashboard sync path: use a hardcoded core list to avoid Vercel 30s timeout. */
+    const POST_INSIGHT_FETCH_CAP = 50;
+    // Core post metrics covering the Engagement + Reels sections; kept short so parallel fetches finish fast.
+    const CORE_POST_METRICS = ['post_reactions_like_total', 'post_comments', 'post_shares', 'post_impressions', 'post_media_view', 'post_video_views'];
+    const postMetricsSlice = CORE_POST_METRICS;
     const slice = items.slice(0, maxPosts);
-    for (let idx = 0; idx < slice.length; idx++) {
-      const p = slice[idx];
+
+    // Parallel post sync: fetch all posts concurrently (up to CONCURRENCY at a time) with a hard
+    // wall-clock budget so we always return within the Vercel function timeout.
+    const CONCURRENCY = 5;
+    const BUDGET_MS = 20_000;
+    const budgetDeadline = Date.now() + BUDGET_MS;
+
+    async function processOnePost(p: (typeof slice)[number], idx: number) {
       const publishedAt = p.created_time ? new Date(p.created_time) : new Date();
       const likeCountFinal = p.reactions?.summary?.total_count ?? 0;
       const commentsCountFinal = p.comments?.summary?.total_count ?? 0;
 
       let impressions = 0;
       let insightMap: Record<string, number> = {};
-      if (idx < POST_INSIGHT_FETCH_CAP && postMetricsSlice.length > 0) {
-        insightMap = await fetchPostLifetimeInsightMap(p.id, accessToken, postMetricsSlice);
+      if (idx < POST_INSIGHT_FETCH_CAP && postMetricsSlice.length > 0 && Date.now() < budgetDeadline) {
+        try {
+          insightMap = await fetchPostLifetimeInsightMap(p.id, accessToken, postMetricsSlice);
+        } catch { /* best-effort */ }
         impressions = pickFacebookPostImpressionsFromInsightMap(insightMap).impressions;
       } else if (idx >= POST_INSIGHT_FETCH_CAP) {
         const prev = await findImportedPostPrevSafe(socialAccountId, p.id);
@@ -1087,6 +1088,12 @@ async function syncImportedPosts(
           sharesCount: sharesCountFinal,
         },
       });
+    }
+
+    // Process in parallel batches; stop if budget expires.
+    for (let i = 0; i < slice.length && Date.now() < budgetDeadline; i += CONCURRENCY) {
+      const batch = slice.slice(i, i + CONCURRENCY);
+      await Promise.allSettled(batch.map((p, j) => processOnePost(p, i + j)));
     }
     return;
   }
