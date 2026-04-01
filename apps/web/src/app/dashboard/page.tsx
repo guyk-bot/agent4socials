@@ -468,11 +468,13 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const appCtx = appDataRef.current;
+    const skipInstagramAutoRefresh = selectedAccount?.platform === 'INSTAGRAM' && !justConnected;
     if (selectedAccount?.id) {
       const accountId = selectedAccount.id;
       const refList = postsCacheRef.current[accountId];
       const ctxList = appCtx?.getPosts(accountId);
       const refreshPostsInBackground = () => {
+        if (skipInstagramAutoRefresh) return;
         api.get(`/social/accounts/${accountId}/posts`, { params: selectedAccount?.platform === 'FACEBOOK' ? { sync: 1 } : {} })
           .then((res) => {
             const list = res.data?.posts ?? [];
@@ -600,6 +602,7 @@ export default function DashboardPage() {
   // Use appDataRef so context updates (after setInsightsForAccount/setPostsForAccount) don't re-run this effect and cause a loading loop.
   useEffect(() => {
     if (!selectedAccount?.id || !dateRange.start || !dateRange.end) return;
+    const skipInstagramAutoRefresh = selectedAccount?.platform === 'INSTAGRAM' && !justConnected;
     const prevAccountId = selectedAccountIdRef.current;
     selectedAccountIdRef.current = selectedAccount.id;
     const accountId = selectedAccount.id;
@@ -617,6 +620,7 @@ export default function DashboardPage() {
     if (cached) {
       setInsights(cached);
       setInsightsLoading(false);
+      if (skipInstagramAutoRefresh) return;
       // SWR: refresh silently in background so UI stays instant.
       api.get(`/social/accounts/${accountId}/insights`, { params: selectedAccount?.platform === 'FACEBOOK' ? { since: dateRange.start, until: dateRange.end, refresh: 1, persist: 1 } : { since: dateRange.start, until: dateRange.end } })
         .then((res) => {
