@@ -15,7 +15,6 @@ import { localCalendarDateFromIso, toLocalCalendarDate } from '@/lib/calendar-da
 import { getSupabaseBrowser } from '@/lib/supabase/client';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import ConnectView from '@/components/dashboard/ConnectView';
-import SyncStatusBanner from '@/components/SyncStatusBanner';
 import {
   Users,
   CheckCircle,
@@ -457,6 +456,7 @@ export default function DashboardPage() {
   const postsCacheRef = useRef<Record<string, Array<{ id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; impressions: number; interactions: number; publishedAt: string; mediaType?: string | null; platform: string }>>>({});
   /** After we have loaded this account's posts from the API once, avoid replacing with empty AppData prefetch noise. */
   const accountPostsHydratedRef = useRef<Record<string, boolean>>({});
+  const accountPostsLastSyncAtRef = useRef<Record<string, number>>({});
   const syncAllRequestedRef = useRef<string | null>(null);
 
   // Auto-select the platform filter when switching accounts (or reset to 'all' for Summary)
@@ -474,13 +474,21 @@ export default function DashboardPage() {
       const refList = postsCacheRef.current[accountId];
       const ctxList = appCtx?.getPosts(accountId);
       const hasAnyCachedPosts = ((refList?.length ?? 0) > 0) || ((ctxList?.length ?? 0) > 0);
+      const THIRTY_MIN_MS = 30 * 60 * 1000;
+      const shouldBackgroundSyncPosts = () => {
+        const last = accountPostsLastSyncAtRef.current[accountId] ?? 0;
+        return Date.now() - last >= THIRTY_MIN_MS;
+      };
       const refreshPostsInBackground = () => {
-        if (skipInstagramAutoRefresh && hasAnyCachedPosts) return;
-        api.get(`/social/accounts/${accountId}/posts`, { params: selectedAccount?.platform === 'FACEBOOK' ? { sync: 1 } : {} })
+        if (skipInstagramAutoRefresh && hasAnyCachedPosts && !shouldBackgroundSyncPosts()) return;
+        api.get(`/social/accounts/${accountId}/posts`, {
+          params: shouldBackgroundSyncPosts() ? { sync: 1 } : (selectedAccount?.platform === 'FACEBOOK' ? { sync: 1 } : {}),
+        })
           .then((res) => {
             const list = res.data?.posts ?? [];
             postsCacheRef.current[accountId] = list;
             accountPostsHydratedRef.current[accountId] = true;
+            accountPostsLastSyncAtRef.current[accountId] = Date.now();
             appDataRef.current?.setPostsForAccount(accountId, list);
             if (selectedAccountIdRef.current === accountId) setImportedPosts(list);
           })
@@ -512,6 +520,7 @@ export default function DashboardPage() {
           const list = res.data?.posts ?? [];
           postsCacheRef.current[accountId] = list;
           accountPostsHydratedRef.current[accountId] = true;
+          accountPostsLastSyncAtRef.current[accountId] = Date.now();
           appDataRef.current?.setPostsForAccount(accountId, list);
           setImportedPosts(list);
           setPostsSyncError(res.data?.syncError ?? null);
@@ -1248,24 +1257,6 @@ export default function DashboardPage() {
           style={{ maxWidth: 1400 }}
         >
           {/* Sync status row — auto-triggers refresh when stale, shows last-updated time */}
-          <SyncStatusBanner
-            accountId={selectedAccount.id}
-            platform={selectedAccount.platform}
-            compact
-            className="mb-2"
-          />
-          {selectedAccount.platform === 'FACEBOOK' && (
-            <div className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-              {(() => {
-                const dbg = (insights as { facebookDataSourceDebug?: { liveMetricRows?: number; fallbackDailyRows?: number; fallbackMetricKeys?: string[] } } | null)?.facebookDataSourceDebug;
-                const hint = (insights as { insightsHint?: string } | null)?.insightsHint;
-                const sourceText = dbg
-                  ? `FB source: liveRows=${dbg.liveMetricRows ?? 0}, fallbackRows=${dbg.fallbackDailyRows ?? 0}, keys=${(dbg.fallbackMetricKeys ?? []).slice(0, 6).join(',') || '-'}`
-                  : 'FB source: no debug payload';
-                return hint ? `${sourceText} | ${hint}` : sourceText;
-              })()}
-            </div>
-          )}
           <FacebookAnalyticsView
             insights={(() => {
               const base: import('@/components/analytics/facebook/types').FacebookInsights = {
@@ -1316,7 +1307,24 @@ export default function DashboardPage() {
                 const aid = selectedAccount.id;
                 postsCacheRef.current[aid] = list;
                 accountPostsHydratedRef.current[aid] = true;
+                accountPostsLastSyncAtRef.current[aid] = Date.now();
                 appDataRef.current?.setPostsForAccount(aid, list);
+                try {
+                  const refreshedInsights = await api.get(`/social/accounts/${aid}/insights`, {
+                    params: selectedAccount.platform === 'FACEBOOK'
+                      ? { since: dateRange.start, until: dateRange.end, refresh: 1, persist: 1 }
+                      : { since: dateRange.start, until: dateRange.end },
+                  });
+                  const nextInsights = refreshedInsights.data ?? null;
+                  if (nextInsights) {
+                    const cacheKey = `${aid}-${dateRange.start}-${dateRange.end}`;
+                    insightsCacheRef.current[cacheKey] = nextInsights;
+                    appDataRef.current?.setInsightsForAccount(aid, nextInsights);
+                    if (selectedAccountIdRef.current === aid) setInsights(nextInsights);
+                  }
+                } catch {
+                  // Keep current insights if refresh fails.
+                }
                 setImportedPosts((prev) => prev.filter((p: { platform: string }) => p.platform !== selectedAccount.platform).concat(list));
                 setPostsSyncError(res.data?.syncError ?? null);
               } catch (_) {

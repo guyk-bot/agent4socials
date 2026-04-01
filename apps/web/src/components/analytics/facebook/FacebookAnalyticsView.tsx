@@ -18,7 +18,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { ChevronRight, ExternalLink, Gem, MessageSquare, Star } from 'lucide-react';
+import { ChevronRight, ExternalLink, Gem, MessageSquare, RefreshCw, Star } from 'lucide-react';
 import { AnalyticsDateRangePicker } from '../AnalyticsDateRangePicker';
 import type { FacebookFrontendAnalyticsBundle } from '@/lib/facebook/frontend-analytics-bundle';
 import type { FacebookInsights, FacebookPost } from './types';
@@ -1379,22 +1379,6 @@ export function FacebookAnalyticsView({
   }, [storyMode]);
 
   const profile = insights?.facebookPageProfile;
-  const platformName =
-    insights?.platform === 'INSTAGRAM'
-      ? 'Instagram'
-      : insights?.platform === 'FACEBOOK'
-        ? 'Facebook'
-        : insights?.platform === 'TIKTOK'
-          ? 'TikTok'
-          : insights?.platform === 'YOUTUBE'
-            ? 'YouTube'
-            : insights?.platform === 'PINTEREST'
-              ? 'Pinterest'
-              : insights?.platform === 'LINKEDIN'
-                ? 'LinkedIn'
-                : insights?.platform === 'TWITTER'
-                  ? 'X'
-                  : (insights?.platform ?? 'Account');
   const isInstagram = insights?.platform?.toUpperCase() === 'INSTAGRAM';
   const isTikTok = insights?.platform?.toUpperCase() === 'TIKTOK';
   const tiktokUser = insights?.tiktokUser;
@@ -1794,24 +1778,53 @@ export function FacebookAnalyticsView({
   }, [postsRows]);
 
   const reelsChartData = useMemo(() => {
-    return reelsRows.map((r) => {
+    const byDate: Record<string, {
+      date: string;
+      views: number;
+      watchTimeMinutes: number;
+      avgWatchSeconds: number;
+      clicks: number;
+      likes: number;
+      comments: number;
+      shares: number;
+      reposts: number;
+      thumbnailUrl: string | null;
+      count: number;
+    }> = {};
+    for (const r of reelsRows) {
       const date = r.post.publishedAt.slice(0, 10);
-      return {
+      const row = byDate[date] ?? {
         date,
-        views: r.views,
-        watchTimeMinutes: (r.watchTimeMs ?? 0) / 60000,
-        avgWatchSeconds: r.avgWatchMs / 1000,
-        clicks:
-          r.post.platform === 'INSTAGRAM'
-            ? (r.post.facebookInsights?.instagram_total_interactions ?? r.post.facebookInsights?.post_clicks ?? 0)
-            : (r.post.facebookInsights?.post_clicks ?? 0),
-        likes: bestCount(r.post.facebookInsights?.post_reactions_like_total, r.post.likeCount),
-        comments: r.post.facebookInsights?.post_comments ?? r.post.commentsCount ?? 0,
-        shares: r.post.facebookInsights?.post_shares ?? r.post.sharesCount ?? 0,
-        reposts: r.post.repostsCount ?? r.post.facebookInsights?.post_shares ?? 0,
+        views: 0,
+        watchTimeMinutes: 0,
+        avgWatchSeconds: 0,
+        clicks: 0,
+        likes: 0,
+        comments: 0,
+        shares: 0,
+        reposts: 0,
         thumbnailUrl: r.post.thumbnailUrl ?? null,
+        count: 0,
       };
-    });
+      row.views += r.views;
+      row.watchTimeMinutes += (r.watchTimeMs ?? 0) / 60000;
+      row.avgWatchSeconds += r.avgWatchMs / 1000;
+      row.clicks += r.post.platform === 'INSTAGRAM'
+        ? (r.post.facebookInsights?.instagram_total_interactions ?? r.post.facebookInsights?.post_clicks ?? 0)
+        : (r.post.facebookInsights?.post_clicks ?? 0);
+      row.likes += bestCount(r.post.facebookInsights?.post_reactions_like_total, r.post.likeCount);
+      row.comments += r.post.facebookInsights?.post_comments ?? r.post.commentsCount ?? 0;
+      row.shares += r.post.facebookInsights?.post_shares ?? r.post.sharesCount ?? 0;
+      row.reposts += r.post.repostsCount ?? r.post.facebookInsights?.post_shares ?? 0;
+      row.count += 1;
+      byDate[date] = row;
+    }
+    return Object.values(byDate)
+      .map((row) => ({
+        ...row,
+        avgWatchSeconds: row.count > 0 ? row.avgWatchSeconds / row.count : 0,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
   }, [reelsRows]);
 
   const storyTicks = useMemo(
@@ -2133,13 +2146,9 @@ export function FacebookAnalyticsView({
                           ? 'YouTube'
                           : 'Facebook Page')}
               </h1>
-              <p className="text-sm flex items-center gap-2" style={{ color: COLOR.textSecondary }}>
-                @
-                {isTikTok ? (tiktokCreatorInfo?.creatorUsername ?? resolvedUsername ?? 'unknown') : resolvedUsername || 'unknown'}
-                <span className="inline-flex items-center rounded-full border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-[11px] font-medium text-neutral-700">
-                  {platformName}
-                </span>
-                {profile?.category ? `  •  ${profile.category}` : ''}
+              <p className="text-sm inline-flex items-center gap-2" style={{ color: COLOR.textSecondary }}>
+                <RefreshCw size={13} className="opacity-75" />
+                Updated just now
               </p>
             </div>
           </div>
