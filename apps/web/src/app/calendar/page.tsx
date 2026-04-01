@@ -37,26 +37,6 @@ function formatTime(date: Date): string {
     return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 }
 
-function stripHashtags(text: string): string {
-    return text.replace(/#[\w]+/g, '').replace(/\s+/g, ' ').trim();
-}
-
-function postContentPreview(p: any): string {
-    const candidates: string[] = [];
-    if (typeof p?.content === 'string' && p.content.trim()) candidates.push(p.content);
-    if (typeof p?.title === 'string' && p.title.trim()) candidates.push(p.title);
-    if (p?.contentByPlatform && typeof p.contentByPlatform === 'object') {
-        for (const value of Object.values(p.contentByPlatform)) {
-            if (typeof value === 'string' && value.trim()) candidates.push(value);
-        }
-    }
-    for (const raw of candidates) {
-        const cleaned = stripHashtags(raw);
-        if (cleaned) return cleaned.slice(0, 64);
-    }
-    return 'Scheduled post';
-}
-
 function getPostPlatforms(p: any): string[] {
     const fromTargets = Array.isArray(p?.targets)
         ? p.targets.map((t: { platform?: string }) => t?.platform).filter(Boolean)
@@ -365,26 +345,32 @@ export default function CalendarPage() {
                                                                     className={`relative block w-full max-w-full rounded-md border px-2 py-1.5 ${style.bg} ${style.border} ${style.text} hover:opacity-95 transition-all min-w-0 overflow-hidden`}
                                                                 >
                                                                     <span className="absolute top-1.5 right-1.5 text-[10px] font-semibold rounded-md bg-violet-600 text-white px-2 py-0.5 shrink-0">Edit</span>
-                                                                    <div className="mb-1 pr-12">
+                                                                    <div className="mb-1 pr-12 min-w-0">
                                                                         <span className="block text-[10px] font-semibold leading-none mb-1">{formatTime(new Date(p.scheduledAt))}</span>
-                                                                        <div className="flex flex-wrap items-center gap-1 max-w-full">
+                                                                        <div className="flex flex-wrap items-center gap-0.5 max-w-full">
                                                                             {platforms.map((pl: string) => (
-                                                                                <span key={pl} className="flex shrink-0 rounded-full bg-white/80 p-0.5 border border-white">
-                                                                                    <PlatformIcon platform={pl as keyof typeof PLATFORM_ICON_MAP} size={12} className="opacity-95" />
+                                                                                <span key={pl} className="flex shrink-0">
+                                                                                    <PlatformIcon platform={pl as keyof typeof PLATFORM_ICON_MAP} size={18} className="opacity-95" />
                                                                                 </span>
                                                                             ))}
                                                                         </div>
                                                                     </div>
-                                                                    <div className="flex items-center gap-2 min-w-0">
-                                                                        {thumb && (
+                                                                    {thumb && (
+                                                                        <div
+                                                                            className={`mt-0.5 w-full min-w-0 rounded-md overflow-hidden border border-white/60 bg-black/5 ${isReelLikePost(p) ? 'flex justify-center' : ''}`}
+                                                                        >
                                                                             <img
                                                                                 src={thumb}
                                                                                 alt="Post thumbnail"
-                                                                                className={`${isReelLikePost(p) ? 'h-14 w-8' : 'h-12 w-12'} rounded-md object-cover border border-white/70 shrink-0`}
+                                                                                className={
+                                                                                    isReelLikePost(p)
+                                                                                        ? 'h-[4.25rem] w-[calc(4.25rem*9/16)] max-w-full object-cover'
+                                                                                        : 'h-[4.25rem] w-full object-cover'
+                                                                                }
                                                                                 loading="lazy"
                                                                             />
-                                                                        )}
-                                                                    </div>
+                                                                        </div>
+                                                                    )}
                                                                 </Link>
                                                             );
                                                         })}
@@ -418,11 +404,11 @@ export default function CalendarPage() {
                     </div>
                     <div className="grid grid-cols-7">
                         {days.map((day, i) => (
-                            <div key={i} className={`min-h-[140px] border-b border-r border-gray-100 p-2 overflow-hidden ${day === null ? 'bg-gray-50' : 'bg-white'}`}>
+                            <div key={i} className={`min-h-[168px] border-b border-r border-gray-100 p-2 overflow-hidden ${day === null ? 'bg-gray-50' : 'bg-white'}`}>
                                 {day && (
                                     <>
                                         <span className="text-sm font-medium text-gray-400">{day}</span>
-                                        <div className="mt-2 space-y-1.5 max-h-[112px] overflow-y-auto pr-0.5">
+                                        <div className="mt-2 space-y-1.5 max-h-[140px] overflow-y-auto overflow-x-hidden pr-0.5">
                                             {getPostsForDay(day).map((p: any) => {
                                                 const platforms = getPostPlatforms(p);
                                                 const style = getPrimaryPlatformStyle(platforms);
@@ -434,25 +420,31 @@ export default function CalendarPage() {
                                                         className={`relative block w-full max-w-full p-1.5 rounded-md border ${style.bg} ${style.border} ${style.text} hover:opacity-95 transition-all min-w-0 overflow-hidden`}
                                                     >
                                                         <span className="absolute top-1.5 right-1.5 text-[10px] font-semibold rounded-md bg-violet-600 text-white px-2 py-0.5 shrink-0">Edit</span>
-                                                        <div className="flex items-start gap-2">
-                                                            {thumb ? (
+                                                        <div className="text-[11px] font-semibold leading-none mb-1 pr-12">{formatTime(new Date(p.scheduledAt))}</div>
+                                                        {thumb ? (
+                                                            <div
+                                                                className={`mb-1 w-full min-h-[5rem] max-h-[5.5rem] rounded-md overflow-hidden border border-white/60 bg-black/5 ${isReelLikePost(p) ? 'flex justify-center items-stretch' : ''}`}
+                                                            >
                                                                 <img
                                                                     src={thumb}
                                                                     alt="Post thumbnail"
-                                                                    className={`${isReelLikePost(p) ? 'h-16 w-9' : 'h-12 w-12'} rounded-md object-cover border border-white/70 shrink-0 mt-0.5`}
+                                                                    className={
+                                                                        isReelLikePost(p)
+                                                                            ? 'h-[5.25rem] w-[calc(5.25rem*9/16)] max-w-[min(100%,5.25rem)] object-cover'
+                                                                            : 'h-[5rem] w-full min-h-[5rem] object-cover'
+                                                                    }
                                                                     loading="lazy"
                                                                 />
-                                                            ) : (
-                                                                <Clock size={12} className="shrink-0 mt-0.5 opacity-80" />
-                                                            )}
-                                                            <div className="min-w-0 flex-1 pr-12">
-                                                                <div className="text-[11px] font-semibold leading-none mb-1">{formatTime(new Date(p.scheduledAt))}</div>
-                                                                <div className="flex flex-wrap items-center gap-1.5 mb-0.5 max-w-full">
-                                                                    {platforms.map((pl: string) => (
-                                                                        <PlatformIcon key={pl} platform={pl as keyof typeof PLATFORM_ICON_MAP} size={12} className="opacity-90" />
-                                                                    ))}
-                                                                </div>
                                                             </div>
+                                                        ) : (
+                                                            <div className="mb-1 flex h-10 items-center text-gray-400">
+                                                                <Clock size={16} className="opacity-70" aria-hidden />
+                                                            </div>
+                                                        )}
+                                                        <div className="flex flex-wrap items-center gap-1 max-w-full">
+                                                            {platforms.map((pl: string) => (
+                                                                <PlatformIcon key={pl} platform={pl as keyof typeof PLATFORM_ICON_MAP} size={20} className="opacity-90 shrink-0" />
+                                                            ))}
                                                         </div>
                                                     </Link>
                                                 );
