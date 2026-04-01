@@ -200,6 +200,11 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       delete next[accountId];
       return next;
     });
+    setEngagementByAccountId((prev) => {
+      const next = { ...prev };
+      delete next[accountId];
+      return next;
+    });
   }, []);
 
   const setCommentsForAccount = useCallback((accountId: string, comments: CachedComment[]) => {
@@ -212,6 +217,10 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
   const setScheduledPosts = useCallback((posts: CachedScheduledPost[]) => {
     setScheduledPostsState(posts);
+  }, []);
+
+  const setEngagementForAccount = useCallback((accountId: string, engagement: CachedEngagement[]) => {
+    setEngagementByAccountId((prev) => ({ ...prev, [accountId]: engagement }));
   }, []);
 
   const setNotifications = useCallback((n: NotificationsCache) => {
