@@ -1023,8 +1023,7 @@ export default function DashboardPage() {
   );
   const showDataSyncBanner = Boolean(
     justConnected ||
-    analyticsLoadingOnly ||
-    (selectedAccount?.platform === 'INSTAGRAM' && (insightsLoading || importedPostsLoading))
+    analyticsLoadingOnly
   );
   function openPricingPopup() {
     setPricingModalOpen(true);
