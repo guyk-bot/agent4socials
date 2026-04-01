@@ -90,35 +90,54 @@ type AppDataContextType = {
 
 const defaultNotifications: NotificationsCache = { inbox: 0, comments: 0, messages: 0 };
 
-const CACHE_KEY = 'appData_cache_v1';
+const CACHE_KEY = 'appData_cache_v2';
 const CACHE_MAX_BYTES = 450000; // ~450KB to stay under sessionStorage quota
 
 function getInitialConversationsFromStorage(): Record<string, CachedConversation[]> {
-  if (typeof window === 'undefined') return {};
-  try {
-    const raw = sessionStorage.getItem(CACHE_KEY);
-    if (!raw) return {};
-    const data = JSON.parse(raw) as { conversationsByAccountId?: Record<string, CachedConversation[]> };
-    return data?.conversationsByAccountId && typeof data.conversationsByAccountId === 'object'
-      ? data.conversationsByAccountId
-      : {};
-  } catch {
-    return {};
-  }
+  const data = readCachedBlob();
+  return data?.conversationsByAccountId && typeof data.conversationsByAccountId === 'object'
+    ? data.conversationsByAccountId
+    : {};
 }
 
 function getInitialCommentsFromStorage(): Record<string, CachedComment[]> {
-  if (typeof window === 'undefined') return {};
+  const data = readCachedBlob();
+  return data?.commentsByAccountId && typeof data.commentsByAccountId === 'object'
+    ? data.commentsByAccountId
+    : {};
+}
+
+
+function readCachedBlob(): {
+  conversationsByAccountId?: Record<string, CachedConversation[]>;
+  postsByAccountId?: Record<string, CachedPost[]>;
+  insightsByAccountId?: Record<string, CachedInsights>;
+  commentsByAccountId?: Record<string, CachedComment[]>;
+} | null {
+  if (typeof window === 'undefined') return null;
   try {
-    const raw = sessionStorage.getItem(CACHE_KEY);
-    if (!raw) return {};
-    const data = JSON.parse(raw) as { commentsByAccountId?: Record<string, CachedComment[]> };
-    return data?.commentsByAccountId && typeof data.commentsByAccountId === 'object'
-      ? data.commentsByAccountId
-      : {};
+    const raw = localStorage.getItem(CACHE_KEY) || sessionStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw) as {
+      conversationsByAccountId?: Record<string, CachedConversation[]>;
+      postsByAccountId?: Record<string, CachedPost[]>;
+      insightsByAccountId?: Record<string, CachedInsights>;
+      commentsByAccountId?: Record<string, CachedComment[]>;
+    };
+    return data;
   } catch {
-    return {};
+    return null;
   }
+}
+
+function getInitialPostsFromStorage(): Record<string, CachedPost[]> {
+  const data = readCachedBlob();
+  return data?.postsByAccountId && typeof data.postsByAccountId === 'object' ? data.postsByAccountId : {};
+}
+
+function getInitialInsightsFromStorage(): Record<string, CachedInsights> {
+  const data = readCachedBlob();
+  return data?.insightsByAccountId && typeof data.insightsByAccountId === 'object' ? data.insightsByAccountId : {};
 }
 
 const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
@@ -132,8 +151,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const { setCachedAccounts } = useAccountsCache() ?? { setCachedAccounts: () => {} };
   const [notifications, setNotificationsState] = useState<NotificationsCache>(defaultNotifications);
-  const [postsByAccountId, setPostsByAccountId] = useState<Record<string, CachedPost[]>>({});
-  const [insightsByAccountId, setInsightsByAccountId] = useState<Record<string, CachedInsights>>({});
+  const [postsByAccountId, setPostsByAccountId] = useState<Record<string, CachedPost[]>>(getInitialPostsFromStorage);
+  const [insightsByAccountId, setInsightsByAccountId] = useState<Record<string, CachedInsights>>(getInitialInsightsFromStorage);
   const [commentsByAccountId, setCommentsByAccountId] = useState<Record<string, CachedComment[]>>(getInitialCommentsFromStorage);
   const [conversationsByAccountId, setConversationsByAccountId] = useState<Record<string, CachedConversation[]>>(getInitialConversationsFromStorage);
   const [scheduledPosts, setScheduledPostsState] = useState<CachedScheduledPost[]>([]);
@@ -216,6 +235,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     setPrefetchStatus('idle');
     setPrefetchHasLoadedOnce(false);
     if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(CACHE_KEY);
+      if (typeof localStorage !== 'undefined') localStorage.removeItem(CACHE_KEY);
+    if (typeof localStorage !== 'undefined') localStorage.removeItem(CACHE_KEY);
   }, []);
 
   const invalidateConversations = useCallback(() => {
@@ -226,7 +247,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (typeof window === 'undefined' || !user?.id) return;
     try {
-      const raw = sessionStorage.getItem(CACHE_KEY);
+      const raw = localStorage.getItem(CACHE_KEY) || sessionStorage.getItem(CACHE_KEY);
       if (!raw) return;
       const data = JSON.parse(raw) as {
         conversationsByAccountId?: Record<string, CachedConversation[]>;
@@ -270,6 +291,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       const str = JSON.stringify(payload);
       if (str.length > CACHE_MAX_BYTES) return;
       sessionStorage.setItem(CACHE_KEY, str);
+      localStorage.setItem(CACHE_KEY, str);
     } catch {
       // ignore quota or other errors
     }
@@ -280,6 +302,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       setPrefetchStatus('idle');
       setPrefetchHasLoadedOnce(false);
       if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(CACHE_KEY);
+    if (typeof localStorage !== 'undefined') localStorage.removeItem(CACHE_KEY);
       return;
     }
     let cancelled = false;

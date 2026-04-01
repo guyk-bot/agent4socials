@@ -4,12 +4,12 @@ import React, { createContext, useCallback, useContext, useState } from 'react';
 
 type CachedAccount = { id: string; platform: string; username?: string; profilePicture?: string | null; [key: string]: unknown };
 
-const STORAGE_KEY = 'agent4socials_cached_accounts';
+const STORAGE_KEY = 'agent4socials_cached_accounts_v2';
 
 function readAccountsFromStorage(): CachedAccount[] {
   if (typeof window === 'undefined') return [];
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY) || sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     return Array.isArray(parsed) ? parsed : [];
@@ -37,6 +37,7 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       if (typeof window !== 'undefined' && Array.isArray(next)) {
         try {
           sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
         } catch {
           // ignore
         }
