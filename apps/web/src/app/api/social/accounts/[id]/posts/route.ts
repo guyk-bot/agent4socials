@@ -7,9 +7,9 @@ import { getValidYoutubeToken } from '@/lib/youtube-token';
 import {
   fetchAllPublishedPostsForPage,
   fetchAllPostsFeedForPage,
-  resolvePostInsightMetricsForSync,
   fetchPostLifetimeInsightMap,
   pickFacebookPostImpressionsFromInsightMap,
+  sortFbPublishedPostsNewestFirst,
 } from '@/lib/facebook/fetchers';
 import { syncFacebookAuxiliaryIngest } from '@/lib/facebook/sync-extras';
 import { fbRestBaseUrl } from '@/lib/facebook/constants';
@@ -18,6 +18,51 @@ import { getValidPinterestToken } from '@/lib/pinterest-token';
 /** Fallback host for IG user/media when graph.facebook.com omits items (matches insights route). */
 const igGraphRestBaseUrl = 'https://graph.instagram.com/v18.0';
 
+
+const FB_CORE_POST_LIFETIME_METRICS = [
+  'post_reactions_like_total',
+  'post_comments',
+  'post_shares',
+  'post_impressions',
+  'post_media_view',
+  'post_video_views',
+] as const;
+
+function mergeFacebookInsightMaps(
+  db?: Record<string, number>,
+  live?: Record<string, number>
+): Record<string, number> | undefined {
+  if (!db && !live) return undefined;
+  const out: Record<string, number> = { ...(db ?? {}) };
+  for (const [k, v] of Object.entries(live ?? {})) {
+    if (typeof v !== 'number' || !Number.isFinite(v)) continue;
+    const prev = out[k];
+    out[k] = typeof prev === 'number' && Number.isFinite(prev) ? Math.max(prev, v) : v;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+function isFacebookVideoLikeImportedRow(p: { permalinkUrl?: string | null; mediaType?: string | null }): boolean {
+  const url = (p.permalinkUrl ?? '').toLowerCase();
+  if ((p.mediaType ?? '').toUpperCase() === 'VIDEO') return true;
+  if (url.includes('/reel/') || url.includes('/reels/')) return true;
+  if (url.includes('/videos/')) return true;
+  return false;
+}
+
+/** True when stored Graph lifetime map has no usable view signal (common when sync hit the insight cap on older ordering). */
+function facebookStoredInsightsLackViewSignal(meta: Record<string, unknown>): boolean {
+  const fi = meta.facebookInsights;
+  if (!fi || typeof fi !== 'object' || Array.isArray(fi)) return true;
+  const m = fi as Record<string, number>;
+  const signal = Math.max(
+    m.post_media_view ?? 0,
+    m.post_video_views ?? 0,
+    m.post_impressions ?? 0,
+    m.post_impressions_unique ?? 0
+  );
+  return signal === 0;
+}
 
 async function resolveFacebookPageAccessToken(pageId: string, token: string): Promise<string> {
   try {
@@ -363,48 +408,38 @@ export async function GET(
       }
     }
 
-    // Facebook fallback: when DB metadata is missing/outdated, fetch lifetime insights live for recent reel/video posts.
-    // This keeps Reels cards (views/watch time/clicks/reactions) populated even if platformMetadata could not be stored.
+    // Facebook: fill missing video/reel view metrics on read. Sync only attaches lifetime insights to the newest N posts;
+    // older Graph ordering used to starve recent reels. Also merge live results with DB so partial maps still upgrade.
     let liveFacebookInsightsByPostId: Record<string, Record<string, number>> = {};
     if (account.platform === 'FACEBOOK' && importedRows.length > 0) {
       try {
+        const fbPageToken = await resolveFacebookPageAccessToken(account.platformUserId, account.accessToken);
         const candidates = importedRows
           .filter((p) => {
-            const url = (p.permalinkUrl ?? '').toLowerCase();
-            const isVideoLike = (p.mediaType ?? '').toUpperCase() === 'VIDEO' || url.includes('/reel/');
-            if (!isVideoLike) return false;
+            if (!isFacebookVideoLikeImportedRow(p)) return false;
             const meta =
               p.platformMetadata && typeof p.platformMetadata === 'object' && !Array.isArray(p.platformMetadata)
                 ? (p.platformMetadata as Record<string, unknown>)
                 : {};
-            return !(meta.facebookInsights && typeof meta.facebookInsights === 'object' && !Array.isArray(meta.facebookInsights));
+            return facebookStoredInsightsLackViewSignal(meta);
           })
-          .slice(0, 40);
+          .slice(0, 45);
 
         if (candidates.length > 0) {
-          const samplePostId = candidates[0]?.platformPostId ?? importedRows[0]?.platformPostId ?? null;
-          const metricOrder = await resolvePostInsightMetricsForSync({
-            socialAccountId: account.id,
-            pageId: account.platformUserId,
-            accessToken: account.accessToken,
-            samplePostId,
-          });
-          const metrics = metricOrder.slice(0, 12);
-          if (metrics.length > 0) {
-            for (const row of candidates) {
-              try {
-                const map = await fetchPostLifetimeInsightMap(row.platformPostId, account.accessToken, metrics);
-                if (Object.keys(map).length > 0) {
-                  liveFacebookInsightsByPostId[row.platformPostId] = map;
-                }
-              } catch {
-                // best effort per post; keep response flowing
+          const metrics = [...FB_CORE_POST_LIFETIME_METRICS];
+          await runWithConcurrency(candidates, 5, async (row) => {
+            try {
+              const map = await fetchPostLifetimeInsightMap(row.platformPostId, fbPageToken, [...metrics]);
+              if (Object.keys(map).length > 0) {
+                liveFacebookInsightsByPostId[row.platformPostId] = map;
               }
+            } catch {
+              /* per-post best effort */
             }
-          }
+          });
         }
       } catch {
-        // best effort; if live lookup fails, return DB-backed values
+        /* best effort */
       }
     }
 
@@ -539,12 +574,26 @@ export async function GET(
               };
             })()
           : undefined;
+      const mergedFacebookInsights =
+        p.platform === 'FACEBOOK'
+          ? mergeFacebookInsightMaps(dbFacebookInsights, liveFacebookInsightsByPostId[p.platformPostId])
+          : undefined;
       const facebookInsights =
         p.platform === 'FACEBOOK'
-          ? (dbFacebookInsights ?? liveFacebookInsightsByPostId[p.platformPostId])
+          ? mergedFacebookInsights
           : p.platform === 'INSTAGRAM'
             ? igCompatInsights
             : undefined;
+      const fbImpressionsFromInsights =
+        p.platform === 'FACEBOOK' && mergedFacebookInsights
+          ? pickFacebookPostImpressionsFromInsightMap(mergedFacebookInsights).impressions
+          : 0;
+      const impressionsSerialized =
+        p.platform === 'INSTAGRAM'
+          ? igImpressionsSerialized
+          : p.platform === 'FACEBOOK'
+            ? Math.max(p.impressions ?? 0, fbImpressionsFromInsights)
+            : p.impressions ?? 0;
       return {
         id: p.id,
         platformPostId: p.platformPostId,
@@ -556,7 +605,7 @@ export async function GET(
           p.thumbnailUrl ??
           null,
         permalinkUrl: p.permalinkUrl,
-        impressions: igImpressionsSerialized,
+        impressions: impressionsSerialized,
         interactions: p.interactions ?? 0,
         likeCount: enrich?.likeCount ?? p.likeCount ?? 0,
         commentsCount: enrich?.commentsCount ?? p.commentsCount ?? 0,
@@ -996,6 +1045,8 @@ async function syncImportedPosts(
         // feed backfill is best-effort
       }
 
+      items = sortFbPublishedPostsNewestFirst(items);
+
       try {
         const aux = await syncFacebookAuxiliaryIngest({
           socialAccountId,
@@ -1019,10 +1070,9 @@ async function syncImportedPosts(
     }
 
     /** Skip discovery for the dashboard sync path: use a hardcoded core list to avoid Vercel 30s timeout. */
-    const POST_INSIGHT_FETCH_CAP = 50;
-    // Core post metrics covering the Engagement + Reels sections; kept short so parallel fetches finish fast.
-    const CORE_POST_METRICS = ['post_reactions_like_total', 'post_comments', 'post_shares', 'post_impressions', 'post_media_view', 'post_video_views'];
-    const postMetricsSlice = CORE_POST_METRICS;
+    const POST_INSIGHT_FETCH_CAP = 72;
+    // Newest posts first (see sortFbPublishedPostsNewestFirst) so recent reels always receive lifetime insights.
+    const postMetricsSlice = [...FB_CORE_POST_LIFETIME_METRICS];
     const slice = items.slice(0, maxPosts);
 
     // Parallel post sync: fetch all posts concurrently (up to CONCURRENCY at a time) with a hard

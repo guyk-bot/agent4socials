@@ -134,6 +134,15 @@ export async function fetchAllPublishedPostsForPage(
   return { items, pageFetches, lastError };
 }
 
+/** Meta often returns `published_posts` oldest-first; sync must refresh newest posts first for insight caps. */
+export function sortFbPublishedPostsNewestFirst(items: FbPublishedPostRow[]): FbPublishedPostRow[] {
+  return [...items].sort((a, b) => {
+    const ta = a.created_time ? Date.parse(a.created_time) : 0;
+    const tb = b.created_time ? Date.parse(b.created_time) : 0;
+    return tb - ta;
+  });
+}
+
 export async function fetchPostsFeedPage(
   pageId: string,
   accessToken: string,
