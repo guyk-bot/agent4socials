@@ -381,7 +381,7 @@ export default function CalendarPage() {
                                                                                 />
                                                                             </div>
                                                                         )}
-                                                                        <div className="min-w-0 flex-1 min-h-[5.75rem] mt-0.5 grid grid-cols-3 gap-x-0.5 gap-y-1 content-start justify-items-center">
+                                                                        <div className="min-w-0 flex-1 min-h-[5.75rem] mt-1.5 grid grid-cols-3 gap-x-0.5 gap-y-1 content-start justify-items-center">
                                                                             {platforms.map((pl: string) => (
                                                                                 <PlatformIcon key={pl} platform={pl as keyof typeof PLATFORM_ICON_MAP} size={18} className="opacity-90 shrink-0" />
                                                                             ))}
@@ -460,7 +460,7 @@ export default function CalendarPage() {
                                                                     <Clock size={16} className="opacity-70" aria-hidden />
                                                                 </div>
                                                             )}
-                                                            <div className="min-w-0 flex-1 min-h-[5.75rem] mt-0.5 grid grid-cols-3 gap-x-0.5 gap-y-1 content-start justify-items-center">
+                                                            <div className="min-w-0 flex-1 min-h-[5.75rem] mt-1.5 grid grid-cols-3 gap-x-0.5 gap-y-1 content-start justify-items-center">
                                                                 {platforms.map((pl: string) => (
                                                                     <PlatformIcon key={pl} platform={pl as keyof typeof PLATFORM_ICON_MAP} size={18} className="opacity-90 shrink-0" />
                                                                 ))}
