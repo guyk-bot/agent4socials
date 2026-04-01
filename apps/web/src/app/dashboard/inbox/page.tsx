@@ -602,8 +602,8 @@ function InboxPage() {
           const sorted = merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
           setConversations(sorted);
           if (sorted.length > 0) conversationsLoadedRef.current = true;
-          setConversationsError(errors[0] ?? null);
-          setConversationsDebug(debugs[0] ?? null);
+          setConversationsError(sorted.length === 0 ? (errors[0] ?? null) : null);
+          setConversationsDebug(sorted.length === 0 ? (debugs[0] ?? null) : null);
           setConversationsLoading(false);
         }
       return;
@@ -667,8 +667,8 @@ function InboxPage() {
             const sorted = merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
             setConversations(sorted);
             if (sorted.length > 0) conversationsLoadedRef.current = true;
-            setConversationsError(errors[0] ?? null);
-            setConversationsDebug(debugs[0] ?? null);
+            setConversationsError(sorted.length === 0 ? (errors[0] ?? null) : null);
+            setConversationsDebug(sorted.length === 0 ? (debugs[0] ?? null) : null);
           }
         })
         .catch((err: { message?: string; response?: { status?: number; data?: { error?: string } } }) => {
@@ -699,8 +699,8 @@ function InboxPage() {
             const sorted = merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
             setConversations(sorted);
             if (sorted.length > 0) conversationsLoadedRef.current = true;
-            setConversationsError(errors[0] ?? null);
-            setConversationsDebug(debugs[0] ?? null);
+            setConversationsError(sorted.length === 0 ? (errors[0] ?? null) : null);
+            setConversationsDebug(sorted.length === 0 ? (debugs[0] ?? null) : null);
           }
         })
         .finally(() => {
@@ -1352,7 +1352,7 @@ function InboxPage() {
         </>
       );
     }
-    if (conversationsLoading) {
+    if (conversationsLoading && conversations.length === 0) {
       return (
         <div className="p-6 flex flex-col items-center justify-center gap-3">
           <Loader2 size={32} className="text-indigo-500 animate-spin" />

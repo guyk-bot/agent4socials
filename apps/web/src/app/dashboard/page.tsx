@@ -473,8 +473,9 @@ export default function DashboardPage() {
       const accountId = selectedAccount.id;
       const refList = postsCacheRef.current[accountId];
       const ctxList = appCtx?.getPosts(accountId);
+      const hasAnyCachedPosts = ((refList?.length ?? 0) > 0) || ((ctxList?.length ?? 0) > 0);
       const refreshPostsInBackground = () => {
-        if (skipInstagramAutoRefresh) return;
+        if (skipInstagramAutoRefresh && hasAnyCachedPosts) return;
         api.get(`/social/accounts/${accountId}/posts`, { params: selectedAccount?.platform === 'FACEBOOK' ? { sync: 1 } : {} })
           .then((res) => {
             const list = res.data?.posts ?? [];
@@ -595,6 +596,7 @@ export default function DashboardPage() {
 
   const insightsCacheRef = useRef<Record<string, { platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number; profileViewsTotal?: number }>>({});
   const fbForcedRefreshRef = useRef<Record<string, boolean>>({});
+  const igForcedRefreshRef = useRef<Record<string, boolean>>({});
   const selectedAccountIdRef = useRef<string | null>(null);
   const aggregatedCacheRef = useRef<{ key: string; data: { totalFollowers: number; totalImpressions: number; totalReach: number; totalProfileViews: number; totalPageViews: number; byPlatform: Record<string, { followers: number; impressions: number; timeSeries: Array<{ date: string; value: number }> }>; combinedTimeSeries: Array<{ date: string; value: number }> } } | null>(null);
 
@@ -620,7 +622,16 @@ export default function DashboardPage() {
     if (cached) {
       setInsights(cached);
       setInsightsLoading(false);
-      if (skipInstagramAutoRefresh) return;
+      if (skipInstagramAutoRefresh) {
+        const isInstagramZeroState = Boolean(
+          selectedAccount?.platform === 'INSTAGRAM' &&
+          Number(cached.followers ?? 0) === 0 &&
+          Number(cached.impressionsTotal ?? 0) === 0 &&
+          Number(cached.profileViewsTotal ?? cached.pageViewsTotal ?? 0) === 0
+        );
+        if (!isInstagramZeroState || igForcedRefreshRef.current[cacheKey]) return;
+        igForcedRefreshRef.current[cacheKey] = true;
+      }
       // SWR: refresh silently in background so UI stays instant.
       api.get(`/social/accounts/${accountId}/insights`, { params: selectedAccount?.platform === 'FACEBOOK' ? { since: dateRange.start, until: dateRange.end, refresh: 1, persist: 1 } : { since: dateRange.start, until: dateRange.end } })
         .then((res) => {

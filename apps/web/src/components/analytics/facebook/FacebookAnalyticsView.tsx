@@ -53,7 +53,7 @@ type SectionId = (typeof FACEBOOK_ANALYTICS_SECTION_IDS)[keyof typeof FACEBOOK_A
 type StoryMode = 'views' | 'engagement' | 'growth';
 type StoryMetricKey = 'followers' | 'engagements' | 'videoViews' | 'contentViews' | 'pageVisits';
 type ActivityMetricKey = 'actions' | 'posts' | 'conversations';
-type EngagementMetricKey = 'likes' | 'comments' | 'shares';
+type EngagementMetricKey = 'likes' | 'comments' | 'shares' | 'reposts';
 type TrafficMetricKey = 'postImpressions' | 'nonviral' | 'viral' | 'uniqueReachProxy';
 type ReelMetricKey = 'views' | 'watchTime' | 'avgWatch' | 'clicks' | 'likes' | 'comments' | 'shares' | 'reposts';
 type ReelPresetKey = 'performance' | 'engagement' | 'watch';
@@ -153,6 +153,7 @@ const ENGAGEMENT_METRIC_CONFIG: Record<EngagementMetricKey, { label: string; col
   likes: { label: 'Likes', color: COLOR.violet },
   comments: { label: 'Comments', color: COLOR.coral },
   shares: { label: 'Shares', color: COLOR.amber },
+  reposts: { label: 'Reposts', color: '#111827' },
 };
 
 const TRAFFIC_METRIC_CONFIG: Record<TrafficMetricKey, { label: string; color: string }> = {
@@ -1335,7 +1336,7 @@ export function FacebookAnalyticsView({
   const [storyMode, setStoryMode] = useState<StoryMode>('growth');
   const [selectedStoryMetrics, setSelectedStoryMetrics] = useState<StoryMetricKey[]>(STORY_MODE_DEFAULT_METRICS.growth);
   const [selectedActivityMetrics, setSelectedActivityMetrics] = useState<ActivityMetricKey[]>(['posts', 'actions']);
-  const [selectedEngagementMetrics, setSelectedEngagementMetrics] = useState<EngagementMetricKey[]>(['likes', 'comments', 'shares']);
+  const [selectedEngagementMetrics, setSelectedEngagementMetrics] = useState<EngagementMetricKey[]>(['likes', 'comments', 'shares', 'reposts']);
   const [selectedTrafficMetrics, setSelectedTrafficMetrics] = useState<TrafficMetricKey[]>(['postImpressions', 'nonviral', 'viral', 'uniqueReachProxy']);
   const [selectedReelMetrics, setSelectedReelMetrics] = useState<ReelMetricKey[]>(['views', 'avgWatch']);
   const [reelPreset, setReelPreset] = useState<ReelPresetKey>('performance');
@@ -1876,6 +1877,7 @@ export function FacebookAnalyticsView({
   const likesTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + bestCount(post.facebookInsights?.post_reactions_like_total, post.likeCount ?? post.engagementBreakdown?.reactions), 0), [postsInRange]);
   const commentsTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + (post.facebookInsights?.post_comments ?? post.commentsCount ?? post.engagementBreakdown?.comments ?? 0), 0), [postsInRange]);
   const sharesTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + (post.facebookInsights?.post_shares ?? post.sharesCount ?? post.engagementBreakdown?.shares ?? 0), 0), [postsInRange]);
+  const repostsTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + (post.repostsCount ?? post.facebookInsights?.post_shares ?? 0), 0), [postsInRange]);
   const totalActions = actionsTotal;
   const engagementData = useMemo(() => {
     const likesByDate = postsInRange.reduce<Record<string, number>>((acc, post) => {
@@ -1893,15 +1895,21 @@ export function FacebookAnalyticsView({
       acc[d] = (acc[d] ?? 0) + (post.facebookInsights?.post_shares ?? post.sharesCount ?? post.engagementBreakdown?.shares ?? 0);
       return acc;
     }, {});
+    const repostsByDate = postsInRange.reduce<Record<string, number>>((acc, post) => {
+      const d = localCalendarDateFromIso(post.publishedAt);
+      acc[d] = (acc[d] ?? 0) + (post.repostsCount ?? post.facebookInsights?.post_shares ?? 0);
+      return acc;
+    }, {});
     return dateAxis.map((date) => ({
       date,
       likes: likesByDate[date] ?? 0,
       comments: commentsByDate[date] ?? 0,
       shares: sharesByDate[date] ?? 0,
+      reposts: repostsByDate[date] ?? 0,
     }));
   }, [dateAxis, postsInRange]);
   const engagementTicks = useMemo(
-    () => buildKeyDateTicks(engagementData, (d) => (d.likes ?? 0) > 0 || (d.comments ?? 0) > 0 || (d.shares ?? 0) > 0 || false, 10),
+    () => buildKeyDateTicks(engagementData, (d) => (d.likes ?? 0) > 0 || (d.comments ?? 0) > 0 || (d.shares ?? 0) > 0 || (d.reposts ?? 0) > 0 || false, 10),
     [engagementData]
   );
   const operationalData = useMemo(() => {
@@ -2496,6 +2504,16 @@ export function FacebookAnalyticsView({
               onClick={() => setSelectedEngagementMetrics((prev) => prev.includes('shares') ? prev.filter((m) => m !== 'shares') : [...prev, 'shares'])}
               tiktokApiHighlight={isTikTok}
             />
+            {isInstagram && (
+              <MetricCard
+                label="Reposts"
+                source="repostsCount"
+                color={ENGAGEMENT_METRIC_CONFIG.reposts.color}
+                value={formatNumber(repostsTotal)}
+                active={selectedEngagementMetrics.includes('reposts')}
+                onClick={() => setSelectedEngagementMetrics((prev) => prev.includes('reposts') ? prev.filter((m) => m !== 'reposts') : [...prev, 'reposts'])}
+              />
+            )}
           </div>
           <div className="flex justify-end">
             <div className="flex flex-wrap gap-2">
@@ -2541,13 +2559,14 @@ export function FacebookAnalyticsView({
                   contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
                   formatter={(v: number | string | undefined, n?: string) => [
                     formatNumber(Number(v) || 0),
-                    n === 'likes' ? 'Likes' : n === 'comments' ? 'Comments' : 'Shares',
+                    n === 'likes' ? 'Likes' : n === 'comments' ? 'Comments' : n === 'reposts' ? 'Reposts' : 'Shares',
                   ]}
                   labelFormatter={(l) => formatShortDate(String(l))}
                 />
                 {selectedEngagementMetrics.includes('likes') ? <Bar dataKey="likes" fill={ENGAGEMENT_METRIC_CONFIG.likes.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                 {selectedEngagementMetrics.includes('comments') ? <Bar dataKey="comments" fill={ENGAGEMENT_METRIC_CONFIG.comments.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                 {selectedEngagementMetrics.includes('shares') ? <Bar dataKey="shares" fill={ENGAGEMENT_METRIC_CONFIG.shares.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                {selectedEngagementMetrics.includes('reposts') ? <Bar dataKey="reposts" fill={ENGAGEMENT_METRIC_CONFIG.reposts.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
               </BarChart>
             </ResponsiveContainer>
             </div>
