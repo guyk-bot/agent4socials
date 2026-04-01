@@ -240,6 +240,33 @@ export async function fetchPostLifetimeMetricTotals(
 
 const POST_INSIGHT_PARALLEL = 4;
 
+/** Normalize Meta post insight payloads (lifetime can use values[], total_value, or string numbers). */
+function insightDataPointToNumber(v: unknown): number | null {
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  if (typeof v === 'string' && v.trim() !== '' && !Number.isNaN(Number(v))) return Number(v);
+  return null;
+}
+
+function extractPostInsightMetricValue(row: {
+  name?: string;
+  values?: Array<{ value?: unknown }>;
+  total_value?: { value?: unknown };
+} | undefined): number | null {
+  if (!row) return null;
+  const tv = insightDataPointToNumber(row.total_value?.value);
+  if (tv != null && tv >= 0) return tv;
+  let sum = 0;
+  let any = false;
+  for (const pt of row.values ?? []) {
+    const n = insightDataPointToNumber(pt?.value);
+    if (n != null && n >= 0) {
+      sum += n;
+      any = true;
+    }
+  }
+  return any ? sum : null;
+}
+
 /** Fetch every probed-valid post metric (one Graph call each, small parallel batches). */
 export async function fetchPostLifetimeInsightMap(
   postId: string,
@@ -259,13 +286,13 @@ export async function fetchPostLifetimeInsightMap(
             validateStatus: () => true,
           });
           const body = res.data as {
-            data?: Array<{ name: string; values?: Array<{ value: number }> }>;
+            data?: Array<{ name: string; values?: Array<{ value?: unknown }>; total_value?: { value?: unknown } }>;
             error?: { message?: string; code?: number };
           };
           if (body.error || res.status !== 200) return;
           const row = body.data?.find((d) => d.name === metric);
-          const v = row?.values?.[0]?.value;
-          if (typeof v === 'number' && v >= 0) out[metric] = v;
+          const v = extractPostInsightMetricValue(row);
+          if (v != null && v >= 0) out[metric] = v;
         } catch {
           /* skip */
         }

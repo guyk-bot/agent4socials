@@ -24,8 +24,11 @@ const FB_CORE_POST_LIFETIME_METRICS = [
   'post_comments',
   'post_shares',
   'post_impressions',
+  'post_impressions_unique',
   'post_media_view',
   'post_video_views',
+  'post_video_avg_time_watched',
+  'post_video_view_time',
 ] as const;
 
 function mergeFacebookInsightMaps(
@@ -42,11 +45,24 @@ function mergeFacebookInsightMaps(
   return Object.keys(out).length ? out : undefined;
 }
 
-function isFacebookVideoLikeImportedRow(p: { permalinkUrl?: string | null; mediaType?: string | null }): boolean {
+function isFacebookVideoLikeImportedRow(p: ImportedPostListRow): boolean {
   const url = (p.permalinkUrl ?? '').toLowerCase();
   if ((p.mediaType ?? '').toUpperCase() === 'VIDEO') return true;
   if (url.includes('/reel/') || url.includes('/reels/')) return true;
   if (url.includes('/videos/')) return true;
+  if (url.includes('fb.watch')) return true;
+  const meta =
+    p.platformMetadata && typeof p.platformMetadata === 'object' && !Array.isArray(p.platformMetadata)
+      ? (p.platformMetadata as Record<string, unknown>)
+      : {};
+  const st = String(meta.status_type ?? '').toUpperCase();
+  if (st.includes('REEL') || st.includes('VIDEO') || st.includes('LIVE') || st.includes('ADDED_VIDEO')) return true;
+  const rawAtt = meta.attachmentTypes;
+  if (Array.isArray(rawAtt)) {
+    for (const t of rawAtt) {
+      if (String(t).toLowerCase() === 'video') return true;
+    }
+  }
   return false;
 }
 
@@ -415,15 +431,20 @@ export async function GET(
       try {
         const fbPageToken = await resolveFacebookPageAccessToken(account.platformUserId, account.accessToken);
         const candidates = importedRows
-          .filter((p) => {
-            if (!isFacebookVideoLikeImportedRow(p)) return false;
+          .filter((p, idx) => {
+            if (p.platform !== 'FACEBOOK') return false;
             const meta =
               p.platformMetadata && typeof p.platformMetadata === 'object' && !Array.isArray(p.platformMetadata)
                 ? (p.platformMetadata as Record<string, unknown>)
                 : {};
-            return facebookStoredInsightsLackViewSignal(meta);
+            if (!facebookStoredInsightsLackViewSignal(meta)) return false;
+            const videoLike = isFacebookVideoLikeImportedRow(p);
+            const zeroImp = (p.impressions ?? 0) === 0;
+            const dbEng = (p.likeCount ?? 0) + (p.commentsCount ?? 0) + (p.sharesCount ?? 0);
+            const newestFew = idx < 12;
+            return videoLike || (zeroImp && dbEng > 0) || (newestFew && zeroImp);
           })
-          .slice(0, 45);
+          .slice(0, 40);
 
         if (candidates.length > 0) {
           const metrics = [...FB_CORE_POST_LIFETIME_METRICS];
@@ -594,6 +615,22 @@ export async function GET(
           : p.platform === 'FACEBOOK'
             ? Math.max(p.impressions ?? 0, fbImpressionsFromInsights)
             : p.impressions ?? 0;
+      const likeCountOut =
+        p.platform === 'FACEBOOK'
+          ? Math.max(p.likeCount ?? 0, mergedFacebookInsights?.post_reactions_like_total ?? 0)
+          : enrich?.likeCount ?? p.likeCount ?? 0;
+      const commentsCountOut =
+        p.platform === 'FACEBOOK'
+          ? Math.max(p.commentsCount ?? 0, mergedFacebookInsights?.post_comments ?? 0)
+          : enrich?.commentsCount ?? p.commentsCount ?? 0;
+      const sharesCountOut =
+        p.platform === 'FACEBOOK'
+          ? Math.max(p.sharesCount ?? 0, mergedFacebookInsights?.post_shares ?? 0)
+          : p.sharesCount ?? 0;
+      const interactionsOut =
+        p.platform === 'FACEBOOK'
+          ? likeCountOut + commentsCountOut + sharesCountOut
+          : p.interactions ?? 0;
       return {
         id: p.id,
         platformPostId: p.platformPostId,
@@ -606,11 +643,11 @@ export async function GET(
           null,
         permalinkUrl: p.permalinkUrl,
         impressions: impressionsSerialized,
-        interactions: p.interactions ?? 0,
-        likeCount: enrich?.likeCount ?? p.likeCount ?? 0,
-        commentsCount: enrich?.commentsCount ?? p.commentsCount ?? 0,
+        interactions: interactionsOut,
+        likeCount: likeCountOut,
+        commentsCount: commentsCountOut,
         repostsCount: enrich?.repostsCount ?? p.repostsCount ?? 0,
-        sharesCount: p.sharesCount ?? 0,
+        sharesCount: sharesCountOut,
         publishedAt: p.publishedAt instanceof Date ? p.publishedAt.toISOString() : String(p.publishedAt),
         mediaType: p.mediaType,
         platform: p.platform,
@@ -618,10 +655,10 @@ export async function GET(
         ...(p.platform === 'FACEBOOK' || p.platform === 'PINTEREST' || p.platform === 'INSTAGRAM'
           ? {
               engagementBreakdown: {
-                reactions: p.likeCount ?? 0,
-                comments: p.commentsCount ?? 0,
-                shares: p.sharesCount ?? 0,
-                totalEngagement: (p.likeCount ?? 0) + (p.commentsCount ?? 0) + (p.sharesCount ?? 0),
+                reactions: likeCountOut,
+                comments: commentsCountOut,
+                shares: sharesCountOut,
+                totalEngagement: likeCountOut + commentsCountOut + sharesCountOut,
               },
             }
           : {}),
