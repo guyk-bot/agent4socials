@@ -31,12 +31,25 @@ function postMediaThumbUrl(mediaItem: { fileUrl: string; type: string; metadata?
     return url;
 }
 
-function PostMediaThumb({ mediaItem }: { mediaItem: { fileUrl: string; type: string; metadata?: { thumbnailUrl?: string } | null } }) {
+function isReelLikePost(post: any): boolean {
+    if (typeof post?.mediaType === 'string' && post.mediaType.toLowerCase() === 'reel') return true;
+    const firstType = Array.isArray(post?.media) && post.media.length > 0 ? post.media[0]?.type : null;
+    const targets = Array.isArray(post?.targetPlatforms) ? post.targetPlatforms : [];
+    return firstType === 'VIDEO' && (targets.includes('TIKTOK') || targets.includes('YOUTUBE') || targets.includes('INSTAGRAM'));
+}
+
+function PostMediaThumb({
+    mediaItem,
+    reelLike = false,
+}: {
+    mediaItem: { fileUrl: string; type: string; metadata?: { thumbnailUrl?: string } | null };
+    reelLike?: boolean;
+}) {
     const [imgError, setImgError] = useState(false);
     const thumbUrl = postMediaThumbUrl(mediaItem);
     const showIcon = !thumbUrl || imgError;
     return (
-        <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
+        <div className={`${reelLike ? 'w-10 h-16' : 'w-12 h-12'} rounded-lg bg-gray-100 overflow-hidden flex-shrink-0`}>
             {thumbUrl && !imgError && (
                 <img src={thumbUrl} alt="" className="w-full h-full object-cover" onError={() => setImgError(true)} />
             )}
@@ -195,13 +208,19 @@ export default function PostsPage() {
                                 <tr key={post.id} id={`post-row-${post.id}`} className="hover:bg-gray-50 transition-colors group">
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                         {(post.scheduledAt || post.postedAt || post.createdAt)
-                                            ? new Date(post.scheduledAt || post.postedAt || post.createdAt).toLocaleString()
+                                            ? new Date(post.scheduledAt || post.postedAt || post.createdAt).toLocaleString(undefined, {
+                                                month: 'numeric',
+                                                day: 'numeric',
+                                                year: 'numeric',
+                                                hour: 'numeric',
+                                                minute: '2-digit',
+                                            })
                                             : 'N/A'}
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex items-center space-x-3">
                                             {post.media?.[0] && (
-                                                <PostMediaThumb mediaItem={post.media[0]} />
+                                                <PostMediaThumb mediaItem={post.media[0]} reelLike={isReelLikePost(post)} />
                                             )}
                                             {!post.media?.length && (
                                                 <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 text-gray-400"><ImageIcon size={20} /></div>

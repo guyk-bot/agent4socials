@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import { PostStatus, Platform, Prisma } from '@prisma/client';
+import { sendScheduleConfirmationEmail } from '@/lib/resend';
 
 export async function GET(request: NextRequest) {
   if (!process.env.DATABASE_URL) {
@@ -149,6 +150,22 @@ export async function POST(request: NextRequest) {
       },
     },
   });
+  if (scheduledAt) {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true },
+      });
+      if (user?.email) {
+        const delivery = scheduledAt && (scheduleDelivery === 'email_links' || scheduleDelivery === 'auto')
+          ? scheduleDelivery
+          : 'auto';
+        await sendScheduleConfirmationEmail(user.email, scheduledAt, delivery);
+      }
+    } catch (emailErr) {
+      console.error('[POST /api/posts] schedule confirmation email failed:', emailErr);
+    }
+  }
   return NextResponse.json(post);
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Failed to create post';

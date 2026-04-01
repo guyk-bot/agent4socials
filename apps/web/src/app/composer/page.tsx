@@ -432,11 +432,12 @@ function scheduleTimePart(value: string): string {
     return t.slice(0, 5);
 }
 
-const TIME_OPTIONS_24H = Array.from({ length: 24 * 12 }, (_, i) => {
-    const hour = Math.floor(i / 12);
-    const minute = (i % 12) * 5;
-    return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
-});
+function daysInMonth(year: number, month1to12: number): number {
+    return new Date(year, month1to12, 0).getDate();
+}
+
+const HOUR_OPTIONS_24H = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
+const MINUTE_OPTIONS = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
 
 const MEDIA_SPECS: Record<string, { platform: PlatformKey; name: string; specs: { label: string; value: string; tag?: string }[] }[]> = {
     photo: [
@@ -2070,7 +2071,6 @@ export default function ComposerPage() {
             )}
             <div>
                 <h1 className="text-2xl font-bold text-neutral-900">{editPostId ? 'Edit Post' : 'Create Post'}</h1>
-                {!editPostId && <p className="text-neutral-500 mt-1">Draft, preview and schedule your content across platforms.</p>}
             </div>
 
             <div className="flex flex-col lg:flex-row gap-0 lg:gap-0 items-stretch">
@@ -2816,34 +2816,78 @@ export default function ComposerPage() {
                         </div>
                         {scheduledAt.trim() !== '' && (
                         <>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-start gap-3">
                             <Calendar size={22} className="text-violet-500 shrink-0" />
-                            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                <input
-                                    type="date"
-                                    value={scheduleDatePart(scheduledAt)}
-                                    min={scheduleDatePart(minSchedulableDateTimeLocal())}
-                                    onChange={(e) => {
-                                        const d = e.target.value;
-                                        const t = scheduleTimePart(scheduledAt) || scheduleTimePart(minSchedulableDateTimeLocal());
-                                        setScheduledAt(d ? `${d}T${t}` : '');
-                                    }}
-                                    className="w-full p-3 border border-violet-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
-                                />
-                                <select
-                                    value={scheduleTimePart(scheduledAt)}
-                                    onChange={(e) => {
-                                        const t = e.target.value;
-                                        const d = scheduleDatePart(scheduledAt) || scheduleDatePart(minSchedulableDateTimeLocal());
-                                        setScheduledAt(t ? `${d}T${t}` : '');
-                                    }}
-                                    className="w-full max-h-40 overflow-y-auto p-3 border border-violet-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
-                                >
-                                    <option value="">Select time</option>
-                                    {TIME_OPTIONS_24H.map((t) => (
-                                        <option key={t} value={t}>{t}</option>
-                                    ))}
-                                </select>
+                            <div className="flex-1 space-y-2">
+                                {(() => {
+                                    const minLocal = minSchedulableDateTimeLocal();
+                                    const defaultDate = scheduleDatePart(scheduledAt) || scheduleDatePart(minLocal);
+                                    const [y, m, d] = defaultDate.split('-');
+                                    const year = Number(y);
+                                    const month = Number(m);
+                                    const day = Number(d);
+                                    const selectedHour = scheduleTimePart(scheduledAt).split(':')[0] || scheduleTimePart(minLocal).split(':')[0];
+                                    const selectedMinute = scheduleTimePart(scheduledAt).split(':')[1] || scheduleTimePart(minLocal).split(':')[1];
+                                    const updateDateTime = (nextYear: number, nextMonth: number, nextDay: number, nextHour: string, nextMinute: string) => {
+                                        const maxDay = daysInMonth(nextYear, nextMonth);
+                                        const safeDay = Math.min(Math.max(1, nextDay), maxDay);
+                                        const datePart = `${nextYear}-${String(nextMonth).padStart(2, '0')}-${String(safeDay).padStart(2, '0')}`;
+                                        setScheduledAt(`${datePart}T${nextHour}:${nextMinute}`);
+                                    };
+                                    return (
+                                        <>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                <select
+                                                    value={String(year)}
+                                                    onChange={(e) => updateDateTime(Number(e.target.value), month, day, selectedHour, selectedMinute)}
+                                                    className="w-full p-3 border border-violet-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                                                >
+                                                    {Array.from({ length: 4 }, (_, i) => new Date().getFullYear() + i).map((yy) => (
+                                                        <option key={yy} value={yy}>{yy}</option>
+                                                    ))}
+                                                </select>
+                                                <select
+                                                    value={String(month)}
+                                                    onChange={(e) => updateDateTime(year, Number(e.target.value), day, selectedHour, selectedMinute)}
+                                                    className="w-full p-3 border border-violet-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                                                >
+                                                    {Array.from({ length: 12 }, (_, i) => i + 1).map((mm) => (
+                                                        <option key={mm} value={mm}>{String(mm).padStart(2, '0')}</option>
+                                                    ))}
+                                                </select>
+                                                <select
+                                                    value={String(day)}
+                                                    onChange={(e) => updateDateTime(year, month, Number(e.target.value), selectedHour, selectedMinute)}
+                                                    className="w-full p-3 border border-violet-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                                                >
+                                                    {Array.from({ length: daysInMonth(year, month) }, (_, i) => i + 1).map((dd) => (
+                                                        <option key={dd} value={dd}>{String(dd).padStart(2, '0')}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <select
+                                                    value={selectedHour}
+                                                    onChange={(e) => updateDateTime(year, month, day, e.target.value, selectedMinute)}
+                                                    className="w-full max-h-40 overflow-y-auto p-3 border border-violet-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                                                >
+                                                    {HOUR_OPTIONS_24H.map((hh) => (
+                                                        <option key={hh} value={hh}>{hh}</option>
+                                                    ))}
+                                                </select>
+                                                <select
+                                                    value={selectedMinute}
+                                                    onChange={(e) => updateDateTime(year, month, day, selectedHour, e.target.value)}
+                                                    className="w-full max-h-40 overflow-y-auto p-3 border border-violet-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                                                >
+                                                    {MINUTE_OPTIONS.map((mm) => (
+                                                        <option key={mm} value={mm}>{mm}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </>
+                                    );
+                                })()}
                             </div>
                         </div>
                         <div className="space-y-2">

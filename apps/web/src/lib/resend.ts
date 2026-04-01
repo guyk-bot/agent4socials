@@ -124,6 +124,52 @@ export async function sendScheduledPostLinksEmail(to: string, openLink: string):
   }
 }
 
+/**
+ * Sends a confirmation right after a post is scheduled.
+ */
+export async function sendScheduleConfirmationEmail(
+  to: string,
+  whenIso: string,
+  deliveryMode: 'auto' | 'email_links',
+): Promise<{ ok: boolean; error?: string }> {
+  if (!resend) {
+    console.warn('[Resend] RESEND_API_KEY not set; skipping schedule confirmation email');
+    return { ok: false, error: 'RESEND_API_KEY not set' };
+  }
+  const from = getScheduledFrom();
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
+  const whenLabel = new Date(whenIso).toLocaleString(undefined, {
+    month: 'numeric',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+  const modeText = deliveryMode === 'auto'
+    ? 'It will be published automatically at the scheduled time.'
+    : 'We will email you posting links at the scheduled time.';
+  try {
+    const { error } = await resend.emails.send({
+      from,
+      to: [to],
+      subject: 'Post scheduled confirmation',
+      html: `
+        <p>Your post was scheduled successfully for <strong>${whenLabel}</strong>.</p>
+        <p>${modeText}</p>
+        <p><a href="${baseUrl}/posts" style="color:#7c3aed;font-weight:600">Open Post History</a></p>
+      `,
+    });
+    if (error) {
+      const errMsg = typeof error === 'object' && error !== null && 'message' in error ? String((error as { message?: unknown }).message) : String(error);
+      return { ok: false, error: errMsg };
+    }
+    return { ok: true };
+  } catch (e) {
+    const errMsg = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: errMsg };
+  }
+}
+
 const SUPPORT_EMAIL_TO = process.env.SUPPORT_EMAIL || 'support@agent4socials.com';
 
 /**

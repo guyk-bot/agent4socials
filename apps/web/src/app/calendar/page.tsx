@@ -68,12 +68,8 @@ function postContentPreview(p: any): string {
 }
 
 function postTimeAndPlatforms(p: any): string {
-    const platforms = getPostPlatforms(p).map((pl) => PLATFORM_SHORT[pl] || pl).filter(Boolean);
     const time = p.scheduledAt ? formatTime(new Date(p.scheduledAt)) : '';
-    const parts: string[] = [];
-    if (time) parts.push(time);
-    if (platforms.length) parts.push(platforms.join(', '));
-    return parts.join(' · ') || 'Scheduled';
+    return time || 'Scheduled';
 }
 
 function getPostPlatforms(p: any): string[] {
@@ -112,6 +108,16 @@ function toSafeImageSrc(url: string | null): string | null {
 function getPrimaryPlatformStyle(platforms: string[]) {
     if (!platforms.length) return STATUS_STYLE.SCHEDULED;
     return PLATFORM_CARD_STYLE[platforms[0]] ?? STATUS_STYLE.SCHEDULED;
+}
+
+function isReelLikePost(p: any): boolean {
+    if (typeof p?.mediaType === 'string' && p.mediaType.toLowerCase() === 'reel') return true;
+    const firstMediaType = Array.isArray(p?.media) && p.media.length > 0 ? p.media[0]?.type : null;
+    if (firstMediaType === 'VIDEO') {
+        const platforms = getPostPlatforms(p);
+        if (platforms.includes('TIKTOK') || platforms.includes('YOUTUBE') || platforms.includes('INSTAGRAM')) return true;
+    }
+    return false;
 }
 
 /** Week starts Sunday; return Date at 00:00 for that Sunday */
@@ -377,21 +383,21 @@ export default function CalendarPage() {
                                                                         </div>
                                                                         <span className="ml-auto text-[9px] font-medium shrink-0">{formatTime(new Date(p.scheduledAt))}</span>
                                                                     </div>
-                                                                    <div className="flex items-center gap-1.5 min-w-0">
+                                                                    <div className="flex items-center gap-2 min-w-0">
                                                                         {thumb && (
                                                                             <img
                                                                                 src={thumb}
                                                                                 alt="Post thumbnail"
-                                                                                className="h-6 w-6 rounded object-cover border border-white/70 shrink-0"
+                                                                                className={`${isReelLikePost(p) ? 'h-12 w-7' : 'h-10 w-10'} rounded-md object-cover border border-white/70 shrink-0`}
                                                                                 loading="lazy"
                                                                             />
                                                                         )}
                                                                         <div className="min-w-0 flex-1">
-                                                                            <div className="text-[10px] leading-tight truncate font-medium" title={postContentPreview(p)}>
+                                                                            <div className="text-[11px] leading-tight truncate font-semibold" title={postContentPreview(p)}>
                                                                                 {postContentPreview(p)}
                                                                             </div>
                                                                         </div>
-                                                                        <span className="text-[9px] font-semibold rounded bg-white/80 px-1 py-0.5 shrink-0">Edit</span>
+                                                                        <span className="text-[10px] font-semibold rounded-md bg-violet-600 text-white px-2 py-1 shrink-0">Edit</span>
                                                                     </div>
                                                                 </Link>
                                                             );
@@ -441,27 +447,27 @@ export default function CalendarPage() {
                                                         href={`/composer?edit=${p.id}`}
                                                         className={`block p-1.5 rounded-md border ${style.bg} ${style.border} ${style.text} hover:opacity-95 transition-all`}
                                                     >
-                                                        <div className="flex items-start gap-1.5">
+                                                        <div className="flex items-start gap-2">
                                                             {thumb ? (
                                                                 <img
                                                                     src={thumb}
                                                                     alt="Post thumbnail"
-                                                                    className="h-6 w-6 rounded object-cover border border-white/70 shrink-0 mt-0.5"
+                                                                    className={`${isReelLikePost(p) ? 'h-16 w-9' : 'h-12 w-12'} rounded-md object-cover border border-white/70 shrink-0 mt-0.5`}
                                                                     loading="lazy"
                                                                 />
                                                             ) : (
                                                                 <Clock size={12} className="shrink-0 mt-0.5 opacity-80" />
                                                             )}
                                                             <div className="min-w-0 flex-1">
-                                                                <div className="flex items-center gap-1 mb-0.5">
+                                                                <div className="flex items-center gap-1.5 mb-1">
                                                                     {platforms.map((pl: string) => (
-                                                                        <PlatformIcon key={pl} platform={pl as keyof typeof PLATFORM_ICON_MAP} size={10} className="opacity-90" />
+                                                                        <PlatformIcon key={pl} platform={pl as keyof typeof PLATFORM_ICON_MAP} size={12} className="opacity-90" />
                                                                     ))}
                                                                 </div>
-                                                                <div className="text-[10px] font-medium leading-tight truncate" title={postContentPreview(p)}>{postContentPreview(p)}</div>
-                                                                <div className="text-[9px] opacity-80 mt-0.5 font-medium">{postTimeAndPlatforms(p)}</div>
+                                                                <div className="text-[12px] font-semibold leading-tight truncate" title={postContentPreview(p)}>{postContentPreview(p)}</div>
+                                                                <div className="text-[11px] opacity-80 mt-1 font-medium">{postTimeAndPlatforms(p)}</div>
                                                             </div>
-                                                            <span className="text-[9px] font-semibold rounded bg-white/80 px-1 py-0.5 shrink-0">Edit</span>
+                                                            <span className="text-[11px] font-semibold rounded-md bg-violet-600 text-white px-2.5 py-1 shrink-0">Edit</span>
                                                         </div>
                                                     </Link>
                                                 );
