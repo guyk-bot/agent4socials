@@ -43,6 +43,7 @@ export type FbPublishedPostRow = {
   status_type?: string;
   reactions?: { summary?: { total_count?: number } };
   comments?: { summary?: { total_count?: number } };
+  shares?: { count?: number };
   attachments?: {
     data?: Array<{
       media_type?: string;
@@ -56,7 +57,7 @@ export type FbPublishedPostRow = {
 type PublishedPostsPage = { data?: FbPublishedPostRow[]; paging?: { next?: string; cursors?: { after?: string } } };
 
 const PUBLISHED_FIELDS =
-  'id,message,created_time,permalink_url,full_picture,status_type,reactions.summary(1),comments.summary(1),attachments{media_type,type,media{image{src}},subattachments{media_type,type}}';
+  'id,message,created_time,permalink_url,full_picture,status_type,reactions.summary(1),comments.summary(1),shares,attachments{media_type,type,media{image{src}},subattachments{media_type,type}}';
 
 const POSTS_FEED_FIELDS = 'id,message,created_time,permalink_url';
 

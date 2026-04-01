@@ -1052,7 +1052,8 @@ async function syncImportedPosts(
         }
       }
 
-      const sharesCountFinal = typeof insightMap.post_shares === 'number' ? insightMap.post_shares : 0;
+      const sharesFromPayload = p.shares?.count ?? 0;
+      const sharesCountFinal = typeof insightMap.post_shares === 'number' ? insightMap.post_shares : sharesFromPayload;
       const interactionsFinal = likeCountFinal + commentsCountFinal + sharesCountFinal;
 
       const mediaTypeGuess =
