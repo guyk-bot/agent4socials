@@ -52,7 +52,7 @@ async function processScheduled(request: NextRequest) {
   }
 
   const now = new Date();
-  let due: Awaited<ReturnType<typeof prisma.post.findMany>>;
+  let due;
   try {
     due = await prisma.post.findMany({
       where: {
