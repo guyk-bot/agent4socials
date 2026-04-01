@@ -80,6 +80,72 @@ function facebookStoredInsightsLackViewSignal(meta: Record<string, unknown>): bo
   return signal === 0;
 }
 
+function parseGraphInsightRowsToMap(
+  rows: Array<{ name?: string; values?: Array<{ value?: unknown }>; total_value?: { value?: unknown } }> | undefined
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const row of rows ?? []) {
+    const key = String(row?.name ?? '').trim();
+    if (!key) continue;
+    const totalRaw = row?.total_value?.value;
+    if (typeof totalRaw === 'number' && Number.isFinite(totalRaw)) {
+      out[key] = totalRaw;
+      continue;
+    }
+    if (typeof totalRaw === 'string' && totalRaw.trim() !== '' && !Number.isNaN(Number(totalRaw))) {
+      out[key] = Number(totalRaw);
+      continue;
+    }
+    let sum = 0;
+    let any = false;
+    for (const point of row?.values ?? []) {
+      const v = point?.value;
+      if (typeof v === 'number' && Number.isFinite(v)) {
+        sum += v;
+        any = true;
+      } else if (typeof v === 'string' && v.trim() !== '' && !Number.isNaN(Number(v))) {
+        sum += Number(v);
+        any = true;
+      }
+    }
+    if (any) out[key] = sum;
+  }
+  return out;
+}
+
+async function fetchFacebookPostSnapshotMap(postId: string, pageAccessToken: string): Promise<Record<string, number>> {
+  const out: Record<string, number> = {};
+  try {
+    const res = await axios.get<{
+      reactions?: { summary?: { total_count?: number } };
+      comments?: { summary?: { total_count?: number } };
+      shares?: { count?: number };
+      insights?: {
+        data?: Array<{ name?: string; values?: Array<{ value?: unknown }>; total_value?: { value?: unknown } }>;
+      };
+    }>(`${fbRestBaseUrl}/${postId}`, {
+      params: {
+        fields:
+          'reactions.summary(1),comments.summary(1),shares,insights.metric(post_media_view,post_video_views,post_impressions,post_impressions_unique,post_reactions_like_total,post_comments,post_shares)',
+        access_token: pageAccessToken,
+      },
+      timeout: 12_000,
+      validateStatus: () => true,
+    });
+    if (res.status !== 200 || !res.data) return out;
+    const likes = res.data.reactions?.summary?.total_count;
+    const comments = res.data.comments?.summary?.total_count;
+    const shares = res.data.shares?.count;
+    if (typeof likes === 'number' && likes >= 0) out.post_reactions_like_total = likes;
+    if (typeof comments === 'number' && comments >= 0) out.post_comments = comments;
+    if (typeof shares === 'number' && shares >= 0) out.post_shares = shares;
+    Object.assign(out, parseGraphInsightRowsToMap(res.data.insights?.data));
+  } catch {
+    // best effort
+  }
+  return out;
+}
+
 async function resolveFacebookPageAccessToken(pageId: string, token: string): Promise<string> {
   try {
     const res = await axios.get<{ data?: Array<{ id?: string; access_token?: string }>; error?: { message?: string } }>(
@@ -451,8 +517,13 @@ export async function GET(
           await runWithConcurrency(candidates, 5, async (row) => {
             try {
               const map = await fetchPostLifetimeInsightMap(row.platformPostId, fbPageToken, [...metrics]);
-              if (Object.keys(map).length > 0) {
-                liveFacebookInsightsByPostId[row.platformPostId] = map;
+              const fallbackMap =
+                Object.keys(map).length > 0
+                  ? {}
+                  : await fetchFacebookPostSnapshotMap(row.platformPostId, fbPageToken);
+              const merged = mergeFacebookInsightMaps(map, fallbackMap);
+              if (merged && Object.keys(merged).length > 0) {
+                liveFacebookInsightsByPostId[row.platformPostId] = merged;
               }
             } catch {
               /* per-post best effort */
