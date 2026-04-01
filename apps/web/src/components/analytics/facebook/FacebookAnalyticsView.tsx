@@ -153,7 +153,6 @@ const ENGAGEMENT_METRIC_CONFIG: Record<EngagementMetricKey, { label: string; col
   likes: { label: 'Likes', color: COLOR.violet },
   comments: { label: 'Comments', color: COLOR.coral },
   shares: { label: 'Shares', color: COLOR.amber },
-  reposts: { label: 'Reposts', color: '#111827' },
 };
 
 const TRAFFIC_METRIC_CONFIG: Record<TrafficMetricKey, { label: string; color: string }> = {
@@ -178,6 +177,7 @@ const REEL_METRIC_CONFIG: Record<ReelMetricKey, { label: string; color: string }
   likes: { label: 'Likes', color: COLOR.violet },
   comments: { label: 'Comments', color: COLOR.coral },
   shares: { label: 'Shares', color: COLOR.amber },
+  reposts: { label: 'Reposts', color: '#111827' },
 };
 
 const REEL_PRESET_METRICS: Record<ReelPresetKey, ReelMetricKey[]> = {
