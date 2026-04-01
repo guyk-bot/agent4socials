@@ -349,7 +349,7 @@ export default function CalendarPage() {
                                                     key={dayIndex}
                                                     className="p-1 border-r border-gray-100 last:border-r-0 bg-white min-h-[52px] overflow-hidden"
                                                 >
-                                                    <div className="space-y-1">
+                                                    <div className="space-y-1 max-h-[152px] overflow-y-auto pr-0.5">
                                                         {slotPosts.map((p: any) => {
                                                             const platforms = getPostPlatforms(p);
                                                             const style = getPrimaryPlatformStyle(platforms);
