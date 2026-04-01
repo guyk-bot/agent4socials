@@ -138,6 +138,7 @@ export default function CalendarPage() {
     const [posts, setPosts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const weekScrollRef = useRef<HTMLDivElement | null>(null);
+    const autoScrolledWeekKeyRef = useRef<string | null>(null);
 
     useEffect(() => {
         const fromCache = appData?.getScheduledPosts?.();
@@ -172,10 +173,13 @@ export default function CalendarPage() {
         const now = new Date();
         const isSameWeek = now >= weekStart && now < weekEnd;
         if (!isSameWeek || !weekScrollRef.current) return;
+        const weekKey = `${weekStart.getFullYear()}-${weekStart.getMonth()}-${weekStart.getDate()}`;
+        if (autoScrolledWeekKeyRef.current === weekKey) return;
         const currentHour = now.getHours();
         const rowHeight = 52;
         const target = Math.max(0, (currentHour - HOURS_START) * rowHeight - rowHeight * 2);
-        weekScrollRef.current.scrollTo({ top: target, behavior: 'smooth' });
+        weekScrollRef.current.scrollTo({ top: target, behavior: 'auto' });
+        autoScrolledWeekKeyRef.current = weekKey;
     }, [view, weekStart, weekEnd]);
 
     const postsInWeek = posts.filter((p: any) => {
@@ -362,6 +366,7 @@ export default function CalendarPage() {
                                                                 >
                                                                     <span className="absolute top-1.5 right-1.5 text-[10px] font-semibold rounded-md bg-violet-600 text-white px-2 py-0.5 shrink-0">Edit</span>
                                                                     <div className="mb-1 pr-12">
+                                                                        <span className="block text-[10px] font-semibold leading-none mb-1">{formatTime(new Date(p.scheduledAt))}</span>
                                                                         <div className="flex flex-wrap items-center gap-1 max-w-full">
                                                                             {platforms.map((pl: string) => (
                                                                                 <span key={pl} className="flex shrink-0 rounded-full bg-white/80 p-0.5 border border-white">
@@ -369,26 +374,16 @@ export default function CalendarPage() {
                                                                                 </span>
                                                                             ))}
                                                                         </div>
-                                                                        <span className="block text-[10px] font-semibold leading-none mt-1">{formatTime(new Date(p.scheduledAt))}</span>
                                                                     </div>
                                                                     <div className="flex items-center gap-2 min-w-0">
                                                                         {thumb && (
                                                                             <img
                                                                                 src={thumb}
                                                                                 alt="Post thumbnail"
-                                                                                className={`${isReelLikePost(p) ? 'h-12 w-7' : 'h-10 w-10'} rounded-md object-cover border border-white/70 shrink-0`}
+                                                                                className={`${isReelLikePost(p) ? 'h-14 w-8' : 'h-12 w-12'} rounded-md object-cover border border-white/70 shrink-0`}
                                                                                 loading="lazy"
                                                                             />
                                                                         )}
-                                                                        <div className="min-w-0 flex-1">
-                                                                            <div
-                                                                                className="text-[11px] leading-tight font-semibold"
-                                                                                style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
-                                                                                title={postContentPreview(p)}
-                                                                            >
-                                                                                {postContentPreview(p)}
-                                                                            </div>
-                                                                        </div>
                                                                     </div>
                                                                 </Link>
                                                             );
@@ -451,18 +446,11 @@ export default function CalendarPage() {
                                                                 <Clock size={12} className="shrink-0 mt-0.5 opacity-80" />
                                                             )}
                                                             <div className="min-w-0 flex-1 pr-12">
+                                                                <div className="text-[11px] font-semibold leading-none mb-1">{formatTime(new Date(p.scheduledAt))}</div>
                                                                 <div className="flex flex-wrap items-center gap-1.5 mb-0.5 max-w-full">
                                                                     {platforms.map((pl: string) => (
                                                                         <PlatformIcon key={pl} platform={pl as keyof typeof PLATFORM_ICON_MAP} size={12} className="opacity-90" />
                                                                     ))}
-                                                                </div>
-                                                                <div className="text-[11px] font-semibold leading-none mb-1">{formatTime(new Date(p.scheduledAt))}</div>
-                                                                <div
-                                                                    className="text-[12px] font-semibold leading-tight"
-                                                                    style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
-                                                                    title={postContentPreview(p)}
-                                                                >
-                                                                    {postContentPreview(p)}
                                                                 </div>
                                                             </div>
                                                         </div>
