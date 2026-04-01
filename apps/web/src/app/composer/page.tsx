@@ -432,10 +432,6 @@ function scheduleTimePart(value: string): string {
     return t.slice(0, 5);
 }
 
-function daysInMonth(year: number, month1to12: number): number {
-    return new Date(year, month1to12, 0).getDate();
-}
-
 const HOUR_OPTIONS_24H = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 const MINUTE_OPTIONS = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
 
@@ -2799,7 +2795,7 @@ export default function ComposerPage() {
                                     name="scheduleMode"
                                     checked={!scheduledAt || scheduledAt.trim() === ''}
                                     onChange={() => setScheduledAt('')}
-                                    className="text-[var(--primary)] focus:ring-[var(--primary)]"
+                                    className="text-[var(--button)] focus:ring-[var(--button)]"
                                 />
                                 <span className="text-sm font-medium text-neutral-800">Post now</span>
                             </label>
@@ -2809,7 +2805,7 @@ export default function ComposerPage() {
                                     name="scheduleMode"
                                     checked={scheduledAt.trim() !== ''}
                                     onChange={() => { if (!scheduledAt.trim()) setScheduledAt(minSchedulableDateTimeLocal()); }}
-                                    className="text-[var(--primary)] focus:ring-[var(--primary)]"
+                                    className="text-[var(--button)] focus:ring-[var(--button)]"
                                 />
                                 <span className="text-sm font-medium text-neutral-800">Schedule for later</span>
                             </label>
@@ -2821,54 +2817,27 @@ export default function ComposerPage() {
                             <div className="flex-1 space-y-2">
                                 {(() => {
                                     const minLocal = minSchedulableDateTimeLocal();
-                                    const defaultDate = scheduleDatePart(scheduledAt) || scheduleDatePart(minLocal);
-                                    const [y, m, d] = defaultDate.split('-');
-                                    const year = Number(y);
-                                    const month = Number(m);
-                                    const day = Number(d);
+                                    const selectedDate = scheduleDatePart(scheduledAt) || scheduleDatePart(minLocal);
                                     const selectedHour = scheduleTimePart(scheduledAt).split(':')[0] || scheduleTimePart(minLocal).split(':')[0];
                                     const selectedMinute = scheduleTimePart(scheduledAt).split(':')[1] || scheduleTimePart(minLocal).split(':')[1];
-                                    const updateDateTime = (nextYear: number, nextMonth: number, nextDay: number, nextHour: string, nextMinute: string) => {
-                                        const maxDay = daysInMonth(nextYear, nextMonth);
-                                        const safeDay = Math.min(Math.max(1, nextDay), maxDay);
-                                        const datePart = `${nextYear}-${String(nextMonth).padStart(2, '0')}-${String(safeDay).padStart(2, '0')}`;
-                                        setScheduledAt(`${datePart}T${nextHour}:${nextMinute}`);
+                                    const updateDateTime = (nextDate: string, nextHour: string, nextMinute: string) => {
+                                        setScheduledAt(`${nextDate}T${nextHour}:${nextMinute}`);
                                     };
                                     return (
                                         <>
-                                            <div className="grid grid-cols-3 gap-2">
-                                                <select
-                                                    value={String(year)}
-                                                    onChange={(e) => updateDateTime(Number(e.target.value), month, day, selectedHour, selectedMinute)}
-                                                    className="w-full p-3 border border-violet-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
-                                                >
-                                                    {Array.from({ length: 4 }, (_, i) => new Date().getFullYear() + i).map((yy) => (
-                                                        <option key={yy} value={yy}>{yy}</option>
-                                                    ))}
-                                                </select>
-                                                <select
-                                                    value={String(month)}
-                                                    onChange={(e) => updateDateTime(year, Number(e.target.value), day, selectedHour, selectedMinute)}
-                                                    className="w-full p-3 border border-violet-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
-                                                >
-                                                    {Array.from({ length: 12 }, (_, i) => i + 1).map((mm) => (
-                                                        <option key={mm} value={mm}>{String(mm).padStart(2, '0')}</option>
-                                                    ))}
-                                                </select>
-                                                <select
-                                                    value={String(day)}
-                                                    onChange={(e) => updateDateTime(year, month, Number(e.target.value), selectedHour, selectedMinute)}
-                                                    className="w-full p-3 border border-violet-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
-                                                >
-                                                    {Array.from({ length: daysInMonth(year, month) }, (_, i) => i + 1).map((dd) => (
-                                                        <option key={dd} value={dd}>{String(dd).padStart(2, '0')}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
+                                            <input
+                                                type="date"
+                                                value={selectedDate}
+                                                min={scheduleDatePart(minLocal)}
+                                                onChange={(e) => updateDateTime(e.target.value || selectedDate, selectedHour, selectedMinute)}
+                                                className="w-full p-3 border border-violet-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                                            />
                                             <div className="grid grid-cols-2 gap-2">
+                                                <div className="text-xs font-medium text-neutral-500">Hour (00-23)</div>
+                                                <div className="text-xs font-medium text-neutral-500">Minute (00-59)</div>
                                                 <select
                                                     value={selectedHour}
-                                                    onChange={(e) => updateDateTime(year, month, day, e.target.value, selectedMinute)}
+                                                    onChange={(e) => updateDateTime(selectedDate, e.target.value, selectedMinute)}
                                                     className="w-full max-h-40 overflow-y-auto p-3 border border-violet-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
                                                 >
                                                     {HOUR_OPTIONS_24H.map((hh) => (
@@ -2877,7 +2846,7 @@ export default function ComposerPage() {
                                                 </select>
                                                 <select
                                                     value={selectedMinute}
-                                                    onChange={(e) => updateDateTime(year, month, day, selectedHour, e.target.value)}
+                                                    onChange={(e) => updateDateTime(selectedDate, selectedHour, e.target.value)}
                                                     className="w-full max-h-40 overflow-y-auto p-3 border border-violet-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
                                                 >
                                                     {MINUTE_OPTIONS.map((mm) => (
@@ -2900,7 +2869,7 @@ export default function ComposerPage() {
                                     name="scheduleDelivery"
                                     checked={scheduleDelivery === 'auto'}
                                     onChange={() => setScheduleDelivery('auto')}
-                                    className="text-[var(--primary)] focus:ring-[var(--primary)]"
+                                    className="text-[var(--button)] focus:ring-[var(--button)]"
                                 />
                                 <span className="text-sm text-neutral-800">Post automatically to all platforms</span>
                             </label>
@@ -2910,7 +2879,7 @@ export default function ComposerPage() {
                                     name="scheduleDelivery"
                                     checked={scheduleDelivery === 'email_links'}
                                     onChange={() => setScheduleDelivery('email_links')}
-                                    className="text-[var(--primary)] focus:ring-[var(--primary)]"
+                                    className="text-[var(--button)] focus:ring-[var(--button)]"
                                 />
                                 <span className="text-sm text-neutral-800">Email me a link per platform so I can open each one, edit or add sound, and publish manually</span>
                             </label>
@@ -2958,7 +2927,7 @@ export default function ComposerPage() {
 
                 {/* Resizable preview panel: drag the handle to change width */}
                 <div
-                    className="hidden lg:block shrink-0 w-2 cursor-col-resize bg-neutral-200 hover:bg-[var(--primary)]/40 active:bg-[var(--primary)]/50 transition-colors rounded-full my-2 self-stretch"
+                    className="hidden lg:block shrink-0 w-2 cursor-col-resize bg-neutral-300 hover:bg-neutral-400 active:bg-neutral-500 transition-colors rounded-full my-2 self-stretch"
                     role="separator"
                     aria-label="Resize preview"
                     onMouseDown={(e) => {

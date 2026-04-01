@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { PostStatus } from '@prisma/client';
 import { randomBytes } from 'crypto';
-import { sendScheduledPostLinksEmail } from '@/lib/resend';
+import { sendScheduledPostLinksEmail, sendScheduledPublishFailureEmail } from '@/lib/resend';
 
 const baseUrl = () =>
   (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
@@ -110,6 +110,9 @@ async function processScheduled(request: NextRequest) {
           data: { scheduleEmailSentAt: now },
         });
       }
+      if (!sendResult.ok && post.scheduledAt) {
+        await sendScheduledPublishFailureEmail(userEmail, post.scheduledAt.toISOString(), sendResult.error || 'Failed to send scheduled email links');
+      }
       results.push({ postId: post.id, action: 'email_links', ok: sendResult.ok, error: sendResult.error });
       continue;
     }
@@ -122,6 +125,13 @@ async function processScheduled(request: NextRequest) {
       });
       const ok = res.ok;
       const body = await res.json().catch(() => ({}));
+      if (!ok && post.user?.email && post.scheduledAt) {
+        await sendScheduledPublishFailureEmail(
+          post.user.email,
+          post.scheduledAt.toISOString(),
+          (body.message || body.error || res.statusText || 'Publish failed'),
+        );
+      }
       results.push({
         postId: post.id,
         action: 'publish',
@@ -129,6 +139,9 @@ async function processScheduled(request: NextRequest) {
         error: ok ? undefined : (body.message || body.error || res.statusText),
       });
     } catch (err) {
+      if (post.user?.email && post.scheduledAt) {
+        await sendScheduledPublishFailureEmail(post.user.email, post.scheduledAt.toISOString(), (err as Error).message || 'Publish failed');
+      }
       results.push({
         postId: post.id,
         action: 'publish',

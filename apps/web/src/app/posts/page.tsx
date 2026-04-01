@@ -259,16 +259,23 @@ export default function PostsPage() {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${post.status === 'POSTED'
-                                            ? 'bg-green-100 text-green-800'
-                                            : post.status === 'FAILED'
-                                                ? 'bg-red-100 text-red-800'
-                                                : post.status === 'SCHEDULED'
-                                                    ? 'bg-neutral-200 text-neutral-700'
-                                                    : 'bg-neutral-100 text-neutral-700'
-                                            }`}>
-                                            {post.status}
-                                        </span>
+                                        {(() => {
+                                            const targets: Array<{ status?: string }> = Array.isArray(post.targets) ? post.targets : [];
+                                            const hasPosted = targets.some((t) => t.status === 'POSTED');
+                                            const hasFailed = targets.some((t) => t.status === 'FAILED');
+                                            const partial = hasPosted && hasFailed;
+                                            const label = partial ? 'PARTIAL' : post.status;
+                                            const cls = partial
+                                                ? 'bg-amber-100 text-amber-800'
+                                                : post.status === 'POSTED'
+                                                    ? 'bg-green-100 text-green-800'
+                                                    : post.status === 'FAILED'
+                                                        ? 'bg-red-100 text-red-800'
+                                                        : post.status === 'SCHEDULED'
+                                                            ? 'bg-neutral-200 text-neutral-700'
+                                                            : 'bg-neutral-100 text-neutral-700';
+                                            return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${cls}`}>{label}</span>;
+                                        })()}
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         <Link

@@ -15,16 +15,6 @@ import Link from 'next/link';
 import { PlatformIcon, PLATFORM_ICON_MAP } from '@/components/SocialPlatformIcons';
 import { useAppData } from '@/context/AppDataContext';
 
-const PLATFORM_SHORT: Record<string, string> = {
-    INSTAGRAM: 'IG',
-    FACEBOOK: 'FB',
-    TWITTER: 'X',
-    LINKEDIN: 'LI',
-    PINTEREST: 'Pin',
-    TIKTOK: 'TT',
-    YOUTUBE: 'YT',
-};
-
 const STATUS_STYLE: Record<string, { bg: string; border: string; text: string; label: string }> = {
     SCHEDULED: { bg: 'bg-violet-50', border: 'border-violet-200', text: 'text-violet-800', label: 'Pending' },
     DRAFT:      { bg: 'bg-violet-50',  border: 'border-violet-200', text: 'text-violet-800',  label: 'Draft' },
@@ -65,11 +55,6 @@ function postContentPreview(p: any): string {
         if (cleaned) return cleaned.slice(0, 64);
     }
     return 'Scheduled post';
-}
-
-function postTimeAndPlatforms(p: any): string {
-    const time = p.scheduledAt ? formatTime(new Date(p.scheduledAt)) : '';
-    return time || 'Scheduled';
 }
 
 function getPostPlatforms(p: any): string[] {
@@ -156,12 +141,14 @@ export default function CalendarPage() {
 
     useEffect(() => {
         const fromCache = appData?.getScheduledPosts?.();
-        if (fromCache !== undefined && Array.isArray(fromCache) && fromCache.length >= 0) {
+        const hasCached = fromCache !== undefined && Array.isArray(fromCache) && fromCache.length > 0;
+        if (hasCached) {
+            // Render instantly from cache, then refresh in background.
             setPosts(fromCache as any[]);
             setLoading(false);
-            return;
         }
-        const fetchPosts = async () => {
+        const fetchPosts = async (showLoading: boolean) => {
+            if (showLoading) setLoading(true);
             try {
                 const res = await api.get('/posts');
                 const list = Array.isArray(res.data) ? res.data : [];
@@ -170,10 +157,10 @@ export default function CalendarPage() {
             } catch (err) {
                 console.error('Failed to fetch posts');
             } finally {
-                setLoading(false);
+                if (showLoading) setLoading(false);
             }
         };
-        fetchPosts();
+        fetchPosts(!hasCached);
     }, [appData]);
 
     const weekStart = getWeekStart(currentDate);
@@ -360,7 +347,7 @@ export default function CalendarPage() {
                                             return (
                                                 <div
                                                     key={dayIndex}
-                                                    className="p-1 border-r border-gray-100 last:border-r-0 bg-white min-h-[52px]"
+                                                    className="p-1 border-r border-gray-100 last:border-r-0 bg-white min-h-[52px] overflow-hidden"
                                                 >
                                                     <div className="space-y-1">
                                                         {slotPosts.map((p: any) => {
@@ -371,17 +358,18 @@ export default function CalendarPage() {
                                                                 <Link
                                                                     key={p.id}
                                                                     href={`/composer?edit=${p.id}`}
-                                                                    className={`block rounded-md border px-1.5 py-1.5 ${style.bg} ${style.border} ${style.text} hover:opacity-95 transition-all`}
+                                                                    className={`relative block w-full max-w-full rounded-md border px-2 py-1.5 ${style.bg} ${style.border} ${style.text} hover:opacity-95 transition-all min-w-0 overflow-hidden`}
                                                                 >
-                                                                    <div className="flex items-center gap-1 mb-1">
-                                                                        <div className="flex items-center -space-x-1">
+                                                                    <span className="absolute top-1.5 right-1.5 text-[10px] font-semibold rounded-md bg-violet-600 text-white px-2 py-0.5 shrink-0">Edit</span>
+                                                                    <div className="mb-1 pr-12">
+                                                                        <div className="flex flex-wrap items-center gap-1 max-w-full">
                                                                             {platforms.map((pl: string) => (
                                                                                 <span key={pl} className="flex shrink-0 rounded-full bg-white/80 p-0.5 border border-white">
-                                                                                    <PlatformIcon platform={pl as keyof typeof PLATFORM_ICON_MAP} size={11} className="opacity-95" />
+                                                                                    <PlatformIcon platform={pl as keyof typeof PLATFORM_ICON_MAP} size={12} className="opacity-95" />
                                                                                 </span>
                                                                             ))}
                                                                         </div>
-                                                                        <span className="ml-auto text-[9px] font-medium shrink-0">{formatTime(new Date(p.scheduledAt))}</span>
+                                                                        <span className="block text-[10px] font-semibold leading-none mt-1">{formatTime(new Date(p.scheduledAt))}</span>
                                                                     </div>
                                                                     <div className="flex items-center gap-2 min-w-0">
                                                                         {thumb && (
@@ -393,11 +381,14 @@ export default function CalendarPage() {
                                                                             />
                                                                         )}
                                                                         <div className="min-w-0 flex-1">
-                                                                            <div className="text-[11px] leading-tight truncate font-semibold" title={postContentPreview(p)}>
+                                                                            <div
+                                                                                className="text-[11px] leading-tight font-semibold"
+                                                                                style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+                                                                                title={postContentPreview(p)}
+                                                                            >
                                                                                 {postContentPreview(p)}
                                                                             </div>
                                                                         </div>
-                                                                        <span className="text-[10px] font-semibold rounded-md bg-violet-600 text-white px-2 py-1 shrink-0">Edit</span>
                                                                     </div>
                                                                 </Link>
                                                             );
@@ -432,11 +423,11 @@ export default function CalendarPage() {
                     </div>
                     <div className="grid grid-cols-7">
                         {days.map((day, i) => (
-                            <div key={i} className={`min-h-[140px] border-b border-r border-gray-100 p-2 ${day === null ? 'bg-gray-50' : 'bg-white'}`}>
+                            <div key={i} className={`min-h-[140px] border-b border-r border-gray-100 p-2 overflow-hidden ${day === null ? 'bg-gray-50' : 'bg-white'}`}>
                                 {day && (
                                     <>
                                         <span className="text-sm font-medium text-gray-400">{day}</span>
-                                        <div className="mt-2 space-y-1.5">
+                                        <div className="mt-2 space-y-1.5 max-h-[112px] overflow-y-auto pr-0.5">
                                             {getPostsForDay(day).map((p: any) => {
                                                 const platforms = getPostPlatforms(p);
                                                 const style = getPrimaryPlatformStyle(platforms);
@@ -445,8 +436,9 @@ export default function CalendarPage() {
                                                     <Link
                                                         key={p.id}
                                                         href={`/composer?edit=${p.id}`}
-                                                        className={`block p-1.5 rounded-md border ${style.bg} ${style.border} ${style.text} hover:opacity-95 transition-all`}
+                                                        className={`relative block w-full max-w-full p-1.5 rounded-md border ${style.bg} ${style.border} ${style.text} hover:opacity-95 transition-all min-w-0 overflow-hidden`}
                                                     >
+                                                        <span className="absolute top-1.5 right-1.5 text-[10px] font-semibold rounded-md bg-violet-600 text-white px-2 py-0.5 shrink-0">Edit</span>
                                                         <div className="flex items-start gap-2">
                                                             {thumb ? (
                                                                 <img
@@ -458,16 +450,21 @@ export default function CalendarPage() {
                                                             ) : (
                                                                 <Clock size={12} className="shrink-0 mt-0.5 opacity-80" />
                                                             )}
-                                                            <div className="min-w-0 flex-1">
-                                                                <div className="flex items-center gap-1.5 mb-1">
+                                                            <div className="min-w-0 flex-1 pr-12">
+                                                                <div className="flex flex-wrap items-center gap-1.5 mb-0.5 max-w-full">
                                                                     {platforms.map((pl: string) => (
                                                                         <PlatformIcon key={pl} platform={pl as keyof typeof PLATFORM_ICON_MAP} size={12} className="opacity-90" />
                                                                     ))}
                                                                 </div>
-                                                                <div className="text-[12px] font-semibold leading-tight truncate" title={postContentPreview(p)}>{postContentPreview(p)}</div>
-                                                                <div className="text-[11px] opacity-80 mt-1 font-medium">{postTimeAndPlatforms(p)}</div>
+                                                                <div className="text-[11px] font-semibold leading-none mb-1">{formatTime(new Date(p.scheduledAt))}</div>
+                                                                <div
+                                                                    className="text-[12px] font-semibold leading-tight"
+                                                                    style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+                                                                    title={postContentPreview(p)}
+                                                                >
+                                                                    {postContentPreview(p)}
+                                                                </div>
                                                             </div>
-                                                            <span className="text-[11px] font-semibold rounded-md bg-violet-600 text-white px-2.5 py-1 shrink-0">Edit</span>
                                                         </div>
                                                     </Link>
                                                 );

@@ -170,6 +170,51 @@ export async function sendScheduleConfirmationEmail(
   }
 }
 
+/**
+ * Sends a failure notification when a scheduled publish attempt fails.
+ */
+export async function sendScheduledPublishFailureEmail(
+  to: string,
+  whenIso: string,
+  reason: string,
+): Promise<{ ok: boolean; error?: string }> {
+  if (!resend) {
+    return { ok: false, error: 'RESEND_API_KEY not set' };
+  }
+  const from = getScheduledFrom();
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
+  const whenLabel = new Date(whenIso).toLocaleString(undefined, {
+    month: 'numeric',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+  try {
+    const { error } = await resend.emails.send({
+      from,
+      to: [to],
+      subject: 'Scheduled post needs attention',
+      html: `
+        <p>We could not auto-publish your scheduled post at <strong>${whenLabel}</strong>.</p>
+        <p><strong>Status:</strong> Failed</p>
+        <p><strong>Reason:</strong> ${reason || 'Unknown error'}</p>
+        <p>
+          <a href="${baseUrl}/posts" style="color:#7c3aed;font-weight:600">Open Post History</a><br/>
+          <a href="${baseUrl}/help/support" style="color:#7c3aed;font-weight:600">Contact support</a>
+        </p>
+      `,
+    });
+    if (error) {
+      const errMsg = typeof error === 'object' && error !== null && 'message' in error ? String((error as { message?: unknown }).message) : String(error);
+      return { ok: false, error: errMsg };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 const SUPPORT_EMAIL_TO = process.env.SUPPORT_EMAIL || 'support@agent4socials.com';
 
 /**
