@@ -108,6 +108,7 @@ function formatWeekRange(weekStart: Date): string {
 
 const HOURS_START = 0;
 const HOURS_END = 24;
+const CALENDAR_POSTS_CACHE_KEY = 'calendar_posts_cache_v1';
 
 export default function CalendarPage() {
     const searchParams = useSearchParams();
@@ -122,10 +123,22 @@ export default function CalendarPage() {
 
     useEffect(() => {
         const fromCache = appData?.getScheduledPosts?.();
-        const hasCached = fromCache !== undefined && Array.isArray(fromCache) && fromCache.length > 0;
+        const localCachedRaw = typeof window !== 'undefined' ? window.localStorage.getItem(CALENDAR_POSTS_CACHE_KEY) : null;
+        let localCached: unknown = null;
+        if (localCachedRaw) {
+            try {
+                localCached = JSON.parse(localCachedRaw);
+            } catch {
+                localCached = null;
+            }
+        }
+        const localList = Array.isArray(localCached) ? localCached : [];
+        const appList = Array.isArray(fromCache) ? (fromCache as any[]) : [];
+        const immediateCached = appList.length > 0 ? appList : localList;
+        const hasCached = immediateCached.length > 0;
         if (hasCached) {
             // Render instantly from cache, then refresh in background.
-            setPosts(fromCache as any[]);
+            setPosts(immediateCached);
             setLoading(false);
         }
         const fetchPosts = async (showLoading: boolean) => {
@@ -135,6 +148,9 @@ export default function CalendarPage() {
                 const list = Array.isArray(res.data) ? res.data : [];
                 setPosts(list);
                 appData?.setScheduledPosts?.(list);
+                if (typeof window !== 'undefined') {
+                    window.localStorage.setItem(CALENDAR_POSTS_CACHE_KEY, JSON.stringify(list));
+                }
             } catch (err) {
                 console.error('Failed to fetch posts');
             } finally {
@@ -347,30 +363,30 @@ export default function CalendarPage() {
                                                                     <span className="absolute top-1.5 right-1.5 text-[10px] font-semibold rounded-md bg-violet-600 text-white px-2 py-0.5 shrink-0">Edit</span>
                                                                     <div className="mb-1 pr-12 min-w-0">
                                                                         <span className="block text-[10px] font-semibold leading-none mb-1">{formatTime(new Date(p.scheduledAt))}</span>
-                                                                        <div className="flex flex-wrap items-center gap-0.5 max-w-full">
+                                                                    </div>
+                                                                    <div className="mt-0.5 flex items-start gap-1.5 min-w-0">
+                                                                        {thumb && (
+                                                                            <div
+                                                                                className={`min-w-0 rounded-md overflow-hidden bg-black/5 ${isReelLikePost(p) ? 'w-10 h-[4.25rem] flex justify-center' : 'w-14 h-[4.25rem]'}`}
+                                                                            >
+                                                                                <img
+                                                                                    src={thumb}
+                                                                                    alt="Post thumbnail"
+                                                                                    className={
+                                                                                        isReelLikePost(p)
+                                                                                            ? 'h-[4.25rem] w-[calc(4.25rem*9/16)] object-cover'
+                                                                                            : 'h-[4.25rem] w-full object-cover'
+                                                                                    }
+                                                                                    loading="lazy"
+                                                                                />
+                                                                            </div>
+                                                                        )}
+                                                                        <div className="flex flex-wrap content-start items-center gap-0.5 max-w-[calc(100%-3rem)] min-h-[4.25rem]">
                                                                             {platforms.map((pl: string) => (
-                                                                                <span key={pl} className="flex shrink-0">
-                                                                                    <PlatformIcon platform={pl as keyof typeof PLATFORM_ICON_MAP} size={18} className="opacity-95" />
-                                                                                </span>
+                                                                                <PlatformIcon key={pl} platform={pl as keyof typeof PLATFORM_ICON_MAP} size={18} className="opacity-95 shrink-0" />
                                                                             ))}
                                                                         </div>
                                                                     </div>
-                                                                    {thumb && (
-                                                                        <div
-                                                                            className={`mt-0.5 w-full min-w-0 rounded-md overflow-hidden border border-white/60 bg-black/5 ${isReelLikePost(p) ? 'flex justify-center' : ''}`}
-                                                                        >
-                                                                            <img
-                                                                                src={thumb}
-                                                                                alt="Post thumbnail"
-                                                                                className={
-                                                                                    isReelLikePost(p)
-                                                                                        ? 'h-[4.25rem] w-[calc(4.25rem*9/16)] max-w-full object-cover'
-                                                                                        : 'h-[4.25rem] w-full object-cover'
-                                                                                }
-                                                                                loading="lazy"
-                                                                            />
-                                                                        </div>
-                                                                    )}
                                                                 </Link>
                                                             );
                                                         })}
@@ -421,30 +437,32 @@ export default function CalendarPage() {
                                                     >
                                                         <span className="absolute top-1.5 right-1.5 text-[10px] font-semibold rounded-md bg-violet-600 text-white px-2 py-0.5 shrink-0">Edit</span>
                                                         <div className="text-[11px] font-semibold leading-none mb-1 pr-12">{formatTime(new Date(p.scheduledAt))}</div>
-                                                        {thumb ? (
-                                                            <div
-                                                                className={`mb-1 w-full min-h-[5rem] max-h-[5.5rem] rounded-md overflow-hidden border border-white/60 bg-black/5 ${isReelLikePost(p) ? 'flex justify-center items-stretch' : ''}`}
-                                                            >
-                                                                <img
-                                                                    src={thumb}
-                                                                    alt="Post thumbnail"
-                                                                    className={
-                                                                        isReelLikePost(p)
-                                                                            ? 'h-[5.25rem] w-[calc(5.25rem*9/16)] max-w-[min(100%,5.25rem)] object-cover'
-                                                                            : 'h-[5rem] w-full min-h-[5rem] object-cover'
-                                                                    }
-                                                                    loading="lazy"
-                                                                />
+                                                        <div className="flex items-start gap-1.5 min-w-0">
+                                                            {thumb ? (
+                                                                <div
+                                                                    className={`rounded-md overflow-hidden bg-black/5 shrink-0 ${isReelLikePost(p) ? 'w-11 h-[5.25rem] flex justify-center' : 'w-16 h-[5rem]'}`}
+                                                                >
+                                                                    <img
+                                                                        src={thumb}
+                                                                        alt="Post thumbnail"
+                                                                        className={
+                                                                            isReelLikePost(p)
+                                                                                ? 'h-[5.25rem] w-[calc(5.25rem*9/16)] object-cover'
+                                                                                : 'h-[5rem] w-full object-cover'
+                                                                        }
+                                                                        loading="lazy"
+                                                                    />
+                                                                </div>
+                                                            ) : (
+                                                                <div className="flex h-[5rem] w-11 items-center justify-center text-gray-400 shrink-0">
+                                                                    <Clock size={16} className="opacity-70" aria-hidden />
+                                                                </div>
+                                                            )}
+                                                            <div className="flex flex-wrap content-start items-center gap-1 max-w-[calc(100%-4.25rem)] min-h-[5rem]">
+                                                                {platforms.map((pl: string) => (
+                                                                    <PlatformIcon key={pl} platform={pl as keyof typeof PLATFORM_ICON_MAP} size={20} className="opacity-90 shrink-0" />
+                                                                ))}
                                                             </div>
-                                                        ) : (
-                                                            <div className="mb-1 flex h-10 items-center text-gray-400">
-                                                                <Clock size={16} className="opacity-70" aria-hidden />
-                                                            </div>
-                                                        )}
-                                                        <div className="flex flex-wrap items-center gap-1 max-w-full">
-                                                            {platforms.map((pl: string) => (
-                                                                <PlatformIcon key={pl} platform={pl as keyof typeof PLATFORM_ICON_MAP} size={20} className="opacity-90 shrink-0" />
-                                                            ))}
                                                         </div>
                                                     </Link>
                                                 );
