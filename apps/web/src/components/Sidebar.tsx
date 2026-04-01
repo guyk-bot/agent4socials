@@ -329,8 +329,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
         {isInboxPage ? (
           <a
             href="/dashboard/automation"
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isAutomationPage ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
-            style={isAutomationPage ? { color: accent } : undefined}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isAutomationPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
           >
             <Zap size={18} className="shrink-0" />
             <span>Automation</span>
@@ -338,8 +337,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
         ) : (
         <Link
           href="/dashboard/automation"
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isAutomationPage ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
-          style={isAutomationPage ? { color: accent } : undefined}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isAutomationPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
         >
           <Zap size={18} className="shrink-0" />
           <span>Automation</span>
@@ -348,8 +346,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
         {isInboxPage ? (
           <a
             href="/dashboard/hashtag-pool"
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isHashtagPoolPage ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
-            style={isHashtagPoolPage ? { color: accent } : undefined}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isHashtagPoolPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
           >
             <Hash size={18} className="shrink-0" />
             <span>Hashtag Pool</span>
@@ -357,8 +354,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
         ) : (
         <Link
           href="/dashboard/hashtag-pool"
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isHashtagPoolPage ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
-          style={isHashtagPoolPage ? { color: accent } : undefined}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isHashtagPoolPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
         >
           <Hash size={18} className="shrink-0" />
           <span>Hashtag Pool</span>
@@ -367,8 +363,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
         {isInboxPage ? (
           <a
             href="/dashboard/ai-assistant"
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isAiAssistantPage ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
-            style={isAiAssistantPage ? { color: accent } : undefined}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isAiAssistantPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
           >
             <Sparkles size={18} className="shrink-0" />
             <span>AI Assistant</span>
@@ -376,8 +371,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
         ) : (
         <Link
           href="/dashboard/ai-assistant"
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isAiAssistantPage ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
-          style={isAiAssistantPage ? { color: accent } : undefined}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isAiAssistantPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
         >
           <Sparkles size={18} className="shrink-0" />
           <span>AI Assistant</span>
@@ -386,8 +380,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
         {isInboxPage ? (
           <a
             href="/dashboard/accounts"
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isAccountsPage ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
-            style={isAccountsPage ? { color: accent } : undefined}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isAccountsPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
           >
             <Users size={18} className="shrink-0" />
             <span>Accounts</span>
@@ -395,8 +388,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
         ) : (
         <Link
           href="/dashboard/accounts"
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isAccountsPage ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
-          style={isAccountsPage ? { color: accent } : undefined}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isAccountsPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
         >
           <Users size={18} className="shrink-0" />
           <span>Accounts</span>
@@ -405,8 +397,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
         {isInboxPage ? (
           <a
             href="/dashboard/settings"
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isSettingsPage ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
-            style={isSettingsPage ? { color: accent } : undefined}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isSettingsPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
           >
             <Settings size={18} className="shrink-0" />
             <span>Brand settings</span>
@@ -414,8 +405,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
         ) : (
         <Link
           href="/dashboard/settings"
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isSettingsPage ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
-          style={isSettingsPage ? { color: accent } : undefined}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isSettingsPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
         >
           <Settings size={18} className="shrink-0" />
           <span>Brand settings</span>
@@ -427,8 +417,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
         {isInboxPage ? (
           <a
             href="/help"
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isHelpPage ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
-            style={isHelpPage ? { color: accent } : undefined}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isHelpPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
           >
             <HelpCircle size={18} className="shrink-0" />
             <span>Need help?</span>
@@ -436,8 +425,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
         ) : (
         <Link
           href="/help"
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isHelpPage ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
-          style={isHelpPage ? { color: accent } : undefined}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isHelpPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
         >
           <HelpCircle size={18} className="shrink-0" />
           <span>Need help?</span>
