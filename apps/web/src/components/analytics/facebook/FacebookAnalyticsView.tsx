@@ -2146,10 +2146,27 @@ export function FacebookAnalyticsView({
                           ? 'YouTube'
                           : 'Facebook Page')}
               </h1>
-              <p className="text-sm inline-flex items-center gap-2" style={{ color: COLOR.textSecondary }}>
-                <RefreshCw size={13} className="opacity-75" />
-                Updated just now
-              </p>
+              {onSync ? (
+                <button
+                  type="button"
+                  onClick={onSync}
+                  disabled={postsLoading}
+                  className="mt-1 inline-flex items-center gap-2 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                  style={{
+                    color: COLOR.textSecondary,
+                    borderColor: COLOR.border,
+                    background: 'rgba(255,255,255,0.75)',
+                  }}
+                >
+                  <RefreshCw size={13} className={postsLoading ? 'animate-spin opacity-75' : 'opacity-75'} />
+                  {postsLoading ? 'Syncing...' : 'Sync now'}
+                </button>
+              ) : (
+                <p className="text-sm inline-flex items-center gap-2" style={{ color: COLOR.textSecondary }}>
+                  <RefreshCw size={13} className="opacity-75" />
+                  Updated just now
+                </p>
+              )}
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">

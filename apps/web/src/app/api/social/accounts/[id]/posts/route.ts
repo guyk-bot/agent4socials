@@ -736,25 +736,60 @@ export async function GET(
       };
     });
 
+    // App-published targets not yet in importedPosts.
+    // For Facebook, live-enrich these rows so newest reels do not appear as all zeros while
+    // Graph edges lag behind imported post persistence.
+    const appExtraFacebookInsightsByPostId: Record<string, Record<string, number>> = {};
+    if (account.platform === 'FACEBOOK' && appTargets.length > 0) {
+      try {
+        const fbPageToken = await resolveFacebookPageAccessToken(account.platformUserId, account.accessToken);
+        const missingImportedTargets = appTargets
+          .filter((t) => t.platformPostId && !importedPostIds.has(t.platformPostId))
+          .slice(0, 20);
+        await runWithConcurrency(missingImportedTargets, 5, async (t) => {
+          const pid = t.platformPostId;
+          if (!pid) return;
+          try {
+            const map = await fetchFacebookPostSnapshotMap(pid, fbPageToken);
+            if (Object.keys(map).length > 0) appExtraFacebookInsightsByPostId[pid] = map;
+          } catch {
+            // best effort
+          }
+        });
+      } catch {
+        // best effort
+      }
+    }
+
     // App-published targets not yet in importedPosts
     const appExtra = appTargets
       .filter((t) => !importedPostIds.has(t.platformPostId!))
-      .map((t) => ({
-        id: `target-${t.id}`,
-        platformPostId: t.platformPostId ?? null,
-        content: t.post?.content ?? null,
-        thumbnailUrl: thumbnailUrlFromFirstPostMedia(t.post?.media[0]),
-        permalinkUrl: null,
-        impressions: 0,
-        interactions: 0,
-        likeCount: 0,
-        commentsCount: 0,
-        repostsCount: 0,
-        sharesCount: 0,
-        publishedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : String(t.updatedAt),
-        mediaType: t.post?.media[0]?.type ?? null,
-        platform: account.platform,
-      }));
+      .map((t) => {
+        const pid = t.platformPostId ?? null;
+        const live = pid ? appExtraFacebookInsightsByPostId[pid] : undefined;
+        const fbPick = live ? pickFacebookPostImpressionsFromInsightMap(live) : { impressions: 0, metricUsed: null };
+        const likeCount = live?.post_reactions_like_total ?? 0;
+        const commentsCount = live?.post_comments ?? 0;
+        const sharesCount = live?.post_shares ?? 0;
+        const interactions = likeCount + commentsCount + sharesCount;
+        return {
+          id: `target-${t.id}`,
+          platformPostId: pid,
+          content: t.post?.content ?? null,
+          thumbnailUrl: thumbnailUrlFromFirstPostMedia(t.post?.media[0]),
+          permalinkUrl: null,
+          impressions: fbPick.impressions,
+          interactions,
+          likeCount,
+          commentsCount,
+          repostsCount: 0,
+          sharesCount,
+          publishedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : String(t.updatedAt),
+          mediaType: t.post?.media[0]?.type ?? null,
+          platform: account.platform,
+          ...(live && Object.keys(live).length > 0 ? { facebookInsights: live } : {}),
+        };
+      });
 
     const posts = [...serialized, ...appExtra].sort(
       (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
