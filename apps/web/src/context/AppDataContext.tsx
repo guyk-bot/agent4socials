@@ -62,6 +62,7 @@ export type CachedConversation = {
 
 /** Post from GET /posts (scheduled/draft/history) */
 export type CachedScheduledPost = Record<string, unknown>;
+export type CachedEngagement = Record<string, unknown>;
 
 type AppDataContextType = {
   notifications: NotificationsCache;
@@ -70,6 +71,7 @@ type AppDataContextType = {
   commentsByAccountId: Record<string, CachedComment[]>;
   conversationsByAccountId: Record<string, CachedConversation[]>;
   scheduledPosts: CachedScheduledPost[];
+  engagementByAccountId: Record<string, CachedEngagement[]>;
   prefetchStatus: 'idle' | 'loading' | 'done';
   prefetchHasLoadedOnce: boolean;
   getPosts: (accountId: string) => CachedPost[] | undefined;
@@ -77,12 +79,14 @@ type AppDataContextType = {
   getComments: (accountId: string) => CachedComment[] | undefined;
   getConversations: (accountId: string) => CachedConversation[] | undefined;
   getScheduledPosts: () => CachedScheduledPost[];
+  getEngagement: (accountId: string) => CachedEngagement[] | undefined;
   setPostsForAccount: (accountId: string, posts: CachedPost[]) => void;
   setInsightsForAccount: (accountId: string, insights: CachedInsights) => void;
   clearAccountData: (accountId: string) => void;
   setCommentsForAccount: (accountId: string, comments: CachedComment[]) => void;
   setConversationsForAccount: (accountId: string, conversations: CachedConversation[]) => void;
   setScheduledPosts: (posts: CachedScheduledPost[]) => void;
+  setEngagementForAccount: (accountId: string, engagement: CachedEngagement[]) => void;
   setNotifications: (n: NotificationsCache) => void;
   invalidate: () => void;
   invalidateConversations: () => void;
@@ -113,6 +117,7 @@ function readCachedBlob(): {
   postsByAccountId?: Record<string, CachedPost[]>;
   insightsByAccountId?: Record<string, CachedInsights>;
   commentsByAccountId?: Record<string, CachedComment[]>;
+  engagementByAccountId?: Record<string, CachedEngagement[]>;
 } | null {
   if (typeof window === 'undefined') return null;
   try {
@@ -123,6 +128,7 @@ function readCachedBlob(): {
       postsByAccountId?: Record<string, CachedPost[]>;
       insightsByAccountId?: Record<string, CachedInsights>;
       commentsByAccountId?: Record<string, CachedComment[]>;
+  engagementByAccountId?: Record<string, CachedEngagement[]>;
     };
     return data;
   } catch {
@@ -138,6 +144,11 @@ function getInitialPostsFromStorage(): Record<string, CachedPost[]> {
 function getInitialInsightsFromStorage(): Record<string, CachedInsights> {
   const data = readCachedBlob();
   return data?.insightsByAccountId && typeof data.insightsByAccountId === 'object' ? data.insightsByAccountId : {};
+}
+
+function getInitialEngagementFromStorage(): Record<string, CachedEngagement[]> {
+  const data = readCachedBlob();
+  return data?.engagementByAccountId && typeof data.engagementByAccountId === 'object' ? data.engagementByAccountId : {};
 }
 
 const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
@@ -156,6 +167,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [commentsByAccountId, setCommentsByAccountId] = useState<Record<string, CachedComment[]>>(getInitialCommentsFromStorage);
   const [conversationsByAccountId, setConversationsByAccountId] = useState<Record<string, CachedConversation[]>>(getInitialConversationsFromStorage);
   const [scheduledPosts, setScheduledPostsState] = useState<CachedScheduledPost[]>([]);
+  const [engagementByAccountId, setEngagementByAccountId] = useState<Record<string, CachedEngagement[]>>(getInitialEngagementFromStorage);
   const [prefetchStatus, setPrefetchStatus] = useState<'idle' | 'loading' | 'done'>('idle');
   const [prefetchHasLoadedOnce, setPrefetchHasLoadedOnce] = useState(false);
 
@@ -226,12 +238,17 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     return scheduledPosts;
   }, [scheduledPosts]);
 
+  const getEngagement = useCallback((accountId: string) => {
+    return engagementByAccountId[accountId];
+  }, [engagementByAccountId]);
+
   const invalidate = useCallback(() => {
     setPostsByAccountId({});
     setInsightsByAccountId({});
     setCommentsByAccountId({});
     setConversationsByAccountId({});
     setScheduledPostsState([]);
+    setEngagementByAccountId({});
     setPrefetchStatus('idle');
     setPrefetchHasLoadedOnce(false);
     if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(CACHE_KEY);
@@ -254,6 +271,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         postsByAccountId?: Record<string, CachedPost[]>;
         insightsByAccountId?: Record<string, CachedInsights>;
         commentsByAccountId?: Record<string, CachedComment[]>;
+  engagementByAccountId?: Record<string, CachedEngagement[]>;
       };
       if (data.conversationsByAccountId && Object.keys(data.conversationsByAccountId).length > 0) {
         setConversationsByAccountId(data.conversationsByAccountId);
@@ -267,6 +285,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       if (data.commentsByAccountId && Object.keys(data.commentsByAccountId).length > 0) {
         setCommentsByAccountId(data.commentsByAccountId);
       }
+      if (data.engagementByAccountId && Object.keys(data.engagementByAccountId).length > 0) {
+        setEngagementByAccountId(data.engagementByAccountId);
+      }
     } catch {
       // ignore parse errors or quota
     }
@@ -279,7 +300,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       Object.keys(conversationsByAccountId).length > 0 ||
       Object.keys(postsByAccountId).length > 0 ||
       Object.keys(insightsByAccountId).length > 0 ||
-      Object.keys(commentsByAccountId).length > 0;
+      Object.keys(commentsByAccountId).length > 0 ||
+      Object.keys(engagementByAccountId).length > 0;
     if (!hasData) return;
     try {
       const payload = {
@@ -287,6 +309,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         postsByAccountId,
         insightsByAccountId,
         commentsByAccountId,
+        engagementByAccountId,
       };
       const str = JSON.stringify(payload);
       if (str.length > CACHE_MAX_BYTES) return;
@@ -295,7 +318,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // ignore quota or other errors
     }
-  }, [user?.id, conversationsByAccountId, postsByAccountId, insightsByAccountId, commentsByAccountId]);
+  }, [user?.id, conversationsByAccountId, postsByAccountId, insightsByAccountId, commentsByAccountId, engagementByAccountId]);
 
   useEffect(() => {
     if (!user) {
@@ -360,6 +383,11 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
               setConversationsByAccountId((prev) => ({ ...prev, [acc.id]: list }));
             }).catch(() => {})
           ),
+          ...accounts.filter((acc) => acc.platform === 'INSTAGRAM' || acc.platform === 'FACEBOOK' || acc.platform === 'YOUTUBE').map((acc) =>
+            api.get<{ engagement?: CachedEngagement[] }>(`/social/accounts/${acc.id}/engagement`).then((r) => {
+              if (!cancelled) setEngagementByAccountId((prev) => ({ ...prev, [acc.id]: r.data?.engagement ?? [] }));
+            }).catch(() => {})
+          ),
         ]);
       } catch {
         if (!cancelled) setPrefetchStatus('done');
@@ -378,6 +406,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       commentsByAccountId,
       conversationsByAccountId,
       scheduledPosts,
+      engagementByAccountId,
       prefetchStatus,
       prefetchHasLoadedOnce,
       getPosts,
@@ -385,12 +414,14 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       getComments,
       getConversations,
       getScheduledPosts,
+      getEngagement,
       setPostsForAccount,
       setInsightsForAccount,
       clearAccountData,
       setCommentsForAccount,
       setConversationsForAccount,
       setScheduledPosts,
+      setEngagementForAccount,
       setNotifications,
       invalidate,
       invalidateConversations,
@@ -402,6 +433,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       commentsByAccountId,
       conversationsByAccountId,
       scheduledPosts,
+      engagementByAccountId,
       prefetchStatus,
       prefetchHasLoadedOnce,
       getPosts,
@@ -409,12 +441,14 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       getComments,
       getConversations,
       getScheduledPosts,
+      getEngagement,
       setPostsForAccount,
       setInsightsForAccount,
       clearAccountData,
       setCommentsForAccount,
       setConversationsForAccount,
       setScheduledPosts,
+      setEngagementForAccount,
       setNotifications,
       invalidate,
       invalidateConversations,

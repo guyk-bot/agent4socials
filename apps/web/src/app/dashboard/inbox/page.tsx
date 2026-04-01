@@ -893,13 +893,33 @@ function InboxPage() {
     let cancelled = false;
     const merge: EngagementItem[] = [];
     let pending = allEngagementAccounts.length;
-    setEngagementLoading(true);
+    let hasCachedEngagement = false;
     setEngagementError(null);
+
+    allEngagementAccounts.forEach((account) => {
+      const cached = appData?.getEngagement(account.id) as EngagementItem[] | undefined;
+      if (cached !== undefined) {
+        hasCachedEngagement = true;
+        merge.push(...cached);
+      }
+    });
+
+    if (hasCachedEngagement) {
+      const sorted = [...merge].sort((a, b) => (b.likeCount + b.commentCount) - (a.likeCount + a.commentCount));
+      setEngagement(sorted);
+      setEngagementLoading(false);
+      merge.length = 0;
+    } else {
+      setEngagementLoading(true);
+    }
+
     allEngagementAccounts.forEach((account) => {
       api.get<{ engagement?: EngagementItem[]; error?: string }>(`/social/accounts/${account.id}/engagement`)
         .then((res) => {
           if (cancelled) return;
-          merge.push(...(res.data?.engagement ?? []));
+          const list = res.data?.engagement ?? [];
+          merge.push(...list);
+          appData?.setEngagementForAccount(account.id, list as Record<string, unknown>[]);
           if (--pending === 0) {
             merge.sort((a, b) => (b.likeCount + b.commentCount) - (a.likeCount + a.commentCount));
             setEngagement(merge);
@@ -916,7 +936,7 @@ function InboxPage() {
         });
     });
     return () => { cancelled = true; };
-  }, [allEngagementAccounts.map((a) => a.id).join(','), effectiveAccounts.length]);
+  }, [allEngagementAccounts.map((a) => a.id).join(','), effectiveAccounts.length, appData]);
 
   // Track unread conversation ids and total unread messages: use messageCount + lastRead when available.
   // When we first see a conversation (no stored lastRead), treat it as read so we only highlight new notifications after connection.
