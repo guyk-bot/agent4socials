@@ -433,10 +433,12 @@ export default function CalendarPage() {
                                                     <Link
                                                         key={p.id}
                                                         href={`/composer?edit=${p.id}`}
-                                                        className={`relative block w-full max-w-full p-1.5 rounded-md border ${style.bg} ${style.border} ${style.text} hover:opacity-95 transition-all min-w-0 overflow-hidden`}
+                                                        className={`block w-full max-w-full p-1.5 rounded-md border ${style.bg} ${style.border} ${style.text} hover:opacity-95 transition-all min-w-0 overflow-hidden`}
                                                     >
-                                                        <span className="absolute top-1.5 right-1.5 text-[10px] font-semibold rounded-md bg-violet-600 text-white px-2 py-0.5 shrink-0">Edit</span>
-                                                        <div className="text-[11px] font-semibold leading-none mb-1 pr-12">{formatTime(new Date(p.scheduledAt))}</div>
+                                                        <div className="flex items-start justify-between gap-2 mb-1 min-w-0">
+                                                            <span className="text-[11px] font-semibold leading-none truncate">{formatTime(new Date(p.scheduledAt))}</span>
+                                                            <span className="shrink-0 text-[10px] font-semibold rounded-md bg-violet-600 text-white px-2 py-0.5">Edit</span>
+                                                        </div>
                                                         <div className="flex items-start gap-1.5 min-w-0">
                                                             {thumb ? (
                                                                 <div
@@ -458,9 +460,9 @@ export default function CalendarPage() {
                                                                     <Clock size={16} className="opacity-70" aria-hidden />
                                                                 </div>
                                                             )}
-                                                            <div className="flex flex-wrap content-start items-center gap-1 max-w-[calc(100%-4.25rem)] min-h-[5rem]">
+                                                            <div className="min-w-0 flex-1 min-h-[5rem] grid grid-cols-3 gap-x-0.5 gap-y-1 content-start justify-items-center">
                                                                 {platforms.map((pl: string) => (
-                                                                    <PlatformIcon key={pl} platform={pl as keyof typeof PLATFORM_ICON_MAP} size={20} className="opacity-90 shrink-0" />
+                                                                    <PlatformIcon key={pl} platform={pl as keyof typeof PLATFORM_ICON_MAP} size={18} className="opacity-90 shrink-0" />
                                                                 ))}
                                                             </div>
                                                         </div>
