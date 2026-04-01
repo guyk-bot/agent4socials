@@ -358,32 +358,32 @@ export default function CalendarPage() {
                                                                 <Link
                                                                     key={p.id}
                                                                     href={`/composer?edit=${p.id}`}
-                                                                    className={`relative block w-full max-w-full rounded-md border px-2 py-1.5 ${style.bg} ${style.border} ${style.text} hover:opacity-95 transition-all min-w-0 overflow-hidden`}
+                                                                    className={`block w-full max-w-full p-1.5 rounded-md border ${style.bg} ${style.border} ${style.text} hover:opacity-95 transition-all min-w-0 overflow-hidden`}
                                                                 >
-                                                                    <span className="absolute top-1.5 right-1.5 text-[10px] font-semibold rounded-md bg-violet-600 text-white px-2 py-0.5 shrink-0">Edit</span>
-                                                                    <div className="mb-1 pr-12 min-w-0">
-                                                                        <span className="block text-[10px] font-semibold leading-none mb-1">{formatTime(new Date(p.scheduledAt))}</span>
+                                                                    <div className="flex items-start justify-between gap-2 mb-1 min-w-0">
+                                                                        <span className="text-[11px] font-semibold leading-none truncate">{formatTime(new Date(p.scheduledAt))}</span>
+                                                                        <span className="shrink-0 text-[10px] font-semibold rounded-md bg-violet-600 text-white px-2 py-0.5">Edit</span>
                                                                     </div>
-                                                                    <div className="mt-0.5 flex items-start gap-1.5 min-w-0">
+                                                                    <div className="flex items-start gap-1.5 min-w-0">
                                                                         {thumb && (
                                                                             <div
-                                                                                className={`min-w-0 rounded-md overflow-hidden bg-black/5 ${isReelLikePost(p) ? 'w-10 h-[4.25rem] flex justify-center' : 'w-14 h-[4.25rem]'}`}
+                                                                                className={`rounded-md overflow-hidden bg-black/5 shrink-0 ${isReelLikePost(p) ? 'w-12 h-[6rem] flex justify-center' : 'w-[4.5rem] h-[5.75rem]'}`}
                                                                             >
                                                                                 <img
                                                                                     src={thumb}
                                                                                     alt="Post thumbnail"
                                                                                     className={
                                                                                         isReelLikePost(p)
-                                                                                            ? 'h-[4.25rem] w-[calc(4.25rem*9/16)] object-cover'
-                                                                                            : 'h-[4.25rem] w-full object-cover'
+                                                                                            ? 'h-[6rem] w-[calc(6rem*9/16)] object-cover'
+                                                                                            : 'h-[5.75rem] w-full object-cover'
                                                                                     }
                                                                                     loading="lazy"
                                                                                 />
                                                                             </div>
                                                                         )}
-                                                                        <div className="flex flex-wrap content-start items-center gap-0.5 max-w-[calc(100%-3rem)] min-h-[4.25rem]">
+                                                                        <div className="min-w-0 flex-1 min-h-[5.75rem] mt-0.5 grid grid-cols-3 gap-x-0.5 gap-y-1 content-start justify-items-center">
                                                                             {platforms.map((pl: string) => (
-                                                                                <PlatformIcon key={pl} platform={pl as keyof typeof PLATFORM_ICON_MAP} size={18} className="opacity-95 shrink-0" />
+                                                                                <PlatformIcon key={pl} platform={pl as keyof typeof PLATFORM_ICON_MAP} size={18} className="opacity-90 shrink-0" />
                                                                             ))}
                                                                         </div>
                                                                     </div>
@@ -442,25 +442,25 @@ export default function CalendarPage() {
                                                         <div className="flex items-start gap-1.5 min-w-0">
                                                             {thumb ? (
                                                                 <div
-                                                                    className={`rounded-md overflow-hidden bg-black/5 shrink-0 ${isReelLikePost(p) ? 'w-11 h-[5.25rem] flex justify-center' : 'w-16 h-[5rem]'}`}
+                                                                    className={`rounded-md overflow-hidden bg-black/5 shrink-0 ${isReelLikePost(p) ? 'w-12 h-[6rem] flex justify-center' : 'w-[4.5rem] h-[5.75rem]'}`}
                                                                 >
                                                                     <img
                                                                         src={thumb}
                                                                         alt="Post thumbnail"
                                                                         className={
                                                                             isReelLikePost(p)
-                                                                                ? 'h-[5.25rem] w-[calc(5.25rem*9/16)] object-cover'
-                                                                                : 'h-[5rem] w-full object-cover'
+                                                                                ? 'h-[6rem] w-[calc(6rem*9/16)] object-cover'
+                                                                                : 'h-[5.75rem] w-full object-cover'
                                                                         }
                                                                         loading="lazy"
                                                                     />
                                                                 </div>
                                                             ) : (
-                                                                <div className="flex h-[5rem] w-11 items-center justify-center text-gray-400 shrink-0">
+                                                                <div className="flex h-[5.75rem] w-12 items-center justify-center text-gray-400 shrink-0">
                                                                     <Clock size={16} className="opacity-70" aria-hidden />
                                                                 </div>
                                                             )}
-                                                            <div className="min-w-0 flex-1 min-h-[5rem] grid grid-cols-3 gap-x-0.5 gap-y-1 content-start justify-items-center">
+                                                            <div className="min-w-0 flex-1 min-h-[5.75rem] mt-0.5 grid grid-cols-3 gap-x-0.5 gap-y-1 content-start justify-items-center">
                                                                 {platforms.map((pl: string) => (
                                                                     <PlatformIcon key={pl} platform={pl as keyof typeof PLATFORM_ICON_MAP} size={18} className="opacity-90 shrink-0" />
                                                                 ))}
