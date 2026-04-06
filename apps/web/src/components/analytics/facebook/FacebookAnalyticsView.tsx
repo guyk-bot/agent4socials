@@ -1170,7 +1170,7 @@ function TopContentHighlights({
   hideClicksColumn?: boolean;
 }) {
   const rankBadge = (idx: number) => `/rank-badges/${Math.min(3, idx + 1)}.svg`;
-  const col = (title: string, metricLabel: 'Views' | 'Clicks' | 'Reactions' | 'Interactions', rows: TopHighlightRow[]) => (
+  const col = (title: string, metricLabel: 'Views' | 'Clicks' | 'Reactions' | 'Interactions', rows: TopHighlightRow[], showClicks = true) => (
     <div className="space-y-3">
       <p className="text-base font-semibold tracking-tight" style={{ color: COLOR.text }}>{title}</p>
       {rows.length === 0 ? (
@@ -1223,15 +1223,17 @@ function TopContentHighlights({
                 </p>
                 <div className="mt-auto pt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs" style={{ color: COLOR.textMuted }}>
                   <span style={metricLabel === 'Views' ? { color: COLOR.text, fontWeight: 700, fontSize: 13 } : undefined}>Views {formatNumber(r.views)}</span>
-                  <span
-                    style={
-                      metricLabel === 'Clicks' || metricLabel === 'Interactions'
-                        ? { color: COLOR.text, fontWeight: 700, fontSize: 13 }
-                        : undefined
-                    }
-                  >
-                    {metricLabel === 'Interactions' ? 'Interactions' : 'Clicks'} {formatNumber(r.clicks)}
-                  </span>
+                  {showClicks && (
+                    <span
+                      style={
+                        metricLabel === 'Clicks' || metricLabel === 'Interactions'
+                          ? { color: COLOR.text, fontWeight: 700, fontSize: 13 }
+                          : undefined
+                      }
+                    >
+                      {metricLabel === 'Interactions' ? 'Interactions' : 'Clicks'} {formatNumber(r.clicks)}
+                    </span>
+                  )}
                   <span style={metricLabel === 'Reactions' ? { color: COLOR.text, fontWeight: 700, fontSize: 13 } : undefined}>Reactions {formatNumber(r.reactions)}</span>
                 </div>
               </div>
@@ -1245,9 +1247,9 @@ function TopContentHighlights({
   return (
     <section className="rounded-[20px] p-5" style={{ background: COLOR.card, boxShadow: '0 2px 16px rgba(15,23,42,0.05)' }}>
       <div className={`grid gap-4 ${hideClicksColumn ? 'lg:grid-cols-2' : 'lg:grid-cols-3'}`}>
-        {col('Views leaders', 'Views', byViews)}
-        {!hideClicksColumn && col(clicksLeaderTitle, clicksMetricLabel, byClicks)}
-        {col('Reactions leaders', 'Reactions', byReactions)}
+        {col('Views leaders', 'Views', byViews, !hideClicksColumn)}
+        {!hideClicksColumn && col(clicksLeaderTitle, clicksMetricLabel, byClicks, true)}
+        {col('Reactions leaders', 'Reactions', byReactions, !hideClicksColumn)}
       </div>
     </section>
   );
@@ -1345,7 +1347,7 @@ export function FacebookAnalyticsView({
   const [storyMode, setStoryMode] = useState<StoryMode>('growth');
   const [selectedStoryMetrics, setSelectedStoryMetrics] = useState<StoryMetricKey[]>(STORY_MODE_DEFAULT_METRICS.growth);
   const [selectedActivityMetrics, setSelectedActivityMetrics] = useState<ActivityMetricKey[]>(['posts', 'actions']);
-  const [selectedEngagementMetrics, setSelectedEngagementMetrics] = useState<EngagementMetricKey[]>(['likes', 'comments', 'shares', 'reposts']);
+  const [selectedEngagementMetrics, setSelectedEngagementMetrics] = useState<EngagementMetricKey[]>(['likes', 'comments', 'shares']);
   const [selectedTrafficMetrics, setSelectedTrafficMetrics] = useState<TrafficMetricKey[]>(['postImpressions', 'nonviral', 'viral', 'uniqueReachProxy']);
   const [selectedReelMetrics, setSelectedReelMetrics] = useState<ReelMetricKey[]>(['views', 'avgWatch']);
   const [reelPreset, setReelPreset] = useState<ReelPresetKey>('performance');
@@ -2552,7 +2554,9 @@ export function FacebookAnalyticsView({
           </div>
           <div className="flex justify-end">
             <div className="flex flex-wrap gap-2">
-              {selectedEngagementMetrics.map((m) => (
+              {selectedEngagementMetrics
+                .filter((m) => m !== 'reposts' || isInstagram)
+                .map((m) => (
                 <span
                   key={m}
                   className="rounded-full border px-2.5 py-1 text-xs"
@@ -2601,7 +2605,7 @@ export function FacebookAnalyticsView({
                 {selectedEngagementMetrics.includes('likes') ? <Bar dataKey="likes" fill={ENGAGEMENT_METRIC_CONFIG.likes.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                 {selectedEngagementMetrics.includes('comments') ? <Bar dataKey="comments" fill={ENGAGEMENT_METRIC_CONFIG.comments.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                 {selectedEngagementMetrics.includes('shares') ? <Bar dataKey="shares" fill={ENGAGEMENT_METRIC_CONFIG.shares.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
-                {selectedEngagementMetrics.includes('reposts') ? <Bar dataKey="reposts" fill={ENGAGEMENT_METRIC_CONFIG.reposts.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                {isInstagram && selectedEngagementMetrics.includes('reposts') ? <Bar dataKey="reposts" fill={ENGAGEMENT_METRIC_CONFIG.reposts.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
               </BarChart>
             </ResponsiveContainer>
             </div>
