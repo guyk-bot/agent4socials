@@ -978,6 +978,7 @@ export function PostsPerformanceTable({
   rows,
   onOpenDetail,
   clicksColumnLabel = 'Clicks',
+  hideClicksColumn = false,
 }: {
   rows: Array<{
     id: string;
@@ -998,25 +999,28 @@ export function PostsPerformanceTable({
   }>;
   onOpenDetail: (p: FacebookPost) => void;
   clicksColumnLabel?: string;
+  /** Hide the clicks/interactions column (e.g. for Facebook). */
+  hideClicksColumn?: boolean;
 }) {
+  const tableHeaders = [
+    { label: 'Post preview', className: 'w-[240px]' },
+    { label: 'Publish date', className: 'w-[132px]' },
+    { label: 'Type', className: 'w-[60px]' },
+    { label: 'Views', className: 'w-[58px]' },
+    { label: 'Unique reach', className: 'w-[66px]' },
+    ...(hideClicksColumn ? [] : [{ label: clicksColumnLabel, className: 'w-[52px]' }]),
+    { label: 'Likes', className: 'w-[52px]' },
+    { label: 'Reactions', className: 'w-[76px]' },
+    { label: 'Watch time', className: 'w-[84px]' },
+    { label: 'Avg watch', className: 'w-[68px]' },
+  ];
   return (
     <div className="rounded-[20px] overflow-hidden" style={{ background: COLOR.card, boxShadow: '0 2px 16px rgba(15,23,42,0.06)' }}>
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full table-fixed text-sm">
           <thead style={{ background: 'rgba(255,255,255,0.02)', color: COLOR.textMuted }}>
             <tr>
-              {[
-                { label: 'Post preview', className: 'w-[240px]' },
-                { label: 'Publish date', className: 'w-[132px]' },
-                { label: 'Type', className: 'w-[60px]' },
-                { label: 'Views', className: 'w-[58px]' },
-                { label: 'Unique reach', className: 'w-[66px]' },
-                { label: clicksColumnLabel, className: 'w-[52px]' },
-                { label: 'Likes', className: 'w-[52px]' },
-                { label: 'Reactions', className: 'w-[76px]' },
-                { label: 'Watch time', className: 'w-[84px]' },
-                { label: 'Avg watch', className: 'w-[68px]' },
-              ].map((h) => (
+              {tableHeaders.map((h) => (
                 <th
                   key={h.label}
                   className={`py-3 text-left font-medium ${h.className} ${h.label === 'Watch time' ? 'pl-5 pr-3' : 'px-3'}`}
@@ -1069,7 +1073,7 @@ export function PostsPerformanceTable({
                 <td className="px-3 py-3"><span className="rounded-full px-2 py-1 text-xs" style={{ background: 'rgba(255,255,255,0.08)', color: COLOR.text }}>{r.type}</span></td>
                 <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.views)}</td>
                 <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.uniqueReach)}</td>
-                <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.clicks)}</td>
+                {!hideClicksColumn && <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.clicks)}</td>}
                 <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.likes)}</td>
                 <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.reactionsTotal)}</td>
                 <td className="pl-5 pr-3 py-3" style={{ color: COLOR.textSecondary }}>{r.watchTimeMs > 0 ? formatDurationMs(r.watchTimeMs) : ' - '}</td>
@@ -1122,9 +1126,11 @@ export function PostsPerformanceTable({
               <span>Views {formatNumber(r.views)}</span>
               <span>{r.watchTimeMs > 0 ? `Watch ${formatDurationMs(r.watchTimeMs)}` : 'Watch -'}</span>
               <span>{r.avgWatchMs > 0 ? `Avg ${formatDurationMs(r.avgWatchMs)}` : 'Avg -'}</span>
-              <span>
-                {clicksColumnLabel} {formatNumber(r.clicks)}
-              </span>
+              {!hideClicksColumn && (
+                <span>
+                  {clicksColumnLabel} {formatNumber(r.clicks)}
+                </span>
+              )}
             </div>
           </button>
         ))}
@@ -1152,6 +1158,7 @@ function TopContentHighlights({
   byReactions,
   clicksLeaderTitle = 'Clicks leaders',
   clicksMetricLabel = 'Clicks',
+  hideClicksColumn = false,
 }: {
   byViews: TopHighlightRow[];
   byClicks: TopHighlightRow[];
@@ -1159,6 +1166,8 @@ function TopContentHighlights({
   /** Instagram uses Meta interactions, not Facebook Page link clicks. */
   clicksLeaderTitle?: string;
   clicksMetricLabel?: 'Clicks' | 'Interactions';
+  /** Hide the clicks/interactions column entirely (e.g. for Facebook). */
+  hideClicksColumn?: boolean;
 }) {
   const rankBadge = (idx: number) => `/rank-badges/${Math.min(3, idx + 1)}.svg`;
   const col = (title: string, metricLabel: 'Views' | 'Clicks' | 'Reactions' | 'Interactions', rows: TopHighlightRow[]) => (
@@ -1235,9 +1244,9 @@ function TopContentHighlights({
 
   return (
     <section className="rounded-[20px] p-5" style={{ background: COLOR.card, boxShadow: '0 2px 16px rgba(15,23,42,0.05)' }}>
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className={`grid gap-4 ${hideClicksColumn ? 'lg:grid-cols-2' : 'lg:grid-cols-3'}`}>
         {col('Views leaders', 'Views', byViews)}
-        {col(clicksLeaderTitle, clicksMetricLabel, byClicks)}
+        {!hideClicksColumn && col(clicksLeaderTitle, clicksMetricLabel, byClicks)}
         {col('Reactions leaders', 'Reactions', byReactions)}
       </div>
     </section>
@@ -2132,7 +2141,7 @@ export function FacebookAnalyticsView({
                         : 'FB')
               ).slice(0, 2).toUpperCase()}
             </div>
-            <div>
+            <div className="flex items-center gap-3">
               <h1 className="text-xl font-semibold" style={{ color: COLOR.text }}>
                 {isTikTok
                   ? (tiktokCreatorInfo?.creatorNickname ?? tiktokUser?.displayName ?? resolvedUsername ?? 'TikTok')
@@ -2151,7 +2160,7 @@ export function FacebookAnalyticsView({
                   type="button"
                   onClick={onSync}
                   disabled={postsLoading}
-                  className="mt-1 inline-flex items-center gap-2 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60"
                   style={{
                     color: COLOR.textSecondary,
                     borderColor: COLOR.border,
@@ -2162,10 +2171,10 @@ export function FacebookAnalyticsView({
                   {postsLoading ? 'Syncing...' : 'Sync now'}
                 </button>
               ) : (
-                <p className="text-sm inline-flex items-center gap-2" style={{ color: COLOR.textSecondary }}>
+                <span className="text-sm inline-flex items-center gap-2" style={{ color: COLOR.textSecondary }}>
                   <RefreshCw size={13} className="opacity-75" />
                   Updated just now
-                </p>
+                </span>
               )}
             </div>
           </div>
@@ -2863,19 +2872,22 @@ export function FacebookAnalyticsView({
           <div>
             <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Posts</h2>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className={`grid gap-4 sm:grid-cols-2 ${isInstagram ? 'xl:grid-cols-3' : ''}`}>
             <MetricCard label="Total Posts" source="Derived from posts in date range" color={COLOR.text} value={formatNumber(postsInRange.length)} />
-            <MetricCard
-              label={isInstagram ? 'Avg interactions per post' : 'Avg Clicks per Post'}
-              source={isInstagram ? 'instagram_total_interactions (Reels)' : 'post_clicks'}
-              color={COLOR.text}
-              value={avgClicksPerPost.toFixed(1)}
-            />
+            {isInstagram && (
+              <MetricCard
+                label="Avg interactions per post"
+                source="instagram_total_interactions (Reels)"
+                color={COLOR.text}
+                value={avgClicksPerPost.toFixed(1)}
+              />
+            )}
             <MetricCard label="Avg Reactions per Post" source="post_reactions_like_total / breakdown" color={COLOR.text} value={avgReactionsPerPost.toFixed(1)} />
           </div>
           <TopContentHighlights
             clicksLeaderTitle={isInstagram ? 'Interactions leaders' : 'Clicks leaders'}
             clicksMetricLabel={isInstagram ? 'Interactions' : 'Clicks'}
+            hideClicksColumn={!isInstagram}
             byViews={topByViews.map((p) => ({
               id: p.id,
               preview: p.preview,
@@ -2972,14 +2984,16 @@ export function FacebookAnalyticsView({
             active={selectedReelMetrics.includes('avgWatch')}
             onClick={() => setSelectedReelMetrics((prev) => prev.includes('avgWatch') ? prev.filter((m) => m !== 'avgWatch') : [...prev, 'avgWatch'])}
           />
-          <MetricCard
-            label={isInstagram ? 'Interactions' : 'Clicks'}
-            source={isInstagram ? 'instagram_total_interactions' : 'post_clicks'}
-            color={REEL_METRIC_CONFIG.clicks.color}
-            value={formatNumber(reelClicks)}
-            active={selectedReelMetrics.includes('clicks')}
-            onClick={() => setSelectedReelMetrics((prev) => prev.includes('clicks') ? prev.filter((m) => m !== 'clicks') : [...prev, 'clicks'])}
-          />
+          {isInstagram && (
+            <MetricCard
+              label="Interactions"
+              source="instagram_total_interactions"
+              color={REEL_METRIC_CONFIG.clicks.color}
+              value={formatNumber(reelClicks)}
+              active={selectedReelMetrics.includes('clicks')}
+              onClick={() => setSelectedReelMetrics((prev) => prev.includes('clicks') ? prev.filter((m) => m !== 'clicks') : [...prev, 'clicks'])}
+            />
+          )}
           <MetricCard
             label="Likes"
             source="post_reactions_like_total"
@@ -3003,14 +3017,6 @@ export function FacebookAnalyticsView({
             value={formatNumber(reelShares)}
             active={selectedReelMetrics.includes('shares')}
             onClick={() => setSelectedReelMetrics((prev) => prev.includes('shares') ? prev.filter((m) => m !== 'shares') : [...prev, 'shares'])}
-          />
-          <MetricCard
-            label="Reposts"
-            source="repostsCount"
-            color={REEL_METRIC_CONFIG.reposts.color}
-            value={formatNumber(reelReposts)}
-            active={selectedReelMetrics.includes('reposts')}
-            onClick={() => setSelectedReelMetrics((prev) => prev.includes('reposts') ? prev.filter((m) => m !== 'reposts') : [...prev, 'reposts'])}
           />
         </div>
 
@@ -3052,11 +3058,10 @@ export function FacebookAnalyticsView({
                   }}
                 />
                 {selectedReelMetrics.includes('views') ? <Bar dataKey="views" fill={REEL_METRIC_CONFIG.views.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
-                {selectedReelMetrics.includes('clicks') ? <Bar dataKey="clicks" fill={REEL_METRIC_CONFIG.clicks.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                {isInstagram && selectedReelMetrics.includes('clicks') ? <Bar dataKey="clicks" fill={REEL_METRIC_CONFIG.clicks.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                 {selectedReelMetrics.includes('likes') ? <Bar dataKey="likes" fill={REEL_METRIC_CONFIG.likes.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                 {selectedReelMetrics.includes('comments') ? <Bar dataKey="comments" fill={REEL_METRIC_CONFIG.comments.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                 {selectedReelMetrics.includes('shares') ? <Bar dataKey="shares" fill={REEL_METRIC_CONFIG.shares.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
-                {selectedReelMetrics.includes('reposts') ? <Bar dataKey="reposts" fill={REEL_METRIC_CONFIG.reposts.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                 {selectedReelMetrics.includes('watchTime') ? <Bar dataKey="watchTimeMinutes" fill={REEL_METRIC_CONFIG.watchTime.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                 {selectedReelMetrics.includes('avgWatch') ? <Bar dataKey="avgWatchSeconds" fill={REEL_METRIC_CONFIG.avgWatch.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
               </BarChart>
@@ -3107,6 +3112,7 @@ export function FacebookAnalyticsView({
               rows={contentHistoryRows}
               onOpenDetail={setSelectedPost}
               clicksColumnLabel={isInstagram ? 'Interactions' : 'Clicks'}
+              hideClicksColumn={!isInstagram}
             />
           ) : postsLoading ? (
             <div className="rounded-[20px] border p-6 space-y-3" style={{ background: COLOR.card, borderColor: COLOR.border }}>
@@ -3122,6 +3128,7 @@ export function FacebookAnalyticsView({
               rows={contentHistoryRows}
               onOpenDetail={setSelectedPost}
               clicksColumnLabel={isInstagram ? 'Interactions' : 'Clicks'}
+              hideClicksColumn={!isInstagram}
             />
           )}
         </div>

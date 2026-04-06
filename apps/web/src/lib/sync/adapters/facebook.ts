@@ -53,11 +53,15 @@ async function syncRecentContent(account: AccountRow) {
         full_picture?: string;
         permalink_url?: string;
         status_type?: string;
+        comments?: { summary?: { total_count?: number } };
+        shares?: { count?: number };
+        likes?: { summary?: { total_count?: number } };
+        reactions?: { summary?: { total_count?: number } };
       }>;
       error?: { message?: string };
     }>(`${fbBaseUrl}/${account.platformUserId}/posts`, {
       params: {
-        fields: 'id,message,story,created_time,full_picture,permalink_url,status_type',
+        fields: 'id,message,story,created_time,full_picture,permalink_url,status_type,comments.summary(true),shares,likes.summary(true),reactions.summary(true)',
         limit: 50,
         access_token: account.accessToken,
       },
@@ -78,10 +82,13 @@ async function syncRecentContent(account: AccountRow) {
             },
           },
           update: {
-            content:     p.message ?? p.story ?? undefined,
-            thumbnailUrl: p.full_picture ?? undefined,
-            permalinkUrl: p.permalink_url ?? undefined,
-            syncedAt:    new Date(),
+            content:       p.message ?? p.story ?? undefined,
+            thumbnailUrl:  p.full_picture ?? undefined,
+            permalinkUrl:  p.permalink_url ?? undefined,
+            commentsCount: p.comments?.summary?.total_count ?? undefined,
+            sharesCount:   p.shares?.count ?? undefined,
+            likeCount:     p.reactions?.summary?.total_count ?? p.likes?.summary?.total_count ?? undefined,
+            syncedAt:      new Date(),
           },
           create: {
             socialAccountId: account.id,
@@ -92,6 +99,9 @@ async function syncRecentContent(account: AccountRow) {
             permalinkUrl:    p.permalink_url ?? null,
             publishedAt:     new Date(p.created_time),
             mediaType:       p.status_type ?? null,
+            commentsCount:   p.comments?.summary?.total_count ?? 0,
+            sharesCount:     p.shares?.count ?? 0,
+            likeCount:       p.reactions?.summary?.total_count ?? p.likes?.summary?.total_count ?? 0,
           },
         });
         items++;
