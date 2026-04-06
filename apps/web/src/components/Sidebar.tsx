@@ -159,31 +159,17 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
   const sidebarContent = (
     <>
       <div className="p-3">
-        {isInboxPage ? (
-          <a
-            href="/dashboard/summary"
-            className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              isSummaryView ? 'bg-[var(--primary)]/15 border border-[var(--primary)]/25 shadow-sm' : 'hover:bg-neutral-100 border border-transparent'
-            }`}
-            style={isSummaryView ? { color: accent } : undefined}
-          >
-            <BarChart3 size={18} className="shrink-0" />
-            Analytics
-            {isSummaryView && <ChevronRight size={14} className="ml-auto opacity-70" />}
-          </a>
-        ) : (
-          <Link
-            href="/dashboard/summary"
-            className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              isSummaryView ? 'bg-[var(--primary)]/15 border border-[var(--primary)]/25 shadow-sm' : 'hover:bg-neutral-100 border border-transparent'
-            }`}
-            style={isSummaryView ? { color: accent } : undefined}
-          >
-            <BarChart3 size={18} className="shrink-0" />
-            Analytics
-            {isSummaryView && <ChevronRight size={14} className="ml-auto opacity-70" />}
-          </Link>
-        )}
+        <Link
+          href="/dashboard/summary"
+          className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            isSummaryView ? 'bg-[var(--primary)]/15 border border-[var(--primary)]/25 shadow-sm' : 'hover:bg-neutral-100 border border-transparent'
+          }`}
+          style={isSummaryView ? { color: accent } : undefined}
+        >
+          <BarChart3 size={18} className="shrink-0" />
+          Analytics
+          {isSummaryView && <ChevronRight size={14} className="ml-auto opacity-70" />}
+        </Link>
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 space-y-1">
@@ -215,16 +201,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                 </div>
               </>
             );
-            return isInboxPage ? (
-              <a
-                key={platform}
-                href={href}
-                className={platformRowClass}
-                title={needsUpgrade ? 'Upgrade to connect this network.' : undefined}
-              >
-                {platformRowInner}
-              </a>
-            ) : (
+            return (
               <Link
                 key={platform}
                 href={href}
@@ -309,15 +286,6 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
       </div>
 
       <div className="p-3 space-y-0.5 border-t border-neutral-200 shrink-0">
-        {isInboxPage ? (
-          <a
-            href="/posts"
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isPostsPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
-          >
-            <FileText size={18} className="shrink-0" />
-            <span>History</span>
-          </a>
-        ) : (
         <Link
           href="/posts"
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isPostsPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
@@ -325,16 +293,6 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
           <FileText size={18} className="shrink-0" />
           <span>History</span>
         </Link>
-        )}
-        {isInboxPage ? (
-          <a
-            href="/dashboard/automation"
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isAutomationPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
-          >
-            <Zap size={18} className="shrink-0" />
-            <span>Automation</span>
-          </a>
-        ) : (
         <Link
           href="/dashboard/automation"
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isAutomationPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
@@ -342,16 +300,6 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
           <Zap size={18} className="shrink-0" />
           <span>Automation</span>
         </Link>
-        )}
-        {isInboxPage ? (
-          <a
-            href="/dashboard/hashtag-pool"
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isHashtagPoolPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
-          >
-            <Hash size={18} className="shrink-0" />
-            <span>Hashtag Pool</span>
-          </a>
-        ) : (
         <Link
           href="/dashboard/hashtag-pool"
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isHashtagPoolPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
@@ -359,16 +307,6 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
           <Hash size={18} className="shrink-0" />
           <span>Hashtag Pool</span>
         </Link>
-        )}
-        {isInboxPage ? (
-          <a
-            href="/dashboard/ai-assistant"
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isAiAssistantPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
-          >
-            <Sparkles size={18} className="shrink-0" />
-            <span>AI Assistant</span>
-          </a>
-        ) : (
         <Link
           href="/dashboard/ai-assistant"
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isAiAssistantPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
@@ -376,16 +314,6 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
           <Sparkles size={18} className="shrink-0" />
           <span>AI Assistant</span>
         </Link>
-        )}
-        {isInboxPage ? (
-          <a
-            href="/dashboard/accounts"
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isAccountsPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
-          >
-            <Users size={18} className="shrink-0" />
-            <span>Accounts</span>
-          </a>
-        ) : (
         <Link
           href="/dashboard/accounts"
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isAccountsPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
@@ -393,16 +321,6 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
           <Users size={18} className="shrink-0" />
           <span>Accounts</span>
         </Link>
-        )}
-        {isInboxPage ? (
-          <a
-            href="/dashboard/settings"
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isSettingsPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
-          >
-            <Settings size={18} className="shrink-0" />
-            <span>Brand settings</span>
-          </a>
-        ) : (
         <Link
           href="/dashboard/settings"
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isSettingsPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
@@ -410,19 +328,9 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
           <Settings size={18} className="shrink-0" />
           <span>Brand settings</span>
         </Link>
-        )}
       </div>
 
       <div className="mt-auto p-3 border-t border-neutral-200 shrink-0">
-        {isInboxPage ? (
-          <a
-            href="/help"
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isHelpPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
-          >
-            <HelpCircle size={18} className="shrink-0" />
-            <span>Need help?</span>
-          </a>
-        ) : (
         <Link
           href="/help"
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isHelpPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
@@ -430,22 +338,12 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
           <HelpCircle size={18} className="shrink-0" />
           <span>Need help?</span>
         </Link>
-        )}
-        {isInboxPage ? (
-          <a
-            href="/help/support"
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-100 mt-0.5"
-          >
-            <span className="text-xs">Open a support ticket</span>
-          </a>
-        ) : (
         <Link
           href="/help/support"
           className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-100 mt-0.5"
         >
           <span className="text-xs">Open a support ticket</span>
         </Link>
-        )}
       </div>
     </>
   );
