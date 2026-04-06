@@ -22,6 +22,17 @@ DECLARE
   tbl text;
 BEGIN
   FOREACH tbl IN ARRAY ARRAY[
+    'User',
+    'SocialAccount',
+    'Post',
+    'PostTarget',
+    'MediaAsset',
+    'ImportedPost',
+    'AccountMetricSnapshot',
+    'PendingConnection',
+    'CommentAutomationReply',
+    'AutomationFollowerWelcome',
+    'DeployTriggerState',
     'LinkPage',
     'LinkItem',
     'facebook_pages',
