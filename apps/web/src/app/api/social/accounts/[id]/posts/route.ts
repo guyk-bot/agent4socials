@@ -138,8 +138,11 @@ async function fetchFacebookPostSnapshotMap(postId: string, pageAccessToken: str
     const shares = res.data.shares?.count;
     if (typeof likes === 'number' && likes >= 0) out.post_reactions_like_total = likes;
     if (typeof comments === 'number' && comments >= 0) out.post_comments = comments;
-    if (typeof shares === 'number' && shares >= 0) out.post_shares = shares;
+    const sharesFromObject = typeof shares === 'number' && shares >= 0 ? shares : 0;
     Object.assign(out, parseGraphInsightRowsToMap(res.data.insights?.data));
+    const sharesFromInsights = typeof out.post_shares === 'number' && out.post_shares >= 0 ? out.post_shares : 0;
+    /** Reels often omit or zero `post_shares` in insights while `shares.count` on the node is correct. */
+    out.post_shares = Math.max(sharesFromObject, sharesFromInsights);
   } catch {
     // best effort
   }
@@ -1246,7 +1249,9 @@ async function syncImportedPosts(
       }
 
       const sharesFromPayload = p.shares?.count ?? 0;
-      const sharesCountFinal = typeof insightMap.post_shares === 'number' ? insightMap.post_shares : sharesFromPayload;
+      const sharesFromInsights = typeof insightMap.post_shares === 'number' ? insightMap.post_shares : 0;
+      /** Do not let lifetime insights `0` wipe real share counts from the post object (common on Reels). */
+      const sharesCountFinal = Math.max(sharesFromPayload, sharesFromInsights);
       const interactionsFinal = likeCountFinal + commentsCountFinal + sharesCountFinal;
 
       const mediaTypeGuess =
