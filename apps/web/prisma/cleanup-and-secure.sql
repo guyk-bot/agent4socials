@@ -98,7 +98,7 @@ CREATE INDEX IF NOT EXISTS "Post_status_scheduledAt_idx"
   ON "Post"("status", "scheduledAt");
 
 -- =============================================================================
--- PART 4: Summary (no error if optional tables are missing)
+-- PART 4: Summary (core tables only, skips optional tables that may not exist)
 -- =============================================================================
 
 SELECT
@@ -107,17 +107,4 @@ SELECT
   (SELECT COUNT(*) FROM "SocialAccount") AS social_accounts,
   (SELECT COUNT(*) FROM "Post") AS posts,
   (SELECT COUNT(*) FROM "ImportedPost") AS imported_posts,
-  (SELECT COUNT(*) FROM "AccountMetricSnapshot") AS metric_snapshots,
-  (SELECT COUNT(*) FROM "facebook_page_insight_daily") AS fb_daily_insights,
-  (SELECT CASE
-    WHEN to_regclass('public.sync_jobs') IS NOT NULL THEN (SELECT COUNT(*) FROM "sync_jobs")
-    ELSE NULL::bigint
-  END) AS sync_jobs_remaining,
-  (SELECT CASE
-    WHEN to_regclass('public."FacebookSyncRun"') IS NOT NULL THEN (SELECT COUNT(*) FROM "FacebookSyncRun")
-    ELSE NULL::bigint
-  END) AS fb_sync_runs_remaining,
-  (SELECT CASE
-    WHEN to_regclass('public."FacebookMetricDiscovery"') IS NOT NULL THEN (SELECT COUNT(*) FROM "FacebookMetricDiscovery")
-    ELSE NULL::bigint
-  END) AS fb_metric_discovery_remaining;
+  (SELECT COUNT(*) FROM "AccountMetricSnapshot") AS metric_snapshots;
