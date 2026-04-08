@@ -1181,6 +1181,7 @@ export default function DashboardPage() {
   /** Full-page analytics skeleton until first insights load for selected account; keeps scroll and layout stable. */
   const analyticsLoadingOnly = Boolean(
     selectedAccount &&
+    appData?.cacheRehydrated && // Only show loading after rehydration completes
     (justConnected || (displayInsights == null && (insightsLoading || importedPostsLoading)))
   );
   const showDataSyncBanner = Boolean(
