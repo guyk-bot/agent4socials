@@ -168,10 +168,11 @@ const TRAFFIC_METRIC_CONFIG: Record<TrafficMetricKey, { label: string; color: st
 const UNIFIED_BAR_SIZE = 22;
 const UNIFIED_BAR_GAP = -12;
 const UNIFIED_BAR_CATEGORY_GAP = 10;
-/** Engagement chart: more space between calendar days and between Likes/Comments/Shares on the same day. */
-const ENGAGEMENT_BAR_SIZE = 18;
-const ENGAGEMENT_BAR_GAP = 4;
-const ENGAGEMENT_BAR_CATEGORY_GAP = 32;
+/** Engagement chart: space between calendar days; barGap between series on the same day. */
+const ENGAGEMENT_BAR_SIZE = 14;
+const ENGAGEMENT_BAR_GAP = 5;
+/** Wider gap between day columns so dense ranges do not visually merge (Recharts % of band). */
+const ENGAGEMENT_BAR_CATEGORY_GAP = '48%';
 
 const REEL_METRIC_CONFIG: Record<ReelMetricKey, { label: string; color: string }> = {
   views: { label: 'Total Video Views', color: COLOR.magenta },
@@ -202,16 +203,17 @@ function formatShortDate(date: string): string {
   }
 }
 
+/** X-axis: first tick in a month shows "Mar 5", following ticks in the same month show "12", "31" only. */
 function formatSparseMonthTick(date: string, index: number, allDates: string[]): string {
   try {
     const d = new Date(`${date}T12:00:00Z`);
-    const day = d.getDate();
-    const month = d.toLocaleDateString(undefined, { month: 'short' });
+    const day = d.getUTCDate();
+    const month = d.toLocaleDateString(undefined, { month: 'short', timeZone: 'UTC' });
     if (index <= 0) return `${month} ${day}`;
     const prev = allDates[index - 1];
     if (!prev) return `${month} ${day}`;
     const pd = new Date(`${prev}T12:00:00Z`);
-    const changedMonth = d.getMonth() !== pd.getMonth() || d.getFullYear() !== pd.getFullYear();
+    const changedMonth = d.getUTCMonth() !== pd.getUTCMonth() || d.getUTCFullYear() !== pd.getUTCFullYear();
     return changedMonth ? `${month} ${day}` : String(day);
   } catch {
     return date;
@@ -2057,6 +2059,10 @@ export function FacebookAnalyticsView({
     () => buildKeyDateTicks(engagementData, (d) => (d.likes ?? 0) > 0 || (d.comments ?? 0) > 0 || (d.shares ?? 0) > 0 || (d.reposts ?? 0) > 0 || false, 10),
     [engagementData]
   );
+  const engagementTicksSorted = useMemo(
+    () => [...engagementTicks].sort((a, b) => a.localeCompare(b)),
+    [engagementTicks]
+  );
   const operationalData = useMemo(() => {
     const actionsRaw = seriesToMap(actionsSeries ?? []);
     // Use per-day values for Actions so the line reflects daily fluctuation
@@ -2661,11 +2667,6 @@ export function FacebookAnalyticsView({
               active={selectedEngagementMetrics.includes('shares')}
               onClick={() => setSelectedEngagementMetrics((prev) => prev.includes('shares') ? prev.filter((m) => m !== 'shares') : [...prev, 'shares'])}
               tiktokApiHighlight={isTikTok}
-              footnote={
-                isFacebook
-                  ? 'Facebook Graph reports share actions (we take the higher of post shares.count and insights post_shares).'
-                  : undefined
-              }
             />
             {isInstagram && (
               <MetricCard
@@ -2713,10 +2714,24 @@ export function FacebookAnalyticsView({
                 data={engagementData}
                 barCategoryGap={ENGAGEMENT_BAR_CATEGORY_GAP}
                 barGap={ENGAGEMENT_BAR_GAP}
-                margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+                margin={{ top: 4, right: 8, left: 0, bottom: 8 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-                <XAxis dataKey="date" ticks={engagementTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} dy={8} minTickGap={18} axisLine={false} tickLine={false} />
+                <XAxis
+                  dataKey="date"
+                  ticks={engagementTicks}
+                  tickFormatter={(value) => {
+                    const v = String(value);
+                    const idx = engagementTicksSorted.indexOf(v);
+                    if (idx < 0) return formatShortDate(v);
+                    return formatSparseMonthTick(v, idx, engagementTicksSorted);
+                  }}
+                  tick={{ fill: COLOR.textMuted, fontSize: 11 }}
+                  dy={8}
+                  minTickGap={28}
+                  axisLine={false}
+                  tickLine={false}
+                />
                 <YAxis domain={[0, (dataMax: number) => Math.max(4, Math.ceil((dataMax || 0) + 1))]} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                 <Tooltip
                   shared
@@ -2728,10 +2743,18 @@ export function FacebookAnalyticsView({
                   ]}
                   labelFormatter={(l) => formatShortDate(String(l))}
                 />
-                {selectedEngagementMetrics.includes('likes') ? <Bar dataKey="likes" fill={ENGAGEMENT_METRIC_CONFIG.likes.color} radius={[6, 6, 0, 0]} barSize={ENGAGEMENT_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
-                {selectedEngagementMetrics.includes('comments') ? <Bar dataKey="comments" fill={ENGAGEMENT_METRIC_CONFIG.comments.color} radius={[6, 6, 0, 0]} barSize={ENGAGEMENT_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
-                {selectedEngagementMetrics.includes('shares') ? <Bar dataKey="shares" fill={ENGAGEMENT_METRIC_CONFIG.shares.color} radius={[6, 6, 0, 0]} barSize={ENGAGEMENT_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
-                {isInstagram && selectedEngagementMetrics.includes('reposts') ? <Bar dataKey="reposts" fill={ENGAGEMENT_METRIC_CONFIG.reposts.color} radius={[6, 6, 0, 0]} barSize={ENGAGEMENT_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                {selectedEngagementMetrics.includes('likes') ? (
+                  <Bar dataKey="likes" fill={ENGAGEMENT_METRIC_CONFIG.likes.color} radius={[5, 5, 0, 0]} barSize={ENGAGEMENT_BAR_SIZE} />
+                ) : null}
+                {selectedEngagementMetrics.includes('comments') ? (
+                  <Bar dataKey="comments" fill={ENGAGEMENT_METRIC_CONFIG.comments.color} radius={[5, 5, 0, 0]} barSize={ENGAGEMENT_BAR_SIZE} />
+                ) : null}
+                {selectedEngagementMetrics.includes('shares') ? (
+                  <Bar dataKey="shares" fill={ENGAGEMENT_METRIC_CONFIG.shares.color} radius={[5, 5, 0, 0]} barSize={ENGAGEMENT_BAR_SIZE} />
+                ) : null}
+                {isInstagram && selectedEngagementMetrics.includes('reposts') ? (
+                  <Bar dataKey="reposts" fill={ENGAGEMENT_METRIC_CONFIG.reposts.color} radius={[5, 5, 0, 0]} barSize={ENGAGEMENT_BAR_SIZE} />
+                ) : null}
               </BarChart>
             </ResponsiveContainer>
             </div>
@@ -3147,11 +3170,6 @@ export function FacebookAnalyticsView({
             value={formatNumber(reelShares)}
             active={selectedReelMetrics.includes('shares')}
             onClick={() => setSelectedReelMetrics((prev) => prev.includes('shares') ? prev.filter((m) => m !== 'shares') : [...prev, 'shares'])}
-            footnote={
-              isFacebook
-                ? 'Same as Engagement: max of shares.count and insights, not unique sharers.'
-                : undefined
-            }
           />
         </div>
 
