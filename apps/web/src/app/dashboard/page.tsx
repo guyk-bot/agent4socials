@@ -1175,12 +1175,10 @@ export default function DashboardPage() {
   /** Full-page analytics skeleton until first insights load for selected account; keeps scroll and layout stable. */
   const analyticsLoadingOnly = Boolean(
     selectedAccount &&
-    !displayInsights && // Only show loading when we truly have NO data to display
-    (insightsLoading || importedPostsLoading)
+    !displayInsights // If we have ANY cached insights to display, never show loading
   );
   const showDataSyncBanner = Boolean(
-    (justConnected && !displayInsights) || // Only show on connect if no cached data
-    analyticsLoadingOnly
+    !displayInsights && justConnected // Only show banner when truly no data + just connected
   );
   function openPricingPopup() {
     setPricingModalOpen(true);
