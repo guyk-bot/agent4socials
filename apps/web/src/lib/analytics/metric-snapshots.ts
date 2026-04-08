@@ -367,8 +367,9 @@ export async function getAccountHistorySeries(params: {
     let lastFollowing: number | null = null;
 
     for (const s of snapshots) {
-      const f = s.followersCount ?? s.fansCount ?? lastF;
-      lastF = f;
+      const raw = s.followersCount ?? s.fansCount ?? 0;
+      const f = (raw === 0 && lastF > 0) ? lastF : raw;
+      lastF = f || lastF;
       followersTimeSeries.push({ date: s.metricDate, value: f });
       if (s.followingCount != null) {
         lastFollowing = s.followingCount;

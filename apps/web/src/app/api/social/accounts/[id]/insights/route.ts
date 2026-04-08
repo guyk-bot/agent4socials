@@ -869,7 +869,7 @@ export async function GET(
           const baseline = Math.max(0, out.followers - totalNetInRange);
           let running = baseline;
           out.followersTimeSeries = points.map((p) => {
-            running += p.value;
+            running = Math.max(0, running + p.value);
             return { date: p.date, value: running };
           });
           return true;
