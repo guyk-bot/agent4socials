@@ -28,3 +28,41 @@ export function getDefaultAnalyticsDateRange(): { start: string; end: string } {
   start.setDate(start.getDate() - 29);
   return { start: toLocalCalendarDate(start), end: toLocalCalendarDate(end) };
 }
+
+const ANALYTICS_DATE_RANGE_KEY = 'agent4socials.dashboardAnalyticsDateRange';
+
+function isYmd(s: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(s);
+}
+
+function analyticsDateRangeStorageKey(userId: string): string {
+  return `${ANALYTICS_DATE_RANGE_KEY}.u:${userId}`;
+}
+
+/** Restores last analytics range after a full page refresh (same tab). Scoped per logged-in user. */
+export function readStoredAnalyticsDateRange(userId: string): { start: string; end: string } | null {
+  if (typeof window === 'undefined' || !userId) return null;
+  try {
+    const raw = sessionStorage.getItem(analyticsDateRangeStorageKey(userId));
+    if (!raw) return null;
+    const p = JSON.parse(raw) as { start?: unknown; end?: unknown };
+    const start = typeof p.start === 'string' ? p.start : '';
+    const end = typeof p.end === 'string' ? p.end : '';
+    if (!isYmd(start) || !isYmd(end) || start > end) return null;
+    const today = toLocalCalendarDate(new Date());
+    const endClamped = end > today ? today : end;
+    return { start, end: endClamped };
+  } catch {
+    return null;
+  }
+}
+
+export function writeStoredAnalyticsDateRange(range: { start: string; end: string }, userId: string): void {
+  if (typeof window === 'undefined' || !userId) return;
+  if (!isYmd(range.start) || !isYmd(range.end) || range.start > range.end) return;
+  try {
+    sessionStorage.setItem(analyticsDateRangeStorageKey(userId), JSON.stringify(range));
+  } catch {
+    /* quota or private mode */
+  }
+}

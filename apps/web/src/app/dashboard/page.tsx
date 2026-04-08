@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
@@ -11,7 +11,12 @@ import { useAppData, getDefaultDateRange } from '@/context/AppDataContext';
 import { useSelectedAccount, useResolvedSelectedAccount } from '@/context/SelectedAccountContext';
 import type { SocialAccount } from '@/context/SelectedAccountContext';
 import api from '@/lib/api';
-import { localCalendarDateFromIso, toLocalCalendarDate } from '@/lib/calendar-date';
+import {
+  localCalendarDateFromIso,
+  toLocalCalendarDate,
+  readStoredAnalyticsDateRange,
+  writeStoredAnalyticsDateRange,
+} from '@/lib/calendar-date';
 import { getSupabaseBrowser } from '@/lib/supabase/client';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import ConnectView from '@/components/dashboard/ConnectView';
@@ -277,6 +282,18 @@ export default function DashboardPage() {
   const [allPostsSyncError, setAllPostsSyncError] = useState<string | null>(null);
   const [syncAllTrigger, setSyncAllTrigger] = useState(0);
   const [dateRange, setDateRange] = useState(() => getDefaultDateRange());
+  useEffect(() => {
+    if (!user?.id) return;
+    const stored = readStoredAnalyticsDateRange(user.id);
+    if (stored) setDateRange(stored);
+  }, [user?.id]);
+  const handleAnalyticsDateRangeChange = useCallback(
+    (r: { start: string; end: string }) => {
+      setDateRange(r);
+      if (user?.id) writeStoredAnalyticsDateRange(r, user.id);
+    },
+    [user?.id]
+  );
   const [pricingModalOpen, setPricingModalOpen] = useState(false);
   const [pricingInterval, setPricingInterval] = useState<'monthly' | 'yearly'>('yearly');
   const [postsPage, setPostsPage] = useState(1);
@@ -1340,7 +1357,7 @@ export default function DashboardPage() {
                   ? () => router.push('/dashboard?connect=pinterest')
                   : undefined
             }
-            onDateRangeChange={(r) => setDateRange(r)}
+            onDateRangeChange={handleAnalyticsDateRangeChange}
             followersLabel={selectedAccount.platform === 'YOUTUBE' ? 'Subscribers' : 'Followers'}
             accountAvatarUrl={selectedAccount.profilePicture ?? null}
             accountUsername={selectedAccount.username ?? null}
