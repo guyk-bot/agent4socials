@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import axios from 'axios';
 import api from '@/lib/api';
 import { ExternalLink, RefreshCw } from 'lucide-react';
 
@@ -50,9 +51,26 @@ export default function TrendingPage() {
         });
         setItems(Array.isArray(res.data?.items) ? res.data.items : []);
       } catch (e: unknown) {
-        const msg = e && typeof e === 'object' && 'response' in e
-          ? String((e as { response?: { data?: { message?: string } } }).response?.data?.message ?? 'Failed to load')
-          : 'Failed to load';
+        let msg = 'Failed to load';
+        if (axios.isAxiosError(e)) {
+          const status = e.response?.status;
+          const data = e.response?.data;
+          if (typeof data === 'object' && data && 'message' in data && typeof (data as { message: unknown }).message === 'string') {
+            msg = (data as { message: string }).message;
+          } else if (typeof data === 'string' && data.length > 0) {
+            msg = data.slice(0, 300);
+          } else if (status === 401) {
+            msg = 'Unauthorized. Try refreshing the page or signing in again.';
+          } else if (status === 503 || status === 500) {
+            msg = status === 503
+              ? 'Server: database not ready for trends (run migrations), or service unavailable.'
+              : 'Server error loading trends.';
+          } else if (e.code === 'ECONNABORTED') {
+            msg = 'Request timed out. For a full niche refresh, try again or run the nightly cron.';
+          } else if (status) {
+            msg = `Request failed (${status}).`;
+          }
+        }
         setError(msg);
         setItems([]);
       } finally {
@@ -135,17 +153,21 @@ export default function TrendingPage() {
             <div key={i} className="rounded-2xl border border-neutral-200 bg-white p-3 animate-pulse h-72" />
           ))}
         </div>
-      ) : items.length === 0 ? (
+      ) : !error && items.length === 0 ? (
         <div className="rounded-2xl border border-neutral-200 bg-white p-8 text-center text-neutral-600">
           <p className="font-medium text-neutral-800">No outliers in the database yet.</p>
           <p className="text-sm mt-2">
-            Add <code className="bg-neutral-100 px-1 rounded text-xs">YOUTUBE_API_KEY</code> and call{' '}
-            <code className="bg-neutral-100 px-1 rounded text-xs">POST /api/cron/niche-trends</code> with{' '}
-            <code className="bg-neutral-100 px-1 rounded text-xs">X-Cron-Secret</code> (daily). Half of the 98 niches run per day unless{' '}
-            <code className="bg-neutral-100 px-1 rounded text-xs">NICHE_TREND_SLICE=all</code>.
+            The API key alone does not fill this page. You need rows in the database: trigger{' '}
+            <code className="bg-neutral-100 px-1 rounded text-xs">POST /api/cron/niche-trends</code> with header{' '}
+            <code className="bg-neutral-100 px-1 rounded text-xs">X-Cron-Secret</code> (same as your other crons), with{' '}
+            <code className="bg-neutral-100 px-1 rounded text-xs">YOUTUBE_API_KEY</code> set on the server. Or type a niche
+            from the list and use <strong>Refresh niche</strong> once migrations are applied.
+          </p>
+          <p className="text-xs mt-3 text-neutral-500">
+            Half of the 98 niches run per UTC day unless <code className="bg-neutral-100 px-1 rounded">NICHE_TREND_SLICE=all</code>.
           </p>
         </div>
-      ) : (
+      ) : !error ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {items.map((it) => (
             <article
@@ -192,7 +214,7 @@ export default function TrendingPage() {
             </article>
           ))}
         </div>
-      )}
+      ) : null}
 
       <p className="text-xs text-neutral-500">
         Cron URL:{' '}
