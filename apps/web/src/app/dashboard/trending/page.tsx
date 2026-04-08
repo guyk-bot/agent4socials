@@ -1,10 +1,14 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import api from '@/lib/api';
-import { ExternalLink, Loader2 } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
+import {
+  TREND_CATEGORY_ORDER,
+  categoryIdForNicheName,
+  rankForCategorySection,
+} from '@/lib/trends/niche-category-map';
 
 type OutlierItem = {
   id: string;
@@ -27,19 +31,8 @@ type OutlierItem = {
 type VideoTypeFilter = 'all' | 'short' | 'long';
 
 const FETCH_LIMIT = 5000;
-const SYNC_BATCH_SIZE = 8;
-
-type SyncBatchResponse = {
-  startIndex: number;
-  nextIndex: number;
-  done: boolean;
-  totalNiches: number;
-  nichesProcessed: number;
-  rowsUpserted: number;
-  videosConsidered: number;
-  errors: string[];
-  message?: string;
-};
+const PREVIEW_COUNT = 5;
+const EXPANDED_MAX = 50;
 
 function formatDate(iso: string) {
   try {
@@ -50,14 +43,54 @@ function formatDate(iso: string) {
   }
 }
 
+function VideoCard({ it }: { it: OutlierItem }) {
+  return (
+    <a
+      href={it.watchUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group flex flex-col rounded-xl border border-neutral-200 bg-white overflow-hidden shadow-sm hover:border-violet-300 hover:shadow-md transition-all"
+    >
+      <div className="aspect-video bg-neutral-100 relative">
+        {it.thumbnailUrl ? (
+          <img src={it.thumbnailUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
+        ) : null}
+        <span className="absolute top-2 right-2 uppercase text-[10px] font-bold px-1.5 py-0.5 rounded bg-black/60 text-white">
+          {it.videoType}
+        </span>
+      </div>
+      <div className="p-3 flex flex-col flex-1 gap-2">
+        <p className="text-sm font-medium text-neutral-900 line-clamp-2 group-hover:text-violet-800" title={it.title}>
+          {it.title}
+        </p>
+        <p className="text-xs text-violet-700/90 line-clamp-1" title={it.nicheName}>
+          {it.nicheName}
+        </p>
+        <div className="mt-auto flex flex-wrap items-center gap-2 text-xs">
+          <span
+            className={`inline-flex px-2 py-0.5 rounded-md font-bold ${
+              it.isHighOutlier ? 'bg-amber-100 text-amber-900' : 'bg-neutral-100 text-neutral-800'
+            }`}
+          >
+            {it.outlierLabel}
+          </span>
+          <span className="text-sky-800 font-medium tabular-nums">~{it.vph.toLocaleString()} VPH</span>
+        </div>
+        <div className="flex items-center justify-between text-[11px] text-neutral-500">
+          <span>{formatDate(it.publishedAt)}</span>
+          <ExternalLink size={14} className="text-violet-600 shrink-0 opacity-70 group-hover:opacity-100" aria-hidden />
+        </div>
+      </div>
+    </a>
+  );
+}
+
 export default function TrendingPage() {
   const [filter, setFilter] = useState<VideoTypeFilter>('all');
   const [items, setItems] = useState<OutlierItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [syncing, setSyncing] = useState(false);
-  const [syncProgress, setSyncProgress] = useState<string | null>(null);
-  const [syncError, setSyncError] = useState<string | null>(null);
+  const [expandedCategoryIds, setExpandedCategoryIds] = useState<Record<string, boolean>>({});
 
   const load = useCallback(async () => {
     setError(null);
@@ -82,9 +115,10 @@ export default function TrendingPage() {
         } else if (status === 401) {
           msg = 'Unauthorized. Try refreshing the page or signing in again.';
         } else if (status === 503 || status === 500) {
-          msg = status === 503
-            ? 'Server: database not ready for trends (run migrations), or service unavailable.'
-            : 'Server error loading trends.';
+          msg =
+            status === 503
+              ? 'Server: database not ready for trends (run migrations), or service unavailable.'
+              : 'Server error loading trends.';
         } else if (e.code === 'ECONNABORTED') {
           msg = 'Request timed out. Try again or narrow with Shorts/Long-form.';
         } else if (status) {
@@ -102,95 +136,42 @@ export default function TrendingPage() {
     load();
   }, [load]);
 
-  const runFullYouTubeSync = useCallback(async () => {
-    setSyncError(null);
-    setSyncing(true);
-    let startIndex = 0;
-    let totalRows = 0;
-    try {
-      while (true) {
-        setSyncProgress(`Calling YouTube for niches ${startIndex + 1}–… (batch of ${SYNC_BATCH_SIZE})…`);
-        const res = await api.post<SyncBatchResponse>(
-          '/trends/sync-batch',
-          { startIndex, batchSize: SYNC_BATCH_SIZE },
-          { timeout: 240_000 }
-        );
-        const d = res.data;
-        if (!d || typeof d.nextIndex !== 'number') {
-          throw new Error('Unexpected response from sync-batch');
-        }
-        totalRows += d.rowsUpserted ?? 0;
-        setSyncProgress(
-          `Processed ${d.nextIndex}/${d.totalNiches} niches · ${totalRows} new/updated rows so far`
-        );
-        if (d.errors?.length) {
-          setSyncError(`${d.errors.length} niche errors in last batch (check Vercel logs). First: ${d.errors[0]?.slice(0, 120)}`);
-        }
-        if (d.done) break;
-        startIndex = d.nextIndex;
-      }
-      setSyncProgress('Refreshing table…');
-      await load();
-      setSyncProgress(`Finished. ${totalRows} rows upserted across all batches.`);
-    } catch (e: unknown) {
-      let msg = 'Sync failed';
-      if (axios.isAxiosError(e)) {
-        const data = e.response?.data;
-        if (typeof data === 'object' && data && 'message' in data && typeof (data as { message: unknown }).message === 'string') {
-          msg = (data as { message: string }).message;
-        }
-      } else if (e instanceof Error) msg = e.message;
-      setSyncError(msg);
-      setSyncProgress(null);
-    } finally {
-      setSyncing(false);
+  const byCategory = useMemo(() => {
+    const map = new Map<string, OutlierItem[]>();
+    for (const cat of TREND_CATEGORY_ORDER) {
+      map.set(cat.id, []);
     }
-  }, [load]);
+    for (const it of items) {
+      const cid = categoryIdForNicheName(it.nicheName);
+      const list = map.get(cid);
+      if (list) list.push(it);
+    }
+    return map;
+  }, [items]);
+
+  const toggleExpand = (categoryId: string) => {
+    setExpandedCategoryIds((prev) => ({ ...prev, [categoryId]: !prev[categoryId] }));
+  };
 
   return (
-    <div className="max-w-[1600px] mx-auto space-y-6 w-full">
-      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Viral Trend Radar</h1>
-          <p className="text-sm text-neutral-600 mt-1 max-w-2xl">
-            All stored outliers across every scanned niche (views ÷ subscribers &gt; 2). Rows are ranked by performance ratio. Use{' '}
-            <strong>Fetch all niches from YouTube</strong> to run the full 98-keyword sweep in batches, or rely on the nightly cron. Scores &ge; 5× are highlighted.
-          </p>
-        </div>
-        <div className="flex flex-col sm:flex-row sm:items-start gap-4 shrink-0">
-          <div className="flex flex-col items-stretch sm:items-end gap-2">
+    <div className="max-w-[1600px] mx-auto space-y-8 w-full">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <h1 className="text-2xl font-bold text-neutral-900">Viral Trend Radar</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          {(['all', 'short', 'long'] as const).map((f) => (
             <button
+              key={f}
               type="button"
-              disabled={syncing || loading}
-              onClick={() => void runFullYouTubeSync()}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              onClick={() => setFilter(f)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                filter === f
+                  ? 'bg-violet-600 text-white border-violet-600'
+                  : 'bg-white text-neutral-700 border-neutral-200 hover:bg-neutral-50'
+              }`}
             >
-              {syncing ? <Loader2 className="animate-spin shrink-0" size={18} /> : null}
-              {syncing ? 'Fetching…' : 'Fetch all niches from YouTube'}
+              {f === 'all' ? 'All' : f === 'short' ? 'Shorts' : 'Long-form'}
             </button>
-            {syncProgress && (
-              <p className="text-xs text-violet-800 max-w-[280px] sm:text-right">{syncProgress}</p>
-            )}
-            {syncError && (
-              <p className="text-xs text-red-700 max-w-[280px] sm:text-right">{syncError}</p>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {(['all', 'short', 'long'] as const).map((f) => (
-              <button
-                key={f}
-                type="button"
-                onClick={() => setFilter(f)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
-                  filter === f
-                    ? 'bg-violet-600 text-white border-violet-600'
-                    : 'bg-white text-neutral-700 border-neutral-200 hover:bg-neutral-50'
-                }`}
-              >
-                {f === 'all' ? 'All' : f === 'short' ? 'Shorts' : 'Long-form'}
-              </button>
-            ))}
-          </div>
+          ))}
         </div>
       </div>
 
@@ -199,140 +180,85 @@ export default function TrendingPage() {
       )}
 
       {loading ? (
-        <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
-          <div className="animate-pulse h-10 bg-neutral-100 border-b border-neutral-200" />
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="h-14 border-b border-neutral-100 bg-white" />
+        <div className="space-y-10">
+          {Array.from({ length: 3 }).map((_, s) => (
+            <div key={s} className="space-y-4">
+              <div className="h-8 w-56 rounded-lg bg-neutral-200 animate-pulse" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                {Array.from({ length: 5 }).map((__, i) => (
+                  <div key={i} className="rounded-xl border border-neutral-200 overflow-hidden">
+                    <div className="aspect-video bg-neutral-100 animate-pulse" />
+                    <div className="p-3 space-y-2">
+                      <div className="h-4 bg-neutral-100 rounded animate-pulse" />
+                      <div className="h-3 w-2/3 bg-neutral-100 rounded animate-pulse" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       ) : !error && items.length === 0 ? (
         <div className="rounded-2xl border border-neutral-200 bg-white p-8 text-center text-neutral-600">
           <p className="font-medium text-neutral-800">No outliers in the database yet.</p>
-          <p className="text-sm mt-2">
-            Click <strong>Fetch all niches from YouTube</strong> above (needs <code className="bg-neutral-100 px-1 rounded text-xs">YOUTUBE_API_KEY</code> on the server), or schedule{' '}
-            <code className="bg-neutral-100 px-1 rounded text-xs">POST /api/cron/niche-trends</code> with <code className="bg-neutral-100 px-1 rounded text-xs">X-Cron-Secret</code> (half of 98 niches per UTC day unless{' '}
-            <code className="bg-neutral-100 px-1 rounded text-xs">NICHE_TREND_SLICE=all</code>).
+          <p className="text-sm mt-2 max-w-md mx-auto">
+            Trends fill when the server runs the niche sweep (cron or ops). Ensure <code className="bg-neutral-100 px-1 rounded text-xs">YOUTUBE_API_KEY</code> is set and{' '}
+            <code className="bg-neutral-100 px-1 rounded text-xs">niche_trends</code> exists.
           </p>
         </div>
       ) : !error ? (
-        <div className="rounded-xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left min-w-[1100px]">
-              <thead className="bg-neutral-50 text-neutral-600 border-b border-neutral-200">
-                <tr>
-                  <th className="px-3 py-3 font-semibold w-14" scope="col">
-                    {' '}
-                  </th>
-                  <th className="px-3 py-3 font-semibold whitespace-nowrap" scope="col">
-                    Niche
-                  </th>
-                  <th className="px-3 py-3 font-semibold min-w-[200px]" scope="col">
-                    Title
-                  </th>
-                  <th className="px-3 py-3 font-semibold whitespace-nowrap" scope="col">
-                    Type
-                  </th>
-                  <th className="px-3 py-3 font-semibold text-right whitespace-nowrap" scope="col">
-                    Views
-                  </th>
-                  <th className="px-3 py-3 font-semibold text-right whitespace-nowrap" scope="col">
-                    Subs
-                  </th>
-                  <th className="px-3 py-3 font-semibold text-right whitespace-nowrap" scope="col">
-                    Ratio
-                  </th>
-                  <th className="px-3 py-3 font-semibold text-right whitespace-nowrap" scope="col">
-                    VPH
-                  </th>
-                  <th className="px-3 py-3 font-semibold whitespace-nowrap" scope="col">
-                    Published
-                  </th>
-                  <th className="px-3 py-3 font-semibold whitespace-nowrap" scope="col">
-                    Updated
-                  </th>
-                  <th className="px-3 py-3 font-semibold w-10" scope="col">
-                    {' '}
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-100">
-                {items.map((it) => (
-                  <tr key={it.id} className="hover:bg-violet-50/40 transition-colors">
-                    <td className="px-3 py-2 align-middle">
-                      <div className="w-12 h-9 rounded bg-neutral-100 overflow-hidden shrink-0">
-                        {it.thumbnailUrl ? (
-                          <img src={it.thumbnailUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
-                        ) : null}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 align-middle text-violet-700 font-medium max-w-[160px]">
-                      <span className="line-clamp-2" title={it.nicheName}>
-                        {it.nicheName}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 align-middle text-neutral-900 max-w-md">
-                      <span className="line-clamp-2" title={it.title}>
-                        {it.title}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 align-middle whitespace-nowrap">
-                      <span className="uppercase text-xs font-bold text-neutral-500">{it.videoType}</span>
-                    </td>
-                    <td className="px-3 py-2 align-middle text-right tabular-nums text-neutral-800">
-                      {Number(it.viewCount).toLocaleString()}
-                    </td>
-                    <td className="px-3 py-2 align-middle text-right tabular-nums text-neutral-800">
-                      {Number(it.subscriberCount).toLocaleString()}
-                    </td>
-                    <td className="px-3 py-2 align-middle text-right whitespace-nowrap">
-                      <span
-                        className={`inline-flex px-2 py-0.5 rounded-md text-xs font-bold ${
-                          it.isHighOutlier ? 'bg-amber-100 text-amber-900' : 'bg-neutral-100 text-neutral-800'
-                        }`}
-                      >
-                        {it.outlierLabel}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 align-middle text-right tabular-nums text-sky-800 font-medium">
-                      ~{it.vph.toLocaleString()}
-                    </td>
-                    <td className="px-3 py-2 align-middle text-neutral-600 whitespace-nowrap text-xs">
-                      {formatDate(it.publishedAt)}
-                    </td>
-                    <td className="px-3 py-2 align-middle text-neutral-500 whitespace-nowrap text-xs">
-                      {formatDate(it.lastUpdated)}
-                    </td>
-                    <td className="px-3 py-2 align-middle">
-                      <a
-                        href={it.watchUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex p-1.5 rounded-lg text-violet-700 hover:bg-violet-100"
-                        title="Open on YouTube"
-                        aria-label="Open on YouTube"
-                      >
-                        <ExternalLink size={16} />
-                      </a>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="px-4 py-2 border-t border-neutral-100 bg-neutral-50/80 text-xs text-neutral-600">
-            Showing {items.length} row{items.length !== 1 ? 's' : ''}
-            {items.length >= FETCH_LIMIT ? ` (capped at ${FETCH_LIMIT}; increase limit in API if needed)` : ''}
-          </div>
-        </div>
-      ) : null}
+        <>
+          {TREND_CATEGORY_ORDER.map((cat) => {
+            const raw = byCategory.get(cat.id) ?? [];
+            const ranked = rankForCategorySection(raw);
+            const preview = ranked.slice(0, PREVIEW_COUNT);
+            const expanded = expandedCategoryIds[cat.id];
+            const extraCap = ranked.slice(PREVIEW_COUNT, PREVIEW_COUNT + EXPANDED_MAX);
+            const extra = expanded ? extraCap : [];
+            const hasMore = ranked.length > PREVIEW_COUNT;
 
-      <p className="text-xs text-neutral-500">
-        Cron:{' '}
-        <Link href="/dashboard/automation" className="text-violet-700 underline">
-          Automation
-        </Link>{' '}
-        · <code className="bg-neutral-100 px-1 rounded">POST /api/cron/niche-trends</code>
-      </p>
+            return (
+              <section key={cat.id} className="scroll-mt-6">
+                <h2 className="text-lg font-bold text-neutral-900 border-b border-neutral-200 pb-2 mb-4">{cat.label}</h2>
+                {preview.length === 0 ? (
+                  <p className="text-sm text-neutral-500 py-4">No viral picks in this category for the current filters.</p>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                      {preview.map((it) => (
+                        <VideoCard key={it.id} it={it} />
+                      ))}
+                    </div>
+                    {extra.length > 0 && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mt-4">
+                        {extra.map((it) => (
+                          <VideoCard key={it.id} it={it} />
+                        ))}
+                      </div>
+                    )}
+                    {hasMore && (
+                      <div className="mt-4 flex justify-center">
+                        <button
+                          type="button"
+                          onClick={() => toggleExpand(cat.id)}
+                          className="px-4 py-2 rounded-lg text-sm font-semibold border border-violet-200 bg-violet-50 text-violet-800 hover:bg-violet-100 transition-colors"
+                        >
+                          {expanded
+                            ? 'Show less'
+                            : `Show more (${Math.min(ranked.length - PREVIEW_COUNT, EXPANDED_MAX)} more in this category)`}
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </section>
+            );
+          })}
+          <p className="text-xs text-neutral-500 pt-2">
+            Up to {FETCH_LIMIT} rows loaded; ratios above 2×. Order within each category favors updates from the last 24 hours, then strongest ratio.
+          </p>
+        </>
+      ) : null}
     </div>
   );
 }
