@@ -1356,12 +1356,6 @@ export default function DashboardPage() {
           />
         </div>
       )}
-      {!analyticsLoadingOnly && showViewsHint && (
-        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          <p className="font-medium">You're seeing follower counts. Views, reach, and trend graphs need Page/Instagram insights.</p>
-          <p className="mt-1 text-xs text-amber-700">Data will sync automatically when your Page is linked.</p>
-        </div>
-      )}
       {!analyticsLoadingOnly && showTikTokFollowersHint && (
         <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <p className="font-medium">TikTok follower count needs the user.info.stats scope.</p>
