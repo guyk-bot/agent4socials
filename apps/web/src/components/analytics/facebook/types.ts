@@ -116,7 +116,7 @@ export interface FacebookPost {
   commentsCount?: number;
   sharesCount?: number;
   repostsCount?: number;
-  /** TikTok: saves/favorites from video.list when available. */
+  /** Optional; synced from TikTok video.list when present (not shown in analytics UI). */
   savesCount?: number;
   /** Post lifetime insights from sync (registry-valid metrics only). */
   facebookInsights?: Record<string, number>;

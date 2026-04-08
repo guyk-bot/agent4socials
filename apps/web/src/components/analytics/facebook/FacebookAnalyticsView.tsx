@@ -53,13 +53,13 @@ type SectionId = (typeof FACEBOOK_ANALYTICS_SECTION_IDS)[keyof typeof FACEBOOK_A
 type StoryMode = 'views' | 'engagement' | 'growth';
 type StoryMetricKey = 'followers' | 'engagements' | 'videoViews' | 'contentViews' | 'pageVisits';
 type ActivityMetricKey = 'actions' | 'posts' | 'conversations';
-type EngagementMetricKey = 'likes' | 'comments' | 'shares' | 'reposts' | 'saves';
+type EngagementMetricKey = 'likes' | 'comments' | 'shares' | 'reposts';
 
 /** Bottom → top stack order for the Engagement chart (must match `<Bar />` order). */
 const ENGAGEMENT_STACK_ORDER_META: readonly EngagementMetricKey[] = ['likes', 'comments', 'shares', 'reposts'];
-const ENGAGEMENT_STACK_ORDER_TIKTOK: readonly EngagementMetricKey[] = ['likes', 'comments', 'shares', 'saves'];
+const ENGAGEMENT_STACK_ORDER_TIKTOK: readonly EngagementMetricKey[] = ['likes', 'comments', 'shares'];
 type TrafficMetricKey = 'postImpressions' | 'nonviral' | 'viral' | 'uniqueReachProxy';
-type ReelMetricKey = 'views' | 'watchTime' | 'avgWatch' | 'clicks' | 'likes' | 'comments' | 'shares' | 'reposts' | 'saves';
+type ReelMetricKey = 'views' | 'watchTime' | 'avgWatch' | 'clicks' | 'likes' | 'comments' | 'shares' | 'reposts';
 type ReelPresetKey = 'performance' | 'engagement' | 'watch';
 type ContentHistoryFilter = 'all' | 'posts' | 'reels';
 
@@ -158,7 +158,6 @@ const ENGAGEMENT_METRIC_CONFIG: Record<EngagementMetricKey, { label: string; col
   comments: { label: 'Comments', color: COLOR.coral },
   shares: { label: 'Shares', color: COLOR.amber },
   reposts: { label: 'Reposts', color: '#111827' },
-  saves: { label: 'Saves', color: '#0d9488' },
 };
 
 const TRAFFIC_METRIC_CONFIG: Record<TrafficMetricKey, { label: string; color: string }> = {
@@ -183,7 +182,6 @@ const REEL_METRIC_CONFIG: Record<ReelMetricKey, { label: string; color: string }
   comments: { label: 'Comments', color: COLOR.coral },
   shares: { label: 'Shares', color: COLOR.amber },
   reposts: { label: 'Reposts', color: '#111827' },
-  saves: { label: 'Saves', color: '#0d9488' },
 };
 
 const REEL_PRESET_METRICS: Record<ReelPresetKey, ReelMetricKey[]> = {
@@ -194,7 +192,7 @@ const REEL_PRESET_METRICS: Record<ReelPresetKey, ReelMetricKey[]> = {
 
 const REEL_PRESET_METRICS_TIKTOK: Record<ReelPresetKey, ReelMetricKey[]> = {
   performance: ['views', 'watchTime', 'avgWatch'],
-  engagement: ['likes', 'comments', 'shares', 'saves'],
+  engagement: ['likes', 'comments', 'shares'],
   watch: ['watchTime', 'avgWatch'],
 };
 
@@ -453,7 +451,7 @@ function bestShareCount(p: FacebookPost): number {
   return Math.max(a, b, c);
 }
 
-/** Meta/IG: repostsCount or post_shares. TikTok uses Saves (savesCount), not this metric. */
+/** Meta/IG: repostsCount or post_shares. TikTok has no repost metric in our model. */
 function bestRepostCount(p: FacebookPost): number {
   if ((p.platform ?? '').toUpperCase() === 'TIKTOK') return 0;
   const fi = p.facebookInsights ?? {};
@@ -461,12 +459,6 @@ function bestRepostCount(p: FacebookPost): number {
   if (typeof r === 'number' && Number.isFinite(r)) return Math.max(0, r);
   const ps = fi.post_shares;
   if (typeof ps === 'number' && Number.isFinite(ps)) return Math.max(0, ps);
-  return 0;
-}
-
-function bestSaveCount(p: FacebookPost): number {
-  if ((p.platform ?? '').toUpperCase() !== 'TIKTOK') return 0;
-  if (typeof p.savesCount === 'number' && Number.isFinite(p.savesCount)) return Math.max(0, p.savesCount);
   return 0;
 }
 
@@ -498,7 +490,7 @@ function bestPostInteractionCount(p: FacebookPost): number {
   if (platform === 'INSTAGRAM') return Math.max(bestInstagramInteractionCount(p), fromParts);
   if (platform === 'FACEBOOK') return fromParts;
   if (platform === 'TIKTOK') {
-    return (p.likeCount ?? 0) + (p.commentsCount ?? 0) + bestShareCount(p) + bestSaveCount(p);
+    return (p.likeCount ?? 0) + (p.commentsCount ?? 0) + bestShareCount(p);
   }
   return fi.post_clicks ?? 0;
 }
@@ -1258,8 +1250,6 @@ type TopHighlightRow = {
   views: number;
   clicks: number;
   reactions: number;
-  /** TikTok: synced favorites/saves from video list. */
-  saves?: number;
   /** ISO or parseable publish time */
   publishedAt: string;
 };
@@ -1271,7 +1261,6 @@ function TopContentHighlights({
   clicksLeaderTitle = 'Clicks leaders',
   clicksMetricLabel = 'Clicks',
   hideClicksColumn = false,
-  showSaves = false,
 }: {
   byViews: TopHighlightRow[];
   byClicks: TopHighlightRow[];
@@ -1281,8 +1270,6 @@ function TopContentHighlights({
   clicksMetricLabel?: 'Clicks' | 'Interactions';
   /** Hide the clicks/interactions column entirely (e.g. for Facebook). */
   hideClicksColumn?: boolean;
-  /** TikTok: show per-post saves in each leader card (alongside Views / Interactions / Reactions). */
-  showSaves?: boolean;
 }) {
   const rankBadge = (idx: number) => `/rank-badges/${Math.min(3, idx + 1)}.svg`;
   const col = (title: string, metricLabel: 'Views' | 'Clicks' | 'Reactions' | 'Interactions', rows: TopHighlightRow[], showClicks = true) => (
@@ -1350,7 +1337,6 @@ function TopContentHighlights({
                     </span>
                   )}
                   <span style={metricLabel === 'Reactions' ? { color: COLOR.text, fontWeight: 700, fontSize: 13 } : undefined}>Reactions {formatNumber(r.reactions)}</span>
-                  {showSaves ? <span>Saves {formatNumber(r.saves ?? 0)}</span> : null}
                 </div>
               </div>
             </div>
@@ -1510,14 +1496,10 @@ export function FacebookAnalyticsView({
 
   useEffect(() => {
     if (insights?.platform?.toUpperCase() !== 'TIKTOK') return;
-    setSelectedEngagementMetrics((prev) => {
-      const withoutReposts = prev.filter((m) => m !== 'reposts');
-      return withoutReposts.includes('saves') ? withoutReposts : [...withoutReposts, 'saves'];
-    });
-    setSelectedReelMetrics((prev) => {
-      const noReposts = prev.filter((m) => m !== 'reposts');
-      return noReposts.includes('saves') ? noReposts : [...noReposts, 'saves'];
-    });
+    const engAllowed = new Set<EngagementMetricKey>(['likes', 'comments', 'shares']);
+    const reelAllowed = new Set<ReelMetricKey>(['views', 'watchTime', 'avgWatch', 'clicks', 'likes', 'comments', 'shares']);
+    setSelectedEngagementMetrics((prev) => prev.filter((m) => engAllowed.has(m)));
+    setSelectedReelMetrics((prev) => prev.filter((m) => reelAllowed.has(m)));
   }, [insights?.platform]);
 
   const profile = insights?.facebookPageProfile;
@@ -1569,7 +1551,7 @@ export function FacebookAnalyticsView({
   const tiktokEngagementsInRange = useMemo(
     () =>
       postsInRange.reduce(
-        (s, p) => s + (p.likeCount ?? 0) + (p.commentsCount ?? 0) + bestShareCount(p) + bestSaveCount(p),
+        (s, p) => s + (p.likeCount ?? 0) + (p.commentsCount ?? 0) + bestShareCount(p),
         0
       ),
     [postsInRange]
@@ -1706,8 +1688,7 @@ export function FacebookAnalyticsView({
           (engagementByDate[d] ?? 0) +
           (p.likeCount ?? 0) +
           (p.commentsCount ?? 0) +
-          bestShareCount(p) +
-          bestSaveCount(p);
+          bestShareCount(p);
       }
       const followsRaw: Record<string, number> = {};
       const likesRaw: Record<string, number> = {};
@@ -1822,7 +1803,7 @@ export function FacebookAnalyticsView({
       const viewsSeries = aggregatePostsByDayValue(postsInRange, (p) => p.impressions ?? bestPostPlayCount(p));
       const engSeries = aggregatePostsByDayValue(
         postsInRange,
-        (p) => (p.likeCount ?? 0) + (p.commentsCount ?? 0) + bestShareCount(p) + bestSaveCount(p)
+        (p) => (p.likeCount ?? 0) + (p.commentsCount ?? 0) + bestShareCount(p)
       );
       const start = dateRange.start.slice(0, 10);
       const end = dateRange.end.slice(0, 10);
@@ -2027,7 +2008,6 @@ export function FacebookAnalyticsView({
       comments: number;
       shares: number;
       reposts: number;
-      saves: number;
       thumbnailUrl: string | null;
       count: number;
     }> = {};
@@ -2043,7 +2023,6 @@ export function FacebookAnalyticsView({
         comments: 0,
         shares: 0,
         reposts: 0,
-        saves: 0,
         thumbnailUrl: r.post.thumbnailUrl ?? null,
         count: 0,
       };
@@ -2057,7 +2036,6 @@ export function FacebookAnalyticsView({
       row.comments += r.post.facebookInsights?.post_comments ?? r.post.commentsCount ?? 0;
       row.shares += bestShareCount(r.post);
       row.reposts += bestRepostCount(r.post);
-      row.saves += bestSaveCount(r.post);
       row.count += 1;
       byDate[date] = row;
     }
@@ -2091,7 +2069,7 @@ export function FacebookAnalyticsView({
   const avgInteractionsPerPost = postsInRange.reduce((sum, post) => {
     if (isInstagram) return sum + bestInstagramInteractionCount(post);
     if (isTikTok) {
-      return sum + (post.likeCount ?? 0) + (post.commentsCount ?? 0) + bestShareCount(post) + bestSaveCount(post);
+      return sum + (post.likeCount ?? 0) + (post.commentsCount ?? 0) + bestShareCount(post);
     }
     return sum + bestCount(post.facebookInsights?.post_reactions_like_total, post.likeCount) + (post.facebookInsights?.post_comments ?? post.commentsCount ?? 0) + bestShareCount(post) + bestRepostCount(post);
   }, 0) / Math.max(1, postsInRange.length);
@@ -2104,7 +2082,6 @@ export function FacebookAnalyticsView({
   const reelComments = reelsRows.reduce((s, r) => s + (r.post.facebookInsights?.post_comments ?? r.post.commentsCount ?? 0), 0);
   const reelShares = reelsRows.reduce((s, r) => s + bestShareCount(r.post), 0);
   const reelReposts = reelsRows.reduce((s, r) => s + bestRepostCount(r.post), 0);
-  const reelSaves = reelsRows.reduce((s, r) => s + bestSaveCount(r.post), 0);
   const totalOrganicVideoViews = reelsRows.reduce((s, r) => s + r.organicViews, 0);
   const totalReelVideoViews = reelsRows.reduce((s, r) => s + r.views, 0);
   const avgWatchMs = totalReelVideoViews > 0 ? totalReelWatchTimeMs / totalReelVideoViews : 0;
@@ -2129,7 +2106,6 @@ export function FacebookAnalyticsView({
   const commentsTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + (post.facebookInsights?.post_comments ?? post.commentsCount ?? post.engagementBreakdown?.comments ?? 0), 0), [postsInRange]);
   const sharesTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + bestShareCount(post), 0), [postsInRange]);
   const repostsTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + bestRepostCount(post), 0), [postsInRange]);
-  const savesTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + bestSaveCount(post), 0), [postsInRange]);
   const totalActions = actionsTotal;
   const engagementData = useMemo(() => {
     const likesByDate = postsInRange.reduce<Record<string, number>>((acc, post) => {
@@ -2152,18 +2128,12 @@ export function FacebookAnalyticsView({
       acc[d] = (acc[d] ?? 0) + bestRepostCount(post);
       return acc;
     }, {});
-    const savesByDate = postsInRange.reduce<Record<string, number>>((acc, post) => {
-      const d = localCalendarDateFromIso(post.publishedAt);
-      acc[d] = (acc[d] ?? 0) + bestSaveCount(post);
-      return acc;
-    }, {});
     return dateAxis.map((date) => ({
       date,
       likes: likesByDate[date] ?? 0,
       comments: commentsByDate[date] ?? 0,
       shares: sharesByDate[date] ?? 0,
       reposts: repostsByDate[date] ?? 0,
-      saves: savesByDate[date] ?? 0,
     }));
   }, [dateAxis, postsInRange]);
   const engagementTicks = useMemo(
@@ -2175,7 +2145,6 @@ export function FacebookAnalyticsView({
           (d.comments ?? 0) > 0 ||
           (d.shares ?? 0) > 0 ||
           (d.reposts ?? 0) > 0 ||
-          (d.saves ?? 0) > 0 ||
           false,
         10
       ),
@@ -2190,7 +2159,6 @@ export function FacebookAnalyticsView({
     const selected = order.filter((k) => {
       if (!selectedEngagementMetrics.includes(k)) return false;
       if (k === 'reposts') return isInstagram;
-      if (k === 'saves') return isTikTok;
       return true;
     });
     return selected.length ? selected[selected.length - 1]! : null;
@@ -2614,7 +2582,7 @@ export function FacebookAnalyticsView({
                 />
                 <SparklineMetricCard
                   label="Engagements (range)"
-                  source="video/list · likes + comments + shares + saves on posts in range (synced)"
+                  source="video/list · likes + comments + shares on posts in range (synced)"
                   color={COLOR.coral}
                   value={formatNumber(tiktokEngagementsInRange)}
                   series={growthSparklineSeries.engagement}
@@ -2771,26 +2739,11 @@ export function FacebookAnalyticsView({
                 onClick={() => setSelectedEngagementMetrics((prev) => prev.includes('reposts') ? prev.filter((m) => m !== 'reposts') : [...prev, 'reposts'])}
               />
             )}
-            {isTikTok && (
-              <MetricCard
-                label="Saves"
-                source="video/list · favorites_count (or similar) when TikTok returns it on synced posts"
-                color={ENGAGEMENT_METRIC_CONFIG.saves.color}
-                value={formatNumber(savesTotal)}
-                active={selectedEngagementMetrics.includes('saves')}
-                onClick={() => setSelectedEngagementMetrics((prev) => prev.includes('saves') ? prev.filter((m) => m !== 'saves') : [...prev, 'saves'])}
-                tiktokApiHighlight
-              />
-            )}
           </div>
           <div className="flex justify-end">
             <div className="flex flex-wrap gap-2">
               {selectedEngagementMetrics
-                .filter((m) => {
-                  if (m === 'reposts') return isInstagram;
-                  if (m === 'saves') return isTikTok;
-                  return true;
-                })
+                .filter((m) => (m === 'reposts' ? isInstagram : true))
                 .map((m) => (
                 <span
                   key={m}
@@ -2853,9 +2806,7 @@ export function FacebookAnalyticsView({
                         ? 'Comments'
                         : n === 'reposts'
                           ? 'Reposts'
-                          : n === 'saves'
-                            ? 'Saves'
-                            : 'Shares',
+                          : 'Shares',
                   ]}
                   labelFormatter={(l) => formatShortDate(String(l))}
                 />
@@ -2895,16 +2846,6 @@ export function FacebookAnalyticsView({
                     stackId="engagement"
                     fill={ENGAGEMENT_METRIC_CONFIG.reposts.color}
                     radius={engagementStackTopKey === 'reposts' ? [6, 6, 0, 0] : [0, 0, 0, 0]}
-                    barSize={UNIFIED_BAR_SIZE}
-                    shape={<MinWidthBarShape />}
-                  />
-                ) : null}
-                {isTikTok && selectedEngagementMetrics.includes('saves') ? (
-                  <Bar
-                    dataKey="saves"
-                    stackId="engagement"
-                    fill={ENGAGEMENT_METRIC_CONFIG.saves.color}
-                    radius={engagementStackTopKey === 'saves' ? [6, 6, 0, 0] : [0, 0, 0, 0]}
                     barSize={UNIFIED_BAR_SIZE}
                     shape={<MinWidthBarShape />}
                   />
@@ -3188,7 +3129,7 @@ export function FacebookAnalyticsView({
                 label="Avg interactions per post"
                 source={
                   isTikTok
-                    ? 'likes + comments + shares + saves (synced TikTok posts)'
+                    ? 'likes + comments + shares (synced TikTok posts)'
                     : isInstagram
                       ? 'likes + comments + shares + reposts'
                       : 'likes + comments + shares + reposts (post-level)'
@@ -3203,7 +3144,6 @@ export function FacebookAnalyticsView({
             clicksLeaderTitle={(isInstagram || isFacebook || isTikTok) ? 'Interactions leaders' : 'Clicks leaders'}
             clicksMetricLabel={(isInstagram || isFacebook || isTikTok) ? 'Interactions' : 'Clicks'}
             hideClicksColumn={!(isInstagram || isFacebook || isTikTok)}
-            showSaves={isTikTok}
             byViews={topByViews.map((p) => ({
               id: p.id,
               preview: p.preview,
@@ -3213,7 +3153,6 @@ export function FacebookAnalyticsView({
               views: p.views,
               clicks: p.clicks,
               reactions: p.reactionsTotal,
-              saves: bestSaveCount(p.rawPost),
               publishedAt: p.date,
             }))}
             byClicks={topByClicks.map((p) => ({
@@ -3225,7 +3164,6 @@ export function FacebookAnalyticsView({
               views: p.views,
               clicks: p.clicks,
               reactions: p.reactionsTotal,
-              saves: bestSaveCount(p.rawPost),
               publishedAt: p.date,
             }))}
             byReactions={topByReactions.map((p) => ({
@@ -3237,7 +3175,6 @@ export function FacebookAnalyticsView({
               views: p.views,
               clicks: p.clicks,
               reactions: p.reactionsTotal,
-              saves: bestSaveCount(p.rawPost),
               publishedAt: p.date,
             }))}
           />
@@ -3337,17 +3274,6 @@ export function FacebookAnalyticsView({
               onClick={() => setSelectedReelMetrics((prev) => prev.includes('reposts') ? prev.filter((m) => m !== 'reposts') : [...prev, 'reposts'])}
             />
           )}
-          {isTikTok && (
-            <MetricCard
-              label="Saves"
-              source="Synced posts · savesCount from favorites_count when API returns it"
-              color={REEL_METRIC_CONFIG.saves.color}
-              value={formatNumber(reelSaves)}
-              active={selectedReelMetrics.includes('saves')}
-              onClick={() => setSelectedReelMetrics((prev) => prev.includes('saves') ? prev.filter((m) => m !== 'saves') : [...prev, 'saves'])}
-              tiktokApiHighlight
-            />
-          )}
         </div>
 
         <InsightChartCard
@@ -3393,9 +3319,6 @@ export function FacebookAnalyticsView({
                 {selectedReelMetrics.includes('shares') ? <Bar dataKey="shares" fill={REEL_METRIC_CONFIG.shares.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                 {isInstagram && selectedReelMetrics.includes('reposts') ? (
                   <Bar dataKey="reposts" fill={REEL_METRIC_CONFIG.reposts.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} />
-                ) : null}
-                {isTikTok && selectedReelMetrics.includes('saves') ? (
-                  <Bar dataKey="saves" fill={REEL_METRIC_CONFIG.saves.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} />
                 ) : null}
                 {selectedReelMetrics.includes('watchTime') ? <Bar dataKey="watchTimeMinutes" fill={REEL_METRIC_CONFIG.watchTime.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                 {selectedReelMetrics.includes('avgWatch') ? <Bar dataKey="avgWatchSeconds" fill={REEL_METRIC_CONFIG.avgWatch.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
