@@ -1215,8 +1215,68 @@ export default function DashboardPage() {
     setPricingModalOpen(true);
   }
 
+  // ── Instagram cache debug (temporary) ──
+  const igDebug = selectedAccount?.platform === 'INSTAGRAM' ? (() => {
+    const accId = selectedAccount?.id ?? '(none)';
+    let lsStatus = 'no blob';
+    let lsInsightsKeys: string[] = [];
+    let lsBlobSize = 0;
+    try {
+      const raw = localStorage.getItem('appData_cache_v2');
+      if (raw) {
+        lsBlobSize = raw.length;
+        const blob = JSON.parse(raw);
+        lsInsightsKeys = Object.keys(blob?.insightsByAccountId ?? {});
+        lsStatus = lsInsightsKeys.includes(accId) ? `HIT (${accId.slice(0, 8)}...)` : `MISS (keys: ${lsInsightsKeys.map(k => k.slice(0, 8)).join(', ')})`;
+      }
+    } catch (e) { lsStatus = `error: ${e}`; }
+
+    let ssStatus = 'no session data';
+    try {
+      const ssKey = `a4s_dash_insights_v1_${user?.id}_${accId}`;
+      const ssRaw = sessionStorage.getItem(ssKey);
+      ssStatus = ssRaw ? `HIT (${ssRaw.length} chars)` : `MISS (key=${ssKey.slice(0, 40)}...)`;
+    } catch (e) { ssStatus = `error: ${e}`; }
+
+    const appDataHit = appData?.getInsights(accId);
+    return {
+      accId: accId.slice(0, 12),
+      userId: user?.id?.slice(0, 8) ?? 'null',
+      lsStatus,
+      lsBlobSize: `${(lsBlobSize / 1024).toFixed(0)}KB`,
+      ssStatus,
+      appDataCache: appDataHit ? 'HIT' : 'MISS',
+      cacheRehydrated: String(appData?.cacheRehydrated ?? 'undefined'),
+      insightsState: insights ? `HIT (followers=${insights.followers})` : 'null',
+      cachedInsightsForSelected: cachedInsightsForSelected ? 'HIT' : 'MISS',
+      sessionInsightsForSelected: sessionInsightsForSelected ? 'HIT' : 'MISS',
+      displayInsights: displayInsights ? `HIT (followers=${displayInsights.followers})` : 'null',
+      insightsLoading: String(insightsLoading),
+      importedPostsLoading: String(importedPostsLoading),
+      justConnected: String(justConnected),
+      analyticsLoadingOnly: String(analyticsLoadingOnly),
+      showDataSyncBanner: String(showDataSyncBanner),
+      hintText: hintText ? hintText.slice(0, 80) : '(none)',
+      hintNeedsReconnect: String(hintNeedsReconnect),
+      reconnectCondition: String(reconnectCondition),
+    };
+  })() : null;
+
   return (
     <div className="space-y-0">
+      {igDebug && (
+        <details className="mb-2 rounded-lg border border-orange-300 bg-orange-50 p-3 text-xs font-mono" open>
+          <summary className="cursor-pointer font-semibold text-orange-800">Instagram Cache Debug</summary>
+          <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-orange-900">
+            {Object.entries(igDebug).map(([k, v]) => (
+              <React.Fragment key={k}>
+                <span className="font-semibold">{k}:</span>
+                <span className={String(v).includes('MISS') || String(v) === 'null' || String(v) === 'true' && (k === 'analyticsLoadingOnly' || k === 'showDataSyncBanner' || k === 'reconnectCondition') ? 'text-red-700 font-bold' : ''}>{String(v)}</span>
+              </React.Fragment>
+            ))}
+          </div>
+        </details>
+      )}
       <ConfirmModal open={alertMessage !== null} onClose={() => setAlertMessage(null)} message={alertMessage ?? ''} variant="alert" confirmLabel="OK" />
       {pricingModalOpen && typeof document !== 'undefined'
         ? createPortal(
