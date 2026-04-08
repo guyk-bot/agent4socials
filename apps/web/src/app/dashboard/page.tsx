@@ -1210,7 +1210,10 @@ export default function DashboardPage() {
           : [];
   const maxImpressions = displayTimeSeries.length ? Math.max(...displayTimeSeries.map((d) => d.value), 1) : 1;
   const showViewsHint = hasFbOrIg && effectiveFollowers > 0 && effectiveImpressions === 0 && !effectiveTimeSeries.some((d) => d.value > 0) && (selectedAccount?.platform === 'INSTAGRAM' || !selectedAccount);
-  const showTikTokFollowersHint = selectedAccount?.platform === 'TIKTOK' && effectiveFollowers === 0 && effectiveImpressions > 0;
+  /** Match API: only when insights sets the user.info.stats reconnect hint (not merely followers 0 with video views). */
+  const showTikTokFollowersHint =
+    selectedAccount?.platform === 'TIKTOK' &&
+    Boolean(displayInsights?.insightsHint?.includes('user.info.stats'));
   /** Full-page analytics skeleton: only when actively loading AND no cached data to show. */
   const analyticsLoadingOnly = Boolean(
     selectedAccount &&

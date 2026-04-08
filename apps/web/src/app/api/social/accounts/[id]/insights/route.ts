@@ -1747,6 +1747,8 @@ export async function GET(
         }
         return undefined;
       };
+      /** True if TikTok returned at least one numeric stats field from user.info (proves user.info.stats worked). */
+      let tiktokUserInfoReturnedAnyStat = false;
       try {
         const userRes = await axios.get<{
           data?: {
@@ -1787,6 +1789,8 @@ export async function GET(
           const following = parseTk(user.following_count);
           const videos = parseTk(user.video_count);
           const likes = parseTk(user.likes_count);
+          tiktokUserInfoReturnedAnyStat =
+            fc != null || following != null || videos != null || likes != null;
           (out as Record<string, unknown>).tiktokUser = {
             followerCount: fc ?? 0,
             followingCount: following,
@@ -1859,7 +1863,9 @@ export async function GET(
         const totalViews = posts.reduce((s, p) => s + (p.impressions ?? 0), 0);
         if (totalViews > 0) out.impressionsTotal = totalViews;
       } catch (_) {}
-      if (out.followers === 0) {
+      // Do not blame missing scopes when user.info already returned other stats (e.g. likes_count) but omitted follower_count,
+      // or when follower_count is legitimately 0 with parsed stats fields.
+      if (out.followers === 0 && !tiktokUserInfoReturnedAnyStat) {
         out.insightsHint = out.impressionsTotal === 0
           ? 'Reconnect TikTok and approve "user.info.stats" to see follower count. Views will update after syncing videos.'
           : 'Reconnect TikTok and approve "user.info.stats" to see follower count.';
