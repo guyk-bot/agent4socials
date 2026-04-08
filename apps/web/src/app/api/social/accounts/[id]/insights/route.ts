@@ -1747,8 +1747,17 @@ export async function GET(
         }
         return undefined;
       };
+      /** TikTok wraps errors in { error: { code, message } }; success may use code "ok", 0, or omit error. */
+      const tikTokPayloadIndicatesSuccess = (err: { code?: unknown; message?: string } | undefined): boolean => {
+        if (!err || err.code == null || err.code === '') return true;
+        const c = err.code;
+        if (c === 'ok' || c === 'OK') return true;
+        if (typeof c === 'number' && c === 0) return true;
+        return String(c).toLowerCase() === 'ok';
+      };
       /** True if TikTok returned at least one numeric stats field from user.info (proves user.info.stats worked). */
       let tiktokUserInfoReturnedAnyStat = false;
+      let tiktokUserInfoHttpStatus = 0;
       try {
         const userRes = await axios.get<{
           data?: {
@@ -1762,7 +1771,7 @@ export async function GET(
               is_verified?: boolean;
             };
           };
-          error?: { code?: string; message?: string };
+          error?: { code?: unknown; message?: string };
         }>('https://open.tiktokapis.com/v2/user/info/', {
           params: {
             fields:
@@ -1776,14 +1785,15 @@ export async function GET(
           validateStatus: () => true,
           timeout: 15_000,
         });
+        tiktokUserInfoHttpStatus = userRes.status;
         const user = userRes.data?.data?.user;
         const err = userRes.data?.error;
         if (userRes.status === 401 || userRes.status === 403) {
           console.warn('[Insights] TikTok user/info: HTTP', userRes.status, '(sandbox token may lack user.info.basic scope)');
-        } else if (err?.code && err.code !== 'ok') {
+        } else if (err && !tikTokPayloadIndicatesSuccess(err)) {
           console.warn('[Insights] TikTok user/info error:', err.code, err.message ?? '');
         }
-        if (user && (err?.code === 'ok' || !err?.code) && userRes.status < 400) {
+        if (user && tikTokPayloadIndicatesSuccess(err) && userRes.status < 400) {
           const fc = parseTk(user.follower_count);
           if (fc != null) out.followers = fc;
           const following = parseTk(user.following_count);
@@ -1855,17 +1865,49 @@ export async function GET(
         // creator_info is optional for dashboard totals
       }
       // Account-level "Views" = sum of view counts from synced videos (not likes_count)
+      let hasSyncedTikTokPosts = false;
       try {
         const posts = await prisma.importedPost.findMany({
           where: { socialAccountId: account.id, platform: 'TIKTOK' },
           select: { impressions: true },
         });
+        hasSyncedTikTokPosts = posts.length > 0;
         const totalViews = posts.reduce((s, p) => s + (p.impressions ?? 0), 0);
         if (totalViews > 0) out.impressionsTotal = totalViews;
       } catch (_) {}
-      // Do not blame missing scopes when user.info already returned other stats (e.g. likes_count) but omitted follower_count,
-      // or when follower_count is legitimately 0 with parsed stats fields.
-      if (out.followers === 0 && !tiktokUserInfoReturnedAnyStat) {
+      // Follower count from last scheduled sync when live user.info omits it (same API; snapshot may still have a value).
+      if (out.followers === 0) {
+        try {
+          const snap = await prisma.accountMetricSnapshot.findFirst({
+            where: {
+              socialAccountId: account.id,
+              platform: 'TIKTOK',
+              followersCount: { not: null, gt: 0 },
+            },
+            orderBy: { metricDate: 'desc' },
+            select: { followersCount: true },
+          });
+          if (snap?.followersCount != null) {
+            out.followers = snap.followersCount;
+            const existing = (out as Record<string, unknown>).tiktokUser as Record<string, unknown> | undefined;
+            if (existing) {
+              existing.followerCount = snap.followersCount;
+            } else {
+              (out as Record<string, unknown>).tiktokUser = { followerCount: snap.followersCount };
+            }
+          }
+        } catch (_) {
+          // optional
+        }
+      }
+      const tiktokUserUnauthorized = tiktokUserInfoHttpStatus === 401 || tiktokUserInfoHttpStatus === 403;
+      // Dashboard "Profile likes" / "Public videos" can come from synced posts even when user.info returns no stats fields,
+      // so do not show the user.info.stats reconnect banner in that case (it is a false positive).
+      if (tiktokUserUnauthorized) {
+        out.insightsHint = out.impressionsTotal === 0
+          ? 'TikTok could not load profile stats (session or permissions). Reconnect from the sidebar. Views will update after syncing videos.'
+          : 'TikTok could not load profile stats (session or permissions). Reconnect from the sidebar.';
+      } else if (out.followers === 0 && !tiktokUserInfoReturnedAnyStat && !hasSyncedTikTokPosts) {
         out.insightsHint = out.impressionsTotal === 0
           ? 'Reconnect TikTok and approve "user.info.stats" to see follower count. Views will update after syncing videos.'
           : 'Reconnect TikTok and approve "user.info.stats" to see follower count.';
