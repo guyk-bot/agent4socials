@@ -225,6 +225,7 @@ model ImportedPost {
   commentsCount   Int?     @default(0)
   repostsCount    Int?     @default(0)
   sharesCount     Int?     @default(0)
+  savesCount      Int?     @default(0) // TikTok: favorites/saves from video.list (e.g. favorites_count)
   publishedAt     DateTime
   mediaType       String?  // IMAGE, VIDEO, etc.
   /// Platform-specific payload (e.g. Facebook status_type, attachment types) for analytics / UI.

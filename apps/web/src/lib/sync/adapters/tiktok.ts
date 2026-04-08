@@ -68,7 +68,7 @@ async function syncRecentContent(account: AccountRow) {
       [key: string]: unknown;
     };
     const fields =
-      'id,title,video_description,cover_image_url,share_url,create_time,like_count,comment_count,share_count,view_count,play_count';
+      'id,title,video_description,cover_image_url,share_url,create_time,like_count,comment_count,share_count,view_count,play_count,favorites_count';
     const allVideos: TikTokVideoRow[] = [];
     let cursor: number | string | undefined;
     let hasMore = true;
@@ -107,11 +107,11 @@ async function syncRecentContent(account: AccountRow) {
     for (const v of allVideos) {
       if (!v.id) continue;
       const raw = v as Record<string, unknown>;
-      const { shareCount, repostCount } = parseTikTokVideoEngagement(raw);
+      const { shareCount, saveCount } = parseTikTokVideoEngagement(raw);
       const likes = typeof v.like_count === 'number' ? v.like_count : 0;
       const comments = typeof v.comment_count === 'number' ? v.comment_count : 0;
-      const repostsVal = repostCount != null ? repostCount : undefined;
-      const interactions = likes + comments + shareCount + (repostCount ?? 0);
+      const savesVal = saveCount != null ? saveCount : undefined;
+      const interactions = likes + comments + shareCount + (saveCount ?? 0);
       try {
         await prisma.importedPost.upsert({
           where: {
@@ -129,7 +129,8 @@ async function syncRecentContent(account: AccountRow) {
             likeCount: likes,
             commentsCount: comments,
             sharesCount: shareCount,
-            ...(repostsVal !== undefined ? { repostsCount: repostsVal } : {}),
+            repostsCount: 0,
+            ...(savesVal !== undefined ? { savesCount: savesVal } : {}),
             syncedAt: new Date(),
           },
           create: {
@@ -146,7 +147,8 @@ async function syncRecentContent(account: AccountRow) {
             likeCount: likes,
             commentsCount: comments,
             sharesCount: shareCount,
-            repostsCount: repostCount ?? 0,
+            repostsCount: 0,
+            savesCount: saveCount ?? 0,
           },
         });
         items++;

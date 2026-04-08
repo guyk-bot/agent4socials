@@ -8,6 +8,7 @@
 -- ImportedPost columns
 ALTER TABLE "ImportedPost" ADD COLUMN IF NOT EXISTS "repostsCount" INTEGER DEFAULT 0;
 ALTER TABLE "ImportedPost" ADD COLUMN IF NOT EXISTS "sharesCount" INTEGER DEFAULT 0;
+ALTER TABLE "ImportedPost" ADD COLUMN IF NOT EXISTS "savesCount" INTEGER DEFAULT 0;
 ALTER TABLE "ImportedPost" ADD COLUMN IF NOT EXISTS "platformMetadata" JSONB;
 
 -- SocialAccount sync-tracking columns

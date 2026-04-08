@@ -1,12 +1,13 @@
 /**
  * TikTok Display API video.list / video.query items: documented fields plus optional extras.
+ * Saves may appear as favorites_count (Research API naming); we request it on video.list when supported.
  * @see https://developers.tiktok.com/doc/tiktok-api-v2-video-object
  */
 
 export function parseTikTokVideoEngagement(video: Record<string, unknown>): {
   shareCount: number;
-  /** Present when TikTok returns a repost-style field (not in public Video Object spec; may be absent). */
-  repostCount: number | null;
+  /** Saves/favorites when TikTok returns a supported field (often favorites_count). */
+  saveCount: number | null;
 } {
   const num = (v: unknown): number | undefined => {
     if (typeof v === 'number' && Number.isFinite(v)) return Math.max(0, Math.floor(v));
@@ -17,14 +18,20 @@ export function parseTikTokVideoEngagement(video: Record<string, unknown>): {
     return undefined;
   };
   const shareCount = num(video.share_count) ?? 0;
-  const repostKeys = ['repost_count', 'repostCount', 'forward_count', 'forwardCount', 'reshare_count'] as const;
-  let repostCount: number | null = null;
-  for (const k of repostKeys) {
-    const r = num(video[k]);
-    if (r !== undefined) {
-      repostCount = r;
+  const saveKeys = [
+    'favorites_count',
+    'favourites_count',
+    'collect_count',
+    'save_count',
+    'saves_count',
+  ] as const;
+  let saveCount: number | null = null;
+  for (const k of saveKeys) {
+    const s = num(video[k]);
+    if (s !== undefined) {
+      saveCount = s;
       break;
     }
   }
-  return { shareCount, repostCount };
+  return { shareCount, saveCount };
 }

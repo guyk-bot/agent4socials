@@ -116,6 +116,8 @@ export interface FacebookPost {
   commentsCount?: number;
   sharesCount?: number;
   repostsCount?: number;
+  /** TikTok: saves/favorites from video.list when available. */
+  savesCount?: number;
   /** Post lifetime insights from sync (registry-valid metrics only). */
   facebookInsights?: Record<string, number>;
   /** From `ImportedPost.platformMetadata` when present (e.g. Facebook `status_type` for reel vs photo). */

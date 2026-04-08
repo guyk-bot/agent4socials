@@ -182,6 +182,7 @@ type ImportedPostListRow = {
   commentsCount: number | null;
   repostsCount: number | null;
   sharesCount: number | null;
+  savesCount: number | null;
   publishedAt: Date;
   mediaType: string | null;
   platformMetadata: unknown;
@@ -213,6 +214,7 @@ async function listImportedPostsSafe(socialAccountId: string): Promise<ImportedP
         commentsCount: true,
         repostsCount: true,
         sharesCount: true,
+        savesCount: true,
         publishedAt: true,
         mediaType: true,
         platformMetadata: true,
@@ -237,6 +239,7 @@ async function listImportedPostsSafe(socialAccountId: string): Promise<ImportedP
         commentsCount: true,
         repostsCount: true,
         sharesCount: true,
+        savesCount: true,
         publishedAt: true,
         mediaType: true,
       },
@@ -723,6 +726,7 @@ export async function GET(
         commentsCount: commentsCountOut,
         repostsCount: enrich?.repostsCount ?? p.repostsCount ?? 0,
         sharesCount: sharesCountOut,
+        savesCount: p.savesCount ?? 0,
         publishedAt: p.publishedAt instanceof Date ? p.publishedAt.toISOString() : String(p.publishedAt),
         mediaType: p.mediaType,
         platform: p.platform,
@@ -1496,7 +1500,7 @@ async function syncImportedPosts(
         [key: string]: unknown;
       };
       const fields =
-        'cover_image_url,id,title,create_time,share_url,like_count,comment_count,share_count,view_count';
+        'cover_image_url,id,title,create_time,share_url,like_count,comment_count,share_count,view_count,favorites_count';
       const allVideos: TikTokVideo[] = [];
       let cursor: number | string | undefined;
       let hasMore = true;
@@ -1541,10 +1545,10 @@ async function syncImportedPosts(
         const likeCount = v.like_count ?? 0;
         const commentsCount = v.comment_count ?? 0;
         const raw = v as Record<string, unknown>;
-        const { shareCount, repostCount } = parseTikTokVideoEngagement(raw);
+        const { shareCount, saveCount } = parseTikTokVideoEngagement(raw);
         const sharesCount = shareCount;
-        const repostsVal = repostCount != null ? repostCount : undefined;
-        const interactions = likeCount + commentsCount + sharesCount + (repostCount ?? 0);
+        const savesVal = saveCount != null ? saveCount : undefined;
+        const interactions = likeCount + commentsCount + sharesCount + (saveCount ?? 0);
         await prisma.importedPost.upsert({
           where: { socialAccountId_platformPostId: { socialAccountId, platformPostId: videoId } },
           update: {
@@ -1558,7 +1562,8 @@ async function syncImportedPosts(
             likeCount,
             commentsCount,
             sharesCount,
-            ...(repostsVal !== undefined ? { repostsCount: repostsVal } : {}),
+            repostsCount: 0,
+            ...(savesVal !== undefined ? { savesCount: savesVal } : {}),
             syncedAt: new Date(),
           },
           create: {
@@ -1575,7 +1580,8 @@ async function syncImportedPosts(
             likeCount,
             commentsCount,
             sharesCount,
-            repostsCount: repostCount ?? 0,
+            repostsCount: 0,
+            savesCount: saveCount ?? 0,
           },
         });
       }

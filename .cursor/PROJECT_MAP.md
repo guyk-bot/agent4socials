@@ -17,9 +17,9 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | Composer UI, previews, AI modal, media | `apps/web/src/app/composer/page.tsx` |
 | Publish to platforms (incl. Pinterest) | `apps/web/src/lib/publish-target.ts`, `apps/web/src/app/api/posts/[id]/publish/route.ts` |
 | Imported posts list, sync, Pinterest thumbnails | `apps/web/src/app/api/social/accounts/[id]/posts/route.ts` |
-| TikTok video.list engagement parsing (share/repost fields) | `apps/web/src/lib/tiktok/video-engagement.ts`, `apps/web/src/lib/sync/adapters/tiktok.ts` |
+| TikTok video.list engagement parsing (shares, saves from favorites_count and aliases) | `apps/web/src/lib/tiktok/video-engagement.ts`, `apps/web/src/lib/sync/adapters/tiktok.ts` |
 | Insights JSON for dashboard | `apps/web/src/app/api/social/accounts/[id]/insights/route.ts` |
-| Facebook / IG analytics UI (posts table, reels, charts) | `apps/web/src/components/analytics/facebook/FacebookAnalyticsView.tsx`, `types.ts` |
+| Facebook / IG / TikTok analytics UI (TikTok hides Traffic; Saves not Reposts in engagement) | `apps/web/src/components/analytics/facebook/FacebookAnalyticsView.tsx`, `types.ts` |
 | Dashboard home, posts table, sync button, insights loading/cache | `apps/web/src/app/dashboard/page.tsx`, `apps/web/src/context/AppDataContext.tsx`, `apps/web/src/lib/dashboard-insights-session-cache.ts` |
 | Viral Trend Radar (YouTube outliers), Trending nav | `apps/web/src/app/dashboard/trending/page.tsx`, `apps/web/src/lib/trends/niche-category-map.ts`, `apps/web/src/lib/trends/youtube-sweep.ts`, `apps/web/src/app/api/cron/niche-trends/route.ts`, `apps/web/src/app/api/trends/outliers/route.ts`, `apps/web/src/app/api/trends/sync-batch/route.ts` |
 | OAuth connect, accounts CRUD | `apps/web/src/app/api/social/oauth/`, `apps/web/src/app/api/social/accounts/`, `ConnectView.tsx` |
