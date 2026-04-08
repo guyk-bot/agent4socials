@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
-import { nicheLastUpdatedHoursAgo, sweepOneNiche } from '@/lib/trends/youtube-sweep';
 
 function serializeRow(r: {
   id: string;
@@ -41,8 +40,8 @@ function serializeRow(r: {
 }
 
 /**
- * GET /api/trends/outliers?videoType=short|long&niche=&minRatio=2&refresh=1
- * DB-first. With refresh=1 and niche=, runs a live YouTube sweep for that niche only if data is missing or older than 24h.
+ * GET /api/trends/outliers?videoType=short|long&minRatio=2&limit=5000
+ * Returns all niches (no niche filter). Optional limit capped at 10000.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -53,18 +52,11 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = request.nextUrl;
     const videoType = searchParams.get('videoType');
-    const niche = searchParams.get('niche')?.trim() || null;
     const minRatioRaw = searchParams.get('minRatio');
     const minRatio = minRatioRaw != null && minRatioRaw !== '' ? parseFloat(minRatioRaw) : 2;
-    const refresh = searchParams.get('refresh') === '1';
-    const youtubeKey = process.env.YOUTUBE_API_KEY?.trim();
-
-    if (niche && refresh && youtubeKey) {
-      const hoursSince = await nicheLastUpdatedHoursAgo(niche);
-      if (hoursSince == null || hoursSince >= 24) {
-        await sweepOneNiche(youtubeKey, niche);
-      }
-    }
+    const limitRaw = searchParams.get('limit');
+    const limitParsed = limitRaw != null && limitRaw !== '' ? parseInt(limitRaw, 10) : 2000;
+    const take = Number.isFinite(limitParsed) ? Math.min(10_000, Math.max(1, limitParsed)) : 2000;
 
     const where: Prisma.NicheTrendWhereInput = {
       performanceRatio: { gt: Number.isFinite(minRatio) ? minRatio : 2 },
@@ -72,19 +64,17 @@ export async function GET(request: NextRequest) {
     if (videoType === 'short' || videoType === 'long') {
       where.videoType = videoType;
     }
-    if (niche) {
-      where.nicheName = niche;
-    }
 
     const rows = await prisma.nicheTrend.findMany({
       where,
       orderBy: [{ performanceRatio: 'desc' }, { lastUpdated: 'desc' }],
-      take: 200,
+      take,
     });
 
     return NextResponse.json({
       items: rows.map(serializeRow),
       count: rows.length,
+      limit: take,
     });
   } catch (e) {
     console.error('[trends/outliers]', e);
