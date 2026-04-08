@@ -185,7 +185,7 @@ const REEL_METRIC_CONFIG: Record<ReelMetricKey, { label: string; color: string }
 
 const REEL_PRESET_METRICS: Record<ReelPresetKey, ReelMetricKey[]> = {
   performance: ['views', 'watchTime', 'avgWatch'],
-  engagement: ['clicks', 'likes', 'comments', 'shares', 'reposts'],
+  engagement: ['likes', 'comments', 'shares', 'reposts'],
   watch: ['watchTime', 'avgWatch'],
 };
 
@@ -443,6 +443,21 @@ function bestShareCount(p: FacebookPost): number {
   return Math.max(a, b, c);
 }
 
+/** Instagram "interactions" fallback when Graph metric is missing/zero. */
+function bestInstagramInteractionCount(p: FacebookPost): number {
+  const fi = p.facebookInsights ?? {};
+  const fromMetric =
+    typeof fi.instagram_total_interactions === 'number' && Number.isFinite(fi.instagram_total_interactions)
+      ? Math.max(0, fi.instagram_total_interactions)
+      : 0;
+  const fromParts =
+    bestCount(fi.post_reactions_like_total, p.likeCount) +
+    (fi.post_comments ?? p.commentsCount ?? 0) +
+    bestShareCount(p) +
+    (p.repostsCount ?? fi.post_shares ?? 0);
+  return Math.max(fromMetric, fromParts);
+}
+
 /** Sum of reel/video post plays in range; Page `page_video_views` often disagrees with what you see on each reel. */
 function sumPostLevelVideoPlays(posts: FacebookPost[]): number {
   return posts.reduce((s, p) => {
@@ -575,7 +590,10 @@ function buildInstagramSyntheticFacebookBundle(
 
 function seriesToMap(series: Array<{ date: string; value: number }>): Record<string, number> {
   const map: Record<string, number> = {};
-  for (const p of series) map[p.date] = p.value;
+  for (const p of series) {
+    const v = Number(p.value);
+    map[p.date] = Number.isFinite(v) ? v : 0;
+  }
   return map;
 }
 
@@ -1393,17 +1411,13 @@ export function FacebookAnalyticsView({
   const [storyMode, setStoryMode] = useState<StoryMode>('growth');
   const [selectedStoryMetrics, setSelectedStoryMetrics] = useState<StoryMetricKey[]>(STORY_MODE_DEFAULT_METRICS.growth);
   const [selectedActivityMetrics, setSelectedActivityMetrics] = useState<ActivityMetricKey[]>(['posts', 'actions']);
-  const [selectedEngagementMetrics, setSelectedEngagementMetrics] = useState<EngagementMetricKey[]>(['likes', 'comments']);
+  const [selectedEngagementMetrics, setSelectedEngagementMetrics] = useState<EngagementMetricKey[]>(['likes', 'comments', 'shares']);
   const [selectedTrafficMetrics, setSelectedTrafficMetrics] = useState<TrafficMetricKey[]>(['postImpressions', 'nonviral', 'viral', 'uniqueReachProxy']);
   const [selectedReelMetrics, setSelectedReelMetrics] = useState<ReelMetricKey[]>(['views', 'avgWatch']);
   const [reelPreset, setReelPreset] = useState<ReelPresetKey>('performance');
   const [activeSection, setActiveSection] = useState<SectionId>(FACEBOOK_ANALYTICS_SECTION_IDS.overview);
   const [selectedPost, setSelectedPost] = useState<FacebookPost | null>(null);
   const [historyFilter, setHistoryFilter] = useState<ContentHistoryFilter>('all');
-  const visibleEngagementMetrics = useMemo<EngagementMetricKey[]>(
-    () => selectedEngagementMetrics.filter((m) => m === 'likes' || m === 'comments'),
-    [selectedEngagementMetrics]
-  );
   const visibleActivityMetrics = useMemo<ActivityMetricKey[]>(
     () => selectedActivityMetrics.filter((m) => m === 'actions' || m === 'posts'),
     [selectedActivityMetrics]
@@ -1896,7 +1910,7 @@ export function FacebookAnalyticsView({
         uniqueReach: fi.post_impressions_unique ?? 0,
         clicks:
           p.platform === 'INSTAGRAM'
-            ? (fi.instagram_total_interactions ?? fi.post_clicks ?? 0)
+            ? bestInstagramInteractionCount(p)
             : (fi.post_clicks ?? 0),
         likes: bestCount(fi.post_reactions_like_total, p.likeCount),
         reactionsTotal: reactions || bestCount(fi.post_reactions_like_total, p.likeCount),
@@ -1954,7 +1968,7 @@ export function FacebookAnalyticsView({
       row.watchTimeMinutes += (r.watchTimeMs ?? 0) / 60000;
       row.avgWatchSeconds += r.avgWatchMs / 1000;
       row.clicks += r.post.platform === 'INSTAGRAM'
-        ? (r.post.facebookInsights?.instagram_total_interactions ?? r.post.facebookInsights?.post_clicks ?? 0)
+        ? bestInstagramInteractionCount(r.post)
         : (r.post.facebookInsights?.post_clicks ?? 0);
       row.likes += bestCount(r.post.facebookInsights?.post_reactions_like_total, r.post.likeCount);
       row.comments += r.post.facebookInsights?.post_comments ?? r.post.commentsCount ?? 0;
@@ -1992,15 +2006,9 @@ export function FacebookAnalyticsView({
   const avgClicksPerPost = postsRows.reduce((s, r) => s + r.clicks, 0) / Math.max(1, postsRows.length);
   const avgReactionsPerPost = postsRows.reduce((s, r) => s + r.reactionsTotal, 0) / Math.max(1, postsRows.length);
   const totalReelWatchTimeMs = postsRows.filter((r) => r.type === 'Reel').reduce((s, r) => s + r.watchTimeMs, 0);
-  const reelClicks = reelsRows.reduce((s, r) => {
-    const fi = r.post.facebookInsights ?? {};
-    return (
-      s +
-      (r.post.platform === 'INSTAGRAM'
-        ? (fi.instagram_total_interactions ?? fi.post_clicks ?? 0)
-        : (fi.post_clicks ?? 0))
-    );
-  }, 0);
+  const reelClicks = reelsRows.reduce((s, r) => (
+    s + (r.post.platform === 'INSTAGRAM' ? bestInstagramInteractionCount(r.post) : (r.post.facebookInsights?.post_clicks ?? 0))
+  ), 0);
   const reelLikes = reelsRows.reduce((s, r) => s + bestCount(r.post.facebookInsights?.post_reactions_like_total, r.post.likeCount), 0);
   const reelComments = reelsRows.reduce((s, r) => s + (r.post.facebookInsights?.post_comments ?? r.post.commentsCount ?? 0), 0);
   const reelShares = reelsRows.reduce((s, r) => s + bestShareCount(r.post), 0);
@@ -2009,15 +2017,9 @@ export function FacebookAnalyticsView({
   const totalReelVideoViews = reelsRows.reduce((s, r) => s + r.views, 0);
   const avgWatchMs = totalReelVideoViews > 0 ? totalReelWatchTimeMs / totalReelVideoViews : 0;
   const viewToClickEfficiency =
-    reelsRows.reduce((s, r) => {
-      const fi = r.post.facebookInsights ?? {};
-      return (
-        s +
-        (r.post.platform === 'INSTAGRAM'
-          ? (fi.instagram_total_interactions ?? fi.post_clicks ?? 0)
-          : (fi.post_clicks ?? 0))
-      );
-    }, 0) / Math.max(1, totalReelVideoViews);
+    reelsRows.reduce((s, r) => (
+      s + (r.post.platform === 'INSTAGRAM' ? bestInstagramInteractionCount(r.post) : (r.post.facebookInsights?.post_clicks ?? 0))
+    ), 0) / Math.max(1, totalReelVideoViews);
   const storyModeHoverHint = useMemo(() => {
     const fmt = (v: number | null | undefined) => (typeof v === 'number' && Number.isFinite(v) ? `${v >= 0 ? '+' : ''}${v.toFixed(1)}%` : 'n/a');
     const follows = growthSparklineSeries.follows;
@@ -2074,9 +2076,11 @@ export function FacebookAnalyticsView({
     [engagementTicks]
   );
   const engagementStackTopKey = useMemo((): EngagementMetricKey | null => {
-    const selected = ENGAGEMENT_STACK_ORDER.filter((k) => visibleEngagementMetrics.includes(k));
+    const selected = ENGAGEMENT_STACK_ORDER.filter((k) =>
+      k === 'reposts' ? isInstagram && selectedEngagementMetrics.includes(k) : selectedEngagementMetrics.includes(k)
+    );
     return selected.length ? selected[selected.length - 1]! : null;
-  }, [visibleEngagementMetrics]);
+  }, [isInstagram, selectedEngagementMetrics]);
   const operationalData = useMemo(() => {
     const actionsRaw = seriesToMap(actionsSeries ?? []);
     // Use per-day values for Actions so the line reflects daily fluctuation
@@ -2673,11 +2677,31 @@ export function FacebookAnalyticsView({
               onClick={() => setSelectedEngagementMetrics((prev) => prev.includes('comments') ? prev.filter((m) => m !== 'comments') : [...prev, 'comments'])}
               tiktokApiHighlight={isTikTok}
             />
-            
+            <MetricCard
+              label="Shares"
+              source={isTikTok ? 'video/list · share_count when present (synced)' : 'post_shares'}
+              color={ENGAGEMENT_METRIC_CONFIG.shares.color}
+              value={formatNumber(sharesTotal)}
+              active={selectedEngagementMetrics.includes('shares')}
+              onClick={() => setSelectedEngagementMetrics((prev) => prev.includes('shares') ? prev.filter((m) => m !== 'shares') : [...prev, 'shares'])}
+              tiktokApiHighlight={isTikTok}
+            />
+            {isInstagram && (
+              <MetricCard
+                label="Reposts"
+                source="repostsCount"
+                color={ENGAGEMENT_METRIC_CONFIG.reposts.color}
+                value={formatNumber(repostsTotal)}
+                active={selectedEngagementMetrics.includes('reposts')}
+                onClick={() => setSelectedEngagementMetrics((prev) => prev.includes('reposts') ? prev.filter((m) => m !== 'reposts') : [...prev, 'reposts'])}
+              />
+            )}
           </div>
           <div className="flex justify-end">
             <div className="flex flex-wrap gap-2">
-              {visibleEngagementMetrics.map((m) => (
+              {selectedEngagementMetrics
+                .filter((m) => m !== 'reposts' || isInstagram)
+                .map((m) => (
                 <span
                   key={m}
                   className="rounded-full border px-2.5 py-1 text-xs"
@@ -2690,7 +2714,7 @@ export function FacebookAnalyticsView({
             </div>
           </div>
           <InsightChartCard title="Engagement" hideHeader flat>
-          {visibleEngagementMetrics.length === 0 ? (
+          {selectedEngagementMetrics.length === 0 ? (
             <div className="h-[300px] rounded-xl border border-dashed relative overflow-hidden" style={{ borderColor: COLOR.border }}>
               <div className="absolute inset-0 z-[2] flex items-center justify-center">
                 <div
@@ -2733,11 +2757,11 @@ export function FacebookAnalyticsView({
                   contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
                   formatter={(v: number | string | undefined, n?: string) => [
                     formatNumber(Number(v) || 0),
-                    n === 'likes' ? 'Likes' : 'Comments',
+                    n === 'likes' ? 'Likes' : n === 'comments' ? 'Comments' : n === 'reposts' ? 'Reposts' : 'Shares',
                   ]}
                   labelFormatter={(l) => formatShortDate(String(l))}
                 />
-                {visibleEngagementMetrics.includes('likes') ? (
+                {selectedEngagementMetrics.includes('likes') ? (
                   <Bar
                     dataKey="likes"
                     stackId="engagement"
@@ -2747,7 +2771,7 @@ export function FacebookAnalyticsView({
                     shape={<MinWidthBarShape />}
                   />
                 ) : null}
-                {visibleEngagementMetrics.includes('comments') ? (
+                {selectedEngagementMetrics.includes('comments') ? (
                   <Bar
                     dataKey="comments"
                     stackId="engagement"
@@ -2757,7 +2781,26 @@ export function FacebookAnalyticsView({
                     shape={<MinWidthBarShape />}
                   />
                 ) : null}
-                
+                {selectedEngagementMetrics.includes('shares') ? (
+                  <Bar
+                    dataKey="shares"
+                    stackId="engagement"
+                    fill={ENGAGEMENT_METRIC_CONFIG.shares.color}
+                    radius={engagementStackTopKey === 'shares' ? [6, 6, 0, 0] : [0, 0, 0, 0]}
+                    barSize={UNIFIED_BAR_SIZE}
+                    shape={<MinWidthBarShape />}
+                  />
+                ) : null}
+                {isInstagram && selectedEngagementMetrics.includes('reposts') ? (
+                  <Bar
+                    dataKey="reposts"
+                    stackId="engagement"
+                    fill={ENGAGEMENT_METRIC_CONFIG.reposts.color}
+                    radius={engagementStackTopKey === 'reposts' ? [6, 6, 0, 0] : [0, 0, 0, 0]}
+                    barSize={UNIFIED_BAR_SIZE}
+                    shape={<MinWidthBarShape />}
+                  />
+                ) : null}
               </BarChart>
             </ResponsiveContainer>
             </div>
@@ -3024,7 +3067,7 @@ export function FacebookAnalyticsView({
             {isInstagram && (
               <MetricCard
                 label="Avg interactions per post"
-                source="instagram_total_interactions (Reels)"
+                source="likes + comments + shares + reposts"
                 color={COLOR.text}
                 value={avgClicksPerPost.toFixed(1)}
               />
@@ -3034,7 +3077,7 @@ export function FacebookAnalyticsView({
           <TopContentHighlights
             clicksLeaderTitle={isInstagram ? 'Interactions leaders' : 'Clicks leaders'}
             clicksMetricLabel={isInstagram ? 'Interactions' : 'Clicks'}
-            hideClicksColumn={!isInstagram}
+            hideClicksColumn={isInstagram}
             byViews={topByViews.map((p) => ({
               id: p.id,
               preview: p.preview,
@@ -3131,16 +3174,6 @@ export function FacebookAnalyticsView({
             active={selectedReelMetrics.includes('avgWatch')}
             onClick={() => setSelectedReelMetrics((prev) => prev.includes('avgWatch') ? prev.filter((m) => m !== 'avgWatch') : [...prev, 'avgWatch'])}
           />
-          {isInstagram && (
-            <MetricCard
-              label="Interactions"
-              source="instagram_total_interactions"
-              color={REEL_METRIC_CONFIG.clicks.color}
-              value={formatNumber(reelClicks)}
-              active={selectedReelMetrics.includes('clicks')}
-              onClick={() => setSelectedReelMetrics((prev) => prev.includes('clicks') ? prev.filter((m) => m !== 'clicks') : [...prev, 'clicks'])}
-            />
-          )}
           <MetricCard
             label="Likes"
             source="post_reactions_like_total"
@@ -3165,6 +3198,16 @@ export function FacebookAnalyticsView({
             active={selectedReelMetrics.includes('shares')}
             onClick={() => setSelectedReelMetrics((prev) => prev.includes('shares') ? prev.filter((m) => m !== 'shares') : [...prev, 'shares'])}
           />
+          {isInstagram && (
+            <MetricCard
+              label="Reposts"
+              source="repostsCount"
+              color={REEL_METRIC_CONFIG.reposts.color}
+              value={formatNumber(reelReposts)}
+              active={selectedReelMetrics.includes('reposts')}
+              onClick={() => setSelectedReelMetrics((prev) => prev.includes('reposts') ? prev.filter((m) => m !== 'reposts') : [...prev, 'reposts'])}
+            />
+          )}
         </div>
 
         <InsightChartCard
@@ -3205,10 +3248,10 @@ export function FacebookAnalyticsView({
                   }}
                 />
                 {selectedReelMetrics.includes('views') ? <Bar dataKey="views" fill={REEL_METRIC_CONFIG.views.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
-                {isInstagram && selectedReelMetrics.includes('clicks') ? <Bar dataKey="clicks" fill={REEL_METRIC_CONFIG.clicks.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                 {selectedReelMetrics.includes('likes') ? <Bar dataKey="likes" fill={REEL_METRIC_CONFIG.likes.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                 {selectedReelMetrics.includes('comments') ? <Bar dataKey="comments" fill={REEL_METRIC_CONFIG.comments.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                 {selectedReelMetrics.includes('shares') ? <Bar dataKey="shares" fill={REEL_METRIC_CONFIG.shares.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                {isInstagram && selectedReelMetrics.includes('reposts') ? <Bar dataKey="reposts" fill={REEL_METRIC_CONFIG.reposts.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                 {selectedReelMetrics.includes('watchTime') ? <Bar dataKey="watchTimeMinutes" fill={REEL_METRIC_CONFIG.watchTime.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                 {selectedReelMetrics.includes('avgWatch') ? <Bar dataKey="avgWatchSeconds" fill={REEL_METRIC_CONFIG.avgWatch.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
               </BarChart>
@@ -3259,7 +3302,7 @@ export function FacebookAnalyticsView({
               rows={contentHistoryRows}
               onOpenDetail={setSelectedPost}
               clicksColumnLabel={isInstagram ? 'Interactions' : 'Clicks'}
-              hideClicksColumn={!isInstagram}
+              hideClicksColumn={isInstagram}
             />
           ) : postsLoading ? (
             <div className="rounded-[20px] border p-6 space-y-3" style={{ background: COLOR.card, borderColor: COLOR.border }}>
@@ -3275,7 +3318,7 @@ export function FacebookAnalyticsView({
               rows={contentHistoryRows}
               onOpenDetail={setSelectedPost}
               clicksColumnLabel={isInstagram ? 'Interactions' : 'Clicks'}
-              hideClicksColumn={!isInstagram}
+              hideClicksColumn={isInstagram}
             />
           )}
         </div>
