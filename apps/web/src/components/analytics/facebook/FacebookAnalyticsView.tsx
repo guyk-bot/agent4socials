@@ -686,12 +686,16 @@ function AnalyticsHistorySkeleton() {
 function carryForwardSeries(
   dates: string[],
   map: Record<string, number>,
-  fallback = 0
+  fallback = 0,
+  ignoreZeroDrop = false
 ): Record<string, number> {
   const out: Record<string, number> = {};
   let prev = fallback;
   for (const d of dates) {
-    if (typeof map[d] === 'number') prev = map[d];
+    if (typeof map[d] === 'number') {
+      const next = map[d];
+      prev = ignoreZeroDrop && next === 0 && prev > 0 ? prev : next;
+    }
     out[d] = prev;
   }
   return out;
@@ -1389,13 +1393,21 @@ export function FacebookAnalyticsView({
   const [storyMode, setStoryMode] = useState<StoryMode>('growth');
   const [selectedStoryMetrics, setSelectedStoryMetrics] = useState<StoryMetricKey[]>(STORY_MODE_DEFAULT_METRICS.growth);
   const [selectedActivityMetrics, setSelectedActivityMetrics] = useState<ActivityMetricKey[]>(['posts', 'actions']);
-  const [selectedEngagementMetrics, setSelectedEngagementMetrics] = useState<EngagementMetricKey[]>(['likes', 'comments', 'shares']);
+  const [selectedEngagementMetrics, setSelectedEngagementMetrics] = useState<EngagementMetricKey[]>(['likes', 'comments']);
   const [selectedTrafficMetrics, setSelectedTrafficMetrics] = useState<TrafficMetricKey[]>(['postImpressions', 'nonviral', 'viral', 'uniqueReachProxy']);
   const [selectedReelMetrics, setSelectedReelMetrics] = useState<ReelMetricKey[]>(['views', 'avgWatch']);
   const [reelPreset, setReelPreset] = useState<ReelPresetKey>('performance');
   const [activeSection, setActiveSection] = useState<SectionId>(FACEBOOK_ANALYTICS_SECTION_IDS.overview);
   const [selectedPost, setSelectedPost] = useState<FacebookPost | null>(null);
   const [historyFilter, setHistoryFilter] = useState<ContentHistoryFilter>('all');
+  const visibleEngagementMetrics = useMemo<EngagementMetricKey[]>(
+    () => selectedEngagementMetrics.filter((m) => m === 'likes' || m === 'comments'),
+    [selectedEngagementMetrics]
+  );
+  const visibleActivityMetrics = useMemo<ActivityMetricKey[]>(
+    () => selectedActivityMetrics.filter((m) => m === 'actions' || m === 'posts'),
+    [selectedActivityMetrics]
+  );
   const sections = useMemo(
     () => [
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.overview, label: 'Overview' },
@@ -1611,7 +1623,7 @@ export function FacebookAnalyticsView({
       const visits = carryForwardSeries(dateAxis, videoCountRaw, 0);
       const videoViewsSeries = carryForwardSeries(dateAxis, viewsByDate, 0);
       const engagement = carryForwardSeries(dateAxis, engagementByDate, 0);
-      const follows = carryForwardSeries(dateAxis, followsRaw, totalFollowers);
+      const follows = carryForwardSeries(dateAxis, followsRaw, totalFollowers, true);
       return dateAxis.map((date) => ({
         date,
         followers: follows[date] ?? 0,
@@ -1680,7 +1692,7 @@ export function FacebookAnalyticsView({
     const visits = dailyValuesOnAxis(dateAxis, visitsRaw);
     const videoViewsSeries = dailyValuesOnAxis(dateAxis, videoViewsRaw);
     const engagement = dailyValuesOnAxis(dateAxis, engagementRaw);
-    const follows = carryForwardSeries(dateAxis, followsRaw, totalFollowers);
+    const follows = carryForwardSeries(dateAxis, followsRaw, totalFollowers, true);
     return dateAxis.map((date) => ({
       date,
       followers: follows[date] ?? 0,
@@ -2062,11 +2074,9 @@ export function FacebookAnalyticsView({
     [engagementTicks]
   );
   const engagementStackTopKey = useMemo((): EngagementMetricKey | null => {
-    const selected = ENGAGEMENT_STACK_ORDER.filter((k) =>
-      k === 'reposts' ? isInstagram && selectedEngagementMetrics.includes(k) : selectedEngagementMetrics.includes(k)
-    );
+    const selected = ENGAGEMENT_STACK_ORDER.filter((k) => visibleEngagementMetrics.includes(k));
     return selected.length ? selected[selected.length - 1]! : null;
-  }, [isInstagram, selectedEngagementMetrics]);
+  }, [visibleEngagementMetrics]);
   const operationalData = useMemo(() => {
     const actionsRaw = seriesToMap(actionsSeries ?? []);
     // Use per-day values for Actions so the line reflects daily fluctuation
@@ -2663,31 +2673,11 @@ export function FacebookAnalyticsView({
               onClick={() => setSelectedEngagementMetrics((prev) => prev.includes('comments') ? prev.filter((m) => m !== 'comments') : [...prev, 'comments'])}
               tiktokApiHighlight={isTikTok}
             />
-            <MetricCard
-              label="Shares"
-              source={isTikTok ? 'video/list · share_count when present (synced)' : 'post_shares'}
-              color={ENGAGEMENT_METRIC_CONFIG.shares.color}
-              value={formatNumber(sharesTotal)}
-              active={selectedEngagementMetrics.includes('shares')}
-              onClick={() => setSelectedEngagementMetrics((prev) => prev.includes('shares') ? prev.filter((m) => m !== 'shares') : [...prev, 'shares'])}
-              tiktokApiHighlight={isTikTok}
-            />
-            {isInstagram && (
-              <MetricCard
-                label="Reposts"
-                source="repostsCount"
-                color={ENGAGEMENT_METRIC_CONFIG.reposts.color}
-                value={formatNumber(repostsTotal)}
-                active={selectedEngagementMetrics.includes('reposts')}
-                onClick={() => setSelectedEngagementMetrics((prev) => prev.includes('reposts') ? prev.filter((m) => m !== 'reposts') : [...prev, 'reposts'])}
-              />
-            )}
+            
           </div>
           <div className="flex justify-end">
             <div className="flex flex-wrap gap-2">
-              {selectedEngagementMetrics
-                .filter((m) => m !== 'reposts' || isInstagram)
-                .map((m) => (
+              {visibleEngagementMetrics.map((m) => (
                 <span
                   key={m}
                   className="rounded-full border px-2.5 py-1 text-xs"
@@ -2700,7 +2690,7 @@ export function FacebookAnalyticsView({
             </div>
           </div>
           <InsightChartCard title="Engagement" hideHeader flat>
-          {selectedEngagementMetrics.length === 0 ? (
+          {visibleEngagementMetrics.length === 0 ? (
             <div className="h-[300px] rounded-xl border border-dashed relative overflow-hidden" style={{ borderColor: COLOR.border }}>
               <div className="absolute inset-0 z-[2] flex items-center justify-center">
                 <div
@@ -2743,11 +2733,11 @@ export function FacebookAnalyticsView({
                   contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
                   formatter={(v: number | string | undefined, n?: string) => [
                     formatNumber(Number(v) || 0),
-                    n === 'likes' ? 'Likes' : n === 'comments' ? 'Comments' : n === 'reposts' ? 'Reposts' : 'Shares',
+                    n === 'likes' ? 'Likes' : 'Comments',
                   ]}
                   labelFormatter={(l) => formatShortDate(String(l))}
                 />
-                {selectedEngagementMetrics.includes('likes') ? (
+                {visibleEngagementMetrics.includes('likes') ? (
                   <Bar
                     dataKey="likes"
                     stackId="engagement"
@@ -2757,7 +2747,7 @@ export function FacebookAnalyticsView({
                     shape={<MinWidthBarShape />}
                   />
                 ) : null}
-                {selectedEngagementMetrics.includes('comments') ? (
+                {visibleEngagementMetrics.includes('comments') ? (
                   <Bar
                     dataKey="comments"
                     stackId="engagement"
@@ -2767,26 +2757,7 @@ export function FacebookAnalyticsView({
                     shape={<MinWidthBarShape />}
                   />
                 ) : null}
-                {selectedEngagementMetrics.includes('shares') ? (
-                  <Bar
-                    dataKey="shares"
-                    stackId="engagement"
-                    fill={ENGAGEMENT_METRIC_CONFIG.shares.color}
-                    radius={engagementStackTopKey === 'shares' ? [6, 6, 0, 0] : [0, 0, 0, 0]}
-                    barSize={UNIFIED_BAR_SIZE}
-                    shape={<MinWidthBarShape />}
-                  />
-                ) : null}
-                {isInstagram && selectedEngagementMetrics.includes('reposts') ? (
-                  <Bar
-                    dataKey="reposts"
-                    stackId="engagement"
-                    fill={ENGAGEMENT_METRIC_CONFIG.reposts.color}
-                    radius={engagementStackTopKey === 'reposts' ? [6, 6, 0, 0] : [0, 0, 0, 0]}
-                    barSize={UNIFIED_BAR_SIZE}
-                    shape={<MinWidthBarShape />}
-                  />
-                ) : null}
+                
               </BarChart>
             </ResponsiveContainer>
             </div>
@@ -2815,18 +2786,10 @@ export function FacebookAnalyticsView({
             active={selectedActivityMetrics.includes('posts')}
             onClick={() => setSelectedActivityMetrics((prev) => prev.includes('posts') ? prev.filter((m) => m !== 'posts') : [...prev, 'posts'])}
           />
-          <MetricCard
-            label="Conversations"
-            source="Messenger conversations"
-            color={ACTIVITY_METRIC_CONFIG.conversations.color}
-            value={formatNumber(conversationActivityCount)}
-            active={selectedActivityMetrics.includes('conversations')}
-            onClick={() => setSelectedActivityMetrics((prev) => prev.includes('conversations') ? prev.filter((m) => m !== 'conversations') : [...prev, 'conversations'])}
-          />
           </div>
           <div className="flex justify-end">
             <div className="flex flex-wrap gap-2">
-              {selectedActivityMetrics.map((m) => (
+              {visibleActivityMetrics.map((m) => (
                 <span
                   key={m}
                   className="rounded-full border px-2.5 py-1 text-xs"
@@ -2839,7 +2802,7 @@ export function FacebookAnalyticsView({
             </div>
           </div>
           <InsightChartCard title="Activity" hideHeader flat>
-          {selectedActivityMetrics.length === 0 ? (
+          {visibleActivityMetrics.length === 0 ? (
             <div className="h-[300px] rounded-xl border border-dashed relative overflow-hidden" style={{ borderColor: COLOR.border }}>
               <div className="absolute inset-0 z-[2] flex items-center justify-center">
                 <div
@@ -2870,9 +2833,8 @@ export function FacebookAnalyticsView({
                   ]}
                   labelFormatter={(l) => formatShortDate(String(l))}
                 />
-                {selectedActivityMetrics.includes('actions') ? <Line type="monotone" dataKey="actions" stroke={ACTIVITY_METRIC_CONFIG.actions.color} strokeWidth={2} dot={false} /> : null}
-                {selectedActivityMetrics.includes('posts') ? <Line type="monotone" dataKey="posts" stroke={ACTIVITY_METRIC_CONFIG.posts.color} strokeWidth={2} dot={false} /> : null}
-                {selectedActivityMetrics.includes('conversations') ? <Line type="monotone" dataKey="conversations" stroke={ACTIVITY_METRIC_CONFIG.conversations.color} strokeWidth={2} dot={false} /> : null}
+                {visibleActivityMetrics.includes('actions') ? <Line type="monotone" dataKey="actions" stroke={ACTIVITY_METRIC_CONFIG.actions.color} strokeWidth={2} dot={false} /> : null}
+                {visibleActivityMetrics.includes('posts') ? <Line type="monotone" dataKey="posts" stroke={ACTIVITY_METRIC_CONFIG.posts.color} strokeWidth={2} dot={false} /> : null}
               </ComposedChart>
             </ResponsiveContainer>
           )}
