@@ -95,6 +95,27 @@ function mergeSeriesWithSnapshots(
     .filter((p): p is { date: string; value: number } => typeof p.value === 'number');
 }
 
+/** KPI rollup for the selected range: one value per calendar day, API wins over snapshot (same as merge). Missing days count as 0. */
+function sumMergedDailyOverCalendarRange(
+  apiSeries: Array<{ date: string; value: number }>,
+  snapshotSeries: Array<{ date: string; value: number }>,
+  since: string,
+  until: string
+): number {
+  const apiMap = new Map(
+    apiSeries.map((p) => [p.date, typeof p.value === 'number' && Number.isFinite(p.value) ? p.value : 0])
+  );
+  const snapMap = new Map(
+    snapshotSeries.map((p) => [p.date, typeof p.value === 'number' && Number.isFinite(p.value) ? p.value : 0])
+  );
+  let sum = 0;
+  for (let d = new Date(since + 'T12:00:00Z'); d <= new Date(until + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + 1)) {
+    const key = d.toISOString().slice(0, 10);
+    sum += apiMap.get(key) ?? snapMap.get(key) ?? 0;
+  }
+  return sum;
+}
+
 type AudienceCountryRow = { country: string; value: number; percent: number };
 
 function normalizeAudienceCountryRows(
@@ -1509,7 +1530,7 @@ export async function GET(
       // Merge snapshot-backed insights so we show full timeline from connection when API window (e.g. 90 days) is shorter than requested range.
       if (sinceParam && untilParam) {
         try {
-          const [snapshotImpressions, snapshotPageViews] = await Promise.all([
+          const [snapshotImpressions, snapshotPageViews, snapshotPagePostEngagements] = await Promise.all([
             getInsightsTimeSeries({
               userId,
               platform: 'FACEBOOK',
@@ -1526,16 +1547,26 @@ export async function GET(
               until: untilParam,
               metricKey: 'page_views_total',
             }),
+            getInsightsTimeSeries({
+              userId,
+              platform: 'FACEBOOK',
+              externalAccountId: account.platformUserId,
+              since: sinceParam,
+              until: untilParam,
+              metricKey: 'page_post_engagements',
+            }),
           ]);
+          const apiImpressionsOnly = [...(out.impressionsTimeSeries ?? [])];
+          const apiPageViewsOnly = [...(out.pageViewsTimeSeries ?? [])];
           out.impressionsTimeSeries = mergeSeriesWithSnapshots(
-            out.impressionsTimeSeries,
+            apiImpressionsOnly,
             snapshotImpressions,
             sinceParam,
             untilParam
           );
-          if (out.pageViewsTimeSeries) {
+          if (apiPageViewsOnly.length > 0) {
             out.pageViewsTimeSeries = mergeSeriesWithSnapshots(
-              out.pageViewsTimeSeries,
+              apiPageViewsOnly,
               snapshotPageViews,
               sinceParam,
               untilParam
@@ -1543,12 +1574,39 @@ export async function GET(
           } else if (snapshotPageViews.length > 0) {
             out.pageViewsTimeSeries = mergeSeriesWithSnapshots([], snapshotPageViews, sinceParam, untilParam);
           }
-          if (!out.impressionsTotal && out.impressionsTimeSeries?.length) {
-            out.impressionsTotal = out.impressionsTimeSeries.reduce((s, p) => s + (Number.isFinite(p.value) ? p.value : 0), 0);
-          }
-          if (!out.pageViewsTotal && out.pageViewsTimeSeries?.length) {
-            out.pageViewsTotal = out.pageViewsTimeSeries.reduce((s, p) => s + (Number.isFinite(p.value) ? p.value : 0), 0);
-          }
+          out.impressionsTotal = sumMergedDailyOverCalendarRange(
+            apiImpressionsOnly,
+            snapshotImpressions,
+            sinceParam,
+            untilParam
+          );
+          out.pageViewsTotal = sumMergedDailyOverCalendarRange(
+            apiPageViewsOnly,
+            snapshotPageViews,
+            sinceParam,
+            untilParam
+          );
+
+          const graphSeries = {
+            ...(((out as Record<string, unknown>).facebookPageMetricSeries ?? {}) as Record<
+              string,
+              Array<{ date: string; value: number }>
+            >),
+          };
+          const apiEngagementsOnly = [...(graphSeries.page_post_engagements ?? [])];
+          graphSeries.page_post_engagements = mergeSeriesWithSnapshots(
+            apiEngagementsOnly,
+            snapshotPagePostEngagements,
+            sinceParam,
+            untilParam
+          );
+          (out as Record<string, unknown>).facebookPageMetricSeries = graphSeries;
+          out.reachTotal = sumMergedDailyOverCalendarRange(
+            apiEngagementsOnly,
+            snapshotPagePostEngagements,
+            sinceParam,
+            untilParam
+          );
         } catch (e) {
           console.warn('[Insights] Merge FB insights from snapshots:', (e as Error)?.message ?? e);
         }
@@ -1556,12 +1614,25 @@ export async function GET(
       {
         const graphSeries = ((out as Record<string, unknown>).facebookPageMetricSeries ??
           {}) as Record<string, Array<{ date: string; value: number }>>;
-        (out as Record<string, unknown>).facebookAnalytics = buildFacebookFrontendAnalyticsBundle({
+        const bundle = buildFacebookFrontendAnalyticsBundle({
           followers: out.followers,
           graphSeries,
           mergedContentViewsSeries: out.impressionsTimeSeries ?? [],
           mergedPageTabViewsSeries: out.pageViewsTimeSeries,
         });
+        if (sinceParam && untilParam) {
+          (out as Record<string, unknown>).facebookAnalytics = {
+            ...bundle,
+            totals: {
+              ...bundle.totals,
+              contentViews: out.impressionsTotal ?? bundle.totals.contentViews,
+              pageTabViews: out.pageViewsTotal ?? bundle.totals.pageTabViews,
+              engagement: out.reachTotal ?? bundle.totals.engagement,
+            },
+          };
+        } else {
+          (out as Record<string, unknown>).facebookAnalytics = bundle;
+        }
       }
       return NextResponse.json(out);
     }

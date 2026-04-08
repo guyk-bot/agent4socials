@@ -2661,6 +2661,11 @@ export function FacebookAnalyticsView({
               active={selectedEngagementMetrics.includes('shares')}
               onClick={() => setSelectedEngagementMetrics((prev) => prev.includes('shares') ? prev.filter((m) => m !== 'shares') : [...prev, 'shares'])}
               tiktokApiHighlight={isTikTok}
+              footnote={
+                isFacebook
+                  ? 'Facebook Graph reports share actions (we take the higher of post shares.count and insights post_shares).'
+                  : undefined
+              }
             />
             {isInstagram && (
               <MetricCard
@@ -3142,6 +3147,11 @@ export function FacebookAnalyticsView({
             value={formatNumber(reelShares)}
             active={selectedReelMetrics.includes('shares')}
             onClick={() => setSelectedReelMetrics((prev) => prev.includes('shares') ? prev.filter((m) => m !== 'shares') : [...prev, 'shares'])}
+            footnote={
+              isFacebook
+                ? 'Same as Engagement: max of shares.count and insights, not unique sharers.'
+                : undefined
+            }
           />
         </div>
 
