@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import axios from 'axios';
 import api from '@/lib/api';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Loader2 } from 'lucide-react';
 
 type OutlierItem = {
   id: string;
@@ -27,6 +27,19 @@ type OutlierItem = {
 type VideoTypeFilter = 'all' | 'short' | 'long';
 
 const FETCH_LIMIT = 5000;
+const SYNC_BATCH_SIZE = 8;
+
+type SyncBatchResponse = {
+  startIndex: number;
+  nextIndex: number;
+  done: boolean;
+  totalNiches: number;
+  nichesProcessed: number;
+  rowsUpserted: number;
+  videosConsidered: number;
+  errors: string[];
+  message?: string;
+};
 
 function formatDate(iso: string) {
   try {
@@ -42,6 +55,9 @@ export default function TrendingPage() {
   const [items, setItems] = useState<OutlierItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<string | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -86,30 +102,95 @@ export default function TrendingPage() {
     load();
   }, [load]);
 
+  const runFullYouTubeSync = useCallback(async () => {
+    setSyncError(null);
+    setSyncing(true);
+    let startIndex = 0;
+    let totalRows = 0;
+    try {
+      while (true) {
+        setSyncProgress(`Calling YouTube for niches ${startIndex + 1}–… (batch of ${SYNC_BATCH_SIZE})…`);
+        const res = await api.post<SyncBatchResponse>(
+          '/trends/sync-batch',
+          { startIndex, batchSize: SYNC_BATCH_SIZE },
+          { timeout: 240_000 }
+        );
+        const d = res.data;
+        if (!d || typeof d.nextIndex !== 'number') {
+          throw new Error('Unexpected response from sync-batch');
+        }
+        totalRows += d.rowsUpserted ?? 0;
+        setSyncProgress(
+          `Processed ${d.nextIndex}/${d.totalNiches} niches · ${totalRows} new/updated rows so far`
+        );
+        if (d.errors?.length) {
+          setSyncError(`${d.errors.length} niche errors in last batch (check Vercel logs). First: ${d.errors[0]?.slice(0, 120)}`);
+        }
+        if (d.done) break;
+        startIndex = d.nextIndex;
+      }
+      setSyncProgress('Refreshing table…');
+      await load();
+      setSyncProgress(`Finished. ${totalRows} rows upserted across all batches.`);
+    } catch (e: unknown) {
+      let msg = 'Sync failed';
+      if (axios.isAxiosError(e)) {
+        const data = e.response?.data;
+        if (typeof data === 'object' && data && 'message' in data && typeof (data as { message: unknown }).message === 'string') {
+          msg = (data as { message: string }).message;
+        }
+      } else if (e instanceof Error) msg = e.message;
+      setSyncError(msg);
+      setSyncProgress(null);
+    } finally {
+      setSyncing(false);
+    }
+  }, [load]);
+
   return (
     <div className="max-w-[1600px] mx-auto space-y-6 w-full">
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900">Viral Trend Radar</h1>
           <p className="text-sm text-neutral-600 mt-1 max-w-2xl">
-            All stored outliers across every scanned niche (views ÷ subscribers &gt; 2). Rows are ranked by performance ratio. Cron fills the database; scores &ge; 5× are highlighted.
+            All stored outliers across every scanned niche (views ÷ subscribers &gt; 2). Rows are ranked by performance ratio. Use{' '}
+            <strong>Fetch all niches from YouTube</strong> to run the full 98-keyword sweep in batches, or rely on the nightly cron. Scores &ge; 5× are highlighted.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {(['all', 'short', 'long'] as const).map((f) => (
+        <div className="flex flex-col sm:flex-row sm:items-start gap-4 shrink-0">
+          <div className="flex flex-col items-stretch sm:items-end gap-2">
             <button
-              key={f}
               type="button"
-              onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
-                filter === f
-                  ? 'bg-violet-600 text-white border-violet-600'
-                  : 'bg-white text-neutral-700 border-neutral-200 hover:bg-neutral-50'
-              }`}
+              disabled={syncing || loading}
+              onClick={() => void runFullYouTubeSync()}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
             >
-              {f === 'all' ? 'All' : f === 'short' ? 'Shorts' : 'Long-form'}
+              {syncing ? <Loader2 className="animate-spin shrink-0" size={18} /> : null}
+              {syncing ? 'Fetching…' : 'Fetch all niches from YouTube'}
             </button>
-          ))}
+            {syncProgress && (
+              <p className="text-xs text-violet-800 max-w-[280px] sm:text-right">{syncProgress}</p>
+            )}
+            {syncError && (
+              <p className="text-xs text-red-700 max-w-[280px] sm:text-right">{syncError}</p>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {(['all', 'short', 'long'] as const).map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setFilter(f)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                  filter === f
+                    ? 'bg-violet-600 text-white border-violet-600'
+                    : 'bg-white text-neutral-700 border-neutral-200 hover:bg-neutral-50'
+                }`}
+              >
+                {f === 'all' ? 'All' : f === 'short' ? 'Shorts' : 'Long-form'}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -128,11 +209,9 @@ export default function TrendingPage() {
         <div className="rounded-2xl border border-neutral-200 bg-white p-8 text-center text-neutral-600">
           <p className="font-medium text-neutral-800">No outliers in the database yet.</p>
           <p className="text-sm mt-2">
-            Trigger{' '}
-            <code className="bg-neutral-100 px-1 rounded text-xs">POST /api/cron/niche-trends</code> with header{' '}
-            <code className="bg-neutral-100 px-1 rounded text-xs">X-Cron-Secret</code> and{' '}
-            <code className="bg-neutral-100 px-1 rounded text-xs">YOUTUBE_API_KEY</code> on the server. Half of the 98 niches run per UTC day unless{' '}
-            <code className="bg-neutral-100 px-1 rounded text-xs">NICHE_TREND_SLICE=all</code>.
+            Click <strong>Fetch all niches from YouTube</strong> above (needs <code className="bg-neutral-100 px-1 rounded text-xs">YOUTUBE_API_KEY</code> on the server), or schedule{' '}
+            <code className="bg-neutral-100 px-1 rounded text-xs">POST /api/cron/niche-trends</code> with <code className="bg-neutral-100 px-1 rounded text-xs">X-Cron-Secret</code> (half of 98 niches per UTC day unless{' '}
+            <code className="bg-neutral-100 px-1 rounded text-xs">NICHE_TREND_SLICE=all</code>).
           </p>
         </div>
       ) : !error ? (

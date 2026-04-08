@@ -233,13 +233,13 @@ export async function sweepOneNiche(apiKey: string, nicheName: string): Promise<
   return { upserted, considered: items.length };
 }
 
-export async function runNicheTrendSweep(apiKey: string): Promise<NicheTrendSweepSummary> {
-  const niches = nichesForCurrentSweep();
+/** Run YouTube sweep for an explicit list of niche keywords (used by cron slices and batched UI sync). */
+export async function sweepNicheList(apiKey: string, nicheNames: string[]): Promise<NicheTrendSweepSummary> {
   const errors: string[] = [];
   let rowsUpserted = 0;
   let videosConsidered = 0;
 
-  for (const niche of niches) {
+  for (const niche of nicheNames) {
     const r = await sweepOneNiche(apiKey, niche);
     videosConsidered += r.considered;
     rowsUpserted += r.upserted;
@@ -248,12 +248,44 @@ export async function runNicheTrendSweep(apiKey: string): Promise<NicheTrendSwee
   }
 
   return {
-    nichesProcessed: niches.length,
+    nichesProcessed: nicheNames.length,
     videosConsidered,
     rowsUpserted,
     errors,
     quotaNote:
-      'Each run processes half of 98 niches (NICHE_TREND_SLICE=0|1|all). Per niche: 2× search.list (48h all durations + 24h shorts) + videos.list + channels.list; search quota ≈ 2×100×49 per run.',
+      'Per niche: 2× search.list + videos.list + channels.list. Full 98 niches uses high YouTube quota; use small batches on serverless.',
+  };
+}
+
+export async function runNicheTrendSweep(apiKey: string): Promise<NicheTrendSweepSummary> {
+  return sweepNicheList(apiKey, nichesForCurrentSweep());
+}
+
+export type NicheBatchSweepResult = NicheTrendSweepSummary & {
+  startIndex: number;
+  nextIndex: number;
+  done: boolean;
+  totalNiches: number;
+};
+
+/** Process `count` niches starting at `startIndex` in NICHE_KEYWORDS order (0-based). */
+export async function sweepNicheBatch(
+  apiKey: string,
+  startIndex: number,
+  count: number
+): Promise<NicheBatchSweepResult> {
+  const all = NICHE_KEYWORDS;
+  const safeStart = Math.max(0, Math.min(startIndex, all.length));
+  const safeCount = Math.max(0, Math.min(count, all.length - safeStart));
+  const slice = all.slice(safeStart, safeStart + safeCount);
+  const summary = await sweepNicheList(apiKey, slice);
+  const nextIndex = safeStart + slice.length;
+  return {
+    ...summary,
+    startIndex: safeStart,
+    nextIndex,
+    done: nextIndex >= all.length,
+    totalNiches: all.length,
   };
 }
 
