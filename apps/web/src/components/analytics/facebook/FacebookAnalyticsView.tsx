@@ -1072,22 +1072,23 @@ export function PostsPerformanceTable({
     { label: 'Type', className: 'w-[60px]' },
     { label: 'Views', className: 'w-[58px]' },
     { label: 'Unique reach', className: 'w-[66px]' },
-    ...(hideClicksColumn ? [] : [{ label: clicksColumnLabel, className: 'w-[52px]' }]),
-    { label: 'Likes', className: 'w-[52px]' },
-    { label: 'Reactions', className: 'w-[76px]' },
+    ...(hideClicksColumn ? [] : [{ label: clicksColumnLabel, className: 'w-[92px]' }]),
+    { label: 'Likes', className: 'w-[72px]' },
+    { label: 'Reactions', className: 'w-[88px]' },
     { label: 'Watch time', className: 'w-[84px]' },
     { label: 'Avg watch', className: 'w-[68px]' },
   ];
   return (
     <div className="rounded-[20px] overflow-hidden" style={{ background: COLOR.card, boxShadow: '0 2px 16px rgba(15,23,42,0.06)' }}>
       <div className="hidden md:block overflow-x-auto">
-        <table className="w-full table-fixed text-sm">
+        <table className="w-full min-w-[1120px] table-fixed text-sm">
           <thead style={{ background: 'rgba(255,255,255,0.02)', color: COLOR.textMuted }}>
             <tr>
-              {tableHeaders.map((h) => (
+              {tableHeaders.map((h, idx) => (
                 <th
                   key={h.label}
-                  className={`py-3 text-left font-medium ${h.className} ${h.label === 'Watch time' ? 'pl-5 pr-3' : 'px-3'}`}
+                  className={`py-3 text-left font-medium whitespace-nowrap ${h.className} ${idx > 0 ? 'border-l' : ''} ${h.label === 'Watch time' ? 'pl-5 pr-3' : 'px-3'}`}
+                  style={{ borderColor: idx > 0 ? COLOR.border : undefined }}
                 >
                   {h.label}
                 </th>
