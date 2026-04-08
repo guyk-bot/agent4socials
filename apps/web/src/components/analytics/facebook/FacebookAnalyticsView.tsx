@@ -384,6 +384,7 @@ function inRange(dateIso: string, start: string, end: string): boolean {
  * just because insights include numeric post_video_* fields (often 0).
  */
 function isReelPost(p: FacebookPost): boolean {
+  if ((p.platform ?? '').toUpperCase() === 'TIKTOK') return true;
   const url = (p.permalinkUrl ?? '').toLowerCase();
   if (url.includes('/reel/') || url.includes('/reels/')) return true;
   const mt = (p.mediaType ?? '').toUpperCase();
@@ -1625,7 +1626,9 @@ export function FacebookAnalyticsView({
   const videoViews = isTikTok
     ? tiktokViewsInRange
     : Math.max(pageVideoViews, postVideoPlaysInRange, isInstagram ? igAccountVideoViewsTotal : 0);
-  const postImpressions = Math.max(bundle?.totals.postImpressions ?? 0, isFacebook ? fbTrafficPostImpressionsSum : 0);
+  const postImpressions = isTikTok
+    ? tiktokViewsInRange
+    : Math.max(bundle?.totals.postImpressions ?? 0, isFacebook ? fbTrafficPostImpressionsSum : 0);
   const nonviralImpressions = Math.max(
     bundle?.totals.postImpressionsNonviral ?? 0,
     isFacebook &&
@@ -2686,7 +2689,7 @@ export function FacebookAnalyticsView({
           <div className="flex justify-end">
             <div className="flex flex-wrap gap-2">
               {selectedEngagementMetrics
-                .filter((m) => m !== 'reposts' || isInstagram)
+                .filter((m) => m !== 'reposts' || isInstagram || isTikTok)
                 .map((m) => (
                 <span
                   key={m}
@@ -2777,7 +2780,7 @@ export function FacebookAnalyticsView({
                     shape={<MinWidthBarShape />}
                   />
                 ) : null}
-                {isInstagram && selectedEngagementMetrics.includes('reposts') ? (
+                {(isInstagram || isTikTok) && selectedEngagementMetrics.includes('reposts') ? (
                   <Bar
                     dataKey="reposts"
                     stackId="engagement"
@@ -3193,7 +3196,7 @@ export function FacebookAnalyticsView({
             active={selectedReelMetrics.includes('shares')}
             onClick={() => setSelectedReelMetrics((prev) => prev.includes('shares') ? prev.filter((m) => m !== 'shares') : [...prev, 'shares'])}
           />
-          {isInstagram && (
+          {(isInstagram || isTikTok) && (
             <MetricCard
               label="Reposts"
               source="repostsCount"
@@ -3246,7 +3249,7 @@ export function FacebookAnalyticsView({
                 {selectedReelMetrics.includes('likes') ? <Bar dataKey="likes" fill={REEL_METRIC_CONFIG.likes.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                 {selectedReelMetrics.includes('comments') ? <Bar dataKey="comments" fill={REEL_METRIC_CONFIG.comments.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                 {selectedReelMetrics.includes('shares') ? <Bar dataKey="shares" fill={REEL_METRIC_CONFIG.shares.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
-                {isInstagram && selectedReelMetrics.includes('reposts') ? <Bar dataKey="reposts" fill={REEL_METRIC_CONFIG.reposts.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                {(isInstagram || isTikTok) && selectedReelMetrics.includes('reposts') ? <Bar dataKey="reposts" fill={REEL_METRIC_CONFIG.reposts.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                 {selectedReelMetrics.includes('watchTime') ? <Bar dataKey="watchTimeMinutes" fill={REEL_METRIC_CONFIG.watchTime.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                 {selectedReelMetrics.includes('avgWatch') ? <Bar dataKey="avgWatchSeconds" fill={REEL_METRIC_CONFIG.avgWatch.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
               </BarChart>
