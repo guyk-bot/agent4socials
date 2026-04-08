@@ -3087,7 +3087,7 @@ export function FacebookAnalyticsView({
           <TopContentHighlights
             clicksLeaderTitle={isInstagram ? 'Interactions leaders' : 'Clicks leaders'}
             clicksMetricLabel={isInstagram ? 'Interactions' : 'Clicks'}
-            hideClicksColumn={isInstagram}
+            hideClicksColumn={!isInstagram}
             byViews={topByViews.map((p) => ({
               id: p.id,
               preview: p.preview,
