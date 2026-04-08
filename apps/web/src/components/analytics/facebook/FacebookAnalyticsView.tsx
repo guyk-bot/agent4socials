@@ -399,6 +399,16 @@ function bestPostPlayCount(p: FacebookPost): number {
       : 0;
 }
 
+/** Meta often returns share count on the post node while lifetime insights use 0; take the max of all sources. */
+function bestShareCount(p: FacebookPost): number {
+  const fi = p.facebookInsights ?? {};
+  const a = typeof fi.post_shares === 'number' && Number.isFinite(fi.post_shares) ? Math.max(0, fi.post_shares) : 0;
+  const b = typeof p.sharesCount === 'number' && Number.isFinite(p.sharesCount) ? Math.max(0, p.sharesCount) : 0;
+  const eb = p.engagementBreakdown?.shares;
+  const c = typeof eb === 'number' && Number.isFinite(eb) ? Math.max(0, eb) : 0;
+  return Math.max(a, b, c);
+}
+
 function isVideoishPost(p: FacebookPost): boolean {
   if ((p.platform ?? '').toUpperCase() === 'TIKTOK') return true;
   return isReelPost(p) || (p.mediaType ?? '').toUpperCase() === 'VIDEO' || typeof p.facebookInsights?.post_video_views === 'number';
@@ -1394,6 +1404,7 @@ export function FacebookAnalyticsView({
 
   const profile = insights?.facebookPageProfile;
   const isInstagram = insights?.platform?.toUpperCase() === 'INSTAGRAM';
+  const isFacebook = insights?.platform?.toUpperCase() === 'FACEBOOK';
   const isTikTok = insights?.platform?.toUpperCase() === 'TIKTOK';
   const tiktokUser = insights?.tiktokUser;
   const tiktokCreatorInfo = insights?.tiktokCreatorInfo;
@@ -1493,11 +1504,37 @@ export function FacebookAnalyticsView({
     () => postsInRange.reduce((s, p) => s + bestPostPlayCount(p), 0),
     [postsInRange]
   );
+  /** When Page `page_media_view` lags, sum per-post media/video plays in range (same idea as Instagram merge). */
+  const derivedFbContentViewsFromPosts = useMemo(
+    () =>
+      isFacebook
+        ? postsInRange.reduce((s, p) => {
+            const fi = p.facebookInsights ?? {};
+            const pm = typeof fi.post_media_view === 'number' ? fi.post_media_view : 0;
+            return s + Math.max(pm, bestPostPlayCount(p));
+          }, 0)
+        : 0,
+    [isFacebook, postsInRange]
+  );
+  const fbTrafficPostImpressionsSum = useMemo(
+    () =>
+      isFacebook
+        ? postsInRange.reduce((s, p) => {
+            const fi = p.facebookInsights ?? {};
+            const imp = typeof fi.post_impressions === 'number' ? fi.post_impressions : 0;
+            const pm = typeof fi.post_media_view === 'number' ? fi.post_media_view : 0;
+            return s + Math.max(imp, pm, p.impressions ?? 0);
+          }, 0)
+        : 0,
+    [isFacebook, postsInRange]
+  );
   const contentViews = isTikTok
     ? tiktokViewsInRange
     : isInstagram
       ? Math.max(0, insights.impressionsTotal ?? 0, bundle?.totals.contentViews ?? 0, derivedPostViewsInRange)
-      : (bundle?.totals.contentViews ?? 0);
+      : isFacebook
+        ? Math.max(bundle?.totals.contentViews ?? 0, derivedPostViewsInRange, derivedFbContentViewsFromPosts)
+        : (bundle?.totals.contentViews ?? 0);
   const pageVisits = isTikTok
     ? 0
     : isInstagram
@@ -1516,8 +1553,16 @@ export function FacebookAnalyticsView({
   const videoViews = isTikTok
     ? tiktokViewsInRange
     : Math.max(pageVideoViews, postVideoPlaysInRange, isInstagram ? igAccountVideoViewsTotal : 0);
-  const postImpressions = bundle?.totals.postImpressions ?? 0;
-  const nonviralImpressions = bundle?.totals.postImpressionsNonviral ?? 0;
+  const postImpressions = Math.max(bundle?.totals.postImpressions ?? 0, isFacebook ? fbTrafficPostImpressionsSum : 0);
+  const nonviralImpressions = Math.max(
+    bundle?.totals.postImpressionsNonviral ?? 0,
+    isFacebook &&
+      (bundle?.totals.postImpressionsNonviral ?? 0) === 0 &&
+      (bundle?.totals.postImpressionsViral ?? 0) === 0 &&
+      fbTrafficPostImpressionsSum > 0
+      ? fbTrafficPostImpressionsSum
+      : 0
+  );
   const viralImpressions = bundle?.totals.postImpressionsViral ?? 0;
   const uniqueReachProxy = postsInRange.reduce((s, p) => s + (p.facebookInsights?.post_impressions_unique ?? 0), 0);
 
@@ -1592,6 +1637,19 @@ export function FacebookAnalyticsView({
           : seriesToMap(series?.follows ?? []);
         videoViewsRaw = seriesToMap(videoPlaysDailySeries);
       }
+    } else if (isFacebook) {
+      const postDailyContentMap = seriesToMap(
+        aggregatePostsByDayValue(postsInRange, (p) => {
+          const fi = p.facebookInsights ?? {};
+          const pm = typeof fi.post_media_view === 'number' ? fi.post_media_view : 0;
+          return Math.max(pm, bestPostPlayCount(p));
+        })
+      );
+      mediaRaw = mergeSeriesMapsMax(seriesToMap(series?.contentViews ?? []), postDailyContentMap);
+      visitsRaw = seriesToMap(series?.pageTabViews ?? []);
+      videoViewsRaw = mergeSeriesMapsMax(seriesToMap(series?.videoViews ?? []), seriesToMap(videoPlaysDailySeries));
+      engagementRaw = seriesToMap(series?.engagement ?? []);
+      followsRaw = seriesToMap(series?.follows ?? []);
     } else {
       mediaRaw = seriesToMap(series?.contentViews ?? []);
       visitsRaw = seriesToMap(series?.pageTabViews ?? []);
@@ -1616,6 +1674,7 @@ export function FacebookAnalyticsView({
   }, [
     isTikTok,
     isInstagram,
+    isFacebook,
     igMetricSeries,
     dateAxis,
     postsInRange,
@@ -1659,6 +1718,24 @@ export function FacebookAnalyticsView({
         ],
       };
     }
+    if (isFacebook) {
+      const fbPostContentMap = seriesToMap(
+        aggregatePostsByDayValue(postsInRange, (p) => {
+          const fi = p.facebookInsights ?? {};
+          const pm = typeof fi.post_media_view === 'number' ? fi.post_media_view : 0;
+          return Math.max(pm, bestPostPlayCount(p));
+        })
+      );
+      const contentSparkMap = mergeSeriesMapsMax(seriesToMap(series?.contentViews ?? []), fbPostContentMap);
+      const videoSparkMap = mergeSeriesMapsMax(seriesToMap(series?.videoViews ?? []), seriesToMap(videoPlaysDailySeries));
+      return {
+        follows: series?.follows ?? [],
+        engagement: series?.engagement ?? [],
+        videoViews: mapToSortedSeries(videoSparkMap),
+        contentViews: mapToSortedSeries(contentSparkMap),
+        pageVisits: series?.pageTabViews ?? [],
+      };
+    }
     if (!isInstagram) {
       return {
         follows: series?.follows ?? [],
@@ -1700,6 +1777,7 @@ export function FacebookAnalyticsView({
   }, [
     isTikTok,
     isInstagram,
+    isFacebook,
     igMetricSeries,
     series?.follows,
     series?.engagement,
@@ -1731,23 +1809,49 @@ export function FacebookAnalyticsView({
     });
     return map;
   }, [postsInRange]);
+  /** When Page-level `page_posts_impressions_*` has gaps, fill from per-post lifetime impressions on publish date. */
+  const postImpressionsByPublishDate = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const p of postsInRange) {
+      const d = localCalendarDateFromIso(p.publishedAt);
+      if (!d) continue;
+      const fi = p.facebookInsights ?? {};
+      const imp = typeof fi.post_impressions === 'number' ? fi.post_impressions : 0;
+      const pm = typeof fi.post_media_view === 'number' ? fi.post_media_view : 0;
+      m[d] = (m[d] ?? 0) + Math.max(imp, pm, p.impressions ?? 0);
+    }
+    return m;
+  }, [postsInRange]);
   const trafficTimelineData = useMemo(() => {
     const postImpressionsMap = seriesToMap(series?.postImpressions ?? []);
     const nonviralMap = seriesToMap(series?.postImpressionsNonviral ?? []);
     const viralMap = seriesToMap(series?.postImpressionsViral ?? []);
     return dateAxis.map((date) => {
-      const nonviral = nonviralMap[date] ?? 0;
+      let nonviral = nonviralMap[date] ?? 0;
       const viral = viralMap[date] ?? 0;
       const postImpressionsFromApi = postImpressionsMap[date] ?? 0;
+      const fromPosts = postImpressionsByPublishDate[date] ?? 0;
+      if (isFacebook && nonviral === 0 && viral === 0 && fromPosts > 0) {
+        nonviral = fromPosts;
+      }
+      const combined = postImpressionsFromApi > 0 ? postImpressionsFromApi : nonviral + viral;
       return {
         date,
-        postImpressions: postImpressionsFromApi > 0 ? postImpressionsFromApi : nonviral + viral,
+        postImpressions: combined > 0 ? combined : fromPosts,
         nonviral,
         viral,
         uniqueReachProxy: uniqueReachByDate[date] ?? 0,
       };
     });
-  }, [dateAxis, series?.postImpressions, series?.postImpressionsNonviral, series?.postImpressionsViral, uniqueReachByDate]);
+  }, [
+    dateAxis,
+    isFacebook,
+    series?.postImpressions,
+    series?.postImpressionsNonviral,
+    series?.postImpressionsViral,
+    uniqueReachByDate,
+    postImpressionsByPublishDate,
+  ]);
 
   const postsRows = useMemo(() => {
     return postsInRange.map((p) => {
@@ -1828,7 +1932,7 @@ export function FacebookAnalyticsView({
         : (r.post.facebookInsights?.post_clicks ?? 0);
       row.likes += bestCount(r.post.facebookInsights?.post_reactions_like_total, r.post.likeCount);
       row.comments += r.post.facebookInsights?.post_comments ?? r.post.commentsCount ?? 0;
-      row.shares += r.post.facebookInsights?.post_shares ?? r.post.sharesCount ?? 0;
+      row.shares += bestShareCount(r.post);
       row.reposts += r.post.repostsCount ?? r.post.facebookInsights?.post_shares ?? 0;
       row.count += 1;
       byDate[date] = row;
@@ -1873,7 +1977,7 @@ export function FacebookAnalyticsView({
   }, 0);
   const reelLikes = reelsRows.reduce((s, r) => s + bestCount(r.post.facebookInsights?.post_reactions_like_total, r.post.likeCount), 0);
   const reelComments = reelsRows.reduce((s, r) => s + (r.post.facebookInsights?.post_comments ?? r.post.commentsCount ?? 0), 0);
-  const reelShares = reelsRows.reduce((s, r) => s + (r.post.facebookInsights?.post_shares ?? r.post.sharesCount ?? 0), 0);
+  const reelShares = reelsRows.reduce((s, r) => s + bestShareCount(r.post), 0);
   const reelReposts = reelsRows.reduce((s, r) => s + (r.post.repostsCount ?? r.post.facebookInsights?.post_shares ?? 0), 0);
   const totalOrganicVideoViews = reelsRows.reduce((s, r) => s + r.organicViews, 0);
   const totalReelVideoViews = reelsRows.reduce((s, r) => s + r.views, 0);
@@ -1903,7 +2007,7 @@ export function FacebookAnalyticsView({
   }, [growthSparklineSeries]);
   const likesTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + bestCount(post.facebookInsights?.post_reactions_like_total, post.likeCount ?? post.engagementBreakdown?.reactions), 0), [postsInRange]);
   const commentsTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + (post.facebookInsights?.post_comments ?? post.commentsCount ?? post.engagementBreakdown?.comments ?? 0), 0), [postsInRange]);
-  const sharesTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + (post.facebookInsights?.post_shares ?? post.sharesCount ?? post.engagementBreakdown?.shares ?? 0), 0), [postsInRange]);
+  const sharesTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + bestShareCount(post), 0), [postsInRange]);
   const repostsTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + (post.repostsCount ?? post.facebookInsights?.post_shares ?? 0), 0), [postsInRange]);
   const totalActions = actionsTotal;
   const engagementData = useMemo(() => {
@@ -1919,7 +2023,7 @@ export function FacebookAnalyticsView({
     }, {});
     const sharesByDate = postsInRange.reduce<Record<string, number>>((acc, post) => {
       const d = localCalendarDateFromIso(post.publishedAt);
-      acc[d] = (acc[d] ?? 0) + (post.facebookInsights?.post_shares ?? post.sharesCount ?? post.engagementBreakdown?.shares ?? 0);
+      acc[d] = (acc[d] ?? 0) + bestShareCount(post);
       return acc;
     }, {});
     const repostsByDate = postsInRange.reduce<Record<string, number>>((acc, post) => {
