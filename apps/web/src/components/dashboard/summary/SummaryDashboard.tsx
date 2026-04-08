@@ -84,7 +84,7 @@ export function SummaryDashboard() {
         .catch(() => tick())
     );
     const insightsPromises = accounts.map((acc) =>
-      api.get(`/social/accounts/${acc.id}/insights`, { params: { since: dateRange.start, until: dateRange.end } })
+      api.get(`/social/accounts/${acc.id}/insights`, { params: { since: dateRange.start, until: dateRange.end }, timeout: 70_000 })
         .then((r) => {
           tick();
           if (!cancelled && r.data) appData?.setInsightsForAccount(acc.id, r.data);

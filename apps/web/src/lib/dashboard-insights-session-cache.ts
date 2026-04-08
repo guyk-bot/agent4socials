@@ -20,10 +20,18 @@ export function readDashboardInsightsSession(userId: string, accountId: string):
   }
 }
 
+function slimInsightsForSession(payload: Record<string, unknown>): Record<string, unknown> {
+  const o = { ...payload };
+  for (const k of ['raw', 'facebookInsightsSync', 'facebookInsightPersistence', 'facebookDataSourceDebug'] as const) {
+    delete o[k];
+  }
+  return o;
+}
+
 export function writeDashboardInsightsSession(userId: string, accountId: string, payload: unknown): void {
   if (typeof window === 'undefined' || !payload || typeof payload !== 'object') return;
   try {
-    const str = JSON.stringify(payload);
+    const str = JSON.stringify(slimInsightsForSession(payload as Record<string, unknown>));
     if (str.length > MAX_BYTES) return;
     sessionStorage.setItem(key(userId, accountId), str);
   } catch {

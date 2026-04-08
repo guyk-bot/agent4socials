@@ -45,6 +45,9 @@ import {
   ResponsiveContainer, CartesianGrid,
 } from 'recharts';
 
+/** Instagram hits many Meta endpoints; default axios 25s often aborts before the API route finishes. */
+const INSIGHTS_HTTP_MS = 70_000;
+
 function Skeleton({ className = '', style }: { className?: string; style?: React.CSSProperties }) {
   return (
     <div
@@ -701,7 +704,10 @@ export default function DashboardPage() {
         }
       }
       if (runInsightsSwr) {
-        api.get(`/social/accounts/${accountId}/insights`, { params: selectedAccount?.platform === 'FACEBOOK' ? { since: dateRange.start, until: dateRange.end, refresh: 1, persist: 1 } : { since: dateRange.start, until: dateRange.end } })
+        api.get(`/social/accounts/${accountId}/insights`, {
+          params: selectedAccount?.platform === 'FACEBOOK' ? { since: dateRange.start, until: dateRange.end, refresh: 1, persist: 1 } : { since: dateRange.start, until: dateRange.end },
+          timeout: INSIGHTS_HTTP_MS,
+        })
           .then((res) => {
             const data = res.data ?? null;
             if (!data) return;
@@ -748,7 +754,10 @@ export default function DashboardPage() {
     if (!accountTabOwnsPosts) setImportedPostsLoading(true);
 
     // Fetch insights; optional fast posts only when not on per-account analytics (single owner for posts there).
-    const insightsPromise = api.get(`/social/accounts/${accountId}/insights`, { params: selectedAccount?.platform === 'FACEBOOK' ? { since: dateRange.start, until: dateRange.end, refresh: 1, persist: 1 } : { since: dateRange.start, until: dateRange.end } });
+    const insightsPromise = api.get(`/social/accounts/${accountId}/insights`, {
+      params: selectedAccount?.platform === 'FACEBOOK' ? { since: dateRange.start, until: dateRange.end, refresh: 1, persist: 1 } : { since: dateRange.start, until: dateRange.end },
+      timeout: INSIGHTS_HTTP_MS,
+    });
 
     insightsPromise
       .then(async (res) => {
@@ -765,6 +774,7 @@ export default function DashboardPage() {
           try {
             const refreshed = await api.get(`/social/accounts/${accountId}/insights`, {
               params: { since: dateRange.start, until: dateRange.end, refresh: 1, persist: 1 },
+              timeout: INSIGHTS_HTTP_MS,
             });
             data = refreshed.data ?? data;
           } catch {
@@ -797,7 +807,7 @@ export default function DashboardPage() {
         .finally(() => setImportedPostsLoading(false));
     }
 
-  }, [analyticsTab, selectedAccount?.id, selectedAccount?.platform, dateRange.start, dateRange.end, syncAllTrigger, justConnected, appData?.prefetchStatus]);
+  }, [analyticsTab, selectedAccount?.id, selectedAccount?.platform, dateRange.start, dateRange.end, syncAllTrigger, justConnected, appData?.prefetchStatus, appData?.insightsByAccountId]);
 
   // Facebook Page reviews (pages_read_user_content)
   useEffect(() => {
@@ -842,7 +852,9 @@ export default function DashboardPage() {
     }
     Promise.all(
       insightAccounts.map((acc) =>
-        api.get(`/social/accounts/${acc.id}/insights`, { params: { since: dateRange.start, until: dateRange.end } }).then((r) => ({ platform: acc.platform, data: r.data }))
+        api
+          .get(`/social/accounts/${acc.id}/insights`, { params: { since: dateRange.start, until: dateRange.end }, timeout: INSIGHTS_HTTP_MS })
+          .then((r) => ({ platform: acc.platform, data: r.data }))
       )
     )
       .then((results) => {
@@ -1401,6 +1413,7 @@ export default function DashboardPage() {
                     params: selectedAccount.platform === 'FACEBOOK'
                       ? { since: dateRange.start, until: dateRange.end, refresh: 1, persist: 1 }
                       : { since: dateRange.start, until: dateRange.end },
+                    timeout: INSIGHTS_HTTP_MS,
                   });
                   const nextInsights = refreshedInsights.data ?? null;
                   if (nextInsights) {

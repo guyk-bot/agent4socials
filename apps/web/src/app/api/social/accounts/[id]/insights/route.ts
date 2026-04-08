@@ -21,6 +21,9 @@ import { buildPinterestFrontendAnalyticsBundle } from '@/lib/pinterest-analytics
 import { syncFacebookAuxiliaryIngest, ensureFacebookTables } from '@/lib/facebook/sync-extras';
 import { facebookGraphBaseUrl, instagramGraphHostBaseUrl } from '@/lib/meta-graph-insights';
 
+/** Instagram aggregates many Meta calls; avoid Vercel cutting the handler off at the default limit. */
+export const maxDuration = 60;
+
 const fbBaseUrl = facebookGraphBaseUrl;
 /** graph.instagram.com — use Instagram host version (see meta-graph-insights), not Facebook Graph version. */
 const igBaseUrl = instagramGraphHostBaseUrl;

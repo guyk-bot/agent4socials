@@ -67,6 +67,7 @@ export type CachedEngagement = Record<string, unknown>;
 type AppDataContextType = {
   notifications: NotificationsCache;
   postsByAccountId: Record<string, CachedPost[]>;
+  /** In-memory + persisted cache; same object as internal state (for effect deps). */
   insightsByAccountId: Record<string, CachedInsights>;
   commentsByAccountId: Record<string, CachedComment[]>;
   conversationsByAccountId: Record<string, CachedConversation[]>;
@@ -96,6 +97,17 @@ const defaultNotifications: NotificationsCache = { inbox: 0, comments: 0, messag
 
 const CACHE_KEY = 'appData_cache_v2';
 const CACHE_MAX_BYTES = 450000; // ~450KB to stay under sessionStorage quota
+
+/** Strip huge / debug fields so the dashboard cache actually fits in localStorage (else nothing saves). */
+function slimInsightsRecordForStorage(insights: CachedInsights): CachedInsights {
+  const o = { ...(insights as Record<string, unknown>) };
+  for (const k of ['raw', 'facebookInsightsSync', 'facebookInsightPersistence', 'facebookDataSourceDebug'] as const) {
+    delete o[k];
+  }
+  return o as CachedInsights;
+}
+
+const PREFETCH_INSIGHTS_TIMEOUT_MS = 70_000;
 
 function getInitialConversationsFromStorage(): Record<string, CachedConversation[]> {
   const data = readCachedBlob();
@@ -313,10 +325,14 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       Object.keys(engagementByAccountId).length > 0;
     if (!hasData) return;
     try {
+      const slimInsights: Record<string, CachedInsights> = {};
+      for (const [aid, row] of Object.entries(insightsByAccountId)) {
+        slimInsights[aid] = slimInsightsRecordForStorage(row);
+      }
       const payload = {
         conversationsByAccountId,
         postsByAccountId,
-        insightsByAccountId,
+        insightsByAccountId: slimInsights,
         commentsByAccountId,
         engagementByAccountId,
       };
@@ -376,9 +392,15 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
             }).catch(() => {})
           ),
           ...accounts.map((acc) =>
-            api.get<CachedInsights>(`/social/accounts/${acc.id}/insights`, { params: { since: dateRange.start, until: dateRange.end, extended: 1 } }).then((r) => {
-              if (!cancelled && r.data) setInsightsByAccountId((prev) => ({ ...prev, [acc.id]: r.data as CachedInsights }));
-            }).catch(() => {})
+            api
+              .get<CachedInsights>(`/social/accounts/${acc.id}/insights`, {
+                params: { since: dateRange.start, until: dateRange.end },
+                timeout: PREFETCH_INSIGHTS_TIMEOUT_MS,
+              })
+              .then((r) => {
+                if (!cancelled && r.data) setInsightsByAccountId((prev) => ({ ...prev, [acc.id]: r.data as CachedInsights }));
+              })
+              .catch(() => {})
           ),
           ...accounts.filter((acc) => acc.platform === 'INSTAGRAM' || acc.platform === 'FACEBOOK' || acc.platform === 'TWITTER').map((acc) =>
             api.get<{ comments?: CachedComment[] }>(`/social/accounts/${acc.id}/comments`).then((r) => {
