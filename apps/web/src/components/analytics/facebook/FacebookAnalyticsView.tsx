@@ -6,12 +6,8 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
   ComposedChart,
-  Legend,
   Line,
-  Pie,
-  PieChart,
   Rectangle,
   ResponsiveContainer,
   Tooltip,
@@ -62,19 +58,6 @@ type TrafficMetricKey = 'postImpressions' | 'nonviral' | 'viral' | 'uniqueReachP
 type ReelMetricKey = 'views' | 'watchTime' | 'avgWatch' | 'clicks' | 'likes' | 'comments' | 'shares' | 'reposts';
 type ReelPresetKey = 'performance' | 'engagement' | 'watch';
 type ContentHistoryFilter = 'all' | 'posts' | 'reels';
-
-const AUDIENCE_COUNTRY_PIE_COLORS = [
-  '#42d9f5',
-  '#7c6cff',
-  '#d946ef',
-  '#31c48d',
-  '#f5b942',
-  '#ff8b7b',
-  '#6366f1',
-  '#ec4899',
-  '#14b8a6',
-  '#f97316',
-];
 
 const COLOR = {
   pageBg: '#f6f7fb',
@@ -208,9 +191,9 @@ const REEL_PRESET_METRICS: Record<ReelPresetKey, ReelMetricKey[]> = {
 };
 
 const REEL_PRESET_METRICS_TIKTOK: Record<ReelPresetKey, ReelMetricKey[]> = {
-  performance: ['views', 'watchTime', 'avgWatch'],
+  performance: ['views'],
   engagement: ['likes', 'comments', 'shares'],
-  watch: ['watchTime', 'avgWatch'],
+  watch: ['views'],
 };
 
 function formatPercent(v: number): string {
@@ -1145,20 +1128,14 @@ export function PostsPerformanceTable({
     ...(hideClicksColumn ? [] : [{ label: clicksColumnLabel, className: 'w-[92px]' }]),
     { label: 'Likes', className: 'w-[72px]' },
     { label: 'Reactions', className: 'w-[88px]' },
-    {
-      label: isTikTokTable ? 'Total watch' : 'Watch time',
-      className: 'w-[84px]',
-      title: isTikTokTable ? 'TikTok Display API does not expose total watch time in video.list.' : undefined,
-    },
-    {
-      label: isTikTokTable ? 'Clip length' : 'Avg watch',
-      className: 'w-[80px]',
-      title: isTikTokTable
-        ? 'Video duration from TikTok (not average watch time).'
-        : undefined,
-    },
+    ...(isTikTokTable
+      ? []
+      : [
+          { label: 'Watch time', className: 'w-[84px]' },
+          { label: 'Avg watch', className: 'w-[80px]' },
+        ]),
   ];
-  const tableMinW = isTikTokTable ? 'min-w-[1040px]' : 'min-w-[1120px]';
+  const tableMinW = isTikTokTable ? 'min-w-[860px]' : 'min-w-[1120px]';
   return (
     <div className="rounded-[20px] overflow-hidden" style={{ background: COLOR.card, boxShadow: '0 2px 16px rgba(15,23,42,0.06)' }}>
       <div className="hidden md:block overflow-x-auto">
@@ -1169,7 +1146,7 @@ export function PostsPerformanceTable({
                 <th
                   key={h.label}
                   title={h.title}
-                  className={`py-3 text-left font-medium whitespace-nowrap ${h.className} ${idx > 0 ? 'border-l' : ''} ${h.label === 'Watch time' || h.label === 'Total watch' ? 'pl-5 pr-3' : 'px-3'}`}
+                  className={`py-3 text-left font-medium whitespace-nowrap ${h.className} ${idx > 0 ? 'border-l' : ''} ${h.label === 'Watch time' ? 'pl-5 pr-3' : 'px-3'}`}
                   style={{ borderColor: idx > 0 ? COLOR.border : undefined }}
                 >
                   {h.label}
@@ -1223,20 +1200,16 @@ export function PostsPerformanceTable({
                 {!hideClicksColumn && <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.clicks)}</td>}
                 <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.likes)}</td>
                 <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.reactionsTotal)}</td>
-                <td
-                  className="pl-5 pr-3 py-3"
-                  style={{ color: COLOR.textSecondary }}
-                  title={isTikTokTable ? 'Not available from TikTok video.list' : undefined}
-                >
-                  {isTikTokTable ? '—' : r.watchTimeMs > 0 ? formatDurationMs(r.watchTimeMs) : ' - '}
-                </td>
-                <td
-                  className="px-3 py-3"
-                  style={{ color: COLOR.textSecondary }}
-                  title={isTikTokTable && r.avgWatchMs <= 0 ? 'Sync posts after deploy to pull duration from TikTok.' : undefined}
-                >
-                  {r.avgWatchMs > 0 ? formatDurationMs(r.avgWatchMs) : ' - '}
-                </td>
+                {!isTikTokTable ? (
+                  <>
+                    <td className="pl-5 pr-3 py-3" style={{ color: COLOR.textSecondary }}>
+                      {r.watchTimeMs > 0 ? formatDurationMs(r.watchTimeMs) : ' - '}
+                    </td>
+                    <td className="px-3 py-3" style={{ color: COLOR.textSecondary }}>
+                      {r.avgWatchMs > 0 ? formatDurationMs(r.avgWatchMs) : ' - '}
+                    </td>
+                  </>
+                ) : null}
               </tr>
             ))}
           </tbody>
@@ -1284,18 +1257,12 @@ export function PostsPerformanceTable({
               <span>{r.type}</span>
               <span>Views {formatNumber(r.views)}</span>
               {!isTikTokTable ? <span>Reach {formatNumber(r.uniqueReach)}</span> : null}
-              <span>
-                {isTikTokTable ? 'Total watch —' : r.watchTimeMs > 0 ? `Watch ${formatDurationMs(r.watchTimeMs)}` : 'Watch -'}
-              </span>
-              <span>
-                {isTikTokTable
-                  ? r.avgWatchMs > 0
-                    ? `Clip ${formatDurationMs(r.avgWatchMs)}`
-                    : 'Clip -'
-                  : r.avgWatchMs > 0
-                    ? `Avg ${formatDurationMs(r.avgWatchMs)}`
-                    : 'Avg -'}
-              </span>
+              {!isTikTokTable ? (
+                <>
+                  <span>{r.watchTimeMs > 0 ? `Watch ${formatDurationMs(r.watchTimeMs)}` : 'Watch -'}</span>
+                  <span>{r.avgWatchMs > 0 ? `Avg ${formatDurationMs(r.avgWatchMs)}` : 'Avg -'}</span>
+                </>
+              ) : null}
               {!hideClicksColumn && (
                 <span>
                   {clicksColumnLabel} {formatNumber(r.clicks)}
@@ -1565,15 +1532,19 @@ export function FacebookAnalyticsView({
 
   useEffect(() => {
     if (insights?.platform?.toUpperCase() !== 'TIKTOK') return;
-    setSelectedStoryMetrics(['followers', 'contentViews', 'pageVisits', 'videoViews', 'engagements']);
+    setSelectedStoryMetrics(['followers', 'videoViews', 'engagements']);
   }, [insights?.platform]);
 
   useEffect(() => {
     if (insights?.platform?.toUpperCase() !== 'TIKTOK') return;
     const engAllowed = new Set<EngagementMetricKey>(['likes', 'comments', 'shares']);
-    const reelAllowed = new Set<ReelMetricKey>(['views', 'watchTime', 'avgWatch', 'clicks', 'likes', 'comments', 'shares']);
+    const reelAllowed = new Set<ReelMetricKey>(['views', 'clicks', 'likes', 'comments', 'shares']);
     setSelectedEngagementMetrics((prev) => prev.filter((m) => engAllowed.has(m)));
-    setSelectedReelMetrics((prev) => prev.filter((m) => reelAllowed.has(m)));
+    setSelectedReelMetrics((prev) => {
+      const next = prev.filter((m) => reelAllowed.has(m));
+      return next.length ? next : ['views'];
+    });
+    setReelPreset((p) => (p === 'watch' ? 'performance' : p));
   }, [insights?.platform]);
 
   const profile = insights?.facebookPageProfile;
@@ -1629,14 +1600,6 @@ export function FacebookAnalyticsView({
         0
       ),
     [postsInRange]
-  );
-  const tiktokProfileLikesValue = useMemo(
-    () => (typeof tiktokUser?.likesCount === 'number' ? tiktokUser.likesCount : postsInRange.reduce((s, p) => s + (p.likeCount ?? 0), 0)),
-    [postsInRange, tiktokUser?.likesCount]
-  );
-  const tiktokPublicVideosValue = useMemo(
-    () => (typeof tiktokUser?.videoCount === 'number' ? tiktokUser.videoCount : postsInRange.length),
-    [postsInRange.length, tiktokUser?.videoCount]
   );
   const tiktokTotalVideoViewsValue = useMemo(
     () => Math.max(0, insights?.impressionsTotal ?? 0, tiktokViewsInRange),
@@ -1765,15 +1728,9 @@ export function FacebookAnalyticsView({
           bestShareCount(p);
       }
       const followsRaw: Record<string, number> = {};
-      const likesRaw: Record<string, number> = {};
-      const videoCountRaw: Record<string, number> = {};
       dateAxis.forEach((d) => {
         followsRaw[d] = totalFollowers;
-        likesRaw[d] = tiktokUser?.likesCount ?? 0;
-        videoCountRaw[d] = tiktokUser?.videoCount ?? 0;
       });
-      const media = carryForwardSeries(dateAxis, likesRaw, 0);
-      const visits = carryForwardSeries(dateAxis, videoCountRaw, 0);
       const videoViewsSeries = carryForwardSeries(dateAxis, viewsByDate, 0);
       const engagement = carryForwardSeries(dateAxis, engagementByDate, 0);
       const follows = carryForwardSeries(dateAxis, followsRaw, totalFollowers, true);
@@ -1782,8 +1739,8 @@ export function FacebookAnalyticsView({
         followers: follows[date] ?? 0,
         engagements: engagement[date] ?? 0,
         videoViews: videoViewsSeries[date] ?? 0,
-        contentViews: media[date] ?? 0,
-        pageVisits: visits[date] ?? 0,
+        contentViews: 0,
+        pageVisits: 0,
       }));
     }
     let mediaRaw: Record<string, number>;
@@ -1882,8 +1839,6 @@ export function FacebookAnalyticsView({
       const start = dateRange.start.slice(0, 10);
       const end = dateRange.end.slice(0, 10);
       const ff = totalFollowers;
-      const profileLikes = tiktokUser?.likesCount ?? 0;
-      const profileVideos = tiktokUser?.videoCount ?? 0;
       return {
         follows: [
           { date: start, value: ff },
@@ -1891,14 +1846,8 @@ export function FacebookAnalyticsView({
         ],
         engagement: engSeries,
         videoViews: viewsSeries,
-        contentViews: [
-          { date: start, value: profileLikes },
-          { date: end, value: profileLikes },
-        ],
-        pageVisits: [
-          { date: start, value: profileVideos },
-          { date: end, value: profileVideos },
-        ],
+        contentViews: [],
+        pageVisits: [],
       };
     }
     if (isFacebook) {
@@ -1970,8 +1919,6 @@ export function FacebookAnalyticsView({
     dateRange.end,
     dateRange.start,
     totalFollowers,
-    tiktokUser?.likesCount,
-    tiktokUser?.videoCount,
   ]);
 
   const stackedTraffic = useMemo(() => {
@@ -2129,10 +2076,6 @@ export function FacebookAnalyticsView({
     () => buildKeyDateTicks(trafficTimelineData, (d) => (d.postImpressions ?? 0) > 0 || (d.nonviral ?? 0) > 0 || (d.viral ?? 0) > 0 || (d.uniqueReachProxy ?? 0) > 0, 10),
     [trafficTimelineData]
   );
-  const audienceCountryPieData = useMemo(() => {
-    const rows = insights?.audienceByCountry?.rows ?? [];
-    return rows.map((r) => ({ name: r.country, value: r.value, percent: r.percent }));
-  }, [insights?.audienceByCountry?.rows]);
   const reelsTicks = useMemo(
     () => buildKeyDateTicks(reelsChartData, (d) => (d.views ?? 0) > 0 || (d.watchTimeMinutes ?? 0) > 0 || (d.avgWatchSeconds ?? 0) > 0, 10),
     [reelsChartData]
@@ -2173,9 +2116,11 @@ export function FacebookAnalyticsView({
     return {
       growth: `Followers: ${fmt(percentChangeFromSeries(follows))}`,
       engagement: `Engagements: ${fmt(percentChangeFromSeries(engagement))}`,
-      views: `Video Views: ${fmt(percentChangeFromSeries(videoViewsS))} | Content Views: ${fmt(percentChangeFromSeries(contentViewsS))} | Page Visits: ${fmt(percentChangeFromSeries(pageTabS))}`,
+      views: isTikTok
+        ? `Video Views: ${fmt(percentChangeFromSeries(videoViewsS))}`
+        : `Video Views: ${fmt(percentChangeFromSeries(videoViewsS))} | Content Views: ${fmt(percentChangeFromSeries(contentViewsS))} | Page Visits: ${fmt(percentChangeFromSeries(pageTabS))}`,
     } as const;
-  }, [growthSparklineSeries]);
+  }, [growthSparklineSeries, isTikTok]);
   const likesTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + bestCount(post.facebookInsights?.post_reactions_like_total, post.likeCount ?? post.engagementBreakdown?.reactions), 0), [postsInRange]);
   const commentsTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + (post.facebookInsights?.post_comments ?? post.commentsCount ?? post.engagementBreakdown?.comments ?? 0), 0), [postsInRange]);
   const sharesTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + bestShareCount(post), 0), [postsInRange]);
@@ -2613,7 +2558,7 @@ export function FacebookAnalyticsView({
           </div>
           {isTikTok ? (
             <>
-              <div className="mt-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              <div className="mt-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <SparklineMetricCard
                   label="Followers"
                   source="user.info (stats) · follower_count"
@@ -2622,26 +2567,6 @@ export function FacebookAnalyticsView({
                   series={growthSparklineSeries.follows}
                   active={isCardSelected('followers')}
                   onClick={() => toggleStoryMetric('followers')}
-                  tiktokApiHighlight
-                />
-                <SparklineMetricCard
-                  label="Profile likes"
-                  source="user.info (stats) · likes_count (lifetime on account)"
-                  color={COLOR.violet}
-                  value={formatNumber(tiktokProfileLikesValue)}
-                  series={growthSparklineSeries.contentViews}
-                  active={isCardSelected('contentViews')}
-                  onClick={() => toggleStoryMetric('contentViews')}
-                  tiktokApiHighlight
-                />
-                <SparklineMetricCard
-                  label="Public videos"
-                  source="user.info (stats) · video_count"
-                  color={COLOR.magenta}
-                  value={formatNumber(tiktokPublicVideosValue)}
-                  series={growthSparklineSeries.pageVisits}
-                  active={isCardSelected('pageVisits')}
-                  onClick={() => toggleStoryMetric('pageVisits')}
                   tiktokApiHighlight
                 />
                 <SparklineMetricCard
@@ -3137,71 +3062,6 @@ export function FacebookAnalyticsView({
               </ResponsiveContainer>
             )}
           </InsightChartCard>
-
-          <div className="mt-6 rounded-xl border p-4 sm:p-5" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
-            <h4 className="text-base font-semibold mb-1" style={{ color: COLOR.text }}>
-              Audience by country
-            </h4>
-            <p className="text-xs mb-4" style={{ color: COLOR.textSecondary }}>
-              {insights?.audienceByCountry?.label ??
-                'Share of your audience by country (from Meta demographics when available).'}
-            </p>
-            {audienceCountryPieData.length > 0 ? (
-              <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-                <div className="w-full lg:w-[min(100%,420px)] h-[280px] shrink-0">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={audienceCountryPieData}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={52}
-                        outerRadius={100}
-                        paddingAngle={2}
-                        labelLine={false}
-                        label={({ name, percent: p }) =>
-                          `${String(name).slice(0, 14)}${String(name).length > 14 ? '…' : ''} ${((Number(p) || 0) * 100).toFixed(0)}%`
-                        }
-                      >
-                        {audienceCountryPieData.map((_, i) => (
-                          <Cell key={i} fill={AUDIENCE_COUNTRY_PIE_COLORS[i % AUDIENCE_COUNTRY_PIE_COLORS.length]} stroke="rgba(255,255,255,0.85)" strokeWidth={1} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
-                        formatter={(value: number | string | undefined, _n, item) => {
-                          const payload = (item as { payload?: { percent?: number } })?.payload;
-                          const pct = payload?.percent;
-                          const v = Number(value) || 0;
-                          return [`${formatNumber(v)}${typeof pct === 'number' ? ` (${pct}% of chart)` : ''}`, 'Audience'];
-                        }}
-                      />
-                      <Legend wrapperStyle={{ fontSize: 12, color: COLOR.textSecondary }} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <ul className="flex-1 space-y-2 text-sm min-w-0" style={{ color: COLOR.text }}>
-                  {audienceCountryPieData.slice(0, 12).map((row, i) => (
-                    <li key={row.name} className="flex items-center justify-between gap-2 border-b border-neutral-100 pb-2 last:border-0">
-                      <span className="flex items-center gap-2 min-w-0">
-                        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: AUDIENCE_COUNTRY_PIE_COLORS[i % AUDIENCE_COUNTRY_PIE_COLORS.length] }} />
-                        <span className="truncate font-medium">{row.name}</span>
-                      </span>
-                      <span className="tabular-nums shrink-0" style={{ color: COLOR.textSecondary }}>
-                        {formatNumber(row.value)} <span className="text-neutral-400">({row.percent}%)</span>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : (
-              <p className="text-sm py-6 text-center" style={{ color: COLOR.textSecondary }}>
-                No country breakdown yet. Meta returns this when your account has enough follower or engaged-audience demographics. Try again after more activity, or confirm insights permissions when you reconnect.
-              </p>
-            )}
-          </div>
         </div>
         )}
       </section>
@@ -3286,10 +3146,10 @@ export function FacebookAnalyticsView({
           </div>
         <div className="flex gap-2">
           {([
-            { id: 'performance', label: 'Performance' },
-            { id: 'engagement', label: 'Engagement' },
-            { id: 'watch', label: 'Watch' },
-          ] as const).map((preset) => (
+            { id: 'performance' as const, label: 'Performance' },
+            { id: 'engagement' as const, label: 'Engagement' },
+            ...(isTikTok ? [] : [{ id: 'watch' as const, label: 'Watch' }]),
+          ]).map((preset) => (
             <button
               key={preset.id}
               type="button"
@@ -3317,22 +3177,26 @@ export function FacebookAnalyticsView({
             active={selectedReelMetrics.includes('views')}
             onClick={() => setSelectedReelMetrics((prev) => prev.includes('views') ? prev.filter((m) => m !== 'views') : [...prev, 'views'])}
           />
-          <MetricCard
-            label="Watch Time"
-            source="post_video_view_time"
-            color={REEL_METRIC_CONFIG.watchTime.color}
-            value={formatDurationMs(totalReelWatchTimeMs)}
-            active={selectedReelMetrics.includes('watchTime')}
-            onClick={() => setSelectedReelMetrics((prev) => prev.includes('watchTime') ? prev.filter((m) => m !== 'watchTime') : [...prev, 'watchTime'])}
-          />
-          <MetricCard
-            label="Avg Watch Time"
-            source="Mean post_video_avg_time_watched"
-            color={REEL_METRIC_CONFIG.avgWatch.color}
-            value={formatDurationMs(avgWatchMs)}
-            active={selectedReelMetrics.includes('avgWatch')}
-            onClick={() => setSelectedReelMetrics((prev) => prev.includes('avgWatch') ? prev.filter((m) => m !== 'avgWatch') : [...prev, 'avgWatch'])}
-          />
+          {!isTikTok ? (
+            <>
+              <MetricCard
+                label="Watch Time"
+                source="post_video_view_time"
+                color={REEL_METRIC_CONFIG.watchTime.color}
+                value={formatDurationMs(totalReelWatchTimeMs)}
+                active={selectedReelMetrics.includes('watchTime')}
+                onClick={() => setSelectedReelMetrics((prev) => prev.includes('watchTime') ? prev.filter((m) => m !== 'watchTime') : [...prev, 'watchTime'])}
+              />
+              <MetricCard
+                label="Avg Watch Time"
+                source="Mean post_video_avg_time_watched"
+                color={REEL_METRIC_CONFIG.avgWatch.color}
+                value={formatDurationMs(avgWatchMs)}
+                active={selectedReelMetrics.includes('avgWatch')}
+                onClick={() => setSelectedReelMetrics((prev) => prev.includes('avgWatch') ? prev.filter((m) => m !== 'avgWatch') : [...prev, 'avgWatch'])}
+              />
+            </>
+          ) : null}
           <MetricCard
             label="Likes"
             source="post_reactions_like_total"
