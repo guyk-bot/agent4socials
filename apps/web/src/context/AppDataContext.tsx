@@ -75,6 +75,8 @@ type AppDataContextType = {
   engagementByAccountId: Record<string, CachedEngagement[]>;
   prefetchStatus: 'idle' | 'loading' | 'done';
   prefetchHasLoadedOnce: boolean;
+  /** True once localStorage/sessionStorage cache has been read on mount (even if empty). */
+  cacheRehydrated: boolean;
   getPosts: (accountId: string) => CachedPost[] | undefined;
   getInsights: (accountId: string) => CachedInsights | undefined;
   getComments: (accountId: string) => CachedComment[] | undefined;
@@ -182,6 +184,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [engagementByAccountId, setEngagementByAccountId] = useState<Record<string, CachedEngagement[]>>(getInitialEngagementFromStorage);
   const [prefetchStatus, setPrefetchStatus] = useState<'idle' | 'loading' | 'done'>('idle');
   const [prefetchHasLoadedOnce, setPrefetchHasLoadedOnce] = useState(false);
+  const [cacheRehydrated, setCacheRehydrated] = useState(false);
 
   const setPostsForAccount = useCallback((accountId: string, posts: CachedPost[]) => {
     setPostsByAccountId((prev) => ({ ...prev, [accountId]: posts }));
@@ -272,6 +275,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     setEngagementByAccountId({});
     setPrefetchStatus('idle');
     setPrefetchHasLoadedOnce(false);
+    setCacheRehydrated(false);
     if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(CACHE_KEY);
       if (typeof localStorage !== 'undefined') localStorage.removeItem(CACHE_KEY);
     if (typeof localStorage !== 'undefined') localStorage.removeItem(CACHE_KEY);
@@ -283,10 +287,16 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
   // Rehydrate cache from sessionStorage on mount so data survives full reloads
   useEffect(() => {
-    if (typeof window === 'undefined' || !user?.id) return;
+    if (typeof window === 'undefined' || !user?.id) {
+      setCacheRehydrated(true);
+      return;
+    }
     try {
       const raw = localStorage.getItem(CACHE_KEY) || sessionStorage.getItem(CACHE_KEY);
-      if (!raw) return;
+      if (!raw) {
+        setCacheRehydrated(true);
+        return;
+      }
       const data = JSON.parse(raw) as {
         conversationsByAccountId?: Record<string, CachedConversation[]>;
         postsByAccountId?: Record<string, CachedPost[]>;
@@ -309,8 +319,10 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       if (data.engagementByAccountId && Object.keys(data.engagementByAccountId).length > 0) {
         setEngagementByAccountId(data.engagementByAccountId);
       }
+      setCacheRehydrated(true);
     } catch {
       // ignore parse errors or quota
+      setCacheRehydrated(true);
     }
   }, [user?.id]);
 
@@ -349,6 +361,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     if (!user) {
       setPrefetchStatus('idle');
       setPrefetchHasLoadedOnce(false);
+      setCacheRehydrated(false);
       if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(CACHE_KEY);
     if (typeof localStorage !== 'undefined') localStorage.removeItem(CACHE_KEY);
       return;
@@ -440,6 +453,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       engagementByAccountId,
       prefetchStatus,
       prefetchHasLoadedOnce,
+      cacheRehydrated,
       getPosts,
       getInsights,
       getComments,
@@ -467,6 +481,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       engagementByAccountId,
       prefetchStatus,
       prefetchHasLoadedOnce,
+      cacheRehydrated,
       getPosts,
       getInsights,
       getComments,

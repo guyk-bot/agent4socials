@@ -657,6 +657,8 @@ export default function DashboardPage() {
   // Use appDataRef so context updates (after setInsightsForAccount/setPostsForAccount) don't re-run this effect and cause a loading loop.
   useEffect(() => {
     if (!selectedAccount?.id || !dateRange.start || !dateRange.end) return;
+    // Wait for cache rehydration to complete before checking for cached data
+    if (!appData?.cacheRehydrated) return;
     const skipInstagramAutoRefresh = selectedAccount?.platform === 'INSTAGRAM' && !justConnected;
     const prevAccountId = selectedAccountIdRef.current;
     selectedAccountIdRef.current = selectedAccount.id;
@@ -833,7 +835,7 @@ export default function DashboardPage() {
       }
     }
 
-  }, [analyticsTab, selectedAccount?.id, selectedAccount?.platform, dateRange.start, dateRange.end, syncAllTrigger, justConnected, appData?.prefetchStatus, appData?.insightsByAccountId]);
+  }, [analyticsTab, selectedAccount?.id, selectedAccount?.platform, dateRange.start, dateRange.end, syncAllTrigger, justConnected, appData?.prefetchStatus, appData?.insightsByAccountId, appData?.cacheRehydrated]);
 
   // Facebook Page reviews (pages_read_user_content)
   useEffect(() => {
