@@ -1059,7 +1059,11 @@ export default function DashboardPage() {
       : null);
 
   const hasFbOrIg = accounts.some((a) => a.platform === 'FACEBOOK' || a.platform === 'INSTAGRAM');
-  const reconnectCondition = hasFbOrIg && (displayInsights?.insightsHint || postsSyncError || (allPostsSyncError && (allPostsSyncError.includes('Reconnect') || allPostsSyncError.includes('Session expired') || allPostsSyncError.includes('log back in'))));
+  const hintText = displayInsights?.insightsHint ?? '';
+  const hintNeedsReconnect = Boolean(hintText && (
+    /reconnect/i.test(hintText) || /session expired/i.test(hintText) || /log back in/i.test(hintText)
+  ));
+  const reconnectCondition = hasFbOrIg && (hintNeedsReconnect || postsSyncError || (allPostsSyncError && (allPostsSyncError.includes('Reconnect') || allPostsSyncError.includes('Session expired') || allPostsSyncError.includes('log back in'))));
   const autoSyncAttemptedRef = useRef(false);
 
   // Auto-sync when we would have shown the reconnect banner: refresh FB/IG accounts in background, then refetch data (no user button).
