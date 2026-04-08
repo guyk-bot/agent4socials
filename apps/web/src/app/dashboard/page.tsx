@@ -666,13 +666,13 @@ export default function DashboardPage() {
       (prefetchedForDefault && typeof prefetchedForDefault === 'object'
         ? prefetchedForDefault
         : null) ?? insightsCacheRef.current[cacheKey] ?? null;
-    const staleRaw = lastInsightsByAccountIdRef.current[accountId];
-    const stalePlatformOk =
-      staleRaw &&
-      typeof staleRaw === 'object' &&
-      String((staleRaw as { platform?: string }).platform ?? '').toUpperCase() ===
-        String(selectedAccount?.platform ?? '').toUpperCase();
-    const staleForAccount = stalePlatformOk ? staleRaw : null;
+    // Stale data is keyed by account id only; do not require payload.platform to match (prefetch/cache may omit it).
+    const fromAppInsights = app?.getInsights(accountId);
+    const staleRaw =
+      lastInsightsByAccountIdRef.current[accountId] ??
+      (fromAppInsights && typeof fromAppInsights === 'object' ? (fromAppInsights as Record<string, unknown>) : null);
+    const staleForAccount =
+      staleRaw && typeof staleRaw === 'object' ? (staleRaw as Record<string, unknown>) : null;
     const postsCached = postsCacheRef.current[accountId] ?? app?.getPosts(accountId);
     /** Per-account analytics: posts are loaded only by the posts effect (avoids racing sync vs non-sync and prefetch churn). */
     const accountTabOwnsPosts = analyticsTab === 'account';
@@ -682,6 +682,7 @@ export default function DashboardPage() {
       lastInsightsByAccountIdRef.current[accountId] = exactCached as Record<string, unknown>;
       setInsights(exactCached as NonNullable<Parameters<typeof setInsights>[0]>);
       setInsightsLoading(false);
+      let runInsightsSwr = true;
       if (skipInstagramAutoRefresh) {
         const isInstagramZeroState = Boolean(
           selectedAccount?.platform === 'INSTAGRAM' &&
@@ -689,20 +690,24 @@ export default function DashboardPage() {
           Number(exactCached.impressionsTotal ?? 0) === 0 &&
           Number(exactCached.profileViewsTotal ?? exactCached.pageViewsTotal ?? 0) === 0
         );
-        if (!isInstagramZeroState || igForcedRefreshRef.current[cacheKey]) return;
-        igForcedRefreshRef.current[cacheKey] = true;
+        if (!isInstagramZeroState || igForcedRefreshRef.current[cacheKey]) {
+          runInsightsSwr = false;
+        } else {
+          igForcedRefreshRef.current[cacheKey] = true;
+        }
       }
-      // SWR: refresh silently in background so UI stays instant.
-      api.get(`/social/accounts/${accountId}/insights`, { params: selectedAccount?.platform === 'FACEBOOK' ? { since: dateRange.start, until: dateRange.end, refresh: 1, persist: 1 } : { since: dateRange.start, until: dateRange.end } })
-        .then((res) => {
-          const data = res.data ?? null;
-          if (!data) return;
-          insightsCacheRef.current[cacheKey] = data;
-          lastInsightsByAccountIdRef.current[accountId] = data as Record<string, unknown>;
-          appDataRef.current?.setInsightsForAccount(accountId, data);
-          if (selectedAccountIdRef.current === accountId) setInsights(data);
-        })
-        .catch(() => {});
+      if (runInsightsSwr) {
+        api.get(`/social/accounts/${accountId}/insights`, { params: selectedAccount?.platform === 'FACEBOOK' ? { since: dateRange.start, until: dateRange.end, refresh: 1, persist: 1 } : { since: dateRange.start, until: dateRange.end } })
+          .then((res) => {
+            const data = res.data ?? null;
+            if (!data) return;
+            insightsCacheRef.current[cacheKey] = data;
+            lastInsightsByAccountIdRef.current[accountId] = data as Record<string, unknown>;
+            appDataRef.current?.setInsightsForAccount(accountId, data);
+            if (selectedAccountIdRef.current === accountId) setInsights(data);
+          })
+          .catch(() => {});
+      }
       if (!accountTabOwnsPosts) {
         if (postsCached !== undefined && postsCached !== null) {
           setImportedPosts(postsCached);
@@ -726,6 +731,7 @@ export default function DashboardPage() {
 
     // No exact range match: show last successful payload for this account while refetching (avoids full-page skeleton on every Instagram click).
     if (staleForAccount) {
+      lastInsightsByAccountIdRef.current[accountId] = staleForAccount;
       setInsights(staleForAccount as NonNullable<Parameters<typeof setInsights>[0]>);
     } else if (!isSameAccount && prevAccountId !== null) {
       setInsights(null);
