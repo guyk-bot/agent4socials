@@ -11,7 +11,7 @@ import { useAppData, getDefaultDateRange } from '@/context/AppDataContext';
 import { useSelectedAccount, useResolvedSelectedAccount } from '@/context/SelectedAccountContext';
 import type { SocialAccount } from '@/context/SelectedAccountContext';
 import api from '@/lib/api';
-import { readDashboardInsightsSession, writeDashboardInsightsSession } from '@/lib/dashboard-insights-session-cache';
+import { readDashboardInsightsSession, writeDashboardInsightsSession, readInsightsFromLocalStorage } from '@/lib/dashboard-insights-session-cache';
 import {
   localCalendarDateFromIso,
   toLocalCalendarDate,
@@ -338,6 +338,10 @@ export default function DashboardPage() {
     try {
       const accountId = localStorage.getItem('agent4socials_selected_account_id');
       if (!accountId) return null;
+      // Try per-account localStorage first (most reliable, written on every successful fetch)
+      const perAccount = readInsightsFromLocalStorage(accountId);
+      if (perAccount) return perAccount as NonNullable<typeof insights>;
+      // Fall back to AppDataContext blob
       const raw = localStorage.getItem('appData_cache_v2');
       if (!raw) return null;
       const blob = JSON.parse(raw);
@@ -1048,11 +1052,16 @@ export default function DashboardPage() {
     selectedAccount?.id && appData ? appData.getInsights(selectedAccount.id) : undefined;
   const sessionInsightsForSelected =
     selectedAccount?.id && user?.id ? readDashboardInsightsSession(user.id, selectedAccount.id) : null;
-  /** Prefer React state; fall back to AppData cache; then sessionStorage backup (survives when AppData blob is skipped). */
+  const perAccountLsInsights =
+    selectedAccount?.id ? readInsightsFromLocalStorage(selectedAccount.id) : null;
+  /** Prefer React state; fall back to AppData cache; per-account localStorage; then sessionStorage. */
   const displayInsights: typeof insights =
     insights ??
     (cachedInsightsForSelected && typeof cachedInsightsForSelected === 'object'
       ? (cachedInsightsForSelected as NonNullable<typeof insights>)
+      : null) ??
+    (perAccountLsInsights && typeof perAccountLsInsights === 'object'
+      ? (perAccountLsInsights as NonNullable<typeof insights>)
       : null) ??
     (sessionInsightsForSelected && typeof sessionInsightsForSelected === 'object'
       ? (sessionInsightsForSelected as NonNullable<typeof insights>)
@@ -1231,6 +1240,13 @@ export default function DashboardPage() {
       }
     } catch (e) { lsStatus = `error: ${e}`; }
 
+    let perAcctLsStatus = 'no data';
+    try {
+      const paKey = `a4s_acct_insights_${accId}`;
+      const paRaw = localStorage.getItem(paKey);
+      perAcctLsStatus = paRaw ? `HIT (${(paRaw.length / 1024).toFixed(0)}KB)` : 'MISS';
+    } catch (e) { perAcctLsStatus = `error: ${e}`; }
+
     let ssStatus = 'no session data';
     try {
       const ssKey = `a4s_dash_insights_v1_${user?.id}_${accId}`;
@@ -1244,6 +1260,7 @@ export default function DashboardPage() {
       userId: user?.id?.slice(0, 8) ?? 'null',
       lsStatus,
       lsBlobSize: `${(lsBlobSize / 1024).toFixed(0)}KB`,
+      perAccountLS: perAcctLsStatus,
       ssStatus,
       appDataCache: appDataHit ? 'HIT' : 'MISS',
       cacheRehydrated: String(appData?.cacheRehydrated ?? 'undefined'),

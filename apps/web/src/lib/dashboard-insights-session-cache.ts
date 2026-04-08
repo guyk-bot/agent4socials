@@ -1,16 +1,31 @@
-/** Session backup when AppData blob is skipped (size quota) or not yet rehydrated after refresh. */
+/** Per-account insights cache using localStorage (survives refresh + new tabs)
+ *  and sessionStorage (fast fallback within same tab). */
 
-const PREFIX = 'a4s_dash_insights_v1';
+const SESSION_PREFIX = 'a4s_dash_insights_v1';
+const LS_PREFIX = 'a4s_acct_insights';
 const MAX_BYTES = 450_000;
 
-function key(userId: string, accountId: string) {
-  return `${PREFIX}_${userId}_${accountId}`;
+function sessionKey(userId: string, accountId: string) {
+  return `${SESSION_PREFIX}_${userId}_${accountId}`;
 }
 
-export function readDashboardInsightsSession(userId: string, accountId: string): Record<string, unknown> | null {
+function lsKey(accountId: string) {
+  return `${LS_PREFIX}_${accountId}`;
+}
+
+function slimInsights(payload: Record<string, unknown>): Record<string, unknown> {
+  const o = { ...payload };
+  for (const k of ['raw', 'facebookInsightsSync', 'facebookInsightPersistence', 'facebookDataSourceDebug'] as const) {
+    delete o[k];
+  }
+  return o;
+}
+
+/** Read per-account insights from localStorage (no userId needed). */
+export function readInsightsFromLocalStorage(accountId: string): Record<string, unknown> | null {
   if (typeof window === 'undefined') return null;
   try {
-    const raw = sessionStorage.getItem(key(userId, accountId));
+    const raw = localStorage.getItem(lsKey(accountId));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== 'object') return null;
@@ -20,20 +35,26 @@ export function readDashboardInsightsSession(userId: string, accountId: string):
   }
 }
 
-function slimInsightsForSession(payload: Record<string, unknown>): Record<string, unknown> {
-  const o = { ...payload };
-  for (const k of ['raw', 'facebookInsightsSync', 'facebookInsightPersistence', 'facebookDataSourceDebug'] as const) {
-    delete o[k];
+export function readDashboardInsightsSession(userId: string, accountId: string): Record<string, unknown> | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(sessionKey(userId, accountId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object') return null;
+    return parsed as Record<string, unknown>;
+  } catch {
+    return null;
   }
-  return o;
 }
 
 export function writeDashboardInsightsSession(userId: string, accountId: string, payload: unknown): void {
   if (typeof window === 'undefined' || !payload || typeof payload !== 'object') return;
   try {
-    const str = JSON.stringify(slimInsightsForSession(payload as Record<string, unknown>));
+    const str = JSON.stringify(slimInsights(payload as Record<string, unknown>));
     if (str.length > MAX_BYTES) return;
-    sessionStorage.setItem(key(userId, accountId), str);
+    sessionStorage.setItem(sessionKey(userId, accountId), str);
+    localStorage.setItem(lsKey(accountId), str);
   } catch {
     // quota or private mode
   }
