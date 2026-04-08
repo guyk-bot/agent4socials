@@ -388,6 +388,7 @@ export default function DashboardPage() {
         Object.keys(insightsCacheRef.current).forEach((k) => {
           if (k.startsWith(accountIdFromUrl + '-')) delete insightsCacheRef.current[k];
         });
+        delete lastInsightsByAccountIdRef.current[accountIdFromUrl];
         appDataRef.current?.clearAccountData(accountIdFromUrl);
         router.replace('/dashboard', { scroll: false });
         setJustConnected(true);
@@ -621,10 +622,30 @@ export default function DashboardPage() {
   }, [selectedAccount?.id, hasAccounts, syncAllTrigger, accounts.map((a) => a.id).join(','), analyticsTab]);
 
   const insightsCacheRef = useRef<Record<string, { platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number; profileViewsTotal?: number }>>({});
+  /** Last successful insights payload per account (any date range). Used to avoid full-page skeleton when switching accounts before range cache hits. */
+  const lastInsightsByAccountIdRef = useRef<Record<string, Record<string, unknown>>>({});
   const fbForcedRefreshRef = useRef<Record<string, boolean>>({});
   const igForcedRefreshRef = useRef<Record<string, boolean>>({});
   const selectedAccountIdRef = useRef<string | null>(null);
   const aggregatedCacheRef = useRef<{ key: string; data: { totalFollowers: number; totalImpressions: number; totalReach: number; totalProfileViews: number; totalPageViews: number; byPlatform: Record<string, { followers: number; impressions: number; timeSeries: Array<{ date: string; value: number }> }>; combinedTimeSeries: Array<{ date: string; value: number }> } } | null>(null);
+
+  // Seed range cache + last-insights map from AppData prefetch so the first sidebar click (e.g. Instagram) can reuse data immediately.
+  useEffect(() => {
+    if (appData?.prefetchStatus !== 'done' || !accounts.length) return;
+    const app = appDataRef.current;
+    if (!app) return;
+    const def = getDefaultDateRange();
+    for (const acc of accounts) {
+      const d = app.getInsights(acc.id);
+      if (!d || typeof d !== 'object') continue;
+      const row = d as Record<string, unknown>;
+      lastInsightsByAccountIdRef.current[acc.id] = row;
+      const key = `${acc.id}-${def.start}-${def.end}`;
+      if (!insightsCacheRef.current[key]) {
+        insightsCacheRef.current[key] = d as (typeof insightsCacheRef.current)[string];
+      }
+    }
+  }, [appData?.prefetchStatus, accounts.map((a) => a.id).join(',')]);
 
   // Single-account insights: when an account is selected. Load once; on date change refetch in place without clearing UI.
   // Use appDataRef so context updates (after setInsightsForAccount/setPostsForAccount) don't re-run this effect and cause a loading loop.
@@ -638,22 +659,35 @@ export default function DashboardPage() {
     const cacheKey = `${accountId}-${dateRange.start}-${dateRange.end}`;
     const defaultRange = getDefaultDateRange();
     const app = appDataRef.current;
-    const usePrefetchedInsights = dateRange.start === defaultRange.start && dateRange.end === defaultRange.end && app?.getInsights(accountId);
-    const cached = usePrefetchedInsights ?? insightsCacheRef.current[cacheKey];
+    const defaultRangeMatch =
+      dateRange.start === defaultRange.start && dateRange.end === defaultRange.end;
+    const prefetchedForDefault = defaultRangeMatch ? app?.getInsights(accountId) : null;
+    const exactCached =
+      (prefetchedForDefault && typeof prefetchedForDefault === 'object'
+        ? prefetchedForDefault
+        : null) ?? insightsCacheRef.current[cacheKey] ?? null;
+    const staleRaw = lastInsightsByAccountIdRef.current[accountId];
+    const stalePlatformOk =
+      staleRaw &&
+      typeof staleRaw === 'object' &&
+      String((staleRaw as { platform?: string }).platform ?? '').toUpperCase() ===
+        String(selectedAccount?.platform ?? '').toUpperCase();
+    const staleForAccount = stalePlatformOk ? staleRaw : null;
     const postsCached = postsCacheRef.current[accountId] ?? app?.getPosts(accountId);
     /** Per-account analytics: posts are loaded only by the posts effect (avoids racing sync vs non-sync and prefetch churn). */
     const accountTabOwnsPosts = analyticsTab === 'account';
 
-    // If we already have cached data, show it immediately and keep it stable.
-    if (cached) {
-      setInsights(cached);
+    // If we already have cached data for this range (or prefetched default range), show it immediately and keep it stable.
+    if (exactCached) {
+      lastInsightsByAccountIdRef.current[accountId] = exactCached as Record<string, unknown>;
+      setInsights(exactCached as NonNullable<Parameters<typeof setInsights>[0]>);
       setInsightsLoading(false);
       if (skipInstagramAutoRefresh) {
         const isInstagramZeroState = Boolean(
           selectedAccount?.platform === 'INSTAGRAM' &&
-          Number(cached.followers ?? 0) === 0 &&
-          Number(cached.impressionsTotal ?? 0) === 0 &&
-          Number(cached.profileViewsTotal ?? cached.pageViewsTotal ?? 0) === 0
+          Number(exactCached.followers ?? 0) === 0 &&
+          Number(exactCached.impressionsTotal ?? 0) === 0 &&
+          Number(exactCached.profileViewsTotal ?? exactCached.pageViewsTotal ?? 0) === 0
         );
         if (!isInstagramZeroState || igForcedRefreshRef.current[cacheKey]) return;
         igForcedRefreshRef.current[cacheKey] = true;
@@ -664,6 +698,7 @@ export default function DashboardPage() {
           const data = res.data ?? null;
           if (!data) return;
           insightsCacheRef.current[cacheKey] = data;
+          lastInsightsByAccountIdRef.current[accountId] = data as Record<string, unknown>;
           appDataRef.current?.setInsightsForAccount(accountId, data);
           if (selectedAccountIdRef.current === accountId) setInsights(data);
         })
@@ -689,8 +724,10 @@ export default function DashboardPage() {
       return;
     }
 
-    // Only clear insights (not posts) when switching accounts; the posts effect manages its own state.
-    if (!isSameAccount && prevAccountId !== null) {
+    // No exact range match: show last successful payload for this account while refetching (avoids full-page skeleton on every Instagram click).
+    if (staleForAccount) {
+      setInsights(staleForAccount as NonNullable<Parameters<typeof setInsights>[0]>);
+    } else if (!isSameAccount && prevAccountId !== null) {
       setInsights(null);
     }
     setInsightsLoading(true);
@@ -722,6 +759,7 @@ export default function DashboardPage() {
         }
         if (data) {
           insightsCacheRef.current[cacheKey] = data;
+          lastInsightsByAccountIdRef.current[accountId] = data as Record<string, unknown>;
           appDataRef.current?.setInsightsForAccount(accountId, data);
         }
         if (selectedAccountIdRef.current === accountId) setInsights(data);
@@ -742,7 +780,7 @@ export default function DashboardPage() {
         .finally(() => setImportedPostsLoading(false));
     }
 
-  }, [analyticsTab, selectedAccount?.id, selectedAccount?.platform, dateRange.start, dateRange.end, syncAllTrigger]);
+  }, [analyticsTab, selectedAccount?.id, selectedAccount?.platform, dateRange.start, dateRange.end, syncAllTrigger, justConnected, appData?.prefetchStatus]);
 
   // Facebook Page reviews (pages_read_user_content)
   useEffect(() => {
@@ -935,6 +973,7 @@ export default function DashboardPage() {
           // Clear insights cache so the next load re-fetches fresh data.
           // Keep postsCacheRef intact so the engagement chart doesn't blank during the reload.
           Object.keys(insightsCacheRef.current).forEach((k) => { if (k.startsWith(acc.id + '-')) delete insightsCacheRef.current[k]; });
+          delete lastInsightsByAccountIdRef.current[acc.id];
           appDataRef.current?.clearAccountData(acc.id);
           // Re-populate posts cache from current importedPosts so the posts effect sees existing data on re-run.
           const existingPosts = postsCacheRef.current[acc.id];
@@ -1336,6 +1375,7 @@ export default function DashboardPage() {
                   if (nextInsights) {
                     const cacheKey = `${aid}-${dateRange.start}-${dateRange.end}`;
                     insightsCacheRef.current[cacheKey] = nextInsights;
+                    lastInsightsByAccountIdRef.current[aid] = nextInsights as Record<string, unknown>;
                     appDataRef.current?.setInsightsForAccount(aid, nextInsights);
                     if (selectedAccountIdRef.current === aid) setInsights(nextInsights);
                   }
