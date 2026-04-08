@@ -1505,6 +1505,18 @@ export function FacebookAnalyticsView({
       postsInRange.reduce((s, p) => s + (p.likeCount ?? 0) + (p.commentsCount ?? 0) + (p.sharesCount ?? 0), 0),
     [postsInRange]
   );
+  const tiktokProfileLikesValue = useMemo(
+    () => (typeof tiktokUser?.likesCount === 'number' ? tiktokUser.likesCount : postsInRange.reduce((s, p) => s + (p.likeCount ?? 0), 0)),
+    [postsInRange, tiktokUser?.likesCount]
+  );
+  const tiktokPublicVideosValue = useMemo(
+    () => (typeof tiktokUser?.videoCount === 'number' ? tiktokUser.videoCount : postsInRange.length),
+    [postsInRange.length, tiktokUser?.videoCount]
+  );
+  const tiktokTotalVideoViewsValue = useMemo(
+    () => Math.max(0, insights?.impressionsTotal ?? 0, tiktokViewsInRange),
+    [insights?.impressionsTotal, tiktokViewsInRange]
+  );
   const videoPlaysDailySeries = useMemo(() => {
     const map: Record<string, number> = {};
     for (const p of postsInRange) {
@@ -2461,37 +2473,6 @@ export function FacebookAnalyticsView({
           </div>
           {isTikTok ? (
             <>
-              <div className="mb-3 rounded-xl border border-[#ca8a04]/50 bg-[rgba(250,204,21,0.09)] px-3 py-2 text-xs text-neutral-800">
-                <span className="font-semibold text-[#854d0e]">TikTok Open API</span> — Yellow outline = data from{' '}
-                <code className="rounded bg-neutral-200/80 px-1 font-mono text-[11px]">user.info</code>,{' '}
-                <code className="rounded bg-neutral-200/80 px-1 font-mono text-[11px]">video/list</code> (synced posts), or{' '}
-                <code className="rounded bg-neutral-200/80 px-1 font-mono text-[11px]">post/publish/creator_info</code>. Sparklines use the selected date range where applicable.
-              </div>
-              {tiktokCreatorInfo ? (
-                <div className={`mb-3 rounded-[16px] p-4 space-y-2 ${TIKTOK_API_CARD_CLASS}`}>
-                  <p className="text-sm font-semibold text-neutral-900">Creator &amp; publish settings</p>
-                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 text-sm text-neutral-800">
-                    {typeof tiktokCreatorInfo.maxVideoPostDurationSec === 'number' ? (
-                      <p>
-                        <span className="text-neutral-500">Max upload length · </span>
-                        {Math.round(tiktokCreatorInfo.maxVideoPostDurationSec / 60)} min (
-                        {tiktokCreatorInfo.maxVideoPostDurationSec}s)
-                      </p>
-                    ) : null}
-                    {tiktokCreatorInfo.privacyLevelOptions && tiktokCreatorInfo.privacyLevelOptions.length > 0 ? (
-                      <p>
-                        <span className="text-neutral-500">Privacy options · </span>
-                        {tiktokCreatorInfo.privacyLevelOptions.join(', ')}
-                      </p>
-                    ) : null}
-                    <p>
-                      <span className="text-neutral-500">Interaction toggles · </span>
-                      comments {tiktokCreatorInfo.commentDisabled ? 'off' : 'on'}, duets{' '}
-                      {tiktokCreatorInfo.duetDisabled ? 'off' : 'on'}, stitch {tiktokCreatorInfo.stitchDisabled ? 'off' : 'on'}
-                    </p>
-                  </div>
-                </div>
-              ) : null}
               <div className="mt-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                 <SparklineMetricCard
                   label="Followers"
@@ -2507,9 +2488,7 @@ export function FacebookAnalyticsView({
                   label="Profile likes"
                   source="user.info (stats) · likes_count (lifetime on account)"
                   color={COLOR.violet}
-                  value={
-                    typeof tiktokUser?.likesCount === 'number' ? formatNumber(tiktokUser.likesCount) : '—'
-                  }
+                  value={formatNumber(tiktokProfileLikesValue)}
                   series={growthSparklineSeries.contentViews}
                   active={isCardSelected('contentViews')}
                   onClick={() => toggleStoryMetric('contentViews')}
@@ -2519,9 +2498,7 @@ export function FacebookAnalyticsView({
                   label="Public videos"
                   source="user.info (stats) · video_count"
                   color={COLOR.magenta}
-                  value={
-                    typeof tiktokUser?.videoCount === 'number' ? formatNumber(tiktokUser.videoCount) : '—'
-                  }
+                  value={formatNumber(tiktokPublicVideosValue)}
                   series={growthSparklineSeries.pageVisits}
                   active={isCardSelected('pageVisits')}
                   onClick={() => toggleStoryMetric('pageVisits')}
@@ -2531,9 +2508,8 @@ export function FacebookAnalyticsView({
                   label="Total video views"
                   source="video/list · view_count summed from synced videos (all-time)"
                   color={COLOR.amber}
-                  value={formatNumber(insights?.impressionsTotal ?? 0)}
+                  value={formatNumber(tiktokTotalVideoViewsValue)}
                   series={growthSparklineSeries.videoViews}
-                  footnote="Sparkline = views in selected range; headline = all-time synced total"
                   active={isCardSelected('videoViews')}
                   onClick={() => toggleStoryMetric('videoViews')}
                   tiktokApiHighlight
