@@ -98,7 +98,7 @@ type AppDataContextType = {
 const defaultNotifications: NotificationsCache = { inbox: 0, comments: 0, messages: 0 };
 
 const CACHE_KEY = 'appData_cache_v2';
-const CACHE_MAX_BYTES = 450000; // ~450KB to stay under sessionStorage quota
+const CACHE_MAX_BYTES = 4_000_000; // 4MB – localStorage supports 5-10MB; the old 450KB limit silently dropped all writes for users with many accounts
 
 /** Strip huge / debug fields so the dashboard cache actually fits in localStorage (else nothing saves). */
 function slimInsightsRecordForStorage(insights: CachedInsights): CachedInsights {

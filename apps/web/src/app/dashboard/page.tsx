@@ -282,7 +282,20 @@ export default function DashboardPage() {
   const [connectingMethod, setConnectingMethod] = useState<string | undefined>(undefined);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const [analyticsTab, setAnalyticsTab] = useState('account');
-  const [importedPosts, setImportedPosts] = useState<Array<{ id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; impressions: number; interactions: number; publishedAt: string; mediaType?: string | null; platform: string }>>([]);
+  const [importedPosts, setImportedPosts] = useState<Array<{ id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; impressions: number; interactions: number; publishedAt: string; mediaType?: string | null; platform: string }>>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const accountId = localStorage.getItem('agent4socials_selected_account_id');
+      if (!accountId) return [];
+      const raw = localStorage.getItem('appData_cache_v2');
+      if (!raw) return [];
+      const blob = JSON.parse(raw);
+      const posts = blob?.postsByAccountId?.[accountId];
+      return Array.isArray(posts) ? posts : [];
+    } catch {
+      return [];
+    }
+  });
   const [importedPostsLoading, setImportedPostsLoading] = useState(false);
   const [postsSyncError, setPostsSyncError] = useState<string | null>(null);
   const [allPostsSyncError, setAllPostsSyncError] = useState<string | null>(null);
@@ -320,7 +333,20 @@ export default function DashboardPage() {
     extra?: Record<string, number | number[] | Array<{ date: string; value: number }>>;
     tweetCount?: number;
     recentTweets?: Array<{ id: string; text: string; created_at: string | null; like_count: number; reply_count: number; retweet_count: number; impression_count: number }>;
-  } | null>(null);
+  } | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const accountId = localStorage.getItem('agent4socials_selected_account_id');
+      if (!accountId) return null;
+      const raw = localStorage.getItem('appData_cache_v2');
+      if (!raw) return null;
+      const blob = JSON.parse(raw);
+      const d = blob?.insightsByAccountId?.[accountId];
+      return d && typeof d === 'object' ? d : null;
+    } catch {
+      return null;
+    }
+  });
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [liveFbConversationsCount, setLiveFbConversationsCount] = useState<number | null>(null);
   const [liveFbConversationDates, setLiveFbConversationDates] = useState<string[] | null>(null);
