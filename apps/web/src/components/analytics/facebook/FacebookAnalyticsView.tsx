@@ -54,6 +54,9 @@ type StoryMode = 'views' | 'engagement' | 'growth';
 type StoryMetricKey = 'followers' | 'engagements' | 'videoViews' | 'contentViews' | 'pageVisits';
 type ActivityMetricKey = 'actions' | 'posts' | 'conversations';
 type EngagementMetricKey = 'likes' | 'comments' | 'shares' | 'reposts';
+
+/** Bottom → top stack order for the Engagement chart (must match `<Bar />` order). */
+const ENGAGEMENT_STACK_ORDER: readonly EngagementMetricKey[] = ['likes', 'comments', 'shares', 'reposts'];
 type TrafficMetricKey = 'postImpressions' | 'nonviral' | 'viral' | 'uniqueReachProxy';
 type ReelMetricKey = 'views' | 'watchTime' | 'avgWatch' | 'clicks' | 'likes' | 'comments' | 'shares' | 'reposts';
 type ReelPresetKey = 'performance' | 'engagement' | 'watch';
@@ -168,11 +171,6 @@ const TRAFFIC_METRIC_CONFIG: Record<TrafficMetricKey, { label: string; color: st
 const UNIFIED_BAR_SIZE = 22;
 const UNIFIED_BAR_GAP = -12;
 const UNIFIED_BAR_CATEGORY_GAP = 10;
-/** Engagement chart: space between calendar days; barGap between series on the same day. */
-const ENGAGEMENT_BAR_SIZE = 14;
-const ENGAGEMENT_BAR_GAP = 5;
-/** Wider gap between day columns so dense ranges do not visually merge (Recharts % of band). */
-const ENGAGEMENT_BAR_CATEGORY_GAP = '48%';
 
 const REEL_METRIC_CONFIG: Record<ReelMetricKey, { label: string; color: string }> = {
   views: { label: 'Total Video Views', color: COLOR.magenta },
@@ -2063,6 +2061,12 @@ export function FacebookAnalyticsView({
     () => [...engagementTicks].sort((a, b) => a.localeCompare(b)),
     [engagementTicks]
   );
+  const engagementStackTopKey = useMemo((): EngagementMetricKey | null => {
+    const selected = ENGAGEMENT_STACK_ORDER.filter((k) =>
+      k === 'reposts' ? isInstagram && selectedEngagementMetrics.includes(k) : selectedEngagementMetrics.includes(k)
+    );
+    return selected.length ? selected[selected.length - 1]! : null;
+  }, [isInstagram, selectedEngagementMetrics]);
   const operationalData = useMemo(() => {
     const actionsRaw = seriesToMap(actionsSeries ?? []);
     // Use per-day values for Actions so the line reflects daily fluctuation
@@ -2712,9 +2716,9 @@ export function FacebookAnalyticsView({
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={engagementData}
-                barCategoryGap={ENGAGEMENT_BAR_CATEGORY_GAP}
-                barGap={ENGAGEMENT_BAR_GAP}
-                margin={{ top: 4, right: 8, left: 0, bottom: 8 }}
+                barCategoryGap={UNIFIED_BAR_CATEGORY_GAP}
+                barGap={0}
+                margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                 <XAxis
@@ -2732,7 +2736,7 @@ export function FacebookAnalyticsView({
                   axisLine={false}
                   tickLine={false}
                 />
-                <YAxis domain={[0, (dataMax: number) => Math.max(4, Math.ceil((dataMax || 0) + 1))]} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis domain={[0, 'auto']} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                 <Tooltip
                   shared
                   cursor={{ fill: 'rgba(107,114,128,0.20)' }}
@@ -2744,16 +2748,44 @@ export function FacebookAnalyticsView({
                   labelFormatter={(l) => formatShortDate(String(l))}
                 />
                 {selectedEngagementMetrics.includes('likes') ? (
-                  <Bar dataKey="likes" fill={ENGAGEMENT_METRIC_CONFIG.likes.color} radius={[5, 5, 0, 0]} barSize={ENGAGEMENT_BAR_SIZE} />
+                  <Bar
+                    dataKey="likes"
+                    stackId="engagement"
+                    fill={ENGAGEMENT_METRIC_CONFIG.likes.color}
+                    radius={engagementStackTopKey === 'likes' ? [6, 6, 0, 0] : [0, 0, 0, 0]}
+                    barSize={UNIFIED_BAR_SIZE}
+                    shape={<MinWidthBarShape />}
+                  />
                 ) : null}
                 {selectedEngagementMetrics.includes('comments') ? (
-                  <Bar dataKey="comments" fill={ENGAGEMENT_METRIC_CONFIG.comments.color} radius={[5, 5, 0, 0]} barSize={ENGAGEMENT_BAR_SIZE} />
+                  <Bar
+                    dataKey="comments"
+                    stackId="engagement"
+                    fill={ENGAGEMENT_METRIC_CONFIG.comments.color}
+                    radius={engagementStackTopKey === 'comments' ? [6, 6, 0, 0] : [0, 0, 0, 0]}
+                    barSize={UNIFIED_BAR_SIZE}
+                    shape={<MinWidthBarShape />}
+                  />
                 ) : null}
                 {selectedEngagementMetrics.includes('shares') ? (
-                  <Bar dataKey="shares" fill={ENGAGEMENT_METRIC_CONFIG.shares.color} radius={[5, 5, 0, 0]} barSize={ENGAGEMENT_BAR_SIZE} />
+                  <Bar
+                    dataKey="shares"
+                    stackId="engagement"
+                    fill={ENGAGEMENT_METRIC_CONFIG.shares.color}
+                    radius={engagementStackTopKey === 'shares' ? [6, 6, 0, 0] : [0, 0, 0, 0]}
+                    barSize={UNIFIED_BAR_SIZE}
+                    shape={<MinWidthBarShape />}
+                  />
                 ) : null}
                 {isInstagram && selectedEngagementMetrics.includes('reposts') ? (
-                  <Bar dataKey="reposts" fill={ENGAGEMENT_METRIC_CONFIG.reposts.color} radius={[5, 5, 0, 0]} barSize={ENGAGEMENT_BAR_SIZE} />
+                  <Bar
+                    dataKey="reposts"
+                    stackId="engagement"
+                    fill={ENGAGEMENT_METRIC_CONFIG.reposts.color}
+                    radius={engagementStackTopKey === 'reposts' ? [6, 6, 0, 0] : [0, 0, 0, 0]}
+                    barSize={UNIFIED_BAR_SIZE}
+                    shape={<MinWidthBarShape />}
+                  />
                 ) : null}
               </BarChart>
             </ResponsiveContainer>
