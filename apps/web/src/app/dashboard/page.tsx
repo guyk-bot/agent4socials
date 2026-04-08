@@ -651,7 +651,7 @@ export default function DashboardPage() {
         insightsCacheRef.current[key] = d as (typeof insightsCacheRef.current)[string];
       }
     }
-  }, [accounts.map((a) => a.id).join(','), appData?.insightsByAccountId]);
+  }, [accounts.map((a) => a.id).join(','), appData?.cacheRehydrated]);
 
   // Single-account insights: when an account is selected. Load once; on date change refetch in place without clearing UI.
   // Use appDataRef so context updates (after setInsightsForAccount/setPostsForAccount) don't re-run this effect and cause a loading loop.
@@ -755,7 +755,12 @@ export default function DashboardPage() {
       setInsights(null);
       setInsightsLoading(true);
     } else {
-      setInsightsLoading(true);
+      // Only show loading if we genuinely have no cached data to display
+      // Check AppData cache as fallback before showing loading banner
+      const hasCachedDataToShow = Boolean(app?.getInsights(accountId));
+      if (!hasCachedDataToShow) {
+        setInsightsLoading(true);
+      }
     }
     if (!accountTabOwnsPosts) {
       const hasCachedPosts = postsCached !== undefined && postsCached !== null;
@@ -835,7 +840,7 @@ export default function DashboardPage() {
       }
     }
 
-  }, [analyticsTab, selectedAccount?.id, selectedAccount?.platform, dateRange.start, dateRange.end, syncAllTrigger, justConnected, appData?.prefetchStatus, appData?.insightsByAccountId, appData?.cacheRehydrated]);
+  }, [analyticsTab, selectedAccount?.id, selectedAccount?.platform, dateRange.start, dateRange.end, syncAllTrigger, justConnected, appData?.prefetchStatus, appData?.cacheRehydrated]);
 
   // Facebook Page reviews (pages_read_user_content)
   useEffect(() => {
