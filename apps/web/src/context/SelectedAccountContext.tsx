@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useLayoutEffect } from 'react';
 
 export type SocialAccount = { id: string; platform: string; username?: string; profilePicture?: string | null; [key: string]: unknown };
 
@@ -20,7 +20,8 @@ export function SelectedAccountProvider({ children }: { children: React.ReactNod
   const [selectedAccountId, setSelectedAccountIdState] = useState<string | null>(null);
   const [selectedPlatformForConnect, setSelectedPlatformForConnectState] = useState<string | null>(null);
 
-  useEffect(() => {
+  // Before paint so dashboard resolves selectedAccount on first client frame (refresh / client nav).
+  useLayoutEffect(() => {
     try {
       const id = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null;
       if (id) setSelectedAccountIdState(id);

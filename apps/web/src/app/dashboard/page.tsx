@@ -629,9 +629,9 @@ export default function DashboardPage() {
   const selectedAccountIdRef = useRef<string | null>(null);
   const aggregatedCacheRef = useRef<{ key: string; data: { totalFollowers: number; totalImpressions: number; totalReach: number; totalProfileViews: number; totalPageViews: number; byPlatform: Record<string, { followers: number; impressions: number; timeSeries: Array<{ date: string; value: number }> }>; combinedTimeSeries: Array<{ date: string; value: number }> } } | null>(null);
 
-  // Seed range cache + last-insights map from AppData prefetch so the first sidebar click (e.g. Instagram) can reuse data immediately.
+  // Seed range cache + last-insights from AppData as soon as it exists (localStorage rehydrate or prefetch), no need to wait for prefetchStatus.
   useEffect(() => {
-    if (appData?.prefetchStatus !== 'done' || !accounts.length) return;
+    if (!accounts.length) return;
     const app = appDataRef.current;
     if (!app) return;
     const def = getDefaultDateRange();
@@ -645,7 +645,7 @@ export default function DashboardPage() {
         insightsCacheRef.current[key] = d as (typeof insightsCacheRef.current)[string];
       }
     }
-  }, [appData?.prefetchStatus, accounts.map((a) => a.id).join(',')]);
+  }, [accounts.map((a) => a.id).join(','), appData?.insightsByAccountId]);
 
   // Single-account insights: when an account is selected. Load once; on date change refetch in place without clearing UI.
   // Use appDataRef so context updates (after setInsightsForAccount/setPostsForAccount) don't re-run this effect and cause a loading loop.
@@ -962,8 +962,17 @@ export default function DashboardPage() {
     return Object.entries(map).map(([date, value]) => ({ date, value })).sort((a, b) => a.date.localeCompare(b.date));
   }, [importedPosts]);
 
+  const cachedInsightsForSelected =
+    selectedAccount?.id && appData ? appData.getInsights(selectedAccount.id) : undefined;
+  /** Prefer React state; fall back to AppData cache on first paint after refresh or route mount so analytics does not flash empty. */
+  const displayInsights: typeof insights =
+    insights ??
+    (cachedInsightsForSelected && typeof cachedInsightsForSelected === 'object'
+      ? (cachedInsightsForSelected as NonNullable<typeof insights>)
+      : null);
+
   const hasFbOrIg = accounts.some((a) => a.platform === 'FACEBOOK' || a.platform === 'INSTAGRAM');
-  const reconnectCondition = hasFbOrIg && (insights?.insightsHint || postsSyncError || (allPostsSyncError && (allPostsSyncError.includes('Reconnect') || allPostsSyncError.includes('Session expired') || allPostsSyncError.includes('log back in'))));
+  const reconnectCondition = hasFbOrIg && (displayInsights?.insightsHint || postsSyncError || (allPostsSyncError && (allPostsSyncError.includes('Reconnect') || allPostsSyncError.includes('Session expired') || allPostsSyncError.includes('log back in'))));
   const autoSyncAttemptedRef = useRef(false);
 
   // Auto-sync when we would have shown the reconnect banner: refresh FB/IG accounts in background, then refetch data (no user button).
@@ -1050,25 +1059,25 @@ export default function DashboardPage() {
 
   const plat = selectedAccount ? aggregatedInsights?.byPlatform[selectedAccount.platform] : null;
   const effectiveFollowers = selectedAccount
-    ? Math.max(insights?.followers ?? 0, plat?.followers ?? 0)
+    ? Math.max(displayInsights?.followers ?? 0, plat?.followers ?? 0)
     : (aggregatedInsights?.totalFollowers ?? 0);
   const effectiveImpressions = selectedAccount
-    ? Math.max(insights?.impressionsTotal ?? 0, plat?.impressions ?? 0)
+    ? Math.max(displayInsights?.impressionsTotal ?? 0, plat?.impressions ?? 0)
     : (aggregatedInsights?.totalImpressions ?? 0);
   const isTwitter = selectedAccount?.platform === 'TWITTER';
-  const effectiveTweets = isTwitter ? (insights?.tweetCount ?? 0) : 0;
-  const recentTweets = isTwitter ? (insights?.recentTweets ?? []) : [];
+  const effectiveTweets = isTwitter ? (displayInsights?.tweetCount ?? 0) : 0;
+  const recentTweets = isTwitter ? (displayInsights?.recentTweets ?? []) : [];
   const effectiveTimeSeries = selectedAccount
-    ? ((insights?.impressionsTimeSeries?.length && insights.impressionsTimeSeries.some((d) => d.value > 0)) ? insights.impressionsTimeSeries : (plat?.timeSeries?.length ? plat.timeSeries : []))
+    ? ((displayInsights?.impressionsTimeSeries?.length && displayInsights.impressionsTimeSeries.some((d) => d.value > 0)) ? displayInsights.impressionsTimeSeries : (plat?.timeSeries?.length ? plat.timeSeries : []))
     : (aggregatedInsights?.combinedTimeSeries ?? []);
   const effectivePageVisits = selectedAccount
-    ? (insights?.pageViewsTotal ?? insights?.profileViewsTotal ?? aggregatedInsights?.totalPageViews ?? aggregatedInsights?.totalProfileViews ?? 0)
+    ? (displayInsights?.pageViewsTotal ?? displayInsights?.profileViewsTotal ?? aggregatedInsights?.totalPageViews ?? aggregatedInsights?.totalProfileViews ?? 0)
     : (aggregatedInsights?.totalPageViews ?? aggregatedInsights?.totalProfileViews ?? 0);
   const effectiveReach = selectedAccount
-    ? (insights?.reachTotal ?? aggregatedInsights?.totalReach ?? 0)
+    ? (displayInsights?.reachTotal ?? aggregatedInsights?.totalReach ?? 0)
     : (aggregatedInsights?.totalReach ?? 0);
   const effectiveProfileViews = selectedAccount
-    ? (insights?.profileViewsTotal ?? aggregatedInsights?.totalProfileViews ?? 0)
+    ? (displayInsights?.profileViewsTotal ?? aggregatedInsights?.totalProfileViews ?? 0)
     : (aggregatedInsights?.totalProfileViews ?? 0);
   // For selected accounts, keep analytics in explicit loading state while a new range is fetching.
   // This avoids rendering a brief mixed old/new graph during date-range switches.
@@ -1090,7 +1099,7 @@ export default function DashboardPage() {
           ? [{ date: startDate, value: effectiveImpressions }, { date: endDate, value: effectiveImpressions }]
           : [];
   // Followers chart: use its own series. When we have no historical data, show flat line at current count (including 0) so X matches IG/FB.
-  const followersTimeSeries = (insights as { followersTimeSeries?: Array<{ date: string; value: number }> })?.followersTimeSeries;
+  const followersTimeSeries = (displayInsights as { followersTimeSeries?: Array<{ date: string; value: number }> })?.followersTimeSeries;
   const displayFollowersTimeSeries =
     followersTimeSeries?.length
       ? followersTimeSeries
@@ -1105,7 +1114,7 @@ export default function DashboardPage() {
   /** Full-page analytics skeleton until first insights load for selected account; keeps scroll and layout stable. */
   const analyticsLoadingOnly = Boolean(
     selectedAccount &&
-    (justConnected || (insights == null && (insightsLoading || importedPostsLoading)))
+    (justConnected || (displayInsights == null && (insightsLoading || importedPostsLoading)))
   );
   const showDataSyncBanner = Boolean(
     justConnected ||
@@ -1330,25 +1339,25 @@ export default function DashboardPage() {
                 reachTotal: effectiveReach,
                 profileViewsTotal: effectiveProfileViews,
                 followersTimeSeries: displayFollowersTimeSeries,
-                ...(insights && {
-                  insightsHint: insights.insightsHint,
-                  followingCount: (insights as { followingCount?: number }).followingCount,
-                  followingTimeSeries: (insights as { followingTimeSeries?: Array<{ date: string; value: number }> }).followingTimeSeries,
-                  growthTimeSeries: insights.growthTimeSeries as Array<{ date: string; gained: number; lost: number; net?: number }> | undefined,
-                  pageViewsTimeSeries: (insights as { pageViewsTimeSeries?: Array<{ date: string; value: number }> }).pageViewsTimeSeries,
-                  demographics: insights.demographics,
-                  audienceByCountry: (insights as { audienceByCountry?: FacebookInsights['audienceByCountry'] }).audienceByCountry,
-                  firstConnectedAt: (insights as { firstConnectedAt?: string | null }).firstConnectedAt,
-                  isBootstrap: (insights as { isBootstrap?: boolean }).isBootstrap,
-                  facebookPageMetricSeries: (insights as { facebookPageMetricSeries?: Record<string, Array<{ date: string; value: number }>> }).facebookPageMetricSeries,
-                  facebookInsightPersistence: (insights as { facebookInsightPersistence?: { dailyRowsUpserted: number } }).facebookInsightPersistence,
-                  facebookAnalytics: (insights as { facebookAnalytics?: FacebookFrontendAnalyticsBundle }).facebookAnalytics,
-                  facebookPageProfile: (insights as { facebookPageProfile?: import('@/components/analytics/facebook/types').FacebookInsights['facebookPageProfile'] }).facebookPageProfile,
-                  facebookCommunity: (insights as { facebookCommunity?: import('@/components/analytics/facebook/types').FacebookInsights['facebookCommunity'] }).facebookCommunity,
-                  accountsEngaged: (insights as { accountsEngaged?: number }).accountsEngaged,
-                  instagramAccountVideoViewsTotal: (insights as { instagramAccountVideoViewsTotal?: number }).instagramAccountVideoViewsTotal,
-                  tiktokUser: (insights as { tiktokUser?: import('@/components/analytics/facebook/types').FacebookInsights['tiktokUser'] }).tiktokUser,
-                  tiktokCreatorInfo: (insights as { tiktokCreatorInfo?: import('@/components/analytics/facebook/types').FacebookInsights['tiktokCreatorInfo'] }).tiktokCreatorInfo,
+                ...(displayInsights && {
+                  insightsHint: displayInsights.insightsHint,
+                  followingCount: (displayInsights as { followingCount?: number }).followingCount,
+                  followingTimeSeries: (displayInsights as { followingTimeSeries?: Array<{ date: string; value: number }> }).followingTimeSeries,
+                  growthTimeSeries: displayInsights.growthTimeSeries as Array<{ date: string; gained: number; lost: number; net?: number }> | undefined,
+                  pageViewsTimeSeries: (displayInsights as { pageViewsTimeSeries?: Array<{ date: string; value: number }> }).pageViewsTimeSeries,
+                  demographics: displayInsights.demographics,
+                  audienceByCountry: (displayInsights as { audienceByCountry?: FacebookInsights['audienceByCountry'] }).audienceByCountry,
+                  firstConnectedAt: (displayInsights as { firstConnectedAt?: string | null }).firstConnectedAt,
+                  isBootstrap: (displayInsights as { isBootstrap?: boolean }).isBootstrap,
+                  facebookPageMetricSeries: (displayInsights as { facebookPageMetricSeries?: Record<string, Array<{ date: string; value: number }>> }).facebookPageMetricSeries,
+                  facebookInsightPersistence: (displayInsights as { facebookInsightPersistence?: { dailyRowsUpserted: number } }).facebookInsightPersistence,
+                  facebookAnalytics: (displayInsights as { facebookAnalytics?: FacebookFrontendAnalyticsBundle }).facebookAnalytics,
+                  facebookPageProfile: (displayInsights as { facebookPageProfile?: import('@/components/analytics/facebook/types').FacebookInsights['facebookPageProfile'] }).facebookPageProfile,
+                  facebookCommunity: (displayInsights as { facebookCommunity?: import('@/components/analytics/facebook/types').FacebookInsights['facebookCommunity'] }).facebookCommunity,
+                  accountsEngaged: (displayInsights as { accountsEngaged?: number }).accountsEngaged,
+                  instagramAccountVideoViewsTotal: (displayInsights as { instagramAccountVideoViewsTotal?: number }).instagramAccountVideoViewsTotal,
+                  tiktokUser: (displayInsights as { tiktokUser?: import('@/components/analytics/facebook/types').FacebookInsights['tiktokUser'] }).tiktokUser,
+                  tiktokCreatorInfo: (displayInsights as { tiktokCreatorInfo?: import('@/components/analytics/facebook/types').FacebookInsights['tiktokCreatorInfo'] }).tiktokCreatorInfo,
                   ...((selectedAccount.platform === 'FACEBOOK' || selectedAccount.platform === 'INSTAGRAM') && liveFbConversationsCount != null ? { facebookLiveConversationsCount: liveFbConversationsCount } : {}),
                   ...((selectedAccount.platform === 'FACEBOOK' || selectedAccount.platform === 'INSTAGRAM') && liveFbConversationDates != null ? { facebookLiveConversationDates: liveFbConversationDates } : {}),
                 }),
@@ -1407,7 +1416,7 @@ export default function DashboardPage() {
             followersLabel={selectedAccount.platform === 'YOUTUBE' ? 'Subscribers' : 'Followers'}
             accountAvatarUrl={selectedAccount.profilePicture ?? null}
             accountUsername={selectedAccount.username ?? null}
-            hasApiInsightsFetched={insights != null}
+            hasApiInsightsFetched={displayInsights != null}
           />
         </div>
       )}
