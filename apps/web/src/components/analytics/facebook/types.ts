@@ -118,6 +118,8 @@ export interface FacebookPost {
   repostsCount?: number;
   /** Post lifetime insights from sync (registry-valid metrics only). */
   facebookInsights?: Record<string, number>;
+  /** From `ImportedPost.platformMetadata` when present (e.g. Facebook `status_type` for reel vs photo). */
+  platformMetadata?: unknown;
   /** Edge summaries + scalar totals for quick UI (Facebook only). */
   engagementBreakdown?: {
     reactions: number;

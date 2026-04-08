@@ -725,6 +725,7 @@ export async function GET(
         publishedAt: p.publishedAt instanceof Date ? p.publishedAt.toISOString() : String(p.publishedAt),
         mediaType: p.mediaType,
         platform: p.platform,
+        ...(p.platformMetadata != null ? { platformMetadata: p.platformMetadata } : {}),
         ...(facebookInsights && Object.keys(facebookInsights).length > 0 ? { facebookInsights } : {}),
         ...(p.platform === 'FACEBOOK' || p.platform === 'PINTEREST' || p.platform === 'INSTAGRAM'
           ? {
