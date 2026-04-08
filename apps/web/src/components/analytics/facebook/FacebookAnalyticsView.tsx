@@ -354,10 +354,13 @@ function normalizeTotalWatchMs(raw: number, views: number, avgWatchMs: number): 
 
 function getWatchTimes(post: FacebookPost): { watchTimeMs: number; avgWatchMs: number } {
   const fi = (post.facebookInsights ?? {}) as Record<string, unknown>;
-  const avgWatchMs = normalizeAvgWatchMs(toFiniteNumber(fi.post_video_avg_time_watched));
+  let avgWatchMs = normalizeAvgWatchMs(toFiniteNumber(fi.post_video_avg_time_watched));
   const views = Math.max(0, bestPostPlayCount(post));
   const totalWatchRaw = normalizeTotalWatchMs(toFiniteNumber(fi.post_video_view_time), views, avgWatchMs);
   if (totalWatchRaw > 0) {
+    if (avgWatchMs <= 0 && views > 0) {
+      avgWatchMs = totalWatchRaw / views;
+    }
     return { watchTimeMs: totalWatchRaw, avgWatchMs };
   }
   // Fallback when API sends only avg watch metric.

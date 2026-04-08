@@ -56,18 +56,21 @@ async function resolveFacebookPageAccessToken(pageId: string, token: string): Pr
   }
 }
 
-/** Only skip live Graph when cached daily rows actually contain non-zero Page insight signal (not just empty/zeroed rows). */
-const FB_DAILY_SIGNAL_KEYS = new Set([
+/**
+ * Keys that justify skipping a live Graph fetch when present with positive values in `facebookPageInsightDaily`.
+ * Excludes `page_video_views`: cron or partial sync often persists video views alone, which would skip live fetch
+ * and leave page_media_view, page_views_total, engagements, and post-level traffic metrics stuck at zero.
+ */
+const FB_DAILY_SKIP_LIVE_FETCH_KEYS = new Set([
   'page_impressions',
   'page_media_view',
   'page_views_total',
   'page_post_engagements',
-  'page_video_views',
 ]);
 
 function fbDailyRowsHavePositiveCoreSignal(daily: Array<{ metricKey: string; value: unknown }>): boolean {
   for (const row of daily) {
-    if (!FB_DAILY_SIGNAL_KEYS.has(row.metricKey)) continue;
+    if (!FB_DAILY_SKIP_LIVE_FETCH_KEYS.has(row.metricKey)) continue;
     const v = typeof row.value === 'number' ? row.value : Number(row.value);
     if (Number.isFinite(v) && v > 0) return true;
   }
@@ -1222,6 +1225,10 @@ export async function GET(
             'page_total_actions',
             'page_fan_adds',
             'page_fan_removes',
+            /** Traffic tab: page-level post impressions (distinct from per-post insights in the UI). */
+            'page_posts_impressions',
+            'page_posts_impressions_nonviral',
+            'page_posts_impressions_viral',
           ];
           type FbInsightRow = { name: string; values?: Array<{ value: number | string; end_time?: string }> };
           const rows: FbInsightRow[] = [];
