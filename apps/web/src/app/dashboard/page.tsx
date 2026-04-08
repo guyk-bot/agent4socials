@@ -747,11 +747,24 @@ export default function DashboardPage() {
       lastInsightsByAccountIdRef.current[accountId] = staleForAccount;
       setInsights(staleForAccount as NonNullable<Parameters<typeof setInsights>[0]>);
       if (userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, staleForAccount);
+      // When we have stale data, don't show loading state - refresh silently in background
+      setInsightsLoading(false);
     } else if (!isSameAccount && prevAccountId !== null) {
       setInsights(null);
+      setInsightsLoading(true);
+    } else {
+      setInsightsLoading(true);
     }
-    setInsightsLoading(true);
-    if (!accountTabOwnsPosts) setImportedPostsLoading(true);
+    if (!accountTabOwnsPosts) {
+      const hasCachedPosts = postsCached !== undefined && postsCached !== null;
+      if (hasCachedPosts) {
+        setImportedPosts(postsCached);
+        setImportedPostsLoading(false);
+      } else {
+        setImportedPostsLoading(true);
+      }
+    }
+
 
     // Fetch insights; optional fast posts only when not on per-account analytics (single owner for posts there).
     const insightsPromise = api.get(`/social/accounts/${accountId}/insights`, {
@@ -791,20 +804,33 @@ export default function DashboardPage() {
           if (data && userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, data);
         }
       })
-      .catch(() => { if (selectedAccountIdRef.current === accountId && !isSameAccount) setInsights(null); })
-      .finally(() => setInsightsLoading(false));
+      .catch(() => { 
+        // Keep stale insights on error; only clear if we had no data at all
+        if (selectedAccountIdRef.current === accountId && !staleForAccount && !isSameAccount) setInsights(null); 
+      })
+      .finally(() => {
+        // Only clear loading when we had no cached data to begin with
+        if (!staleForAccount) setInsightsLoading(false);
+      });
+
 
     if (!accountTabOwnsPosts) {
-      const fastPostsPromise = api.get(`/social/accounts/${accountId}/posts`);
-      fastPostsPromise
-        .then((postsRes) => {
-          const list = postsRes.data?.posts ?? [];
-          postsCacheRef.current[accountId] = list;
-          appDataRef.current?.setPostsForAccount(accountId, list);
-          if (selectedAccountIdRef.current === accountId) setImportedPosts(list);
-        })
-        .catch(() => {})
-        .finally(() => setImportedPostsLoading(false));
+      if (postsCached !== undefined && postsCached !== null) {
+        // Have cached posts, use them immediately
+        setImportedPosts(postsCached);
+      } else {
+        // Fetch posts in background
+        const fastPostsPromise = api.get(`/social/accounts/${accountId}/posts`);
+        fastPostsPromise
+          .then((postsRes) => {
+            const list = postsRes.data?.posts ?? [];
+            postsCacheRef.current[accountId] = list;
+            appDataRef.current?.setPostsForAccount(accountId, list);
+            if (selectedAccountIdRef.current === accountId) setImportedPosts(list);
+          })
+          .catch(() => {})
+          .finally(() => setImportedPostsLoading(false));
+      }
     }
 
   }, [analyticsTab, selectedAccount?.id, selectedAccount?.platform, dateRange.start, dateRange.end, syncAllTrigger, justConnected, appData?.prefetchStatus, appData?.insightsByAccountId]);
