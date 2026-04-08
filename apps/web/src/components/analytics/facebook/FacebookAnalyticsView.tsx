@@ -2001,6 +2001,10 @@ export function FacebookAnalyticsView({
 
   const avgPostsPerWeek = postsInRange.length / Math.max(1, dateAxis.length / 7);
   const avgClicksPerPost = postsRows.reduce((s, r) => s + r.clicks, 0) / Math.max(1, postsRows.length);
+  const avgInteractionsPerPost = postsInRange.reduce((sum, post) => {
+    if (isInstagram) return sum + bestInstagramInteractionCount(post);
+    return sum + bestCount(post.facebookInsights?.post_reactions_like_total, post.likeCount) + (post.facebookInsights?.post_comments ?? post.commentsCount ?? 0) + bestShareCount(post) + (post.repostsCount ?? post.facebookInsights?.post_shares ?? 0);
+  }, 0) / Math.max(1, postsInRange.length);
   const avgReactionsPerPost = postsRows.reduce((s, r) => s + r.reactionsTotal, 0) / Math.max(1, postsRows.length);
   const totalReelWatchTimeMs = postsRows.filter((r) => r.type === 'Reel').reduce((s, r) => s + r.watchTimeMs, 0);
   const reelClicks = reelsRows.reduce((s, r) => (
@@ -3068,14 +3072,14 @@ export function FacebookAnalyticsView({
           <div>
             <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Posts</h2>
           </div>
-          <div className={`grid gap-4 sm:grid-cols-2 ${isInstagram ? 'xl:grid-cols-3' : ''}`}>
+          <div className={`grid gap-4 sm:grid-cols-2 ${(isInstagram || isFacebook) ? 'xl:grid-cols-3' : ''}`}>
             <MetricCard label="Total Posts" source="Derived from posts in date range" color={COLOR.text} value={formatNumber(postsInRange.length)} />
-            {isInstagram && (
+            {(isInstagram || isFacebook) && (
               <MetricCard
                 label="Avg interactions per post"
-                source="likes + comments + shares + reposts"
+                source={isInstagram ? 'likes + comments + shares + reposts' : 'likes + comments + shares + reposts (post-level)'}
                 color={COLOR.text}
-                value={avgClicksPerPost.toFixed(1)}
+                value={avgInteractionsPerPost.toFixed(1)}
               />
             )}
             <MetricCard label="Avg Reactions per Post" source="post_reactions_like_total / breakdown" color={COLOR.text} value={avgReactionsPerPost.toFixed(1)} />
