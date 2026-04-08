@@ -340,7 +340,7 @@ export default function DashboardPage() {
       if (!accountId) return null;
       // Try per-account localStorage first (most reliable, written on every successful fetch)
       const perAccount = readInsightsFromLocalStorage(accountId);
-      if (perAccount) return perAccount as NonNullable<typeof insights>;
+      if (perAccount) return perAccount as Record<string, unknown>;
       // Fall back to AppDataContext blob
       const raw = localStorage.getItem('appData_cache_v2');
       if (!raw) return null;
