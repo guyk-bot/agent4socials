@@ -86,8 +86,10 @@ export function PlatformOverviewTab({
     let prevFollowers = followers;
     return sorted.map((date) => {
       const f = displayFollowersSeries.find((x) => x.date === date)?.value;
-      if (f !== undefined) prevFollowers = f;
-      return { date, followers: f ?? prevFollowers };
+      // Treat 0 as bad data when we previously saw a real follower count (carry forward)
+      const value = (f === 0 && prevFollowers > 0) ? prevFollowers : (f ?? prevFollowers);
+      if (value > 0) prevFollowers = value;
+      return { date, followers: value };
     });
   }, [displayFollowersSeries, followers]);
 
