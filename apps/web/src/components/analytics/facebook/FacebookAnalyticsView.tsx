@@ -458,6 +458,21 @@ function bestInstagramInteractionCount(p: FacebookPost): number {
   return Math.max(fromMetric, fromParts);
 }
 
+/** Unified post interaction count for social dashboards. */
+function bestPostInteractionCount(p: FacebookPost): number {
+  const platform = String(p.platform ?? '').toUpperCase();
+  const fi = p.facebookInsights ?? {};
+  const fromParts =
+    bestCount(fi.post_reactions_like_total, p.likeCount) +
+    (fi.post_comments ?? p.commentsCount ?? 0) +
+    bestShareCount(p) +
+    (p.repostsCount ?? fi.post_shares ?? 0);
+
+  if (platform === 'INSTAGRAM') return Math.max(bestInstagramInteractionCount(p), fromParts);
+  if (platform === 'FACEBOOK') return fromParts;
+  return fi.post_clicks ?? 0;
+}
+
 /** Sum of reel/video post plays in range; Page `page_video_views` often disagrees with what you see on each reel. */
 function sumPostLevelVideoPlays(posts: FacebookPost[]): number {
   return posts.reduce((s, p) => {
@@ -1917,10 +1932,7 @@ export function FacebookAnalyticsView({
         permalink: p.permalinkUrl,
         views: bestPostPlayCount(p),
         uniqueReach: fi.post_impressions_unique ?? 0,
-        clicks:
-          p.platform === 'INSTAGRAM'
-            ? bestInstagramInteractionCount(p)
-            : (fi.post_clicks ?? 0),
+        clicks: bestPostInteractionCount(p),
         likes: bestCount(fi.post_reactions_like_total, p.likeCount),
         reactionsTotal: reactions || bestCount(fi.post_reactions_like_total, p.likeCount),
         watchTimeMs,
@@ -2163,10 +2175,7 @@ export function FacebookAnalyticsView({
         permalink: p.permalinkUrl,
         views: bestPostPlayCount(p),
         uniqueReach: fi.post_impressions_unique ?? 0,
-        clicks:
-          p.platform === 'INSTAGRAM'
-            ? (fi.instagram_total_interactions ?? fi.post_clicks ?? 0)
-            : (fi.post_clicks ?? 0),
+        clicks: bestPostInteractionCount(p),
         likes: fi.post_reactions_like_total ?? p.likeCount ?? 0,
         reactionsTotal: reactions || (fi.post_reactions_like_total ?? p.likeCount ?? 0),
         watchTimeMs,
@@ -3061,9 +3070,9 @@ export function FacebookAnalyticsView({
             <MetricCard label="Avg Reactions per Post" source="post_reactions_like_total / breakdown" color={COLOR.text} value={avgReactionsPerPost.toFixed(1)} />
           </div>
           <TopContentHighlights
-            clicksLeaderTitle={isInstagram ? 'Interactions leaders' : 'Clicks leaders'}
-            clicksMetricLabel={isInstagram ? 'Interactions' : 'Clicks'}
-            hideClicksColumn={!isInstagram}
+            clicksLeaderTitle={(isInstagram || isFacebook) ? 'Interactions leaders' : 'Clicks leaders'}
+            clicksMetricLabel={(isInstagram || isFacebook) ? 'Interactions' : 'Clicks'}
+            hideClicksColumn={!(isInstagram || isFacebook)}
             byViews={topByViews.map((p) => ({
               id: p.id,
               preview: p.preview,
