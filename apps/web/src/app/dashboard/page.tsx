@@ -11,6 +11,7 @@ import { useAppData, getDefaultDateRange } from '@/context/AppDataContext';
 import { useSelectedAccount, useResolvedSelectedAccount } from '@/context/SelectedAccountContext';
 import type { SocialAccount } from '@/context/SelectedAccountContext';
 import api from '@/lib/api';
+import { readDashboardInsightsSession, writeDashboardInsightsSession } from '@/lib/dashboard-insights-session-cache';
 import {
   localCalendarDateFromIso,
   toLocalCalendarDate,
@@ -264,6 +265,8 @@ export default function DashboardPage() {
   /** Stable ref so effects do not re-run on every AppDataProvider render (prefetch updates replace context value). */
   const appDataRef = useRef(appData);
   appDataRef.current = appData;
+  const userIdRef = useRef<string | undefined>(undefined);
+  userIdRef.current = user?.id;
   const { selectedPlatformForConnect, clearSelection, setSelectedAccountId, setSelectedPlatformForConnect } = useSelectedAccount() ?? { selectedPlatformForConnect: null, clearSelection: () => {}, setSelectedAccountId: () => {}, setSelectedPlatformForConnect: () => {} };
   const selectedAccount = useResolvedSelectedAccount(cachedAccounts as SocialAccount[]);
   const [justConnected, setJustConnected] = useState(false);
@@ -681,6 +684,7 @@ export default function DashboardPage() {
     if (exactCached) {
       lastInsightsByAccountIdRef.current[accountId] = exactCached as Record<string, unknown>;
       setInsights(exactCached as NonNullable<Parameters<typeof setInsights>[0]>);
+      if (userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, exactCached);
       setInsightsLoading(false);
       let runInsightsSwr = true;
       if (skipInstagramAutoRefresh) {
@@ -704,7 +708,10 @@ export default function DashboardPage() {
             insightsCacheRef.current[cacheKey] = data;
             lastInsightsByAccountIdRef.current[accountId] = data as Record<string, unknown>;
             appDataRef.current?.setInsightsForAccount(accountId, data);
-            if (selectedAccountIdRef.current === accountId) setInsights(data);
+            if (selectedAccountIdRef.current === accountId) {
+              setInsights(data);
+              if (userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, data);
+            }
           })
           .catch(() => {});
       }
@@ -733,6 +740,7 @@ export default function DashboardPage() {
     if (staleForAccount) {
       lastInsightsByAccountIdRef.current[accountId] = staleForAccount;
       setInsights(staleForAccount as NonNullable<Parameters<typeof setInsights>[0]>);
+      if (userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, staleForAccount);
     } else if (!isSameAccount && prevAccountId !== null) {
       setInsights(null);
     }
@@ -768,7 +776,10 @@ export default function DashboardPage() {
           lastInsightsByAccountIdRef.current[accountId] = data as Record<string, unknown>;
           appDataRef.current?.setInsightsForAccount(accountId, data);
         }
-        if (selectedAccountIdRef.current === accountId) setInsights(data);
+        if (selectedAccountIdRef.current === accountId) {
+          setInsights(data);
+          if (data && userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, data);
+        }
       })
       .catch(() => { if (selectedAccountIdRef.current === accountId && !isSameAccount) setInsights(null); })
       .finally(() => setInsightsLoading(false));
@@ -964,11 +975,16 @@ export default function DashboardPage() {
 
   const cachedInsightsForSelected =
     selectedAccount?.id && appData ? appData.getInsights(selectedAccount.id) : undefined;
-  /** Prefer React state; fall back to AppData cache on first paint after refresh or route mount so analytics does not flash empty. */
+  const sessionInsightsForSelected =
+    selectedAccount?.id && user?.id ? readDashboardInsightsSession(user.id, selectedAccount.id) : null;
+  /** Prefer React state; fall back to AppData cache; then sessionStorage backup (survives when AppData blob is skipped). */
   const displayInsights: typeof insights =
     insights ??
     (cachedInsightsForSelected && typeof cachedInsightsForSelected === 'object'
       ? (cachedInsightsForSelected as NonNullable<typeof insights>)
+      : null) ??
+    (sessionInsightsForSelected && typeof sessionInsightsForSelected === 'object'
+      ? (sessionInsightsForSelected as NonNullable<typeof insights>)
       : null);
 
   const hasFbOrIg = accounts.some((a) => a.platform === 'FACEBOOK' || a.platform === 'INSTAGRAM');
@@ -1392,7 +1408,10 @@ export default function DashboardPage() {
                     insightsCacheRef.current[cacheKey] = nextInsights;
                     lastInsightsByAccountIdRef.current[aid] = nextInsights as Record<string, unknown>;
                     appDataRef.current?.setInsightsForAccount(aid, nextInsights);
-                    if (selectedAccountIdRef.current === aid) setInsights(nextInsights);
+                    if (selectedAccountIdRef.current === aid) {
+                      setInsights(nextInsights);
+                      if (userIdRef.current) writeDashboardInsightsSession(userIdRef.current, aid, nextInsights);
+                    }
                   }
                 } catch {
                   // Keep current insights if refresh fails.

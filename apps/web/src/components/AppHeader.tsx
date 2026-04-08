@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { MessageCircle, PlusSquare, Calendar, Menu, PanelLeft, PanelLeftClose, Link2, Sun, Moon } from 'lucide-react';
+import { MessageCircle, PlusSquare, Calendar, Menu, PanelLeft, PanelLeftClose, Link2, Sun, Moon, TrendingUp } from 'lucide-react';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useAppData } from '@/context/AppDataContext';
@@ -15,6 +15,7 @@ export const topNavItems = [
   { icon: PlusSquare, label: 'Composer', href: '/composer' },
   { icon: Calendar, label: 'Calendar', href: '/calendar' },
   { icon: Link2, label: 'Smart Links', href: '/dashboard/smart-links' },
+  { icon: TrendingUp, label: 'Trending', href: '/dashboard/trending' },
 ];
 
 type AppHeaderProps = {

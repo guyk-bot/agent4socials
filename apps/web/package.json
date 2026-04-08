@@ -12,7 +12,8 @@
     "test:instagram-media": "node scripts/test-instagram-media.mjs",
     "validate-meta-token": "node scripts/validate-meta-token.mjs",
     "validate:facebook-pipeline": "npx tsx scripts/facebook-pipeline-validation.ts",
-    "generate-favicons": "node scripts/generate-favicons.cjs"
+    "generate-favicons": "node scripts/generate-favicons.cjs",
+    "niche-trends:cron": "node scripts/niche-trends-cron.cjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.989.0",
@@ -29,6 +30,7 @@
     "form-data": "^4.0.5",
     "lucide-react": "^0.563.0",
     "next": "16.1.6",
+    "node-cron": "^4.2.1",
     "oauth-1.0a": "^2.2.6",
     "prisma": "^5.22.0",
     "react": "19.2.3",
@@ -46,6 +48,7 @@
     "@tailwindcss/postcss": "^4",
     "@types/jest": "^30.0.0",
     "@types/node": "^20.19.33",
+    "@types/node-cron": "^3.0.11",
     "@types/react": "^19.2.13",
     "@types/react-dom": "^19.2.3",
     "eslint": "^9",

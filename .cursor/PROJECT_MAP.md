@@ -20,6 +20,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | Insights JSON for dashboard | `apps/web/src/app/api/social/accounts/[id]/insights/route.ts` |
 | Facebook / IG analytics UI (posts table, reels, charts) | `apps/web/src/components/analytics/facebook/FacebookAnalyticsView.tsx`, `types.ts` |
 | Dashboard home, posts table, sync button | `apps/web/src/app/dashboard/page.tsx` |
+| Viral Trend Radar (YouTube outliers), Trending nav | `apps/web/src/app/dashboard/trending/page.tsx`, `apps/web/src/lib/trends/youtube-sweep.ts`, `apps/web/src/app/api/cron/niche-trends/route.ts`, `apps/web/src/app/api/trends/outliers/route.ts` |
 | OAuth connect, accounts CRUD | `apps/web/src/app/api/social/oauth/`, `apps/web/src/app/api/social/accounts/`, `ConnectView.tsx` |
 | Pinterest token | `apps/web/src/lib/pinterest-token.ts` |
 | Inbox | `apps/web/src/app/dashboard/inbox/page.tsx`, `api/social/accounts/[id]/conversations/`, `comments/` |

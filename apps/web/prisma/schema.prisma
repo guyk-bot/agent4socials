@@ -405,3 +405,28 @@ model SyncJob {
   @@index([socialAccountId, createdAt])
   @@map("sync_jobs")
 }
+
+/// Viral Trend Radar: YouTube outlier candidates per niche keyword (cron-filled).
+enum NicheVideoType {
+  short
+  long
+}
+
+model NicheTrend {
+  id               String         @id @default(cuid())
+  nicheName        String         @map("niche_name")
+  videoId          String         @unique @map("video_id")
+  title            String
+  thumbnailUrl     String         @map("thumbnail_url")
+  viewCount        BigInt         @map("view_count")
+  subscriberCount  BigInt         @map("subscriber_count")
+  performanceRatio Float          @map("performance_ratio")
+  videoType        NicheVideoType @map("video_type")
+  publishedAt      DateTime       @map("published_at")
+  lastUpdated      DateTime       @default(now()) @map("last_updated")
+
+  @@index([nicheName])
+  @@index([nicheName, lastUpdated])
+  @@index([performanceRatio(sort: Desc)])
+  @@map("niche_trends")
+}
