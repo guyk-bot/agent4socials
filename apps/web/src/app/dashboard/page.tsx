@@ -1172,13 +1172,14 @@ export default function DashboardPage() {
   const maxImpressions = displayTimeSeries.length ? Math.max(...displayTimeSeries.map((d) => d.value), 1) : 1;
   const showViewsHint = hasFbOrIg && effectiveFollowers > 0 && effectiveImpressions === 0 && !effectiveTimeSeries.some((d) => d.value > 0) && (selectedAccount?.platform === 'INSTAGRAM' || !selectedAccount);
   const showTikTokFollowersHint = selectedAccount?.platform === 'TIKTOK' && effectiveFollowers === 0 && effectiveImpressions > 0;
-  /** Full-page analytics skeleton until first insights load for selected account; keeps scroll and layout stable. */
+  /** Full-page analytics skeleton: only when actively loading AND no cached data to show. */
   const analyticsLoadingOnly = Boolean(
     selectedAccount &&
-    !displayInsights // If we have ANY cached insights to display, never show loading
+    !displayInsights &&
+    (insightsLoading || importedPostsLoading || justConnected)
   );
   const showDataSyncBanner = Boolean(
-    !displayInsights && justConnected // Only show banner when truly no data + just connected
+    analyticsLoadingOnly || (justConnected && !displayInsights)
   );
   function openPricingPopup() {
     setPricingModalOpen(true);
