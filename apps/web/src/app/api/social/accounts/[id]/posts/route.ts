@@ -195,56 +195,77 @@ function isMissingImportedPostPlatformMetadataColumn(error: unknown): boolean {
   return e?.code === 'P2022' && (msg.includes('importedpost.platformmetadata') || msg.includes('platformmetadata') || col.includes('platformmetadata'));
 }
 
+/** Deploys before migration `20260408153000_imported_post_saves_count` have no column; Prisma P2022 would 500 the whole posts list. */
+function isMissingImportedPostSavesCountColumn(error: unknown): boolean {
+  const e = error as { code?: string; message?: string; meta?: { column?: string } };
+  const msg = (e?.message ?? '').toLowerCase();
+  const col = (e?.meta?.column ?? '').toLowerCase();
+  return e?.code === 'P2022' && (msg.includes('savescount') || col.includes('savescount'));
+}
+
+const IMPORTED_POST_LIST_SELECT_CORE = {
+  id: true,
+  platformPostId: true,
+  platform: true,
+  content: true,
+  thumbnailUrl: true,
+  permalinkUrl: true,
+  impressions: true,
+  interactions: true,
+  likeCount: true,
+  commentsCount: true,
+  repostsCount: true,
+  sharesCount: true,
+  publishedAt: true,
+  mediaType: true,
+} as const;
+
 async function listImportedPostsSafe(socialAccountId: string): Promise<ImportedPostListRow[]> {
+  const base = { where: { socialAccountId }, orderBy: { publishedAt: 'desc' as const }, take: 500 };
+
   try {
     return await prisma.importedPost.findMany({
-      where: { socialAccountId },
-      orderBy: { publishedAt: 'desc' },
-      take: 500,
-      select: {
-        id: true,
-        platformPostId: true,
-        platform: true,
-        content: true,
-        thumbnailUrl: true,
-        permalinkUrl: true,
-        impressions: true,
-        interactions: true,
-        likeCount: true,
-        commentsCount: true,
-        repostsCount: true,
-        sharesCount: true,
-        savesCount: true,
-        publishedAt: true,
-        mediaType: true,
-        platformMetadata: true,
-      },
+      ...base,
+      select: { ...IMPORTED_POST_LIST_SELECT_CORE, savesCount: true, platformMetadata: true },
     });
   } catch (e) {
-    if (!isMissingImportedPostPlatformMetadataColumn(e)) throw e;
-    const rows = await prisma.importedPost.findMany({
-      where: { socialAccountId },
-      orderBy: { publishedAt: 'desc' },
-      take: 500,
-      select: {
-        id: true,
-        platformPostId: true,
-        platform: true,
-        content: true,
-        thumbnailUrl: true,
-        permalinkUrl: true,
-        impressions: true,
-        interactions: true,
-        likeCount: true,
-        commentsCount: true,
-        repostsCount: true,
-        sharesCount: true,
-        savesCount: true,
-        publishedAt: true,
-        mediaType: true,
-      },
-    });
-    return rows.map((r) => ({ ...r, platformMetadata: null }));
+    if (isMissingImportedPostSavesCountColumn(e)) {
+      try {
+        const rows = await prisma.importedPost.findMany({
+          ...base,
+          select: { ...IMPORTED_POST_LIST_SELECT_CORE, platformMetadata: true },
+        });
+        return rows.map((r) => ({ ...r, savesCount: null }));
+      } catch (e2) {
+        if (isMissingImportedPostPlatformMetadataColumn(e2)) {
+          const rows = await prisma.importedPost.findMany({
+            ...base,
+            select: { ...IMPORTED_POST_LIST_SELECT_CORE },
+          });
+          return rows.map((r) => ({ ...r, savesCount: null, platformMetadata: null }));
+        }
+        throw e2;
+      }
+    }
+    if (isMissingImportedPostPlatformMetadataColumn(e)) {
+      try {
+        const rows = await prisma.importedPost.findMany({
+          ...base,
+          select: { ...IMPORTED_POST_LIST_SELECT_CORE, savesCount: true },
+        });
+        return rows.map((r) => ({ ...r, platformMetadata: null }));
+      } catch (e2) {
+        if (isMissingImportedPostSavesCountColumn(e2)) {
+          const rows = await prisma.importedPost.findMany({
+            ...base,
+            select: { ...IMPORTED_POST_LIST_SELECT_CORE },
+          });
+          return rows.map((r) => ({ ...r, platformMetadata: null, savesCount: null }));
+        }
+        throw e2;
+      }
+    }
+    throw e;
   }
 }
 
@@ -1549,41 +1570,80 @@ async function syncImportedPosts(
         const sharesCount = shareCount;
         const savesVal = saveCount != null ? saveCount : undefined;
         const interactions = likeCount + commentsCount + sharesCount + (saveCount ?? 0);
-        await prisma.importedPost.upsert({
-          where: { socialAccountId_platformPostId: { socialAccountId, platformPostId: videoId } },
-          update: {
-            content: title,
-            thumbnailUrl,
-            permalinkUrl,
-            publishedAt,
-            mediaType: 'VIDEO',
-            impressions,
-            interactions,
-            likeCount,
-            commentsCount,
-            sharesCount,
-            repostsCount: 0,
-            ...(savesVal !== undefined ? { savesCount: savesVal } : {}),
-            syncedAt: new Date(),
-          },
-          create: {
-            socialAccountId,
-            platformPostId: videoId,
-            platform: 'TIKTOK',
-            content: title,
-            thumbnailUrl,
-            permalinkUrl,
-            publishedAt,
-            mediaType: 'VIDEO',
-            impressions,
-            interactions,
-            likeCount,
-            commentsCount,
-            sharesCount,
-            repostsCount: 0,
-            savesCount: saveCount ?? 0,
-          },
-        });
+        const whereTt = { socialAccountId_platformPostId: { socialAccountId, platformPostId: videoId } };
+        try {
+          await prisma.importedPost.upsert({
+            where: whereTt,
+            update: {
+              content: title,
+              thumbnailUrl,
+              permalinkUrl,
+              publishedAt,
+              mediaType: 'VIDEO',
+              impressions,
+              interactions,
+              likeCount,
+              commentsCount,
+              sharesCount,
+              repostsCount: 0,
+              ...(savesVal !== undefined ? { savesCount: savesVal } : {}),
+              syncedAt: new Date(),
+            },
+            create: {
+              socialAccountId,
+              platformPostId: videoId,
+              platform: 'TIKTOK',
+              content: title,
+              thumbnailUrl,
+              permalinkUrl,
+              publishedAt,
+              mediaType: 'VIDEO',
+              impressions,
+              interactions,
+              likeCount,
+              commentsCount,
+              sharesCount,
+              repostsCount: 0,
+              savesCount: saveCount ?? 0,
+            },
+          });
+        } catch (upErr) {
+          if (!isMissingImportedPostSavesCountColumn(upErr)) throw upErr;
+          const interactionsNoSaves = likeCount + commentsCount + sharesCount;
+          await prisma.importedPost.upsert({
+            where: whereTt,
+            update: {
+              content: title,
+              thumbnailUrl,
+              permalinkUrl,
+              publishedAt,
+              mediaType: 'VIDEO',
+              impressions,
+              interactions: interactionsNoSaves,
+              likeCount,
+              commentsCount,
+              sharesCount,
+              repostsCount: 0,
+              syncedAt: new Date(),
+            },
+            create: {
+              socialAccountId,
+              platformPostId: videoId,
+              platform: 'TIKTOK',
+              content: title,
+              thumbnailUrl,
+              permalinkUrl,
+              publishedAt,
+              mediaType: 'VIDEO',
+              impressions,
+              interactions: interactionsNoSaves,
+              likeCount,
+              commentsCount,
+              sharesCount,
+              repostsCount: 0,
+            },
+          });
+        }
       }
       return undefined;
     } catch (e) {

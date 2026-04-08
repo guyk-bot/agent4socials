@@ -10,6 +10,13 @@ import axios from 'axios';
 
 const TIKTOK_API = 'https://open.tiktokapis.com/v2';
 
+function isMissingImportedPostSavesCountColumn(error: unknown): boolean {
+  const e = error as { code?: string; message?: string; meta?: { column?: string } };
+  const msg = (e?.message ?? '').toLowerCase();
+  const col = (e?.meta?.column ?? '').toLowerCase();
+  return e?.code === 'P2022' && (msg.includes('savescount') || col.includes('savescount'));
+}
+
 type AccountRow = {
   id: string;
   userId: string;
@@ -112,14 +119,15 @@ async function syncRecentContent(account: AccountRow) {
       const comments = typeof v.comment_count === 'number' ? v.comment_count : 0;
       const savesVal = saveCount != null ? saveCount : undefined;
       const interactions = likes + comments + shareCount + (saveCount ?? 0);
+      const where = {
+        socialAccountId_platformPostId: {
+          socialAccountId: account.id,
+          platformPostId: v.id,
+        },
+      } as const;
       try {
         await prisma.importedPost.upsert({
-          where: {
-            socialAccountId_platformPostId: {
-              socialAccountId: account.id,
-              platformPostId: v.id,
-            },
-          },
+          where,
           update: {
             content: v.video_description ?? v.title ?? undefined,
             thumbnailUrl: v.cover_image_url ?? undefined,
@@ -152,8 +160,45 @@ async function syncRecentContent(account: AccountRow) {
           },
         });
         items++;
-      } catch {
-        /* skip */
+      } catch (e) {
+        if (!isMissingImportedPostSavesCountColumn(e)) continue;
+        const interactionsNoSaves = likes + comments + shareCount;
+        try {
+          await prisma.importedPost.upsert({
+            where,
+            update: {
+              content: v.video_description ?? v.title ?? undefined,
+              thumbnailUrl: v.cover_image_url ?? undefined,
+              permalinkUrl: v.share_url ?? undefined,
+              impressions: v.view_count ?? v.play_count ?? 0,
+              interactions: interactionsNoSaves,
+              likeCount: likes,
+              commentsCount: comments,
+              sharesCount: shareCount,
+              repostsCount: 0,
+              syncedAt: new Date(),
+            },
+            create: {
+              socialAccountId: account.id,
+              platformPostId: v.id,
+              platform: 'TIKTOK',
+              content: v.video_description ?? v.title ?? null,
+              thumbnailUrl: v.cover_image_url ?? null,
+              permalinkUrl: v.share_url ?? null,
+              publishedAt: v.create_time ? new Date(v.create_time * 1000) : new Date(),
+              mediaType: 'VIDEO',
+              impressions: v.view_count ?? v.play_count ?? 0,
+              interactions: interactionsNoSaves,
+              likeCount: likes,
+              commentsCount: comments,
+              sharesCount: shareCount,
+              repostsCount: 0,
+            },
+          });
+          items++;
+        } catch {
+          /* skip */
+        }
       }
     }
 
