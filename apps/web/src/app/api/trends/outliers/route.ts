@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         {
           message:
-            'The niche_trends table is missing. Run a production DB migration (e.g. prisma migrate deploy) after deploy.',
+            'The niche_trends table is missing. Fastest: Supabase SQL Editor → run apps/web/scripts/ensure-niche-trends.sql. Or fix DATABASE_DIRECT_URL and redeploy so prisma migrate deploy runs. Then POST /api/cron/niche-trends with X-Cron-Secret.',
         },
         { status: 503 }
       );

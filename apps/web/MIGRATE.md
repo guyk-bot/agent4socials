@@ -2,6 +2,24 @@
 
 The app runs `prisma migrate deploy` on every Vercel build (via `node scripts/vercel-build.mjs`) so the production database stays in sync when the DB URL is correct.
 
+## Viral Trend Radar: `niche_trends` missing (Trending page)
+
+If the app shows **The niche_trends table is missing**, migrations never applied on the database Vercel uses (often `DATABASE_DIRECT_URL` wrong so the build skipped migrate, see below).
+
+**Fastest fix (no local DB access):** Supabase **SQL Editor** → run **`apps/web/scripts/ensure-niche-trends.sql`**, then trigger **`POST /api/cron/niche-trends`** with **`X-Cron-Secret`** (and **`YOUTUBE_API_KEY`** on Vercel) to fill data.
+
+When `prisma migrate deploy` works again, mark this migration applied so Prisma does not try to recreate objects:  
+`npx prisma migrate resolve --applied 20260408180000_niche_trends`
+
+## Local `P1001: Can't reach database server` at `db.*.supabase.co:5432`
+
+Supabase’s **direct** host (`db.<ref>.supabase.co:5432`) is often **unreachable from a home network** (IPv6-only or blocked). Your `.env` **`DATABASE_DIRECT_URL`** (and sometimes **`DATABASE_URL`**) should use the **pooler** from Supabase: **Settings → Database → Connection string**.
+
+- **Prisma migrate** uses **`DATABASE_DIRECT_URL`**: use **Session pooler** (or the URI with pooler host and **port 5432**, not transaction mode **6543**). See **You only have DATABASE_URL** below.
+- After fixing URLs, run: `cd apps/web && npx prisma migrate deploy`.
+
+Do not confuse **`1`** (digit) and **`l`** (letter) in the project ref inside the hostname.
+
 **Supabase "Tenant or user not found" during build:** `DATABASE_DIRECT_URL` is wrong for Prisma migrations. In Supabase: **Settings → Database → Connection string**, copy **Session pooler** or **Direct** (not Transaction pooler on 6543), set it as `DATABASE_DIRECT_URL` in Vercel, redeploy.
 
 **Vercel and migrate:** If `migrate deploy` fails (e.g. **Tenant or user not found**), the build **still continues on Vercel** so your site can deploy. Fix `DATABASE_DIRECT_URL` when you can, run any needed SQL in Supabase (e.g. `apps/web/scripts/ensure-pinterest-platform-enum.sql` for Pinterest). When migrations work reliably, add **`STRICT_PRISMA_MIGRATE_ON_VERCEL=1`** in Vercel so a failed migrate **fails** the build.
