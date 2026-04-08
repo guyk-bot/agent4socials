@@ -1258,6 +1258,8 @@ type TopHighlightRow = {
   views: number;
   clicks: number;
   reactions: number;
+  /** TikTok: synced favorites/saves from video list. */
+  saves?: number;
   /** ISO or parseable publish time */
   publishedAt: string;
 };
@@ -1269,6 +1271,7 @@ function TopContentHighlights({
   clicksLeaderTitle = 'Clicks leaders',
   clicksMetricLabel = 'Clicks',
   hideClicksColumn = false,
+  showSaves = false,
 }: {
   byViews: TopHighlightRow[];
   byClicks: TopHighlightRow[];
@@ -1278,6 +1281,8 @@ function TopContentHighlights({
   clicksMetricLabel?: 'Clicks' | 'Interactions';
   /** Hide the clicks/interactions column entirely (e.g. for Facebook). */
   hideClicksColumn?: boolean;
+  /** TikTok: show per-post saves in each leader card (alongside Views / Interactions / Reactions). */
+  showSaves?: boolean;
 }) {
   const rankBadge = (idx: number) => `/rank-badges/${Math.min(3, idx + 1)}.svg`;
   const col = (title: string, metricLabel: 'Views' | 'Clicks' | 'Reactions' | 'Interactions', rows: TopHighlightRow[], showClicks = true) => (
@@ -1345,6 +1350,7 @@ function TopContentHighlights({
                     </span>
                   )}
                   <span style={metricLabel === 'Reactions' ? { color: COLOR.text, fontWeight: 700, fontSize: 13 } : undefined}>Reactions {formatNumber(r.reactions)}</span>
+                  {showSaves ? <span>Saves {formatNumber(r.saves ?? 0)}</span> : null}
                 </div>
               </div>
             </div>
@@ -3194,9 +3200,10 @@ export function FacebookAnalyticsView({
             <MetricCard label="Avg Reactions per Post" source="post_reactions_like_total / breakdown" color={COLOR.text} value={avgReactionsPerPost.toFixed(1)} />
           </div>
           <TopContentHighlights
-            clicksLeaderTitle={(isInstagram || isFacebook) ? 'Interactions leaders' : 'Clicks leaders'}
-            clicksMetricLabel={(isInstagram || isFacebook) ? 'Interactions' : 'Clicks'}
-            hideClicksColumn={!(isInstagram || isFacebook)}
+            clicksLeaderTitle={(isInstagram || isFacebook || isTikTok) ? 'Interactions leaders' : 'Clicks leaders'}
+            clicksMetricLabel={(isInstagram || isFacebook || isTikTok) ? 'Interactions' : 'Clicks'}
+            hideClicksColumn={!(isInstagram || isFacebook || isTikTok)}
+            showSaves={isTikTok}
             byViews={topByViews.map((p) => ({
               id: p.id,
               preview: p.preview,
@@ -3206,6 +3213,7 @@ export function FacebookAnalyticsView({
               views: p.views,
               clicks: p.clicks,
               reactions: p.reactionsTotal,
+              saves: bestSaveCount(p.rawPost),
               publishedAt: p.date,
             }))}
             byClicks={topByClicks.map((p) => ({
@@ -3217,6 +3225,7 @@ export function FacebookAnalyticsView({
               views: p.views,
               clicks: p.clicks,
               reactions: p.reactionsTotal,
+              saves: bestSaveCount(p.rawPost),
               publishedAt: p.date,
             }))}
             byReactions={topByReactions.map((p) => ({
@@ -3228,6 +3237,7 @@ export function FacebookAnalyticsView({
               views: p.views,
               clicks: p.clicks,
               reactions: p.reactionsTotal,
+              saves: bestSaveCount(p.rawPost),
               publishedAt: p.date,
             }))}
           />
