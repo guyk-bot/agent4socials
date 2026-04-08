@@ -267,6 +267,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   }, [engagementByAccountId]);
 
   const invalidate = useCallback(() => {
+    console.log('[AppData] Invalidating all cache');
     setPostsByAccountId({});
     setInsightsByAccountId({});
     setCommentsByAccountId({});
@@ -381,13 +382,27 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user?.id, conversationsByAccountId, postsByAccountId, insightsByAccountId, commentsByAccountId, engagementByAccountId]);
 
+  // Clear cache when user logs out (user goes from truthy to null)
+  const prevUserIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const currentUserId = user?.id ?? null;
+    const prevUserId = prevUserIdRef.current;
+    
+    // User logged out: had a user, now don't
+    if (prevUserId && !currentUserId) {
+      console.log('[AppData] User logged out, clearing cache');
+      invalidate();
+    }
+    
+    prevUserIdRef.current = currentUserId;
+  }, [user?.id, invalidate]);
+
   useEffect(() => {
     if (!user) {
       setPrefetchStatus('idle');
       setPrefetchHasLoadedOnce(false);
-      setCacheRehydrated(false);
-      if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(CACHE_KEY);
-    if (typeof localStorage !== 'undefined') localStorage.removeItem(CACHE_KEY);
+      // Don't clear cache here - it might just be auth loading
+      // Cache will be cleared by invalidate() on actual logout
       return;
     }
     let cancelled = false;
