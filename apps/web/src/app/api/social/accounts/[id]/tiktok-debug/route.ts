@@ -3,7 +3,8 @@ import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import axios from 'axios';
 
-const VIDEO_LIST_FIELDS = 'cover_image_url,id,title,create_time,share_url,like_count,comment_count,view_count';
+const VIDEO_LIST_FIELDS =
+  'cover_image_url,id,title,create_time,share_url,like_count,comment_count,share_count,view_count';
 
 /** All user.info fields we can request with user.info.basic + user.info.stats (see TikTok Login Kit / Display API). */
 const USER_INFO_FIELDS_FULL =

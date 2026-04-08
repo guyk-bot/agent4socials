@@ -5,6 +5,7 @@
 
 import { prisma } from '@/lib/db';
 import { upsertDailyMetricSnapshot } from '@/lib/analytics/metric-snapshots';
+import { parseTikTokVideoEngagement } from '@/lib/tiktok/video-engagement';
 import axios from 'axios';
 
 const TIKTOK_API = 'https://open.tiktokapis.com/v2';
@@ -52,40 +53,65 @@ async function syncAccountOverview(account: AccountRow) {
 
 async function syncRecentContent(account: AccountRow) {
   try {
-    const res = await axios.post<{
-      data?: { videos?: Array<{
-        id: string;
-        title?: string;
-        video_description?: string;
-        cover_image_url?: string;
-        share_url?: string;
-        create_time?: number;
-        like_count?: number;
-        comment_count?: number;
-        share_count?: number;
-        view_count?: number;
-        play_count?: number;
-      }> };
-      error?: { code?: string };
-    }>(`${TIKTOK_API}/video/list/`, {
-      max_count: 20,
-      cursor: 0,
-    }, {
-      params: {
-        fields: 'id,title,video_description,cover_image_url,share_url,create_time,like_count,comment_count,share_count,view_count,play_count',
-      },
-      headers: {
-        Authorization: `Bearer ${account.accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      timeout: 12_000,
-    });
+    type TikTokVideoRow = {
+      id?: string;
+      title?: string;
+      video_description?: string;
+      cover_image_url?: string;
+      share_url?: string;
+      create_time?: number;
+      like_count?: number;
+      comment_count?: number;
+      share_count?: number;
+      view_count?: number;
+      play_count?: number;
+      [key: string]: unknown;
+    };
+    const fields =
+      'id,title,video_description,cover_image_url,share_url,create_time,like_count,comment_count,share_count,view_count,play_count';
+    const allVideos: TikTokVideoRow[] = [];
+    let cursor: number | string | undefined;
+    let hasMore = true;
+    let pages = 0;
+    while (hasMore && pages < 10) {
+      const body: { max_count: number; cursor?: number | string } = { max_count: 20 };
+      if (cursor != null) body.cursor = cursor;
+      const res = await axios.post<{
+        data?: { videos?: TikTokVideoRow[]; cursor?: number | string; has_more?: boolean };
+        error?: { code?: string; message?: string };
+      }>(
+        `${TIKTOK_API}/video/list/?fields=${encodeURIComponent(fields)}`,
+        body,
+        {
+          headers: {
+            Authorization: `Bearer ${account.accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 20_000,
+          validateStatus: () => true,
+        }
+      );
+      if (res.data?.error?.code && res.data.error.code !== 'ok') {
+        console.warn('[TikTok adapter] video/list:', res.data.error.code, res.data.error.message ?? '');
+        break;
+      }
+      const list = res.data?.data?.videos ?? [];
+      allVideos.push(...list);
+      cursor = res.data?.data?.cursor;
+      hasMore = res.data?.data?.has_more === true;
+      pages++;
+    }
 
-    const videos = res.data?.data?.videos ?? [];
     let items = 0;
 
-    for (const v of videos) {
+    for (const v of allVideos) {
       if (!v.id) continue;
+      const raw = v as Record<string, unknown>;
+      const { shareCount, repostCount } = parseTikTokVideoEngagement(raw);
+      const likes = typeof v.like_count === 'number' ? v.like_count : 0;
+      const comments = typeof v.comment_count === 'number' ? v.comment_count : 0;
+      const repostsVal = repostCount != null ? repostCount : undefined;
+      const interactions = likes + comments + shareCount + (repostCount ?? 0);
       try {
         await prisma.importedPost.upsert({
           where: {
@@ -95,34 +121,38 @@ async function syncRecentContent(account: AccountRow) {
             },
           },
           update: {
-            content:      v.video_description ?? v.title ?? undefined,
+            content: v.video_description ?? v.title ?? undefined,
             thumbnailUrl: v.cover_image_url ?? undefined,
             permalinkUrl: v.share_url ?? undefined,
-            impressions:  v.view_count ?? v.play_count ?? 0,
-            interactions: (v.like_count ?? 0) + (v.comment_count ?? 0) + (v.share_count ?? 0),
-            likeCount:    v.like_count ?? 0,
-            commentsCount: v.comment_count ?? 0,
-            sharesCount:  v.share_count ?? 0,
-            syncedAt:     new Date(),
+            impressions: v.view_count ?? v.play_count ?? 0,
+            interactions,
+            likeCount: likes,
+            commentsCount: comments,
+            sharesCount: shareCount,
+            ...(repostsVal !== undefined ? { repostsCount: repostsVal } : {}),
+            syncedAt: new Date(),
           },
           create: {
             socialAccountId: account.id,
-            platformPostId:  v.id,
-            platform:        'TIKTOK',
-            content:         v.video_description ?? v.title ?? null,
-            thumbnailUrl:    v.cover_image_url ?? null,
-            permalinkUrl:    v.share_url ?? null,
-            publishedAt:     v.create_time ? new Date(v.create_time * 1000) : new Date(),
-            mediaType:       'VIDEO',
-            impressions:     v.view_count ?? v.play_count ?? 0,
-            interactions:    (v.like_count ?? 0) + (v.comment_count ?? 0) + (v.share_count ?? 0),
-            likeCount:       v.like_count ?? 0,
-            commentsCount:   v.comment_count ?? 0,
-            sharesCount:     v.share_count ?? 0,
+            platformPostId: v.id,
+            platform: 'TIKTOK',
+            content: v.video_description ?? v.title ?? null,
+            thumbnailUrl: v.cover_image_url ?? null,
+            permalinkUrl: v.share_url ?? null,
+            publishedAt: v.create_time ? new Date(v.create_time * 1000) : new Date(),
+            mediaType: 'VIDEO',
+            impressions: v.view_count ?? v.play_count ?? 0,
+            interactions,
+            likeCount: likes,
+            commentsCount: comments,
+            sharesCount: shareCount,
+            repostsCount: repostCount ?? 0,
           },
         });
         items++;
-      } catch { /* skip */ }
+      } catch {
+        /* skip */
+      }
     }
 
     return { itemsProcessed: items };

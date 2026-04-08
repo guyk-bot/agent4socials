@@ -14,6 +14,7 @@ import {
 import { syncFacebookAuxiliaryIngest } from '@/lib/facebook/sync-extras';
 import { fbRestBaseUrl } from '@/lib/facebook/constants';
 import { getValidPinterestToken } from '@/lib/pinterest-token';
+import { parseTikTokVideoEngagement } from '@/lib/tiktok/video-engagement';
 
 /** Fallback host for IG user/media when graph.facebook.com omits items (matches insights route). */
 const igGraphRestBaseUrl = 'https://graph.instagram.com/v18.0';
@@ -1490,9 +1491,12 @@ async function syncImportedPosts(
         share_url?: string;
         like_count?: number;
         comment_count?: number;
+        share_count?: number;
         view_count?: number;
+        [key: string]: unknown;
       };
-      const fields = 'cover_image_url,id,title,create_time,share_url,like_count,comment_count,view_count';
+      const fields =
+        'cover_image_url,id,title,create_time,share_url,like_count,comment_count,share_count,view_count';
       const allVideos: TikTokVideo[] = [];
       let cursor: number | string | undefined;
       let hasMore = true;
@@ -1536,11 +1540,43 @@ async function syncImportedPosts(
         const impressions = v.view_count ?? 0;
         const likeCount = v.like_count ?? 0;
         const commentsCount = v.comment_count ?? 0;
-        const interactions = likeCount + commentsCount;
+        const raw = v as Record<string, unknown>;
+        const { shareCount, repostCount } = parseTikTokVideoEngagement(raw);
+        const sharesCount = shareCount;
+        const repostsVal = repostCount != null ? repostCount : undefined;
+        const interactions = likeCount + commentsCount + sharesCount + (repostCount ?? 0);
         await prisma.importedPost.upsert({
           where: { socialAccountId_platformPostId: { socialAccountId, platformPostId: videoId } },
-          update: { content: title, thumbnailUrl, permalinkUrl, publishedAt, mediaType: 'VIDEO', impressions, interactions, likeCount, commentsCount, syncedAt: new Date() },
-          create: { socialAccountId, platformPostId: videoId, platform: 'TIKTOK', content: title, thumbnailUrl, permalinkUrl, publishedAt, mediaType: 'VIDEO', impressions, interactions, likeCount, commentsCount },
+          update: {
+            content: title,
+            thumbnailUrl,
+            permalinkUrl,
+            publishedAt,
+            mediaType: 'VIDEO',
+            impressions,
+            interactions,
+            likeCount,
+            commentsCount,
+            sharesCount,
+            ...(repostsVal !== undefined ? { repostsCount: repostsVal } : {}),
+            syncedAt: new Date(),
+          },
+          create: {
+            socialAccountId,
+            platformPostId: videoId,
+            platform: 'TIKTOK',
+            content: title,
+            thumbnailUrl,
+            permalinkUrl,
+            publishedAt,
+            mediaType: 'VIDEO',
+            impressions,
+            interactions,
+            likeCount,
+            commentsCount,
+            sharesCount,
+            repostsCount: repostCount ?? 0,
+          },
         });
       }
       return undefined;
