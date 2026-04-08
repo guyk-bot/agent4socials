@@ -163,12 +163,15 @@ const TRAFFIC_METRIC_CONFIG: Record<TrafficMetricKey, { label: string; color: st
   uniqueReachProxy: { label: 'Unique Reach Proxy', color: COLOR.amber },
 };
 
-// Shared bar geometry across Engagement/Traffic/Reels so overlap behavior is consistent.
+// Shared bar geometry across Traffic/Reels (overlapping bars).
 // barGap = -(barSize/2) makes each next selected series cross at the midpoint of previous one.
 const UNIFIED_BAR_SIZE = 22;
-// Use slightly stronger overlap than 50% to make the crossing visually clear at all widths.
 const UNIFIED_BAR_GAP = -12;
 const UNIFIED_BAR_CATEGORY_GAP = 10;
+/** Engagement chart: more space between calendar days and between Likes/Comments/Shares on the same day. */
+const ENGAGEMENT_BAR_SIZE = 18;
+const ENGAGEMENT_BAR_GAP = 4;
+const ENGAGEMENT_BAR_CATEGORY_GAP = 32;
 
 const REEL_METRIC_CONFIG: Record<ReelMetricKey, { label: string; color: string }> = {
   views: { label: 'Total Video Views', color: COLOR.magenta },
@@ -376,14 +379,36 @@ function inRange(dateIso: string, start: string, end: string): boolean {
   return d >= start && d <= end;
 }
 
+/**
+ * True only for actual Reels (Reels tab / chart). Do not treat photos or plain feed videos as reels
+ * just because insights include numeric post_video_* fields (often 0).
+ */
 function isReelPost(p: FacebookPost): boolean {
   const url = (p.permalinkUrl ?? '').toLowerCase();
-  if (url.includes('/reel/')) return true;
-  if ((p.mediaType ?? '').toUpperCase() === 'REEL') return true;
-  // Some Facebook video posts do not use /reel/ permalink but still expose reel/video metrics.
-  if (typeof p.facebookInsights?.post_video_views === 'number') return true;
-  if (typeof p.facebookInsights?.post_video_avg_time_watched === 'number') return true;
-  return (p.mediaType ?? '').toUpperCase() === 'VIDEO';
+  if (url.includes('/reel/') || url.includes('/reels/')) return true;
+  const mt = (p.mediaType ?? '').toUpperCase();
+  if (mt === 'REEL') return true;
+  const meta =
+    p.platformMetadata && typeof p.platformMetadata === 'object' && !Array.isArray(p.platformMetadata)
+      ? (p.platformMetadata as Record<string, unknown>)
+      : {};
+  const st = String(meta.status_type ?? '').toUpperCase();
+  if (st.includes('REEL')) return true;
+  return false;
+}
+
+/** Any playable video (reels + feed video) for Page video view totals and video-ish aggregates. */
+function isVideoishPost(p: FacebookPost): boolean {
+  if ((p.platform ?? '').toUpperCase() === 'TIKTOK') return true;
+  if (isReelPost(p)) return true;
+  const mt = (p.mediaType ?? '').toUpperCase();
+  if (mt === 'VIDEO') return true;
+  const fi = p.facebookInsights ?? {};
+  const pv = typeof fi.post_video_views === 'number' && Number.isFinite(fi.post_video_views) ? fi.post_video_views : 0;
+  if (pv > 0) return true;
+  const avg = typeof fi.post_video_avg_time_watched === 'number' ? fi.post_video_avg_time_watched : 0;
+  const vt = typeof fi.post_video_view_time === 'number' ? fi.post_video_view_time : 0;
+  return avg > 0 || vt > 0;
 }
 
 /** Plays Meta reports per post; UI often shows one metric, API may return the other. */
@@ -399,6 +424,15 @@ function bestPostPlayCount(p: FacebookPost): number {
       : 0;
 }
 
+/** Photos use impressions / post_media_view; videos use plays. Keeps Content views above Video-only totals. */
+function bestFacebookContentViewCount(p: FacebookPost): number {
+  const fi = p.facebookInsights ?? {};
+  const pm = typeof fi.post_media_view === 'number' && Number.isFinite(fi.post_media_view) ? fi.post_media_view : 0;
+  const pi = typeof fi.post_impressions === 'number' && Number.isFinite(fi.post_impressions) ? fi.post_impressions : 0;
+  const imp = typeof p.impressions === 'number' && Number.isFinite(p.impressions) ? p.impressions : 0;
+  return Math.max(pm, pi, bestPostPlayCount(p), imp);
+}
+
 /** Meta often returns share count on the post node while lifetime insights use 0; take the max of all sources. */
 function bestShareCount(p: FacebookPost): number {
   const fi = p.facebookInsights ?? {};
@@ -407,11 +441,6 @@ function bestShareCount(p: FacebookPost): number {
   const eb = p.engagementBreakdown?.shares;
   const c = typeof eb === 'number' && Number.isFinite(eb) ? Math.max(0, eb) : 0;
   return Math.max(a, b, c);
-}
-
-function isVideoishPost(p: FacebookPost): boolean {
-  if ((p.platform ?? '').toUpperCase() === 'TIKTOK') return true;
-  return isReelPost(p) || (p.mediaType ?? '').toUpperCase() === 'VIDEO' || typeof p.facebookInsights?.post_video_views === 'number';
 }
 
 /** Sum of reel/video post plays in range; Page `page_video_views` often disagrees with what you see on each reel. */
@@ -1506,14 +1535,7 @@ export function FacebookAnalyticsView({
   );
   /** When Page `page_media_view` lags, sum per-post media/video plays in range (same idea as Instagram merge). */
   const derivedFbContentViewsFromPosts = useMemo(
-    () =>
-      isFacebook
-        ? postsInRange.reduce((s, p) => {
-            const fi = p.facebookInsights ?? {};
-            const pm = typeof fi.post_media_view === 'number' ? fi.post_media_view : 0;
-            return s + Math.max(pm, bestPostPlayCount(p));
-          }, 0)
-        : 0,
+    () => (isFacebook ? postsInRange.reduce((s, p) => s + bestFacebookContentViewCount(p), 0) : 0),
     [isFacebook, postsInRange]
   );
   const fbTrafficPostImpressionsSum = useMemo(
@@ -1639,11 +1661,7 @@ export function FacebookAnalyticsView({
       }
     } else if (isFacebook) {
       const postDailyContentMap = seriesToMap(
-        aggregatePostsByDayValue(postsInRange, (p) => {
-          const fi = p.facebookInsights ?? {};
-          const pm = typeof fi.post_media_view === 'number' ? fi.post_media_view : 0;
-          return Math.max(pm, bestPostPlayCount(p));
-        })
+        aggregatePostsByDayValue(postsInRange, (p) => bestFacebookContentViewCount(p))
       );
       mediaRaw = mergeSeriesMapsMax(seriesToMap(series?.contentViews ?? []), postDailyContentMap);
       visitsRaw = seriesToMap(series?.pageTabViews ?? []);
@@ -1720,11 +1738,7 @@ export function FacebookAnalyticsView({
     }
     if (isFacebook) {
       const fbPostContentMap = seriesToMap(
-        aggregatePostsByDayValue(postsInRange, (p) => {
-          const fi = p.facebookInsights ?? {};
-          const pm = typeof fi.post_media_view === 'number' ? fi.post_media_view : 0;
-          return Math.max(pm, bestPostPlayCount(p));
-        })
+        aggregatePostsByDayValue(postsInRange, (p) => bestFacebookContentViewCount(p))
       );
       const contentSparkMap = mergeSeriesMapsMax(seriesToMap(series?.contentViews ?? []), fbPostContentMap);
       const videoSparkMap = mergeSeriesMapsMax(seriesToMap(series?.videoViews ?? []), seriesToMap(videoPlaysDailySeries));
@@ -2692,8 +2706,8 @@ export function FacebookAnalyticsView({
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={engagementData}
-                barCategoryGap={UNIFIED_BAR_CATEGORY_GAP}
-                barGap={UNIFIED_BAR_GAP}
+                barCategoryGap={ENGAGEMENT_BAR_CATEGORY_GAP}
+                barGap={ENGAGEMENT_BAR_GAP}
                 margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
@@ -2709,10 +2723,10 @@ export function FacebookAnalyticsView({
                   ]}
                   labelFormatter={(l) => formatShortDate(String(l))}
                 />
-                {selectedEngagementMetrics.includes('likes') ? <Bar dataKey="likes" fill={ENGAGEMENT_METRIC_CONFIG.likes.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
-                {selectedEngagementMetrics.includes('comments') ? <Bar dataKey="comments" fill={ENGAGEMENT_METRIC_CONFIG.comments.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
-                {selectedEngagementMetrics.includes('shares') ? <Bar dataKey="shares" fill={ENGAGEMENT_METRIC_CONFIG.shares.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
-                {isInstagram && selectedEngagementMetrics.includes('reposts') ? <Bar dataKey="reposts" fill={ENGAGEMENT_METRIC_CONFIG.reposts.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                {selectedEngagementMetrics.includes('likes') ? <Bar dataKey="likes" fill={ENGAGEMENT_METRIC_CONFIG.likes.color} radius={[6, 6, 0, 0]} barSize={ENGAGEMENT_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                {selectedEngagementMetrics.includes('comments') ? <Bar dataKey="comments" fill={ENGAGEMENT_METRIC_CONFIG.comments.color} radius={[6, 6, 0, 0]} barSize={ENGAGEMENT_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                {selectedEngagementMetrics.includes('shares') ? <Bar dataKey="shares" fill={ENGAGEMENT_METRIC_CONFIG.shares.color} radius={[6, 6, 0, 0]} barSize={ENGAGEMENT_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                {isInstagram && selectedEngagementMetrics.includes('reposts') ? <Bar dataKey="reposts" fill={ENGAGEMENT_METRIC_CONFIG.reposts.color} radius={[6, 6, 0, 0]} barSize={ENGAGEMENT_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
               </BarChart>
             </ResponsiveContainer>
             </div>
