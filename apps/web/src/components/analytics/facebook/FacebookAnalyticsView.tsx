@@ -8,7 +8,6 @@ import {
   CartesianGrid,
   Cell,
   ComposedChart,
-  Legend,
   Line,
   Pie,
   PieChart,
@@ -51,8 +50,14 @@ export interface FacebookAnalyticsViewProps {
 
 type SectionId = (typeof FACEBOOK_ANALYTICS_SECTION_IDS)[keyof typeof FACEBOOK_ANALYTICS_SECTION_IDS];
 type StoryMode = 'views' | 'engagement' | 'growth';
-type StoryMetricKey = 'followers' | 'engagements' | 'videoViews' | 'contentViews' | 'pageVisits';
-type ActivityMetricKey = 'actions' | 'posts' | 'conversations';
+type StoryMetricKey =
+  | 'followers'
+  | 'engagements'
+  | 'videoViews'
+  | 'contentViews'
+  | 'pageVisits'
+  | 'subscriberNet';
+type ActivityMetricKey = 'actions' | 'posts' | 'conversations' | 'subscriberNet';
 type EngagementMetricKey = 'likes' | 'comments' | 'shares' | 'reposts';
 
 /** Bottom → top stack order for the Engagement chart (must match `<Bar />` order). */
@@ -126,6 +131,7 @@ const STORY_METRIC_CONFIG: Record<StoryMetricKey, { label: string; color: string
   videoViews: { label: 'Video Views', color: COLOR.magenta, mode: 'views' },
   contentViews: { label: 'Content Views', color: COLOR.amber, mode: 'views' },
   pageVisits: { label: 'Page Visits', color: COLOR.coral, mode: 'views' },
+  subscriberNet: { label: 'Subscriber net', color: COLOR.cyan, mode: 'growth' },
 };
 
 const STORY_MODE_DEFAULT_METRICS: Record<StoryMode, StoryMetricKey[]> = {
@@ -141,6 +147,7 @@ const TIKTOK_PERFORMANCE_LINE_COLORS: Record<StoryMetricKey, string> = {
   videoViews: COLOR.amber,
   contentViews: COLOR.violet,
   pageVisits: COLOR.magenta,
+  subscriberNet: COLOR.cyan,
 };
 
 const TIKTOK_PERFORMANCE_LABELS: Record<StoryMetricKey, string> = {
@@ -149,6 +156,7 @@ const TIKTOK_PERFORMANCE_LABELS: Record<StoryMetricKey, string> = {
   videoViews: 'Total video views',
   contentViews: 'Profile likes',
   pageVisits: 'Public videos',
+  subscriberNet: 'Subscriber net',
 };
 
 const YOUTUBE_PERFORMANCE_LABELS: Record<StoryMetricKey, string> = {
@@ -157,6 +165,7 @@ const YOUTUBE_PERFORMANCE_LABELS: Record<StoryMetricKey, string> = {
   videoViews: 'Views (range)',
   contentViews: 'Content Views',
   pageVisits: 'Page Visits',
+  subscriberNet: 'Subscriber net (daily)',
 };
 
 const YOUTUBE_GEO_PIE_COLORS = [
@@ -186,6 +195,7 @@ const ACTIVITY_METRIC_CONFIG: Record<ActivityMetricKey, { label: string; color: 
   actions: { label: 'Actions', color: COLOR.violet },
   posts: { label: 'Posts', color: COLOR.magenta },
   conversations: { label: 'Conversations', color: COLOR.amber },
+  subscriberNet: { label: 'Subscriber net', color: COLOR.mint },
 };
 
 const ENGAGEMENT_METRIC_CONFIG: Record<EngagementMetricKey, { label: string; color: string }> = {
@@ -439,6 +449,7 @@ function inRange(dateIso: string, start: string, end: string): boolean {
  */
 function isReelPost(p: FacebookPost): boolean {
   if ((p.platform ?? '').toUpperCase() === 'TIKTOK') return true;
+  if ((p.platform ?? '').toUpperCase() === 'YOUTUBE') return true;
   const url = (p.permalinkUrl ?? '').toLowerCase();
   if (url.includes('/reel/') || url.includes('/reels/')) return true;
   const mt = (p.mediaType ?? '').toUpperCase();
@@ -1573,7 +1584,24 @@ export function FacebookAnalyticsView({
 
   useEffect(() => {
     if (insights?.platform?.toUpperCase() !== 'YOUTUBE') return;
-    setSelectedStoryMetrics(['followers', 'videoViews', 'engagements']);
+    setSelectedStoryMetrics(['followers', 'videoViews', 'engagements', 'subscriberNet']);
+  }, [insights?.platform]);
+
+  useEffect(() => {
+    if (insights?.platform?.toUpperCase() === 'YOUTUBE') return;
+    setSelectedStoryMetrics((prev) => prev.filter((m) => m !== 'subscriberNet'));
+  }, [insights?.platform]);
+
+  useEffect(() => {
+    const p = insights?.platform?.toUpperCase() ?? '';
+    if (p === 'YOUTUBE') {
+      setSelectedActivityMetrics(['posts', 'subscriberNet']);
+      return;
+    }
+    setSelectedActivityMetrics((prev) => {
+      const next = prev.filter((m) => m !== 'subscriberNet');
+      return next.length ? next : ['posts', 'actions', 'conversations'];
+    });
   }, [insights?.platform]);
 
   useEffect(() => {
@@ -1656,6 +1684,20 @@ export function FacebookAnalyticsView({
       ),
     [postsInRange]
   );
+  /** YouTube Analytics: net subscribers gained minus lost per calendar day (extended API). */
+  const youtubeGrowthNetByDate = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const pt of insights?.growthTimeSeries ?? []) {
+      const d = String(pt.date ?? '').slice(0, 10);
+      if (!d) continue;
+      const net =
+        typeof pt.net === 'number' && Number.isFinite(pt.net)
+          ? pt.net
+          : (Number(pt.gained) || 0) - (Number(pt.lost) || 0);
+      m[d] = net;
+    }
+    return m;
+  }, [insights?.growthTimeSeries]);
   const tiktokTotalVideoViewsValue = useMemo(
     () => Math.max(0, insights?.impressionsTotal ?? 0, tiktokViewsInRange),
     [insights?.impressionsTotal, tiktokViewsInRange]
@@ -1671,6 +1713,10 @@ export function FacebookAnalyticsView({
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [postsInRange]);
   const dateAxis = useMemo(() => buildDateAxis(dateRange.start, dateRange.end), [dateRange.end, dateRange.start]);
+  const youTubeSubscriberNetInRange = useMemo(
+    () => dateAxis.reduce((s, d) => s + (youtubeGrowthNetByDate[d] ?? 0), 0),
+    [dateAxis, youtubeGrowthNetByDate]
+  );
   const bundle = useMemo(() => {
     const native = insights?.facebookAnalytics;
     if (native) return native;
@@ -1796,6 +1842,7 @@ export function FacebookAnalyticsView({
         videoViews: videoViewsSeries[date] ?? 0,
         contentViews: 0,
         pageVisits: 0,
+        subscriberNet: 0,
       }));
     }
     if (isYouTube) {
@@ -1817,6 +1864,7 @@ export function FacebookAnalyticsView({
       const videoViewsSeries = dailyValuesOnAxis(dateAxis, viewsMap);
       const engagement = carryForwardSeries(dateAxis, engagementByDate, 0);
       const follows = carryForwardSeries(dateAxis, followsRaw, totalFollowers, true);
+      const subscriberNetSeries = dailyValuesOnAxis(dateAxis, youtubeGrowthNetByDate);
       return dateAxis.map((date) => ({
         date,
         followers: follows[date] ?? 0,
@@ -1824,6 +1872,7 @@ export function FacebookAnalyticsView({
         videoViews: videoViewsSeries[date] ?? 0,
         contentViews: 0,
         pageVisits: 0,
+        subscriberNet: subscriberNetSeries[date] ?? 0,
       }));
     }
     let mediaRaw: Record<string, number>;
@@ -1893,6 +1942,7 @@ export function FacebookAnalyticsView({
       videoViews: videoViewsSeries[date] ?? 0,
       contentViews: media[date] ?? 0,
       pageVisits: visits[date] ?? 0,
+      subscriberNet: 0,
     }));
   }, [
     isTikTok,
@@ -1909,8 +1959,10 @@ export function FacebookAnalyticsView({
     series?.videoViews,
     insights?.followersTimeSeries,
     insights?.impressionsTimeSeries,
+    insights?.growthTimeSeries,
     videoPlaysDailySeries,
     totalFollowers,
+    youtubeGrowthNetByDate,
   ]);
 
   const growthSparklineSeries = useMemo(() => {
@@ -1932,6 +1984,7 @@ export function FacebookAnalyticsView({
         videoViews: viewsSeries,
         contentViews: [],
         pageVisits: [],
+        subscriberNet: [],
       };
     }
     if (isYouTube) {
@@ -1946,6 +1999,7 @@ export function FacebookAnalyticsView({
       const start = dateRange.start.slice(0, 10);
       const end = dateRange.end.slice(0, 10);
       const ff = totalFollowers;
+      const subscriberNetSeries = dateAxis.map((d) => ({ date: d, value: youtubeGrowthNetByDate[d] ?? 0 }));
       return {
         follows: [
           { date: start, value: ff },
@@ -1955,6 +2009,7 @@ export function FacebookAnalyticsView({
         videoViews: viewsSeries,
         contentViews: [],
         pageVisits: [],
+        subscriberNet: subscriberNetSeries,
       };
     }
     if (isFacebook) {
@@ -1969,6 +2024,7 @@ export function FacebookAnalyticsView({
         videoViews: mapToSortedSeries(videoSparkMap),
         contentViews: mapToSortedSeries(contentSparkMap),
         pageVisits: series?.pageTabViews ?? [],
+        subscriberNet: [],
       };
     }
     if (!isInstagram) {
@@ -1978,6 +2034,7 @@ export function FacebookAnalyticsView({
         videoViews: series?.videoViews ?? [],
         contentViews: series?.contentViews ?? [],
         pageVisits: series?.pageTabViews ?? [],
+        subscriberNet: [],
       };
     }
     const ms = igMetricSeries;
@@ -2008,6 +2065,7 @@ export function FacebookAnalyticsView({
       videoViews: mapToSortedSeries(videoSparkMap),
       contentViews: contentSpark,
       pageVisits: mapToSortedSeries(pageVisitsSparkMap),
+      subscriberNet: [],
     };
   }, [
     isTikTok,
@@ -2022,11 +2080,14 @@ export function FacebookAnalyticsView({
     series?.pageTabViews,
     insights?.followersTimeSeries,
     insights?.impressionsTimeSeries,
+    insights?.growthTimeSeries,
     videoPlaysDailySeries,
     postsInRange,
     dateRange.end,
     dateRange.start,
     totalFollowers,
+    dateAxis,
+    youtubeGrowthNetByDate,
   ]);
 
   const stackedTraffic = useMemo(() => {
@@ -2099,26 +2160,31 @@ export function FacebookAnalyticsView({
     }));
   }, [isYouTube, dateAxis, insights?.impressionsTimeSeries]);
 
-  const youtubeCountryPieData = useMemo(() => {
+  /** Pie slices must be `{ name, value }` only: a `percent` field breaks Recharts labels (conflicts with internal `percent`). */
+  const youtubeGeoBreakdown = useMemo(() => {
     const rows = insights?.demographics?.byCountry ?? [];
     const total = rows.reduce((s, r) => s + (Number(r.value) || 0), 0);
-    if (total <= 0) return [];
+    if (total <= 0) {
+      return { list: [] as Array<{ name: string; value: number; sharePct: number }>, pieSlices: [] as Array<{ name: string; value: number }> };
+    }
     let regionNames: Intl.DisplayNames | undefined;
     try {
       regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
     } catch {
       regionNames = undefined;
     }
-    return rows
+    const list = rows
       .map((r) => {
         const code = String(r.dimensionValue || '').trim();
         const value = Number(r.value) || 0;
         const name =
           code.length === 2 && regionNames ? regionNames.of(code.toUpperCase()) ?? code : code || 'Unknown';
-        return { name, value, percent: Number(((value / total) * 100).toFixed(1)) };
+        return { name, value, sharePct: Number(((value / total) * 100).toFixed(1)) };
       })
       .filter((r) => r.value > 0)
       .sort((a, b) => b.value - a.value);
+    const pieSlices = list.map(({ name, value }) => ({ name, value }));
+    return { list, pieSlices };
   }, [insights?.demographics?.byCountry]);
 
   const youtubeTrafficSourcesSorted = useMemo(() => {
@@ -2226,7 +2292,16 @@ export function FacebookAnalyticsView({
   }, [reelsRows]);
 
   const storyTicks = useMemo(
-    () => buildKeyDateTicks(chartByMode, (d) => selectedStoryMetrics.some((metric) => (d[metric] ?? 0) > 0), 10),
+    () =>
+      buildKeyDateTicks(
+        chartByMode,
+        (d) =>
+          selectedStoryMetrics.some((metric) => {
+            const n = d[metric] ?? 0;
+            return typeof n === 'number' && n !== 0;
+          }),
+        10
+      ),
     [chartByMode, selectedStoryMetrics]
   );
   const trafficTicks = useMemo(
@@ -2387,11 +2462,29 @@ export function FacebookAnalyticsView({
       actions: distributedActionsByDate[date] ?? 0,
       posts: postsByDate[date] ?? 0,
       conversations: conversationsByDate[date] ?? 0,
+      subscriberNet: youtubeGrowthNetByDate[date] ?? 0,
     }));
-  }, [actionsSeries, dateAxis, liveConversationDates, postsInRange, totalActions]);
+  }, [actionsSeries, dateAxis, liveConversationDates, postsInRange, totalActions, youtubeGrowthNetByDate]);
   const operationalTicks = useMemo(
-    () => buildKeyDateTicks(operationalData, (d) => (d.actions ?? 0) > 0 || (d.posts ?? 0) > 0 || (d.conversations ?? 0) > 0, 10),
+    () =>
+      buildKeyDateTicks(
+        operationalData,
+        (d) =>
+          (d.actions ?? 0) > 0 ||
+          (d.posts ?? 0) > 0 ||
+          (d.conversations ?? 0) > 0 ||
+          (d.subscriberNet ?? 0) !== 0,
+        10
+      ),
     [operationalData]
+  );
+  const activityChartHasNegative = useMemo(
+    () => operationalData.some((d) => (d.subscriberNet ?? 0) < 0),
+    [operationalData]
+  );
+  const performanceChartHasNegativeSubscriberNet = useMemo(
+    () => chartByMode.some((d) => (d.subscriberNet ?? 0) < 0),
+    [chartByMode]
   );
 
   const topByViews = [...postsRows].sort((a, b) => b.views - a.views).slice(0, 3).map((p) => ({ ...p, value: p.views, content: p.rawPost.content, thumbnailUrl: p.rawPost.thumbnailUrl }));
@@ -2756,7 +2849,7 @@ export function FacebookAnalyticsView({
             </>
           ) : isYouTube ? (
             <>
-              <div className="mt-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="mt-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <SparklineMetricCard
                   label="Subscribers"
                   source="YouTube Data API · channel statistics"
@@ -2783,6 +2876,15 @@ export function FacebookAnalyticsView({
                   series={growthSparklineSeries.engagement}
                   active={isCardSelected('engagements')}
                   onClick={() => toggleStoryMetric('engagements')}
+                />
+                <SparklineMetricCard
+                  label="Subscriber net (range)"
+                  source="YouTube Analytics · net subscribers gained minus lost per day"
+                  color={TIKTOK_PERFORMANCE_LINE_COLORS.subscriberNet}
+                  value={formatNumber(youTubeSubscriberNetInRange)}
+                  series={growthSparklineSeries.subscriberNet}
+                  active={isCardSelected('subscriberNet')}
+                  onClick={() => toggleStoryMetric('subscriberNet')}
                 />
               </div>
             </>
@@ -2877,7 +2979,11 @@ export function FacebookAnalyticsView({
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                 <XAxis dataKey="date" ticks={storyTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} dy={8} minTickGap={18} axisLine={false} tickLine={false} />
                 <YAxis
-                  domain={[0, 'auto']}
+                  domain={
+                    selectedStoryMetrics.includes('subscriberNet') && performanceChartHasNegativeSubscriberNet
+                      ? ['dataMin', 'dataMax']
+                      : [0, 'auto']
+                  }
                   allowDecimals={selectedStoryMetrics.some((metric) => metric !== 'followers')}
                   tick={{ fill: COLOR.textMuted, fontSize: 11 }}
                   axisLine={false}
@@ -3079,31 +3185,48 @@ export function FacebookAnalyticsView({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Activity</h3>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          <MetricCard
-            label="Actions"
-            source={(bundle?.series.totalActions?.length ?? 0) > 0 ? 'page_total_actions' : 'page_post_engagements (fallback)'}
-            color={ACTIVITY_METRIC_CONFIG.actions.color}
-            value={formatNumber(totalActions)}
-            active={selectedActivityMetrics.includes('actions')}
-            onClick={() => setSelectedActivityMetrics((prev) => prev.includes('actions') ? prev.filter((m) => m !== 'actions') : [...prev, 'actions'])}
-          />
-          <MetricCard
-            label="Posts"
-            source="Derived from posts feed"
-            color={ACTIVITY_METRIC_CONFIG.posts.color}
-            value={formatNumber(postsInRange.length)}
-            active={selectedActivityMetrics.includes('posts')}
-            onClick={() => setSelectedActivityMetrics((prev) => prev.includes('posts') ? prev.filter((m) => m !== 'posts') : [...prev, 'posts'])}
-          />
-          <MetricCard
-            label="Conversations"
-            source="Messenger conversations"
-            color={ACTIVITY_METRIC_CONFIG.conversations.color}
-            value={formatNumber(conversationActivityCount)}
-            active={selectedActivityMetrics.includes('conversations')}
-            onClick={() => setSelectedActivityMetrics((prev) => prev.includes('conversations') ? prev.filter((m) => m !== 'conversations') : [...prev, 'conversations'])}
-          />
+          <div className={`grid gap-3 sm:grid-cols-2 ${isYouTube ? 'xl:grid-cols-2' : 'xl:grid-cols-3'}`}>
+            {isYouTube ? null : (
+              <MetricCard
+                label="Actions"
+                source={(bundle?.series.totalActions?.length ?? 0) > 0 ? 'page_total_actions' : 'page_post_engagements (fallback)'}
+                color={ACTIVITY_METRIC_CONFIG.actions.color}
+                value={formatNumber(totalActions)}
+                active={selectedActivityMetrics.includes('actions')}
+                onClick={() => setSelectedActivityMetrics((prev) => prev.includes('actions') ? prev.filter((m) => m !== 'actions') : [...prev, 'actions'])}
+              />
+            )}
+            <MetricCard
+              label={isYouTube ? 'Videos published' : 'Posts'}
+              source={isYouTube ? 'Synced channel videos with publish date in range' : 'Derived from posts feed'}
+              color={ACTIVITY_METRIC_CONFIG.posts.color}
+              value={formatNumber(postsInRange.length)}
+              active={selectedActivityMetrics.includes('posts')}
+              onClick={() => setSelectedActivityMetrics((prev) => prev.includes('posts') ? prev.filter((m) => m !== 'posts') : [...prev, 'posts'])}
+            />
+            {isYouTube ? (
+              <MetricCard
+                label="Subscriber net"
+                source="YouTube Analytics · net subscribers gained minus lost per day (summed for range)"
+                color={ACTIVITY_METRIC_CONFIG.subscriberNet.color}
+                value={formatNumber(youTubeSubscriberNetInRange)}
+                active={selectedActivityMetrics.includes('subscriberNet')}
+                onClick={() =>
+                  setSelectedActivityMetrics((prev) =>
+                    prev.includes('subscriberNet') ? prev.filter((m) => m !== 'subscriberNet') : [...prev, 'subscriberNet']
+                  )
+                }
+              />
+            ) : (
+              <MetricCard
+                label="Conversations"
+                source="Messenger conversations"
+                color={ACTIVITY_METRIC_CONFIG.conversations.color}
+                value={formatNumber(conversationActivityCount)}
+                active={selectedActivityMetrics.includes('conversations')}
+                onClick={() => setSelectedActivityMetrics((prev) => prev.includes('conversations') ? prev.filter((m) => m !== 'conversations') : [...prev, 'conversations'])}
+              />
+            )}
           </div>
           <div className="flex justify-end">
             <div className="flex flex-wrap gap-2">
@@ -3136,7 +3259,16 @@ export function FacebookAnalyticsView({
               <ComposedChart data={operationalData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                 <XAxis dataKey="date" ticks={operationalTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} dy={8} minTickGap={18} axisLine={false} tickLine={false} />
-                <YAxis domain={[0, 'auto']} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis
+                  domain={
+                    selectedActivityMetrics.includes('subscriberNet') && activityChartHasNegative
+                      ? ['dataMin', 'dataMax']
+                      : [0, 'auto']
+                  }
+                  tick={{ fill: COLOR.textMuted, fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
                 <Tooltip
                   contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
                   formatter={(v: number | string | undefined, n?: string) => [
@@ -3144,16 +3276,27 @@ export function FacebookAnalyticsView({
                     n === 'actions'
                       ? 'Actions'
                       : n === 'posts'
-                      ? 'Posts'
-                      : n === 'conversations'
-                        ? 'Conversations'
-                        : '',
+                        ? isYouTube
+                          ? 'Videos published'
+                          : 'Posts'
+                        : n === 'conversations'
+                          ? 'Conversations'
+                          : n === 'subscriberNet'
+                            ? 'Subscriber net'
+                            : '',
                   ]}
                   labelFormatter={(l) => formatShortDate(String(l))}
                 />
-                {selectedActivityMetrics.includes('actions') ? <Line type="monotone" dataKey="actions" stroke={ACTIVITY_METRIC_CONFIG.actions.color} strokeWidth={2} dot={false} /> : null}
+                {!isYouTube && selectedActivityMetrics.includes('actions') ? (
+                  <Line type="monotone" dataKey="actions" stroke={ACTIVITY_METRIC_CONFIG.actions.color} strokeWidth={2} dot={false} />
+                ) : null}
                 {selectedActivityMetrics.includes('posts') ? <Line type="monotone" dataKey="posts" stroke={ACTIVITY_METRIC_CONFIG.posts.color} strokeWidth={2} dot={false} /> : null}
-                {selectedActivityMetrics.includes('conversations') ? <Line type="monotone" dataKey="conversations" stroke={ACTIVITY_METRIC_CONFIG.conversations.color} strokeWidth={2} dot={false} /> : null}
+                {!isYouTube && selectedActivityMetrics.includes('conversations') ? (
+                  <Line type="monotone" dataKey="conversations" stroke={ACTIVITY_METRIC_CONFIG.conversations.color} strokeWidth={2} dot={false} />
+                ) : null}
+                {selectedActivityMetrics.includes('subscriberNet') ? (
+                  <Line type="monotone" dataKey="subscriberNet" stroke={ACTIVITY_METRIC_CONFIG.subscriberNet.color} strokeWidth={2} dot={false} />
+                ) : null}
               </ComposedChart>
             </ResponsiveContainer>
           )}
@@ -3245,13 +3388,13 @@ export function FacebookAnalyticsView({
                 <p className="text-xs mb-4" style={{ color: COLOR.textSecondary }}>
                   Share of channel views by viewer country (YouTube Analytics, when data is available).
                 </p>
-                {youtubeCountryPieData.length > 0 ? (
+                {youtubeGeoBreakdown.pieSlices.length > 0 ? (
                   <div className="flex flex-col lg:flex-row lg:items-center gap-4">
                     <div className="w-full lg:w-[min(100%,420px)] h-[280px] shrink-0">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie
-                            data={youtubeCountryPieData}
+                            data={youtubeGeoBreakdown.pieSlices}
                             dataKey="value"
                             nameKey="name"
                             cx="50%"
@@ -3259,37 +3402,33 @@ export function FacebookAnalyticsView({
                             innerRadius={52}
                             outerRadius={100}
                             paddingAngle={2}
-                            labelLine={false}
-                            label={({ name, percent: p }) =>
-                              `${String(name).slice(0, 14)}${String(name).length > 14 ? '…' : ''} ${((Number(p) || 0) * 100).toFixed(0)}%`
-                            }
+                            label={false}
                           >
-                            {youtubeCountryPieData.map((_, i) => (
+                            {youtubeGeoBreakdown.pieSlices.map((_, i) => (
                               <Cell key={i} fill={YOUTUBE_GEO_PIE_COLORS[i % YOUTUBE_GEO_PIE_COLORS.length]} stroke="rgba(255,255,255,0.85)" strokeWidth={1} />
                             ))}
                           </Pie>
                           <Tooltip
                             contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
-                            formatter={(value: number | string | undefined, _n, item) => {
-                              const payload = (item as { payload?: { percent?: number } })?.payload;
-                              const pct = payload?.percent;
+                            formatter={(value: number | string | undefined) => {
                               const val = Number(value) || 0;
-                              return [`${formatNumber(val)}${typeof pct === 'number' ? ` (${pct}% of chart)` : ''}`, 'Views'];
+                              const t = youtubeGeoBreakdown.list.reduce((s, r) => s + r.value, 0);
+                              const pct = t > 0 ? ((val / t) * 100).toFixed(1) : '0';
+                              return [`${formatNumber(val)} (${pct}% of chart views)`, 'Views'];
                             }}
                           />
-                          <Legend wrapperStyle={{ fontSize: 12, color: COLOR.textSecondary }} />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
                     <ul className="flex-1 space-y-2 text-sm min-w-0" style={{ color: COLOR.text }}>
-                      {youtubeCountryPieData.slice(0, 12).map((row, i) => (
+                      {youtubeGeoBreakdown.list.slice(0, 12).map((row, i) => (
                         <li key={row.name} className="flex items-center justify-between gap-2 border-b border-neutral-100 pb-2 last:border-0">
                           <span className="flex items-center gap-2 min-w-0">
                             <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: YOUTUBE_GEO_PIE_COLORS[i % YOUTUBE_GEO_PIE_COLORS.length] }} />
                             <span className="truncate font-medium">{row.name}</span>
                           </span>
                           <span className="tabular-nums shrink-0" style={{ color: COLOR.textSecondary }}>
-                            {formatNumber(row.value)} <span className="text-neutral-400">({row.percent}%)</span>
+                            {formatNumber(row.value)} <span className="text-neutral-400">({row.sharePct}%)</span>
                           </span>
                         </li>
                       ))}
