@@ -89,6 +89,10 @@ export interface FacebookInsights {
     bioDescription?: string;
     isVerified?: boolean;
   };
+  /** YouTube Analytics (extended fetch): how viewers found your content. */
+  trafficSources?: Array<{ source: string; value: number }>;
+  /** YouTube Analytics extended metrics (watch time, avg duration, etc.). */
+  extra?: Record<string, unknown>;
   /** TikTok: `v2/post/publish/creator_info/query` (publish scopes). */
   tiktokCreatorInfo?: {
     creatorNickname?: string;

@@ -737,7 +737,12 @@ export default function DashboardPage() {
       }
       if (runInsightsSwr) {
         api.get(`/social/accounts/${accountId}/insights`, {
-          params: selectedAccount?.platform === 'FACEBOOK' ? { since: dateRange.start, until: dateRange.end, refresh: 1, persist: 1 } : { since: dateRange.start, until: dateRange.end },
+          params:
+            selectedAccount?.platform === 'FACEBOOK'
+              ? { since: dateRange.start, until: dateRange.end, refresh: 1, persist: 1 }
+              : selectedAccount?.platform === 'YOUTUBE'
+                ? { since: dateRange.start, until: dateRange.end, extended: 1 }
+                : { since: dateRange.start, until: dateRange.end },
           timeout: INSIGHTS_HTTP_MS,
         })
           .then((res) => {
@@ -805,7 +810,12 @@ export default function DashboardPage() {
 
     // Fetch insights; optional fast posts only when not on per-account analytics (single owner for posts there).
     const insightsPromise = api.get(`/social/accounts/${accountId}/insights`, {
-      params: selectedAccount?.platform === 'FACEBOOK' ? { since: dateRange.start, until: dateRange.end, refresh: 1, persist: 1 } : { since: dateRange.start, until: dateRange.end },
+      params:
+        selectedAccount?.platform === 'FACEBOOK'
+          ? { since: dateRange.start, until: dateRange.end, refresh: 1, persist: 1 }
+          : selectedAccount?.platform === 'YOUTUBE'
+            ? { since: dateRange.start, until: dateRange.end, extended: 1 }
+            : { since: dateRange.start, until: dateRange.end },
       timeout: INSIGHTS_HTTP_MS,
     });
 
@@ -1445,6 +1455,8 @@ export default function DashboardPage() {
                   instagramAccountVideoViewsTotal: (displayInsights as { instagramAccountVideoViewsTotal?: number }).instagramAccountVideoViewsTotal,
                   tiktokUser: (displayInsights as { tiktokUser?: import('@/components/analytics/facebook/types').FacebookInsights['tiktokUser'] }).tiktokUser,
                   tiktokCreatorInfo: (displayInsights as { tiktokCreatorInfo?: import('@/components/analytics/facebook/types').FacebookInsights['tiktokCreatorInfo'] }).tiktokCreatorInfo,
+                  trafficSources: (displayInsights as { trafficSources?: import('@/components/analytics/facebook/types').FacebookInsights['trafficSources'] }).trafficSources,
+                  extra: (displayInsights as { extra?: import('@/components/analytics/facebook/types').FacebookInsights['extra'] }).extra,
                   ...((selectedAccount.platform === 'FACEBOOK' || selectedAccount.platform === 'INSTAGRAM') && liveFbConversationsCount != null ? { facebookLiveConversationsCount: liveFbConversationsCount } : {}),
                   ...((selectedAccount.platform === 'FACEBOOK' || selectedAccount.platform === 'INSTAGRAM') && liveFbConversationDates != null ? { facebookLiveConversationDates: liveFbConversationDates } : {}),
                 }),
@@ -1469,9 +1481,12 @@ export default function DashboardPage() {
                 appDataRef.current?.setPostsForAccount(aid, list);
                 try {
                   const refreshedInsights = await api.get(`/social/accounts/${aid}/insights`, {
-                    params: selectedAccount.platform === 'FACEBOOK'
-                      ? { since: dateRange.start, until: dateRange.end, refresh: 1, persist: 1 }
-                      : { since: dateRange.start, until: dateRange.end },
+                    params:
+                      selectedAccount.platform === 'FACEBOOK'
+                        ? { since: dateRange.start, until: dateRange.end, refresh: 1, persist: 1 }
+                        : selectedAccount.platform === 'YOUTUBE'
+                          ? { since: dateRange.start, until: dateRange.end, extended: 1 }
+                          : { since: dateRange.start, until: dateRange.end },
                     timeout: INSIGHTS_HTTP_MS,
                   });
                   const nextInsights = refreshedInsights.data ?? null;
