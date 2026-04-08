@@ -14,7 +14,7 @@ import {
 import { syncFacebookAuxiliaryIngest } from '@/lib/facebook/sync-extras';
 import { fbRestBaseUrl } from '@/lib/facebook/constants';
 import { getValidPinterestToken } from '@/lib/pinterest-token';
-import { parseTikTokVideoEngagement } from '@/lib/tiktok/video-engagement';
+import { parseTikTokVideoEngagement, parseTikTokVideoDurationSec } from '@/lib/tiktok/video-engagement';
 
 /** Fallback host for IG user/media when graph.facebook.com omits items (matches insights route). */
 const igGraphRestBaseUrl = 'https://graph.instagram.com/v18.0';
@@ -1521,7 +1521,7 @@ async function syncImportedPosts(
         [key: string]: unknown;
       };
       const fields =
-        'cover_image_url,id,title,create_time,share_url,like_count,comment_count,share_count,view_count,favorites_count';
+        'cover_image_url,id,title,create_time,share_url,like_count,comment_count,share_count,view_count,favorites_count,duration';
       const allVideos: TikTokVideo[] = [];
       let cursor: number | string | undefined;
       let hasMore = true;
@@ -1567,9 +1567,12 @@ async function syncImportedPosts(
         const commentsCount = v.comment_count ?? 0;
         const raw = v as Record<string, unknown>;
         const { shareCount, saveCount } = parseTikTokVideoEngagement(raw);
+        const durationSec = parseTikTokVideoDurationSec(raw);
         const sharesCount = shareCount;
         const savesVal = saveCount != null ? saveCount : undefined;
         const interactions = likeCount + commentsCount + sharesCount + (saveCount ?? 0);
+        const tiktokMeta =
+          durationSec != null ? ({ tiktokDurationSec: durationSec } as Record<string, unknown>) : undefined;
         const whereTt = { socialAccountId_platformPostId: { socialAccountId, platformPostId: videoId } };
         try {
           await prisma.importedPost.upsert({
@@ -1587,6 +1590,7 @@ async function syncImportedPosts(
               sharesCount,
               repostsCount: 0,
               ...(savesVal !== undefined ? { savesCount: savesVal } : {}),
+              ...(tiktokMeta ? { platformMetadata: tiktokMeta as object } : {}),
               syncedAt: new Date(),
             },
             create: {
@@ -1605,6 +1609,7 @@ async function syncImportedPosts(
               sharesCount,
               repostsCount: 0,
               savesCount: saveCount ?? 0,
+              ...(tiktokMeta ? { platformMetadata: tiktokMeta as object } : {}),
             },
           });
         } catch (upErr) {
@@ -1624,6 +1629,7 @@ async function syncImportedPosts(
               commentsCount,
               sharesCount,
               repostsCount: 0,
+              ...(tiktokMeta ? { platformMetadata: tiktokMeta as object } : {}),
               syncedAt: new Date(),
             },
             create: {
@@ -1641,6 +1647,7 @@ async function syncImportedPosts(
               commentsCount,
               sharesCount,
               repostsCount: 0,
+              ...(tiktokMeta ? { platformMetadata: tiktokMeta as object } : {}),
             },
           });
         }

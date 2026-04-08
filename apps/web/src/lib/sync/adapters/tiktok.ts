@@ -5,7 +5,7 @@
 
 import { prisma } from '@/lib/db';
 import { upsertDailyMetricSnapshot } from '@/lib/analytics/metric-snapshots';
-import { parseTikTokVideoEngagement } from '@/lib/tiktok/video-engagement';
+import { parseTikTokVideoEngagement, parseTikTokVideoDurationSec } from '@/lib/tiktok/video-engagement';
 import axios from 'axios';
 
 const TIKTOK_API = 'https://open.tiktokapis.com/v2';
@@ -75,7 +75,7 @@ async function syncRecentContent(account: AccountRow) {
       [key: string]: unknown;
     };
     const fields =
-      'id,title,video_description,cover_image_url,share_url,create_time,like_count,comment_count,share_count,view_count,play_count,favorites_count';
+      'id,title,video_description,cover_image_url,share_url,create_time,like_count,comment_count,share_count,view_count,play_count,favorites_count,duration';
     const allVideos: TikTokVideoRow[] = [];
     let cursor: number | string | undefined;
     let hasMore = true;
@@ -115,6 +115,9 @@ async function syncRecentContent(account: AccountRow) {
       if (!v.id) continue;
       const raw = v as Record<string, unknown>;
       const { shareCount, saveCount } = parseTikTokVideoEngagement(raw);
+      const durationSec = parseTikTokVideoDurationSec(raw);
+      const tiktokMeta =
+        durationSec != null ? ({ tiktokDurationSec: durationSec } as Record<string, unknown>) : undefined;
       const likes = typeof v.like_count === 'number' ? v.like_count : 0;
       const comments = typeof v.comment_count === 'number' ? v.comment_count : 0;
       const savesVal = saveCount != null ? saveCount : undefined;
@@ -139,6 +142,7 @@ async function syncRecentContent(account: AccountRow) {
             sharesCount: shareCount,
             repostsCount: 0,
             ...(savesVal !== undefined ? { savesCount: savesVal } : {}),
+            ...(tiktokMeta ? { platformMetadata: tiktokMeta as object } : {}),
             syncedAt: new Date(),
           },
           create: {
@@ -157,6 +161,7 @@ async function syncRecentContent(account: AccountRow) {
             sharesCount: shareCount,
             repostsCount: 0,
             savesCount: saveCount ?? 0,
+            ...(tiktokMeta ? { platformMetadata: tiktokMeta as object } : {}),
           },
         });
         items++;
@@ -176,6 +181,7 @@ async function syncRecentContent(account: AccountRow) {
               commentsCount: comments,
               sharesCount: shareCount,
               repostsCount: 0,
+              ...(tiktokMeta ? { platformMetadata: tiktokMeta as object } : {}),
               syncedAt: new Date(),
             },
             create: {
@@ -193,6 +199,7 @@ async function syncRecentContent(account: AccountRow) {
               commentsCount: comments,
               sharesCount: shareCount,
               repostsCount: 0,
+              ...(tiktokMeta ? { platformMetadata: tiktokMeta as object } : {}),
             },
           });
           items++;

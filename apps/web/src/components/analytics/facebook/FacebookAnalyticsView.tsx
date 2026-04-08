@@ -147,6 +147,23 @@ const STORY_MODE_DEFAULT_METRICS: Record<StoryMode, StoryMetricKey[]> = {
   views: ['videoViews', 'contentViews', 'pageVisits'],
 };
 
+/** TikTok Performance cards reuse chart keys; line colors must match each SparklineMetricCard. */
+const TIKTOK_PERFORMANCE_LINE_COLORS: Record<StoryMetricKey, string> = {
+  followers: COLOR.mint,
+  engagements: COLOR.coral,
+  videoViews: COLOR.amber,
+  contentViews: COLOR.violet,
+  pageVisits: COLOR.magenta,
+};
+
+const TIKTOK_PERFORMANCE_LABELS: Record<StoryMetricKey, string> = {
+  followers: 'Followers',
+  engagements: 'Engagements (range)',
+  videoViews: 'Total video views',
+  contentViews: 'Profile likes',
+  pageVisits: 'Public videos',
+};
+
 const ACTIVITY_METRIC_CONFIG: Record<ActivityMetricKey, { label: string; color: string }> = {
   actions: { label: 'Actions', color: COLOR.violet },
   posts: { label: 'Posts', color: COLOR.magenta },
@@ -363,6 +380,18 @@ function normalizeTotalWatchMs(raw: number, views: number, avgWatchMs: number): 
 }
 
 function getWatchTimes(post: FacebookPost): { watchTimeMs: number; avgWatchMs: number } {
+  if ((post.platform ?? '').toUpperCase() === 'TIKTOK') {
+    const meta =
+      post.platformMetadata && typeof post.platformMetadata === 'object' && !Array.isArray(post.platformMetadata)
+        ? (post.platformMetadata as Record<string, unknown>)
+        : {};
+    const sec = typeof meta.tiktokDurationSec === 'number' && Number.isFinite(meta.tiktokDurationSec) ? meta.tiktokDurationSec : 0;
+    if (sec > 0) {
+      // TikTok Display API video.list does not expose total or average watch time; show clip length here.
+      return { watchTimeMs: 0, avgWatchMs: sec * 1000 };
+    }
+    return { watchTimeMs: 0, avgWatchMs: 0 };
+  }
   const fi = (post.facebookInsights ?? {}) as Record<string, unknown>;
   let avgWatchMs = normalizeAvgWatchMs(toFiniteNumber(fi.post_video_avg_time_watched));
   const views = Math.max(0, bestPostPlayCount(post));
@@ -1080,6 +1109,7 @@ export function PostsPerformanceTable({
   onOpenDetail,
   clicksColumnLabel = 'Clicks',
   hideClicksColumn = false,
+  platform,
 }: {
   rows: Array<{
     id: string;
@@ -1102,29 +1132,44 @@ export function PostsPerformanceTable({
   clicksColumnLabel?: string;
   /** Hide the clicks/interactions column (e.g. for Facebook). */
   hideClicksColumn?: boolean;
+  /** Used to hide Meta-only columns and relabel watch metrics for TikTok. */
+  platform?: string;
 }) {
-  const tableHeaders = [
+  const isTikTokTable = (platform ?? '').toUpperCase() === 'TIKTOK';
+  const tableHeaders: Array<{ label: string; className: string; title?: string }> = [
     { label: 'Post preview', className: 'w-[240px]' },
     { label: 'Publish date', className: 'w-[132px]' },
     { label: 'Type', className: 'w-[60px]' },
     { label: 'Views', className: 'w-[58px]' },
-    { label: 'Unique reach', className: 'w-[66px]' },
+    ...(isTikTokTable ? [] : [{ label: 'Unique reach', className: 'w-[66px]' }]),
     ...(hideClicksColumn ? [] : [{ label: clicksColumnLabel, className: 'w-[92px]' }]),
     { label: 'Likes', className: 'w-[72px]' },
     { label: 'Reactions', className: 'w-[88px]' },
-    { label: 'Watch time', className: 'w-[84px]' },
-    { label: 'Avg watch', className: 'w-[68px]' },
+    {
+      label: isTikTokTable ? 'Total watch' : 'Watch time',
+      className: 'w-[84px]',
+      title: isTikTokTable ? 'TikTok Display API does not expose total watch time in video.list.' : undefined,
+    },
+    {
+      label: isTikTokTable ? 'Clip length' : 'Avg watch',
+      className: 'w-[80px]',
+      title: isTikTokTable
+        ? 'Video duration from TikTok (not average watch time).'
+        : undefined,
+    },
   ];
+  const tableMinW = isTikTokTable ? 'min-w-[1040px]' : 'min-w-[1120px]';
   return (
     <div className="rounded-[20px] overflow-hidden" style={{ background: COLOR.card, boxShadow: '0 2px 16px rgba(15,23,42,0.06)' }}>
       <div className="hidden md:block overflow-x-auto">
-        <table className="w-full min-w-[1120px] table-fixed text-sm">
+        <table className={`w-full ${tableMinW} table-fixed text-sm`}>
           <thead style={{ background: 'rgba(255,255,255,0.02)', color: COLOR.textMuted }}>
             <tr>
               {tableHeaders.map((h, idx) => (
                 <th
                   key={h.label}
-                  className={`py-3 text-left font-medium whitespace-nowrap ${h.className} ${idx > 0 ? 'border-l' : ''} ${h.label === 'Watch time' ? 'pl-5 pr-3' : 'px-3'}`}
+                  title={h.title}
+                  className={`py-3 text-left font-medium whitespace-nowrap ${h.className} ${idx > 0 ? 'border-l' : ''} ${h.label === 'Watch time' || h.label === 'Total watch' ? 'pl-5 pr-3' : 'px-3'}`}
                   style={{ borderColor: idx > 0 ? COLOR.border : undefined }}
                 >
                   {h.label}
@@ -1174,12 +1219,24 @@ export function PostsPerformanceTable({
                 </td>
                 <td className="px-3 py-3"><span className="rounded-full px-2 py-1 text-xs" style={{ background: 'rgba(255,255,255,0.08)', color: COLOR.text }}>{r.type}</span></td>
                 <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.views)}</td>
-                <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.uniqueReach)}</td>
+                {!isTikTokTable ? <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.uniqueReach)}</td> : null}
                 {!hideClicksColumn && <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.clicks)}</td>}
                 <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.likes)}</td>
                 <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.reactionsTotal)}</td>
-                <td className="pl-5 pr-3 py-3" style={{ color: COLOR.textSecondary }}>{r.watchTimeMs > 0 ? formatDurationMs(r.watchTimeMs) : ' - '}</td>
-                <td className="px-3 py-3" style={{ color: COLOR.textSecondary }}>{r.avgWatchMs > 0 ? formatDurationMs(r.avgWatchMs) : ' - '}</td>
+                <td
+                  className="pl-5 pr-3 py-3"
+                  style={{ color: COLOR.textSecondary }}
+                  title={isTikTokTable ? 'Not available from TikTok video.list' : undefined}
+                >
+                  {isTikTokTable ? '—' : r.watchTimeMs > 0 ? formatDurationMs(r.watchTimeMs) : ' - '}
+                </td>
+                <td
+                  className="px-3 py-3"
+                  style={{ color: COLOR.textSecondary }}
+                  title={isTikTokTable && r.avgWatchMs <= 0 ? 'Sync posts after deploy to pull duration from TikTok.' : undefined}
+                >
+                  {r.avgWatchMs > 0 ? formatDurationMs(r.avgWatchMs) : ' - '}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -1226,8 +1283,19 @@ export function PostsPerformanceTable({
               <span>{formatPostCardDateTime(r.date) || new Date(r.date).toLocaleDateString()}</span>
               <span>{r.type}</span>
               <span>Views {formatNumber(r.views)}</span>
-              <span>{r.watchTimeMs > 0 ? `Watch ${formatDurationMs(r.watchTimeMs)}` : 'Watch -'}</span>
-              <span>{r.avgWatchMs > 0 ? `Avg ${formatDurationMs(r.avgWatchMs)}` : 'Avg -'}</span>
+              {!isTikTokTable ? <span>Reach {formatNumber(r.uniqueReach)}</span> : null}
+              <span>
+                {isTikTokTable ? 'Total watch —' : r.watchTimeMs > 0 ? `Watch ${formatDurationMs(r.watchTimeMs)}` : 'Watch -'}
+              </span>
+              <span>
+                {isTikTokTable
+                  ? r.avgWatchMs > 0
+                    ? `Clip ${formatDurationMs(r.avgWatchMs)}`
+                    : 'Clip -'
+                  : r.avgWatchMs > 0
+                    ? `Avg ${formatDurationMs(r.avgWatchMs)}`
+                    : 'Avg -'}
+              </span>
               {!hideClicksColumn && (
                 <span>
                   {clicksColumnLabel} {formatNumber(r.clicks)}
@@ -1491,8 +1559,14 @@ export function FacebookAnalyticsView({
   }, [sections]);
 
   useEffect(() => {
+    if (insights?.platform?.toUpperCase() === 'TIKTOK') return;
     setSelectedStoryMetrics(STORY_MODE_DEFAULT_METRICS[storyMode]);
-  }, [storyMode]);
+  }, [storyMode, insights?.platform]);
+
+  useEffect(() => {
+    if (insights?.platform?.toUpperCase() !== 'TIKTOK') return;
+    setSelectedStoryMetrics(['followers', 'contentViews', 'pageVisits', 'videoViews', 'engagements']);
+  }, [insights?.platform]);
 
   useEffect(() => {
     if (insights?.platform?.toUpperCase() !== 'TIKTOK') return;
@@ -2653,8 +2727,11 @@ export function FacebookAnalyticsView({
                   className="rounded-full border px-2.5 py-1 text-xs"
                   style={{ borderColor: COLOR.border, color: COLOR.textSecondary, background: 'rgba(255,255,255,0.02)' }}
                 >
-                  <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ background: STORY_METRIC_CONFIG[metric].color }} />
-                  {STORY_METRIC_CONFIG[metric].label}
+                  <span
+                    className="mr-1 inline-block h-2 w-2 rounded-full"
+                    style={{ background: isTikTok ? TIKTOK_PERFORMANCE_LINE_COLORS[metric] : STORY_METRIC_CONFIG[metric].color }}
+                  />
+                  {isTikTok ? TIKTOK_PERFORMANCE_LABELS[metric] : STORY_METRIC_CONFIG[metric].label}
                 </span>
               ))}
             </div>
@@ -2685,11 +2762,27 @@ export function FacebookAnalyticsView({
                 />
                 <Tooltip
                   contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
-                  formatter={(v: number | string | undefined, n?: string) => [formatNumber(Number(v) || 0), n && n in STORY_METRIC_CONFIG ? STORY_METRIC_CONFIG[n as StoryMetricKey].label : String(n ?? '')]}
+                  formatter={(v: number | string | undefined, n?: string) => {
+                    const key = n as StoryMetricKey | undefined;
+                    const label =
+                      isTikTok && key && TIKTOK_PERFORMANCE_LABELS[key]
+                        ? TIKTOK_PERFORMANCE_LABELS[key]
+                        : key && key in STORY_METRIC_CONFIG
+                          ? STORY_METRIC_CONFIG[key].label
+                          : String(n ?? '');
+                    return [formatNumber(Number(v) || 0), label];
+                  }}
                   labelFormatter={(l) => formatShortDate(String(l))}
                 />
                 {selectedStoryMetrics.map((metric) => (
-                  <Line key={metric} type="monotone" dataKey={metric} stroke={STORY_METRIC_CONFIG[metric].color} strokeWidth={2.2} dot={false} />
+                  <Line
+                    key={metric}
+                    type="monotone"
+                    dataKey={metric}
+                    stroke={isTikTok ? TIKTOK_PERFORMANCE_LINE_COLORS[metric] : STORY_METRIC_CONFIG[metric].color}
+                    strokeWidth={2.2}
+                    dot={false}
+                  />
                 ))}
               </ComposedChart>
             </ResponsiveContainer>
@@ -3369,8 +3462,9 @@ export function FacebookAnalyticsView({
             <PostsPerformanceTable
               rows={contentHistoryRows}
               onOpenDetail={setSelectedPost}
-              clicksColumnLabel={isInstagram ? 'Interactions' : 'Clicks'}
+              clicksColumnLabel={isInstagram || isTikTok ? 'Interactions' : 'Clicks'}
               hideClicksColumn={isInstagram}
+              platform={insights?.platform}
             />
           ) : postsLoading ? (
             <div className="rounded-[20px] border p-6 space-y-3" style={{ background: COLOR.card, borderColor: COLOR.border }}>
@@ -3385,8 +3479,9 @@ export function FacebookAnalyticsView({
             <PostsPerformanceTable
               rows={contentHistoryRows}
               onOpenDetail={setSelectedPost}
-              clicksColumnLabel={isInstagram ? 'Interactions' : 'Clicks'}
+              clicksColumnLabel={isInstagram || isTikTok ? 'Interactions' : 'Clicks'}
               hideClicksColumn={isInstagram}
+              platform={insights?.platform}
             />
           )}
         </div>
@@ -3463,7 +3558,7 @@ export function FacebookAnalyticsView({
         </details>
       ) : null}
 
-      {insights?.insightsHint ? (
+      {insights?.insightsHint && !isTikTok ? (
         <div className="rounded-[16px] border px-4 py-3 text-sm" style={{ borderColor: 'rgba(255,138,122,0.45)', color: COLOR.coral, background: 'rgba(255,138,122,0.08)' }}>
           {insights.insightsHint}
           {onReconnectFacebook ? (

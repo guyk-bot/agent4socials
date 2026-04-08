@@ -35,3 +35,14 @@ export function parseTikTokVideoEngagement(video: Record<string, unknown>): {
   }
   return { shareCount, saveCount };
 }
+
+/** TikTok video object `duration` is clip length in seconds (not aggregate watch time). */
+export function parseTikTokVideoDurationSec(video: Record<string, unknown>): number | null {
+  const d = video.duration;
+  if (typeof d === 'number' && Number.isFinite(d) && d > 0) return Math.floor(d);
+  if (typeof d === 'string' && d.trim() !== '') {
+    const n = parseInt(d, 10);
+    if (!Number.isNaN(n) && n > 0) return n;
+  }
+  return null;
+}

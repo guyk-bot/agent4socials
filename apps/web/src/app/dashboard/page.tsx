@@ -1210,14 +1210,6 @@ export default function DashboardPage() {
           : [];
   const maxImpressions = displayTimeSeries.length ? Math.max(...displayTimeSeries.map((d) => d.value), 1) : 1;
   const showViewsHint = hasFbOrIg && effectiveFollowers > 0 && effectiveImpressions === 0 && !effectiveTimeSeries.some((d) => d.value > 0) && (selectedAccount?.platform === 'INSTAGRAM' || !selectedAccount);
-  /** Match API TikTok hints only (avoid the old false positive: followers 0 + views from synced posts). */
-  const tikTokInsightsHint = displayInsights?.insightsHint ?? '';
-  const showTikTokFollowersHint =
-    selectedAccount?.platform === 'TIKTOK' &&
-    Boolean(
-      tikTokInsightsHint &&
-        (tikTokInsightsHint.includes('user.info.stats') || tikTokInsightsHint.includes('profile stats'))
-    );
   /** Full-page analytics skeleton: only when actively loading AND no cached data to show. */
   const analyticsLoadingOnly = Boolean(
     selectedAccount &&
@@ -1361,20 +1353,6 @@ export default function DashboardPage() {
               background: 'linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,252,0.94))',
             }}
           />
-        </div>
-      )}
-      {!analyticsLoadingOnly && showTikTokFollowersHint && (
-        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          <p className="font-medium">
-            {tikTokInsightsHint.includes('profile stats')
-              ? 'TikTok could not load profile stats.'
-              : 'TikTok follower count needs the user.info.stats scope.'}
-          </p>
-          <p className="mt-1 text-xs text-amber-700">
-            {tikTokInsightsHint.includes('profile stats')
-              ? 'Use Reconnect in the sidebar. Views are from your synced videos.'
-              : 'Use Reconnect in the sidebar and approve all requested permissions to see your follower count here. Views are from your synced videos.'}
-          </p>
         </div>
       )}
       {/* Instagram-only: analytics and posts not available; CTA to connect with Facebook */}

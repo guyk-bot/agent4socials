@@ -120,7 +120,7 @@ export interface FacebookPost {
   savesCount?: number;
   /** Post lifetime insights from sync (registry-valid metrics only). */
   facebookInsights?: Record<string, number>;
-  /** From `ImportedPost.platformMetadata` when present (e.g. Facebook `status_type` for reel vs photo). */
+  /** From `ImportedPost.platformMetadata` when present (e.g. Facebook `status_type`, TikTok `tiktokDurationSec`). */
   platformMetadata?: unknown;
   /** Edge summaries + scalar totals for quick UI (Facebook only). */
   engagementBreakdown?: {
