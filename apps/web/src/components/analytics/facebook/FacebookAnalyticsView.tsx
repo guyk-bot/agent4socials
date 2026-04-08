@@ -1411,7 +1411,7 @@ export function FacebookAnalyticsView({
     (!hasApiInsightsFetched || (insights?.platform === 'FACEBOOK' && !insights?.facebookAnalytics));
   const [storyMode, setStoryMode] = useState<StoryMode>('growth');
   const [selectedStoryMetrics, setSelectedStoryMetrics] = useState<StoryMetricKey[]>(STORY_MODE_DEFAULT_METRICS.growth);
-  const [selectedActivityMetrics, setSelectedActivityMetrics] = useState<ActivityMetricKey[]>(['posts', 'actions']);
+  const [selectedActivityMetrics, setSelectedActivityMetrics] = useState<ActivityMetricKey[]>(['posts', 'actions', 'conversations']);
   const [selectedEngagementMetrics, setSelectedEngagementMetrics] = useState<EngagementMetricKey[]>(['likes', 'comments', 'shares']);
   const [selectedTrafficMetrics, setSelectedTrafficMetrics] = useState<TrafficMetricKey[]>(['postImpressions', 'nonviral', 'viral', 'uniqueReachProxy']);
   const [selectedReelMetrics, setSelectedReelMetrics] = useState<ReelMetricKey[]>(['views', 'avgWatch']);
@@ -1419,10 +1419,6 @@ export function FacebookAnalyticsView({
   const [activeSection, setActiveSection] = useState<SectionId>(FACEBOOK_ANALYTICS_SECTION_IDS.overview);
   const [selectedPost, setSelectedPost] = useState<FacebookPost | null>(null);
   const [historyFilter, setHistoryFilter] = useState<ContentHistoryFilter>('all');
-  const visibleActivityMetrics = useMemo<ActivityMetricKey[]>(
-    () => selectedActivityMetrics.filter((m) => m === 'actions' || m === 'posts'),
-    [selectedActivityMetrics]
-  );
   const sections = useMemo(
     () => [
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.overview, label: 'Overview' },
@@ -2830,10 +2826,18 @@ export function FacebookAnalyticsView({
             active={selectedActivityMetrics.includes('posts')}
             onClick={() => setSelectedActivityMetrics((prev) => prev.includes('posts') ? prev.filter((m) => m !== 'posts') : [...prev, 'posts'])}
           />
+          <MetricCard
+            label="Conversations"
+            source="Messenger conversations"
+            color={ACTIVITY_METRIC_CONFIG.conversations.color}
+            value={formatNumber(conversationActivityCount)}
+            active={selectedActivityMetrics.includes('conversations')}
+            onClick={() => setSelectedActivityMetrics((prev) => prev.includes('conversations') ? prev.filter((m) => m !== 'conversations') : [...prev, 'conversations'])}
+          />
           </div>
           <div className="flex justify-end">
             <div className="flex flex-wrap gap-2">
-              {visibleActivityMetrics.map((m) => (
+              {selectedActivityMetrics.map((m) => (
                 <span
                   key={m}
                   className="rounded-full border px-2.5 py-1 text-xs"
@@ -2846,7 +2850,7 @@ export function FacebookAnalyticsView({
             </div>
           </div>
           <InsightChartCard title="Activity" hideHeader flat>
-          {visibleActivityMetrics.length === 0 ? (
+          {selectedActivityMetrics.length === 0 ? (
             <div className="h-[300px] rounded-xl border border-dashed relative overflow-hidden" style={{ borderColor: COLOR.border }}>
               <div className="absolute inset-0 z-[2] flex items-center justify-center">
                 <div
@@ -2877,8 +2881,9 @@ export function FacebookAnalyticsView({
                   ]}
                   labelFormatter={(l) => formatShortDate(String(l))}
                 />
-                {visibleActivityMetrics.includes('actions') ? <Line type="monotone" dataKey="actions" stroke={ACTIVITY_METRIC_CONFIG.actions.color} strokeWidth={2} dot={false} /> : null}
-                {visibleActivityMetrics.includes('posts') ? <Line type="monotone" dataKey="posts" stroke={ACTIVITY_METRIC_CONFIG.posts.color} strokeWidth={2} dot={false} /> : null}
+                {selectedActivityMetrics.includes('actions') ? <Line type="monotone" dataKey="actions" stroke={ACTIVITY_METRIC_CONFIG.actions.color} strokeWidth={2} dot={false} /> : null}
+                {selectedActivityMetrics.includes('posts') ? <Line type="monotone" dataKey="posts" stroke={ACTIVITY_METRIC_CONFIG.posts.color} strokeWidth={2} dot={false} /> : null}
+                {selectedActivityMetrics.includes('conversations') ? <Line type="monotone" dataKey="conversations" stroke={ACTIVITY_METRIC_CONFIG.conversations.color} strokeWidth={2} dot={false} /> : null}
               </ComposedChart>
             </ResponsiveContainer>
           )}
