@@ -288,15 +288,18 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   // Rehydrate cache from sessionStorage on mount so data survives full reloads
   useEffect(() => {
     if (typeof window === 'undefined' || !user?.id) {
+      console.log('[AppData] Rehydration skipped: no window or user');
       setCacheRehydrated(true);
       return;
     }
     try {
       const raw = localStorage.getItem(CACHE_KEY) || sessionStorage.getItem(CACHE_KEY);
       if (!raw) {
+        console.log('[AppData] No cached data found');
         setCacheRehydrated(true);
         return;
       }
+      console.log('[AppData] Found cached data, size:', raw.length);
       const data = JSON.parse(raw) as {
         conversationsByAccountId?: Record<string, CachedConversation[]>;
         postsByAccountId?: Record<string, CachedPost[]>;
@@ -304,23 +307,32 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         commentsByAccountId?: Record<string, CachedComment[]>;
   engagementByAccountId?: Record<string, CachedEngagement[]>;
       };
+      let rehydratedCount = 0;
       if (data.conversationsByAccountId && Object.keys(data.conversationsByAccountId).length > 0) {
         setConversationsByAccountId(data.conversationsByAccountId);
+        rehydratedCount++;
       }
       if (data.postsByAccountId && Object.keys(data.postsByAccountId).length > 0) {
         setPostsByAccountId(data.postsByAccountId);
+        rehydratedCount++;
       }
       if (data.insightsByAccountId && Object.keys(data.insightsByAccountId).length > 0) {
         setInsightsByAccountId(data.insightsByAccountId);
+        console.log('[AppData] Rehydrated insights for accounts:', Object.keys(data.insightsByAccountId));
+        rehydratedCount++;
       }
       if (data.commentsByAccountId && Object.keys(data.commentsByAccountId).length > 0) {
         setCommentsByAccountId(data.commentsByAccountId);
+        rehydratedCount++;
       }
       if (data.engagementByAccountId && Object.keys(data.engagementByAccountId).length > 0) {
         setEngagementByAccountId(data.engagementByAccountId);
+        rehydratedCount++;
       }
+      console.log('[AppData] Cache rehydration complete, rehydrated', rehydratedCount, 'data types');
       setCacheRehydrated(true);
-    } catch {
+    } catch (e) {
+      console.error('[AppData] Cache rehydration error:', e);
       // ignore parse errors or quota
       setCacheRehydrated(true);
     }
@@ -349,10 +361,22 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         engagementByAccountId,
       };
       const str = JSON.stringify(payload);
-      if (str.length > CACHE_MAX_BYTES) return;
+      console.log('[AppData] Cache write attempt:', {
+        size: str.length,
+        limit: CACHE_MAX_BYTES,
+        willWrite: str.length <= CACHE_MAX_BYTES,
+        insightsCount: Object.keys(slimInsights).length,
+        postsCount: Object.keys(postsByAccountId).length,
+      });
+      if (str.length > CACHE_MAX_BYTES) {
+        console.warn('[AppData] Cache too large, skipping write');
+        return;
+      }
       sessionStorage.setItem(CACHE_KEY, str);
       localStorage.setItem(CACHE_KEY, str);
-    } catch {
+      console.log('[AppData] Cache written successfully');
+    } catch (e) {
+      console.error('[AppData] Cache write error:', e);
       // ignore quota or other errors
     }
   }, [user?.id, conversationsByAccountId, postsByAccountId, insightsByAccountId, commentsByAccountId, engagementByAccountId]);

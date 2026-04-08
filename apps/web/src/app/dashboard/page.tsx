@@ -658,7 +658,11 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!selectedAccount?.id || !dateRange.start || !dateRange.end) return;
     // Wait for cache rehydration to complete before checking for cached data
-    if (!appData?.cacheRehydrated) return;
+    if (!appData?.cacheRehydrated) {
+      console.log('[Dashboard] Waiting for cache rehydration...');
+      return;
+    }
+    console.log('[Dashboard] Effect run for', selectedAccount.platform, selectedAccount.id);
     const skipInstagramAutoRefresh = selectedAccount?.platform === 'INSTAGRAM' && !justConnected;
     const prevAccountId = selectedAccountIdRef.current;
     selectedAccountIdRef.current = selectedAccount.id;
@@ -674,6 +678,13 @@ export default function DashboardPage() {
       (prefetchedForDefault && typeof prefetchedForDefault === 'object'
         ? prefetchedForDefault
         : null) ?? insightsCacheRef.current[cacheKey] ?? null;
+    console.log('[Dashboard] Exact cache check:', {
+      accountId,
+      cacheKey,
+      hasPrefetched: !!prefetchedForDefault,
+      hasRefCached: !!insightsCacheRef.current[cacheKey],
+      exactCached: !!exactCached,
+    });
     // Stale data is keyed by account id only; do not require payload.platform to match (prefetch/cache may omit it).
     const fromAppInsights = app?.getInsights(accountId);
     const staleRaw =
