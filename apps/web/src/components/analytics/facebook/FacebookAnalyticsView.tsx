@@ -3529,9 +3529,6 @@ export function FacebookAnalyticsView({
                 <h4 className="text-base font-semibold mb-1" style={{ color: COLOR.text }}>
                   Views by country
                 </h4>
-                <p className="text-xs mb-4" style={{ color: COLOR.textSecondary }}>
-                  Share of channel views by viewer country (YouTube Analytics, when data is available).
-                </p>
                 {youtubeGeoBreakdown.pieSlices.length > 0 ? (
                   <div className="flex flex-col lg:flex-row lg:items-center gap-4">
                     <div className="w-full lg:w-[min(100%,420px)] h-[280px] shrink-0">
@@ -3564,9 +3561,9 @@ export function FacebookAnalyticsView({
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
-                    <ul className="flex-1 space-y-2 text-sm min-w-0" style={{ color: COLOR.text }}>
+                    <ul className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm min-w-0" style={{ color: COLOR.text }}>
                       {youtubeGeoBreakdown.list.slice(0, 12).map((row, i) => (
-                        <li key={row.name} className="flex items-center justify-between gap-2 border-b border-neutral-100 pb-2 last:border-0">
+                        <li key={row.name} className="flex items-center justify-between gap-2 border-b border-neutral-100 pb-2">
                           <span className="flex items-center gap-2 min-w-0">
                             <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: YOUTUBE_GEO_PIE_COLORS[i % YOUTUBE_GEO_PIE_COLORS.length] }} />
                             <span className="truncate font-medium">{row.name}</span>

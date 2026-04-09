@@ -1721,14 +1721,31 @@ async function syncImportedPosts(
         .map((v) => v.snippet?.resourceId?.videoId)
         .filter((id): id is string => Boolean(id));
 
-      const statsMap: Record<string, { viewCount: number; likeCount: number; commentCount: number }> = {};
+      const parseYoutubeIso8601DurationSeconds = (iso: string | undefined): number => {
+        if (!iso || typeof iso !== 'string') return 0;
+        const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+        if (!m) return 0;
+        const h = Number(m[1] ?? 0);
+        const min = Number(m[2] ?? 0);
+        const s = Number(m[3] ?? 0);
+        return h * 3600 + min * 60 + s;
+      };
+
+      const statsMap: Record<
+        string,
+        { viewCount: number; likeCount: number; commentCount: number; durationSec: number }
+      > = {};
       for (let i = 0; i < videoIds.length; i += 50) {
         const batch = videoIds.slice(i, i + 50);
         try {
           const statsRes = await axios.get<{
-            items?: Array<{ id: string; statistics?: { viewCount?: string; likeCount?: string; commentCount?: string } }>;
+            items?: Array<{
+              id: string;
+              statistics?: { viewCount?: string; likeCount?: string; commentCount?: string };
+              contentDetails?: { duration?: string };
+            }>;
           }>('https://www.googleapis.com/youtube/v3/videos', {
-            params: { part: 'statistics', id: batch.join(',') },
+            params: { part: 'statistics,contentDetails', id: batch.join(',') },
             headers: { Authorization: `Bearer ${accessToken}` },
           });
           for (const v of statsRes.data?.items ?? []) {
@@ -1736,6 +1753,7 @@ async function syncImportedPosts(
               viewCount: v.statistics?.viewCount ? parseInt(v.statistics.viewCount, 10) : 0,
               likeCount: v.statistics?.likeCount ? parseInt(v.statistics.likeCount, 10) : 0,
               commentCount: v.statistics?.commentCount ? parseInt(v.statistics.commentCount, 10) : 0,
+              durationSec: parseYoutubeIso8601DurationSeconds(v.contentDetails?.duration),
             };
           }
         } catch (e) {
@@ -1753,15 +1771,42 @@ async function syncImportedPosts(
         const thumbnailUrl = v.snippet?.thumbnails?.medium?.url ?? v.snippet?.thumbnails?.default?.url
           ?? `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
         const permalinkUrl = `https://www.youtube.com/watch?v=${videoId}`;
-        const stats = statsMap[videoId] ?? { viewCount: 0, likeCount: 0, commentCount: 0 };
+        const stats = statsMap[videoId] ?? { viewCount: 0, likeCount: 0, commentCount: 0, durationSec: 0 };
         const impressions = stats.viewCount;
         const likeCount = stats.likeCount;
         const commentsCount = stats.commentCount;
         const interactions = likeCount + commentsCount;
+        const youtubeMeta = { youtubeDurationSec: stats.durationSec };
         await prisma.importedPost.upsert({
           where: { socialAccountId_platformPostId: { socialAccountId, platformPostId: videoId } },
-          update: { content: title, thumbnailUrl, permalinkUrl, publishedAt, mediaType: 'VIDEO', impressions, interactions, likeCount, commentsCount, syncedAt: new Date() },
-          create: { socialAccountId, platformPostId: videoId, platform: 'YOUTUBE', content: title, thumbnailUrl, permalinkUrl, publishedAt, mediaType: 'VIDEO', impressions, interactions, likeCount, commentsCount },
+          update: {
+            content: title,
+            thumbnailUrl,
+            permalinkUrl,
+            publishedAt,
+            mediaType: 'VIDEO',
+            impressions,
+            interactions,
+            likeCount,
+            commentsCount,
+            platformMetadata: youtubeMeta as object,
+            syncedAt: new Date(),
+          },
+          create: {
+            socialAccountId,
+            platformPostId: videoId,
+            platform: 'YOUTUBE',
+            content: title,
+            thumbnailUrl,
+            permalinkUrl,
+            publishedAt,
+            mediaType: 'VIDEO',
+            impressions,
+            interactions,
+            likeCount,
+            commentsCount,
+            platformMetadata: youtubeMeta as object,
+          },
         });
       }
 
