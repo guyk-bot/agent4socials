@@ -168,6 +168,30 @@ const YOUTUBE_PERFORMANCE_LABELS: Record<StoryMetricKey, string> = {
   subscriberNet: 'Subscriber net (daily)',
 };
 
+const YOUTUBE_PERFORMANCE_PRESET_ORDER = ['overview', 'subscribers', 'reach', 'views', 'engagement'] as const;
+type YouTubePerformancePresetKey = (typeof YOUTUBE_PERFORMANCE_PRESET_ORDER)[number];
+
+const YOUTUBE_PERFORMANCE_PRESETS: Record<
+  YouTubePerformancePresetKey,
+  { label: string; metrics: readonly StoryMetricKey[] }
+> = {
+  overview: {
+    label: 'Overview',
+    metrics: ['followers', 'videoViews', 'engagements', 'subscriberNet'],
+  },
+  subscribers: { label: 'Subscribers', metrics: ['followers', 'subscriberNet'] },
+  reach: { label: 'Reach', metrics: ['videoViews', 'engagements'] },
+  views: { label: 'Views', metrics: ['videoViews'] },
+  engagement: { label: 'Engagement', metrics: ['engagements'] },
+};
+
+function storyMetricSetsEqual(a: StoryMetricKey[], b: readonly StoryMetricKey[]): boolean {
+  if (a.length !== b.length) return false;
+  const as = new Set(a);
+  if (as.size !== a.length) return false;
+  return b.every((m) => as.has(m));
+}
+
 const YOUTUBE_GEO_PIE_COLORS = [
   '#42d9f5',
   '#7c6cff',
@@ -443,13 +467,43 @@ function inRange(dateIso: string, start: string, end: string): boolean {
   return d >= start && d <= end;
 }
 
+/** YouTube Shorts max runtime (seconds) used for Reels vs long-form split. */
+const YOUTUBE_SHORT_MAX_DURATION_SEC = 180;
+
+function getYoutubeDurationSecFromPost(p: FacebookPost): number | null {
+  if ((p.platform ?? '').toUpperCase() !== 'YOUTUBE') return null;
+  const meta =
+    p.platformMetadata && typeof p.platformMetadata === 'object' && !Array.isArray(p.platformMetadata)
+      ? (p.platformMetadata as Record<string, unknown>)
+      : {};
+  const s = meta.youtubeDurationSec;
+  if (typeof s === 'number' && Number.isFinite(s) && s >= 0) return s;
+  return null;
+}
+
+/** True when we know runtime and it is within YouTube Shorts limits. */
+function isYouTubeShortPost(p: FacebookPost): boolean {
+  if ((p.platform ?? '').toUpperCase() !== 'YOUTUBE') return false;
+  const d = getYoutubeDurationSecFromPost(p);
+  if (d === null) return false;
+  return d > 0 && d <= YOUTUBE_SHORT_MAX_DURATION_SEC;
+}
+
+/** Long uploads and legacy rows without duration (treated as long-form until the next sync). */
+function isYouTubeLongFormVideoPost(p: FacebookPost): boolean {
+  if ((p.platform ?? '').toUpperCase() !== 'YOUTUBE') return false;
+  const d = getYoutubeDurationSecFromPost(p);
+  if (d === null) return true;
+  return d === 0 || d > YOUTUBE_SHORT_MAX_DURATION_SEC;
+}
+
 /**
  * True only for actual Reels (Reels tab / chart). Do not treat photos or plain feed videos as reels
  * just because insights include numeric post_video_* fields (often 0).
  */
 function isReelPost(p: FacebookPost): boolean {
   if ((p.platform ?? '').toUpperCase() === 'TIKTOK') return true;
-  if ((p.platform ?? '').toUpperCase() === 'YOUTUBE') return true;
+  if ((p.platform ?? '').toUpperCase() === 'YOUTUBE') return isYouTubeShortPost(p);
   const url = (p.permalinkUrl ?? '').toLowerCase();
   if (url.includes('/reel/') || url.includes('/reels/')) return true;
   const mt = (p.mediaType ?? '').toUpperCase();
@@ -535,6 +589,68 @@ function bestInstagramInteractionCount(p: FacebookPost): number {
   return Math.max(fromMetric, fromParts);
 }
 
+type ReelAnalyticsRow = {
+  post: FacebookPost;
+  views: number;
+  organicViews: number;
+  avgWatchMs: number;
+  watchTimeMs: number;
+};
+
+function buildReelsLikeChartData(rows: ReelAnalyticsRow[]) {
+  const byDate: Record<
+    string,
+    {
+      date: string;
+      views: number;
+      watchTimeMinutes: number;
+      avgWatchSeconds: number;
+      clicks: number;
+      likes: number;
+      comments: number;
+      shares: number;
+      reposts: number;
+      thumbnailUrl: string | null;
+      count: number;
+    }
+  > = {};
+  for (const r of rows) {
+    const date = r.post.publishedAt.slice(0, 10);
+    const row = byDate[date] ?? {
+      date,
+      views: 0,
+      watchTimeMinutes: 0,
+      avgWatchSeconds: 0,
+      clicks: 0,
+      likes: 0,
+      comments: 0,
+      shares: 0,
+      reposts: 0,
+      thumbnailUrl: r.post.thumbnailUrl ?? null,
+      count: 0,
+    };
+    row.views += r.views;
+    row.watchTimeMinutes += (r.watchTimeMs ?? 0) / 60000;
+    row.avgWatchSeconds += r.avgWatchMs / 1000;
+    row.clicks +=
+      r.post.platform === 'INSTAGRAM'
+        ? bestInstagramInteractionCount(r.post)
+        : (r.post.facebookInsights?.post_clicks ?? 0);
+    row.likes += bestCount(r.post.facebookInsights?.post_reactions_like_total, r.post.likeCount);
+    row.comments += r.post.facebookInsights?.post_comments ?? r.post.commentsCount ?? 0;
+    row.shares += bestShareCount(r.post);
+    row.reposts += bestRepostCount(r.post);
+    row.count += 1;
+    byDate[date] = row;
+  }
+  return Object.values(byDate)
+    .map((row) => ({
+      ...row,
+      avgWatchSeconds: row.count > 0 ? row.avgWatchSeconds / row.count : 0,
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
 /** Unified post interaction count for social dashboards. */
 function bestPostInteractionCount(p: FacebookPost): number {
   const platform = String(p.platform ?? '').toUpperCase();
@@ -548,6 +664,9 @@ function bestPostInteractionCount(p: FacebookPost): number {
   if (platform === 'INSTAGRAM') return Math.max(bestInstagramInteractionCount(p), fromParts);
   if (platform === 'FACEBOOK') return fromParts;
   if (platform === 'TIKTOK') {
+    return (p.likeCount ?? 0) + (p.commentsCount ?? 0) + bestShareCount(p);
+  }
+  if (platform === 'YOUTUBE') {
     return (p.likeCount ?? 0) + (p.commentsCount ?? 0) + bestShareCount(p);
   }
   return fi.post_clicks ?? 0;
@@ -1538,14 +1657,16 @@ export function FacebookAnalyticsView({
   const [selectedPost, setSelectedPost] = useState<FacebookPost | null>(null);
   const [historyFilter, setHistoryFilter] = useState<ContentHistoryFilter>('all');
   const sections = useMemo(() => {
+    const plat = insights?.platform?.toUpperCase() ?? '';
     const all = [
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.overview, label: 'Overview' },
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.traffic, label: 'Traffic' },
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.posts, label: 'Posts' },
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.reels, label: 'Reels' },
+      ...(plat === 'YOUTUBE' ? [{ id: FACEBOOK_ANALYTICS_SECTION_IDS.videos, label: 'Videos' } as const] : []),
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.history, label: 'History' },
     ];
-    if (insights?.platform?.toUpperCase() === 'TIKTOK') {
+    if (plat === 'TIKTOK') {
       return all.filter((s) => s.id !== FACEBOOK_ANALYTICS_SECTION_IDS.traffic);
     }
     return all;
@@ -1752,6 +1873,15 @@ export function FacebookAnalyticsView({
       return [...prev, metric];
     });
   };
+  const activeYoutubePerformancePreset = useMemo((): YouTubePerformancePresetKey | null => {
+    if (!isYouTube) return null;
+    for (const key of YOUTUBE_PERFORMANCE_PRESET_ORDER) {
+      if (storyMetricSetsEqual(selectedStoryMetrics, YOUTUBE_PERFORMANCE_PRESETS[key].metrics)) {
+        return key;
+      }
+    }
+    return null;
+  }, [isYouTube, selectedStoryMetrics]);
   const newFollowers = bundle?.totals.dailyFollows ?? 0;
   const derivedPostViewsInRange = useMemo(
     () => postsInRange.reduce((s, p) => s + bestPostPlayCount(p), 0),
@@ -2241,55 +2371,22 @@ export function FacebookAnalyticsView({
       }));
   }, [postsRows]);
 
-  const reelsChartData = useMemo(() => {
-    const byDate: Record<string, {
-      date: string;
-      views: number;
-      watchTimeMinutes: number;
-      avgWatchSeconds: number;
-      clicks: number;
-      likes: number;
-      comments: number;
-      shares: number;
-      reposts: number;
-      thumbnailUrl: string | null;
-      count: number;
-    }> = {};
-    for (const r of reelsRows) {
-      const date = r.post.publishedAt.slice(0, 10);
-      const row = byDate[date] ?? {
-        date,
-        views: 0,
-        watchTimeMinutes: 0,
-        avgWatchSeconds: 0,
-        clicks: 0,
-        likes: 0,
-        comments: 0,
-        shares: 0,
-        reposts: 0,
-        thumbnailUrl: r.post.thumbnailUrl ?? null,
-        count: 0,
+  const longFormVideoRows = useMemo((): ReelAnalyticsRow[] => {
+    if (!isYouTube) return [];
+    return postsInRange.filter((p) => isYouTubeLongFormVideoPost(p)).map((p) => {
+      const { watchTimeMs, avgWatchMs } = getWatchTimes(p);
+      return {
+        post: p,
+        views: bestPostPlayCount(p),
+        organicViews: p.facebookInsights?.post_video_views_organic ?? 0,
+        avgWatchMs: avgWatchMs ?? 0,
+        watchTimeMs: watchTimeMs ?? 0,
       };
-      row.views += r.views;
-      row.watchTimeMinutes += (r.watchTimeMs ?? 0) / 60000;
-      row.avgWatchSeconds += r.avgWatchMs / 1000;
-      row.clicks += r.post.platform === 'INSTAGRAM'
-        ? bestInstagramInteractionCount(r.post)
-        : (r.post.facebookInsights?.post_clicks ?? 0);
-      row.likes += bestCount(r.post.facebookInsights?.post_reactions_like_total, r.post.likeCount);
-      row.comments += r.post.facebookInsights?.post_comments ?? r.post.commentsCount ?? 0;
-      row.shares += bestShareCount(r.post);
-      row.reposts += bestRepostCount(r.post);
-      row.count += 1;
-      byDate[date] = row;
-    }
-    return Object.values(byDate)
-      .map((row) => ({
-        ...row,
-        avgWatchSeconds: row.count > 0 ? row.avgWatchSeconds / row.count : 0,
-      }))
-      .sort((a, b) => a.date.localeCompare(b.date));
-  }, [reelsRows]);
+    });
+  }, [isYouTube, postsInRange]);
+
+  const reelsChartData = useMemo(() => buildReelsLikeChartData(reelsRows), [reelsRows]);
+  const longFormVideosChartData = useMemo(() => buildReelsLikeChartData(longFormVideoRows), [longFormVideoRows]);
 
   const storyTicks = useMemo(
     () =>
@@ -2315,6 +2412,15 @@ export function FacebookAnalyticsView({
   const reelsTicks = useMemo(
     () => buildKeyDateTicks(reelsChartData, (d) => (d.views ?? 0) > 0 || (d.watchTimeMinutes ?? 0) > 0 || (d.avgWatchSeconds ?? 0) > 0, 10),
     [reelsChartData]
+  );
+  const longFormVideosTicks = useMemo(
+    () =>
+      buildKeyDateTicks(
+        longFormVideosChartData,
+        (d) => (d.views ?? 0) > 0 || (d.watchTimeMinutes ?? 0) > 0 || (d.avgWatchSeconds ?? 0) > 0,
+        10
+      ),
+    [longFormVideosChartData]
   );
 
   const avgPostsPerWeek = postsInRange.length / Math.max(1, dateAxis.length / 7);
@@ -2342,6 +2448,19 @@ export function FacebookAnalyticsView({
     reelsRows.reduce((s, r) => (
       s + (r.post.platform === 'INSTAGRAM' ? bestInstagramInteractionCount(r.post) : (r.post.facebookInsights?.post_clicks ?? 0))
     ), 0) / Math.max(1, totalReelVideoViews);
+  const totalLongVideoWatchTimeMs = longFormVideoRows.reduce((s, r) => s + r.watchTimeMs, 0);
+  const longVideoLikes = longFormVideoRows.reduce(
+    (s, r) => s + bestCount(r.post.facebookInsights?.post_reactions_like_total, r.post.likeCount),
+    0
+  );
+  const longVideoComments = longFormVideoRows.reduce(
+    (s, r) => s + (r.post.facebookInsights?.post_comments ?? r.post.commentsCount ?? 0),
+    0
+  );
+  const longVideoShares = longFormVideoRows.reduce((s, r) => s + bestShareCount(r.post), 0);
+  const longVideoReposts = longFormVideoRows.reduce((s, r) => s + bestRepostCount(r.post), 0);
+  const totalLongVideoViews = longFormVideoRows.reduce((s, r) => s + r.views, 0);
+  const longVideoAvgWatchMs = totalLongVideoViews > 0 ? totalLongVideoWatchTimeMs / totalLongVideoViews : 0;
   const storyModeHoverHint = useMemo(() => {
     const fmt = (v: number | null | undefined) => (typeof v === 'number' && Number.isFinite(v) ? `${v >= 0 ? '+' : ''}${v.toFixed(1)}%` : 'n/a');
     const follows = growthSparklineSeries.follows;
@@ -2791,6 +2910,31 @@ export function FacebookAnalyticsView({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Performance</h3>
           </div>
+          {isYouTube ? (
+            <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="YouTube performance chart presets">
+              {YOUTUBE_PERFORMANCE_PRESET_ORDER.map((key) => {
+                const preset = YOUTUBE_PERFORMANCE_PRESETS[key];
+                const active = activeYoutubePerformancePreset === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setSelectedStoryMetrics([...preset.metrics])}
+                    title={`Show on chart: ${preset.label}`}
+                    aria-pressed={active}
+                    className="rounded-lg px-3 py-1.5 text-sm"
+                    style={{
+                      background: active ? 'rgba(139,124,255,0.2)' : 'rgba(255,255,255,0.03)',
+                      color: active ? COLOR.text : COLOR.textSecondary,
+                      border: `1px solid ${active ? COLOR.violet : COLOR.border}`,
+                    }}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
           {!(isTikTok || isYouTube) ? (
             <div className="mb-5 flex gap-2">
               {(['growth', 'engagement', 'views'] as const).map((mode) => (
