@@ -254,7 +254,7 @@ const REEL_METRIC_CONFIG: Record<ReelMetricKey, { label: string; color: string }
 };
 
 const REEL_PRESET_METRICS: Record<ReelPresetKey, ReelMetricKey[]> = {
-  performance: ['views', 'watchTime', 'avgWatch'],
+  performance: ['views', 'watchTime', 'avgWatch', 'shares'],
   engagement: ['likes', 'comments', 'shares', 'reposts'],
   watch: ['watchTime', 'avgWatch'],
 };
@@ -1651,7 +1651,7 @@ export function FacebookAnalyticsView({
   const [selectedActivityMetrics, setSelectedActivityMetrics] = useState<ActivityMetricKey[]>(['posts', 'actions', 'conversations']);
   const [selectedEngagementMetrics, setSelectedEngagementMetrics] = useState<EngagementMetricKey[]>(['likes', 'comments', 'shares']);
   const [selectedTrafficMetrics, setSelectedTrafficMetrics] = useState<TrafficMetricKey[]>(['postImpressions', 'nonviral', 'viral', 'uniqueReachProxy']);
-  const [selectedReelMetrics, setSelectedReelMetrics] = useState<ReelMetricKey[]>(['views', 'avgWatch']);
+  const [selectedReelMetrics, setSelectedReelMetrics] = useState<ReelMetricKey[]>(['views', 'watchTime', 'avgWatch', 'shares']);
   const [reelPreset, setReelPreset] = useState<ReelPresetKey>('performance');
   const [activeSection, setActiveSection] = useState<SectionId>(FACEBOOK_ANALYTICS_SECTION_IDS.overview);
   const [selectedPost, setSelectedPost] = useState<FacebookPost | null>(null);
@@ -1735,6 +1735,11 @@ export function FacebookAnalyticsView({
       return next.length ? next : ['views'];
     });
     setReelPreset((p) => (p === 'watch' ? 'performance' : p));
+  }, [insights?.platform]);
+  useEffect(() => {
+    if (insights?.platform?.toUpperCase() !== 'YOUTUBE') return;
+    setReelPreset('performance');
+    setSelectedReelMetrics(['views', 'watchTime', 'avgWatch', 'shares']);
   }, [insights?.platform]);
 
   const profile = insights?.facebookPageProfile;
@@ -2387,6 +2392,28 @@ export function FacebookAnalyticsView({
 
   const reelsChartData = useMemo(() => buildReelsLikeChartData(reelsRows), [reelsRows]);
   const longFormVideosChartData = useMemo(() => buildReelsLikeChartData(longFormVideoRows), [longFormVideoRows]);
+  const reelsChartDataForDisplay = useMemo(() => {
+    if (!isYouTube) return reelsChartData;
+    const hasWatchData = reelsChartData.some((d) => (d.watchTimeMinutes ?? 0) > 0 || (d.avgWatchSeconds ?? 0) > 0);
+    if (hasWatchData) return reelsChartData;
+    if ((youtubeEstimatedWatchMinutes ?? 0) <= 0 && (youtubeAvgViewDurationSec ?? 0) <= 0) return reelsChartData;
+    const totalViews = reelsChartData.reduce((s, d) => s + (d.views ?? 0), 0);
+    if (totalViews <= 0) return reelsChartData;
+    return reelsChartData.map((d) => {
+      const weight = (d.views ?? 0) / totalViews;
+      return {
+        ...d,
+        watchTimeMinutes:
+          typeof youtubeEstimatedWatchMinutes === 'number' && youtubeEstimatedWatchMinutes > 0
+            ? youtubeEstimatedWatchMinutes * weight
+            : d.watchTimeMinutes,
+        avgWatchSeconds:
+          typeof youtubeAvgViewDurationSec === 'number' && youtubeAvgViewDurationSec > 0
+            ? youtubeAvgViewDurationSec
+            : d.avgWatchSeconds,
+      };
+    });
+  }, [isYouTube, reelsChartData, youtubeEstimatedWatchMinutes, youtubeAvgViewDurationSec]);
 
   const storyTicks = useMemo(
     () =>
@@ -2410,8 +2437,8 @@ export function FacebookAnalyticsView({
     [youtubeTrafficTimelineData]
   );
   const reelsTicks = useMemo(
-    () => buildKeyDateTicks(reelsChartData, (d) => (d.views ?? 0) > 0 || (d.watchTimeMinutes ?? 0) > 0 || (d.avgWatchSeconds ?? 0) > 0, 10),
-    [reelsChartData]
+    () => buildKeyDateTicks(reelsChartDataForDisplay, (d) => (d.views ?? 0) > 0 || (d.watchTimeMinutes ?? 0) > 0 || (d.avgWatchSeconds ?? 0) > 0, 10),
+    [reelsChartDataForDisplay]
   );
   const longFormVideosTicks = useMemo(
     () =>
@@ -2444,6 +2471,14 @@ export function FacebookAnalyticsView({
   const totalOrganicVideoViews = reelsRows.reduce((s, r) => s + r.organicViews, 0);
   const totalReelVideoViews = reelsRows.reduce((s, r) => s + r.views, 0);
   const avgWatchMs = totalReelVideoViews > 0 ? totalReelWatchTimeMs / totalReelVideoViews : 0;
+  const totalReelWatchTimeMsDisplay =
+    isYouTube && totalReelWatchTimeMs <= 0 && typeof youtubeEstimatedWatchMinutes === 'number' && youtubeEstimatedWatchMinutes > 0
+      ? Math.round(youtubeEstimatedWatchMinutes * 60000)
+      : totalReelWatchTimeMs;
+  const avgWatchMsDisplay =
+    isYouTube && avgWatchMs <= 0 && typeof youtubeAvgViewDurationSec === 'number' && youtubeAvgViewDurationSec > 0
+      ? Math.round(youtubeAvgViewDurationSec * 1000)
+      : avgWatchMs;
   const viewToClickEfficiency =
     reelsRows.reduce((s, r) => (
       s + (r.post.platform === 'INSTAGRAM' ? bestInstagramInteractionCount(r.post) : (r.post.facebookInsights?.post_clicks ?? 0))
@@ -3819,17 +3854,17 @@ export function FacebookAnalyticsView({
             <>
               <MetricCard
                 label="Watch Time"
-                source="post_video_view_time"
+                source={isYouTube ? 'YouTube Analytics watch-time total (fallback when post-level is missing)' : 'post_video_view_time'}
                 color={REEL_METRIC_CONFIG.watchTime.color}
-                value={formatDurationMs(totalReelWatchTimeMs)}
+                value={formatDurationMs(totalReelWatchTimeMsDisplay)}
                 active={selectedReelMetrics.includes('watchTime')}
                 onClick={() => setSelectedReelMetrics((prev) => prev.includes('watchTime') ? prev.filter((m) => m !== 'watchTime') : [...prev, 'watchTime'])}
               />
               <MetricCard
                 label="Avg Watch Time"
-                source="Mean post_video_avg_time_watched"
+                source={isYouTube ? 'YouTube Analytics average view duration (fallback when post-level is missing)' : 'Mean post_video_avg_time_watched'}
                 color={REEL_METRIC_CONFIG.avgWatch.color}
-                value={formatDurationMs(avgWatchMs)}
+                value={formatDurationMs(avgWatchMsDisplay)}
                 active={selectedReelMetrics.includes('avgWatch')}
                 onClick={() => setSelectedReelMetrics((prev) => prev.includes('avgWatch') ? prev.filter((m) => m !== 'avgWatch') : [...prev, 'avgWatch'])}
               />
@@ -3875,10 +3910,10 @@ export function FacebookAnalyticsView({
           title="Reel Performance"
           legend={selectedReelMetrics.map((m) => ({ label: REEL_METRIC_CONFIG[m].label, color: REEL_METRIC_CONFIG[m].color }))}
         >
-          {reelsChartData.length > 0 ? (
+          {reelsChartDataForDisplay.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
-                data={reelsChartData}
+                data={reelsChartDataForDisplay}
                 barCategoryGap={UNIFIED_BAR_CATEGORY_GAP}
                 barGap={UNIFIED_BAR_GAP}
                 margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
