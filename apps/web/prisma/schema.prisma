@@ -264,6 +264,8 @@ model Post {
   contentByPlatform     Json?      // { INSTAGRAM?: string, FACEBOOK?: string, ... }
   mediaByPlatform       Json?      // { INSTAGRAM?: { fileUrl: string; type: string }[], ... }
   commentAutomation     Json?      // { keywords: string[], replyTemplate: string, replyTemplateByPlatform?: Record<platform, string>, usePrivateReply?: boolean }
+  /// TikTok Direct Post: { [socialAccountId]: TikTokDirectPostPayload } for scheduled/cron publish
+  tiktokPublishByAccountId Json?
   status                PostStatus @default(DRAFT)
   scheduledAt           DateTime?
   scheduleDelivery      String?    // 'auto' | 'email_links'; when 'email_links', at scheduled time we send email with links to post manually

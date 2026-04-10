@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import { PostStatus, Platform, Prisma } from '@prisma/client';
+import { isTikTokDirectPostPayload } from '@/lib/tiktok/tiktok-publish-compliance';
 import { sendScheduleConfirmationEmail } from '@/lib/resend';
 
 export async function GET(request: NextRequest) {
@@ -45,6 +46,7 @@ export async function POST(request: NextRequest) {
     scheduledAt?: string | null;
     scheduleDelivery?: 'auto' | 'email_links' | null;
     commentAutomation?: { keywords: string[]; replyTemplate?: string; replyTemplateByPlatform?: Record<string, string>; replyOnComment?: boolean; usePrivateReply?: boolean } | null;
+    tiktokPublishByAccountId?: Record<string, unknown> | null;
   };
   try {
     body = await request.json();
@@ -61,6 +63,7 @@ export async function POST(request: NextRequest) {
     scheduledAt,
     scheduleDelivery,
     commentAutomation,
+    tiktokPublishByAccountId: bodyTiktok,
   } = body;
   const validTargets = (targets || []).filter(
     (t): t is { platform: string; socialAccountId: string } => Boolean(t?.platform && t?.socialAccountId)
@@ -92,6 +95,24 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
+  let tiktokJson: Prisma.InputJsonValue | undefined;
+  if (bodyTiktok != null) {
+    if (typeof bodyTiktok !== 'object' || Array.isArray(bodyTiktok)) {
+      return NextResponse.json({ message: 'tiktokPublishByAccountId must be an object.' }, { status: 400 });
+    }
+    const allowedIds = new Set(accountIds);
+    const cleaned: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(bodyTiktok)) {
+      if (!allowedIds.has(k)) {
+        return NextResponse.json({ message: 'tiktokPublishByAccountId contains an unknown account id.' }, { status: 400 });
+      }
+      if (!isTikTokDirectPostPayload(v)) {
+        return NextResponse.json({ message: 'Invalid TikTok publish settings. Complete the Post to TikTok step in the composer.' }, { status: 400 });
+      }
+      cleaned[k] = v;
+    }
+    if (Object.keys(cleaned).length > 0) tiktokJson = cleaned as Prisma.InputJsonValue;
+  }
   if (scheduledAt) {
     const parsed = new Date(scheduledAt);
     if (Number.isNaN(parsed.getTime())) {
@@ -120,6 +141,7 @@ export async function POST(request: NextRequest) {
       targetPlatforms: validTargets.map((t) => t.platform),
       scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
       scheduleDelivery: scheduledAt && (scheduleDelivery === 'auto' || scheduleDelivery === 'email_links') ? scheduleDelivery : null,
+      ...(tiktokJson ? { tiktokPublishByAccountId: tiktokJson } : {}),
       media: {
         create: media.map((m) => ({
           fileUrl: m.fileUrl,

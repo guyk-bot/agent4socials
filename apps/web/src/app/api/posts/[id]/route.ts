@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import { PostStatus, Platform, Prisma } from '@prisma/client';
+import { isTikTokDirectPostPayload } from '@/lib/tiktok/tiktok-publish-compliance';
 
 /**
  * GET /api/posts/[id] - Fetch a single post for viewing/editing in composer.
@@ -67,13 +68,25 @@ export async function PATCH(
     scheduledAt?: string | null;
     scheduleDelivery?: 'auto' | 'email_links' | null;
     commentAutomation?: { keywords: string[]; replyTemplate?: string; replyTemplateByPlatform?: Record<string, string>; replyOnComment?: boolean; usePrivateReply?: boolean } | null;
+    tiktokPublishByAccountId?: Record<string, unknown> | null;
   };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ message: 'Invalid JSON' }, { status: 400 });
   }
-  const { title, content, contentByPlatform, media = [], mediaByPlatform, targets, scheduledAt, scheduleDelivery, commentAutomation } = body;
+  const {
+    title,
+    content,
+    contentByPlatform,
+    media = [],
+    mediaByPlatform,
+    targets,
+    scheduledAt,
+    scheduleDelivery,
+    commentAutomation,
+    tiktokPublishByAccountId: bodyTiktok,
+  } = body;
   const validTargets = (targets || []).filter(
     (t): t is { platform: string; socialAccountId: string } => Boolean(t?.platform && t?.socialAccountId)
   );
@@ -150,6 +163,34 @@ export async function PATCH(
         (ca.replyTemplateByPlatform && typeof ca.replyTemplateByPlatform === 'object' && Object.values(ca.replyTemplateByPlatform).some((s: unknown) => typeof s === 'string' && s.trim()))
       );
       updateData.commentAutomation = hasReply ? ca : null;
+    }
+    if (bodyTiktok !== undefined) {
+      if (bodyTiktok === null) {
+        updateData.tiktokPublishByAccountId = Prisma.JsonNull;
+      } else if (typeof bodyTiktok === 'object' && !Array.isArray(bodyTiktok)) {
+        const prev =
+          existing.tiktokPublishByAccountId && typeof existing.tiktokPublishByAccountId === 'object' && !Array.isArray(existing.tiktokPublishByAccountId)
+            ? { ...(existing.tiktokPublishByAccountId as Record<string, unknown>) }
+            : {};
+        const merged = { ...prev, ...bodyTiktok };
+        const allowedIds = new Set(
+          (validTargets.length > 0 ? validTargets : existing.targets).map((t) => t.socialAccountId)
+        );
+        const cleaned: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(merged)) {
+          if (!allowedIds.has(k)) {
+            return NextResponse.json({ message: 'tiktokPublishByAccountId contains an unknown account id.' }, { status: 400 });
+          }
+          if (!isTikTokDirectPostPayload(v)) {
+            return NextResponse.json({ message: 'Invalid TikTok publish settings.' }, { status: 400 });
+          }
+          cleaned[k] = v;
+        }
+        updateData.tiktokPublishByAccountId =
+          Object.keys(cleaned).length > 0 ? (cleaned as Prisma.InputJsonValue) : Prisma.JsonNull;
+      } else {
+        return NextResponse.json({ message: 'tiktokPublishByAccountId must be an object or null.' }, { status: 400 });
+      }
     }
     const post = await prisma.post.update({
       where: { id },

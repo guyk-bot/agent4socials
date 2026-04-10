@@ -29,6 +29,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAppData } from '@/context/AppDataContext';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
 import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
+import { TikTokPublishModal } from '@/components/composer/TikTokPublishModal';
+import { isTikTokDirectPostPayload, type TikTokDirectPostPayload } from '@/lib/tiktok/tiktok-publish-compliance';
 
 const COMPOSER_DRAFT_KEY = 'agent4socials_composer_draft';
 
@@ -74,6 +76,7 @@ type ComposerDraft = {
     commentAutomationInstagramPrivateReply: boolean;
     commentAutomationInstagramDmMessage?: string;
     commentAutomationTagCommenter?: boolean;
+    tiktokPublishByAccountId?: Record<string, TikTokDirectPostPayload>;
 };
 
 function isPersistableMediaUrl(url: string): boolean {
@@ -570,7 +573,7 @@ export default function ComposerPage() {
     const fileInputByPlatformRef = useRef<Record<string, HTMLInputElement | null>>({});
     const [scheduledAt, setScheduledAt] = useState('');
     const [scheduleDelivery, setScheduleDelivery] = useState<'auto' | 'email_links'>('auto');
-    const [accounts, setAccounts] = useState<{ id: string; platform: string }[]>([]);
+    const [accounts, setAccounts] = useState<{ id: string; platform: string; username?: string | null }[]>([]);
     const [accountsFetched, setAccountsFetched] = useState(false);
     const [loading, setLoading] = useState(false);
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
@@ -582,6 +585,10 @@ export default function ComposerPage() {
     const [previewWidthPx, setPreviewWidthPx] = useState(600);
     const previewResizeRef = useRef<{ startX: number; startW: number } | null>(null);
     const saveAsDraftRef = useRef(false);
+    const skipTiktokGateRef = useRef(false);
+    const [tiktokPublishByAccountId, setTiktokPublishByAccountId] = useState<Record<string, TikTokDirectPostPayload>>({});
+    const [tiktokPublishModalOpen, setTiktokPublishModalOpen] = useState(false);
+    const [tiktokModalAccountIds, setTiktokModalAccountIds] = useState<string[]>([]);
 
     useEffect(() => {
         const onMove = (e: MouseEvent) => {
@@ -821,6 +828,13 @@ export default function ComposerPage() {
                 if (typeof d.commentAutomationInstagramPrivateReply === 'boolean') setCommentAutomationInstagramPrivateReply(d.commentAutomationInstagramPrivateReply);
                 if (typeof d.commentAutomationInstagramDmMessage === 'string') setCommentAutomationInstagramDmMessage(d.commentAutomationInstagramDmMessage);
                 if (typeof d.commentAutomationTagCommenter === 'boolean') setCommentAutomationTagCommenter(d.commentAutomationTagCommenter);
+                if (d.tiktokPublishByAccountId && typeof d.tiktokPublishByAccountId === 'object') {
+                    const cleaned: Record<string, TikTokDirectPostPayload> = {};
+                    for (const [k, v] of Object.entries(d.tiktokPublishByAccountId)) {
+                        if (isTikTokDirectPostPayload(v)) cleaned[k] = v;
+                    }
+                    if (Object.keys(cleaned).length) setTiktokPublishByAccountId(cleaned);
+                }
             }
         } catch (_) { /* ignore */ }
         setDraftRestored(true);
@@ -851,6 +865,7 @@ export default function ComposerPage() {
                     scheduledAt?: string | null;
                     scheduleDelivery?: string | null;
                     commentAutomation?: { keywords?: string[]; replyTemplate?: string; replyTemplateByPlatform?: Record<string, string>; instagramPublicReply?: boolean; instagramPrivateReply?: boolean; instagramDmTemplate?: string } | null;
+                    tiktokPublishByAccountId?: unknown;
                 };
                 // Show stored publish errors from previous attempt so user knows why it failed
                 if (p.status === 'FAILED' && Array.isArray(p.targets)) {
@@ -933,6 +948,14 @@ export default function ComposerPage() {
                         return combined.sort();
                     });
                     setSelectedHashtags(tagsFromPost);
+                }
+                const tt = p.tiktokPublishByAccountId;
+                if (tt && typeof tt === 'object' && !Array.isArray(tt)) {
+                    const cleaned: Record<string, TikTokDirectPostPayload> = {};
+                    for (const [k, v] of Object.entries(tt as Record<string, unknown>)) {
+                        if (isTikTokDirectPostPayload(v)) cleaned[k] = v;
+                    }
+                    if (Object.keys(cleaned).length) setTiktokPublishByAccountId(cleaned);
                 }
                 setEditLoaded(true);
             })
@@ -1094,6 +1117,7 @@ export default function ComposerPage() {
                     commentAutomationInstagramPrivateReply,
                     ...(commentAutomationInstagramDmMessage ? { commentAutomationInstagramDmMessage } : {}),
                     commentAutomationTagCommenter,
+                    ...(Object.keys(tiktokPublishByAccountId).length > 0 ? { tiktokPublishByAccountId } : {}),
                 };
                 localStorage.setItem(COMPOSER_DRAFT_KEY, JSON.stringify(draft));
             } catch (_) { /* ignore */ }
@@ -1126,6 +1150,7 @@ export default function ComposerPage() {
         commentAutomationInstagramPrivateReply,
         commentAutomationInstagramDmMessage,
         commentAutomationTagCommenter,
+        tiktokPublishByAccountId,
         mediaSignature,
         debounceMs,
     ]);
@@ -1475,9 +1500,20 @@ export default function ComposerPage() {
         moveCarouselToPosition(fromIndex, toIndex);
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        const saveAsDraft = (e.nativeEvent as SubmitEvent).submitter?.getAttribute('value') === 'draft';
+    /** Caption text we send to TikTok (matches publish route content for TIKTOK). */
+    const computeTikTokCaptionPreview = (): string => {
+        const hashtagSuffix = (tags: string[]) => (tags.length ? ' ' + tags.join(' ') : '');
+        if (differentHashtagsPerPlatform) {
+            const text = (differentContentPerPlatform ? (contentByPlatform['TIKTOK'] ?? '') : content).trim();
+            return text + hashtagSuffix(selectedHashtagsByPlatform['TIKTOK'] ?? []);
+        }
+        if (differentContentPerPlatform && platforms.includes('TIKTOK')) {
+            return (contentByPlatform['TIKTOK'] ?? content).trim() + hashtagSuffix(selectedHashtags);
+        }
+        return content.trim() + hashtagSuffix(selectedHashtags);
+    };
+
+    const runComposerCommit = async (saveAsDraft: boolean) => {
         saveAsDraftRef.current = saveAsDraft;
         if (platforms.length === 0) {
             setAlertMessage('Select at least one platform');
@@ -1497,6 +1533,23 @@ export default function ComposerPage() {
             setAlertMessage('Connect at least one account for the selected platforms (Accounts page).');
             return;
         }
+
+        const tiktokAccountIdsNeedingUi = targets
+            .filter((t) => t.platform === 'TIKTOK')
+            .filter((t) => {
+                const mediaForTt = differentMediaPerPlatform ? (mediaByPlatform['TIKTOK'] ?? []) : mediaList;
+                return mediaForTt.some((m) => m.type === 'VIDEO');
+            })
+            .map((t) => t.socialAccountId);
+        if (!saveAsDraft && tiktokAccountIdsNeedingUi.length > 0 && !skipTiktokGateRef.current) {
+            const complete = tiktokAccountIdsNeedingUi.every((id) => isTikTokDirectPostPayload(tiktokPublishByAccountId[id]));
+            if (!complete) {
+                setTiktokModalAccountIds(tiktokAccountIdsNeedingUi);
+                setTiktokPublishModalOpen(true);
+                return;
+            }
+        }
+        skipTiktokGateRef.current = false;
 
             // Append hashtags after content (per platform when "different hashtags per platform" is on)
             const hashtagSuffix = (tags: string[]) => (tags.length ? ' ' + tags.join(' ') : '');
@@ -1595,6 +1648,7 @@ export default function ComposerPage() {
                 scheduledAt?: string;
                 scheduleDelivery?: 'auto' | 'email_links';
                 commentAutomation?: { keywords: string[]; replyTemplate: string; replyOnComment?: boolean; usePrivateReply?: boolean; tagCommenter?: boolean } | null;
+                tiktokPublishByAccountId?: Record<string, TikTokDirectPostPayload>;
             } = {
                 content: contentFinal,
                 media: mediaList.map((m, i) => {
@@ -1672,6 +1726,9 @@ export default function ComposerPage() {
                     };
                 }
             }
+            if (Object.keys(tiktokPublishByAccountId).length > 0) {
+                payload.tiktokPublishByAccountId = tiktokPublishByAccountId;
+            }
             if (differentMediaPerPlatform) {
                 payload.mediaByPlatform = platforms.reduce((acc, p) => {
                     let list = mediaByPlatform[p];
@@ -1733,9 +1790,11 @@ export default function ComposerPage() {
                     try {
                         const debug = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('publish_debug') === '1';
                         if (debug) sessionStorage.removeItem('publish_debug');
+                        const publishBody =
+                            Object.keys(tiktokPublishByAccountId).length > 0 ? { tiktokPublishByAccountId } : {};
                         const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string; debugInfo?: { mediaUrlsByPlatform?: Record<string, string>; fullErrors?: Record<string, string> } }>(
                             `/posts/${editPostId}/publish${debug ? '?debug=1' : ''}`,
-                            {},
+                            publishBody,
                             { timeout: 330_000 }
                         );
                         const results = publishRes.data?.results;
@@ -1756,6 +1815,7 @@ export default function ComposerPage() {
                                 if (failed.includes('unaudited_client_can_only_post_to_private_accounts')) hint = (hint ? hint + ' ' : '') + 'For TikTok: your app has not passed TikTok\'s content posting audit, so it cannot post to public accounts. Apply for the Content Posting API audit in the TikTok Developer Portal.';
                                 else if (failed.includes('scope_not_authorized')) hint = (hint ? hint + ' ' : '') + 'For TikTok: reconnect your TikTok account from the Dashboard to grant the video.publish permission.';
                                 else if ((failed.includes('spam_risk') || failed.includes('too many pending')) && !failed.includes('TikTok sandbox')) hint = (hint ? hint + ' ' : '') + 'For TikTok sandbox: open TikTok mobile app on the same connected account, check Inbox and Drafts, and accept or delete all pending items. Then try again.';
+                                else if (failed.includes('Post to TikTok')) hint = (hint ? hint + ' ' : '') + 'Open the post in the composer, complete Post to TikTok (visibility, consent, disclosure), save, then try Post now again.';
                                 else hint = (hint ? hint + ' ' : '') + 'For TikTok: ensure your app has Content Posting API access and the video meets requirements (MP4, under 10 min). Reconnect the account from Dashboard if needed.';
                             }
                             if (failed.includes('PINTEREST') && (failed.includes('"code":29') || failed.includes('Trial access'))) {
@@ -1801,9 +1861,11 @@ export default function ComposerPage() {
                 try {
                         const debug = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('publish_debug') === '1';
                         if (debug) sessionStorage.removeItem('publish_debug');
+                        const publishBodyCreate =
+                            Object.keys(tiktokPublishByAccountId).length > 0 ? { tiktokPublishByAccountId } : {};
                         const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string; debugInfo?: { mediaUrlsByPlatform?: Record<string, string>; fullErrors?: Record<string, string> } }>(
                             `/posts/${postId}/publish${debug ? '?debug=1' : ''}`,
-                            {},
+                            publishBodyCreate,
                             { timeout: 330_000 }
                         );
                     const results = publishRes.data?.results;
@@ -1824,6 +1886,7 @@ export default function ComposerPage() {
                                 if (failed.includes('unaudited_client_can_only_post_to_private_accounts')) hint = (hint ? hint + ' ' : '') + 'For TikTok: your app has not passed TikTok\'s content posting audit, so it cannot post to public accounts. Apply for the Content Posting API audit in the TikTok Developer Portal.';
                                 else if (failed.includes('scope_not_authorized')) hint = (hint ? hint + ' ' : '') + 'For TikTok: reconnect your TikTok account from the Dashboard to grant the video.publish permission.';
                                 else if ((failed.includes('spam_risk') || failed.includes('too many pending')) && !failed.includes('TikTok sandbox')) hint = (hint ? hint + ' ' : '') + 'For TikTok sandbox: open TikTok mobile app on the same connected account, check Inbox and Drafts, and accept or delete all pending items. Then try again.';
+                                else if (failed.includes('Post to TikTok')) hint = (hint ? hint + ' ' : '') + 'Open the post in the composer, complete Post to TikTok (visibility, consent, disclosure), save, then try Post now again.';
                                 else hint = (hint ? hint + ' ' : '') + 'For TikTok: ensure your app has Content Posting API access and the video meets requirements (MP4, under 10 min). Reconnect the account from Dashboard if needed.';
                             }
                             if (failed.includes('PINTEREST') && (failed.includes('"code":29') || failed.includes('Trial access'))) {
@@ -1900,6 +1963,12 @@ export default function ComposerPage() {
         }
     };
 
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const saveAsDraft = (e.nativeEvent as SubmitEvent).submitter?.getAttribute('value') === 'draft';
+        await runComposerCommit(saveAsDraft);
+    };
+
     const composerReady = draftRestored && (!editPostId || editLoaded) && accountsFetched;
 
     const composerFramePreview =
@@ -1951,6 +2020,27 @@ export default function ComposerPage() {
                 message={alertMessage ?? ''}
                 variant="alert"
                 confirmLabel="OK"
+            />
+            <TikTokPublishModal
+                open={tiktokPublishModalOpen}
+                onClose={() => setTiktokPublishModalOpen(false)}
+                onConfirm={(payloads) => {
+                    setTiktokPublishByAccountId(payloads);
+                    skipTiktokGateRef.current = true;
+                    setTiktokPublishModalOpen(false);
+                    void runComposerCommit(saveAsDraftRef.current);
+                }}
+                accounts={tiktokModalAccountIds.map((id) => {
+                    const a = accounts.find((x) => x.id === id);
+                    return { id, username: a?.username };
+                })}
+                defaultCaption={computeTikTokCaptionPreview()}
+                videoPreviewSrc={(() => {
+                    const list = differentMediaPerPlatform ? (mediaByPlatform['TIKTOK'] ?? []) : mediaList;
+                    const v = list.find((m) => m.type === 'VIDEO');
+                    return v ? mediaDisplayUrl(v.fileUrl) : '';
+                })()}
+                initialByAccountId={tiktokPublishByAccountId}
             />
             {aiModalOpen && typeof document !== 'undefined' && createPortal(
                 <>

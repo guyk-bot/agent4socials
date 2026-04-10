@@ -6,6 +6,11 @@
 import FormData from 'form-data';
 import { signTwitterRequest } from './twitter-oauth1';
 import { facebookGraphBaseUrl, META_GRAPH_FACEBOOK_API_VERSION } from '@/lib/meta-graph-insights';
+import {
+  buildTikTokPostInfoFromPayload,
+  parseTikTokCreatorInfoResponse,
+  type TikTokDirectPostPayload,
+} from '@/lib/tiktok/tiktok-publish-compliance';
 
 const graphVideoFacebook = `https://graph-video.facebook.com/${META_GRAPH_FACEBOOK_API_VERSION}`;
 
@@ -26,6 +31,8 @@ export type PublishTargetOptions = {
   pinterestBoardId?: string | null;
   /** Use Pinterest sandbox API host (trial/demo mode). */
   pinterestSandbox?: boolean;
+  /** TikTok video: required for Direct Post (composer modal + scheduled JSON on Post). */
+  tiktokDirectPost?: TikTokDirectPostPayload;
 };
 
 export type PublishTargetResult = {
@@ -982,6 +989,43 @@ export async function publishTarget(
         }
         return { data: { error: { code: 'internal', message: 'internal' } } };
       };
+
+      if (!options.tiktokDirectPost) {
+        return {
+          ok: false,
+          error:
+            'TikTok requires Post to TikTok settings (visibility, consent, and commercial disclosure). Open the post in the composer, complete the TikTok step, then save or publish again.',
+        };
+      }
+
+      const creatorRes = await axiosInstance.post(
+        `${tiktokBase}/v2/post/publish/creator_info/query/`,
+        {},
+        { headers, timeout: 12_000, validateStatus: () => true }
+      );
+      const parsedCi = parseTikTokCreatorInfoResponse(creatorRes.data);
+      if (!parsedCi.ok) {
+        return { ok: false, error: parsedCi.error.slice(0, 300) };
+      }
+      const creatorPrivacyOptions = parsedCi.data.privacy_level_options ?? [];
+
+      const payloadForTikTok: TikTokDirectPostPayload = {
+        ...options.tiktokDirectPost,
+        title: (options.tiktokDirectPost.title || caption || '').trim().slice(0, 2200),
+      };
+      const builtPi = buildTikTokPostInfoFromPayload(payloadForTikTok, parsedCi.data);
+      if ('error' in builtPi) {
+        return { ok: false, error: `TikTok: ${builtPi.error}`.slice(0, 350) };
+      }
+      const tikTokPostInfo: Record<string, unknown> = { ...builtPi.post_info };
+      const creatorUsername = parsedCi.data.creator_username;
+      const creatorNickname = parsedCi.data.creator_nickname;
+      const tiktokIdentity = creatorUsername ? `@${creatorUsername}` : creatorNickname ? creatorNickname : '';
+
+      const tikTokPostInfoSelfOnly = creatorPrivacyOptions.includes('SELF_ONLY')
+        ? ({ ...tikTokPostInfo, privacy_level: 'SELF_ONLY' } as Record<string, unknown>)
+        : null;
+
       const inboxFileUploadInit = async (): Promise<{ publishId: string }> => {
         const { buffer, contentType } = await fetchMediaBuffer(videoUrl, fetchFn);
         const videoSize = buffer.length;
@@ -989,7 +1033,10 @@ export async function publishTarget(
         const mimeType = contentType && /video\/(mp4|webm|quicktime)/i.test(contentType) ? contentType : 'video/mp4';
         const inboxInitRes = await tiktokPostWithRetry(
           `${tiktokBase}/v2/post/publish/inbox/video/init/`,
-          { source_info: { source: 'FILE_UPLOAD', video_size: videoSize, chunk_size: chunkSize, total_chunk_count: totalChunkCount } },
+          {
+            post_info: tikTokPostInfo,
+            source_info: { source: 'FILE_UPLOAD', video_size: videoSize, chunk_size: chunkSize, total_chunk_count: totalChunkCount },
+          },
           30_000,
           'internal fallback inbox FILE_UPLOAD init'
         ) as { data?: { data?: { publish_id?: string; upload_url?: string }; error?: { code?: string; message?: string } } };
@@ -1022,45 +1069,6 @@ export async function publishTarget(
         return { publishId: nextPublishId };
       };
 
-      // 1) Creator info to get allowed privacy_level and identity diagnostics.
-      //    This call is optional — if it times out or fails we continue with a safe default.
-      let privacyLevel = 'PUBLIC_TO_EVERYONE';
-      let tiktokIdentity = '';
-      try {
-        const creatorRes = await axiosInstance.post(
-          `${tiktokBase}/v2/post/publish/creator_info/query/`,
-          {},
-          { headers, timeout: 10_000, validateStatus: () => true }
-        ) as {
-          data?: {
-            data?: {
-              privacy_level_options?: string[];
-              creator_username?: string;
-              creator_nickname?: string;
-              open_id?: string;
-            };
-            error?: { code?: string; message?: string };
-          };
-        };
-        const body = creatorRes.data ?? {};
-        const options = body.data?.privacy_level_options;
-        if (Array.isArray(options) && options.length > 0) {
-          privacyLevel = options.includes('PUBLIC_TO_EVERYONE') ? 'PUBLIC_TO_EVERYONE' : options[0];
-        }
-        const creatorUsername = body.data?.creator_username;
-        const creatorNickname = body.data?.creator_nickname;
-        const openId = body.data?.open_id;
-        tiktokIdentity = creatorUsername
-          ? `@${creatorUsername}`
-          : creatorNickname
-            ? creatorNickname
-            : openId
-              ? `open_id:${openId.slice(0, 8)}...`
-              : '';
-      } catch {
-        // creator_info timed out or errored; continue with default privacy level
-      }
-
       // 2) Try PULL_FROM_URL first (TikTok fetches video from our serve URL — fastest path).
       //    Falls back to FILE_UPLOAD (chunked PUT) if URL ownership is not verified.
       let useInbox = false;
@@ -1070,14 +1078,7 @@ export async function publishTarget(
       const pullInitRes = await tiktokPostWithRetry(
         `${tiktokBase}/v2/post/publish/video/init/`,
         {
-          post_info: {
-            title: caption.slice(0, 2200) || undefined,
-            privacy_level: privacyLevel,
-            brand_content_toggle: false,
-            disable_duet: false,
-            disable_comment: false,
-            disable_stitch: false,
-          },
+          post_info: tikTokPostInfo,
           source_info: { source: 'PULL_FROM_URL', video_url: videoUrl },
         },
         30_000,
@@ -1109,7 +1110,7 @@ export async function publishTarget(
         // First try inbox PULL_FROM_URL (no upload required if accepted).
         const uaInboxPullRes = await tiktokPostWithRetry(
           `${tiktokBase}/v2/post/publish/inbox/video/init/`,
-          { source_info: { source: 'PULL_FROM_URL', video_url: videoUrl } },
+          { post_info: tikTokPostInfo, source_info: { source: 'PULL_FROM_URL', video_url: videoUrl } },
           30_000,
           'inbox PULL_FROM_URL init'
         ) as { data?: { data?: { publish_id?: string }; error?: { code?: string; message?: string } } };
@@ -1134,6 +1135,7 @@ export async function publishTarget(
           const uaInboxFileInitRes = await tiktokPostWithRetry(
             `${tiktokBase}/v2/post/publish/inbox/video/init/`,
             {
+              post_info: tikTokPostInfo,
               source_info: {
                 source: 'FILE_UPLOAD',
                 video_size: unauditedSize,
@@ -1183,7 +1185,7 @@ export async function publishTarget(
         useInbox = true;
         const inboxPullRes = await tiktokPostWithRetry(
           `${tiktokBase}/v2/post/publish/inbox/video/init/`,
-          { source_info: { source: 'PULL_FROM_URL', video_url: videoUrl } },
+          { post_info: tikTokPostInfo, source_info: { source: 'PULL_FROM_URL', video_url: videoUrl } },
           30_000,
           'scope fallback inbox PULL_FROM_URL init'
         ) as { data?: { data?: { publish_id?: string }; error?: { code?: string; message?: string } } };
@@ -1220,14 +1222,7 @@ export async function publishTarget(
         const fileInitRes = await tiktokPostWithRetry(
           `${tiktokBase}/v2/post/publish/video/init/`,
           {
-            post_info: {
-              title: caption.slice(0, 2200) || undefined,
-              privacy_level: privacyLevel,
-              brand_content_toggle: false,
-              disable_duet: false,
-              disable_comment: false,
-              disable_stitch: false,
-            },
+            post_info: tikTokPostInfo,
             source_info: { source: 'FILE_UPLOAD', video_size: videoSize, chunk_size: CHUNK_SIZE, total_chunk_count: totalChunkCount },
           },
           30_000,
@@ -1239,10 +1234,17 @@ export async function publishTarget(
         if (fileInitErr && fileInitErr.code === 'unaudited_client_can_only_post_to_private_accounts') {
           // Retry with SELF_ONLY privacy
           console.log('[TikTok] FILE_UPLOAD fallback: retrying with SELF_ONLY');
+          if (!tikTokPostInfoSelfOnly) {
+            return {
+              ok: false,
+              error:
+                'TikTok requires private posting for this app, but Only me is not available for this account. Check TikTok settings or reconnect.',
+            };
+          }
           const selfFileRes = await tiktokPostWithRetry(
             `${tiktokBase}/v2/post/publish/video/init/`,
             {
-              post_info: { title: caption.slice(0, 2200) || undefined, privacy_level: 'SELF_ONLY', brand_content_toggle: false, disable_duet: false, disable_comment: false, disable_stitch: false },
+              post_info: tikTokPostInfoSelfOnly,
               source_info: { source: 'FILE_UPLOAD', video_size: videoSize, chunk_size: CHUNK_SIZE, total_chunk_count: totalChunkCount },
             },
             30_000,
@@ -1254,7 +1256,10 @@ export async function publishTarget(
           useInbox = true;
           const inboxFileRes = await tiktokPostWithRetry(
             `${tiktokBase}/v2/post/publish/inbox/video/init/`,
-            { source_info: { source: 'FILE_UPLOAD', video_size: videoSize, chunk_size: CHUNK_SIZE, total_chunk_count: totalChunkCount } },
+            {
+              post_info: tikTokPostInfo,
+              source_info: { source: 'FILE_UPLOAD', video_size: videoSize, chunk_size: CHUNK_SIZE, total_chunk_count: totalChunkCount },
+            },
             30_000,
             'scope fallback inbox FILE_UPLOAD init'
           ) as { data?: { data?: { publish_id?: string; upload_url?: string }; error?: { code?: string; message?: string } } };

@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { PostStatus } from '@prisma/client';
 import axios from 'axios';
 import { publishTarget } from '@/lib/publish-target';
+import { isTikTokDirectPostPayload, type TikTokDirectPostPayload } from '@/lib/tiktok/tiktok-publish-compliance';
 import { createMediaServeToken } from '@/lib/media-serve-token';
 import { ensureInstagramJpegOnR2 } from '@/lib/instagram-media-r2';
 import { refreshTwitterToken } from '@/lib/twitter-refresh';
@@ -24,6 +25,7 @@ export async function POST(
     token?: string;
     contentByPlatform?: Record<string, string>;
     pinterestSandbox?: boolean;
+    tiktokPublishByAccountId?: Record<string, unknown>;
   };
   const cronSecret = request.headers.get('X-Cron-Secret');
   const isCron = process.env.CRON_SECRET && cronSecret === process.env.CRON_SECRET;
@@ -88,6 +90,12 @@ export async function POST(
 
   const contentByPlatform = (post as { contentByPlatform?: Record<string, string> | null }).contentByPlatform ?? null;
   const mediaByPlatform = (post as { mediaByPlatform?: Record<string, { fileUrl: string; type: string }[]> | null }).mediaByPlatform ?? null;
+  const storedTiktok = (post as { tiktokPublishByAccountId?: Record<string, unknown> | null }).tiktokPublishByAccountId;
+  const bodyTiktok = requestBody.tiktokPublishByAccountId;
+  const tiktokMerged: Record<string, unknown> = {
+    ...(storedTiktok && typeof storedTiktok === 'object' && !Array.isArray(storedTiktok) ? storedTiktok : {}),
+    ...(bodyTiktok && typeof bodyTiktok === 'object' && !Array.isArray(bodyTiktok) ? bodyTiktok : {}),
+  };
   const defaultMedia = post.media.map((m) => {
     const meta = (m as { metadata?: { thumbnailUrl?: string; useVideoDefaultForPublish?: boolean } }).metadata;
     const useVideoDefault = meta?.useVideoDefaultForPublish;
@@ -262,6 +270,25 @@ export async function POST(
       continue;
     }
 
+    const isTiktokVideo = platform === 'TIKTOK' && targetMedia.some((m) => m.type === 'VIDEO');
+    let tiktokDirectPost: TikTokDirectPostPayload | undefined;
+    if (isTiktokVideo) {
+      const raw = tiktokMerged[socialAccount.id];
+      if (!isTikTokDirectPostPayload(raw)) {
+        const msg =
+          isCron || post.status === PostStatus.SCHEDULED
+            ? 'TikTok video needs Post to TikTok settings saved on the post. Open the post in the composer, complete the TikTok step, and save or reschedule.'
+            : 'TikTok video needs Post to TikTok settings. Open the post in the composer, complete the TikTok step, then publish again.';
+        await prisma.postTarget.update({
+          where: { id: target.id },
+          data: { status: PostStatus.FAILED, error: msg.slice(0, 500) },
+        });
+        results.push({ platform, ok: false, error: msg.slice(0, 200) });
+        continue;
+      }
+      tiktokDirectPost = raw;
+    }
+
     let result = await publishTarget(
       {
         platform,
@@ -275,6 +302,7 @@ export async function POST(
         twitterOAuth1,
         pinterestBoardId,
         pinterestSandbox: requestBody.pinterestSandbox === true,
+        ...(tiktokDirectPost ? { tiktokDirectPost } : {}),
       },
       { fetch, axios }
     );
@@ -305,6 +333,7 @@ export async function POST(
             twitterOAuth1,
             pinterestBoardId,
             pinterestSandbox: requestBody.pinterestSandbox === true,
+            ...(tiktokDirectPost ? { tiktokDirectPost } : {}),
           },
           { fetch, axios }
         );
@@ -341,6 +370,7 @@ export async function POST(
             twitterOAuth1,
             pinterestBoardId,
             pinterestSandbox: requestBody.pinterestSandbox === true,
+            ...(tiktokDirectPost ? { tiktokDirectPost } : {}),
           },
           { fetch, axios }
         );

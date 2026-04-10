@@ -57,7 +57,8 @@ Grouped by domain (67 `route.ts` files). **Social + analytics fixes usually touc
 
 ### Posts & publishing
 
-- `posts/route.ts`, `posts/[id]/route.ts`, `posts/[id]/publish/route.ts`, `posts/[id]/open/route.ts`.
+- `posts/route.ts`, `posts/[id]/route.ts`, `posts/[id]/publish/route.ts`, `posts/[id]/open/route.ts` (Post `tiktokPublishByAccountId` for scheduled TikTok video).
+- `social/accounts/[id]/tiktok-creator-info` — TikTok creator_info for composer Post to TikTok modal.
 
 ### Media & images
 

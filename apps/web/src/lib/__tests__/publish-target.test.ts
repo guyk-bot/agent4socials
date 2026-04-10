@@ -148,4 +148,24 @@ describe('publishTarget', () => {
       expect(body?.media?.media_ids).toEqual(['12345']);
     });
   });
+
+  describe('TikTok video', () => {
+    it('returns a clear error when tiktokDirectPost is missing', async () => {
+      const fetchMock = async () =>
+        new Response(Buffer.from([0]), { status: 200, headers: { 'Content-Type': 'video/mp4' } });
+      const axiosMock = { get: async () => ({ data: {} }), post: async () => ({ data: {} }), put: async () => undefined };
+      const result = await publishTarget(
+        {
+          platform: 'TIKTOK',
+          token: 't',
+          platformUserId: 'u',
+          caption: 'Hello',
+          firstMediaUrl: 'https://example.com/v.mp4',
+        },
+        { fetch: fetchMock as unknown as typeof fetch, axios: axiosMock }
+      );
+      expect(result.ok).toBe(false);
+      expect(result.error).toMatch(/Post to TikTok/i);
+    });
+  });
 });

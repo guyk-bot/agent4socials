@@ -14,8 +14,9 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 
 | Task | Primary files |
 |------|----------------|
-| Composer UI, previews, AI modal, media | `apps/web/src/app/composer/page.tsx` |
-| Publish to platforms (incl. Pinterest) | `apps/web/src/lib/publish-target.ts`, `apps/web/src/app/api/posts/[id]/publish/route.ts` |
+| Composer UI, previews, AI modal, media, TikTok Post modal | `apps/web/src/app/composer/page.tsx`, `apps/web/src/components/composer/TikTokPublishModal.tsx` |
+| Publish to platforms (incl. Pinterest, TikTok Direct Post compliance) | `apps/web/src/lib/publish-target.ts`, `apps/web/src/lib/tiktok/tiktok-publish-compliance.ts`, `apps/web/src/app/api/posts/[id]/publish/route.ts` |
+| TikTok creator_info for composer | `apps/web/src/app/api/social/accounts/[id]/tiktok-creator-info/route.ts` |
 | Imported posts list, sync, Pinterest thumbnails | `apps/web/src/app/api/social/accounts/[id]/posts/route.ts` |
 | TikTok video.list engagement parsing (shares; favorites_count parsed but optional in DB) | `apps/web/src/lib/tiktok/video-engagement.ts`, `apps/web/src/lib/sync/adapters/tiktok.ts` |
 | Insights JSON for dashboard | `apps/web/src/app/api/social/accounts/[id]/insights/route.ts` |
