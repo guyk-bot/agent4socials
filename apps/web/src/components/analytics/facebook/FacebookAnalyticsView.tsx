@@ -2432,29 +2432,52 @@ export function FacebookAnalyticsView({
     });
   }, [isYouTube, postsInRange]);
 
-  const reelsChartData = useMemo(() => buildReelsLikeChartData(reelsRows), [reelsRows]);
-  const longFormVideosChartData = useMemo(() => buildReelsLikeChartData(longFormVideoRows), [longFormVideoRows]);
+  /** YouTube: chart Shorts plus long-form uploads (many channels have no Shorts; long-form was omitted and the chart stayed empty). */
+  const reelChartSourceRows = useMemo((): ReelAnalyticsRow[] => {
+    if (!isYouTube) return reelsRows;
+    if (reelsRows.length > 0 && longFormVideoRows.length > 0) return [...reelsRows, ...longFormVideoRows];
+    return reelsRows.length > 0 ? reelsRows : longFormVideoRows;
+  }, [isYouTube, reelsRows, longFormVideoRows]);
+
+  const reelsChartData = useMemo(() => buildReelsLikeChartData(reelChartSourceRows), [reelChartSourceRows]);
+
   const reelsChartDataForDisplay = useMemo(() => {
     if (!isYouTube) return reelsChartData;
     const hasWatchData = reelsChartData.some((d) => (d.watchTimeMinutes ?? 0) > 0 || (d.avgWatchSeconds ?? 0) > 0);
     if (hasWatchData) return reelsChartData;
-    if ((youtubeEstimatedWatchMinutes ?? 0) <= 0 && (youtubeAvgViewDurationSec ?? 0) <= 0) return reelsChartData;
+    const ytMin = typeof youtubeEstimatedWatchMinutes === 'number' && youtubeEstimatedWatchMinutes > 0 ? youtubeEstimatedWatchMinutes : 0;
+    const ytAvgSec = typeof youtubeAvgViewDurationSec === 'number' && youtubeAvgViewDurationSec > 0 ? youtubeAvgViewDurationSec : 0;
+    if (ytMin <= 0 && ytAvgSec <= 0) return reelsChartData;
+    if (reelsChartData.length === 0) return reelsChartData;
+
     const totalViews = reelsChartData.reduce((s, d) => s + (d.views ?? 0), 0);
-    if (totalViews <= 0) return reelsChartData;
-    return reelsChartData.map((d) => {
-      const weight = (d.views ?? 0) / totalViews;
-      return {
+    if (totalViews > 0) {
+      return reelsChartData.map((d) => {
+        const weight = (d.views ?? 0) / totalViews;
+        return {
+          ...d,
+          watchTimeMinutes: ytMin > 0 ? ytMin * weight : d.watchTimeMinutes,
+          avgWatchSeconds: ytAvgSec > 0 ? ytAvgSec : d.avgWatchSeconds,
+        };
+      });
+    }
+
+    const totalUploads = reelsChartData.reduce((s, d) => s + (d.count ?? 0), 0);
+    if (totalUploads > 0 && ytMin > 0) {
+      return reelsChartData.map((d) => ({
         ...d,
-        watchTimeMinutes:
-          typeof youtubeEstimatedWatchMinutes === 'number' && youtubeEstimatedWatchMinutes > 0
-            ? youtubeEstimatedWatchMinutes * weight
-            : d.watchTimeMinutes,
-        avgWatchSeconds:
-          typeof youtubeAvgViewDurationSec === 'number' && youtubeAvgViewDurationSec > 0
-            ? youtubeAvgViewDurationSec
-            : d.avgWatchSeconds,
-      };
-    });
+        watchTimeMinutes: ytMin * ((d.count ?? 0) / totalUploads),
+        avgWatchSeconds: ytAvgSec > 0 ? ytAvgSec : d.avgWatchSeconds,
+      }));
+    }
+
+    const n = reelsChartData.length;
+    const perDay = ytMin > 0 ? ytMin / n : 0;
+    return reelsChartData.map((d) => ({
+      ...d,
+      watchTimeMinutes: perDay,
+      avgWatchSeconds: ytAvgSec > 0 ? ytAvgSec : d.avgWatchSeconds,
+    }));
   }, [isYouTube, reelsChartData, youtubeEstimatedWatchMinutes, youtubeAvgViewDurationSec]);
 
   const reelPerformanceChartHeightPx = useMemo(() => {
@@ -2490,15 +2513,6 @@ export function FacebookAnalyticsView({
     () => buildKeyDateTicks(reelsChartDataForDisplay, (d) => (d.views ?? 0) > 0 || (d.watchTimeMinutes ?? 0) > 0 || (d.avgWatchSeconds ?? 0) > 0, 10),
     [reelsChartDataForDisplay]
   );
-  const longFormVideosTicks = useMemo(
-    () =>
-      buildKeyDateTicks(
-        longFormVideosChartData,
-        (d) => (d.views ?? 0) > 0 || (d.watchTimeMinutes ?? 0) > 0 || (d.avgWatchSeconds ?? 0) > 0,
-        10
-      ),
-    [longFormVideosChartData]
-  );
 
   const avgPostsPerWeek = postsInRange.length / Math.max(1, dateAxis.length / 7);
   const avgClicksPerPost = postsRows.reduce((s, r) => s + r.clicks, 0) / Math.max(1, postsRows.length);
@@ -2510,16 +2524,19 @@ export function FacebookAnalyticsView({
     return sum + bestCount(post.facebookInsights?.post_reactions_like_total, post.likeCount) + (post.facebookInsights?.post_comments ?? post.commentsCount ?? 0) + bestShareCount(post) + bestRepostCount(post);
   }, 0) / Math.max(1, postsInRange.length);
   const avgReactionsPerPost = postsRows.reduce((s, r) => s + r.reactionsTotal, 0) / Math.max(1, postsRows.length);
-  const totalReelWatchTimeMs = postsRows.filter((r) => r.type === 'Reel').reduce((s, r) => s + r.watchTimeMs, 0);
-  const reelClicks = reelsRows.reduce((s, r) => (
+  const totalReelWatchTimeMs = useMemo(() => {
+    if (isYouTube) return reelChartSourceRows.reduce((s, r) => s + r.watchTimeMs, 0);
+    return postsRows.filter((r) => r.type === 'Reel').reduce((s, r) => s + r.watchTimeMs, 0);
+  }, [isYouTube, reelChartSourceRows, postsRows]);
+  const reelClicks = reelChartSourceRows.reduce((s, r) => (
     s + (r.post.platform === 'INSTAGRAM' ? bestInstagramInteractionCount(r.post) : (r.post.facebookInsights?.post_clicks ?? 0))
   ), 0);
-  const reelLikes = reelsRows.reduce((s, r) => s + bestCount(r.post.facebookInsights?.post_reactions_like_total, r.post.likeCount), 0);
-  const reelComments = reelsRows.reduce((s, r) => s + (r.post.facebookInsights?.post_comments ?? r.post.commentsCount ?? 0), 0);
-  const reelShares = reelsRows.reduce((s, r) => s + bestShareCount(r.post), 0);
-  const reelReposts = reelsRows.reduce((s, r) => s + bestRepostCount(r.post), 0);
-  const totalOrganicVideoViews = reelsRows.reduce((s, r) => s + r.organicViews, 0);
-  const totalReelVideoViews = reelsRows.reduce((s, r) => s + r.views, 0);
+  const reelLikes = reelChartSourceRows.reduce((s, r) => s + bestCount(r.post.facebookInsights?.post_reactions_like_total, r.post.likeCount), 0);
+  const reelComments = reelChartSourceRows.reduce((s, r) => s + (r.post.facebookInsights?.post_comments ?? r.post.commentsCount ?? 0), 0);
+  const reelShares = reelChartSourceRows.reduce((s, r) => s + bestShareCount(r.post), 0);
+  const reelReposts = reelChartSourceRows.reduce((s, r) => s + bestRepostCount(r.post), 0);
+  const totalOrganicVideoViews = reelChartSourceRows.reduce((s, r) => s + r.organicViews, 0);
+  const totalReelVideoViews = reelChartSourceRows.reduce((s, r) => s + r.views, 0);
   const avgWatchMs = totalReelVideoViews > 0 ? totalReelWatchTimeMs / totalReelVideoViews : 0;
   const totalReelWatchTimeMsDisplay =
     isYouTube && totalReelWatchTimeMs <= 0 && typeof youtubeEstimatedWatchMinutes === 'number' && youtubeEstimatedWatchMinutes > 0
@@ -2530,7 +2547,7 @@ export function FacebookAnalyticsView({
       ? Math.round(youtubeAvgViewDurationSec * 1000)
       : avgWatchMs;
   const viewToClickEfficiency =
-    reelsRows.reduce((s, r) => (
+    reelChartSourceRows.reduce((s, r) => (
       s + (r.post.platform === 'INSTAGRAM' ? bestInstagramInteractionCount(r.post) : (r.post.facebookInsights?.post_clicks ?? 0))
     ), 0) / Math.max(1, totalReelVideoViews);
   const totalLongVideoWatchTimeMs = longFormVideoRows.reduce((s, r) => s + r.watchTimeMs, 0);
@@ -3919,7 +3936,14 @@ export function FacebookAnalyticsView({
         ) : (
         <div className="rounded-[20px] border p-4 sm:p-5 space-y-4" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
           <div>
-            <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Reels</h2>
+            <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>
+              {isYouTube ? 'Shorts & videos' : 'Reels'}
+            </h2>
+            {isYouTube ? (
+              <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
+                YouTube Shorts (≤3 min with known duration) and long-form uploads in this date range. Metrics match the chart below.
+              </p>
+            ) : null}
           </div>
         <div className="flex gap-2">
           {([
@@ -4021,7 +4045,7 @@ export function FacebookAnalyticsView({
         </div>
 
         <InsightChartCard
-          title="Reel Performance"
+          title={isYouTube ? 'Video performance' : 'Reel Performance'}
           chartHeightPx={reelPerformanceChartHeightPx}
           legend={selectedReelMetrics.map((m) => ({ label: REEL_METRIC_CONFIG[m].label, color: REEL_METRIC_CONFIG[m].color }))}
         >
@@ -4082,9 +4106,13 @@ export function FacebookAnalyticsView({
             </ResponsiveContainer>
           ) : (
             <div className="h-[240px] rounded-[20px] border flex flex-col items-center justify-center text-center px-6" style={{ background: COLOR.card, borderColor: COLOR.border }}>
-              <p className="text-sm font-semibold" style={{ color: COLOR.text }}>No reels in this period</p>
+              <p className="text-sm font-semibold" style={{ color: COLOR.text }}>
+                {isYouTube ? 'No Shorts or videos in this period' : 'No reels in this period'}
+              </p>
               <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
-                Reel analytics appears after reels are discovered in your post inventory.
+                {isYouTube
+                  ? 'Charts fill after YouTube videos are synced and their publish dates fall in the selected range. Try widening the date range or running a sync from the dashboard.'
+                  : 'Reel analytics appears after reels are discovered in your post inventory.'}
               </p>
             </div>
           )}
