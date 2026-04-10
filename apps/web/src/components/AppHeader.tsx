@@ -118,14 +118,14 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
         </button>
         <Link
           href="/dashboard/account"
-          className="flex items-center justify-center w-9 h-9 rounded-full overflow-hidden border-2 border-neutral-600 text-neutral-300 hover:text-white hover:border-neutral-500 hover:bg-white/10 transition-colors shrink-0"
+          className="flex items-stretch w-9 h-9 rounded-full overflow-hidden border-2 border-neutral-600 text-neutral-300 hover:text-white hover:border-neutral-500 hover:bg-white/10 transition-colors shrink-0"
           title="Account"
           aria-label="Account"
         >
           {user?.avatarUrl ? (
-            <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" />
+            <img src={user.avatarUrl} alt="" className="w-full h-full min-h-0 object-cover" />
           ) : (
-            <span className="text-sm font-semibold">
+            <span className="flex flex-1 min-h-0 min-w-0 items-center justify-center text-sm font-semibold leading-none">
               {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
             </span>
           )}
