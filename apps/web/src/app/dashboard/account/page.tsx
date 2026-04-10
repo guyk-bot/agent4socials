@@ -223,29 +223,9 @@ export default function AccountPage() {
         <div className="p-4 sm:p-6 space-y-5">
           <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">Account</h1>
 
-          {/* Plan + Upgrade on the left; profile (name, email, ID) on the right */}
+          {/* Profile (name, email, ID) on the left; plan + Upgrade on the right */}
           <div className="flex flex-col lg:flex-row lg:items-stretch gap-6 lg:gap-8">
-            <div className="shrink-0 w-full lg:w-72 xl:w-80">
-              <div className="h-full flex flex-col rounded-2xl border border-violet-200/70 bg-gradient-to-br from-violet-50/90 via-white to-rose-50/40 px-4 py-4 sm:px-5 sm:py-5 shadow-sm ring-1 ring-violet-100/80">
-                <div className="flex items-center gap-2 text-violet-800">
-                  <Sparkles className="w-4 h-4 shrink-0" aria-hidden />
-                  <span className="text-[11px] font-semibold uppercase tracking-wide">Your plan</span>
-                </div>
-                <p className="text-lg font-bold text-neutral-900 tracking-tight mt-2">Free</p>
-                <p className="text-sm text-neutral-600 leading-snug mt-1 flex-1">
-                  More networks, scheduling, and analytics when you upgrade.
-                </p>
-                <Link
-                  href="/pricing"
-                  className="mt-4 shrink-0 inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-white shadow-md transition-all active:scale-[0.98] gradient-cta-pro"
-                >
-                  Upgrade now
-                  <ArrowRight className="w-4 h-4" aria-hidden />
-                </Link>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-4 min-w-0 flex-1 pt-2 lg:pt-0 lg:pl-2 lg:border-l border-neutral-200">
+            <div className="flex items-start gap-4 min-w-0 flex-1 pt-2 lg:pt-0">
               <div className="flex items-stretch w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-neutral-100 text-neutral-700">
                 <span className="flex flex-1 min-h-0 min-w-0 items-center justify-center text-xl font-bold leading-none">
                   {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
@@ -268,6 +248,26 @@ export default function AccountPage() {
                     </button>
                   </div>
                 ) : null}
+              </div>
+            </div>
+
+            <div className="shrink-0 w-full lg:w-72 xl:w-80 lg:border-l lg:pl-8 border-neutral-200">
+              <div className="h-full flex flex-col rounded-2xl border border-violet-200/70 bg-gradient-to-br from-violet-50/90 via-white to-rose-50/40 px-4 py-4 sm:px-5 sm:py-5 shadow-sm ring-1 ring-violet-100/80">
+                <div className="flex items-center gap-2 text-violet-800">
+                  <Sparkles className="w-4 h-4 shrink-0" aria-hidden />
+                  <span className="text-[11px] font-semibold uppercase tracking-wide">Your plan</span>
+                </div>
+                <p className="text-lg font-bold text-neutral-900 tracking-tight mt-2">Free</p>
+                <p className="text-sm text-neutral-600 leading-snug mt-1 flex-1">
+                  More networks, scheduling, and analytics when you upgrade.
+                </p>
+                <Link
+                  href="/pricing"
+                  className="mt-4 shrink-0 inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-white shadow-md transition-all active:scale-[0.98] gradient-cta-pro"
+                >
+                  Upgrade now
+                  <ArrowRight className="w-4 h-4" aria-hidden />
+                </Link>
               </div>
             </div>
           </div>
