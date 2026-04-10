@@ -37,17 +37,34 @@ import {
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import { useAppData } from '@/context/AppDataContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
-import { InstagramIcon, FacebookIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon } from '@/components/SocialPlatformIcons';
+import {
+  InstagramIcon,
+  FacebookIcon,
+  YoutubeIcon,
+  XTwitterIcon,
+  LinkedinIcon,
+  PinterestIcon,
+  TikTokIcon,
+} from '@/components/SocialPlatformIcons';
 import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 
-// Inbox-relevant platforms (Comments: IG, FB, X, YouTube, LinkedIn; Messages: IG + FB only). TikTok excluded (Display API has no comment text).
-const PLATFORMS = [
+/** All platforms that can appear in the inbox strip (per mode filter below). */
+const INBOX_PLATFORM_DEFS = [
   { id: 'INSTAGRAM', label: 'Instagram', icon: InstagramIcon },
   { id: 'FACEBOOK', label: 'Facebook', icon: FacebookIcon },
   { id: 'YOUTUBE', label: 'YouTube', icon: YoutubeIcon },
   { id: 'TWITTER', label: 'Twitter/X', icon: XTwitterIcon, color: 'text-neutral-800' },
   { id: 'LINKEDIN', label: 'LinkedIn', icon: LinkedinIcon },
+  { id: 'PINTEREST', label: 'Pinterest', icon: PinterestIcon },
+  { id: 'TIKTOK', label: 'TikTok', icon: TikTokIcon },
 ] as const;
+
+const MESSAGE_STRIP_PLATFORM_IDS = new Set<string>(
+  INBOX_PLATFORM_DEFS.filter((p) => p.id !== 'YOUTUBE' && p.id !== 'TIKTOK').map((p) => p.id)
+);
+const COMMENT_STRIP_PLATFORM_IDS = new Set<string>(INBOX_PLATFORM_DEFS.map((p) => p.id));
+/** Platforms where we can open a DM thread (Meta + X). */
+const DM_THREAD_PLATFORM_IDS = new Set<string>(['INSTAGRAM', 'FACEBOOK', 'TWITTER']);
 
 type Account = { id: string; platform: string; username?: string | null };
 type Conversation = {
@@ -107,7 +124,7 @@ function MessagesConversationList({
   conversations,
   inboxFilter,
   searchQuery,
-  dmOrFbPlatforms,
+  messageInboxPlatformIds,
   selectMode,
   selectedConversationIds,
   selectedConversationId,
@@ -125,7 +142,7 @@ function MessagesConversationList({
   conversations: Array<Conversation & { platform?: string }>;
   inboxFilter: string;
   searchQuery: string;
-  dmOrFbPlatforms: string[];
+  messageInboxPlatformIds: string[];
   selectMode: boolean;
   selectedConversationIds: Set<string>;
   selectedConversationId: string | null;
@@ -160,7 +177,7 @@ function MessagesConversationList({
       {filtered.map((c) => {
         const firstSender = c.senders?.[0];
         const rawName = firstSender?.username ?? firstSender?.name;
-        const convPlatform = (c as Conversation & { platform?: string }).platform ?? (dmOrFbPlatforms.length === 1 ? dmOrFbPlatforms[0] : undefined);
+        const convPlatform = (c as Conversation & { platform?: string }).platform ?? (messageInboxPlatformIds.length === 1 ? messageInboxPlatformIds[0] : undefined);
         const name = rawName && rawName.trim() ? rawName : (convPlatform === 'TWITTER' ? 'X (Twitter) user' : 'Unknown');
         const pictureUrl = firstSender?.pictureUrl;
         const initials = (name === 'X (Twitter) user' ? 'X' : name).slice(0, 2).toUpperCase();
@@ -220,7 +237,7 @@ function MessagesConversationList({
               <p className="text-sm font-medium text-neutral-900 truncate">{name}</p>
               <p className="text-xs text-neutral-500 truncate flex items-center gap-1.5">
                 {platform ? (() => {
-                  const plat = PLATFORMS.find((p) => p.id === platform);
+                  const plat = INBOX_PLATFORM_DEFS.find((p) => p.id === platform);
                   const Icon = plat?.icon;
                   return Icon ? <><Icon size={12} className="shrink-0 opacity-70" /><span>{plat?.label ?? platform}</span></> : null;
                 })() : 'Conversation'}
@@ -382,7 +399,7 @@ function InboxPage() {
   }, [inboxExamplesLoaded]);
 
   useEffect(() => {
-    if (platformFromUrl && PLATFORMS.some((p) => p.id === platformFromUrl)) {
+    if (platformFromUrl && INBOX_PLATFORM_DEFS.some((p) => p.id === platformFromUrl)) {
       const id = platformFromUrl;
       setSelectedPlatform(id);
       setSelectedPlatforms((prev) => (prev.includes(id) ? prev : [...prev, id]));
@@ -449,12 +466,13 @@ function InboxPage() {
     }
   }, [conversationMessagesCache]);
 
-  const connectedPlatforms = PLATFORMS.filter((p) => effectiveAccounts.some((a) => a.platform === p.id));
-  const platformsForMessages = connectedPlatforms.filter((p) => p.id === 'INSTAGRAM' || p.id === 'FACEBOOK');
-  // In Comments mode, only IG/FB are supported, so only show those icons.
-  const platformsToShow = inboxMode === 'comments'
-    ? connectedPlatforms.filter((p) => p.id === 'INSTAGRAM' || p.id === 'FACEBOOK')
-    : connectedPlatforms;
+  const connectedPlatforms = INBOX_PLATFORM_DEFS.filter((p) => effectiveAccounts.some((a) => a.platform === p.id));
+  const platformsToShow =
+    inboxMode === 'comments'
+      ? connectedPlatforms.filter((p) => COMMENT_STRIP_PLATFORM_IDS.has(p.id))
+      : connectedPlatforms.filter((p) => MESSAGE_STRIP_PLATFORM_IDS.has(p.id));
+  /** Selected platforms that load the Messages list (excludes YouTube; Pinterest/LinkedIn return empty with API hint). */
+  const messageFetchPlatformIds = selectedPlatforms.filter((p) => MESSAGE_STRIP_PLATFORM_IDS.has(p));
   const byPlatform = appData?.notifications?.byPlatform ?? notifications.byPlatform ?? {};
   const effectiveNotifications = selectedPlatforms.length > 0
     ? {
@@ -470,8 +488,8 @@ function InboxPage() {
     if (
       !selectedConversationId ||
       !currentAccountForMessages ||
-      (selectedPlatform !== 'INSTAGRAM' &&
-        selectedPlatform !== 'FACEBOOK')
+      !selectedPlatform ||
+      !DM_THREAD_PLATFORM_IDS.has(selectedPlatform)
     ) {
       setConversationMessages([]);
       setConversationRecipientId(null);
@@ -575,12 +593,8 @@ function InboxPage() {
       .catch(() => setNotifications({ comments: 0, messages: 0 }));
   }, [selectedPlatform, inboxMode, appData]);
 
-  // Messages tab: Instagram and Facebook (X uses a separate path when enabled)
-  const dmOrFbPlatforms = selectedPlatforms.filter(
-    (p) => p === 'INSTAGRAM' || p === 'FACEBOOK'
-  );
   useEffect(() => {
-    if (dmOrFbPlatforms.length === 0) {
+    if (messageFetchPlatformIds.length === 0) {
       setConversations([]);
       setConversationsLoading(false);
       setConversationsError(null);
@@ -591,11 +605,11 @@ function InboxPage() {
     const merge: Array<Conversation & { platform: string }> = [];
     const errors: string[] = [];
     const debugs: Array<{ rawMessage?: string; code?: number; responseData?: unknown; metaMessage?: string }> = [];
-    let pending = dmOrFbPlatforms.length;
+    let pending = messageFetchPlatformIds.length;
     let needsFetch = false;
     const platformsToFetch: Array<{ platform: string; account: { id: string; platform: string } }> = [];
 
-    dmOrFbPlatforms.forEach((platform) => {
+    messageFetchPlatformIds.forEach((platform) => {
       const account = effectiveAccounts.find((a) => a.platform === platform);
         if (!account) {
         if (--pending === 0 && !cancelled) {
@@ -739,15 +753,19 @@ function InboxPage() {
       setConversationsLoading(false);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dmOrFbPlatforms.join(','), effectiveAccounts.map((a) => a.id).join(','), conversationsRefreshKey, user?.id]);
+  }, [messageFetchPlatformIds.join(','), effectiveAccounts.map((a) => a.id).join(','), conversationsRefreshKey, user?.id]);
 
-  // When in Messages mode, do not keep Twitter selected (Messages are IG + FB only)
+  // Messages mode: YouTube/TikTok have no DM strip; switch to a message-capable platform.
   useEffect(() => {
-    if (inboxMode === 'messages' && selectedPlatform === 'TWITTER') {
-      const first = platformsForMessages[0];
-      setSelectedPlatform(first?.id ?? null);
-    }
-  }, [inboxMode, selectedPlatform, platformsForMessages]);
+    if (inboxMode !== 'messages') return;
+    if (selectedPlatform && MESSAGE_STRIP_PLATFORM_IDS.has(selectedPlatform)) return;
+    const next =
+      selectedPlatforms.find((p) => MESSAGE_STRIP_PLATFORM_IDS.has(p)) ??
+      connectedPlatforms.find((p) => MESSAGE_STRIP_PLATFORM_IDS.has(p.id))?.id ??
+      null;
+    setSelectedPlatform(next);
+    setSelectedConversationId(null);
+  }, [inboxMode, selectedPlatform, selectedPlatforms.join(','), connectedPlatforms.map((p) => p.id).join(',')]);
 
   // Auto-open the first conversation when the list loads (messages mode). Do not change selectedPlatform to avoid icon flashing.
   const hasAutoOpenedRef = useRef(false);
@@ -762,13 +780,12 @@ function InboxPage() {
     if (inboxMode !== 'messages' || !conversations.length) hasAutoOpenedRef.current = false;
   }, [inboxMode, conversations.length]);
 
-  const commentsSupportedPlatforms = selectedPlatforms.filter((p) => p === 'INSTAGRAM' || p === 'FACEBOOK');
+  const commentsSupportedPlatforms = selectedPlatforms.filter((p) => COMMENT_STRIP_PLATFORM_IDS.has(p));
   const platformsToFetchComments = commentsSupportedPlatforms;
 
-  // If user switches to Comments mode while YouTube/other platform is selected, auto-switch to IG/FB.
   useEffect(() => {
     if (inboxMode !== 'comments') return;
-    if (selectedPlatform === 'INSTAGRAM' || selectedPlatform === 'FACEBOOK') return;
+    if (selectedPlatform && COMMENT_STRIP_PLATFORM_IDS.has(selectedPlatform)) return;
     const next = commentsSupportedPlatforms[0] ?? null;
     if (next) setSelectedPlatform(next);
   }, [inboxMode, selectedPlatform, commentsSupportedPlatforms.join(',')]);
@@ -1102,7 +1119,7 @@ function InboxPage() {
                     </p>
                     <p className="text-xs text-neutral-500 mt-0.5 flex items-center gap-1.5">
                       {(() => {
-                        const plat = PLATFORMS.find((p) => p.id === e.platform);
+                        const plat = INBOX_PLATFORM_DEFS.find((p) => p.id === e.platform);
                         const Icon = plat?.icon;
                         return (
                           <>
@@ -1282,7 +1299,7 @@ function InboxPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-neutral-400 flex items-center gap-1 mb-1">
                         {(() => {
-                          const plat = PLATFORMS.find((p) => p.id === c.platform);
+                          const plat = INBOX_PLATFORM_DEFS.find((p) => p.id === c.platform);
                           const Icon = plat?.icon;
                           return Icon ? <Icon size={12} className="opacity-70" /> : null;
                         })()}
@@ -1391,7 +1408,7 @@ function InboxPage() {
               )}
               {(isAuthError || !isTimeout) && (
                 <>
-                  {dmOrFbPlatforms.includes('INSTAGRAM') && effectiveAccounts.some((a) => a.platform === 'INSTAGRAM') && (
+                  {messageFetchPlatformIds.includes('INSTAGRAM') && effectiveAccounts.some((a) => a.platform === 'INSTAGRAM') && (
                     <button
                       type="button"
                       onClick={async () => {
@@ -1406,7 +1423,7 @@ function InboxPage() {
                       Reconnect Instagram
                     </button>
                   )}
-                  {dmOrFbPlatforms.includes('FACEBOOK') && effectiveAccounts.some((a) => a.platform === 'FACEBOOK') && (
+                  {messageFetchPlatformIds.includes('FACEBOOK') && effectiveAccounts.some((a) => a.platform === 'FACEBOOK') && (
                     <button
                       type="button"
                       onClick={async () => {
@@ -1426,7 +1443,7 @@ function InboxPage() {
               {isTimeout && (
                 <>
                   <p className="text-xs text-red-700 mt-1">If it still fails after trying again, reconnect and choose your Page:</p>
-                  {dmOrFbPlatforms.includes('INSTAGRAM') && effectiveAccounts.some((a) => a.platform === 'INSTAGRAM') && (
+                  {messageFetchPlatformIds.includes('INSTAGRAM') && effectiveAccounts.some((a) => a.platform === 'INSTAGRAM') && (
                     <button
                       type="button"
                       onClick={async () => {
@@ -1441,7 +1458,7 @@ function InboxPage() {
                       Reconnect Instagram
                     </button>
                   )}
-                  {dmOrFbPlatforms.includes('FACEBOOK') && effectiveAccounts.some((a) => a.platform === 'FACEBOOK') && (
+                  {messageFetchPlatformIds.includes('FACEBOOK') && effectiveAccounts.some((a) => a.platform === 'FACEBOOK') && (
                     <button
                       type="button"
                       onClick={async () => {
@@ -1481,7 +1498,7 @@ function InboxPage() {
             <RefreshCw size={16} />
             Refresh conversations
           </button>
-              {dmOrFbPlatforms.includes('INSTAGRAM') && (
+              {messageFetchPlatformIds.includes('INSTAGRAM') && (
             <p className="text-xs text-amber-700 mt-3 max-w-sm mx-auto bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
               If you see Instagram DMs in Metricool but not here, Meta is only granting inbox access to apps with <strong>Advanced Access</strong>. Complete App Review for instagram_manage_messages to enable it in A4S.
             </p>
@@ -1506,7 +1523,7 @@ function InboxPage() {
               >
                 Retry
               </button>
-              {/Reconnect|Facebook|permission|expired/i.test(conversationsError) && dmOrFbPlatforms.includes('FACEBOOK') && effectiveAccounts.some((a) => a.platform === 'FACEBOOK') && (
+              {/Reconnect|Facebook|permission|expired/i.test(conversationsError) && messageFetchPlatformIds.includes('FACEBOOK') && effectiveAccounts.some((a) => a.platform === 'FACEBOOK') && (
                 <button
                   type="button"
                   onClick={async () => {
@@ -1528,7 +1545,7 @@ function InboxPage() {
           conversations={conversations}
           inboxFilter={inboxFilter}
           searchQuery={searchQuery}
-          dmOrFbPlatforms={dmOrFbPlatforms}
+          messageInboxPlatformIds={messageFetchPlatformIds}
           selectMode={selectMode}
           selectedConversationIds={selectedConversationIds}
           selectedConversationId={selectedConversationId}
@@ -1594,11 +1611,15 @@ function InboxPage() {
         </div>
 
         {/* Messages / Comments */}
-        <div className="flex border-b border-neutral-200">
+        <div className="flex border-b border-neutral-200 bg-neutral-50/50">
           <button
             type="button"
             onClick={() => { setInboxMode('messages'); setSelectedComment(null); setSelectMode(false); setSelectedConversationIds(new Set()); setSelectedCommentIds(new Set()); }}
-            className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-1.5 ${inboxMode === 'messages' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
+            className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors rounded-t-lg mx-0.5 mt-0.5 ${
+              inboxMode === 'messages'
+                ? 'text-violet-900 bg-white border border-b-0 border-violet-200 shadow-sm'
+                : 'text-neutral-500 border border-transparent hover:text-neutral-800 hover:bg-white/60'
+            }`}
           >
             Messages
             {(totalUnreadMessages > 0 || unreadConversationIds.size > 0) ? (
@@ -1610,7 +1631,11 @@ function InboxPage() {
           <button
             type="button"
             onClick={() => { setInboxMode('comments'); setSelectedConversationId(null); setSelectMode(false); setSelectedConversationIds(new Set()); setSelectedCommentIds(new Set()); }}
-            className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-1.5 ${inboxMode === 'comments' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
+            className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors rounded-t-lg mx-0.5 mt-0.5 ${
+              inboxMode === 'comments'
+                ? 'text-violet-900 bg-white border border-b-0 border-violet-200 shadow-sm'
+                : 'text-neutral-500 border border-transparent hover:text-neutral-800 hover:bg-white/60'
+            }`}
           >
             Comments
             {unreadCommentIds.size > 0 ? (
@@ -1813,17 +1838,19 @@ function InboxPage() {
               <MessageCircle size={64} className="mx-auto text-neutral-300 mb-4" />
               <h2 className="text-lg font-semibold text-neutral-800">Open an inbox</h2>
               <p className="text-sm text-neutral-500 mt-2">
-                Click Instagram or Facebook to view direct messages, or any connected platform to view comments.
+                Choose platforms above. Messages work for Instagram, Facebook, and X. Comments can include YouTube, LinkedIn, and more.
               </p>
             </div>
           </div>
-        ) : inboxMode === 'messages' && selectedPlatform && !platformsForMessages.some((p) => p.id === selectedPlatform) ? (
+        ) : inboxMode === 'messages' && selectedPlatform && !DM_THREAD_PLATFORM_IDS.has(selectedPlatform) ? (
           <div className="flex-1 flex items-center justify-center p-8">
             <div className="text-center max-w-sm">
               <MessageCircle size={64} className="mx-auto text-neutral-300 mb-4" />
               <h2 className="text-lg font-semibold text-neutral-800">Direct messages</h2>
               <p className="text-sm text-neutral-500 mt-2">
-                Direct messages are only available for Instagram and Facebook. LinkedIn messaging is not available in this inbox (the app does not integrate LinkedIn&apos;s messaging APIs). Switch to the Comments tab to see LinkedIn comments, or connect Instagram or Facebook for DMs.
+                {selectedPlatform === 'PINTEREST' || selectedPlatform === 'LINKEDIN'
+                  ? 'Pinterest and LinkedIn direct messages are not available in this app. Use Instagram, Facebook, or X (Twitter) for DMs, or open the Comments tab for this platform.'
+                  : 'Open a conversation from the list for Instagram, Facebook, or X (Twitter).'}
               </p>
             </div>
           </div>
@@ -1831,21 +1858,21 @@ function InboxPage() {
           /* Batch reply to selected comments: show each in a card + Generate with AI */
           (() => {
             const selectedComments = comments.filter((c) => !c.parentCommentId && selectedCommentIds.has(c.commentId));
-            const canReplyPlatforms = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER']);
+            const canReplyPlatforms = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER', 'YOUTUBE']);
             const replyable = selectedComments.filter((c) => canReplyPlatforms.has(c.platform));
             return (
               <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                 <div className="p-4 border-b border-neutral-200 bg-white">
                   <h2 className="text-lg font-semibold text-neutral-900">Reply to {selectedComments.length} comment{selectedComments.length !== 1 ? 's' : ''}</h2>
                   {replyable.length < selectedComments.length && (
-                    <p className="text-sm text-amber-700 mt-1">Only Instagram and Facebook comments can be replied to from the app. Others will be skipped.</p>
+                    <p className="text-sm text-amber-700 mt-1">Only Instagram, Facebook, X (Twitter), and YouTube comments can be replied to from the app. Others will be skipped.</p>
                   )}
                 </div>
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
                   <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Selected comments</p>
                   <div className="space-y-3">
                     {selectedComments.map((c) => {
-                      const plat = PLATFORMS.find((p) => p.id === c.platform);
+                      const plat = INBOX_PLATFORM_DEFS.find((p) => p.id === c.platform);
                       const Icon = plat?.icon;
                       return (
                         <div key={c.commentId} className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
@@ -1976,7 +2003,7 @@ function InboxPage() {
                       const name = c.senders?.map((s) => s.name || s.username || 'Unknown').filter(Boolean).join(', ') || 'Conversation';
                       const pictureUrl = c.senders?.[0]?.pictureUrl;
                       const platform = (c as Conversation & { platform?: string }).platform ?? selectedPlatform;
-                      const plat = PLATFORMS.find((p) => p.id === platform);
+                      const plat = INBOX_PLATFORM_DEFS.find((p) => p.id === platform);
                       const Icon = plat?.icon;
                       const value = batchDmTexts[c.id] ?? '';
                       return (
@@ -2124,7 +2151,7 @@ function InboxPage() {
                     <div className="min-w-0 flex-1">
                       <p className="text-xs text-neutral-500 flex items-center gap-1.5">
                         {(() => {
-                          const plat = PLATFORMS.find((p) => p.id === selectedComment.platform);
+                          const plat = INBOX_PLATFORM_DEFS.find((p) => p.id === selectedComment.platform);
                           const Icon = plat?.icon;
                           return (
                             <>
@@ -2152,7 +2179,7 @@ function InboxPage() {
                             className="inline-flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-700 hover:underline"
                           >
                             <ExternalLink size={10} />
-                            Open in {PLATFORMS.find((p) => p.id === selectedComment.platform)?.label ?? selectedComment.platform.charAt(0) + selectedComment.platform.slice(1).toLowerCase()}
+                            Open in {INBOX_PLATFORM_DEFS.find((p) => p.id === selectedComment.platform)?.label ?? selectedComment.platform.charAt(0) + selectedComment.platform.slice(1).toLowerCase()}
                           </a>
                         )}
                       </div>
@@ -2420,7 +2447,7 @@ function InboxPage() {
             <div className="text-center max-w-sm">
               <MessageCircle size={48} className="mx-auto text-neutral-300 mb-3" />
               <p className="text-sm text-neutral-600">Select a comment from the list to reply</p>
-              <p className="text-xs text-neutral-400 mt-1">{PLATFORMS.find((p) => p.id === selectedPlatform)?.label} comments</p>
+              <p className="text-xs text-neutral-400 mt-1">{INBOX_PLATFORM_DEFS.find((p) => p.id === selectedPlatform)?.label} comments</p>
             </div>
           </div>
         ) : inboxMode === 'engagement' ? (
@@ -2432,7 +2459,7 @@ function InboxPage() {
                   <p className="text-sm text-neutral-600">Select a post from the list to see likes and comments</p>
                   <p className="text-xs text-neutral-400 mt-1 flex items-center justify-center gap-1.5">
                     {selectedPlatform && (() => {
-                      const plat = PLATFORMS.find((p) => p.id === selectedPlatform);
+                      const plat = INBOX_PLATFORM_DEFS.find((p) => p.id === selectedPlatform);
                       const Icon = plat?.icon;
                       return (
                         <>
@@ -2451,7 +2478,7 @@ function InboxPage() {
                     <p className="text-sm font-medium text-neutral-800">Engagement</p>
                     <p className="text-xs text-neutral-500 mt-0.5 flex items-center gap-1.5">
                       {(() => {
-                        const plat = PLATFORMS.find((p) => p.id === selectedEngagement.platform);
+                        const plat = INBOX_PLATFORM_DEFS.find((p) => p.id === selectedEngagement.platform);
                         const Icon = plat?.icon;
                         return (
                           <span className="inline-flex items-center gap-1 font-medium text-neutral-600">
@@ -2523,7 +2550,7 @@ function InboxPage() {
                             <p className="text-sm font-medium text-neutral-800">{chatWithLabel}</p>
                             <p className="text-xs text-neutral-500 mt-0.5 flex items-center gap-1.5">
                               {selectedPlatform && (() => {
-                                const plat = PLATFORMS.find((p) => p.id === selectedPlatform);
+                                const plat = INBOX_PLATFORM_DEFS.find((p) => p.id === selectedPlatform);
                                 const Icon = plat?.icon;
                                 return (
                                   <span className="inline-flex items-center gap-1 font-medium text-neutral-600">

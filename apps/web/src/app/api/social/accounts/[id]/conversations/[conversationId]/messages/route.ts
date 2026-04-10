@@ -47,6 +47,16 @@ export async function GET(
   if (!account) {
     return NextResponse.json({ message: 'Account not found' }, { status: 404 });
   }
+  if (account.platform === 'PINTEREST' || account.platform === 'LINKEDIN') {
+    return NextResponse.json({
+      messages: [],
+      error: null,
+      hint:
+        account.platform === 'PINTEREST'
+          ? 'Pinterest direct messages are not available in this app.'
+          : 'LinkedIn direct messages are not available in this app.',
+    });
+  }
   if (
     account.platform !== 'INSTAGRAM' &&
     account.platform !== 'FACEBOOK' &&

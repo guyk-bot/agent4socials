@@ -68,7 +68,8 @@ export async function GET(
     platform !== 'TWITTER' &&
     platform !== 'YOUTUBE' &&
     platform !== 'TIKTOK' &&
-    platform !== 'LINKEDIN'
+    platform !== 'LINKEDIN' &&
+    platform !== 'PINTEREST'
   ) {
     return NextResponse.json({
       comments: [],
@@ -82,6 +83,14 @@ export async function GET(
     return NextResponse.json({
       comments: [],
       error: "TikTok's Display API (used by this app) doesn't include comment text. Comment reading is available only in TikTok's Research API for approved researchers. You can see comment counts in Analytics.",
+    });
+  }
+
+  if (platform === 'PINTEREST') {
+    return NextResponse.json({
+      comments: [],
+      error: null,
+      hint: 'Pin comments are not loaded in this inbox yet. Use Pinterest or analytics for pin activity.',
     });
   }
 
