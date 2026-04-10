@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import Link from 'next/link';
@@ -67,39 +67,45 @@ export default function PostsPage() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const appData = useAppData();
+    const appDataRef = useRef(appData);
+    appDataRef.current = appData;
     const [posts, setPosts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('ALL');
 
-    const fetchPosts = useCallback(async () => {
-        try {
-            setLoading(true);
-            const res = await api.get('/posts');
-            const list = Array.isArray(res.data) ? res.data : [];
-            setPosts(list);
-            appData?.setScheduledPosts?.(list);
-        } catch (err) {
-            console.error('Failed to fetch posts');
-        } finally {
-            setLoading(false);
-        }
-    }, [appData]);
+    const draftSavedParam = searchParams.get('draft_saved');
+    const refreshParam = searchParams.get('refresh');
 
     useEffect(() => {
-        const fromCache = appData?.getScheduledPosts?.();
-        const cacheIsEmpty = Array.isArray(fromCache) && fromCache.length === 0;
-        const forceRefresh = searchParams.get('draft_saved') === '1' || searchParams.get('refresh') === '1';
-        if (pathname === '/posts' && (forceRefresh || !fromCache || cacheIsEmpty)) {
-            fetchPosts();
-            return;
-        }
-        if (fromCache !== undefined && Array.isArray(fromCache) && fromCache.length > 0) {
+        if (pathname !== '/posts') return;
+        let cancelled = false;
+        const forceRefresh = draftSavedParam === '1' || refreshParam === '1';
+        const fromCache = appDataRef.current?.getScheduledPosts?.();
+        const hasCachedList = Array.isArray(fromCache) && fromCache.length > 0;
+
+        if (hasCachedList && !forceRefresh) {
             setPosts(fromCache as any[]);
             setLoading(false);
-            return;
+            return () => { cancelled = true; };
         }
-        if (pathname === '/posts') fetchPosts();
-    }, [pathname, appData, fetchPosts, searchParams.get('draft_saved'), searchParams.get('refresh'), searchParams.get('highlight')]);
+
+        (async () => {
+            try {
+                setLoading(true);
+                const res = await api.get('/posts');
+                if (cancelled) return;
+                const list = Array.isArray(res.data) ? res.data : [];
+                setPosts(list);
+                appDataRef.current?.setScheduledPosts?.(list);
+            } catch {
+                if (!cancelled) console.error('Failed to fetch posts');
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        })();
+
+        return () => { cancelled = true; };
+    }, [pathname, draftSavedParam, refreshParam]);
 
     const highlightId = searchParams.get('highlight');
     useEffect(() => {
@@ -290,9 +296,22 @@ export default function PostsPage() {
                             ))}
                         </tbody>
                     </table>
+                ) : posts.length === 0 ? (
+                    <div className="p-16 sm:p-20 text-center space-y-3">
+                        <p className="text-gray-900 font-medium text-lg">No post history yet</p>
+                        <p className="text-gray-500 text-sm max-w-md mx-auto">
+                            Drafts, scheduled posts, and published posts will show up here. Create something in the composer to get started.
+                        </p>
+                        <Link
+                            href="/composer"
+                            className="inline-flex items-center gap-2 mt-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-neutral-700 hover:bg-neutral-800 transition-colors"
+                        >
+                            Open Composer
+                        </Link>
+                    </div>
                 ) : (
                     <div className="p-20 text-center">
-                        <p className="text-gray-500">No posts found with this filter.</p>
+                        <p className="text-gray-500">No posts match this filter.</p>
                     </div>
                 )}
             </div>

@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/context/AuthContext';
-import { useWhiteLabel } from '@/context/WhiteLabelContext';
 import {
   Zap,
   Trash2,
@@ -89,8 +88,6 @@ const sharePlatforms = [
 
 export default function AccountPage() {
   const { user, logout } = useAuth();
-  const { primaryColor } = useWhiteLabel();
-  const accent = primaryColor || '#525252';
 
   const trialStart = user?.createdAt ? new Date(user.createdAt) : null;
   const trialEnd = trialStart
@@ -251,26 +248,10 @@ export default function AccountPage() {
         )}
       </div>
 
-      {/* Temporary: disconnect to test sign-in / Supabase User table */}
-      <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4">
-        <p className="text-sm font-medium text-amber-800">Testing sign-in</p>
-        <p className="text-xs text-amber-700 mt-0.5">Disconnect this account to sign in again (e.g. with another Google profile) and verify the user is added to the Supabase User table.</p>
-        <button
-          type="button"
-          onClick={logout}
-          className="mt-3 px-4 py-2 rounded-lg text-sm font-medium bg-amber-500 text-white hover:bg-amber-600"
-        >
-          Disconnect account
-        </button>
-      </div>
-
       {/* Profile card */}
       <div className="card rounded-2xl overflow-hidden border border-neutral-200/80 shadow-sm">
         <div className="flex items-center gap-4 p-1">
-          <div
-            className="w-16 h-16 rounded-xl flex items-center justify-center text-xl font-bold shrink-0"
-            style={{ backgroundColor: `${accent}18`, color: accent }}
-          >
+          <div className="w-16 h-16 rounded-xl flex items-center justify-center text-xl font-bold shrink-0 bg-neutral-100 text-neutral-700">
             {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
           </div>
           <div className="min-w-0">
@@ -304,10 +285,10 @@ export default function AccountPage() {
 
       {/* Trial card */}
       {trialStart && trialEnd && (
-        <div className="card rounded-2xl border-2 shadow-sm" style={{ borderColor: `${accent}25` }}>
+        <div className="card rounded-2xl border border-neutral-200 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl shrink-0" style={{ backgroundColor: `${accent}12` }}>
-              <Calendar className="w-5 h-5" style={{ color: accent }} />
+            <div className="p-2.5 rounded-xl shrink-0 bg-neutral-100">
+              <Calendar className="w-5 h-5 text-neutral-600" />
             </div>
             <div className="min-w-0 flex-1">
               <h2 className="font-semibold text-neutral-900">Your trial</h2>
@@ -315,7 +296,7 @@ export default function AccountPage() {
                 {formatDate(trialStart)} to {formatDate(trialEnd)}
               </p>
               {daysLeft > 0 && (
-                <p className="text-sm font-medium mt-1" style={{ color: accent }}>
+                <p className="text-sm font-medium mt-1 text-neutral-700">
                   {daysLeft} day{daysLeft !== 1 ? 's' : ''} left
                 </p>
               )}
@@ -325,14 +306,11 @@ export default function AccountPage() {
       )}
 
       {/* Upgrade to yearly */}
-      <div
-        className="card rounded-2xl border-2 shadow-md hover:shadow-lg transition-shadow overflow-hidden"
-        style={{ borderColor: `${accent}35`, backgroundColor: `${accent}06` }}
-      >
+      <div className="card rounded-2xl border border-neutral-200 bg-neutral-50/60 shadow-md hover:shadow-lg transition-shadow overflow-hidden">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="p-2.5 rounded-xl bg-white shadow-sm shrink-0">
-              <Zap className="w-6 h-6" style={{ color: accent }} />
+            <div className="p-2.5 rounded-xl bg-white border border-neutral-200 shadow-sm shrink-0">
+              <Zap className="w-6 h-6 text-neutral-600" />
             </div>
             <div>
               <h2 className="font-semibold text-neutral-900">Save with yearly</h2>
@@ -341,8 +319,7 @@ export default function AccountPage() {
           </div>
           <Link
             href="/pricing"
-            className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-white shadow-md hover:opacity-95 transition-opacity"
-            style={{ backgroundColor: accent }}
+            className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-neutral-700 shadow-md hover:bg-neutral-800 transition-colors"
           >
             Upgrade <ArrowRight className="w-4 h-4" />
           </Link>

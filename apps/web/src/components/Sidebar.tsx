@@ -143,7 +143,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
     return acc;
   }, {});
 
-  const accent = primaryColor || '#5ff6fd';
+  const accent = primaryColor || '#525252';
   const text = textColor || '#171717';
   const isSummaryView = pathname === '/dashboard/summary';
   const isDashboardOverview = pathname === '/dashboard/summary' && !selectedAccountId && !selectedPlatformForConnect;
