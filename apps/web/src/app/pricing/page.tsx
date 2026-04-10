@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthModal } from '@/context/AuthModalContext';
 import SiteHeader from '@/components/landing/SiteHeader';
 import SiteFooter from '@/components/landing/SiteFooter';
@@ -12,7 +12,6 @@ import {
   PricingFAQ,
   PricingCTA,
 } from '@/components/landing/pricing';
-
 const FREE_HIGHLIGHTS = [
   '1 brand',
   '50 scheduled posts / month',
@@ -47,6 +46,12 @@ const PRO_HIGHLIGHTS = [
 export default function PricingPage() {
   const { openSignup } = useAuthModal();
   const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('yearly');
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('billing') === 'monthly') {
+      setBillingInterval('monthly');
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-white text-[#1a161f]">
