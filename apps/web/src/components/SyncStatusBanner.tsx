@@ -79,8 +79,7 @@ export default function SyncStatusBanner({
         <button
           type="button"
           onClick={() => triggerSync()}
-          className="shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-lg border text-xs font-medium opacity-80 hover:opacity-100 transition-opacity"
-          style={{ borderColor: 'currentColor' }}
+          className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white shadow-sm opacity-95 hover:opacity-100 transition-opacity gradient-cta-pro"
           title="Refresh data now"
         >
           <RefreshCw size={12} />
@@ -114,8 +113,8 @@ function getSyncConfig(
       label: `Syncing ${platformLabel}data…`,
       shortLabel: 'Syncing…',
       sub: 'Latest data will appear shortly',
-      bg: 'bg-blue-50',
-      textColor: 'text-blue-700',
+      bg: 'bg-gradient-to-r from-violet-50 via-fuchsia-50/80 to-rose-50/50 border border-violet-200/70',
+      textColor: 'text-violet-900',
       Icon: Loader2,
     };
   }

@@ -80,17 +80,8 @@ function DataSyncBanner({
     LINKEDIN: <LinkedinIcon size={29} />,
     PINTEREST: <PinterestIcon size={29} />,
   };
-  const platformColors: Record<string, string> = {
-    INSTAGRAM: 'from-pink-500 via-fuchsia-500 to-purple-600',
-    FACEBOOK: 'from-blue-500 to-blue-700',
-    TIKTOK: 'from-neutral-900 to-neutral-800',
-    YOUTUBE: 'from-red-500 to-red-700',
-    TWITTER: 'from-neutral-600 to-neutral-800',
-    LINKEDIN: 'from-blue-600 to-blue-800',
-    PINTEREST: 'from-rose-600 to-red-700',
-    DEFAULT: 'from-[#8b5cf6] to-[#b030ad]',
-  };
-  const grad = platformColors[platform ?? ''] ?? platformColors.DEFAULT;
+  /** Same violet → fuchsia → rose gradient on every platform (matches Upgrade / Get Pro CTA). */
+  const grad = 'from-violet-700 via-fuchsia-600 to-rose-600';
   const icon = platform ? platformIcons[platform] : null;
   const analyticsStep = insightsLoading ? 'loading' : 'done';
   const postsStep = postsLoading ? 'loading' : 'done';
@@ -99,15 +90,15 @@ function DataSyncBanner({
   const Step = ({ state, label }: { state: 'done' | 'loading' | 'pending'; label: string }) => (
     <div className="flex items-center gap-1.5 min-w-0">
       <div className={`shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
-        state === 'done' ? 'bg-emerald-500 text-white' :
-        state === 'loading' ? 'bg-neutral-200 text-neutral-500' : 'bg-white/30 text-white/60'
+        state === 'done' ? 'bg-white/95 text-violet-700' :
+        state === 'loading' ? 'bg-white/25 text-white' : 'bg-white/30 text-white/60'
       }`}>
         {state === 'done' ? '✓' : state === 'loading' ? (
-          <span className="inline-block w-3 h-3 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin" />
+          <span className="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
         ) : '○'}
       </div>
       <span className={`text-xs font-medium truncate ${
-        state === 'done' ? 'text-emerald-100' : state === 'loading' ? 'text-neutral-200' : 'text-white/50'
+        state === 'done' ? 'text-white' : state === 'loading' ? 'text-white/90' : 'text-white/50'
       }`}>{label}</span>
     </div>
   );
@@ -1367,14 +1358,14 @@ export default function DashboardPage() {
       )}
       {/* Instagram-only: analytics and posts not available; CTA to connect with Facebook */}
       {!analyticsLoadingOnly && selectedAccount?.platform === 'INSTAGRAM' && (selectedAccount as { instagramLoginOnly?: boolean }).instagramLoginOnly && (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-4 px-4 py-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm text-blue-900">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-4 px-4 py-4 rounded-lg border border-violet-200/80 bg-gradient-to-r from-violet-50 via-fuchsia-50/50 to-rose-50/40">
+          <p className="text-sm text-violet-950">
             <strong>Analytics and posts are not available</strong> when connected with Instagram only. Connect with Facebook to unlock full analytics, post history, and insights on both the Account and Posts tabs.
           </p>
           <button
             type="button"
             onClick={() => setSelectedPlatformForConnect('INSTAGRAM')}
-            className="shrink-0 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
+            className="shrink-0 px-4 py-2.5 rounded-full text-white text-sm font-semibold shadow-md transition-all gradient-cta-pro"
           >
             Connect with Facebook for full features
           </button>

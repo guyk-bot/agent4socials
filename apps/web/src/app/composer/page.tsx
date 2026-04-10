@@ -2040,6 +2040,12 @@ export default function ComposerPage() {
                     const v = list.find((m) => m.type === 'VIDEO');
                     return v ? mediaDisplayUrl(v.fileUrl) : '';
                 })()}
+                videoPosterSrc={(() => {
+                    const list = differentMediaPerPlatform ? (mediaByPlatform['TIKTOK'] ?? []) : mediaList;
+                    const v = list.find((m) => m.type === 'VIDEO') as MediaItem | undefined;
+                    const thumb = v?.thumbnailUrl;
+                    return thumb ? mediaDisplayUrl(thumb) : undefined;
+                })()}
                 initialByAccountId={tiktokPublishByAccountId}
             />
             {aiModalOpen && typeof document !== 'undefined' && createPortal(
@@ -2218,7 +2224,7 @@ export default function ComposerPage() {
                             <>
                                 <p className="text-sm font-medium text-neutral-700">Choose what to upload</p>
                                 <div className="flex flex-wrap gap-2 p-1 bg-neutral-100/80 rounded-xl w-fit">
-                                    {(['photo', 'video', 'reel', 'carousel'] as const).map((type) => (
+                                    {(['photo', 'reel', 'video', 'carousel'] as const).map((type) => (
                                         <button
                                             key={type}
                                             type="button"
@@ -2234,8 +2240,8 @@ export default function ComposerPage() {
                                                 }
                                             }}
                                             className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${mediaType === type
-                                                ? 'bg-white text-neutral-700 shadow-sm ring-1 ring-neutral-200'
-                                                : 'text-neutral-600 hover:text-neutral-900 hover:bg-white/60'
+                                                ? 'bg-violet-50 text-violet-950 shadow-sm ring-1 ring-violet-200'
+                                                : 'text-neutral-600 hover:text-violet-900 hover:bg-violet-50/70'
                                                 }`}
                                         >
                                             {MEDIA_RECOMMENDATIONS[type].label}
@@ -3160,8 +3166,8 @@ function PlatformToggle({ platform, label, icon, active, onClick, connected }: {
                     !connected
                         ? 'border-neutral-100 bg-neutral-50 text-neutral-300 cursor-not-allowed opacity-50'
                         : active
-                    ? 'border-neutral-400 bg-neutral-100 text-neutral-700 shadow-sm'
-                    : 'border-neutral-200 bg-white text-neutral-500 hover:border-neutral-300 hover:bg-neutral-50'
+                    ? 'border-violet-400 bg-violet-50 text-violet-900 shadow-sm ring-1 ring-violet-200/80'
+                    : 'border-neutral-200 bg-white text-neutral-500 hover:border-violet-300 hover:bg-violet-50/70 hover:text-violet-900'
                 }`}
         >
                 <span className="flex items-center justify-center w-9 h-9 shrink-0">{icon}</span>
@@ -3249,7 +3255,19 @@ function PostPreview({
                 ) : currentMedia ? (
                     <>
                         {currentMedia.type === 'VIDEO' ? (
-                            useLiveFrameScrub && composerFramePreview ? (
+                            mediaUploading && (currentMedia as { thumbnailUrl?: string }).thumbnailUrl ? (
+                                <div className="relative w-full h-full flex items-center justify-center bg-neutral-900/5">
+                                    <img
+                                        src={mediaDisplayUrl((currentMedia as { thumbnailUrl: string }).thumbnailUrl)}
+                                        alt="Video cover"
+                                        className={videoVisualClass}
+                                    />
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/35">
+                                        <Loader2 size={compact ? 18 : 28} className="animate-spin text-white" />
+                                        <span className={`text-white font-medium ${compact ? 'text-[9px]' : 'text-xs'}`}>Uploading…</span>
+                                    </div>
+                                </div>
+                            ) : useLiveFrameScrub && composerFramePreview ? (
                                 <ComposerScrubVideoPreview
                                     src={composerFramePreview.videoSrc}
                                     timeSec={composerFramePreview.timeSec}
@@ -3267,6 +3285,7 @@ function PostPreview({
                                     className={videoVisualClass}
                                     muted
                                     playsInline
+                                    preload="metadata"
                                 />
                             )
                         ) : (

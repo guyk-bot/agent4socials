@@ -79,6 +79,17 @@
   --animate-scale-in: scale-in 0.3s ease-out both;
 }
 
+/* CTA gradient: deep violet → fuchsia → rose (matches product “Get Pro” style) */
+.gradient-cta-pro {
+  background: linear-gradient(90deg, #5b21b6 0%, #c026d3 52%, #e11d48 100%);
+}
+.gradient-cta-pro:hover {
+  filter: brightness(1.07);
+}
+.gradient-cta-pro:active {
+  filter: brightness(0.98);
+}
+
 :root {
   font-size: 110%;
   --primary: #8b5cf6;
