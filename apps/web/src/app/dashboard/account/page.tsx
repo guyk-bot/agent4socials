@@ -251,20 +251,22 @@ export default function AccountPage() {
               </div>
             </div>
 
-            <div className="w-full rounded-2xl border border-violet-200/70 bg-gradient-to-br from-violet-50/90 via-white to-rose-50/40 px-4 py-4 sm:px-5 sm:py-4 shadow-sm ring-1 ring-violet-100/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 text-violet-800">
-                  <Sparkles className="w-4 h-4 shrink-0" aria-hidden />
+            <div className="w-full rounded-2xl border border-violet-200/70 bg-gradient-to-br from-violet-50/90 via-white to-rose-50/40 px-3 py-2.5 sm:px-4 sm:py-2.5 shadow-sm ring-1 ring-violet-100/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3">
+              <div className="min-w-0 flex-1 space-y-1">
+                <div className="flex items-center gap-1.5 text-violet-800">
+                  <Sparkles className="w-3.5 h-3.5 shrink-0" aria-hidden />
                   <span className="text-[11px] font-semibold uppercase tracking-wide">Your plan</span>
                 </div>
-                <p className="text-lg font-bold text-neutral-900 tracking-tight mt-1.5">Free</p>
-                <p className="text-sm text-neutral-600 leading-snug mt-1">
-                  More networks, scheduling, and analytics when you upgrade.
-                </p>
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0">
+                  <span className="text-lg font-bold text-neutral-900 tracking-tight leading-tight">Free</span>
+                  <span className="text-sm text-neutral-600 leading-snug">
+                    More networks, scheduling, and analytics when you upgrade.
+                  </span>
+                </div>
               </div>
               <Link
                 href="/pricing"
-                className="shrink-0 inline-flex w-full sm:w-auto justify-center items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-white shadow-md transition-all active:scale-[0.98] gradient-cta-pro"
+                className="shrink-0 inline-flex w-full sm:w-auto justify-center items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-md transition-all active:scale-[0.98] gradient-cta-pro"
               >
                 Upgrade now
                 <ArrowRight className="w-4 h-4" aria-hidden />
