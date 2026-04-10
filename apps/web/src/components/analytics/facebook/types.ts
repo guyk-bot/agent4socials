@@ -104,6 +104,13 @@ export interface FacebookInsights {
     stitchDisabled?: boolean;
     commentDisabled?: boolean;
   };
+  /** LinkedIn: OpenID + networkSizes + aggregates from synced posts (see GET …/insights). */
+  linkedIn?: {
+    network?: { connections?: number; companiesFollowed?: number };
+    profile?: { headline?: string; vanityName?: string; picture?: string; email?: string };
+    posts?: { totalSynced?: number; inRangeCount?: number };
+    activityByDay?: Array<{ date: string; value: number }>;
+  };
 }
 
 export interface FacebookPost {

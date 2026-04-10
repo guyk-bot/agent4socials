@@ -1641,20 +1641,189 @@ export async function GET(
     }
 
     if (account.platform === 'LINKEDIN') {
-      // Try to get basic profile info; followers not exposed via standard LinkedIn API without r_organization_social
-      try {
-        const profileRes = await axios.get<{
-          followersCount?: number;
-          firstDegreeSize?: number;
-          localizedName?: string;
-        }>(`https://api.linkedin.com/v2/networkSizes/urn:li:person:${account.platformUserId}?edgeType=CompanyFollowedByMember`, {
-          headers: { Authorization: `Bearer ${account.accessToken}`, 'X-Restli-Protocol-Version': '2.0.0' },
-        });
-        if (profileRes.data?.firstDegreeSize) out.followers = profileRes.data.firstDegreeSize;
-      } catch {
-        // LinkedIn connections/follower count not accessible without special permissions
+      const personUrn = `urn:li:person:${account.platformUserId}`;
+      const liHeaders = {
+        Authorization: `Bearer ${account.accessToken}`,
+        'X-Restli-Protocol-Version': '2.0.0',
+      };
+
+      const fetchNetworkSize = async (edgeType: string): Promise<number | undefined> => {
+        try {
+          const r = await axios.get<{ firstDegreeSize?: number }>(
+            `https://api.linkedin.com/v2/networkSizes/${encodeURIComponent(personUrn)}`,
+            { params: { edgeType }, headers: liHeaders, timeout: 8_000, validateStatus: () => true }
+          );
+          if (r.status >= 400) return undefined;
+          const n = r.data?.firstDegreeSize;
+          return typeof n === 'number' && Number.isFinite(n) ? Math.max(0, Math.round(n)) : undefined;
+        } catch {
+          return undefined;
+        }
+      };
+
+      // Prefer first-degree network size when the API returns it (availability varies by product).
+      const connections =
+        (await fetchNetworkSize('FirstDegreeConnection')) ?? (await fetchNetworkSize('FirstDegreeRelationSize'));
+      const companiesFollowed = await fetchNetworkSize('CompanyFollowedByMember');
+
+      if (connections != null) {
+        out.followers = connections;
       }
-      out.insightsHint = "LinkedIn analytics (impressions, reach) require LinkedIn Marketing API approval. Connection count and post publishing are available.";
+
+      let userinfoName: string | undefined;
+      let picture: string | undefined;
+      let email: string | undefined;
+      try {
+        const ui = await axios.get<{
+          name?: string;
+          given_name?: string;
+          family_name?: string;
+          picture?: string;
+          email?: string;
+        }>('https://api.linkedin.com/v2/userinfo', {
+          headers: liHeaders,
+          timeout: 8_000,
+          validateStatus: () => true,
+        });
+        if (ui.status === 200 && ui.data) {
+          const d = ui.data;
+          userinfoName =
+            (typeof d.name === 'string' && d.name.trim()) ||
+            [d.given_name, d.family_name].filter(Boolean).join(' ').trim() ||
+            undefined;
+          if (typeof d.picture === 'string' && d.picture.trim()) picture = d.picture.trim();
+          if (typeof d.email === 'string' && d.email.trim()) email = d.email.trim();
+        }
+      } catch {
+        // optional OpenID userinfo
+      }
+
+      let vanityName: string | undefined;
+      let localizedHeadline: string | undefined;
+      try {
+        const me = await axios.get<{
+          vanityName?: string;
+          localizedHeadline?: string;
+        }>('https://api.linkedin.com/v2/me', {
+          params: { projection: '(vanityName,localizedHeadline)' },
+          headers: liHeaders,
+          timeout: 8_000,
+          validateStatus: () => true,
+        });
+        if (me.status === 200 && me.data) {
+          if (typeof me.data.vanityName === 'string' && me.data.vanityName.trim()) {
+            vanityName = me.data.vanityName.trim();
+          }
+          if (typeof me.data.localizedHeadline === 'string' && me.data.localizedHeadline.trim()) {
+            localizedHeadline = me.data.localizedHeadline.trim();
+          }
+        }
+      } catch {
+        // optional profile fields
+      }
+
+      const displayName = (userinfoName || account.username || 'LinkedIn').trim();
+      (out as Record<string, unknown>).facebookPageProfile = {
+        name: displayName,
+        username: vanityName ?? account.username ?? undefined,
+      };
+
+      const sinceStart = new Date(`${sinceParam}T00:00:00.000Z`);
+      const untilEnd = new Date(`${untilParam}T23:59:59.999Z`);
+      let importedInRange: Array<{
+        publishedAt: Date;
+        impressions: number | null;
+        interactions: number | null;
+        likeCount: number | null;
+        commentsCount: number | null;
+        sharesCount: number | null;
+        mediaType: string | null;
+      }> = [];
+      let totalSynced = 0;
+      try {
+        importedInRange = await prisma.importedPost.findMany({
+          where: {
+            socialAccountId: account.id,
+            platform: Platform.LINKEDIN,
+            publishedAt: { gte: sinceStart, lte: untilEnd },
+          },
+          select: {
+            publishedAt: true,
+            impressions: true,
+            interactions: true,
+            likeCount: true,
+            commentsCount: true,
+            sharesCount: true,
+            mediaType: true,
+          },
+        });
+        totalSynced = await prisma.importedPost.count({
+          where: { socialAccountId: account.id, platform: Platform.LINKEDIN },
+        });
+      } catch (e) {
+        console.warn('[Insights] LinkedIn imported posts:', (e as Error)?.message ?? e);
+      }
+
+      const impressionsByDate: Record<string, number> = {};
+      const postsByDate: Record<string, number> = {};
+      let impSum = 0;
+      let engSum = 0;
+      for (const p of importedInRange) {
+        const d = p.publishedAt.toISOString().slice(0, 10);
+        postsByDate[d] = (postsByDate[d] ?? 0) + 1;
+        const im = p.impressions ?? 0;
+        impressionsByDate[d] = (impressionsByDate[d] ?? 0) + im;
+        impSum += im;
+        const comp = (p.likeCount ?? 0) + (p.commentsCount ?? 0) + (p.sharesCount ?? 0);
+        const intr = p.interactions ?? 0;
+        engSum += intr > 0 ? intr : comp;
+      }
+      out.impressionsTotal = impSum;
+      out.reachTotal = engSum;
+      out.impressionsTimeSeries = Object.entries(impressionsByDate)
+        .map(([date, value]) => ({ date, value }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+
+      const activityByDay = Object.entries(postsByDate)
+        .map(([date, value]) => ({ date, value }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+
+      (out as Record<string, unknown>).linkedIn = {
+        network: {
+          connections: connections ?? undefined,
+          companiesFollowed: companiesFollowed ?? undefined,
+        },
+        profile: {
+          headline: localizedHeadline,
+          vanityName: vanityName ?? undefined,
+          picture: picture ?? undefined,
+          email: email ?? undefined,
+        },
+        posts: {
+          totalSynced,
+          inRangeCount: importedInRange.length,
+        },
+        activityByDay,
+      };
+
+      const hintParts: string[] = [];
+      if (out.followers === 0 && connections == null && companiesFollowed != null) {
+        hintParts.push(
+          'LinkedIn returned companies you follow but not your connection count in this session.'
+        );
+      }
+      if (totalSynced === 0) {
+        hintParts.push('Use Sync now to pull posts; then impressions and engagement can appear when stored on each post.');
+      } else if (impSum === 0 && importedInRange.length > 0) {
+        hintParts.push(
+          'Many LinkedIn personal shares still store zero impressions until stats are available for your integration.'
+        );
+      }
+      out.insightsHint =
+        hintParts.length > 0
+          ? hintParts.join(' ')
+          : 'Shows OpenID profile, network sizes when allowed, and totals from synced posts in your selected date range.';
+
       return NextResponse.json(out);
     }
 

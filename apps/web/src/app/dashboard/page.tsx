@@ -1455,6 +1455,7 @@ export default function DashboardPage() {
                   instagramAccountVideoViewsTotal: (displayInsights as { instagramAccountVideoViewsTotal?: number }).instagramAccountVideoViewsTotal,
                   tiktokUser: (displayInsights as { tiktokUser?: import('@/components/analytics/facebook/types').FacebookInsights['tiktokUser'] }).tiktokUser,
                   tiktokCreatorInfo: (displayInsights as { tiktokCreatorInfo?: import('@/components/analytics/facebook/types').FacebookInsights['tiktokCreatorInfo'] }).tiktokCreatorInfo,
+                  linkedIn: (displayInsights as { linkedIn?: import('@/components/analytics/facebook/types').FacebookInsights['linkedIn'] }).linkedIn,
                   trafficSources: (displayInsights as { trafficSources?: import('@/components/analytics/facebook/types').FacebookInsights['trafficSources'] }).trafficSources,
                   extra: (displayInsights as { extra?: import('@/components/analytics/facebook/types').FacebookInsights['extra'] }).extra,
                   ...((selectedAccount.platform === 'FACEBOOK' || selectedAccount.platform === 'INSTAGRAM') && liveFbConversationsCount != null ? { facebookLiveConversationsCount: liveFbConversationsCount } : {}),
@@ -1519,7 +1520,13 @@ export default function DashboardPage() {
                   : undefined
             }
             onDateRangeChange={handleAnalyticsDateRangeChange}
-            followersLabel={selectedAccount.platform === 'YOUTUBE' ? 'Subscribers' : 'Followers'}
+            followersLabel={
+              selectedAccount.platform === 'YOUTUBE'
+                ? 'Subscribers'
+                : selectedAccount.platform === 'LINKEDIN'
+                  ? 'Connections'
+                  : 'Followers'
+            }
             accountAvatarUrl={selectedAccount.profilePicture ?? null}
             accountUsername={selectedAccount.username ?? null}
             hasApiInsightsFetched={displayInsights != null}
