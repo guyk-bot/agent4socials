@@ -142,7 +142,6 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
 
   const text = textColor || '#171717';
   const isSummaryView = pathname === '/dashboard/summary';
-  const isInboxPage = pathname === '/dashboard/inbox';
   const isPostsPage = pathname === '/posts';
   const isAutomationPage = pathname === '/dashboard/automation';
   const isHashtagPoolPage = pathname === '/dashboard/hashtag-pool';
@@ -336,7 +335,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
 
   return (
     <div
-      className={`${sidebarOpen ? 'flex' : 'hidden'} md:flex w-64 border-r border-neutral-200 flex-col fixed left-0 top-14 bottom-0 bg-white min-h-0 transition-[transform] duration-200 pointer-events-auto ${isInboxPage ? 'z-[40]' : 'z-30'}`}
+      className={`${sidebarOpen ? 'flex' : 'hidden'} md:flex w-64 border-r border-neutral-200 flex-col fixed left-0 top-14 bottom-0 bg-white min-h-0 transition-[transform] duration-200 pointer-events-auto z-10`}
       style={{ height: 'calc(100vh - 3.5rem)', backgroundColor: 'var(--wl-sidebar-bg, #ffffff)', color: text }}
     >
       {onSidebarToggle && (

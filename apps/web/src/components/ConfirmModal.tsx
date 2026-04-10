@@ -64,7 +64,7 @@ export function ConfirmModal({
   return createPortal(
     <>
       <div
-        className="fixed z-[9999] min-h-screen min-h-[100dvh] min-h-[100lvh] w-screen"
+        className="fixed z-[8500] min-h-screen min-h-[100dvh] min-h-[100lvh] w-screen"
         style={{
           top: 0,
           left: 0,
@@ -77,7 +77,7 @@ export function ConfirmModal({
         aria-hidden="true"
       />
       <div
-        className="fixed inset-0 z-[10000] flex items-center justify-center p-4 pointer-events-none"
+        className="fixed inset-0 z-[8600] flex items-center justify-center p-4 pointer-events-none"
         role="dialog"
         aria-modal="true"
         aria-labelledby="confirm-modal-title"

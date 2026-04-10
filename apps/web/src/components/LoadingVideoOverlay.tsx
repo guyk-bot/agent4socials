@@ -9,13 +9,18 @@ const DELAY_MS = 0;
 type Props = {
   /** When true, we consider "loading". After loading has been true for DELAY_MS, the video overlay is shown. */
   loading: boolean;
+  /**
+   * When true, overlay is `absolute` within the nearest `relative` parent instead of `fixed` to the viewport.
+   * Use on wide dashboard pages so the shell header/sidebar stay clickable and nothing competes with portaled z-9999 layers.
+   */
+  contained?: boolean;
 };
 
 /**
  * Shows the logo loading video when loading starts (after a short delay if DELAY_MS > 0).
  * If loading finishes before the delay (e.g. cached data), the video never appears.
  */
-export default function LoadingVideoOverlay({ loading }: Props) {
+export default function LoadingVideoOverlay({ loading, contained = false }: Props) {
   const [showVideo, setShowVideo] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -48,9 +53,13 @@ export default function LoadingVideoOverlay({ loading }: Props) {
 
   if (!showVideo) return null;
 
+  const positionClass = contained
+    ? 'absolute inset-0 z-20'
+    : 'fixed inset-0 md:top-14 md:left-64 md:right-0 md:bottom-0 z-[300]';
+
   return (
     <div
-      className="fixed inset-0 md:top-14 md:left-64 md:right-0 md:bottom-0 z-[300] bg-white flex items-center justify-center"
+      className={`${positionClass} bg-white flex items-center justify-center`}
       role="status"
       aria-live="polite"
       aria-label="Loading"

@@ -26,7 +26,7 @@ function AuthModalInner() {
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/45 backdrop-blur-sm"
+      className="fixed inset-0 z-[8700] flex items-center justify-center p-4 bg-black/45 backdrop-blur-sm"
       onClick={closeModal}
       role="dialog"
       aria-modal="true"

@@ -8,7 +8,8 @@ import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
 
-const CHROME_Z = 9999;
+/** Above in-page overlays (e.g. z-300 loaders); below portaled modals (8.5k+). */
+const CHROME_Z = 8000;
 
 function AuthenticatedContent({
     sidebarOpen,

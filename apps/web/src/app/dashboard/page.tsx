@@ -1230,7 +1230,7 @@ export default function DashboardPage() {
       {pricingModalOpen && typeof document !== 'undefined'
         ? createPortal(
             <div
-              className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+              className="fixed inset-0 z-[8500] flex items-center justify-center p-4"
               role="dialog"
               aria-modal="true"
               aria-label="Pricing plans"
