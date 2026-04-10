@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { after } from 'next/server';
 import { prisma } from '@/lib/db';
 import { PostStatus } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import { sendScheduledPostLinksEmail, sendScheduledPublishFailureEmail } from '@/lib/resend';
+
+/** Allow background work after 202 response (cron-job.org times out at 30s). */
+export const maxDuration = 300;
 
 const baseUrl = () =>
   (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
@@ -12,10 +16,13 @@ const baseUrl = () =>
  * Call with header X-Cron-Secret: CRON_SECRET (or Authorization: Bearer CRON_SECRET).
  * Finds posts due now: scheduleDelivery=email_links -> send email with open link; scheduleDelivery=auto -> publish.
  * Also runs comment automation (keyword replies on published posts) so one cron job can do both.
+ *
+ * Returns 202 immediately so external schedulers (e.g. cron-job.org, 30s limit) do not abort the connection
+ * while work continues via `after()`.
  */
 export async function GET(request: NextRequest) {
   try {
-    return await processScheduled(request);
+    return await scheduleProcessScheduled(request);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('[Cron] process-scheduled error:', err);
@@ -28,7 +35,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    return await processScheduled(request);
+    return await scheduleProcessScheduled(request);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('[Cron] process-scheduled error:', err);
@@ -39,10 +46,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function processScheduled(request: NextRequest) {
-  if (!process.env.DATABASE_URL) {
-    return NextResponse.json({ message: 'DATABASE_URL required' }, { status: 503 });
-  }
+function authorizeCron(request: NextRequest): NextResponse | null {
   const cronSecret =
     request.headers.get('X-Cron-Secret') ||
     request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ||
@@ -50,7 +54,36 @@ async function processScheduled(request: NextRequest) {
   if (!process.env.CRON_SECRET || cronSecret !== process.env.CRON_SECRET) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
+  return null;
+}
 
+async function scheduleProcessScheduled(request: NextRequest) {
+  if (!process.env.DATABASE_URL) {
+    return NextResponse.json({ message: 'DATABASE_URL required' }, { status: 503 });
+  }
+  const denied = authorizeCron(request);
+  if (denied) return denied;
+
+  after(async () => {
+    try {
+      await executeProcessScheduled();
+    } catch (err) {
+      console.error('[Cron] process-scheduled (after) error:', err);
+    }
+  });
+
+  return NextResponse.json(
+    {
+      ok: true,
+      accepted: true,
+      message:
+        'Processing started in the background. cron-job.org allows only 30s; this endpoint returns immediately. Check Vercel logs for processed count and errors.',
+    },
+    { status: 202 }
+  );
+}
+
+async function executeProcessScheduled() {
   const now = new Date();
   let due;
   try {
@@ -65,12 +98,8 @@ async function processScheduled(request: NextRequest) {
       },
     });
   } catch (dbErr) {
-    const msg = dbErr instanceof Error ? dbErr.message : String(dbErr);
     console.error('[Cron] Database error in process-scheduled:', dbErr);
-    return NextResponse.json(
-      { message: 'Database error', error: msg, processed: 0, results: [] },
-      { status: 500 }
-    );
+    return;
   }
 
   if (due.length > 0) {
@@ -121,7 +150,7 @@ async function processScheduled(request: NextRequest) {
     try {
       const res = await fetch(`${baseUrl()}/api/posts/${post.id}/publish`, {
         method: 'POST',
-        headers: { 'X-Cron-Secret': process.env.CRON_SECRET },
+        headers: { 'X-Cron-Secret': process.env.CRON_SECRET ?? '' },
       });
       const ok = res.ok;
       const body = await res.json().catch(() => ({}));
@@ -129,14 +158,17 @@ async function processScheduled(request: NextRequest) {
         await sendScheduledPublishFailureEmail(
           post.user.email,
           post.scheduledAt.toISOString(),
-          (body.message || body.error || res.statusText || 'Publish failed'),
+          (body as { message?: string; error?: string }).message ||
+            (body as { error?: string }).error ||
+            res.statusText ||
+            'Publish failed',
         );
       }
       results.push({
         postId: post.id,
         action: 'publish',
         ok,
-        error: ok ? undefined : (body.message || body.error || res.statusText),
+        error: ok ? undefined : (body as { message?: string; error?: string }).message || (body as { error?: string }).error || res.statusText,
       });
     } catch (err) {
       if (post.user?.email && post.scheduledAt) {
@@ -151,7 +183,6 @@ async function processScheduled(request: NextRequest) {
     }
   }
 
-  // Also run comment automation so one cron job can do both
   let commentAutomationResult: { ok?: boolean; results?: unknown } = {};
   try {
     const commentRes = await fetch(`${baseUrl()}/api/cron/comment-automation`, {
@@ -159,13 +190,16 @@ async function processScheduled(request: NextRequest) {
       headers: { 'X-Cron-Secret': process.env.CRON_SECRET ?? '' },
     });
     commentAutomationResult = await commentRes.json().catch(() => ({}));
-  } catch (_) {
+  } catch {
     // non-fatal: scheduled posts are already done
   }
 
-  return NextResponse.json({
-    processed: due.length,
-    results,
-    commentAutomation: commentAutomationResult?.ok === true ? { ok: true, results: commentAutomationResult?.results } : { ok: false },
-  });
+  console.log(
+    '[Cron] process-scheduled done:',
+    JSON.stringify({
+      processed: due.length,
+      results,
+      commentAutomation: commentAutomationResult?.ok === true ? { ok: true, results: commentAutomationResult?.results } : { ok: false },
+    }),
+  );
 }

@@ -11,10 +11,15 @@
  *
  * Comments and messages are excluded here because they sync via their own
  * per-request polling from the inbox page (more frequent, user-context aware).
+ *
+ * Returns 202 immediately; work runs in `after()` so cron-job.org (30s HTTP limit) does not time out.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { after } from 'next/server';
 import { runScheduledSyncForScope } from '@/lib/sync/engine';
+
+export const maxDuration = 300;
 
 function checkAuthorization(request: NextRequest): {
   ok: boolean;
@@ -37,6 +42,21 @@ function checkAuthorization(request: NextRequest): {
   return { ok: true, reason: 'ok' };
 }
 
+async function executeSyncAllScopes() {
+  const scopes = ['account_overview', 'posts', 'post_metrics'] as const;
+  const results: Record<string, { processed: number; errors: string[] }> = {};
+
+  for (const scope of scopes) {
+    try {
+      results[scope] = await runScheduledSyncForScope(scope);
+    } catch (e) {
+      results[scope] = { processed: 0, errors: [(e as Error).message] };
+    }
+  }
+
+  console.log('[Cron] sync-platform-data done:', JSON.stringify({ ok: true, results }));
+}
+
 async function handle(request: NextRequest) {
   if (!process.env.DATABASE_URL) {
     return NextResponse.json({ message: 'DATABASE_URL required' }, { status: 503 });
@@ -52,19 +72,24 @@ async function handle(request: NextRequest) {
     );
   }
 
-  const scopes = ['account_overview', 'posts', 'post_metrics'] as const;
-  const results: Record<string, { processed: number; errors: string[] }> = {};
-
-  for (const scope of scopes) {
+  after(async () => {
     try {
-      results[scope] = await runScheduledSyncForScope(scope);
+      await executeSyncAllScopes();
     } catch (e) {
-      results[scope] = { processed: 0, errors: [(e as Error).message] };
+      console.error('[Cron] sync-platform-data (after) error:', e);
     }
-  }
+  });
 
-  return NextResponse.json({ ok: true, results });
+  return NextResponse.json(
+    {
+      ok: true,
+      accepted: true,
+      message:
+        'Sync started in the background. External cron services often use a 30s HTTP timeout; this route returns immediately. Check Vercel logs for per-scope results.',
+    },
+    { status: 202 }
+  );
 }
 
-export const GET  = handle;
+export const GET = handle;
 export const POST = handle;

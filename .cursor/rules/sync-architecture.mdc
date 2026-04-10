@@ -54,6 +54,8 @@ Call these URLs with header `X-Cron-Secret: <CRON_SECRET>`:
 | `/api/cron/comment-automation` | Every 1–5 min | Comment replies automation |
 | `/api/cron/process-scheduled` | Every 1–2 min | Publish scheduled posts |
 
+**HTTP note:** `sync-platform-data` and `process-scheduled` respond with **202** immediately and finish work in the background (`after()`), so **cron-job.org’s 30s client timeout** does not abort long syncs or publish runs. Detailed results are logged in Vercel. Optional: cron-job.org Sustaining Member increases their timeout.
+
 ---
 
 ## Rules When Modifying Sync
