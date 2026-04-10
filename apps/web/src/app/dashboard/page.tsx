@@ -229,7 +229,7 @@ const PLATFORM_ICON: Record<string, React.ReactNode> = {
 
 const FREE_HIGHLIGHTS = [
   '1 brand',
-  '50 scheduled posts / month',
+  '25 scheduled posts / month',
   'Connect Instagram, Facebook, TikTok, YouTube, LinkedIn',
   '30 days analytics',
   '1 smart link page',

@@ -26,7 +26,7 @@ import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, Lin
 import { PricingBillingToggle, PricingCard } from '@/components/landing/pricing';
 const FREE_HIGHLIGHTS = [
   '1 brand',
-  '50 scheduled posts / month',
+  '25 scheduled posts / month',
   'Connect Instagram, Facebook, TikTok, YouTube, LinkedIn, and Pinterest',
   '30 days analytics',
   '1 smart link page',
@@ -563,7 +563,7 @@ export default function Home() {
                 { q: 'How do I delete my data?', a: 'You can delete your account and data from Account or Settings in the app, or send a data deletion request to support@agent4socials.com. We process requests within 30 days.' },
                 { q: 'Can I cancel anytime?', a: 'Yes. You can cancel your subscription at any time. You\'ll keep access until the end of your billing period.' },
                 { q: 'How do I get started?', a: 'Try the Free plan (no credit card required), or sign up for Starter or Pro to unlock more features. Connect your accounts and start scheduling from one dashboard.' },
-                { q: 'Which plan is right for me?', a: 'Free is for trying the platform: 1 brand, 50 posts/month, 30 days analytics. Starter ($15/mo) is for creators: unlimited scheduling, inbox, X and LinkedIn, 6 months analytics, unlimited AI. Pro ($24/mo) is for professionals: advanced analytics, bulk replies, keyword triggers, smart links, white label, team members, and priority support. Yearly billing saves 20%.' },
+                { q: 'Which plan is right for me?', a: 'Free is for trying the platform: 1 brand, 25 posts/month, 30 days analytics. Starter ($15/mo) is for creators: unlimited scheduling, inbox, X and LinkedIn, 6 months analytics, unlimited AI. Pro ($24/mo) is for professionals: advanced analytics, bulk replies, keyword triggers, smart links, white label, team members, and priority support. Yearly billing saves 20%.' },
               ].map((item, i) => (
                 <FaqItem key={i} question={item.q} answer={item.a} />
               ))}

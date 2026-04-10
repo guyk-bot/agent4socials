@@ -27,7 +27,7 @@ const SECTIONS: TableSection[] = [
     rows: [
       { feature: 'Post composer', free: 'check', starter: 'check', pro: 'check' },
       { feature: 'Schedule posts', free: 'check', starter: 'check', pro: 'check' },
-      { feature: 'Scheduled posts', free: '50/month', starter: 'Unlimited', pro: 'Unlimited' },
+      { feature: 'Scheduled posts', free: '25/month', starter: 'Unlimited', pro: 'Unlimited' },
       { feature: 'Draft posts', free: 'check', starter: 'check', pro: 'check' },
       { feature: 'Bulk scheduling', free: 'dash', starter: 'check', pro: 'check' },
     ],
