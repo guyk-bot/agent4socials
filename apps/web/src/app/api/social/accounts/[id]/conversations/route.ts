@@ -68,10 +68,11 @@ export async function GET(
   if (account.platform === 'PINTEREST' || account.platform === 'LINKEDIN') {
     return NextResponse.json({
       conversations: [],
+      error: null,
       hint:
         account.platform === 'PINTEREST'
           ? 'Pinterest direct messages are not available in this app.'
-          : 'LinkedIn direct messages are not available in this app.',
+          : 'LinkedIn member messaging is not available through this integration. DMs stay on linkedin.com.',
     });
   }
 

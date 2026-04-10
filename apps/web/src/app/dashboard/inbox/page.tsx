@@ -625,19 +625,27 @@ function InboxPage() {
     let needsFetch = false;
     const platformsToFetch: Array<{ platform: string; account: { id: string; platform: string } }> = [];
 
+    const finishConversationMerge = () => {
+      const sorted = merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
+      setConversations(sorted);
+      if (sorted.length > 0) conversationsLoadedRef.current = true;
+      setConversationsError(sorted.length === 0 ? (errors[0] ?? null) : null);
+      setConversationsDebug(sorted.length === 0 ? (debugs[0] ?? null) : null);
+      setConversationsLoading(false);
+    };
+
     messageFetchPlatformIds.forEach((platform) => {
       const account = effectiveAccounts.find((a) => a.platform === platform);
-        if (!account) {
-        if (--pending === 0 && !cancelled) {
-          const sorted = merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
-          setConversations(sorted);
-          if (sorted.length > 0) conversationsLoadedRef.current = true;
-          setConversationsError(sorted.length === 0 ? (errors[0] ?? null) : null);
-          setConversationsDebug(sorted.length === 0 ? (debugs[0] ?? null) : null);
-          setConversationsLoading(false);
-        }
-      return;
-    }
+      if (!account) {
+        if (--pending === 0 && !cancelled) finishConversationMerge();
+        return;
+      }
+      // LinkedIn/Pinterest are on the message strip for UX but have no DM API in this app; skip HTTP to avoid axios "Network Error".
+      if (!DM_THREAD_PLATFORM_IDS.has(platform)) {
+        appData?.setConversationsForAccount(account.id, []);
+        if (--pending === 0 && !cancelled) finishConversationMerge();
+        return;
+      }
       const fromCache = appData?.getConversations(account.id);
       const useCache = fromCache !== undefined && fromCache !== null;
       if (useCache) {
@@ -1504,24 +1512,41 @@ function InboxPage() {
       );
     }
     if (conversations.length === 0) {
+      const dmNotInApp =
+        selectedPlatform === 'LINKEDIN' ||
+        selectedPlatform === 'PINTEREST' ||
+        messageFetchPlatformIds.every((p) => !DM_THREAD_PLATFORM_IDS.has(p));
       return (
         <div className="p-6 text-center">
           <MessageCircle size={40} className="mx-auto text-neutral-300 mb-3" />
-          <p className="text-sm text-neutral-500">No conversations yet.</p>
-          <p className="text-xs text-neutral-400 mt-1">Messages will appear here when you receive them.</p>
-          <button
-            type="button"
-            onClick={() => {
-              appData?.invalidateConversations?.();
-              setConversationsRefreshKey((k) => k + 1);
-              setConversationsLoading(true);
-            }}
-            className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-neutral-200 bg-white text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-          >
-            <RefreshCw size={16} />
-            Refresh conversations
-          </button>
-              {messageFetchPlatformIds.includes('INSTAGRAM') && (
+          {dmNotInApp ? (
+            <>
+              <p className="text-sm font-medium text-neutral-800">LinkedIn and Pinterest DMs are not in this app</p>
+              <p className="text-xs text-neutral-500 mt-2 max-w-sm mx-auto">
+                Your LinkedIn inbox on linkedin.com will not sync here. LinkedIn does not expose member messaging to our integration. Use Instagram, Facebook, or X for Messages, or open the Comments tab for LinkedIn comments on your posts.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-neutral-500">No conversations yet.</p>
+              <p className="text-xs text-neutral-400 mt-1">Messages will appear here when you receive them.</p>
+            </>
+          )}
+          {!dmNotInApp && (
+            <button
+              type="button"
+              onClick={() => {
+                appData?.invalidateConversations?.();
+                setConversationsRefreshKey((k) => k + 1);
+                setConversationsLoading(true);
+              }}
+              className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-neutral-200 bg-white text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+            >
+              <RefreshCw size={16} />
+              Refresh conversations
+            </button>
+          )}
+          {!dmNotInApp && messageFetchPlatformIds.includes('INSTAGRAM') && (
             <p className="text-xs text-amber-700 mt-3 max-w-sm mx-auto bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
               If you see Instagram DMs in Metricool but not here, Meta is only granting inbox access to apps with <strong>Advanced Access</strong>. Complete App Review for instagram_manage_messages to enable it in A4S.
             </p>
