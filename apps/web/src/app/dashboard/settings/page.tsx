@@ -3,12 +3,11 @@
 import React, { useRef, useState } from 'react';
 import Image from 'next/image';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
-import { Upload, Palette, RotateCcw } from 'lucide-react';
+import { Upload, Type, RotateCcw } from 'lucide-react';
 
 export default function SettingsPage() {
   const {
     logoUrl,
-    primaryColor,
     appName,
     setLogoUrl,
     setAppName,
@@ -16,7 +15,6 @@ export default function SettingsPage() {
   } = useWhiteLabel();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(logoUrl);
-  const accent = primaryColor || '#525252';
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -60,8 +58,7 @@ export default function SettingsPage() {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white"
-              style={{ backgroundColor: accent }}
+              className="inline-flex items-center gap-2 rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 transition-colors"
             >
               <Upload size={18} />
               Upload logo
@@ -82,7 +79,7 @@ export default function SettingsPage() {
 
       <div className="card space-y-6">
         <h2 className="font-semibold text-gray-900 flex items-center gap-2">
-          <Palette size={20} />
+          <Type size={20} className="text-neutral-600 shrink-0" aria-hidden />
           App name
         </h2>
         <div>
