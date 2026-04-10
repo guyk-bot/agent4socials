@@ -2913,26 +2913,6 @@ export function FacebookAnalyticsView({
 
   return (
     <div className="p-0 md:p-0.5 space-y-3" style={{ background: COLOR.pageBg, maxWidth: 1400 }}>
-      {onUpgrade ? (
-        <section
-          className="-mt-1 rounded-2xl px-4 py-2 md:px-4.5 md:py-2.5 flex flex-wrap items-center justify-between gap-2"
-          style={{ background: 'linear-gradient(90deg, rgba(66,217,245,0.08), rgba(124,108,255,0.07), rgba(217,70,239,0.07))' }}
-        >
-          <p className="text-sm" style={{ color: COLOR.textSecondary }}>
-            Unlock more than 30 days of history without watermarks and more helpful features...
-          </p>
-          <button
-            type="button"
-            onClick={onUpgrade}
-            className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold"
-            style={{ background: '#ffffff', color: COLOR.violet, boxShadow: '0 1px 8px rgba(15,23,42,0.08)' }}
-          >
-            <Gem size={14} className="text-violet-500" aria-hidden />
-            Upgrade
-          </button>
-        </section>
-      ) : null}
-
       <section className="rounded-[20px] p-3 md:p-3.5" style={{ background: COLOR.section }}>
         <div className="flex flex-wrap items-center gap-3 justify-between">
           <div className="flex items-center gap-2.5">
@@ -3092,6 +3072,30 @@ export function FacebookAnalyticsView({
           </p>
         ) : null}
       </section>
+
+      {onUpgrade ? (
+        <section
+          className="rounded-[20px] border px-4 py-2.5 md:px-4 md:py-3 flex flex-wrap items-center justify-between gap-2"
+          style={{ background: COLOR.section, borderColor: COLOR.border }}
+        >
+          <p className="text-sm" style={{ color: COLOR.textSecondary }}>
+            Unlock more than 30 days of history without watermarks and more helpful features...
+          </p>
+          <button
+            type="button"
+            onClick={onUpgrade}
+            className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors"
+            style={{
+              color: COLOR.textSecondary,
+              borderColor: COLOR.border,
+              background: 'rgba(255,255,255,0.75)',
+            }}
+          >
+            <Gem size={13} className="opacity-75" aria-hidden />
+            Upgrade
+          </button>
+        </section>
+      ) : null}
 
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.overview} className="scroll-mt-28 space-y-4">
         {overviewSkeleton ? (
