@@ -613,6 +613,16 @@ export default function ComposerPage() {
     const [thumbnailByPlatform, setThumbnailByPlatform] = useState<Record<string, string>>({});
     const [selectedPlatformForThumbnail, setSelectedPlatformForThumbnail] = useState<string>('');
 
+    const thumbnailChoiceRef = useRef(thumbnailChoice);
+    thumbnailChoiceRef.current = thumbnailChoice;
+    const differentThumbnailPerPlatformRef = useRef(differentThumbnailPerPlatform);
+    differentThumbnailPerPlatformRef.current = differentThumbnailPerPlatform;
+    const selectedPlatformForThumbnailRef = useRef(selectedPlatformForThumbnail);
+    selectedPlatformForThumbnailRef.current = selectedPlatformForThumbnail;
+    const frameThumbnailGenRef = useRef(0);
+    const frameThumbnailDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const thumbnailPickerTimeRef = useRef(thumbnailPickerTime);
+    thumbnailPickerTimeRef.current = thumbnailPickerTime;
 
     // When platforms change, keep selected platform for thumbnail in sync
     useEffect(() => {
@@ -643,6 +653,25 @@ export default function ComposerPage() {
     useEffect(() => {
         setThumbnailVideoLoadState('idle');
     }, [thumbnailChoice, mediaList[0]?.fileUrl]);
+
+    useEffect(() => {
+        if (thumbnailChoice !== 'frame') {
+            frameThumbnailGenRef.current += 1;
+            if (frameThumbnailDebounceRef.current) {
+                clearTimeout(frameThumbnailDebounceRef.current);
+                frameThumbnailDebounceRef.current = null;
+            }
+        }
+    }, [thumbnailChoice]);
+
+    useEffect(() => {
+        return () => {
+            if (frameThumbnailDebounceRef.current) {
+                clearTimeout(frameThumbnailDebounceRef.current);
+                frameThumbnailDebounceRef.current = null;
+            }
+        };
+    }, []);
 
     useEffect(() => {
         setMediaPeekHover(false);
@@ -1291,6 +1320,70 @@ export default function ComposerPage() {
         }
     }
 
+    const applyFrameAsThumbnailAtTime = useCallback(
+        async (timeSeconds: number) => {
+            if (thumbnailChoiceRef.current !== 'frame') return;
+            const gen = ++frameThumbnailGenRef.current;
+            if (mediaList.length === 0 || mediaList[0].type !== 'VIDEO') return;
+            setMediaUploadError(null);
+            setThumbnailPicking(true);
+            try {
+                const ready = await seekThumbnailVideoTo(timeSeconds);
+                if (gen !== frameThumbnailGenRef.current) return;
+                if (!ready) throw new Error('Video frame is not ready yet');
+                const fileUrl = await captureFrameFromThumbnailVideo();
+                if (gen !== frameThumbnailGenRef.current) return;
+                if (!fileUrl) throw new Error('Failed to capture frame');
+                if (differentThumbnailPerPlatformRef.current && selectedPlatformForThumbnailRef.current) {
+                    setThumbnailByPlatform((prev) => ({
+                        ...prev,
+                        [selectedPlatformForThumbnailRef.current]: fileUrl,
+                    }));
+                } else {
+                    setMediaList((prev) =>
+                        prev.map((item, i) => (i === 0 ? { ...item, thumbnailUrl: fileUrl } : item))
+                    );
+                }
+            } catch {
+                if (gen === frameThumbnailGenRef.current) {
+                    setMediaUploadError('Failed to use frame. Try again or upload an image.');
+                }
+            } finally {
+                if (gen === frameThumbnailGenRef.current) {
+                    setThumbnailPicking(false);
+                }
+            }
+        },
+        [mediaList]
+    );
+
+    const scheduleApplyFrameThumbnailFromSeeked = useCallback(
+        (timeSeconds: number) => {
+            if (thumbnailChoiceRef.current !== 'frame') return;
+            if (frameThumbnailDebounceRef.current) {
+                clearTimeout(frameThumbnailDebounceRef.current);
+                frameThumbnailDebounceRef.current = null;
+            }
+            frameThumbnailDebounceRef.current = setTimeout(() => {
+                frameThumbnailDebounceRef.current = null;
+                void applyFrameAsThumbnailAtTime(timeSeconds);
+            }, 400);
+        },
+        [applyFrameAsThumbnailAtTime]
+    );
+
+    const flushFrameThumbnailApply = useCallback(
+        (timeSeconds: number) => {
+            if (thumbnailChoiceRef.current !== 'frame') return;
+            if (frameThumbnailDebounceRef.current) {
+                clearTimeout(frameThumbnailDebounceRef.current);
+                frameThumbnailDebounceRef.current = null;
+            }
+            void applyFrameAsThumbnailAtTime(timeSeconds);
+        },
+        [applyFrameAsThumbnailAtTime]
+    );
+
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (!files?.length) return;
@@ -1367,28 +1460,6 @@ export default function ComposerPage() {
         }
     };
 
-    const handleUseFrameAsThumbnail = useCallback(async () => {
-        if (mediaList.length === 0 || mediaList[0].type !== 'VIDEO') return;
-        setMediaUploadError(null);
-        setThumbnailPicking(true);
-        try {
-            const ready = await seekThumbnailVideoTo(thumbnailPickerTime);
-            if (!ready) throw new Error('Video frame is not ready yet');
-            const fileUrl = await captureFrameFromThumbnailVideo();
-            if (!fileUrl) throw new Error('Failed to capture frame');
-            setThumbnailChoice('frame');
-            if (differentThumbnailPerPlatform && selectedPlatformForThumbnail) {
-                setThumbnailByPlatform((prev) => ({ ...prev, [selectedPlatformForThumbnail]: fileUrl }));
-            } else {
-                setMediaList((prev) => prev.map((item, i) => (i === 0 ? { ...item, thumbnailUrl: fileUrl } : item)));
-            }
-        } catch {
-            setMediaUploadError('Failed to use frame. Try again or upload an image.');
-        } finally {
-            setThumbnailPicking(false);
-        }
-    }, [mediaList, differentThumbnailPerPlatform, selectedPlatformForThumbnail, thumbnailPickerTime]);
-
     const handleRemoveThumbnail = () => {
         if (differentThumbnailPerPlatform && selectedPlatformForThumbnail) {
             setThumbnailByPlatform((prev) => {
@@ -1449,20 +1520,21 @@ export default function ComposerPage() {
         ignoreTimeUpdateUntilRef.current = Date.now() + 800;
         const v = videoThumbnailRef.current;
         if (!v) return;
+        const duration = Number.isFinite(v.duration) && v.duration > 0 ? v.duration : undefined;
+        const clamped = duration !== undefined ? Math.min(Math.max(0, t), duration) : Math.max(0, t);
         const onSeekedOnce = () => {
             v.removeEventListener('seeked', onSeekedOnce);
             drawVideoFrameToCanvas();
+            scheduleApplyFrameThumbnailFromSeeked(clamped);
         };
         v.addEventListener('seeked', onSeekedOnce);
-        const duration = Number.isFinite(v.duration) && v.duration > 0 ? v.duration : undefined;
-        const clamped = duration !== undefined ? Math.min(Math.max(0, t), duration) : Math.max(0, t);
         v.currentTime = clamped;
         if (v.readyState >= 2) {
             drawVideoFrameToCanvas();
         }
         setTimeout(() => drawVideoFrameToCanvas(), 120);
         setTimeout(() => drawVideoFrameToCanvas(), 350);
-    }, [drawVideoFrameToCanvas]);
+    }, [drawVideoFrameToCanvas, scheduleApplyFrameThumbnailFromSeeked]);
 
     const handleRemoveMediaForPlatform = (platform: string, index: number) => {
         setMediaByPlatform((prev) => ({
@@ -1623,7 +1695,7 @@ export default function ComposerPage() {
                         if (!captured) {
                             setLoading(false);
                             setAlertMessage(
-                                'Pinterest needs a video cover. Move the frame slider until the preview updates, then click "Use this frame", or upload a thumbnail image.'
+                                'Pinterest needs a video cover. Move the frame slider until the preview shows the frame you want (the thumbnail saves automatically), or upload a thumbnail image.'
                             );
                             return;
                         }
@@ -2352,11 +2424,23 @@ export default function ComposerPage() {
                                                 </label>
                                                 {thumbnailChoice === 'frame' && (
                                                     <div className="ml-6 flex flex-col gap-1.5">
-                                                        <input type="range" min={0} max={Math.max(0.01, Number.isFinite(thumbnailVideoDuration) && thumbnailVideoDuration > 0 ? thumbnailVideoDuration : 0.01)} step={0.01} value={Math.min(thumbnailPickerTime, Math.max(0.01, Number.isFinite(thumbnailVideoDuration) && thumbnailVideoDuration > 0 ? thumbnailVideoDuration : 0.01))} onChange={(e) => handleThumbnailSliderChange(parseFloat(e.target.value))} onInput={(e) => handleThumbnailSliderChange(parseFloat((e.target as HTMLInputElement).value))} className="w-full max-w-[240px] h-2 rounded-full accent-neutral-500" />
-                                                        <button type="button" onClick={handleUseFrameAsThumbnail} disabled={thumbnailPicking || mediaUploading} className="inline-flex items-center gap-1.5 px-3 py-2 bg-[var(--button)] hover:bg-[var(--button-hover)] text-white rounded-lg text-xs font-medium disabled:opacity-50 w-fit">
-                                                            {thumbnailPicking ? <Loader2 size={14} className="animate-spin shrink-0" /> : <ImageIcon size={14} className="shrink-0" />}
-                                                            Use this frame
-                                                        </button>
+                                                        <input
+                                                            type="range"
+                                                            min={0}
+                                                            max={Math.max(0.01, Number.isFinite(thumbnailVideoDuration) && thumbnailVideoDuration > 0 ? thumbnailVideoDuration : 0.01)}
+                                                            step={0.01}
+                                                            value={Math.min(thumbnailPickerTime, Math.max(0.01, Number.isFinite(thumbnailVideoDuration) && thumbnailVideoDuration > 0 ? thumbnailVideoDuration : 0.01))}
+                                                            onChange={(e) => handleThumbnailSliderChange(parseFloat(e.target.value))}
+                                                            onInput={(e) => handleThumbnailSliderChange(parseFloat((e.target as HTMLInputElement).value))}
+                                                            onPointerUp={(e) => flushFrameThumbnailApply(parseFloat((e.currentTarget as HTMLInputElement).value))}
+                                                            className="w-full max-w-[240px] h-2 rounded-full accent-neutral-500"
+                                                        />
+                                                        {thumbnailPicking ? (
+                                                            <p className="text-[11px] text-neutral-500 flex items-center gap-1.5">
+                                                                <Loader2 size={12} className="animate-spin shrink-0" />
+                                                                Saving thumbnail…
+                                                            </p>
+                                                        ) : null}
                                                     </div>
                                                 )}
                                             </div>
@@ -2395,6 +2479,7 @@ export default function ComposerPage() {
                                                             onLoadedData={() => {
                                                                 setThumbnailVideoLoadState('loaded');
                                                                 drawVideoFrameToCanvas();
+                                                                scheduleApplyFrameThumbnailFromSeeked(thumbnailPickerTimeRef.current);
                                                             }}
                                                             onSeeked={drawVideoFrameToCanvas}
                                                             onTimeUpdate={(e) => {
