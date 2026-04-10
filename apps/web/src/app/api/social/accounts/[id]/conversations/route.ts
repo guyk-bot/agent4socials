@@ -567,7 +567,7 @@ export async function GET(
           >(baseUrl, {
             params: {
               ids: idsParam,
-              fields: 'id,name,first_name,last_name,picture',
+              fields: 'id,name,first_name,last_name,picture.type(large)',
               access_token: token,
             },
             timeout: 30_000,

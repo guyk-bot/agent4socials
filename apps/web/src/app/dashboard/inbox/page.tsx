@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
   MessageCircle,
@@ -72,6 +72,9 @@ type Conversation = {
   updatedTime: string | null;
   senders: Array<{ id?: string; name?: string; username?: string; pictureUrl?: string | null }>;
   messageCount?: number;
+  /** Set when the inbox merges conversations from multiple accounts. */
+  platform?: string;
+  messageAccountId?: string;
 };
 type ConversationMessage = {
   id: string;
@@ -227,7 +230,7 @@ function MessagesConversationList({
             ) : (
               <div className="w-10 h-10 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden">
                 {pictureUrl ? (
-                  <img src={pictureUrl} alt="" className="w-full h-full object-cover" />
+                  <img src={proxyImageUrl(pictureUrl) || pictureUrl} alt="" className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-sm font-semibold text-neutral-600">{initials}</span>
                 )}
@@ -288,7 +291,19 @@ function InboxPage() {
   const [conversationRecipientId, setConversationRecipientId] = useState<string | null>(null);
   const [conversationMessagesLoading, setConversationMessagesLoading] = useState(false);
   const [conversationMessagesError, setConversationMessagesError] = useState<string | null>(null);
-  const [conversationMessagesCache, setConversationMessagesCache] = useState<Record<string, { messages: ConversationMessage[]; recipientId: string | null; recipientName?: string | null; recipientPictureUrl?: string | null; error: string | null }>>({});
+  const [conversationMessagesCache, setConversationMessagesCache] = useState<
+    Record<
+      string,
+      {
+        messages: ConversationMessage[];
+        recipientId: string | null;
+        recipientName?: string | null;
+        recipientPictureUrl?: string | null;
+        error: string | null;
+        accountId?: string;
+      }
+    >
+  >({});
   const [dmReplyText, setDmReplyText] = useState('');
   const [dmReplySending, setDmReplySending] = useState(false);
   const [dmRecipientUsername, setDmRecipientUsername] = useState('');
@@ -460,7 +475,17 @@ function InboxPage() {
     try {
       const raw = sessionStorage.getItem(INBOX_MESSAGES_CACHE_KEY);
       if (!raw || raw.length > INBOX_MESSAGES_CACHE_MAX_BYTES) return;
-      const parsed = JSON.parse(raw) as Record<string, { messages: ConversationMessage[]; recipientId: string | null; recipientName?: string | null; recipientPictureUrl?: string | null; error: string | null }>;
+      const parsed = JSON.parse(raw) as Record<
+        string,
+        {
+          messages: ConversationMessage[];
+          recipientId: string | null;
+          recipientName?: string | null;
+          recipientPictureUrl?: string | null;
+          error: string | null;
+          accountId?: string;
+        }
+      >;
       if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
         setConversationMessagesCache(parsed);
       }
@@ -499,13 +524,32 @@ function InboxPage() {
       ? { comments: appData.notifications.comments, messages: appData.notifications.messages }
       : { comments: notifications.comments, messages: notifications.messages };
 
-  const currentAccountForMessages = selectedPlatform ? effectiveAccounts.find((a) => a.platform === selectedPlatform) : null;
+  const selectedConversation = useMemo(
+    () => (selectedConversationId ? conversations.find((c) => c.id === selectedConversationId) : undefined),
+    [conversations, selectedConversationId]
+  );
+
+  const dmThreadPlatform = useMemo(() => {
+    const p = selectedConversation?.platform;
+    if (p && DM_THREAD_PLATFORM_IDS.has(p)) return p;
+    if (selectedPlatform && DM_THREAD_PLATFORM_IDS.has(selectedPlatform)) return selectedPlatform;
+    return null;
+  }, [selectedConversation?.platform, selectedPlatform]);
+
+  const currentAccountForDmThread = useMemo(() => {
+    if (!dmThreadPlatform) return null;
+    if (selectedConversation?.messageAccountId) {
+      return effectiveAccounts.find((a) => a.id === selectedConversation.messageAccountId) ?? null;
+    }
+    return effectiveAccounts.find((a) => a.platform === dmThreadPlatform) ?? null;
+  }, [dmThreadPlatform, selectedConversation?.messageAccountId, effectiveAccounts]);
+
   useEffect(() => {
     if (
       !selectedConversationId ||
-      !currentAccountForMessages ||
-      !selectedPlatform ||
-      !DM_THREAD_PLATFORM_IDS.has(selectedPlatform)
+      !currentAccountForDmThread ||
+      !dmThreadPlatform ||
+      !DM_THREAD_PLATFORM_IDS.has(dmThreadPlatform)
     ) {
       setConversationMessages([]);
       setConversationRecipientId(null);
@@ -516,8 +560,9 @@ function InboxPage() {
       return;
     }
     const convId = selectedConversationId;
+    const accountIdForFetch = currentAccountForDmThread.id;
     const cached = conversationMessagesCache[convId];
-    if (cached) {
+    if (cached?.accountId === accountIdForFetch) {
       setConversationMessages(cached.messages);
       setConversationRecipientId(cached.recipientId);
       setConversationMessagesError(cached.error);
@@ -528,14 +573,24 @@ function InboxPage() {
     setConversationMessagesError(null);
     const convForRecipient = conversations.find((c) => c.id === convId);
     const recipientFromConv = convForRecipient?.senders?.[0]?.id ?? null;
-    api.get(`/social/accounts/${currentAccountForMessages.id}/conversations/${convId}/messages`)
+    api.get(`/social/accounts/${accountIdForFetch}/conversations/${convId}/messages`)
       .then((res) => {
         const messages = res.data?.messages ?? [];
         const recipientId = res.data?.recipientId ?? recipientFromConv ?? null;
         const error = res.data?.error ?? null;
         const recipientName = res.data?.recipientName ?? null;
         const recipientPictureUrl = res.data?.recipientPictureUrl ?? null;
-        setConversationMessagesCache((prev) => ({ ...prev, [convId]: { messages, recipientId, recipientName, recipientPictureUrl, error } }));
+        setConversationMessagesCache((prev) => ({
+          ...prev,
+          [convId]: {
+            messages,
+            recipientId,
+            recipientName,
+            recipientPictureUrl,
+            error,
+            accountId: accountIdForFetch,
+          },
+        }));
         if (selectedConversationId === convId) {
           setConversationMessages(messages);
           setConversationLastReadCount(convId, messages.length, user?.id);
@@ -545,7 +600,14 @@ function InboxPage() {
       })
       .catch((e: { response?: { data?: { error?: string } }; message?: string }) => {
         const apiError = e?.response?.data?.error ?? e?.message ?? 'Could not load messages.';
-        const fallback = { messages: [] as ConversationMessage[], recipientId: recipientFromConv ?? null, recipientName: null, recipientPictureUrl: null, error: apiError as string | null };
+        const fallback = {
+          messages: [] as ConversationMessage[],
+          recipientId: recipientFromConv ?? null,
+          recipientName: null,
+          recipientPictureUrl: null,
+          error: apiError as string | null,
+          accountId: accountIdForFetch,
+        };
         setConversationMessagesCache((prev) => ({ ...prev, [convId]: fallback }));
         if (selectedConversationId === convId) {
           setConversationMessages([]);
@@ -556,7 +618,7 @@ function InboxPage() {
       .finally(() => {
         if (selectedConversationId === convId) setConversationMessagesLoading(false);
       });
-  }, [selectedConversationId, currentAccountForMessages?.id, selectedPlatform, user?.id]);
+  }, [selectedConversationId, currentAccountForDmThread?.id, dmThreadPlatform, user?.id]);
 
   useEffect(() => {
     setAiReplyError(null);
@@ -564,20 +626,27 @@ function InboxPage() {
 
   // Fetch last message per selected conversation for batch reply cards (show "message user sent" instead of "How do you want to reply?")
   useEffect(() => {
-    if (!currentAccountForMessages || selectedConversationIds.size === 0) {
+    if (selectedConversationIds.size === 0) {
       setBatchConversationLastMessage({});
       return;
     }
-    const accountId = currentAccountForMessages.id;
     const ids = Array.from(selectedConversationIds);
     const next: Record<string, string> = {};
     let cancelled = false;
     Promise.all(
       ids.map(async (convId) => {
         if (cancelled) return;
+        const c = conversations.find((x) => x.id === convId);
+        const plat = c?.platform && DM_THREAD_PLATFORM_IDS.has(c.platform) ? c.platform : null;
+        const acc = c?.messageAccountId
+          ? effectiveAccounts.find((a) => a.id === c.messageAccountId)
+          : plat
+            ? effectiveAccounts.find((a) => a.platform === plat)
+            : null;
+        if (!acc) return { convId, text: '' };
         try {
           const res = await api.get<{ messages?: Array<{ message?: string; isFromPage?: boolean }> }>(
-            `/social/accounts/${accountId}/conversations/${convId}/messages`
+            `/social/accounts/${acc.id}/conversations/${convId}/messages`
           );
           const messages = res.data?.messages ?? [];
           const lastFromOther = [...messages].reverse().find((m) => !m.isFromPage && m.message);
@@ -596,7 +665,15 @@ function InboxPage() {
     return () => {
       cancelled = true;
     };
-  }, [currentAccountForMessages?.id, Array.from(selectedConversationIds).sort().join(',')]);
+  }, [
+    Array.from(selectedConversationIds).sort().join(','),
+    conversations
+      .filter((c) => selectedConversationIds.has(c.id))
+      .map((c) => `${c.id}:${c.messageAccountId ?? ''}:${c.platform ?? ''}`)
+      .sort()
+      .join('|'),
+    effectiveAccounts.map((a) => a.id).join(','),
+  ]);
 
   useEffect(() => {
     if (appData) return;
@@ -618,7 +695,7 @@ function InboxPage() {
       return;
     }
     let cancelled = false;
-    const merge: Array<Conversation & { platform: string }> = [];
+    const merge: Array<Conversation & { platform: string; messageAccountId: string }> = [];
     const errors: string[] = [];
     const debugs: Array<{ rawMessage?: string; code?: number; responseData?: unknown; metaMessage?: string }> = [];
     let pending = messageFetchPlatformIds.length;
@@ -649,7 +726,11 @@ function InboxPage() {
       const fromCache = appData?.getConversations(account.id);
       const useCache = fromCache !== undefined && fromCache !== null;
       if (useCache) {
-        const list: Array<Conversation & { platform: string }> = fromCache.map((c: Conversation) => ({ ...c, platform }));
+        const list: Array<Conversation & { platform: string; messageAccountId: string }> = fromCache.map((c: Conversation) => ({
+          ...c,
+          platform,
+          messageAccountId: account.id,
+        }));
         merge.push(...list);
         if (list.length > 0 && user?.id) {
           const initialized = getInboxInitializedAccountIdsForConversations(user.id);
@@ -681,7 +762,11 @@ function InboxPage() {
     api.get(`/social/accounts/${account.id}/conversations?includeMessageCounts=1`)
       .then((res) => {
           if (cancelled) return;
-          const list = (res.data?.conversations ?? []).map((c: Conversation) => ({ ...c, platform }));
+          const list = (res.data?.conversations ?? []).map((c: Conversation) => ({
+            ...c,
+            platform,
+            messageAccountId: account.id,
+          }));
           merge.push(...list);
           if (res.data?.error) errors.push(res.data.error);
           if (res.data?.debug) {
@@ -691,7 +776,7 @@ function InboxPage() {
           if (!res.data?.error && list.length > 0 && user?.id) {
             const initialized = getInboxInitializedAccountIdsForConversations(user.id);
             if (!initialized.has(account.id)) {
-              type ConvWithPlatform = Conversation & { platform: string };
+              type ConvWithPlatform = Conversation & { platform: string; messageAccountId: string };
               const ids = list.map((c: ConvWithPlatform) => c.id);
               markConversationsAsRead(ids, user.id);
               list.forEach((c: ConvWithPlatform) => {
@@ -798,6 +883,8 @@ function InboxPage() {
     if (hasAutoOpenedRef.current) return;
     hasAutoOpenedRef.current = true;
     const first = conversations[0];
+    const p = first.platform;
+    if (p && MESSAGE_STRIP_PLATFORM_IDS.has(p)) setSelectedPlatform(p);
     setSelectedConversationId(first.id);
   }, [inboxMode, conversations, selectedConversationId]);
   useEffect(() => {
@@ -2028,7 +2115,7 @@ function InboxPage() {
           })()
         ) : inboxMode === 'messages' && selectMode && selectedConversationIds.size > 0 ? (
           /* Batch reply to selected conversations: each conversation gets its own reply area */
-          currentAccountForMessages ? (
+          messageFetchPlatformIds.some((p) => DM_THREAD_PLATFORM_IDS.has(p)) ? (
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
               <div className="p-4 border-b border-neutral-200 bg-white">
                 <h2 className="text-lg font-semibold text-neutral-900">Reply to {selectedConversationIds.size} conversation{selectedConversationIds.size !== 1 ? 's' : ''}</h2>
@@ -2050,7 +2137,13 @@ function InboxPage() {
                     .map((c) => {
                       const name = c.senders?.map((s) => s.name || s.username || 'Unknown').filter(Boolean).join(', ') || 'Conversation';
                       const pictureUrl = c.senders?.[0]?.pictureUrl;
-                      const platform = (c as Conversation & { platform?: string }).platform ?? selectedPlatform;
+                      const platform = c.platform ?? selectedPlatform;
+                      const accountForConv =
+                        c.messageAccountId
+                          ? effectiveAccounts.find((a) => a.id === c.messageAccountId)
+                          : platform && DM_THREAD_PLATFORM_IDS.has(platform)
+                            ? effectiveAccounts.find((a) => a.platform === platform)
+                            : null;
                       const plat = INBOX_PLATFORM_DEFS.find((p) => p.id === platform);
                       const Icon = plat?.icon;
                       const value = batchDmTexts[c.id] ?? '';
@@ -2059,7 +2152,7 @@ function InboxPage() {
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-neutral-200 shrink-0 overflow-hidden flex items-center justify-center">
                               {pictureUrl ? (
-                                <img src={pictureUrl} alt="" className="w-full h-full object-cover" />
+                                <img src={proxyImageUrl(pictureUrl) || pictureUrl} alt="" className="w-full h-full object-cover" />
                               ) : (
                                 <span className="text-sm font-semibold text-neutral-600">{(name || '?').slice(0, 2).toUpperCase()}</span>
                               )}
@@ -2092,7 +2185,7 @@ function InboxPage() {
                                       type: 'message',
                                       text: 'Incoming message from customer',
                                       context: 'Direct message conversation',
-                                      platform: selectedPlatform ?? undefined,
+                                      platform: platform ?? selectedPlatform ?? undefined,
                                     });
                                     const reply = res.data?.reply?.trim();
                                     if (reply) {
@@ -2127,14 +2220,14 @@ function InboxPage() {
                             <div className="mt-2 flex items-center justify-between gap-2">
                               <button
                                 type="button"
-                                disabled={dmReplySending || !value.trim()}
+                                disabled={dmReplySending || !value.trim() || !accountForConv}
                                 onClick={async () => {
                                   const text = value.trim();
-                                  if (!text) return;
+                                  if (!text || !accountForConv) return;
                                   setDmReplySending(true);
                                   setDmSendError(null);
                                   try {
-                                    await api.post(`/social/accounts/${currentAccountForMessages.id}/conversations/${c.id}/messages`, { text });
+                                    await api.post(`/social/accounts/${accountForConv.id}/conversations/${c.id}/messages`, { text });
                                     markConversationsAsRead([c.id], user?.id);
                                     setUnreadConversationIds((prev) => {
                                       const next = new Set(prev);
@@ -2586,29 +2679,44 @@ function InboxPage() {
                         const selectedConv = conversations.find((c) => c.id === selectedConversationId);
                         const cached = selectedConversationId ? conversationMessagesCache[selectedConversationId] : undefined;
                         const recipientNameFromCache = cached?.recipientName;
+                        const recipientPic =
+                          cached?.recipientPictureUrl || selectedConv?.senders?.[0]?.pictureUrl || null;
                         const senderNames = selectedConv?.senders?.map((s) => s.username ?? s.name).filter(Boolean).join(', ') || null;
-                        const displayName = senderNames || (selectedPlatform === 'TWITTER' ? recipientNameFromCache : null) || null;
+                        const displayName =
+                          senderNames || recipientNameFromCache || null;
                         const chatWithLabel = displayName
                           ? `Chat with ${displayName}`
-                          : selectedPlatform === 'TWITTER'
+                          : dmThreadPlatform === 'TWITTER'
                             ? 'Chat with X (Twitter) user'
                             : 'Conversation';
+                        const stripPlat = dmThreadPlatform ?? selectedPlatform;
                         return (
-                          <>
-                            <p className="text-sm font-medium text-neutral-800">{chatWithLabel}</p>
-                            <p className="text-xs text-neutral-500 mt-0.5 flex items-center gap-1.5">
-                              {selectedPlatform && (() => {
-                                const plat = INBOX_PLATFORM_DEFS.find((p) => p.id === selectedPlatform);
-                                const Icon = plat?.icon;
-                                return (
-                                  <span className="inline-flex items-center gap-1 font-medium text-neutral-600">
-                                    {Icon && <Icon size={14} />}
-                                    {plat?.label ?? selectedPlatform} inbox
-                                  </span>
-                                );
-                              })()}
-                            </p>
-                          </>
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-neutral-200 shrink-0 overflow-hidden flex items-center justify-center">
+                              {recipientPic ? (
+                                <img src={proxyImageUrl(recipientPic) || recipientPic} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-sm font-semibold text-neutral-600">
+                                  {(displayName || (dmThreadPlatform === 'TWITTER' ? 'X' : '?')).slice(0, 2).toUpperCase()}
+                                </span>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-neutral-800">{chatWithLabel}</p>
+                              <p className="text-xs text-neutral-500 mt-0.5 flex items-center gap-1.5">
+                                {stripPlat && (() => {
+                                  const plat = INBOX_PLATFORM_DEFS.find((p) => p.id === stripPlat);
+                                  const Icon = plat?.icon;
+                                  return (
+                                    <span className="inline-flex items-center gap-1 font-medium text-neutral-600">
+                                      {Icon && <Icon size={14} />}
+                                      {plat?.label ?? stripPlat} inbox
+                                    </span>
+                                  );
+                                })()}
+                              </p>
+                            </div>
+                          </div>
                         );
                       })()}
                     </div>
@@ -2624,7 +2732,7 @@ function InboxPage() {
                       <p className="text-sm text-neutral-500 italic">No messages in this conversation yet.</p>
                     ) : (
                       <>
-                        {selectedPlatform === 'TWITTER' && conversationMessages.length <= 1 && (
+                        {dmThreadPlatform === 'TWITTER' && conversationMessages.length <= 1 && (
                           <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
                             Only messages from accepted conversations appear here. To see full history, open <a href="https://x.com/messages" target="_blank" rel="noopener noreferrer" className="underline font-medium">x.com/messages</a> and accept any &quot;Message requests&quot; for this account, then refresh.
                           </p>
@@ -2644,7 +2752,7 @@ function InboxPage() {
                             >
                               {!msg.isFromPage && (
                                 <p className="text-xs font-medium text-neutral-500 mb-0.5">
-                                  {msg.fromName || (selectedPlatform === 'TWITTER' ? 'X (Twitter) user' : 'Unknown')}
+                                  {msg.fromName || (dmThreadPlatform === 'TWITTER' ? 'X (Twitter) user' : 'Unknown')}
                                 </p>
                               )}
                               <p className="text-sm whitespace-pre-wrap break-words">{msg.message || '—'}</p>
@@ -2666,7 +2774,7 @@ function InboxPage() {
             </div>
             <div className="border-t border-neutral-200 bg-white p-4 shrink-0">
               <div className="max-w-2xl mx-auto">
-                {selectedPlatform === 'TWITTER' && !conversationRecipientId && currentAccountForMessages && (
+                {dmThreadPlatform === 'TWITTER' && !conversationRecipientId && currentAccountForDmThread && (
                   <div className="mb-3 p-3 rounded-xl border border-amber-200 bg-amber-50">
                     <p className="text-sm font-medium text-amber-900 mb-2">Recipient not detected. Enter their X username to send messages:</p>
                     <div className="flex gap-2 items-center flex-wrap">
@@ -2682,7 +2790,7 @@ function InboxPage() {
                         type="button"
                         disabled={dmRecipientLookupLoading || !dmRecipientUsername.trim()}
                         onClick={async () => {
-                          const account = currentAccountForMessages;
+                          const account = currentAccountForDmThread;
                           if (!account || !dmRecipientUsername.trim()) return;
                           setDmRecipientLookupError(null);
                           setDmRecipientLookupLoading(true);
@@ -2703,6 +2811,7 @@ function InboxPage() {
                                     recipientName: res.data.name ?? res.data.username ?? null,
                                     recipientPictureUrl: res.data.profile_image_url ?? null,
                                     error: prevCache?.error ?? null,
+                                    accountId: account.id,
                                   },
                                 };
                               });
@@ -2747,7 +2856,7 @@ function InboxPage() {
                         const res = await api.post<{ reply?: string }>('/ai/generate-inbox-reply', {
                           type: 'message',
                           text: textToReplyTo,
-                          platform: selectedPlatform ?? undefined,
+                          platform: dmThreadPlatform ?? selectedPlatform ?? undefined,
                         });
                         const reply = res.data?.reply?.trim();
                         if (reply) setDmReplyText(reply);
@@ -2773,7 +2882,7 @@ function InboxPage() {
                   type="button"
                   disabled={dmReplySending || !dmReplyText.trim()}
                   onClick={async () => {
-                    const account = currentAccountForMessages;
+                    const account = currentAccountForDmThread;
                     if (!account || !selectedConversationId || !dmReplyText.trim()) return;
                     setDmReplySending(true);
                     try {
@@ -2796,6 +2905,7 @@ function InboxPage() {
                           recipientName: res.data?.recipientName ?? (prev[selectedConversationId]?.recipientName) ?? null,
                           recipientPictureUrl: res.data?.recipientPictureUrl ?? (prev[selectedConversationId]?.recipientPictureUrl) ?? null,
                           error: res.data?.error ?? null,
+                          accountId: account.id,
                         },
                       }));
                       api.get<{ inbox?: number; comments?: number; messages?: number; byPlatform?: Record<string, { comments: number; messages: number }> }>('/social/notifications').then((r) => {

@@ -452,7 +452,34 @@ export async function GET(
       return tA - tB;
     });
 
-    return NextResponse.json({ messages: list, recipientId });
+    let recipientName: string | null = null;
+    let recipientPictureUrl: string | null = null;
+    if (recipientId && account.platform === 'FACEBOOK') {
+      try {
+        const pr = await axios.get<{
+          name?: string;
+          first_name?: string;
+          last_name?: string;
+          picture?: { data?: { url?: string } };
+        }>(`${fbBaseUrl}/${recipientId}`, {
+          params: { fields: 'name,first_name,last_name,picture.type(large)', access_token: activeToken },
+          timeout: 12_000,
+        });
+        const v = pr.data;
+        recipientName =
+          v.name || [v.first_name, v.last_name].filter(Boolean).join(' ').trim() || null;
+        recipientPictureUrl = v.picture?.data?.url ?? null;
+      } catch {
+        // ignore enrichment failures
+      }
+    }
+
+    return NextResponse.json({
+      messages: list,
+      recipientId,
+      ...(recipientName && { recipientName }),
+      ...(recipientPictureUrl && { recipientPictureUrl }),
+    });
   } catch (e) {
     const err = e as { message?: string; response?: { data?: unknown; status?: number } };
     const msg = err?.message ?? '';
