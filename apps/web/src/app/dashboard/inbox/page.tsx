@@ -408,29 +408,45 @@ function InboxPage() {
 
   const effectiveAccounts = (cachedAccounts as Account[]).length > 0 ? (cachedAccounts as Account[]) : accounts;
   const connectedPlatformIds = effectiveAccounts.map((a) => a.platform).filter(Boolean);
-  const hasRestoredPlatformsRef = useRef(false);
+
+  /** Keep selection in sync when accounts connect/disconnect (e.g. remove Pinterest from selection after disconnect). */
   useEffect(() => {
-    if (connectedPlatformIds.length === 0) return;
-    if (hasRestoredPlatformsRef.current) return;
-    hasRestoredPlatformsRef.current = true;
-    const stored = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('agent4socials_inbox_platforms') : null;
-    const parsed: string[] = stored ? (() => { try { const a = JSON.parse(stored); return Array.isArray(a) ? a : []; } catch { return []; } })() : [];
-    const valid = parsed.filter((p) => connectedPlatformIds.includes(p));
-    if (valid.length > 0) {
-      setSelectedPlatforms(valid);
-      setSelectedPlatform(valid[0] ?? null);
+    if (connectedPlatformIds.length === 0) {
+      setSelectedPlatforms([]);
+      setSelectedPlatform(null);
       return;
     }
-    setSelectedPlatforms(connectedPlatformIds);
-    setSelectedPlatform(connectedPlatformIds[0] ?? null);
+
+    setSelectedPlatforms((prev) => {
+      const pruned = prev.filter((p) => connectedPlatformIds.includes(p));
+      if (pruned.length > 0) return pruned;
+
+      if (prev.length === 0) {
+        const stored = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('agent4socials_inbox_platforms') : null;
+        const parsed: string[] = stored
+          ? (() => {
+              try {
+                const a = JSON.parse(stored);
+                return Array.isArray(a) ? a : [];
+              } catch {
+                return [];
+              }
+            })()
+          : [];
+        const valid = parsed.filter((p) => connectedPlatformIds.includes(p));
+        if (valid.length > 0) return valid;
+      }
+
+      return [...connectedPlatformIds];
+    });
   }, [connectedPlatformIds.join(',')]);
 
   useEffect(() => {
-    if (connectedPlatformIds.length > 0 && selectedPlatforms.length === 0) {
-      setSelectedPlatforms(connectedPlatformIds);
-      setSelectedPlatform(connectedPlatformIds[0] ?? null);
-    }
-  }, [connectedPlatformIds.join(','), selectedPlatforms.length]);
+    if (connectedPlatformIds.length === 0) return;
+    setSelectedPlatform((sp) =>
+      sp && selectedPlatforms.includes(sp) ? sp : selectedPlatforms[0] ?? null
+    );
+  }, [connectedPlatformIds.join(','), selectedPlatforms.join(',')]);
 
   useEffect(() => {
     if (selectedPlatforms.length > 0 && typeof sessionStorage !== 'undefined') {
@@ -1244,7 +1260,14 @@ function InboxPage() {
                       ? hasRepliedByParent.has(c.commentId)
                       : !hasRepliedByParent.has(c.commentId)
                 )
-                .filter((c) => !searchQuery || c.text.toLowerCase().includes(searchQuery.toLowerCase()) || c.authorName.toLowerCase().includes(searchQuery.toLowerCase()))
+                .filter((c) => {
+                  if (!searchQuery) return true;
+                  const q = searchQuery.toLowerCase();
+                  return (
+                    (c.text ?? '').toLowerCase().includes(q) ||
+                    (c.authorName ?? '').toLowerCase().includes(q)
+                  );
+                })
                 .sort((a, b) => {
                   const timeDiff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
                   if (timeDiff !== 0) return timeDiff;
