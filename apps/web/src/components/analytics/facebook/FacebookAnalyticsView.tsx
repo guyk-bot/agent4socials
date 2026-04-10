@@ -1674,7 +1674,7 @@ export function FacebookAnalyticsView({
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.overview, label: 'Overview' },
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.traffic, label: 'Traffic' },
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.posts, label: 'Posts' },
-      { id: FACEBOOK_ANALYTICS_SECTION_IDS.reels, label: 'Reels' },
+      { id: FACEBOOK_ANALYTICS_SECTION_IDS.reels, label: plat === 'PINTEREST' ? 'Videos' : 'Reels' },
       ...(plat === 'YOUTUBE' ? [{ id: FACEBOOK_ANALYTICS_SECTION_IDS.videos, label: 'Videos' } as const] : []),
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.history, label: 'History' },
     ];
@@ -1763,6 +1763,7 @@ export function FacebookAnalyticsView({
   const isFacebook = insights?.platform?.toUpperCase() === 'FACEBOOK';
   const isTikTok = insights?.platform?.toUpperCase() === 'TIKTOK';
   const isYouTube = insights?.platform?.toUpperCase() === 'YOUTUBE';
+  const isPinterest = insights?.platform?.toUpperCase() === 'PINTEREST';
 
   useEffect(() => {
     if (!isFacebook && !isInstagram) return;
@@ -1781,6 +1782,12 @@ export function FacebookAnalyticsView({
     if (!isInstagram) return;
     setSelectedTrafficMetrics((prev) => prev.filter((m) => m !== 'nonviral' && m !== 'viral'));
   }, [isInstagram]);
+
+  /** Pinterest analytics has no viral split or per-pin unique reach in this UI; keep pin impressions only. */
+  useEffect(() => {
+    if (!isPinterest) return;
+    setSelectedTrafficMetrics((prev) => prev.filter((m) => m !== 'viral' && m !== 'uniqueReachProxy'));
+  }, [isPinterest]);
 
   const tiktokUser = insights?.tiktokUser;
   const tiktokCreatorInfo = insights?.tiktokCreatorInfo;
@@ -2432,12 +2439,35 @@ export function FacebookAnalyticsView({
     });
   }, [isYouTube, postsInRange]);
 
+  /** Pinterest: use video Pins for the Videos section; if none qualify, fall back to all synced Pins in range. */
+  const pinterestVideoRows = useMemo((): ReelAnalyticsRow[] => {
+    if (!isPinterest) return [];
+    const isVideoPin = (p: FacebookPost) => {
+      const mt = (p.mediaType ?? '').toUpperCase();
+      if (mt === 'VIDEO') return true;
+      return isVideoishPost(p);
+    };
+    const candidates = postsInRange.filter(isVideoPin);
+    const pins = candidates.length > 0 ? candidates : postsInRange;
+    return pins.map((p) => {
+      const { watchTimeMs, avgWatchMs } = getWatchTimes(p);
+      return {
+        post: p,
+        views: Math.max(bestPostPlayCount(p), p.impressions ?? 0),
+        organicViews: p.facebookInsights?.post_video_views_organic ?? 0,
+        avgWatchMs: avgWatchMs ?? 0,
+        watchTimeMs: watchTimeMs ?? 0,
+      };
+    });
+  }, [isPinterest, postsInRange]);
+
   /** YouTube: chart Shorts plus long-form uploads (many channels have no Shorts; long-form was omitted and the chart stayed empty). */
   const reelChartSourceRows = useMemo((): ReelAnalyticsRow[] => {
+    if (isPinterest) return pinterestVideoRows;
     if (!isYouTube) return reelsRows;
     if (reelsRows.length > 0 && longFormVideoRows.length > 0) return [...reelsRows, ...longFormVideoRows];
     return reelsRows.length > 0 ? reelsRows : longFormVideoRows;
-  }, [isYouTube, reelsRows, longFormVideoRows]);
+  }, [isPinterest, pinterestVideoRows, isYouTube, reelsRows, longFormVideoRows]);
 
   const reelsChartData = useMemo(() => buildReelsLikeChartData(reelChartSourceRows), [reelChartSourceRows]);
 
@@ -2525,9 +2555,9 @@ export function FacebookAnalyticsView({
   }, 0) / Math.max(1, postsInRange.length);
   const avgReactionsPerPost = postsRows.reduce((s, r) => s + r.reactionsTotal, 0) / Math.max(1, postsRows.length);
   const totalReelWatchTimeMs = useMemo(() => {
-    if (isYouTube) return reelChartSourceRows.reduce((s, r) => s + r.watchTimeMs, 0);
+    if (isYouTube || isPinterest) return reelChartSourceRows.reduce((s, r) => s + r.watchTimeMs, 0);
     return postsRows.filter((r) => r.type === 'Reel').reduce((s, r) => s + r.watchTimeMs, 0);
-  }, [isYouTube, reelChartSourceRows, postsRows]);
+  }, [isYouTube, isPinterest, reelChartSourceRows, postsRows]);
   const reelClicks = reelChartSourceRows.reduce((s, r) => (
     s + (r.post.platform === 'INSTAGRAM' ? bestInstagramInteractionCount(r.post) : (r.post.facebookInsights?.post_clicks ?? 0))
   ), 0);
@@ -2748,10 +2778,23 @@ export function FacebookAnalyticsView({
       }));
   }, [allPostsRows]);
   const contentHistoryRows = useMemo(() => {
+    const plat = insights?.platform?.toUpperCase() ?? '';
+    const pinterest = plat === 'PINTEREST';
     if (historyFilter === 'posts') return allPostsRows.filter((r) => r.type === 'Post');
-    if (historyFilter === 'reels') return allPostsRows.filter((r) => r.type === 'Reel');
+    if (historyFilter === 'reels') {
+      if (pinterest) {
+        const videoPins = allPostsRows.filter((r) => {
+          const p = r.rawPost;
+          const mt = (p.mediaType ?? '').toUpperCase();
+          if (mt === 'VIDEO') return true;
+          return isVideoishPost(p);
+        });
+        return videoPins.length > 0 ? videoPins : allPostsRows;
+      }
+      return allPostsRows.filter((r) => r.type === 'Reel');
+    }
     return allPostsRows;
-  }, [allPostsRows, historyFilter]);
+  }, [allPostsRows, historyFilter, insights?.platform]);
 
   return (
     <div className="p-0 md:p-0.5 space-y-3" style={{ background: COLOR.pageBg, maxWidth: 1400 }}>
@@ -3756,7 +3799,7 @@ export function FacebookAnalyticsView({
           ) : (
             <>
           <div
-            className={`grid gap-3 sm:grid-cols-2 ${isInstagram ? 'xl:grid-cols-2' : 'xl:grid-cols-4'}`}
+            className={`grid gap-3 sm:grid-cols-2 ${isInstagram || isPinterest ? 'xl:grid-cols-2' : 'xl:grid-cols-4'}`}
           >
             <MetricCard
               label="Post Impressions"
@@ -3776,25 +3819,37 @@ export function FacebookAnalyticsView({
                   active={selectedTrafficMetrics.includes('nonviral')}
                   onClick={() => setSelectedTrafficMetrics((prev) => prev.includes('nonviral') ? prev.filter((m) => m !== 'nonviral') : [...prev, 'nonviral'])}
                 />
-                <MetricCard
-                  label="Viral Impressions"
-                  source="page_posts_impressions_viral"
-                  color={COLOR.magenta}
-                  value={formatNumber(viralImpressions)}
-                  active={selectedTrafficMetrics.includes('viral')}
-                  onClick={() => setSelectedTrafficMetrics((prev) => prev.includes('viral') ? prev.filter((m) => m !== 'viral') : [...prev, 'viral'])}
-                />
+                {!isPinterest ? (
+                  <MetricCard
+                    label="Viral Impressions"
+                    source="page_posts_impressions_viral"
+                    color={COLOR.magenta}
+                    value={formatNumber(viralImpressions)}
+                    active={selectedTrafficMetrics.includes('viral')}
+                    onClick={() => setSelectedTrafficMetrics((prev) => prev.includes('viral') ? prev.filter((m) => m !== 'viral') : [...prev, 'viral'])}
+                  />
+                ) : null}
               </>
             ) : null}
-            <MetricCard
-              label="Unique Reach Proxy"
-              source="Sum of post_impressions_unique"
-              color={COLOR.amber}
-              value={formatNumber(uniqueReachProxy)}
-              active={selectedTrafficMetrics.includes('uniqueReachProxy')}
-              onClick={() => setSelectedTrafficMetrics((prev) => prev.includes('uniqueReachProxy') ? prev.filter((m) => m !== 'uniqueReachProxy') : [...prev, 'uniqueReachProxy'])}
-            />
+            {!isPinterest ? (
+              <MetricCard
+                label="Unique Reach Proxy"
+                source="Sum of post_impressions_unique"
+                color={COLOR.amber}
+                value={formatNumber(uniqueReachProxy)}
+                active={selectedTrafficMetrics.includes('uniqueReachProxy')}
+                onClick={() => setSelectedTrafficMetrics((prev) => prev.includes('uniqueReachProxy') ? prev.filter((m) => m !== 'uniqueReachProxy') : [...prev, 'uniqueReachProxy'])}
+              />
+            ) : null}
           </div>
+          {isPinterest ? (
+            <p className="text-xs leading-relaxed max-w-[920px]" style={{ color: COLOR.textSecondary }}>
+              For Pinterest, <span className="font-medium" style={{ color: COLOR.text }}>Viral impressions</span> and{' '}
+              <span className="font-medium" style={{ color: COLOR.text }}>Unique reach proxy</span> are hidden. They do not apply to Pin analytics in this dashboard. Use{' '}
+              <span className="font-medium" style={{ color: COLOR.text }}>Post impressions</span> and{' '}
+              <span className="font-medium" style={{ color: COLOR.text }}>Pin impressions (non-viral)</span> for traffic in this range.
+            </p>
+          ) : null}
           {isInstagram ? (
             <p className="text-xs leading-relaxed max-w-[920px]" style={{ color: COLOR.textSecondary }}>
               Meta does not report viral versus non-viral impressions for Instagram the way it does for Facebook Pages, so those breakdowns are not available in this dashboard. Use{' '}
@@ -3937,11 +3992,16 @@ export function FacebookAnalyticsView({
         <div className="rounded-[20px] border p-4 sm:p-5 space-y-4" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
           <div>
             <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>
-              {isYouTube ? 'Shorts & videos' : 'Reels'}
+              {isYouTube ? 'Shorts & videos' : isPinterest ? 'Videos' : 'Reels'}
             </h2>
             {isYouTube ? (
               <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
                 YouTube Shorts (≤3 min with known duration) and long-form uploads in this date range. Metrics match the chart below.
+              </p>
+            ) : null}
+            {isPinterest ? (
+              <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
+                Video Pins in this date range, or all synced Pins if none are stored as video. Metrics come from your post inventory.
               </p>
             ) : null}
           </div>
@@ -4045,7 +4105,7 @@ export function FacebookAnalyticsView({
         </div>
 
         <InsightChartCard
-          title={isYouTube ? 'Video performance' : 'Reel Performance'}
+          title={isYouTube ? 'Video performance' : isPinterest ? 'Video Pin performance' : 'Reel Performance'}
           chartHeightPx={reelPerformanceChartHeightPx}
           legend={selectedReelMetrics.map((m) => ({ label: REEL_METRIC_CONFIG[m].label, color: REEL_METRIC_CONFIG[m].color }))}
         >
@@ -4107,12 +4167,14 @@ export function FacebookAnalyticsView({
           ) : (
             <div className="h-[240px] rounded-[20px] border flex flex-col items-center justify-center text-center px-6" style={{ background: COLOR.card, borderColor: COLOR.border }}>
               <p className="text-sm font-semibold" style={{ color: COLOR.text }}>
-                {isYouTube ? 'No Shorts or videos in this period' : 'No reels in this period'}
+                {isYouTube ? 'No Shorts or videos in this period' : isPinterest ? 'No Pins in this period' : 'No reels in this period'}
               </p>
               <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
                 {isYouTube
                   ? 'Charts fill after YouTube videos are synced and their publish dates fall in the selected range. Try widening the date range or running a sync from the dashboard.'
-                  : 'Reel analytics appears after reels are discovered in your post inventory.'}
+                  : isPinterest
+                    ? 'Connect Pinterest and sync Pins so video Pins (or all Pins) with publish dates in this range appear here.'
+                    : 'Reel analytics appears after reels are discovered in your post inventory.'}
               </p>
             </div>
           )}
@@ -4131,10 +4193,10 @@ export function FacebookAnalyticsView({
           </div>
           <div className="flex flex-wrap gap-2">
             {([
-              { id: 'all', label: 'All' },
-              { id: 'posts', label: 'Posts' },
-              { id: 'reels', label: 'Reels' },
-            ] as const).map((f) => (
+              { id: 'all' as const, label: 'All' },
+              { id: 'posts' as const, label: 'Posts' },
+              { id: 'reels' as const, label: isPinterest ? 'Videos' : 'Reels' },
+            ]).map((f) => (
               <button
                 key={f.id}
                 type="button"
