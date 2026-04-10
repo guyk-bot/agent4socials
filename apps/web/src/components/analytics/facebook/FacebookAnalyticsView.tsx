@@ -195,18 +195,16 @@ function storyMetricSetsEqual(a: StoryMetricKey[], b: readonly StoryMetricKey[])
   return b.every((m) => as.has(m));
 }
 
-const YOUTUBE_GEO_PIE_COLORS = [
-  '#6366f1',
-  '#7c6cff',
-  '#d946ef',
-  '#31c48d',
-  '#f5b942',
-  '#ff8b7b',
-  '#6366f1',
-  '#ec4899',
-  '#14b8a6',
-  '#f97316',
-];
+/**
+ * Golden-angle hue stepping so each country slice gets a distinct color (no short palette repeats).
+ * Saturation and lightness vary slightly by index so neighbors stay separable on light backgrounds.
+ */
+function youtubeGeoPieColor(index: number): string {
+  const h = (index * 137.508) % 360;
+  const s = 70 + ((index * 3) % 5) * 3.5;
+  const l = 42 + ((index * 7) % 4) * 4;
+  return `hsl(${h.toFixed(2)} ${Math.min(92, s).toFixed(1)}% ${Math.min(56, l).toFixed(1)}%)`;
+}
 
 function formatYoutubeTrafficSource(raw: string): string {
   const t = String(raw || '')
@@ -3656,7 +3654,7 @@ export function FacebookAnalyticsView({
                             onMouseLeave={() => setGeoPieHover(null)}
                           >
                             {youtubeGeoBreakdown.pieSlices.map((_, i) => (
-                              <Cell key={i} fill={YOUTUBE_GEO_PIE_COLORS[i % YOUTUBE_GEO_PIE_COLORS.length]} stroke="rgba(255,255,255,0.85)" strokeWidth={1} />
+                              <Cell key={i} fill={youtubeGeoPieColor(i)} stroke="rgba(255,255,255,0.85)" strokeWidth={1} />
                             ))}
                           </Pie>
                         </PieChart>
@@ -3688,7 +3686,7 @@ export function FacebookAnalyticsView({
                       {youtubeGeoBreakdown.list.slice(0, 12).map((row, i) => (
                         <li key={row.name} className="flex items-center justify-between gap-2 border-b border-neutral-100 pb-2">
                           <span className="flex items-center gap-2 min-w-0">
-                            <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: YOUTUBE_GEO_PIE_COLORS[i % YOUTUBE_GEO_PIE_COLORS.length] }} />
+                            <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: youtubeGeoPieColor(i) }} />
                             <span className="truncate font-medium">{row.name}</span>
                           </span>
                           <span className="tabular-nums shrink-0" style={{ color: COLOR.textSecondary }}>
