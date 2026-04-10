@@ -22,6 +22,27 @@ const PLATFORM_ICON: Record<string, React.ReactNode> = {
   PINTEREST: <PinterestIcon size={24} />,
 };
 
+/** Same connect targets and styling as Summary dashboard empty state (compact grid on Account page). */
+const CONNECT_PLATFORM_CARDS: { id: string; name: string; slug: string; border: string; bg: string }[] = [
+  { id: 'FACEBOOK', name: 'Facebook', slug: 'facebook', border: 'border-blue-200', bg: 'bg-blue-50/50' },
+  { id: 'INSTAGRAM', name: 'Instagram', slug: 'instagram', border: 'border-pink-200', bg: 'bg-pink-50/50' },
+  { id: 'TIKTOK', name: 'TikTok', slug: 'tiktok', border: 'border-neutral-300', bg: 'bg-neutral-100/80' },
+  { id: 'YOUTUBE', name: 'YouTube', slug: 'youtube', border: 'border-red-200', bg: 'bg-red-50/50' },
+  { id: 'TWITTER', name: 'Twitter/X', slug: 'twitter', border: 'border-neutral-300', bg: 'bg-neutral-100/80' },
+  { id: 'LINKEDIN', name: 'LinkedIn', slug: 'linkedin', border: 'border-blue-200', bg: 'bg-blue-50/50' },
+  { id: 'PINTEREST', name: 'Pinterest', slug: 'pinterest', border: 'border-rose-200', bg: 'bg-rose-50/50' },
+];
+
+const CONNECT_GRID_ICON: Record<string, React.ReactNode> = {
+  FACEBOOK: <FacebookIcon size={26} />,
+  INSTAGRAM: <InstagramIcon size={26} />,
+  TIKTOK: <TikTokIcon size={26} />,
+  YOUTUBE: <YoutubeIcon size={26} />,
+  TWITTER: <XTwitterIcon size={26} className="text-neutral-800" />,
+  LINKEDIN: <LinkedinIcon size={26} />,
+  PINTEREST: <PinterestIcon size={26} />,
+};
+
 function profileUrlForAccount(acc: SocialAccount): string {
   const pid = (acc as { pageId?: string }).pageId;
   const username = acc.username;
@@ -162,14 +183,7 @@ export function ConnectedAccountsPanel() {
   };
 
   return (
-    <section id="connected-accounts" className="scroll-mt-28 space-y-4">
-      <div>
-        <h2 className="text-xl font-bold text-neutral-900 tracking-tight">Connected accounts</h2>
-        <p className="text-sm text-neutral-500 mt-1">
-          Manage your connected social accounts. Disconnect here when you no longer want to link an account.
-        </p>
-      </div>
-
+    <div className="space-y-4">
       {alertMessage && (
         <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
           {alertMessage}
@@ -177,15 +191,22 @@ export function ConnectedAccountsPanel() {
       )}
 
       {accounts.length === 0 ? (
-        <div className="rounded-2xl border border-neutral-200 bg-white p-8 text-center card shadow-sm">
-          <p className="text-neutral-600">No accounts connected yet.</p>
-          <p className="text-sm text-neutral-500 mt-1">Connect an account from the Analytics sidebar on the dashboard.</p>
-          <Link
-            href="/dashboard"
-            className="mt-4 inline-flex px-4 py-2 rounded-lg bg-[var(--button)] text-white text-sm font-medium hover:bg-[var(--button-hover)] transition-colors"
-          >
-            Go to Dashboard
-          </Link>
+        <div className="rounded-xl border border-neutral-200 bg-neutral-50/40 p-4 sm:p-5">
+          <p className="text-sm text-neutral-600 text-center mb-1">No accounts connected yet.</p>
+          <p className="text-xs text-neutral-500 text-center mb-4">Choose a platform below to connect.</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+            {CONNECT_PLATFORM_CARDS.map(({ id, name, slug, border, bg }) => (
+              <Link
+                key={id}
+                href={`/dashboard?connect=${slug}`}
+                className={`flex flex-col items-center justify-center gap-2 p-3 sm:p-4 rounded-xl border-2 ${border} ${bg} bg-white hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 group text-center`}
+              >
+                <div className="w-9 h-9 flex items-center justify-center shrink-0">{CONNECT_GRID_ICON[id]}</div>
+                <span className="text-xs sm:text-sm font-semibold text-neutral-800">{name}</span>
+                <span className="text-[10px] sm:text-xs text-neutral-500 group-hover:text-neutral-700">Connect</span>
+              </Link>
+            ))}
+          </div>
         </div>
       ) : (
         <ul className="space-y-3">
@@ -402,12 +423,12 @@ export function ConnectedAccountsPanel() {
         open={disconnectConfirmOpen}
         onClose={() => { setDisconnectConfirmOpen(false); setAccountToDisconnect(null); }}
         title="Disconnect account?"
-        message={accountToDisconnect ? `Disconnect @${accountToDisconnect.username || accountToDisconnect.platform}? All synced posts and insights for this account will be removed. You can reconnect anytime from the sidebar.` : ''}
+        message={accountToDisconnect ? `Disconnect @${accountToDisconnect.username || accountToDisconnect.platform}? All synced posts and insights for this account will be removed. You can reconnect anytime from Account or when you add a platform from the dashboard.` : ''}
         confirmLabel="Disconnect"
         cancelLabel="Keep connected"
         variant="danger"
         onConfirm={() => { void handleDisconnectConfirm(); }}
       />
-    </section>
+    </div>
   );
 }

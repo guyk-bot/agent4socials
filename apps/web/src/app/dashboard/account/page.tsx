@@ -249,9 +249,9 @@ export default function AccountPage() {
         )}
       </div>
 
-      {/* Profile card */}
+      {/* Profile + connected accounts (legacy sidebar “Accounts” lives here; #connected-accounts for redirects) */}
       <div className="card rounded-2xl overflow-hidden border border-neutral-200/80 shadow-sm">
-        <div className="flex items-center gap-4 p-1">
+        <div className="flex items-center gap-4 p-4 sm:p-5">
           <div className="w-16 h-16 rounded-xl flex items-center justify-center text-xl font-bold shrink-0 bg-neutral-100 text-neutral-700">
             {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
           </div>
@@ -260,9 +260,17 @@ export default function AccountPage() {
             <p className="text-sm text-neutral-500 truncate">{user?.email}</p>
           </div>
         </div>
-      </div>
 
-      <ConnectedAccountsPanel />
+        <div id="connected-accounts" className="border-t border-neutral-200 px-4 sm:px-5 py-5 scroll-mt-28 space-y-3">
+          <div>
+            <h2 className="text-lg font-bold text-neutral-900 tracking-tight">Connected accounts</h2>
+            <p className="text-sm text-neutral-500 mt-0.5">
+              Manage linked social profiles. Disconnect here when you no longer want an account connected.
+            </p>
+          </div>
+          <ConnectedAccountsPanel />
+        </div>
+      </div>
 
       {/* Log out */}
       <div className="card rounded-2xl border border-neutral-200 shadow-sm">
