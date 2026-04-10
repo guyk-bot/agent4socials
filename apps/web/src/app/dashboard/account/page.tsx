@@ -15,6 +15,8 @@ import {
   Copy,
   FileText,
   LogOut,
+  Sparkles,
+  ArrowRight,
 } from 'lucide-react';
 
 const CONFIRM_TEXT = 'CONFIRM';
@@ -221,43 +223,49 @@ export default function AccountPage() {
         <div className="p-4 sm:p-6 space-y-5">
           <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">Account</h1>
 
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-4 min-w-0">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-stretch lg:justify-between">
+            <div className="flex items-start gap-4 min-w-0 flex-1">
               <div className="flex items-stretch w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-neutral-100 text-neutral-700">
                 <span className="flex flex-1 min-h-0 min-w-0 items-center justify-center text-xl font-bold leading-none">
                   {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
                 </span>
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 space-y-1">
                 <p className="font-semibold text-neutral-900 truncate">{user?.name || 'User'}</p>
                 <p className="text-sm text-neutral-500 truncate">{user?.email}</p>
+                {userId ? (
+                  <div className="flex flex-wrap items-center gap-1.5 pt-2 text-xs text-neutral-600">
+                    <span className="text-neutral-500">User ID:</span>
+                    <code className="font-mono text-neutral-800 bg-neutral-100 px-1.5 py-0.5 rounded">{userIdShort}</code>
+                    <button
+                      type="button"
+                      onClick={copyUserId}
+                      className="p-1 text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100 rounded transition-colors"
+                      title="Copy full User ID"
+                    >
+                      {copiedId ? <Check size={13} className="text-green-600" /> : <Copy size={13} />}
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end lg:flex-col lg:items-end lg:gap-3 shrink-0">
-              {userId ? (
-                <div className="flex items-center gap-2 text-sm text-neutral-600">
-                  <span className="text-neutral-500">User ID:</span>
-                  <code className="font-mono text-neutral-800 bg-neutral-100 px-2 py-0.5 rounded">{userIdShort}</code>
-                  <button
-                    type="button"
-                    onClick={copyUserId}
-                    className="p-1.5 text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 rounded transition-colors"
-                    title="Copy full User ID"
-                  >
-                    {copiedId ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
-                  </button>
-                </div>
-              ) : null}
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="text-sm font-medium text-neutral-800">Free plan</span>
-                <Link
-                  href="/pricing"
-                  className="inline-flex items-center justify-center px-4 py-2 rounded-xl text-sm font-semibold text-white bg-neutral-900 hover:bg-neutral-800 transition-colors"
-                >
-                  Upgrade
-                </Link>
+            <div className="shrink-0 w-full lg:w-[min(100%,280px)] rounded-2xl border border-neutral-200/90 bg-gradient-to-br from-neutral-50 via-white to-violet-50/40 p-4 shadow-sm ring-1 ring-black/[0.03]">
+              <div className="flex items-center gap-2 text-violet-700 mb-1">
+                <Sparkles className="w-4 h-4 shrink-0" aria-hidden />
+                <span className="text-[11px] font-semibold uppercase tracking-wide">Your plan</span>
               </div>
+              <p className="text-lg font-bold text-neutral-900 tracking-tight">Free</p>
+              <p className="text-xs text-neutral-600 mt-1 leading-relaxed">
+                More networks, scheduling, and analytics when you upgrade.
+              </p>
+              <Link
+                href="/pricing"
+                className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-violet-600 to-purple-600 shadow-md hover:from-violet-500 hover:to-purple-500 hover:shadow-lg active:scale-[0.98] transition-all"
+              >
+                Upgrade now
+                <ArrowRight className="w-4 h-4" aria-hidden />
+              </Link>
             </div>
           </div>
         </div>

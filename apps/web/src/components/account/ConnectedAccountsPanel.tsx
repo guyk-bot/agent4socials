@@ -192,8 +192,7 @@ export function ConnectedAccountsPanel() {
 
       {accounts.length === 0 ? (
         <div className="rounded-xl border border-neutral-200 bg-neutral-50/40 p-4 sm:p-5">
-          <p className="text-sm text-neutral-600 text-center mb-1">No accounts connected yet.</p>
-          <p className="text-xs text-neutral-500 text-center mb-4">Choose a platform below to connect.</p>
+          <p className="text-sm text-neutral-600 text-center mb-4">No accounts connected yet.</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
             {CONNECT_PLATFORM_CARDS.map(({ id, name, slug, border, bg }) => (
               <Link
