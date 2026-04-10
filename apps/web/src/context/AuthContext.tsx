@@ -4,7 +4,11 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabaseBrowser } from '@/lib/supabase/client';
 import type { Session } from '@supabase/supabase-js';
-import api from '@/lib/api';
+
+/** Avoid blocking the whole dashboard shell if profile never returns (network, server hang). */
+const PROFILE_FETCH_TIMEOUT_MS = 12_000;
+/** Last resort if getSession() or similar never settles. */
+const AUTH_INIT_SAFETY_MS = 20_000;
 
 interface User {
   id: string;
@@ -32,9 +36,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const syncUserFromApi = async (accessToken: string, fallbackUser?: { id: string; email?: string; name?: string; avatarUrl?: string } | null) => {
     try {
-      const res = await fetch('/api/auth/profile', {
+      const init: RequestInit = {
         headers: { Authorization: `Bearer ${accessToken}` },
-      });
+      };
+      if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+        init.signal = AbortSignal.timeout(PROFILE_FETCH_TIMEOUT_MS);
+      }
+      const res = await fetch('/api/auth/profile', init);
       if (!res.ok) throw new Error(`${res.status}`);
       const data = await res.json();
       setUser(data);
@@ -76,41 +84,61 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // If Supabase redirected to / with token in hash, go to callback (full navigation so hash is preserved)
     if (typeof window !== 'undefined' && window.location.pathname === '/' && window.location.hash.includes('access_token')) {
       window.location.replace('/auth/callback' + window.location.hash);
+      setLoading(false);
       return;
     }
 
+    let cancelled = false;
     const supabase = getSupabaseBrowser();
+    const safetyTimer = window.setTimeout(() => {
+      if (!cancelled) setLoading(false);
+    }, AUTH_INIT_SAFETY_MS);
+
+    const sessionFallbackUser = (session: Session) => ({
+      id: session.user.id,
+      email: session.user.email ?? '',
+      name: session.user.user_metadata?.full_name ?? session.user.user_metadata?.name ?? undefined,
+      avatarUrl: (session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture) ?? undefined,
+    });
+
     const init = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
+        if (cancelled) return;
         if (session?.access_token) {
-        const fallback = {
-          id: session.user.id,
-          email: session.user.email ?? '',
-          name: session.user.user_metadata?.full_name ?? session.user.user_metadata?.name ?? undefined,
-          avatarUrl: (session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture) ?? undefined,
-        };
-          await syncUserFromApi(session.access_token, fallback);
+          const fallback = sessionFallbackUser(session);
+          // Show the shell immediately; profile can lag or fail without bricking the app.
+          setUser({
+            id: fallback.id,
+            email: fallback.email,
+            name: fallback.name,
+            avatarUrl: fallback.avatarUrl,
+          });
+          void syncUserFromApi(session.access_token, fallback);
         } else {
           setUser(null);
         }
       } catch {
-        setUser(null);
+        if (!cancelled) setUser(null);
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          window.clearTimeout(safetyTimer);
+          setLoading(false);
+        }
       }
     };
-    init();
+    void init();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session: Session | null) => {
       if (session?.access_token) {
-        const fallback = {
-          id: session.user.id,
-          email: session.user.email ?? '',
-          name: session.user.user_metadata?.full_name ?? session.user.user_metadata?.name ?? undefined,
-          avatarUrl: (session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture) ?? undefined,
-        };
-        await syncUserFromApi(session.access_token, fallback);
+        const fallback = sessionFallbackUser(session);
+        setUser({
+          id: fallback.id,
+          email: fallback.email,
+          name: fallback.name,
+          avatarUrl: fallback.avatarUrl,
+        });
+        void syncUserFromApi(session.access_token, fallback);
         // Redirect to dashboard only when user just signed in from /login or /signup (not from homepage /).
         // Visiting / with an existing session was incorrectly redirecting because some clients fire SIGNED_IN on session restore.
         if (event === 'SIGNED_IN') {
@@ -123,7 +151,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      window.clearTimeout(safetyTimer);
+      subscription.unsubscribe();
+    };
   }, [router]);
 
   const signUpWithEmail = async (email: string, password: string, name?: string) => {
