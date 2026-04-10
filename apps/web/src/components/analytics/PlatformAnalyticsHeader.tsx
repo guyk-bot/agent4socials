@@ -67,8 +67,14 @@ export function PlatformAnalyticsHeader({
         <p className={`font-semibold text-[#111827] truncate ${compact ? 'text-sm' : ''}`}>
           {account.username || account.platform}
         </p>
-        <p className={`text-[#6b7280] flex items-center gap-1 ${compact ? 'text-xs' : 'text-sm'}`}>
-          {platformLabel}
+        <p className={`text-[#6b7280] flex items-center gap-1.5 min-w-0 ${compact ? 'text-xs' : 'text-sm'}`}>
+          <span
+            className="flex items-center justify-center shrink-0 text-[#374151] [&>svg]:w-[18px] [&>svg]:h-[18px]"
+            aria-hidden
+          >
+            {icon}
+          </span>
+          <span className="truncate">{platformLabel}</span>
           <ExternalLink size={compact ? 10 : 12} className="opacity-70 shrink-0" />
           <span className="sr-only">Open profile</span>
         </p>

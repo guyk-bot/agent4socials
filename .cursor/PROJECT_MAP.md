@@ -225,7 +225,7 @@ Layouts worth knowing: `composer/layout.tsx` uses `AuthenticatedShell`.
 | OAuth start/callback (generic) | `apps/web/src/app/api/social/oauth/[platform]/start/route.ts`, `callback/route.ts` (includes Pinterest v5) |
 | Pinterest token refresh | `apps/web/src/lib/pinterest-token.ts` |
 | Pinterest setup doc | `docs/PINTEREST_SETUP.md` |
-| TikTok raw API JSON (user info, video list, creator_info) on Accounts page | `GET .../social/accounts/[id]/tiktok-debug`, `docs/TIKTOK_CONNECT_SETUP.md` |
+| TikTok debug API (user info, video list, creator_info); not linked from Account UI | `GET .../social/accounts/[id]/tiktok-debug`, `docs/TIKTOK_CONNECT_SETUP.md` |
 | Twitter 1OA | `apps/web/src/app/api/social/oauth/twitter-1oa/start/route.ts`, `callback/route.ts` |
 | Instagram connect | `apps/web/src/app/api/social/instagram/connect-account/route.ts`, `pending/route.ts` |
 | Facebook connect | `apps/web/src/app/api/social/facebook/connect-page/route.ts`, `pending/route.ts` |
