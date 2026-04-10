@@ -3,6 +3,7 @@ import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import { PostStatus, Platform, Prisma } from '@prisma/client';
 import { isTikTokDirectPostPayload } from '@/lib/tiktok/tiktok-publish-compliance';
+import { friendlyMessageIfPrismaSchemaDrift } from '@/lib/prisma-db-hints';
 
 /**
  * GET /api/posts/[id] - Fetch a single post for viewing/editing in composer.
@@ -206,6 +207,11 @@ export async function PATCH(
     });
     return NextResponse.json(post);
   } catch (e) {
+    const drift = friendlyMessageIfPrismaSchemaDrift(e);
+    if (drift) {
+      console.error('[PATCH /api/posts/:id] schema drift (apply migration or ensure-*.sql):', e);
+      return NextResponse.json({ message: drift }, { status: 503 });
+    }
     console.error('[PATCH /api/posts/:id]', e);
     return NextResponse.json({ message: e instanceof Error ? e.message : 'Update failed' }, { status: 500 });
   }

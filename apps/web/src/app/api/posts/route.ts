@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { PostStatus, Platform, Prisma } from '@prisma/client';
 import { isTikTokDirectPostPayload } from '@/lib/tiktok/tiktok-publish-compliance';
 import { sendScheduleConfirmationEmail } from '@/lib/resend';
+import { friendlyMessageIfPrismaSchemaDrift } from '@/lib/prisma-db-hints';
 
 export async function GET(request: NextRequest) {
   if (!process.env.DATABASE_URL) {
@@ -190,6 +191,11 @@ export async function POST(request: NextRequest) {
   }
   return NextResponse.json(post);
   } catch (e) {
+    const drift = friendlyMessageIfPrismaSchemaDrift(e);
+    if (drift) {
+      console.error('[POST /api/posts] schema drift (apply migration or ensure-*.sql):', e);
+      return NextResponse.json({ message: drift }, { status: 503 });
+    }
     const message = e instanceof Error ? e.message : 'Failed to create post';
     console.error('[POST /api/posts]', e);
     return NextResponse.json({ message }, { status: 500 });

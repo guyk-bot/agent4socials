@@ -11,6 +11,21 @@ If the app shows **The niche_trends table is missing**, migrations never applied
 When `prisma migrate deploy` works again, mark this migration applied so Prisma does not try to recreate objects:  
 `npx prisma migrate resolve --applied 20260408180000_niche_trends`
 
+## Composer / posts: `Post.tiktokPublishByAccountId` does not exist
+
+If creating or saving a post shows **`The column Post.tiktokPublishByAccountId does not exist`**, the migration **`20260410140000_post_tiktok_publish_payload`** never ran on the database your app uses (common when Vercel build skipped `prisma migrate deploy` because **`DATABASE_DIRECT_URL`** was wrong; see above).
+
+**Fastest fix (no local DB access):** Supabase **SQL Editor** → run **`apps/web/scripts/ensure-post-tiktok-publish-column.sql`** (one `ALTER TABLE` adding the JSONB column).
+
+Then either:
+
+1. Fix **`DATABASE_DIRECT_URL`** in Vercel and **redeploy** so future migrations apply automatically, and mark this migration as applied so Prisma stays in sync:
+   - From `apps/web` with a URL that can run migrations:  
+     `npx prisma migrate resolve --applied 20260410140000_post_tiktok_publish_payload`
+2. Or leave Prisma’s history as-is until the next successful `migrate deploy` (the column already exists; Prisma may try to apply the same migration again unless you use **`migrate resolve`**).
+
+**Long-term:** Set **`DATABASE_DIRECT_URL`** correctly and consider **`STRICT_PRISMA_MIGRATE_ON_VERCEL=1`** so a failed migrate fails the build instead of shipping code ahead of the database.
+
 ## Local `P1001: Can't reach database server` at `db.*.supabase.co:5432`
 
 Supabase’s **direct** host (`db.<ref>.supabase.co:5432`) is often **unreachable from a home network** (IPv6-only or blocked). Your `.env` **`DATABASE_DIRECT_URL`** (and sometimes **`DATABASE_URL`**) should use the **pooler** from Supabase: **Settings → Database → Connection string**.
