@@ -1961,7 +1961,11 @@ export async function GET(
         const user = userRes.data?.data?.user;
         const err = userRes.data?.error;
         if (userRes.status === 401 || userRes.status === 403) {
-          console.warn('[Insights] TikTok user/info: HTTP', userRes.status, '(sandbox token may lack user.info.basic scope)');
+          // Expected for some sandbox tokens or tokens issued without user.info.basic; not an app failure.
+          console.log(
+            '[Insights] TikTok user/info skipped (HTTP %s): profile/avatar fields unavailable. Reconnect TikTok in the app for user.info.basic if you need them.',
+            String(userRes.status),
+          );
         } else if (err && !tikTokPayloadIndicatesSuccess(err)) {
           console.warn('[Insights] TikTok user/info error:', err.code, err.message ?? '');
         }
