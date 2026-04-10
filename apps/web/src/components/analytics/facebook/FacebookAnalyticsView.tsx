@@ -268,6 +268,12 @@ const REEL_PRESET_METRICS_TIKTOK: Record<ReelPresetKey, ReelMetricKey[]> = {
   watch: ['views'],
 };
 
+/** Facebook Reels: no Watch tab; Performance excludes shares (shares stay on Engagement). */
+const REEL_PRESET_METRICS_FACEBOOK: Record<'performance' | 'engagement', ReelMetricKey[]> = {
+  performance: ['views', 'watchTime', 'avgWatch'],
+  engagement: ['likes', 'comments', 'shares', 'reposts'],
+};
+
 function formatPercent(v: number): string {
   return `${(v * 100).toFixed(v < 0.1 ? 2 : 1)}%`;
 }
@@ -1759,6 +1765,19 @@ export function FacebookAnalyticsView({
   const isFacebook = insights?.platform?.toUpperCase() === 'FACEBOOK';
   const isTikTok = insights?.platform?.toUpperCase() === 'TIKTOK';
   const isYouTube = insights?.platform?.toUpperCase() === 'YOUTUBE';
+
+  useEffect(() => {
+    if (!isFacebook) return;
+    setReelPreset((p) => (p === 'watch' ? 'performance' : p));
+    setSelectedReelMetrics((prev) => {
+      const legacyPerf: ReelMetricKey[] = ['views', 'watchTime', 'avgWatch', 'shares'];
+      if (prev.length === legacyPerf.length && legacyPerf.every((m) => prev.includes(m))) {
+        return [...REEL_PRESET_METRICS_FACEBOOK.performance];
+      }
+      return prev;
+    });
+  }, [isFacebook]);
+
   const tiktokUser = insights?.tiktokUser;
   const tiktokCreatorInfo = insights?.tiktokCreatorInfo;
   const igMetricSeries = insights?.facebookPageMetricSeries;
@@ -3894,14 +3913,24 @@ export function FacebookAnalyticsView({
           {([
             { id: 'performance' as const, label: 'Performance' },
             { id: 'engagement' as const, label: 'Engagement' },
-            ...(isTikTok ? [] : [{ id: 'watch' as const, label: 'Watch' }]),
+            ...(!isTikTok && !isFacebook ? [{ id: 'watch' as const, label: 'Watch' }] : []),
           ]).map((preset) => (
             <button
               key={preset.id}
               type="button"
               onClick={() => {
                 setReelPreset(preset.id);
-                setSelectedReelMetrics((isTikTok ? REEL_PRESET_METRICS_TIKTOK : REEL_PRESET_METRICS)[preset.id]);
+                if (isTikTok) {
+                  setSelectedReelMetrics([...REEL_PRESET_METRICS_TIKTOK[preset.id]]);
+                } else if (isFacebook) {
+                  setSelectedReelMetrics(
+                    preset.id === 'performance'
+                      ? [...REEL_PRESET_METRICS_FACEBOOK.performance]
+                      : [...REEL_PRESET_METRICS_FACEBOOK.engagement]
+                  );
+                } else {
+                  setSelectedReelMetrics([...REEL_PRESET_METRICS[preset.id]]);
+                }
               }}
               className="rounded-lg px-3 py-1.5 text-sm"
               style={{
