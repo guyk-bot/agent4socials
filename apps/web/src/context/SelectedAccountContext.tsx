@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useCallback, useLayoutEffect } from 'react';
+import { usePathname } from 'next/navigation';
 
 export type SocialAccount = { id: string; platform: string; username?: string; profilePicture?: string | null; [key: string]: unknown };
 
@@ -17,6 +18,7 @@ const STORAGE_KEY = 'agent4socials_selected_account_id';
 const SelectedAccountContext = createContext<SelectedAccountContextType | undefined>(undefined);
 
 export function SelectedAccountProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname() ?? '';
   const [selectedAccountId, setSelectedAccountIdState] = useState<string | null>(null);
   const [selectedPlatformForConnect, setSelectedPlatformForConnectState] = useState<string | null>(null);
 
@@ -27,6 +29,18 @@ export function SelectedAccountProvider({ children }: { children: React.ReactNod
       if (id) setSelectedAccountIdState(id);
     } catch (_) {}
   }, []);
+
+  /** Sidebar platform/account highlight only on main analytics surfaces; clear when visiting Inbox, Hashtag Pool, etc. */
+  useLayoutEffect(() => {
+    const keepSidebarSelection = pathname === '/dashboard' || pathname === '/dashboard/summary';
+    if (!keepSidebarSelection) {
+      setSelectedAccountIdState(null);
+      setSelectedPlatformForConnectState(null);
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch (_) {}
+    }
+  }, [pathname]);
 
   const setSelectedAccountId = useCallback((id: string | null) => {
     setSelectedAccountIdState(id);

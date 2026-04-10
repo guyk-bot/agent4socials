@@ -99,15 +99,13 @@ type SidebarProps = {
 export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {} }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { primaryColor, textColor } = useWhiteLabel();
+  const { textColor } = useWhiteLabel();
   const { cachedAccounts, setCachedAccounts, setAccountsLoadError } = useAccountsCache() ?? { cachedAccounts: [], setCachedAccounts: () => {}, setAccountsLoadError: () => {} };
   const ctx = useSelectedAccount();
   const selectedAccountId = ctx?.selectedAccountId ?? null;
   const selectedPlatformForConnect = ctx?.selectedPlatformForConnect ?? null;
   const setSelectedAccount = ctx?.setSelectedAccount ?? (() => {});
   const setSelectedPlatformForConnect = ctx?.setSelectedPlatformForConnect ?? (() => {});
-  const clearSelection = ctx?.clearSelection ?? (() => {});
-
   const initialFetchDone = useRef(false);
   useEffect(() => {
     if (initialFetchDone.current) return;
@@ -142,10 +140,8 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
     return acc;
   }, {});
 
-  const accent = primaryColor || '#525252';
   const text = textColor || '#171717';
   const isSummaryView = pathname === '/dashboard/summary';
-  const isDashboardOverview = pathname === '/dashboard/summary' && !selectedAccountId && !selectedPlatformForConnect;
   const isInboxPage = pathname === '/dashboard/inbox';
   const isPostsPage = pathname === '/posts';
   const isAutomationPage = pathname === '/dashboard/automation';
@@ -160,9 +156,8 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
         <Link
           href="/dashboard/summary"
           className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-            isSummaryView ? 'bg-[var(--primary)]/15 border border-[var(--primary)]/25 shadow-sm' : 'hover:bg-neutral-100 border border-transparent'
+            isSummaryView ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 border border-transparent'
           }`}
-          style={isSummaryView ? { color: accent } : undefined}
         >
           <BarChart3 size={18} className="shrink-0" />
           Analytics

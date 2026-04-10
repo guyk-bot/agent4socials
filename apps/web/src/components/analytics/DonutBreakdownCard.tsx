@@ -153,7 +153,7 @@ export function DonutBreakdownCard({
         </div>
         <div className="relative shrink-0 self-start sm:self-auto">
           <select
-            className="h-9 cursor-pointer appearance-none rounded-lg border border-black/[0.08] bg-white pl-3 pr-9 text-[13px] font-medium text-[#374151] shadow-sm outline-none transition hover:border-black/[0.12] focus-visible:ring-2 focus-visible:ring-[#5ff6fd]/40"
+            className="h-9 cursor-pointer appearance-none rounded-lg border border-black/[0.08] bg-white pl-3 pr-9 text-[13px] font-medium text-[#374151] shadow-sm outline-none transition hover:border-black/[0.12] focus-visible:ring-2 focus-visible:ring-neutral-400/50"
             value={selectedFilter}
             onChange={(e) => onFilterChange(e.target.value)}
             aria-label="Date range"

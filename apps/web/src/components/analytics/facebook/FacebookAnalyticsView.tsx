@@ -78,7 +78,8 @@ const COLOR = {
   text: '#111827',
   textSecondary: '#667085',
   textMuted: '#98a2b3',
-  cyan: '#42d9f5',
+  /** Former “cyan” analytics accent; kept as key `cyan` for metric map compatibility. */
+  cyan: '#6366f1',
   violet: '#7c6cff',
   magenta: '#d946ef',
   mint: '#31c48d',
@@ -193,7 +194,7 @@ function storyMetricSetsEqual(a: StoryMetricKey[], b: readonly StoryMetricKey[])
 }
 
 const YOUTUBE_GEO_PIE_COLORS = [
-  '#42d9f5',
+  '#6366f1',
   '#7c6cff',
   '#d946ef',
   '#31c48d',
@@ -1572,7 +1573,7 @@ export function ReelsPerformanceGrid({
           <p className="text-sm font-medium" style={{ color: COLOR.text }}>{clampText(post.content || 'Untitled reel', 90)}</p>
           <p className="mt-1 text-xs" style={{ color: COLOR.textMuted }}>{new Date(post.publishedAt).toLocaleDateString()}</p>
           <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-            <div className="rounded-lg p-2" style={{ background: 'rgba(95,246,253,0.09)', color: COLOR.cyan }}>Views<br /><span className="text-sm font-semibold">{formatNumber(views)}</span></div>
+            <div className="rounded-lg p-2" style={{ background: 'rgba(99,102,241,0.09)', color: COLOR.cyan }}>Views<br /><span className="text-sm font-semibold">{formatNumber(views)}</span></div>
             <div className="rounded-lg p-2" style={{ background: 'rgba(94,230,168,0.09)', color: COLOR.mint }}>Organic<br /><span className="text-sm font-semibold">{formatNumber(organicViews)}</span></div>
             <div className="rounded-lg p-2" style={{ background: 'rgba(223,68,220,0.09)', color: COLOR.magenta }}>Avg watch<br /><span className="text-sm font-semibold">{formatDurationMs(avgWatchMs)}</span></div>
           </div>

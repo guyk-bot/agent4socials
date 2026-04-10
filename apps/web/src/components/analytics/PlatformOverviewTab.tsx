@@ -159,11 +159,11 @@ export function PlatformOverviewTab({
   return (
     <div className="space-y-6 max-w-full" style={{ maxWidth: 1400 }}>
       {showWatermark && (
-        <div className="rounded-xl border border-[#5ff6fd]/30 bg-gradient-to-r from-[#5ff6fd]/10 to-[#b030ad]/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="rounded-xl border border-[#8b5cf6]/30 bg-gradient-to-r from-[#8b5cf6]/10 to-[#b030ad]/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
           <button
             type="button"
             onClick={onUpgrade}
-            className="shrink-0 w-full sm:w-auto inline-flex items-center justify-center px-5 py-2.5 rounded-lg bg-gradient-to-r from-[#5ff6fd] to-[#b030ad] text-neutral-900 font-semibold text-sm hover:opacity-90 transition-opacity"
+            className="shrink-0 w-full sm:w-auto inline-flex items-center justify-center px-5 py-2.5 rounded-lg bg-gradient-to-r from-[#8b5cf6] to-[#b030ad] text-neutral-900 font-semibold text-sm hover:opacity-90 transition-opacity"
           >
             Upgrade plan
           </button>
@@ -178,7 +178,7 @@ export function PlatformOverviewTab({
             type="followers"
             label={followersLabel}
             value={formatNull(followers) ?? '—'}
-            icon={<Users size={22} className="text-[#5ff6fd]" />}
+            icon={<Users size={22} className="text-[#8b5cf6]" />}
           />
         </AnalyticsGridItem>
         <AnalyticsGridItem span={3}>
@@ -186,7 +186,7 @@ export function PlatformOverviewTab({
             type="reach"
             label="Reach"
             value={formatNull(reach) ?? '—'}
-            icon={<Eye size={22} className="text-cyan-600" />}
+            icon={<Eye size={22} className="text-neutral-600" />}
           />
         </AnalyticsGridItem>
         <AnalyticsGridItem span={3}>
@@ -281,12 +281,12 @@ export function PlatformOverviewTab({
                         <stop offset="100%" stopColor="#b030ad" stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id={`${chartId}-commentsGrad`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#5ff6fd" stopOpacity={0.4} />
-                        <stop offset="100%" stopColor="#5ff6fd" stopOpacity={0} />
+                        <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.4} />
+                        <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id={`${chartId}-sharesGrad`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#5ff6fd" stopOpacity={0.25} />
-                        <stop offset="100%" stopColor="#5ff6fd" stopOpacity={0} />
+                        <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.25} />
+                        <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(107,114,128,0.08)" vertical={false} />
@@ -313,8 +313,8 @@ export function PlatformOverviewTab({
                     />
                     <Legend />
                     <Area type="monotone" dataKey="likes" name="Likes" stroke="#b030ad" strokeWidth={2} fill={`url(#${chartId}-likesGrad)`} dot={false} isAnimationActive animationDuration={400} />
-                    <Area type="monotone" dataKey="comments" name="Comments" stroke="#5ff6fd" strokeWidth={2} fill={`url(#${chartId}-commentsGrad)`} dot={false} isAnimationActive animationDuration={400} />
-                    <Area type="monotone" dataKey="shares" name="Shares" stroke="#5ff6fd" strokeWidth={2} fill={`url(#${chartId}-sharesGrad)`} dot={false} isAnimationActive animationDuration={400} />
+                    <Area type="monotone" dataKey="comments" name="Comments" stroke="#8b5cf6" strokeWidth={2} fill={`url(#${chartId}-commentsGrad)`} dot={false} isAnimationActive animationDuration={400} />
+                    <Area type="monotone" dataKey="shares" name="Shares" stroke="#8b5cf6" strokeWidth={2} fill={`url(#${chartId}-sharesGrad)`} dot={false} isAnimationActive animationDuration={400} />
                   </ComposedChart>
                 </ResponsiveContainer>
               ) : (

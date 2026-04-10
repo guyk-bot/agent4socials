@@ -61,12 +61,12 @@ export const PLATFORM_THEMES: Record<string, PlatformTheme> = {
     label: 'TikTok',
   },
   TWITTER: {
-    gradient: 'from-sky-400 to-sky-600',
-    solidBg: 'bg-sky-500',
-    textColor: 'text-sky-500',
-    borderColor: 'border-sky-300',
-    lightBg: 'bg-sky-50',
-    hex: '#1D9BF0',
+    gradient: 'from-neutral-600 to-neutral-800',
+    solidBg: 'bg-neutral-700',
+    textColor: 'text-neutral-700',
+    borderColor: 'border-neutral-400',
+    lightBg: 'bg-neutral-100',
+    hex: '#525252',
     label: 'X (Twitter)',
   },
   LINKEDIN: {

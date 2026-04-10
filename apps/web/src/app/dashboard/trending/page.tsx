@@ -74,7 +74,7 @@ function VideoCard({ it }: { it: OutlierItem }) {
           >
             {it.outlierLabel}
           </span>
-          <span className="text-sky-800 font-medium tabular-nums">~{it.vph.toLocaleString()} VPH</span>
+          <span className="text-neutral-700 font-medium tabular-nums">~{it.vph.toLocaleString()} VPH</span>
         </div>
         <div className="flex items-center justify-between text-[11px] text-neutral-500">
           <span>{formatDate(it.publishedAt)}</span>

@@ -9,7 +9,7 @@ const PLATFORM_ICON: Record<string, React.ReactNode> = {
   FACEBOOK: <FacebookIcon size={20} />,
   TIKTOK: <TikTokIcon size={20} />,
   YOUTUBE: <YoutubeIcon size={20} />,
-  TWITTER: <XTwitterIcon size={20} className="text-sky-500" />,
+  TWITTER: <XTwitterIcon size={20} className="text-neutral-700" />,
   LINKEDIN: <LinkedinIcon size={20} />,
   PINTEREST: <PinterestIcon size={20} />,
 };
@@ -29,7 +29,7 @@ const PLATFORM_BG: Record<string, string> = {
   FACEBOOK: 'bg-blue-50',
   TIKTOK: 'bg-neutral-100',
   YOUTUBE: 'bg-red-50',
-  TWITTER: 'bg-sky-50',
+  TWITTER: 'bg-neutral-100',
   LINKEDIN: 'bg-blue-50',
   PINTEREST: 'bg-rose-50',
 };
@@ -55,7 +55,7 @@ export function PlatformBreakdownCards({ platforms }: { platforms: SummaryPlatfo
       <h2 className="text-lg font-semibold text-slate-900 mb-4">Platform Breakdown</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {sorted.map((p, idx) => {
-          const color = PLATFORM_HEX[p.platform] ?? '#5ff6fd';
+          const color = PLATFORM_HEX[p.platform] ?? '#8b5cf6';
           const bg = PLATFORM_BG[p.platform] ?? 'bg-slate-100';
           return (
             <div

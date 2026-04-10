@@ -31,7 +31,7 @@ const CONNECT_PLATFORMS = [
   { id: 'INSTAGRAM', name: 'Instagram', slug: 'instagram', border: 'border-pink-200', bg: 'bg-pink-50/50' },
   { id: 'TIKTOK', name: 'TikTok', slug: 'tiktok', border: 'border-neutral-300', bg: 'bg-neutral-100/80' },
   { id: 'YOUTUBE', name: 'YouTube', slug: 'youtube', border: 'border-red-200', bg: 'bg-red-50/50' },
-  { id: 'TWITTER', name: 'Twitter/X', slug: 'twitter', border: 'border-sky-200', bg: 'bg-sky-50/50' },
+  { id: 'TWITTER', name: 'Twitter/X', slug: 'twitter', border: 'border-neutral-300', bg: 'bg-neutral-100/80' },
   { id: 'LINKEDIN', name: 'LinkedIn', slug: 'linkedin', border: 'border-blue-200', bg: 'bg-blue-50/50' },
   { id: 'PINTEREST', name: 'Pinterest', slug: 'pinterest', border: 'border-rose-200', bg: 'bg-rose-50/50' },
 ];
@@ -133,10 +133,7 @@ export function SummaryDashboard() {
         className="min-h-[60vh] flex flex-col items-center justify-center rounded-2xl bg-white border border-slate-200/80 p-8 sm:p-10 md:p-12 max-w-3xl mx-auto"
         style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.06)', animation: 'slide-up 0.4s ease-out both' }}
       >
-        <h2 className="text-2xl font-bold text-slate-900 mb-1">Connect your accounts</h2>
-        <p className="text-slate-500 text-center text-sm mb-8">
-          Choose a platform below to connect and see your Summary Dashboard.
-        </p>
+        <h2 className="text-2xl font-bold text-slate-900 mb-8">Connect your accounts</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full">
           {CONNECT_PLATFORMS.map(({ id, name, slug, border, bg }) => (
             <Link
@@ -160,7 +157,7 @@ export function SummaryDashboard() {
     <div className="space-y-8 pb-12">
       {/* Sync progress bar */}
       {syncing && (
-        <div className="rounded-2xl bg-gradient-to-r from-[#5ff6fd] to-[#b030ad] px-5 py-3 flex items-center gap-3 shadow-md">
+        <div className="rounded-2xl bg-gradient-to-r from-[#8b5cf6] to-[#b030ad] px-5 py-3 flex items-center gap-3 shadow-md">
           <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-white text-sm font-medium">Syncing data from all connected accounts…</p>

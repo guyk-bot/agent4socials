@@ -280,7 +280,7 @@ export function FacebookPostsTab({
                         <td className="px-4 py-3 text-sm text-[#111827] text-right tabular-nums">{(post.sharesCount ?? 0).toLocaleString()}</td>
                         <td className="px-4 py-3 text-right">
                           {post.permalinkUrl && (
-                            <a href={post.permalinkUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm text-[#5ff6fd] hover:underline">
+                            <a href={post.permalinkUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm text-[#8b5cf6] hover:underline">
                               Open <ExternalLink size={14} />
                             </a>
                           )}

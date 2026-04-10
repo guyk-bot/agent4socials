@@ -85,10 +85,10 @@ function DataSyncBanner({
     FACEBOOK: 'from-blue-500 to-blue-700',
     TIKTOK: 'from-neutral-900 to-neutral-800',
     YOUTUBE: 'from-red-500 to-red-700',
-    TWITTER: 'from-sky-400 to-sky-600',
+    TWITTER: 'from-neutral-600 to-neutral-800',
     LINKEDIN: 'from-blue-600 to-blue-800',
     PINTEREST: 'from-rose-600 to-red-700',
-    DEFAULT: 'from-[#5ff6fd] to-[#b030ad]',
+    DEFAULT: 'from-[#8b5cf6] to-[#b030ad]',
   };
   const grad = platformColors[platform ?? ''] ?? platformColors.DEFAULT;
   const icon = platform ? platformIcons[platform] : null;
@@ -1560,11 +1560,11 @@ export default function DashboardPage() {
             )}
             <div className={importedPostsLoading ? 'hidden' : undefined}>
             {postsShowWatermark && (
-              <div className="rounded-xl border border-[#5ff6fd]/30 bg-gradient-to-r from-[#5ff6fd]/10 to-[#b030ad]/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+              <div className="rounded-xl border border-[#8b5cf6]/30 bg-gradient-to-r from-[#8b5cf6]/10 to-[#b030ad]/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
                 <button
                   type="button"
                   onClick={openPricingPopup}
-                  className="shrink-0 w-full sm:w-auto inline-flex items-center justify-center px-5 py-2.5 rounded-lg bg-gradient-to-r from-[#5ff6fd] to-[#b030ad] text-neutral-900 font-semibold text-sm hover:opacity-90 transition-opacity"
+                  className="shrink-0 w-full sm:w-auto inline-flex items-center justify-center px-5 py-2.5 rounded-lg bg-gradient-to-r from-[#8b5cf6] to-[#b030ad] text-neutral-900 font-semibold text-sm hover:opacity-90 transition-opacity"
                 >
                   Upgrade plan
                 </button>
@@ -1581,7 +1581,7 @@ export default function DashboardPage() {
                     <div className="flex gap-1.5 flex-wrap justify-end max-w-[160px]">
                       {Array.from(new Set(importedPosts.map((p) => p.platform))).map((pl) => {
                         const count = importedPosts.filter((p) => p.platform === pl).reduce((s, p) => s + p.interactions, 0);
-                        const cls = pl === 'INSTAGRAM' ? 'bg-pink-100 text-pink-800' : pl === 'FACEBOOK' ? 'bg-blue-100 text-blue-800' : pl === 'YOUTUBE' ? 'bg-red-100 text-red-800' : pl === 'TIKTOK' ? 'bg-neutral-100 text-neutral-800' : pl === 'TWITTER' ? 'bg-sky-100 text-sky-800' : pl === 'LINKEDIN' ? 'bg-blue-100 text-blue-800' : pl === 'PINTEREST' ? 'bg-rose-100 text-rose-800' : 'bg-neutral-100 text-neutral-700';
+                        const cls = pl === 'INSTAGRAM' ? 'bg-pink-100 text-pink-800' : pl === 'FACEBOOK' ? 'bg-blue-100 text-blue-800' : pl === 'YOUTUBE' ? 'bg-red-100 text-red-800' : pl === 'TIKTOK' ? 'bg-neutral-100 text-neutral-800' : pl === 'TWITTER' ? 'bg-neutral-100 text-neutral-800' : pl === 'LINKEDIN' ? 'bg-blue-100 text-blue-800' : pl === 'PINTEREST' ? 'bg-rose-100 text-rose-800' : 'bg-neutral-100 text-neutral-700';
                         return <span key={pl} className={`px-2 py-0.5 rounded text-xs font-medium ${cls}`}>{count.toLocaleString()}</span>;
                       })}
                     </div>
@@ -1629,7 +1629,7 @@ export default function DashboardPage() {
                     <div className="flex gap-1.5 flex-wrap justify-end max-w-[160px]">
                       {Array.from(new Set(importedPosts.map((p) => p.platform))).map((pl) => {
                         const count = importedPosts.filter((p) => p.platform === pl).length;
-                        const cls = pl === 'INSTAGRAM' ? 'bg-pink-100 text-pink-800' : pl === 'FACEBOOK' ? 'bg-blue-100 text-blue-800' : pl === 'YOUTUBE' ? 'bg-red-100 text-red-800' : pl === 'TIKTOK' ? 'bg-neutral-100 text-neutral-800' : pl === 'TWITTER' ? 'bg-sky-100 text-sky-800' : pl === 'LINKEDIN' ? 'bg-blue-100 text-blue-800' : pl === 'PINTEREST' ? 'bg-rose-100 text-rose-800' : 'bg-neutral-100 text-neutral-700';
+                        const cls = pl === 'INSTAGRAM' ? 'bg-pink-100 text-pink-800' : pl === 'FACEBOOK' ? 'bg-blue-100 text-blue-800' : pl === 'YOUTUBE' ? 'bg-red-100 text-red-800' : pl === 'TIKTOK' ? 'bg-neutral-100 text-neutral-800' : pl === 'TWITTER' ? 'bg-neutral-100 text-neutral-800' : pl === 'LINKEDIN' ? 'bg-blue-100 text-blue-800' : pl === 'PINTEREST' ? 'bg-rose-100 text-rose-800' : 'bg-neutral-100 text-neutral-700';
                         return <span key={pl} className={`px-2 py-0.5 rounded text-xs font-medium ${cls}`}>{count}</span>;
                       })}
                     </div>
@@ -1731,7 +1731,7 @@ export default function DashboardPage() {
                       platform === 'FACEBOOK' ? (isActive ? 'bg-blue-100 border-blue-300 text-blue-800' : 'border-neutral-200 text-neutral-600 hover:bg-blue-50') :
                       platform === 'YOUTUBE' ? (isActive ? 'bg-red-100 border-red-300 text-red-800' : 'border-neutral-200 text-neutral-600 hover:bg-red-50') :
                       platform === 'TIKTOK' ? (isActive ? 'bg-neutral-900 border-neutral-900 text-white' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-100') :
-                      platform === 'TWITTER' ? (isActive ? 'bg-sky-100 border-sky-300 text-sky-800' : 'border-neutral-200 text-neutral-600 hover:bg-sky-50') :
+                      platform === 'TWITTER' ? (isActive ? 'bg-neutral-200 border-neutral-400 text-neutral-800' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-100') :
                       platform === 'LINKEDIN' ? (isActive ? 'bg-blue-100 border-blue-400 text-blue-900' : 'border-neutral-200 text-neutral-600 hover:bg-blue-50') :
                       platform === 'PINTEREST' ? (isActive ? 'bg-rose-100 border-rose-400 text-rose-900' : 'border-neutral-200 text-neutral-600 hover:bg-rose-50') :
                       (isActive ? 'bg-[var(--primary)]/15 border-[var(--primary)]/40 text-[var(--primary)]' : 'border-neutral-200 text-neutral-600 hover:bg-[var(--primary)]/5');

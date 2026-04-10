@@ -1,7 +1,7 @@
 import type { BreakdownItem } from '@/lib/analytics/breakdown-types';
 
 const DEFAULT_PALETTE = [
-  '#5ff6fd',
+  '#8b5cf6',
   '#6366f1',
   '#b030ad',
   '#f59e0b',
@@ -15,7 +15,7 @@ export function resolveSliceColor(index: number, colorToken?: string): string {
   if (colorToken?.startsWith('#')) return colorToken;
   if (colorToken) {
     const map: Record<string, string> = {
-      cyan: '#5ff6fd',
+      cyan: '#8b5cf6',
       indigo: '#6366f1',
       purple: '#b030ad',
       amber: '#f59e0b',
