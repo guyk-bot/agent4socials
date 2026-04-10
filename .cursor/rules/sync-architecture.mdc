@@ -31,7 +31,8 @@ Every sync is recorded with: `scope`, `syncType`, `status`, `idempotencyKey`, ti
 | `src/lib/sync/adapters/facebook.ts` | Facebook: fans, posts, post metrics |
 | `src/lib/sync/adapters/tiktok.ts` | TikTok: follower count, video list + metrics |
 | `src/lib/sync/adapters/youtube.ts` | YouTube: subscriber count, video list |
-| `src/lib/sync/adapters/generic.ts` | No-op for Twitter/LinkedIn/Pinterest |
+| `src/lib/sync/adapters/generic.ts` | No-op for Twitter/Pinterest |
+| `src/lib/sync/adapters/linkedin.ts` | LinkedIn: `syncRecentContent` pulls UGC posts into `ImportedPost` (uses `lib/linkedin/sync-ugc-posts.ts`) |
 | `src/app/api/social/accounts/[id]/sync/route.ts` | `POST` — trigger sync |
 | `src/app/api/social/accounts/[id]/sync-status/route.ts` | `GET` — sync state for UI |
 | `src/app/api/cron/sync-platform-data/route.ts` | Master cron — runs all scopes for all accounts |

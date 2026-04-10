@@ -1823,7 +1823,7 @@ function InboxPage() {
               <MessageCircle size={64} className="mx-auto text-neutral-300 mb-4" />
               <h2 className="text-lg font-semibold text-neutral-800">Direct messages</h2>
               <p className="text-sm text-neutral-500 mt-2">
-                Direct messages are only available for Instagram and Facebook. Switch to the Comments tab for this platform, or connect Instagram or Facebook to view DMs.
+                Direct messages are only available for Instagram and Facebook. LinkedIn messaging is not available in this inbox (the app does not integrate LinkedIn&apos;s messaging APIs). Switch to the Comments tab to see LinkedIn comments, or connect Instagram or Facebook for DMs.
               </p>
             </div>
           </div>

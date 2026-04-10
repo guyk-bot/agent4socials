@@ -3,6 +3,7 @@ import { facebookAdapter } from './facebook';
 import { tiktokAdapter } from './tiktok';
 import { youtubeAdapter } from './youtube';
 import { genericAdapter } from './generic';
+import { linkedinAdapter } from './linkedin';
 
 type AccountRow = {
   id: string;
@@ -32,7 +33,7 @@ const ADAPTERS: Record<string, Adapter> = {
   TIKTOK:    tiktokAdapter,
   YOUTUBE:   youtubeAdapter,
   TWITTER:   genericAdapter,
-  LINKEDIN:  genericAdapter,
+  LINKEDIN:  linkedinAdapter,
   PINTEREST: genericAdapter,
 };
 

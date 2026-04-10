@@ -15,6 +15,7 @@ import { syncFacebookAuxiliaryIngest } from '@/lib/facebook/sync-extras';
 import { fbRestBaseUrl } from '@/lib/facebook/constants';
 import { getValidPinterestToken } from '@/lib/pinterest-token';
 import { parseTikTokVideoEngagement, parseTikTokVideoDurationSec } from '@/lib/tiktok/video-engagement';
+import { syncLinkedInUgcPosts } from '@/lib/linkedin/sync-ugc-posts';
 
 /** Fallback host for IG user/media when graph.facebook.com omits items (matches insights route). */
 const igGraphRestBaseUrl = 'https://graph.instagram.com/v18.0';
@@ -1430,80 +1431,12 @@ async function syncImportedPosts(
   }
 
   if (platform === 'LINKEDIN') {
-    try {
-      // Fetch personal LinkedIn posts using the UGC Posts API (requires w_member_social scope)
-      const personUrn = `urn:li:person:${platformUserId}`;
-      const postsRes = await axios.get<{
-        elements?: Array<{
-          id?: string;
-          specificContent?: {
-            'com.linkedin.ugc.ShareContent'?: {
-              shareCommentary?: { text?: string };
-              shareMediaCategory?: string;
-              media?: Array<{ thumbnails?: Array<{ url?: string }> }>;
-            };
-          };
-          firstPublishedAt?: number;
-          lifecycleState?: string;
-        }>;
-      }>('https://api.linkedin.com/v2/ugcPosts', {
-        params: {
-          q: 'authors',
-          authors: `List(${encodeURIComponent(personUrn)})`,
-          count: 50,
-        },
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'X-Restli-Protocol-Version': '2.0.0',
-        },
-      });
-      const items = postsRes.data?.elements ?? [];
-      for (const p of items) {
-        if (p.lifecycleState === 'DELETED') continue;
-        const postId = p.id;
-        if (!postId) continue;
-        const publishedAt = p.firstPublishedAt ? new Date(p.firstPublishedAt) : new Date();
-        const shareContent = p.specificContent?.['com.linkedin.ugc.ShareContent'];
-        const content = shareContent?.shareCommentary?.text ?? null;
-        const thumbnailUrl = shareContent?.media?.[0]?.thumbnails?.[0]?.url ?? null;
-        const permalinkUrl = `https://www.linkedin.com/feed/update/${encodeURIComponent(postId)}`;
-        await prisma.importedPost.upsert({
-          where: {
-            socialAccountId_platformPostId: { socialAccountId, platformPostId: postId },
-          },
-          update: {
-            content,
-            thumbnailUrl,
-            permalinkUrl,
-            publishedAt,
-            mediaType: shareContent?.shareMediaCategory ?? null,
-            impressions: 0,
-            interactions: 0,
-            syncedAt: new Date(),
-          },
-          create: {
-            socialAccountId,
-            platformPostId: postId,
-            platform: 'LINKEDIN',
-            content,
-            thumbnailUrl,
-            permalinkUrl,
-            publishedAt,
-            mediaType: shareContent?.shareMediaCategory ?? null,
-            impressions: 0,
-            interactions: 0,
-          },
-        });
-      }
-      return undefined;
-    } catch (e) {
-      const msg = (e as Error)?.message ?? '';
-      if (msg.includes('401') || msg.includes('403') || msg.includes('permission')) {
-        return 'Reconnect your LinkedIn account to sync posts.';
-      }
-      // LinkedIn sync failure is non-fatal
-      return undefined;
-    }
+    const { syncError } = await syncLinkedInUgcPosts({
+      socialAccountId,
+      platformUserId,
+      accessToken,
+    });
+    return syncError;
   }
 
   if (platform === 'TIKTOK') {

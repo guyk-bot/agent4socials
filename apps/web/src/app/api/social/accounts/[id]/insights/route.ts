@@ -20,6 +20,7 @@ import { buildFacebookFrontendAnalyticsBundle } from '@/lib/facebook/frontend-an
 import { buildPinterestFrontendAnalyticsBundle } from '@/lib/pinterest-analytics-bundle';
 import { syncFacebookAuxiliaryIngest, ensureFacebookTables } from '@/lib/facebook/sync-extras';
 import { facebookGraphBaseUrl, instagramGraphHostBaseUrl } from '@/lib/meta-graph-insights';
+import { linkedInAuthorUrnForUgc } from '@/lib/linkedin/sync-ugc-posts';
 
 /** Instagram aggregates many Meta calls; avoid Vercel cutting the handler off at the default limit. */
 export const maxDuration = 60;
@@ -1641,16 +1642,18 @@ export async function GET(
     }
 
     if (account.platform === 'LINKEDIN') {
-      const personUrn = `urn:li:person:${account.platformUserId}`;
+      const isOrgPage = account.platformUserId.trim().startsWith('urn:li:organization:');
+      const memberOrAuthorUrn = linkedInAuthorUrnForUgc(account.platformUserId);
       const liHeaders = {
         Authorization: `Bearer ${account.accessToken}`,
         'X-Restli-Protocol-Version': '2.0.0',
       };
 
       const fetchNetworkSize = async (edgeType: string): Promise<number | undefined> => {
+        if (isOrgPage) return undefined;
         try {
           const r = await axios.get<{ firstDegreeSize?: number }>(
-            `https://api.linkedin.com/v2/networkSizes/${encodeURIComponent(personUrn)}`,
+            `https://api.linkedin.com/v2/networkSizes/${encodeURIComponent(memberOrAuthorUrn)}`,
             { params: { edgeType }, headers: liHeaders, timeout: 8_000, validateStatus: () => true }
           );
           if (r.status >= 400) return undefined;
