@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/context/AuthContext';
+import { ConnectedAccountsPanel } from '@/components/account/ConnectedAccountsPanel';
 import {
   Zap,
   Trash2,
@@ -227,7 +228,7 @@ export default function AccountPage() {
   );
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="max-w-3xl space-y-6">
       {/* Page title */}
       <div>
         <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">Account</h1>
@@ -260,6 +261,8 @@ export default function AccountPage() {
           </div>
         </div>
       </div>
+
+      <ConnectedAccountsPanel />
 
       {/* Log out */}
       <div className="card rounded-2xl border border-neutral-200 shadow-sm">

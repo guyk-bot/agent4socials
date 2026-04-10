@@ -127,7 +127,7 @@ export default function AIAssistantPage() {
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Sparkles size={28} className="text-[var(--primary)]" />
+            <Sparkles size={28} className="text-[var(--button)]" />
             AI Writing Assistant
           </h1>
           <p className="text-sm text-gray-500 mt-1">
@@ -268,7 +268,7 @@ export default function AIAssistantPage() {
       {/* Inbox reply examples */}
       <div className="card p-6 mt-6">
         <div className="flex items-start gap-3 mb-4">
-          <MessageCircle size={22} className="text-[var(--primary)] shrink-0 mt-0.5" />
+          <MessageCircle size={22} className="text-[var(--button)] shrink-0 mt-0.5" />
           <div>
             <h2 className="font-semibold text-gray-900">Inbox reply examples</h2>
             <p className="text-sm text-gray-500 mt-0.5">
@@ -314,7 +314,7 @@ export default function AIAssistantPage() {
       {/* Comment reply examples */}
       <div className="card p-6 mt-6">
         <div className="flex items-start gap-3 mb-4">
-          <MessagesSquare size={22} className="text-[var(--primary)] shrink-0 mt-0.5" />
+          <MessagesSquare size={22} className="text-[var(--button)] shrink-0 mt-0.5" />
           <div>
             <h2 className="font-semibold text-gray-900">Comment reply examples</h2>
             <p className="text-sm text-gray-500 mt-0.5">

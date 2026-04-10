@@ -67,7 +67,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | `/posts` | `posts/page.tsx` |
 | `/dashboard` | `dashboard/page.tsx` |
 | `/dashboard/inbox` | `dashboard/inbox/page.tsx` |
-| `/dashboard/accounts` | `dashboard/accounts/page.tsx` |
+| `/dashboard/accounts` | Redirects to `/dashboard/account#connected-accounts`; UI in `components/account/ConnectedAccountsPanel.tsx` |
 | `/dashboard/settings` | `dashboard/settings/page.tsx` |
 | `/dashboard/automation` | `dashboard/automation/page.tsx` |
 | `/dashboard/smart-links` | `dashboard/smart-links/page.tsx` |
