@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   Bar,
@@ -1089,6 +1089,7 @@ export function InsightChartCard({
   children,
   hideHeader = false,
   flat = false,
+  chartHeightPx = 300,
 }: {
   title: string;
   subtitle?: string;
@@ -1096,6 +1097,8 @@ export function InsightChartCard({
   children: React.ReactNode;
   hideHeader?: boolean;
   flat?: boolean;
+  /** Chart plot area height in pixels (default matches historical 300px charts). */
+  chartHeightPx?: number;
 }) {
   return (
     <div
@@ -1124,7 +1127,7 @@ export function InsightChartCard({
           ) : null}
         </div>
       ) : null}
-      <div className={`${hideHeader ? '' : 'mt-3 '}h-[300px] pb-5 relative`}>
+      <div className={`${hideHeader ? '' : 'mt-3 '}pb-5 relative`} style={{ height: chartHeightPx }}>
         <div className="pointer-events-none absolute inset-0 z-20" aria-hidden>
           <span className="absolute left-[16%] top-[20%] text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>Agent4Socials</span>
           <span className="absolute right-[16%] top-[20%] text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>Agent4Socials</span>
@@ -1656,6 +1659,8 @@ export function FacebookAnalyticsView({
   const [activeSection, setActiveSection] = useState<SectionId>(FACEBOOK_ANALYTICS_SECTION_IDS.overview);
   const [selectedPost, setSelectedPost] = useState<FacebookPost | null>(null);
   const [historyFilter, setHistoryFilter] = useState<ContentHistoryFilter>('all');
+  const geoPieWrapRef = useRef<HTMLDivElement>(null);
+  const [geoPieHover, setGeoPieHover] = useState<{ x: number; y: number; name: string; value: number } | null>(null);
   const sections = useMemo(() => {
     const plat = insights?.platform?.toUpperCase() ?? '';
     const all = [
@@ -1671,6 +1676,10 @@ export function FacebookAnalyticsView({
     }
     return all;
   }, [insights?.platform]);
+
+  useEffect(() => {
+    setGeoPieHover(null);
+  }, [insights?.demographics?.byCountry, dateRange.start, dateRange.end]);
 
   useEffect(() => {
     const ids = sections.map((s) => s.id);
@@ -2414,6 +2423,14 @@ export function FacebookAnalyticsView({
       };
     });
   }, [isYouTube, reelsChartData, youtubeEstimatedWatchMinutes, youtubeAvgViewDurationSec]);
+
+  const reelPerformanceChartHeightPx = useMemo(() => {
+    const n = reelsChartDataForDisplay.length;
+    if (n <= 8) return 300;
+    return Math.min(560, 300 + (n - 8) * 30);
+  }, [reelsChartDataForDisplay.length]);
+
+  const reelChartAxisDense = reelsChartDataForDisplay.length > 8;
 
   const storyTicks = useMemo(
     () =>
@@ -3566,8 +3583,8 @@ export function FacebookAnalyticsView({
                 </h4>
                 {youtubeGeoBreakdown.pieSlices.length > 0 ? (
                   <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-                    <div className="w-full lg:w-[min(100%,420px)] h-[280px] shrink-0">
-                      <ResponsiveContainer width="100%" height="100%">
+                    <div ref={geoPieWrapRef} className="relative z-10 w-full lg:w-[min(100%,420px)] h-[280px] shrink-0 overflow-visible">
+                      <ResponsiveContainer width="100%" height="100%" className="[&_.recharts-wrapper]:overflow-visible">
                         <PieChart>
                           <Pie
                             data={youtubeGeoBreakdown.pieSlices}
@@ -3579,22 +3596,58 @@ export function FacebookAnalyticsView({
                             outerRadius={100}
                             paddingAngle={2}
                             label={false}
+                            onMouseMove={(data: unknown, index: number, e: React.MouseEvent) => {
+                              const rect = geoPieWrapRef.current?.getBoundingClientRect();
+                              if (!rect) return;
+                              let name: string | undefined;
+                              let value: number | undefined;
+                              if (data && typeof data === 'object' && data !== null && 'name' in data && 'value' in data) {
+                                const d = data as { name: string; value: number };
+                                name = String(d.name);
+                                value = Number(d.value);
+                              } else if (Number.isFinite(index) && youtubeGeoBreakdown.pieSlices[index]) {
+                                const s = youtubeGeoBreakdown.pieSlices[index];
+                                name = s.name;
+                                value = s.value;
+                              }
+                              if (name === undefined || value === undefined || !Number.isFinite(value)) return;
+                              setGeoPieHover({
+                                x: e.clientX - rect.left,
+                                y: e.clientY - rect.top,
+                                name,
+                                value,
+                              });
+                            }}
+                            onMouseLeave={() => setGeoPieHover(null)}
                           >
                             {youtubeGeoBreakdown.pieSlices.map((_, i) => (
                               <Cell key={i} fill={YOUTUBE_GEO_PIE_COLORS[i % YOUTUBE_GEO_PIE_COLORS.length]} stroke="rgba(255,255,255,0.85)" strokeWidth={1} />
                             ))}
                           </Pie>
-                          <Tooltip
-                            contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
-                            formatter={(value: number | string | undefined) => {
-                              const val = Number(value) || 0;
-                              const t = youtubeGeoBreakdown.list.reduce((s, r) => s + r.value, 0);
-                              const pct = t > 0 ? ((val / t) * 100).toFixed(1) : '0';
-                              return [`${formatNumber(val)} (${pct}% of chart views)`, 'Views'];
-                            }}
-                          />
                         </PieChart>
                       </ResponsiveContainer>
+                      {geoPieHover ? (() => {
+                        const totalPie = youtubeGeoBreakdown.list.reduce((s, r) => s + r.value, 0);
+                        const pct = totalPie > 0 ? ((geoPieHover.value / totalPie) * 100).toFixed(1) : '0';
+                        const text = `${geoPieHover.name}:${formatNumber(geoPieHover.value)}(${pct}%)`;
+                        const box = geoPieWrapRef.current;
+                        const bw = box?.clientWidth ?? 320;
+                        const bh = box?.clientHeight ?? 280;
+                        const pad = 8;
+                        const tipW = 220;
+                        let left = geoPieHover.x + 12;
+                        let top = geoPieHover.y + 12;
+                        if (left + tipW > bw - pad) left = Math.max(pad, bw - tipW - pad);
+                        if (top + 44 > bh - pad) top = Math.max(pad, geoPieHover.y - 44);
+                        return (
+                          <div
+                            className="pointer-events-none absolute z-50 rounded-xl border bg-white px-2.5 py-1.5 text-xs font-medium shadow-xl"
+                            style={{ left, top, borderColor: COLOR.border, color: COLOR.text, maxWidth: tipW }}
+                          >
+                            {text}
+                          </div>
+                        );
+                      })() : null}
                     </div>
                     <ul className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm min-w-0" style={{ color: COLOR.text }}>
                       {youtubeGeoBreakdown.list.slice(0, 12).map((row, i) => (
@@ -3625,18 +3678,28 @@ export function FacebookAnalyticsView({
                   <p className="text-xs mb-3" style={{ color: COLOR.textSecondary }}>
                     Where views came from (YouTube insightTrafficSourceType).
                   </p>
-                  <ul className="space-y-2 text-sm max-h-[220px] overflow-y-auto" style={{ color: COLOR.text }}>
-                    {youtubeTrafficSourcesSorted.slice(0, 20).map((row) => (
-                      <li key={row.source} className="flex items-center justify-between gap-2 border-b border-neutral-100 pb-2 last:border-0">
-                        <span className="min-w-0 truncate font-medium" style={{ color: COLOR.text }}>
-                          {formatYoutubeTrafficSource(row.source)}
-                        </span>
-                        <span className="tabular-nums shrink-0" style={{ color: COLOR.textSecondary }}>
-                          {formatNumber(row.value)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="overflow-x-auto rounded-lg border border-neutral-100" style={{ borderColor: COLOR.border }}>
+                    <table className="w-full min-w-[280px] text-sm border-collapse" style={{ color: COLOR.text }}>
+                      <thead>
+                        <tr className="border-b" style={{ borderColor: COLOR.border, background: 'rgba(248,250,252,0.9)' }}>
+                          <th className="text-left font-semibold py-2.5 px-3" scope="col">Source</th>
+                          <th className="text-right font-semibold py-2.5 px-3 tabular-nums" scope="col">Views</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {youtubeTrafficSourcesSorted.slice(0, 20).map((row) => (
+                          <tr key={row.source} className="border-b border-neutral-100 last:border-0">
+                            <td className="py-2.5 px-3 font-medium min-w-0 max-w-[60%]">
+                              <span className="line-clamp-2">{formatYoutubeTrafficSource(row.source)}</span>
+                            </td>
+                            <td className="py-2.5 px-3 text-right tabular-nums whitespace-nowrap" style={{ color: COLOR.textSecondary }}>
+                              {formatNumber(row.value)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               ) : null}
             </>
@@ -3908,6 +3971,7 @@ export function FacebookAnalyticsView({
 
         <InsightChartCard
           title="Reel Performance"
+          chartHeightPx={reelPerformanceChartHeightPx}
           legend={selectedReelMetrics.map((m) => ({ label: REEL_METRIC_CONFIG[m].label, color: REEL_METRIC_CONFIG[m].color }))}
         >
           {reelsChartDataForDisplay.length > 0 ? (
@@ -3916,10 +3980,21 @@ export function FacebookAnalyticsView({
                 data={reelsChartDataForDisplay}
                 barCategoryGap={UNIFIED_BAR_CATEGORY_GAP}
                 barGap={UNIFIED_BAR_GAP}
-                margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+                margin={{ top: 4, right: 8, left: 0, bottom: reelChartAxisDense ? 36 : 4 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(17,24,39,0.08)" vertical={false} />
-                <XAxis dataKey="date" tickFormatter={formatShortDate} interval={0} tick={{ fill: COLOR.textMuted, fontSize: 11 }} minTickGap={0} axisLine={false} tickLine={false} />
+                <XAxis
+                  dataKey="date"
+                  tickFormatter={formatShortDate}
+                  interval={0}
+                  angle={reelChartAxisDense ? -32 : 0}
+                  textAnchor={reelChartAxisDense ? 'end' : 'middle'}
+                  height={reelChartAxisDense ? 64 : undefined}
+                  tick={{ fill: COLOR.textMuted, fontSize: 11 }}
+                  minTickGap={reelChartAxisDense ? 4 : 0}
+                  axisLine={false}
+                  tickLine={false}
+                />
                 <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                 <Tooltip
                   cursor={{ fill: 'rgba(107,114,128,0.20)' }}
