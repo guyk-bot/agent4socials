@@ -306,7 +306,7 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
 
 export default function Home() {
   const { openLogin, openSignup } = useAuthModal();
-  const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('yearly');
+  const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('monthly');
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

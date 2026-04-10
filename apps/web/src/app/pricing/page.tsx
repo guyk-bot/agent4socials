@@ -45,11 +45,11 @@ const PRO_HIGHLIGHTS = [
 
 export default function PricingPage() {
   const { openSignup } = useAuthModal();
-  const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('yearly');
+  const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('monthly');
 
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get('billing') === 'monthly') {
-      setBillingInterval('monthly');
+    if (new URLSearchParams(window.location.search).get('billing') === 'yearly') {
+      setBillingInterval('yearly');
     }
   }, []);
 

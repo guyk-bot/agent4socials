@@ -314,7 +314,7 @@ export default function DashboardPage() {
     [user?.id]
   );
   const [pricingModalOpen, setPricingModalOpen] = useState(false);
-  const [pricingInterval, setPricingInterval] = useState<'monthly' | 'yearly'>('yearly');
+  const [pricingInterval, setPricingInterval] = useState<'monthly' | 'yearly'>('monthly');
   const [postsPage, setPostsPage] = useState(1);
   const [postsSearch, setPostsSearch] = useState('');
   const [postsPerPage, setPostsPerPage] = useState(5);
