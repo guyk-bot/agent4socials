@@ -223,8 +223,8 @@ export default function AccountPage() {
         <div className="p-4 sm:p-6 space-y-5">
           <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">Account</h1>
 
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-stretch lg:justify-between">
-            <div className="flex items-start gap-4 min-w-0 flex-1">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-stretch lg:gap-8">
+            <div className="flex items-start gap-4 min-w-0 lg:flex-1 lg:max-w-[min(100%,28rem)]">
               <div className="flex items-stretch w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-neutral-100 text-neutral-700">
                 <span className="flex flex-1 min-h-0 min-w-0 items-center justify-center text-xl font-bold leading-none">
                   {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
@@ -250,22 +250,28 @@ export default function AccountPage() {
               </div>
             </div>
 
-            <div className="shrink-0 w-full lg:w-[min(100%,280px)] rounded-2xl border border-neutral-200/90 bg-gradient-to-br from-neutral-50 via-white to-violet-50/40 p-4 shadow-sm ring-1 ring-black/[0.03]">
-              <div className="flex items-center gap-2 text-violet-700 mb-1">
-                <Sparkles className="w-4 h-4 shrink-0" aria-hidden />
-                <span className="text-[11px] font-semibold uppercase tracking-wide">Your plan</span>
+            <div className="w-full min-w-0 lg:flex-1 flex">
+              <div className="flex-1 flex flex-col justify-center rounded-2xl border border-neutral-200/90 bg-gradient-to-br from-neutral-50 via-white to-violet-50/40 px-4 py-4 sm:px-6 sm:py-4 shadow-sm ring-1 ring-black/[0.03]">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex items-center gap-2 text-violet-700">
+                      <Sparkles className="w-4 h-4 shrink-0" aria-hidden />
+                      <span className="text-[11px] font-semibold uppercase tracking-wide">Your plan</span>
+                    </div>
+                    <p className="text-lg font-bold text-neutral-900 tracking-tight">Free</p>
+                    <p className="text-sm text-neutral-600 leading-snug max-w-xl">
+                      More networks, scheduling, and analytics when you upgrade.
+                    </p>
+                  </div>
+                  <Link
+                    href="/pricing"
+                    className="shrink-0 inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-violet-600 to-purple-600 shadow-md hover:from-violet-500 hover:to-purple-500 hover:shadow-lg active:scale-[0.98] transition-all sm:self-center"
+                  >
+                    Upgrade now
+                    <ArrowRight className="w-4 h-4" aria-hidden />
+                  </Link>
+                </div>
               </div>
-              <p className="text-lg font-bold text-neutral-900 tracking-tight">Free</p>
-              <p className="text-xs text-neutral-600 mt-1 leading-relaxed">
-                More networks, scheduling, and analytics when you upgrade.
-              </p>
-              <Link
-                href="/pricing"
-                className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-violet-600 to-purple-600 shadow-md hover:from-violet-500 hover:to-purple-500 hover:shadow-lg active:scale-[0.98] transition-all"
-              >
-                Upgrade now
-                <ArrowRight className="w-4 h-4" aria-hidden />
-              </Link>
             </div>
           </div>
         </div>
