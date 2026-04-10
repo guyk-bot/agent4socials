@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let body: { email?: string; password?: string; full_name?: string; marketing_consent?: boolean };
+  let body: { email?: string; password?: string; full_name?: string; marketing_consent?: boolean; terms_accepted?: boolean };
   try {
     body = await request.json();
   } catch {
@@ -39,6 +39,11 @@ export async function POST(request: NextRequest) {
   const password = typeof body.password === 'string' ? body.password : '';
   const full_name = typeof body.full_name === 'string' ? body.full_name.trim() : '';
   const marketing_consent = Boolean(body.marketing_consent);
+  const terms_accepted = Boolean(body.terms_accepted);
+
+  if (!terms_accepted) {
+    return NextResponse.json({ error: 'You must agree to the Terms of Service.' }, { status: 400 });
+  }
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return NextResponse.json({ error: 'Valid email is required' }, { status: 400 });
@@ -70,9 +75,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Could not create user' }, { status: 500 });
   }
 
-  const { error: insertError } = await admin
-    .from('verification_codes')
-    .insert({ user_id: userId, email, code: otp, expires_at });
+  const sentAt = new Date().toISOString();
+  const { error: insertError } = await admin.from('verification_codes').insert({
+    user_id: userId,
+    email,
+    code: otp,
+    expires_at,
+    last_sent_at: sentAt,
+    resend_count: 0,
+    lockout_until: null,
+  });
 
   if (insertError) {
     console.error('[Signup] verification_codes insert error:', insertError);

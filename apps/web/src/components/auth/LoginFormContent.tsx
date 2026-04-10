@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useAuthModal } from '@/context/AuthModalContext';
-import { Lock, Mail, ArrowRight } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, Lock, Mail } from 'lucide-react';
 
 interface Props {
   profileFailedMessage?: string | null;
@@ -14,6 +14,7 @@ interface Props {
 export default function LoginFormContent({ profileFailedMessage, authError }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(authError ?? '');
   const [loading, setLoading] = useState(false);
   const [profileErrorDetail, setProfileErrorDetail] = useState<string | null>(null);
@@ -109,7 +110,24 @@ export default function LoginFormContent({ profileFailedMessage, authError }: Pr
           <label className="text-sm font-medium text-[#5d5768]">Password</label>
           <div className="mt-1 relative">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 text-[#5d5768] pointer-events-none"><Lock size={18} /></div>
-            <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="block w-full rounded-xl border border-[#efe7f7] bg-white py-2.5 pl-10 pr-3 text-[#1a161f] placeholder-[#8d8799] transition-colors focus:border-[#7b2cbf]/50 focus:outline-none focus:ring-2 focus:ring-[#7b2cbf]/25" placeholder="••••••••" />
+            <input
+              type={showPassword ? 'text' : 'password'}
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="block w-full rounded-xl border border-[#efe7f7] bg-white py-2.5 pl-10 pr-10 text-[#1a161f] placeholder-[#8d8799] transition-colors focus:border-[#7b2cbf]/50 focus:outline-none focus:ring-2 focus:ring-[#7b2cbf]/25"
+              placeholder="••••••••"
+              autoComplete="current-password"
+            />
+            <button
+              type="button"
+              tabIndex={-1}
+              onClick={() => setShowPassword((s) => !s)}
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-[#5d5768] hover:text-[#1a161f]"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
           </div>
         </div>
         <button type="submit" disabled={loading} className="w-full flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#7b2cbf] to-[#d7263d] px-4 py-3.5 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(123,44,191,0.28)] transition-all hover:brightness-105 disabled:opacity-50">
