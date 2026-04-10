@@ -30,7 +30,7 @@ const FAQ_ITEMS: { question: string; answer: string }[] = [
   },
   {
     question: 'What is the difference between Starter and Pro?',
-    answer: 'Starter is designed for creators and freelancers who need more connections, unlimited scheduling, and exports. Pro adds advanced analytics, bulk replies, custom domains, white-label reports, and client dashboard features.',
+    answer: 'Starter is designed for creators and freelancers who need more connections, unlimited scheduling, and exports. Pro adds advanced analytics, bulk replies, white label, team members, and client dashboard features.',
   },
   {
     question: 'Is X (Twitter) included on the Free plan?',

@@ -49,8 +49,8 @@ const PRO_HIGHLIGHTS = [
   'Bulk replies (messages and comments)',
   'Keyword triggers',
   '10 smart link pages',
-  'Custom domains',
-  'White-label reports',
+  'White label',
+  'Add team members',
   'Client dashboard',
   'Priority support',
 ];
@@ -419,7 +419,7 @@ export default function Home() {
                 { icon: BarChart3, label: 'Cross-platform Analytics', desc: 'Views, likes, comments, followers across all your accounts in one unified dashboard.' },
                 { icon: MessageCircle, label: 'Unified Inbox', desc: 'DMs and comments from Instagram, Facebook, and X in one feed. Zero app-switching.' },
                 { icon: MessageSquare, label: 'Comment Automation', desc: 'Auto-reply on keywords, send welcome DMs, configure per-platform response text.' },
-                { icon: Link2, label: 'Smart Links', desc: 'One powerful bio link page. Custom domains on higher plans.' },
+                { icon: Link2, label: 'Smart Links', desc: 'One powerful bio link page with click analytics on every plan.' },
                 { icon: Sparkles, label: 'AI Assistant', desc: 'Set your brand voice, get AI-suggested captions right inside the Composer.' },
               ].map(({ icon: Icon, label, desc }) => (
                 <div key={label} className="group relative flex flex-col gap-4 rounded-[20px] border border-[#efe7f7] bg-white p-6 transition-all duration-300 hover:border-[#d9c8ec] hover:shadow-md hover:scale-[1.01]">
@@ -509,7 +509,7 @@ export default function Home() {
                 {[
                   'All plans include scheduling, basic analytics, unified inbox, and AI assistant.',
                   'Keyword comment automation and higher limits on Starter and Pro.',
-                  'Pro adds white-label, custom domains, smart links, and priority support.',
+                  'Pro adds white label, team members, smart links, and priority support.',
                 ].map((item, i) => (
                   <li key={i} className="flex items-start gap-3 text-sm text-[#5d5768]">
                     <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#2f9e44]" />
@@ -563,7 +563,7 @@ export default function Home() {
                 { q: 'How do I delete my data?', a: 'You can delete your account and data from Account or Settings in the app, or send a data deletion request to support@agent4socials.com. We process requests within 30 days.' },
                 { q: 'Can I cancel anytime?', a: 'Yes. You can cancel your subscription at any time. You\'ll keep access until the end of your billing period.' },
                 { q: 'How do I get started?', a: 'Try the Free plan (no credit card required), or sign up for Starter or Pro to unlock more features. Connect your accounts and start scheduling from one dashboard.' },
-                { q: 'Which plan is right for me?', a: 'Free is for trying the platform: 1 brand, 50 posts/month, 30 days analytics. Starter ($15/mo) is for creators: unlimited scheduling, inbox, X and LinkedIn, 6 months analytics, unlimited AI. Pro ($24/mo) is for professionals: advanced analytics, bulk replies, keyword triggers, smart links, white-label, and priority support. Yearly billing saves 20%.' },
+                { q: 'Which plan is right for me?', a: 'Free is for trying the platform: 1 brand, 50 posts/month, 30 days analytics. Starter ($15/mo) is for creators: unlimited scheduling, inbox, X and LinkedIn, 6 months analytics, unlimited AI. Pro ($24/mo) is for professionals: advanced analytics, bulk replies, keyword triggers, smart links, white label, team members, and priority support. Yearly billing saves 20%.' },
               ].map((item, i) => (
                 <FaqItem key={i} question={item.q} answer={item.a} />
               ))}

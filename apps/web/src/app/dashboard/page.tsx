@@ -252,8 +252,8 @@ const PRO_HIGHLIGHTS = [
   'Bulk replies (messages and comments)',
   'Keyword triggers',
   '10 smart link pages',
-  'Custom domains',
-  'White-label reports',
+  'White label',
+  'Add team members',
   'Client dashboard',
   'Priority support',
 ];

@@ -48,7 +48,7 @@ const SECTIONS: TableSection[] = [
       { feature: 'Analytics history', free: '30 days', starter: '6 months', pro: 'Unlimited' },
       { feature: 'Unlimited analytic history', free: 'dash', starter: 'dash', pro: 'check' },
       { feature: 'Export analytics reports (no watermark)', free: 'dash', starter: 'check', pro: 'check' },
-      { feature: 'White-label reports', free: 'dash', starter: 'dash', pro: 'check' },
+      { feature: 'White label', free: 'dash', starter: 'dash', pro: 'check' },
     ],
   },
   {
@@ -56,7 +56,6 @@ const SECTIONS: TableSection[] = [
     rows: [
       { feature: 'Smart link pages', free: '1', starter: '3', pro: '10' },
       { feature: 'Link click analytics', free: 'check', starter: 'check', pro: 'check' },
-      { feature: 'Custom domains', free: 'dash', starter: 'dash', pro: 'check' },
     ],
   },
   {
@@ -75,7 +74,7 @@ const SECTIONS: TableSection[] = [
     title: 'Workspace',
     rows: [
       { feature: 'Access to history', free: 'dash', starter: 'check', pro: 'check' },
-      { feature: 'Team members', free: 'dash', starter: 'dash', pro: 'check' },
+      { feature: 'Add team members', free: 'dash', starter: 'dash', pro: 'check' },
     ],
   },
   {
