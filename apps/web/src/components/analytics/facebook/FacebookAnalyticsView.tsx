@@ -268,8 +268,8 @@ const REEL_PRESET_METRICS_TIKTOK: Record<ReelPresetKey, ReelMetricKey[]> = {
   watch: ['views'],
 };
 
-/** Facebook Reels: no Watch tab; Performance excludes shares (shares stay on Engagement). */
-const REEL_PRESET_METRICS_FACEBOOK: Record<'performance' | 'engagement', ReelMetricKey[]> = {
+/** Facebook & Instagram Reels: no Watch tab; Performance excludes shares (shares stay on Engagement). */
+const REEL_PRESET_METRICS_FB_IG: Record<'performance' | 'engagement', ReelMetricKey[]> = {
   performance: ['views', 'watchTime', 'avgWatch'],
   engagement: ['likes', 'comments', 'shares', 'reposts'],
 };
@@ -1767,16 +1767,22 @@ export function FacebookAnalyticsView({
   const isYouTube = insights?.platform?.toUpperCase() === 'YOUTUBE';
 
   useEffect(() => {
-    if (!isFacebook) return;
+    if (!isFacebook && !isInstagram) return;
     setReelPreset((p) => (p === 'watch' ? 'performance' : p));
     setSelectedReelMetrics((prev) => {
       const legacyPerf: ReelMetricKey[] = ['views', 'watchTime', 'avgWatch', 'shares'];
       if (prev.length === legacyPerf.length && legacyPerf.every((m) => prev.includes(m))) {
-        return [...REEL_PRESET_METRICS_FACEBOOK.performance];
+        return [...REEL_PRESET_METRICS_FB_IG.performance];
       }
       return prev;
     });
-  }, [isFacebook]);
+  }, [isFacebook, isInstagram]);
+
+  /** Instagram has no Page-level viral / non-viral impression series in Graph API. */
+  useEffect(() => {
+    if (!isInstagram) return;
+    setSelectedTrafficMetrics((prev) => prev.filter((m) => m !== 'nonviral' && m !== 'viral'));
+  }, [isInstagram]);
 
   const tiktokUser = insights?.tiktokUser;
   const tiktokCreatorInfo = insights?.tiktokCreatorInfo;
@@ -3734,7 +3740,9 @@ export function FacebookAnalyticsView({
             </>
           ) : (
             <>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div
+            className={`grid gap-3 sm:grid-cols-2 ${isInstagram ? 'xl:grid-cols-2' : 'xl:grid-cols-4'}`}
+          >
             <MetricCard
               label="Post Impressions"
               source="page_posts_impressions"
@@ -3743,22 +3751,26 @@ export function FacebookAnalyticsView({
               active={selectedTrafficMetrics.includes('postImpressions')}
               onClick={() => setSelectedTrafficMetrics((prev) => prev.includes('postImpressions') ? prev.filter((m) => m !== 'postImpressions') : [...prev, 'postImpressions'])}
             />
-            <MetricCard
-              label="Non-viral Impressions"
-              source="page_posts_impressions_nonviral"
-              color={COLOR.trafficNonviralCyan}
-              value={formatNumber(nonviralImpressions)}
-              active={selectedTrafficMetrics.includes('nonviral')}
-              onClick={() => setSelectedTrafficMetrics((prev) => prev.includes('nonviral') ? prev.filter((m) => m !== 'nonviral') : [...prev, 'nonviral'])}
-            />
-            <MetricCard
-              label="Viral Impressions"
-              source="page_posts_impressions_viral"
-              color={COLOR.magenta}
-              value={formatNumber(viralImpressions)}
-              active={selectedTrafficMetrics.includes('viral')}
-              onClick={() => setSelectedTrafficMetrics((prev) => prev.includes('viral') ? prev.filter((m) => m !== 'viral') : [...prev, 'viral'])}
-            />
+            {!isInstagram ? (
+              <>
+                <MetricCard
+                  label="Non-viral Impressions"
+                  source="page_posts_impressions_nonviral"
+                  color={COLOR.trafficNonviralCyan}
+                  value={formatNumber(nonviralImpressions)}
+                  active={selectedTrafficMetrics.includes('nonviral')}
+                  onClick={() => setSelectedTrafficMetrics((prev) => prev.includes('nonviral') ? prev.filter((m) => m !== 'nonviral') : [...prev, 'nonviral'])}
+                />
+                <MetricCard
+                  label="Viral Impressions"
+                  source="page_posts_impressions_viral"
+                  color={COLOR.magenta}
+                  value={formatNumber(viralImpressions)}
+                  active={selectedTrafficMetrics.includes('viral')}
+                  onClick={() => setSelectedTrafficMetrics((prev) => prev.includes('viral') ? prev.filter((m) => m !== 'viral') : [...prev, 'viral'])}
+                />
+              </>
+            ) : null}
             <MetricCard
               label="Unique Reach Proxy"
               source="Sum of post_impressions_unique"
@@ -3770,7 +3782,9 @@ export function FacebookAnalyticsView({
           </div>
           {isInstagram ? (
             <p className="text-xs leading-relaxed max-w-[920px]" style={{ color: COLOR.textSecondary }}>
-              Non-viral and viral breakdown are Facebook Page metrics, so they stay at 0 for Instagram. Post impressions use account-level data from Meta, or per-post views when that series is empty.
+              Meta does not report viral versus non-viral impressions for Instagram the way it does for Facebook Pages, so those breakdowns are not available in this dashboard. Use{' '}
+              <span className="font-medium" style={{ color: COLOR.text }}>Post impressions</span> and{' '}
+              <span className="font-medium" style={{ color: COLOR.text }}>Unique reach proxy</span> (from account and synced post insights).
             </p>
           ) : null}
           <div className="flex justify-end">
@@ -3913,7 +3927,7 @@ export function FacebookAnalyticsView({
           {([
             { id: 'performance' as const, label: 'Performance' },
             { id: 'engagement' as const, label: 'Engagement' },
-            ...(!isTikTok && !isFacebook ? [{ id: 'watch' as const, label: 'Watch' }] : []),
+            ...(!isTikTok && !isFacebook && !isInstagram ? [{ id: 'watch' as const, label: 'Watch' }] : []),
           ]).map((preset) => (
             <button
               key={preset.id}
@@ -3922,11 +3936,11 @@ export function FacebookAnalyticsView({
                 setReelPreset(preset.id);
                 if (isTikTok) {
                   setSelectedReelMetrics([...REEL_PRESET_METRICS_TIKTOK[preset.id]]);
-                } else if (isFacebook) {
+                } else if (isFacebook || isInstagram) {
                   setSelectedReelMetrics(
                     preset.id === 'performance'
-                      ? [...REEL_PRESET_METRICS_FACEBOOK.performance]
-                      : [...REEL_PRESET_METRICS_FACEBOOK.engagement]
+                      ? [...REEL_PRESET_METRICS_FB_IG.performance]
+                      : [...REEL_PRESET_METRICS_FB_IG.engagement]
                   );
                 } else {
                   setSelectedReelMetrics([...REEL_PRESET_METRICS[preset.id]]);
