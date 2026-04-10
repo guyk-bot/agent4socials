@@ -54,6 +54,15 @@ export async function GET(
       where: { socialAccountId: account.id },
       orderBy: { publishedAt: 'desc' },
       take: 50,
+      // Narrow select: production DB may lag schema (e.g. savesCount); avoid P2022 on full-row reads.
+      select: {
+        platformPostId: true,
+        content: true,
+        thumbnailUrl: true,
+        permalinkUrl: true,
+        interactions: true,
+        impressions: true,
+      },
     });
     const ytEngagement = ytPosts.map((p) => ({
       platformPostId: p.platformPostId,
@@ -84,6 +93,10 @@ export async function GET(
     where: { socialAccountId: account.id },
     orderBy: { publishedAt: 'desc' },
     take: 30,
+    select: {
+      platformPostId: true,
+      content: true,
+    },
   });
   const importedToFetch = imported.filter((p) => !targetPostIds.has(p.platformPostId));
 
