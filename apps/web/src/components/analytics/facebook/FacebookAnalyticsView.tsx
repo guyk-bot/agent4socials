@@ -80,6 +80,8 @@ const COLOR = {
   textMuted: '#98a2b3',
   /** Former “cyan” analytics accent; kept as key `cyan` for metric map compatibility. */
   cyan: '#6366f1',
+  /** True cyan for non-viral traffic (distinct from post impressions indigo above). */
+  trafficNonviralCyan: '#06b6d4',
   violet: '#7c6cff',
   magenta: '#d946ef',
   mint: '#31c48d',
@@ -114,7 +116,7 @@ const METRIC_MAP: MetricDef[] = [
   { key: 'page_daily_follows', label: 'New followers', section: 'overview', source: 'page_daily_follows', color: COLOR.mint },
   { key: 'page_total_actions', label: 'Total Actions', section: 'traffic', source: 'page_total_actions', color: COLOR.amber },
   { key: 'page_posts_impressions', label: 'Post Impressions', section: 'traffic', source: 'page_posts_impressions', color: COLOR.cyan },
-  { key: 'page_posts_impressions_nonviral', label: 'Non-viral Impressions', section: 'traffic', source: 'page_posts_impressions_nonviral', color: COLOR.violet },
+  { key: 'page_posts_impressions_nonviral', label: 'Non-viral Impressions', section: 'traffic', source: 'page_posts_impressions_nonviral', color: COLOR.trafficNonviralCyan },
   { key: 'page_posts_impressions_viral', label: 'Viral Impressions', section: 'traffic', source: 'page_posts_impressions_viral', color: COLOR.magenta },
   { key: 'post_media_view', label: 'Post Views', section: 'posts', source: 'post_media_view', color: COLOR.cyan },
   { key: 'post_impressions_unique', label: 'Unique Reach', section: 'posts', source: 'post_impressions_unique', color: COLOR.cyan },
@@ -232,7 +234,7 @@ const ENGAGEMENT_METRIC_CONFIG: Record<EngagementMetricKey, { label: string; col
 
 const TRAFFIC_METRIC_CONFIG: Record<TrafficMetricKey, { label: string; color: string }> = {
   postImpressions: { label: 'Post Impressions', color: COLOR.cyan },
-  nonviral: { label: 'Non-viral Impressions', color: COLOR.violet },
+  nonviral: { label: 'Non-viral Impressions', color: COLOR.trafficNonviralCyan },
   viral: { label: 'Viral Impressions', color: COLOR.magenta },
   uniqueReachProxy: { label: 'Unique Reach Proxy', color: COLOR.amber },
 };
@@ -1155,7 +1157,7 @@ export function StackedTrafficChart({ data }: { data: Array<{ date: string; nonv
           formatter={(v: number | string | undefined, n?: string) => [formatNumber(Number(v) || 0), n === 'nonviral' ? 'Non-viral' : 'Viral']}
           labelFormatter={(l) => formatShortDate(String(l))}
         />
-        <Bar dataKey="nonviral" stackId="a" fill={COLOR.violet} radius={[6, 6, 0, 0]} shape={<MinWidthBarShape />} />
+        <Bar dataKey="nonviral" stackId="a" fill={COLOR.trafficNonviralCyan} radius={[6, 6, 0, 0]} shape={<MinWidthBarShape />} />
         <Bar dataKey="viral" stackId="a" fill={COLOR.magenta} radius={[6, 6, 0, 0]} shape={<MinWidthBarShape />} />
       </BarChart>
     </ResponsiveContainer>
@@ -2266,12 +2268,17 @@ export function FacebookAnalyticsView({
     const postImpressionsMap = seriesToMap(series?.postImpressions ?? []);
     const nonviralMap = seriesToMap(series?.postImpressionsNonviral ?? []);
     const viralMap = seriesToMap(series?.postImpressionsViral ?? []);
+    /** Only backfill non-viral from per-post impressions when Meta sent no viral/nonviral breakdown at all (same rule as KPI cards). */
+    const mayBackfillNonviralFromPosts =
+      isFacebook &&
+      (bundle?.totals.postImpressionsNonviral ?? 0) === 0 &&
+      (bundle?.totals.postImpressionsViral ?? 0) === 0;
     return dateAxis.map((date) => {
       let nonviral = nonviralMap[date] ?? 0;
       const viral = viralMap[date] ?? 0;
       const postImpressionsFromApi = postImpressionsMap[date] ?? 0;
       const fromPosts = postImpressionsByPublishDate[date] ?? 0;
-      if (isFacebook && nonviral === 0 && viral === 0 && fromPosts > 0) {
+      if (mayBackfillNonviralFromPosts && nonviral === 0 && viral === 0 && fromPosts > 0) {
         nonviral = fromPosts;
       }
       const combined = postImpressionsFromApi > 0 ? postImpressionsFromApi : nonviral + viral;
@@ -2286,6 +2293,8 @@ export function FacebookAnalyticsView({
   }, [
     dateAxis,
     isFacebook,
+    bundle?.totals.postImpressionsNonviral,
+    bundle?.totals.postImpressionsViral,
     series?.postImpressions,
     series?.postImpressionsNonviral,
     series?.postImpressionsViral,
@@ -3718,7 +3727,7 @@ export function FacebookAnalyticsView({
             <MetricCard
               label="Non-viral Impressions"
               source="page_posts_impressions_nonviral"
-              color={COLOR.violet}
+              color={COLOR.trafficNonviralCyan}
               value={formatNumber(nonviralImpressions)}
               active={selectedTrafficMetrics.includes('nonviral')}
               onClick={() => setSelectedTrafficMetrics((prev) => prev.includes('nonviral') ? prev.filter((m) => m !== 'nonviral') : [...prev, 'nonviral'])}
@@ -3788,7 +3797,7 @@ export function FacebookAnalyticsView({
                     labelFormatter={(l) => formatShortDate(String(l))}
                   />
                   {selectedTrafficMetrics.includes('postImpressions') ? <Bar dataKey="postImpressions" fill={COLOR.cyan} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
-                  {selectedTrafficMetrics.includes('nonviral') ? <Bar dataKey="nonviral" fill={COLOR.violet} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                  {selectedTrafficMetrics.includes('nonviral') ? <Bar dataKey="nonviral" fill={COLOR.trafficNonviralCyan} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                   {selectedTrafficMetrics.includes('uniqueReachProxy') ? <Bar dataKey="uniqueReachProxy" fill={COLOR.amber} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                   {selectedTrafficMetrics.includes('viral') ? <Bar dataKey="viral" fill={COLOR.magenta} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                 </BarChart>
