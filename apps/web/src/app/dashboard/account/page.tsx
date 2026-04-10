@@ -6,11 +6,8 @@ import { createPortal } from 'react-dom';
 import { useAuth } from '@/context/AuthContext';
 import { ConnectedAccountsPanel } from '@/components/account/ConnectedAccountsPanel';
 import {
-  Zap,
   Trash2,
-  Calendar,
   Gift,
-  ArrowRight,
   X,
   AlertTriangle,
   Share2,
@@ -20,14 +17,9 @@ import {
   LogOut,
 } from 'lucide-react';
 
-const TRIAL_DAYS = 7;
 const CONFIRM_TEXT = 'CONFIRM';
 const SHARE_URL = 'https://agent4socials.com';
 const SHARE_TEXT = 'Check out Agent4Socials: schedule posts and analytics for Instagram, YouTube, TikTok, Facebook and more.';
-
-function formatDate(d: Date) {
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-}
 
 const sharePlatforms = [
   {
@@ -89,13 +81,6 @@ const sharePlatforms = [
 
 export default function AccountPage() {
   const { user, logout } = useAuth();
-
-  const trialStart = user?.createdAt ? new Date(user.createdAt) : null;
-  const trialEnd = trialStart
-    ? new Date(trialStart.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000)
-    : null;
-  const now = new Date();
-  const daysLeft = trialEnd ? Math.max(0, Math.ceil((trialEnd.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))) : 0;
 
   const [shareOpen, setShareOpen] = useState(false);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
@@ -227,47 +212,58 @@ export default function AccountPage() {
     document.body
   );
 
-  return (
-    <div className="max-w-3xl space-y-6">
-      {/* Page title */}
-      <div>
-        <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">Account</h1>
-        <p className="text-neutral-500 text-sm mt-1">Manage your trial, plan, and sharing.</p>
-        {userId && (
-          <div className="mt-3 flex items-center gap-2">
-            <span className="text-xs text-neutral-500">User ID (for support):</span>
-            <code className="text-xs bg-neutral-100 px-2 py-1 rounded font-mono text-neutral-700">{userId}</code>
-            <button
-              type="button"
-              onClick={copyUserId}
-              className="p-1.5 text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 rounded transition-colors"
-              title="Copy User ID"
-            >
-              {copiedId ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
-            </button>
-          </div>
-        )}
-      </div>
+  const userIdShort = userId.length >= 7 ? userId.slice(0, 7) : userId;
 
-      {/* Profile + connected accounts (legacy sidebar “Accounts” lives here; #connected-accounts for redirects) */}
+  return (
+    <div className="max-w-4xl space-y-6">
+      {/* Profile + plan + connected accounts (#connected-accounts for legacy redirects) */}
       <div className="card rounded-2xl overflow-hidden border border-neutral-200/80 shadow-sm">
-        <div className="flex items-center gap-4 p-4 sm:p-5">
-          <div className="w-16 h-16 rounded-xl flex items-center justify-center text-xl font-bold shrink-0 bg-neutral-100 text-neutral-700">
-            {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
-          </div>
-          <div className="min-w-0">
-            <p className="font-semibold text-neutral-900 truncate">{user?.name || 'User'}</p>
-            <p className="text-sm text-neutral-500 truncate">{user?.email}</p>
+        <div className="p-4 sm:p-6 space-y-5">
+          <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">Account</h1>
+
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-4 min-w-0">
+              <div className="flex items-stretch w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-neutral-100 text-neutral-700">
+                <span className="flex flex-1 min-h-0 min-w-0 items-center justify-center text-xl font-bold leading-none">
+                  {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
+                </span>
+              </div>
+              <div className="min-w-0">
+                <p className="font-semibold text-neutral-900 truncate">{user?.name || 'User'}</p>
+                <p className="text-sm text-neutral-500 truncate">{user?.email}</p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end lg:flex-col lg:items-end lg:gap-3 shrink-0">
+              {userId ? (
+                <div className="flex items-center gap-2 text-sm text-neutral-600">
+                  <span className="text-neutral-500">User ID:</span>
+                  <code className="font-mono text-neutral-800 bg-neutral-100 px-2 py-0.5 rounded">{userIdShort}</code>
+                  <button
+                    type="button"
+                    onClick={copyUserId}
+                    className="p-1.5 text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 rounded transition-colors"
+                    title="Copy full User ID"
+                  >
+                    {copiedId ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
+                  </button>
+                </div>
+              ) : null}
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-sm font-medium text-neutral-800">Free plan</span>
+                <Link
+                  href="/pricing"
+                  className="inline-flex items-center justify-center px-4 py-2 rounded-xl text-sm font-semibold text-white bg-neutral-900 hover:bg-neutral-800 transition-colors"
+                >
+                  Upgrade
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div id="connected-accounts" className="border-t border-neutral-200 px-4 sm:px-5 py-5 scroll-mt-28 space-y-3">
-          <div>
-            <h2 className="text-lg font-bold text-neutral-900 tracking-tight">Connected accounts</h2>
-            <p className="text-sm text-neutral-500 mt-0.5">
-              Manage linked social profiles. Disconnect here when you no longer want an account connected.
-            </p>
-          </div>
+        <div id="connected-accounts" className="border-t border-neutral-200 px-4 sm:px-6 py-5 scroll-mt-28 space-y-3">
+          <h2 className="text-lg font-bold text-neutral-900 tracking-tight">Connected accounts</h2>
           <ConnectedAccountsPanel />
         </div>
       </div>
@@ -291,49 +287,6 @@ export default function AccountPage() {
           >
             Log out
           </button>
-        </div>
-      </div>
-
-      {/* Trial card */}
-      {trialStart && trialEnd && (
-        <div className="card rounded-2xl border border-neutral-200 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl shrink-0 bg-neutral-100">
-              <Calendar className="w-5 h-5 text-neutral-600" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h2 className="font-semibold text-neutral-900">Your trial</h2>
-              <p className="text-sm text-neutral-500">
-                {formatDate(trialStart)} to {formatDate(trialEnd)}
-              </p>
-              {daysLeft > 0 && (
-                <p className="text-sm font-medium mt-1 text-neutral-700">
-                  {daysLeft} day{daysLeft !== 1 ? 's' : ''} left
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Upgrade to yearly */}
-      <div className="card rounded-2xl border border-neutral-200 bg-neutral-50/60 shadow-md hover:shadow-lg transition-shadow overflow-hidden">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="p-2.5 rounded-xl bg-white border border-neutral-200 shadow-sm shrink-0">
-              <Zap className="w-6 h-6 text-neutral-600" />
-            </div>
-            <div>
-              <h2 className="font-semibold text-neutral-900">Save with yearly</h2>
-              <p className="text-sm text-neutral-600">$19.99/year, save ~44%</p>
-            </div>
-          </div>
-          <Link
-            href="/pricing"
-            className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-neutral-700 shadow-md hover:bg-neutral-800 transition-colors"
-          >
-            Upgrade <ArrowRight className="w-4 h-4" />
-          </Link>
         </div>
       </div>
 
