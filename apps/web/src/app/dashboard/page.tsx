@@ -382,6 +382,24 @@ export default function DashboardPage() {
     : null;
   const showConnectView = selectedPlatformForConnect || connectFromUrl;
 
+  const accountIdsKey = accounts.map((a) => a.id).sort().join(',');
+
+  /** Open analytics for a concrete account by default so /dashboard is never an empty "select in sidebar" dead end. */
+  useEffect(() => {
+    if (!accountIdsKey || selectedAccount || selectedPlatformForConnect || connectFromUrl || accountIdFromUrl) return;
+    const first = accounts[0];
+    if (!first?.id) return;
+    setSelectedAccountId(first.id);
+  }, [
+    accountIdsKey,
+    selectedAccount?.id,
+    selectedPlatformForConnect,
+    connectFromUrl,
+    accountIdFromUrl,
+    setSelectedAccountId,
+    accounts,
+  ]);
+
   // When connect= is in URL (e.g. clicked + from Inbox): sync state and clean URL. Ensures we show Connect view on first paint via connectFromUrl.
   useEffect(() => {
     if (!connectParam) return;

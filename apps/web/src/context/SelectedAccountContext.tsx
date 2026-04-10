@@ -32,7 +32,10 @@ export function SelectedAccountProvider({ children }: { children: React.ReactNod
 
   /** Sidebar platform/account highlight only on main analytics surfaces; clear when visiting Inbox, Hashtag Pool, etc. */
   useLayoutEffect(() => {
-    const keepSidebarSelection = pathname === '/dashboard' || pathname === '/dashboard/summary';
+    const keepSidebarSelection =
+      pathname === '/dashboard' ||
+      pathname === '/dashboard/summary' ||
+      pathname.startsWith('/dashboard/analytics');
     if (!keepSidebarSelection) {
       setSelectedAccountIdState(null);
       setSelectedPlatformForConnectState(null);
