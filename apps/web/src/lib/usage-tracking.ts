@@ -25,11 +25,18 @@ export type UsageCategory =
   | 'oauth_connect';
 
 let _tableEnsured = false;
+/** Single-flight so concurrent trackUsage calls share one CREATE TABLE attempt. */
+let _ensureInflight: Promise<void> | null = null;
 
 async function ensureUsageTable(): Promise<void> {
   if (_tableEnsured) return;
-  try {
-    await prisma.$executeRawUnsafe(`
+  if (_ensureInflight) {
+    await _ensureInflight;
+    return;
+  }
+  _ensureInflight = (async () => {
+    try {
+      await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "usage_daily" (
         "id"        TEXT         NOT NULL DEFAULT gen_random_uuid()::text,
         "userId"    TEXT         NOT NULL,
@@ -41,15 +48,19 @@ async function ensureUsageTable(): Promise<void> {
         CONSTRAINT "usage_daily_pkey" PRIMARY KEY ("id"),
         CONSTRAINT "usage_daily_user_date_cat" UNIQUE ("userId", "date", "category")
       )
-    `);
-    await prisma.$executeRawUnsafe(
-      `CREATE INDEX IF NOT EXISTS "usage_daily_userId_date_idx" ON "usage_daily"("userId", "date")`
-    );
-    _tableEnsured = true;
-  } catch (e) {
-    console.warn('[usage-tracking] table creation skipped (may already exist):', (e as Error).message);
-    _tableEnsured = true;
-  }
+      `);
+      await prisma.$executeRawUnsafe(
+        `CREATE INDEX IF NOT EXISTS "usage_daily_userId_date_idx" ON "usage_daily"("userId", "date")`
+      );
+      _tableEnsured = true;
+    } catch (e) {
+      console.warn('[usage-tracking] table creation skipped (may already exist):', (e as Error).message);
+      _tableEnsured = true;
+    } finally {
+      _ensureInflight = null;
+    }
+  })();
+  await _ensureInflight;
 }
 
 /**

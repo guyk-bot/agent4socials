@@ -101,8 +101,8 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
   const budgetDeadline = Date.now() + cronBudgetMs;
   const budgetExpired = () => Date.now() > budgetDeadline;
 
-  const maxPostsPerRun = envInt('COMMENT_AUTOMATION_MAX_POSTS', 40);
-  const maxMetaCommentPages = envInt('COMMENT_AUTOMATION_MAX_META_COMMENT_PAGES', 25);
+  const maxPostsPerRun = envInt('COMMENT_AUTOMATION_MAX_POSTS', 15);
+  const maxMetaCommentPages = envInt('COMMENT_AUTOMATION_MAX_META_COMMENT_PAGES', 8);
   const maxRepliesPerTargetPerRun = envInt('COMMENT_AUTOMATION_MAX_REPLIES_PER_TARGET', 40);
   const maxTwitterSearchPages = envInt('COMMENT_AUTOMATION_MAX_TWITTER_PAGES', 8);
   const interPageDelayMs = envInt('COMMENT_AUTOMATION_INTER_PAGE_DELAY_MS', 120);

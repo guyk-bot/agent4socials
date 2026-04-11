@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { PostStatus } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import { sendScheduledPostLinksEmail, sendScheduledPublishFailureEmail } from '@/lib/resend';
+import { runPublishPostWorkflow } from '@/lib/publish-post-workflow';
 
 /** Enough for publish + email paths; comment-automation is no longer chained by default. */
 export const maxDuration = 60;
@@ -136,36 +137,39 @@ async function executeProcessScheduled() {
       continue;
     }
 
-    // auto (or legacy null): trigger publish — one at a time, sequentially
+    // auto (or legacy null): publish in-process (same lambda + one DB pool slot).
+    // Avoids N parallel HTTP /publish calls that exhaust Supabase pooler connections.
     try {
-      const controller = new AbortController();
-      const publishTimeout = setTimeout(() => controller.abort(), 15_000);
-      const res = await fetch(`${baseUrl()}/api/posts/${post.id}/publish`, {
-        method: 'POST',
-        headers: { 'X-Cron-Secret': process.env.CRON_SECRET ?? '' },
-        signal: controller.signal,
+      const wf = await runPublishPostWorkflow({
+        postId: post.id,
+        isCron: true,
+        userId: null,
+        linkToken: null,
+        requestBody: {},
+        isDebug: false,
       });
-      clearTimeout(publishTimeout);
-      const ok = res.ok;
-      const body = await res.json().catch(() => ({}));
+      const body = wf.body as { ok?: boolean; message?: string; results?: unknown };
+      const ok = wf.status === 200 && body.ok === true;
+      const publishErrMsg =
+        body.message ||
+        (Array.isArray(body.results)
+          ? (body.results as { error?: string }[])
+              .map((r) => r.error)
+              .filter(Boolean)
+              .join('; ')
+          : '') ||
+        `HTTP ${wf.status}`;
       if (!ok && post.user?.email && post.scheduledAt) {
-        await sendScheduledPublishFailureEmail(
-          post.user.email,
-          post.scheduledAt.toISOString(),
-          (body as { message?: string; error?: string }).message ||
-            (body as { error?: string }).error ||
-            res.statusText ||
-            'Publish failed',
-        );
+        await sendScheduledPublishFailureEmail(post.user.email, post.scheduledAt.toISOString(), publishErrMsg || 'Publish failed');
       }
       results.push({
         postId: post.id,
         action: 'publish',
         ok,
-        error: ok ? undefined : (body as { message?: string; error?: string }).message || (body as { error?: string }).error || res.statusText,
+        error: ok ? undefined : publishErrMsg || 'Publish failed',
       });
     } catch (err) {
-      const msg = (err as Error)?.name === 'AbortError' ? 'Publish timed out (15s)' : ((err as Error).message || 'Publish failed');
+      const msg = (err as Error).message || 'Publish failed';
       if (post.user?.email && post.scheduledAt) {
         await sendScheduledPublishFailureEmail(post.user.email, post.scheduledAt.toISOString(), msg);
       }

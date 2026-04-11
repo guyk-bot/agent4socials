@@ -22,7 +22,7 @@ export async function getPrismaUserIdFromRequest(authHeader: string | null): Pro
   // rather than hanging the entire route for pool_timeout + connect_timeout seconds.
   let dbUser: { id: string } | null = null;
   try {
-    const DB_LOOKUP_TIMEOUT_MS = 8_000;
+    const DB_LOOKUP_TIMEOUT_MS = 12_000;
     const result = await Promise.race([
       prisma.user.findUnique({ where: { supabaseId: user.id } }),
       new Promise<null>((_, reject) =>
