@@ -47,7 +47,7 @@ Grouped by domain (67 `route.ts` files). **Social + analytics fixes usually touc
 - **`social/accounts/[id]/posts/route.ts`** — Imported post sync (Facebook, **Instagram** media+tags, Pinterest, etc.), serialization, live insight refresh.
 - **`social/accounts/[id]/insights/route.ts`** — Account-level insights (FB Page bundle, **IG** impressions series, demographics `extended=1`).
 - `social/accounts/[id]/engagement/route.ts`, `comments/*`, `conversations/*`, `page-reviews/route.ts`.
-- Debug: `facebook-graph-debug`, `instagram-graph-debug`, `facebook-analytics-debug`, `token-debug`, `pinterest-debug`, `x-dm-debug`.
+- Debug: `facebook-graph-debug`, `instagram-graph-debug`, `linkedin-community-api-debug`, `facebook-analytics-debug`, `token-debug`, `pinterest-debug`, `x-dm-debug`.
 
 ### OAuth
 

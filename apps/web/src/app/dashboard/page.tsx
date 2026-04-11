@@ -1539,6 +1539,7 @@ export default function DashboardPage() {
             accountAvatarUrl={selectedAccount.profilePicture ?? null}
             accountUsername={selectedAccount.username ?? null}
             hasApiInsightsFetched={displayInsights != null}
+            socialAccountId={selectedAccount.platform === 'LINKEDIN' ? selectedAccount.id : null}
           />
         </div>
       )}

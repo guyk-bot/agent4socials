@@ -19,6 +19,7 @@ import {
 } from 'recharts';
 import { ArrowRight, ChevronRight, ExternalLink, MessageSquare, RefreshCw, Sparkles, Star } from 'lucide-react';
 import { AnalyticsDateRangePicker } from '../AnalyticsDateRangePicker';
+import { LinkedInCommunityApiJsonPanel } from '../LinkedInCommunityApiJsonPanel';
 import type { FacebookFrontendAnalyticsBundle } from '@/lib/facebook/frontend-analytics-bundle';
 import type { FacebookInsights, FacebookPost } from './types';
 import { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids';
@@ -46,6 +47,8 @@ export interface FacebookAnalyticsViewProps {
   accountAvatarUrl?: string | null;
   /** @handle from connected account (Instagram, etc.) when Graph page profile is not present. */
   accountUsername?: string | null;
+  /** LinkedIn: used to load raw Community Management API debug JSON on the analytics page. */
+  socialAccountId?: string | null;
 }
 
 type SectionId = (typeof FACEBOOK_ANALYTICS_SECTION_IDS)[keyof typeof FACEBOOK_ANALYTICS_SECTION_IDS];
@@ -1658,6 +1661,7 @@ export function FacebookAnalyticsView({
   followersLabel,
   accountAvatarUrl,
   accountUsername,
+  socialAccountId = null,
 }: FacebookAnalyticsViewProps) {
   /**
    * Full analytics shell (Overview, Traffic, Posts, Reels, History): first insights fetch (hasApiInsightsFetched false), or Facebook Page waiting for Graph bundle.
@@ -3692,6 +3696,10 @@ export function FacebookAnalyticsView({
           )}
           </InsightChartCard>
         </div>
+
+        {isLinkedIn && socialAccountId ? (
+          <LinkedInCommunityApiJsonPanel accountId={socialAccountId} />
+        ) : null}
 
         <div className="rounded-[20px] border p-4 sm:p-5 space-y-3" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
           <div className="flex flex-wrap items-center justify-between gap-3">
