@@ -15,7 +15,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runScheduledSyncForScope } from '@/lib/sync/engine';
 
-export const maxDuration = 25;
+export const maxDuration = 60;
 
 function checkAuthorization(request: NextRequest): {
   ok: boolean;

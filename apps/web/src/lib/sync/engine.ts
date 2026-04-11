@@ -218,7 +218,7 @@ export async function syncAccount(opts: SyncAccountOptions): Promise<SyncResult>
         where: { id: socialAccountId },
         select: {
           id: true, userId: true, platform: true, platformUserId: true,
-          accessToken: true, refreshToken: true, credentialsJson: true, status: true,
+          accessToken: true, refreshToken: true, expiresAt: true, credentialsJson: true, status: true,
         },
       });
       if (!account || account.status === 'disconnected') {
@@ -292,6 +292,7 @@ interface AccountRow {
   platformUserId: string;
   accessToken: string;
   refreshToken?: string | null;
+  expiresAt?: Date | null;
   credentialsJson?: unknown;
   status: string;
 }
@@ -322,9 +323,21 @@ async function runAdapterScope(
 /**
  * Run sync for all connected accounts that have stale data for a given scope.
  * Used by cron routes.
+ *
+ * - Skips accounts with repeated auth failures (lastSyncStatus=needs_reconnect|error)
+ *   that have been failing for more than 30 minutes (avoid wasting cron budget on dead tokens).
+ * - Processes up to CONCURRENCY accounts at a time.
+ * - Stops processing new accounts once BUDGET_MS wall-clock time has elapsed.
  */
-export async function runScheduledSyncForScope(scope: SyncScope): Promise<{ processed: number; errors: string[] }> {
+export async function runScheduledSyncForScope(
+  scope: SyncScope,
+  opts?: { budgetMs?: number }
+): Promise<{ processed: number; errors: string[] }> {
   await ensureSyncTables();
+
+  const CONCURRENCY = 3;
+  const BUDGET_MS = opts?.budgetMs ?? 45_000; // leave headroom inside the 60s maxDuration
+  const deadline = Date.now() + BUDGET_MS;
 
   const accounts = await prisma.socialAccount.findMany({
     where: { status: 'connected' },
@@ -335,34 +348,57 @@ export async function runScheduledSyncForScope(scope: SyncScope): Promise<{ proc
       platformUserId: true,
       accessToken: true,
       lastSuccessfulSyncAt: true,
+      lastSyncAttemptAt: true,
+      lastSyncStatus: true,
     },
   });
 
   const errors: string[] = [];
   let processed = 0;
 
-  for (const acc of accounts) {
+  // Filter to only accounts that need syncing for this scope
+  const candidates = accounts.filter((acc) => {
     const supportedScopes = PLATFORM_SCOPES[acc.platform] ?? [];
-    if (!supportedScopes.includes(scope)) continue;
+    if (!supportedScopes.includes(scope)) return false;
+
+    // Skip accounts whose auth has been failing for > 30 min (don't waste budget)
+    if (acc.lastSyncStatus === 'needs_reconnect') {
+      const lastAttempt = acc.lastSyncAttemptAt?.getTime() ?? 0;
+      if (Date.now() - lastAttempt < 30 * 60_000) return false;
+    }
 
     const ageMs = acc.lastSuccessfulSyncAt
       ? Date.now() - acc.lastSuccessfulSyncAt.getTime()
       : Infinity;
     const threshold = getStaleThresholdMs(acc.platform, scope);
-    if (ageMs < threshold) continue; // still fresh
+    return ageMs >= threshold;
+  });
 
-    try {
-      const result = await syncAccount({
-        userId: acc.userId,
-        socialAccountId: acc.id,
-        platform: acc.platform,
-        scope,
-        syncType: 'scheduled',
-        triggeredBy: 'cron',
-      });
-      if (result.status !== 'skipped_duplicate') processed++;
-    } catch (e) {
-      errors.push(`${acc.platform}/${acc.id}: ${(e as Error).message}`);
+  // Process in parallel batches with wall-clock budget
+  for (let i = 0; i < candidates.length; i += CONCURRENCY) {
+    if (Date.now() >= deadline) {
+      console.warn(`[SyncEngine] ${scope} cron budget exhausted after ${i} accounts`);
+      break;
+    }
+    const batch = candidates.slice(i, i + CONCURRENCY);
+    const results = await Promise.allSettled(
+      batch.map((acc) =>
+        syncAccount({
+          userId: acc.userId,
+          socialAccountId: acc.id,
+          platform: acc.platform,
+          scope,
+          syncType: 'scheduled',
+          triggeredBy: 'cron',
+        })
+      )
+    );
+    for (const r of results) {
+      if (r.status === 'fulfilled') {
+        if (r.value.status !== 'skipped_duplicate') processed++;
+      } else {
+        errors.push(String(r.reason?.message ?? r.reason));
+      }
     }
   }
 
