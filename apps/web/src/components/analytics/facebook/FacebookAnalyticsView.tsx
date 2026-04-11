@@ -17,7 +17,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { ChevronRight, ExternalLink, Gem, MessageSquare, RefreshCw, Star } from 'lucide-react';
+import { ArrowRight, ChevronRight, ExternalLink, MessageSquare, RefreshCw, Sparkles, Star } from 'lucide-react';
 import { AnalyticsDateRangePicker } from '../AnalyticsDateRangePicker';
 import type { FacebookFrontendAnalyticsBundle } from '@/lib/facebook/frontend-analytics-bundle';
 import type { FacebookInsights, FacebookPost } from './types';
@@ -2913,6 +2913,31 @@ export function FacebookAnalyticsView({
 
   return (
     <div className="p-0 md:p-0.5 space-y-3" style={{ background: COLOR.pageBg, maxWidth: 1400 }}>
+      {onUpgrade ? (
+        <div className="w-full rounded-2xl border border-violet-200/70 bg-gradient-to-br from-violet-50/90 via-white to-rose-50/40 px-3 py-2.5 sm:px-4 sm:py-3 shadow-sm ring-1 ring-violet-100/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3">
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="flex items-center gap-1.5 text-violet-800">
+              <Sparkles className="w-3.5 h-3.5 shrink-0" aria-hidden />
+              <span className="text-[11px] font-semibold uppercase tracking-wide">Your plan</span>
+            </div>
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0">
+              <span className="text-lg font-bold text-neutral-900 tracking-tight leading-tight">Free</span>
+              <span className="text-sm text-neutral-600 leading-snug">
+                Unlock more than 30 days of history without watermarks and more analytics when you upgrade.
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onUpgrade}
+            className="shrink-0 inline-flex w-full sm:w-auto justify-center items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-md transition-all active:scale-[0.98] gradient-cta-pro"
+          >
+            Upgrade now
+            <ArrowRight className="w-4 h-4" aria-hidden />
+          </button>
+        </div>
+      ) : null}
+
       <section className="rounded-[20px] p-3 md:p-3.5" style={{ background: COLOR.section }}>
         <div className="flex flex-wrap items-center gap-3 justify-between">
           <div className="flex items-center gap-2.5">
@@ -3072,30 +3097,6 @@ export function FacebookAnalyticsView({
           </p>
         ) : null}
       </section>
-
-      {onUpgrade ? (
-        <section
-          className="rounded-[20px] border px-4 py-2.5 md:px-4 md:py-3 flex flex-wrap items-center justify-between gap-2"
-          style={{ background: COLOR.section, borderColor: COLOR.border }}
-        >
-          <p className="text-sm" style={{ color: COLOR.textSecondary }}>
-            Unlock more than 30 days of history without watermarks and more helpful features...
-          </p>
-          <button
-            type="button"
-            onClick={onUpgrade}
-            className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors"
-            style={{
-              color: COLOR.textSecondary,
-              borderColor: COLOR.border,
-              background: 'rgba(255,255,255,0.75)',
-            }}
-          >
-            <Gem size={13} className="opacity-75" aria-hidden />
-            Upgrade
-          </button>
-        </section>
-      ) : null}
 
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.overview} className="scroll-mt-28 space-y-4">
         {overviewSkeleton ? (

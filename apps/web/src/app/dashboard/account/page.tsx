@@ -221,10 +221,8 @@ export default function AccountPage() {
       {/* Profile + plan + connected accounts (#connected-accounts for legacy redirects) */}
       <div className="card rounded-2xl overflow-hidden border border-neutral-200/80 shadow-sm">
         <div className="p-4 sm:p-6 space-y-5">
-          <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">Account</h1>
-
-          {/* Plan row between page title and profile */}
-          <div className="w-full rounded-2xl border border-violet-200/70 bg-gradient-to-br from-violet-50/90 via-white to-rose-50/40 px-3 py-2.5 sm:px-4 sm:py-2.5 shadow-sm ring-1 ring-violet-100/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3">
+          {/* Plan row at top of card (matches analytics upgrade styling) */}
+          <div className="w-full rounded-2xl border border-violet-200/70 bg-gradient-to-br from-violet-50/90 via-white to-rose-50/40 px-3 py-2.5 sm:px-4 sm:py-3 shadow-sm ring-1 ring-violet-100/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3">
             <div className="min-w-0 flex-1 space-y-1">
               <div className="flex items-center gap-1.5 text-violet-800">
                 <Sparkles className="w-3.5 h-3.5 shrink-0" aria-hidden />
@@ -246,7 +244,9 @@ export default function AccountPage() {
             </Link>
           </div>
 
-          <div className="flex items-start gap-4 min-w-0 pt-2 sm:pt-0">
+          <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">Account</h1>
+
+          <div className="flex items-start gap-4 min-w-0 pt-0">
             <div className="flex items-stretch w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-neutral-100 text-neutral-700">
               <span className="flex flex-1 min-h-0 min-w-0 items-center justify-center text-xl font-bold leading-none">
                 {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
