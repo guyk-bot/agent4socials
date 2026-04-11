@@ -17,6 +17,8 @@ import { getValidPinterestToken } from '@/lib/pinterest-token';
 import { parseTikTokVideoEngagement, parseTikTokVideoDurationSec } from '@/lib/tiktok/video-engagement';
 import { syncLinkedInUgcPosts } from '@/lib/linkedin/sync-ugc-posts';
 
+export const maxDuration = 30;
+
 /** Fallback host for IG user/media when graph.facebook.com omits items (matches insights route). */
 const igGraphRestBaseUrl = 'https://graph.instagram.com/v18.0';
 
@@ -1218,6 +1220,10 @@ async function syncImportedPosts(
     try {
       const fetched = await fetchAllPublishedPostsForPage(platformUserId, fbPageToken, maxPosts);
       items = fetched.items;
+      // If published_posts failed with a permission error, propagate it so the user can reconnect.
+      if (items.length === 0 && fetched.lastError) {
+        return `Facebook posts could not be loaded (${fetched.lastError}). Reconnect your Facebook Page and grant Pages permissions to sync posts.`;
+      }
       const publishedIds = new Set(items.map((i) => i.id));
       try {
         const feed = await fetchAllPostsFeedForPage(platformUserId, fbPageToken, maxPosts);

@@ -498,44 +498,36 @@ export async function GET(
       const supplementIgAccountsEngaged = async (base: string): Promise<void> => {
         if (effectiveSinceTs == null || effectiveUntilTs == null) return;
         if (igSeriesByMetric.accounts_engaged?.length) return;
-        try {
-          const res = await axios.get<{
-            data?: Array<{
-              name: string;
-              values?: Array<{ value: number; end_time?: string }>;
-              total_value?: { value: number };
-            }>;
-            error?: { message?: string };
-          }>(`${base}/${account.platformUserId}/insights`, {
-            params: {
-              metric: 'accounts_engaged',
-              period: 'day',
-              since: effectiveSinceTs,
-              until: effectiveUntilTs,
-              access_token: token,
-            },
-            timeout: 10_000,
-          });
-          if (res.data?.error || !res.data?.data?.length) return;
-          const d = res.data.data.find((x) => x.name === 'accounts_engaged');
-          if (!d) return;
-          const sumDaily = (d.values ?? []).reduce((s, v) => s + (typeof v.value === 'number' ? v.value : 0), 0);
-          const totalRaw = typeof d.total_value?.value === 'number' ? d.total_value.value : sumDaily;
-          out.accountsEngaged = Math.max(0, Math.round(Number.isFinite(totalRaw) ? totalRaw : 0));
-          const series: Array<{ date: string; value: number }> =
-            (d.values ?? []).length > 0
-              ? (d.values ?? [])
-                  .map((v) => ({
-                    date: v.end_time ? facebookMetricDateFromEndTime(v.end_time) : '',
-                    value: Math.max(0, typeof v.value === 'number' ? v.value : 0),
-                  }))
-                  .filter((x) => x.date)
-                  .sort((a, b) => a.date.localeCompare(b.date))
+
+        const tryFetch = async (extraParams: Record<string, string | number | undefined>): Promise<boolean> => {
+          try {
+            const res = await axios.get<{
+              data?: Array<{
+                name: string;
+                values?: Array<{ value: number; end_time?: string }>;
+                total_value?: { value: number };
+              }>;
+              error?: { message?: string };
+            }>(`${base}/${account.platformUserId}/insights`, {
+              params: { metric: 'accounts_engaged', period: 'day', since: effectiveSinceTs, until: effectiveUntilTs, access_token: token, ...extraParams },
+              timeout: 10_000,
+              validateStatus: () => true,
+            });
+            if (res.data?.error || !res.data?.data?.length) return false;
+            const d = res.data.data.find((x) => x.name === 'accounts_engaged');
+            if (!d) return false;
+            const sumDaily = (d.values ?? []).reduce((s, v) => s + (typeof v.value === 'number' ? v.value : 0), 0);
+            const totalRaw = typeof d.total_value?.value === 'number' ? d.total_value.value : sumDaily;
+            out.accountsEngaged = Math.max(0, Math.round(Number.isFinite(totalRaw) ? totalRaw : 0));
+            const series: Array<{ date: string; value: number }> = (d.values ?? []).length > 0
+              ? (d.values ?? []).map((v) => ({ date: v.end_time ? facebookMetricDateFromEndTime(v.end_time) : '', value: Math.max(0, typeof v.value === 'number' ? v.value : 0) })).filter((x) => x.date).sort((a, b) => a.date.localeCompare(b.date))
               : [];
-          if (series.length > 0) igSeriesByMetric.accounts_engaged = series;
-        } catch {
-          /* ignore */
-        }
+            if (series.length > 0) igSeriesByMetric.accounts_engaged = series;
+            return (out.accountsEngaged ?? 0) > 0 || series.length > 0;
+          } catch { return false; }
+        };
+
+        await tryFetch({}) || await tryFetch({ metric_type: 'total_value' });
       };
       await supplementIgAccountsEngaged(fbBaseUrl);
       if (!igSeriesByMetric.accounts_engaged?.length && isInstagramBusinessLogin) {
@@ -706,6 +698,88 @@ export async function GET(
         }
       };
       await supplementIgProfileViews();
+
+      /**
+       * Meta v18+ requires metric_type=total_value for impressions and accounts_engaged on IG User Insights.
+       * Only fires when tryInsights (period=day without metric_type) returned no data for these metrics.
+       */
+      const supplementIgImpressionsWithTotalValue = async (): Promise<void> => {
+        if (effectiveSinceTs == null || effectiveUntilTs == null) return;
+        const needImpressions = !out.impressionsTimeSeries?.length && !out.impressionsTotal;
+        const needEngaged = !igSeriesByMetric.accounts_engaged?.length && !out.accountsEngaged;
+        if (!needImpressions && !needEngaged) return;
+
+        const parseDailyMetricRow = (
+          d: { name: string; values?: Array<{ value: number; end_time?: string }>; total_value?: { value?: number } } | undefined
+        ): { total: number; series: Array<{ date: string; value: number }> } | null => {
+          if (!d) return null;
+          const fromValues = (d.values ?? []).filter((v) => typeof v.value === 'number');
+          const series: Array<{ date: string; value: number }> = fromValues.length > 0
+            ? fromValues
+                .map((v) => ({ date: v.end_time ? facebookMetricDateFromEndTime(v.end_time) : '', value: Math.max(0, v.value) }))
+                .filter((x) => x.date)
+                .sort((a, b) => a.date.localeCompare(b.date))
+            : [];
+          const sumDaily = fromValues.reduce((s, v) => s + v.value, 0);
+          const totalRaw = typeof d.total_value?.value === 'number' ? d.total_value.value : sumDaily;
+          const total = Math.max(0, Math.round(Number.isFinite(totalRaw) ? totalRaw : 0));
+          if (total === 0 && series.length === 0) return null;
+          return { total, series: series.length > 0 ? series : (total > 0 ? [{ date: untilParam.slice(0, 10), value: total }] : []) };
+        };
+
+        const metricsToFetch = [
+          ...(needImpressions ? ['impressions'] : []),
+          ...(needEngaged ? ['accounts_engaged'] : []),
+        ];
+        const bases = isInstagramBusinessLogin ? [fbBaseUrl, igBaseUrl] : [fbBaseUrl];
+        const periods: Array<'day' | 'week'> = ['day', 'week'];
+
+        for (const base of bases) {
+          for (const period of periods) {
+            try {
+              const res = await axios.get<{
+                data?: Array<{ name: string; values?: Array<{ value: number; end_time?: string }>; total_value?: { value?: number } }>;
+                error?: { message?: string; code?: number };
+              }>(`${base}/${account.platformUserId}/insights`, {
+                params: {
+                  metric: metricsToFetch.join(','),
+                  period,
+                  metric_type: 'total_value',
+                  since: effectiveSinceTs,
+                  until: effectiveUntilTs,
+                  access_token: token,
+                },
+                timeout: 12_000,
+                validateStatus: () => true,
+              });
+              if (res.status >= 400 || res.data?.error) {
+                console.warn('[Insights] IG impressions+engaged metric_type=total_value:', res.data?.error?.message?.slice(0, 120));
+                continue;
+              }
+              const data = res.data?.data ?? [];
+              if (data.length === 0) continue;
+              let gotAny = false;
+              for (const d of data) {
+                const parsed = parseDailyMetricRow(d);
+                if (!parsed) continue;
+                gotAny = true;
+                if (d.name === 'impressions' && needImpressions) {
+                  out.impressionsTotal = parsed.total;
+                  out.impressionsTimeSeries = parsed.series;
+                  if (parsed.series.length > 0) igSeriesByMetric.impressions = parsed.series;
+                } else if (d.name === 'accounts_engaged' && needEngaged) {
+                  out.accountsEngaged = parsed.total;
+                  if (parsed.series.length > 0) igSeriesByMetric.accounts_engaged = parsed.series;
+                }
+              }
+              if (gotAny) return;
+            } catch (e) {
+              console.warn('[Insights] IG impressions+engaged total_value request failed:', (e as Error)?.message?.slice(0, 120));
+            }
+          }
+        }
+      };
+      await supplementIgImpressionsWithTotalValue();
 
       /** IG User /insights: likes, comments, shares, saves, reposts, total_interactions (period=day). */
       const mergeIgInteractionTotals = (

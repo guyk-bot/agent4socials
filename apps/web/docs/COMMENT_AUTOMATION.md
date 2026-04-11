@@ -39,3 +39,10 @@ Each cron run is bounded so serverless jobs finish and platforms are not hammere
 | `COMMENT_AUTOMATION_INTER_REPLY_DELAY_MS` | `150` | Pause after each successful reply (rate limit friendliness). |
 
 **Heavy traffic:** call `/api/cron/comment-automation` **more often** (e.g. every 2–5 minutes) instead of relying only on the daily job. `process-scheduled` also triggers automation once per run; its `maxDuration` is aligned so that chain can complete.
+
+## Legal and compliance (operator / product note)
+
+- **Not legal advice.** This file describes technical behavior only. Operators and end customers remain responsible for compliance with applicable law and each platform’s terms (Meta, X, etc.), including anti-spam, automation, advertising, and messaging rules.
+- **Customer-facing summary:** End users should read the **Terms of Service** (automation, quotas, fair use, and third-party limits) at `/terms` and the help page **`/help/automation`**, which summarizes default per-run caps in plain language.
+- **Quotas are not an SLA.** Environment variables set **technical ceilings** per run so jobs finish and APIs are not abused. They do **not** guarantee that every comment will be replied to, that a run will cover all posts, or that platforms will accept every request. Platforms may throttle or block traffic independently of these settings.
+- **Fair use and changes:** The service operator may change defaults or invoke platform-side enforcement. Heavy or abusive patterns may still be restricted even when under numeric limits.

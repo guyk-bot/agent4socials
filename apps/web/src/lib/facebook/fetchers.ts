@@ -72,7 +72,7 @@ export async function fetchPublishedPostsPage(
   pageId: string,
   accessToken: string,
   options?: { after?: string; limit?: number }
-): Promise<{ items: FbPublishedPostRow[]; afterCursor: string | null; ok: boolean }> {
+): Promise<{ items: FbPublishedPostRow[]; afterCursor: string | null; ok: boolean; errorMessage?: string }> {
   const limit = options?.limit ?? 50;
   const params: Record<string, string | number> = {
     fields: PUBLISHED_FIELDS,
@@ -80,13 +80,14 @@ export async function fetchPublishedPostsPage(
     limit,
   };
   if (options?.after) params.after = options.after;
-  const res: AxiosResponse<PublishedPostsPage> = await axios.get(`${fbRestBaseUrl}/${pageId}/published_posts`, {
+  const res: AxiosResponse<PublishedPostsPage & { error?: { message?: string; code?: number } }> = await axios.get(`${fbRestBaseUrl}/${pageId}/published_posts`, {
     params,
     timeout: 20_000,
     validateStatus: () => true,
   });
   if (res.status !== 200) {
-    return { items: [], afterCursor: null, ok: false };
+    const errorMessage = res.data?.error?.message ?? `HTTP ${res.status}`;
+    return { items: [], afterCursor: null, ok: false, errorMessage };
   }
   const data = res.data?.data ?? [];
   const paging = res.data?.paging;
@@ -113,12 +114,12 @@ export async function fetchAllPublishedPostsForPage(
 
   while (items.length < cap && pageFetches < 80) {
     pageFetches += 1;
-    const { items: chunk, afterCursor, ok } = await fetchPublishedPostsPage(pageId, accessToken, {
+    const { items: chunk, afterCursor, ok, errorMessage } = await fetchPublishedPostsPage(pageId, accessToken, {
       after,
       limit: pageLimit,
     });
     if (!ok) {
-      lastError = 'published_posts request failed';
+      lastError = errorMessage ?? 'published_posts request failed';
       break;
     }
     if (chunk.length === 0) break;
