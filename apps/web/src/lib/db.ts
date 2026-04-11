@@ -3,18 +3,25 @@ import { PrismaClient } from '@prisma/client';
 // ─── Connection URL hardening ───────────────────────────────────────────────
 // pgbouncer=true  – disable prepared statements (required for transaction-mode poolers)
 // connection_limit=1 – one connection per serverless invocation (Vercel best practice)
-// pool_timeout=5  – FAIL FAST: don't wait 30s for a pool slot and hang the whole route
+// pool_timeout – how long Prisma waits for a free slot in its pool (default 15s).
+// Too low (e.g. 5s) surfaces P2024 under brief DB congestion; too high delays error responses.
+// Override with DATABASE_POOL_TIMEOUT_SEC (integer 5–120).
 // connect_timeout=15 – don't wait forever for TCP handshake
 const rawUrl = process.env.DATABASE_URL;
+const poolTimeoutSec = (() => {
+  const v = process.env.DATABASE_POOL_TIMEOUT_SEC;
+  if (v == null || v === '') return 15;
+  const n = Number.parseInt(v, 10);
+  return Number.isFinite(n) && n >= 5 && n <= 120 ? n : 15;
+})();
 if (rawUrl && /^postgres(ql)?:\/\//i.test(rawUrl)) {
   let fixedUrl = rawUrl;
   const addParam = (u: string, param: string) =>
     u.includes('?') ? `${u}&${param}` : `${u}?${param}`;
   if (!fixedUrl.includes('pgbouncer=true')) fixedUrl = addParam(fixedUrl, 'pgbouncer=true');
   if (!fixedUrl.includes('connection_limit=')) fixedUrl = addParam(fixedUrl, 'connection_limit=1');
-  // Replace any previous pool_timeout value with the fast-fail value
-  fixedUrl = fixedUrl.replace(/pool_timeout=\d+/, 'pool_timeout=5');
-  if (!fixedUrl.includes('pool_timeout=')) fixedUrl = addParam(fixedUrl, 'pool_timeout=5');
+  fixedUrl = fixedUrl.replace(/pool_timeout=\d+/, `pool_timeout=${poolTimeoutSec}`);
+  if (!fixedUrl.includes('pool_timeout=')) fixedUrl = addParam(fixedUrl, `pool_timeout=${poolTimeoutSec}`);
   fixedUrl = fixedUrl.replace(/connect_timeout=\d+/, 'connect_timeout=15');
   if (!fixedUrl.includes('connect_timeout=')) fixedUrl = addParam(fixedUrl, 'connect_timeout=15');
   process.env.DATABASE_URL = fixedUrl;

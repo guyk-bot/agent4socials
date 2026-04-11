@@ -4,7 +4,7 @@ import { PostStatus } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import { sendScheduledPostLinksEmail, sendScheduledPublishFailureEmail } from '@/lib/resend';
 
-/** Must cover chained comment-automation fetch on heavy accounts (see COMMENT_AUTOMATION.md). */
+/** Enough for publish + email paths; comment-automation is no longer chained by default. */
 export const maxDuration = 60;
 
 const baseUrl = () =>
@@ -14,7 +14,7 @@ const baseUrl = () =>
  * GET/POST /api/cron/process-scheduled
  * Call with header X-Cron-Secret: CRON_SECRET (or Authorization: Bearer CRON_SECRET).
  * Finds posts due now: scheduleDelivery=email_links -> send email with open link; scheduleDelivery=auto -> publish.
- * Also runs comment automation (keyword replies on published posts) so one cron job can do both.
+ * Optional: set PROCESS_SCHEDULED_CHAIN_COMMENT_AUTOMATION=1 to also call /api/cron/comment-automation (slow; prefer a second cron).
  * Work runs inline — no after() — to release the lambda as soon as processing finishes.
  */
 async function handle(request: NextRequest) {
@@ -156,21 +156,31 @@ async function executeProcessScheduled() {
     }
   }
 
+  // Chaining comment-automation doubles serverless invocations + DB connections and
+  // routinely exceeds external cron HTTP limits (30s). Prefer a separate cron hitting
+  // /api/cron/comment-automation. Set PROCESS_SCHEDULED_CHAIN_COMMENT_AUTOMATION=1 to restore.
   let commentAutomationResult: { ok?: boolean; results?: unknown } = {};
-  try {
-    const commentRes = await fetch(`${baseUrl()}/api/cron/comment-automation`, {
-      method: 'GET',
-      headers: { 'X-Cron-Secret': process.env.CRON_SECRET ?? '' },
-    });
-    commentAutomationResult = await commentRes.json().catch(() => ({}));
-  } catch {
-    // non-fatal: scheduled posts are already done
+  const chainComment =
+    process.env.PROCESS_SCHEDULED_CHAIN_COMMENT_AUTOMATION === '1' ||
+    process.env.PROCESS_SCHEDULED_CHAIN_COMMENT_AUTOMATION === 'true';
+  if (chainComment) {
+    try {
+      const commentRes = await fetch(`${baseUrl()}/api/cron/comment-automation`, {
+        method: 'GET',
+        headers: { 'X-Cron-Secret': process.env.CRON_SECRET ?? '' },
+      });
+      commentAutomationResult = await commentRes.json().catch(() => ({}));
+    } catch {
+      // non-fatal: scheduled posts are already done
+    }
   }
 
   const summary = {
     processed: due.length,
     results,
-    commentAutomation: commentAutomationResult?.ok === true ? { ok: true, results: commentAutomationResult?.results } : { ok: false },
+    commentAutomation: chainComment
+      ? (commentAutomationResult?.ok === true ? { ok: true, results: commentAutomationResult?.results } : { ok: false })
+      : { ok: false, skipped: true as const, hint: 'Use a separate cron for /api/cron/comment-automation (recommended)' },
   };
 
   console.log('[Cron] process-scheduled done:', JSON.stringify(summary));
