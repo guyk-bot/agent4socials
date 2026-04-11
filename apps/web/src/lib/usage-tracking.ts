@@ -12,6 +12,9 @@
 import { prisma } from '@/lib/db';
 
 export type UsageCategory =
+  /** Every successful Bearer auth resolution in API routes (see getPrismaUserIdFromRequest). */
+  | 'api_request'
+  /** @deprecated legacy rows only; new code uses api_request */
   | 'api_call'
   | 'sync'
   | 'publish'
@@ -107,4 +110,44 @@ export async function getAllUsersUsageTotals(days = 30): Promise<Array<{ userId:
      ORDER BY "total" DESC`,
     days
   );
+}
+
+export type UsageLeaderboardRow = {
+  userId: string;
+  email: string;
+  name: string | null;
+  totalAll: number;
+  /** Per-category totals for the window (includes api_request + legacy api_call). */
+  byCategory: Record<string, number>;
+};
+
+/**
+ * Per-user totals with email for admin monitoring (correlates with serverless invocations, not Vercel GB-hrs directly).
+ */
+export async function getUsageLeaderboardByUser(days = 30): Promise<UsageLeaderboardRow[]> {
+  await ensureUsageTable();
+  const rows = await prisma.$queryRawUnsafe<
+    Array<{ userId: string; email: string; name: string | null; category: string; total: number }>
+  >(
+    `SELECT d."userId" AS "userId", u.email AS email, u.name AS name, d."category" AS category, SUM(d."count")::int AS total
+     FROM "usage_daily" d
+     INNER JOIN "User" u ON u.id = d."userId"
+     WHERE d."date" >= CURRENT_DATE - $1::int
+     GROUP BY d."userId", u.email, u.name, d."category"
+     ORDER BY u.email, d."category"`,
+    days
+  );
+
+  const byUser = new Map<string, UsageLeaderboardRow>();
+  for (const r of rows) {
+    let row = byUser.get(r.userId);
+    if (!row) {
+      row = { userId: r.userId, email: r.email, name: r.name, totalAll: 0, byCategory: {} };
+      byUser.set(r.userId, row);
+    }
+    const t = Number(r.total);
+    row.byCategory[r.category] = t;
+    row.totalAll += t;
+  }
+  return [...byUser.values()].sort((a, b) => b.totalAll - a.totalAll);
 }
