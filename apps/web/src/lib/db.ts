@@ -3,16 +3,15 @@ import { PrismaClient } from '@prisma/client';
 // ─── Connection URL hardening ───────────────────────────────────────────────
 // pgbouncer=true  – disable prepared statements (required for transaction-mode poolers)
 // connection_limit=1 – one connection per serverless invocation (Vercel best practice)
-// pool_timeout – how long Prisma waits for a free slot in its pool (default 15s).
-// Too low (e.g. 5s) surfaces P2024 under brief DB congestion; too high delays error responses.
+// pool_timeout – how long Prisma waits for a free slot (default 8s = fail fast under burst).
 // Override with DATABASE_POOL_TIMEOUT_SEC (integer 5–120).
 // connect_timeout=10 – don't wait too long for TCP handshake
 const rawUrl = process.env.DATABASE_URL;
 const poolTimeoutSec = (() => {
   const v = process.env.DATABASE_POOL_TIMEOUT_SEC;
-  if (v == null || v === '') return 15;
+  if (v == null || v === '') return 8;
   const n = Number.parseInt(v, 10);
-  return Number.isFinite(n) && n >= 5 && n <= 120 ? n : 15;
+  return Number.isFinite(n) && n >= 5 && n <= 120 ? n : 8;
 })();
 if (rawUrl && /^postgres(ql)?:\/\//i.test(rawUrl)) {
   let fixedUrl = rawUrl;
@@ -49,6 +48,8 @@ const CONNECTION_MSG_PATTERNS = [
   'econnrefused',
   'econnreset',
   'connection terminated unexpectedly',
+  'unable to check out connection from the pool',
+  'checkout from the pool',
 ];
 
 function isConnectionError(e: unknown): boolean {
@@ -65,19 +66,19 @@ function createClient() {
     query: {
       $allModels: {
         async $allOperations({ args, query }) {
-          try {
-            return await query(args);
-          } catch (e: unknown) {
-            if (isConnectionError(e)) {
-              // Dead or exhausted connection — force-disconnect so the engine
-              // picks up a fresh socket on the next attempt.
-              try { await base.$disconnect(); } catch { /* ignore */ }
-              await new Promise((r) => setTimeout(r, 400));
-              try { await base.$connect(); } catch { /* ignore — query() will surface the real error */ }
+          let lastErr: unknown;
+          for (let attempt = 0; attempt < 3; attempt++) {
+            try {
               return await query(args);
+            } catch (e: unknown) {
+              lastErr = e;
+              if (!isConnectionError(e) || attempt === 2) break;
+              try { await base.$disconnect(); } catch { /* ignore */ }
+              await new Promise((r) => setTimeout(r, 250 + attempt * 350));
+              try { await base.$connect(); } catch { /* ignore */ }
             }
-            throw e;
           }
+          throw lastErr;
         },
       },
     },

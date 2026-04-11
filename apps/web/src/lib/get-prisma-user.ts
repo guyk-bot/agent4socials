@@ -18,18 +18,12 @@ export async function getPrismaUserIdFromRequest(authHeader: string | null): Pro
   );
   const { data: { user }, error } = await supabase.auth.getUser(token);
   if (error || !user) return null;
-  // Race with a short timeout so pool exhaustion returns null (→ 401) quickly
-  // rather than hanging the entire route for pool_timeout + connect_timeout seconds.
+  // Do NOT Promise.race prisma here: the query keeps running until pool_timeout anyway,
+  // so racing only returns 401 early while still occupying a pool waiter (worse under load).
+  // Fast fail is controlled by DATABASE_POOL_TIMEOUT_SEC on the URL (see db.ts).
   let dbUser: { id: string } | null = null;
   try {
-    const DB_LOOKUP_TIMEOUT_MS = 12_000;
-    const result = await Promise.race([
-      prisma.user.findUnique({ where: { supabaseId: user.id } }),
-      new Promise<null>((_, reject) =>
-        setTimeout(() => reject(new Error('DB lookup timed out')), DB_LOOKUP_TIMEOUT_MS)
-      ),
-    ]);
-    dbUser = result;
+    dbUser = await prisma.user.findUnique({ where: { supabaseId: user.id } });
   } catch (e) {
     console.error('[getPrismaUserIdFromRequest] DB error:', (e as Error)?.message?.slice(0, 200));
     return null;
