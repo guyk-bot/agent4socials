@@ -411,11 +411,17 @@ export async function GET(
       const igSeriesByMetric: Record<string, Array<{ date: string; value: number }>> = {};
       const tryInsights = async (base: string): Promise<boolean> => {
         if (effectiveSinceTs == null || effectiveUntilTs == null) return false;
-        /** profile_views must be requested with metric_type=total_value (see supplementIgProfileViews); omit from batches. */
+        /**
+         * Ordered from broadest to narrowest. impressions is deprecated in v18+; reach/accounts_reached
+         * are the replacements. profile_views must be fetched separately with metric_type=total_value.
+         */
         const metricSets = [
           'impressions,reach,accounts_engaged',
+          'reach,accounts_engaged',
           'impressions,reach',
+          'reach,accounts_reached',
           'reach',
+          'accounts_reached',
         ];
         for (const metricSet of metricSets) {
           try {
@@ -435,10 +441,11 @@ export async function GET(
                 access_token: token,
               },
               timeout: 10_000,
+              validateStatus: () => true,
             });
 
             if (insightsRes.data?.error) {
-              console.warn('[Insights] IG metric set failed:', base, metricSet, insightsRes.data.error.message);
+              console.warn('[Insights] IG metric set failed:', base, metricSet, insightsRes.data.error.message?.slice(0, 120));
               continue;
             }
 
@@ -465,9 +472,10 @@ export async function GET(
               if (d.name === 'impressions') {
                 out.impressionsTotal = total;
                 out.impressionsTimeSeries = series.length ? series : (total ? [{ date: untilParam?.slice(0, 10) || new Date().toISOString().slice(0, 10), value: total }] : []);
-              } else if (d.name === 'reach') {
-                out.reachTotal = total;
-                if (!out.impressionsTimeSeries?.length && series.length) {
+              } else if (d.name === 'reach' || d.name === 'accounts_reached') {
+                // reach / accounts_reached are the v18+ replacements for impressions
+                out.reachTotal = Math.max(out.reachTotal ?? 0, total);
+                if (!(out.impressionsTimeSeries?.length) && series.length) {
                   out.impressionsTimeSeries = series;
                   if (!out.impressionsTotal) out.impressionsTotal = total;
                 }
@@ -700,13 +708,15 @@ export async function GET(
       await supplementIgProfileViews();
 
       /**
-       * Meta v18+ requires metric_type=total_value for impressions and accounts_engaged on IG User Insights.
-       * Only fires when tryInsights (period=day without metric_type) returned no data for these metrics.
+       * Meta v22.0+ deprecated `impressions` for Instagram User Insights; the replacements are
+       * `reach` / `accounts_reached` and `accounts_engaged`. Fetch them with metric_type=total_value
+       * (required by Meta's newer endpoint format) when the regular period=day calls returned nothing.
        */
-      const supplementIgImpressionsWithTotalValue = async (): Promise<void> => {
+      const supplementIgReachAndEngagement = async (): Promise<void> => {
         if (effectiveSinceTs == null || effectiveUntilTs == null) return;
-        const needImpressions = !out.impressionsTimeSeries?.length && !out.impressionsTotal;
-        const needEngaged = !igSeriesByMetric.accounts_engaged?.length && !out.accountsEngaged;
+        const needImpressions =
+          !(out.impressionsTimeSeries ?? []).some((p) => p.value > 0) && !(out.impressionsTotal ?? 0);
+        const needEngaged = !(out.accountsEngaged ?? 0);
         if (!needImpressions && !needEngaged) return;
 
         const parseDailyMetricRow = (
@@ -727,22 +737,27 @@ export async function GET(
           return { total, series: series.length > 0 ? series : (total > 0 ? [{ date: untilParam.slice(0, 10), value: total }] : []) };
         };
 
-        const metricsToFetch = [
-          ...(needImpressions ? ['impressions'] : []),
-          ...(needEngaged ? ['accounts_engaged'] : []),
-        ];
-        const bases = isInstagramBusinessLogin ? [fbBaseUrl, igBaseUrl] : [fbBaseUrl];
-        const periods: Array<'day' | 'week'> = ['day', 'week'];
+        // Try batches from broadest to narrowest; use reach/accounts_reached as impressions replacement.
+        const buildBatch = (m: string[], p: 'day' | 'week'): { metrics: string[]; period: 'day' | 'week' } => ({ metrics: m, period: p });
+        const batches = [
+          buildBatch(needImpressions && needEngaged ? ['reach', 'accounts_engaged'] : needImpressions ? ['reach'] : ['accounts_engaged'], 'day'),
+          buildBatch(needImpressions && needEngaged ? ['accounts_reached', 'accounts_engaged'] : needImpressions ? ['accounts_reached'] : ['accounts_engaged'], 'day'),
+          buildBatch(needImpressions ? ['reach'] : [], 'week'),
+          buildBatch(needImpressions ? ['accounts_reached'] : [], 'week'),
+        ].filter((b) => b.metrics.length > 0);
 
-        for (const base of bases) {
-          for (const period of periods) {
+        const bases = isInstagramBusinessLogin ? [fbBaseUrl, igBaseUrl] : [fbBaseUrl];
+
+        for (const { metrics, period } of batches) {
+          if (!needImpressions && !needEngaged) break;
+          for (const base of bases) {
             try {
               const res = await axios.get<{
                 data?: Array<{ name: string; values?: Array<{ value: number; end_time?: string }>; total_value?: { value?: number } }>;
                 error?: { message?: string; code?: number };
               }>(`${base}/${account.platformUserId}/insights`, {
                 params: {
-                  metric: metricsToFetch.join(','),
+                  metric: metrics.join(','),
                   period,
                   metric_type: 'total_value',
                   since: effectiveSinceTs,
@@ -753,33 +768,32 @@ export async function GET(
                 validateStatus: () => true,
               });
               if (res.status >= 400 || res.data?.error) {
-                console.warn('[Insights] IG impressions+engaged metric_type=total_value:', res.data?.error?.message?.slice(0, 120));
+                console.warn('[Insights] IG reach+engaged total_value:', res.data?.error?.message?.slice(0, 120));
                 continue;
               }
               const data = res.data?.data ?? [];
               if (data.length === 0) continue;
-              let gotAny = false;
               for (const d of data) {
                 const parsed = parseDailyMetricRow(d);
                 if (!parsed) continue;
-                gotAny = true;
-                if (d.name === 'impressions' && needImpressions) {
+                // reach / accounts_reached → content views (impressions)
+                if ((d.name === 'reach' || d.name === 'accounts_reached') && needImpressions && !(out.impressionsTotal ?? 0)) {
                   out.impressionsTotal = parsed.total;
                   out.impressionsTimeSeries = parsed.series;
-                  if (parsed.series.length > 0) igSeriesByMetric.impressions = parsed.series;
-                } else if (d.name === 'accounts_engaged' && needEngaged) {
+                  if (parsed.series.length > 0) igSeriesByMetric[d.name] = parsed.series;
+                } else if (d.name === 'accounts_engaged' && needEngaged && !(out.accountsEngaged ?? 0)) {
                   out.accountsEngaged = parsed.total;
                   if (parsed.series.length > 0) igSeriesByMetric.accounts_engaged = parsed.series;
                 }
               }
-              if (gotAny) return;
+              break; // move to next batch if this base worked
             } catch (e) {
-              console.warn('[Insights] IG impressions+engaged total_value request failed:', (e as Error)?.message?.slice(0, 120));
+              console.warn('[Insights] IG reach+engaged total_value request failed:', (e as Error)?.message?.slice(0, 120));
             }
           }
         }
       };
-      await supplementIgImpressionsWithTotalValue();
+      await supplementIgReachAndEngagement();
 
       /** IG User /insights: likes, comments, shares, saves, reposts, total_interactions (period=day). */
       const mergeIgInteractionTotals = (
