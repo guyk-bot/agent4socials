@@ -81,7 +81,7 @@
 
 /* CTA gradient: deep violet → fuchsia → rose (matches product “Get Pro” style) */
 .gradient-cta-pro {
-  background: linear-gradient(90deg, #5b21b6 0%, #c026d3 52%, #e11d48 100%);
+  background: linear-gradient(135deg, #7b2cbf 0%, #d7263d 100%);
 }
 .gradient-cta-pro:hover {
   filter: brightness(1.07);
