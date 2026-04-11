@@ -14,6 +14,7 @@ import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import { syncAccount } from '@/lib/sync/engine';
 import type { SyncScope, SyncType } from '@/lib/sync/config';
+import { trackUsage } from '@/lib/usage-tracking';
 
 export async function POST(
   request: NextRequest,
@@ -27,6 +28,7 @@ export async function POST(
   if (!userId) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
+  trackUsage(userId, 'sync');
 
   const { id } = await params;
   const account = await prisma.socialAccount.findFirst({

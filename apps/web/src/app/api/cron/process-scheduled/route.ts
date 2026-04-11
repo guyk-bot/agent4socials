@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { after } from 'next/server';
 import { prisma } from '@/lib/db';
 import { PostStatus } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import { sendScheduledPostLinksEmail, sendScheduledPublishFailureEmail } from '@/lib/resend';
 
-/** Allow background work after 202 response (cron-job.org times out at 30s). */
-export const maxDuration = 300;
+export const maxDuration = 25;
 
 const baseUrl = () =>
   (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
@@ -16,13 +14,11 @@ const baseUrl = () =>
  * Call with header X-Cron-Secret: CRON_SECRET (or Authorization: Bearer CRON_SECRET).
  * Finds posts due now: scheduleDelivery=email_links -> send email with open link; scheduleDelivery=auto -> publish.
  * Also runs comment automation (keyword replies on published posts) so one cron job can do both.
- *
- * Returns 202 immediately so external schedulers (e.g. cron-job.org, 30s limit) do not abort the connection
- * while work continues via `after()`.
+ * Work runs inline — no after() — to release the lambda as soon as processing finishes.
  */
-export async function GET(request: NextRequest) {
+async function handle(request: NextRequest) {
   try {
-    return await scheduleProcessScheduled(request);
+    return await processScheduledInline(request);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('[Cron] process-scheduled error:', err);
@@ -33,18 +29,8 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    return await scheduleProcessScheduled(request);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error('[Cron] process-scheduled error:', err);
-    return NextResponse.json(
-      { message: 'Cron failed', error: message, processed: 0, results: [] },
-      { status: 500 }
-    );
-  }
-}
+export const GET = handle;
+export const POST = handle;
 
 function authorizeCron(request: NextRequest): NextResponse | null {
   const cronSecret =
@@ -57,30 +43,15 @@ function authorizeCron(request: NextRequest): NextResponse | null {
   return null;
 }
 
-async function scheduleProcessScheduled(request: NextRequest) {
+async function processScheduledInline(request: NextRequest) {
   if (!process.env.DATABASE_URL) {
     return NextResponse.json({ message: 'DATABASE_URL required' }, { status: 503 });
   }
   const denied = authorizeCron(request);
   if (denied) return denied;
 
-  after(async () => {
-    try {
-      await executeProcessScheduled();
-    } catch (err) {
-      console.error('[Cron] process-scheduled (after) error:', err);
-    }
-  });
-
-  return NextResponse.json(
-    {
-      ok: true,
-      accepted: true,
-      message:
-        'Processing started in the background. cron-job.org allows only 30s; this endpoint returns immediately. Check Vercel logs for processed count and errors.',
-    },
-    { status: 202 }
-  );
+  const result = await executeProcessScheduled();
+  return NextResponse.json({ ok: true, ...result });
 }
 
 async function executeProcessScheduled() {
@@ -92,6 +63,7 @@ async function executeProcessScheduled() {
         status: PostStatus.SCHEDULED,
         scheduledAt: { lte: now },
       },
+      take: 10,
       include: {
         user: { select: { id: true, email: true } },
         targets: true,
@@ -99,7 +71,7 @@ async function executeProcessScheduled() {
     });
   } catch (dbErr) {
     console.error('[Cron] Database error in process-scheduled:', dbErr);
-    return;
+    return { processed: 0, results: [], error: 'Database error' };
   }
 
   if (due.length > 0) {
@@ -194,12 +166,12 @@ async function executeProcessScheduled() {
     // non-fatal: scheduled posts are already done
   }
 
-  console.log(
-    '[Cron] process-scheduled done:',
-    JSON.stringify({
-      processed: due.length,
-      results,
-      commentAutomation: commentAutomationResult?.ok === true ? { ok: true, results: commentAutomationResult?.results } : { ok: false },
-    }),
-  );
+  const summary = {
+    processed: due.length,
+    results,
+    commentAutomation: commentAutomationResult?.ok === true ? { ok: true, results: commentAutomationResult?.results } : { ok: false },
+  };
+
+  console.log('[Cron] process-scheduled done:', JSON.stringify(summary));
+  return summary;
 }

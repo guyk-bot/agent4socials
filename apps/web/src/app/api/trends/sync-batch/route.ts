@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { sweepNicheBatch } from '@/lib/trends/youtube-sweep';
 
-export const maxDuration = 300;
+export const maxDuration = 25;
 
 const DEFAULT_BATCH = 8;
 const MAX_BATCH = 20;

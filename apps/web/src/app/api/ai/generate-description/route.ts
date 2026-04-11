@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import { openAiChat } from '@/lib/openai-client';
+import { trackUsage } from '@/lib/usage-tracking';
 
 const TWITTER_AI_MAX_CHARS = 230;
 
@@ -76,6 +77,7 @@ export async function POST(request: NextRequest) {
   if (!userId) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
+  trackUsage(userId, 'ai_generation');
   let body: { topic?: string; prompt?: string; platform?: string; includeCtaAndAutomation?: boolean; ctaAutomationPrompt?: string };
   try {
     body = await request.json();

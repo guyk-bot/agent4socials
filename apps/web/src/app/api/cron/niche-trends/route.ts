@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runNicheTrendSweep } from '@/lib/trends/youtube-sweep';
 
-export const maxDuration = 300;
+export const maxDuration = 25;
 
 function checkAuthorization(request: NextRequest): boolean {
   const rawEnvSecret = process.env.CRON_SECRET;

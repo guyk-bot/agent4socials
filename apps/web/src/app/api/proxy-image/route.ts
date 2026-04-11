@@ -14,7 +14,6 @@ export async function GET(request: NextRequest) {
   let decoded: string;
   try {
     decoded = decodeURIComponent(url);
-    // Basic validation: must be http/https
     const parsed = new URL(decoded);
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
       return new NextResponse('Invalid URL protocol', { status: 400 });
@@ -37,16 +36,16 @@ export async function GET(request: NextRequest) {
     }
 
     const contentType = response.headers.get('content-type') ?? 'image/jpeg';
-    const buffer = await response.arrayBuffer();
+    const contentLength = response.headers.get('content-length');
 
-    return new NextResponse(buffer, {
-      status: 200,
-      headers: {
-        'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=3600',
-        'Access-Control-Allow-Origin': '*',
-      },
-    });
+    const headers: Record<string, string> = {
+      'Content-Type': contentType,
+      'Cache-Control': 'public, max-age=3600',
+      'Access-Control-Allow-Origin': '*',
+    };
+    if (contentLength) headers['Content-Length'] = contentLength;
+
+    return new NextResponse(response.body, { status: 200, headers });
   } catch {
     return new NextResponse('Failed to fetch image', { status: 502 });
   }

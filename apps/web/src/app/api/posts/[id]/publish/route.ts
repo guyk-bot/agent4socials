@@ -9,9 +9,9 @@ import { createMediaServeToken } from '@/lib/media-serve-token';
 import { ensureInstagramJpegOnR2 } from '@/lib/instagram-media-r2';
 import { refreshTwitterToken } from '@/lib/twitter-refresh';
 import { getValidPinterestToken } from '@/lib/pinterest-token';
+import { trackUsage } from '@/lib/usage-tracking';
 
-// Allow up to 5 minutes for video publishing (TikTok uploads + polling).
-export const maxDuration = 300;
+export const maxDuration = 55;
 
 export async function POST(
   request: NextRequest,
@@ -50,6 +50,7 @@ export async function POST(
       }
     }
   }
+  if (userId) trackUsage(userId, 'publish');
   let post = await prisma.post.findFirst({
     where: isCron
       ? { id: postId, status: PostStatus.SCHEDULED, scheduledAt: { lte: new Date() }, scheduleDelivery: 'auto' }

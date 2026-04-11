@@ -9,17 +9,13 @@
  *   2. posts             — discover new/updated content
  *   3. post_metrics      — refresh impressions/likes on recent posts
  *
- * Comments and messages are excluded here because they sync via their own
- * per-request polling from the inbox page (more frequent, user-context aware).
- *
- * Returns 202 immediately; work runs in `after()` so cron-job.org (30s HTTP limit) does not time out.
+ * Work runs inline (no after()) to keep the lambda alive only as long as needed.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { after } from 'next/server';
 import { runScheduledSyncForScope } from '@/lib/sync/engine';
 
-export const maxDuration = 300;
+export const maxDuration = 25;
 
 function checkAuthorization(request: NextRequest): {
   ok: boolean;
@@ -28,7 +24,6 @@ function checkAuthorization(request: NextRequest): {
   const rawEnvSecret = process.env.CRON_SECRET;
   if (!rawEnvSecret) return { ok: false, reason: 'missing_env' };
 
-  // Normalize to avoid production mismatches caused by accidental quotes/spaces in env vars.
   const cronSecret = rawEnvSecret.trim().replace(/^['"]|['"]$/g, '');
   const provided =
     request.headers.get('X-Cron-Secret') ||
@@ -40,21 +35,6 @@ function checkAuthorization(request: NextRequest): {
   if (!provided.trim()) return { ok: false, reason: 'missing_provided' };
   if (provided.trim() !== cronSecret) return { ok: false, reason: 'mismatch' };
   return { ok: true, reason: 'ok' };
-}
-
-async function executeSyncAllScopes() {
-  const scopes = ['account_overview', 'posts', 'post_metrics'] as const;
-  const results: Record<string, { processed: number; errors: string[] }> = {};
-
-  for (const scope of scopes) {
-    try {
-      results[scope] = await runScheduledSyncForScope(scope);
-    } catch (e) {
-      results[scope] = { processed: 0, errors: [(e as Error).message] };
-    }
-  }
-
-  console.log('[Cron] sync-platform-data done:', JSON.stringify({ ok: true, results }));
 }
 
 async function handle(request: NextRequest) {
@@ -72,23 +52,20 @@ async function handle(request: NextRequest) {
     );
   }
 
-  after(async () => {
-    try {
-      await executeSyncAllScopes();
-    } catch (e) {
-      console.error('[Cron] sync-platform-data (after) error:', e);
-    }
-  });
+  const scopes = ['account_overview', 'posts', 'post_metrics'] as const;
+  const results: Record<string, { processed: number; errors: string[] }> = {};
 
-  return NextResponse.json(
-    {
-      ok: true,
-      accepted: true,
-      message:
-        'Sync started in the background. External cron services often use a 30s HTTP timeout; this route returns immediately. Check Vercel logs for per-scope results.',
-    },
-    { status: 202 }
-  );
+  for (const scope of scopes) {
+    try {
+      results[scope] = await runScheduledSyncForScope(scope);
+    } catch (e) {
+      results[scope] = { processed: 0, errors: [(e as Error).message] };
+    }
+  }
+
+  console.log('[Cron] sync-platform-data done:', JSON.stringify({ ok: true, results }));
+
+  return NextResponse.json({ ok: true, results });
 }
 
 export const GET = handle;

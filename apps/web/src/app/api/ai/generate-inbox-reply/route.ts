@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import { openAiChat } from '@/lib/openai-client';
+import { trackUsage } from '@/lib/usage-tracking';
 
 function cleanReply(text: string): string {
   return text
@@ -27,6 +28,7 @@ export async function POST(request: NextRequest) {
   if (!userId) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
+  trackUsage(userId, 'ai_generation');
 
   let body: { type?: string; text?: string; context?: string; platform?: string };
   try {

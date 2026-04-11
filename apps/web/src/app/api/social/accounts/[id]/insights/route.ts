@@ -21,9 +21,9 @@ import { buildPinterestFrontendAnalyticsBundle } from '@/lib/pinterest-analytics
 import { syncFacebookAuxiliaryIngest, ensureFacebookTables } from '@/lib/facebook/sync-extras';
 import { facebookGraphBaseUrl, instagramGraphHostBaseUrl } from '@/lib/meta-graph-insights';
 import { linkedInAuthorUrnForUgc } from '@/lib/linkedin/sync-ugc-posts';
+import { trackUsage } from '@/lib/usage-tracking';
 
-/** Instagram aggregates many Meta calls; avoid Vercel cutting the handler off at the default limit. */
-export const maxDuration = 60;
+export const maxDuration = 30;
 
 const fbBaseUrl = facebookGraphBaseUrl;
 /** graph.instagram.com — use Instagram host version (see meta-graph-insights), not Facebook Graph version. */
@@ -160,6 +160,7 @@ export async function GET(
   if (!userId) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
+  trackUsage(userId, 'api_call');
   const { id } = await params;
   const account = await prisma.socialAccount.findFirst({
     where: { id, userId },
