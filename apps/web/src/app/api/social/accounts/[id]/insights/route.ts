@@ -21,6 +21,11 @@ import { buildPinterestFrontendAnalyticsBundle } from '@/lib/pinterest-analytics
 import { syncFacebookAuxiliaryIngest, ensureFacebookTables } from '@/lib/facebook/sync-extras';
 import { facebookGraphBaseUrl, instagramGraphHostBaseUrl } from '@/lib/meta-graph-insights';
 import { linkedInAuthorUrnForUgc } from '@/lib/linkedin/sync-ugc-posts';
+import { getLinkedInRestApiVersion, linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
+import {
+  fetchLinkedInMemberFollowersCountMe,
+  fetchLinkedInOrganizationalEntityFollowerStatistics,
+} from '@/lib/linkedin/community-analytics';
 
 export const maxDuration = 30;
 
@@ -1663,10 +1668,28 @@ export async function GET(
         }
       };
 
-      // Prefer first-degree network size when the API returns it (availability varies by product).
-      const connections =
-        (await fetchNetworkSize('FirstDegreeConnection')) ?? (await fetchNetworkSize('FirstDegreeRelationSize'));
-      const companiesFollowed = await fetchNetworkSize('CompanyFollowedByMember');
+      const [
+        connectionsPrimary,
+        connectionsSecond,
+        companiesFollowed,
+        memberFollowersRes,
+        orgFollowerDemographicsRes,
+      ] = await Promise.all([
+        fetchNetworkSize('FirstDegreeConnection'),
+        fetchNetworkSize('FirstDegreeRelationSize'),
+        fetchNetworkSize('CompanyFollowedByMember'),
+        !isOrgPage
+          ? fetchLinkedInMemberFollowersCountMe(account.accessToken)
+          : Promise.resolve({ ok: false as const, status: 0, count: undefined as number | undefined }),
+        isOrgPage
+          ? fetchLinkedInOrganizationalEntityFollowerStatistics(
+              account.accessToken,
+              account.platformUserId.trim()
+            )
+          : Promise.resolve({ ok: false as const, status: 0, elements: undefined as unknown[] | undefined }),
+      ]);
+
+      const connections = connectionsPrimary ?? connectionsSecond;
 
       if (connections != null) {
         out.followers = connections;
@@ -1738,7 +1761,7 @@ export async function GET(
               followerCount?: number;
             }>(`https://api.linkedin.com/rest/organizations/${encodeURIComponent(orgId)}`, {
               params: { projection: '(followerCount)' },
-              headers: { ...liHeaders, 'Linkedin-Version': '202602' },
+              headers: linkedInRestCommunityHeaders(account.accessToken),
               timeout: 10_000,
               validateStatus: () => true,
             });
@@ -1859,6 +1882,10 @@ export async function GET(
         network: {
           connections: connections ?? undefined,
           companiesFollowed: companiesFollowed ?? undefined,
+          memberProfileFollowersCount:
+            memberFollowersRes.ok && typeof memberFollowersRes.count === 'number'
+              ? memberFollowersRes.count
+              : undefined,
         },
         profile: {
           headline: localizedHeadline,
@@ -1872,9 +1899,16 @@ export async function GET(
         },
         activityByDay,
         storedPosts: storedPostsPreview.length > 0 ? storedPostsPreview : undefined,
+        communityManagement: {
+          linkedInRestApiVersion: getLinkedInRestApiVersion(),
+          organizationFollowerStatistics:
+            orgFollowerDemographicsRes.ok && orgFollowerDemographicsRes.elements?.length
+              ? { elements: orgFollowerDemographicsRes.elements }
+              : undefined,
+        },
         permissionHint: !isOrgPage
-          ? 'Full LinkedIn analytics and comments use Marketing / Community Management APIs. Add r_member_social (read your posts) and w_member_social (post/reply) to your app OAuth scopes, then reconnect. OpenID alone only provides basic profile (userinfo).'
-          : undefined,
+          ? 'Community Management (member): r_member_social for posts, comments, UGC sync; w_member_social for publishing and replies; r_member_profileAnalytics (or the product LinkedIn ties to memberFollowersCount) for profile follower counts; r_member_postAnalytics for memberCreatorPostAnalytics. OpenID alone is basic profile only.'
+          : 'Community Management (organization Page): r_organization_social for posts and organizationalEntityShareStatistics; w_organization_social for publishing; organizationalEntityFollowerStatistics for follower demographics (see LinkedIn docs for required admin/follower scopes). Reconnect after each product is approved.',
       };
 
       const hintParts: string[] = [];

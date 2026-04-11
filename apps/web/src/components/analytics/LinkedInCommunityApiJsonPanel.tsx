@@ -58,8 +58,9 @@ export function LinkedInCommunityApiJsonPanel({ accountId }: Props) {
         <div>
           <h3 className="text-lg font-semibold text-neutral-900">LinkedIn Community Management API</h3>
           <p className="text-xs text-neutral-600 mt-0.5 max-w-[720px]">
-            Raw JSON from the LinkedIn endpoints this app calls for your account (UGC posts, network sizes, org stats,
-            member post analytics, social metadata, comments). Open to load; data stays in your browser.
+            Raw JSON from Community Management–related LinkedIn endpoints (UGC posts, network sizes, org ACLs, share
+            statistics, member post analytics, follower demographics, profile follower count, social metadata, comments).
+            Open to load; data stays in your browser.
           </p>
         </div>
         {loading ? (

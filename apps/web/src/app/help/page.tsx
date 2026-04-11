@@ -16,6 +16,7 @@ const NAV_LINKS = [
   { href: '#analytics-limitations', label: 'Analytics limitations' },
   { href: '#growth-chart-history', label: 'Growth chart & follower history' },
   { href: '#inbox-dms', label: 'Inbox & DMs' },
+  { href: '#automation-quotas', label: 'Automation & quotas' },
   { href: '#features', label: 'Features overview' },
 ];
 
@@ -125,7 +126,7 @@ export default function HelpPage() {
             )},
             { id: 'linkedin', title: 'LinkedIn', children: (
               <p className="text-neutral-600 text-sm leading-relaxed">
-                Connect your LinkedIn account to publish posts and view basic profile data. <strong>Connection count</strong> and <strong>post publishing</strong> are available. Advanced analytics (impressions, reach, engagement breakdown) require <strong>LinkedIn Marketing API</strong> approval from LinkedIn. Until then, those metrics will not appear; you can still schedule and publish content.
+                Connect a <strong>member profile</strong> or a <strong>Company Page</strong> (organization URN) to publish, sync posts, pull comments in the Inbox, reply via the Community Management REST APIs, and see analytics when your LinkedIn app has the right <strong>products and OAuth scopes</strong> (for example r_member_social / w_member_social for members, r_organization_social / w_organization_social for Pages). Analytics can include network size, profile follower counts, org follower demographics, per-post stats from synced content, and the raw Community API debug panel on the Analytics page. Set <code className="text-xs bg-neutral-100 px-1 rounded">LINKEDIN_OAUTH_SCOPES</code> or the <code className="text-xs bg-neutral-100 px-1 rounded">LINKEDIN_*</code> toggles in your deployment env after LinkedIn approves each capability; use <code className="text-xs bg-neutral-100 px-1 rounded">LINKEDIN_REST_API_VERSION</code> (YYYYMM) to match LinkedIn&apos;s versioned REST docs. Employee advocacy and some enterprise-only flows are not built into this app; use LinkedIn&apos;s native tools where the API does not expose them.
               </p>
             )},
             { id: 'pinterest', title: 'Pinterest', children: (
@@ -171,6 +172,19 @@ export default function HelpPage() {
                 </p>
               </>
             )},
+            { id: 'automation-quotas', title: 'Automation & quotas', children: (
+              <p className="text-neutral-600 text-sm leading-relaxed">
+                Keyword comment automation runs on a schedule you configure and is subject to <strong>per-run technical limits</strong> (how many posts are scanned, how many replies per post, pagination depth, delays, and hosting time limits). Those limits are documented for transparency and are <strong>not</strong> a guarantee of delivery speed or volume. You are responsible for complying with each platform&apos;s automation and anti-spam rules. Read the full summary on{' '}
+                <Link href="/help/automation" className="text-[var(--primary)] font-medium hover:underline">
+                  Automation &amp; quotas
+                </Link>
+                {' '}and the contractual terms in our{' '}
+                <Link href="/terms" className="text-[var(--primary)] font-medium hover:underline">
+                  Terms of Service
+                </Link>
+                {' '}(Section 4).
+              </p>
+            )},
             { id: 'inbox-dms', title: 'Inbox & DMs', children: (
               <>
                 <p className="text-neutral-600 text-sm leading-relaxed mb-3">
@@ -192,7 +206,7 @@ export default function HelpPage() {
                 <li><strong>Reel Analyzer:</strong> Dedicated page to upload a short video and get a performance score and tips. Also available in Composer when you add a reel.</li>
                 <li><strong>Composer:</strong> Create posts, carousels, or reels; schedule or publish to connected accounts. Use &quot;Generate with AI&quot; for captions (set up AI Assistant first).</li>
                 <li><strong>Calendar:</strong> View and manage scheduled posts.</li>
-                <li><strong>Automation:</strong> Set up automated comment replies (e.g. from the Automation page in the sidebar).</li>
+                <li><strong>Automation:</strong> Set up automated comment replies from the Automation page in the sidebar. See <Link href="/help/automation" className="text-[var(--primary)] font-medium hover:underline">Automation &amp; quotas</Link> for limits and <Link href="/terms" className="text-[var(--primary)] font-medium hover:underline">Terms</Link> for your obligations.</li>
                 <li><strong>AI Assistant:</strong> Add brand context and inbox/comment reply examples so the Inbox sparkle button can generate reply drafts. AI drafts are disabled until you add examples.</li>
                 <li><strong>Smart Links:</strong> Create a custom link-in-bio page with your links and branding.</li>
               </ul>

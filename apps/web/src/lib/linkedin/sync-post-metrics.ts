@@ -5,14 +5,7 @@
  */
 
 import axios from 'axios';
-
-const LINKEDIN_VERSION = '202602';
-
-const liHeaders = (token: string) => ({
-  Authorization: `Bearer ${token}`,
-  'X-Restli-Protocol-Version': '2.0.0',
-  'Linkedin-Version': LINKEDIN_VERSION,
-});
+import { linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
 
 export function normalizeLinkedInPostUrn(platformPostId: string): string {
   const t = platformPostId.trim();
@@ -42,7 +35,7 @@ async function fetchMemberMetric(
   try {
     const r = await axios.get<{
       elements?: Array<{ count?: number }>;
-    }>(url, { headers: liHeaders(accessToken), timeout: 12_000, validateStatus: () => true });
+    }>(url, { headers: linkedInRestCommunityHeaders(accessToken), timeout: 12_000, validateStatus: () => true });
     if (r.status < 200 || r.status >= 300) return 0;
     const els = r.data?.elements ?? [];
     return els.reduce((s, e) => s + (typeof e.count === 'number' && Number.isFinite(e.count) ? e.count : 0), 0);
@@ -89,7 +82,7 @@ export async function fetchOrganizationUgcPostStatsBatch(
 
   try {
     const r = await axios.get<{ elements?: OrgStatRow[] }>(url, {
-      headers: liHeaders(accessToken),
+      headers: linkedInRestCommunityHeaders(accessToken),
       timeout: 20_000,
       validateStatus: () => true,
     });

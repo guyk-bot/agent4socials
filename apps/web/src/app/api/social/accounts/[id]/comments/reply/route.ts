@@ -5,6 +5,7 @@ import axios from 'axios';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 import { getValidYoutubeToken } from '@/lib/youtube-token';
 import { linkedInAuthorUrnForUgc } from '@/lib/linkedin/sync-ugc-posts';
+import { linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
 
 /**
  * POST /api/social/accounts/[id]/comments/reply
@@ -94,10 +95,8 @@ export async function POST(
         },
         {
           headers: {
-            Authorization: `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
-            'X-Restli-Protocol-Version': '2.0.0',
-            'Linkedin-Version': '202602',
+            ...linkedInRestCommunityHeaders(accessToken),
           },
           timeout: 20_000,
         }

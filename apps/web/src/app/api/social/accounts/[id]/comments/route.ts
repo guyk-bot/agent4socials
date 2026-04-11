@@ -6,6 +6,7 @@ import axios from 'axios';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 import { getValidYoutubeToken } from '@/lib/youtube-token';
 import { linkedInAuthorUrnForUgc } from '@/lib/linkedin/sync-ugc-posts';
+import { linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
 
 async function fetchAllPages<T>(
   initialUrl: string,
@@ -674,11 +675,7 @@ export async function GET(
             object?: string;
           }>;
         }>(`https://api.linkedin.com/rest/socialActions/${encodeURIComponent(postUrn)}/comments`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'X-Restli-Protocol-Version': '2.0.0',
-            'Linkedin-Version': '202602',
-          },
+          headers: linkedInRestCommunityHeaders(token),
           timeout: 15_000,
         });
         const elements = commentsRes.data?.elements ?? [];

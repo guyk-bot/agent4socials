@@ -6,10 +6,9 @@ import { Platform } from '@prisma/client';
 import { linkedInAuthorUrnForUgc } from '@/lib/linkedin/sync-ugc-posts';
 import { normalizeLinkedInPostUrn } from '@/lib/linkedin/sync-post-metrics';
 import { fetchLinkedInRestPersonUrn } from '@/lib/linkedin/rest-person';
+import { getLinkedInRestApiVersion, linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
 
 export const dynamic = 'force-dynamic';
-
-const LINKEDIN_VERSION = '202602';
 
 function memberCreatorEntityParam(postUrn: string): string {
   const urn = normalizeLinkedInPostUrn(postUrn);
@@ -76,10 +75,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     Authorization: `Bearer ${token}`,
     'X-Restli-Protocol-Version': '2.0.0',
   };
-  const liRest = {
-    ...liV2,
-    'Linkedin-Version': LINKEDIN_VERSION,
-  };
+  const liRest = linkedInRestCommunityHeaders(token);
 
   const importedRows = await prisma.importedPost.findMany({
     where: { socialAccountId: account.id, platform: Platform.LINKEDIN },
@@ -160,6 +156,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         ),
   ]);
 
+  let memberFollowersCount_me: Probe | null = null;
+  let organizationalEntityFollowerStatistics: Probe | null = null;
+  if (!isOrg) {
+    memberFollowersCount_me = await probeGet('https://api.linkedin.com/rest/memberFollowersCount?q=me', liRest);
+  } else {
+    const orgEnc = encodeURIComponent(platformUserId);
+    organizationalEntityFollowerStatistics = await probeGet(
+      `https://api.linkedin.com/rest/organizationalEntityFollowerStatistics?q=organizationalEntity&organizationalEntity=${orgEnc}`,
+      liRest
+    );
+  }
+
   let organization_rest: Probe | null = null;
   let organizationAcls_administrator: Probe | null = null;
   if (isOrg) {
@@ -217,6 +225,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const out = {
     meta: {
       fetchedAt: new Date().toISOString(),
+      linkedInRestApiVersion: getLinkedInRestApiVersion(),
       socialAccountId: account.id,
       platformUserId,
       isOrganizationAccount: isOrg,
@@ -243,6 +252,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           ? memberCreatorPostAnalytics_byQueryType
           : null,
       socialActions_perStoredPost,
+      memberFollowersCount_me,
+      organizationalEntityFollowerStatistics,
     },
   };
 

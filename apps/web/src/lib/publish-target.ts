@@ -5,6 +5,7 @@
 
 import FormData from 'form-data';
 import { signTwitterRequest } from './twitter-oauth1';
+import { linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
 import { facebookGraphBaseUrl, META_GRAPH_FACEBOOK_API_VERSION } from '@/lib/meta-graph-insights';
 import {
   buildTikTokPostInfoFromPayload,
@@ -397,10 +398,8 @@ export async function publishTarget(
           { initializeUploadRequest: { owner: author } },
           {
             headers: {
-              Authorization: `Bearer ${token}`,
               'Content-Type': 'application/json',
-              'X-Restli-Protocol-Version': '2.0.0',
-              'Linkedin-Version': '202602',
+              ...linkedInRestCommunityHeaders(token),
             },
           }
         );
@@ -434,10 +433,8 @@ export async function publishTarget(
           },
           {
             headers: {
-              Authorization: `Bearer ${token}`,
               'Content-Type': 'application/json',
-              'X-Restli-Protocol-Version': '2.0.0',
-              'Linkedin-Version': '202602',
+              ...linkedInRestCommunityHeaders(token),
             },
           }
         );
@@ -478,10 +475,8 @@ export async function publishTarget(
           },
           {
             headers: {
-              Authorization: `Bearer ${token}`,
               'Content-Type': 'application/json',
-              'X-Restli-Protocol-Version': '2.0.0',
-              'Linkedin-Version': '202602',
+              ...linkedInRestCommunityHeaders(token),
             },
           }
         );
@@ -492,10 +487,8 @@ export async function publishTarget(
         postBody,
         {
           headers: {
-            Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
-            'X-Restli-Protocol-Version': '2.0.0',
-            'Linkedin-Version': '202602',
+            ...linkedInRestCommunityHeaders(token),
           },
         }
       );

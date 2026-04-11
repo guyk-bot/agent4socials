@@ -1,6 +1,5 @@
 import axios from 'axios';
-
-const LINKEDIN_VERSION = '202602';
+import { linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
 
 /**
  * GET https://api.linkedin.com/rest/me — returns the member id URN when the token allows it
@@ -13,11 +12,7 @@ export async function fetchLinkedInRestPersonUrn(accessToken: string): Promise<{
 }> {
   try {
     const r = await axios.get<Record<string, unknown>>('https://api.linkedin.com/rest/me', {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Linkedin-Version': LINKEDIN_VERSION,
-        'X-Restli-Protocol-Version': '2.0.0',
-      },
+      headers: linkedInRestCommunityHeaders(accessToken),
       timeout: 12_000,
       validateStatus: () => true,
     });

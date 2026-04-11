@@ -91,6 +91,9 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
       // LinkedIn's generic "Bummer, something went wrong" (invalid scope). Opt in with LINKEDIN_INCLUDE_W_MEMBER_SOCIAL
       // or set LINKEDIN_OAUTH_SCOPES to the full list you have approved in the portal.
       // r_organization_social / w_organization_social need Community Management / Marketing API; opt-in via LINKEDIN_REQUEST_ORG_SCOPES + page method.
+      // Community Management features (posts, comments, reactions/socialMetadata, org share stats, follower demographics)
+      // each need the matching LinkedIn products and scopes — see Microsoft Learn "Community Management API".
+      // Server-side REST calls use LINKEDIN_REST_API_VERSION (YYYYMM) on /rest/* (defaults in code if unset).
       const requestOrgScopes = process.env.LINKEDIN_REQUEST_ORG_SCOPES === 'true' && method === 'page';
       const includeWrite =
         process.env.LINKEDIN_INCLUDE_W_MEMBER_SOCIAL === 'true' ||
