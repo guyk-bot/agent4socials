@@ -27,7 +27,7 @@ import {
   fetchLinkedInOrganizationalEntityFollowerStatistics,
 } from '@/lib/linkedin/community-analytics';
 
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 const fbBaseUrl = facebookGraphBaseUrl;
 /** graph.instagram.com — use Instagram host version (see meta-graph-insights), not Facebook Graph version. */
@@ -150,6 +150,11 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Wall-clock budget: stop making new API calls after 50s so we never hit the 60s maxDuration hard limit.
+  const requestStartMs = Date.now();
+  const budgetMs = 50_000;
+  const budgetExpired = () => Date.now() - requestStartMs > budgetMs;
+
   if (!process.env.DATABASE_URL) {
     return NextResponse.json({ message: 'DATABASE_URL required' }, { status: 503 });
   }
@@ -411,19 +416,18 @@ export async function GET(
       const igSeriesByMetric: Record<string, Array<{ date: string; value: number }>> = {};
       const tryInsights = async (base: string): Promise<boolean> => {
         if (effectiveSinceTs == null || effectiveUntilTs == null) return false;
+        if (budgetExpired()) return false;
         /**
          * Ordered from broadest to narrowest. impressions is deprecated in v18+; reach/accounts_reached
-         * are the replacements. profile_views must be fetched separately with metric_type=total_value.
+         * are the v22+ replacements. Kept to 3 sets to stay within the time budget.
          */
         const metricSets = [
-          'impressions,reach,accounts_engaged',
           'reach,accounts_engaged',
-          'impressions,reach',
           'reach,accounts_reached',
           'reach',
-          'accounts_reached',
         ];
         for (const metricSet of metricSets) {
+          if (budgetExpired()) break;
           try {
             const insightsRes = await axios.get<{
               data?: Array<{
@@ -505,6 +509,7 @@ export async function GET(
       /** Fallback metric sets can omit accounts_engaged; fetch it alone so the Performance card is not stuck at 0. */
       const supplementIgAccountsEngaged = async (base: string): Promise<void> => {
         if (effectiveSinceTs == null || effectiveUntilTs == null) return;
+        if (budgetExpired()) return;
         if (igSeriesByMetric.accounts_engaged?.length) return;
 
         const tryFetch = async (extraParams: Record<string, string | number | undefined>): Promise<boolean> => {
@@ -546,6 +551,7 @@ export async function GET(
       const supplementIgViews = async (base: string): Promise<void> => {
         if (effectiveSinceTs == null || effectiveUntilTs == null) return;
         if (igSeriesByMetric.views?.length) return;
+        if (budgetExpired()) return;
         try {
           const res = await axios.get<{
             data?: Array<{
@@ -595,6 +601,7 @@ export async function GET(
       const supplementIgProfileViews = async (): Promise<void> => {
         if (effectiveSinceTs == null || effectiveUntilTs == null) return;
         if (igSeriesByMetric.profile_views?.length) return;
+        if (budgetExpired()) return;
 
         const parseProfileViewsRow = (
           data:
@@ -714,6 +721,7 @@ export async function GET(
        */
       const supplementIgReachAndEngagement = async (): Promise<void> => {
         if (effectiveSinceTs == null || effectiveUntilTs == null) return;
+        if (budgetExpired()) return;
         const needImpressions =
           !(out.impressionsTimeSeries ?? []).some((p) => p.value > 0) && !(out.impressionsTotal ?? 0);
         const needEngaged = !(out.accountsEngaged ?? 0);
@@ -809,6 +817,7 @@ export async function GET(
       });
       const supplementIgInteractionMetrics = async (base: string): Promise<void> => {
         if (effectiveSinceTs == null || effectiveUntilTs == null) return;
+        if (budgetExpired()) return;
         const metricSets = [
           'likes,comments,shares,saves,total_interactions,reposts',
           'likes,comments,shares,saves,total_interactions',

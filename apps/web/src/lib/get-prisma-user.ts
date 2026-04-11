@@ -18,7 +18,13 @@ export async function getPrismaUserIdFromRequest(authHeader: string | null): Pro
   );
   const { data: { user }, error } = await supabase.auth.getUser(token);
   if (error || !user) return null;
-  const dbUser = await prisma.user.findUnique({ where: { supabaseId: user.id } });
+  let dbUser: { id: string } | null = null;
+  try {
+    dbUser = await prisma.user.findUnique({ where: { supabaseId: user.id } });
+  } catch (e) {
+    console.error('[getPrismaUserIdFromRequest] DB error:', (e as Error)?.message?.slice(0, 200));
+    return null;
+  }
   const id = dbUser?.id ?? null;
   if (id && process.env.USAGE_METER_DISABLE !== '1') {
     trackUsage(id, 'api_request');

@@ -1,10 +1,10 @@
 import { PrismaClient } from '@prisma/client';
 
 // ─── Connection URL hardening ───────────────────────────────────────────────
-// 1. pgbouncer=true: disable prepared statements (required for transaction-mode poolers)
-// 2. connection_limit=1: Vercel serverless best practice — one connection per cold start
-// 3. pool_timeout=30: don't wait forever for a pool slot
-// 4. connect_timeout=30: don't wait forever to establish a connection
+// pgbouncer=true  – disable prepared statements (required for transaction-mode poolers)
+// connection_limit=1 – one connection per serverless invocation (Vercel best practice)
+// pool_timeout=5  – FAIL FAST: don't wait 30s for a pool slot and hang the whole route
+// connect_timeout=15 – don't wait forever for TCP handshake
 const rawUrl = process.env.DATABASE_URL;
 if (rawUrl && /^postgres(ql)?:\/\//i.test(rawUrl)) {
   let fixedUrl = rawUrl;
@@ -12,8 +12,11 @@ if (rawUrl && /^postgres(ql)?:\/\//i.test(rawUrl)) {
     u.includes('?') ? `${u}&${param}` : `${u}?${param}`;
   if (!fixedUrl.includes('pgbouncer=true')) fixedUrl = addParam(fixedUrl, 'pgbouncer=true');
   if (!fixedUrl.includes('connection_limit=')) fixedUrl = addParam(fixedUrl, 'connection_limit=1');
-  if (!fixedUrl.includes('pool_timeout=')) fixedUrl = addParam(fixedUrl, 'pool_timeout=30');
-  if (!fixedUrl.includes('connect_timeout=')) fixedUrl = addParam(fixedUrl, 'connect_timeout=30');
+  // Replace any previous pool_timeout value with the fast-fail value
+  fixedUrl = fixedUrl.replace(/pool_timeout=\d+/, 'pool_timeout=5');
+  if (!fixedUrl.includes('pool_timeout=')) fixedUrl = addParam(fixedUrl, 'pool_timeout=5');
+  fixedUrl = fixedUrl.replace(/connect_timeout=\d+/, 'connect_timeout=15');
+  if (!fixedUrl.includes('connect_timeout=')) fixedUrl = addParam(fixedUrl, 'connect_timeout=15');
   process.env.DATABASE_URL = fixedUrl;
 }
 
@@ -22,35 +25,39 @@ export const databaseUrlLooksDirect =
   typeof rawUrl === 'string' &&
   (rawUrl.includes(':5432/') || (rawUrl.includes('supabase') && !rawUrl.includes('6543') && !/pooler\.|pooler\.supabase/i.test(rawUrl)));
 
-// ─── P1017 retry middleware ──────────────────────────────────────────────────
-// Supabase / PostgreSQL drops idle connections; the global singleton can hold a
-// dead socket between cold-start serverless invocations.  Intercept P1017
-// ("Server has closed the connection") and P1001 ("Can't reach database server")
-// with a single reconnect-and-retry so callers never see the error.
-function createClient(): PrismaClient {
-  const client = new PrismaClient();
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (client as any).$use(async (params: unknown, next: (p: unknown) => Promise<unknown>) => {
-    try {
-      return await next(params);
-    } catch (e: unknown) {
-      const code = (e as { code?: string })?.code;
-      if (code === 'P1017' || code === 'P1001') {
-        // Dead socket — disconnect, wait briefly, then retry once.
-        try { await client.$disconnect(); } catch { /* ignore */ }
-        await new Promise((r) => setTimeout(r, 150));
-        try { await client.$connect(); } catch { /* ignore — next() will surface real error */ }
-        return await next(params);
-      }
-      throw e;
-    }
+// ─── Connection-error retry via $extends (Prisma 5 supported) ───────────────
+// $use is deprecated; $extends is the correct approach in Prisma 5.
+// We intercept P1017 ("Server has closed the connection"), P1001 ("Can't reach
+// database server"), and P2024 ("Timed out fetching a new connection") and retry
+// once after a short pause.  This handles the common serverless case where Supabase
+// drops idle connections between warm invocations.
+function createClient() {
+  const base = new PrismaClient();
+  return base.$extends({
+    query: {
+      $allModels: {
+        async $allOperations({ args, query }) {
+          try {
+            return await query(args);
+          } catch (e: unknown) {
+            const code = (e as { code?: string })?.code;
+            if (code === 'P1017' || code === 'P1001' || code === 'P2024') {
+              // Dead or exhausted connection — disconnect so the next attempt reconnects fresh.
+              try { await base.$disconnect(); } catch { /* ignore */ }
+              await new Promise((r) => setTimeout(r, 300));
+              return await query(args);
+            }
+            throw e;
+          }
+        },
+      },
+    },
   });
-
-  return client;
 }
 
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+type ExtPrismaClient = ReturnType<typeof createClient>;
+const globalForPrisma = globalThis as unknown as { prisma: ExtPrismaClient };
 
-export const prisma: PrismaClient = globalForPrisma.prisma ?? createClient();
-globalForPrisma.prisma = prisma;
+export const prisma = (
+  globalForPrisma.prisma ?? (globalForPrisma.prisma = createClient())
+) as unknown as PrismaClient;
