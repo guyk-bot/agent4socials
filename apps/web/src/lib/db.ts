@@ -6,7 +6,7 @@ import { PrismaClient } from '@prisma/client';
 // pool_timeout – how long Prisma waits for a free slot in its pool (default 15s).
 // Too low (e.g. 5s) surfaces P2024 under brief DB congestion; too high delays error responses.
 // Override with DATABASE_POOL_TIMEOUT_SEC (integer 5–120).
-// connect_timeout=15 – don't wait forever for TCP handshake
+// connect_timeout=10 – don't wait too long for TCP handshake
 const rawUrl = process.env.DATABASE_URL;
 const poolTimeoutSec = (() => {
   const v = process.env.DATABASE_POOL_TIMEOUT_SEC;
@@ -22,8 +22,8 @@ if (rawUrl && /^postgres(ql)?:\/\//i.test(rawUrl)) {
   if (!fixedUrl.includes('connection_limit=')) fixedUrl = addParam(fixedUrl, 'connection_limit=1');
   fixedUrl = fixedUrl.replace(/pool_timeout=\d+/, `pool_timeout=${poolTimeoutSec}`);
   if (!fixedUrl.includes('pool_timeout=')) fixedUrl = addParam(fixedUrl, `pool_timeout=${poolTimeoutSec}`);
-  fixedUrl = fixedUrl.replace(/connect_timeout=\d+/, 'connect_timeout=15');
-  if (!fixedUrl.includes('connect_timeout=')) fixedUrl = addParam(fixedUrl, 'connect_timeout=15');
+  fixedUrl = fixedUrl.replace(/connect_timeout=\d+/, 'connect_timeout=10');
+  if (!fixedUrl.includes('connect_timeout=')) fixedUrl = addParam(fixedUrl, 'connect_timeout=10');
   process.env.DATABASE_URL = fixedUrl;
 }
 

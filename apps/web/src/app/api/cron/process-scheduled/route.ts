@@ -57,6 +57,17 @@ async function processScheduledInline(request: NextRequest) {
 
 async function executeProcessScheduled() {
   const now = new Date();
+
+  // Wall-clock budget: stop publishing before the 60s maxDuration or the
+  // external cron HTTP timeout (cron-job.org free = 30s).
+  const BUDGET_MS = 22_000;
+  const deadline = Date.now() + BUDGET_MS;
+
+  // Process only 3 posts per run to limit concurrent serverless invocations
+  // and prevent connection-pool exhaustion. Cron runs every minute, so
+  // 3/min is enough to keep up. Older due posts are caught on the next run.
+  const MAX_POSTS_PER_RUN = 3;
+
   let due;
   try {
     due = await prisma.post.findMany({
@@ -64,7 +75,8 @@ async function executeProcessScheduled() {
         status: PostStatus.SCHEDULED,
         scheduledAt: { lte: now },
       },
-      take: 10,
+      orderBy: { scheduledAt: 'asc' },
+      take: MAX_POSTS_PER_RUN,
       include: {
         user: { select: { id: true, email: true } },
         targets: true,
@@ -82,6 +94,11 @@ async function executeProcessScheduled() {
   const results: { postId: string; action: string; ok: boolean; error?: string }[] = [];
 
   for (const post of due) {
+    if (Date.now() > deadline) {
+      console.warn('[Cron] process-scheduled budget exhausted, deferring remaining posts');
+      break;
+    }
+
     const scheduleDelivery = (post as { scheduleDelivery?: string | null }).scheduleDelivery;
     const scheduleEmailSentAt = (post as { scheduleEmailSentAt?: Date | null }).scheduleEmailSentAt;
 
@@ -119,12 +136,16 @@ async function executeProcessScheduled() {
       continue;
     }
 
-    // auto (or legacy null): trigger publish
+    // auto (or legacy null): trigger publish — one at a time, sequentially
     try {
+      const controller = new AbortController();
+      const publishTimeout = setTimeout(() => controller.abort(), 15_000);
       const res = await fetch(`${baseUrl()}/api/posts/${post.id}/publish`, {
         method: 'POST',
         headers: { 'X-Cron-Secret': process.env.CRON_SECRET ?? '' },
+        signal: controller.signal,
       });
+      clearTimeout(publishTimeout);
       const ok = res.ok;
       const body = await res.json().catch(() => ({}));
       if (!ok && post.user?.email && post.scheduledAt) {
@@ -144,14 +165,15 @@ async function executeProcessScheduled() {
         error: ok ? undefined : (body as { message?: string; error?: string }).message || (body as { error?: string }).error || res.statusText,
       });
     } catch (err) {
+      const msg = (err as Error)?.name === 'AbortError' ? 'Publish timed out (15s)' : ((err as Error).message || 'Publish failed');
       if (post.user?.email && post.scheduledAt) {
-        await sendScheduledPublishFailureEmail(post.user.email, post.scheduledAt.toISOString(), (err as Error).message || 'Publish failed');
+        await sendScheduledPublishFailureEmail(post.user.email, post.scheduledAt.toISOString(), msg);
       }
       results.push({
         postId: post.id,
         action: 'publish',
         ok: false,
-        error: (err as Error).message,
+        error: msg,
       });
     }
   }

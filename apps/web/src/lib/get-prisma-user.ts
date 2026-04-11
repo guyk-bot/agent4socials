@@ -18,9 +18,18 @@ export async function getPrismaUserIdFromRequest(authHeader: string | null): Pro
   );
   const { data: { user }, error } = await supabase.auth.getUser(token);
   if (error || !user) return null;
+  // Race with a short timeout so pool exhaustion returns null (→ 401) quickly
+  // rather than hanging the entire route for pool_timeout + connect_timeout seconds.
   let dbUser: { id: string } | null = null;
   try {
-    dbUser = await prisma.user.findUnique({ where: { supabaseId: user.id } });
+    const DB_LOOKUP_TIMEOUT_MS = 8_000;
+    const result = await Promise.race([
+      prisma.user.findUnique({ where: { supabaseId: user.id } }),
+      new Promise<null>((_, reject) =>
+        setTimeout(() => reject(new Error('DB lookup timed out')), DB_LOOKUP_TIMEOUT_MS)
+      ),
+    ]);
+    dbUser = result;
   } catch (e) {
     console.error('[getPrismaUserIdFromRequest] DB error:', (e as Error)?.message?.slice(0, 200));
     return null;
