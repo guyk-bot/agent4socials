@@ -336,7 +336,9 @@ export async function runScheduledSyncForScope(
   await ensureSyncTables();
 
   const CONCURRENCY = 3;
-  const BUDGET_MS = opts?.budgetMs ?? 45_000; // leave headroom inside the 60s maxDuration
+  // Default 24s — callers that need a full 60s Vercel window pass budgetMs explicitly.
+  // Cron uses a shared ~26s HTTP budget across 3 scopes (cron-job.org free = 30s cap).
+  const BUDGET_MS = opts?.budgetMs ?? 24_000;
   const deadline = Date.now() + BUDGET_MS;
 
   const accounts = await prisma.socialAccount.findMany({

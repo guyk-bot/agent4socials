@@ -96,6 +96,11 @@ export type CommentAutomationSummary = {
 export async function executeCommentAutomation(): Promise<CommentAutomationSummary> {
   const results: CommentAutomationResult[] = [];
 
+  // Stay under external cron HTTP limits (e.g. cron-job.org free = 30s max wait).
+  const cronBudgetMs = envInt('COMMENT_AUTOMATION_CRON_BUDGET_MS', 24_000);
+  const budgetDeadline = Date.now() + cronBudgetMs;
+  const budgetExpired = () => Date.now() > budgetDeadline;
+
   const maxPostsPerRun = envInt('COMMENT_AUTOMATION_MAX_POSTS', 40);
   const maxMetaCommentPages = envInt('COMMENT_AUTOMATION_MAX_META_COMMENT_PAGES', 25);
   const maxRepliesPerTargetPerRun = envInt('COMMENT_AUTOMATION_MAX_REPLIES_PER_TARGET', 40);
@@ -140,13 +145,23 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
 
   const postsTruncated = postsAll > posts.length;
 
-  for (const post of posts) {
+  let stoppedForCronBudget = false;
+
+  automation: for (const post of posts) {
+    if (budgetExpired()) {
+      stoppedForCronBudget = true;
+      break automation;
+    }
     const ca = post.commentAutomation as CommentAutomation | null;
     if (!ca || !Array.isArray(ca.keywords) || ca.keywords.length === 0) continue;
     const keywords = ca.keywords.map((k) => (typeof k === 'string' ? k : '').toLowerCase()).filter(Boolean);
     if (keywords.length === 0) continue;
 
     for (const target of post.targets) {
+      if (budgetExpired()) {
+        stoppedForCronBudget = true;
+        break automation;
+      }
       if (!target.platformPostId || !target.socialAccount) continue;
       const platform = target.socialAccount.platform;
       const replyText = getReplyText(ca, platform);
@@ -170,6 +185,10 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
           const linkedPageId: string | null = typeof creds?.linkedPageId === 'string' ? creds.linkedPageId : null;
           const igAccountId = (target.socialAccount.platformUserId || '').trim();
 
+          if (budgetExpired()) {
+            stoppedForCronBudget = true;
+            break automation;
+          }
           const comments = await fetchMetaCommentsPaged(
             `${facebookGraphBaseUrl}/${platformPostId}/comments`,
             {
@@ -182,6 +201,10 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
           );
 
           for (const c of comments) {
+            if (budgetExpired()) {
+              stoppedForCronBudget = true;
+              break automation;
+            }
             if (replied >= maxRepliesPerTargetPerRun) break;
             if (repliedSet.has(c.id)) continue;
             const text = (c.text ?? '').toLowerCase();
@@ -240,6 +263,10 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
             }
           }
         } else if (platform === 'FACEBOOK') {
+          if (budgetExpired()) {
+            stoppedForCronBudget = true;
+            break automation;
+          }
           const comments = await fetchMetaCommentsPaged(
             `${facebookGraphBaseUrl}/${platformPostId}/comments`,
             {
@@ -252,6 +279,10 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
           );
 
           for (const c of comments) {
+            if (budgetExpired()) {
+              stoppedForCronBudget = true;
+              break automation;
+            }
             if (replied >= maxRepliesPerTargetPerRun) break;
             if (repliedSet.has(c.id)) continue;
             const text = (c.message ?? '').toLowerCase();
@@ -285,6 +316,10 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
           let nextToken: string | undefined;
           try {
             for (let page = 0; page < maxTwitterSearchPages; page++) {
+              if (budgetExpired()) {
+                stoppedForCronBudget = true;
+                break automation;
+              }
               const params: Record<string, string | number> = {
                 query: `conversation_id:${platformPostId} is:reply`,
                 'tweet.fields': 'text,author_id',
@@ -326,6 +361,10 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
             errors.push(`X Search: ${status ?? ''} ${msg}`.trim().slice(0, 200));
           }
           for (const t of tweets) {
+            if (budgetExpired()) {
+              stoppedForCronBudget = true;
+              break automation;
+            }
             if (replied >= maxRepliesPerTargetPerRun) break;
             if (repliedSet.has(t.id)) continue;
             const text = (t.text ?? '').toLowerCase();
@@ -369,9 +408,15 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
   };
 
   let hint: string | undefined;
+  if (stoppedForCronBudget) {
+    hint =
+      'Stopped early to stay within the cron HTTP time budget (~24s by default for 30s schedulers). Run again soon, or set COMMENT_AUTOMATION_CRON_BUDGET_MS if your scheduler allows longer waits.';
+  }
   if (hasErrors) {
-    hint = 'One or more platforms returned errors (e.g. X Search may require a paid plan or app in a Project). Check errors below.';
-  } else if (postsTruncated) {
+    hint = hint
+      ? `${hint} Also: one or more platforms returned errors (e.g. X Search may require a paid plan). Check errors below.`
+      : 'One or more platforms returned errors (e.g. X Search may require a paid plan or app in a Project). Check errors below.';
+  } else if (postsTruncated && !stoppedForCronBudget) {
     hint = `More than ${maxPostsPerRun} posts have automation enabled; this run processed the ${maxPostsPerRun} most recently updated. Run cron again (or more often) to cover the rest. Tune COMMENT_AUTOMATION_MAX_POSTS in Vercel.`;
   }
 

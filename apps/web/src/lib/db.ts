@@ -27,10 +27,31 @@ export const databaseUrlLooksDirect =
 
 // ─── Connection-error retry via $extends (Prisma 5 supported) ───────────────
 // $use is deprecated; $extends is the correct approach in Prisma 5.
-// We intercept P1017 ("Server has closed the connection"), P1001 ("Can't reach
-// database server"), and P2024 ("Timed out fetching a new connection") and retry
-// once after a short pause.  This handles the common serverless case where Supabase
-// drops idle connections between warm invocations.
+//
+// Prisma 5 throws connection errors in two ways:
+//   PrismaClientKnownRequestError  → has .code         (e.g. "P1017")
+//   PrismaClientInitializationError → has .errorCode   (e.g. "P1017", "P1001")
+// We check both, plus fall back to message-pattern matching so nothing slips through.
+const CONNECTION_ERROR_CODES = new Set(['P1017', 'P1001', 'P2024']);
+const CONNECTION_MSG_PATTERNS = [
+  'server has closed the connection',
+  "can't reach database server",
+  'connection pool timed out',
+  'connection refused',
+  'timed out fetching a new connection',
+  'econnrefused',
+  'econnreset',
+  'connection terminated unexpectedly',
+];
+
+function isConnectionError(e: unknown): boolean {
+  const err = e as { code?: string; errorCode?: string; message?: string };
+  if (err.code && CONNECTION_ERROR_CODES.has(err.code)) return true;
+  if (err.errorCode && CONNECTION_ERROR_CODES.has(err.errorCode)) return true;
+  const msg = (err.message ?? '').toLowerCase();
+  return CONNECTION_MSG_PATTERNS.some((p) => msg.includes(p));
+}
+
 function createClient() {
   const base = new PrismaClient();
   return base.$extends({
@@ -40,11 +61,12 @@ function createClient() {
           try {
             return await query(args);
           } catch (e: unknown) {
-            const code = (e as { code?: string })?.code;
-            if (code === 'P1017' || code === 'P1001' || code === 'P2024') {
-              // Dead or exhausted connection — disconnect so the next attempt reconnects fresh.
+            if (isConnectionError(e)) {
+              // Dead or exhausted connection — force-disconnect so the engine
+              // picks up a fresh socket on the next attempt.
               try { await base.$disconnect(); } catch { /* ignore */ }
-              await new Promise((r) => setTimeout(r, 300));
+              await new Promise((r) => setTimeout(r, 400));
+              try { await base.$connect(); } catch { /* ignore — query() will surface the real error */ }
               return await query(args);
             }
             throw e;

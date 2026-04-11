@@ -17,6 +17,18 @@ import { runScheduledSyncForScope } from '@/lib/sync/engine';
 
 export const maxDuration = 60;
 
+/**
+ * cron-job.org free tier caps HTTP wait at 30s — the whole handler (3 scopes) must
+ * finish before that.  Set CRON_SYNC_HTTP_BUDGET_MS to tune (default 26_000).
+ */
+function cronSyncTotalBudgetMs(): number {
+  const raw = process.env.CRON_SYNC_HTTP_BUDGET_MS;
+  if (raw == null || raw === '') return 26_000;
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n)) return 26_000;
+  return Math.min(120_000, Math.max(5_000, n));
+}
+
 function checkAuthorization(request: NextRequest): {
   ok: boolean;
   reason: 'ok' | 'missing_env' | 'missing_provided' | 'mismatch';
@@ -55,9 +67,19 @@ async function handle(request: NextRequest) {
   const scopes = ['account_overview', 'posts', 'post_metrics'] as const;
   const results: Record<string, { processed: number; errors: string[] }> = {};
 
+  const globalDeadline = Date.now() + cronSyncTotalBudgetMs();
+
   for (const scope of scopes) {
+    const remaining = globalDeadline - Date.now();
+    if (remaining < 1_500) {
+      results[scope] = {
+        processed: 0,
+        errors: ['skipped: shared_cron_http_budget_exhausted'],
+      };
+      continue;
+    }
     try {
-      results[scope] = await runScheduledSyncForScope(scope);
+      results[scope] = await runScheduledSyncForScope(scope, { budgetMs: remaining });
     } catch (e) {
       results[scope] = { processed: 0, errors: [(e as Error).message] };
     }
