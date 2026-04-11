@@ -57,7 +57,7 @@ describe('publishTarget', () => {
           caption: 'Hello',
           firstImageUrl: fakeImageUrl,
         },
-        { fetch: fetchMock, axios: axiosMock }
+        { fetch: fetchMock as typeof fetch, axios: axiosMock }
       );
 
       expect(result.ok).toBe(true);
@@ -129,7 +129,7 @@ describe('publishTarget', () => {
           caption: 'Hello',
           firstImageUrl: fakeImageUrl,
         },
-        { fetch: fetchMock, axios: axiosMock }
+        { fetch: fetchMock as typeof fetch, axios: axiosMock }
       );
 
       expect(result.ok).toBe(true);

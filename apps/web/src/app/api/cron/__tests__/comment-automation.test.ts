@@ -2,6 +2,7 @@
  * Verifies comment keyword reply automation for X (Twitter); LinkedIn is skipped by cron.
  */
 import axios from 'axios';
+import { NextRequest } from 'next/server';
 import { GET } from '../comment-automation/route';
 
 jest.mock('axios');
@@ -15,7 +16,7 @@ jest.mock('@/lib/db', () => ({
 const prisma = require('@/lib/db').prisma;
 
 const mockRequest = (secret: string) =>
-  new Request('http://localhost/api/cron/comment-automation', {
+  new NextRequest('http://localhost/api/cron/comment-automation', {
     method: 'GET',
     headers: { 'X-Cron-Secret': secret },
   });

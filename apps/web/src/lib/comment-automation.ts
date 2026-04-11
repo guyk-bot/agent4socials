@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/db';
 import { PostStatus, Prisma } from '@prisma/client';
-import axios from 'axios';
+import axios, { type AxiosResponse } from 'axios';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 
 export type CommentAutomation = {
@@ -27,7 +27,16 @@ function envInt(name: string, fallback: number): number {
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
-const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+type MetaGraphComment = {
+  id: string;
+  text?: string;
+  message?: string;
+  from?: { id?: string; username?: string; name?: string };
+};
+
+type MetaGraphCommentsPage = { data?: MetaGraphComment[]; paging?: { next?: string } };
 
 /** Meta Graph: walk comment pages (IG + FB) with caps to support high-volume threads without missing the first page only. */
 async function fetchMetaCommentsPaged(
@@ -35,17 +44,19 @@ async function fetchMetaCommentsPaged(
   firstParams: Record<string, string>,
   maxPages: number,
   interPageDelayMs: number
-): Promise<Array<{ id: string; text?: string; message?: string; from?: { id?: string; username?: string; name?: string } }>> {
-  const out: Array<{ id: string; text?: string; message?: string; from?: { id?: string; username?: string; name?: string } }> = [];
+): Promise<MetaGraphComment[]> {
+  const out: MetaGraphComment[] = [];
   let url: string | null = firstUrl;
   let params: Record<string, string> | undefined = firstParams;
-  for (let p = 0; p < maxPages && url; p++) {
-    const r = await axios.get<{ data?: typeof out; paging?: { next?: string } }>(url, {
+  for (let p = 0; p < maxPages; p++) {
+    if (url == null || url === '') break;
+    const pageUrl = url;
+    const r: AxiosResponse<MetaGraphCommentsPage> = await axios.get(pageUrl, {
       ...(params ? { params } : {}),
       timeout: 18_000,
     });
     out.push(...(r.data?.data ?? []));
-    const next = r.data?.paging?.next;
+    const next: string | undefined = r.data?.paging?.next;
     url = next ?? null;
     params = undefined;
     if (url && interPageDelayMs > 0) await delay(interPageDelayMs);
