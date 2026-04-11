@@ -23,7 +23,6 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | Facebook / IG / TikTok analytics UI (TikTok hides Traffic; engagement is likes, comments, shares) | `apps/web/src/components/analytics/facebook/FacebookAnalyticsView.tsx`, `types.ts` |
 | LinkedIn: UGC post import (sync engine + manual sync), author URN for person vs org Page | `apps/web/src/lib/linkedin/sync-ugc-posts.ts`, `apps/web/src/lib/sync/adapters/linkedin.ts` |
 | Dashboard home, posts table, sync button, insights loading/cache | `apps/web/src/app/dashboard/page.tsx`, `apps/web/src/context/AppDataContext.tsx`, `apps/web/src/lib/dashboard-insights-session-cache.ts` |
-| Viral Trend Radar (YouTube outliers), Trending nav | `apps/web/src/app/dashboard/trending/page.tsx`, `apps/web/src/lib/trends/niche-category-map.ts`, `apps/web/src/lib/trends/youtube-sweep.ts`, `apps/web/src/app/api/cron/niche-trends/route.ts`, `apps/web/src/app/api/trends/outliers/route.ts`, `apps/web/src/app/api/trends/sync-batch/route.ts` |
 | OAuth connect, accounts CRUD | `apps/web/src/app/api/social/oauth/`, `apps/web/src/app/api/social/accounts/`, `ConnectView.tsx` |
 | Pinterest token | `apps/web/src/lib/pinterest-token.ts` |
 | Inbox | `apps/web/src/app/dashboard/inbox/page.tsx`, `api/social/accounts/[id]/conversations/`, `comments/` |

@@ -12,8 +12,7 @@
     "test:instagram-media": "node scripts/test-instagram-media.mjs",
     "validate-meta-token": "node scripts/validate-meta-token.mjs",
     "validate:facebook-pipeline": "npx tsx scripts/facebook-pipeline-validation.ts",
-    "generate-favicons": "node scripts/generate-favicons.cjs",
-    "niche-trends:cron": "node scripts/niche-trends-cron.cjs"
+    "generate-favicons": "node scripts/generate-favicons.cjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.989.0",

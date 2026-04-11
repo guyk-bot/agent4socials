@@ -2,15 +2,6 @@
 
 The app runs `prisma migrate deploy` on every Vercel build (via `node scripts/vercel-build.mjs`) so the production database stays in sync when the DB URL is correct.
 
-## Viral Trend Radar: `niche_trends` missing (Trending page)
-
-If the app shows **The niche_trends table is missing**, migrations never applied on the database Vercel uses (often `DATABASE_DIRECT_URL` wrong so the build skipped migrate, see below).
-
-**Fastest fix (no local DB access):** Supabase **SQL Editor** → run **`apps/web/scripts/ensure-niche-trends.sql`**, then trigger **`POST /api/cron/niche-trends`** with **`X-Cron-Secret`** (and **`YOUTUBE_API_KEY`** on Vercel) to fill data.
-
-When `prisma migrate deploy` works again, mark this migration applied so Prisma does not try to recreate objects:  
-`npx prisma migrate resolve --applied 20260408180000_niche_trends`
-
 ## Composer / posts: `Post.tiktokPublishByAccountId` does not exist
 
 If creating or saving a post shows **`The column Post.tiktokPublishByAccountId does not exist`**, the migration **`20260410140000_post_tiktok_publish_payload`** never ran on the database your app uses (common when Vercel build skipped `prisma migrate deploy` because **`DATABASE_DIRECT_URL`** was wrong; see above).
