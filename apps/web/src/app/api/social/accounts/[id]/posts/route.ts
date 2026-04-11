@@ -17,7 +17,7 @@ import { getValidPinterestToken } from '@/lib/pinterest-token';
 import { parseTikTokVideoEngagement, parseTikTokVideoDurationSec } from '@/lib/tiktok/video-engagement';
 import { syncLinkedInUgcPosts } from '@/lib/linkedin/sync-ugc-posts';
 
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 /** Fallback host for IG user/media when graph.facebook.com omits items (matches insights route). */
 const igGraphRestBaseUrl = 'https://graph.instagram.com/v18.0';
@@ -404,6 +404,7 @@ export async function GET(
         expiresAt: true,
         username: true,
         credentialsJson: true,
+        lastSyncAttemptAt: true,
       },
     });
     if (!account) {
@@ -425,21 +426,35 @@ export async function GET(
       });
     }
     const sync = request.nextUrl.searchParams.get('sync') === '1';
+    const force = request.nextUrl.searchParams.get('force') === '1';
     let syncError: string | undefined;
     if (sync) {
-      try {
-        syncError = await syncImportedPosts(
-          account.id,
-          account.platform,
-          account.platformUserId,
-          account.accessToken,
-          account.credentialsJson
-        );
-      } catch (e) {
-        console.error('[Imported posts] sync error:', e);
-        const msg = (e as Error)?.message ?? '';
-        const metaMsg = (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
-        syncError = metaMsg || msg || 'Sync failed. Try reconnecting your account.';
+      // Skip the expensive platform sync if it ran within the last 10 minutes, unless force=1.
+      const SYNC_COOLDOWN_MS = 10 * 60 * 1000;
+      const lastSync = account.lastSyncAttemptAt?.getTime() ?? 0;
+      const recentEnough = !force && Date.now() - lastSync < SYNC_COOLDOWN_MS;
+      if (recentEnough) {
+        console.log('[posts] skipping sync — ran', Math.round((Date.now() - lastSync) / 1000), 's ago');
+      } else {
+        // Stamp attempt time before calling out so re-entrant requests skip it too.
+        await prisma.socialAccount.update({
+          where: { id: account.id },
+          data: { lastSyncAttemptAt: new Date() },
+        }).catch(() => { /* non-fatal */ });
+        try {
+          syncError = await syncImportedPosts(
+            account.id,
+            account.platform,
+            account.platformUserId,
+            account.accessToken,
+            account.credentialsJson
+          );
+        } catch (e) {
+          console.error('[Imported posts] sync error:', e);
+          const msg = (e as Error)?.message ?? '';
+          const metaMsg = (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
+          syncError = metaMsg || msg || 'Sync failed. Try reconnecting your account.';
+        }
       }
     }
 
@@ -1274,7 +1289,7 @@ async function syncImportedPosts(
     // Parallel post sync: fetch all posts concurrently (up to CONCURRENCY at a time) with a hard
     // wall-clock budget so we always return within the Vercel function timeout.
     const CONCURRENCY = 5;
-    const BUDGET_MS = 20_000;
+    const BUDGET_MS = 45_000;
     const budgetDeadline = Date.now() + BUDGET_MS;
 
     async function processOnePost(p: (typeof slice)[number], idx: number) {
