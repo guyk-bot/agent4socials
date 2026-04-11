@@ -249,6 +249,19 @@ const PRO_HIGHLIGHTS = [
   'Priority support',
 ];
 
+/** First (or Facebook-style) posts fetch should hit the importer so analytics tabs are not empty. */
+function postImportSyncOnFirstLoad(platform: string | undefined): boolean {
+  return (
+    platform === 'FACEBOOK' ||
+    platform === 'INSTAGRAM' ||
+    platform === 'TIKTOK' ||
+    platform === 'YOUTUBE' ||
+    platform === 'LINKEDIN' ||
+    platform === 'TWITTER' ||
+    platform === 'PINTEREST'
+  );
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -545,7 +558,7 @@ export default function DashboardPage() {
       const refreshPostsInBackground = () => {
         if (skipInstagramAutoRefresh && hasAnyCachedPosts && !shouldBackgroundSyncPosts()) return;
         api.get(`/social/accounts/${accountId}/posts`, {
-          params: shouldBackgroundSyncPosts() ? { sync: 1 } : (selectedAccount?.platform === 'FACEBOOK' ? { sync: 1 } : {}),
+          params: shouldBackgroundSyncPosts() ? { sync: 1 } : (postImportSyncOnFirstLoad(selectedAccount?.platform) ? { sync: 1 } : {}),
         })
           .then((res) => {
             const list = res.data?.posts ?? [];
@@ -578,7 +591,9 @@ export default function DashboardPage() {
       }
       // First load for this account: show spinner without blanking existing data.
       setImportedPostsLoading(true);
-      api.get(`/social/accounts/${accountId}/posts`, { params: selectedAccount?.platform === 'FACEBOOK' ? { sync: 1 } : {} })
+      api.get(`/social/accounts/${accountId}/posts`, {
+        params: postImportSyncOnFirstLoad(selectedAccount?.platform) ? { sync: 1 } : {},
+      })
         .then((res) => {
           const list = res.data?.posts ?? [];
           postsCacheRef.current[accountId] = list;
@@ -773,7 +788,9 @@ export default function DashboardPage() {
           setImportedPostsLoading(false);
         } else {
           setImportedPostsLoading(true);
-          api.get(`/social/accounts/${accountId}/posts`, { params: selectedAccount?.platform === 'FACEBOOK' ? { sync: 1 } : {} })
+          api.get(`/social/accounts/${accountId}/posts`, {
+            params: postImportSyncOnFirstLoad(selectedAccount?.platform) ? { sync: 1 } : {},
+          })
             .then((postsRes) => {
               const list = postsRes.data?.posts ?? [];
               postsCacheRef.current[accountId] = list;

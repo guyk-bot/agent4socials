@@ -146,6 +146,9 @@ const STORY_MODE_DEFAULT_METRICS: Record<StoryMode, StoryMetricKey[]> = {
   views: ['videoViews', 'contentViews', 'pageVisits'],
 };
 
+/** When combined with followers/engagements, these metrics often need their own Y scale (TikTok views, IG impressions). */
+const STORY_METRICS_HIGH_MAGNITUDE: StoryMetricKey[] = ['videoViews', 'contentViews', 'pageVisits'];
+
 /** TikTok Performance cards reuse chart keys; line colors must match each SparklineMetricCard. */
 const TIKTOK_PERFORMANCE_LINE_COLORS: Record<StoryMetricKey, string> = {
   followers: COLOR.mint,
@@ -762,7 +765,9 @@ function buildInstagramSyntheticFacebookBundle(
       .map(([date, value]) => ({ date, value }))
       .sort((a, b) => a.date.localeCompare(b.date));
 
-  const engagement = sortSeries(engagementByDate);
+  const engagementPostMap = seriesToMap(sortSeries(engagementByDate));
+  const apiAccountsEngagedMap = seriesToMap(insights.facebookPageMetricSeries?.accounts_engaged ?? []);
+  const engagement = mapToSortedSeries(mergeSeriesMapsMax(apiAccountsEngagedMap, engagementPostMap));
   const videoViews = sortSeries(videoViewsByDate);
   const videoViewTime = sortSeries(videoTimeMsByDate);
 
@@ -2057,11 +2062,13 @@ export function FacebookAnalyticsView({
           (p.commentsCount ?? 0) +
           bestShareCount(p);
       }
+      const apiViewsMap = seriesToMap(insights?.impressionsTimeSeries ?? []);
+      const mergedViewsByDate = mergeSeriesMapsMax(apiViewsMap, viewsByDate);
       const followsRaw: Record<string, number> = {};
       dateAxis.forEach((d) => {
         followsRaw[d] = totalFollowers;
       });
-      const videoViewsSeries = carryForwardSeries(dateAxis, viewsByDate, 0);
+      const videoViewsSeries = dailyValuesOnAxis(dateAxis, mergedViewsByDate);
       const engagement = carryForwardSeries(dateAxis, engagementByDate, 0);
       const follows = carryForwardSeries(dateAxis, followsRaw, totalFollowers, true);
       return dateAxis.map((date) => ({
@@ -2213,6 +2220,7 @@ export function FacebookAnalyticsView({
     isLinkedIn,
     isInstagram,
     isFacebook,
+    insights?.impressionsTimeSeries,
     igMetricSeries,
     dateAxis,
     postsInRange,
@@ -2647,6 +2655,23 @@ export function FacebookAnalyticsView({
       ),
     [chartByMode, selectedStoryMetrics]
   );
+
+  const performanceStoryDualAxis = useMemo(() => {
+    if (selectedStoryMetrics.length < 2) return false;
+    const high = selectedStoryMetrics.filter((m) => STORY_METRICS_HIGH_MAGNITUDE.includes(m));
+    const low = selectedStoryMetrics.filter((m) => !STORY_METRICS_HIGH_MAGNITUDE.includes(m));
+    if (high.length === 0 || low.length === 0) return false;
+    const maxLow = Math.max(
+      1,
+      ...low.flatMap((m) => chartByMode.map((d) => (typeof d[m] === 'number' ? (d[m] as number) : 0)))
+    );
+    const maxHigh = Math.max(
+      1,
+      ...high.flatMap((m) => chartByMode.map((d) => (typeof d[m] === 'number' ? (d[m] as number) : 0)))
+    );
+    return maxHigh > maxLow * 15;
+  }, [selectedStoryMetrics, chartByMode]);
+
   const trafficTicks = useMemo(
     () => buildKeyDateTicks(trafficTimelineData, (d) => (d.postImpressions ?? 0) > 0 || (d.nonviral ?? 0) > 0 || (d.viral ?? 0) > 0 || (d.uniqueReachProxy ?? 0) > 0, 10),
     [trafficTimelineData]
@@ -3526,6 +3551,7 @@ export function FacebookAnalyticsView({
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                 <XAxis dataKey="date" ticks={storyTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} dy={8} minTickGap={18} axisLine={false} tickLine={false} />
                 <YAxis
+                  {...(performanceStoryDualAxis ? { yAxisId: 'left' as const } : {})}
                   domain={
                     selectedStoryMetrics.includes('subscriberNet') && performanceChartHasNegativeSubscriberNet
                       ? ['dataMin', 'dataMax']
@@ -3536,6 +3562,17 @@ export function FacebookAnalyticsView({
                   axisLine={false}
                   tickLine={false}
                 />
+                {performanceStoryDualAxis ? (
+                  <YAxis
+                    yAxisId="right"
+                    orientation="right"
+                    domain={[0, 'auto']}
+                    allowDecimals
+                    tick={{ fill: COLOR.textMuted, fontSize: 11 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                ) : null}
                 <Tooltip
                   contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
                   formatter={(v: number | string | undefined, n?: string) => {
@@ -3557,6 +3594,11 @@ export function FacebookAnalyticsView({
                 {selectedStoryMetrics.map((metric) => (
                   <Line
                     key={metric}
+                    {...(performanceStoryDualAxis
+                      ? {
+                          yAxisId: STORY_METRICS_HIGH_MAGNITUDE.includes(metric) ? ('right' as const) : ('left' as const),
+                        }
+                      : {})}
                     type="monotone"
                     dataKey={metric}
                     stroke={

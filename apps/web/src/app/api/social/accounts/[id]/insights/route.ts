@@ -2142,16 +2142,41 @@ export async function GET(
       } catch (_) {
         // creator_info is optional for dashboard totals
       }
-      // Account-level "Views" = sum of view counts from synced videos (not likes_count)
+      // TikTok: daily views in the selected range (by publish date) + lifetime total for hints.
       let hasSyncedTikTokPosts = false;
       try {
-        const posts = await prisma.importedPost.findMany({
+        const sinceDay = sinceParam.slice(0, 10);
+        const untilDay = untilParam.slice(0, 10);
+        const allPosts = await prisma.importedPost.findMany({
           where: { socialAccountId: account.id, platform: 'TIKTOK' },
-          select: { impressions: true },
+          select: { impressions: true, publishedAt: true },
         });
-        hasSyncedTikTokPosts = posts.length > 0;
-        const totalViews = posts.reduce((s, p) => s + (p.impressions ?? 0), 0);
-        if (totalViews > 0) out.impressionsTotal = totalViews;
+        hasSyncedTikTokPosts = allPosts.length > 0;
+        const lifetimeViews = allPosts.reduce((s, p) => s + (p.impressions ?? 0), 0);
+        const inRange = allPosts.filter((p) => {
+          const d = p.publishedAt.toISOString().slice(0, 10);
+          return d >= sinceDay && d <= untilDay;
+        });
+        const rangeViews = inRange.reduce((s, p) => s + (p.impressions ?? 0), 0);
+        if (rangeViews > 0) out.impressionsTotal = rangeViews;
+        else if (lifetimeViews > 0) out.impressionsTotal = lifetimeViews;
+        const viewsByDate: Record<string, number> = {};
+        for (const p of inRange) {
+          const d = p.publishedAt.toISOString().slice(0, 10);
+          viewsByDate[d] = (viewsByDate[d] ?? 0) + (p.impressions ?? 0);
+        }
+        out.impressionsTimeSeries = Object.entries(viewsByDate)
+          .map(([date, value]) => ({ date, value }))
+          .sort((a, b) => a.date.localeCompare(b.date));
+        if (lifetimeViews > rangeViews && rangeViews > 0) {
+          (out as Record<string, unknown>).tiktokLifetimeViewCount = lifetimeViews;
+        } else if (lifetimeViews > 0 && rangeViews === 0) {
+          (out as Record<string, unknown>).tiktokLifetimeViewCount = lifetimeViews;
+          if (!out.insightsHint) {
+            out.insightsHint =
+              'No TikTok videos were published in this date range; headline views are lifetime from your synced catalog. Widen the range or sync posts.';
+          }
+        }
       } catch (_) {}
       // Follower count from last scheduled sync when live user.info omits it (same API; snapshot may still have a value).
       if (out.followers === 0) {
