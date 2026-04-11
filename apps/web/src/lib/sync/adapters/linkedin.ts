@@ -19,6 +19,7 @@ type AccountRow = {
   platform: string;
   platformUserId: string;
   accessToken: string;
+  credentialsJson?: unknown;
 };
 
 async function syncAccountOverview(_account: AccountRow) {
@@ -30,6 +31,7 @@ async function syncRecentContent(account: AccountRow) {
     socialAccountId: account.id,
     platformUserId: account.platformUserId,
     accessToken: account.accessToken,
+    credentialsJson: account.credentialsJson,
   });
   if (syncError) {
     console.warn('[LinkedIn adapter] syncRecentContent:', syncError.slice(0, 200));

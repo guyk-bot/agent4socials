@@ -5,7 +5,6 @@
  */
 
 import axios from 'axios';
-import { linkedInAuthorUrnForUgc } from '@/lib/linkedin/sync-ugc-posts';
 
 const LINKEDIN_VERSION = '202602';
 

@@ -226,7 +226,7 @@ export async function GET(
   // LinkedIn: fetch recent UGC posts so we have post sources for comments
   if (platform === 'LINKEDIN') {
     try {
-      const authorUrn = linkedInAuthorUrnForUgc(account.platformUserId);
+      const authorUrn = linkedInAuthorUrnForUgc(account.platformUserId, account.credentialsJson);
       const postsRes = await axios.get<{
         elements?: Array<{
           id?: string;

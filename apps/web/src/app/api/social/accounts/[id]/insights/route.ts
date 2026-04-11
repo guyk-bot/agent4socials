@@ -1643,7 +1643,7 @@ export async function GET(
 
     if (account.platform === 'LINKEDIN') {
       const isOrgPage = account.platformUserId.trim().startsWith('urn:li:organization:');
-      const memberOrAuthorUrn = linkedInAuthorUrnForUgc(account.platformUserId);
+      const memberOrAuthorUrn = linkedInAuthorUrnForUgc(account.platformUserId, account.credentialsJson);
       const liHeaders = {
         Authorization: `Bearer ${account.accessToken}`,
         'X-Restli-Protocol-Version': '2.0.0',
@@ -1789,6 +1789,49 @@ export async function GET(
         console.warn('[Insights] LinkedIn imported posts:', (e as Error)?.message ?? e);
       }
 
+      let storedPostsPreview: Array<{
+        platformPostId: string;
+        publishedAt: string;
+        impressions: number | null;
+        interactions: number | null;
+        likeCount: number | null;
+        commentsCount: number | null;
+        sharesCount: number | null;
+        contentPreview: string | null;
+        permalinkUrl: string | null;
+      }> = [];
+      try {
+        const rows = await prisma.importedPost.findMany({
+          where: { socialAccountId: account.id, platform: Platform.LINKEDIN },
+          orderBy: { publishedAt: 'desc' },
+          take: 15,
+          select: {
+            platformPostId: true,
+            publishedAt: true,
+            impressions: true,
+            interactions: true,
+            likeCount: true,
+            commentsCount: true,
+            sharesCount: true,
+            content: true,
+            permalinkUrl: true,
+          },
+        });
+        storedPostsPreview = rows.map((r) => ({
+          platformPostId: r.platformPostId,
+          publishedAt: r.publishedAt.toISOString(),
+          impressions: r.impressions,
+          interactions: r.interactions,
+          likeCount: r.likeCount,
+          commentsCount: r.commentsCount,
+          sharesCount: r.sharesCount,
+          contentPreview: r.content ? r.content.slice(0, 120) : null,
+          permalinkUrl: r.permalinkUrl,
+        }));
+      } catch {
+        /* ignore */
+      }
+
       const impressionsByDate: Record<string, number> = {};
       const postsByDate: Record<string, number> = {};
       let impSum = 0;
@@ -1829,6 +1872,10 @@ export async function GET(
           inRangeCount: importedInRange.length,
         },
         activityByDay,
+        storedPosts: storedPostsPreview.length > 0 ? storedPostsPreview : undefined,
+        permissionHint: !isOrgPage
+          ? 'Full LinkedIn analytics and comments use Marketing / Community Management APIs. Add r_member_social (read your posts) and w_member_social (post/reply) to your app OAuth scopes, then reconnect. OpenID alone only provides basic profile (userinfo).'
+          : undefined,
       };
 
       const hintParts: string[] = [];

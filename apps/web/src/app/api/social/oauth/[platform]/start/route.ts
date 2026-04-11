@@ -95,10 +95,12 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
       const includeWrite =
         process.env.LINKEDIN_INCLUDE_W_MEMBER_SOCIAL === 'true' ||
         process.env.LINKEDIN_REQUEST_ORG_SCOPES === 'true';
+      const includeMemberSocialRead = process.env.LINKEDIN_INCLUDE_R_MEMBER_SOCIAL === 'true';
       const baseScopes = includeWrite ? 'openid profile email w_member_social' : 'openid profile email';
-      const defaultScopes = requestOrgScopes
-        ? `${baseScopes} r_organization_social w_organization_social`.replace(/\s+/g, ' ').trim()
-        : baseScopes;
+      const memberReadScope = includeMemberSocialRead ? ' r_member_social' : '';
+      const defaultScopes = `${requestOrgScopes ? `${baseScopes} r_organization_social w_organization_social` : baseScopes}${memberReadScope}`
+        .replace(/\s+/g, ' ')
+        .trim();
       const linkedInScopes =
         typeof process.env.LINKEDIN_OAUTH_SCOPES === 'string' && process.env.LINKEDIN_OAUTH_SCOPES.trim()
           ? process.env.LINKEDIN_OAUTH_SCOPES.trim()

@@ -3292,6 +3292,61 @@ export function FacebookAnalyticsView({
                   ) : null}
                 </div>
               ) : null}
+              {linkedInExtras?.permissionHint ? (
+                <div
+                  className="rounded-xl border px-3 py-2 text-xs leading-relaxed"
+                  style={{ borderColor: COLOR.border, background: COLOR.sectionAlt, color: COLOR.textSecondary }}
+                >
+                  {linkedInExtras.permissionHint}
+                </div>
+              ) : null}
+              {linkedInExtras?.storedPosts && linkedInExtras.storedPosts.length > 0 ? (
+                <div className="overflow-x-auto rounded-xl border" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
+                  <div className="border-b px-3 py-2 text-xs font-medium" style={{ borderColor: COLOR.border, color: COLOR.textSecondary }}>
+                    Stored post metrics (from our database — last sync)
+                  </div>
+                  <table className="w-full min-w-[560px] text-left text-xs">
+                    <thead>
+                      <tr style={{ color: COLOR.textSecondary }}>
+                        <th className="px-3 py-2 font-medium">Published</th>
+                        <th className="px-3 py-2 font-medium">Impressions</th>
+                        <th className="px-3 py-2 font-medium">Likes</th>
+                        <th className="px-3 py-2 font-medium">Comments</th>
+                        <th className="px-3 py-2 font-medium">Shares</th>
+                        <th className="px-3 py-2 font-medium">Post</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {linkedInExtras.storedPosts.map((row) => (
+                        <tr key={row.platformPostId} className="border-t" style={{ borderColor: COLOR.border }}>
+                          <td className="whitespace-nowrap px-3 py-2" style={{ color: COLOR.text }}>
+                            {row.publishedAt ? new Date(row.publishedAt).toLocaleDateString() : '—'}
+                          </td>
+                          <td className="px-3 py-2 tabular-nums">{formatNumber(row.impressions ?? 0)}</td>
+                          <td className="px-3 py-2 tabular-nums">{formatNumber(row.likeCount ?? 0)}</td>
+                          <td className="px-3 py-2 tabular-nums">{formatNumber(row.commentsCount ?? 0)}</td>
+                          <td className="px-3 py-2 tabular-nums">{formatNumber(row.sharesCount ?? 0)}</td>
+                          <td className="max-w-[200px] truncate px-3 py-2" style={{ color: COLOR.textSecondary }}>
+                            {row.permalinkUrl ? (
+                              <a
+                                href={row.permalinkUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="underline decoration-dotted underline-offset-2"
+                                style={{ color: COLOR.violet }}
+                              >
+                                Open
+                              </a>
+                            ) : (
+                              <span title={row.platformPostId}>{row.contentPreview ?? row.platformPostId.slice(0, 24)}</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
               <div className="mt-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <SparklineMetricCard
                   label="Connections"

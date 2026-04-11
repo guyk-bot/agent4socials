@@ -393,7 +393,16 @@ export async function GET(
     const { id } = await params;
     const account = await prisma.socialAccount.findFirst({
       where: { id, userId },
-      select: { id: true, platform: true, platformUserId: true, accessToken: true, refreshToken: true, expiresAt: true, username: true },
+      select: {
+        id: true,
+        platform: true,
+        platformUserId: true,
+        accessToken: true,
+        refreshToken: true,
+        expiresAt: true,
+        username: true,
+        credentialsJson: true,
+      },
     });
     if (!account) {
       return NextResponse.json({ message: 'Account not found' }, { status: 404 });
@@ -417,7 +426,13 @@ export async function GET(
     let syncError: string | undefined;
     if (sync) {
       try {
-        syncError = await syncImportedPosts(account.id, account.platform, account.platformUserId, account.accessToken);
+        syncError = await syncImportedPosts(
+          account.id,
+          account.platform,
+          account.platformUserId,
+          account.accessToken,
+          account.credentialsJson
+        );
       } catch (e) {
         console.error('[Imported posts] sync error:', e);
         const msg = (e as Error)?.message ?? '';
@@ -1063,7 +1078,8 @@ async function syncImportedPosts(
   socialAccountId: string,
   platform: Platform,
   platformUserId: string,
-  accessToken: string
+  accessToken: string,
+  credentialsJson?: unknown
 ): Promise<string | undefined> {
   if (platform === 'INSTAGRAM') {
     const maxMedia = 500;
@@ -1435,6 +1451,7 @@ async function syncImportedPosts(
       socialAccountId,
       platformUserId,
       accessToken,
+      credentialsJson,
     });
     return syncError;
   }

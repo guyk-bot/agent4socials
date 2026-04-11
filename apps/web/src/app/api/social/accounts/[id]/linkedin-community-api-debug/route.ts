@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db';
 import { Platform } from '@prisma/client';
 import { linkedInAuthorUrnForUgc } from '@/lib/linkedin/sync-ugc-posts';
 import { normalizeLinkedInPostUrn } from '@/lib/linkedin/sync-post-metrics';
+import { fetchLinkedInRestPersonUrn } from '@/lib/linkedin/rest-person';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,8 +47,7 @@ async function probeGet(url: string, headers: Record<string, string>): Promise<P
 
 /**
  * GET /api/social/accounts/[id]/linkedin-community-api-debug
- * Returns raw JSON from LinkedIn endpoints we use for Community Management–style features
- * (posts, stats, social actions, org context). For debugging on the LinkedIn analytics page.
+ * Raw LinkedIn Community Management–related API responses plus DB-backed post rows for this account.
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!process.env.DATABASE_URL) {
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { id } = await params;
   const account = await prisma.socialAccount.findFirst({
     where: { id, userId, platform: Platform.LINKEDIN },
-    select: { id: true, platformUserId: true, accessToken: true },
+    select: { id: true, platformUserId: true, accessToken: true, credentialsJson: true },
   });
   if (!account?.accessToken) {
     return NextResponse.json({ message: 'LinkedIn account not found' }, { status: 404 });
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const token = account.accessToken;
   const platformUserId = account.platformUserId.trim();
   const isOrg = platformUserId.toLowerCase().startsWith('urn:li:organization:');
-  const authorUrn = linkedInAuthorUrnForUgc(platformUserId);
+  const authorUrnFromSettings = linkedInAuthorUrnForUgc(platformUserId, account.credentialsJson);
 
   const liV2 = {
     Authorization: `Bearer ${token}`,
@@ -81,45 +81,81 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     'Linkedin-Version': LINKEDIN_VERSION,
   };
 
-  const recentPosts = await prisma.importedPost.findMany({
+  const importedRows = await prisma.importedPost.findMany({
     where: { socialAccountId: account.id, platform: Platform.LINKEDIN },
     orderBy: { publishedAt: 'desc' },
-    take: 5,
-    select: { platformPostId: true },
+    take: 25,
+    select: {
+      platformPostId: true,
+      publishedAt: true,
+      impressions: true,
+      interactions: true,
+      likeCount: true,
+      commentsCount: true,
+      sharesCount: true,
+      content: true,
+      permalinkUrl: true,
+    },
   });
-  const samplePostUrns = recentPosts.map((p) => normalizeLinkedInPostUrn(p.platformPostId));
+  const database_importedPosts = importedRows.map((r) => ({
+    platformPostId: r.platformPostId,
+    normalizedUrn: normalizeLinkedInPostUrn(r.platformPostId),
+    publishedAt: r.publishedAt.toISOString(),
+    impressions: r.impressions,
+    interactions: r.interactions,
+    likeCount: r.likeCount,
+    commentsCount: r.commentsCount,
+    sharesCount: r.sharesCount,
+    contentPreview: r.content ? r.content.slice(0, 100) : null,
+    permalinkUrl: r.permalinkUrl,
+  }));
+
+  const samplePostUrns = importedRows.slice(0, 8).map((p) => normalizeLinkedInPostUrn(p.platformPostId));
   const firstUrn = samplePostUrns[0];
 
-  const authorsParam = `List(${encodeURIComponent(authorUrn)})`;
-  const ugcPostsUrl = `https://api.linkedin.com/v2/ugcPosts?q=authors&authors=${authorsParam}&count=10`;
+  const restMeProbe = await probeGet('https://api.linkedin.com/rest/me', liRest);
+
+  const authorsParamPrimary = `List(${encodeURIComponent(authorUrnFromSettings)})`;
+  const ugcPostsUrlPrimary = `https://api.linkedin.com/v2/ugcPosts?q=authors&authors=${authorsParamPrimary}&count=10`;
+
+  let ugcPosts_byAuthors_altPersonUrn: Probe | null = null;
+  const { personUrn: restPersonUrn } = await fetchLinkedInRestPersonUrn(token);
+  const altAuthor = restPersonUrn && restPersonUrn !== authorUrnFromSettings ? restPersonUrn : null;
+  if (altAuthor) {
+    const authorsParamAlt = `List(${encodeURIComponent(altAuthor)})`;
+    ugcPosts_byAuthors_altPersonUrn = await probeGet(
+      `https://api.linkedin.com/v2/ugcPosts?q=authors&authors=${authorsParamAlt}&count=10`,
+      liV2
+    );
+  }
 
   const [
-    ugcPosts_byAuthors,
+    ugcPosts_byAuthors_primary,
     userinfo,
     me,
     network_FirstDegreeConnection,
     network_FirstDegreeRelationSize,
     network_CompanyFollowedByMember,
   ] = await Promise.all([
-    probeGet(ugcPostsUrl, liV2),
+    probeGet(ugcPostsUrlPrimary, liV2),
     probeGet('https://api.linkedin.com/v2/userinfo', liV2),
     probeGet('https://api.linkedin.com/v2/me?projection=(id,vanityName,localizedHeadline)', liV2),
     isOrg
       ? Promise.resolve({ url: '(skipped — organization account)', status: 0, data: { skipped: true } })
       : probeGet(
-          `https://api.linkedin.com/v2/networkSizes/${encodeURIComponent(authorUrn)}?edgeType=FirstDegreeConnection`,
+          `https://api.linkedin.com/v2/networkSizes/${encodeURIComponent(authorUrnFromSettings)}?edgeType=FirstDegreeConnection`,
           liV2
         ),
     isOrg
       ? Promise.resolve({ url: '(skipped — organization account)', status: 0, data: { skipped: true } })
       : probeGet(
-          `https://api.linkedin.com/v2/networkSizes/${encodeURIComponent(authorUrn)}?edgeType=FirstDegreeRelationSize`,
+          `https://api.linkedin.com/v2/networkSizes/${encodeURIComponent(authorUrnFromSettings)}?edgeType=FirstDegreeRelationSize`,
           liV2
         ),
     isOrg
       ? Promise.resolve({ url: '(skipped — organization account)', status: 0, data: { skipped: true } })
       : probeGet(
-          `https://api.linkedin.com/v2/networkSizes/${encodeURIComponent(authorUrn)}?edgeType=CompanyFollowedByMember`,
+          `https://api.linkedin.com/v2/networkSizes/${encodeURIComponent(authorUrnFromSettings)}?edgeType=CompanyFollowedByMember`,
           liV2
         ),
   ]);
@@ -162,16 +198,20 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     );
   }
 
-  let socialMetadata_firstPost: Probe | null = null;
-  let socialActions_comments_firstPost: Probe | null = null;
-  if (firstUrn) {
-    const enc = encodeURIComponent(firstUrn);
+  const socialActions_perStoredPost: Array<{
+    urn: string;
+    socialMetadata: Probe;
+    comments: Probe;
+  }> = [];
+  for (const urn of samplePostUrns.slice(0, 4)) {
+    const enc = encodeURIComponent(urn);
     const metaUrl = `https://api.linkedin.com/rest/socialMetadata/${enc}`;
-    const commentsUrl = `https://api.linkedin.com/rest/socialActions/${enc}/comments?count=5`;
-    [socialMetadata_firstPost, socialActions_comments_firstPost] = await Promise.all([
+    const commentsUrl = `https://api.linkedin.com/rest/socialActions/${enc}/comments?count=10`;
+    const [socialMetadata, comments] = await Promise.all([
       probeGet(metaUrl, liRest),
       probeGet(commentsUrl, liRest),
     ]);
+    socialActions_perStoredPost.push({ urn, socialMetadata, comments });
   }
 
   const out = {
@@ -180,13 +220,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       socialAccountId: account.id,
       platformUserId,
       isOrganizationAccount: isOrg,
-      authorUrnUsedForUgcPosts: authorUrn,
-      samplePostUrnsFromDb: samplePostUrns,
+      authorUrnUsedForUgcPosts_primary: authorUrnFromSettings,
+      rest_me_personUrn: restPersonUrn,
       note:
-        'Responses are raw LinkedIn API bodies (status per call). Tokens are not included. Some calls return 403 until the correct Community Management / Marketing scopes are granted.',
+        'database_importedPosts lists rows we store locally (works even when live UGC returns 403). Live probes need Marketing/Community scopes: r_member_social (read posts & comments), w_member_social / w_organization_social (reply).',
     },
+    database_importedPosts,
     probes: {
-      ugcPosts_byAuthors,
+      rest_me: restMeProbe,
+      ugcPosts_byAuthors_primary,
+      ugcPosts_byAuthors_altPersonUrn,
       userinfo,
       me,
       network_FirstDegreeConnection,
@@ -199,8 +242,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         Object.keys(memberCreatorPostAnalytics_byQueryType).length > 0
           ? memberCreatorPostAnalytics_byQueryType
           : null,
-      socialMetadata_firstPost,
-      socialActions_comments_firstPost,
+      socialActions_perStoredPost,
     },
   };
 

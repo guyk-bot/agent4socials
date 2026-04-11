@@ -6,6 +6,7 @@ import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 import { ensureBootstrapSnapshotForToday } from '@/lib/analytics/metric-snapshots';
 import { ensurePinterestPlatformEnum } from '@/lib/ensure-pinterest-platform-enum';
 import { ensureSocialAccountOAuthSchema } from '@/lib/ensure-social-account-oauth-schema';
+import { fetchLinkedInRestPersonUrn } from '@/lib/linkedin/rest-person';
 const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN', 'PINTEREST'] as const;
 
 const OAUTH_HEAD = '<meta charset="utf-8"><meta name="robots" content="noindex, nofollow">';
@@ -1029,7 +1030,25 @@ export async function GET(
             : {}),
         }
       : undefined;
-  const credentialsJsonToSet = igBusinessCreds ?? twitterCreds ?? pinterestStored ?? undefined;
+  let credentialsJsonToSet: object | undefined = igBusinessCreds ?? twitterCreds ?? pinterestStored ?? undefined;
+  if (plat === 'LINKEDIN' && tokenData.accessToken && !isLinkedInPage) {
+    const { personUrn } = await fetchLinkedInRestPersonUrn(tokenData.accessToken);
+    if (personUrn) {
+      const prev = await prisma.socialAccount.findFirst({
+        where: {
+          userId,
+          platform: 'LINKEDIN',
+          platformUserId: tokenData.platformUserId,
+        },
+        select: { credentialsJson: true },
+      });
+      const prevObj =
+        prev?.credentialsJson && typeof prev.credentialsJson === 'object' && prev.credentialsJson !== null
+          ? { ...(prev.credentialsJson as Record<string, unknown>) }
+          : {};
+      credentialsJsonToSet = { ...prevObj, linkedinRestPersonUrn: personUrn };
+    }
+  }
   try {
     if (plat === 'PINTEREST') {
       await ensurePinterestPlatformEnum();

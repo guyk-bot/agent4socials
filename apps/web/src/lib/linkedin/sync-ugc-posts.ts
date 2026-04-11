@@ -8,7 +8,15 @@ import { prisma } from '@/lib/db';
 import { Platform } from '@prisma/client';
 
 /** Resolve authors filter URN for ugcPosts?q=authors */
-export function linkedInAuthorUrnForUgc(platformUserId: string): string {
+export function linkedInAuthorUrnForUgc(platformUserId: string, credentialsJson?: unknown): string {
+  const cred =
+    credentialsJson && typeof credentialsJson === 'object'
+      ? (credentialsJson as { linkedinRestPersonUrn?: string })
+      : {};
+  const fromRest = typeof cred.linkedinRestPersonUrn === 'string' ? cred.linkedinRestPersonUrn.trim() : '';
+  if (fromRest.startsWith('urn:li:person:') || fromRest.startsWith('urn:li:organization:')) {
+    return fromRest;
+  }
   const id = platformUserId.trim();
   if (id.startsWith('urn:li:organization:')) return id;
   if (id.startsWith('urn:li:person:')) return id;
@@ -29,9 +37,10 @@ export async function syncLinkedInUgcPosts(params: {
   socialAccountId: string;
   platformUserId: string;
   accessToken: string;
+  credentialsJson?: unknown;
 }): Promise<SyncLinkedInUgcPostsResult> {
-  const { socialAccountId, platformUserId, accessToken } = params;
-  const authorUrn = linkedInAuthorUrnForUgc(platformUserId);
+  const { socialAccountId, platformUserId, accessToken, credentialsJson } = params;
+  const authorUrn = linkedInAuthorUrnForUgc(platformUserId, credentialsJson);
 
   try {
     const postsRes = await axios.get<{
@@ -71,7 +80,7 @@ export async function syncLinkedInUgcPosts(params: {
         return {
           itemsProcessed: 0,
           syncError:
-            'LinkedIn could not load posts (permission denied). Reconnect and ensure your app has social read scopes: personal accounts need member social read; organization Pages need organization social read (Community Management API).',
+            'LinkedIn could not load posts (permission denied). Personal profiles need the r_member_social scope (Marketing Developer Platform) in your LinkedIn app and OAuth flow, then reconnect. Organization Pages need r_organization_social (Community Management). OpenID (userinfo) alone is not enough for UGC or comments.',
         };
       }
       return { itemsProcessed: 0, syncError: msg.slice(0, 400) };

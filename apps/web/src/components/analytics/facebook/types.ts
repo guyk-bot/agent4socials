@@ -110,6 +110,20 @@ export interface FacebookInsights {
     profile?: { headline?: string; vanityName?: string; picture?: string; email?: string };
     posts?: { totalSynced?: number; inRangeCount?: number };
     activityByDay?: Array<{ date: string; value: number }>;
+    /** Rows from ImportedPost (no live LinkedIn call) — shows likes/comments/impressions we last synced. */
+    storedPosts?: Array<{
+      platformPostId: string;
+      publishedAt: string;
+      impressions: number | null;
+      interactions: number | null;
+      likeCount: number | null;
+      commentsCount: number | null;
+      sharesCount: number | null;
+      contentPreview?: string | null;
+      permalinkUrl?: string | null;
+    }>;
+    /** When live network/UGC APIs return 403, points users to r_member_social + reconnect. */
+    permissionHint?: string;
   };
 }
 

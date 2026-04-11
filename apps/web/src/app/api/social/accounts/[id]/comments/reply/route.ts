@@ -83,7 +83,7 @@ export async function POST(
             'LinkedIn reply requires linkedInObjectUrn from the comments list (thread URN). Open Comments again to refresh.',
         }, { status: 400 });
       }
-      const actor = linkedInAuthorUrnForUgc(account.platformUserId ?? '');
+      const actor = linkedInAuthorUrnForUgc(account.platformUserId ?? '', account.credentialsJson);
       await axios.post(
         `https://api.linkedin.com/rest/socialActions/${encodeURIComponent(parentUrn)}/comments`,
         {
