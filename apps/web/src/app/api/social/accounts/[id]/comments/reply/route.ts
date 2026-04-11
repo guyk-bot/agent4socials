@@ -4,11 +4,12 @@ import { prisma } from '@/lib/db';
 import axios from 'axios';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 import { getValidYoutubeToken } from '@/lib/youtube-token';
+import { linkedInAuthorUrnForUgc } from '@/lib/linkedin/sync-ugc-posts';
 
 /**
  * POST /api/social/accounts/[id]/comments/reply
- * Reply to a comment on Instagram, Facebook, or YouTube.
- * Body: { commentId: string; message: string }
+ * Reply to a comment on Instagram, Facebook, YouTube, X, or LinkedIn.
+ * Body: { commentId: string; message: string; linkedInObjectUrn?: string } (LinkedIn needs linkedInObjectUrn from GET /comments.)
  */
 export async function POST(
   request: NextRequest,
@@ -23,8 +24,8 @@ export async function POST(
   }
 
   const { id } = await params;
-  const body = await request.json() as { commentId?: string; message?: string };
-  const { commentId, message } = body;
+  const body = await request.json() as { commentId?: string; message?: string; linkedInObjectUrn?: string };
+  const { commentId, message, linkedInObjectUrn } = body;
 
   if (!commentId || !message?.trim()) {
     return NextResponse.json({ message: 'commentId and message are required' }, { status: 400 });
@@ -51,10 +52,11 @@ export async function POST(
     platform !== 'INSTAGRAM' &&
     platform !== 'FACEBOOK' &&
     platform !== 'YOUTUBE' &&
-    platform !== 'TWITTER'
+    platform !== 'TWITTER' &&
+    platform !== 'LINKEDIN'
   ) {
     return NextResponse.json({
-      message: 'Comment replies are only supported for Instagram, Facebook, YouTube, and X (Twitter).',
+      message: 'Comment replies are only supported for Instagram, Facebook, YouTube, X (Twitter), and LinkedIn.',
     }, { status: 400 });
   }
 
@@ -66,6 +68,43 @@ export async function POST(
   const accessToken = account.accessToken ?? '';
 
   try {
+    if (platform === 'LINKEDIN') {
+      const parentUrn = commentId.trim();
+      const objectUrn = typeof linkedInObjectUrn === 'string' ? linkedInObjectUrn.trim() : '';
+      if (!parentUrn.startsWith('urn:li:comment:')) {
+        return NextResponse.json({
+          message:
+            'LinkedIn reply: refresh comments in the inbox, then try again. Expected a comment URN (urn:li:comment:...).',
+        }, { status: 400 });
+      }
+      if (!objectUrn.startsWith('urn:li:')) {
+        return NextResponse.json({
+          message:
+            'LinkedIn reply requires linkedInObjectUrn from the comments list (thread URN). Open Comments again to refresh.',
+        }, { status: 400 });
+      }
+      const actor = linkedInAuthorUrnForUgc(account.platformUserId ?? '');
+      await axios.post(
+        `https://api.linkedin.com/rest/socialActions/${encodeURIComponent(parentUrn)}/comments`,
+        {
+          actor,
+          message: { text: message.trim() },
+          object: objectUrn,
+          parentComment: parentUrn,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            'X-Restli-Protocol-Version': '2.0.0',
+            'Linkedin-Version': '202602',
+          },
+          timeout: 20_000,
+        }
+      );
+      return NextResponse.json({ ok: true });
+    }
+
     if (platform === 'TWITTER') {
       await axios.post<{ data?: { id?: string } }>(
         'https://api.twitter.com/2/tweets',
@@ -123,7 +162,16 @@ export async function POST(
     console.error('[reply] error:', JSON.stringify(rawData ?? err));
     // Provide a clearer message for permission errors
     if (errData?.code === 200 || errData?.code === 10 || msg.toLowerCase().includes('permission') || msg.toLowerCase().includes('does not support') || msg.toLowerCase().includes('not exist')) {
-      const platformLabel = platform === 'INSTAGRAM' ? 'Instagram' : platform === 'FACEBOOK' ? 'Facebook' : platform === 'YOUTUBE' ? 'YouTube' : 'X (Twitter)';
+      const platformLabel =
+        platform === 'INSTAGRAM'
+          ? 'Instagram'
+          : platform === 'FACEBOOK'
+            ? 'Facebook'
+            : platform === 'YOUTUBE'
+              ? 'YouTube'
+              : platform === 'LINKEDIN'
+                ? 'LinkedIn'
+                : 'X (Twitter)';
       msg = `Reply failed: API permission error. Try reconnecting your account from the sidebar, or reply directly on ${platformLabel}.`;
     }
     return NextResponse.json({ message: msg }, { status: 400 });

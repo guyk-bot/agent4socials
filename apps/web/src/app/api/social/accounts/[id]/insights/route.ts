@@ -1731,6 +1731,28 @@ export async function GET(
         username: vanityName ?? account.username ?? undefined,
       };
 
+      if (isOrgPage) {
+        try {
+          const orgId = account.platformUserId.replace(/^urn:li:organization:/i, '').trim();
+          if (orgId) {
+            const orgRes = await axios.get<{
+              followerCount?: number;
+            }>(`https://api.linkedin.com/rest/organizations/${encodeURIComponent(orgId)}`, {
+              params: { projection: '(followerCount)' },
+              headers: { ...liHeaders, 'Linkedin-Version': '202602' },
+              timeout: 10_000,
+              validateStatus: () => true,
+            });
+            const fc = orgRes.data?.followerCount;
+            if (typeof fc === 'number' && Number.isFinite(fc) && fc >= 0) {
+              out.followers = Math.round(fc);
+            }
+          }
+        } catch {
+          // optional org follower count (requires org read scopes)
+        }
+      }
+
       const sinceStart = new Date(`${sinceParam}T00:00:00.000Z`);
       const untilEnd = new Date(`${untilParam}T23:59:59.999Z`);
       let importedInRange: Array<{

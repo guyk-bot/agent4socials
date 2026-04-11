@@ -100,6 +100,8 @@ type PostComment = {
   platform: string;
   isFromMe?: boolean;
   parentCommentId?: string | null;
+  /** LinkedIn Community Management: thread URN from GET /comments (required for replies). */
+  linkedInObjectUrn?: string | null;
 };
 type EngagementItem = {
   platformPostId: string;
@@ -1610,7 +1612,7 @@ function InboxPage() {
             <>
               <p className="text-sm font-medium text-neutral-800">LinkedIn and Pinterest DMs are not in this app</p>
               <p className="text-xs text-neutral-500 mt-2 max-w-sm mx-auto">
-                Your LinkedIn inbox on linkedin.com will not sync here. LinkedIn does not expose member messaging to our integration. Use Instagram, Facebook, or X for Messages, or open the Comments tab for LinkedIn comments on your posts.
+                Your LinkedIn inbox on linkedin.com will not sync here. LinkedIn does not expose member messaging to our integration. Use Instagram, Facebook, or X for Messages, or open the Comments tab to read and reply to comments on your LinkedIn posts.
               </p>
             </>
           ) : (
@@ -1993,8 +1995,14 @@ function InboxPage() {
           /* Batch reply to selected comments: show each in a card + Generate with AI */
           (() => {
             const selectedComments = comments.filter((c) => !c.parentCommentId && selectedCommentIds.has(c.commentId));
-            const canReplyPlatforms = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER', 'YOUTUBE']);
-            const replyable = selectedComments.filter((c) => canReplyPlatforms.has(c.platform));
+            const canReplyPlatforms = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER', 'YOUTUBE', 'LINKEDIN']);
+            const replyable = selectedComments.filter((c) => {
+              if (!canReplyPlatforms.has(c.platform)) return false;
+              if (c.platform === 'LINKEDIN' && !(c.linkedInObjectUrn && c.commentId.startsWith('urn:li:comment:'))) {
+                return false;
+              }
+              return true;
+            });
             return (
               <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                 <div className="p-4 border-b border-neutral-200 bg-white">
@@ -2086,7 +2094,13 @@ function InboxPage() {
                           const account = effectiveAccounts.find((a) => a.platform === c.platform);
                           if (!account) continue;
                           try {
-                            await api.post(`/social/accounts/${account.id}/comments/reply`, { commentId: c.commentId, message: msg });
+                            await api.post(`/social/accounts/${account.id}/comments/reply`, {
+                              commentId: c.commentId,
+                              message: msg,
+                              ...(c.platform === 'LINKEDIN' && c.linkedInObjectUrn
+                                ? { linkedInObjectUrn: c.linkedInObjectUrn }
+                                : {}),
+                            });
                             markCommentsAsRead([c.commentId], user?.id);
                             setUnreadCommentIds((prev) => { const next = new Set(prev); next.delete(c.commentId); return next; });
                           } catch {
@@ -2469,10 +2483,23 @@ function InboxPage() {
                 {aiReplyError && (
                   <p className="text-sm text-amber-700 mb-2">{aiReplyError}</p>
                 )}
-                {selectedComment.platform !== 'INSTAGRAM' && selectedComment.platform !== 'FACEBOOK' && selectedComment.platform !== 'YOUTUBE' && selectedComment.platform !== 'TWITTER' ? (
+                {selectedComment.platform !== 'INSTAGRAM' &&
+                selectedComment.platform !== 'FACEBOOK' &&
+                selectedComment.platform !== 'YOUTUBE' &&
+                selectedComment.platform !== 'TWITTER' &&
+                selectedComment.platform !== 'LINKEDIN' ? (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                    <p className="font-medium">Reply from the app is available for Instagram, Facebook, YouTube, and X (Twitter).</p>
+                    <p className="font-medium">Reply from the app is available for Instagram, Facebook, YouTube, X (Twitter), and LinkedIn.</p>
                     <p className="mt-1 text-xs text-amber-700">For other platforms, reply on the platform.</p>
+                  </div>
+                ) : selectedComment.platform === 'LINKEDIN' &&
+                  (!selectedComment.linkedInObjectUrn || !selectedComment.commentId.startsWith('urn:li:comment:')) ? (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    <p className="font-medium">Refresh comments to reply on LinkedIn.</p>
+                    <p className="mt-1 text-xs text-amber-700">
+                      Close this thread and open the Comments tab again so thread metadata loads. You need Community Management
+                      scopes (e.g. w_organization_social / w_member_social) for replies.
+                    </p>
                   </div>
                 ) : (
                 <>
@@ -2525,6 +2552,9 @@ function InboxPage() {
                       await api.post(`/social/accounts/${account.id}/comments/reply`, {
                         commentId: selectedComment.commentId,
                         message: sentMessage,
+                        ...(selectedComment.platform === 'LINKEDIN' && selectedComment.linkedInObjectUrn
+                          ? { linkedInObjectUrn: selectedComment.linkedInObjectUrn }
+                          : {}),
                       });
                       // Add the sent reply optimistically to the top of the list
                       const myReply: PostComment = {

@@ -5,6 +5,7 @@ import { PostStatus } from '@prisma/client';
 import axios from 'axios';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 import { getValidYoutubeToken } from '@/lib/youtube-token';
+import { linkedInAuthorUrnForUgc } from '@/lib/linkedin/sync-ugc-posts';
 
 async function fetchAllPages<T>(
   initialUrl: string,
@@ -225,7 +226,7 @@ export async function GET(
   // LinkedIn: fetch recent UGC posts so we have post sources for comments
   if (platform === 'LINKEDIN') {
     try {
-      const personUrn = `urn:li:person:${account.platformUserId}`;
+      const authorUrn = linkedInAuthorUrnForUgc(account.platformUserId);
       const postsRes = await axios.get<{
         elements?: Array<{
           id?: string;
@@ -235,7 +236,7 @@ export async function GET(
       }>('https://api.linkedin.com/v2/ugcPosts', {
         params: {
           q: 'authors',
-          authors: `List(${encodeURIComponent(personUrn)})`,
+          authors: `List(${encodeURIComponent(authorUrn)})`,
           count: 50,
         },
         headers: {
@@ -287,6 +288,8 @@ export async function GET(
     platform: string;
     isFromMe?: boolean;
     parentCommentId?: string | null;
+    /** LinkedIn thread root URN (activity/share/ugc) required when posting nested comment replies. */
+    linkedInObjectUrn?: string | null;
   }> = [];
   let firstError: string | null = null;
 
@@ -664,6 +667,7 @@ export async function GET(
         const commentsRes = await axios.get<{
           elements?: Array<{
             id?: string;
+            commentUrn?: string;
             actor?: string;
             message?: { text?: string };
             created?: { time?: number };
@@ -673,6 +677,7 @@ export async function GET(
           headers: {
             Authorization: `Bearer ${token}`,
             'X-Restli-Protocol-Version': '2.0.0',
+            'Linkedin-Version': '202602',
           },
           timeout: 15_000,
         });
@@ -680,8 +685,15 @@ export async function GET(
         for (const c of elements) {
           const text = c.message?.text ?? '';
           const createdAt = c.created?.time != null ? new Date(c.created.time).toISOString() : new Date().toISOString();
+          const objectUrn = typeof c.object === 'string' && c.object.trim() ? c.object.trim() : undefined;
+          const commentUrn =
+            typeof c.commentUrn === 'string' && c.commentUrn.trim()
+              ? c.commentUrn.trim()
+              : objectUrn && c.id
+                ? `urn:li:comment:(${objectUrn},${c.id})`
+                : (c.id ?? '');
           comments.push({
-            commentId: c.id ?? '',
+            commentId: commentUrn || (c.id ?? ''),
             postTargetId,
             platformPostId,
             accountId,
@@ -694,6 +706,7 @@ export async function GET(
             authorPictureUrl: null,
             createdAt,
             platform: 'LINKEDIN',
+            linkedInObjectUrn: objectUrn ?? null,
           });
         }
       } catch (_) {
