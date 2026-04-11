@@ -7,8 +7,8 @@ import { GET } from '../comment-automation/route';
 jest.mock('axios');
 jest.mock('@/lib/db', () => ({
   prisma: {
-    post: { findMany: jest.fn() },
-    commentAutomationReply: { findMany: jest.fn(), create: jest.fn() },
+    post: { findMany: jest.fn(), count: jest.fn() },
+    commentAutomationReply: { findMany: jest.fn(), create: jest.fn(), deleteMany: jest.fn() },
   },
 }));
 
@@ -27,8 +27,10 @@ describe('comment-automation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env = { ...originalEnv, DATABASE_URL: 'postgres://x', CRON_SECRET };
+    (prisma.post.count as jest.Mock).mockResolvedValue(0);
     (prisma.commentAutomationReply.findMany as jest.Mock).mockResolvedValue([]);
     (prisma.commentAutomationReply.create as jest.Mock).mockResolvedValue({});
+    (prisma.commentAutomationReply.deleteMany as jest.Mock).mockResolvedValue({ count: 0 });
   });
 
   afterAll(() => {
@@ -37,6 +39,7 @@ describe('comment-automation', () => {
 
   it('returns 401 without valid X-Cron-Secret', async () => {
     (prisma.post.findMany as jest.Mock).mockResolvedValue([]);
+    (prisma.post.count as jest.Mock).mockResolvedValue(0);
     const res = await GET(mockRequest('wrong'));
     expect(res.status).toBe(401);
   });
@@ -46,6 +49,7 @@ describe('comment-automation', () => {
     const targetId = 'target-1';
     const platformPostId = 'urn:li:share:abc123';
     const platformUserId = 'person456';
+    (prisma.post.count as jest.Mock).mockResolvedValue(1);
     (prisma.post.findMany as jest.Mock).mockResolvedValue([
       {
         id: postId,
@@ -83,6 +87,7 @@ describe('comment-automation', () => {
     const postId = 'post-2';
     const targetId = 'target-2';
     const platformPostId = '1234567890';
+    (prisma.post.count as jest.Mock).mockResolvedValue(1);
     (prisma.post.findMany as jest.Mock).mockResolvedValue([
       {
         id: postId,
@@ -128,7 +133,7 @@ describe('comment-automation', () => {
       expect.objectContaining({
         params: expect.objectContaining({
           query: `conversation_id:${platformPostId} is:reply`,
-          max_results: 50,
+          max_results: 100,
         }),
         headers: { Authorization: 'Bearer tw-bearer' },
       })

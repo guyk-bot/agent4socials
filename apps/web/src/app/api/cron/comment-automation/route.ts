@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { executeCommentAutomation } from '@/lib/comment-automation';
 
+export const maxDuration = 60;
+
 /**
  * GET/POST /api/cron/comment-automation
  * Call with header X-Cron-Secret: CRON_SECRET.

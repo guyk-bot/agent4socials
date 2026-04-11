@@ -20,6 +20,39 @@ function getReplyText(ca: CommentAutomation, platform: string): string {
   return (byPlatform[platform] ?? ca.replyTemplate ?? '').trim();
 }
 
+function envInt(name: string, fallback: number): number {
+  const v = process.env[name];
+  if (v == null || v === '') return fallback;
+  const n = Number.parseInt(v, 10);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Meta Graph: walk comment pages (IG + FB) with caps to support high-volume threads without missing the first page only. */
+async function fetchMetaCommentsPaged(
+  firstUrl: string,
+  firstParams: Record<string, string>,
+  maxPages: number,
+  interPageDelayMs: number
+): Promise<Array<{ id: string; text?: string; message?: string; from?: { id?: string; username?: string; name?: string } }>> {
+  const out: Array<{ id: string; text?: string; message?: string; from?: { id?: string; username?: string; name?: string } }> = [];
+  let url: string | null = firstUrl;
+  let params: Record<string, string> | undefined = firstParams;
+  for (let p = 0; p < maxPages && url; p++) {
+    const r = await axios.get<{ data?: typeof out; paging?: { next?: string } }>(url, {
+      ...(params ? { params } : {}),
+      timeout: 18_000,
+    });
+    out.push(...(r.data?.data ?? []));
+    const next = r.data?.paging?.next;
+    url = next ?? null;
+    params = undefined;
+    if (url && interPageDelayMs > 0) await delay(interPageDelayMs);
+  }
+  return out;
+}
+
 export type CommentAutomationResult = {
   postId: string;
   targetId: string;
@@ -33,19 +66,43 @@ export type CommentAutomationSummary = {
   results: CommentAutomationResult[];
   summary: {
     postsFound: number;
+    postsScanned: number;
+    /** True when more posted rows have automation than we processed this run. */
+    postsTruncated: boolean;
     totalReplied: number;
     hint?: string;
+    limits?: {
+      maxPostsPerRun: number;
+      maxMetaCommentPages: number;
+      maxRepliesPerTargetPerRun: number;
+      maxTwitterSearchPages: number;
+      interPageDelayMs: number;
+      interReplyDelayMs: number;
+    };
   };
 };
 
 export async function executeCommentAutomation(): Promise<CommentAutomationSummary> {
   const results: CommentAutomationResult[] = [];
 
+  const maxPostsPerRun = envInt('COMMENT_AUTOMATION_MAX_POSTS', 40);
+  const maxMetaCommentPages = envInt('COMMENT_AUTOMATION_MAX_META_COMMENT_PAGES', 25);
+  const maxRepliesPerTargetPerRun = envInt('COMMENT_AUTOMATION_MAX_REPLIES_PER_TARGET', 40);
+  const maxTwitterSearchPages = envInt('COMMENT_AUTOMATION_MAX_TWITTER_PAGES', 8);
+  const interPageDelayMs = envInt('COMMENT_AUTOMATION_INTER_PAGE_DELAY_MS', 120);
+  const interReplyDelayMs = envInt('COMMENT_AUTOMATION_INTER_REPLY_DELAY_MS', 150);
+
+  const postsAll = await prisma.post.count({
+    where: { status: PostStatus.POSTED, commentAutomation: { not: Prisma.DbNull } },
+  });
+
   const posts = await prisma.post.findMany({
     where: {
       status: PostStatus.POSTED,
       commentAutomation: { not: Prisma.DbNull },
     },
+    orderBy: { updatedAt: 'desc' },
+    take: maxPostsPerRun,
     include: {
       targets: {
         where: { platformPostId: { not: null }, status: PostStatus.POSTED },
@@ -60,9 +117,17 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
     return {
       ok: true,
       results: [],
-      summary: { postsFound: 0, totalReplied: 0, hint: 'No posted posts have keyword comment automation. In Composer create a post, enable section 4 (keywords + reply text), then publish it to X (or other platforms).' },
+      summary: {
+        postsFound: 0,
+        postsScanned: 0,
+        postsTruncated: false,
+        totalReplied: 0,
+        hint: 'No posted posts have keyword comment automation. In Composer create a post, enable section 4 (keywords + reply text), then publish it to X (or other platforms).',
+      },
     };
   }
+
+  const postsTruncated = postsAll > posts.length;
 
   for (const post of posts) {
     const ca = post.commentAutomation as CommentAutomation | null;
@@ -90,17 +155,23 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
       try {
         if (platform === 'INSTAGRAM') {
           const creds = target.socialAccount.credentialsJson as Record<string, unknown> | null;
-          // For Instagram messaging, prefer the page access token stored in credentials
           const pageToken: string = (typeof creds?.pageToken === 'string' && creds.pageToken) ? creds.pageToken : token;
           const linkedPageId: string | null = typeof creds?.linkedPageId === 'string' ? creds.linkedPageId : null;
           const igAccountId = (target.socialAccount.platformUserId || '').trim();
 
-          const res = await axios.get<{ data?: Array<{ id: string; text?: string; from?: { id?: string; username?: string } }> }>(
+          const comments = await fetchMetaCommentsPaged(
             `${facebookGraphBaseUrl}/${platformPostId}/comments`,
-            { params: { fields: 'id,text,from{username}', access_token: token }, timeout: 10000 }
+            {
+              fields: 'id,text,from{username}',
+              access_token: token,
+              limit: '50',
+            },
+            maxMetaCommentPages,
+            interPageDelayMs
           );
-          const comments = res.data?.data ?? [];
+
           for (const c of comments) {
+            if (replied >= maxRepliesPerTargetPerRun) break;
             if (repliedSet.has(c.id)) continue;
             const text = (c.text ?? '').toLowerCase();
             if (!keywords.some((k) => text.includes(k))) continue;
@@ -121,14 +192,13 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
                 await axios.post(
                   `${facebookGraphBaseUrl}/${c.id}/replies`,
                   null,
-                  { params: { message: finalReply, access_token: token }, timeout: 10000 }
+                  { params: { message: finalReply, access_token: token }, timeout: 12_000 }
                 );
               }
               if (doPrivateReply) {
                 const dmText = (typeof ca.instagramDmTemplate === 'string' && ca.instagramDmTemplate.trim())
                   ? ca.instagramDmTemplate.trim()
                   : replyText;
-                // Use linkedPageId for the messaging endpoint if available, else igAccountId
                 const msgSenderId = linkedPageId || igAccountId;
                 if (msgSenderId) {
                   await axios.post(
@@ -140,12 +210,15 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
                     {
                       params: { access_token: pageToken },
                       headers: { 'Content-Type': 'application/json' },
-                      timeout: 10000,
+                      timeout: 12_000,
                     }
                   );
                 }
               }
-              if (doPublicReply || doPrivateReply) replied++;
+              if (doPublicReply || doPrivateReply) {
+                replied++;
+                if (interReplyDelayMs > 0) await delay(interReplyDelayMs);
+              }
             } catch (e) {
               await prisma.commentAutomationReply.deleteMany({
                 where: { postTargetId: target.id, platformCommentId: c.id },
@@ -156,12 +229,19 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
             }
           }
         } else if (platform === 'FACEBOOK') {
-          const res = await axios.get<{ data?: Array<{ id: string; message?: string; from?: { name?: string } }> }>(
+          const comments = await fetchMetaCommentsPaged(
             `${facebookGraphBaseUrl}/${platformPostId}/comments`,
-            { params: { fields: 'id,message,from{name}', access_token: token }, timeout: 10000 }
+            {
+              fields: 'id,message,from{name}',
+              access_token: token,
+              limit: '50',
+            },
+            maxMetaCommentPages,
+            interPageDelayMs
           );
-          const comments = res.data?.data ?? [];
+
           for (const c of comments) {
+            if (replied >= maxRepliesPerTargetPerRun) break;
             if (repliedSet.has(c.id)) continue;
             const text = (c.message ?? '').toLowerCase();
             if (!keywords.some((k) => text.includes(k))) continue;
@@ -175,9 +255,10 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
               await axios.post(
                 `${facebookGraphBaseUrl}/${c.id}/comments`,
                 null,
-                { params: { message: finalReply, access_token: token }, timeout: 10000 }
+                { params: { message: finalReply, access_token: token }, timeout: 12_000 }
               );
               replied++;
+              if (interReplyDelayMs > 0) await delay(interReplyDelayMs);
             } catch (e) {
               await prisma.commentAutomationReply.deleteMany({
                 where: { postTargetId: target.id, platformCommentId: c.id },
@@ -189,31 +270,42 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
           }
         } else if (platform === 'TWITTER') {
           const ourAuthorId = (target.socialAccount.platformUserId ?? '').trim();
-          let tweets: Array<{ id: string; text?: string; author_id?: string }> = [];
+          const tweets: Array<{ id: string; text?: string; author_id?: string }> = [];
+          let nextToken: string | undefined;
           try {
-            const searchRes = await axios.get<{ data?: Array<{ id: string; text?: string; author_id?: string }>; errors?: Array<{ message?: string }> }>(
-              'https://api.twitter.com/2/tweets/search/recent',
-              {
-                params: {
-                  query: `conversation_id:${platformPostId} is:reply`,
-                  'tweet.fields': 'text,author_id',
-                  max_results: 50,
-                },
+            for (let page = 0; page < maxTwitterSearchPages; page++) {
+              const params: Record<string, string | number> = {
+                query: `conversation_id:${platformPostId} is:reply`,
+                'tweet.fields': 'text,author_id',
+                max_results: 100,
+              };
+              if (nextToken) params.next_token = nextToken;
+              const searchRes = await axios.get<{
+                data?: Array<{ id: string; text?: string; author_id?: string }>;
+                errors?: Array<{ message?: string }>;
+                meta?: { next_token?: string };
+              }>('https://api.twitter.com/2/tweets/search/recent', {
+                params,
                 headers: { Authorization: `Bearer ${token}` },
+                timeout: 15_000,
+              });
+              const errs = searchRes.data?.errors;
+              if (errs?.length) {
+                errors.push(`X Search API: ${errs.map((e) => e.message ?? '').join('; ')}`);
+                break;
               }
-            );
-            const errs = searchRes.data?.errors;
-            if (errs?.length) {
-              errors.push(`X Search API: ${errs.map((e) => e.message ?? '').join('; ')}`);
-            } else {
               const raw = searchRes.data?.data ?? [];
               const fromOthers = ourAuthorId ? raw.filter((t) => t.author_id !== ourAuthorId) : raw;
-              const seen = new Set<string>();
-              tweets = fromOthers.filter((t) => {
-                if (seen.has(t.id)) return false;
-                seen.add(t.id);
-                return true;
-              });
+              const seen = new Set(tweets.map((t) => t.id));
+              for (const t of fromOthers) {
+                if (!seen.has(t.id)) {
+                  seen.add(t.id);
+                  tweets.push(t);
+                }
+              }
+              nextToken = searchRes.data?.meta?.next_token;
+              if (!nextToken) break;
+              if (interPageDelayMs > 0) await delay(interPageDelayMs);
             }
           } catch (e: unknown) {
             const ax = e as { response?: { status?: number; data?: { detail?: string; errors?: Array<{ message?: string }> } } };
@@ -223,6 +315,7 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
             errors.push(`X Search: ${status ?? ''} ${msg}`.trim().slice(0, 200));
           }
           for (const t of tweets) {
+            if (replied >= maxRepliesPerTargetPerRun) break;
             if (repliedSet.has(t.id)) continue;
             const text = (t.text ?? '').toLowerCase();
             if (!keywords.some((k) => text.includes(k))) continue;
@@ -237,6 +330,7 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
                 { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
               );
               replied++;
+              if (interReplyDelayMs > 0) await delay(interReplyDelayMs);
             } catch (e) {
               await prisma.commentAutomationReply.deleteMany({
                 where: { postTargetId: target.id, platformCommentId: t.id },
@@ -254,15 +348,32 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
 
   const totalReplied = results.reduce((s, r) => s + r.replied, 0);
   const hasErrors = results.some((r) => r.errors.length > 0);
+  const limits = {
+    maxPostsPerRun,
+    maxMetaCommentPages,
+    maxRepliesPerTargetPerRun,
+    maxTwitterSearchPages,
+    interPageDelayMs,
+    interReplyDelayMs,
+  };
+
+  let hint: string | undefined;
+  if (hasErrors) {
+    hint = 'One or more platforms returned errors (e.g. X Search may require a paid plan or app in a Project). Check errors below.';
+  } else if (postsTruncated) {
+    hint = `More than ${maxPostsPerRun} posts have automation enabled; this run processed the ${maxPostsPerRun} most recently updated. Run cron again (or more often) to cover the rest. Tune COMMENT_AUTOMATION_MAX_POSTS in Vercel.`;
+  }
+
   return {
     ok: true,
     results,
     summary: {
-      postsFound: posts.length,
+      postsFound: postsAll,
+      postsScanned: posts.length,
+      postsTruncated,
       totalReplied,
-      hint: hasErrors
-        ? 'One or more platforms returned errors (e.g. X Search may require a paid plan or app in a Project). Check errors below.'
-        : undefined,
+      hint,
+      limits,
     },
   };
 }

@@ -24,3 +24,18 @@
 
 4. **CRON_SECRET**  
    The cron endpoint requires the `X-Cron-Secret` header (or `Authorization: Bearer CRON_SECRET`). In Vercel, Crons send this automatically if you set `CRON_SECRET` in Environment Variables.
+
+## High-volume accounts (optional Vercel env)
+
+Each cron run is bounded so serverless jobs finish and platforms are not hammered. Defaults are sane for most users; raise values only if you have Pro-level function time and still respect Meta/X rate limits.
+
+| Variable | Default | Meaning |
+|----------|---------|---------|
+| `COMMENT_AUTOMATION_MAX_POSTS` | `40` | Max posted rows with automation processed per run (most recently updated first). |
+| `COMMENT_AUTOMATION_MAX_META_COMMENT_PAGES` | `25` | Max Graph API pages per IG/FB post (~50 comments/page). |
+| `COMMENT_AUTOMATION_MAX_REPLIES_PER_TARGET` | `40` | Stop sending replies for one `PostTarget` after this many successes in one run (next cron continues). |
+| `COMMENT_AUTOMATION_MAX_TWITTER_PAGES` | `8` | Max X `search/recent` pagination tokens per post (`max_results` 100 per page). |
+| `COMMENT_AUTOMATION_INTER_PAGE_DELAY_MS` | `120` | Pause between Meta/X pagination requests. |
+| `COMMENT_AUTOMATION_INTER_REPLY_DELAY_MS` | `150` | Pause after each successful reply (rate limit friendliness). |
+
+**Heavy traffic:** call `/api/cron/comment-automation` **more often** (e.g. every 2–5 minutes) instead of relying only on the daily job. `process-scheduled` also triggers automation once per run; its `maxDuration` is aligned so that chain can complete.

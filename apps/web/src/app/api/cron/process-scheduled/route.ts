@@ -4,7 +4,8 @@ import { PostStatus } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import { sendScheduledPostLinksEmail, sendScheduledPublishFailureEmail } from '@/lib/resend';
 
-export const maxDuration = 25;
+/** Must cover chained comment-automation fetch on heavy accounts (see COMMENT_AUTOMATION.md). */
+export const maxDuration = 60;
 
 const baseUrl = () =>
   (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
