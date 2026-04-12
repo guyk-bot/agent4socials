@@ -1,4 +1,4 @@
-import axios, { type InternalAxiosRequestConfig, type AxiosResponse } from 'axios';
+import axios from 'axios';
 import { getSupabaseBrowser } from '@/lib/supabase/client';
 
 const raw = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
@@ -6,16 +6,6 @@ const base = raw || '';
 const api = axios.create({
   baseURL: `${base}/api`,
   timeout: 25_000,
-});
-
-api.interceptors.request.use(async (config) => {
-  if (typeof window === 'undefined') return config;
-  const supabase = getSupabaseBrowser();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (session?.access_token) {
-    config.headers.Authorization = `Bearer ${session.access_token}`;
-  }
-  return config;
 });
 
 // ─── Global concurrent-request limiter ──────────────────────────────────────
@@ -50,42 +40,32 @@ function releaseSlot(): void {
   }
 }
 
-const originalRequest = api.request.bind(api);
-
-api.request = async function limitedRequest<T = unknown, R = AxiosResponse<T>>(
-  configOrUrl: string | InternalAxiosRequestConfig,
-  ...args: unknown[]
-): Promise<R> {
+// Use request interceptor to acquire a slot before sending.
+// The interceptor returns a promise, so axios will wait for it before sending.
+api.interceptors.request.use(async (config) => {
   await acquireSlot();
-  try {
-    return await (originalRequest as Function)(configOrUrl, ...args);
-  } finally {
-    releaseSlot();
-  }
-} as typeof api.request;
 
-// Patch convenience methods to route through the limited request
-for (const method of ['get', 'delete', 'head', 'options'] as const) {
-  const orig = api[method].bind(api);
-  (api as Record<string, unknown>)[method] = async function (...args: unknown[]) {
-    await acquireSlot();
-    try {
-      return await (orig as Function)(...args);
-    } finally {
-      releaseSlot();
+  if (typeof window !== 'undefined') {
+    const supabase = getSupabaseBrowser();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      config.headers.Authorization = `Bearer ${session.access_token}`;
     }
-  };
-}
-for (const method of ['post', 'put', 'patch'] as const) {
-  const orig = api[method].bind(api);
-  (api as Record<string, unknown>)[method] = async function (...args: unknown[]) {
-    await acquireSlot();
-    try {
-      return await (orig as Function)(...args);
-    } finally {
-      releaseSlot();
-    }
-  };
-}
+  }
+
+  return config;
+});
+
+// Release the slot after response (success or error).
+api.interceptors.response.use(
+  (response) => {
+    releaseSlot();
+    return response;
+  },
+  (error) => {
+    releaseSlot();
+    return Promise.reject(error);
+  }
+);
 
 export default api;
