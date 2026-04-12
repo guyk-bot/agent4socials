@@ -1670,9 +1670,41 @@ export function FacebookAnalyticsView({
    * Full analytics shell (Overview, Traffic, Posts, Reels, History): first insights fetch (hasApiInsightsFetched false), or Facebook Page waiting for Graph bundle.
    * When the parent still has insights === null from the API, hasApiInsightsFetched is false so we do not flash zeros on any section.
    * Date-range refetches keep prior insights so hasApiInsightsFetched stays true and the UI stays stable.
+   *
+   * After we have ever shown a rich Facebook bundle (or IG / other platform charts), do not swap the whole Overview
+   * for a skeleton on later insightsLoading ticks — parent may briefly omit facebookAnalytics while revalidating.
    */
+  const accountSwitchKey = `${insights?.platform ?? ''}:${accountUsername ?? ''}`;
+  const [skipOverviewSkeleton, setSkipOverviewSkeleton] = useState(false);
+  useEffect(() => {
+    setSkipOverviewSkeleton(false);
+  }, [accountSwitchKey]);
+  useEffect(() => {
+    if (!insights) return;
+    if (insights.facebookAnalytics) {
+      setSkipOverviewSkeleton(true);
+      return;
+    }
+    if (insights.platform === 'FACEBOOK' && (insights.followers ?? 0) > 0) {
+      setSkipOverviewSkeleton(true);
+      return;
+    }
+    if (insights.platform === 'INSTAGRAM') {
+      if (
+        (insights.followers ?? 0) > 0 ||
+        (Array.isArray(insights.impressionsTimeSeries) && insights.impressionsTimeSeries.some((d) => d.value > 0))
+      ) {
+        setSkipOverviewSkeleton(true);
+      }
+      return;
+    }
+    if (['TIKTOK', 'YOUTUBE', 'LINKEDIN', 'PINTEREST', 'TWITTER'].includes(String(insights.platform).toUpperCase())) {
+      if ((insights.followers ?? 0) > 0 || (insights.impressionsTotal ?? 0) > 0) setSkipOverviewSkeleton(true);
+    }
+  }, [insights]);
   const overviewSkeleton =
     insightsLoading &&
+    !skipOverviewSkeleton &&
     (!hasApiInsightsFetched || (insights?.platform === 'FACEBOOK' && !insights?.facebookAnalytics));
   const [storyMode, setStoryMode] = useState<StoryMode>('growth');
   const [selectedStoryMetrics, setSelectedStoryMetrics] = useState<StoryMetricKey[]>(STORY_MODE_DEFAULT_METRICS.growth);

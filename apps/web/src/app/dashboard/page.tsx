@@ -1250,11 +1250,13 @@ export default function DashboardPage() {
           : [];
   const maxImpressions = displayTimeSeries.length ? Math.max(...displayTimeSeries.map((d) => d.value), 1) : 1;
   const showViewsHint = hasFbOrIg && effectiveFollowers > 0 && effectiveImpressions === 0 && !effectiveTimeSeries.some((d) => d.value > 0) && (selectedAccount?.platform === 'INSTAGRAM' || !selectedAccount);
-  /** Full-page analytics skeleton: only when actively loading AND no cached data to show. */
+  /** Full-page analytics skeleton: only when insights are loading AND no cached data.
+   * Do NOT tie this to importedPostsLoading — post sync would hide the whole dashboard
+   * even when insights + charts are already available (stale-while-revalidate). */
   const analyticsLoadingOnly = Boolean(
     selectedAccount &&
     !displayInsights &&
-    (insightsLoading || importedPostsLoading || justConnected)
+    (insightsLoading || justConnected)
   );
   const showDataSyncBanner = Boolean(
     analyticsLoadingOnly || (justConnected && !displayInsights)
@@ -1505,11 +1507,16 @@ export default function DashboardPage() {
               try {
                 const res = await api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: { sync: 1 } });
                 const list = res.data?.posts ?? [];
+                const syncErr = res.data?.syncError as string | undefined;
                 const aid = selectedAccount.id;
-                postsCacheRef.current[aid] = list;
+                const plat = selectedAccount.platform;
+                const prevForPlatform = importedPosts.filter((p: { platform: string }) => p.platform === plat);
+                const useList =
+                  list.length > 0 ? list : syncErr && prevForPlatform.length > 0 ? prevForPlatform : list;
+                postsCacheRef.current[aid] = useList;
                 accountPostsHydratedRef.current[aid] = true;
                 accountPostsLastSyncAtRef.current[aid] = Date.now();
-                appDataRef.current?.setPostsForAccount(aid, list);
+                appDataRef.current?.setPostsForAccount(aid, useList);
                 try {
                   const refreshedInsights = await api.get(`/social/accounts/${aid}/insights`, {
                     params:
@@ -1523,19 +1530,34 @@ export default function DashboardPage() {
                   const nextInsights = refreshedInsights.data ?? null;
                   if (nextInsights) {
                     const cacheKey = `${aid}-${dateRange.start}-${dateRange.end}`;
-                    insightsCacheRef.current[cacheKey] = nextInsights;
-                    lastInsightsByAccountIdRef.current[aid] = nextInsights as Record<string, unknown>;
-                    appDataRef.current?.setInsightsForAccount(aid, nextInsights);
+                    const prevInsights = insightsCacheRef.current[cacheKey] ?? lastInsightsByAccountIdRef.current[aid];
+                    const merged =
+                      selectedAccount.platform === 'FACEBOOK' &&
+                      prevInsights &&
+                      typeof prevInsights === 'object' &&
+                      !(nextInsights as { facebookAnalytics?: unknown }).facebookAnalytics &&
+                      (prevInsights as { facebookAnalytics?: unknown }).facebookAnalytics
+                        ? {
+                            ...(nextInsights as object),
+                            facebookAnalytics: (prevInsights as { facebookAnalytics: unknown }).facebookAnalytics,
+                            facebookPageMetricSeries:
+                              (nextInsights as { facebookPageMetricSeries?: unknown }).facebookPageMetricSeries ??
+                              (prevInsights as { facebookPageMetricSeries?: unknown }).facebookPageMetricSeries,
+                          }
+                        : nextInsights;
+                    insightsCacheRef.current[cacheKey] = merged as typeof nextInsights;
+                    lastInsightsByAccountIdRef.current[aid] = merged as Record<string, unknown>;
+                    appDataRef.current?.setInsightsForAccount(aid, merged as typeof nextInsights);
                     if (selectedAccountIdRef.current === aid) {
-                      setInsights(nextInsights);
-                      if (userIdRef.current) writeDashboardInsightsSession(userIdRef.current, aid, nextInsights);
+                      setInsights(merged as NonNullable<Parameters<typeof setInsights>[0]>);
+                      if (userIdRef.current) writeDashboardInsightsSession(userIdRef.current, aid, merged as typeof nextInsights);
                     }
                   }
                 } catch {
                   // Keep current insights if refresh fails.
                 }
-                setImportedPosts((prev) => prev.filter((p: { platform: string }) => p.platform !== selectedAccount.platform).concat(list));
-                setPostsSyncError(res.data?.syncError ?? null);
+                setImportedPosts((prev) => prev.filter((p: { platform: string }) => p.platform !== plat).concat(useList));
+                setPostsSyncError(syncErr ?? null);
               } catch (_) {
                 setPostsSyncError(null);
               } finally {
