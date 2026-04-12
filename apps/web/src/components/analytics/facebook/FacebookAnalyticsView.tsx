@@ -26,6 +26,7 @@ import { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids
 import { localCalendarDateFromIso, toLocalCalendarDate } from '@/lib/calendar-date';
 import { formatMetricNumber as formatNumber } from '@/lib/metric-format';
 import { isLegacyInstagramInsightsUnavailableHint } from '@/lib/strip-legacy-insights-hint';
+import { YOUTUBE_SHORT_MAX_DURATION_SEC } from '@/lib/youtube-video-format';
 
 export { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids';
 
@@ -489,9 +490,6 @@ function inRange(dateIso: string, start: string, end: string): boolean {
   return d >= start && d <= end;
 }
 
-/** YouTube Shorts max runtime (seconds) used for Reels vs long-form split. */
-const YOUTUBE_SHORT_MAX_DURATION_SEC = 180;
-
 function getYoutubeDurationSecFromPost(p: FacebookPost): number | null {
   if ((p.platform ?? '').toUpperCase() !== 'YOUTUBE') return null;
   const meta =
@@ -499,24 +497,42 @@ function getYoutubeDurationSecFromPost(p: FacebookPost): number | null {
       ? (p.platformMetadata as Record<string, unknown>)
       : {};
   const s = meta.youtubeDurationSec;
-  if (typeof s === 'number' && Number.isFinite(s) && s >= 0) return s;
+  if (typeof s === 'number' && Number.isFinite(s) && s > 0) return s;
   return null;
 }
 
-/** True when we know runtime and it is within YouTube Shorts limits. */
-function isYouTubeShortPost(p: FacebookPost): boolean {
-  if ((p.platform ?? '').toUpperCase() !== 'YOUTUBE') return false;
-  const d = getYoutubeDurationSecFromPost(p);
-  if (d === null) return false;
-  return d > 0 && d <= YOUTUBE_SHORT_MAX_DURATION_SEC;
+function getYoutubeVideoFormatFromPost(p: FacebookPost): 'short' | 'long' | null {
+  if ((p.platform ?? '').toUpperCase() !== 'YOUTUBE') return null;
+  const meta =
+    p.platformMetadata && typeof p.platformMetadata === 'object' && !Array.isArray(p.platformMetadata)
+      ? (p.platformMetadata as Record<string, unknown>)
+      : {};
+  const v = meta.youtubeVideoFormat;
+  if (v === 'short' || v === 'long') return v;
+  return null;
 }
 
-/** Long uploads and legacy rows without duration (treated as long-form until the next sync). */
+function youTubeLikelyShortFromHashtagInContent(p: FacebookPost): boolean {
+  const c = (p.content ?? '').toLowerCase();
+  return c.includes('#shorts') || /\b#short\b/.test(c);
+}
+
+/** Shorts: stored format from sync, duration ≤3m, or #shorts in title when duration missing (legacy rows). */
+function isYouTubeShortPost(p: FacebookPost): boolean {
+  if ((p.platform ?? '').toUpperCase() !== 'YOUTUBE') return false;
+  const fmt = getYoutubeVideoFormatFromPost(p);
+  if (fmt === 'short') return true;
+  if (fmt === 'long') return false;
+  const d = getYoutubeDurationSecFromPost(p);
+  if (d !== null && d <= YOUTUBE_SHORT_MAX_DURATION_SEC) return true;
+  if (d === null && youTubeLikelyShortFromHashtagInContent(p)) return true;
+  return false;
+}
+
+/** Long-form: not classified as Short (includes legacy unknown-duration without #shorts). */
 function isYouTubeLongFormVideoPost(p: FacebookPost): boolean {
   if ((p.platform ?? '').toUpperCase() !== 'YOUTUBE') return false;
-  const d = getYoutubeDurationSecFromPost(p);
-  if (d === null) return true;
-  return d === 0 || d > YOUTUBE_SHORT_MAX_DURATION_SEC;
+  return !isYouTubeShortPost(p);
 }
 
 /**
@@ -4468,22 +4484,35 @@ export function FacebookAnalyticsView({
         {overviewSkeleton ? (
           <AnalyticsReelsSkeleton />
         ) : (
-        <div className="rounded-[20px] border p-4 sm:p-5 space-y-4" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
-          <div>
-            <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>
-              {isYouTube ? 'Shorts & long-form' : isPinterest ? 'Videos' : 'Reels'}
-            </h2>
-            {isYouTube ? (
+        <div
+          className={isYouTube ? 'space-y-6' : 'rounded-[20px] border p-4 sm:p-5 space-y-4'}
+          style={
+            isYouTube
+              ? undefined
+              : { borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }
+          }
+        >
+          {!isYouTube ? (
+            <div>
+              <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>
+                {isPinterest ? 'Videos' : 'Reels'}
+              </h2>
+              {isPinterest ? (
+                <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
+                  Video Pins in this date range, or all synced Pins if none are stored as video. Metrics come from your post inventory.
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <div>
+              <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>
+                YouTube Shorts & long-form
+              </h2>
               <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
-                Shorts and long-form uploads are split below: separate totals and daily charts for each.
+                Two panels below: Shorts first, then long-form. Sync stores duration and format from YouTube; #shorts in the title or description is used when duration is missing.
               </p>
-            ) : null}
-            {isPinterest ? (
-              <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
-                Video Pins in this date range, or all synced Pins if none are stored as video. Metrics come from your post inventory.
-              </p>
-            ) : null}
-          </div>
+            </div>
+          )}
         <div className="flex gap-2">
           {([
             { id: 'performance' as const, label: 'Performance' },
@@ -4660,12 +4689,15 @@ export function FacebookAnalyticsView({
         </InsightChartCard>
         </>
         ) : (
-        <div className="space-y-10">
-          <div className="space-y-4">
+        <>
+        <div
+          className="rounded-[20px] border p-4 sm:p-5 space-y-4"
+          style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}
+        >
             <div>
               <h3 className="text-xl font-semibold tracking-tight" style={{ color: COLOR.text }}>Shorts</h3>
               <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
-                ≤3 minutes with a known duration. Daily bars aggregate uploads published on that day.
+                Up to 3 minutes from YouTube, or tagged #shorts when duration is missing, or marked Short at last sync. Daily bars are by publish date.
               </p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -4779,18 +4811,21 @@ export function FacebookAnalyticsView({
                 <div className="h-[240px] rounded-[20px] border flex flex-col items-center justify-center text-center px-6" style={{ background: COLOR.card, borderColor: COLOR.border }}>
                   <p className="text-sm font-semibold" style={{ color: COLOR.text }}>No Shorts in this period</p>
                   <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
-                    Shorts appear when synced uploads are ≤3 minutes with a known duration and publish dates fall in the selected range.
+                    Sync your channel so we can read each video&apos;s duration from YouTube, or add #shorts to the title if duration is unavailable.
                   </p>
                 </div>
               )}
             </InsightChartCard>
           </div>
 
-          <div className="space-y-4 border-t pt-8" style={{ borderColor: COLOR.border }}>
+          <div
+            className="rounded-[20px] border p-4 sm:p-5 space-y-4"
+            style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}
+          >
             <div>
               <h3 className="text-xl font-semibold tracking-tight" style={{ color: COLOR.text }}>Long-form videos</h3>
               <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
-                Longer than 3 minutes, or uploads without a stored duration (treated as long-form until the next sync).
+                Longer than 3 minutes, or classified as long-form at last sync. Anything classified as Short stays in the Shorts panel above.
               </p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -4904,13 +4939,13 @@ export function FacebookAnalyticsView({
                 <div className="h-[240px] rounded-[20px] border flex flex-col items-center justify-center text-center px-6" style={{ background: COLOR.card, borderColor: COLOR.border }}>
                   <p className="text-sm font-semibold" style={{ color: COLOR.text }}>No long-form videos in this period</p>
                   <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
-                    Long-form uploads appear when synced videos are over 3 minutes (or duration is unknown) and publish dates fall in the selected range.
+                    Long-form uploads are over 3 minutes, or not tagged as Shorts when duration is missing. Re-sync if counts look wrong.
                   </p>
                 </div>
               )}
             </InsightChartCard>
           </div>
-        </div>
+        </>
         )}
         </div>
         )}

@@ -16,6 +16,10 @@ import { fbRestBaseUrl } from '@/lib/facebook/constants';
 import { getValidPinterestToken } from '@/lib/pinterest-token';
 import { parseTikTokVideoEngagement, parseTikTokVideoDurationSec } from '@/lib/tiktok/video-engagement';
 import { syncLinkedInUgcPosts } from '@/lib/linkedin/sync-ugc-posts';
+import {
+  classifyYoutubeVideoFormat,
+  parseYoutubeIso8601DurationSeconds,
+} from '@/lib/youtube-video-format';
 
 export const maxDuration = 60;
 
@@ -1694,19 +1698,16 @@ async function syncImportedPosts(
         .map((v) => v.snippet?.resourceId?.videoId)
         .filter((id): id is string => Boolean(id));
 
-      const parseYoutubeIso8601DurationSeconds = (iso: string | undefined): number => {
-        if (!iso || typeof iso !== 'string') return 0;
-        const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
-        if (!m) return 0;
-        const h = Number(m[1] ?? 0);
-        const min = Number(m[2] ?? 0);
-        const s = Number(m[3] ?? 0);
-        return h * 3600 + min * 60 + s;
-      };
-
       const statsMap: Record<
         string,
-        { viewCount: number; likeCount: number; commentCount: number; durationSec: number }
+        {
+          viewCount: number;
+          likeCount: number;
+          commentCount: number;
+          durationSec: number;
+          title: string;
+          description: string;
+        }
       > = {};
       for (let i = 0; i < videoIds.length; i += 50) {
         const batch = videoIds.slice(i, i + 50);
@@ -1716,17 +1717,21 @@ async function syncImportedPosts(
               id: string;
               statistics?: { viewCount?: string; likeCount?: string; commentCount?: string };
               contentDetails?: { duration?: string };
+              snippet?: { title?: string; description?: string };
             }>;
           }>('https://www.googleapis.com/youtube/v3/videos', {
-            params: { part: 'statistics,contentDetails', id: batch.join(',') },
+            params: { part: 'snippet,statistics,contentDetails', id: batch.join(',') },
             headers: { Authorization: `Bearer ${accessToken}` },
           });
           for (const v of statsRes.data?.items ?? []) {
+            const durationSec = parseYoutubeIso8601DurationSeconds(v.contentDetails?.duration);
             statsMap[v.id] = {
               viewCount: v.statistics?.viewCount ? parseInt(v.statistics.viewCount, 10) : 0,
               likeCount: v.statistics?.likeCount ? parseInt(v.statistics.likeCount, 10) : 0,
               commentCount: v.statistics?.commentCount ? parseInt(v.statistics.commentCount, 10) : 0,
-              durationSec: parseYoutubeIso8601DurationSeconds(v.contentDetails?.duration),
+              durationSec,
+              title: v.snippet?.title ?? '',
+              description: v.snippet?.description ?? '',
             };
           }
         } catch (e) {
@@ -1744,12 +1749,29 @@ async function syncImportedPosts(
         const thumbnailUrl = v.snippet?.thumbnails?.medium?.url ?? v.snippet?.thumbnails?.default?.url
           ?? `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
         const permalinkUrl = `https://www.youtube.com/watch?v=${videoId}`;
-        const stats = statsMap[videoId] ?? { viewCount: 0, likeCount: 0, commentCount: 0, durationSec: 0 };
+        const stats = statsMap[videoId] ?? {
+          viewCount: 0,
+          likeCount: 0,
+          commentCount: 0,
+          durationSec: 0,
+          title: title ?? '',
+          description: '',
+        };
         const impressions = stats.viewCount;
         const likeCount = stats.likeCount;
         const commentsCount = stats.commentCount;
         const interactions = likeCount + commentsCount;
-        const youtubeMeta = { youtubeDurationSec: stats.durationSec };
+        const youtubeVideoFormat = classifyYoutubeVideoFormat({
+          durationSec: stats.durationSec,
+          title: stats.title || (title ?? ''),
+          description: stats.description,
+        });
+        const youtubeMeta: Record<string, unknown> = {
+          youtubeVideoFormat,
+        };
+        if (stats.durationSec > 0) {
+          youtubeMeta.youtubeDurationSec = stats.durationSec;
+        }
         await prisma.importedPost.upsert({
           where: { socialAccountId_platformPostId: { socialAccountId, platformPostId: videoId } },
           update: {
