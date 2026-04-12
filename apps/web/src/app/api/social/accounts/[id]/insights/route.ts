@@ -23,6 +23,7 @@ import { facebookGraphBaseUrl, instagramGraphHostBaseUrl } from '@/lib/meta-grap
 import { linkedInAuthorUrnForUgc } from '@/lib/linkedin/sync-ugc-posts';
 import { fetchTwitterTimelineInsights } from '@/lib/twitter-insights';
 import type { TwitterRecentTweetRow, TwitterTotals, TwitterUserPublicRow } from '@/lib/twitter-insights';
+import { refreshTwitterToken } from '@/lib/twitter-refresh';
 import { getLinkedInRestApiVersion, linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
 import {
   fetchLinkedInMemberFollowersCountMe,
@@ -2037,12 +2038,38 @@ export async function GET(
       const sinceDay = effectiveSinceParam.slice(0, 10);
       const untilDay = effectiveUntilParam.slice(0, 10);
       let tw: Awaited<ReturnType<typeof fetchTwitterTimelineInsights>>;
+
+      // Refresh OAuth 2.0 access token if it has expired or is close to expiry (within 5 min).
+      // Twitter access tokens expire after 2 hours; without this, the API silently returns 0 data.
+      let liveAccessToken = account.accessToken;
+      if (account.refreshToken) {
+        const expiresAt = account.expiresAt ? new Date(account.expiresAt).getTime() : 0;
+        const fiveMinMs = 5 * 60 * 1000;
+        if (!expiresAt || Date.now() + fiveMinMs >= expiresAt) {
+          try {
+            const refreshed = await refreshTwitterToken(account.refreshToken);
+            liveAccessToken = refreshed.accessToken;
+            // Persist refreshed tokens back to DB so the next call doesn't need to refresh again.
+            await prisma.socialAccount.update({
+              where: { id: account.id },
+              data: {
+                accessToken: refreshed.accessToken,
+                ...(refreshed.refreshToken ? { refreshToken: refreshed.refreshToken } : {}),
+                expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000), // Twitter tokens last 2h
+              },
+            });
+          } catch {
+            // Refresh failed — try with the existing token; user may need to reconnect.
+          }
+        }
+      }
+
       // Cap pages tightly so the 60s Vercel limit is never hit.
       // Each page is 100 tweets × ~200ms avg = ~20s for 10 pages; leave headroom for user/cron calls.
       const rangeDays = Math.max(1, (new Date(untilDay).getTime() - new Date(sinceDay).getTime()) / 86_400_000);
       const maxPages = rangeDays <= 14 ? 5 : rangeDays <= 31 ? 8 : 12;
       tw = await fetchTwitterTimelineInsights({
-        accessToken: account.accessToken,
+        accessToken: liveAccessToken,
         platformUserId: account.platformUserId,
         socialAccountId: account.id,
         sinceDay,
