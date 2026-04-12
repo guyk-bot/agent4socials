@@ -4,11 +4,25 @@ import { fbRestBaseUrl } from './constants';
 import { fetchPageProfile, reviewContentHash } from './fetchers';
 
 let _fbTablesEnsured = false;
-/** Create Facebook cache + insight tables if they were skipped by a failed migration. Safe to call many times. */
-export async function ensureFacebookTables(): Promise<void> {
-  if (_fbTablesEnsured) return;
+/** Coalesce concurrent DDL attempts (many parallel /insights calls on cold pool). */
+let _fbEnsureInFlight: Promise<void> | null = null;
+
+async function facebookCoreTablesAlreadyExist(): Promise<boolean> {
   try {
-    await prisma.$executeRawUnsafe(`
+    const rows = await prisma.$queryRawUnsafe<Array<{ exists: boolean }>>(
+      `SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'facebook_pages'
+      ) AS "exists"`
+    );
+    return Boolean(rows?.[0]?.exists);
+  } catch {
+    return false;
+  }
+}
+
+async function runFacebookTableMigrations(): Promise<void> {
+  await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "facebook_pages" (
         "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
         "socialAccountId" TEXT NOT NULL,
@@ -101,11 +115,33 @@ export async function ensureFacebookTables(): Promise<void> {
         END IF;
       END $$
     `);
+}
 
-    _fbTablesEnsured = true;
-    console.log('[Facebook] Cache + insight tables ensured.');
-  } catch (e) {
-    console.warn('[Facebook] ensureFacebookTables failed (non-fatal):', (e as Error)?.message?.slice(0, 200));
+/** Create Facebook cache + insight tables if they were skipped by a failed migration. Safe to call many times. */
+export async function ensureFacebookTables(): Promise<void> {
+  if (_fbTablesEnsured) return;
+  if (_fbEnsureInFlight) {
+    await _fbEnsureInFlight;
+    return;
+  }
+  const run = (async () => {
+    try {
+      if (await facebookCoreTablesAlreadyExist()) {
+        _fbTablesEnsured = true;
+        return;
+      }
+      await runFacebookTableMigrations();
+      _fbTablesEnsured = true;
+      console.log('[Facebook] Cache + insight tables ensured.');
+    } catch (e) {
+      console.warn('[Facebook] ensureFacebookTables failed (non-fatal):', (e as Error)?.message?.slice(0, 200));
+    }
+  })();
+  _fbEnsureInFlight = run;
+  try {
+    await run;
+  } finally {
+    if (_fbEnsureInFlight === run) _fbEnsureInFlight = null;
   }
 }
 
@@ -153,7 +189,7 @@ export async function syncFacebookAuxiliaryIngest(params: {
   let conversationsUpserted = 0;
   try {
     let after: string | undefined;
-    while (conversationsPages < 40) {
+    while (conversationsPages < 12) {
       conversationsPages += 1;
       const p: Record<string, string> = {
         platform: 'MESSENGER',
@@ -206,7 +242,7 @@ export async function syncFacebookAuxiliaryIngest(params: {
   try {
     const fields = 'created_time,recommendation_type,review_text,rating';
     let after: string | undefined;
-    while (reviewsPages < 40) {
+    while (reviewsPages < 12) {
       reviewsPages += 1;
       const p: Record<string, string> = { fields, access_token: accessToken, limit: '50' };
       if (after) p.after = after;

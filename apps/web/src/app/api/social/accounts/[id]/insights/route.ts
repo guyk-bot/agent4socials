@@ -189,6 +189,8 @@ export async function GET(
   }
   const since = request.nextUrl.searchParams.get('since') ?? '';
   const until = request.nextUrl.searchParams.get('until') ?? '';
+  /** Set persist=0 on background revalidation to skip heavy normalized upserts (default: persist). */
+  const persistInsightsToDb = request.nextUrl.searchParams.get('persist') !== '0';
   let sinceParam = since;
   let untilParam = until;
   if (!sinceParam || !untilParam) {
@@ -1161,6 +1163,7 @@ export async function GET(
     }
 
     if (account.platform === 'FACEBOOK') {
+      const shouldForceLiveFetch = request.nextUrl.searchParams.get('refresh') === '1';
       (out as Record<string, unknown>).facebookDataSourceDebug = { liveMetricRows: -1, fallbackDailyRows: -1, fallbackMetricKeys: [] };
       let token = account.accessToken;
       token = await resolveFacebookPageAccessToken(account.platformUserId, token);
@@ -1225,14 +1228,13 @@ export async function GET(
           select: { fetchedAt: true },
         });
         const auxStaleMs = 10 * 60 * 1000;
-        const shouldForceLiveFetch = request.nextUrl.searchParams.get('refresh') === '1';
         const shouldAuxRefresh =
           conversationsCount === 0 &&
           ratingsCount === 0 &&
           token &&
           shouldForceLiveFetch &&
           (!pageCacheRow?.fetchedAt || Date.now() - pageCacheRow.fetchedAt.getTime() > auxStaleMs);
-        if (shouldAuxRefresh) {
+        if (shouldAuxRefresh && !budgetExpired()) {
           try {
             const aux = await syncFacebookAuxiliaryIngest({
               socialAccountId: account.id,
@@ -1277,7 +1279,6 @@ export async function GET(
         }
       }
       if (effectiveSinceTs != null && effectiveUntilTs != null) {
-        const shouldForceLiveFetch = request.nextUrl.searchParams.get('refresh') === '1';
         let skipLiveFetch = false;
         if (!shouldForceLiveFetch && effectiveSinceParam && effectiveUntilParam) {
           try {
@@ -1341,14 +1342,11 @@ export async function GET(
           // Direct parallel fetch of core metrics - bypasses the discovery probe system
           // (discovery runs up to 16 sequential API calls per metric which can exceed the 30s Vercel limit).
           // The cron/sync path still uses fetchMergedFacebookPageDayInsights for full discovery.
-          const CORE_FB_METRICS = [
+          const CORE_FB_METRICS_LITE = [
             'page_views_total',
             'page_post_engagements',
-            'page_video_views',
-            'page_media_view',
-            'page_follows',
             'page_impressions',
-            'page_total_actions',
+            'page_media_view',
             'page_fan_adds',
             'page_fan_removes',
             /** Traffic tab: page-level post impressions (distinct from per-post insights in the UI). */
@@ -1356,12 +1354,22 @@ export async function GET(
             'page_posts_impressions_nonviral',
             'page_posts_impressions_viral',
           ];
+          const CORE_FB_METRICS_FULL = [
+            ...CORE_FB_METRICS_LITE,
+            'page_video_views',
+            'page_follows',
+            'page_total_actions',
+          ];
+          const useFullFbMetricSet =
+            shouldForceLiveFetch || request.nextUrl.searchParams.get('extended') === '1';
+          const CORE_FB_METRICS = useFullFbMetricSet ? CORE_FB_METRICS_FULL : CORE_FB_METRICS_LITE;
           type FbInsightRow = { name: string; values?: Array<{ value: number | string; end_time?: string }> };
           const rows: FbInsightRow[] = [];
           const graphErrors: string[] = [];
           /** Small batches reduce Meta rate-limit (#613) bursts from firing 9 insights calls at once. */
           const FB_INSIGHT_PARALLEL = 3;
           for (let bi = 0; bi < CORE_FB_METRICS.length; bi += FB_INSIGHT_PARALLEL) {
+            if (budgetExpired()) break;
             const chunk = CORE_FB_METRICS.slice(bi, bi + FB_INSIGHT_PARALLEL);
             const chunkResults = await Promise.allSettled(
               chunk.map((metric) =>
@@ -1450,18 +1458,20 @@ export async function GET(
           }
           if (Object.keys(fbSeriesByGraphMetric).length > 0) {
             (out as Record<string, unknown>).facebookPageMetricSeries = fbSeriesByGraphMetric;
-            try {
-              const { dailyRowsUpserted } = await persistFacebookPageInsightsNormalized({
-                userId,
-                socialAccountId: account.id,
-                pageId: account.platformUserId,
-                seriesByGraphMetric: fbSeriesByGraphMetric,
-              });
-              if (request.nextUrl.searchParams.get('extended') === '1') {
-                (out as Record<string, unknown>).facebookInsightPersistence = { dailyRowsUpserted };
+            if (persistInsightsToDb) {
+              try {
+                const { dailyRowsUpserted } = await persistFacebookPageInsightsNormalized({
+                  userId,
+                  socialAccountId: account.id,
+                  pageId: account.platformUserId,
+                  seriesByGraphMetric: fbSeriesByGraphMetric,
+                });
+                if (request.nextUrl.searchParams.get('extended') === '1') {
+                  (out as Record<string, unknown>).facebookInsightPersistence = { dailyRowsUpserted };
+                }
+              } catch (e) {
+                console.warn('[Insights] Persist FB insights:', (e as Error)?.message ?? e);
               }
-            } catch (e) {
-              console.warn('[Insights] Persist FB insights:', (e as Error)?.message ?? e);
             }
           }
           // Fallback: when live Graph returns no usable rows, read normalized daily rows we already persisted.

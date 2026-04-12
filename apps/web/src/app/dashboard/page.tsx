@@ -763,7 +763,7 @@ export default function DashboardPage() {
         api.get(`/social/accounts/${accountId}/insights`, {
           params:
             selectedAccount?.platform === 'FACEBOOK'
-              ? { since: dateRange.start, until: dateRange.end, refresh: 1, persist: 1 }
+              ? { since: dateRange.start, until: dateRange.end, persist: 0 }
               : selectedAccount?.platform === 'YOUTUBE'
                 ? { since: dateRange.start, until: dateRange.end, extended: 1 }
                 : { since: dateRange.start, until: dateRange.end },
