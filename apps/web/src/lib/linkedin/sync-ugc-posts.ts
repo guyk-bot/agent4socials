@@ -7,8 +7,9 @@ import axios from 'axios';
 import { prisma } from '@/lib/db';
 import { Platform } from '@prisma/client';
 import { refreshLinkedInImportedPostMetrics } from '@/lib/linkedin/sync-post-metrics';
+import { buildLinkedInRestPostsByAuthorUrl, linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
 
-/** Resolve authors filter URN for ugcPosts?q=authors */
+/** Resolve author URN for GET /rest/posts?q=author&author=… */
 export function linkedInAuthorUrnForUgc(platformUserId: string, credentialsJson?: unknown): string {
   const cred =
     credentialsJson && typeof credentialsJson === 'object'
@@ -30,9 +31,65 @@ export type SyncLinkedInUgcPostsResult = {
   syncError?: string;
 };
 
+/** Parse one element from GET https://api.linkedin.com/rest/posts?q=author (also used by comments live sources). */
+export function parseLinkedInRestPostElement(p: unknown): {
+  id: string;
+  content: string | null;
+  thumbnailUrl: string | null;
+  publishedAt: Date;
+  mediaType: string | null;
+  lifecycleState: string | null;
+} | null {
+  if (!p || typeof p !== 'object') return null;
+  const row = p as Record<string, unknown>;
+  const id = typeof row.id === 'string' ? row.id.trim() : '';
+  if (!id) return null;
+
+  let content: string | null = null;
+  const commentary = row.commentary;
+  if (typeof commentary === 'string') content = commentary.trim() || null;
+  else if (commentary && typeof commentary === 'object') {
+    const c = commentary as Record<string, unknown>;
+    if (typeof c.text === 'string') content = c.text.trim() || null;
+  }
+  if (!content) {
+    const sc = row.specificContent as Record<string, unknown> | undefined;
+    const ugc = sc?.['com.linkedin.ugc.ShareContent'] as Record<string, unknown> | undefined;
+    const t = ugc?.shareCommentary as { text?: string } | undefined;
+    if (typeof t?.text === 'string') content = t.text.trim() || null;
+  }
+
+  let publishedAt = new Date();
+  for (const k of ['publishedAt', 'createdAt', 'lastModifiedAt', 'firstPublishedAt'] as const) {
+    const v = row[k];
+    if (typeof v === 'number' && Number.isFinite(v)) {
+      publishedAt = new Date(v);
+      break;
+    }
+    if (typeof v === 'string' && /^\d+$/.test(v)) {
+      publishedAt = new Date(Number(v));
+      break;
+    }
+  }
+
+  let thumbnailUrl: string | null = null;
+  const sc = row.specificContent as Record<string, unknown> | undefined;
+  const ugc = sc?.['com.linkedin.ugc.ShareContent'] as Record<string, unknown> | undefined;
+  const media = ugc?.media as Array<{ thumbnails?: Array<{ url?: string }> }> | undefined;
+  const u = media?.[0]?.thumbnails?.[0]?.url;
+  if (typeof u === 'string' && u.trim()) thumbnailUrl = u.trim();
+
+  const shareContent = ugc;
+  const mediaType =
+    typeof shareContent?.shareMediaCategory === 'string' ? shareContent.shareMediaCategory : null;
+
+  const lifecycleState = typeof row.lifecycleState === 'string' ? row.lifecycleState : null;
+  return { id, content, thumbnailUrl, publishedAt, mediaType, lifecycleState };
+}
+
 /**
  * Requires appropriate LinkedIn scopes (e.g. r_member_social for personal, r_organization_social for org shares).
- * See https://learn.microsoft.com/en-us/linkedin/marketing/integrations/community-management/shares/ugc-post-api
+ * Lists posts via Community Management GET /rest/posts (not legacy v2/ugcPosts).
  */
 export async function syncLinkedInUgcPosts(params: {
   socialAccountId: string;
@@ -44,29 +101,9 @@ export async function syncLinkedInUgcPosts(params: {
   const authorUrn = linkedInAuthorUrnForUgc(platformUserId, credentialsJson);
 
   try {
-    const postsRes = await axios.get<{
-      elements?: Array<{
-        id?: string;
-        specificContent?: {
-          'com.linkedin.ugc.ShareContent'?: {
-            shareCommentary?: { text?: string };
-            shareMediaCategory?: string;
-            media?: Array<{ thumbnails?: Array<{ url?: string }> }>;
-          };
-        };
-        firstPublishedAt?: number;
-        lifecycleState?: string;
-      }>;
-    }>('https://api.linkedin.com/v2/ugcPosts', {
-      params: {
-        q: 'authors',
-        authors: `List(${encodeURIComponent(authorUrn)})`,
-        count: 50,
-      },
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'X-Restli-Protocol-Version': '2.0.0',
-      },
+    const postsUrl = buildLinkedInRestPostsByAuthorUrl(authorUrn, 50);
+    const postsRes = await axios.get<{ elements?: unknown[] }>(postsUrl, {
+      headers: linkedInRestCommunityHeaders(accessToken),
       timeout: 25_000,
       validateStatus: () => true,
     });
@@ -82,7 +119,7 @@ export async function syncLinkedInUgcPosts(params: {
         return {
           itemsProcessed: 0,
           syncError:
-            'LinkedIn could not load posts (permission denied). Personal profiles need the r_member_social scope (Marketing Developer Platform) in your LinkedIn app and OAuth flow, then reconnect. Organization Pages need r_organization_social (Community Management). OpenID (userinfo) alone is not enough for UGC or comments.',
+            'LinkedIn could not load posts (permission denied). Personal profiles need the r_member_social scope (Marketing Developer Platform) in your LinkedIn app and OAuth flow, then reconnect. Organization Pages need r_organization_social (Community Management). OpenID (userinfo) alone is not enough for posts or comments.',
         };
       }
       return { itemsProcessed: 0, syncError: msg.slice(0, 400) };
@@ -91,14 +128,10 @@ export async function syncLinkedInUgcPosts(params: {
     const items = postsRes.data?.elements ?? [];
     let itemsProcessed = 0;
 
-    for (const p of items) {
-      if (p.lifecycleState === 'DELETED') continue;
-      const postId = p.id;
-      if (!postId) continue;
-      const publishedAt = p.firstPublishedAt ? new Date(p.firstPublishedAt) : new Date();
-      const shareContent = p.specificContent?.['com.linkedin.ugc.ShareContent'];
-      const content = shareContent?.shareCommentary?.text ?? null;
-      const thumbnailUrl = shareContent?.media?.[0]?.thumbnails?.[0]?.url ?? null;
+    for (const raw of items) {
+      const parsed = parseLinkedInRestPostElement(raw);
+      if (!parsed || parsed.lifecycleState === 'DELETED') continue;
+      const { id: postId, content, thumbnailUrl, publishedAt, mediaType } = parsed;
       const permalinkUrl = `https://www.linkedin.com/feed/update/${encodeURIComponent(postId)}`;
       await prisma.importedPost.upsert({
         where: {
@@ -109,7 +142,7 @@ export async function syncLinkedInUgcPosts(params: {
           thumbnailUrl,
           permalinkUrl,
           publishedAt,
-          mediaType: shareContent?.shareMediaCategory ?? null,
+          mediaType,
           impressions: 0,
           interactions: 0,
           syncedAt: new Date(),
@@ -122,7 +155,7 @@ export async function syncLinkedInUgcPosts(params: {
           thumbnailUrl,
           permalinkUrl,
           publishedAt,
-          mediaType: shareContent?.shareMediaCategory ?? null,
+          mediaType,
           impressions: 0,
           interactions: 0,
         },

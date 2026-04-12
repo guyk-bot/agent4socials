@@ -13,7 +13,11 @@
  */
 
 import axios, { type AxiosResponse } from 'axios';
-import { getLinkedInRestApiVersion, linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
+import {
+  buildLinkedInRestPostsByAuthorUrl,
+  getLinkedInRestApiVersion,
+  linkedInRestCommunityHeaders,
+} from '@/lib/linkedin/rest-config';
 import { normalizeLinkedInPostUrn } from '@/lib/linkedin/sync-post-metrics';
 
 /** Thrown when the member token is expired/revoked so the auth layer can trigger re-auth / email. */
@@ -233,11 +237,7 @@ export class LinkedInApiClient {
    * `authorUrn` must be the full person URN (e.g. urn:li:person:abc123).
    */
   async fetchRecentOrganicPosts(authorUrn: string, count = 10): Promise<LinkedInRestPostsResponse> {
-    const params = new URLSearchParams();
-    params.set('author', authorUrn);
-    params.set('q', 'author');
-    params.set('count', String(Math.min(100, Math.max(1, count))));
-    const url = `https://api.linkedin.com/rest/posts?${params.toString()}`;
+    const url = buildLinkedInRestPostsByAuthorUrl(authorUrn, count);
     const r = await linkedInRequestJson<LinkedInRestPostsResponse>('GET', url, this.accessToken);
     if (r.status < 200 || r.status >= 300) {
       const msg =

@@ -7,6 +7,7 @@ import { ensureBootstrapSnapshotForToday } from '@/lib/analytics/metric-snapshot
 import { ensurePinterestPlatformEnum } from '@/lib/ensure-pinterest-platform-enum';
 import { ensureSocialAccountOAuthSchema } from '@/lib/ensure-social-account-oauth-schema';
 import { fetchLinkedInRestPersonUrn } from '@/lib/linkedin/rest-person';
+import { linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
 const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN', 'PINTEREST'] as const;
 
 const OAUTH_HEAD = '<meta charset="utf-8"><meta name="robots" content="noindex, nofollow">';
@@ -458,7 +459,7 @@ async function exchangeCode(
       try {
         const userRes = await axios.get<{ sub?: string; name?: string; picture?: string }>(
           'https://api.linkedin.com/v2/userinfo',
-          { headers: { Authorization: `Bearer ${accessToken}` } }
+          { headers: linkedInRestCommunityHeaders(accessToken) }
         );
         if (userRes.data?.sub) platformUserId = userRes.data.sub;
         if (userRes.data?.name) username = userRes.data.name;
@@ -640,10 +641,7 @@ export async function GET(
       const aclRes = await axios.get<{ elements?: Array<{ organization?: string }> }>(
         'https://api.linkedin.com/rest/organizationAcls?q=roleAssignee&role=ADMINISTRATOR',
         {
-          headers: {
-            Authorization: `Bearer ${tokenData.accessToken}`,
-            'X-Restli-Protocol-Version': '2.0.0',
-          },
+          headers: linkedInRestCommunityHeaders(tokenData.accessToken),
         }
       );
       const orgUrn = aclRes.data?.elements?.[0]?.organization;
@@ -658,10 +656,7 @@ export async function GET(
           }>(
             `https://api.linkedin.com/rest/organizations/${encodeURIComponent(orgId)}`,
             {
-              headers: {
-                Authorization: `Bearer ${tokenData.accessToken}`,
-                'X-Restli-Protocol-Version': '2.0.0',
-              },
+              headers: linkedInRestCommunityHeaders(tokenData.accessToken),
             }
           );
           const name =

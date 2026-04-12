@@ -5,8 +5,8 @@ import { PostStatus } from '@prisma/client';
 import axios from 'axios';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 import { getValidYoutubeToken } from '@/lib/youtube-token';
-import { linkedInAuthorUrnForUgc } from '@/lib/linkedin/sync-ugc-posts';
-import { linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
+import { linkedInAuthorUrnForUgc, parseLinkedInRestPostElement } from '@/lib/linkedin/sync-ugc-posts';
+import { buildLinkedInRestPostsByAuthorUrl, linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
 
 async function fetchAllPages<T>(
   initialUrl: string,
@@ -224,36 +224,32 @@ export async function GET(
     } catch { /* if live fetch fails, proceed with dbSources only */ }
   }
 
-  // LinkedIn: fetch recent UGC posts so we have post sources for comments
+  // LinkedIn: fetch recent posts (REST Posts API) so we have post sources for comments
   if (platform === 'LINKEDIN') {
     try {
       const authorUrn = linkedInAuthorUrnForUgc(account.platformUserId, account.credentialsJson);
-      const postsRes = await axios.get<{
-        elements?: Array<{
-          id?: string;
-          specificContent?: { 'com.linkedin.ugc.ShareContent'?: { shareCommentary?: { text?: string } } };
-          firstPublishedAt?: number;
-        }>;
-      }>('https://api.linkedin.com/v2/ugcPosts', {
-        params: {
-          q: 'authors',
-          authors: `List(${encodeURIComponent(authorUrn)})`,
-          count: 50,
-        },
-        headers: {
-          Authorization: `Bearer ${account.accessToken}`,
-          'X-Restli-Protocol-Version': '2.0.0',
-        },
+      const postsUrl = buildLinkedInRestPostsByAuthorUrl(authorUrn, 50);
+      const postsRes = await axios.get<{ elements?: unknown[] }>(postsUrl, {
+        headers: linkedInRestCommunityHeaders(account.accessToken),
         timeout: 15_000,
+        validateStatus: () => true,
       });
-      const items = postsRes.data?.elements ?? [];
-      liveSources = items.map((p, i) => ({
-        platformPostId: p.id!,
-        postPreview: (p.specificContent?.['com.linkedin.ugc.ShareContent']?.shareCommentary?.text ?? '').trim() || `Post ${i + 1}`,
-        postTargetId: `live-${p.id}`,
-        postPublishedAt: p.firstPublishedAt ? new Date(p.firstPublishedAt).toISOString() : undefined,
-        postUrl: `https://www.linkedin.com/feed/update/${encodeURIComponent(p.id!)}`,
-      }));
+      if (postsRes.status >= 200 && postsRes.status < 300) {
+        const items = postsRes.data?.elements ?? [];
+        liveSources = items
+          .map((raw, i) => {
+            const p = parseLinkedInRestPostElement(raw);
+            if (!p || p.lifecycleState === 'DELETED') return null;
+            return {
+              platformPostId: p.id,
+              postPreview: (p.content ?? '').trim() || `Post ${i + 1}`,
+              postTargetId: `live-${p.id}`,
+              postPublishedAt: p.publishedAt.toISOString(),
+              postUrl: `https://www.linkedin.com/feed/update/${encodeURIComponent(p.id)}`,
+            };
+          })
+          .filter((x): x is NonNullable<typeof x> => x != null);
+      }
     } catch { /* if live fetch fails, proceed with dbSources only */ }
   }
 

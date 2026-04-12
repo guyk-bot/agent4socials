@@ -1743,10 +1743,7 @@ export async function GET(
     if (account.platform === 'LINKEDIN') {
       const isOrgPage = account.platformUserId.trim().startsWith('urn:li:organization:');
       const memberOrAuthorUrn = linkedInAuthorUrnForUgc(account.platformUserId, account.credentialsJson);
-      const liHeaders = {
-        Authorization: `Bearer ${account.accessToken}`,
-        'X-Restli-Protocol-Version': '2.0.0',
-      };
+      const liHeaders = linkedInRestCommunityHeaders(account.accessToken);
 
       const fetchNetworkSize = async (edgeType: string): Promise<number | undefined> => {
         if (isOrgPage) return undefined;
