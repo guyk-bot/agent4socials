@@ -1030,14 +1030,17 @@ export default function DashboardPage() {
     let redirecting = false;
     try {
       const supabase = getSupabaseBrowser();
-      await supabase.auth.getSession();
-      await api.get('/auth/profile').catch(() => null);
-      // Always start OAuth from same-origin /api to avoid stale NEXT_PUBLIC_API_URL deployments.
+      const { data: sessionData } = await supabase.auth.getSession();
+      const bearer = sessionData.session?.access_token ?? '';
+      // Do not call `api.get` here: the shared axios client queues behind MAX_CONCURRENT (6). When the
+      // dashboard has several slow/hung API calls, the queue never reaches this request and Connect
+      // appears to spin forever. OAuth start uses same-origin fetch below (no queue).
       const qs = method ? `?method=${encodeURIComponent(method)}` : '';
       const startRes = await fetch(`/api/social/oauth/${encodeURIComponent(platform)}/start${qs}`, {
-        headers: { Authorization: `Bearer ${((await supabase.auth.getSession()).data.session?.access_token) || ''}` },
+        headers: { Authorization: `Bearer ${bearer}` },
         credentials: 'include',
         cache: 'no-store',
+        signal: AbortSignal.timeout(60_000),
       });
       const data = await startRes.json().catch(() => ({}));
       if (!startRes.ok) {
@@ -1051,17 +1054,26 @@ export default function DashboardPage() {
       }
       setAlertMessage('Invalid response from server. Check server logs.');
     } catch (err: unknown) {
-      const msg = getMessage(err);
-      if (msg) {
-        if (msg.includes('META_APP_ID') || msg.includes('META_APP_SECRET')) {
-          setAlertMessage('Instagram/Facebook: set META_APP_ID and META_APP_SECRET in Vercel → Environment Variables.');
-        } else if (msg === 'Unauthorized') {
-          setAlertMessage('Account not synced. Sign out, sign back in, then try Connect again.');
-        } else {
-          setAlertMessage(msg);
-        }
+      const aborted =
+        (err instanceof DOMException && err.name === 'AbortError') ||
+        (typeof err === 'object' && err !== null && 'name' in err && (err as { name?: string }).name === 'AbortError');
+      if (aborted) {
+        setAlertMessage(
+          'Connect request timed out (60s). The server may be busy or the database slow to respond. Wait a moment and try again, or refresh the page.'
+        );
       } else {
-        setAlertMessage('Failed to start OAuth. Check Vercel → Logs.');
+        const msg = getMessage(err);
+        if (msg) {
+          if (msg.includes('META_APP_ID') || msg.includes('META_APP_SECRET')) {
+            setAlertMessage('Instagram/Facebook: set META_APP_ID and META_APP_SECRET in Vercel → Environment Variables.');
+          } else if (msg === 'Unauthorized') {
+            setAlertMessage('Account not synced. Sign out, sign back in, then try Connect again.');
+          } else {
+            setAlertMessage(msg);
+          }
+        } else {
+          setAlertMessage('Failed to start OAuth. Check Vercel → Logs.');
+        }
       }
     } finally {
       if (!redirecting) {
