@@ -23,7 +23,6 @@ import { facebookGraphBaseUrl, instagramGraphHostBaseUrl } from '@/lib/meta-grap
 import { linkedInAuthorUrnForUgc } from '@/lib/linkedin/sync-ugc-posts';
 import { fetchTwitterTimelineInsights } from '@/lib/twitter-insights';
 import type { TwitterRecentTweetRow, TwitterTotals, TwitterUserPublicRow } from '@/lib/twitter-insights';
-import { XRateLimitExceeded } from '@/lib/x/x-api-usage';
 import { getLinkedInRestApiVersion, linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
 import {
   fetchLinkedInMemberFollowersCountMe,
@@ -2052,14 +2051,6 @@ export async function GET(
           budgetExpired,
           maxPages,
         });
-      } catch (e) {
-        if (e instanceof XRateLimitExceeded) {
-          return NextResponse.json(
-            { message: e.message, code: e.code },
-            { status: 402 }
-          );
-        }
-        throw e;
       }
       if (tw.twitterUser) {
         out.followers = tw.twitterUser.followers_count;

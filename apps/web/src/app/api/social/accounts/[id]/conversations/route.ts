@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db';
 import axios, { AxiosResponse } from 'axios';
 import { signTwitterRequest } from '@/lib/twitter-oauth1';
 import { refreshTwitterToken } from '@/lib/twitter-refresh';
-import { checkAndIncrementXApiUsage, XRateLimitExceeded } from '@/lib/x/x-api-usage';
+import { checkAndIncrementXApiUsage } from '@/lib/x/x-api-usage';
 
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 
@@ -455,12 +455,6 @@ export async function GET(
       }
       return NextResponse.json({ conversations: list, ...(debug && { debug }) });
     } catch (e) {
-      if (e instanceof XRateLimitExceeded) {
-        return NextResponse.json(
-          { conversations: [], error: e.message, code: e.code },
-          { status: 402 }
-        );
-      }
       const err = e as { response?: { data?: { error?: { message?: string } }; status?: number }; message?: string };
       const msg = err?.response?.data?.error?.message ?? err?.message ?? 'Could not load X conversations.';
       if (err?.response?.status === 403 || /dm\.read|scope|permission/i.test(msg)) {

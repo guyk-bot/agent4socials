@@ -20,7 +20,7 @@ import {
   classifyYoutubeVideoFormat,
   parseYoutubeIso8601DurationSeconds,
 } from '@/lib/youtube-video-format';
-import { checkAndIncrementXApiUsage, XRateLimitExceeded } from '@/lib/x/x-api-usage';
+import { checkAndIncrementXApiUsage } from '@/lib/x/x-api-usage';
 import { fetchTweetsByIdsBatched, metricsFromTweetPayload } from '@/lib/x/twitter-tweets-batch';
 
 export const maxDuration = 60;
@@ -458,13 +458,9 @@ export async function GET(
           );
         } catch (e) {
           console.error('[Imported posts] sync error:', e);
-          if (e instanceof XRateLimitExceeded) {
-            syncError = e.message;
-          } else {
             const msg = (e as Error)?.message ?? '';
             const metaMsg = (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
             syncError = metaMsg || msg || 'Sync failed. Try reconnecting your account.';
-          }
         }
       }
     }
@@ -540,11 +536,8 @@ export async function GET(
             /* non-fatal */
           }
         }
-      } catch (e) {
-        if (e instanceof XRateLimitExceeded) {
-          xApiBudgetError = e.message;
-        }
-        // else ignore; use DB values
+      } catch {
+        // non-fatal; use DB values
       }
     }
 

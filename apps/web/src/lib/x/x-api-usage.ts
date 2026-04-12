@@ -1,9 +1,9 @@
 import { prisma } from '@/lib/db';
 
-/** Thrown when a social account has exceeded its monthly X API call budget (`xApiSyncLimit`). */
+/** Kept for API compatibility but never thrown — budget is monitored, not enforced. */
 export class XRateLimitExceeded extends Error {
   readonly code = 'X_RATE_LIMIT_EXCEEDED' as const;
-  constructor(message = 'Monthly X API limit reached. Upgrade to Pro or try again next month.') {
+  constructor(message = 'Monthly X API limit reached.') {
     super(message);
     this.name = 'XRateLimitExceeded';
   }
@@ -14,34 +14,46 @@ function currentUtcMonthKey(): string {
 }
 
 /**
- * Atomically increments this account's monthly X API usage by 1 before an outbound call to
- * `api.twitter.com` / `api.x.com`. Resets the counter when the UTC month changes.
- * @throws {XRateLimitExceeded} when the account is at or over `xApiSyncLimit` for the current month.
+ * Best-effort counter: increments the monthly X API call count and auto-resets when the
+ * UTC month rolls over. Never throws — if the DB update fails (e.g. column missing before
+ * a migration runs) the calling code continues normally.
  */
 export async function checkAndIncrementXApiUsage(socialAccountId: string): Promise<void> {
   const monthKey = currentUtcMonthKey();
-  const rows = await prisma.$queryRaw<Array<{ id: string }>>`
-    UPDATE "SocialAccount"
-    SET
-      "xApiUsageMonthKey" = ${monthKey},
-      "xApiCallCount" = CASE
-        WHEN COALESCE("xApiUsageMonthKey", '') IS DISTINCT FROM ${monthKey} THEN 1
-        ELSE "xApiCallCount" + 1
-      END,
-      "updatedAt" = NOW()
-    WHERE "id" = ${socialAccountId}
-      AND (
-        COALESCE("xApiUsageMonthKey", '') IS DISTINCT FROM ${monthKey}
-        OR "xApiCallCount" < COALESCE("xApiSyncLimit", 10000)
-      )
-    RETURNING "id";
-  `;
-  if (!rows.length) {
-    const exists = await prisma.socialAccount.findUnique({
-      where: { id: socialAccountId },
-      select: { id: true },
-    });
-    if (!exists) throw new Error(`SocialAccount not found: ${socialAccountId}`);
-    throw new XRateLimitExceeded();
+  try {
+    await prisma.$executeRawUnsafe(`
+      UPDATE "SocialAccount"
+      SET
+        "xApiUsageMonthKey" = $1,
+        "xApiCallCount" = CASE
+          WHEN COALESCE("xApiUsageMonthKey", '') IS DISTINCT FROM $1 THEN 1
+          ELSE LEAST("xApiCallCount" + 1, 2147483647)
+        END,
+        "updatedAt" = NOW()
+      WHERE "id" = $2
+    `, monthKey, socialAccountId);
+  } catch {
+    // Non-fatal: counting is best-effort; never block an API call over a counter failure.
   }
+}
+
+/**
+ * Reset the monthly X API counter for an account so it can make calls again immediately.
+ * Call this from an admin route or directly via Supabase SQL when needed.
+ */
+export async function resetXApiUsage(socialAccountId: string): Promise<void> {
+  await prisma.socialAccount.updateMany({
+    where: { id: socialAccountId },
+    data: { xApiCallCount: 0, xApiUsageMonthKey: null, xApiSyncLimit: 10000 },
+  });
+}
+
+/**
+ * Reset ALL Twitter accounts' counters (e.g. after a misconfigured limit caused a lockout).
+ */
+export async function resetAllXApiUsage(): Promise<void> {
+  await prisma.socialAccount.updateMany({
+    where: { platform: 'TWITTER' },
+    data: { xApiCallCount: 0, xApiUsageMonthKey: null, xApiSyncLimit: 10000 },
+  });
 }
