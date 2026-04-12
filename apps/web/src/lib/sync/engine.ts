@@ -9,7 +9,7 @@
  */
 
 import { prisma } from '@/lib/db';
-import { buildIdempotencyKey, getStaleThresholdMs, MIN_MANUAL_SYNC_INTERVAL_MS, PLATFORM_SCOPES, type SyncScope, type SyncType } from './config';
+import { buildIdempotencyKey, getStaleThresholdMs, MIN_MANUAL_SYNC_INTERVAL_MS, MIN_MANUAL_SYNC_INTERVAL_BY_PLATFORM, PLATFORM_SCOPES, type SyncScope, type SyncType } from './config';
 import { getAdapterForPlatform, type Adapter } from './adapters';
 
 export interface SyncAccountOptions {
@@ -186,12 +186,15 @@ export async function syncAccount(opts: SyncAccountOptions): Promise<SyncResult>
     if (syncType === 'manual') {
       const account = await prisma.socialAccount.findUnique({
         where: { id: socialAccountId },
-        select: { lastSyncAttemptAt: true },
+        select: { lastSyncAttemptAt: true, platform: true },
       });
       if (account?.lastSyncAttemptAt) {
         const ageMs = Date.now() - account.lastSyncAttemptAt.getTime();
-        if (ageMs < MIN_MANUAL_SYNC_INTERVAL_MS) {
-          return { jobId: '', status: 'skipped_duplicate', message: 'Manual refresh is rate-limited; try again shortly' };
+        const minInterval =
+          MIN_MANUAL_SYNC_INTERVAL_BY_PLATFORM[account.platform ?? ''] ?? MIN_MANUAL_SYNC_INTERVAL_MS;
+        if (ageMs < minInterval) {
+          const waitSec = Math.ceil((minInterval - ageMs) / 1000);
+          return { jobId: '', status: 'skipped_duplicate', message: `Sync is rate-limited for this platform; try again in ${waitSec}s` };
         }
       }
     }
@@ -411,6 +414,12 @@ export async function runScheduledSyncForScope(
     return ageMs >= threshold;
   });
 
+  // Meta platforms share a single Application Rate Limit bucket.
+  // Process them one at a time with a small inter-account delay to avoid spike-exhausting
+  // the hourly quota when many accounts need syncing at the same cron tick.
+  const META_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK']);
+  const META_INTER_ACCOUNT_DELAY_MS = 2_000; // 2 s between Meta accounts
+
   // Process in parallel batches with wall-clock budget
   for (let i = 0; i < candidates.length; i += CONCURRENCY) {
     if (Date.now() >= deadline) {
@@ -418,23 +427,39 @@ export async function runScheduledSyncForScope(
       break;
     }
     const batch = candidates.slice(i, i + CONCURRENCY);
-    const results = await Promise.allSettled(
-      batch.map((acc) =>
-        syncAccount({
-          userId: acc.userId,
-          socialAccountId: acc.id,
-          platform: acc.platform,
-          scope,
-          syncType: 'scheduled',
-          triggeredBy: 'cron',
-        })
-      )
-    );
-    for (const r of results) {
-      if (r.status === 'fulfilled') {
-        if (r.value.status !== 'skipped_duplicate') processed++;
-      } else {
-        errors.push(String(r.reason?.message ?? r.reason));
+
+    // Split batch: Meta accounts run sequentially (rate-limited); others run in parallel.
+    const metaBatch = batch.filter((a) => META_PLATFORMS.has(a.platform));
+    const otherBatch = batch.filter((a) => !META_PLATFORMS.has(a.platform));
+
+    const runOne = async (acc: (typeof candidates)[number]) => {
+      const result = await syncAccount({
+        userId: acc.userId,
+        socialAccountId: acc.id,
+        platform: acc.platform,
+        scope,
+        syncType: 'scheduled',
+        triggeredBy: 'cron',
+      });
+      if (result.status !== 'skipped_duplicate') processed++;
+    };
+
+    // Other platforms: parallel as before
+    const otherResults = await Promise.allSettled(otherBatch.map(runOne));
+    for (const r of otherResults) {
+      if (r.status === 'rejected') errors.push(String(r.reason?.message ?? r.reason));
+    }
+
+    // Meta: sequential with inter-account delay
+    for (let m = 0; m < metaBatch.length; m++) {
+      if (Date.now() >= deadline) break;
+      try {
+        await runOne(metaBatch[m]!);
+      } catch (e) {
+        errors.push(String((e as Error).message ?? e));
+      }
+      if (m < metaBatch.length - 1) {
+        await new Promise((res) => setTimeout(res, META_INTER_ACCOUNT_DELAY_MS));
       }
     }
   }

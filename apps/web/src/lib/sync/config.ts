@@ -42,23 +42,25 @@ const HOUR = 60 * MINUTE;
  * Keyed by [platform][scope]. If platform not found, falls back to "default".
  */
 export const STALE_THRESHOLDS: Record<string, Partial<Record<SyncScope, number>>> = {
+  // Meta platforms share a single Application Rate Limit bucket.
+  // Conservative thresholds keep us well within Meta's ~200 calls/DAU/hour cap.
   INSTAGRAM: {
-    account_overview: 6 * HOUR,
-    posts:            30 * MINUTE,
-    post_metrics:     2 * HOUR,
-    comments:         3 * MINUTE,
-    messages:         3 * MINUTE,
-    demographics:     12 * HOUR,
-    full:             6 * HOUR,
+    account_overview: 12 * HOUR,
+    posts:            4 * HOUR,
+    post_metrics:     8 * HOUR,
+    comments:         15 * MINUTE,
+    messages:         10 * MINUTE,
+    demographics:     24 * HOUR,
+    full:             12 * HOUR,
   },
   FACEBOOK: {
-    account_overview: 6 * HOUR,
-    posts:            30 * MINUTE,
-    post_metrics:     2 * HOUR,
-    comments:         3 * MINUTE,
-    messages:         3 * MINUTE,
-    demographics:     12 * HOUR,
-    full:             6 * HOUR,
+    account_overview: 12 * HOUR,
+    posts:            4 * HOUR,
+    post_metrics:     8 * HOUR,
+    comments:         15 * MINUTE,
+    messages:         10 * MINUTE,
+    demographics:     24 * HOUR,
+    full:             12 * HOUR,
   },
   TIKTOK: {
     account_overview: 12 * HOUR,
@@ -111,6 +113,16 @@ export const STALE_THRESHOLDS: Record<string, Partial<Record<SyncScope, number>>
 
 /** Minimum gap between two manual/page_refresh sync jobs for the same account+scope (debounce). */
 export const MIN_MANUAL_SYNC_INTERVAL_MS = 2 * MINUTE;
+
+/**
+ * Per-platform minimum gap for manual syncs.
+ * Meta (Facebook/Instagram) share a single Application Rate Limit bucket, so we enforce
+ * a longer cooldown there to avoid exhausting the hourly quota across all users.
+ */
+export const MIN_MANUAL_SYNC_INTERVAL_BY_PLATFORM: Partial<Record<string, number>> = {
+  INSTAGRAM: 15 * MINUTE,
+  FACEBOOK:  15 * MINUTE,
+};
 
 /** Scopes supported per platform (only attempt these; others are skipped). */
 export const PLATFORM_SCOPES: Record<string, SyncScope[]> = {
