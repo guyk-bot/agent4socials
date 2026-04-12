@@ -4170,10 +4170,14 @@ export function FacebookAnalyticsView({
               onClick={() => setSelectedEngagementMetrics((prev) => prev.includes('shares') ? prev.filter((m) => m !== 'shares') : [...prev, 'shares'])}
               tiktokApiHighlight={isTikTok}
             />
-            {isTwitter && (
+            {(isTwitter || isInstagram) && (
               <MetricCard
                 label="Reposts"
-                source="X API timeline · retweet_count (live + synced posts)"
+                source={
+                  isTwitter
+                    ? 'X API timeline · retweet_count (live + synced posts)'
+                    : 'Instagram media insights · reposts metric (public reposts to own feed)'
+                }
                 color={ENGAGEMENT_METRIC_CONFIG.reposts.color}
                 value={formatNumber(repostsTotal)}
                 active={selectedEngagementMetrics.includes('reposts')}
@@ -4184,7 +4188,7 @@ export function FacebookAnalyticsView({
           <div className="flex justify-end">
             <div className="flex flex-wrap gap-2">
               {selectedEngagementMetrics
-                .filter((m) => (m === 'reposts' ? isTwitter : true))
+                .filter((m) => (m === 'reposts' ? isTwitter || isInstagram : true))
                 .map((m) => (
                 <span
                   key={m}
@@ -4281,7 +4285,7 @@ export function FacebookAnalyticsView({
                     shape={<MinWidthBarShape />}
                   />
                 ) : null}
-                {isTwitter && selectedEngagementMetrics.includes('reposts') ? (
+                {(isTwitter || isInstagram) && selectedEngagementMetrics.includes('reposts') ? (
                   <Bar
                     dataKey="reposts"
                     stackId="engagement"
@@ -5025,12 +5029,22 @@ export function FacebookAnalyticsView({
           />
           <MetricCard
             label="Shares"
-            source={isInstagram ? 'Instagram media insights · shares metric (requires instagram_manage_insights)' : 'post_shares'}
+            source={isInstagram ? 'Instagram media insights · shares metric (DMs + Story shares)' : 'post_shares'}
             color={REEL_METRIC_CONFIG.shares.color}
             value={formatNumber(reelShares)}
             active={selectedReelMetrics.includes('shares')}
             onClick={() => setSelectedReelMetrics((prev) => prev.includes('shares') ? prev.filter((m) => m !== 'shares') : [...prev, 'shares'])}
           />
+          {isInstagram && (
+            <MetricCard
+              label="Reposts"
+              source="Instagram media insights · reposts metric (public reposts to own feed)"
+              color={REEL_METRIC_CONFIG.reposts.color}
+              value={formatNumber(reelReposts)}
+              active={selectedReelMetrics.includes('reposts')}
+              onClick={() => setSelectedReelMetrics((prev) => prev.includes('reposts') ? prev.filter((m) => m !== 'reposts') : [...prev, 'reposts'])}
+            />
+          )}
         </div>
 
         <InsightChartCard
@@ -5086,6 +5100,7 @@ export function FacebookAnalyticsView({
                 {selectedReelMetrics.includes('likes') ? <Bar dataKey="likes" fill={REEL_METRIC_CONFIG.likes.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                 {selectedReelMetrics.includes('comments') ? <Bar dataKey="comments" fill={REEL_METRIC_CONFIG.comments.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                 {selectedReelMetrics.includes('shares') ? <Bar dataKey="shares" fill={REEL_METRIC_CONFIG.shares.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                {isInstagram && selectedReelMetrics.includes('reposts') ? <Bar dataKey="reposts" fill={REEL_METRIC_CONFIG.reposts.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                 {selectedReelMetrics.includes('watchTime') ? <Bar dataKey="watchTimeMinutes" fill={REEL_METRIC_CONFIG.watchTime.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                 {selectedReelMetrics.includes('avgWatch') ? <Bar dataKey="avgWatchSeconds" fill={REEL_METRIC_CONFIG.avgWatch.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
               </BarChart>
@@ -5219,6 +5234,7 @@ export function FacebookAnalyticsView({
                     {selectedReelMetrics.includes('likes') ? <Bar dataKey="likes" fill={REEL_METRIC_CONFIG.likes.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                     {selectedReelMetrics.includes('comments') ? <Bar dataKey="comments" fill={REEL_METRIC_CONFIG.comments.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                     {selectedReelMetrics.includes('shares') ? <Bar dataKey="shares" fill={REEL_METRIC_CONFIG.shares.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                    {isInstagram && selectedReelMetrics.includes('reposts') ? <Bar dataKey="reposts" fill={REEL_METRIC_CONFIG.reposts.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                     {selectedReelMetrics.includes('watchTime') ? <Bar dataKey="watchTimeMinutes" fill={REEL_METRIC_CONFIG.watchTime.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                     {selectedReelMetrics.includes('avgWatch') ? <Bar dataKey="avgWatchSeconds" fill={REEL_METRIC_CONFIG.avgWatch.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                   </BarChart>
@@ -5347,6 +5363,7 @@ export function FacebookAnalyticsView({
                     {selectedReelMetrics.includes('likes') ? <Bar dataKey="likes" fill={REEL_METRIC_CONFIG.likes.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                     {selectedReelMetrics.includes('comments') ? <Bar dataKey="comments" fill={REEL_METRIC_CONFIG.comments.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                     {selectedReelMetrics.includes('shares') ? <Bar dataKey="shares" fill={REEL_METRIC_CONFIG.shares.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                    {isInstagram && selectedReelMetrics.includes('reposts') ? <Bar dataKey="reposts" fill={REEL_METRIC_CONFIG.reposts.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                     {selectedReelMetrics.includes('watchTime') ? <Bar dataKey="watchTimeMinutes" fill={REEL_METRIC_CONFIG.watchTime.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                     {selectedReelMetrics.includes('avgWatch') ? <Bar dataKey="avgWatchSeconds" fill={REEL_METRIC_CONFIG.avgWatch.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                   </BarChart>

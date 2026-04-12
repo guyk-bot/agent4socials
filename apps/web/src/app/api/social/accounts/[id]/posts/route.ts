@@ -640,6 +640,7 @@ export async function GET(
           avgWatchSeconds: typeof ig.avgWatchSeconds === 'number' ? ig.avgWatchSeconds : 0,
           totalWatchSeconds: typeof ig.totalWatchSeconds === 'number' ? ig.totalWatchSeconds : 0,
           shares: typeof ig.shares === 'number' ? ig.shares : (row.sharesCount ?? 0),
+          reposts: typeof ig.reposts === 'number' ? ig.reposts : (row.repostsCount ?? 0),
         };
       };
       const insightCandidates = importedRows
@@ -699,6 +700,7 @@ export async function GET(
               avgWatchSeconds?: number;
               totalWatchSeconds?: number;
               shares?: number;
+              reposts?: number;
             })
           : null;
       const liveIgBundle = liveInstagramInsightBundles[p.platformPostId];
@@ -725,7 +727,13 @@ export async function GET(
               ),
               shares: Math.max(
                 liveIgBundle?.shares ?? 0,
-                typeof igMetaDb?.shares === 'number' ? igMetaDb.shares : 0
+                typeof igMetaDb?.shares === 'number' ? igMetaDb.shares : 0,
+                typeof p.sharesCount === 'number' ? p.sharesCount : 0
+              ),
+              reposts: Math.max(
+                liveIgBundle?.reposts ?? 0,
+                typeof igMetaDb?.reposts === 'number' ? igMetaDb.reposts : 0,
+                typeof p.repostsCount === 'number' ? p.repostsCount : 0
               ),
             }
           : null;
@@ -753,6 +761,7 @@ export async function GET(
                 /** Reels `total_interactions` — not Facebook Page link clicks. */
                 instagram_total_interactions: mergedIgInsight.totalInteractions,
                 post_shares: mergedIgInsight.shares > 0 ? mergedIgInsight.shares : undefined,
+                instagram_reposts: mergedIgInsight.reposts > 0 ? mergedIgInsight.reposts : undefined,
                 post_video_avg_time_watched: Math.round(avgSec * 1000),
                 post_video_view_time: Math.round(totSec * 1000),
                 post_reactions_like_total: p.likeCount ?? 0,
@@ -811,8 +820,14 @@ export async function GET(
         interactions: interactionsOut,
         likeCount: likeCountOut,
         commentsCount: commentsCountOut,
-        repostsCount: enrich?.repostsCount ?? p.repostsCount ?? 0,
-        sharesCount: sharesCountOut,
+        repostsCount:
+          p.platform === 'INSTAGRAM' && mergedIgInsight
+            ? Math.max(mergedIgInsight.reposts, p.repostsCount ?? 0)
+            : enrich?.repostsCount ?? p.repostsCount ?? 0,
+        sharesCount:
+          p.platform === 'INSTAGRAM' && mergedIgInsight
+            ? Math.max(mergedIgInsight.shares, sharesCountOut)
+            : sharesCountOut,
         savesCount: p.savesCount ?? 0,
         publishedAt: p.publishedAt instanceof Date ? p.publishedAt.toISOString() : String(p.publishedAt),
         mediaType: p.mediaType,
@@ -909,8 +924,10 @@ type IgMediaInsightBundle = {
   avgWatchSeconds: number;
   /** Seconds (IG API) */
   totalWatchSeconds: number;
-  /** Number of times the post was shared (requires instagram_manage_insights). */
+  /** Number of times the post was shared (DMs + Story shares). Requires instagram_manage_insights. */
   shares: number;
+  /** Number of times the post was publicly reposted to someone else's feed. Requires instagram_manage_insights. */
+  reposts: number;
 };
 
 function igInsightMetricValue(row: { name?: string; values?: Array<{ value?: number }>; total_value?: { value?: number } }): number {
@@ -933,6 +950,7 @@ function mergeIgInsightBundles(a: IgMediaInsightBundle, b: IgMediaInsightBundle)
     avgWatchSeconds: Math.max(a.avgWatchSeconds, b.avgWatchSeconds),
     totalWatchSeconds: Math.max(a.totalWatchSeconds, b.totalWatchSeconds),
     shares: Math.max(a.shares, b.shares),
+    reposts: Math.max(a.reposts, b.reposts),
   };
 }
 
@@ -973,23 +991,22 @@ async function fetchInstagramMediaInsights(
     avgWatchSeconds: 0,
     totalWatchSeconds: 0,
     shares: 0,
+    reposts: 0,
   };
+
+  // Phase 1: main view/reach/watch-time metrics.
+  // shares and reposts are intentionally excluded here — Meta sometimes silently omits
+  // them when bundled with other metrics, causing the entire set to appear as if shares=0.
   const metricSets = opts.isReel
     ? [
-        'views,reach,ig_reels_avg_watch_time,ig_reels_video_view_total_time,shares',
         'views,reach,ig_reels_avg_watch_time,ig_reels_video_view_total_time',
-        'views,reach,total_interactions,shares',
         'views,reach,total_interactions',
-        'views,reach,shares',
         'views,reach',
         'reach',
       ]
     : [
-        'views,reach,impressions,shares',
         'views,reach,impressions',
-        'views,reach,total_interactions,shares',
         'views,reach,total_interactions',
-        'views,reach,shares',
         'views,reach',
         'impressions,reach',
         'reach',
@@ -1015,13 +1032,41 @@ async function fetchInstagramMediaInsights(
         if (d.name === 'total_interactions') out.totalInteractions = val;
         if (d.name === 'ig_reels_avg_watch_time') out.avgWatchSeconds = val;
         if (d.name === 'ig_reels_video_view_total_time') out.totalWatchSeconds = val;
-        if (d.name === 'shares') out.shares = val;
       }
       break;
     } catch {
       // try next metric set
     }
   }
+
+  // Phase 2: fetch shares and reposts in a dedicated call so they are never silently
+  // dropped when bundled with unrelated metrics that succeed first.
+  // `reposts` = public repost to someone's own feed; `shares` = DM / Story shares.
+  const socialMetricSets = ['shares,reposts', 'shares'];
+  for (const metric of socialMetricSets) {
+    try {
+      const socialRes = await axios.get<{
+        data?: Array<{ name: string; values?: Array<{ value: number }>; total_value?: { value: number } }>;
+        error?: { message?: string };
+      }>(`${baseUrl}/${mediaId}/insights`, {
+        params: { metric, access_token: accessToken },
+        timeout: 8_000,
+        validateStatus: () => true,
+      });
+      if (socialRes.status >= 400 || socialRes.data?.error) continue;
+      const socialData = socialRes.data?.data ?? [];
+      if (socialData.length === 0) continue;
+      for (const d of socialData) {
+        const val = igInsightMetricValue(d);
+        if (d.name === 'shares') out.shares = Math.max(out.shares, val);
+        if (d.name === 'reposts') out.reposts = Math.max(out.reposts, val);
+      }
+      break;
+    } catch {
+      // sharing metrics unavailable for this post or permission not granted
+    }
+  }
+
   return out;
 }
 
@@ -1228,6 +1273,7 @@ async function syncImportedPosts(
               ? insightBundle.reach
               : 0;
       const sharesCount = insightBundle.shares > 0 ? insightBundle.shares : null;
+      const repostsCount = insightBundle.reposts > 0 ? insightBundle.reposts : null;
       const instagramMeta = {
         views,
         reach: insightBundle.reach,
@@ -1236,6 +1282,7 @@ async function syncImportedPosts(
         avgWatchSeconds: insightBundle.avgWatchSeconds,
         totalWatchSeconds: insightBundle.totalWatchSeconds,
         shares: insightBundle.shares,
+        reposts: insightBundle.reposts,
         mediaProductType: m.media_product_type ?? null,
       };
       await prisma.importedPost.upsert({
@@ -1253,6 +1300,7 @@ async function syncImportedPosts(
           likeCount,
           commentsCount,
           ...(sharesCount !== null ? { sharesCount } : {}),
+          ...(repostsCount !== null ? { repostsCount } : {}),
           platformMetadata: { instagram: instagramMeta },
           syncedAt: new Date(),
         },
@@ -1270,6 +1318,7 @@ async function syncImportedPosts(
           likeCount,
           commentsCount,
           ...(sharesCount !== null ? { sharesCount } : {}),
+          ...(repostsCount !== null ? { repostsCount } : {}),
           platformMetadata: { instagram: instagramMeta },
         },
       });
