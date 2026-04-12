@@ -1604,7 +1604,16 @@ function TopContentHighlights({
         rows.map((r, idx) => (
           <div key={`${title}-${r.id}-${idx}`} className="rounded-xl p-3 h-[124px]" style={{ background: COLOR.elevated }}>
             <div className="flex items-start gap-3">
-              {(!isTwitterHighlight || r.thumbnailUrl) && (
+              {isTwitterHighlight && !r.thumbnailUrl ? (
+                /* Text-only tweet: show just the rank badge, no thumbnail box */
+                <div className="shrink-0 flex items-start pt-1">
+                  <img
+                    src={rankBadge(idx)}
+                    alt={`Rank ${idx + 1}`}
+                    className="h-11 w-11 object-contain drop-shadow-md sm:h-12 sm:w-12"
+                  />
+                </div>
+              ) : (
               <div className="shrink-0 w-[104px] pt-1">
                 <div className="relative isolate mt-1 h-[92px] w-[92px]">
                   <div className="absolute inset-0 overflow-hidden rounded-xl border" style={{ borderColor: COLOR.border, background: '#f3f4f6' }}>
@@ -2994,14 +3003,29 @@ export function FacebookAnalyticsView({
 
   const avgPostsPerWeek = postsInRange.length / Math.max(1, dateAxis.length / 7);
   const avgClicksPerPost = postsRows.reduce((s, r) => s + r.clicks, 0) / Math.max(1, postsRows.length);
-  const avgInteractionsPerPost = postsInRange.reduce((sum, post) => {
-    if (isInstagram) return sum + bestInstagramInteractionCount(post);
-    if (isTikTok || isTwitter || isYouTube || isLinkedIn) {
-      return sum + (post.likeCount ?? 0) + (post.commentsCount ?? 0) + bestShareCount(post);
+  const avgInteractionsPerPost = (() => {
+    // For Twitter with no synced posts, use live recentTweets as source
+    if (isTwitter && postsInRange.length === 0 && twitterRecentTweets.length > 0) {
+      const total = twitterRecentTweets.reduce((s, t) => s + (t.like_count ?? 0) + (t.reply_count ?? 0) + (t.retweet_count ?? 0) + (t.quote_count ?? 0), 0);
+      return total / twitterRecentTweets.length;
     }
-    return sum + bestCount(post.facebookInsights?.post_reactions_like_total, post.likeCount) + (post.facebookInsights?.post_comments ?? post.commentsCount ?? 0) + bestShareCount(post) + bestRepostCount(post);
-  }, 0) / Math.max(1, postsInRange.length);
-  const avgReactionsPerPost = postsRows.reduce((s, r) => s + r.reactionsTotal, 0) / Math.max(1, postsRows.length);
+    const sum = postsInRange.reduce((acc, post) => {
+      if (isInstagram) return acc + bestInstagramInteractionCount(post);
+      if (isTikTok || isTwitter || isYouTube || isLinkedIn) {
+        return acc + (post.likeCount ?? 0) + (post.commentsCount ?? 0) + bestShareCount(post);
+      }
+      return acc + bestCount(post.facebookInsights?.post_reactions_like_total, post.likeCount) + (post.facebookInsights?.post_comments ?? post.commentsCount ?? 0) + bestShareCount(post) + bestRepostCount(post);
+    }, 0);
+    return sum / Math.max(1, postsInRange.length);
+  })();
+  const avgReactionsPerPost = (() => {
+    // For Twitter with no synced posts, use live recentTweets likes as reactions
+    if (isTwitter && postsRows.length === 0 && twitterRecentTweets.length > 0) {
+      const total = twitterRecentTweets.reduce((s, t) => s + (t.like_count ?? 0), 0);
+      return total / twitterRecentTweets.length;
+    }
+    return postsRows.reduce((s, r) => s + r.reactionsTotal, 0) / Math.max(1, postsRows.length);
+  })();
   const totalReelWatchTimeMs = useMemo(() => {
     if (isYouTube || isPinterest) return reelChartSourceRows.reduce((s, r) => s + r.watchTimeMs, 0);
     return postsRows.filter((r) => r.type === 'Reel').reduce((s, r) => s + r.watchTimeMs, 0);
