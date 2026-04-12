@@ -415,52 +415,50 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         setPrefetchHasLoadedOnce(true);
         if (typeof sessionStorage !== 'undefined') sessionStorage.setItem('appDataPhase1Done', '1');
 
-        // Phase 2: load per-account data — stagger accounts so we don't blast
-        // every endpoint for every account simultaneously (pool exhaustion).
-        // Each account's requests run in parallel, but accounts run sequentially.
+        // Phase 2: load per-account data ONE REQUEST AT A TIME.
+        // Each request = 1 serverless function = 1 DB connection.
+        // The global API limiter (api.ts) caps concurrent requests to 4,
+        // but Phase 2 should be gentle since dashboard effects also fire.
+        const COMMENT_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER']);
+        const CONVO_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK']);
+        const ENGAGEMENT_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK', 'YOUTUBE']);
         for (const acc of accounts) {
           if (cancelled) break;
-          const COMMENT_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER']);
-          const CONVO_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK']);
-          const ENGAGEMENT_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK', 'YOUTUBE']);
-          const batch: Promise<void>[] = [
-            api.get<{ posts?: CachedPost[] }>(`/social/accounts/${acc.id}/posts`).then((r) => {
-              if (!cancelled && r.data?.posts) setPostsByAccountId((prev) => ({ ...prev, [acc.id]: r.data!.posts! }));
-            }).catch(() => {}),
-            api
-              .get<CachedInsights>(`/social/accounts/${acc.id}/insights`, {
-                params: { since: dateRange.start, until: dateRange.end },
-                timeout: PREFETCH_INSIGHTS_TIMEOUT_MS,
-              })
-              .then((r) => {
-                if (!cancelled && r.data) setInsightsByAccountId((prev) => ({ ...prev, [acc.id]: r.data as CachedInsights }));
-              })
-              .catch(() => {}),
-          ];
+          try {
+            const r = await api.get<{ posts?: CachedPost[] }>(`/social/accounts/${acc.id}/posts`);
+            if (!cancelled && r.data?.posts) setPostsByAccountId((prev) => ({ ...prev, [acc.id]: r.data!.posts! }));
+          } catch { /* skip */ }
+          if (cancelled) break;
+          try {
+            const r = await api.get<CachedInsights>(`/social/accounts/${acc.id}/insights`, {
+              params: { since: dateRange.start, until: dateRange.end },
+              timeout: PREFETCH_INSIGHTS_TIMEOUT_MS,
+            });
+            if (!cancelled && r.data) setInsightsByAccountId((prev) => ({ ...prev, [acc.id]: r.data as CachedInsights }));
+          } catch { /* skip */ }
+          if (cancelled) break;
           if (COMMENT_PLATFORMS.has(acc.platform)) {
-            batch.push(
-              api.get<{ comments?: CachedComment[] }>(`/social/accounts/${acc.id}/comments`).then((r) => {
-                if (!cancelled && r.data) setCommentsByAccountId((prev) => ({ ...prev, [acc.id]: r.data.comments ?? [] }));
-              }).catch(() => {})
-            );
+            try {
+              const r = await api.get<{ comments?: CachedComment[] }>(`/social/accounts/${acc.id}/comments`);
+              if (!cancelled && r.data) setCommentsByAccountId((prev) => ({ ...prev, [acc.id]: r.data.comments ?? [] }));
+            } catch { /* skip */ }
           }
+          if (cancelled) break;
           if (CONVO_PLATFORMS.has(acc.platform)) {
-            batch.push(
-              api.get<{ conversations?: CachedConversation[]; error?: string }>(`/social/accounts/${acc.id}/conversations`).then((r) => {
-                if (cancelled || r.data?.error) return;
-                const list = r.data?.conversations ?? [];
-                setConversationsByAccountId((prev) => ({ ...prev, [acc.id]: list }));
-              }).catch(() => {})
-            );
+            try {
+              const r = await api.get<{ conversations?: CachedConversation[]; error?: string }>(`/social/accounts/${acc.id}/conversations`);
+              if (!cancelled && !r.data?.error) {
+                setConversationsByAccountId((prev) => ({ ...prev, [acc.id]: r.data?.conversations ?? [] }));
+              }
+            } catch { /* skip */ }
           }
+          if (cancelled) break;
           if (ENGAGEMENT_PLATFORMS.has(acc.platform)) {
-            batch.push(
-              api.get<{ engagement?: CachedEngagement[] }>(`/social/accounts/${acc.id}/engagement`).then((r) => {
-                if (!cancelled) setEngagementByAccountId((prev) => ({ ...prev, [acc.id]: r.data?.engagement ?? [] }));
-              }).catch(() => {})
-            );
+            try {
+              const r = await api.get<{ engagement?: CachedEngagement[] }>(`/social/accounts/${acc.id}/engagement`);
+              if (!cancelled) setEngagementByAccountId((prev) => ({ ...prev, [acc.id]: r.data?.engagement ?? [] }));
+            } catch { /* skip */ }
           }
-          await Promise.all(batch);
         }
         if (!cancelled) setPrefetchPhase2Done(true);
       } catch {

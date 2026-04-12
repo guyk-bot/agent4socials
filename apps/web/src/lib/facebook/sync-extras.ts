@@ -120,7 +120,7 @@ async function runFacebookTableMigrations(): Promise<void> {
 /** Create Facebook cache + insight tables if they were skipped by a failed migration. Safe to call many times.
  * Races with a 2s deadline so pool contention never blocks the actual request. */
 export async function ensureFacebookTables(): Promise<void> {
-  if (_fbTablesEnsured) return;
+  if (_fbTablesEnsured || process.env.SKIP_TABLE_ENSURE === '1') { _fbTablesEnsured = true; return; }
   if (_fbEnsureInFlight) { await _fbEnsureInFlight; return; }
   const deadline = new Promise<'timeout'>((r) => setTimeout(() => r('timeout'), 2000));
   const run = (async (): Promise<'done'> => {

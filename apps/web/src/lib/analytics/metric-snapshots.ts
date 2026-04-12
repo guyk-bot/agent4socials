@@ -88,7 +88,7 @@ async function runSnapshotTableMigrations(): Promise<void> {
  * Races with a 2s deadline so pool contention never blocks the actual request.
  */
 async function ensureSnapshotTable(): Promise<void> {
-  if (_tableEnsured) return;
+  if (_tableEnsured || process.env.SKIP_TABLE_ENSURE === '1') { _tableEnsured = true; return; }
   if (_ensureInFlight) { await _ensureInFlight; return; }
   const deadline = new Promise<'timeout'>((r) => setTimeout(() => r('timeout'), 2000));
   const run = (async (): Promise<'done'> => {

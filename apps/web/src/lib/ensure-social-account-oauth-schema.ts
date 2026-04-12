@@ -81,7 +81,7 @@ async function runOAuthSchemaMigrations(): Promise<void> {
  * Single-flight + 2s deadline so pool contention never blocks the OAuth callback.
  */
 export async function ensureSocialAccountOAuthSchema(): Promise<void> {
-  if (_oauthSchemaEnsured) return;
+  if (_oauthSchemaEnsured || process.env.SKIP_TABLE_ENSURE === '1') { _oauthSchemaEnsured = true; return; }
   if (_oauthSchemaInFlight) { await _oauthSchemaInFlight; return; }
   const deadline = new Promise<'timeout'>((r) => setTimeout(() => r('timeout'), 2000));
   const run = (async (): Promise<'done'> => {

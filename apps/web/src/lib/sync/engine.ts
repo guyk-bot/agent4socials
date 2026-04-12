@@ -98,7 +98,7 @@ async function runSyncTableMigrations(): Promise<void> {
 
 /** Races with a 2s deadline so pool contention never blocks the actual request. */
 export async function ensureSyncTables(): Promise<void> {
-  if (_syncTablesEnsured) return;
+  if (_syncTablesEnsured || process.env.SKIP_TABLE_ENSURE === '1') { _syncTablesEnsured = true; return; }
   if (_syncEnsureInFlight) { await _syncEnsureInFlight; return; }
   const deadline = new Promise<'timeout'>((r) => setTimeout(() => r('timeout'), 2000));
   const run = (async (): Promise<'done'> => {
