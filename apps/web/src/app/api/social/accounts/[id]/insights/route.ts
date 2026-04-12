@@ -2023,17 +2023,12 @@ export async function GET(
           'LinkedIn returned companies you follow but not your connection count in this session.'
         );
       }
-      if (totalSynced === 0) {
-        hintParts.push('Use Sync now to pull posts; then impressions and engagement can appear when stored on each post.');
-      } else if (impSum === 0 && importedInRange.length > 0) {
+      if (totalSynced > 0 && impSum === 0 && importedInRange.length > 0) {
         hintParts.push(
           'Impressions are loaded from post analytics APIs after each post sync. Use Sync on Posts with r_member_postAnalytics (personal) or organization share statistics (Page); OpenID alone cannot fill these.'
         );
       }
-      out.insightsHint =
-        hintParts.length > 0
-          ? hintParts.join(' ')
-          : 'Shows OpenID profile, network sizes when allowed, and totals from synced posts in your selected date range.';
+      out.insightsHint = hintParts.length > 0 ? hintParts.join(' ') : undefined;
 
       return NextResponse.json(out);
     }

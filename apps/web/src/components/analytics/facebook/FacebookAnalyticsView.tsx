@@ -3484,16 +3484,12 @@ export function FacebookAnalyticsView({
           </>
         ) : (
         <>
+        {!isLinkedIn ? (
+        <>
         <div className="rounded-[20px] border p-4 sm:p-5 space-y-3" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Performance</h3>
           </div>
-          {isLinkedIn ? (
-            <p className="text-xs leading-relaxed max-w-[920px]" style={{ color: COLOR.textSecondary }}>
-              Totals use your selected date range. Connections use LinkedIn network size when your app is allowed.
-              Impressions and engagement use data stored on synced posts (often zero until stats exist for each post).
-            </p>
-          ) : null}
           {isTwitter ? (
             <p className="text-xs leading-relaxed max-w-[920px]" style={{ color: COLOR.textSecondary }}>
               Follower count is from your X profile. Tweet impressions and engagement come from the X API v2 timeline for
@@ -4198,7 +4194,10 @@ export function FacebookAnalyticsView({
           </InsightChartCard>
         </div>
 
-        {isLinkedIn && socialAccountId ? (
+        </>
+        ) : null}
+
+        {process.env.NEXT_PUBLIC_LINKEDIN_CM_DEBUG_PANEL === 'true' && isLinkedIn && socialAccountId ? (
           <LinkedInCommunityApiJsonPanel accountId={socialAccountId} />
         ) : null}
 
@@ -5338,7 +5337,7 @@ export function FacebookAnalyticsView({
         </details>
       ) : null}
 
-      {insights?.insightsHint && !isTikTok && !isLegacyInstagramInsightsUnavailableHint(insights.insightsHint) ? (
+      {insights?.insightsHint && !isTikTok && !isLinkedIn && !isLegacyInstagramInsightsUnavailableHint(insights.insightsHint) ? (
         <div className="rounded-[16px] border px-4 py-3 text-sm" style={{ borderColor: 'rgba(255,138,122,0.45)', color: COLOR.coral, background: 'rgba(255,138,122,0.08)' }}>
           {insights.insightsHint}
           {onReconnectFacebook ? (
