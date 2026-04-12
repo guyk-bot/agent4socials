@@ -48,28 +48,74 @@ function isTokenAuthFailure(status: number, body: unknown): boolean {
   if (status === 401) return true;
   if (status !== 403) return false;
   const msg = JSON.stringify(body ?? '').toLowerCase();
+  // Narrow: generic "not enough permissions" is often a missing product scope, not clock expiry.
   return (
-    msg.includes('not enough permissions') ||
-    msg.includes('invalid') ||
+    msg.includes('invalid_token') ||
+    msg.includes('invalid access token') ||
     msg.includes('expired') ||
     msg.includes('revoked')
   );
 }
 
-/** RestLI `entity` finder value for memberCreatorPostAnalytics. */
-function memberCreatorEntityParam(postUrn: string): string {
-  const urn = normalizeLinkedInPostUrn(postUrn);
-  if (urn.startsWith('urn:li:share:')) return `(share:${encodeURIComponent(urn)})`;
-  return `(ugc:${encodeURIComponent(urn)})`;
+/**
+ * Canonical post URN for memberCreatorPostAnalytics `entity` finder.
+ * Microsoft Learn: entity must be ugcPost or share — `(ugc:urn%3Ali%3AugcPost%3A…)` or `(share:urn%3Ali%3Ashare%3A…)`.
+ * Do NOT prefix arbitrary IDs as ugcPost when the API already returned a full URN (e.g. urn:li:post:… in future).
+ */
+export function canonicalPostUrnForMemberAnalytics(postUrn: string): string {
+  const u = postUrn.trim();
+  if (u.startsWith('urn:li:share:') || u.startsWith('urn:li:ugcPost:')) return u;
+  if (/^\d+$/.test(u)) return `urn:li:ugcPost:${u}`;
+  return normalizeLinkedInPostUrn(u);
 }
 
-type MemberAnalyticsQueryType =
-  | 'IMPRESSION'
-  | 'REACTION'
-  | 'COMMENT'
-  | 'RESHARE'
-  | 'CLICK'
-  | 'VIDEO_WATCH_TIME';
+/**
+ * RestLI `entity` query value: literal `(ugc:ENCODED_URN)` / `(share:ENCODED_URN)` where ENCODED_URN is
+ * `encodeURIComponent(urn)` per Microsoft samples (colons → %3A, etc.).
+ * The parentheses stay literal in the query string as in LinkedIn’s documented URLs.
+ */
+export function memberCreatorAnalyticsEntityQueryValue(postUrn: string): string {
+  const urn = canonicalPostUrnForMemberAnalytics(postUrn);
+  const encodedUrn = encodeURIComponent(urn);
+  if (urn.startsWith('urn:li:share:')) return `(share:${encodedUrn})`;
+  return `(ugc:${encodedUrn})`;
+}
+
+/** Official memberCreatorPostAnalytics queryType values (2026-03 docs). */
+type MemberAnalyticsQueryType = 'IMPRESSION' | 'MEMBERS_REACHED' | 'RESHARE' | 'REACTION' | 'COMMENT';
+
+function safeJsonForLog(value: unknown, maxLen = 16_000): string {
+  try {
+    const s = JSON.stringify(value, null, 0);
+    return s.length > maxLen ? `${s.slice(0, maxLen)}…[truncated]` : s;
+  } catch {
+    return String(value);
+  }
+}
+
+function sumAnalyticsElementCounts(data: { elements?: unknown[] } | null | undefined): number {
+  const els = data?.elements;
+  if (!Array.isArray(els)) return 0;
+  let sum = 0;
+  for (const el of els) {
+    if (!el || typeof el !== 'object') continue;
+    const row = el as Record<string, unknown>;
+    const c = row.count;
+    if (typeof c === 'number' && Number.isFinite(c)) sum += c;
+    else if (typeof c === 'string' && /^\d+$/.test(c)) sum += Number.parseInt(c, 10);
+  }
+  return sum;
+}
+
+function analyticsErrorMessage(status: number, body: unknown): string {
+  const b = body as { message?: string; error?: string; status?: number } | null;
+  const parts = [
+    typeof b?.message === 'string' ? b.message : null,
+    typeof b?.error === 'string' ? b.error : null,
+    typeof b?.status === 'number' ? `serviceStatus=${b.status}` : null,
+  ].filter(Boolean);
+  return parts.length ? parts.join(' | ') : `HTTP ${status}`;
+}
 
 async function linkedInRequestJson<T>(
   method: 'GET' | 'POST',
@@ -150,10 +196,13 @@ export type LinkedInRestPostsResponse = {
 export type LinkedInPostEngagement = {
   postUrn: string;
   impressions: number;
+  /** Not exposed on memberCreatorPostAnalytics in current LinkedIn docs; kept for schema/UI compatibility. */
   clicks: number;
   comments: number;
   shares: number;
+  /** Not exposed on memberCreatorPostAnalytics for posts; reserved for future metrics. */
   videoWatchTimeMs: number | null;
+  membersReached: number;
 };
 
 /**
@@ -202,17 +251,20 @@ export class LinkedInApiClient {
 
   /**
    * Step 3 — Member post analytics totals for one post URN (ugcPost or share).
-   * Uses GET https://api.linkedin.com/rest/memberCreatorPostAnalytics?q=entity&entity=…&queryType=…&aggregation=TOTAL
+   * GET https://api.linkedin.com/rest/memberCreatorPostAnalytics?q=entity&entity=(ugc:…|share:…)&queryType=…&aggregation=TOTAL
+   *
+   * Query types per Microsoft Learn (2026-03): IMPRESSION, MEMBERS_REACHED, RESHARE, REACTION, COMMENT only.
+   * Logs each request URL and raw JSON for Vercel debugging.
    */
   async fetchMemberPostEngagement(postUrn: string): Promise<LinkedInPostEngagement> {
-    const entity = memberCreatorEntityParam(postUrn);
+    const canonical = canonicalPostUrnForMemberAnalytics(postUrn);
+    const entity = memberCreatorAnalyticsEntityQueryValue(postUrn);
     const types: MemberAnalyticsQueryType[] = [
       'IMPRESSION',
+      'MEMBERS_REACHED',
       'REACTION',
       'COMMENT',
       'RESHARE',
-      'CLICK',
-      'VIDEO_WATCH_TIME',
     ];
     const counts: Partial<Record<MemberAnalyticsQueryType, number>> = {};
 
@@ -220,35 +272,47 @@ export class LinkedInApiClient {
       const url =
         `https://api.linkedin.com/rest/memberCreatorPostAnalytics?q=entity` +
         `&entity=${entity}&queryType=${queryType}&aggregation=TOTAL`;
-      const r = await linkedInRequestJson<{ elements?: Array<{ count?: number }> }>('GET', url, this.accessToken);
+
+      console.log(`[LinkedIn Analytics] Exact URL: ${url}`);
+
+      const r = await linkedInRequestJson<{ elements?: unknown[] }>('GET', url, this.accessToken);
+
+      console.log(`[LinkedIn Analytics] Raw JSON (status ${r.status}): ${safeJsonForLog(r.data)}`);
+
+      if (isTokenAuthFailure(r.status, r.data)) {
+        const msg = analyticsErrorMessage(r.status, r.data);
+        console.error(`LinkedIn Analytics Error: [${r.status}] ${msg}`);
+        throw new LinkedInTokenExpiredError(`LinkedIn member analytics auth failed: ${msg}`);
+      }
+
       if (r.status < 200 || r.status >= 300) {
+        const msg = analyticsErrorMessage(r.status, r.data);
+        console.error(`LinkedIn Analytics Error: [${r.status}] ${msg}`);
         counts[queryType] = 0;
         continue;
       }
-      const els = r.data?.elements ?? [];
-      counts[queryType] = els.reduce(
-        (s, e) => s + (typeof e.count === 'number' && Number.isFinite(e.count) ? e.count : 0),
-        0
-      );
+
+      counts[queryType] = sumAnalyticsElementCounts(r.data);
     }
 
-    const impressions = counts.IMPRESSION ?? 0;
-    const clicks = counts.CLICK ?? 0;
+    const imp = counts.IMPRESSION ?? 0;
+    const reached = counts.MEMBERS_REACHED ?? 0;
+    const impressions = Math.max(imp, reached);
     const comments = counts.COMMENT ?? 0;
     const shares = counts.RESHARE ?? 0;
-    const videoWatchTimeMsRaw = counts.VIDEO_WATCH_TIME ?? null;
-    const videoWatchTimeMs =
-      typeof videoWatchTimeMsRaw === 'number' && Number.isFinite(videoWatchTimeMsRaw)
-        ? Math.round(videoWatchTimeMsRaw)
-        : null;
+
+    console.log(
+      `[LinkedIn Analytics] Parsed totals for ${canonical}: impressions=${impressions} (IMPRESSION=${imp}, MEMBERS_REACHED=${reached}), reactions=${counts.REACTION ?? 0}, comments=${comments}, shares=${shares}`
+    );
 
     return {
-      postUrn: normalizeLinkedInPostUrn(postUrn),
+      postUrn: canonical,
       impressions,
-      clicks,
+      clicks: 0,
       comments,
       shares,
-      videoWatchTimeMs,
+      videoWatchTimeMs: null,
+      membersReached: reached,
     };
   }
 

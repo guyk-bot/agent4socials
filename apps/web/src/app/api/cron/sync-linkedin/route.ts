@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Platform, Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
-import { LinkedInApiClient, LinkedInTokenExpiredError } from '@/lib/linkedin';
+import {
+  LinkedInApiClient,
+  LinkedInTokenExpiredError,
+  canonicalPostUrnForMemberAnalytics,
+  memberCreatorAnalyticsEntityQueryValue,
+} from '@/lib/linkedin';
 import { isLinkedInOrganizationAccount, refreshLinkedInImportedPostMetrics } from '@/lib/linkedin/sync-post-metrics';
 
 export const maxDuration = 120;
@@ -110,6 +115,11 @@ async function handle(request: NextRequest) {
       for (const el of elements) {
         const rawId = el.id;
         if (!rawId || typeof rawId !== 'string') continue;
+        const canonicalUrn = canonicalPostUrnForMemberAnalytics(rawId);
+        const entityParam = memberCreatorAnalyticsEntityQueryValue(rawId);
+        console.log(
+          `[sync-linkedin] account=${acc.id} rawPostId=${rawId} canonicalUrn=${canonicalUrn} entityQueryValue=${entityParam}`
+        );
         const engagement = await client.fetchMemberPostEngagement(rawId);
         sumImp += engagement.impressions;
         sumClk += engagement.clicks;
@@ -124,6 +134,7 @@ async function handle(request: NextRequest) {
           source: 'cron_sync_linkedin',
           restPostId: el.id ?? null,
           lifecycleState: el.lifecycleState ?? null,
+          membersReached: engagement.membersReached,
         } satisfies Record<string, unknown>;
 
         await prisma.postPerformance.upsert({
