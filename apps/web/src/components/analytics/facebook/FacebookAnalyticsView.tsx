@@ -5514,7 +5514,7 @@ export function FacebookAnalyticsView({
         </details>
       ) : null}
 
-      {insights?.insightsHint && !isTikTok && !isLinkedIn && !isLegacyInstagramInsightsUnavailableHint(insights.insightsHint) ? (
+      {insights?.insightsHint && !isTikTok && !isLinkedIn && !isTwitter && !isLegacyInstagramInsightsUnavailableHint(insights.insightsHint) ? (
         <div className="rounded-[16px] border px-4 py-3 text-sm" style={{ borderColor: 'rgba(255,138,122,0.45)', color: COLOR.coral, background: 'rgba(255,138,122,0.08)' }}>
           {insights.insightsHint}
           {onReconnectFacebook ? (
