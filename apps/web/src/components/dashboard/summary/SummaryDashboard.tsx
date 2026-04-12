@@ -75,23 +75,35 @@ export function SummaryDashboard() {
       if (!cancelled) setSyncProgress(Math.round((done / total) * 100));
     };
 
-    const postPromises = accounts.map((acc) =>
-      api.get<{ posts?: unknown[] }>(`/social/accounts/${acc.id}/posts`, { params: { sync: 1 } })
-        .then((r) => {
-          tick();
-          if (!cancelled && r.data?.posts) appData?.setPostsForAccount(acc.id, r.data.posts as Parameters<typeof appData.setPostsForAccount>[1]);
-        })
-        .catch(() => tick())
-    );
-    const insightsPromises = accounts.map((acc) =>
-      api.get(`/social/accounts/${acc.id}/insights`, { params: { since: dateRange.start, until: dateRange.end }, timeout: 70_000 })
-        .then((r) => {
-          tick();
-          if (!cancelled && r.data) appData?.setInsightsForAccount(acc.id, r.data);
-        })
-        .catch(() => tick())
-    );
-    Promise.all([...postPromises, ...insightsPromises]).finally(() => {
+    (async () => {
+      for (const acc of accounts) {
+        if (cancelled) break;
+        const cachedPosts = appData?.getPosts(acc.id);
+        const cachedInsights = appData?.getInsights(acc.id);
+        const batch: Promise<void>[] = [];
+        if (!cachedPosts || !Array.isArray(cachedPosts) || cachedPosts.length === 0) {
+          batch.push(
+            api.get<{ posts?: unknown[] }>(`/social/accounts/${acc.id}/posts`, { params: { sync: 1 } })
+              .then((r) => {
+                tick();
+                if (!cancelled && r.data?.posts) appData?.setPostsForAccount(acc.id, r.data.posts as Parameters<typeof appData.setPostsForAccount>[1]);
+              })
+              .catch(() => tick())
+          );
+        } else { tick(); }
+        if (!cachedInsights) {
+          batch.push(
+            api.get(`/social/accounts/${acc.id}/insights`, { params: { since: dateRange.start, until: dateRange.end }, timeout: 70_000 })
+              .then((r) => {
+                tick();
+                if (!cancelled && r.data) appData?.setInsightsForAccount(acc.id, r.data);
+              })
+              .catch(() => tick())
+          );
+        } else { tick(); }
+        await Promise.all(batch);
+      }
+    })().finally(() => {
       if (!cancelled) { setSyncing(false); setSyncProgress(100); }
     });
     return () => { cancelled = true; };

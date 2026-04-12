@@ -117,32 +117,25 @@ async function runFacebookTableMigrations(): Promise<void> {
     `);
 }
 
-/** Create Facebook cache + insight tables if they were skipped by a failed migration. Safe to call many times. */
+/** Create Facebook cache + insight tables if they were skipped by a failed migration. Safe to call many times.
+ * Races with a 2s deadline so pool contention never blocks the actual request. */
 export async function ensureFacebookTables(): Promise<void> {
   if (_fbTablesEnsured) return;
-  if (_fbEnsureInFlight) {
-    await _fbEnsureInFlight;
-    return;
-  }
-  const run = (async () => {
+  if (_fbEnsureInFlight) { await _fbEnsureInFlight; return; }
+  const deadline = new Promise<'timeout'>((r) => setTimeout(() => r('timeout'), 2000));
+  const run = (async (): Promise<'done'> => {
     try {
-      if (await facebookCoreTablesAlreadyExist()) {
-        _fbTablesEnsured = true;
-        return;
-      }
+      if (await facebookCoreTablesAlreadyExist()) { _fbTablesEnsured = true; return 'done'; }
       await runFacebookTableMigrations();
       _fbTablesEnsured = true;
       console.log('[Facebook] Cache + insight tables ensured.');
     } catch (e) {
       console.warn('[Facebook] ensureFacebookTables failed (non-fatal):', (e as Error)?.message?.slice(0, 200));
     }
+    return 'done';
   })();
-  _fbEnsureInFlight = run;
-  try {
-    await run;
-  } finally {
-    if (_fbEnsureInFlight === run) _fbEnsureInFlight = null;
-  }
+  _fbEnsureInFlight = run.then(() => {});
+  try { await Promise.race([run, deadline]); } finally { if (_fbEnsureInFlight) _fbEnsureInFlight = null; }
 }
 
 export type FacebookAuxSyncReport = {

@@ -619,40 +619,32 @@ export default function DashboardPage() {
 
     const runSync = (withSync: boolean) => {
       const timeoutMs = withSync ? 60_000 : 25_000;
-      Promise.allSettled(
-        accounts.map((acc) =>
-          api.get(`/social/accounts/${acc.id}/posts`, { params: withSync ? { sync: 1 } : {}, timeout: timeoutMs }).then((r) => ({
-            id: acc.id,
-            posts: r.data?.posts ?? [],
-            syncError: r.data?.syncError as string | undefined,
-          }))
-        )
-      )
-        .then((outcomes) => {
-          const results: Array<{ posts: Array<{ id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; impressions: number; interactions: number; publishedAt: string; mediaType?: string | null; platform: string }>; syncError?: string }> = [];
-          const errors: string[] = [];
-          for (const outcome of outcomes) {
-            if (outcome.status === 'fulfilled' && outcome.value) {
-              results.push({ posts: outcome.value.posts ?? [], syncError: outcome.value.syncError });
-              if (outcome.value.syncError) errors.push(outcome.value.syncError);
-              appDataRef.current?.setPostsForAccount(outcome.value.id, outcome.value.posts ?? []);
-            } else if (outcome.status === 'rejected') {
-              const err = outcome.reason;
-              const msg = err?.response?.data?.message ?? err?.message ?? 'Request failed';
-              if (msg.includes('timeout') || msg.includes('Timeout')) {
-                errors.push('Sync is taking too long. Try selecting one account in the sidebar and click Sync there, or try again in a moment.');
-              } else if (err?.response?.status === 401) {
-                errors.push('Session expired. Please log out and log back in.');
-              } else {
-                errors.push(msg);
-              }
+      const results: Array<{ posts: Array<{ id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; impressions: number; interactions: number; publishedAt: string; mediaType?: string | null; platform: string }>; syncError?: string }> = [];
+      const errors: string[] = [];
+      (async () => {
+        for (const acc of accounts) {
+          try {
+            const r = await api.get(`/social/accounts/${acc.id}/posts`, { params: withSync ? { sync: 1 } : {}, timeout: timeoutMs });
+            const posts = r.data?.posts ?? [];
+            results.push({ posts, syncError: r.data?.syncError as string | undefined });
+            if (r.data?.syncError) errors.push(r.data.syncError as string);
+            appDataRef.current?.setPostsForAccount(acc.id, posts);
+          } catch (err: unknown) {
+            const e = err as { response?: { status?: number; data?: { message?: string } }; message?: string };
+            const msg = e?.response?.data?.message ?? e?.message ?? 'Request failed';
+            if (msg.includes('timeout') || msg.includes('Timeout')) {
+              errors.push('Sync is taking too long. Try selecting one account in the sidebar and click Sync there, or try again in a moment.');
+            } else if (e?.response?.status === 401) {
+              errors.push('Session expired. Please log out and log back in.');
+            } else {
+              errors.push(msg);
             }
           }
-          const merged = results.flatMap((r) => r.posts).sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
-          setImportedPosts(merged);
-          if (errors.length) setAllPostsSyncError(errors[0]);
-        })
-        .finally(() => setImportedPostsLoading(false));
+        }
+        const merged = results.flatMap((r) => r.posts).sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+        setImportedPosts(merged);
+        if (errors.length) setAllPostsSyncError(errors[0]);
+      })().finally(() => setImportedPostsLoading(false));
     };
 
     if (appCtx && accountIds.length > 0) {
@@ -930,7 +922,7 @@ export default function DashboardPage() {
       .finally(() => setPageReviewsLoading(false));
   }, [selectedAccount?.id, selectedAccount?.platform, analyticsTab]);
 
-  // Aggregated insights: fetch for all connected platforms so Summary shows everything instantly
+  // Aggregated insights: prefer AppDataContext cache; only fetch missing accounts sequentially.
   useEffect(() => {
     if (!hasAccounts || analyticsTab !== 'account' || !dateRange.start || !dateRange.end) {
       if (!hasAccounts) setAggregatedInsights(null);
@@ -946,45 +938,56 @@ export default function DashboardPage() {
     if (cachedAgg && cachedAgg.key === aggCacheKey) {
       setAggregatedInsights(cachedAgg.data);
       setAggregatedLoading(false);
-    } else {
-      setAggregatedLoading(true);
+      return;
     }
-    Promise.all(
-      insightAccounts.map((acc) =>
-        api
-          .get(`/social/accounts/${acc.id}/insights`, { params: { since: dateRange.start, until: dateRange.end }, timeout: INSIGHTS_HTTP_MS })
-          .then((r) => ({ platform: acc.platform, data: r.data }))
-      )
-    )
-      .then((results) => {
-        const byPlatform: Record<string, { followers: number; impressions: number; timeSeries: Array<{ date: string; value: number }> }> = {};
-        let totalFollowers = 0;
-        let totalImpressions = 0;
-        let totalReach = 0;
-        let totalProfileViews = 0;
-        let totalPageViews = 0;
-        const dateMap: Record<string, number> = {};
-        for (const { platform, data } of results) {
-          if (!data) continue;
-          const fol = data.followers ?? 0;
-          const imp = platform === 'TWITTER' ? (data.impressionsTotal ?? (data as { tweetCount?: number }).tweetCount ?? 0) : (data.impressionsTotal ?? 0);
-          const ts = data.impressionsTimeSeries ?? [];
-          byPlatform[platform] = { followers: fol, impressions: imp, timeSeries: ts };
-          totalFollowers += fol;
-          totalImpressions += imp;
-          totalReach += data.reachTotal ?? 0;
-          totalProfileViews += data.profileViewsTotal ?? 0;
-          totalPageViews += data.pageViewsTotal ?? 0;
-          for (const d of ts) {
-            dateMap[d.date] = (dateMap[d.date] ?? 0) + d.value;
-          }
+    setAggregatedLoading(true);
+    const app = appDataRef.current;
+    (async () => {
+      const results: Array<{ platform: string; data: Record<string, unknown> }> = [];
+      for (const acc of insightAccounts) {
+        const cached = app?.getInsights(acc.id);
+        if (cached && typeof cached === 'object') {
+          results.push({ platform: acc.platform, data: cached as Record<string, unknown> });
+          continue;
         }
-        const data = { totalFollowers, totalImpressions, totalReach, totalProfileViews, totalPageViews, byPlatform, combinedTimeSeries: Object.entries(dateMap).map(([date, value]) => ({ date, value })).sort((a, b) => a.date.localeCompare(b.date)) };
-        aggregatedCacheRef.current = { key: aggCacheKey, data };
-        setAggregatedInsights(data);
-      })
-      .catch(() => setAggregatedInsights(null))
-      .finally(() => setAggregatedLoading(false));
+        try {
+          const r = await api.get(`/social/accounts/${acc.id}/insights`, {
+            params: { since: dateRange.start, until: dateRange.end },
+            timeout: INSIGHTS_HTTP_MS,
+          });
+          if (r.data) {
+            results.push({ platform: acc.platform, data: r.data });
+            app?.setInsightsForAccount(acc.id, r.data);
+          }
+        } catch { /* skip this account */ }
+      }
+      const byPlatform: Record<string, { followers: number; impressions: number; timeSeries: Array<{ date: string; value: number }> }> = {};
+      let totalFollowers = 0;
+      let totalImpressions = 0;
+      let totalReach = 0;
+      let totalProfileViews = 0;
+      let totalPageViews = 0;
+      const dateMap: Record<string, number> = {};
+      for (const { platform, data } of results) {
+        if (!data) continue;
+        const fol = (data.followers as number) ?? 0;
+        const imp = platform === 'TWITTER' ? ((data.impressionsTotal as number) ?? (data as { tweetCount?: number }).tweetCount ?? 0) : ((data.impressionsTotal as number) ?? 0);
+        const ts = (data.impressionsTimeSeries as Array<{ date: string; value: number }>) ?? [];
+        byPlatform[platform] = { followers: fol, impressions: imp, timeSeries: ts };
+        totalFollowers += fol;
+        totalImpressions += imp;
+        totalReach += (data.reachTotal as number) ?? 0;
+        totalProfileViews += (data.profileViewsTotal as number) ?? 0;
+        totalPageViews += (data.pageViewsTotal as number) ?? 0;
+        for (const d of ts) {
+          dateMap[d.date] = (dateMap[d.date] ?? 0) + d.value;
+        }
+      }
+      const aggData = { totalFollowers, totalImpressions, totalReach, totalProfileViews, totalPageViews, byPlatform, combinedTimeSeries: Object.entries(dateMap).map(([date, value]) => ({ date, value })).sort((a, b) => a.date.localeCompare(b.date)) };
+      aggregatedCacheRef.current = { key: aggCacheKey, data: aggData };
+      setAggregatedInsights(aggData);
+      setAggregatedLoading(false);
+    })().catch(() => { setAggregatedInsights(null); setAggregatedLoading(false); });
   }, [analyticsTab, hasAccounts, dateRange.start, dateRange.end, accounts.map((a) => a.id).join(',')]);
 
   useEffect(() => {

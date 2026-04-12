@@ -96,20 +96,23 @@ async function runSyncTableMigrations(): Promise<void> {
   );
 }
 
+/** Races with a 2s deadline so pool contention never blocks the actual request. */
 export async function ensureSyncTables(): Promise<void> {
   if (_syncTablesEnsured) return;
   if (_syncEnsureInFlight) { await _syncEnsureInFlight; return; }
-  const run = (async () => {
+  const deadline = new Promise<'timeout'>((r) => setTimeout(() => r('timeout'), 2000));
+  const run = (async (): Promise<'done'> => {
     try {
-      if (await syncJobsTableExists()) { _syncTablesEnsured = true; return; }
+      if (await syncJobsTableExists()) { _syncTablesEnsured = true; return 'done'; }
       await runSyncTableMigrations();
       _syncTablesEnsured = true;
     } catch (e) {
       console.warn('[SyncEngine] ensureSyncTables failed (non-fatal):', (e as Error)?.message?.slice(0, 200));
     }
+    return 'done';
   })();
-  _syncEnsureInFlight = run;
-  try { await run; } finally { if (_syncEnsureInFlight === run) _syncEnsureInFlight = null; }
+  _syncEnsureInFlight = run.then(() => {});
+  try { await Promise.race([run, deadline]); } finally { if (_syncEnsureInFlight) _syncEnsureInFlight = null; }
 }
 
 /**

@@ -85,22 +85,25 @@ async function runSnapshotTableMigrations(): Promise<void> {
 /**
  * Best-effort: create AccountMetricSnapshot table + indexes if they don't exist yet.
  * Single-flight + fast probe so concurrent /insights calls share the work.
+ * Races with a 2s deadline so pool contention never blocks the actual request.
  */
 async function ensureSnapshotTable(): Promise<void> {
   if (_tableEnsured) return;
   if (_ensureInFlight) { await _ensureInFlight; return; }
-  const run = (async () => {
+  const deadline = new Promise<'timeout'>((r) => setTimeout(() => r('timeout'), 2000));
+  const run = (async (): Promise<'done'> => {
     try {
-      if (await snapshotTableExists()) { _tableEnsured = true; return; }
+      if (await snapshotTableExists()) { _tableEnsured = true; return 'done'; }
       await runSnapshotTableMigrations();
       _tableEnsured = true;
       console.log('[MetricSnapshot] AccountMetricSnapshot table ensured.');
     } catch (e) {
       console.warn('[MetricSnapshot] ensureSnapshotTable failed (non-fatal):', (e as Error)?.message?.slice(0, 200));
     }
+    return 'done';
   })();
-  _ensureInFlight = run;
-  try { await run; } finally { if (_ensureInFlight === run) _ensureInFlight = null; }
+  _ensureInFlight = run.then(() => {});
+  try { await Promise.race([run, deadline]); } finally { if (_ensureInFlight) _ensureInFlight = null; }
 }
 const fbBaseUrl = facebookGraphBaseUrl;
 const igBaseUrl = instagramGraphHostBaseUrl;
