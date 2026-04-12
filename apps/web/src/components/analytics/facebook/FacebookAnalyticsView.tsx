@@ -2822,7 +2822,17 @@ export function FacebookAnalyticsView({
     return twitterRecentTweets
       .filter((t) => { const mt = (t.mediaType ?? '').toLowerCase(); return mt === 'video' || mt === 'animated_gif'; })
       .map((t) => ({
-        post: { content: t.text, thumbnailUrl: t.thumbnailUrl, mediaType: t.mediaType, platform: 'TWITTER', permalinkUrl: `https://x.com/i/web/status/${t.id}`, publishedAt: t.created_at ?? '' } as unknown as import('./types').FacebookPost,
+        post: {
+          content: t.text,
+          thumbnailUrl: t.thumbnailUrl,
+          mediaType: t.mediaType,
+          platform: 'TWITTER',
+          permalinkUrl: `https://x.com/i/web/status/${t.id}`,
+          publishedAt: t.created_at ?? '',
+          likeCount: t.like_count,
+          commentsCount: t.reply_count,
+          sharesCount: t.retweet_count + t.quote_count,
+        } as unknown as import('./types').FacebookPost,
         views: t.impression_count,
         organicViews: 0,
         avgWatchMs: 0,
@@ -2840,6 +2850,29 @@ export function FacebookAnalyticsView({
   }, [isPinterest, pinterestVideoRows, isTwitter, twitterVideoReelsRows, isYouTube, reelsRows, longFormVideoRows]);
 
   const reelsChartData = useMemo(() => buildReelsLikeChartData(reelChartSourceRows), [reelChartSourceRows]);
+
+  /** Tweet Performance chart data: non-video tweets aggregated by publish date */
+  const twitterTweetChartData = useMemo(() => {
+    if (!isTwitter || twitterRecentTweets.length === 0) return [];
+    const nonVideoTweets = twitterRecentTweets.filter((t) => {
+      const mt = (t.mediaType ?? '').toLowerCase();
+      return mt !== 'video' && mt !== 'animated_gif';
+    });
+    const source = nonVideoTweets.length > 0 ? nonVideoTweets : twitterRecentTweets;
+    const byDate: Record<string, { date: string; views: number; likes: number; comments: number; shares: number; reposts: number }> = {};
+    for (const t of source) {
+      const date = (t.created_at ?? '').slice(0, 10);
+      if (!date) continue;
+      const row = byDate[date] ?? { date, views: 0, likes: 0, comments: 0, shares: 0, reposts: 0 };
+      row.views += t.impression_count;
+      row.likes += t.like_count;
+      row.comments += t.reply_count;
+      row.shares += t.retweet_count + t.quote_count;
+      row.reposts += t.retweet_count;
+      byDate[date] = row;
+    }
+    return Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date));
+  }, [isTwitter, twitterRecentTweets]);
 
   const youtubeShortViewsTotal = useMemo(() => reelsRows.reduce((s, r) => s + r.views, 0), [reelsRows]);
   const youtubeLongViewsTotal = useMemo(() => longFormVideoRows.reduce((s, r) => s + r.views, 0), [longFormVideoRows]);
@@ -4812,6 +4845,64 @@ export function FacebookAnalyticsView({
               publishedAt: p.date,
             }))}
           />
+          {isTwitter && twitterTweetChartData.length > 0 ? (
+            <InsightChartCard
+              title="Tweet Performance"
+              chartHeightPx={240}
+              legend={[
+                { label: 'Impressions', color: REEL_METRIC_CONFIG.views.color },
+                { label: 'Likes', color: REEL_METRIC_CONFIG.likes.color },
+                { label: 'Comments', color: REEL_METRIC_CONFIG.comments.color },
+                { label: 'Reposts', color: REEL_METRIC_CONFIG.shares.color },
+              ]}
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={twitterTweetChartData}
+                  barCategoryGap={UNIFIED_BAR_CATEGORY_GAP}
+                  barGap={UNIFIED_BAR_GAP}
+                  margin={{ top: 4, right: 8, left: 0, bottom: twitterTweetChartData.length > 10 ? 36 : 4 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(17,24,39,0.08)" vertical={false} />
+                  <XAxis
+                    dataKey="date"
+                    tickFormatter={formatShortDate}
+                    interval={0}
+                    angle={twitterTweetChartData.length > 10 ? -32 : 0}
+                    textAnchor={twitterTweetChartData.length > 10 ? 'end' : 'middle'}
+                    height={twitterTweetChartData.length > 10 ? 64 : undefined}
+                    tick={{ fill: COLOR.textMuted, fontSize: 11 }}
+                    minTickGap={twitterTweetChartData.length > 10 ? 4 : 0}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    cursor={{ fill: 'rgba(107,114,128,0.20)' }}
+                    content={(props) => {
+                      const { active, payload, label } = props as unknown as { active?: boolean; payload?: Array<{ dataKey?: string; value?: number }>; label?: string };
+                      if (!active || !payload?.length) return null;
+                      const labelMap: Record<string, string> = { views: 'Impressions', likes: 'Likes', comments: 'Comments', shares: 'Reposts' };
+                      return (
+                        <div className="rounded-xl border px-3 py-2 text-xs shadow-lg" style={{ background: '#ffffff', borderColor: COLOR.border }}>
+                          <p className="font-medium mb-1.5" style={{ color: COLOR.text }}>{formatShortDate(String(label ?? ''))}</p>
+                          {payload.filter((p) => typeof p.value === 'number').map((item) => (
+                            <p key={item.dataKey} style={{ color: COLOR.textSecondary }}>
+                              {labelMap[item.dataKey as string] ?? item.dataKey}: {formatNumber(item.value ?? 0)}
+                            </p>
+                          ))}
+                        </div>
+                      );
+                    }}
+                  />
+                  <Bar dataKey="views" fill={REEL_METRIC_CONFIG.views.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} />
+                  <Bar dataKey="likes" fill={REEL_METRIC_CONFIG.likes.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} />
+                  <Bar dataKey="comments" fill={REEL_METRIC_CONFIG.comments.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} />
+                  <Bar dataKey="shares" fill={REEL_METRIC_CONFIG.shares.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} />
+                </BarChart>
+              </ResponsiveContainer>
+            </InsightChartCard>
+          ) : null}
         </div>
         )}
 
