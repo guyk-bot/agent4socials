@@ -7,7 +7,7 @@
 ## When does it run?
 
 - **Vercel Crons** (default): the job runs **once per day** (e.g. 10:00 UTC). Keyword replies can take up to ~24 hours.
-- **Faster replies**: In **Dashboard → Automation** click **"Run comment automation now"** to run it immediately. For replies within minutes, add an external cron (e.g. cron-job.org) that calls `POST /api/cron/comment-automation` every 5 minutes with header `X-Cron-Secret: YOUR_CRON_SECRET`.
+- **Faster replies**: In **Dashboard → Automation** click **"Run comment automation now"** to run it immediately. For replies within minutes, add an external cron (e.g. cron-job.org) that calls `POST /api/cron/comment-automation` every 5 minutes with header `X-Cron-Secret: YOUR_CRON_SECRET`. (Scheduled post publishing is separate: `GET /api/cron/process-scheduled` is often every 10 minutes; account sync via `GET /api/cron/sync-platform-data` is often every 15 minutes—match your own infrastructure.)
 - A **cron job** runs on a schedule (see below). It finds comments on those posts and, if the comment text contains one of your keywords, posts your auto-reply **once per comment**.
 - We never reply to our own account’s comments (e.g. if you comment from @agent4socials on your own post, we skip it).
 

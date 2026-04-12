@@ -31,6 +31,13 @@ import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, Lin
 import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 import { TikTokPublishModal } from '@/components/composer/TikTokPublishModal';
 import { isTikTokDirectPostPayload, type TikTokDirectPostPayload } from '@/lib/tiktok/tiktok-publish-compliance';
+import {
+    SCHEDULE_TEN_MINUTE_OPTIONS,
+    nextFutureTenMinuteLocalString,
+    isTenMinuteLocalScheduleString,
+    clampScheduleLocalToFloorMin,
+    isoInstantToLocalTenMinuteSnappedUp,
+} from '@/lib/schedule-ten-minute';
 
 const COMPOSER_DRAFT_KEY = 'agent4socials_composer_draft';
 
@@ -414,17 +421,6 @@ function stripTrailingHashtags(text: string): string {
     return text.replace(/(?:\s+#[\w]+)+\s*$/, '').trimEnd();
 }
 
-function toLocalDateTimeInputValue(date: Date): string {
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
-function minSchedulableDateTimeLocal(): string {
-    const d = new Date();
-    d.setMinutes(d.getMinutes() + 1, 0, 0);
-    return toLocalDateTimeInputValue(d);
-}
-
 function scheduleDatePart(value: string): string {
     return value.includes('T') ? value.split('T')[0] : '';
 }
@@ -436,7 +432,6 @@ function scheduleTimePart(value: string): string {
 }
 
 const HOUR_OPTIONS_24H = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
-const MINUTE_OPTIONS = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
 
 const MEDIA_SPECS: Record<string, { platform: PlatformKey; name: string; specs: { label: string; value: string; tag?: string }[] }[]> = {
     photo: [
@@ -840,8 +835,7 @@ export default function ComposerPage() {
                 if (typeof d.scheduledAt === 'string') {
                     const parsed = new Date(d.scheduledAt);
                     if (!Number.isNaN(parsed.getTime())) {
-                        const pad = (n: number) => String(n).padStart(2, '0');
-                        setScheduledAt(`${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}T${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`);
+                        setScheduledAt(isoInstantToLocalTenMinuteSnappedUp(d.scheduledAt));
                     } else setScheduledAt(d.scheduledAt);
                 }
                 if (d.scheduleDelivery === 'auto' || d.scheduleDelivery === 'email_links') setScheduleDelivery(d.scheduleDelivery);
@@ -943,9 +937,7 @@ export default function ComposerPage() {
                     setDifferentMediaPerPlatform(true);
                 }
                 if (p.scheduledAt) {
-                    const d = new Date(p.scheduledAt);
-                    const pad = (n: number) => String(n).padStart(2, '0');
-                    setScheduledAt(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+                    setScheduledAt(isoInstantToLocalTenMinuteSnappedUp(p.scheduledAt));
                 }
                 if (p.scheduleDelivery === 'auto' || p.scheduleDelivery === 'email_links') setScheduleDelivery(p.scheduleDelivery);
                 const ca = p.commentAutomation;
@@ -1746,6 +1738,11 @@ export default function ComposerPage() {
                 payload.scheduleDelivery = undefined;
             } else if (scheduledAt && scheduledAt.trim()) {
                 try {
+                    if (!isTenMinuteLocalScheduleString(scheduledAt.trim())) {
+                        setLoading(false);
+                        setAlertMessage('Scheduled time must use 10-minute steps (:00, :10, … :50) to match publishing checks.');
+                        return;
+                    }
                     const localDate = new Date(scheduledAt.trim());
                     if (!Number.isNaN(localDate.getTime())) {
                         if (localDate.getTime() <= Date.now()) {
@@ -2751,6 +2748,7 @@ export default function ComposerPage() {
                             <span className="text-sm font-medium text-neutral-700">Enable keyword comment automation</span>
                         </label>
                         <p className="text-sm text-neutral-500">When comments contain your keywords on this post, we automatically reply. Set a default reply and/or a different reply per platform below. Replies are sent on Instagram, Facebook, and X. Settings are saved with the post.</p>
+                        <p className="text-xs text-neutral-500">Keyword checks run when your comment automation cron fires; many teams call it about every 5 minutes from an external scheduler (for example cron-job.org).</p>
                         {commentAutomationEnabled && (
                             <div className="space-y-4 pt-2 border-t border-neutral-100">
                                 <div>
@@ -2985,7 +2983,7 @@ export default function ComposerPage() {
                                     type="radio"
                                     name="scheduleMode"
                                     checked={scheduledAt.trim() !== ''}
-                                    onChange={() => { if (!scheduledAt.trim()) setScheduledAt(minSchedulableDateTimeLocal()); }}
+                                    onChange={() => { if (!scheduledAt.trim()) setScheduledAt(nextFutureTenMinuteLocalString()); }}
                                     className="text-[var(--button)] focus:ring-[var(--button)]"
                                 />
                                 <span className="text-sm font-medium text-neutral-800">Schedule for later</span>
@@ -2997,12 +2995,16 @@ export default function ComposerPage() {
                             <Calendar size={22} className="text-violet-500 shrink-0" />
                             <div className="flex-1 space-y-2">
                                 {(() => {
-                                    const minLocal = minSchedulableDateTimeLocal();
+                                    const minLocal = nextFutureTenMinuteLocalString();
                                     const selectedDate = scheduleDatePart(scheduledAt) || scheduleDatePart(minLocal);
                                     const selectedHour = scheduleTimePart(scheduledAt).split(':')[0] || scheduleTimePart(minLocal).split(':')[0];
-                                    const selectedMinute = scheduleTimePart(scheduledAt).split(':')[1] || scheduleTimePart(minLocal).split(':')[1];
+                                    const rawMin = scheduleTimePart(scheduledAt).split(':')[1] || scheduleTimePart(minLocal).split(':')[1];
+                                    const selectedMinute = (SCHEDULE_TEN_MINUTE_OPTIONS as readonly string[]).includes(rawMin)
+                                        ? rawMin
+                                        : scheduleTimePart(minLocal).split(':')[1];
                                     const updateDateTime = (nextDate: string, nextHour: string, nextMinute: string) => {
-                                        setScheduledAt(`${nextDate}T${nextHour}:${nextMinute}`);
+                                        const raw = `${nextDate}T${nextHour}:${nextMinute}`;
+                                        setScheduledAt(clampScheduleLocalToFloorMin(raw, minLocal));
                                     };
                                     return (
                                         <>
@@ -3015,7 +3017,7 @@ export default function ComposerPage() {
                                             />
                                             <div className="grid grid-cols-2 gap-2">
                                                 <div className="text-xs font-medium text-neutral-500">Hour (00-23)</div>
-                                                <div className="text-xs font-medium text-neutral-500">Minute (00-59)</div>
+                                                <div className="text-xs font-medium text-neutral-500">Minute (10-minute steps)</div>
                                                 <select
                                                     value={selectedHour}
                                                     onChange={(e) => updateDateTime(selectedDate, e.target.value, selectedMinute)}
@@ -3030,7 +3032,7 @@ export default function ComposerPage() {
                                                     onChange={(e) => updateDateTime(selectedDate, selectedHour, e.target.value)}
                                                     className="w-full max-h-40 overflow-y-auto p-3 border border-violet-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
                                                 >
-                                                    {MINUTE_OPTIONS.map((mm) => (
+                                                    {SCHEDULE_TEN_MINUTE_OPTIONS.map((mm) => (
                                                         <option key={mm} value={mm}>{mm}</option>
                                                     ))}
                                                 </select>
@@ -3040,6 +3042,10 @@ export default function ComposerPage() {
                                 })()}
                             </div>
                         </div>
+                        <p className="text-xs text-neutral-500">
+                            Only 10-minute times are available so scheduled posts line up with the process-scheduled job (often every 10 minutes).
+                            Account metrics and syncs depend on your sync-platform-data cron (many teams run it about every 15 minutes).
+                        </p>
                         <div className="space-y-2">
                             <p className="text-sm font-medium text-neutral-700">
                                 At scheduled time:
@@ -3065,7 +3071,7 @@ export default function ComposerPage() {
                                 <span className="text-sm text-neutral-800">Email me a link per platform so I can open each one, edit or add sound, and publish manually</span>
                             </label>
                             {scheduleDelivery === 'email_links' && scheduledAt && (
-                                <p className="text-xs text-neutral-500 mt-1 ml-6">You will receive the email when the scheduled time is reached (usually within a few minutes).</p>
+                                <p className="text-xs text-neutral-500 mt-1 ml-6">You will receive the email shortly after the scheduled time, within about one publishing interval (for example within ~10 minutes if process-scheduled runs every 10 minutes).</p>
                             )}
                         </div>
                         </>
