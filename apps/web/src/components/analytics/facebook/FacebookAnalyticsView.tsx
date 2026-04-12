@@ -4978,7 +4978,7 @@ export function FacebookAnalyticsView({
           {([
             { id: 'performance' as const, label: 'Performance' },
             { id: 'engagement' as const, label: 'Engagement' },
-            ...(!isTikTok && !isFacebook && !isInstagram ? [{ id: 'watch' as const, label: 'Watch' }] : []),
+            ...(!isTikTok && !isFacebook && !isInstagram && !isTwitter ? [{ id: 'watch' as const, label: 'Watch' }] : []),
           ]).map((preset) => (
             <button
               key={preset.id}
