@@ -1393,7 +1393,7 @@ export function PostsPerformanceTable({
   platform?: string;
 }) {
   const platUpper = (platform ?? '').toUpperCase();
-  const compactVideoTable = platUpper === 'TIKTOK' || platUpper === 'LINKEDIN';
+  const compactVideoTable = platUpper === 'TIKTOK' || platUpper === 'LINKEDIN' || platUpper === 'TWITTER';
   const tableHeaders: Array<{ label: string; className: string; title?: string }> = [
     { label: 'Post preview', className: 'w-[240px]' },
     { label: 'Publish date', className: 'w-[132px]' },
@@ -4896,7 +4896,7 @@ export function FacebookAnalyticsView({
             active={selectedReelMetrics.includes('views')}
             onClick={() => setSelectedReelMetrics((prev) => prev.includes('views') ? prev.filter((m) => m !== 'views') : [...prev, 'views'])}
           />
-          {!isTikTok ? (
+          {!isTikTok && !isTwitter ? (
             <>
               <MetricCard
                 label="Watch Time"
