@@ -722,10 +722,13 @@ export default function DashboardPage() {
         ? prefetchedForDefault
         : null) ?? insightsCacheRef.current[cacheKey] ?? null;
     // Stale data is keyed by account id only; do not require payload.platform to match (prefetch/cache may omit it).
+    // Also check localStorage / sessionStorage so cached data survives page refreshes even when in-memory refs are empty.
     const fromAppInsights = app?.getInsights(accountId);
     const staleRaw =
       lastInsightsByAccountIdRef.current[accountId] ??
-      (fromAppInsights && typeof fromAppInsights === 'object' ? (fromAppInsights as Record<string, unknown>) : null);
+      (fromAppInsights && typeof fromAppInsights === 'object' ? (fromAppInsights as Record<string, unknown>) : null) ??
+      readInsightsFromLocalStorage(accountId) ??
+      (userIdRef.current ? readDashboardInsightsSession(userIdRef.current, accountId) : null);
     const staleForAccount =
       staleRaw && typeof staleRaw === 'object' ? (staleRaw as Record<string, unknown>) : null;
     const postsCached = postsCacheRef.current[accountId] ?? app?.getPosts(accountId);
