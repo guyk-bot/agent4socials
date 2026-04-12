@@ -425,7 +425,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         for (const acc of accounts) {
           if (cancelled) break;
           try {
-            const r = await api.get<{ posts?: CachedPost[] }>(`/social/accounts/${acc.id}/posts`);
+            const r = await api.get<{ posts?: CachedPost[] }>(`/social/accounts/${acc.id}/posts`, { timeout: 60_000 });
             if (!cancelled && r.data?.posts) setPostsByAccountId((prev) => ({ ...prev, [acc.id]: r.data!.posts! }));
           } catch { /* skip */ }
           if (cancelled) break;

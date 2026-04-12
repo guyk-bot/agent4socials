@@ -17,7 +17,7 @@ const api = axios.create({
 //
 // MAX_CONCURRENT controls how many HTTP requests can be in-flight at once.
 // Excess requests are queued and executed as earlier ones complete.
-const MAX_CONCURRENT = 4;
+const MAX_CONCURRENT = 6;
 let _inFlight = 0;
 const _queue: Array<{ resolve: () => void }> = [];
 

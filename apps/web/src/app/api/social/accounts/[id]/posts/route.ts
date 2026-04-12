@@ -1511,6 +1511,7 @@ async function syncImportedPosts(
               Authorization: `Bearer ${accessToken}`,
               'Content-Type': 'application/json',
             },
+            timeout: 20_000,
           }
         );
         const list = res.data?.data?.videos ?? [];
@@ -1630,7 +1631,8 @@ async function syncImportedPosts(
       const apiMsg = ax?.response?.data?.error?.message;
       if (msg.includes('403') || apiMsg?.toLowerCase().includes('scope')) return 'Add video.list scope and reconnect to sync TikTok videos.';
       if (msg.includes('401')) return 'Reconnect your TikTok account to sync videos.';
-      return undefined;
+      console.warn('[TikTok sync] unexpected error:', msg.slice(0, 200));
+      return `TikTok sync error: ${msg.slice(0, 100)}`;
     }
   }
 
