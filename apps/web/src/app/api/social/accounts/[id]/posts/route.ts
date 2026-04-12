@@ -639,6 +639,7 @@ export async function GET(
           totalInteractions: typeof ig.totalInteractions === 'number' ? ig.totalInteractions : 0,
           avgWatchSeconds: typeof ig.avgWatchSeconds === 'number' ? ig.avgWatchSeconds : 0,
           totalWatchSeconds: typeof ig.totalWatchSeconds === 'number' ? ig.totalWatchSeconds : 0,
+          shares: typeof ig.shares === 'number' ? ig.shares : (row.sharesCount ?? 0),
         };
       };
       const insightCandidates = importedRows
@@ -697,6 +698,7 @@ export async function GET(
               totalInteractions?: number;
               avgWatchSeconds?: number;
               totalWatchSeconds?: number;
+              shares?: number;
             })
           : null;
       const liveIgBundle = liveInstagramInsightBundles[p.platformPostId];
@@ -720,6 +722,10 @@ export async function GET(
               totalWatchSeconds: Math.max(
                 liveIgBundle?.totalWatchSeconds ?? 0,
                 typeof igMetaDb?.totalWatchSeconds === 'number' ? igMetaDb.totalWatchSeconds : 0
+              ),
+              shares: Math.max(
+                liveIgBundle?.shares ?? 0,
+                typeof igMetaDb?.shares === 'number' ? igMetaDb.shares : 0
               ),
             }
           : null;
@@ -746,6 +752,7 @@ export async function GET(
                 post_impressions_unique: reach,
                 /** Reels `total_interactions` — not Facebook Page link clicks. */
                 instagram_total_interactions: mergedIgInsight.totalInteractions,
+                post_shares: mergedIgInsight.shares > 0 ? mergedIgInsight.shares : undefined,
                 post_video_avg_time_watched: Math.round(avgSec * 1000),
                 post_video_view_time: Math.round(totSec * 1000),
                 post_reactions_like_total: p.likeCount ?? 0,
@@ -902,6 +909,8 @@ type IgMediaInsightBundle = {
   avgWatchSeconds: number;
   /** Seconds (IG API) */
   totalWatchSeconds: number;
+  /** Number of times the post was shared (requires instagram_manage_insights). */
+  shares: number;
 };
 
 function igInsightMetricValue(row: { name?: string; values?: Array<{ value?: number }>; total_value?: { value?: number } }): number {
@@ -923,6 +932,7 @@ function mergeIgInsightBundles(a: IgMediaInsightBundle, b: IgMediaInsightBundle)
     totalInteractions: Math.max(a.totalInteractions, b.totalInteractions),
     avgWatchSeconds: Math.max(a.avgWatchSeconds, b.avgWatchSeconds),
     totalWatchSeconds: Math.max(a.totalWatchSeconds, b.totalWatchSeconds),
+    shares: Math.max(a.shares, b.shares),
   };
 }
 
@@ -962,17 +972,24 @@ async function fetchInstagramMediaInsights(
     totalInteractions: 0,
     avgWatchSeconds: 0,
     totalWatchSeconds: 0,
+    shares: 0,
   };
   const metricSets = opts.isReel
     ? [
+        'views,reach,ig_reels_avg_watch_time,ig_reels_video_view_total_time,shares',
         'views,reach,ig_reels_avg_watch_time,ig_reels_video_view_total_time',
+        'views,reach,total_interactions,shares',
         'views,reach,total_interactions',
+        'views,reach,shares',
         'views,reach',
         'reach',
       ]
     : [
+        'views,reach,impressions,shares',
         'views,reach,impressions',
+        'views,reach,total_interactions,shares',
         'views,reach,total_interactions',
+        'views,reach,shares',
         'views,reach',
         'impressions,reach',
         'reach',
@@ -998,6 +1015,7 @@ async function fetchInstagramMediaInsights(
         if (d.name === 'total_interactions') out.totalInteractions = val;
         if (d.name === 'ig_reels_avg_watch_time') out.avgWatchSeconds = val;
         if (d.name === 'ig_reels_video_view_total_time') out.totalWatchSeconds = val;
+        if (d.name === 'shares') out.shares = val;
       }
       break;
     } catch {
@@ -1209,12 +1227,15 @@ async function syncImportedPosts(
             : insightBundle.reach > 0
               ? insightBundle.reach
               : 0;
+      const sharesCount = insightBundle.shares > 0 ? insightBundle.shares : null;
       const instagramMeta = {
         views,
         reach: insightBundle.reach,
         impressionsLegacy: insightBundle.impressionsLegacy,
+        totalInteractions: insightBundle.totalInteractions,
         avgWatchSeconds: insightBundle.avgWatchSeconds,
         totalWatchSeconds: insightBundle.totalWatchSeconds,
+        shares: insightBundle.shares,
         mediaProductType: m.media_product_type ?? null,
       };
       await prisma.importedPost.upsert({
@@ -1231,6 +1252,7 @@ async function syncImportedPosts(
           interactions,
           likeCount,
           commentsCount,
+          ...(sharesCount !== null ? { sharesCount } : {}),
           platformMetadata: { instagram: instagramMeta },
           syncedAt: new Date(),
         },
@@ -1247,6 +1269,7 @@ async function syncImportedPosts(
           interactions,
           likeCount,
           commentsCount,
+          ...(sharesCount !== null ? { sharesCount } : {}),
           platformMetadata: { instagram: instagramMeta },
         },
       });

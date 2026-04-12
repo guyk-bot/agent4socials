@@ -613,16 +613,6 @@ function bestShareCount(p: FacebookPost): number {
   const b = typeof p.sharesCount === 'number' && Number.isFinite(p.sharesCount) ? Math.max(0, p.sharesCount) : 0;
   const eb = p.engagementBreakdown?.shares;
   const c = typeof eb === 'number' && Number.isFinite(eb) ? Math.max(0, eb) : 0;
-  // Instagram: the API bundles saves + shares inside total_interactions.
-  // Derive saves+shares as total_interactions − likes − comments when no direct share data exists.
-  if ((p.platform ?? '').toUpperCase() === 'INSTAGRAM' && a === 0 && b === 0 && c === 0) {
-    const ti = fi.instagram_total_interactions;
-    if (typeof ti === 'number' && Number.isFinite(ti) && ti > 0) {
-      const likes = bestCount(fi.post_reactions_like_total, p.likeCount);
-      const comments = fi.post_comments ?? p.commentsCount ?? 0;
-      return Math.max(0, ti - likes - comments);
-    }
-  }
   return Math.max(a, b, c);
 }
 
@@ -4162,7 +4152,7 @@ export function FacebookAnalyticsView({
               tiktokApiHighlight={isTikTok}
             />
             <MetricCard
-              label={isInstagram ? 'Saves & Shares' : 'Shares'}
+              label="Shares"
               source={
                 isTikTok
                   ? 'video/list · share_count (synced posts)'
@@ -4171,7 +4161,7 @@ export function FacebookAnalyticsView({
                   : isLinkedIn
                     ? 'Synced LinkedIn posts · sharesCount'
                   : isInstagram
-                    ? 'total_interactions − likes − comments (Instagram bundles saves + shares)'
+                    ? 'Instagram media insights · shares metric (requires instagram_manage_insights)'
                     : 'post_shares'
               }
               color={ENGAGEMENT_METRIC_CONFIG.shares.color}
@@ -5034,8 +5024,8 @@ export function FacebookAnalyticsView({
             onClick={() => setSelectedReelMetrics((prev) => prev.includes('comments') ? prev.filter((m) => m !== 'comments') : [...prev, 'comments'])}
           />
           <MetricCard
-            label={isInstagram ? 'Saves & Shares' : 'Shares'}
-            source={isInstagram ? 'total_interactions − likes − comments (saves + shares combined)' : 'post_shares'}
+            label="Shares"
+            source={isInstagram ? 'Instagram media insights · shares metric (requires instagram_manage_insights)' : 'post_shares'}
             color={REEL_METRIC_CONFIG.shares.color}
             value={formatNumber(reelShares)}
             active={selectedReelMetrics.includes('shares')}
