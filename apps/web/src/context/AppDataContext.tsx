@@ -75,6 +75,8 @@ type AppDataContextType = {
   engagementByAccountId: Record<string, CachedEngagement[]>;
   prefetchStatus: 'idle' | 'loading' | 'done';
   prefetchHasLoadedOnce: boolean;
+  /** True once Phase 2 (per-account posts/insights/comments/conversations) has finished or been skipped. */
+  prefetchPhase2Done: boolean;
   /** True once localStorage/sessionStorage cache has been read on mount (even if empty). */
   cacheRehydrated: boolean;
   getPosts: (accountId: string) => CachedPost[] | undefined;
@@ -184,6 +186,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [engagementByAccountId, setEngagementByAccountId] = useState<Record<string, CachedEngagement[]>>(getInitialEngagementFromStorage);
   const [prefetchStatus, setPrefetchStatus] = useState<'idle' | 'loading' | 'done'>('idle');
   const [prefetchHasLoadedOnce, setPrefetchHasLoadedOnce] = useState(false);
+  const [prefetchPhase2Done, setPrefetchPhase2Done] = useState(false);
   const [cacheRehydrated, setCacheRehydrated] = useState(false);
 
   const setPostsForAccount = useCallback((accountId: string, posts: CachedPost[]) => {
@@ -275,6 +278,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     setEngagementByAccountId({});
     setPrefetchStatus('idle');
     setPrefetchHasLoadedOnce(false);
+    setPrefetchPhase2Done(false);
     setCacheRehydrated(false);
     if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(CACHE_KEY);
       if (typeof localStorage !== 'undefined') localStorage.removeItem(CACHE_KEY);
@@ -381,6 +385,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     }
     let cancelled = false;
     setPrefetchStatus('loading');
+    setPrefetchPhase2Done(false);
 
     (async () => {
       try {
@@ -457,9 +462,11 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           }
           await Promise.all(batch);
         }
+        if (!cancelled) setPrefetchPhase2Done(true);
       } catch {
         if (!cancelled) setPrefetchStatus('done');
         if (!cancelled) setPrefetchHasLoadedOnce(true);
+        if (!cancelled) setPrefetchPhase2Done(true);
       }
     })();
 
@@ -477,6 +484,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       engagementByAccountId,
       prefetchStatus,
       prefetchHasLoadedOnce,
+      prefetchPhase2Done,
       cacheRehydrated,
       getPosts,
       getInsights,
@@ -505,6 +513,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       engagementByAccountId,
       prefetchStatus,
       prefetchHasLoadedOnce,
+      prefetchPhase2Done,
       cacheRehydrated,
       getPosts,
       getInsights,

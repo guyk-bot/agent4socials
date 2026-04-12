@@ -544,6 +544,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const appCtx = appDataRef.current;
+    const postsPhase2Running = Boolean(appCtx?.prefetchHasLoadedOnce && !appCtx?.prefetchPhase2Done);
     const skipInstagramAutoRefresh = selectedAccount?.platform === 'INSTAGRAM' && !justConnected;
     if (selectedAccount?.id) {
       const accountId = selectedAccount.id;
@@ -556,6 +557,7 @@ export default function DashboardPage() {
         return Date.now() - last >= THIRTY_MIN_MS;
       };
       const refreshPostsInBackground = () => {
+        if (postsPhase2Running) return;
         if (skipInstagramAutoRefresh && hasAnyCachedPosts && !shouldBackgroundSyncPosts()) return;
         api.get(`/social/accounts/${accountId}/posts`, {
           params: shouldBackgroundSyncPosts() ? { sync: 1 } : (postImportSyncOnFirstLoad(selectedAccount?.platform) ? { sync: 1 } : {}),
@@ -589,7 +591,7 @@ export default function DashboardPage() {
         refreshPostsInBackground();
         return;
       }
-      // First load for this account: show spinner without blanking existing data.
+      if (postsPhase2Running) return;
       setImportedPostsLoading(true);
       api.get(`/social/accounts/${accountId}/posts`, {
         params: postImportSyncOnFirstLoad(selectedAccount?.platform) ? { sync: 1 } : {},
@@ -667,11 +669,11 @@ export default function DashboardPage() {
         return;
       }
     }
+    if (postsPhase2Running) return;
     setImportedPostsLoading(true);
     setAllPostsSyncError(null);
     runSync(false);
-    // Intentionally omit appData: context value changes every prefetch tick and would fight analytics post state.
-  }, [selectedAccount?.id, hasAccounts, syncAllTrigger, accounts.map((a) => a.id).join(','), analyticsTab]);
+  }, [selectedAccount?.id, hasAccounts, syncAllTrigger, accounts.map((a) => a.id).join(','), analyticsTab, appData?.prefetchPhase2Done]);
 
   const insightsCacheRef = useRef<Record<string, { platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number; profileViewsTotal?: number }>>({});
   /** Last successful insights payload per account (any date range). Used to avoid full-page skeleton when switching accounts before range cache hits. */
@@ -705,6 +707,7 @@ export default function DashboardPage() {
     if (!selectedAccount?.id || !dateRange.start || !dateRange.end) return;
     // Wait for cache rehydration to complete before checking for cached data
     if (!appData?.cacheRehydrated) return;
+    const phase2Running = Boolean(appData?.prefetchHasLoadedOnce && !appData?.prefetchPhase2Done);
     const skipInstagramAutoRefresh = selectedAccount?.platform === 'INSTAGRAM' && !justConnected;
     const prevAccountId = selectedAccountIdRef.current;
     selectedAccountIdRef.current = selectedAccount.id;
@@ -751,7 +754,7 @@ export default function DashboardPage() {
           igForcedRefreshRef.current[cacheKey] = true;
         }
       }
-      if (runInsightsSwr) {
+      if (runInsightsSwr && !phase2Running) {
         api.get(`/social/accounts/${accountId}/insights`, {
           params:
             selectedAccount?.platform === 'FACEBOOK'
@@ -778,7 +781,7 @@ export default function DashboardPage() {
         if (postsCached !== undefined && postsCached !== null) {
           setImportedPosts(postsCached);
           setImportedPostsLoading(false);
-        } else {
+        } else if (!phase2Running) {
           setImportedPostsLoading(true);
           api.get(`/social/accounts/${accountId}/posts`, {
             params: postImportSyncOnFirstLoad(selectedAccount?.platform) ? { sync: 1 } : {},
@@ -825,6 +828,9 @@ export default function DashboardPage() {
       }
     }
 
+    // Phase 2 is still fetching per-account data — skip redundant requests; the effect
+    // will re-run once prefetchPhase2Done flips to true and data is in cache.
+    if (phase2Running) return;
 
     // Fetch insights; optional fast posts only when not on per-account analytics (single owner for posts there).
     const insightsPromise = api.get(`/social/accounts/${accountId}/insights`, {
@@ -898,7 +904,7 @@ export default function DashboardPage() {
       }
     }
 
-  }, [analyticsTab, selectedAccount?.id, selectedAccount?.platform, dateRange.start, dateRange.end, syncAllTrigger, justConnected, appData?.prefetchStatus, appData?.cacheRehydrated]);
+  }, [analyticsTab, selectedAccount?.id, selectedAccount?.platform, dateRange.start, dateRange.end, syncAllTrigger, justConnected, appData?.prefetchStatus, appData?.cacheRehydrated, appData?.prefetchPhase2Done]);
 
   // Facebook Page reviews (pages_read_user_content)
   useEffect(() => {
@@ -933,6 +939,8 @@ export default function DashboardPage() {
       setAggregatedInsights(null);
       return;
     }
+    // Wait for Phase 2 to finish populating per-account insights before aggregating.
+    if (appData?.prefetchHasLoadedOnce && !appData?.prefetchPhase2Done) return;
     const aggCacheKey = `agg-${dateRange.start}-${dateRange.end}-${insightAccounts.map((a) => a.id).sort().join(',')}`;
     const cachedAgg = aggregatedCacheRef.current;
     if (cachedAgg && cachedAgg.key === aggCacheKey) {
@@ -988,7 +996,7 @@ export default function DashboardPage() {
       setAggregatedInsights(aggData);
       setAggregatedLoading(false);
     })().catch(() => { setAggregatedInsights(null); setAggregatedLoading(false); });
-  }, [analyticsTab, hasAccounts, dateRange.start, dateRange.end, accounts.map((a) => a.id).join(',')]);
+  }, [analyticsTab, hasAccounts, dateRange.start, dateRange.end, accounts.map((a) => a.id).join(','), appData?.prefetchPhase2Done]);
 
   useEffect(() => {
     if ((selectedAccount?.platform !== 'FACEBOOK' && selectedAccount?.platform !== 'INSTAGRAM') || !selectedAccount?.id) {
@@ -996,6 +1004,17 @@ export default function DashboardPage() {
       setLiveFbConversationDates(null);
       return;
     }
+    // Use AppDataContext cache if Phase 2 already fetched conversations
+    const cachedConvos = appDataRef.current?.getConversations(selectedAccount.id);
+    if (cachedConvos && Array.isArray(cachedConvos) && cachedConvos.length > 0) {
+      setLiveFbConversationsCount(cachedConvos.length);
+      const dates = cachedConvos
+        .map((c: { updatedTime?: string | null }) => (c?.updatedTime ? String(c.updatedTime).slice(0, 10) : null))
+        .filter((d: string | null): d is string => Boolean(d));
+      setLiveFbConversationDates(dates);
+      return;
+    }
+    if (appDataRef.current?.prefetchHasLoadedOnce && !appDataRef.current?.prefetchPhase2Done) return;
     let cancelled = false;
     api.get(`/social/accounts/${selectedAccount.id}/conversations`)
       .then((res) => {
@@ -1014,7 +1033,7 @@ export default function DashboardPage() {
         }
       });
     return () => { cancelled = true; };
-  }, [selectedAccount?.id, selectedAccount?.platform]);
+  }, [selectedAccount?.id, selectedAccount?.platform, appData?.prefetchPhase2Done]);
 
   const handleConnect = async (platform: string, method?: string) => {
     const getMessage = (err: unknown): string | null => {
@@ -1724,10 +1743,15 @@ export default function DashboardPage() {
                           setImportedPosts(res.data?.posts ?? []);
                           setPostsSyncError(res.data?.syncError ?? null);
                         } else if (accounts.length > 0) {
-                          await Promise.all(accounts.map((acc) => api.get(`/social/accounts/${acc.id}/posts`, { params: { sync: 1 } })));
-                          const results = await Promise.all(accounts.map((acc) => api.get(`/social/accounts/${acc.id}/posts`).then((r) => r.data?.posts ?? [])));
-                          const merged = results.flat().sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
-                          setImportedPosts(merged);
+                          const allPosts: Array<{ id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; impressions: number; interactions: number; publishedAt: string; mediaType?: string | null; platform: string }> = [];
+                          for (const acc of accounts) {
+                            try {
+                              await api.get(`/social/accounts/${acc.id}/posts`, { params: { sync: 1 } });
+                              const r = await api.get(`/social/accounts/${acc.id}/posts`);
+                              allPosts.push(...(r.data?.posts ?? []));
+                            } catch { /* skip failed account */ }
+                          }
+                          setImportedPosts(allPosts.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()));
                         }
                         setPostsPage(1);
                       } catch (_) {

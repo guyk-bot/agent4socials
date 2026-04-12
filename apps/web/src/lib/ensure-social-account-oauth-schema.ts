@@ -1,11 +1,23 @@
 import { prisma } from '@/lib/db';
 
-/**
- * Production DBs sometimes skip `prisma migrate deploy` (e.g. wrong DATABASE_DIRECT_URL on Vercel).
- * OAuth upserts need columns that were added in later migrations. Apply missing pieces idempotently
- * so Instagram/Facebook connect can save without manual SQL.
- */
-export async function ensureSocialAccountOAuthSchema(): Promise<void> {
+let _oauthSchemaEnsured = false;
+let _oauthSchemaInFlight: Promise<void> | null = null;
+
+async function oauthSchemaAlreadyApplied(): Promise<boolean> {
+  try {
+    const rows = await prisma.$queryRawUnsafe<Array<{ exists: boolean }>>(
+      `SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'SocialAccount' AND column_name = 'credentialsJson'
+      ) AS "exists"`
+    );
+    return Boolean(rows?.[0]?.exists);
+  } catch {
+    return false;
+  }
+}
+
+async function runOAuthSchemaMigrations(): Promise<void> {
   const alters = [
     `ALTER TABLE "SocialAccount" ADD COLUMN IF NOT EXISTS "credentialsJson" JSONB`,
     `ALTER TABLE "SocialAccount" ADD COLUMN IF NOT EXISTS "status" TEXT NOT NULL DEFAULT 'connected'`,
@@ -62,4 +74,27 @@ export async function ensureSocialAccountOAuthSchema(): Promise<void> {
   } catch {
     /* ignore */
   }
+}
+
+/**
+ * Production DBs sometimes skip `prisma migrate deploy`. Apply missing pieces idempotently.
+ * Single-flight + 2s deadline so pool contention never blocks the OAuth callback.
+ */
+export async function ensureSocialAccountOAuthSchema(): Promise<void> {
+  if (_oauthSchemaEnsured) return;
+  if (_oauthSchemaInFlight) { await _oauthSchemaInFlight; return; }
+  const deadline = new Promise<'timeout'>((r) => setTimeout(() => r('timeout'), 2000));
+  const run = (async (): Promise<'done'> => {
+    try {
+      if (await oauthSchemaAlreadyApplied()) { _oauthSchemaEnsured = true; return 'done'; }
+      await runOAuthSchemaMigrations();
+      _oauthSchemaEnsured = true;
+    } catch (e) {
+      console.warn('[ensureSocialAccountOAuthSchema] failed (non-fatal):', (e as Error)?.message?.slice(0, 200));
+      _oauthSchemaEnsured = true;
+    }
+    return 'done';
+  })();
+  _oauthSchemaInFlight = run.then(() => {});
+  try { await Promise.race([run, deadline]); } finally { if (_oauthSchemaInFlight) _oauthSchemaInFlight = null; }
 }

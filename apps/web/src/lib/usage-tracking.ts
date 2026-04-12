@@ -25,17 +25,29 @@ export type UsageCategory =
   | 'oauth_connect';
 
 let _tableEnsured = false;
-/** Single-flight so concurrent trackUsage calls share one CREATE TABLE attempt. */
 let _ensureInflight: Promise<void> | null = null;
+
+async function usageTableExists(): Promise<boolean> {
+  try {
+    const rows = await prisma.$queryRawUnsafe<Array<{ exists: boolean }>>(
+      `SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'usage_daily'
+      ) AS "exists"`
+    );
+    return Boolean(rows?.[0]?.exists);
+  } catch {
+    return false;
+  }
+}
 
 async function ensureUsageTable(): Promise<void> {
   if (_tableEnsured) return;
-  if (_ensureInflight) {
-    await _ensureInflight;
-    return;
-  }
-  _ensureInflight = (async () => {
+  if (_ensureInflight) { await _ensureInflight; return; }
+  const deadline = new Promise<'timeout'>((r) => setTimeout(() => r('timeout'), 2000));
+  const run = (async (): Promise<'done'> => {
     try {
+      if (await usageTableExists()) { _tableEnsured = true; return 'done'; }
       await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "usage_daily" (
         "id"        TEXT         NOT NULL DEFAULT gen_random_uuid()::text,
@@ -56,11 +68,11 @@ async function ensureUsageTable(): Promise<void> {
     } catch (e) {
       console.warn('[usage-tracking] table creation skipped (may already exist):', (e as Error).message);
       _tableEnsured = true;
-    } finally {
-      _ensureInflight = null;
     }
+    return 'done';
   })();
-  await _ensureInflight;
+  _ensureInflight = run.then(() => {});
+  try { await Promise.race([run, deadline]); } finally { if (_ensureInflight) _ensureInflight = null; }
 }
 
 /**

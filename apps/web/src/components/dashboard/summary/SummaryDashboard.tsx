@@ -60,9 +60,10 @@ export function SummaryDashboard() {
   const [syncing, setSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState(0);
 
-  // On first mount, trigger a background sync for all accounts
+  // On first mount, trigger a background sync for all accounts — but only after Phase 2 finishes
   useEffect(() => {
     if (!cachedAccounts || cachedAccounts.length === 0) return;
+    if (!appData?.prefetchPhase2Done) return;
     let cancelled = false;
     setSyncing(true);
     setSyncProgress(0);
@@ -107,9 +108,8 @@ export function SummaryDashboard() {
       if (!cancelled) { setSyncing(false); setSyncProgress(100); }
     });
     return () => { cancelled = true; };
-  // Only run once when accounts are first available
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cachedAccounts.length > 0 ? 'loaded' : 'empty']);
+  }, [cachedAccounts.length > 0 ? 'loaded' : 'empty', appData?.prefetchPhase2Done]);
 
   const summary = useSummaryData(dateRange, selectedPlatforms);
 
