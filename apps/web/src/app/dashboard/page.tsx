@@ -726,22 +726,29 @@ export default function DashboardPage() {
     const defaultRangeMatch =
       dateRange.start === defaultRange.start && dateRange.end === defaultRange.end;
     const prefetchedForDefault = defaultRangeMatch ? app?.getInsights(accountId) : null;
+    // Exact cache: in-memory → prefetch state → localStorage (exact date range, no TTL needed).
+    const lsExact = readInsightsFromLocalStorage(accountId, undefined, dateRange);
+    const ssExact = userIdRef.current ? readDashboardInsightsSession(userIdRef.current, accountId, undefined, dateRange) : null;
     const exactCached =
       (prefetchedForDefault && typeof prefetchedForDefault === 'object'
         ? prefetchedForDefault
-        : null) ?? insightsCacheRef.current[cacheKey] ?? null;
-    // Stale data is keyed by account id only; do not require payload.platform to match (prefetch/cache may omit it).
-    // Only use stale data if it was fetched within STALE_CACHE_MAX_AGE_MS (10 min).
-    // Older data causes the "mountain artifact": an old snapshot from a different sync session
-    // is shown on the current axis, producing a concentrated spike that jumps when fresh data arrives.
+        : null) ?? insightsCacheRef.current[cacheKey] ?? lsExact ?? ssExact ?? null;
+
+    // Stale data (possibly different date range): pass dateRange so the cache layer
+    // auto-applies the 10-min TTL only when the range doesn't match, preventing the
+    // "mountain" artifact (old data from a different range plotted on the wrong axis)
+    // while still allowing instant display when the range does match.
     const fromAppInsights = app?.getInsights(accountId);
     const inMemoryAge = Date.now() - (lastInsightsFetchedAtRef.current[accountId] ?? 0);
-    const inMemoryFresh = inMemoryAge <= STALE_CACHE_MAX_AGE_MS;
+    const inMemoryExact = inMemoryAge <= STALE_CACHE_MAX_AGE_MS || (() => {
+      const d = lastInsightsByAccountIdRef.current[accountId]?._dateRange as { start?: string; end?: string } | undefined;
+      return d?.start === dateRange.start && d?.end === dateRange.end;
+    })();
     const staleRaw =
-      (inMemoryFresh ? lastInsightsByAccountIdRef.current[accountId] : null) ??
+      (inMemoryExact ? lastInsightsByAccountIdRef.current[accountId] : null) ??
       (fromAppInsights && typeof fromAppInsights === 'object' ? (fromAppInsights as Record<string, unknown>) : null) ??
-      readInsightsFromLocalStorage(accountId, STALE_CACHE_MAX_AGE_MS) ??
-      (userIdRef.current ? readDashboardInsightsSession(userIdRef.current, accountId, STALE_CACHE_MAX_AGE_MS) : null);
+      readInsightsFromLocalStorage(accountId, undefined, dateRange) ??
+      (userIdRef.current ? readDashboardInsightsSession(userIdRef.current, accountId, undefined, dateRange) : null);
     const staleForAccount =
       staleRaw && typeof staleRaw === 'object' ? (staleRaw as Record<string, unknown>) : null;
     const postsCached = postsCacheRef.current[accountId] ?? app?.getPosts(accountId);
@@ -750,10 +757,10 @@ export default function DashboardPage() {
 
     // If we already have cached data for this range (or prefetched default range), show it immediately and keep it stable.
     if (exactCached) {
-      lastInsightsByAccountIdRef.current[accountId] = exactCached as Record<string, unknown>;
+      lastInsightsByAccountIdRef.current[accountId] = { ...(exactCached as Record<string, unknown>), _dateRange: dateRange };
       lastInsightsFetchedAtRef.current[accountId] = Date.now();
       setInsights(exactCached as NonNullable<Parameters<typeof setInsights>[0]>);
-      if (userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, exactCached);
+      if (userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, exactCached, dateRange);
       setInsightsLoading(false);
       let runInsightsSwr = true;
       if (skipInstagramAutoRefresh) {
@@ -783,12 +790,12 @@ export default function DashboardPage() {
             const data = res.data ?? null;
             if (!data) return;
             insightsCacheRef.current[cacheKey] = data;
-            lastInsightsByAccountIdRef.current[accountId] = data as Record<string, unknown>;
+            lastInsightsByAccountIdRef.current[accountId] = { ...(data as Record<string, unknown>), _dateRange: dateRange };
             lastInsightsFetchedAtRef.current[accountId] = Date.now();
             appDataRef.current?.setInsightsForAccount(accountId, data);
             if (selectedAccountIdRef.current === accountId) {
               setInsights(data);
-              if (userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, data);
+              if (userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, data, dateRange);
             }
           })
           .catch(() => {});
@@ -822,9 +829,8 @@ export default function DashboardPage() {
     // at the wrong positions, causing a visible "concentration then jump" artifact.
     if (staleForAccount && !isDateRangeChange) {
       lastInsightsByAccountIdRef.current[accountId] = staleForAccount;
-      // Don't overwrite the timestamp here — staleForAccount is already known-fresh (max-age checked above).
       setInsights(staleForAccount as NonNullable<Parameters<typeof setInsights>[0]>);
-      if (userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, staleForAccount);
+      if (userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, staleForAccount, dateRange);
       // Refresh silently in background without showing a loading skeleton
       setInsightsLoading(false);
     } else {
@@ -877,13 +883,13 @@ export default function DashboardPage() {
         }
         if (data) {
           insightsCacheRef.current[cacheKey] = data;
-          lastInsightsByAccountIdRef.current[accountId] = data as Record<string, unknown>;
+          lastInsightsByAccountIdRef.current[accountId] = { ...(data as Record<string, unknown>), _dateRange: dateRange };
           lastInsightsFetchedAtRef.current[accountId] = Date.now();
           appDataRef.current?.setInsightsForAccount(accountId, data);
         }
         if (selectedAccountIdRef.current === accountId) {
           setInsights(data);
-          if (data && userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, data);
+          if (data && userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, data, dateRange);
         }
       })
       .catch(() => { 
