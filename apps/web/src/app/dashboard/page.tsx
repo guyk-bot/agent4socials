@@ -11,7 +11,7 @@ import { useAppData, getDefaultDateRange } from '@/context/AppDataContext';
 import { useSelectedAccount, useResolvedSelectedAccount } from '@/context/SelectedAccountContext';
 import type { SocialAccount } from '@/context/SelectedAccountContext';
 import api from '@/lib/api';
-import { readDashboardInsightsSession, writeDashboardInsightsSession, readInsightsFromLocalStorage } from '@/lib/dashboard-insights-session-cache';
+import { readDashboardInsightsSession, writeDashboardInsightsSession, readInsightsFromLocalStorage, STALE_CACHE_MAX_AGE_MS } from '@/lib/dashboard-insights-session-cache';
 import { stripLegacyInsightsHint } from '@/lib/strip-legacy-insights-hint';
 import {
   localCalendarDateFromIso,
@@ -677,6 +677,8 @@ export default function DashboardPage() {
   const insightsCacheRef = useRef<Record<string, { platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number; profileViewsTotal?: number }>>({});
   /** Last successful insights payload per account (any date range). Used to avoid full-page skeleton when switching accounts before range cache hits. */
   const lastInsightsByAccountIdRef = useRef<Record<string, Record<string, unknown>>>({});
+  /** Timestamp (Date.now()) of when each account's last insights were fetched — guards against showing very stale in-memory data. */
+  const lastInsightsFetchedAtRef = useRef<Record<string, number>>({});
   /** Tracks the last `accountId-since-until` key that was loaded so we can detect date-range changes. */
   const prevInsightsLoadKeyRef = useRef<string>('');
   const fbForcedRefreshRef = useRef<Record<string, boolean>>({});
@@ -729,13 +731,17 @@ export default function DashboardPage() {
         ? prefetchedForDefault
         : null) ?? insightsCacheRef.current[cacheKey] ?? null;
     // Stale data is keyed by account id only; do not require payload.platform to match (prefetch/cache may omit it).
-    // Also check localStorage / sessionStorage so cached data survives page refreshes even when in-memory refs are empty.
+    // Only use stale data if it was fetched within STALE_CACHE_MAX_AGE_MS (10 min).
+    // Older data causes the "mountain artifact": an old snapshot from a different sync session
+    // is shown on the current axis, producing a concentrated spike that jumps when fresh data arrives.
     const fromAppInsights = app?.getInsights(accountId);
+    const inMemoryAge = Date.now() - (lastInsightsFetchedAtRef.current[accountId] ?? 0);
+    const inMemoryFresh = inMemoryAge <= STALE_CACHE_MAX_AGE_MS;
     const staleRaw =
-      lastInsightsByAccountIdRef.current[accountId] ??
+      (inMemoryFresh ? lastInsightsByAccountIdRef.current[accountId] : null) ??
       (fromAppInsights && typeof fromAppInsights === 'object' ? (fromAppInsights as Record<string, unknown>) : null) ??
-      readInsightsFromLocalStorage(accountId) ??
-      (userIdRef.current ? readDashboardInsightsSession(userIdRef.current, accountId) : null);
+      readInsightsFromLocalStorage(accountId, STALE_CACHE_MAX_AGE_MS) ??
+      (userIdRef.current ? readDashboardInsightsSession(userIdRef.current, accountId, STALE_CACHE_MAX_AGE_MS) : null);
     const staleForAccount =
       staleRaw && typeof staleRaw === 'object' ? (staleRaw as Record<string, unknown>) : null;
     const postsCached = postsCacheRef.current[accountId] ?? app?.getPosts(accountId);
@@ -745,6 +751,7 @@ export default function DashboardPage() {
     // If we already have cached data for this range (or prefetched default range), show it immediately and keep it stable.
     if (exactCached) {
       lastInsightsByAccountIdRef.current[accountId] = exactCached as Record<string, unknown>;
+      lastInsightsFetchedAtRef.current[accountId] = Date.now();
       setInsights(exactCached as NonNullable<Parameters<typeof setInsights>[0]>);
       if (userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, exactCached);
       setInsightsLoading(false);
@@ -777,6 +784,7 @@ export default function DashboardPage() {
             if (!data) return;
             insightsCacheRef.current[cacheKey] = data;
             lastInsightsByAccountIdRef.current[accountId] = data as Record<string, unknown>;
+            lastInsightsFetchedAtRef.current[accountId] = Date.now();
             appDataRef.current?.setInsightsForAccount(accountId, data);
             if (selectedAccountIdRef.current === accountId) {
               setInsights(data);
@@ -809,10 +817,12 @@ export default function DashboardPage() {
     }
 
     // No exact range match: show last successful payload only when *switching accounts* (not when
-    // the date range itself changed). Stale data from a different date range plots time-series points
+    // the date range itself changed) AND only when that data is fresh (< 10 min old).
+    // Stale data from a different date range or a previous session plots time-series points
     // at the wrong positions, causing a visible "concentration then jump" artifact.
     if (staleForAccount && !isDateRangeChange) {
       lastInsightsByAccountIdRef.current[accountId] = staleForAccount;
+      // Don't overwrite the timestamp here — staleForAccount is already known-fresh (max-age checked above).
       setInsights(staleForAccount as NonNullable<Parameters<typeof setInsights>[0]>);
       if (userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, staleForAccount);
       // Refresh silently in background without showing a loading skeleton
@@ -868,6 +878,7 @@ export default function DashboardPage() {
         if (data) {
           insightsCacheRef.current[cacheKey] = data;
           lastInsightsByAccountIdRef.current[accountId] = data as Record<string, unknown>;
+          lastInsightsFetchedAtRef.current[accountId] = Date.now();
           appDataRef.current?.setInsightsForAccount(accountId, data);
         }
         if (selectedAccountIdRef.current === accountId) {
