@@ -4361,7 +4361,7 @@ export function FacebookAnalyticsView({
                   )
                 }
               />
-            ) : isLinkedIn ? null : (
+            ) : isLinkedIn || isTikTok ? null : (
               <MetricCard
                 label="Conversations"
                 source="Messenger conversations"
@@ -4374,7 +4374,7 @@ export function FacebookAnalyticsView({
           </div>
           <div className="flex justify-end">
             <div className="flex flex-wrap gap-2">
-              {selectedActivityMetrics.map((m) => (
+              {selectedActivityMetrics.filter((m) => !(isTikTok && m === 'conversations')).map((m) => (
                 <span
                   key={m}
                   className="rounded-full border px-2.5 py-1 text-xs"
@@ -4435,7 +4435,7 @@ export function FacebookAnalyticsView({
                   <Line type="monotone" dataKey="actions" stroke={ACTIVITY_METRIC_CONFIG.actions.color} strokeWidth={2} dot={false} />
                 ) : null}
                 {selectedActivityMetrics.includes('posts') ? <Line type="monotone" dataKey="posts" stroke={ACTIVITY_METRIC_CONFIG.posts.color} strokeWidth={2} dot={false} /> : null}
-                {!isYouTube && selectedActivityMetrics.includes('conversations') ? (
+                {!isYouTube && !isTikTok && selectedActivityMetrics.includes('conversations') ? (
                   <Line type="monotone" dataKey="conversations" stroke={ACTIVITY_METRIC_CONFIG.conversations.color} strokeWidth={2} dot={false} />
                 ) : null}
                 {selectedActivityMetrics.includes('subscriberNet') ? (
