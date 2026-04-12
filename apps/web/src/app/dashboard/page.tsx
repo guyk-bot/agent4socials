@@ -677,6 +677,8 @@ export default function DashboardPage() {
   const insightsCacheRef = useRef<Record<string, { platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number; profileViewsTotal?: number }>>({});
   /** Last successful insights payload per account (any date range). Used to avoid full-page skeleton when switching accounts before range cache hits. */
   const lastInsightsByAccountIdRef = useRef<Record<string, Record<string, unknown>>>({});
+  /** Tracks the last `accountId-since-until` key that was loaded so we can detect date-range changes. */
+  const prevInsightsLoadKeyRef = useRef<string>('');
   const fbForcedRefreshRef = useRef<Record<string, boolean>>({});
   const igForcedRefreshRef = useRef<Record<string, boolean>>({});
   const selectedAccountIdRef = useRef<string | null>(null);
@@ -712,6 +714,11 @@ export default function DashboardPage() {
     const accountId = selectedAccount.id;
     const isSameAccount = prevAccountId === accountId;
     const cacheKey = `${accountId}-${dateRange.start}-${dateRange.end}`;
+    // Detect a date-range change on the *same* account so we can suppress stale data in that case.
+    // Stale data from a different date range clusters all chart points at the wrong positions.
+    const prevLoadKey = prevInsightsLoadKeyRef.current;
+    prevInsightsLoadKeyRef.current = cacheKey;
+    const isDateRangeChange = prevLoadKey !== '' && prevLoadKey.startsWith(accountId + '-') && prevLoadKey !== cacheKey;
     const defaultRange = getDefaultDateRange();
     const app = appDataRef.current;
     const defaultRangeMatch =
@@ -801,23 +808,19 @@ export default function DashboardPage() {
       return;
     }
 
-    // No exact range match: show last successful payload for this account while refetching (avoids full-page skeleton on every Instagram click).
-    if (staleForAccount) {
+    // No exact range match: show last successful payload only when *switching accounts* (not when
+    // the date range itself changed). Stale data from a different date range plots time-series points
+    // at the wrong positions, causing a visible "concentration then jump" artifact.
+    if (staleForAccount && !isDateRangeChange) {
       lastInsightsByAccountIdRef.current[accountId] = staleForAccount;
       setInsights(staleForAccount as NonNullable<Parameters<typeof setInsights>[0]>);
       if (userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, staleForAccount);
-      // When we have stale data, don't show loading state - refresh silently in background
+      // Refresh silently in background without showing a loading skeleton
       setInsightsLoading(false);
-    } else if (!isSameAccount && prevAccountId !== null) {
+    } else {
+      // Date range changed, account changed without stale data, or first load → clear and show skeleton
       setInsights(null);
       setInsightsLoading(true);
-    } else {
-      // Only show loading if we genuinely have no cached data to display
-      // Check AppData cache as fallback before showing loading banner
-      const hasCachedDataToShow = Boolean(app?.getInsights(accountId));
-      if (!hasCachedDataToShow) {
-        setInsightsLoading(true);
-      }
     }
     if (!accountTabOwnsPosts) {
       const hasCachedPosts = postsCached !== undefined && postsCached !== null;
