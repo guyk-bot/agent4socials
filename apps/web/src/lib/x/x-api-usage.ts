@@ -32,7 +32,7 @@ export async function checkAndIncrementXApiUsage(socialAccountId: string): Promi
     WHERE "id" = ${socialAccountId}
       AND (
         COALESCE("xApiUsageMonthKey", '') IS DISTINCT FROM ${monthKey}
-        OR "xApiCallCount" < COALESCE("xApiSyncLimit", 100)
+        OR "xApiCallCount" < COALESCE("xApiSyncLimit", 10000)
       )
     RETURNING "id";
   `;
