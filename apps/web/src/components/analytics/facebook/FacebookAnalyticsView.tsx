@@ -1891,6 +1891,10 @@ export function FacebookAnalyticsView({
   }, [insights?.platform]);
 
   useEffect(() => {
+    if (insights?.platform?.toUpperCase() === 'TWITTER') {
+      setSelectedEngagementMetrics(['likes', 'comments', 'shares', 'reposts']);
+      return;
+    }
     if (insights?.platform?.toUpperCase() !== 'TIKTOK') return;
     const engAllowed = new Set<EngagementMetricKey>(['likes', 'comments', 'shares']);
     const reelAllowed = new Set<ReelMetricKey>(['views', 'clicks', 'likes', 'comments', 'shares']);
@@ -3016,10 +3020,39 @@ export function FacebookAnalyticsView({
             : `Video Views: ${fmt(percentChangeFromSeries(videoViewsS))} | Content Views: ${fmt(percentChangeFromSeries(contentViewsS))} | Page Visits: ${fmt(percentChangeFromSeries(pageTabS))}`,
     } as const;
   }, [growthSparklineSeries, isTikTok, isTwitter, isYouTube, isLinkedIn]);
-  const likesTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + bestCount(post.facebookInsights?.post_reactions_like_total, post.likeCount ?? post.engagementBreakdown?.reactions), 0), [postsInRange]);
-  const commentsTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + (post.facebookInsights?.post_comments ?? post.commentsCount ?? post.engagementBreakdown?.comments ?? 0), 0), [postsInRange]);
-  const sharesTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + bestShareCount(post), 0), [postsInRange]);
-  const repostsTotal = useMemo(() => postsInRange.reduce((sum, post) => sum + bestRepostCount(post), 0), [postsInRange]);
+  // For Twitter, supplement postsInRange counts with live recentTweets when the synced set is smaller.
+  const twitterRecentTweets = useMemo(
+    () => (isTwitter ? (insights?.recentTweets ?? []) : []),
+    [isTwitter, insights?.recentTweets]
+  );
+  const likesTotal = useMemo(() => {
+    const fromPosts = postsInRange.reduce((sum, post) => sum + bestCount(post.facebookInsights?.post_reactions_like_total, post.likeCount ?? post.engagementBreakdown?.reactions), 0);
+    if (isTwitter && twitterRecentTweets.length > 0) {
+      return Math.max(fromPosts, twitterRecentTweets.reduce((s, t) => s + (t.like_count ?? 0), 0));
+    }
+    return fromPosts;
+  }, [postsInRange, isTwitter, twitterRecentTweets]);
+  const commentsTotal = useMemo(() => {
+    const fromPosts = postsInRange.reduce((sum, post) => sum + (post.facebookInsights?.post_comments ?? post.commentsCount ?? post.engagementBreakdown?.comments ?? 0), 0);
+    if (isTwitter && twitterRecentTweets.length > 0) {
+      return Math.max(fromPosts, twitterRecentTweets.reduce((s, t) => s + (t.reply_count ?? 0), 0));
+    }
+    return fromPosts;
+  }, [postsInRange, isTwitter, twitterRecentTweets]);
+  const sharesTotal = useMemo(() => {
+    const fromPosts = postsInRange.reduce((sum, post) => sum + bestShareCount(post), 0);
+    if (isTwitter && twitterRecentTweets.length > 0) {
+      return Math.max(fromPosts, twitterRecentTweets.reduce((s, t) => s + (t.retweet_count ?? 0) + (t.quote_count ?? 0), 0));
+    }
+    return fromPosts;
+  }, [postsInRange, isTwitter, twitterRecentTweets]);
+  const repostsTotal = useMemo(() => {
+    const fromPosts = postsInRange.reduce((sum, post) => sum + bestRepostCount(post), 0);
+    if (isTwitter && twitterRecentTweets.length > 0) {
+      return Math.max(fromPosts, twitterRecentTweets.reduce((s, t) => s + (t.retweet_count ?? 0), 0));
+    }
+    return fromPosts;
+  }, [postsInRange, isTwitter, twitterRecentTweets]);
   const totalActions = actionsTotal;
   const engagementData = useMemo(() => {
     const likesByDate = postsInRange.reduce<Record<string, number>>((acc, post) => {
@@ -3042,6 +3075,17 @@ export function FacebookAnalyticsView({
       acc[d] = (acc[d] ?? 0) + bestRepostCount(post);
       return acc;
     }, {});
+    // For Twitter: if recentTweets have more data than synced posts, merge them in by day (take max per day).
+    if (isTwitter && twitterRecentTweets.length > 0) {
+      for (const t of twitterRecentTweets) {
+        const d = localCalendarDateFromIso(t.created_at ?? '');
+        if (!d) continue;
+        likesByDate[d] = Math.max(likesByDate[d] ?? 0, t.like_count ?? 0);
+        commentsByDate[d] = Math.max(commentsByDate[d] ?? 0, t.reply_count ?? 0);
+        sharesByDate[d] = Math.max(sharesByDate[d] ?? 0, (t.retweet_count ?? 0) + (t.quote_count ?? 0));
+        repostsByDate[d] = Math.max(repostsByDate[d] ?? 0, t.retweet_count ?? 0);
+      }
+    }
     return dateAxis.map((date) => ({
       date,
       likes: likesByDate[date] ?? 0,
@@ -3049,7 +3093,7 @@ export function FacebookAnalyticsView({
       shares: sharesByDate[date] ?? 0,
       reposts: repostsByDate[date] ?? 0,
     }));
-  }, [dateAxis, postsInRange]);
+  }, [dateAxis, postsInRange, isTwitter, twitterRecentTweets]);
   const engagementTicks = useMemo(
     () =>
       buildKeyDateTicks(
@@ -3072,11 +3116,11 @@ export function FacebookAnalyticsView({
     const order = isTikTok ? ENGAGEMENT_STACK_ORDER_TIKTOK : ENGAGEMENT_STACK_ORDER_META;
     const selected = order.filter((k) => {
       if (!selectedEngagementMetrics.includes(k)) return false;
-      if (k === 'reposts') return isInstagram;
+      if (k === 'reposts') return isInstagram || isTwitter;
       return true;
     });
     return selected.length ? selected[selected.length - 1]! : null;
-  }, [isInstagram, isTikTok, selectedEngagementMetrics]);
+  }, [isInstagram, isTwitter, isTikTok, selectedEngagementMetrics]);
   const operationalData = useMemo(() => {
     const actionsRaw = seriesToMap(actionsSeries ?? []);
     // Use per-day values for Actions so the line reflects daily fluctuation
@@ -3604,57 +3648,6 @@ export function FacebookAnalyticsView({
                   page(s) loaded). For very active accounts, try a narrower date range so in-range posts are not cut off.
                 </div>
               ) : null}
-              {insights?.recentTweets && insights.recentTweets.length > 0 ? (
-                <div className="overflow-x-auto rounded-xl border" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
-                  <div className="border-b px-3 py-2 text-xs font-medium" style={{ borderColor: COLOR.border, color: COLOR.textSecondary }}>
-                    Original posts in range (live from X API)
-                  </div>
-                  <table className="w-full min-w-[880px] text-left text-xs">
-                    <thead>
-                      <tr style={{ color: COLOR.textSecondary }}>
-                        <th className="px-3 py-2 font-medium">Published</th>
-                        <th className="px-3 py-2 font-medium">Impressions</th>
-                        <th className="px-3 py-2 font-medium">Likes</th>
-                        <th className="px-3 py-2 font-medium">Replies</th>
-                        <th className="px-3 py-2 font-medium">Reposts</th>
-                        <th className="px-3 py-2 font-medium">Quotes</th>
-                        <th className="px-3 py-2 font-medium">Bookmarks</th>
-                        <th className="px-3 py-2 font-medium">Post</th>
-                        <th className="px-3 py-2 font-medium">Open</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {insights.recentTweets.map((row) => (
-                        <tr key={row.id} className="border-t" style={{ borderColor: COLOR.border }}>
-                          <td className="whitespace-nowrap px-3 py-2" style={{ color: COLOR.text }}>
-                            {row.created_at ? new Date(row.created_at).toLocaleString() : '—'}
-                          </td>
-                          <td className="px-3 py-2 tabular-nums">{formatNumber(row.impression_count ?? 0)}</td>
-                          <td className="px-3 py-2 tabular-nums">{formatNumber(row.like_count ?? 0)}</td>
-                          <td className="px-3 py-2 tabular-nums">{formatNumber(row.reply_count ?? 0)}</td>
-                          <td className="px-3 py-2 tabular-nums">{formatNumber(row.retweet_count ?? 0)}</td>
-                          <td className="px-3 py-2 tabular-nums">{formatNumber(row.quote_count ?? 0)}</td>
-                          <td className="px-3 py-2 tabular-nums">{formatNumber(row.bookmark_count ?? 0)}</td>
-                          <td className="max-w-[240px] truncate px-3 py-2" style={{ color: COLOR.textSecondary }} title={row.text}>
-                            {row.text || '—'}
-                          </td>
-                          <td className="px-3 py-2">
-                            <a
-                              href={`https://x.com/i/web/status/${row.id}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="underline decoration-dotted underline-offset-2"
-                              style={{ color: COLOR.violet }}
-                            >
-                              View
-                            </a>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : null}
               <div className="mt-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <SparklineMetricCard
                   label="Followers"
@@ -4066,10 +4059,14 @@ export function FacebookAnalyticsView({
               onClick={() => setSelectedEngagementMetrics((prev) => prev.includes('shares') ? prev.filter((m) => m !== 'shares') : [...prev, 'shares'])}
               tiktokApiHighlight={isTikTok}
             />
-            {isInstagram && (
+            {(isInstagram || isTwitter) && (
               <MetricCard
                 label="Reposts"
-                source="repostsCount"
+                source={
+                  isTwitter
+                    ? 'X API timeline · retweet_count (live + synced posts)'
+                    : 'repostsCount'
+                }
                 color={ENGAGEMENT_METRIC_CONFIG.reposts.color}
                 value={formatNumber(repostsTotal)}
                 active={selectedEngagementMetrics.includes('reposts')}
@@ -4080,7 +4077,7 @@ export function FacebookAnalyticsView({
           <div className="flex justify-end">
             <div className="flex flex-wrap gap-2">
               {selectedEngagementMetrics
-                .filter((m) => (m === 'reposts' ? isInstagram : true))
+                .filter((m) => (m === 'reposts' ? (isInstagram || isTwitter) : true))
                 .map((m) => (
                 <span
                   key={m}
@@ -4177,7 +4174,7 @@ export function FacebookAnalyticsView({
                     shape={<MinWidthBarShape />}
                   />
                 ) : null}
-                {isInstagram && selectedEngagementMetrics.includes('reposts') ? (
+                {(isInstagram || isTwitter) && selectedEngagementMetrics.includes('reposts') ? (
                   <Bar
                     dataKey="reposts"
                     stackId="engagement"
@@ -5253,6 +5250,51 @@ export function FacebookAnalyticsView({
                   <div key={i} className="h-11 rounded-xl animate-pulse" style={{ background: 'rgba(15,23,42,0.06)' }} />
                 ))}
               </div>
+            </div>
+          ) : isTwitter && twitterRecentTweets.length > 0 ? (
+            <div className="overflow-x-auto rounded-xl border" style={{ borderColor: COLOR.border }}>
+              <table className="w-full min-w-[780px] text-left text-xs">
+                <thead>
+                  <tr className="border-b" style={{ borderColor: COLOR.border, color: COLOR.textSecondary }}>
+                    <th className="px-3 py-2.5 font-medium">Published</th>
+                    <th className="px-3 py-2.5 font-medium">Impressions</th>
+                    <th className="px-3 py-2.5 font-medium">Likes</th>
+                    <th className="px-3 py-2.5 font-medium">Replies</th>
+                    <th className="px-3 py-2.5 font-medium">Reposts</th>
+                    <th className="px-3 py-2.5 font-medium">Quotes</th>
+                    <th className="px-3 py-2.5 font-medium">Post</th>
+                    <th className="px-3 py-2.5 font-medium">Open</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {twitterRecentTweets.map((row) => (
+                    <tr key={row.id} className="border-t" style={{ borderColor: COLOR.border }}>
+                      <td className="whitespace-nowrap px-3 py-2" style={{ color: COLOR.text }}>
+                        {row.created_at ? new Date(row.created_at).toLocaleString() : '—'}
+                      </td>
+                      <td className="px-3 py-2 tabular-nums">{formatNumber(row.impression_count ?? 0)}</td>
+                      <td className="px-3 py-2 tabular-nums">{formatNumber(row.like_count ?? 0)}</td>
+                      <td className="px-3 py-2 tabular-nums">{formatNumber(row.reply_count ?? 0)}</td>
+                      <td className="px-3 py-2 tabular-nums">{formatNumber(row.retweet_count ?? 0)}</td>
+                      <td className="px-3 py-2 tabular-nums">{formatNumber(row.quote_count ?? 0)}</td>
+                      <td className="max-w-[240px] truncate px-3 py-2" style={{ color: COLOR.textSecondary }} title={row.text}>
+                        {row.text || '—'}
+                      </td>
+                      <td className="px-3 py-2">
+                        <a
+                          href={`https://x.com/i/web/status/${row.id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="underline decoration-dotted underline-offset-2"
+                          style={{ color: COLOR.violet }}
+                        >
+                          View
+                        </a>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : (
             <PostsPerformanceTable
