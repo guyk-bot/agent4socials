@@ -153,7 +153,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
     <>
       <div className="p-3">
         <Link
-          href="/dashboard"
+          href="/dashboard/summary"
           className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
             isMainAnalyticsView ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 border border-transparent'
           }`}
