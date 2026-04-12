@@ -1540,18 +1540,18 @@ export default function DashboardPage() {
                   if (nextInsights) {
                     const cacheKey = `${aid}-${dateRange.start}-${dateRange.end}`;
                     const prevInsights = insightsCacheRef.current[cacheKey] ?? lastInsightsByAccountIdRef.current[aid];
+                    const prevRec = prevInsights && typeof prevInsights === 'object' ? (prevInsights as Record<string, unknown>) : null;
                     const merged =
                       selectedAccount.platform === 'FACEBOOK' &&
-                      prevInsights &&
-                      typeof prevInsights === 'object' &&
+                      prevRec &&
                       !(nextInsights as { facebookAnalytics?: unknown }).facebookAnalytics &&
-                      (prevInsights as { facebookAnalytics?: unknown }).facebookAnalytics
+                      prevRec.facebookAnalytics
                         ? {
-                            ...(nextInsights as object),
-                            facebookAnalytics: (prevInsights as { facebookAnalytics: unknown }).facebookAnalytics,
+                            ...(nextInsights as Record<string, unknown>),
+                            facebookAnalytics: prevRec.facebookAnalytics,
                             facebookPageMetricSeries:
                               (nextInsights as { facebookPageMetricSeries?: unknown }).facebookPageMetricSeries ??
-                              (prevInsights as { facebookPageMetricSeries?: unknown }).facebookPageMetricSeries,
+                              prevRec.facebookPageMetricSeries,
                           }
                         : nextInsights;
                     insightsCacheRef.current[cacheKey] = merged as typeof nextInsights;
