@@ -2811,6 +2811,19 @@ export function FacebookAnalyticsView({
     });
   }, [isPinterest, postsInRange]);
 
+  const twitterVideoReelsRows = useMemo((): ReelAnalyticsRow[] => {
+    if (!isTwitter || twitterRecentTweets.length === 0) return [];
+    return twitterRecentTweets
+      .filter((t) => { const mt = (t.mediaType ?? '').toLowerCase(); return mt === 'video' || mt === 'animated_gif'; })
+      .map((t) => ({
+        post: { content: t.text, thumbnailUrl: t.thumbnailUrl, mediaType: t.mediaType, platform: 'TWITTER', permalinkUrl: `https://x.com/i/web/status/${t.id}`, publishedAt: t.created_at ?? '' } as unknown as import('./types').FacebookPost,
+        views: t.impression_count,
+        organicViews: 0,
+        avgWatchMs: 0,
+        watchTimeMs: 0,
+      }));
+  }, [isTwitter, twitterRecentTweets]);
+
   /** Combined Shorts + long-form for aggregate KPIs and Pinterest; charts split for YouTube below. */
   const reelChartSourceRows = useMemo((): ReelAnalyticsRow[] => {
     if (isPinterest) return pinterestVideoRows;
@@ -3249,19 +3262,6 @@ export function FacebookAnalyticsView({
       };
     });
   }, [isTwitter, twitterRecentTweets]);
-  const twitterVideoReelsRows = useMemo((): ReelAnalyticsRow[] => {
-    if (!isTwitter || twitterRecentTweets.length === 0) return [];
-    return twitterRecentTweets
-      .filter((t) => { const mt = (t.mediaType ?? '').toLowerCase(); return mt === 'video' || mt === 'animated_gif'; })
-      .map((t) => ({
-        post: { content: t.text, thumbnailUrl: t.thumbnailUrl, mediaType: t.mediaType, platform: 'TWITTER', permalinkUrl: `https://x.com/i/web/status/${t.id}`, publishedAt: t.created_at ?? '' } as unknown as import('./types').FacebookPost,
-        views: t.impression_count,
-        organicViews: 0,
-        avgWatchMs: 0,
-        watchTimeMs: 0,
-      }));
-  }, [isTwitter, twitterRecentTweets]);
-
   const effectivePostsRows = isTwitter && postsRows.length === 0 ? twitterFallbackRows : postsRows;
   const topByViews = [...effectivePostsRows].sort((a, b) => b.views - a.views).slice(0, 3).map((p) => ({ ...p, value: p.views, content: p.rawPost.content, thumbnailUrl: p.rawPost.thumbnailUrl }));
   const topByClicks = [...effectivePostsRows].sort((a, b) => b.clicks - a.clicks).slice(0, 3).map((p) => ({ ...p, value: p.clicks, content: p.rawPost.content, thumbnailUrl: p.rawPost.thumbnailUrl }));
