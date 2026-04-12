@@ -21,6 +21,8 @@ import { buildPinterestFrontendAnalyticsBundle } from '@/lib/pinterest-analytics
 import { syncFacebookAuxiliaryIngest, ensureFacebookTables } from '@/lib/facebook/sync-extras';
 import { facebookGraphBaseUrl, instagramGraphHostBaseUrl } from '@/lib/meta-graph-insights';
 import { linkedInAuthorUrnForUgc } from '@/lib/linkedin/sync-ugc-posts';
+import { fetchTwitterTimelineInsights } from '@/lib/twitter-insights';
+import type { TwitterRecentTweetRow, TwitterTotals, TwitterUserPublicRow } from '@/lib/twitter-insights';
 import { getLinkedInRestApiVersion, linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
 import {
   fetchLinkedInMemberFollowersCountMe,
@@ -272,6 +274,11 @@ export async function GET(
     };
     /** Instagram: daily series keyed by Graph metric name (impressions, profile_views, accounts_engaged, …). */
     facebookPageMetricSeries?: Record<string, Array<{ date: string; value: number }>>;
+    /** X (Twitter): user fields + timeline analytics (see `fetchTwitterTimelineInsights`). */
+    twitterUser?: TwitterUserPublicRow | null;
+    twitterTotals?: TwitterTotals;
+    twitterEngagementTimeSeries?: Array<{ date: string; value: number }>;
+    recentTweets?: TwitterRecentTweetRow[];
   } = {
     platform: account.platform,
     followers: 0,
@@ -2032,82 +2039,47 @@ export async function GET(
     }
 
     if (account.platform === 'TWITTER') {
-      const token = account.accessToken;
-      let tweetCount = 0;
-      try {
-        const userRes = await axios.get<{
-          data?: {
-            public_metrics?: {
-              followers_count?: number;
-              following_count?: number;
-              tweet_count?: number;
-              listed_count?: number;
-            };
-          };
-        }>(`https://api.twitter.com/2/users/${account.platformUserId}`, {
-          params: { 'user.fields': 'public_metrics' },
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const metrics = userRes.data?.data?.public_metrics;
-        if (metrics) {
-          if (typeof metrics.followers_count === 'number') out.followers = metrics.followers_count;
-          if (typeof metrics.tweet_count === 'number') tweetCount = metrics.tweet_count;
-        }
-      } catch (e) {
-        const status = (e as { response?: { status?: number } })?.response?.status;
-        if (status !== 401) {
-          const msg = (e as Error)?.message ?? String(e);
-          console.warn('[Insights] Twitter user/metrics:', msg);
-        }
-        if (out.followers === 0 && !tweetCount) out.insightsHint = 'Reconnect your X (Twitter) account to see follower and tweet counts.';
+      const sinceDay = effectiveSinceParam.slice(0, 10);
+      const untilDay = effectiveUntilParam.slice(0, 10);
+      const tw = await fetchTwitterTimelineInsights({
+        accessToken: account.accessToken,
+        platformUserId: account.platformUserId,
+        sinceDay,
+        untilDay,
+        budgetExpired,
+        maxPages: 18,
+      });
+      if (tw.twitterUser) {
+        out.followers = tw.twitterUser.followers_count;
+        out.followingCount = tw.twitterUser.following_count;
       }
-      try {
-        const tweetsRes = await axios.get<{
-          data?: Array<{
-            id: string;
-            text?: string;
-            created_at?: string;
-            public_metrics?: { like_count?: number; reply_count?: number; retweet_count?: number; impression_count?: number };
-          }>;
-        }>(`https://api.twitter.com/2/users/${account.platformUserId}/tweets`, {
-          params: {
-            max_results: 25,
-            'tweet.fields': 'created_at,public_metrics',
-            exclude: 'retweets,replies',
-          },
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const tweets = tweetsRes.data?.data ?? [];
-        const recentTweets = tweets.map((t) => ({
-          id: t.id,
-          text: t.text?.slice(0, 200) ?? '',
-          created_at: t.created_at ?? null,
-          like_count: t.public_metrics?.like_count ?? 0,
-          reply_count: t.public_metrics?.reply_count ?? 0,
-          retweet_count: t.public_metrics?.retweet_count ?? 0,
-          impression_count: t.public_metrics?.impression_count ?? 0,
-        }));
-        // Build impressions time series and total from recent tweets (Twitter has no historical time-series API)
-        const impressionsByDate: Record<string, number> = {};
-        let totalImpressions = 0;
-        for (const t of recentTweets) {
-          const imp = t.impression_count ?? 0;
-          totalImpressions += imp;
-          if (t.created_at) {
-            const date = t.created_at.slice(0, 10);
-            impressionsByDate[date] = (impressionsByDate[date] ?? 0) + imp;
-          }
-        }
-        out.impressionsTotal = totalImpressions;
-        out.impressionsTimeSeries = Object.entries(impressionsByDate)
-          .map(([date, value]) => ({ date, value }))
-          .sort((a, b) => a.date.localeCompare(b.date));
-        return NextResponse.json({ ...out, recentTweets, tweetCount });
-      } catch (e) {
-        const status = (e as { response?: { status?: number } })?.response?.status;
-        if (status !== 401) console.warn('[Insights] Twitter tweets:', (e as Error)?.message ?? e);
+      out.impressionsTotal = tw.totals.impressions;
+      out.impressionsTimeSeries = tw.impressionsTimeSeries;
+      out.twitterUser = tw.twitterUser;
+      out.twitterTotals = tw.totals;
+      out.twitterEngagementTimeSeries = tw.engagementTimeSeries;
+      out.recentTweets = tw.recentTweets;
+      const tweetCount = tw.twitterUser?.tweet_count ?? 0;
+      const hintParts: string[] = [];
+      if (tw.hint) hintParts.push(tw.hint);
+      if (tweetCount === 0 && out.followers === 0) {
+        hintParts.push('Reconnect your X account with tweet.read and users.read to load profile and timeline analytics.');
+      } else if (tw.tweetsInRange === 0 && tw.pagesFetched === 0) {
+        hintParts.push('No timeline data returned. Confirm OAuth scopes include tweet.read and try Sync on Posts.');
+      } else if (tw.tweetsInRange === 0) {
+        hintParts.push('No posts in the selected date range in the fetched timeline. Try a wider range or Sync posts.');
+      } else {
+        hintParts.push(
+          `Loaded ${tw.tweetsInRange} post(s) in range from ${tw.pagesFetched} timeline page(s). Impressions require tweet.read; counts are public_metrics from X.`
+        );
       }
-      return NextResponse.json({ ...out, tweetCount });
+      out.insightsHint = hintParts.join(' ');
+      return NextResponse.json({
+        ...out,
+        tweetCount,
+        twitterPagesFetched: tw.pagesFetched,
+        twitterTimelineTruncated: tw.truncated,
+      });
     }
 
     if (account.platform === 'TIKTOK') {

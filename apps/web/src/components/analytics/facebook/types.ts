@@ -4,6 +4,7 @@
  */
 
 import type { FacebookFrontendAnalyticsBundle } from '@/lib/facebook/frontend-analytics-bundle';
+import type { TwitterRecentTweetRow, TwitterTotals, TwitterUserPublicRow } from '@/lib/twitter-insights';
 
 export interface FacebookInsights {
   platform: string;
@@ -79,6 +80,20 @@ export interface FacebookInsights {
     ratingsCount: number;
     latestRecommendationText: string | null;
   };
+  /** X (Twitter): account-level public_metrics + timeline aggregates from GET …/insights. */
+  twitterUser?: TwitterUserPublicRow | null;
+  /** X: sum of public_metrics in the selected range for tweets we loaded from the timeline. */
+  twitterTotals?: TwitterTotals;
+  /** X: likes + replies + retweets + quotes + bookmarks per calendar day (timeline, in range). */
+  twitterEngagementTimeSeries?: Array<{ date: string; value: number }>;
+  /** X: recent tweets in range (text + metrics + optional thumb) for analytics tables / tooltips. */
+  recentTweets?: TwitterRecentTweetRow[];
+  /** X: total posts on account (from user public_metrics.tweet_count). */
+  tweetCount?: number;
+  /** X: how many `max_results=100` timeline pages were fetched for this insights request. */
+  twitterPagesFetched?: number;
+  /** X: true when pagination stopped before the timeline was fully scanned. */
+  twitterTimelineTruncated?: boolean;
   /** TikTok: `user.info` stats (requires user.info.stats scope). Shown in analytics; full raw payloads via tiktok-debug on Accounts. */
   tiktokUser?: {
     followerCount: number;
