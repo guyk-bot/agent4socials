@@ -167,10 +167,14 @@ export async function syncAccount(opts: SyncAccountOptions): Promise<SyncResult>
     if (syncType === 'page_refresh' || syncType === 'scheduled') {
       const account = await prisma.socialAccount.findUnique({
         where: { id: socialAccountId },
-        select: { lastSuccessfulSyncAt: true },
+        select: { lastSuccessfulSyncAt: true, platform: true, xAnalyticsLastSyncedAt: true },
       });
-      if (account?.lastSuccessfulSyncAt) {
-        const ageMs = Date.now() - account.lastSuccessfulSyncAt.getTime();
+      const lastRef =
+        account?.platform === 'TWITTER' && singleScope === 'post_metrics'
+          ? account.xAnalyticsLastSyncedAt
+          : account?.lastSuccessfulSyncAt;
+      if (lastRef) {
+        const ageMs = Date.now() - lastRef.getTime();
         const threshold = getStaleThresholdMs(platform, singleScope);
         if (ageMs < threshold) {
           return { jobId: '', status: 'skipped_duplicate', message: 'Data is still fresh' };
@@ -378,6 +382,7 @@ export async function runScheduledSyncForScope(
       platformUserId: true,
       accessToken: true,
       lastSuccessfulSyncAt: true,
+      xAnalyticsLastSyncedAt: true,
       lastSyncAttemptAt: true,
       lastSyncStatus: true,
     },
@@ -397,9 +402,11 @@ export async function runScheduledSyncForScope(
       if (Date.now() - lastAttempt < 30 * 60_000) return false;
     }
 
-    const ageMs = acc.lastSuccessfulSyncAt
-      ? Date.now() - acc.lastSuccessfulSyncAt.getTime()
-      : Infinity;
+    const lastRef =
+      acc.platform === 'TWITTER' && scope === 'post_metrics'
+        ? acc.xAnalyticsLastSyncedAt
+        : acc.lastSuccessfulSyncAt;
+    const ageMs = lastRef ? Date.now() - lastRef.getTime() : Infinity;
     const threshold = getStaleThresholdMs(acc.platform, scope);
     return ageMs >= threshold;
   });

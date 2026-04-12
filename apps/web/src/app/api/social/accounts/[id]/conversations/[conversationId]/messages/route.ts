@@ -3,6 +3,7 @@ import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import axios from 'axios';
 import { signTwitterRequest } from '@/lib/twitter-oauth1';
+import { checkAndIncrementXApiUsage } from '@/lib/x/x-api-usage';
 
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 
@@ -84,6 +85,63 @@ export async function GET(
     const ourId = String(account.platformUserId ?? '');
 
     try {
+      if (conversationId.startsWith('mention:')) {
+        const tweetId = conversationId.slice('mention:'.length).trim();
+        if (!tweetId) {
+          return NextResponse.json({ messages: [], recipientId: null, error: 'Invalid mention thread.' }, { status: 400 });
+        }
+        await checkAndIncrementXApiUsage(account.id);
+        const lookupUrl = 'https://api.x.com/2/tweets';
+        const twParams: Record<string, string> = {
+          ids: tweetId,
+          'tweet.fields': 'author_id,created_at,text',
+          expansions: 'author_id',
+          'user.fields': 'id,name,username',
+        };
+        const twRes = await axios.get<{
+          data?: Array<{ id: string; author_id?: string; text?: string; created_at?: string }>;
+          includes?: { users?: Array<{ id: string; name?: string; username?: string }> };
+          errors?: unknown[];
+        }>(lookupUrl, {
+          params: twParams,
+          headers: useOAuth1ForDm
+            ? signTwitterRequest('GET', lookupUrl, { key: oauth1UserToken!, secret: oauth1UserSecret! }, twParams)
+            : { Authorization: `Bearer ${token}` },
+          timeout: 15_000,
+          validateStatus: () => true,
+        });
+        if (twRes.status === 429) {
+          return NextResponse.json(
+            { messages: [], recipientId: null, error: 'X is limiting requests. Wait a few minutes and try again.' },
+            { status: 429 }
+          );
+        }
+        const tw = twRes.data?.data?.[0];
+        if (!tw) {
+          return NextResponse.json({
+            messages: [],
+            recipientId: null,
+            error: 'Could not load this mention. It may have been deleted or is unavailable.',
+          });
+        }
+        const author = twRes.data?.includes?.users?.find((u) => u.id === tw.author_id);
+        const fromName = author?.username ?? author?.name ?? tw.author_id ?? null;
+        return NextResponse.json({
+          messages: [
+            {
+              id: tw.id,
+              fromId: tw.author_id ?? null,
+              fromName,
+              message: tw.text ?? '',
+              createdTime: tw.created_at ?? null,
+              isFromPage: tw.author_id === ourId,
+            },
+          ],
+          recipientId: tw.author_id && tw.author_id !== ourId ? tw.author_id : null,
+          error: null,
+        });
+      }
+
       const allMessages: Array<{ id: string; fromId: string | null; fromName: string | null; message: string; createdTime: string | null; isFromPage: boolean }> = [];
       const allEventParticipantIds = new Set<string>();
       let nextToken: string | null = null;
@@ -94,6 +152,7 @@ export async function GET(
       const dmConversationUrl = `https://api.x.com/2/dm_conversations/${conversationId}/dm_events`;
 
       do {
+        await checkAndIncrementXApiUsage(account.id);
         const params: Record<string, string> = {
           'dm_event.fields': 'id,text,sender_id,created_at,participant_ids',
           event_types: 'MessageCreate',
@@ -182,6 +241,7 @@ export async function GET(
           let withNext: string | null = null;
           let withPages = 0;
           do {
+            await checkAndIncrementXApiUsage(account.id);
             const withParams: Record<string, string> = {
               'dm_event.fields': 'id,text,sender_id,created_at,event_type',
               event_types: 'MessageCreate',
@@ -263,6 +323,7 @@ export async function GET(
       // If we still don't have user info for the recipient, fetch it from the X API.
       if (recipientId && !userObjMap.has(recipientId)) {
         try {
+          await checkAndIncrementXApiUsage(account.id);
           const recipientRes = await axios.get<{
             data?: { id: string; name?: string; username?: string; profile_image_url?: string };
           }>(`https://api.x.com/2/users/${recipientId}`, {

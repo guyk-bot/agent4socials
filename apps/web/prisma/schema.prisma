@@ -65,6 +65,16 @@ model SocialAccount {
   lastSyncError         String?   // last error message if status is "error"
   initialBackfillDone   Boolean   @default(false) // true once the first-connect backfill finished
   permissionsSnapshot   Json?     // cached scopes/permissions at last sync
+  /// Monthly X API call counter (resets when `xApiUsageMonthKey` changes to the current UTC YYYY-MM).
+  xApiCallCount         Int       @default(0)
+  /// Hard cap on X HTTP calls per calendar month for this account (pay-per-use shield).
+  xApiSyncLimit         Int       @default(100)
+  /// UTC calendar month key (e.g. 2026-04) for which `xApiCallCount` applies.
+  xApiUsageMonthKey     String?
+  /// Last successful scheduled/cron refresh of X post metrics (`post_metrics` adapter).
+  xAnalyticsLastSyncedAt DateTime?
+  /// Last Unified Inbox manual refresh (X); used for 15-minute cooldown on `manualInboxSync=1`.
+  xInboxLastManualSyncAt DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 

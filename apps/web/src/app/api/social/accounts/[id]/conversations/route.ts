@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import axios, { AxiosResponse } from 'axios';
 import { signTwitterRequest } from '@/lib/twitter-oauth1';
 import { refreshTwitterToken } from '@/lib/twitter-refresh';
+import { checkAndIncrementXApiUsage, XRateLimitExceeded } from '@/lib/x/x-api-usage';
 
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 
@@ -48,6 +49,8 @@ export async function GET(
   const { id } = await params;
   const { searchParams } = new URL(request.url);
   const includeMessageCounts = searchParams.get('includeMessageCounts') === '1' || searchParams.get('includeMessageCounts') === 'true';
+  const manualInboxSync =
+    searchParams.get('manualInboxSync') === '1' || searchParams.get('manualInboxSync') === 'true';
   const account = await prisma.socialAccount.findFirst({
     where: { id, userId },
     select: {
@@ -99,6 +102,30 @@ export async function GET(
   // X returns all DM events for the user from the last 30 days; we paginate with meta.next_token.
   if (account.platform === 'TWITTER') {
     try {
+      if (manualInboxSync) {
+        const up = await prisma.socialAccount.updateMany({
+          where: {
+            id: account.id,
+            OR: [
+              { xInboxLastManualSyncAt: null },
+              { xInboxLastManualSyncAt: { lt: new Date(Date.now() - 15 * 60_000) } },
+            ],
+          },
+          data: { xInboxLastManualSyncAt: new Date() },
+        });
+        if (up.count === 0) {
+          return NextResponse.json(
+            {
+              conversations: [],
+              error:
+                'You can manually refresh X inbox once every 15 minutes. This protects shared API limits.',
+              inboxManualCooldown: true,
+            },
+            { status: 429 }
+          );
+        }
+      }
+
       const ourId = String(account.platformUserId ?? '');
       const credJson = (account.credentialsJson && typeof account.credentialsJson === 'object'
         ? account.credentialsJson : {}) as Record<string, unknown>;
@@ -122,6 +149,7 @@ export async function GET(
       let tokenForTwitter = token;
 
       do {
+        await checkAndIncrementXApiUsage(account.id);
         const params: Record<string, string> = {
           'dm_event.fields': 'id,text,sender_id,dm_conversation_id,created_at,participant_ids',
           event_types: 'MessageCreate',
@@ -180,6 +208,7 @@ export async function GET(
               });
               (account as { accessToken: string }).accessToken = newAccess;
               tokenForTwitter = newAccess;
+              await checkAndIncrementXApiUsage(account.id);
               res = await axios.get(dmEventsUrl, { ...requestConfig, headers: { Authorization: `Bearer ${newAccess}` } });
             } catch {
               return NextResponse.json({
@@ -277,6 +306,77 @@ export async function GET(
         };
       });
 
+      // Mentions (@-replies referencing this user) — surfaced alongside DMs in Unified Inbox.
+      const mentionItems: TwitterConvItem[] = [];
+      if (ourId) {
+        let mNext: string | null = null;
+        let mPages = 0;
+        const mentionsUrl = `https://api.x.com/2/users/${ourId}/mentions`;
+        try {
+          do {
+            await checkAndIncrementXApiUsage(account.id);
+            const mParams: Record<string, string> = {
+              max_results: '15',
+              'tweet.fields': 'author_id,created_at,text',
+              expansions: 'author_id',
+              'user.fields': 'id,name,username,profile_image_url',
+            };
+            if (mNext) mParams.pagination_token = mNext;
+            const mRequestConfig = useOAuth1ForDm
+              ? {
+                  params: mParams,
+                  headers: signTwitterRequest('GET', mentionsUrl, { key: oauth1UserToken!, secret: oauth1UserSecret! }, mParams),
+                  timeout: 15_000,
+                  validateStatus: () => true,
+                }
+              : {
+                  params: mParams,
+                  headers: { Authorization: `Bearer ${tokenForTwitter}` },
+                  timeout: 15_000,
+                  validateStatus: () => true,
+                };
+            const mRes = await axios.get<{
+              data?: Array<{ id: string; created_at?: string; author_id?: string; text?: string }>;
+              includes?: { users?: Array<{ id: string; name?: string; username?: string; profile_image_url?: string }> };
+              meta?: { next_token?: string };
+              errors?: unknown[];
+            }>(mentionsUrl, mRequestConfig);
+            if (mRes.status >= 200 && mRes.status < 300 && mRes.data?.data) {
+              for (const u of mRes.data.includes?.users ?? []) {
+                userMap.set(u.id, u);
+              }
+              for (const tw of mRes.data.data) {
+                const aid = tw.author_id;
+                const au = aid ? userMap.get(aid) : undefined;
+                mentionItems.push({
+                  id: `mention:${tw.id}`,
+                  updatedTime: tw.created_at ?? null,
+                  senders: aid
+                    ? [
+                        {
+                          id: aid,
+                          name: au?.name,
+                          username: au?.username,
+                          pictureUrl: au?.profile_image_url?.replace(/_normal\./, '_400x400.') ?? null,
+                        },
+                      ]
+                    : [{ id: undefined, name: 'Unknown', username: undefined, pictureUrl: null }],
+                  messageCount: 1,
+                });
+              }
+              mNext = mRes.data.meta?.next_token ?? null;
+            } else {
+              mNext = null;
+            }
+            mPages++;
+          } while (mNext && mPages < 3);
+        } catch (mentionErr) {
+          console.warn('[Conversations] Twitter mentions fetch skipped:', (mentionErr as Error)?.message);
+        }
+      }
+
+      list = [...mentionItems, ...list];
+
       const missingUserIds = new Set<string>();
       for (const conv of list) {
         for (const s of conv.senders) {
@@ -286,6 +386,7 @@ export async function GET(
       if (missingUserIds.size > 0) {
         const idsArr = Array.from(missingUserIds).slice(0, 100);
         try {
+          await checkAndIncrementXApiUsage(account.id);
           const usersRes = await axios.get<{
             data?: Array<{ id: string; name?: string; username?: string; profile_image_url?: string }>;
             error?: { message?: string };
@@ -331,6 +432,7 @@ export async function GET(
         let tokenCheck = 'not_checked';
         let rawErrors: unknown;
         try {
+          await checkAndIncrementXApiUsage(account.id);
           const meRes = await axios.get<{ data?: { id?: string; username?: string }; error?: { message?: string }; errors?: unknown }>(
             'https://api.x.com/2/users/me',
             { params: { 'user.fields': 'id,username' }, headers: { Authorization: `Bearer ${token}` }, timeout: 8_000 }
@@ -353,6 +455,12 @@ export async function GET(
       }
       return NextResponse.json({ conversations: list, ...(debug && { debug }) });
     } catch (e) {
+      if (e instanceof XRateLimitExceeded) {
+        return NextResponse.json(
+          { conversations: [], error: e.message, code: e.code },
+          { status: 402 }
+        );
+      }
       const err = e as { response?: { data?: { error?: { message?: string } }; status?: number }; message?: string };
       const msg = err?.response?.data?.error?.message ?? err?.message ?? 'Could not load X conversations.';
       if (err?.response?.status === 403 || /dm\.read|scope|permission/i.test(msg)) {

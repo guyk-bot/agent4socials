@@ -4,6 +4,7 @@
  */
 
 import axios from 'axios';
+import { checkAndIncrementXApiUsage } from '@/lib/x/x-api-usage';
 
 export type TwitterRecentTweetRow = {
   id: string;
@@ -64,13 +65,20 @@ function dayInRange(day: string | undefined, sinceDay: string, untilDay: string)
 export async function fetchTwitterTimelineInsights(params: {
   accessToken: string;
   platformUserId: string;
+  /** When set, each X HTTP request is counted against this account’s monthly X API budget. */
+  socialAccountId?: string;
   sinceDay: string;
   untilDay: string;
   budgetExpired: () => boolean;
   maxPages?: number;
 }): Promise<TwitterTimelineInsightsResult> {
-  const { accessToken, platformUserId, sinceDay, untilDay, budgetExpired } = params;
+  const { accessToken, platformUserId, sinceDay, untilDay, budgetExpired, socialAccountId } = params;
   const maxPages = params.maxPages ?? 18;
+
+  async function meteredGet<T>(url: string, config: Parameters<typeof axios.get<T>>[1]): Promise<ReturnType<typeof axios.get<T>>> {
+    if (socialAccountId) await checkAndIncrementXApiUsage(socialAccountId);
+    return axios.get<T>(url, config);
+  }
 
   const emptyTotals = () => ({
     impressions: 0,
@@ -83,7 +91,7 @@ export async function fetchTwitterTimelineInsights(params: {
 
   let twitterUser: TwitterUserPublicRow | null = null;
   try {
-    const userRes = await axios.get<{
+    const userRes = await meteredGet<{
       data?: {
         name?: string;
         username?: string;
@@ -140,7 +148,16 @@ export async function fetchTwitterTimelineInsights(params: {
       bookmark_count?: number;
       impression_count?: number;
     };
+    organic_metrics?: Record<string, unknown>;
+    non_public_metrics?: Record<string, unknown>;
   };
+
+  const tweetFieldCandidates = [
+    'created_at,public_metrics,organic_metrics,non_public_metrics,attachments',
+    'created_at,public_metrics,organic_metrics,attachments',
+    'created_at,public_metrics,attachments',
+  ] as const;
+  let tweetFieldsActive: (typeof tweetFieldCandidates)[number] = tweetFieldCandidates[0];
 
   const collected: TwitterRecentTweetRow[] = [];
   let paginationToken: string | undefined;
@@ -150,7 +167,7 @@ export async function fetchTwitterTimelineInsights(params: {
   for (let page = 0; page < maxPages && !budgetExpired(); page++) {
     const qs: Record<string, string> = {
       max_results: '100',
-      'tweet.fields': 'created_at,public_metrics,attachments',
+      'tweet.fields': tweetFieldsActive,
       expansions: 'attachments.media_keys',
       'media.fields': 'url,preview_image_url,alt_text',
       exclude: 'retweets,replies',
@@ -159,13 +176,14 @@ export async function fetchTwitterTimelineInsights(params: {
 
     let tweetsRes: {
       status: number;
-      data?: { data?: ApiTweet[]; includes?: { media?: Array<{ media_key: string; url?: string; preview_image_url?: string }> }; meta?: { next_token?: string; result_count?: number } };
+      data?: { data?: ApiTweet[]; includes?: { media?: Array<{ media_key: string; url?: string; preview_image_url?: string }> }; meta?: { next_token?: string; result_count?: number }; errors?: unknown };
     };
     try {
-      const r = await axios.get<{
+      const r = await meteredGet<{
         data?: ApiTweet[];
         includes?: { media?: Array<{ media_key: string; url?: string; preview_image_url?: string }> };
         meta?: { next_token?: string; result_count?: number };
+        errors?: unknown;
       }>(`https://api.twitter.com/2/users/${platformUserId}/tweets`, {
         params: qs,
         headers: { Authorization: `Bearer ${accessToken}` },
@@ -173,6 +191,17 @@ export async function fetchTwitterTimelineInsights(params: {
         validateStatus: () => true,
       });
       tweetsRes = { status: r.status, data: r.data };
+      if (
+        r.status === 400 &&
+        /non_public|organic|field|not support/i.test(JSON.stringify(r.data))
+      ) {
+        const idx = (tweetFieldCandidates as readonly string[]).indexOf(tweetFieldsActive);
+        if (idx >= 0 && idx < tweetFieldCandidates.length - 1) {
+          tweetFieldsActive = tweetFieldCandidates[idx + 1]!;
+          page -= 1;
+          continue;
+        }
+      }
     } catch {
       break;
     }
@@ -189,6 +218,15 @@ export async function fetchTwitterTimelineInsights(params: {
       const day = t.created_at?.slice(0, 10) ?? null;
       if (day && (oldestDayInPage === null || day < oldestDayInPage)) oldestDayInPage = day;
       const pm = t.public_metrics;
+      const org = (t.organic_metrics ?? {}) as {
+        like_count?: number;
+        reply_count?: number;
+        retweet_count?: number;
+        quote_count?: number;
+        bookmark_count?: number;
+        impression_count?: number;
+      };
+      const npm = (t.non_public_metrics ?? {}) as { impression_count?: number };
       const firstMediaKey = t.attachments?.media_keys?.[0];
       const firstMedia = firstMediaKey ? mediaByKey.get(firstMediaKey) : undefined;
       const thumbnailUrl = firstMedia?.preview_image_url ?? firstMedia?.url ?? null;
@@ -196,12 +234,12 @@ export async function fetchTwitterTimelineInsights(params: {
         id: t.id,
         text: (t.text ?? '').slice(0, 280),
         created_at: t.created_at ?? null,
-        like_count: pm?.like_count ?? 0,
-        reply_count: pm?.reply_count ?? 0,
-        retweet_count: pm?.retweet_count ?? 0,
-        quote_count: pm?.quote_count ?? 0,
-        bookmark_count: pm?.bookmark_count ?? 0,
-        impression_count: pm?.impression_count ?? 0,
+        like_count: pm?.like_count ?? org.like_count ?? 0,
+        reply_count: pm?.reply_count ?? org.reply_count ?? 0,
+        retweet_count: pm?.retweet_count ?? org.retweet_count ?? 0,
+        quote_count: pm?.quote_count ?? org.quote_count ?? 0,
+        bookmark_count: pm?.bookmark_count ?? org.bookmark_count ?? 0,
+        impression_count: pm?.impression_count ?? org.impression_count ?? npm.impression_count ?? 0,
         thumbnailUrl,
       });
     }

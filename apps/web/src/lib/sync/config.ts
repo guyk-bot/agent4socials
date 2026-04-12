@@ -80,7 +80,8 @@ export const STALE_THRESHOLDS: Record<string, Partial<Record<SyncScope, number>>
   TWITTER: {
     account_overview: 6 * HOUR,
     posts:            30 * MINUTE,
-    post_metrics:     2 * HOUR,
+    /** X: cron `post_metrics` should not hammer the API — align with product “12h analytics” policy. */
+    post_metrics:     12 * HOUR,
     comments:         5 * MINUTE,
     messages:         5 * MINUTE,
     full:             6 * HOUR,

@@ -334,6 +334,8 @@ function InboxPage() {
   const previousEngagementIdsRef = useRef<Set<string>>(new Set());
   const conversationsLoadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const conversationsLoadedRef = useRef(false);
+  /** Next X (Twitter) inbox fetch for these account IDs should send `manualInboxSync=1` (15m server cooldown). */
+  const pendingManualInboxByAccountRef = useRef<Set<string>>(new Set());
 
   // Multi-select state for conversations
   const [selectedConversationIds, setSelectedConversationIds] = useState<Set<string>>(new Set());
@@ -761,7 +763,10 @@ function InboxPage() {
     }
 
     platformsToFetch.forEach(({ platform, account }) => {
-    api.get(`/social/accounts/${account.id}/conversations?includeMessageCounts=1`)
+      const wantManual = platform === 'TWITTER' && pendingManualInboxByAccountRef.current.has(account.id);
+      if (wantManual) pendingManualInboxByAccountRef.current.delete(account.id);
+      const convUrl = `/social/accounts/${account.id}/conversations?includeMessageCounts=1${wantManual ? '&manualInboxSync=1' : ''}`;
+      api.get(convUrl)
       .then((res) => {
           if (cancelled) return;
           const list = (res.data?.conversations ?? []).map((c: Conversation) => ({
@@ -1517,6 +1522,9 @@ function InboxPage() {
                   type="button"
                   onClick={() => {
                     appData?.invalidateConversations?.();
+                    for (const a of effectiveAccounts) {
+                      if (a.platform === 'TWITTER') pendingManualInboxByAccountRef.current.add(a.id);
+                    }
                     setConversationsRefreshKey((k) => k + 1);
                     setConversationsLoading(true);
                   }}
@@ -1626,6 +1634,9 @@ function InboxPage() {
               type="button"
               onClick={() => {
                 appData?.invalidateConversations?.();
+                for (const a of effectiveAccounts) {
+                  if (a.platform === 'TWITTER') pendingManualInboxByAccountRef.current.add(a.id);
+                }
                 setConversationsRefreshKey((k) => k + 1);
                 setConversationsLoading(true);
               }}
@@ -1655,7 +1666,13 @@ function InboxPage() {
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => { appData?.invalidateConversations?.(); setConversationsRefreshKey((k) => k + 1); }}
+                onClick={() => {
+                  appData?.invalidateConversations?.();
+                  for (const a of effectiveAccounts) {
+                    if (a.platform === 'TWITTER') pendingManualInboxByAccountRef.current.add(a.id);
+                  }
+                  setConversationsRefreshKey((k) => k + 1);
+                }}
                 className="text-xs px-2 py-1 rounded bg-amber-200 text-amber-900 font-medium hover:bg-amber-300"
               >
                 Retry

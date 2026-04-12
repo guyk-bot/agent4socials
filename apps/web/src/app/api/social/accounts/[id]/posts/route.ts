@@ -20,6 +20,8 @@ import {
   classifyYoutubeVideoFormat,
   parseYoutubeIso8601DurationSeconds,
 } from '@/lib/youtube-video-format';
+import { checkAndIncrementXApiUsage, XRateLimitExceeded } from '@/lib/x/x-api-usage';
+import { fetchTweetsByIdsBatched, metricsFromTweetPayload } from '@/lib/x/twitter-tweets-batch';
 
 export const maxDuration = 60;
 
@@ -401,6 +403,7 @@ export async function GET(
       where: { id, userId },
       select: {
         id: true,
+        userId: true,
         platform: true,
         platformUserId: true,
         accessToken: true,
@@ -455,9 +458,13 @@ export async function GET(
           );
         } catch (e) {
           console.error('[Imported posts] sync error:', e);
-          const msg = (e as Error)?.message ?? '';
-          const metaMsg = (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
-          syncError = metaMsg || msg || 'Sync failed. Try reconnecting your account.';
+          if (e instanceof XRateLimitExceeded) {
+            syncError = e.message;
+          } else {
+            const msg = (e as Error)?.message ?? '';
+            const metaMsg = (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
+            syncError = metaMsg || msg || 'Sync failed. Try reconnecting your account.';
+          }
         }
       }
     }
@@ -478,44 +485,66 @@ export async function GET(
       take: 200,
     });
 
-    // For Twitter: live-enrich from API so we show likes/comments/reposts/images even if sync failed or is stale
+    // For Twitter: batched `GET /2/tweets?ids=` (up to 100 per call) so older imported rows still get public_metrics.
     let twitterEnrich: Record<string, { likeCount: number; commentsCount: number; repostsCount: number; thumbnailUrl: string | null }> = {};
+    let xApiBudgetError: string | undefined;
     if (account.platform === 'TWITTER' && importedRows.length > 0) {
       try {
-        const tweetsRes = await axios.get<{
-          data?: Array<{
-            id: string;
-            attachments?: { media_keys?: string[] };
-            public_metrics?: { like_count?: number; reply_count?: number; retweet_count?: number };
-          }>;
-          includes?: { media?: Array<{ media_key: string; url?: string; preview_image_url?: string }> };
-        }>(`https://api.twitter.com/2/users/${account.platformUserId}/tweets`, {
-          params: {
-            max_results: 50,
-            'tweet.fields': 'public_metrics,attachments',
-            expansions: 'attachments.media_keys',
-            'media.fields': 'url,preview_image_url',
-            exclude: 'retweets,replies',
-          },
-          headers: { Authorization: `Bearer ${account.accessToken}` },
-          timeout: 12_000,
-        });
-        const items = tweetsRes.data?.data ?? [];
-        const mediaList = tweetsRes.data?.includes?.media ?? [];
-        const mediaByKey = new Map(mediaList.map((m) => [m.media_key, m]));
-        for (const t of items) {
+        const ids = importedRows.map((r) => r.platformPostId).filter(Boolean);
+        const { byId, mediaByKey } = await fetchTweetsByIdsBatched(account.id, account.accessToken, ids);
+        for (const [tid, t] of byId) {
+          const m = metricsFromTweetPayload(t);
           const firstMediaKey = t.attachments?.media_keys?.[0];
           const firstMedia = firstMediaKey ? mediaByKey.get(firstMediaKey) : undefined;
           const thumbnailUrl = firstMedia?.preview_image_url ?? firstMedia?.url ?? null;
-          twitterEnrich[t.id] = {
-            likeCount: t.public_metrics?.like_count ?? 0,
-            commentsCount: t.public_metrics?.reply_count ?? 0,
-            repostsCount: t.public_metrics?.retweet_count ?? 0,
+          twitterEnrich[tid] = {
+            likeCount: m.like_count,
+            commentsCount: m.reply_count,
+            repostsCount: m.retweet_count,
             thumbnailUrl,
           };
+          try {
+            await prisma.postPerformance.upsert({
+              where: {
+                socialAccountId_platformPostId: { socialAccountId: account.id, platformPostId: tid },
+              },
+              create: {
+                userId: account.userId,
+                socialAccountId: account.id,
+                platform: 'TWITTER',
+                platformPostId: tid,
+                impressions: m.impression_count,
+                clicks: 0,
+                comments: m.reply_count,
+                shares: m.retweet_count + m.quote_count,
+                metricsRaw: {
+                  likes: m.like_count,
+                  quotes: m.quote_count,
+                  public_metrics: t.public_metrics ?? null,
+                  organic_metrics: t.organic_metrics ?? null,
+                } as object,
+              },
+              update: {
+                impressions: m.impression_count,
+                comments: m.reply_count,
+                shares: m.retweet_count + m.quote_count,
+                metricsRaw: {
+                  likes: m.like_count,
+                  quotes: m.quote_count,
+                  public_metrics: t.public_metrics ?? null,
+                  organic_metrics: t.organic_metrics ?? null,
+                } as object,
+              },
+            });
+          } catch {
+            /* non-fatal */
+          }
         }
-      } catch (_) {
-        // ignore; use DB values
+      } catch (e) {
+        if (e instanceof XRateLimitExceeded) {
+          xApiBudgetError = e.message;
+        }
+        // else ignore; use DB values
       }
     }
 
@@ -862,7 +891,7 @@ export async function GET(
       (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
     );
 
-    return NextResponse.json({ posts, syncError });
+    return NextResponse.json({ posts, syncError, ...(xApiBudgetError ? { xApiBudgetError } : {}) });
   } catch (e) {
     console.error('[Imported posts] GET error:', e);
     const msg = (e as Error)?.message ?? 'Server error while loading posts.';
@@ -1389,42 +1418,66 @@ async function syncImportedPosts(
 
   if (platform === 'TWITTER') {
     try {
-      const tweetsRes = await axios.get<{
-        data?: Array<{
-          id: string;
-          text?: string;
-          created_at?: string;
-          attachments?: { media_keys?: string[] };
-          public_metrics?: {
-            like_count?: number;
-            retweet_count?: number;
-            reply_count?: number;
-            impression_count?: number;
-            quote_count?: number;
-          };
-        }>;
+      const timelineUrl = `https://api.twitter.com/2/users/${platformUserId}/tweets`;
+      const baseParams: Record<string, string> = {
+        max_results: '50',
+        expansions: 'attachments.media_keys',
+        'media.fields': 'url,preview_image_url',
+        exclude: 'retweets,replies',
+      };
+      const tryFields = [
+        'created_at,text,public_metrics,organic_metrics,non_public_metrics,attachments',
+        'created_at,text,public_metrics,organic_metrics,attachments',
+        'created_at,text,public_metrics,attachments',
+      ] as const;
+      let items: Array<{
+        id: string;
+        text?: string;
+        created_at?: string;
+        attachments?: { media_keys?: string[] };
+        public_metrics?: {
+          like_count?: number;
+          retweet_count?: number;
+          reply_count?: number;
+          impression_count?: number;
+          quote_count?: number;
+        };
+        organic_metrics?: Record<string, unknown>;
+        non_public_metrics?: Record<string, unknown>;
+      }> = [];
+      let tweetsRes!: AxiosResponse<{
+        data?: typeof items;
         includes?: { media?: Array<{ media_key: string; url?: string; preview_image_url?: string }> };
-      }>(`https://api.twitter.com/2/users/${platformUserId}/tweets`, {
-        params: {
-          max_results: 50,
-          'tweet.fields': 'created_at,public_metrics,attachments',
-          expansions: 'attachments.media_keys',
-          'media.fields': 'url,preview_image_url',
-          exclude: 'retweets,replies',
-        },
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      const items = tweetsRes.data?.data ?? [];
+      }>;
+      let lastStatus = 400;
+      for (const fields of tryFields) {
+        await checkAndIncrementXApiUsage(socialAccountId);
+        tweetsRes = await axios.get(timelineUrl, {
+          params: { ...baseParams, 'tweet.fields': fields },
+          headers: { Authorization: `Bearer ${accessToken}` },
+          validateStatus: () => true,
+        });
+        lastStatus = tweetsRes.status;
+        if (tweetsRes.status >= 200 && tweetsRes.status < 300) {
+          items = tweetsRes.data?.data ?? [];
+          break;
+        }
+      }
+      if (lastStatus < 200 || lastStatus >= 300) {
+        const msg = (tweetsRes!.data as { errors?: Array<{ detail?: string }> })?.errors?.[0]?.detail ?? 'Timeline request failed';
+        throw new Error(typeof msg === 'string' ? msg : 'Timeline request failed');
+      }
       const mediaList = tweetsRes.data?.includes?.media ?? [];
       const mediaByKey = new Map(mediaList.map((m) => [m.media_key, m]));
       for (const t of items) {
         const publishedAt = t.created_at ? new Date(t.created_at) : new Date();
         const permalinkUrl = `https://x.com/i/status/${t.id}`;
-        const impressions = t.public_metrics?.impression_count ?? 0;
-        const likeCount = t.public_metrics?.like_count ?? 0;
-        const replyCount = t.public_metrics?.reply_count ?? 0;
-        const retweetCount = t.public_metrics?.retweet_count ?? 0;
-        const quoteCount = t.public_metrics?.quote_count ?? 0;
+        const m = metricsFromTweetPayload(t);
+        const impressions = m.impression_count;
+        const likeCount = m.like_count;
+        const replyCount = m.reply_count;
+        const retweetCount = m.retweet_count;
+        const quoteCount = m.quote_count;
         const interactions = likeCount + replyCount + retweetCount + quoteCount;
         const firstMediaKey = t.attachments?.media_keys?.[0];
         const firstMedia = firstMediaKey ? mediaByKey.get(firstMediaKey) : undefined;
