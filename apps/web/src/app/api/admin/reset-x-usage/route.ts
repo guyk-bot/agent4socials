@@ -6,7 +6,7 @@ import type { NextRequest } from 'next/server';
 
 export async function POST(req: NextRequest) {
   try {
-    const userId = await getPrismaUserIdFromRequest(req);
+    const userId = await getPrismaUserIdFromRequest(req.headers.get('authorization'));
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     // Allow any authenticated user to reset their own Twitter accounts.
