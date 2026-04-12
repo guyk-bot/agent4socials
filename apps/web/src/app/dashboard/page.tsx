@@ -557,7 +557,6 @@ export default function DashboardPage() {
         return Date.now() - last >= THIRTY_MIN_MS;
       };
       const refreshPostsInBackground = () => {
-        if (postsPhase2Running) return;
         if (skipInstagramAutoRefresh && hasAnyCachedPosts && !shouldBackgroundSyncPosts()) return;
         api.get(`/social/accounts/${accountId}/posts`, {
           params: shouldBackgroundSyncPosts() ? { sync: 1 } : (postImportSyncOnFirstLoad(selectedAccount?.platform) ? { sync: 1 } : {}),
@@ -591,7 +590,6 @@ export default function DashboardPage() {
         refreshPostsInBackground();
         return;
       }
-      if (postsPhase2Running) return;
       setImportedPostsLoading(true);
       api.get(`/social/accounts/${accountId}/posts`, {
         params: postImportSyncOnFirstLoad(selectedAccount?.platform) ? { sync: 1 } : {},
@@ -707,7 +705,6 @@ export default function DashboardPage() {
     if (!selectedAccount?.id || !dateRange.start || !dateRange.end) return;
     // Wait for cache rehydration to complete before checking for cached data
     if (!appData?.cacheRehydrated) return;
-    const phase2Running = Boolean(appData?.prefetchHasLoadedOnce && !appData?.prefetchPhase2Done);
     const skipInstagramAutoRefresh = selectedAccount?.platform === 'INSTAGRAM' && !justConnected;
     const prevAccountId = selectedAccountIdRef.current;
     selectedAccountIdRef.current = selectedAccount.id;
@@ -754,7 +751,7 @@ export default function DashboardPage() {
           igForcedRefreshRef.current[cacheKey] = true;
         }
       }
-      if (runInsightsSwr && !phase2Running) {
+      if (runInsightsSwr) {
         api.get(`/social/accounts/${accountId}/insights`, {
           params:
             selectedAccount?.platform === 'FACEBOOK'
@@ -781,7 +778,7 @@ export default function DashboardPage() {
         if (postsCached !== undefined && postsCached !== null) {
           setImportedPosts(postsCached);
           setImportedPostsLoading(false);
-        } else if (!phase2Running) {
+        } else {
           setImportedPostsLoading(true);
           api.get(`/social/accounts/${accountId}/posts`, {
             params: postImportSyncOnFirstLoad(selectedAccount?.platform) ? { sync: 1 } : {},
@@ -827,10 +824,6 @@ export default function DashboardPage() {
         setImportedPostsLoading(true);
       }
     }
-
-    // Phase 2 is still fetching per-account data — skip redundant requests; the effect
-    // will re-run once prefetchPhase2Done flips to true and data is in cache.
-    if (phase2Running) return;
 
     // Fetch insights; optional fast posts only when not on per-account analytics (single owner for posts there).
     const insightsPromise = api.get(`/social/accounts/${accountId}/insights`, {
@@ -1004,17 +997,6 @@ export default function DashboardPage() {
       setLiveFbConversationDates(null);
       return;
     }
-    // Use AppDataContext cache if Phase 2 already fetched conversations
-    const cachedConvos = appDataRef.current?.getConversations(selectedAccount.id);
-    if (cachedConvos && Array.isArray(cachedConvos) && cachedConvos.length > 0) {
-      setLiveFbConversationsCount(cachedConvos.length);
-      const dates = cachedConvos
-        .map((c: { updatedTime?: string | null }) => (c?.updatedTime ? String(c.updatedTime).slice(0, 10) : null))
-        .filter((d: string | null): d is string => Boolean(d));
-      setLiveFbConversationDates(dates);
-      return;
-    }
-    if (appDataRef.current?.prefetchHasLoadedOnce && !appDataRef.current?.prefetchPhase2Done) return;
     let cancelled = false;
     api.get(`/social/accounts/${selectedAccount.id}/conversations`)
       .then((res) => {
@@ -1033,7 +1015,7 @@ export default function DashboardPage() {
         }
       });
     return () => { cancelled = true; };
-  }, [selectedAccount?.id, selectedAccount?.platform, appData?.prefetchPhase2Done]);
+  }, [selectedAccount?.id, selectedAccount?.platform]);
 
   const handleConnect = async (platform: string, method?: string) => {
     const getMessage = (err: unknown): string | null => {
