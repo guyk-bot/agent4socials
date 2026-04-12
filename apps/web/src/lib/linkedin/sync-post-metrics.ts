@@ -5,6 +5,8 @@
  */
 
 import axios from 'axios';
+import { Platform } from '@prisma/client';
+import { prisma } from '@/lib/db';
 import { linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
 
 export function normalizeLinkedInPostUrn(platformPostId: string): string {
@@ -106,4 +108,83 @@ export async function fetchOrganizationUgcPostStatsBatch(
 
 export function isLinkedInOrganizationAccount(platformUserId: string): boolean {
   return platformUserId.trim().toLowerCase().startsWith('urn:li:organization:');
+}
+
+/**
+ * Fetches impression / reaction / comment / share counts from LinkedIn REST APIs
+ * and updates ImportedPost rows. Call after UGC list sync so the dashboard shows
+ * more than “posts only” (UGC list does not include per-post stats).
+ */
+export async function refreshLinkedInImportedPostMetrics(account: {
+  id: string;
+  platformUserId: string;
+  accessToken: string;
+}): Promise<{ updated: number }> {
+  const rows = await prisma.importedPost.findMany({
+    where: { socialAccountId: account.id, platform: Platform.LINKEDIN },
+    orderBy: { publishedAt: 'desc' },
+    take: 40,
+    select: { id: true, platformPostId: true },
+  });
+  if (rows.length === 0) return { updated: 0 };
+
+  const isOrg = isLinkedInOrganizationAccount(account.platformUserId);
+  let updated = 0;
+
+  if (isOrg) {
+    const chunkSize = 10;
+    for (let i = 0; i < rows.length; i += chunkSize) {
+      const chunk = rows.slice(i, i + chunkSize);
+      const statsMap = await fetchOrganizationUgcPostStatsBatch(
+        account.accessToken,
+        account.platformUserId.trim(),
+        chunk.map((r) => r.platformPostId)
+      );
+      for (const row of chunk) {
+        const key = normalizeLinkedInPostUrn(row.platformPostId);
+        const s = statsMap.get(key);
+        if (!s) continue;
+        const interactions = s.likes + s.comments + s.shares;
+        await prisma.importedPost.update({
+          where: { id: row.id },
+          data: {
+            impressions: s.impressions,
+            likeCount: s.likes,
+            commentsCount: s.comments,
+            sharesCount: s.shares,
+            repostsCount: s.shares,
+            interactions,
+            syncedAt: new Date(),
+          },
+        });
+        updated += 1;
+      }
+    }
+  } else {
+    const concurrency = 3;
+    for (let i = 0; i < rows.length; i += concurrency) {
+      const slice = rows.slice(i, i + concurrency);
+      await Promise.all(
+        slice.map(async (row) => {
+          const s = await fetchMemberUgcPostLifetimeMetrics(account.accessToken, row.platformPostId);
+          const interactions = s.likes + s.comments + s.shares;
+          await prisma.importedPost.update({
+            where: { id: row.id },
+            data: {
+              impressions: s.impressions,
+              likeCount: s.likes,
+              commentsCount: s.comments,
+              sharesCount: s.shares,
+              repostsCount: s.shares,
+              interactions,
+              syncedAt: new Date(),
+            },
+          });
+          updated += 1;
+        })
+      );
+    }
+  }
+
+  return { updated };
 }

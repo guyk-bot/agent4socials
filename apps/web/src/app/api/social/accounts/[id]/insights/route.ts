@@ -1788,6 +1788,13 @@ export async function GET(
 
       if (connections != null) {
         out.followers = connections;
+      } else if (
+        memberFollowersRes.ok &&
+        typeof memberFollowersRes.count === 'number' &&
+        Number.isFinite(memberFollowersRes.count)
+      ) {
+        // networkSizes often 403 without legacy scopes; memberFollowersCount uses REST Community API
+        out.followers = Math.max(0, Math.round(memberFollowersRes.count));
       }
 
       let userinfoName: string | undefined;
@@ -2016,7 +2023,7 @@ export async function GET(
         hintParts.push('Use Sync now to pull posts; then impressions and engagement can appear when stored on each post.');
       } else if (impSum === 0 && importedInRange.length > 0) {
         hintParts.push(
-          'Many LinkedIn personal shares still store zero impressions until stats are available for your integration.'
+          'Impressions are loaded from post analytics APIs after each post sync. Use Sync on Posts with r_member_postAnalytics (personal) or organization share statistics (Page); OpenID alone cannot fill these.'
         );
       }
       out.insightsHint =

@@ -6,6 +6,7 @@
 import axios from 'axios';
 import { prisma } from '@/lib/db';
 import { Platform } from '@prisma/client';
+import { refreshLinkedInImportedPostMetrics } from '@/lib/linkedin/sync-post-metrics';
 
 /** Resolve authors filter URN for ugcPosts?q=authors */
 export function linkedInAuthorUrnForUgc(platformUserId: string, credentialsJson?: unknown): string {
@@ -66,6 +67,7 @@ export async function syncLinkedInUgcPosts(params: {
         Authorization: `Bearer ${accessToken}`,
         'X-Restli-Protocol-Version': '2.0.0',
       },
+      timeout: 25_000,
       validateStatus: () => true,
     });
 
@@ -126,6 +128,16 @@ export async function syncLinkedInUgcPosts(params: {
         },
       });
       itemsProcessed++;
+    }
+
+    try {
+      await refreshLinkedInImportedPostMetrics({
+        id: socialAccountId,
+        platformUserId,
+        accessToken,
+      });
+    } catch {
+      /* metrics are best-effort; UGC rows still exist */
     }
 
     return { itemsProcessed };
