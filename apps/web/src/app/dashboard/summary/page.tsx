@@ -41,8 +41,8 @@ import type {
   UnifiedTopPost,
   UnifiedHistoryPost,
   UnifiedSummaryResponse,
-} from '@/lib/analytics/unified-metrics';
-import { PLATFORM_COLOR, CHART_PLATFORMS } from '@/lib/analytics/unified-metrics';
+} from '@/lib/analytics/unified-metrics-types';
+import { PLATFORM_COLOR, CHART_PLATFORMS } from '@/lib/analytics/unified-metrics-types';
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
 
