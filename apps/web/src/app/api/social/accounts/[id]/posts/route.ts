@@ -1422,7 +1422,7 @@ async function syncImportedPosts(
       const baseParams: Record<string, string> = {
         max_results: '50',
         expansions: 'attachments.media_keys',
-        'media.fields': 'url,preview_image_url',
+        'media.fields': 'url,preview_image_url,type',
         exclude: 'retweets,replies',
       };
       const tryFields = [
@@ -1447,7 +1447,7 @@ async function syncImportedPosts(
       }> = [];
       let tweetsRes!: AxiosResponse<{
         data?: typeof items;
-        includes?: { media?: Array<{ media_key: string; url?: string; preview_image_url?: string }> };
+        includes?: { media?: Array<{ media_key: string; url?: string; preview_image_url?: string; type?: string }> };
       }>;
       let lastStatus = 400;
       for (const fields of tryFields) {
@@ -1482,6 +1482,9 @@ async function syncImportedPosts(
         const firstMediaKey = t.attachments?.media_keys?.[0];
         const firstMedia = firstMediaKey ? mediaByKey.get(firstMediaKey) : undefined;
         const thumbnailUrl = firstMedia?.preview_image_url ?? firstMedia?.url ?? null;
+        // 'video' or 'animated_gif' → store as VIDEO so the Reels section picks it up
+        const rawMediaType = (firstMedia?.type ?? '').toLowerCase();
+        const mediaType = rawMediaType === 'video' || rawMediaType === 'animated_gif' ? 'VIDEO' : rawMediaType === 'photo' ? 'IMAGE' : null;
         await prisma.importedPost.upsert({
           where: {
             socialAccountId_platformPostId: { socialAccountId, platformPostId: t.id },
@@ -1497,6 +1500,7 @@ async function syncImportedPosts(
             repostsCount: retweetCount,
             sharesCount: 0,
             thumbnailUrl,
+            mediaType,
             syncedAt: new Date(),
           },
           create: {
@@ -1513,6 +1517,7 @@ async function syncImportedPosts(
             repostsCount: retweetCount,
             sharesCount: 0,
             thumbnailUrl,
+            mediaType,
           },
         });
       }

@@ -552,6 +552,11 @@ function isYouTubeLongFormVideoPost(p: FacebookPost): boolean {
 function isReelPost(p: FacebookPost): boolean {
   if ((p.platform ?? '').toUpperCase() === 'TIKTOK') return true;
   if ((p.platform ?? '').toUpperCase() === 'YOUTUBE') return isYouTubeShortPost(p);
+  // Twitter: any video tweet (mediaType VIDEO or GIF) is treated as a reel/video
+  if ((p.platform ?? '').toUpperCase() === 'TWITTER') {
+    const mt = (p.mediaType ?? '').toUpperCase();
+    return mt === 'VIDEO' || mt === 'GIF' || mt === 'REEL';
+  }
   const url = (p.permalinkUrl ?? '').toLowerCase();
   if (url.includes('/reel/') || url.includes('/reels/')) return true;
   const mt = (p.mediaType ?? '').toUpperCase();
@@ -3075,15 +3080,26 @@ export function FacebookAnalyticsView({
       acc[d] = (acc[d] ?? 0) + bestRepostCount(post);
       return acc;
     }, {});
-    // For Twitter: if recentTweets have more data than synced posts, merge them in by day (take max per day).
+    // For Twitter: supplement synced-posts data with live recentTweets per day.
+    // Use recentTweets as the canonical source (sum across all tweets per day), and take max vs synced posts.
     if (isTwitter && twitterRecentTweets.length > 0) {
+      const rtLikes: Record<string, number> = {};
+      const rtComments: Record<string, number> = {};
+      const rtShares: Record<string, number> = {};
+      const rtReposts: Record<string, number> = {};
       for (const t of twitterRecentTweets) {
         const d = localCalendarDateFromIso(t.created_at ?? '');
         if (!d) continue;
-        likesByDate[d] = Math.max(likesByDate[d] ?? 0, t.like_count ?? 0);
-        commentsByDate[d] = Math.max(commentsByDate[d] ?? 0, t.reply_count ?? 0);
-        sharesByDate[d] = Math.max(sharesByDate[d] ?? 0, (t.retweet_count ?? 0) + (t.quote_count ?? 0));
-        repostsByDate[d] = Math.max(repostsByDate[d] ?? 0, t.retweet_count ?? 0);
+        rtLikes[d] = (rtLikes[d] ?? 0) + (t.like_count ?? 0);
+        rtComments[d] = (rtComments[d] ?? 0) + (t.reply_count ?? 0);
+        rtShares[d] = (rtShares[d] ?? 0) + (t.retweet_count ?? 0) + (t.quote_count ?? 0);
+        rtReposts[d] = (rtReposts[d] ?? 0) + (t.retweet_count ?? 0);
+      }
+      for (const d of Object.keys(rtLikes)) {
+        likesByDate[d] = Math.max(likesByDate[d] ?? 0, rtLikes[d]!);
+        commentsByDate[d] = Math.max(commentsByDate[d] ?? 0, rtComments[d] ?? 0);
+        sharesByDate[d] = Math.max(sharesByDate[d] ?? 0, rtShares[d] ?? 0);
+        repostsByDate[d] = Math.max(repostsByDate[d] ?? 0, rtReposts[d] ?? 0);
       }
     }
     return dateAxis.map((date) => ({
@@ -3132,6 +3148,17 @@ export function FacebookAnalyticsView({
       acc[d] = (acc[d] ?? 0) + 1;
       return acc;
     }, {});
+    // For Twitter: merge recentTweets into postsByDate when synced posts are absent or smaller.
+    if (isTwitter && twitterRecentTweets.length > 0) {
+      const rtByDate: Record<string, number> = {};
+      for (const t of twitterRecentTweets) {
+        const d = localCalendarDateFromIso(t.created_at ?? '');
+        if (d) rtByDate[d] = (rtByDate[d] ?? 0) + 1;
+      }
+      for (const [d, cnt] of Object.entries(rtByDate)) {
+        postsByDate[d] = Math.max(postsByDate[d] ?? 0, cnt);
+      }
+    }
     const conversationsByDate = liveConversationDates.reduce<Record<string, number>>((acc, d) => {
       const key = String(d).slice(0, 10);
       acc[key] = (acc[key] ?? 0) + 1;
@@ -3167,7 +3194,7 @@ export function FacebookAnalyticsView({
       conversations: conversationsByDate[date] ?? 0,
       subscriberNet: youtubeGrowthNetByDate[date] ?? 0,
     }));
-  }, [actionsSeries, dateAxis, liveConversationDates, postsInRange, totalActions, youtubeGrowthNetByDate]);
+  }, [actionsSeries, dateAxis, isTwitter, liveConversationDates, postsInRange, totalActions, twitterRecentTweets, youtubeGrowthNetByDate]);
   const operationalTicks = useMemo(
     () =>
       buildKeyDateTicks(
@@ -3190,9 +3217,32 @@ export function FacebookAnalyticsView({
     [chartByMode]
   );
 
-  const topByViews = [...postsRows].sort((a, b) => b.views - a.views).slice(0, 3).map((p) => ({ ...p, value: p.views, content: p.rawPost.content, thumbnailUrl: p.rawPost.thumbnailUrl }));
-  const topByClicks = [...postsRows].sort((a, b) => b.clicks - a.clicks).slice(0, 3).map((p) => ({ ...p, value: p.clicks, content: p.rawPost.content, thumbnailUrl: p.rawPost.thumbnailUrl }));
-  const topByReactions = [...postsRows].sort((a, b) => b.reactionsTotal - a.reactionsTotal).slice(0, 3).map((p) => ({ ...p, value: p.reactionsTotal, content: p.rawPost.content, thumbnailUrl: p.rawPost.thumbnailUrl }));
+  // For Twitter when no synced posts, synthesize top-posts entries from recentTweets.
+  const twitterFallbackRows = useMemo(() => {
+    if (!isTwitter || postsRows.length > 0 || twitterRecentTweets.length === 0) return [];
+    return twitterRecentTweets.map((t) => ({
+      id: t.id,
+      date: t.created_at ?? '',
+      type: 'Post' as const,
+      preview: t.text,
+      permalink: `https://x.com/i/web/status/${t.id}`,
+      views: t.impression_count,
+      uniqueReach: 0,
+      clicks: t.like_count + t.reply_count + t.retweet_count,
+      likes: t.like_count,
+      reactionsTotal: t.like_count,
+      watchTimeMs: 0,
+      avgWatchMs: 0,
+      reactionBreakdownRaw: undefined,
+      status: 'Ready' as const,
+      rawPost: { content: t.text, thumbnailUrl: t.thumbnailUrl } as import('./types').FacebookPost,
+      value: 0,
+    }));
+  }, [isTwitter, postsRows.length, twitterRecentTweets]);
+  const effectivePostsRows = isTwitter && postsRows.length === 0 ? twitterFallbackRows : postsRows;
+  const topByViews = [...effectivePostsRows].sort((a, b) => b.views - a.views).slice(0, 3).map((p) => ({ ...p, value: p.views, content: p.rawPost.content, thumbnailUrl: p.rawPost.thumbnailUrl }));
+  const topByClicks = [...effectivePostsRows].sort((a, b) => b.clicks - a.clicks).slice(0, 3).map((p) => ({ ...p, value: p.clicks, content: p.rawPost.content, thumbnailUrl: p.rawPost.thumbnailUrl }));
+  const topByReactions = [...effectivePostsRows].sort((a, b) => b.reactionsTotal - a.reactionsTotal).slice(0, 3).map((p) => ({ ...p, value: p.reactionsTotal, content: p.rawPost.content, thumbnailUrl: p.rawPost.thumbnailUrl }));
   const allPostsRows = useMemo(() => {
     return posts.map((p) => {
       const fi = p.facebookInsights ?? {};
@@ -4334,7 +4384,7 @@ export function FacebookAnalyticsView({
 
       </section>
 
-      {!isTikTok && !isLinkedIn ? (
+      {!isTikTok && !isLinkedIn && !isTwitter ? (
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.traffic} className="scroll-mt-28 space-y-6">
         {overviewSkeleton ? (
           <AnalyticsTrafficSkeleton />
@@ -4663,7 +4713,16 @@ export function FacebookAnalyticsView({
           <div
             className={`grid gap-4 sm:grid-cols-2 ${isInstagram || isFacebook || isTikTok || isTwitter || isYouTube || isLinkedIn ? 'xl:grid-cols-3' : ''}`}
           >
-            <MetricCard label="Total Posts" source="Derived from posts in date range" color={COLOR.text} value={formatNumber(postsInRange.length)} />
+            <MetricCard
+              label="Total Posts"
+              source="Derived from posts in date range"
+              color={COLOR.text}
+              value={formatNumber(
+                isTwitter
+                  ? Math.max(postsInRange.length, twitterRecentTweets.length)
+                  : postsInRange.length
+              )}
+            />
             {(isInstagram || isFacebook || isTikTok || isTwitter || isYouTube || isLinkedIn) && (
               <MetricCard
                 label="Avg interactions per post"
