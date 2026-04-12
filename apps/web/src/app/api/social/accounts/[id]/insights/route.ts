@@ -2037,21 +2037,19 @@ export async function GET(
       const sinceDay = effectiveSinceParam.slice(0, 10);
       const untilDay = effectiveUntilParam.slice(0, 10);
       let tw: Awaited<ReturnType<typeof fetchTwitterTimelineInsights>>;
-      try {
-        // Cap pages tightly so the 60s Vercel limit is never hit.
-        // Each page is 100 tweets × ~200ms avg = ~20s for 10 pages; leave headroom for user/cron calls.
-        const rangeDays = Math.max(1, (new Date(untilDay).getTime() - new Date(sinceDay).getTime()) / 86_400_000);
-        const maxPages = rangeDays <= 14 ? 5 : rangeDays <= 31 ? 8 : 12;
-        tw = await fetchTwitterTimelineInsights({
-          accessToken: account.accessToken,
-          platformUserId: account.platformUserId,
-          socialAccountId: account.id,
-          sinceDay,
-          untilDay,
-          budgetExpired,
-          maxPages,
-        });
-      }
+      // Cap pages tightly so the 60s Vercel limit is never hit.
+      // Each page is 100 tweets × ~200ms avg = ~20s for 10 pages; leave headroom for user/cron calls.
+      const rangeDays = Math.max(1, (new Date(untilDay).getTime() - new Date(sinceDay).getTime()) / 86_400_000);
+      const maxPages = rangeDays <= 14 ? 5 : rangeDays <= 31 ? 8 : 12;
+      tw = await fetchTwitterTimelineInsights({
+        accessToken: account.accessToken,
+        platformUserId: account.platformUserId,
+        socialAccountId: account.id,
+        sinceDay,
+        untilDay,
+        budgetExpired,
+        maxPages,
+      });
       if (tw.twitterUser) {
         out.followers = tw.twitterUser.followers_count;
         out.followingCount = tw.twitterUser.following_count;
