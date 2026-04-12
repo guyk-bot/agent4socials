@@ -17,6 +17,8 @@ export type TwitterRecentTweetRow = {
   bookmark_count: number;
   impression_count: number;
   thumbnailUrl: string | null;
+  /** Raw X media type: 'photo' | 'video' | 'animated_gif' | null */
+  mediaType: string | null;
 };
 
 export type TwitterUserPublicRow = {
@@ -169,19 +171,19 @@ export async function fetchTwitterTimelineInsights(params: {
       max_results: '100',
       'tweet.fields': tweetFieldsActive,
       expansions: 'attachments.media_keys',
-      'media.fields': 'url,preview_image_url,alt_text',
+      'media.fields': 'url,preview_image_url,alt_text,type',
       exclude: 'retweets,replies',
     };
     if (paginationToken) qs.pagination_token = paginationToken;
 
     let tweetsRes: {
       status: number;
-      data?: { data?: ApiTweet[]; includes?: { media?: Array<{ media_key: string; url?: string; preview_image_url?: string }> }; meta?: { next_token?: string; result_count?: number }; errors?: unknown };
+      data?: { data?: ApiTweet[]; includes?: { media?: Array<{ media_key: string; url?: string; preview_image_url?: string; type?: string }> }; meta?: { next_token?: string; result_count?: number }; errors?: unknown };
     };
     try {
       const r = await meteredGet<{
         data?: ApiTweet[];
-        includes?: { media?: Array<{ media_key: string; url?: string; preview_image_url?: string }> };
+        includes?: { media?: Array<{ media_key: string; url?: string; preview_image_url?: string; type?: string }> };
         meta?: { next_token?: string; result_count?: number };
         errors?: unknown;
       }>(`https://api.twitter.com/2/users/${platformUserId}/tweets`, {
@@ -241,6 +243,7 @@ export async function fetchTwitterTimelineInsights(params: {
         bookmark_count: pm?.bookmark_count ?? org.bookmark_count ?? 0,
         impression_count: pm?.impression_count ?? org.impression_count ?? npm.impression_count ?? 0,
         thumbnailUrl,
+        mediaType: firstMedia?.type ?? null,
       });
     }
 

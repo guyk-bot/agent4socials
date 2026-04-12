@@ -2814,10 +2814,11 @@ export function FacebookAnalyticsView({
   /** Combined Shorts + long-form for aggregate KPIs and Pinterest; charts split for YouTube below. */
   const reelChartSourceRows = useMemo((): ReelAnalyticsRow[] => {
     if (isPinterest) return pinterestVideoRows;
+    if (isTwitter) return reelsRows.length > 0 ? reelsRows : twitterVideoReelsRows;
     if (!isYouTube) return reelsRows;
     if (reelsRows.length > 0 && longFormVideoRows.length > 0) return [...reelsRows, ...longFormVideoRows];
     return reelsRows.length > 0 ? reelsRows : longFormVideoRows;
-  }, [isPinterest, pinterestVideoRows, isYouTube, reelsRows, longFormVideoRows]);
+  }, [isPinterest, pinterestVideoRows, isTwitter, twitterVideoReelsRows, isYouTube, reelsRows, longFormVideoRows]);
 
   const reelsChartData = useMemo(() => buildReelsLikeChartData(reelChartSourceRows), [reelChartSourceRows]);
 
@@ -3224,26 +3225,43 @@ export function FacebookAnalyticsView({
 
   // For Twitter when no synced posts, synthesize top-posts entries from recentTweets.
   const twitterFallbackRows = useMemo(() => {
-    if (!isTwitter || postsRows.length > 0 || twitterRecentTweets.length === 0) return [];
-    return twitterRecentTweets.map((t) => ({
-      id: t.id,
-      date: t.created_at ?? '',
-      type: 'Post' as const,
-      preview: t.text,
-      permalink: `https://x.com/i/web/status/${t.id}`,
-      views: t.impression_count,
-      uniqueReach: 0,
-      clicks: t.like_count + t.reply_count + t.retweet_count,
-      likes: t.like_count,
-      reactionsTotal: t.like_count,
-      watchTimeMs: 0,
-      avgWatchMs: 0,
-      reactionBreakdownRaw: undefined,
-      status: 'Ready' as const,
-      rawPost: { content: t.text, thumbnailUrl: t.thumbnailUrl } as import('./types').FacebookPost,
-      value: 0,
-    }));
-  }, [isTwitter, postsRows.length, twitterRecentTweets]);
+    if (!isTwitter || twitterRecentTweets.length === 0) return [];
+    return twitterRecentTweets.map((t) => {
+      const rawMt = (t.mediaType ?? '').toLowerCase();
+      const isVideo = rawMt === 'video' || rawMt === 'animated_gif';
+      return {
+        id: t.id,
+        date: t.created_at ?? '',
+        type: isVideo ? ('Reel' as const) : ('Post' as const),
+        preview: t.text,
+        permalink: `https://x.com/i/web/status/${t.id}`,
+        views: t.impression_count,
+        uniqueReach: 0,
+        clicks: t.like_count + t.reply_count + t.retweet_count,
+        likes: t.like_count,
+        reactionsTotal: t.like_count,
+        watchTimeMs: 0,
+        avgWatchMs: 0,
+        reactionBreakdownRaw: undefined,
+        status: 'Ready' as const,
+        rawPost: { content: t.text, thumbnailUrl: t.thumbnailUrl, mediaType: t.mediaType, platform: 'TWITTER' } as import('./types').FacebookPost,
+        value: 0,
+      };
+    });
+  }, [isTwitter, twitterRecentTweets]);
+  const twitterVideoReelsRows = useMemo((): ReelAnalyticsRow[] => {
+    if (!isTwitter || twitterRecentTweets.length === 0) return [];
+    return twitterRecentTweets
+      .filter((t) => { const mt = (t.mediaType ?? '').toLowerCase(); return mt === 'video' || mt === 'animated_gif'; })
+      .map((t) => ({
+        post: { content: t.text, thumbnailUrl: t.thumbnailUrl, mediaType: t.mediaType, platform: 'TWITTER', permalinkUrl: `https://x.com/i/web/status/${t.id}`, publishedAt: t.created_at ?? '' } as unknown as import('./types').FacebookPost,
+        views: t.impression_count,
+        organicViews: 0,
+        avgWatchMs: 0,
+        watchTimeMs: 0,
+      }));
+  }, [isTwitter, twitterRecentTweets]);
+
   const effectivePostsRows = isTwitter && postsRows.length === 0 ? twitterFallbackRows : postsRows;
   const topByViews = [...effectivePostsRows].sort((a, b) => b.views - a.views).slice(0, 3).map((p) => ({ ...p, value: p.views, content: p.rawPost.content, thumbnailUrl: p.rawPost.thumbnailUrl }));
   const topByClicks = [...effectivePostsRows].sort((a, b) => b.clicks - a.clicks).slice(0, 3).map((p) => ({ ...p, value: p.clicks, content: p.rawPost.content, thumbnailUrl: p.rawPost.thumbnailUrl }));
@@ -5299,77 +5317,37 @@ export function FacebookAnalyticsView({
               </button>
             ))}
           </div>
-          {contentHistoryRows.length > 0 ? (
-            <PostsPerformanceTable
-              rows={contentHistoryRows}
-              onOpenDetail={setSelectedPost}
-              clicksColumnLabel={isInstagram || isTikTok || isLinkedIn ? 'Interactions' : 'Clicks'}
-              hideClicksColumn={isInstagram}
-              platform={insights?.platform}
-            />
-          ) : postsLoading ? (
-            <div className="rounded-[20px] border p-6 space-y-3" style={{ background: COLOR.card, borderColor: COLOR.border }}>
-              <p className="text-sm font-medium" style={{ color: COLOR.text }}>Loading content history…</p>
-              <div className="space-y-2">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="h-11 rounded-xl animate-pulse" style={{ background: 'rgba(15,23,42,0.06)' }} />
-                ))}
-              </div>
-            </div>
-          ) : isTwitter && twitterRecentTweets.length > 0 ? (
-            <div className="overflow-x-auto rounded-xl border" style={{ borderColor: COLOR.border }}>
-              <table className="w-full min-w-[780px] text-left text-xs">
-                <thead>
-                  <tr className="border-b" style={{ borderColor: COLOR.border, color: COLOR.textSecondary }}>
-                    <th className="px-3 py-2.5 font-medium">Published</th>
-                    <th className="px-3 py-2.5 font-medium">Impressions</th>
-                    <th className="px-3 py-2.5 font-medium">Likes</th>
-                    <th className="px-3 py-2.5 font-medium">Replies</th>
-                    <th className="px-3 py-2.5 font-medium">Reposts</th>
-                    <th className="px-3 py-2.5 font-medium">Quotes</th>
-                    <th className="px-3 py-2.5 font-medium">Post</th>
-                    <th className="px-3 py-2.5 font-medium">Open</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {twitterRecentTweets.map((row) => (
-                    <tr key={row.id} className="border-t" style={{ borderColor: COLOR.border }}>
-                      <td className="whitespace-nowrap px-3 py-2" style={{ color: COLOR.text }}>
-                        {row.created_at ? new Date(row.created_at).toLocaleString() : '—'}
-                      </td>
-                      <td className="px-3 py-2 tabular-nums">{formatNumber(row.impression_count ?? 0)}</td>
-                      <td className="px-3 py-2 tabular-nums">{formatNumber(row.like_count ?? 0)}</td>
-                      <td className="px-3 py-2 tabular-nums">{formatNumber(row.reply_count ?? 0)}</td>
-                      <td className="px-3 py-2 tabular-nums">{formatNumber(row.retweet_count ?? 0)}</td>
-                      <td className="px-3 py-2 tabular-nums">{formatNumber(row.quote_count ?? 0)}</td>
-                      <td className="max-w-[240px] truncate px-3 py-2" style={{ color: COLOR.textSecondary }} title={row.text}>
-                        {row.text || '—'}
-                      </td>
-                      <td className="px-3 py-2">
-                        <a
-                          href={`https://x.com/i/web/status/${row.id}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="underline decoration-dotted underline-offset-2"
-                          style={{ color: COLOR.violet }}
-                        >
-                          View
-                        </a>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <PostsPerformanceTable
-              rows={contentHistoryRows}
-              onOpenDetail={setSelectedPost}
-              clicksColumnLabel={isInstagram || isTikTok || isLinkedIn ? 'Interactions' : 'Clicks'}
-              hideClicksColumn={isInstagram}
-              platform={insights?.platform}
-            />
-          )}
+          {(() => {
+            const twitterFallback = isTwitter && contentHistoryRows.length === 0
+              ? twitterFallbackRows.filter((r) =>
+                  historyFilter === 'all' ? true :
+                  historyFilter === 'reels' ? r.type === 'Reel' :
+                  r.type === 'Post'
+                )
+              : [];
+            const historyRows = contentHistoryRows.length > 0 ? contentHistoryRows : twitterFallback;
+            if (postsLoading && historyRows.length === 0) {
+              return (
+                <div className="rounded-[20px] border p-6 space-y-3" style={{ background: COLOR.card, borderColor: COLOR.border }}>
+                  <p className="text-sm font-medium" style={{ color: COLOR.text }}>Loading content history…</p>
+                  <div className="space-y-2">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <div key={i} className="h-11 rounded-xl animate-pulse" style={{ background: 'rgba(15,23,42,0.06)' }} />
+                    ))}
+                  </div>
+                </div>
+              );
+            }
+            return (
+              <PostsPerformanceTable
+                rows={historyRows}
+                onOpenDetail={setSelectedPost}
+                clicksColumnLabel={isInstagram || isTikTok || isLinkedIn || isTwitter ? 'Interactions' : 'Clicks'}
+                hideClicksColumn={isInstagram}
+                platform={insights?.platform}
+              />
+            );
+          })()}
         </div>
         )}
       </section>
