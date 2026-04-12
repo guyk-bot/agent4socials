@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/context/AuthContext';
 import { ConfirmModal } from '@/components/ConfirmModal';
@@ -27,6 +27,7 @@ import {
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAppData } from '@/context/AppDataContext';
+import { useAccountsCache } from '@/context/AccountsCacheContext';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
 import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 import { TikTokPublishModal } from '@/components/composer/TikTokPublishModal';
@@ -40,6 +41,8 @@ import {
 } from '@/lib/schedule-ten-minute';
 
 const COMPOSER_DRAFT_KEY = 'agent4socials_composer_draft';
+
+const EMPTY_CACHED_ACCOUNTS: { id: string; platform: string; username?: string | null }[] = [];
 
 type MediaItem = { fileUrl: string; type: 'IMAGE' | 'VIDEO'; thumbnailUrl?: string };
 type PlatformKey = 'INSTAGRAM' | 'FACEBOOK' | 'TIKTOK' | 'YOUTUBE' | 'TWITTER' | 'LINKEDIN' | 'PINTEREST';
@@ -540,6 +543,8 @@ function MediaRequirementsHint({ mediaType }: { mediaType: keyof typeof MEDIA_SP
 export default function ComposerPage() {
     const router = useRouter();
     const appData = useAppData();
+    const accountsCache = useAccountsCache();
+    const cachedAccounts = accountsCache?.cachedAccounts ?? EMPTY_CACHED_ACCOUNTS;
     const searchParams = useSearchParams();
     const editPostId = searchParams.get('edit');
     const [platforms, setPlatforms] = useState<string[]>([]);
@@ -796,9 +801,10 @@ export default function ComposerPage() {
         } catch (_) { /* ignore */ }
     }, [hashtagPool]);
 
-    // Restore composer draft from localStorage on mount (so progress survives navigation/refresh)
+    // Restore composer draft from localStorage on mount (so progress survives navigation/refresh).
+    // useLayoutEffect avoids an extra paint on "Loading composer…" when draft read is synchronous.
     const [draftRestored, setDraftRestored] = useState(false);
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (typeof window === 'undefined' || draftRestored) return;
         if (editPostId) { setDraftRestored(true); return; }
         try {
@@ -1175,6 +1181,20 @@ export default function ComposerPage() {
         mediaSignature,
         debounceMs,
     ]);
+
+    // Prime from AccountsCacheContext (dashboard prefetch or persisted cache) so we do not wait on a
+    // duplicate /social/accounts round-trip before showing the composer shell.
+    useLayoutEffect(() => {
+        if (cachedAccounts.length === 0) return;
+        setAccounts(
+            cachedAccounts.map((a) => ({
+                id: String(a.id),
+                platform: String(a.platform),
+                username: (typeof a.username === 'string' ? a.username : null) as string | null,
+            })),
+        );
+        setAccountsFetched(true);
+    }, [cachedAccounts]);
 
     useEffect(() => {
         let cancelled = false;

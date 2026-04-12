@@ -113,6 +113,7 @@ export default function AutomationPage() {
         </div>
         <Link
           href="/composer"
+          prefetch
           className="inline-flex items-center gap-2 mt-3 text-sm font-medium text-[var(--button)] hover:opacity-90"
         >
           Open Composer

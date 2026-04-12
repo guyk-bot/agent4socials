@@ -100,7 +100,7 @@ export default function HashtagPoolPage() {
       </div>
 
       <p className="text-sm text-neutral-500">
-        <Link href="/composer" className="text-[var(--button)] hover:opacity-90 font-medium">
+        <Link href="/composer" prefetch className="text-[var(--button)] hover:opacity-90 font-medium">
           Open Composer
         </Link>
         {' '}to create a post and choose hashtags from this pool (up to 5 per post).

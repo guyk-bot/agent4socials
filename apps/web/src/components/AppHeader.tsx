@@ -96,7 +96,12 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
               </>
             );
             return (
-              <Link key={item.href} href={item.href} className={navLinkClass(isActive)}>
+              <Link
+                key={item.href}
+                href={item.href}
+                prefetch={item.href === '/composer'}
+                className={navLinkClass(isActive)}
+              >
                 {content}
               </Link>
             );
@@ -167,6 +172,7 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch={item.href === '/composer'}
                   onClick={() => setTopNavOpen(false)}
                   className={mobileLinkClass}
                 >

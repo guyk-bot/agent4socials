@@ -286,6 +286,7 @@ export default function PostsPage() {
                                     <td className="px-6 py-4 text-right">
                                         <Link
                                             href={`/composer?edit=${post.id}`}
+                                            prefetch
                                             className="inline-flex items-center gap-1 text-sm font-medium text-violet-700 hover:text-violet-800"
                                         >
                                             Open in Composer
@@ -304,6 +305,7 @@ export default function PostsPage() {
                         </p>
                         <Link
                             href="/composer"
+                            prefetch
                             className="inline-flex items-center gap-2 mt-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-neutral-700 hover:bg-neutral-800 transition-colors"
                         >
                             Open Composer

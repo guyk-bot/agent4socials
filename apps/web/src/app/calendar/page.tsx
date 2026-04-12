@@ -358,6 +358,7 @@ export default function CalendarPage() {
                                                                 <Link
                                                                     key={p.id}
                                                                     href={`/composer?edit=${p.id}`}
+                                                                    prefetch
                                                                     className={`block w-full max-w-full p-1.5 rounded-md border ${style.bg} ${style.border} ${style.text} hover:opacity-95 transition-all min-w-0 overflow-hidden`}
                                                                 >
                                                                     <div className="flex items-start justify-between gap-2 mb-1 min-w-0">
@@ -433,6 +434,7 @@ export default function CalendarPage() {
                                                     <Link
                                                         key={p.id}
                                                         href={`/composer?edit=${p.id}`}
+                                                        prefetch
                                                         className={`block w-full max-w-full p-1.5 rounded-md border ${style.bg} ${style.border} ${style.text} hover:opacity-95 transition-all min-w-0 overflow-hidden`}
                                                     >
                                                         <div className="flex items-start justify-between gap-2 mb-1 min-w-0">
