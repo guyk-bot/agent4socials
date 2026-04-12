@@ -177,7 +177,7 @@ const YOUTUBE_PERFORMANCE_LABELS: Record<StoryMetricKey, string> = {
   subscriberNet: 'Subscriber net (daily)',
 };
 
-const YOUTUBE_PERFORMANCE_PRESET_ORDER = ['overview', 'subscribers', 'reach', 'views', 'engagement'] as const;
+const YOUTUBE_PERFORMANCE_PRESET_ORDER = ['overview', 'subscribers', 'reach'] as const;
 type YouTubePerformancePresetKey = (typeof YOUTUBE_PERFORMANCE_PRESET_ORDER)[number];
 
 const YOUTUBE_PERFORMANCE_PRESETS: Record<
@@ -190,8 +190,6 @@ const YOUTUBE_PERFORMANCE_PRESETS: Record<
   },
   subscribers: { label: 'Subscribers', metrics: ['followers', 'subscriberNet'] },
   reach: { label: 'Reach', metrics: ['videoViews', 'engagements'] },
-  views: { label: 'Views', metrics: ['videoViews'] },
-  engagement: { label: 'Engagement', metrics: ['engagements'] },
 };
 
 /** LinkedIn reuses chart keys; labels match API + synced post semantics. */

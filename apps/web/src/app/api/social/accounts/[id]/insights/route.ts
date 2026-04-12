@@ -1022,9 +1022,6 @@ export async function GET(
         if (!fcOk && (isInstagramBusinessLogin || out.followers > 0)) await tryFollowerCount(igBaseUrl);
       }
 
-      if (!insightsOk && !out.impressionsTotal && !out.reachTotal && out.followers === 0) {
-        out.insightsHint = 'Instagram insights temporarily unavailable. Try reconnecting your account from the sidebar.';
-      }
       const extended = request.nextUrl.searchParams.get('extended') === '1';
       if (extended) {
         try {
