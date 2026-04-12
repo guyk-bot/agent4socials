@@ -1,6 +1,8 @@
 /** Per-account insights cache using localStorage (survives refresh + new tabs)
  *  and sessionStorage (fast fallback within same tab). */
 
+import { stripLegacyInsightsHint } from '@/lib/strip-legacy-insights-hint';
+
 const SESSION_PREFIX = 'a4s_dash_insights_v1';
 const LS_PREFIX = 'a4s_acct_insights';
 const MAX_BYTES = 450_000;
@@ -29,7 +31,7 @@ export function readInsightsFromLocalStorage(accountId: string): Record<string, 
     if (!raw) return null;
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== 'object') return null;
-    return parsed as Record<string, unknown>;
+    return stripLegacyInsightsHint(parsed as { insightsHint?: string }) as Record<string, unknown>;
   } catch {
     return null;
   }
@@ -42,7 +44,7 @@ export function readDashboardInsightsSession(userId: string, accountId: string):
     if (!raw) return null;
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== 'object') return null;
-    return parsed as Record<string, unknown>;
+    return stripLegacyInsightsHint(parsed as { insightsHint?: string }) as Record<string, unknown>;
   } catch {
     return null;
   }
@@ -51,7 +53,8 @@ export function readDashboardInsightsSession(userId: string, accountId: string):
 export function writeDashboardInsightsSession(userId: string, accountId: string, payload: unknown): void {
   if (typeof window === 'undefined' || !payload || typeof payload !== 'object') return;
   try {
-    const str = JSON.stringify(slimInsights(payload as Record<string, unknown>));
+    const cleaned = stripLegacyInsightsHint(payload as { insightsHint?: string });
+    const str = JSON.stringify(slimInsights((cleaned ?? payload) as Record<string, unknown>));
     if (str.length > MAX_BYTES) return;
     sessionStorage.setItem(sessionKey(userId, accountId), str);
     localStorage.setItem(lsKey(accountId), str);

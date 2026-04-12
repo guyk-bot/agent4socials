@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
 import api from '@/lib/api';
 import { getDefaultAnalyticsDateRange } from '@/lib/calendar-date';
+import { stripLegacyInsightsHint } from '@/lib/strip-legacy-insights-hint';
 
 export type CachedPost = {
   id: string;
@@ -108,7 +109,7 @@ function slimInsightsRecordForStorage(insights: CachedInsights): CachedInsights 
   for (const k of ['raw', 'facebookInsightsSync', 'facebookInsightPersistence', 'facebookDataSourceDebug'] as const) {
     delete o[k];
   }
-  return o as CachedInsights;
+  return stripLegacyInsightsHint(o as CachedInsights) as CachedInsights;
 }
 
 const PREFETCH_INSIGHTS_TIMEOUT_MS = 70_000;
@@ -159,7 +160,14 @@ function getInitialPostsFromStorage(): Record<string, CachedPost[]> {
 
 function getInitialInsightsFromStorage(): Record<string, CachedInsights> {
   const data = readCachedBlob();
-  return data?.insightsByAccountId && typeof data.insightsByAccountId === 'object' ? data.insightsByAccountId : {};
+  const raw =
+    data?.insightsByAccountId && typeof data.insightsByAccountId === 'object' ? data.insightsByAccountId : {};
+  const out: Record<string, CachedInsights> = {};
+  for (const [aid, row] of Object.entries(raw)) {
+    const cleaned = stripLegacyInsightsHint(row);
+    if (cleaned) out[aid] = cleaned;
+  }
+  return out;
 }
 
 function getInitialEngagementFromStorage(): Record<string, CachedEngagement[]> {
@@ -194,7 +202,10 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setInsightsForAccount = useCallback((accountId: string, insights: CachedInsights) => {
-    setInsightsByAccountId((prev) => ({ ...prev, [accountId]: insights }));
+    setInsightsByAccountId((prev) => ({
+      ...prev,
+      [accountId]: stripLegacyInsightsHint(insights) as CachedInsights,
+    }));
   }, []);
 
   const clearAccountData = useCallback((accountId: string) => {
@@ -315,7 +326,12 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         setPostsByAccountId(data.postsByAccountId);
       }
       if (data.insightsByAccountId && Object.keys(data.insightsByAccountId).length > 0) {
-        setInsightsByAccountId(data.insightsByAccountId);
+        const cleaned: Record<string, CachedInsights> = {};
+        for (const [aid, row] of Object.entries(data.insightsByAccountId)) {
+          const c = stripLegacyInsightsHint(row);
+          if (c) cleaned[aid] = c;
+        }
+        setInsightsByAccountId(cleaned);
       }
       if (data.commentsByAccountId && Object.keys(data.commentsByAccountId).length > 0) {
         setCommentsByAccountId(data.commentsByAccountId);
@@ -434,7 +450,12 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
               params: { since: dateRange.start, until: dateRange.end },
               timeout: PREFETCH_INSIGHTS_TIMEOUT_MS,
             });
-            if (!cancelled && r.data) setInsightsByAccountId((prev) => ({ ...prev, [acc.id]: r.data as CachedInsights }));
+            if (!cancelled && r.data) {
+              setInsightsByAccountId((prev) => ({
+                ...prev,
+                [acc.id]: stripLegacyInsightsHint(r.data as CachedInsights) as CachedInsights,
+              }));
+            }
           } catch { /* skip */ }
           if (cancelled) break;
           if (COMMENT_PLATFORMS.has(acc.platform)) {

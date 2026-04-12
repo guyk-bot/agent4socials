@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
@@ -12,6 +12,7 @@ import { useSelectedAccount, useResolvedSelectedAccount } from '@/context/Select
 import type { SocialAccount } from '@/context/SelectedAccountContext';
 import api from '@/lib/api';
 import { readDashboardInsightsSession, writeDashboardInsightsSession, readInsightsFromLocalStorage } from '@/lib/dashboard-insights-session-cache';
+import { stripLegacyInsightsHint } from '@/lib/strip-legacy-insights-hint';
 import {
   localCalendarDateFromIso,
   toLocalCalendarDate,
@@ -1095,17 +1096,25 @@ export default function DashboardPage() {
   const perAccountLsInsights =
     selectedAccount?.id ? readInsightsFromLocalStorage(selectedAccount.id) : null;
   /** Prefer React state; fall back to AppData cache; per-account localStorage; then sessionStorage. */
-  const displayInsights: typeof insights =
-    insights ??
-    (cachedInsightsForSelected && typeof cachedInsightsForSelected === 'object'
-      ? (cachedInsightsForSelected as NonNullable<typeof insights>)
-      : null) ??
-    (perAccountLsInsights && typeof perAccountLsInsights === 'object'
-      ? (perAccountLsInsights as NonNullable<typeof insights>)
-      : null) ??
-    (sessionInsightsForSelected && typeof sessionInsightsForSelected === 'object'
-      ? (sessionInsightsForSelected as NonNullable<typeof insights>)
-      : null);
+  const displayInsights: typeof insights = useMemo(() => {
+    const raw =
+      insights ??
+      (cachedInsightsForSelected && typeof cachedInsightsForSelected === 'object'
+        ? (cachedInsightsForSelected as NonNullable<typeof insights>)
+        : null) ??
+      (perAccountLsInsights && typeof perAccountLsInsights === 'object'
+        ? (perAccountLsInsights as NonNullable<typeof insights>)
+        : null) ??
+      (sessionInsightsForSelected && typeof sessionInsightsForSelected === 'object'
+        ? (sessionInsightsForSelected as NonNullable<typeof insights>)
+        : null);
+    return stripLegacyInsightsHint(raw) ?? null;
+  }, [
+    insights,
+    cachedInsightsForSelected,
+    perAccountLsInsights,
+    sessionInsightsForSelected,
+  ]);
 
   const hasFbOrIg = accounts.some((a) => a.platform === 'FACEBOOK' || a.platform === 'INSTAGRAM');
   const hintText = displayInsights?.insightsHint ?? '';

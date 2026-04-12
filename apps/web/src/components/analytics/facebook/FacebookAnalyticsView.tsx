@@ -25,6 +25,7 @@ import type { FacebookInsights, FacebookPost } from './types';
 import { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids';
 import { localCalendarDateFromIso, toLocalCalendarDate } from '@/lib/calendar-date';
 import { formatMetricNumber as formatNumber } from '@/lib/metric-format';
+import { isLegacyInstagramInsightsUnavailableHint } from '@/lib/strip-legacy-insights-hint';
 
 export { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids';
 
@@ -4689,7 +4690,7 @@ export function FacebookAnalyticsView({
         </details>
       ) : null}
 
-      {insights?.insightsHint && !isTikTok ? (
+      {insights?.insightsHint && !isTikTok && !isLegacyInstagramInsightsUnavailableHint(insights.insightsHint) ? (
         <div className="rounded-[16px] border px-4 py-3 text-sm" style={{ borderColor: 'rgba(255,138,122,0.45)', color: COLOR.coral, background: 'rgba(255,138,122,0.08)' }}>
           {insights.insightsHint}
           {onReconnectFacebook ? (
