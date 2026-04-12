@@ -3675,13 +3675,6 @@ export function FacebookAnalyticsView({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Performance</h3>
           </div>
-          {isTwitter ? (
-            <p className="text-xs leading-relaxed max-w-[920px]" style={{ color: COLOR.textSecondary }}>
-              Follower count is from your X profile. Tweet impressions and engagement come from the X API v2 timeline for
-              original posts in your selected range (replies and pure retweets excluded). Pagination may truncate very long
-              histories; check the note below the table when present.
-            </p>
-          ) : null}
           {isYouTube ? (
             <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="YouTube performance chart presets">
               {YOUTUBE_PERFORMANCE_PRESET_ORDER.map((key) => {
@@ -3765,21 +3758,6 @@ export function FacebookAnalyticsView({
             </>
           ) : isTwitter ? (
             <>
-              {(twitterUser?.following_count != null && twitterUser.following_count > 0) ||
-              (twitterUser?.listed_count != null && twitterUser.listed_count > 0) ||
-              (twitterUser?.tweet_count != null && twitterUser.tweet_count > 0) ? (
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs" style={{ color: COLOR.textSecondary }}>
-                  {twitterUser?.following_count != null ? (
-                    <span>Following (profile): {formatNumber(twitterUser.following_count)}</span>
-                  ) : null}
-                  {twitterUser?.listed_count != null ? (
-                    <span>Listed: {formatNumber(twitterUser.listed_count)}</span>
-                  ) : null}
-                  {twitterUser?.tweet_count != null ? (
-                    <span>Posts (lifetime, X profile): {formatNumber(twitterUser.tweet_count)}</span>
-                  ) : null}
-                </div>
-              ) : null}
               {insights?.twitterTimelineTruncated ? (
                 <div
                   className="rounded-xl border px-3 py-2 text-xs leading-relaxed"
