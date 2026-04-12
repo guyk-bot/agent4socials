@@ -2811,6 +2811,12 @@ export function FacebookAnalyticsView({
     });
   }, [isPinterest, postsInRange]);
 
+  // For Twitter, supplement postsInRange counts with live recentTweets when the synced set is smaller.
+  const twitterRecentTweets = useMemo(
+    () => (isTwitter ? (insights?.recentTweets ?? []) : []),
+    [isTwitter, insights?.recentTweets]
+  );
+
   const twitterVideoReelsRows = useMemo((): ReelAnalyticsRow[] => {
     if (!isTwitter || twitterRecentTweets.length === 0) return [];
     return twitterRecentTweets
@@ -3044,11 +3050,6 @@ export function FacebookAnalyticsView({
             : `Video Views: ${fmt(percentChangeFromSeries(videoViewsS))} | Content Views: ${fmt(percentChangeFromSeries(contentViewsS))} | Page Visits: ${fmt(percentChangeFromSeries(pageTabS))}`,
     } as const;
   }, [growthSparklineSeries, isTikTok, isTwitter, isYouTube, isLinkedIn]);
-  // For Twitter, supplement postsInRange counts with live recentTweets when the synced set is smaller.
-  const twitterRecentTweets = useMemo(
-    () => (isTwitter ? (insights?.recentTweets ?? []) : []),
-    [isTwitter, insights?.recentTweets]
-  );
   const likesTotal = useMemo(() => {
     const fromPosts = postsInRange.reduce((sum, post) => sum + bestCount(post.facebookInsights?.post_reactions_like_total, post.likeCount ?? post.engagementBreakdown?.reactions), 0);
     if (isTwitter && twitterRecentTweets.length > 0) {
