@@ -70,6 +70,7 @@ model SocialAccount {
 
   postTargets       PostTarget[]
   importedPosts     ImportedPost[]
+  postPerformances  PostPerformance[]
   metricSnapshots   AccountMetricSnapshot[]
   facebookMetricDiscoveries FacebookMetricDiscovery[]
   facebookSyncRuns          FacebookSyncRun[]
@@ -202,12 +203,45 @@ model AccountMetricSnapshot {
   followingCount   Int?
   fansCount        Int?
   insightsJson     Json?    // Per-day API metrics (impressions, reach, profile_views, page_impressions, etc.) so we keep full history beyond Meta 28/90-day window
+  /// LinkedIn: summed impressions across posts synced into PostPerformance for this calendar day (member Posts API + analytics pipeline).
+  linkedinAggregatedImpressions Int?
+  /// LinkedIn: summed clicks (memberCreatorPostAnalytics CLICK when available).
+  linkedinAggregatedClicks      Int?
+  /// LinkedIn: summed comments.
+  linkedinAggregatedComments    Int?
+  /// LinkedIn: summed shares / reshares.
+  linkedinAggregatedShares      Int?
+  /// LinkedIn: summed video watch time in milliseconds when the API returns watch-time metrics.
+  linkedinAggregatedVideoWatchTimeMs Int?
   source           String   @default("bootstrap")  // "bootstrap" | "scheduled_sync" | "manual_refresh"
   createdAt        DateTime @default(now())
 
   @@unique([userId, platform, externalAccountId, metricDate])
   @@index([userId, platform, externalAccountId, metricTimestamp])
   @@index([socialAccountId, metricDate])
+}
+
+/// Point-in-time engagement for a single synced post (LinkedIn-first; keyed by platformPostId URN).
+model PostPerformance {
+  id                 String        @id @default(cuid())
+  userId             String
+  socialAccountId    String
+  socialAccount      SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  platform           Platform      @default(LINKEDIN)
+  /// e.g. urn:li:ugcPost:... or urn:li:share:...
+  platformPostId     String
+  impressions        Int           @default(0)
+  clicks             Int           @default(0)
+  comments           Int           @default(0)
+  shares             Int           @default(0)
+  videoWatchTimeMs   Int?
+  /// Raw memberCreatorPostAnalytics / Posts API fragments for debugging.
+  metricsRaw         Json?
+  fetchedAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@unique([socialAccountId, platformPostId])
+  @@index([userId, platform, fetchedAt])
 }
 
 model ImportedPost {
