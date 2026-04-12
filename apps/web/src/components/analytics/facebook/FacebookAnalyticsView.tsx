@@ -477,6 +477,18 @@ function getWatchTimes(post: FacebookPost): { watchTimeMs: number; avgWatchMs: n
     }
     return { watchTimeMs: 0, avgWatchMs: 0 };
   }
+  if ((post.platform ?? '').toUpperCase() === 'YOUTUBE') {
+    const meta =
+      post.platformMetadata && typeof post.platformMetadata === 'object' && !Array.isArray(post.platformMetadata)
+        ? (post.platformMetadata as Record<string, unknown>)
+        : {};
+    const durationSec = typeof meta.youtubeDurationSec === 'number' && Number.isFinite(meta.youtubeDurationSec) ? meta.youtubeDurationSec : 0;
+    if (durationSec > 0) {
+      // YouTube Data API v3 doesn't expose per-video watch time; show video duration as Avg Watch (video length).
+      return { watchTimeMs: 0, avgWatchMs: durationSec * 1000 };
+    }
+    return { watchTimeMs: 0, avgWatchMs: 0 };
+  }
   const fi = (post.facebookInsights ?? {}) as Record<string, unknown>;
   let avgWatchMs = normalizeAvgWatchMs(toFiniteNumber(fi.post_video_avg_time_watched));
   const views = Math.max(0, bestPostPlayCount(post));
@@ -1407,7 +1419,7 @@ export function PostsPerformanceTable({
       ? []
       : [
           { label: 'Watch time', className: 'w-[84px]' },
-          { label: 'Avg watch', className: 'w-[80px]' },
+          { label: platUpper === 'YOUTUBE' ? 'Duration' : 'Avg watch', className: 'w-[80px]' },
         ]),
   ];
   const tableMinW = compactVideoTable ? 'min-w-[860px]' : 'min-w-[1120px]';
@@ -1469,7 +1481,7 @@ export function PostsPerformanceTable({
                 <td className="px-3 py-3 align-top text-xs leading-tight" style={{ color: COLOR.textSecondary }}>
                   {formatPostCardDateTime(r.date) || new Date(r.date).toLocaleDateString()}
                 </td>
-                <td className="px-3 py-3"><span className="rounded-full px-2 py-1 text-xs" style={{ background: 'rgba(255,255,255,0.08)', color: COLOR.text }}>{r.type}</span></td>
+                <td className="px-3 py-3"><span className="rounded-full px-2 py-1 text-xs" style={{ background: 'rgba(255,255,255,0.08)', color: COLOR.text }}>{platUpper === 'YOUTUBE' ? (r.type === 'Reel' ? 'Short' : 'Video') : r.type}</span></td>
                 <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.views)}</td>
                 {!compactVideoTable ? <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.uniqueReach)}</td> : null}
                 {!hideClicksColumn && <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.clicks)}</td>}
@@ -1529,7 +1541,7 @@ export function PostsPerformanceTable({
             </div>
             <div className="mt-2 flex flex-wrap gap-2 text-xs" style={{ color: COLOR.textSecondary }}>
               <span>{formatPostCardDateTime(r.date) || new Date(r.date).toLocaleDateString()}</span>
-              <span>{r.type}</span>
+              <span>{platUpper === 'YOUTUBE' ? (r.type === 'Reel' ? 'Short' : 'Video') : r.type}</span>
               <span>Views {formatNumber(r.views)}</span>
               {!compactVideoTable ? <span>Reach {formatNumber(r.uniqueReach)}</span> : null}
               {!compactVideoTable ? (
