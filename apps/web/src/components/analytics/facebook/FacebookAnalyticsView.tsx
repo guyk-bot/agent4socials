@@ -1441,9 +1441,9 @@ export function PostsPerformanceTable({
                         className="w-9 h-9 rounded object-cover shrink-0"
                         {...pinterestCdnImgProps(r.rawPost.thumbnailUrl)}
                       />
-                    ) : (
+                    ) : platUpper !== 'TWITTER' ? (
                       <div className="w-9 h-9 rounded shrink-0" style={{ background: 'rgba(124,108,255,0.12)' }} />
-                    )}
+                    ) : null}
                     <div className="min-w-0">
                       <p
                         className="text-[13px] leading-snug line-clamp-4"
@@ -1507,9 +1507,9 @@ export function PostsPerformanceTable({
                   className="w-10 h-10 rounded object-cover shrink-0"
                   {...pinterestCdnImgProps(r.rawPost.thumbnailUrl)}
                 />
-              ) : (
+              ) : platUpper !== 'TWITTER' ? (
                 <div className="w-10 h-10 rounded shrink-0" style={{ background: 'rgba(124,108,255,0.12)' }} />
-              )}
+              ) : null}
               <div className="min-w-0">
                 <p className="text-sm line-clamp-5 leading-snug" style={{ color: COLOR.text }} title={(r.preview || '').trim() || undefined}>
                   {normalizePostPreview(r.preview || '') || '—'}
@@ -1571,6 +1571,7 @@ function TopContentHighlights({
   clicksLeaderTitle = 'Clicks leaders',
   clicksMetricLabel = 'Clicks',
   hideClicksColumn = false,
+  platform,
 }: {
   byViews: TopHighlightRow[];
   byClicks: TopHighlightRow[];
@@ -1580,7 +1581,9 @@ function TopContentHighlights({
   clicksMetricLabel?: 'Clicks' | 'Interactions';
   /** Hide the clicks/interactions column entirely (e.g. for Facebook). */
   hideClicksColumn?: boolean;
+  platform?: string;
 }) {
+  const isTwitterHighlight = (platform ?? '').toUpperCase() === 'TWITTER';
   const rankBadge = (idx: number) => `/rank-badges/${Math.min(3, idx + 1)}.svg`;
   const col = (title: string, metricLabel: 'Views' | 'Clicks' | 'Reactions' | 'Interactions', rows: TopHighlightRow[], showClicks = true) => (
     <div className="space-y-3">
@@ -1591,6 +1594,7 @@ function TopContentHighlights({
         rows.map((r, idx) => (
           <div key={`${title}-${r.id}-${idx}`} className="rounded-xl p-3 h-[124px]" style={{ background: COLOR.elevated }}>
             <div className="flex items-start gap-3">
+              {(!isTwitterHighlight || r.thumbnailUrl) && (
               <div className="shrink-0 w-[104px] pt-1">
                 <div className="relative isolate mt-1 h-[92px] w-[92px]">
                   <div className="absolute inset-0 overflow-hidden rounded-xl border" style={{ borderColor: COLOR.border, background: '#f3f4f6' }}>
@@ -1622,6 +1626,7 @@ function TopContentHighlights({
                   />
                 </div>
               </div>
+              )}
               <div className="min-w-0 flex-1 min-h-[92px] flex flex-col">
                 <p className="text-[11px] leading-4 tabular-nums shrink-0" style={{ color: COLOR.textMuted }}>
                   {formatPostCardDateTime(r.publishedAt) || '—'}
@@ -1806,7 +1811,7 @@ export function FacebookAnalyticsView({
     const all = [
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.overview, label: 'Overview' },
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.traffic, label: 'Traffic' },
-      { id: FACEBOOK_ANALYTICS_SECTION_IDS.posts, label: 'Posts' },
+      { id: FACEBOOK_ANALYTICS_SECTION_IDS.posts, label: plat === 'TWITTER' ? 'Tweets' : plat === 'PINTEREST' ? 'Pins' : 'Posts' },
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.reels, label: plat === 'PINTEREST' ? 'Videos' : 'Reels' },
       ...(plat === 'YOUTUBE' ? [{ id: FACEBOOK_ANALYTICS_SECTION_IDS.videos, label: 'Videos' } as const] : []),
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.history, label: 'History' },
@@ -4708,13 +4713,13 @@ export function FacebookAnalyticsView({
         ) : (
         <div className="rounded-[20px] border p-4 sm:p-5 space-y-4" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
           <div>
-            <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Posts</h2>
+            <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>{isTwitter ? 'Tweets' : isPinterest ? 'Pins' : 'Posts'}</h2>
           </div>
           <div
             className={`grid gap-4 sm:grid-cols-2 ${isInstagram || isFacebook || isTikTok || isTwitter || isYouTube || isLinkedIn ? 'xl:grid-cols-3' : ''}`}
           >
             <MetricCard
-              label="Total Posts"
+              label={isTwitter ? 'Total Tweets' : isPinterest ? 'Total Pins' : 'Total Posts'}
               source="Derived from posts in date range"
               color={COLOR.text}
               value={formatNumber(
@@ -4746,6 +4751,7 @@ export function FacebookAnalyticsView({
             <MetricCard label="Avg Reactions per Post" source="post_reactions_like_total / breakdown" color={COLOR.text} value={avgReactionsPerPost.toFixed(1)} />
           </div>
           <TopContentHighlights
+            platform={insights?.platform}
             clicksLeaderTitle={
               isInstagram || isFacebook || isTikTok || isTwitter || isYouTube || isLinkedIn ? 'Interactions leaders' : 'Clicks leaders'
             }
@@ -5276,7 +5282,7 @@ export function FacebookAnalyticsView({
           <div className="flex flex-wrap gap-2">
             {([
               { id: 'all' as const, label: 'All' },
-              { id: 'posts' as const, label: 'Posts' },
+              { id: 'posts' as const, label: isTwitter ? 'Tweets' : isPinterest ? 'Pins' : 'Posts' },
               { id: 'reels' as const, label: isPinterest ? 'Videos' : 'Reels' },
             ]).map((f) => (
               <button
