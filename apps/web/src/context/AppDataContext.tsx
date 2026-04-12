@@ -410,14 +410,18 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         setPrefetchHasLoadedOnce(true);
         if (typeof sessionStorage !== 'undefined') sessionStorage.setItem('appDataPhase1Done', '1');
 
-        // Phase 2: load per-account data in background (shell already visible)
-        await Promise.all([
-          ...accounts.map((acc) =>
+        // Phase 2: load per-account data — stagger accounts so we don't blast
+        // every endpoint for every account simultaneously (pool exhaustion).
+        // Each account's requests run in parallel, but accounts run sequentially.
+        for (const acc of accounts) {
+          if (cancelled) break;
+          const COMMENT_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER']);
+          const CONVO_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK']);
+          const ENGAGEMENT_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK', 'YOUTUBE']);
+          const batch: Promise<void>[] = [
             api.get<{ posts?: CachedPost[] }>(`/social/accounts/${acc.id}/posts`).then((r) => {
               if (!cancelled && r.data?.posts) setPostsByAccountId((prev) => ({ ...prev, [acc.id]: r.data!.posts! }));
-            }).catch(() => {})
-          ),
-          ...accounts.map((acc) =>
+            }).catch(() => {}),
             api
               .get<CachedInsights>(`/social/accounts/${acc.id}/insights`, {
                 params: { since: dateRange.start, until: dateRange.end },
@@ -426,26 +430,33 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
               .then((r) => {
                 if (!cancelled && r.data) setInsightsByAccountId((prev) => ({ ...prev, [acc.id]: r.data as CachedInsights }));
               })
-              .catch(() => {})
-          ),
-          ...accounts.filter((acc) => acc.platform === 'INSTAGRAM' || acc.platform === 'FACEBOOK' || acc.platform === 'TWITTER').map((acc) =>
-            api.get<{ comments?: CachedComment[] }>(`/social/accounts/${acc.id}/comments`).then((r) => {
-              if (!cancelled && r.data) setCommentsByAccountId((prev) => ({ ...prev, [acc.id]: r.data.comments ?? [] }));
-            }).catch(() => {})
-          ),
-          ...accounts.filter((acc) => acc.platform === 'INSTAGRAM' || acc.platform === 'FACEBOOK').map((acc) =>
-            api.get<{ conversations?: CachedConversation[]; error?: string }>(`/social/accounts/${acc.id}/conversations`).then((r) => {
-              if (cancelled || r.data?.error) return;
-              const list = r.data?.conversations ?? [];
-              setConversationsByAccountId((prev) => ({ ...prev, [acc.id]: list }));
-            }).catch(() => {})
-          ),
-          ...accounts.filter((acc) => acc.platform === 'INSTAGRAM' || acc.platform === 'FACEBOOK' || acc.platform === 'YOUTUBE').map((acc) =>
-            api.get<{ engagement?: CachedEngagement[] }>(`/social/accounts/${acc.id}/engagement`).then((r) => {
-              if (!cancelled) setEngagementByAccountId((prev) => ({ ...prev, [acc.id]: r.data?.engagement ?? [] }));
-            }).catch(() => {})
-          ),
-        ]);
+              .catch(() => {}),
+          ];
+          if (COMMENT_PLATFORMS.has(acc.platform)) {
+            batch.push(
+              api.get<{ comments?: CachedComment[] }>(`/social/accounts/${acc.id}/comments`).then((r) => {
+                if (!cancelled && r.data) setCommentsByAccountId((prev) => ({ ...prev, [acc.id]: r.data.comments ?? [] }));
+              }).catch(() => {})
+            );
+          }
+          if (CONVO_PLATFORMS.has(acc.platform)) {
+            batch.push(
+              api.get<{ conversations?: CachedConversation[]; error?: string }>(`/social/accounts/${acc.id}/conversations`).then((r) => {
+                if (cancelled || r.data?.error) return;
+                const list = r.data?.conversations ?? [];
+                setConversationsByAccountId((prev) => ({ ...prev, [acc.id]: list }));
+              }).catch(() => {})
+            );
+          }
+          if (ENGAGEMENT_PLATFORMS.has(acc.platform)) {
+            batch.push(
+              api.get<{ engagement?: CachedEngagement[] }>(`/social/accounts/${acc.id}/engagement`).then((r) => {
+                if (!cancelled) setEngagementByAccountId((prev) => ({ ...prev, [acc.id]: r.data?.engagement ?? [] }));
+              }).catch(() => {})
+            );
+          }
+          await Promise.all(batch);
+        }
       } catch {
         if (!cancelled) setPrefetchStatus('done');
         if (!cancelled) setPrefetchHasLoadedOnce(true);

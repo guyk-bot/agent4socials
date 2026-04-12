@@ -32,10 +32,24 @@ export interface SyncResult {
 
 /** Ensure sync infrastructure tables exist (idempotent — safe to call multiple times). */
 let _syncTablesEnsured = false;
-export async function ensureSyncTables(): Promise<void> {
-  if (_syncTablesEnsured) return;
+let _syncEnsureInFlight: Promise<void> | null = null;
+
+async function syncJobsTableExists(): Promise<boolean> {
   try {
-    await prisma.$executeRawUnsafe(`
+    const rows = await prisma.$queryRawUnsafe<Array<{ exists: boolean }>>(
+      `SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'sync_jobs'
+      ) AS "exists"`
+    );
+    return Boolean(rows?.[0]?.exists);
+  } catch {
+    return false;
+  }
+}
+
+async function runSyncTableMigrations(): Promise<void> {
+  await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "sync_jobs" (
         "id"               TEXT         NOT NULL DEFAULT gen_random_uuid()::text,
         "userId"           TEXT         NOT NULL,
@@ -56,35 +70,46 @@ export async function ensureSyncTables(): Promise<void> {
         CONSTRAINT "sync_jobs_pkey" PRIMARY KEY ("id")
       )
     `);
-    await prisma.$executeRawUnsafe(
-      `CREATE UNIQUE INDEX IF NOT EXISTS "sync_jobs_idempotencyKey_key" ON "sync_jobs"("idempotencyKey")`
-    );
-    await prisma.$executeRawUnsafe(
-      `CREATE INDEX IF NOT EXISTS "sync_jobs_socialAccountId_scope_status_idx" ON "sync_jobs"("socialAccountId","scope","status")`
-    );
-    await prisma.$executeRawUnsafe(
-      `CREATE INDEX IF NOT EXISTS "sync_jobs_socialAccountId_createdAt_idx" ON "sync_jobs"("socialAccountId","createdAt")`
-    );
-    // Add sync columns to SocialAccount if the migration hasn't run yet
-    await prisma.$executeRawUnsafe(
-      `ALTER TABLE "SocialAccount" ADD COLUMN IF NOT EXISTS "lastSuccessfulSyncAt" TIMESTAMP(3)`
-    );
-    await prisma.$executeRawUnsafe(
-      `ALTER TABLE "SocialAccount" ADD COLUMN IF NOT EXISTS "lastSyncAttemptAt" TIMESTAMP(3)`
-    );
-    await prisma.$executeRawUnsafe(
-      `ALTER TABLE "SocialAccount" ADD COLUMN IF NOT EXISTS "lastSyncStatus" TEXT`
-    );
-    await prisma.$executeRawUnsafe(
-      `ALTER TABLE "SocialAccount" ADD COLUMN IF NOT EXISTS "lastSyncError" TEXT`
-    );
-    await prisma.$executeRawUnsafe(
-      `ALTER TABLE "SocialAccount" ADD COLUMN IF NOT EXISTS "initialBackfillDone" BOOLEAN NOT NULL DEFAULT false`
-    );
-    _syncTablesEnsured = true;
-  } catch (e) {
-    console.warn('[SyncEngine] ensureSyncTables failed (non-fatal):', (e as Error)?.message?.slice(0, 200));
-  }
+  await prisma.$executeRawUnsafe(
+    `CREATE UNIQUE INDEX IF NOT EXISTS "sync_jobs_idempotencyKey_key" ON "sync_jobs"("idempotencyKey")`
+  );
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS "sync_jobs_socialAccountId_scope_status_idx" ON "sync_jobs"("socialAccountId","scope","status")`
+  );
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS "sync_jobs_socialAccountId_createdAt_idx" ON "sync_jobs"("socialAccountId","createdAt")`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE "SocialAccount" ADD COLUMN IF NOT EXISTS "lastSuccessfulSyncAt" TIMESTAMP(3)`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE "SocialAccount" ADD COLUMN IF NOT EXISTS "lastSyncAttemptAt" TIMESTAMP(3)`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE "SocialAccount" ADD COLUMN IF NOT EXISTS "lastSyncStatus" TEXT`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE "SocialAccount" ADD COLUMN IF NOT EXISTS "lastSyncError" TEXT`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE "SocialAccount" ADD COLUMN IF NOT EXISTS "initialBackfillDone" BOOLEAN NOT NULL DEFAULT false`
+  );
+}
+
+export async function ensureSyncTables(): Promise<void> {
+  if (_syncTablesEnsured) return;
+  if (_syncEnsureInFlight) { await _syncEnsureInFlight; return; }
+  const run = (async () => {
+    try {
+      if (await syncJobsTableExists()) { _syncTablesEnsured = true; return; }
+      await runSyncTableMigrations();
+      _syncTablesEnsured = true;
+    } catch (e) {
+      console.warn('[SyncEngine] ensureSyncTables failed (non-fatal):', (e as Error)?.message?.slice(0, 200));
+    }
+  })();
+  _syncEnsureInFlight = run;
+  try { await run; } finally { if (_syncEnsureInFlight === run) _syncEnsureInFlight = null; }
 }
 
 /**

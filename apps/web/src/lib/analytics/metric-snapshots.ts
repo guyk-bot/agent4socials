@@ -15,15 +15,24 @@ import { facebookGraphBaseUrl, instagramGraphHostBaseUrl } from '@/lib/meta-grap
 const INSTAGRAM_FACEBOOK = ['INSTAGRAM', 'FACEBOOK'] as const;
 
 let _tableEnsured = false;
-/**
- * Best-effort: create AccountMetricSnapshot table + indexes if they don't exist yet.
- * This handles the case where DATABASE_DIRECT_URL was missing during deploy so the
- * Prisma migration silently skipped. Safe to call multiple times (uses IF NOT EXISTS).
- */
-async function ensureSnapshotTable(): Promise<void> {
-  if (_tableEnsured) return;
+let _ensureInFlight: Promise<void> | null = null;
+
+async function snapshotTableExists(): Promise<boolean> {
   try {
-    await prisma.$executeRawUnsafe(`
+    const rows = await prisma.$queryRawUnsafe<Array<{ exists: boolean }>>(
+      `SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'AccountMetricSnapshot'
+      ) AS "exists"`
+    );
+    return Boolean(rows?.[0]?.exists);
+  } catch {
+    return false;
+  }
+}
+
+async function runSnapshotTableMigrations(): Promise<void> {
+  await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "AccountMetricSnapshot" (
         "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
         "userId" TEXT NOT NULL,
@@ -41,15 +50,15 @@ async function ensureSnapshotTable(): Promise<void> {
         CONSTRAINT "AccountMetricSnapshot_pkey" PRIMARY KEY ("id")
       )
     `);
-    await prisma.$executeRawUnsafe(`
+  await prisma.$executeRawUnsafe(`
       CREATE UNIQUE INDEX IF NOT EXISTS "AccountMetricSnapshot_userId_platform_externalAccountId_metricDate_key"
         ON "AccountMetricSnapshot"("userId", "platform", "externalAccountId", "metricDate")
     `);
-    await prisma.$executeRawUnsafe(`
+  await prisma.$executeRawUnsafe(`
       CREATE INDEX IF NOT EXISTS "AccountMetricSnapshot_socialAccountId_metricDate_idx"
         ON "AccountMetricSnapshot"("socialAccountId", "metricDate")
     `);
-    await prisma.$executeRawUnsafe(`
+  await prisma.$executeRawUnsafe(`
       DO $$ BEGIN
         IF NOT EXISTS (
           SELECT 1 FROM pg_constraint WHERE conname = 'AccountMetricSnapshot_userId_fkey'
@@ -60,7 +69,7 @@ async function ensureSnapshotTable(): Promise<void> {
         END IF;
       END $$
     `);
-    await prisma.$executeRawUnsafe(`
+  await prisma.$executeRawUnsafe(`
       DO $$ BEGIN
         IF NOT EXISTS (
           SELECT 1 FROM pg_constraint WHERE conname = 'AccountMetricSnapshot_socialAccountId_fkey'
@@ -71,11 +80,27 @@ async function ensureSnapshotTable(): Promise<void> {
         END IF;
       END $$
     `);
-    _tableEnsured = true;
-    console.log('[MetricSnapshot] AccountMetricSnapshot table ensured.');
-  } catch (e) {
-    console.warn('[MetricSnapshot] ensureSnapshotTable failed (non-fatal):', (e as Error)?.message?.slice(0, 200));
-  }
+}
+
+/**
+ * Best-effort: create AccountMetricSnapshot table + indexes if they don't exist yet.
+ * Single-flight + fast probe so concurrent /insights calls share the work.
+ */
+async function ensureSnapshotTable(): Promise<void> {
+  if (_tableEnsured) return;
+  if (_ensureInFlight) { await _ensureInFlight; return; }
+  const run = (async () => {
+    try {
+      if (await snapshotTableExists()) { _tableEnsured = true; return; }
+      await runSnapshotTableMigrations();
+      _tableEnsured = true;
+      console.log('[MetricSnapshot] AccountMetricSnapshot table ensured.');
+    } catch (e) {
+      console.warn('[MetricSnapshot] ensureSnapshotTable failed (non-fatal):', (e as Error)?.message?.slice(0, 200));
+    }
+  })();
+  _ensureInFlight = run;
+  try { await run; } finally { if (_ensureInFlight === run) _ensureInFlight = null; }
 }
 const fbBaseUrl = facebookGraphBaseUrl;
 const igBaseUrl = instagramGraphHostBaseUrl;

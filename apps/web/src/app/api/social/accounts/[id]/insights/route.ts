@@ -416,90 +416,81 @@ export async function GET(
       }
 
       const igSeriesByMetric: Record<string, Array<{ date: string; value: number }>> = {};
+
+      const parseIgInsightsData = (data: Array<{
+        name: string;
+        values?: Array<{ value: number; end_time?: string }>;
+        total_value?: { value: number; breakdowns?: unknown[] };
+      }>) => {
+        for (const d of data) {
+          const sumDaily =
+            (d.values ?? []).reduce((s, v) => s + (typeof v.value === 'number' ? v.value : 0), 0);
+          const totalRaw =
+            typeof d.total_value?.value === 'number' ? d.total_value.value : sumDaily;
+          const total = Math.max(0, Math.round(Number.isFinite(totalRaw) ? totalRaw : 0));
+          const series: Array<{ date: string; value: number }> =
+            (d.values ?? []).length > 0
+              ? (d.values ?? [])
+                  .map((v) => ({
+                    date: v.end_time ? facebookMetricDateFromEndTime(v.end_time) : '',
+                    value: Math.max(0, typeof v.value === 'number' ? v.value : 0),
+                  }))
+                  .filter((x) => x.date)
+                  .sort((a, b) => a.date.localeCompare(b.date))
+              : [];
+          if (series.length > 0) igSeriesByMetric[d.name] = series;
+          if (d.name === 'impressions') {
+            out.impressionsTotal = total;
+            out.impressionsTimeSeries = series.length ? series : (total ? [{ date: untilParam?.slice(0, 10) || new Date().toISOString().slice(0, 10), value: total }] : []);
+          } else if (d.name === 'reach') {
+            out.reachTotal = Math.max(out.reachTotal ?? 0, total);
+            if (!(out.impressionsTimeSeries?.length) && series.length) {
+              out.impressionsTimeSeries = series;
+              if (!out.impressionsTotal) out.impressionsTotal = total;
+            }
+          } else if (d.name === 'profile_views') {
+            out.profileViewsTotal = total;
+          } else if (d.name === 'accounts_engaged') {
+            out.accountsEngaged = total;
+          }
+        }
+      };
+
       const tryInsights = async (base: string): Promise<boolean> => {
         if (effectiveSinceTs == null || effectiveUntilTs == null) return false;
         if (budgetExpired()) return false;
-        /**
-         * Ordered from broadest to narrowest. impressions is deprecated in v18+; reach/accounts_reached
-         * are the v22+ replacements. Kept to 3 sets to stay within the time budget.
-         */
-        const metricSets = [
-          'reach,accounts_engaged',
-          'reach,accounts_reached',
-          'reach',
-        ];
-        for (const metricSet of metricSets) {
-          if (budgetExpired()) break;
-          try {
-            const insightsRes = await axios.get<{
-              data?: Array<{
-                name: string;
-                values?: Array<{ value: number; end_time?: string }>;
-                total_value?: { value: number; breakdowns?: unknown[] };
-              }>;
-              error?: { message?: string; code?: number };
-            }>(`${base}/${account.platformUserId}/insights`, {
-              params: {
-                metric: metricSet,
-                period: 'day',
-                since: effectiveSinceTs,
-                until: effectiveUntilTs,
-                access_token: token,
-              },
-              timeout: 10_000,
-              validateStatus: () => true,
-            });
-
-            if (insightsRes.data?.error) {
-              console.warn('[Insights] IG metric set failed:', base, metricSet, insightsRes.data.error.message?.slice(0, 120));
-              continue;
-            }
-
-            const data = insightsRes.data?.data ?? [];
-            if (data.length === 0) continue;
-
-            for (const d of data) {
-              const sumDaily =
-                (d.values ?? []).reduce((s, v) => s + (typeof v.value === 'number' ? v.value : 0), 0);
-              const totalRaw =
-                typeof d.total_value?.value === 'number' ? d.total_value.value : sumDaily;
-              const total = Math.max(0, Math.round(Number.isFinite(totalRaw) ? totalRaw : 0));
-              const series: Array<{ date: string; value: number }> =
-                (d.values ?? []).length > 0
-                  ? (d.values ?? [])
-                      .map((v) => ({
-                        date: v.end_time ? facebookMetricDateFromEndTime(v.end_time) : '',
-                        value: Math.max(0, typeof v.value === 'number' ? v.value : 0),
-                      }))
-                      .filter((x) => x.date)
-                      .sort((a, b) => a.date.localeCompare(b.date))
-                  : [];
-              if (series.length > 0) igSeriesByMetric[d.name] = series;
-              if (d.name === 'impressions') {
-                out.impressionsTotal = total;
-                out.impressionsTimeSeries = series.length ? series : (total ? [{ date: untilParam?.slice(0, 10) || new Date().toISOString().slice(0, 10), value: total }] : []);
-              } else if (d.name === 'reach' || d.name === 'accounts_reached') {
-                // reach / accounts_reached are the v18+ replacements for impressions
-                out.reachTotal = Math.max(out.reachTotal ?? 0, total);
-                if (!(out.impressionsTimeSeries?.length) && series.length) {
-                  out.impressionsTimeSeries = series;
-                  if (!out.impressionsTotal) out.impressionsTotal = total;
-                }
-              } else if (d.name === 'profile_views') {
-                out.profileViewsTotal = total;
-              } else if (d.name === 'accounts_engaged') {
-                out.accountsEngaged = total;
-              }
-            }
-            return true;
-          } catch (e) {
-            const status = (e as { response?: { status?: number } })?.response?.status;
-            if (status === 400 || status === 403) continue;
-            console.warn('[Insights] Instagram insights error:', base, (e as Error)?.message ?? e);
-            return false;
+        // v22.0: `reach` is a valid period=day metric; `accounts_engaged` requires metric_type=total_value
+        // and must be fetched alone; `accounts_reached` is not valid — only `reach` works.
+        let reachOk = false;
+        try {
+          const reachRes = await axios.get<{
+            data?: Array<{
+              name: string;
+              values?: Array<{ value: number; end_time?: string }>;
+              total_value?: { value: number; breakdowns?: unknown[] };
+            }>;
+            error?: { message?: string; code?: number };
+          }>(`${base}/${account.platformUserId}/insights`, {
+            params: {
+              metric: 'reach',
+              period: 'day',
+              since: effectiveSinceTs,
+              until: effectiveUntilTs,
+              access_token: token,
+            },
+            timeout: 10_000,
+            validateStatus: () => true,
+          });
+          if (!reachRes.data?.error && reachRes.data?.data?.length) {
+            parseIgInsightsData(reachRes.data.data);
+            reachOk = true;
+          } else if (reachRes.data?.error) {
+            console.warn('[Insights] IG reach failed:', base, reachRes.data.error.message?.slice(0, 120));
           }
+        } catch (e) {
+          console.warn('[Insights] IG reach error:', base, (e as Error)?.message ?? e);
         }
-        return false;
+        return reachOk;
       };
 
       let insightsOk = await tryInsights(fbBaseUrl);
@@ -542,7 +533,7 @@ export async function GET(
           } catch { return false; }
         };
 
-        await tryFetch({}) || await tryFetch({ metric_type: 'total_value' });
+        await tryFetch({ metric_type: 'total_value' }) || await tryFetch({});
       };
       await supplementIgAccountsEngaged(fbBaseUrl);
       if (!igSeriesByMetric.accounts_engaged?.length && isInstagramBusinessLogin) {
