@@ -260,7 +260,7 @@ const TRAFFIC_METRIC_CONFIG: Record<TrafficMetricKey, { label: string; color: st
   postImpressions: { label: 'Post Impressions', color: COLOR.cyan },
   nonviral: { label: 'Non-viral Impressions', color: COLOR.trafficNonviralCyan },
   viral: { label: 'Viral Impressions', color: COLOR.magenta },
-  uniqueReachProxy: { label: 'Unique Reach Proxy', color: COLOR.amber },
+  uniqueReachProxy: { label: 'Unique Reach', color: COLOR.amber },
 };
 
 // Shared bar geometry across Traffic/Reels (overlapping bars).
@@ -295,7 +295,7 @@ const REEL_PRESET_METRICS_TIKTOK: Record<ReelPresetKey, ReelMetricKey[]> = {
 /** Facebook & Instagram Reels: no Watch tab; Performance excludes shares (shares stay on Engagement). */
 const REEL_PRESET_METRICS_FB_IG: Record<'performance' | 'engagement', ReelMetricKey[]> = {
   performance: ['views', 'watchTime', 'avgWatch'],
-  engagement: ['likes', 'comments', 'shares', 'reposts'],
+  engagement: ['likes', 'comments', 'shares'],
 };
 
 function formatPercent(v: number): string {
@@ -613,6 +613,16 @@ function bestShareCount(p: FacebookPost): number {
   const b = typeof p.sharesCount === 'number' && Number.isFinite(p.sharesCount) ? Math.max(0, p.sharesCount) : 0;
   const eb = p.engagementBreakdown?.shares;
   const c = typeof eb === 'number' && Number.isFinite(eb) ? Math.max(0, eb) : 0;
+  // Instagram: the API bundles saves + shares inside total_interactions.
+  // Derive saves+shares as total_interactions − likes − comments when no direct share data exists.
+  if ((p.platform ?? '').toUpperCase() === 'INSTAGRAM' && a === 0 && b === 0 && c === 0) {
+    const ti = fi.instagram_total_interactions;
+    if (typeof ti === 'number' && Number.isFinite(ti) && ti > 0) {
+      const likes = bestCount(fi.post_reactions_like_total, p.likeCount);
+      const comments = fi.post_comments ?? p.commentsCount ?? 0;
+      return Math.max(0, ti - likes - comments);
+    }
+  }
   return Math.max(a, b, c);
 }
 
@@ -4150,7 +4160,7 @@ export function FacebookAnalyticsView({
               tiktokApiHighlight={isTikTok}
             />
             <MetricCard
-              label="Shares"
+              label={isInstagram ? 'Saves & Shares' : 'Shares'}
               source={
                 isTikTok
                   ? 'video/list · share_count (synced posts)'
@@ -4158,6 +4168,8 @@ export function FacebookAnalyticsView({
                     ? 'Synced X posts · sharesCount (native reposts where mapped)'
                   : isLinkedIn
                     ? 'Synced LinkedIn posts · sharesCount'
+                  : isInstagram
+                    ? 'total_interactions − likes − comments (Instagram bundles saves + shares)'
                     : 'post_shares'
               }
               color={ENGAGEMENT_METRIC_CONFIG.shares.color}
@@ -4166,14 +4178,10 @@ export function FacebookAnalyticsView({
               onClick={() => setSelectedEngagementMetrics((prev) => prev.includes('shares') ? prev.filter((m) => m !== 'shares') : [...prev, 'shares'])}
               tiktokApiHighlight={isTikTok}
             />
-            {(isInstagram || isTwitter) && (
+            {isTwitter && (
               <MetricCard
                 label="Reposts"
-                source={
-                  isTwitter
-                    ? 'X API timeline · retweet_count (live + synced posts)'
-                    : 'repostsCount'
-                }
+                source="X API timeline · retweet_count (live + synced posts)"
                 color={ENGAGEMENT_METRIC_CONFIG.reposts.color}
                 value={formatNumber(repostsTotal)}
                 active={selectedEngagementMetrics.includes('reposts')}
@@ -4184,7 +4192,7 @@ export function FacebookAnalyticsView({
           <div className="flex justify-end">
             <div className="flex flex-wrap gap-2">
               {selectedEngagementMetrics
-                .filter((m) => (m === 'reposts' ? (isInstagram || isTwitter) : true))
+                .filter((m) => (m === 'reposts' ? isTwitter : true))
                 .map((m) => (
                 <span
                   key={m}
@@ -4281,7 +4289,7 @@ export function FacebookAnalyticsView({
                     shape={<MinWidthBarShape />}
                   />
                 ) : null}
-                {(isInstagram || isTwitter) && selectedEngagementMetrics.includes('reposts') ? (
+                {isTwitter && selectedEngagementMetrics.includes('reposts') ? (
                   <Bar
                     dataKey="reposts"
                     stackId="engagement"
@@ -4678,7 +4686,7 @@ export function FacebookAnalyticsView({
             ) : null}
             {!isPinterest ? (
               <MetricCard
-                label="Unique Reach Proxy"
+                label="Unique Reach"
                 source="Sum of post_impressions_unique"
                 color={COLOR.amber}
                 value={formatNumber(uniqueReachProxy)}
@@ -5024,23 +5032,13 @@ export function FacebookAnalyticsView({
             onClick={() => setSelectedReelMetrics((prev) => prev.includes('comments') ? prev.filter((m) => m !== 'comments') : [...prev, 'comments'])}
           />
           <MetricCard
-            label="Shares"
-            source="post_shares"
+            label={isInstagram ? 'Saves & Shares' : 'Shares'}
+            source={isInstagram ? 'total_interactions − likes − comments (saves + shares combined)' : 'post_shares'}
             color={REEL_METRIC_CONFIG.shares.color}
             value={formatNumber(reelShares)}
             active={selectedReelMetrics.includes('shares')}
             onClick={() => setSelectedReelMetrics((prev) => prev.includes('shares') ? prev.filter((m) => m !== 'shares') : [...prev, 'shares'])}
           />
-          {isInstagram && (
-            <MetricCard
-              label="Reposts"
-              source="repostsCount"
-              color={REEL_METRIC_CONFIG.reposts.color}
-              value={formatNumber(reelReposts)}
-              active={selectedReelMetrics.includes('reposts')}
-              onClick={() => setSelectedReelMetrics((prev) => prev.includes('reposts') ? prev.filter((m) => m !== 'reposts') : [...prev, 'reposts'])}
-            />
-          )}
         </div>
 
         <InsightChartCard
@@ -5096,9 +5094,6 @@ export function FacebookAnalyticsView({
                 {selectedReelMetrics.includes('likes') ? <Bar dataKey="likes" fill={REEL_METRIC_CONFIG.likes.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                 {selectedReelMetrics.includes('comments') ? <Bar dataKey="comments" fill={REEL_METRIC_CONFIG.comments.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                 {selectedReelMetrics.includes('shares') ? <Bar dataKey="shares" fill={REEL_METRIC_CONFIG.shares.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
-                {isInstagram && selectedReelMetrics.includes('reposts') ? (
-                  <Bar dataKey="reposts" fill={REEL_METRIC_CONFIG.reposts.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} />
-                ) : null}
                 {selectedReelMetrics.includes('watchTime') ? <Bar dataKey="watchTimeMinutes" fill={REEL_METRIC_CONFIG.watchTime.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                 {selectedReelMetrics.includes('avgWatch') ? <Bar dataKey="avgWatchSeconds" fill={REEL_METRIC_CONFIG.avgWatch.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
               </BarChart>
