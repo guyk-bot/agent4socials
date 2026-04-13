@@ -172,11 +172,11 @@ const TIKTOK_PERFORMANCE_LABELS: Record<StoryMetricKey, string> = {
 
 const YOUTUBE_PERFORMANCE_LABELS: Record<StoryMetricKey, string> = {
   followers: 'Subscribers',
-  engagements: 'Engagements (range)',
-  videoViews: 'Views (range)',
+  engagements: 'Engagements',
+  videoViews: 'Views',
   contentViews: 'Content Views',
   pageVisits: 'Page Visits',
-  subscriberNet: 'Subscriber net (daily)',
+  subscriberNet: 'Subscriber net',
 };
 
 const YOUTUBE_PERFORMANCE_PRESET_ORDER = ['overview', 'subscribers', 'reach'] as const;
@@ -2727,18 +2727,6 @@ export function FacebookAnalyticsView({
     postImpressionsByPublishDate,
   ]);
 
-  const youtubeTrafficTimelineData = useMemo(() => {
-    if (!isYouTube) return [];
-    const m = seriesToMap(insights?.impressionsTimeSeries ?? []);
-    return dateAxis.map((date) => ({
-      date,
-      postImpressions: m[date] ?? 0,
-      nonviral: 0,
-      viral: 0,
-      uniqueReachProxy: 0,
-    }));
-  }, [isYouTube, dateAxis, insights?.impressionsTimeSeries]);
-
   /** Pie slices must be `{ name, value }` only: a `percent` field breaks Recharts labels (conflicts with internal `percent`). */
   const youtubeGeoBreakdown = useMemo(() => {
     const rows = insights?.demographics?.byCountry ?? [];
@@ -3017,10 +3005,6 @@ export function FacebookAnalyticsView({
   const trafficTicks = useMemo(
     () => buildKeyDateTicks(trafficTimelineData, (d) => (d.postImpressions ?? 0) > 0 || (d.nonviral ?? 0) > 0 || (d.viral ?? 0) > 0 || (d.uniqueReachProxy ?? 0) > 0, 10),
     [trafficTimelineData]
-  );
-  const youtubeTrafficTicks = useMemo(
-    () => buildKeyDateTicks(youtubeTrafficTimelineData, (d) => (d.postImpressions ?? 0) > 0, 10),
-    [youtubeTrafficTimelineData]
   );
   const reelsTicks = useMemo(
     () => buildKeyDateTicks(reelsChartData, (d) => (d.views ?? 0) > 0 || (d.watchTimeMinutes ?? 0) > 0 || (d.avgWatchSeconds ?? 0) > 0, 10),
@@ -3953,7 +3937,7 @@ export function FacebookAnalyticsView({
                   onClick={() => toggleStoryMetric('followers')}
                 />
                 <SparklineMetricCard
-                  label="Views (range)"
+                  label="Views"
                   source="YouTube Analytics API · views by day"
                   color={COLOR.amber}
                   value={formatNumber(youTubeViewsInRange)}
@@ -3962,7 +3946,7 @@ export function FacebookAnalyticsView({
                   onClick={() => toggleStoryMetric('videoViews')}
                 />
                 <SparklineMetricCard
-                  label="Engagements (range)"
+                  label="Engagements"
                   source="Synced videos · likes + comments + shares"
                   color={COLOR.coral}
                   value={formatNumber(youTubeEngagementsInRange)}
@@ -3971,7 +3955,7 @@ export function FacebookAnalyticsView({
                   onClick={() => toggleStoryMetric('engagements')}
                 />
                 <SparklineMetricCard
-                  label="Subscriber net (range)"
+                  label="Subscriber net"
                   source="YouTube Analytics · net subscribers gained minus lost per day"
                   color={TIKTOK_PERFORMANCE_LINE_COLORS.subscriberNet}
                   value={formatNumber(youTubeSubscriberNetInRange)}
@@ -4493,12 +4477,9 @@ export function FacebookAnalyticsView({
           </div>
           {isYouTube ? (
             <>
-              <p className="text-xs leading-relaxed max-w-[920px]" style={{ color: COLOR.textSecondary }}>
-                YouTube Analytics for your selected date range. Views by day use the Analytics API; watch time and geography need extended analytics (loaded automatically for this channel).
-              </p>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <MetricCard
-                  label="Views (range)"
+                  label="Views"
                   source="YouTube Analytics · views by day"
                   color={COLOR.cyan}
                   value={formatNumber(youTubeViewsInRange)}
@@ -4526,35 +4507,6 @@ export function FacebookAnalyticsView({
                   onClick={() => {}}
                 />
               </div>
-              <InsightChartCard title="Daily views" hideHeader flat>
-                {youtubeTrafficTimelineData.length === 0 || !youtubeTrafficTimelineData.some((d) => (d.postImpressions ?? 0) > 0) ? (
-                  <div className="h-[300px] rounded-xl border border-dashed flex flex-col items-center justify-center text-center px-6" style={{ borderColor: COLOR.border }}>
-                    <p className="text-sm font-semibold" style={{ color: COLOR.text }}>No daily views in this range</p>
-                    <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
-                      Confirm YouTube Analytics API is enabled and the channel has view data for these dates.
-                    </p>
-                  </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={youtubeTrafficTimelineData}
-                      barCategoryGap={UNIFIED_BAR_CATEGORY_GAP}
-                      barGap={UNIFIED_BAR_GAP}
-                      margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-                      <XAxis dataKey="date" ticks={youtubeTrafficTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} dy={8} minTickGap={18} axisLine={false} tickLine={false} />
-                      <YAxis domain={[0, 'auto']} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
-                      <Tooltip
-                        contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
-                        formatter={(v: number | string | undefined) => [formatNumber(Number(v) || 0), 'Views']}
-                        labelFormatter={(l) => formatShortDate(String(l))}
-                      />
-                      <Bar dataKey="postImpressions" fill={COLOR.cyan} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
-              </InsightChartCard>
 
               <div className="mt-6 rounded-xl border p-4 sm:p-5" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
                 <h4 className="text-base font-semibold mb-1" style={{ color: COLOR.text }}>
@@ -4976,11 +4928,8 @@ export function FacebookAnalyticsView({
           ) : (
             <div>
               <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>
-                Long-form videos
+                Long form videos
               </h2>
-              <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
-                Videos longer than 3 minutes (or classified as long-form at last sync). Sync stores duration and format from YouTube.
-              </p>
             </div>
           )}
         <div className="flex gap-2">
@@ -5163,10 +5112,7 @@ export function FacebookAnalyticsView({
           style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}
         >
             <div>
-              <h3 className="text-xl font-semibold tracking-tight" style={{ color: COLOR.text }}>Long-form videos</h3>
-              <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
-                Longer than 3 minutes, or classified as long-form at last sync.
-              </p>
+              <h3 className="text-xl font-semibold tracking-tight" style={{ color: COLOR.text }}>Long form videos</h3>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <MetricCard
