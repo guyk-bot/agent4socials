@@ -1797,6 +1797,37 @@ async function syncImportedPosts(
         return 'Could not determine YouTube uploads playlist. Try reconnecting your account.';
       }
 
+      /** Channel Shorts shelf playlist: same id as uploads but `UU` → `UUSH` (not duration-based). */
+      const shortsPlaylistId =
+        platformUserId.startsWith('UC') ? `UUSH${platformUserId.slice(2)}` : null;
+      const shortsVideoIds = new Set<string>();
+      if (shortsPlaylistId) {
+        try {
+          let shortsPageToken: string | null = null;
+          let shortsPages = 0;
+          do {
+            const sp: Record<string, string | number | boolean> = {
+              part: 'snippet',
+              playlistId: shortsPlaylistId,
+              maxResults: 50,
+            };
+            if (shortsPageToken) sp.pageToken = shortsPageToken;
+            const sres = await axios.get<{ items?: YtPlaylistItem[]; nextPageToken?: string }>(
+              'https://www.googleapis.com/youtube/v3/playlistItems',
+              { params: sp, headers: { Authorization: `Bearer ${accessToken}` } }
+            );
+            for (const it of sres.data?.items ?? []) {
+              const vid = it.snippet?.resourceId?.videoId;
+              if (vid) shortsVideoIds.add(vid);
+            }
+            shortsPageToken = sres.data?.nextPageToken ?? null;
+            shortsPages++;
+          } while (shortsPageToken && shortsVideoIds.size < 500 && shortsPages < 10);
+        } catch (e) {
+          console.warn('[YouTube sync] Shorts playlist (UUSH) fetch failed:', (e as Error)?.message ?? e);
+        }
+      }
+
       const allItems: YtPlaylistItem[] = [];
       let nextPageToken: string | null = null;
       let pages = 0;
@@ -1884,13 +1915,16 @@ async function syncImportedPosts(
         const likeCount = stats.likeCount;
         const commentsCount = stats.commentCount;
         const interactions = likeCount + commentsCount;
+        const inChannelShortsPlaylist = shortsVideoIds.has(videoId);
         const youtubeVideoFormat = classifyYoutubeVideoFormat({
           durationSec: stats.durationSec,
           title: stats.title || (title ?? ''),
           description: stats.description,
+          inChannelShortsPlaylist,
         });
         const youtubeMeta: Record<string, unknown> = {
           youtubeVideoFormat,
+          youtubeInShortsPlaylist: inChannelShortsPlaylist,
           /** Helps client-side Shorts vs long-form when title omits #shorts (matches classifyYoutubeVideoFormat). */
           youtubeDescriptionPreview: (stats.description || '').slice(0, 4000),
         };

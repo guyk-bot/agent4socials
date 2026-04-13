@@ -28,14 +28,22 @@ export function parseYoutubeIso8601DurationSeconds(iso: string | undefined | nul
 export type YoutubeVideoFormat = 'short' | 'long';
 
 /**
- * Classify using API duration when possible; otherwise `#shorts` in title/description (creator signal).
+ * Shorts vs long-form. YouTube allows regular uploads under 3 minutes — duration alone is not enough.
+ *
+ * Priority: (1) channel #Shorts playlist membership from Data API (`inChannelShortsPlaylist`), (2) explicit
+ * creator signals in title/description (`#shorts`, `/shorts/` URLs), (3) over max Shorts length → long,
+ * (4) otherwise **long-form** (including short-length regular videos with no Shorts signals).
  */
 export function classifyYoutubeVideoFormat(params: {
   durationSec: number;
   title?: string | null;
   description?: string | null;
+  /** True when the video id appears in the channel’s `UUSH…` Shorts playlist (YouTube Data API). */
+  inChannelShortsPlaylist?: boolean;
 }): YoutubeVideoFormat {
-  const { durationSec, title, description } = params;
+  const { durationSec, title, description, inChannelShortsPlaylist } = params;
+  if (inChannelShortsPlaylist) return 'short';
+
   const blob = `${title ?? ''}\n${description ?? ''}`.toLowerCase();
   const taggedShort =
     blob.includes('#shorts') ||
@@ -44,6 +52,6 @@ export function classifyYoutubeVideoFormat(params: {
     /\byoutube\.com\/shorts\//i.test(blob);
 
   if (durationSec > YOUTUBE_SHORT_MAX_DURATION_SEC) return 'long';
-  if (durationSec > 0) return 'short';
-  return taggedShort ? 'short' : 'long';
+  if (taggedShort) return 'short';
+  return 'long';
 }

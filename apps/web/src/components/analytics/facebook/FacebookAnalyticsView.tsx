@@ -26,7 +26,7 @@ import { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids
 import { localCalendarDateFromIso, toLocalCalendarDate } from '@/lib/calendar-date';
 import { formatMetricNumber as formatNumber } from '@/lib/metric-format';
 import { isLegacyInstagramInsightsUnavailableHint } from '@/lib/strip-legacy-insights-hint';
-import { YOUTUBE_SHORT_MAX_DURATION_SEC, classifyYoutubeVideoFormat } from '@/lib/youtube-video-format';
+import { classifyYoutubeVideoFormat } from '@/lib/youtube-video-format';
 
 export { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids';
 
@@ -530,17 +530,6 @@ function getYoutubeDurationSecFromPost(p: FacebookPost): number | null {
   return null;
 }
 
-function getYoutubeVideoFormatFromPost(p: FacebookPost): 'short' | 'long' | null {
-  if ((p.platform ?? '').toUpperCase() !== 'YOUTUBE') return null;
-  const meta =
-    p.platformMetadata && typeof p.platformMetadata === 'object' && !Array.isArray(p.platformMetadata)
-      ? (p.platformMetadata as Record<string, unknown>)
-      : {};
-  const v = meta.youtubeVideoFormat;
-  if (v === 'short' || v === 'long') return v;
-  return null;
-}
-
 function getYoutubeDescriptionPreviewFromPost(p: FacebookPost): string {
   if ((p.platform ?? '').toUpperCase() !== 'YOUTUBE') return '';
   const meta =
@@ -551,21 +540,33 @@ function getYoutubeDescriptionPreviewFromPost(p: FacebookPost): string {
   return typeof v === 'string' ? v : '';
 }
 
+function getYoutubeInShortsPlaylistFromPost(p: FacebookPost): boolean | undefined {
+  if ((p.platform ?? '').toUpperCase() !== 'YOUTUBE') return undefined;
+  const meta =
+    p.platformMetadata && typeof p.platformMetadata === 'object' && !Array.isArray(p.platformMetadata)
+      ? (p.platformMetadata as Record<string, unknown>)
+      : {};
+  const v = meta.youtubeInShortsPlaylist;
+  if (v === true) return true;
+  if (v === false) return false;
+  return undefined;
+}
+
 /**
- * Shorts: `youtubeVideoFormat` from sync when present; otherwise same rules as sync
- * (`classifyYoutubeVideoFormat`: duration, #shorts, /shorts/ URLs, description preview).
+ * Shorts: channel `UUSH…` playlist membership (after sync), else explicit #shorts / /shorts/ signals — not duration alone.
+ * Recomputes from metadata so legacy `youtubeVideoFormat` from the old “≤3m = Short” rule does not stick.
  */
 function isYouTubeShortPost(p: FacebookPost): boolean {
   if ((p.platform ?? '').toUpperCase() !== 'YOUTUBE') return false;
-  const fmt = getYoutubeVideoFormatFromPost(p);
-  if (fmt === 'short') return true;
-  if (fmt === 'long') return false;
+  const pl = getYoutubeInShortsPlaylistFromPost(p);
+  const inChannelShortsPlaylist = pl === true ? true : pl === false ? false : undefined;
   const d = getYoutubeDurationSecFromPost(p) ?? 0;
   return (
     classifyYoutubeVideoFormat({
       durationSec: d,
       title: p.content,
       description: getYoutubeDescriptionPreviewFromPost(p),
+      inChannelShortsPlaylist,
     }) === 'short'
   );
 }
@@ -5197,7 +5198,7 @@ export function FacebookAnalyticsView({
             <div>
               <h3 className="text-xl font-semibold tracking-tight" style={{ color: COLOR.text }}>YouTube videos</h3>
               <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
-                Shorts chart uses Shorts-classified uploads; KPIs and long-form chart use long-form uploads.
+                Shorts vs long-form uses your channel’s Shorts playlist and title/description signals — not length alone (regular uploads can be under 3 minutes).
               </p>
             </div>
             <InsightChartCard
@@ -5262,7 +5263,7 @@ export function FacebookAnalyticsView({
                 <div className="h-[240px] rounded-[20px] border flex flex-col items-center justify-center text-center px-6" style={{ background: COLOR.card, borderColor: COLOR.border }}>
                   <p className="text-sm font-semibold" style={{ color: COLOR.text }}>No Shorts in this period</p>
                   <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
-                    Shorts are videos at or under {Math.round(YOUTUBE_SHORT_MAX_DURATION_SEC / 60)} minutes (or classified as Shorts when duration is missing). Re-sync if uploads look wrong.
+                    Shorts are videos on your channel’s Shorts shelf (synced via YouTube) or marked with #shorts / a /shorts/ link in title or description. Re-sync to refresh playlist membership.
                   </p>
                 </div>
               )}
@@ -5379,7 +5380,7 @@ export function FacebookAnalyticsView({
                 <div className="h-[240px] rounded-[20px] border flex flex-col items-center justify-center text-center px-6" style={{ background: COLOR.card, borderColor: COLOR.border }}>
                   <p className="text-sm font-semibold" style={{ color: COLOR.text }}>No long-form videos in this period</p>
                   <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
-                    Long-form uploads are over 3 minutes, or not tagged as Shorts when duration is missing. Re-sync if counts look wrong.
+                    Long-form is everything not classified as Shorts (including short-length regular uploads). Re-sync if splits look wrong.
                   </p>
                 </div>
               )}
