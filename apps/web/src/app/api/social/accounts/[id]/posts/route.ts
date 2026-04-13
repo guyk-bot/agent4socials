@@ -1801,6 +1801,8 @@ async function syncImportedPosts(
       const shortsPlaylistId =
         platformUserId.startsWith('UC') ? `UUSH${platformUserId.slice(2)}` : null;
       const shortsVideoIds = new Set<string>();
+      /** Only trust `youtubeInShortsPlaylist` false/true when at least one Shorts playlist request succeeded. */
+      let shortsPlaylistIndexOk = false;
       if (shortsPlaylistId) {
         try {
           let shortsPageToken: string | null = null;
@@ -1812,10 +1814,19 @@ async function syncImportedPosts(
               maxResults: 50,
             };
             if (shortsPageToken) sp.pageToken = shortsPageToken;
-            const sres = await axios.get<{ items?: YtPlaylistItem[]; nextPageToken?: string }>(
-              'https://www.googleapis.com/youtube/v3/playlistItems',
-              { params: sp, headers: { Authorization: `Bearer ${accessToken}` } }
-            );
+            const sres = await axios.get<{
+              items?: YtPlaylistItem[];
+              nextPageToken?: string;
+              error?: { message?: string };
+            }>('https://www.googleapis.com/youtube/v3/playlistItems', {
+              params: sp,
+              headers: { Authorization: `Bearer ${accessToken}` },
+              validateStatus: () => true,
+            });
+            if (sres.status !== 200 || sres.data?.error) {
+              throw new Error(sres.data?.error?.message ?? `Shorts playlist HTTP ${sres.status}`);
+            }
+            shortsPlaylistIndexOk = true;
             for (const it of sres.data?.items ?? []) {
               const vid = it.snippet?.resourceId?.videoId;
               if (vid) shortsVideoIds.add(vid);
@@ -1915,7 +1926,7 @@ async function syncImportedPosts(
         const likeCount = stats.likeCount;
         const commentsCount = stats.commentCount;
         const interactions = likeCount + commentsCount;
-        const inChannelShortsPlaylist = shortsVideoIds.has(videoId);
+        const inChannelShortsPlaylist = shortsPlaylistIndexOk ? shortsVideoIds.has(videoId) : undefined;
         const youtubeVideoFormat = classifyYoutubeVideoFormat({
           durationSec: stats.durationSec,
           title: stats.title || (title ?? ''),
@@ -1924,10 +1935,13 @@ async function syncImportedPosts(
         });
         const youtubeMeta: Record<string, unknown> = {
           youtubeVideoFormat,
-          youtubeInShortsPlaylist: inChannelShortsPlaylist,
+          youtubeShortsIndexUnavailable: !shortsPlaylistIndexOk,
           /** Helps client-side Shorts vs long-form when title omits #shorts (matches classifyYoutubeVideoFormat). */
           youtubeDescriptionPreview: (stats.description || '').slice(0, 4000),
         };
+        if (shortsPlaylistIndexOk) {
+          youtubeMeta.youtubeInShortsPlaylist = shortsVideoIds.has(videoId);
+        }
         if (stats.durationSec > 0) {
           youtubeMeta.youtubeDurationSec = stats.durationSec;
         }

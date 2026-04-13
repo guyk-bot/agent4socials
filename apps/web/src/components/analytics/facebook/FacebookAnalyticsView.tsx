@@ -546,6 +546,8 @@ function getYoutubeInShortsPlaylistFromPost(p: FacebookPost): boolean | undefine
     p.platformMetadata && typeof p.platformMetadata === 'object' && !Array.isArray(p.platformMetadata)
       ? (p.platformMetadata as Record<string, unknown>)
       : {};
+  /** Sync could not read the Shorts shelf — do not treat missing/stale `youtubeInShortsPlaylist` as definitive. */
+  if (meta.youtubeShortsIndexUnavailable === true) return undefined;
   const v = meta.youtubeInShortsPlaylist;
   if (v === true) return true;
   if (v === false) return false;

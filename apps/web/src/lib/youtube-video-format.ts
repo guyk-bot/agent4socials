@@ -28,30 +28,51 @@ export function parseYoutubeIso8601DurationSeconds(iso: string | undefined | nul
 export type YoutubeVideoFormat = 'short' | 'long';
 
 /**
+ * Deliberate Shorts markers in title/description. Token-based so we do not match "not #shorts" substrings
+ * or "#short" inside "#shorts". Used only when the Shorts playlist index is missing or unavailable.
+ */
+export function hasYoutubeShortsCreatorSignals(title?: string | null, description?: string | null): boolean {
+  const blob = `${title ?? ''}\n${description ?? ''}`;
+  if (!blob.trim()) return false;
+  if (/\byoutube\.com\/shorts\/[a-z0-9_-]{11}\b/i.test(blob)) return true;
+
+  const stripEdges = (s: string) =>
+    s.replace(/^[\s"'`([{<]+/g, '').replace(/[.,!?;:)}\]'">]+$/g, '');
+
+  for (const line of blob.split(/\r?\n/)) {
+    const words = line.split(/[\s,]+/).filter(Boolean);
+    for (let i = 0; i < words.length; i++) {
+      const w = stripEdges(words[i]!);
+      if (!/^#shorts$/i.test(w) && !/^#short$/i.test(w)) continue;
+      const prev = stripEdges(words[i - 1] ?? '').toLowerCase();
+      if (prev === 'not' || prev === 'no') continue;
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Shorts vs long-form. YouTube allows regular uploads under 3 minutes — duration alone is not enough.
  *
- * Priority: (1) channel #Shorts playlist membership from Data API (`inChannelShortsPlaylist`), (2) explicit
- * creator signals in title/description (`#shorts`, `/shorts/` URLs), (3) over max Shorts length → long,
- * (4) otherwise **long-form** (including short-length regular videos with no Shorts signals).
+ * - `inChannelShortsPlaylist === true` → Short (channel Shorts shelf).
+ * - `inChannelShortsPlaylist === false` → **long-form** (index succeeded and video is not on the shelf; do not
+ *   override with #shorts in description — creators often tag long uploads for reach).
+ * - `inChannelShortsPlaylist === undefined` → use strict creator signals only; else long-form.
+ * - Over max Shorts length → always long-form.
  */
 export function classifyYoutubeVideoFormat(params: {
   durationSec: number;
   title?: string | null;
   description?: string | null;
-  /** True when the video id appears in the channel’s `UUSH…` Shorts playlist (YouTube Data API). */
+  /** True/false only when Shorts playlist was fetched successfully; undefined when index unavailable. */
   inChannelShortsPlaylist?: boolean;
 }): YoutubeVideoFormat {
   const { durationSec, title, description, inChannelShortsPlaylist } = params;
-  if (inChannelShortsPlaylist) return 'short';
-
-  const blob = `${title ?? ''}\n${description ?? ''}`.toLowerCase();
-  const taggedShort =
-    blob.includes('#shorts') ||
-    blob.includes('#short ') ||
-    blob.includes('#short\n') ||
-    /\byoutube\.com\/shorts\//i.test(blob);
-
   if (durationSec > YOUTUBE_SHORT_MAX_DURATION_SEC) return 'long';
-  if (taggedShort) return 'short';
+  if (inChannelShortsPlaylist === true) return 'short';
+  if (inChannelShortsPlaylist === false) return 'long';
+
+  if (hasYoutubeShortsCreatorSignals(title, description)) return 'short';
   return 'long';
 }
