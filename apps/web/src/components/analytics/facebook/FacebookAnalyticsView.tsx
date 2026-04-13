@@ -5114,6 +5114,73 @@ export function FacebookAnalyticsView({
             <div>
               <h3 className="text-xl font-semibold tracking-tight" style={{ color: COLOR.text }}>Long form videos</h3>
             </div>
+            <InsightChartCard
+              title="YouTube Shorts performance"
+              chartHeightPx={youtubeShortChartHeightPx}
+              legend={selectedReelMetrics.map((m) => ({ label: REEL_METRIC_CONFIG[m].label, color: REEL_METRIC_CONFIG[m].color }))}
+            >
+              {youtubeShortsChartDataForDisplay.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={youtubeShortsChartDataForDisplay}
+                    barCategoryGap={UNIFIED_BAR_CATEGORY_GAP}
+                    barGap={UNIFIED_BAR_GAP}
+                    margin={{ top: 4, right: 8, left: 0, bottom: youtubeShortChartAxisDense ? 36 : 4 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(17,24,39,0.08)" vertical={false} />
+                    <XAxis
+                      dataKey="date"
+                      tickFormatter={formatShortDate}
+                      interval={0}
+                      angle={youtubeShortChartAxisDense ? -32 : 0}
+                      textAnchor={youtubeShortChartAxisDense ? 'end' : 'middle'}
+                      height={youtubeShortChartAxisDense ? 64 : undefined}
+                      tick={{ fill: COLOR.textMuted, fontSize: 11 }}
+                      minTickGap={youtubeShortChartAxisDense ? 4 : 0}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <Tooltip
+                      cursor={{ fill: 'rgba(107,114,128,0.20)' }}
+                      content={(props) => {
+                        const { active, payload, label } = props as unknown as { active?: boolean; payload?: Array<{ dataKey?: string; value?: number; payload?: { thumbnailUrl?: string | null } }>; label?: string };
+                        if (!active || !payload?.length) return null;
+                        const row = payload[0]?.payload;
+                        const kv = payload
+                          .filter((p) => typeof p.value === 'number' && typeof p.dataKey === 'string')
+                          .map((p) => ({ key: p.dataKey as ReelMetricKey | 'watchTimeMinutes' | 'avgWatchSeconds', value: p.value ?? 0 }));
+                        return (
+                          <div className="rounded-xl border px-3 py-2 text-xs shadow-lg" style={{ background: '#ffffff', borderColor: COLOR.border }}>
+                            <p className="font-medium mb-1.5" style={{ color: COLOR.text }}>{formatShortDate(String(label ?? ''))}</p>
+                            {row?.thumbnailUrl ? <img src={row.thumbnailUrl} alt="" className="mb-2 h-10 w-10 rounded object-cover" /> : null}
+                            {kv.map((item) => (
+                              <p key={item.key} style={{ color: COLOR.textSecondary }}>
+                                {(item.key === 'watchTimeMinutes' ? 'Watch Time' : item.key === 'avgWatchSeconds' ? 'Avg Watch' : REEL_METRIC_CONFIG[item.key as ReelMetricKey]?.label ?? item.key)}: {item.key === 'watchTimeMinutes' ? `${item.value.toFixed(1)}m` : item.key === 'avgWatchSeconds' ? `${item.value.toFixed(1)}s` : formatNumber(item.value)}
+                              </p>
+                            ))}
+                          </div>
+                        );
+                      }}
+                    />
+                    {selectedReelMetrics.includes('views') ? <Bar dataKey="views" fill={REEL_METRIC_CONFIG.views.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                    {selectedReelMetrics.includes('likes') ? <Bar dataKey="likes" fill={REEL_METRIC_CONFIG.likes.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                    {selectedReelMetrics.includes('comments') ? <Bar dataKey="comments" fill={REEL_METRIC_CONFIG.comments.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                    {selectedReelMetrics.includes('shares') ? <Bar dataKey="shares" fill={REEL_METRIC_CONFIG.shares.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                    {isInstagram && selectedReelMetrics.includes('reposts') ? <Bar dataKey="reposts" fill={REEL_METRIC_CONFIG.reposts.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                    {selectedReelMetrics.includes('watchTime') ? <Bar dataKey="watchTimeMinutes" fill={REEL_METRIC_CONFIG.watchTime.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                    {selectedReelMetrics.includes('avgWatch') ? <Bar dataKey="avgWatchSeconds" fill={REEL_METRIC_CONFIG.avgWatch.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[240px] rounded-[20px] border flex flex-col items-center justify-center text-center px-6" style={{ background: COLOR.card, borderColor: COLOR.border }}>
+                  <p className="text-sm font-semibold" style={{ color: COLOR.text }}>No Shorts in this period</p>
+                  <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
+                    Shorts are videos at or under {Math.round(YOUTUBE_SHORT_MAX_DURATION_SEC / 60)} minutes (or classified as Shorts when duration is missing). Re-sync if uploads look wrong.
+                  </p>
+                </div>
+              )}
+            </InsightChartCard>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <MetricCard
                 label="Total Video Views"
