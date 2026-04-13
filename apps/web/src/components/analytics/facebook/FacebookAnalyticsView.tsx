@@ -26,7 +26,7 @@ import { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids
 import { localCalendarDateFromIso, toLocalCalendarDate } from '@/lib/calendar-date';
 import { formatMetricNumber as formatNumber } from '@/lib/metric-format';
 import { isLegacyInstagramInsightsUnavailableHint } from '@/lib/strip-legacy-insights-hint';
-import { YOUTUBE_SHORT_MAX_DURATION_SEC } from '@/lib/youtube-video-format';
+import { YOUTUBE_SHORT_MAX_DURATION_SEC, classifyYoutubeVideoFormat } from '@/lib/youtube-video-format';
 
 export { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids';
 
@@ -233,6 +233,9 @@ function youtubeGeoPieColor(index: number): string {
 }
 
 function formatYoutubeTrafficSource(raw: string): string {
+  if (raw === '__LONG_FORM_NON_SHORTS_FEED__') {
+    return 'Long-form & other (non-Shorts feed)';
+  }
   const t = String(raw || '')
     .replace(/^YT_/i, '')
     .replace(/_/g, ' ')
@@ -534,21 +537,33 @@ function getYoutubeVideoFormatFromPost(p: FacebookPost): 'short' | 'long' | null
   return null;
 }
 
-function youTubeLikelyShortFromHashtagInContent(p: FacebookPost): boolean {
-  const c = (p.content ?? '').toLowerCase();
-  return c.includes('#shorts') || /\b#short\b/.test(c);
+function getYoutubeDescriptionPreviewFromPost(p: FacebookPost): string {
+  if ((p.platform ?? '').toUpperCase() !== 'YOUTUBE') return '';
+  const meta =
+    p.platformMetadata && typeof p.platformMetadata === 'object' && !Array.isArray(p.platformMetadata)
+      ? (p.platformMetadata as Record<string, unknown>)
+      : {};
+  const v = meta.youtubeDescriptionPreview;
+  return typeof v === 'string' ? v : '';
 }
 
-/** Shorts: stored format from sync, duration ≤3m, or #shorts in title when duration missing (legacy rows). */
+/**
+ * Shorts: `youtubeVideoFormat` from sync when present; otherwise same rules as sync
+ * (`classifyYoutubeVideoFormat`: duration, #shorts, /shorts/ URLs, description preview).
+ */
 function isYouTubeShortPost(p: FacebookPost): boolean {
   if ((p.platform ?? '').toUpperCase() !== 'YOUTUBE') return false;
   const fmt = getYoutubeVideoFormatFromPost(p);
   if (fmt === 'short') return true;
   if (fmt === 'long') return false;
-  const d = getYoutubeDurationSecFromPost(p);
-  if (d !== null && d <= YOUTUBE_SHORT_MAX_DURATION_SEC) return true;
-  if (d === null && youTubeLikelyShortFromHashtagInContent(p)) return true;
-  return false;
+  const d = getYoutubeDurationSecFromPost(p) ?? 0;
+  return (
+    classifyYoutubeVideoFormat({
+      durationSec: d,
+      title: p.content,
+      description: getYoutubeDescriptionPreviewFromPost(p),
+    }) === 'short'
+  );
 }
 
 /** Long-form: not classified as Short (includes legacy unknown-duration without #shorts). */
@@ -1423,7 +1438,7 @@ export function PostsPerformanceTable({
   const tableHeaders: Array<{ label: string; className: string; title?: string }> = [
     { label: 'Post preview', className: 'w-[240px]' },
     { label: 'Publish date', className: 'w-[132px]' },
-    { label: 'Type', className: 'w-[60px]' },
+    { label: 'Type', className: 'w-[88px]' },
     { label: 'Views', className: 'w-[58px]' },
     ...(compactVideoTable ? [] : [{ label: 'Unique reach', className: 'w-[124px] min-w-[124px]' }]),
     ...(hideClicksColumn ? [] : [{ label: clicksColumnLabel, className: 'w-[116px] min-w-[116px] pl-5' }]),
@@ -1432,7 +1447,14 @@ export function PostsPerformanceTable({
     ...(compactVideoTable
       ? []
       : [
-          { label: 'Watch time', className: 'w-[84px]' },
+          {
+            label: 'Watch time',
+            className: 'w-[84px]',
+            title:
+              platUpper === 'YOUTUBE'
+                ? 'YouTube Data API does not expose per-video watch time here (studio-only).'
+                : undefined,
+          },
           { label: platUpper === 'YOUTUBE' ? 'Duration' : 'Avg watch', className: 'w-[80px]' },
         ]),
   ];
@@ -1503,7 +1525,11 @@ export function PostsPerformanceTable({
                 <td className="px-3 py-3 align-top text-xs leading-tight" style={{ color: COLOR.textSecondary }}>
                   {formatPostCardDateTime(r.date) || new Date(r.date).toLocaleDateString()}
                 </td>
-                <td className="px-3 py-3"><span className="rounded-full px-2 py-1 text-xs" style={{ background: 'rgba(255,255,255,0.08)', color: COLOR.text }}>{platUpper === 'YOUTUBE' ? (r.type === 'Reel' ? 'Short' : 'Video') : r.type}</span></td>
+                <td className="px-3 py-3">
+                  <span className="rounded-full px-2 py-1 text-xs" style={{ background: 'rgba(255,255,255,0.08)', color: COLOR.text }}>
+                    {platUpper === 'YOUTUBE' ? (isYouTubeShortPost(r.rawPost) ? 'Short' : 'Long-form') : r.type}
+                  </span>
+                </td>
                 <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.views)}</td>
                 {!compactVideoTable ? <td className="px-3 py-3 pr-4" style={{ color: COLOR.text }}>{formatNumber(r.uniqueReach)}</td> : null}
                 {!hideClicksColumn && <td className="pl-5 pr-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.clicks)}</td>}
@@ -1511,11 +1537,27 @@ export function PostsPerformanceTable({
                 <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.reactionsTotal)}</td>
                 {!compactVideoTable ? (
                   <>
-                    <td className="pl-5 pr-3 py-3" style={{ color: COLOR.textSecondary }}>
-                      {r.watchTimeMs > 0 ? formatDurationMs(r.watchTimeMs) : ' - '}
+                    <td
+                      className="pl-5 pr-3 py-3"
+                      style={{ color: COLOR.textSecondary }}
+                      title={
+                        platUpper === 'YOUTUBE'
+                          ? 'Per-video watch time is not available from the YouTube Data API in this view.'
+                          : undefined
+                      }
+                    >
+                      {platUpper === 'YOUTUBE' ? '—' : r.watchTimeMs > 0 ? formatDurationMs(r.watchTimeMs) : ' - '}
                     </td>
                     <td className="px-3 py-3" style={{ color: COLOR.textSecondary }}>
-                      {r.avgWatchMs > 0 ? formatDurationMs(r.avgWatchMs) : ' - '}
+                      {platUpper === 'YOUTUBE'
+                        ? (() => {
+                            const sec = getYoutubeDurationSecFromPost(r.rawPost);
+                            if (sec !== null && sec > 0) return formatDurationMs(sec * 1000);
+                            return r.avgWatchMs > 0 ? formatDurationMs(r.avgWatchMs) : ' - ';
+                          })()
+                        : r.avgWatchMs > 0
+                          ? formatDurationMs(r.avgWatchMs)
+                          : ' - '}
                     </td>
                   </>
                 ) : null}
@@ -1566,13 +1608,25 @@ export function PostsPerformanceTable({
             </div>
             <div className="mt-2 flex flex-wrap gap-2 text-xs" style={{ color: COLOR.textSecondary }}>
               <span>{formatPostCardDateTime(r.date) || new Date(r.date).toLocaleDateString()}</span>
-              <span>{platUpper === 'YOUTUBE' ? (r.type === 'Reel' ? 'Short' : 'Video') : r.type}</span>
+              <span>{platUpper === 'YOUTUBE' ? (isYouTubeShortPost(r.rawPost) ? 'Short' : 'Long-form') : r.type}</span>
               <span>Views {formatNumber(r.views)}</span>
               {!compactVideoTable ? <span>Reach {formatNumber(r.uniqueReach)}</span> : null}
               {!compactVideoTable ? (
                 <>
-                  <span>{r.watchTimeMs > 0 ? `Watch ${formatDurationMs(r.watchTimeMs)}` : 'Watch -'}</span>
-                  <span>{r.avgWatchMs > 0 ? `Avg ${formatDurationMs(r.avgWatchMs)}` : 'Avg -'}</span>
+                  <span title={platUpper === 'YOUTUBE' ? 'Not available per video from YouTube Data API' : undefined}>
+                    {platUpper === 'YOUTUBE' ? 'Watch —' : r.watchTimeMs > 0 ? `Watch ${formatDurationMs(r.watchTimeMs)}` : 'Watch -'}
+                  </span>
+                  <span>
+                    {platUpper === 'YOUTUBE'
+                      ? (() => {
+                          const sec = getYoutubeDurationSecFromPost(r.rawPost);
+                          if (sec !== null && sec > 0) return `Duration ${formatDurationMs(sec * 1000)}`;
+                          return r.avgWatchMs > 0 ? `Duration ${formatDurationMs(r.avgWatchMs)}` : 'Duration -';
+                        })()
+                      : r.avgWatchMs > 0
+                        ? `Avg ${formatDurationMs(r.avgWatchMs)}`
+                        : 'Avg -'}
+                  </span>
                 </>
               ) : null}
               {!hideClicksColumn && (
@@ -2754,9 +2808,21 @@ export function FacebookAnalyticsView({
     return { list, pieSlices };
   }, [insights?.demographics?.byCountry]);
 
-  const youtubeTrafficSourcesSorted = useMemo(() => {
+  /** Traffic types whose views are attributed to Shorts surfacing; remainder shown as a derived long-form row. */
+  const youtubeTrafficSourcesForDisplay = useMemo(() => {
     const list = insights?.trafficSources ?? [];
-    return [...list].sort((a, b) => b.value - a.value);
+    if (list.length === 0) return [];
+    const shortsSurfacing = (source: string) => {
+      const k = String(source || '')
+        .toUpperCase()
+        .replace(/^YT_/i, '');
+      return k === 'SHORTS' || k.includes('SHORTS');
+    };
+    const shortsSum = list.filter((r) => shortsSurfacing(r.source)).reduce((s, r) => s + r.value, 0);
+    const total = list.reduce((s, r) => s + r.value, 0);
+    const longFormNonShortsFeed = Math.max(0, total - shortsSum);
+    const withDerived = [{ source: '__LONG_FORM_NON_SHORTS_FEED__' as const, value: longFormNonShortsFeed }, ...list];
+    return [...withDerived].sort((a, b) => b.value - a.value);
   }, [insights?.trafficSources]);
 
   const youtubeEstimatedWatchMinutes = useMemo(() => {
@@ -4601,14 +4667,11 @@ export function FacebookAnalyticsView({
                 )}
               </div>
 
-              {youtubeTrafficSourcesSorted.length > 0 ? (
+              {youtubeTrafficSourcesForDisplay.length > 0 ? (
                 <div className="rounded-xl border p-4 sm:p-5" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
-                  <h4 className="text-base font-semibold mb-1" style={{ color: COLOR.text }}>
+                  <h4 className="text-base font-semibold mb-3" style={{ color: COLOR.text }}>
                     Traffic sources
                   </h4>
-                  <p className="text-xs mb-3" style={{ color: COLOR.textSecondary }}>
-                    Where views came from (YouTube insightTrafficSourceType).
-                  </p>
                   <div className="overflow-x-auto rounded-lg border border-neutral-100" style={{ borderColor: COLOR.border }}>
                     <table className="w-full min-w-[280px] text-sm border-collapse" style={{ color: COLOR.text }}>
                       <thead>
@@ -4618,7 +4681,7 @@ export function FacebookAnalyticsView({
                         </tr>
                       </thead>
                       <tbody>
-                        {youtubeTrafficSourcesSorted.slice(0, 20).map((row) => (
+                        {youtubeTrafficSourcesForDisplay.slice(0, 20).map((row) => (
                           <tr key={row.source} className="border-b border-neutral-100 last:border-0">
                             <td className="py-2.5 px-3 font-medium min-w-0 max-w-[60%]">
                               <span className="line-clamp-2">{formatYoutubeTrafficSource(row.source)}</span>
@@ -4631,6 +4694,9 @@ export function FacebookAnalyticsView({
                       </tbody>
                     </table>
                   </div>
+                  <p className="text-xs mt-3 leading-relaxed" style={{ color: COLOR.textSecondary }}>
+                    The first row estimates views not attributed to Shorts feed traffic types (Shorts, Shorts content links, etc.). It is not the same as “only long-form uploads”; the rows below are YouTube’s standard breakdown.
+                  </p>
                 </div>
               ) : null}
             </>
@@ -5112,7 +5178,10 @@ export function FacebookAnalyticsView({
           style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}
         >
             <div>
-              <h3 className="text-xl font-semibold tracking-tight" style={{ color: COLOR.text }}>Long form videos</h3>
+              <h3 className="text-xl font-semibold tracking-tight" style={{ color: COLOR.text }}>YouTube videos</h3>
+              <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
+                Shorts chart uses Shorts-classified uploads; KPIs and long-form chart use long-form uploads.
+              </p>
             </div>
             <InsightChartCard
               title="YouTube Shorts performance"

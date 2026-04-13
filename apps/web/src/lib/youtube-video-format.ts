@@ -38,7 +38,10 @@ export function classifyYoutubeVideoFormat(params: {
   const { durationSec, title, description } = params;
   const blob = `${title ?? ''}\n${description ?? ''}`.toLowerCase();
   const taggedShort =
-    blob.includes('#shorts') || blob.includes('#short ') || blob.includes('#short\n');
+    blob.includes('#shorts') ||
+    blob.includes('#short ') ||
+    blob.includes('#short\n') ||
+    /\byoutube\.com\/shorts\//i.test(blob);
 
   if (durationSec > YOUTUBE_SHORT_MAX_DURATION_SEC) return 'long';
   if (durationSec > 0) return 'short';

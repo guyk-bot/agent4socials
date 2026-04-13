@@ -1891,6 +1891,8 @@ async function syncImportedPosts(
         });
         const youtubeMeta: Record<string, unknown> = {
           youtubeVideoFormat,
+          /** Helps client-side Shorts vs long-form when title omits #shorts (matches classifyYoutubeVideoFormat). */
+          youtubeDescriptionPreview: (stats.description || '').slice(0, 4000),
         };
         if (stats.durationSec > 0) {
           youtubeMeta.youtubeDurationSec = stats.durationSec;
