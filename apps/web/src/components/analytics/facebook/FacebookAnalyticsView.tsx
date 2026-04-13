@@ -555,22 +555,49 @@ function getYoutubeInShortsPlaylistFromPost(p: FacebookPost): boolean | undefine
 }
 
 /**
- * Shorts: channel `UUSH…` playlist membership (after sync), else explicit #shorts / /shorts/ signals — not duration alone.
- * Recomputes from metadata so legacy `youtubeVideoFormat` from the old “≤3m = Short” rule does not stick.
+ * Return the stored `youtubeVideoFormat` only for rows synced BEFORE the playlist-aware sync.
+ * Used as a bridge until re-sync writes `youtubeInShortsPlaylist`.
+ */
+function getLegacyYoutubeVideoFormatFromPost(p: FacebookPost): 'short' | 'long' | undefined {
+  if ((p.platform ?? '').toUpperCase() !== 'YOUTUBE') return undefined;
+  const meta =
+    p.platformMetadata && typeof p.platformMetadata === 'object' && !Array.isArray(p.platformMetadata)
+      ? (p.platformMetadata as Record<string, unknown>)
+      : {};
+  const hasPlaylistData =
+    meta.youtubeInShortsPlaylist !== undefined || meta.youtubeShortsIndexUnavailable !== undefined;
+  if (hasPlaylistData) return undefined;
+  const v = meta.youtubeVideoFormat;
+  if (v === 'short' || v === 'long') return v;
+  return undefined;
+}
+
+/**
+ * Shorts: channel `UUSH…` playlist membership (definitive once synced), else strict creator signals.
+ * Legacy rows (no playlist data yet) fall back to the stored `youtubeVideoFormat` as a bridge until re-sync.
  */
 function isYouTubeShortPost(p: FacebookPost): boolean {
   if ((p.platform ?? '').toUpperCase() !== 'YOUTUBE') return false;
   const pl = getYoutubeInShortsPlaylistFromPost(p);
   const inChannelShortsPlaylist = pl === true ? true : pl === false ? false : undefined;
   const d = getYoutubeDurationSecFromPost(p) ?? 0;
-  return (
-    classifyYoutubeVideoFormat({
-      durationSec: d,
-      title: p.content,
-      description: getYoutubeDescriptionPreviewFromPost(p),
-      inChannelShortsPlaylist,
-    }) === 'short'
-  );
+
+  const classified = classifyYoutubeVideoFormat({
+    durationSec: d,
+    title: p.content,
+    description: getYoutubeDescriptionPreviewFromPost(p),
+    inChannelShortsPlaylist,
+  });
+
+  // Playlist check gave a definitive yes or no.
+  if (inChannelShortsPlaylist !== undefined) return classified === 'short';
+  // Creator signals (#shorts / /shorts/ link) present.
+  if (classified === 'short') return true;
+  // No playlist data and no creator signals: use the stored value written by the previous sync
+  // as a bridge until the next sync updates the record.
+  const legacy = getLegacyYoutubeVideoFormatFromPost(p);
+  if (legacy !== undefined) return legacy === 'short';
+  return false;
 }
 
 /** Long-form: not classified as Short (includes legacy unknown-duration without #shorts). */
