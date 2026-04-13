@@ -41,6 +41,15 @@ const FB_CORE_POST_LIFETIME_METRICS = [
   'post_video_view_time',
 ] as const;
 
+type YtPlaylistItem = {
+  snippet?: {
+    publishedAt?: string;
+    title?: string;
+    thumbnails?: { medium?: { url?: string }; default?: { url?: string } };
+    resourceId?: { videoId?: string };
+  };
+};
+
 function mergeFacebookInsightMaps(
   db?: Record<string, number>,
   live?: Record<string, number>
@@ -680,11 +689,103 @@ export async function GET(
       });
     }
 
+    // YouTube: inline Shorts-playlist backfill for posts missing `youtubeInShortsPlaylist`.
+    // Runs transparently on any GET so the labels self-heal without a manual full sync.
+    const youtubeShortsBackfill: Record<string, { youtubeInShortsPlaylist: boolean; youtubeVideoFormat: string }> = {};
+    if (account.platform === 'YOUTUBE' && importedRows.length > 0 && account.accessToken) {
+      try {
+        const missingPlaylistRows = importedRows.filter((p) => {
+          const m =
+            p.platformMetadata && typeof p.platformMetadata === 'object' && !Array.isArray(p.platformMetadata)
+              ? (p.platformMetadata as Record<string, unknown>)
+              : {};
+          return m.youtubeInShortsPlaylist === undefined;
+        });
+        if (missingPlaylistRows.length > 0) {
+          const shortsPlaylistId =
+            account.platformUserId?.startsWith('UC') ? `UUSH${account.platformUserId.slice(2)}` : null;
+          if (shortsPlaylistId) {
+            const shortsVideoIds = new Set<string>();
+            let shortsPlaylistIndexOk = false;
+            try {
+              let shortsPageToken: string | null = null;
+              let shortsPages = 0;
+              do {
+                const sp: Record<string, string | number | boolean> = {
+                  part: 'snippet',
+                  playlistId: shortsPlaylistId,
+                  maxResults: 50,
+                };
+                if (shortsPageToken) sp.pageToken = shortsPageToken;
+                const sres = await axios.get<{
+                  items?: YtPlaylistItem[];
+                  nextPageToken?: string;
+                  error?: { message?: string };
+                }>('https://www.googleapis.com/youtube/v3/playlistItems', {
+                  params: sp,
+                  headers: { Authorization: `Bearer ${account.accessToken}` },
+                  validateStatus: () => true,
+                });
+                if (sres.status !== 200 || sres.data?.error) {
+                  throw new Error(sres.data?.error?.message ?? `Shorts playlist HTTP ${sres.status}`);
+                }
+                shortsPlaylistIndexOk = true;
+                for (const it of sres.data?.items ?? []) {
+                  const vid = it.snippet?.resourceId?.videoId;
+                  if (vid) shortsVideoIds.add(vid);
+                }
+                shortsPageToken = sres.data?.nextPageToken ?? null;
+                shortsPages++;
+              } while (shortsPageToken && shortsVideoIds.size < 500 && shortsPages < 10);
+            } catch (e) {
+              console.warn('[YouTube backfill] Shorts playlist fetch failed:', (e as Error)?.message ?? e);
+            }
+
+            if (shortsPlaylistIndexOk) {
+              await runWithConcurrency(missingPlaylistRows, 10, async (row) => {
+                const inShortsPlaylist = shortsVideoIds.has(row.platformPostId);
+                const existingMeta =
+                  row.platformMetadata && typeof row.platformMetadata === 'object' && !Array.isArray(row.platformMetadata)
+                    ? (row.platformMetadata as Record<string, unknown>)
+                    : {};
+                const durationSec = typeof existingMeta.youtubeDurationSec === 'number' ? existingMeta.youtubeDurationSec : 0;
+                const youtubeVideoFormat = classifyYoutubeVideoFormat({
+                  durationSec,
+                  title: row.content ?? '',
+                  description: typeof existingMeta.youtubeDescriptionPreview === 'string' ? existingMeta.youtubeDescriptionPreview : '',
+                  inChannelShortsPlaylist: inShortsPlaylist,
+                });
+                youtubeShortsBackfill[row.platformPostId] = { youtubeInShortsPlaylist: inShortsPlaylist, youtubeVideoFormat };
+                try {
+                  await prisma.importedPost.update({
+                    where: { socialAccountId_platformPostId: { socialAccountId: account.id, platformPostId: row.platformPostId } },
+                    data: {
+                      platformMetadata: {
+                        ...existingMeta,
+                        youtubeInShortsPlaylist: inShortsPlaylist,
+                        youtubeVideoFormat,
+                        youtubeShortsIndexUnavailable: false,
+                      } as object,
+                    },
+                  });
+                } catch {
+                  // non-fatal: response still reflects updated classification
+                }
+              });
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[YouTube backfill] inline Shorts classify error:', (e as Error)?.message ?? e);
+      }
+    }
+
     const serialized = importedRows.map((p) => {
       const enrich = account.platform === 'TWITTER' ? twitterEnrich[p.platformPostId] : undefined;
+      const backfill = youtubeShortsBackfill[p.platformPostId];
       const meta =
         p.platformMetadata && typeof p.platformMetadata === 'object' && !Array.isArray(p.platformMetadata)
-          ? (p.platformMetadata as Record<string, unknown>)
+          ? (backfill ? { ...(p.platformMetadata as Record<string, unknown>), ...backfill } : (p.platformMetadata as Record<string, unknown>))
           : {};
       const dbFacebookInsights =
         p.platform === 'FACEBOOK' && meta.facebookInsights && typeof meta.facebookInsights === 'object' && !Array.isArray(meta.facebookInsights)
@@ -832,7 +933,7 @@ export async function GET(
         publishedAt: p.publishedAt instanceof Date ? p.publishedAt.toISOString() : String(p.publishedAt),
         mediaType: p.mediaType,
         platform: p.platform,
-        ...(p.platformMetadata != null ? { platformMetadata: p.platformMetadata } : {}),
+        ...(p.platformMetadata != null ? { platformMetadata: backfill ? { ...(p.platformMetadata as Record<string, unknown>), ...backfill } : p.platformMetadata } : {}),
         ...(facebookInsights && Object.keys(facebookInsights).length > 0 ? { facebookInsights } : {}),
         ...(p.platform === 'FACEBOOK' || p.platform === 'PINTEREST' || p.platform === 'INSTAGRAM'
           ? {
@@ -1765,15 +1866,6 @@ async function syncImportedPosts(
 
   if (platform === 'YOUTUBE') {
     try {
-      type YtPlaylistItem = {
-        snippet?: {
-          publishedAt?: string;
-          title?: string;
-          thumbnails?: { medium?: { url?: string }; default?: { url?: string } };
-          resourceId?: { videoId?: string };
-        };
-      };
-
       // Derive the uploads playlist ID directly from the channel ID.
       // YouTube channel IDs start with "UC"; their uploads playlist starts with "UU".
       // This avoids an extra API call and works even when contentDetails is unavailable.

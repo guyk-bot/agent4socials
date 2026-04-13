@@ -564,9 +564,10 @@ function getLegacyYoutubeVideoFormatFromPost(p: FacebookPost): 'short' | 'long' 
     p.platformMetadata && typeof p.platformMetadata === 'object' && !Array.isArray(p.platformMetadata)
       ? (p.platformMetadata as Record<string, unknown>)
       : {};
-  const hasPlaylistData =
-    meta.youtubeInShortsPlaylist !== undefined || meta.youtubeShortsIndexUnavailable !== undefined;
-  if (hasPlaylistData) return undefined;
+  // Only skip the bridge when we have a definitive playlist answer.
+  // If the index was unavailable (youtubeShortsIndexUnavailable=true) but no explicit
+  // youtubeInShortsPlaylist was written, fall through to the stored format as best-effort.
+  if (meta.youtubeInShortsPlaylist !== undefined) return undefined;
   const v = meta.youtubeVideoFormat;
   if (v === 'short' || v === 'long') return v;
   return undefined;
