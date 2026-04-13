@@ -89,8 +89,25 @@ model SocialAccount {
   facebookReviewCaches      FacebookReviewCache[]
   facebookPageInsightDailies FacebookPageInsightDaily[]
   syncJobs          SyncJob[]
+  /// Cached YouTube Analytics “extended” bundle (geo, traffic sources, growth, watch aggregates) per date range — avoids slow repeat API calls on dashboard open.
+  youtubeExtendedInsightsCaches YoutubeExtendedInsightsCache[]
 
   @@unique([userId, platform, platformUserId])
+}
+
+/// Server-side cache for YouTube Analytics extended reports (6 parallel queries). Refreshed when stale so dashboards open instantly with prior data.
+model YoutubeExtendedInsightsCache {
+  id              String        @id @default(cuid())
+  socialAccountId String
+  socialAccount   SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  rangeStart      String
+  rangeEnd        String
+  payload         Json
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([socialAccountId, rangeStart, rangeEnd])
+  @@index([socialAccountId, updatedAt])
+  @@map("youtube_extended_insights_cache")
 }
 
 /// Normalized Page insight values per day (one row per metric per date). Complements `AccountMetricSnapshot.insightsJson` for explicit queries and debug counts.

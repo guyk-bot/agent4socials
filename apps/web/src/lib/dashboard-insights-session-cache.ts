@@ -16,7 +16,8 @@ import { stripLegacyInsightsHint } from '@/lib/strip-legacy-insights-hint';
 
 const SESSION_PREFIX = 'a4s_dash_insights_v1';
 const LS_PREFIX = 'a4s_acct_insights';
-const MAX_BYTES = 450_000;
+/** YouTube extended (geo + traffic) can be large; allow bigger blobs so localStorage cache actually persists. */
+const MAX_BYTES = 1_400_000;
 
 /**
  * Maximum age for stale-but-wrong-range cache data shown while fresh data loads.
@@ -39,6 +40,22 @@ function slimInsights(payload: Record<string, unknown>): Record<string, unknown>
     delete o[k];
   }
   return o;
+}
+
+/** Keep top countries by views so JSON stays under browser quota; pie + list remain representative. */
+function trimDemographicsForStorage(payload: Record<string, unknown>): Record<string, unknown> {
+  const demo = payload.demographics;
+  if (!demo || typeof demo !== 'object') return payload;
+  const d = demo as Record<string, unknown>;
+  const bc = d.byCountry;
+  if (!Array.isArray(bc) || bc.length <= 100) return payload;
+  const sorted = [...bc].sort(
+    (a: { value?: number }, b: { value?: number }) => (Number(b.value) || 0) - (Number(a.value) || 0)
+  );
+  return {
+    ...payload,
+    demographics: { ...d, byCountry: sorted.slice(0, 100) },
+  };
 }
 
 function isFresh(parsed: Record<string, unknown>, maxAgeMs: number): boolean {
@@ -131,7 +148,7 @@ export function writeDashboardInsightsSession(
   if (typeof window === 'undefined' || !payload || typeof payload !== 'object') return;
   try {
     const cleaned = stripLegacyInsightsHint(payload as { insightsHint?: string });
-    const slim = slimInsights((cleaned ?? payload) as Record<string, unknown>);
+    const slim = slimInsights(trimDemographicsForStorage((cleaned ?? payload) as Record<string, unknown>));
     slim._fetchedAt = Date.now();
     if (dateRange) slim._dateRange = dateRange;
     const str = JSON.stringify(slim);

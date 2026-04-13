@@ -2378,20 +2378,91 @@ export async function GET(
 
       const extended = request.nextUrl.searchParams.get('extended') === '1';
       if (extended) {
+        /** Geo + traffic sources + growth rarely need sub-hour freshness; DB cache makes repeat dashboard opens instant. */
+        const YT_EXT_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+        let usedExtendedCache = false;
         try {
-          const token = await getValidYoutubeToken(account);
-          const { demographics, trafficSources, growthTimeSeries, extra: ytExtra, raw: ytRaw } = await fetchYouTubeExtended(
-            token,
-            sinceParam,
-            untilParam
-          );
-          out.demographics = demographics;
-          out.trafficSources = trafficSources;
-          out.growthTimeSeries = growthTimeSeries;
-          out.extra = ytExtra;
-          if (ytRaw && typeof ytRaw === 'object') out.raw = { ...(out.raw ?? {}), youtube: ytRaw };
+          const row = await prisma.youtubeExtendedInsightsCache.findUnique({
+            where: {
+              socialAccountId_rangeStart_rangeEnd: {
+                socialAccountId: account.id,
+                rangeStart: sinceParam,
+                rangeEnd: untilParam,
+              },
+            },
+          });
+          if (row && Date.now() - row.updatedAt.getTime() < YT_EXT_CACHE_TTL_MS) {
+            const p = row.payload as {
+              demographics?: unknown;
+              trafficSources?: unknown;
+              growthTimeSeries?: unknown;
+              extra?: Record<string, number | Array<{ date: string; value: number }>>;
+            };
+            if (p.demographics && typeof p.demographics === 'object') {
+              (out as Record<string, unknown>).demographics = p.demographics;
+            }
+            if (Array.isArray(p.trafficSources)) {
+              out.trafficSources = p.trafficSources as typeof out.trafficSources;
+            }
+            if (Array.isArray(p.growthTimeSeries)) {
+              out.growthTimeSeries = p.growthTimeSeries as typeof out.growthTimeSeries;
+            }
+            if (p.extra && typeof p.extra === 'object') {
+              out.extra = { ...(out.extra ?? {}), ...p.extra };
+            }
+            usedExtendedCache = true;
+          }
         } catch (e) {
-          console.warn('[Insights] YouTube extended analytics:', (e as Error)?.message ?? e);
+          console.warn('[Insights] YouTube extended cache (read):', (e as Error)?.message ?? e);
+        }
+
+        if (!usedExtendedCache) {
+          try {
+            const token = await getValidYoutubeToken(account);
+            const { demographics, trafficSources, growthTimeSeries, extra: ytExtra } = await fetchYouTubeExtended(
+              token,
+              sinceParam,
+              untilParam
+            );
+            out.demographics = demographics;
+            out.trafficSources = trafficSources;
+            out.growthTimeSeries = growthTimeSeries;
+            out.extra = ytExtra;
+            try {
+              await prisma.youtubeExtendedInsightsCache.upsert({
+                where: {
+                  socialAccountId_rangeStart_rangeEnd: {
+                    socialAccountId: account.id,
+                    rangeStart: sinceParam,
+                    rangeEnd: untilParam,
+                  },
+                },
+                create: {
+                  socialAccountId: account.id,
+                  rangeStart: sinceParam,
+                  rangeEnd: untilParam,
+                  payload: {
+                    demographics,
+                    trafficSources,
+                    growthTimeSeries,
+                    extra: ytExtra,
+                  },
+                },
+                update: {
+                  payload: {
+                    demographics,
+                    trafficSources,
+                    growthTimeSeries,
+                    extra: ytExtra,
+                  },
+                },
+              });
+            } catch (persistErr) {
+              console.warn('[Insights] YouTube extended cache (write):', (persistErr as Error)?.message ?? persistErr);
+            }
+          } catch (e) {
+            console.warn('[Insights] YouTube extended analytics:', (e as Error)?.message ?? e);
+          }
         }
       }
 
