@@ -144,6 +144,8 @@ export interface FacebookInsights {
 
 export interface FacebookPost {
   id: string;
+  /** Graph / platform native id (e.g. Facebook `pageId_postId`); used when permalinkUrl is missing. */
+  platformPostId?: string | null;
   platform: string;
   content?: string | null;
   thumbnailUrl?: string | null;

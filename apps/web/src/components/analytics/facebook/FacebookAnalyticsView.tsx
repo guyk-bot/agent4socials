@@ -1373,9 +1373,24 @@ export function CommunitySummaryCard({
   );
 }
 
+/** Best URL to open a post on the native platform (permalink from API, or Facebook fallback from `platformPostId`). */
+export function resolvedPostPermalink(row: {
+  permalink?: string | null;
+  rawPost: FacebookPost;
+}): string | null {
+  const direct = (row.permalink || row.rawPost.permalinkUrl || '').trim();
+  if (direct) return direct;
+  const plat = (row.rawPost.platform || '').toUpperCase();
+  const pid = (row.rawPost.platformPostId || '').trim();
+  if (plat === 'FACEBOOK' && /^\d+_\d+$/.test(pid)) {
+    const [pageId, storyFbid] = pid.split('_');
+    if (pageId && storyFbid) return `https://www.facebook.com/${pageId}/posts/${storyFbid}`;
+  }
+  return null;
+}
+
 export function PostsPerformanceTable({
   rows,
-  onOpenDetail,
   clicksColumnLabel = 'Clicks',
   hideClicksColumn = false,
   platform,
@@ -1397,7 +1412,6 @@ export function PostsPerformanceTable({
     status: 'Ready' | 'Partial';
     rawPost: FacebookPost;
   }>;
-  onOpenDetail: (p: FacebookPost) => void;
   clicksColumnLabel?: string;
   /** Hide the clicks/interactions column (e.g. for Facebook). */
   hideClicksColumn?: boolean;
@@ -1411,8 +1425,8 @@ export function PostsPerformanceTable({
     { label: 'Publish date', className: 'w-[132px]' },
     { label: 'Type', className: 'w-[60px]' },
     { label: 'Views', className: 'w-[58px]' },
-    ...(compactVideoTable ? [] : [{ label: 'Unique reach', className: 'w-[66px]' }]),
-    ...(hideClicksColumn ? [] : [{ label: clicksColumnLabel, className: 'w-[92px]' }]),
+    ...(compactVideoTable ? [] : [{ label: 'Unique reach', className: 'w-[124px] min-w-[124px]' }]),
+    ...(hideClicksColumn ? [] : [{ label: clicksColumnLabel, className: 'w-[116px] min-w-[116px] pl-5' }]),
     { label: 'Likes', className: 'w-[72px]' },
     { label: 'Reactions', className: 'w-[88px]' },
     ...(compactVideoTable
@@ -1422,7 +1436,7 @@ export function PostsPerformanceTable({
           { label: platUpper === 'YOUTUBE' ? 'Duration' : 'Avg watch', className: 'w-[80px]' },
         ]),
   ];
-  const tableMinW = compactVideoTable ? 'min-w-[860px]' : 'min-w-[1120px]';
+  const tableMinW = compactVideoTable ? 'min-w-[860px]' : 'min-w-[1220px]';
   return (
     <div className="rounded-[20px] overflow-hidden" style={{ background: COLOR.card, boxShadow: '0 2px 16px rgba(15,23,42,0.06)' }}>
       <div className="hidden md:block overflow-x-auto">
@@ -1433,7 +1447,9 @@ export function PostsPerformanceTable({
                 <th
                   key={h.label}
                   title={h.title}
-                  className={`py-3 text-left font-medium whitespace-nowrap ${h.className} ${idx > 0 ? 'border-l' : ''} ${h.label === 'Watch time' ? 'pl-5 pr-3' : 'px-3'}`}
+                  className={`py-3 text-left font-medium whitespace-nowrap ${h.className} ${idx > 0 ? 'border-l' : ''} ${
+                    h.label === 'Watch time' ? 'pl-5 pr-3' : h.label === 'Unique reach' ? 'px-3 pr-5' : 'px-3'
+                  }`}
                   style={{ borderColor: idx > 0 ? COLOR.border : undefined }}
                 >
                   {h.label}
@@ -1442,21 +1458,38 @@ export function PostsPerformanceTable({
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.id} className="border-t cursor-pointer hover:bg-[#f8fafc]" style={{ borderColor: COLOR.border }} onClick={() => onOpenDetail(r.rawPost)}>
+            {rows.map((r) => {
+              const openUrl = resolvedPostPermalink(r);
+              return (
+              <tr key={r.id} className="border-t hover:bg-[#f8fafc]" style={{ borderColor: COLOR.border }}>
                 <td className="px-3 py-3" style={{ color: COLOR.textSecondary }}>
-                  <div className="flex items-center gap-3 min-w-0">
-                    {r.rawPost.thumbnailUrl ? (
-                      <img
-                        src={r.rawPost.thumbnailUrl}
-                        alt=""
-                        className="w-9 h-9 rounded object-cover shrink-0"
-                        {...pinterestCdnImgProps(r.rawPost.thumbnailUrl)}
-                      />
-                    ) : platUpper !== 'TWITTER' ? (
-                      <div className="w-9 h-9 rounded shrink-0" style={{ background: 'rgba(124,108,255,0.12)' }} />
-                    ) : null}
-                    <div className="min-w-0">
+                  <div className="flex items-start gap-2 min-w-0">
+                    <div className="relative shrink-0 flex items-start gap-1">
+                      {r.rawPost.thumbnailUrl ? (
+                        <img
+                          src={r.rawPost.thumbnailUrl}
+                          alt=""
+                          className="w-9 h-9 rounded object-cover shrink-0"
+                          {...pinterestCdnImgProps(r.rawPost.thumbnailUrl)}
+                        />
+                      ) : platUpper !== 'TWITTER' ? (
+                        <div className="w-9 h-9 rounded shrink-0" style={{ background: 'rgba(124,108,255,0.12)' }} />
+                      ) : null}
+                      {openUrl ? (
+                        <Link
+                          href={openUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border transition-colors hover:opacity-90"
+                          style={{ borderColor: COLOR.border, background: '#ffffff', color: COLOR.cyan }}
+                          aria-label="Open post on platform"
+                          title="Open on platform"
+                        >
+                          <ExternalLink size={14} />
+                        </Link>
+                      ) : null}
+                    </div>
+                    <div className="min-w-0 flex-1 pt-0.5">
                       <p
                         className="text-[13px] leading-snug line-clamp-4"
                         style={{ color: COLOR.textSecondary }}
@@ -1464,17 +1497,6 @@ export function PostsPerformanceTable({
                       >
                         {normalizePostPreview(r.preview || '') || '—'}
                       </p>
-                      {r.permalink ? (
-                        <Link
-                          href={r.permalink}
-                          target="_blank"
-                          className="inline-flex items-center gap-1 text-xs mt-1"
-                          style={{ color: COLOR.textSecondary }}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          Open <ExternalLink size={12} />
-                        </Link>
-                      ) : null}
                     </div>
                   </div>
                 </td>
@@ -1483,8 +1505,8 @@ export function PostsPerformanceTable({
                 </td>
                 <td className="px-3 py-3"><span className="rounded-full px-2 py-1 text-xs" style={{ background: 'rgba(255,255,255,0.08)', color: COLOR.text }}>{platUpper === 'YOUTUBE' ? (r.type === 'Reel' ? 'Short' : 'Video') : r.type}</span></td>
                 <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.views)}</td>
-                {!compactVideoTable ? <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.uniqueReach)}</td> : null}
-                {!hideClicksColumn && <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.clicks)}</td>}
+                {!compactVideoTable ? <td className="px-3 py-3 pr-4" style={{ color: COLOR.text }}>{formatNumber(r.uniqueReach)}</td> : null}
+                {!hideClicksColumn && <td className="pl-5 pr-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.clicks)}</td>}
                 <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.likes)}</td>
                 <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.reactionsTotal)}</td>
                 {!compactVideoTable ? (
@@ -1498,45 +1520,48 @@ export function PostsPerformanceTable({
                   </>
                 ) : null}
               </tr>
-            ))}
+            );})}
           </tbody>
         </table>
       </div>
       <div className="md:hidden space-y-3 p-4">
-        {rows.map((r) => (
-          <button
-            type="button"
+        {rows.map((r) => {
+          const openUrl = resolvedPostPermalink(r);
+          return (
+          <div
             key={r.id}
-            onClick={() => onOpenDetail(r.rawPost)}
             className="w-full rounded-xl border p-3 text-left"
             style={{ borderColor: COLOR.border, background: 'rgba(255,255,255,0.015)' }}
           >
             <div className="flex items-start gap-2">
-              {r.rawPost.thumbnailUrl ? (
-                <img
-                  src={r.rawPost.thumbnailUrl}
-                  alt=""
-                  className="w-10 h-10 rounded object-cover shrink-0"
-                  {...pinterestCdnImgProps(r.rawPost.thumbnailUrl)}
-                />
-              ) : platUpper !== 'TWITTER' ? (
-                <div className="w-10 h-10 rounded shrink-0" style={{ background: 'rgba(124,108,255,0.12)' }} />
-              ) : null}
-              <div className="min-w-0">
+              <div className="flex shrink-0 items-start gap-1">
+                {r.rawPost.thumbnailUrl ? (
+                  <img
+                    src={r.rawPost.thumbnailUrl}
+                    alt=""
+                    className="w-10 h-10 rounded object-cover shrink-0"
+                    {...pinterestCdnImgProps(r.rawPost.thumbnailUrl)}
+                  />
+                ) : platUpper !== 'TWITTER' ? (
+                  <div className="w-10 h-10 rounded shrink-0" style={{ background: 'rgba(124,108,255,0.12)' }} />
+                ) : null}
+                {openUrl ? (
+                  <Link
+                    href={openUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border"
+                    style={{ borderColor: COLOR.border, background: '#ffffff', color: COLOR.cyan }}
+                    aria-label="Open post on platform"
+                  >
+                    <ExternalLink size={14} />
+                  </Link>
+                ) : null}
+              </div>
+              <div className="min-w-0 flex-1">
                 <p className="text-sm line-clamp-5 leading-snug" style={{ color: COLOR.text }} title={(r.preview || '').trim() || undefined}>
                   {normalizePostPreview(r.preview || '') || '—'}
                 </p>
-                {r.permalink ? (
-                  <Link
-                    href={r.permalink}
-                    target="_blank"
-                    className="inline-flex items-center gap-1 text-xs mt-1"
-                    style={{ color: COLOR.textSecondary }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    Open <ExternalLink size={12} />
-                  </Link>
-                ) : null}
               </div>
             </div>
             <div className="mt-2 flex flex-wrap gap-2 text-xs" style={{ color: COLOR.textSecondary }}>
@@ -1556,8 +1581,8 @@ export function PostsPerformanceTable({
                 </span>
               )}
             </div>
-          </button>
-        ))}
+          </div>
+        );})}
       </div>
     </div>
   );
@@ -1823,7 +1848,6 @@ export function FacebookAnalyticsView({
   const [selectedReelMetrics, setSelectedReelMetrics] = useState<ReelMetricKey[]>(['views', 'watchTime', 'avgWatch', 'shares']);
   const [reelPreset, setReelPreset] = useState<ReelPresetKey>('performance');
   const [activeSection, setActiveSection] = useState<SectionId>(FACEBOOK_ANALYTICS_SECTION_IDS.overview);
-  const [selectedPost, setSelectedPost] = useState<FacebookPost | null>(null);
   const [historyFilter, setHistoryFilter] = useState<ContentHistoryFilter>('all');
   const geoPieWrapRef = useRef<HTMLDivElement>(null);
   const [geoPieHover, setGeoPieHover] = useState<{ x: number; y: number; name: string; value: number } | null>(null);
@@ -3343,6 +3367,7 @@ export function FacebookAnalyticsView({
       const isReel = isReelPost(p);
       const hasCore = typeof fi.post_media_view === 'number' || typeof fi.post_impressions_unique === 'number';
       const { watchTimeMs, avgWatchMs } = getWatchTimes(p);
+      const withPid = p as FacebookPost & { platformPostId?: string | null };
       return {
         id: p.id,
         date: p.publishedAt,
@@ -3358,7 +3383,7 @@ export function FacebookAnalyticsView({
         avgWatchMs,
         reactionBreakdownRaw: fi.post_reactions_by_type_total,
         status: hasCore ? ('Ready' as const) : ('Partial' as const),
-        rawPost: p,
+        rawPost: { ...p, platformPostId: withPid.platformPostId ?? null },
       };
     });
   }, [posts]);
@@ -5320,7 +5345,6 @@ export function FacebookAnalyticsView({
             return (
               <PostsPerformanceTable
                 rows={historyRows}
-                onOpenDetail={setSelectedPost}
                 clicksColumnLabel={isInstagram || isTikTok || isLinkedIn || isTwitter ? 'Interactions' : 'Clicks'}
                 hideClicksColumn={isInstagram}
                 platform={insights?.platform}
@@ -5330,61 +5354,6 @@ export function FacebookAnalyticsView({
         </div>
         )}
       </section>
-
-      {selectedPost ? (
-        <div className="fixed inset-0 z-40 flex justify-end bg-black/40" onClick={() => setSelectedPost(null)}>
-          <aside
-            className="h-full w-full max-w-lg overflow-y-auto border-l p-5"
-            style={{ background: '#ffffff', borderColor: COLOR.border }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Post Details</h3>
-              <button type="button" onClick={() => setSelectedPost(null)} style={{ color: COLOR.textSecondary }}>Close</button>
-            </div>
-            <p className="mt-3 text-sm leading-6" style={{ color: COLOR.textSecondary }}>{selectedPost.content || 'No caption'}</p>
-            <p className="mt-2 text-xs" style={{ color: COLOR.textMuted }}>
-              {new Date(selectedPost.publishedAt).toLocaleString()}
-            </p>
-            {selectedPost.permalinkUrl ? (
-              <Link href={selectedPost.permalinkUrl} target="_blank" className="mt-3 inline-flex items-center gap-1 text-sm" style={{ color: COLOR.cyan }}>
-                Open permalink <ExternalLink size={14} />
-              </Link>
-            ) : null}
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              {Object.entries(selectedPost.facebookInsights ?? {}).map(([key, val]) => (
-                <div key={key} className="rounded-xl border p-3" style={{ borderColor: COLOR.border }}>
-                  <p className="text-[11px]" style={{ color: COLOR.textMuted }}>{key}</p>
-                  <p className="mt-1 text-sm font-semibold" style={{ color: COLOR.text }}>
-                    {typeof val === 'number' ? (key.includes('time') ? formatDurationMs(val) : formatNumber(val)) : String(val)}
-                  </p>
-                </div>
-              ))}
-            </div>
-            {selectedPost.facebookInsights?.post_reactions_by_type_total && typeof selectedPost.facebookInsights.post_reactions_by_type_total === 'object' ? (
-              <div className="mt-5 rounded-xl border p-4" style={{ borderColor: COLOR.border }}>
-                <p className="text-sm font-semibold" style={{ color: COLOR.text }}>Reactions composition</p>
-                <div className="mt-3 space-y-2">
-                  {Object.entries(selectedPost.facebookInsights.post_reactions_by_type_total as Record<string, unknown>).map(([k, v]) => {
-                    const n = typeof v === 'number' ? v : 0;
-                    return (
-                      <div key={k}>
-                        <div className="flex justify-between text-xs" style={{ color: COLOR.textSecondary }}>
-                          <span>{k}</span>
-                          <span>{formatNumber(n)}</span>
-                        </div>
-                        <div className="mt-1 h-2 rounded-full" style={{ background: 'rgba(15,23,42,0.08)' }}>
-                          <div className="h-2 rounded-full" style={{ width: `${Math.min(100, (n / Math.max(1, parseReactionTotal(selectedPost.facebookInsights?.post_reactions_by_type_total))) * 100)}%`, background: COLOR.violet }} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : null}
-          </aside>
-        </div>
-      ) : null}
 
       {process.env.NODE_ENV !== 'production' ? (
         <details className="rounded-[20px] border p-4" style={{ background: COLOR.card, borderColor: COLOR.border }}>
