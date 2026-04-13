@@ -1196,21 +1196,30 @@ export default function ComposerPage() {
         setAccountsFetched(true);
     }, [cachedAccounts]);
 
+    // Load connected accounts. Never block the composer shell indefinitely: the global
+    // axios queue or a slow network can stall `/social/accounts` behind other calls.
     useEffect(() => {
         let cancelled = false;
-        api.get('/social/accounts')
-            .then((res) => {
-                if (!cancelled) {
-                    setAccounts(Array.isArray(res.data) ? res.data : []);
-                }
-            })
-            .catch(() => {
-                if (!cancelled) setAccounts([]);
-            })
-            .finally(() => {
-                if (!cancelled) setAccountsFetched(true);
-            });
-        return () => { cancelled = true; };
+        const maxWaitMs = 12_000;
+        const wait = new Promise<void>((resolve) => {
+            setTimeout(resolve, maxWaitMs);
+        });
+        void Promise.race([
+            api
+                .get('/social/accounts')
+                .then((res) => {
+                    if (!cancelled) setAccounts(Array.isArray(res.data) ? res.data : []);
+                })
+                .catch(() => {
+                    if (!cancelled) setAccounts([]);
+                }),
+            wait,
+        ]).finally(() => {
+            if (!cancelled) setAccountsFetched(true);
+        });
+        return () => {
+            cancelled = true;
+        };
     }, []);
 
     // Drafts (and edited posts) can list platforms that are no longer connected. Toggles show those as
