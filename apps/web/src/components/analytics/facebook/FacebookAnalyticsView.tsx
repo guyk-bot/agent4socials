@@ -102,6 +102,10 @@ const TIKTOK_API_CARD_CLASS =
 const INSTAGRAM_GRAPH_API_CARD_CLASS =
   'ring-2 ring-[#e4405f] shadow-[0_0_18px_rgba(228,64,95,0.32)] bg-[rgba(228,64,95,0.06)]';
 
+/** Icon-first “open on platform” control (Content History, top posts, etc.). */
+const ANALYTICS_OPEN_ON_PLATFORM_BTN_CLASS =
+  'mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border transition-colors hover:opacity-90';
+
 type MetricDef = {
   key: string;
   label: string;
@@ -1315,7 +1319,20 @@ export function TopPostsGrid({
           items.map((p, idx) => (
             <div key={`${p.id}-${idx}`} className="rounded-xl p-3" style={{ background: COLOR.elevated }}>
               <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-2.5 min-w-0">
+                <div className="flex items-start gap-2 min-w-0">
+                  {p.permalinkUrl ? (
+                    <Link
+                      href={p.permalinkUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={ANALYTICS_OPEN_ON_PLATFORM_BTN_CLASS}
+                      style={{ borderColor: COLOR.border, background: '#ffffff', color: COLOR.cyan }}
+                      aria-label="Open post on platform"
+                      title="Open on platform"
+                    >
+                      <ExternalLink size={14} />
+                    </Link>
+                  ) : null}
                   {p.thumbnailUrl ? (
                     <img
                       src={p.thumbnailUrl}
@@ -1327,20 +1344,15 @@ export function TopPostsGrid({
                   ) : (
                     <div className="h-9 w-9 rounded-md shrink-0" style={{ background: 'rgba(124,108,255,0.12)' }} />
                   )}
-                  <p className="text-sm leading-5 min-w-0" style={{ color: COLOR.textSecondary }}>
+                  <p className="text-sm leading-5 min-w-0 pt-0.5" style={{ color: COLOR.textSecondary }}>
                     <span className="mr-2 rounded-md px-2 py-0.5 text-xs" style={{ color: COLOR.text, background: 'rgba(124,108,255,0.14)' }}>#{idx + 1}</span>
                     {clampText(firstWords(p.content, 3) || 'View post', 76)}
                   </p>
                 </div>
                 <span className="shrink-0 text-sm font-semibold" style={{ color: metricColor }}>{formatNumber(p.value)}</span>
               </div>
-              <div className="mt-2 flex items-center justify-between text-xs">
-                <span style={{ color: COLOR.textMuted }}>{metricLabel}</span>
-                {p.permalinkUrl ? (
-                  <Link href={p.permalinkUrl} target="_blank" className="inline-flex items-center gap-1" style={{ color: COLOR.textSecondary }}>
-                    Open <ExternalLink size={12} />
-                  </Link>
-                ) : null}
+              <div className="mt-2 text-xs" style={{ color: COLOR.textMuted }}>
+                {metricLabel}
               </div>
             </div>
           ))
@@ -1486,31 +1498,33 @@ export function PostsPerformanceTable({
               <tr key={r.id} className="border-t hover:bg-[#f8fafc]" style={{ borderColor: COLOR.border }}>
                 <td className="px-3 py-3" style={{ color: COLOR.textSecondary }}>
                   <div className="flex items-start gap-2 min-w-0">
-                    <div className="relative shrink-0 flex items-start gap-1">
-                      {r.rawPost.thumbnailUrl ? (
-                        <img
-                          src={r.rawPost.thumbnailUrl}
-                          alt=""
-                          className="w-9 h-9 rounded object-cover shrink-0"
-                          {...pinterestCdnImgProps(r.rawPost.thumbnailUrl)}
-                        />
-                      ) : platUpper !== 'TWITTER' ? (
-                        <div className="w-9 h-9 rounded shrink-0" style={{ background: 'rgba(124,108,255,0.12)' }} />
-                      ) : null}
-                      {openUrl ? (
-                        <Link
-                          href={openUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border transition-colors hover:opacity-90"
-                          style={{ borderColor: COLOR.border, background: '#ffffff', color: COLOR.cyan }}
-                          aria-label="Open post on platform"
-                          title="Open on platform"
-                        >
-                          <ExternalLink size={14} />
-                        </Link>
-                      ) : null}
-                    </div>
+                    {openUrl ? (
+                      <Link
+                        href={openUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={ANALYTICS_OPEN_ON_PLATFORM_BTN_CLASS}
+                        style={{ borderColor: COLOR.border, background: '#ffffff', color: COLOR.cyan }}
+                        aria-label="Open post on platform"
+                        title="Open on platform"
+                      >
+                        <ExternalLink size={14} />
+                      </Link>
+                    ) : null}
+                    {r.rawPost.thumbnailUrl || platUpper !== 'TWITTER' ? (
+                      <div className="relative shrink-0 flex items-start">
+                        {r.rawPost.thumbnailUrl ? (
+                          <img
+                            src={r.rawPost.thumbnailUrl}
+                            alt=""
+                            className="w-9 h-9 rounded object-cover shrink-0"
+                            {...pinterestCdnImgProps(r.rawPost.thumbnailUrl)}
+                          />
+                        ) : (
+                          <div className="w-9 h-9 rounded shrink-0" style={{ background: 'rgba(124,108,255,0.12)' }} />
+                        )}
+                      </div>
+                    ) : null}
                     <div className="min-w-0 flex-1 pt-0.5">
                       <p
                         className="text-[13px] leading-snug line-clamp-4"
@@ -1576,30 +1590,33 @@ export function PostsPerformanceTable({
             style={{ borderColor: COLOR.border, background: 'rgba(255,255,255,0.015)' }}
           >
             <div className="flex items-start gap-2">
-              <div className="flex shrink-0 items-start gap-1">
-                {r.rawPost.thumbnailUrl ? (
-                  <img
-                    src={r.rawPost.thumbnailUrl}
-                    alt=""
-                    className="w-10 h-10 rounded object-cover shrink-0"
-                    {...pinterestCdnImgProps(r.rawPost.thumbnailUrl)}
-                  />
-                ) : platUpper !== 'TWITTER' ? (
-                  <div className="w-10 h-10 rounded shrink-0" style={{ background: 'rgba(124,108,255,0.12)' }} />
-                ) : null}
-                {openUrl ? (
-                  <Link
-                    href={openUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border"
-                    style={{ borderColor: COLOR.border, background: '#ffffff', color: COLOR.cyan }}
-                    aria-label="Open post on platform"
-                  >
-                    <ExternalLink size={14} />
-                  </Link>
-                ) : null}
-              </div>
+              {openUrl ? (
+                <Link
+                  href={openUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={ANALYTICS_OPEN_ON_PLATFORM_BTN_CLASS}
+                  style={{ borderColor: COLOR.border, background: '#ffffff', color: COLOR.cyan }}
+                  aria-label="Open post on platform"
+                  title="Open on platform"
+                >
+                  <ExternalLink size={14} />
+                </Link>
+              ) : null}
+              {r.rawPost.thumbnailUrl || platUpper !== 'TWITTER' ? (
+                <div className="flex shrink-0 items-start">
+                  {r.rawPost.thumbnailUrl ? (
+                    <img
+                      src={r.rawPost.thumbnailUrl}
+                      alt=""
+                      className="w-10 h-10 rounded object-cover shrink-0"
+                      {...pinterestCdnImgProps(r.rawPost.thumbnailUrl)}
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded shrink-0" style={{ background: 'rgba(124,108,255,0.12)' }} />
+                  )}
+                </div>
+              ) : null}
               <div className="min-w-0 flex-1">
                 <p className="text-sm line-clamp-5 leading-snug" style={{ color: COLOR.text }} title={(r.preview || '').trim() || undefined}>
                   {normalizePostPreview(r.preview || '') || '—'}
