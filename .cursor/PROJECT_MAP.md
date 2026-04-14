@@ -17,7 +17,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | Composer UI, previews, AI modal, media, TikTok Post modal | `apps/web/src/app/composer/page.tsx`, `apps/web/src/components/composer/TikTokPublishModal.tsx` |
 | Publish to platforms (incl. Pinterest, TikTok Direct Post compliance) | `apps/web/src/lib/publish-target.ts`, `apps/web/src/lib/tiktok/tiktok-publish-compliance.ts`, `apps/web/src/app/api/posts/[id]/publish/route.ts` |
 | TikTok creator_info for composer | `apps/web/src/app/api/social/accounts/[id]/tiktok-creator-info/route.ts` |
-| Imported posts list, sync, Pinterest thumbnails | `apps/web/src/app/api/social/accounts/[id]/posts/route.ts` |
+| Imported posts list, sync, Pinterest thumbnails | `apps/web/src/app/api/social/accounts/[id]/posts/route.ts` (YouTube: live `videos.list` refresh + `lib/youtube/fetch-video-stats-batch.ts`) |
 | TikTok video.list engagement parsing (shares; favorites_count parsed but optional in DB) | `apps/web/src/lib/tiktok/video-engagement.ts`, `apps/web/src/lib/sync/adapters/tiktok.ts` |
 | Insights JSON for dashboard | `apps/web/src/app/api/social/accounts/[id]/insights/route.ts` |
 | Facebook / IG / TikTok analytics UI (TikTok hides Traffic; engagement is likes, comments, shares) | `apps/web/src/components/analytics/facebook/FacebookAnalyticsView.tsx`, `types.ts` |

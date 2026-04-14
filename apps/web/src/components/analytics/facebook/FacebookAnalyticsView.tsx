@@ -2877,24 +2877,43 @@ export function FacebookAnalyticsView({
   /** Same synced posts and insights the charts use, for inspection or export. */
   const youtubeAnalyticsDebugPayload = useMemo(() => {
     if (!isYouTube) return null;
-    const serializeYoutubePost = (p: FacebookPost) => ({
-      id: p.id,
-      platformPostId: p.platformPostId ?? null,
-      platform: p.platform,
-      content: p.content ?? null,
-      publishedAt: p.publishedAt,
-      permalinkUrl: p.permalinkUrl ?? null,
-      thumbnailUrl: p.thumbnailUrl ?? null,
-      mediaType: p.mediaType ?? null,
-      impressions: p.impressions ?? 0,
-      interactions: p.interactions ?? 0,
-      likeCount: p.likeCount ?? null,
-      commentsCount: p.commentsCount ?? null,
-      sharesCount: p.sharesCount ?? null,
-      platformMetadata: p.platformMetadata ?? null,
-      dashboardClassification: isYouTubeShortPost(p) ? 'short' : 'long_form',
-    });
+    const serializeYoutubePost = (p: FacebookPost) => {
+      const meta =
+        p.platformMetadata && typeof p.platformMetadata === 'object' && !Array.isArray(p.platformMetadata)
+          ? (p.platformMetadata as Record<string, unknown>)
+          : {};
+      const shelf =
+        meta.youtubeInShortsPlaylist === true
+          ? 'on_shorts_shelf'
+          : meta.youtubeInShortsPlaylist === false
+            ? 'not_on_shorts_shelf'
+            : 'unknown';
+      return {
+        id: p.id,
+        platformPostId: p.platformPostId ?? null,
+        platform: p.platform,
+        content: p.content ?? null,
+        publishedAt: p.publishedAt,
+        permalinkUrl: p.permalinkUrl ?? null,
+        thumbnailUrl: p.thumbnailUrl ?? null,
+        mediaType: p.mediaType ?? null,
+        impressions: p.impressions ?? 0,
+        interactions: p.interactions ?? 0,
+        likeCount: p.likeCount ?? null,
+        commentsCount: p.commentsCount ?? null,
+        sharesCount: p.sharesCount ?? null,
+        platformMetadata: p.platformMetadata ?? null,
+        youtubeShelfMembership: shelf,
+        dashboardClassification: isYouTubeShortPost(p) ? 'short' : 'long_form',
+      };
+    };
     return {
+      aboutThisPayload: {
+        whatYouAreSeeing:
+          'This is not a raw dump from Google. It is the same structured data the dashboard uses: imported video rows from our database (updated by sync and by live videos.list when you open Analytics), plus channel-level fields from GET /api/social/accounts/[id]/insights.',
+        officialApis:
+          'YouTube Data API v3 (videos, playlistItems, channels) and YouTube Analytics API v2 (reports for traffic, geography, watch time).',
+      },
       dateRange: { start: dateRange.start, end: dateRange.end },
       syncedVideosLoadedForAccount: posts.map(serializeYoutubePost),
       syncedVideosPublishedInDateRange: postsInRange.map(serializeYoutubePost),
@@ -2913,7 +2932,9 @@ export function FacebookAnalyticsView({
         trafficTableDerivedRow:
           'trafficSourcesAsShownInTrafficTable includes a synthetic first row __LONG_FORM_NON_SHORTS_FEED__ (total API views minus rows classified as Shorts surfacing).',
         dashboardClassification:
-          'dashboardClassification matches Short vs long-form in the UI (Shorts playlist when available, else creator signals and duration rules).',
+          'short = on your channel Shorts shelf (UUSH playlist) or explicit #shorts / #short or a youtube.com/shorts/VIDEO_ID token in title or description. long_form = everything else, including normal uploads under 3 minutes that are not on the Shorts shelf. YouTube does not expose a single is_short flag in Data API v3; watch and shorts URLs both exist for many videos.',
+        youtubeShelfMembership:
+          'youtubeShelfMembership summarizes youtubeInShortsPlaylist from sync (unknown when the Shorts index could not be fetched).',
       },
     };
   }, [

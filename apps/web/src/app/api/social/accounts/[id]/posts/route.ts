@@ -20,6 +20,7 @@ import {
   classifyYoutubeVideoFormat,
   parseYoutubeIso8601DurationSeconds,
 } from '@/lib/youtube-video-format';
+import { fetchYoutubeVideoStatsByIdMap, type YtVideoStatsRow } from '@/lib/youtube/fetch-video-stats-batch';
 import { checkAndIncrementXApiUsage } from '@/lib/x/x-api-usage';
 import { fetchTweetsByIdsBatched, metricsFromTweetPayload } from '@/lib/x/twitter-tweets-batch';
 
@@ -732,7 +733,10 @@ export async function GET(
                 shortsPlaylistIndexOk = true;
                 for (const it of sres.data?.items ?? []) {
                   const vid = it.snippet?.resourceId?.videoId;
-                  if (vid) shortsVideoIds.add(vid);
+                  if (vid) {
+                    shortsVideoIds.add(vid);
+                    shortsVideoIds.add(vid.toLowerCase());
+                  }
                 }
                 shortsPageToken = sres.data?.nextPageToken ?? null;
                 shortsPages++;
@@ -780,13 +784,93 @@ export async function GET(
       }
     }
 
+    /** Live `videos.list` so view counts and permalinks stay current (cron adapter rows may omit statistics). */
+    let youtubeLiveStatsMap = new Map<string, YtVideoStatsRow>();
+    if (account.platform === 'YOUTUBE' && account.accessToken) {
+      try {
+        const token = await getValidYoutubeToken(account);
+        const ytRows = importedRows.filter((r) => r.platform === 'YOUTUBE');
+        const ids = [...new Set(ytRows.map((r) => r.platformPostId).filter(Boolean))].slice(0, 200);
+        youtubeLiveStatsMap = await fetchYoutubeVideoStatsByIdMap(token, ids);
+
+        await runWithConcurrency(ytRows, 10, async (row) => {
+          const st = youtubeLiveStatsMap.get(row.platformPostId.toLowerCase());
+          if (!st) return;
+          const existingMeta =
+            row.platformMetadata && typeof row.platformMetadata === 'object' && !Array.isArray(row.platformMetadata)
+              ? { ...(row.platformMetadata as Record<string, unknown>) }
+              : {};
+          const nextMeta: Record<string, unknown> = {
+            ...existingMeta,
+            youtubeStandardWatchUrl: `https://www.youtube.com/watch?v=${st.canonicalId}`,
+            youtubeShortsPageUrl: `https://www.youtube.com/shorts/${st.canonicalId}`,
+            youtubeLiveStatsRefreshedAt: new Date().toISOString(),
+          };
+          if (st.durationSec > 0) nextMeta.youtubeDurationSec = st.durationSec;
+          if (st.description) nextMeta.youtubeDescriptionPreview = st.description.slice(0, 4000);
+
+          const nextImp = st.hasViewCount ? st.viewCount : undefined;
+          const nextLike = st.hasLikeCount ? st.likeCount : undefined;
+          const nextComm = st.hasCommentCount ? st.commentCount : undefined;
+          const perm =
+            !row.permalinkUrl || !String(row.permalinkUrl).trim()
+              ? `https://www.youtube.com/watch?v=${st.canonicalId}`
+              : undefined;
+          const metaNeedsUrls = !existingMeta.youtubeStandardWatchUrl || !existingMeta.youtubeShortsPageUrl;
+          const shouldPersist =
+            (nextImp !== undefined && nextImp !== (row.impressions ?? 0)) ||
+            (nextLike !== undefined && nextLike !== (row.likeCount ?? 0)) ||
+            (nextComm !== undefined && nextComm !== (row.commentsCount ?? 0)) ||
+            Boolean(perm) ||
+            metaNeedsUrls;
+
+          if (!shouldPersist) return;
+
+          const likeFinal = nextLike ?? row.likeCount ?? 0;
+          const commFinal = nextComm ?? row.commentsCount ?? 0;
+
+          try {
+            await prisma.importedPost.update({
+              where: {
+                socialAccountId_platformPostId: { socialAccountId: account.id, platformPostId: row.platformPostId },
+              },
+              data: {
+                ...(nextImp !== undefined ? { impressions: nextImp } : {}),
+                ...(nextLike !== undefined ? { likeCount: likeFinal } : {}),
+                ...(nextComm !== undefined ? { commentsCount: commFinal } : {}),
+                ...(perm ? { permalinkUrl: perm } : {}),
+                interactions: likeFinal + commFinal,
+                platformMetadata: nextMeta as object,
+                syncedAt: new Date(),
+              },
+            });
+          } catch {
+            /* non-fatal */
+          }
+        });
+      } catch (e) {
+        console.warn('[posts] YouTube live video stats refresh:', (e as Error)?.message ?? e);
+      }
+    }
+
     const serialized = importedRows.map((p) => {
+      const ytSt = account.platform === 'YOUTUBE' ? youtubeLiveStatsMap.get(p.platformPostId.toLowerCase()) : undefined;
       const enrich = account.platform === 'TWITTER' ? twitterEnrich[p.platformPostId] : undefined;
       const backfill = youtubeShortsBackfill[p.platformPostId];
       const meta =
         p.platformMetadata && typeof p.platformMetadata === 'object' && !Array.isArray(p.platformMetadata)
           ? (backfill ? { ...(p.platformMetadata as Record<string, unknown>), ...backfill } : (p.platformMetadata as Record<string, unknown>))
           : {};
+      const ytPublicMeta =
+        p.platform === 'YOUTUBE' && ytSt
+          ? {
+              youtubeStandardWatchUrl: `https://www.youtube.com/watch?v=${ytSt.canonicalId}`,
+              youtubeShortsPageUrl: `https://www.youtube.com/shorts/${ytSt.canonicalId}`,
+              ...(ytSt.durationSec > 0 ? { youtubeDurationSec: ytSt.durationSec } : {}),
+              ...(ytSt.description ? { youtubeDescriptionPreview: ytSt.description.slice(0, 4000) } : {}),
+            }
+          : {};
+      const youtubeMetaOut = p.platform === 'YOUTUBE' ? { ...meta, ...ytPublicMeta } : meta;
       const dbFacebookInsights =
         p.platform === 'FACEBOOK' && meta.facebookInsights && typeof meta.facebookInsights === 'object' && !Array.isArray(meta.facebookInsights)
           ? (meta.facebookInsights as Record<string, number>)
@@ -889,15 +973,23 @@ export async function GET(
           ? igImpressionsSerialized
           : p.platform === 'FACEBOOK'
             ? Math.max(p.impressions ?? 0, fbImpressionsFromInsights)
-            : p.impressions ?? 0;
+            : p.platform === 'YOUTUBE'
+              ? ytSt?.hasViewCount
+                ? ytSt.viewCount
+                : p.impressions ?? 0
+              : p.impressions ?? 0;
       const likeCountOut =
         p.platform === 'FACEBOOK'
           ? Math.max(p.likeCount ?? 0, mergedFacebookInsights?.post_reactions_like_total ?? 0)
-          : enrich?.likeCount ?? p.likeCount ?? 0;
+          : p.platform === 'YOUTUBE' && ytSt?.hasLikeCount
+            ? ytSt.likeCount
+            : enrich?.likeCount ?? p.likeCount ?? 0;
       const commentsCountOut =
         p.platform === 'FACEBOOK'
           ? Math.max(p.commentsCount ?? 0, mergedFacebookInsights?.post_comments ?? 0)
-          : enrich?.commentsCount ?? p.commentsCount ?? 0;
+          : p.platform === 'YOUTUBE' && ytSt?.hasCommentCount
+            ? ytSt.commentCount
+            : enrich?.commentsCount ?? p.commentsCount ?? 0;
       const sharesCountOut =
         p.platform === 'FACEBOOK'
           ? Math.max(p.sharesCount ?? 0, mergedFacebookInsights?.post_shares ?? 0)
@@ -905,7 +997,9 @@ export async function GET(
       const interactionsOut =
         p.platform === 'FACEBOOK'
           ? likeCountOut + commentsCountOut + sharesCountOut
-          : p.interactions ?? 0;
+          : p.platform === 'YOUTUBE'
+            ? likeCountOut + commentsCountOut
+            : p.interactions ?? 0;
       return {
         id: p.id,
         platformPostId: p.platformPostId,
@@ -916,7 +1010,10 @@ export async function GET(
           (account.platform === 'PINTEREST' ? pinterestThumbByPinId[p.platformPostId] : undefined) ??
           p.thumbnailUrl ??
           null,
-        permalinkUrl: p.permalinkUrl,
+        permalinkUrl:
+          p.platform === 'YOUTUBE' && (!p.permalinkUrl || !String(p.permalinkUrl).trim()) && ytSt
+            ? `https://www.youtube.com/watch?v=${ytSt.canonicalId}`
+            : p.permalinkUrl,
         impressions: impressionsSerialized,
         interactions: interactionsOut,
         likeCount: likeCountOut,
@@ -933,7 +1030,11 @@ export async function GET(
         publishedAt: p.publishedAt instanceof Date ? p.publishedAt.toISOString() : String(p.publishedAt),
         mediaType: p.mediaType,
         platform: p.platform,
-        ...(p.platformMetadata != null ? { platformMetadata: backfill ? { ...(p.platformMetadata as Record<string, unknown>), ...backfill } : p.platformMetadata } : {}),
+        ...(p.platform === 'YOUTUBE' && Object.keys(youtubeMetaOut).length > 0
+          ? { platformMetadata: youtubeMetaOut }
+          : p.platformMetadata != null
+            ? { platformMetadata: backfill ? { ...(p.platformMetadata as Record<string, unknown>), ...backfill } : p.platformMetadata }
+            : {}),
         ...(facebookInsights && Object.keys(facebookInsights).length > 0 ? { facebookInsights } : {}),
         ...(p.platform === 'FACEBOOK' || p.platform === 'PINTEREST' || p.platform === 'INSTAGRAM'
           ? {
@@ -1921,7 +2022,10 @@ async function syncImportedPosts(
             shortsPlaylistIndexOk = true;
             for (const it of sres.data?.items ?? []) {
               const vid = it.snippet?.resourceId?.videoId;
-              if (vid) shortsVideoIds.add(vid);
+              if (vid) {
+                shortsVideoIds.add(vid);
+                shortsVideoIds.add(vid.toLowerCase());
+              }
             }
             shortsPageToken = sres.data?.nextPageToken ?? null;
             shortsPages++;
@@ -1958,6 +2062,7 @@ async function syncImportedPosts(
       const statsMap: Record<
         string,
         {
+          canonicalId: string;
           viewCount: number;
           likeCount: number;
           commentCount: number;
@@ -1982,7 +2087,8 @@ async function syncImportedPosts(
           });
           for (const v of statsRes.data?.items ?? []) {
             const durationSec = parseYoutubeIso8601DurationSeconds(v.contentDetails?.duration);
-            statsMap[v.id] = {
+            const row = {
+              canonicalId: v.id,
               viewCount: v.statistics?.viewCount ? parseInt(v.statistics.viewCount, 10) : 0,
               likeCount: v.statistics?.likeCount ? parseInt(v.statistics.likeCount, 10) : 0,
               commentCount: v.statistics?.commentCount ? parseInt(v.statistics.commentCount, 10) : 0,
@@ -1990,6 +2096,8 @@ async function syncImportedPosts(
               title: v.snippet?.title ?? '',
               description: v.snippet?.description ?? '',
             };
+            statsMap[v.id] = row;
+            statsMap[v.id.toLowerCase()] = row;
           }
         } catch (e) {
           console.warn('[YouTube sync] videos.statistics batch failed:', (e as Error)?.message ?? e);
@@ -2003,10 +2111,8 @@ async function syncImportedPosts(
         const title = v.snippet?.title ?? null;
         // Skip YouTube's placeholder titles for deleted/private videos
         if (title === 'Deleted video' || title === 'Private video') continue;
-        const thumbnailUrl = v.snippet?.thumbnails?.medium?.url ?? v.snippet?.thumbnails?.default?.url
-          ?? `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
-        const permalinkUrl = `https://www.youtube.com/watch?v=${videoId}`;
-        const stats = statsMap[videoId] ?? {
+        const stats = statsMap[videoId] ?? statsMap[videoId.toLowerCase()] ?? {
+          canonicalId: videoId,
           viewCount: 0,
           likeCount: 0,
           commentCount: 0,
@@ -2014,11 +2120,17 @@ async function syncImportedPosts(
           title: title ?? '',
           description: '',
         };
+        const canonicalVideoId = stats.canonicalId || videoId;
+        const thumbnailUrl = v.snippet?.thumbnails?.medium?.url ?? v.snippet?.thumbnails?.default?.url
+          ?? `https://i.ytimg.com/vi/${canonicalVideoId}/mqdefault.jpg`;
+        const permalinkUrl = `https://www.youtube.com/watch?v=${canonicalVideoId}`;
         const impressions = stats.viewCount;
         const likeCount = stats.likeCount;
         const commentsCount = stats.commentCount;
         const interactions = likeCount + commentsCount;
-        const inChannelShortsPlaylist = shortsPlaylistIndexOk ? shortsVideoIds.has(videoId) : undefined;
+        const inChannelShortsPlaylist = shortsPlaylistIndexOk
+          ? shortsVideoIds.has(videoId) || shortsVideoIds.has(canonicalVideoId)
+          : undefined;
         const youtubeVideoFormat = classifyYoutubeVideoFormat({
           durationSec: stats.durationSec,
           title: stats.title || (title ?? ''),
@@ -2030,9 +2142,12 @@ async function syncImportedPosts(
           youtubeShortsIndexUnavailable: !shortsPlaylistIndexOk,
           /** Helps client-side Shorts vs long-form when title omits #shorts (matches classifyYoutubeVideoFormat). */
           youtubeDescriptionPreview: (stats.description || '').slice(0, 4000),
+          youtubeStandardWatchUrl: `https://www.youtube.com/watch?v=${canonicalVideoId}`,
+          youtubeShortsPageUrl: `https://www.youtube.com/shorts/${canonicalVideoId}`,
         };
         if (shortsPlaylistIndexOk) {
-          youtubeMeta.youtubeInShortsPlaylist = shortsVideoIds.has(videoId);
+          youtubeMeta.youtubeInShortsPlaylist =
+            shortsVideoIds.has(videoId) || shortsVideoIds.has(canonicalVideoId);
         }
         if (stats.durationSec > 0) {
           youtubeMeta.youtubeDurationSec = stats.durationSec;

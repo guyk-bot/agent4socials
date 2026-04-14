@@ -7,6 +7,7 @@ import { prisma } from '@/lib/db';
 import { upsertDailyMetricSnapshot } from '@/lib/analytics/metric-snapshots';
 import { getValidYoutubeToken } from '@/lib/youtube-token';
 import axios from 'axios';
+import { parseYoutubeIso8601DurationSeconds } from '@/lib/youtube-video-format';
 
 const YT_API = 'https://www.googleapis.com/youtube/v3';
 
@@ -129,10 +130,11 @@ async function syncRecentContent(account: AccountRow) {
         id?: string;
         snippet?: { title?: string; description?: string; thumbnails?: { high?: { url?: string } }; publishedAt?: string };
         statistics?: { viewCount?: string; likeCount?: string; commentCount?: string };
+        contentDetails?: { duration?: string };
       }>;
     }>(`${YT_API}/videos`, {
       params: {
-        part: 'snippet,statistics',
+        part: 'snippet,statistics,contentDetails',
         id: videoIds.join(','),
         access_token: token,
       },
@@ -145,9 +147,24 @@ async function syncRecentContent(account: AccountRow) {
       return { itemsProcessed: 0, partial: true };
     }
 
+    const pickMetric = (stats: Record<string, string | undefined> | undefined, key: 'viewCount' | 'likeCount' | 'commentCount') => {
+      if (!stats || !Object.prototype.hasOwnProperty.call(stats, key)) return undefined;
+      const raw = stats[key];
+      if (raw === undefined || String(raw).trim() === '') return undefined;
+      const n = parseInt(String(raw), 10);
+      return Number.isFinite(n) ? n : undefined;
+    };
+
     let items = 0;
     for (const v of vidRes.data?.items ?? []) {
       if (!v.id || !v.snippet?.publishedAt) continue;
+      const st = v.statistics as Record<string, string | undefined> | undefined;
+      const nextViews = pickMetric(st, 'viewCount');
+      const nextLikes = pickMetric(st, 'likeCount');
+      const nextComments = pickMetric(st, 'commentCount');
+      const durationSec = parseYoutubeIso8601DurationSeconds(v.contentDetails?.duration);
+      const permalinkUrl = `https://www.youtube.com/watch?v=${v.id}`;
+      const interactions = (nextLikes ?? 0) + (nextComments ?? 0);
       try {
         await prisma.importedPost.upsert({
           where: {
@@ -157,24 +174,33 @@ async function syncRecentContent(account: AccountRow) {
             },
           },
           update: {
-            content:      v.snippet.title ?? undefined,
+            content: v.snippet.title ?? undefined,
             thumbnailUrl: v.snippet.thumbnails?.high?.url ?? undefined,
-            impressions:  parseInt(v.statistics?.viewCount ?? '0', 10),
-            likeCount:    parseInt(v.statistics?.likeCount ?? '0', 10),
-            commentsCount: parseInt(v.statistics?.commentCount ?? '0', 10),
-            syncedAt:     new Date(),
+            ...(typeof nextViews === 'number' ? { impressions: nextViews } : {}),
+            ...(typeof nextLikes === 'number' ? { likeCount: nextLikes } : {}),
+            ...(typeof nextComments === 'number' ? { commentsCount: nextComments } : {}),
+            permalinkUrl,
+            syncedAt: new Date(),
           },
           create: {
             socialAccountId: account.id,
-            platformPostId:  v.id,
-            platform:        'YOUTUBE',
-            content:         v.snippet.title ?? null,
-            thumbnailUrl:    v.snippet.thumbnails?.high?.url ?? null,
-            publishedAt:     new Date(v.snippet.publishedAt),
-            mediaType:       'VIDEO',
-            impressions:     parseInt(v.statistics?.viewCount ?? '0', 10),
-            likeCount:       parseInt(v.statistics?.likeCount ?? '0', 10),
-            commentsCount:   parseInt(v.statistics?.commentCount ?? '0', 10),
+            platformPostId: v.id,
+            platform: 'YOUTUBE',
+            content: v.snippet.title ?? null,
+            thumbnailUrl: v.snippet.thumbnails?.high?.url ?? null,
+            publishedAt: new Date(v.snippet.publishedAt),
+            mediaType: 'VIDEO',
+            permalinkUrl,
+            impressions: typeof nextViews === 'number' ? nextViews : 0,
+            likeCount: typeof nextLikes === 'number' ? nextLikes : 0,
+            commentsCount: typeof nextComments === 'number' ? nextComments : 0,
+            interactions,
+            platformMetadata: {
+              youtubeDescriptionPreview: (v.snippet.description ?? '').slice(0, 4000),
+              youtubeStandardWatchUrl: permalinkUrl,
+              youtubeShortsPageUrl: `https://www.youtube.com/shorts/${v.id}`,
+              ...(durationSec > 0 ? { youtubeDurationSec: durationSec } : {}),
+            } as object,
           },
         });
         items++;
