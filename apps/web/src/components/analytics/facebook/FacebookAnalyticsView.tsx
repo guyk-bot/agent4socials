@@ -4591,38 +4591,7 @@ export function FacebookAnalyticsView({
           </div>
           {isYouTube ? (
             <>
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                <MetricCard
-                  label="Views"
-                  source="YouTube Analytics · views by day"
-                  color={COLOR.cyan}
-                  value={formatNumber(youTubeViewsInRange)}
-                  active={false}
-                  onClick={() => {}}
-                />
-                <MetricCard
-                  label="Est. watch time"
-                  source="YouTube Analytics · estimatedMinutesWatched"
-                  color={COLOR.violet}
-                  value={youtubeEstimatedWatchMinutes != null ? `${formatNumber(Math.round(youtubeEstimatedWatchMinutes))} min` : '—'}
-                  active={false}
-                  onClick={() => {}}
-                />
-                <MetricCard
-                  label="Avg view duration"
-                  source="YouTube Analytics · averageViewDuration (daily mean)"
-                  color={COLOR.magenta}
-                  value={
-                    youtubeAvgViewDurationSec != null && youtubeAvgViewDurationSec > 0
-                      ? formatDurationMs(Math.round(youtubeAvgViewDurationSec * 1000))
-                      : '—'
-                  }
-                  active={false}
-                  onClick={() => {}}
-                />
-              </div>
-
-              <div className="mt-6 rounded-xl border p-4 sm:p-5" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
+              <div className="rounded-xl border p-4 sm:p-5" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
                 <h4 className="text-base font-semibold mb-1" style={{ color: COLOR.text }}>
                   Views by country
                 </h4>
