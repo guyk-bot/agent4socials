@@ -27,7 +27,11 @@ import { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids
 import { localCalendarDateFromIso, toLocalCalendarDate } from '@/lib/calendar-date';
 import { formatMetricNumber as formatNumber } from '@/lib/metric-format';
 import { isLegacyInstagramInsightsUnavailableHint } from '@/lib/strip-legacy-insights-hint';
-import { classifyYoutubeVideoFormat } from '@/lib/youtube-video-format';
+import {
+  buildYoutubePrimaryPermalink,
+  classifyYoutubeVideoFormat,
+  hasYoutubeShortsCreatorSignals,
+} from '@/lib/youtube-video-format';
 
 export { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids';
 
@@ -2888,6 +2892,36 @@ export function FacebookAnalyticsView({
           : meta.youtubeInShortsPlaylist === false
             ? 'not_on_shorts_shelf'
             : 'unknown';
+      const vid = String(p.platformPostId ?? '').trim();
+      const descPreview = getYoutubeDescriptionPreviewFromPost(p);
+      const inPl = getYoutubeInShortsPlaylistFromPost(p);
+      const inChannelShortsPlaylist = inPl === true ? true : inPl === false ? false : undefined;
+      const durationSec = getYoutubeDurationSecFromPost(p) ?? 0;
+      const strictClass = classifyYoutubeVideoFormat({
+        durationSec,
+        title: p.content,
+        description: descPreview,
+        inChannelShortsPlaylist,
+      });
+      const postUrls = vid
+        ? {
+            watch: `https://www.youtube.com/watch?v=${vid}`,
+            shorts: `https://www.youtube.com/shorts/${vid}`,
+            storedPermalinkInDb: p.permalinkUrl ?? null,
+            fromMetadataWatch:
+              typeof meta.youtubeStandardWatchUrl === 'string' ? meta.youtubeStandardWatchUrl : null,
+            fromMetadataShorts:
+              typeof meta.youtubeShortsPageUrl === 'string' ? meta.youtubeShortsPageUrl : null,
+            suggestedPrimaryPermalink: buildYoutubePrimaryPermalink(vid, strictClass),
+          }
+        : {
+            watch: null as string | null,
+            shorts: null as string | null,
+            storedPermalinkInDb: p.permalinkUrl ?? null,
+            fromMetadataWatch: null as string | null,
+            fromMetadataShorts: null as string | null,
+            suggestedPrimaryPermalink: null as string | null,
+          };
       return {
         id: p.id,
         platformPostId: p.platformPostId ?? null,
@@ -2895,6 +2929,7 @@ export function FacebookAnalyticsView({
         content: p.content ?? null,
         publishedAt: p.publishedAt,
         permalinkUrl: p.permalinkUrl ?? null,
+        postUrls,
         thumbnailUrl: p.thumbnailUrl ?? null,
         mediaType: p.mediaType ?? null,
         impressions: p.impressions ?? 0,
@@ -2904,6 +2939,15 @@ export function FacebookAnalyticsView({
         sharesCount: p.sharesCount ?? null,
         platformMetadata: p.platformMetadata ?? null,
         youtubeShelfMembership: shelf,
+        classificationDebug: {
+          durationSecFromMetadata: durationSec,
+          youtubeInShortsPlaylistRaw: meta.youtubeInShortsPlaylist ?? null,
+          youtubeShortsIndexUnavailable: meta.youtubeShortsIndexUnavailable ?? null,
+          storedYoutubeVideoFormat: meta.youtubeVideoFormat ?? null,
+          strictClassifierOutput: strictClass,
+          hasCreatorSignals: hasYoutubeShortsCreatorSignals(p.content, descPreview),
+          dashboardTreatsAsShort: isYouTubeShortPost(p),
+        },
         dashboardClassification: isYouTubeShortPost(p) ? 'short' : 'long_form',
       };
     };
@@ -2913,6 +2957,8 @@ export function FacebookAnalyticsView({
           'This is not a raw dump from Google. It is the same structured data the dashboard uses: imported video rows from our database (updated by sync and by live videos.list when you open Analytics), plus channel-level fields from GET /api/social/accounts/[id]/insights.',
         officialApis:
           'YouTube Data API v3 (videos, playlistItems, channels) and YouTube Analytics API v2 (reports for traffic, geography, watch time).',
+        postUrlsInEachVideo:
+          'Every video object includes `postUrls.watch` and `postUrls.shorts` built from `platformPostId` (so you always see both public URL shapes), plus `storedPermalinkInDb`, metadata URLs if present, and `suggestedPrimaryPermalink` from the strict classifier. Use `classificationDebug` to compare with `dashboardClassification`.',
       },
       dateRange: { start: dateRange.start, end: dateRange.end },
       syncedVideosLoadedForAccount: posts.map(serializeYoutubePost),
@@ -5274,7 +5320,7 @@ export function FacebookAnalyticsView({
             {youtubeAnalyticsDebugPayload ? (
               <AnalyticsLocalJsonPanel
                 title="Raw YouTube data (JSON)"
-                description="Synced video rows (platformMetadata and dashboard Short vs long-form), plus channel insights used on this page. Expand to view, or copy for debugging."
+                description="Each video includes postUrls (watch and shorts links from the video id), classificationDebug, and channel insights. Expand to view, or copy for debugging."
                 data={youtubeAnalyticsDebugPayload}
               />
             ) : null}
