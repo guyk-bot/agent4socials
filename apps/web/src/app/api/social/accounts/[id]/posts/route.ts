@@ -17,6 +17,7 @@ import { getValidPinterestToken } from '@/lib/pinterest-token';
 import { parseTikTokVideoEngagement, parseTikTokVideoDurationSec } from '@/lib/tiktok/video-engagement';
 import { syncLinkedInUgcPosts } from '@/lib/linkedin/sync-ugc-posts';
 import {
+  buildYoutubePrimaryPermalink,
   classifyYoutubeVideoFormat,
   parseYoutubeIso8601DurationSeconds,
 } from '@/lib/youtube-video-format';
@@ -809,20 +810,46 @@ export async function GET(
           if (st.durationSec > 0) nextMeta.youtubeDurationSec = st.durationSec;
           if (st.description) nextMeta.youtubeDescriptionPreview = st.description.slice(0, 4000);
 
+          const inPl =
+            existingMeta.youtubeInShortsPlaylist === true
+              ? true
+              : existingMeta.youtubeInShortsPlaylist === false
+                ? false
+                : undefined;
+          const durationForClass =
+            st.durationSec > 0
+              ? st.durationSec
+              : typeof existingMeta.youtubeDurationSec === 'number'
+                ? existingMeta.youtubeDurationSec
+                : 0;
+          const youtubeVideoFormat = classifyYoutubeVideoFormat({
+            durationSec: durationForClass,
+            title: st.title || row.content || '',
+            description:
+              st.description ||
+              (typeof existingMeta.youtubeDescriptionPreview === 'string'
+                ? existingMeta.youtubeDescriptionPreview
+                : ''),
+            inChannelShortsPlaylist: inPl,
+          });
+          nextMeta.youtubeVideoFormat = youtubeVideoFormat;
+
           const nextImp = st.hasViewCount ? st.viewCount : undefined;
           const nextLike = st.hasLikeCount ? st.likeCount : undefined;
           const nextComm = st.hasCommentCount ? st.commentCount : undefined;
           const perm =
             !row.permalinkUrl || !String(row.permalinkUrl).trim()
-              ? `https://www.youtube.com/watch?v=${st.canonicalId}`
+              ? buildYoutubePrimaryPermalink(st.canonicalId, youtubeVideoFormat)
               : undefined;
           const metaNeedsUrls = !existingMeta.youtubeStandardWatchUrl || !existingMeta.youtubeShortsPageUrl;
+          const formatChanged = existingMeta.youtubeVideoFormat !== youtubeVideoFormat;
           const shouldPersist =
             (nextImp !== undefined && nextImp !== (row.impressions ?? 0)) ||
             (nextLike !== undefined && nextLike !== (row.likeCount ?? 0)) ||
             (nextComm !== undefined && nextComm !== (row.commentsCount ?? 0)) ||
             Boolean(perm) ||
-            metaNeedsUrls;
+            metaNeedsUrls ||
+            formatChanged;
 
           if (!shouldPersist) return;
 
@@ -1010,10 +1037,33 @@ export async function GET(
           (account.platform === 'PINTEREST' ? pinterestThumbByPinId[p.platformPostId] : undefined) ??
           p.thumbnailUrl ??
           null,
-        permalinkUrl:
-          p.platform === 'YOUTUBE' && (!p.permalinkUrl || !String(p.permalinkUrl).trim()) && ytSt
-            ? `https://www.youtube.com/watch?v=${ytSt.canonicalId}`
-            : p.permalinkUrl,
+        permalinkUrl: (() => {
+          if (p.platform !== 'YOUTUBE' || !ytSt) return p.permalinkUrl;
+          if (p.permalinkUrl && String(p.permalinkUrl).trim()) return p.permalinkUrl;
+          const inPl =
+            meta.youtubeInShortsPlaylist === true
+              ? true
+              : meta.youtubeInShortsPlaylist === false
+                ? false
+                : undefined;
+          const durationForClass =
+            ytSt.durationSec > 0
+              ? ytSt.durationSec
+              : typeof meta.youtubeDurationSec === 'number'
+                ? meta.youtubeDurationSec
+                : 0;
+          return buildYoutubePrimaryPermalink(
+            ytSt.canonicalId,
+            classifyYoutubeVideoFormat({
+              durationSec: durationForClass,
+              title: ytSt.title || p.content || '',
+              description:
+                ytSt.description ||
+                (typeof meta.youtubeDescriptionPreview === 'string' ? meta.youtubeDescriptionPreview : ''),
+              inChannelShortsPlaylist: inPl,
+            })
+          );
+        })(),
         impressions: impressionsSerialized,
         interactions: interactionsOut,
         likeCount: likeCountOut,
@@ -2123,7 +2173,6 @@ async function syncImportedPosts(
         const canonicalVideoId = stats.canonicalId || videoId;
         const thumbnailUrl = v.snippet?.thumbnails?.medium?.url ?? v.snippet?.thumbnails?.default?.url
           ?? `https://i.ytimg.com/vi/${canonicalVideoId}/mqdefault.jpg`;
-        const permalinkUrl = `https://www.youtube.com/watch?v=${canonicalVideoId}`;
         const impressions = stats.viewCount;
         const likeCount = stats.likeCount;
         const commentsCount = stats.commentCount;
@@ -2137,6 +2186,7 @@ async function syncImportedPosts(
           description: stats.description,
           inChannelShortsPlaylist,
         });
+        const permalinkUrl = buildYoutubePrimaryPermalink(canonicalVideoId, youtubeVideoFormat);
         const youtubeMeta: Record<string, unknown> = {
           youtubeVideoFormat,
           youtubeShortsIndexUnavailable: !shortsPlaylistIndexOk,

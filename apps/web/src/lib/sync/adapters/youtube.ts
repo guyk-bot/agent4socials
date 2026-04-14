@@ -7,7 +7,11 @@ import { prisma } from '@/lib/db';
 import { upsertDailyMetricSnapshot } from '@/lib/analytics/metric-snapshots';
 import { getValidYoutubeToken } from '@/lib/youtube-token';
 import axios from 'axios';
-import { parseYoutubeIso8601DurationSeconds } from '@/lib/youtube-video-format';
+import {
+  buildYoutubePrimaryPermalink,
+  classifyYoutubeVideoFormat,
+  parseYoutubeIso8601DurationSeconds,
+} from '@/lib/youtube-video-format';
 
 const YT_API = 'https://www.googleapis.com/youtube/v3';
 
@@ -163,7 +167,13 @@ async function syncRecentContent(account: AccountRow) {
       const nextLikes = pickMetric(st, 'likeCount');
       const nextComments = pickMetric(st, 'commentCount');
       const durationSec = parseYoutubeIso8601DurationSeconds(v.contentDetails?.duration);
-      const permalinkUrl = `https://www.youtube.com/watch?v=${v.id}`;
+      const youtubeVideoFormat = classifyYoutubeVideoFormat({
+        durationSec,
+        title: v.snippet?.title,
+        description: v.snippet?.description,
+        inChannelShortsPlaylist: undefined,
+      });
+      const permalinkUrl = buildYoutubePrimaryPermalink(v.id, youtubeVideoFormat);
       const interactions = (nextLikes ?? 0) + (nextComments ?? 0);
       try {
         await prisma.importedPost.upsert({
@@ -196,8 +206,9 @@ async function syncRecentContent(account: AccountRow) {
             commentsCount: typeof nextComments === 'number' ? nextComments : 0,
             interactions,
             platformMetadata: {
+              youtubeVideoFormat,
               youtubeDescriptionPreview: (v.snippet.description ?? '').slice(0, 4000),
-              youtubeStandardWatchUrl: permalinkUrl,
+              youtubeStandardWatchUrl: `https://www.youtube.com/watch?v=${v.id}`,
               youtubeShortsPageUrl: `https://www.youtube.com/shorts/${v.id}`,
               ...(durationSec > 0 ? { youtubeDurationSec: durationSec } : {}),
             } as object,

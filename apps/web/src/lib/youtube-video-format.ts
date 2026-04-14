@@ -28,6 +28,17 @@ export function parseYoutubeIso8601DurationSeconds(iso: string | undefined | nul
 export type YoutubeVideoFormat = 'short' | 'long';
 
 /**
+ * Public URL YouTube uses for Shorts (`/shorts/VIDEO_ID`) vs standard watch (`/watch?v=VIDEO_ID`).
+ * @see https://www.youtube.com/shorts/ (path contains `shorts` plus the 11-char video id)
+ */
+export function buildYoutubePrimaryPermalink(canonicalVideoId: string, format: YoutubeVideoFormat): string {
+  const id = String(canonicalVideoId ?? '').trim();
+  if (!id) return 'https://www.youtube.com/watch?v=';
+  if (format === 'short') return `https://www.youtube.com/shorts/${id}`;
+  return `https://www.youtube.com/watch?v=${id}`;
+}
+
+/**
  * Deliberate Shorts markers in title/description. Token-based so we do not match "not #shorts" substrings
  * or "#short" inside "#shorts". Used only when the Shorts playlist index is missing or unavailable.
  */
