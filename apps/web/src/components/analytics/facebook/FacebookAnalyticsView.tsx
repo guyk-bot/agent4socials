@@ -4742,9 +4742,6 @@ export function FacebookAnalyticsView({
                       </tbody>
                     </table>
                   </div>
-                  <p className="text-xs mt-3 leading-relaxed" style={{ color: COLOR.textSecondary }}>
-                    The first row estimates views not attributed to Shorts feed traffic types (Shorts, Shorts content links, etc.). It is not the same as “only long-form uploads”; the rows below are YouTube’s standard breakdown.
-                  </p>
                 </div>
               ) : null}
             </>
