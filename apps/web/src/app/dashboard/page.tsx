@@ -11,7 +11,7 @@ import { useAppData, getDefaultDateRange } from '@/context/AppDataContext';
 import { useSelectedAccount, useResolvedSelectedAccount } from '@/context/SelectedAccountContext';
 import type { SocialAccount } from '@/context/SelectedAccountContext';
 import api from '@/lib/api';
-import { readDashboardInsightsSession, writeDashboardInsightsSession, readInsightsFromLocalStorage, STALE_CACHE_MAX_AGE_MS } from '@/lib/dashboard-insights-session-cache';
+import { readDashboardInsightsSession, writeDashboardInsightsSession, readInsightsFromLocalStorage, readYouTubeExtendedCache, writeYouTubeExtendedCache, STALE_CACHE_MAX_AGE_MS } from '@/lib/dashboard-insights-session-cache';
 import { stripLegacyInsightsHint } from '@/lib/strip-legacy-insights-hint';
 import {
   localCalendarDateFromIso,
@@ -755,12 +755,30 @@ export default function DashboardPage() {
     /** Per-account analytics: posts are loaded only by the posts effect (avoids racing sync vs non-sync and prefetch churn). */
     const accountTabOwnsPosts = analyticsTab === 'account';
 
+    // For YouTube: patch in cached extended data (demographics, trafficSources) if the cache entry is missing it.
+    // This lets the geo/traffic widgets show immediately even after a date-range change flushes the main cache.
+    function patchYouTubeExtended(payload: Record<string, unknown>): Record<string, unknown> {
+      if (selectedAccount?.platform !== 'YOUTUBE') return payload;
+      const hasDemographics = payload.demographics && typeof payload.demographics === 'object';
+      const hasTraffic = Array.isArray(payload.trafficSources) && (payload.trafficSources as unknown[]).length > 0;
+      if (hasDemographics && hasTraffic) return payload;
+      const ext = readYouTubeExtendedCache(accountId);
+      if (!ext) return payload;
+      return {
+        ...payload,
+        ...(!hasDemographics && ext.demographics ? { demographics: ext.demographics } : {}),
+        ...(!hasTraffic && ext.trafficSources ? { trafficSources: ext.trafficSources } : {}),
+        ...(ext.extra && !payload.extra ? { extra: ext.extra } : {}),
+      };
+    }
+
     // If we already have cached data for this range (or prefetched default range), show it immediately and keep it stable.
     if (exactCached) {
-      lastInsightsByAccountIdRef.current[accountId] = { ...(exactCached as Record<string, unknown>), _dateRange: dateRange };
+      const patchedExact = patchYouTubeExtended(exactCached as Record<string, unknown>);
+      lastInsightsByAccountIdRef.current[accountId] = { ...(patchedExact), _dateRange: dateRange };
       lastInsightsFetchedAtRef.current[accountId] = Date.now();
-      setInsights(exactCached as NonNullable<Parameters<typeof setInsights>[0]>);
-      if (userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, exactCached, dateRange);
+      setInsights(patchedExact as NonNullable<Parameters<typeof setInsights>[0]>);
+      if (userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, patchedExact, dateRange);
       setInsightsLoading(false);
       let runInsightsSwr = true;
       if (skipInstagramAutoRefresh) {
@@ -789,6 +807,11 @@ export default function DashboardPage() {
           .then((res) => {
             const data = res.data ?? null;
             if (!data) return;
+            // Persist YouTube extended data (geo + traffic) in a separate date-range-independent cache.
+            if (selectedAccount?.platform === 'YOUTUBE') {
+              const d = data as Record<string, unknown>;
+              if (d.demographics || d.trafficSources) writeYouTubeExtendedCache(accountId, { demographics: d.demographics, trafficSources: d.trafficSources, extra: d.extra });
+            }
             insightsCacheRef.current[cacheKey] = data;
             lastInsightsByAccountIdRef.current[accountId] = { ...(data as Record<string, unknown>), _dateRange: dateRange };
             lastInsightsFetchedAtRef.current[accountId] = Date.now();
@@ -828,14 +851,25 @@ export default function DashboardPage() {
     // Stale data from a different date range or a previous session plots time-series points
     // at the wrong positions, causing a visible "concentration then jump" artifact.
     if (staleForAccount && !isDateRangeChange) {
-      lastInsightsByAccountIdRef.current[accountId] = staleForAccount;
-      setInsights(staleForAccount as NonNullable<Parameters<typeof setInsights>[0]>);
-      if (userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, staleForAccount, dateRange);
+      const patchedStale = patchYouTubeExtended(staleForAccount);
+      lastInsightsByAccountIdRef.current[accountId] = patchedStale;
+      setInsights(patchedStale as NonNullable<Parameters<typeof setInsights>[0]>);
+      if (userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, patchedStale, dateRange);
       // Refresh silently in background without showing a loading skeleton
       setInsightsLoading(false);
     } else {
-      // Date range changed, account changed without stale data, or first load → clear and show skeleton
-      setInsights(null);
+      // Date range changed, account changed without stale data, or first load → clear and show skeleton.
+      // For YouTube: if we have extended data cached (geo + traffic), show it immediately as a partial payload
+      // so the country/traffic widgets don't flash empty while the full fetch runs.
+      const ytExtFallback = selectedAccount?.platform === 'YOUTUBE' ? readYouTubeExtendedCache(accountId) : null;
+      if (ytExtFallback) {
+        setInsights((prev) => {
+          if (prev) return { ...prev, demographics: ytExtFallback.demographics as typeof prev.demographics, trafficSources: ytExtFallback.trafficSources as typeof prev.trafficSources };
+          return null;
+        });
+      } else {
+        setInsights(null);
+      }
       setInsightsLoading(true);
     }
     if (!accountTabOwnsPosts) {
@@ -882,6 +916,11 @@ export default function DashboardPage() {
           }
         }
         if (data) {
+          // Persist YouTube extended data (geo + traffic) separately so it survives date-range cache misses.
+          if (selectedAccount?.platform === 'YOUTUBE') {
+            const d = data as Record<string, unknown>;
+            if (d.demographics || d.trafficSources) writeYouTubeExtendedCache(accountId, { demographics: d.demographics, trafficSources: d.trafficSources, extra: d.extra });
+          }
           insightsCacheRef.current[cacheKey] = data;
           lastInsightsByAccountIdRef.current[accountId] = { ...(data as Record<string, unknown>), _dateRange: dateRange };
           lastInsightsFetchedAtRef.current[accountId] = Date.now();

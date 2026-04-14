@@ -19,6 +19,42 @@ const LS_PREFIX = 'a4s_acct_insights';
 /** YouTube extended (geo + traffic) can be large; allow bigger blobs so localStorage cache actually persists. */
 const MAX_BYTES = 1_400_000;
 
+/** Separate per-account cache for YouTube extended analytics (demographics, trafficSources).
+ *  Keyed by accountId only — date-range independent so it survives day-boundary cache misses. */
+const YT_EXTENDED_PREFIX = 'a4s_yt_extended_v1';
+/** Show YouTube geo/traffic data cached within the last 6 hours while a fresh fetch runs in background. */
+const YT_EXTENDED_TTL_MS = 6 * 60 * 60 * 1000;
+
+export function readYouTubeExtendedCache(accountId: string): Record<string, unknown> | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(`${YT_EXTENDED_PREFIX}_${accountId}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object') return null;
+    const obj = parsed as Record<string, unknown>;
+    if (!isFresh(obj, YT_EXTENDED_TTL_MS)) return null;
+    return obj;
+  } catch {
+    return null;
+  }
+}
+
+export function writeYouTubeExtendedCache(
+  accountId: string,
+  data: Record<string, unknown>
+): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const entry = { ...data, _fetchedAt: Date.now() };
+    const str = JSON.stringify(entry);
+    if (str.length > MAX_BYTES) return;
+    localStorage.setItem(`${YT_EXTENDED_PREFIX}_${accountId}`, str);
+  } catch {
+    // quota or private mode
+  }
+}
+
 /**
  * Maximum age for stale-but-wrong-range cache data shown while fresh data loads.
  * Data for a DIFFERENT date range older than this is silently discarded to prevent
