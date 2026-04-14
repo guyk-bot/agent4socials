@@ -606,12 +606,6 @@ function isYouTubeShortPost(p: FacebookPost): boolean {
   return false;
 }
 
-/** Long-form: not classified as Short (includes legacy unknown-duration without #shorts). */
-function isYouTubeLongFormVideoPost(p: FacebookPost): boolean {
-  if ((p.platform ?? '').toUpperCase() !== 'YOUTUBE') return false;
-  return !isYouTubeShortPost(p);
-}
-
 /**
  * True only for actual Reels (Reels tab / chart). Do not treat photos or plain feed videos as reels
  * just because insights include numeric post_video_* fields (often 0).
@@ -1964,8 +1958,7 @@ export function FacebookAnalyticsView({
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.overview, label: 'Overview' },
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.traffic, label: 'Traffic' },
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.posts, label: plat === 'TWITTER' ? 'Tweets' : plat === 'PINTEREST' ? 'Pins' : 'Posts' },
-      { id: FACEBOOK_ANALYTICS_SECTION_IDS.reels, label: plat === 'PINTEREST' ? 'Videos' : 'Reels' },
-      ...(plat === 'YOUTUBE' ? [{ id: FACEBOOK_ANALYTICS_SECTION_IDS.videos, label: 'Videos' } as const] : []),
+      { id: FACEBOOK_ANALYTICS_SECTION_IDS.reels, label: plat === 'PINTEREST' || plat === 'YOUTUBE' ? 'Videos' : 'Reels' },
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.history, label: 'History' },
     ];
     if (plat === 'TIKTOK' || plat === 'TWITTER') {
@@ -3042,18 +3035,21 @@ export function FacebookAnalyticsView({
       }));
   }, [postsRows]);
 
-  const longFormVideoRows = useMemo((): ReelAnalyticsRow[] => {
+  /** YouTube: all synced uploads in range (Shorts and long-form) for one Videos section. */
+  const youtubeAllVideoRows = useMemo((): ReelAnalyticsRow[] => {
     if (!isYouTube) return [];
-    return postsInRange.filter((p) => isYouTubeLongFormVideoPost(p)).map((p) => {
-      const { watchTimeMs, avgWatchMs } = getWatchTimes(p);
-      return {
-        post: p,
-        views: bestPostPlayCount(p),
-        organicViews: p.facebookInsights?.post_video_views_organic ?? 0,
-        avgWatchMs: avgWatchMs ?? 0,
-        watchTimeMs: watchTimeMs ?? 0,
-      };
-    });
+    return postsInRange
+      .filter((p) => (p.platform ?? '').toUpperCase() === 'YOUTUBE')
+      .map((p) => {
+        const { watchTimeMs, avgWatchMs } = getWatchTimes(p);
+        return {
+          post: p,
+          views: bestPostPlayCount(p),
+          organicViews: p.facebookInsights?.post_video_views_organic ?? 0,
+          avgWatchMs: avgWatchMs ?? 0,
+          watchTimeMs: watchTimeMs ?? 0,
+        };
+      });
   }, [isYouTube, postsInRange]);
 
   /** Pinterest: use video Pins for the Videos section; if none qualify, fall back to all synced Pins in range. */
@@ -3107,14 +3103,13 @@ export function FacebookAnalyticsView({
       }));
   }, [isTwitter, twitterRecentTweets]);
 
-  /** Combined Shorts + long-form for aggregate KPIs and Pinterest; charts split for YouTube below. */
+  /** Pinterest / Twitter / YouTube all-video rows; other platforms use reel rows only. */
   const reelChartSourceRows = useMemo((): ReelAnalyticsRow[] => {
     if (isPinterest) return pinterestVideoRows;
     if (isTwitter) return reelsRows.length > 0 ? reelsRows : twitterVideoReelsRows;
-    if (!isYouTube) return reelsRows;
-    if (reelsRows.length > 0 && longFormVideoRows.length > 0) return [...reelsRows, ...longFormVideoRows];
-    return reelsRows.length > 0 ? reelsRows : longFormVideoRows;
-  }, [isPinterest, pinterestVideoRows, isTwitter, twitterVideoReelsRows, isYouTube, reelsRows, longFormVideoRows]);
+    if (isYouTube) return youtubeAllVideoRows;
+    return reelsRows;
+  }, [isPinterest, pinterestVideoRows, isTwitter, twitterVideoReelsRows, isYouTube, reelsRows, youtubeAllVideoRows]);
 
   const reelsChartData = useMemo(() => buildReelsLikeChartData(reelChartSourceRows), [reelChartSourceRows]);
 
@@ -3141,48 +3136,17 @@ export function FacebookAnalyticsView({
     return Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date));
   }, [isTwitter, twitterRecentTweets]);
 
-  const youtubeShortViewsTotal = useMemo(() => reelsRows.reduce((s, r) => s + r.views, 0), [reelsRows]);
-  const youtubeLongViewsTotal = useMemo(() => longFormVideoRows.reduce((s, r) => s + r.views, 0), [longFormVideoRows]);
-
-  const youtubeWatchMinuteShare = useMemo(() => {
-    const combined = youtubeShortViewsTotal + youtubeLongViewsTotal;
-    if (combined > 0) {
-      return {
-        shorts: youtubeShortViewsTotal / combined,
-        longForm: youtubeLongViewsTotal / combined,
-      };
-    }
-    if (youtubeShortViewsTotal > 0) return { shorts: 1, longForm: 0 };
-    if (youtubeLongViewsTotal > 0) return { shorts: 0, longForm: 1 };
-    const hasShortRows = reelsRows.length > 0;
-    const hasLongRows = longFormVideoRows.length > 0;
-    if (hasShortRows && hasLongRows) return { shorts: 0.5, longForm: 0.5 };
-    if (hasShortRows) return { shorts: 1, longForm: 0 };
-    if (hasLongRows) return { shorts: 0, longForm: 1 };
-    return { shorts: 0, longForm: 0 };
-  }, [reelsRows.length, longFormVideoRows.length, youtubeShortViewsTotal, youtubeLongViewsTotal]);
-
-  const youtubeShortsChartDataForDisplay = useMemo(() => {
+  /** Single combined chart for YouTube (full channel watch-time estimate scale = 1). */
+  const youtubeAllVideosChartDataForDisplay = useMemo(() => {
     if (!isYouTube) return [] as ReelChartDayRow[];
-    const raw = buildReelsLikeChartData(reelsRows);
+    const raw = buildReelsLikeChartData(youtubeAllVideoRows);
     return applyYouTubeWatchFallbackToReelChart(
       raw,
       youtubeEstimatedWatchMinutes,
       youtubeAvgViewDurationSec,
-      youtubeWatchMinuteShare.shorts
+      1
     );
-  }, [isYouTube, reelsRows, youtubeEstimatedWatchMinutes, youtubeAvgViewDurationSec, youtubeWatchMinuteShare.shorts]);
-
-  const youtubeLongFormChartDataForDisplay = useMemo(() => {
-    if (!isYouTube) return [] as ReelChartDayRow[];
-    const raw = buildReelsLikeChartData(longFormVideoRows);
-    return applyYouTubeWatchFallbackToReelChart(
-      raw,
-      youtubeEstimatedWatchMinutes,
-      youtubeAvgViewDurationSec,
-      youtubeWatchMinuteShare.longForm
-    );
-  }, [isYouTube, longFormVideoRows, youtubeEstimatedWatchMinutes, youtubeAvgViewDurationSec, youtubeWatchMinuteShare.longForm]);
+  }, [isYouTube, youtubeAllVideoRows, youtubeEstimatedWatchMinutes, youtubeAvgViewDurationSec]);
 
   const reelPerformanceChartHeightPx = useMemo(() => {
     const n = reelsChartData.length;
@@ -3190,21 +3154,14 @@ export function FacebookAnalyticsView({
     return Math.min(560, 300 + (n - 8) * 30);
   }, [reelsChartData.length]);
 
-  const youtubeShortChartHeightPx = useMemo(() => {
-    const n = youtubeShortsChartDataForDisplay.length;
+  const youtubeVideosChartHeightPx = useMemo(() => {
+    const n = youtubeAllVideosChartDataForDisplay.length;
     if (n <= 8) return 300;
     return Math.min(560, 300 + (n - 8) * 30);
-  }, [youtubeShortsChartDataForDisplay.length]);
-
-  const youtubeLongChartHeightPx = useMemo(() => {
-    const n = youtubeLongFormChartDataForDisplay.length;
-    if (n <= 8) return 300;
-    return Math.min(560, 300 + (n - 8) * 30);
-  }, [youtubeLongFormChartDataForDisplay.length]);
+  }, [youtubeAllVideosChartDataForDisplay.length]);
 
   const reelChartAxisDense = reelsChartData.length > 8;
-  const youtubeShortChartAxisDense = youtubeShortsChartDataForDisplay.length > 8;
-  const youtubeLongChartAxisDense = youtubeLongFormChartDataForDisplay.length > 8;
+  const youtubeVideosChartAxisDense = youtubeAllVideosChartDataForDisplay.length > 8;
 
   const storyTicks = useMemo(
     () =>
@@ -3296,51 +3253,6 @@ export function FacebookAnalyticsView({
     reelChartSourceRows.reduce((s, r) => (
       s + (r.post.platform === 'INSTAGRAM' ? bestInstagramInteractionCount(r.post) : (r.post.facebookInsights?.post_clicks ?? 0))
     ), 0) / Math.max(1, totalReelVideoViews);
-  const totalShortVideoWatchTimeMs = reelsRows.reduce((s, r) => s + r.watchTimeMs, 0);
-  const shortVideoLikes = reelsRows.reduce(
-    (s, r) => s + bestCount(r.post.facebookInsights?.post_reactions_like_total, r.post.likeCount),
-    0
-  );
-  const shortVideoComments = reelsRows.reduce(
-    (s, r) => s + (r.post.facebookInsights?.post_comments ?? r.post.commentsCount ?? 0),
-    0
-  );
-  const shortVideoShares = reelsRows.reduce((s, r) => s + bestShareCount(r.post), 0);
-  const totalShortVideoViews = reelsRows.reduce((s, r) => s + r.views, 0);
-  const shortVideoAvgWatchMs = totalShortVideoViews > 0 ? totalShortVideoWatchTimeMs / totalShortVideoViews : 0;
-  const ytChMinForSplit =
-    typeof youtubeEstimatedWatchMinutes === 'number' && youtubeEstimatedWatchMinutes > 0 ? youtubeEstimatedWatchMinutes : 0;
-  const ytChAvgSecForSplit =
-    typeof youtubeAvgViewDurationSec === 'number' && youtubeAvgViewDurationSec > 0 ? youtubeAvgViewDurationSec : 0;
-  const totalShortVideoWatchTimeMsDisplay =
-    isYouTube && totalShortVideoWatchTimeMs <= 0 && ytChMinForSplit > 0
-      ? Math.round(ytChMinForSplit * 60000 * youtubeWatchMinuteShare.shorts)
-      : totalShortVideoWatchTimeMs;
-  const shortVideoAvgWatchMsDisplay =
-    isYouTube && shortVideoAvgWatchMs <= 0 && ytChAvgSecForSplit > 0
-      ? Math.round(ytChAvgSecForSplit * 1000)
-      : shortVideoAvgWatchMs;
-  const totalLongVideoWatchTimeMs = longFormVideoRows.reduce((s, r) => s + r.watchTimeMs, 0);
-  const longVideoLikes = longFormVideoRows.reduce(
-    (s, r) => s + bestCount(r.post.facebookInsights?.post_reactions_like_total, r.post.likeCount),
-    0
-  );
-  const longVideoComments = longFormVideoRows.reduce(
-    (s, r) => s + (r.post.facebookInsights?.post_comments ?? r.post.commentsCount ?? 0),
-    0
-  );
-  const longVideoShares = longFormVideoRows.reduce((s, r) => s + bestShareCount(r.post), 0);
-  const longVideoReposts = longFormVideoRows.reduce((s, r) => s + bestRepostCount(r.post), 0);
-  const totalLongVideoViews = longFormVideoRows.reduce((s, r) => s + r.views, 0);
-  const longVideoAvgWatchMs = totalLongVideoViews > 0 ? totalLongVideoWatchTimeMs / totalLongVideoViews : 0;
-  const totalLongVideoWatchTimeMsDisplay =
-    isYouTube && totalLongVideoWatchTimeMs <= 0 && ytChMinForSplit > 0
-      ? Math.round(ytChMinForSplit * 60000 * youtubeWatchMinuteShare.longForm)
-      : totalLongVideoWatchTimeMs;
-  const longVideoAvgWatchMsDisplay =
-    isYouTube && longVideoAvgWatchMs <= 0 && ytChAvgSecForSplit > 0
-      ? Math.round(ytChAvgSecForSplit * 1000)
-      : longVideoAvgWatchMs;
   const storyModeHoverHint = useMemo(() => {
     const fmt = (v: number | null | undefined) => (typeof v === 'number' && Number.isFinite(v) ? `${v >= 0 ? '+' : ''}${v.toFixed(1)}%` : 'n/a');
     const follows = growthSparklineSeries.follows;
@@ -3618,6 +3530,7 @@ export function FacebookAnalyticsView({
   const contentHistoryRows = useMemo(() => {
     const plat = insights?.platform?.toUpperCase() ?? '';
     const pinterest = plat === 'PINTEREST';
+    const youtube = plat === 'YOUTUBE';
     if (historyFilter === 'posts') return allPostsRows.filter((r) => r.type === 'Post');
     if (historyFilter === 'reels') {
       if (pinterest) {
@@ -3628,6 +3541,9 @@ export function FacebookAnalyticsView({
           return isVideoishPost(p);
         });
         return videoPins.length > 0 ? videoPins : allPostsRows;
+      }
+      if (youtube) {
+        return allPostsRows.filter((r) => (r.rawPost.platform ?? '').toUpperCase() === 'YOUTUBE');
       }
       return allPostsRows.filter((r) => r.type === 'Reel');
     }
@@ -5107,12 +5023,8 @@ export function FacebookAnalyticsView({
           <AnalyticsReelsSkeleton />
         ) : (
         <div
-          className={isYouTube ? 'space-y-6' : 'rounded-[20px] border p-4 sm:p-5 space-y-4'}
-          style={
-            isYouTube
-              ? undefined
-              : { borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }
-          }
+          className="rounded-[20px] border p-4 sm:p-5 space-y-4"
+          style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}
         >
           {!isYouTube ? (
             <div>
@@ -5128,10 +5040,14 @@ export function FacebookAnalyticsView({
           ) : (
             <div>
               <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>
-                Long form videos
+                Videos
               </h2>
+              <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
+                All synced YouTube uploads in this date range (every video in your inventory for the selected dates).
+              </p>
             </div>
           )}
+        {!isYouTube ? (
         <div className="flex gap-2">
           {([
             { id: 'performance' as const, label: 'Performance' },
@@ -5166,6 +5082,7 @@ export function FacebookAnalyticsView({
             </button>
           ))}
         </div>
+        ) : null}
         {!isYouTube ? (
         <>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -5307,16 +5224,6 @@ export function FacebookAnalyticsView({
         </>
         ) : (
         <>
-        <div
-          className="rounded-[20px] border p-4 sm:p-5 space-y-4"
-          style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}
-        >
-            <div>
-              <h3 className="text-xl font-semibold tracking-tight" style={{ color: COLOR.text }}>YouTube videos</h3>
-              <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
-                Shorts vs long-form uses your channel’s Shorts playlist and title/description signals — not length alone (regular uploads can be under 3 minutes).
-              </p>
-            </div>
             {youtubeAnalyticsDebugPayload ? (
               <AnalyticsLocalJsonPanel
                 title="Raw YouTube data (JSON)"
@@ -5324,146 +5231,79 @@ export function FacebookAnalyticsView({
                 data={youtubeAnalyticsDebugPayload}
               />
             ) : null}
-            <InsightChartCard
-              title="YouTube Shorts performance"
-              chartHeightPx={youtubeShortChartHeightPx}
-              legend={selectedReelMetrics.map((m) => ({ label: REEL_METRIC_CONFIG[m].label, color: REEL_METRIC_CONFIG[m].color }))}
-            >
-              {youtubeShortsChartDataForDisplay.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={youtubeShortsChartDataForDisplay}
-                    barCategoryGap={UNIFIED_BAR_CATEGORY_GAP}
-                    barGap={UNIFIED_BAR_GAP}
-                    margin={{ top: 4, right: 8, left: 0, bottom: youtubeShortChartAxisDense ? 36 : 4 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(17,24,39,0.08)" vertical={false} />
-                    <XAxis
-                      dataKey="date"
-                      tickFormatter={formatShortDate}
-                      interval={0}
-                      angle={youtubeShortChartAxisDense ? -32 : 0}
-                      textAnchor={youtubeShortChartAxisDense ? 'end' : 'middle'}
-                      height={youtubeShortChartAxisDense ? 64 : undefined}
-                      tick={{ fill: COLOR.textMuted, fontSize: 11 }}
-                      minTickGap={youtubeShortChartAxisDense ? 4 : 0}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
-                    <Tooltip
-                      cursor={{ fill: 'rgba(107,114,128,0.20)' }}
-                      content={(props) => {
-                        const { active, payload, label } = props as unknown as { active?: boolean; payload?: Array<{ dataKey?: string; value?: number; payload?: { thumbnailUrl?: string | null } }>; label?: string };
-                        if (!active || !payload?.length) return null;
-                        const row = payload[0]?.payload;
-                        const kv = payload
-                          .filter((p) => typeof p.value === 'number' && typeof p.dataKey === 'string')
-                          .map((p) => ({ key: p.dataKey as ReelMetricKey | 'watchTimeMinutes' | 'avgWatchSeconds', value: p.value ?? 0 }));
-                        return (
-                          <div className="rounded-xl border px-3 py-2 text-xs shadow-lg" style={{ background: '#ffffff', borderColor: COLOR.border }}>
-                            <p className="font-medium mb-1.5" style={{ color: COLOR.text }}>{formatShortDate(String(label ?? ''))}</p>
-                            {row?.thumbnailUrl ? <img src={row.thumbnailUrl} alt="" className="mb-2 h-10 w-10 rounded object-cover" /> : null}
-                            {kv.map((item) => (
-                              <p key={item.key} style={{ color: COLOR.textSecondary }}>
-                                {(item.key === 'watchTimeMinutes' ? 'Watch Time' : item.key === 'avgWatchSeconds' ? 'Avg Watch' : REEL_METRIC_CONFIG[item.key as ReelMetricKey]?.label ?? item.key)}: {item.key === 'watchTimeMinutes' ? `${item.value.toFixed(1)}m` : item.key === 'avgWatchSeconds' ? `${item.value.toFixed(1)}s` : formatNumber(item.value)}
-                              </p>
-                            ))}
-                          </div>
-                        );
-                      }}
-                    />
-                    {selectedReelMetrics.includes('views') ? <Bar dataKey="views" fill={REEL_METRIC_CONFIG.views.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
-                    {selectedReelMetrics.includes('likes') ? <Bar dataKey="likes" fill={REEL_METRIC_CONFIG.likes.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
-                    {selectedReelMetrics.includes('comments') ? <Bar dataKey="comments" fill={REEL_METRIC_CONFIG.comments.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
-                    {selectedReelMetrics.includes('shares') ? <Bar dataKey="shares" fill={REEL_METRIC_CONFIG.shares.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
-                    {isInstagram && selectedReelMetrics.includes('reposts') ? <Bar dataKey="reposts" fill={REEL_METRIC_CONFIG.reposts.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
-                    {selectedReelMetrics.includes('watchTime') ? <Bar dataKey="watchTimeMinutes" fill={REEL_METRIC_CONFIG.watchTime.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
-                    {selectedReelMetrics.includes('avgWatch') ? <Bar dataKey="avgWatchSeconds" fill={REEL_METRIC_CONFIG.avgWatch.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-[240px] rounded-[20px] border flex flex-col items-center justify-center text-center px-6" style={{ background: COLOR.card, borderColor: COLOR.border }}>
-                  <p className="text-sm font-semibold" style={{ color: COLOR.text }}>No Shorts in this period</p>
-                  <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
-                    Shorts are videos on your channel’s Shorts shelf (synced via YouTube) or marked with #shorts / a /shorts/ link in title or description. Re-sync to refresh playlist membership.
-                  </p>
-                </div>
-              )}
-            </InsightChartCard>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <MetricCard
                 label="Total Video Views"
-                source="post_video_views (long-form only)"
+                source="Synced YouTube videos in this date range"
                 color={REEL_METRIC_CONFIG.views.color}
-                value={formatNumber(totalLongVideoViews)}
+                value={formatNumber(totalReelVideoViews)}
                 active={selectedReelMetrics.includes('views')}
                 onClick={() => setSelectedReelMetrics((prev) => prev.includes('views') ? prev.filter((m) => m !== 'views') : [...prev, 'views'])}
               />
               <MetricCard
                 label="Watch Time"
-                source="YouTube Analytics watch-time share (fallback) or post-level long-form watch time"
+                source="YouTube Analytics fallback or post-level watch time"
                 color={REEL_METRIC_CONFIG.watchTime.color}
-                value={formatDurationMs(totalLongVideoWatchTimeMsDisplay)}
+                value={formatDurationMs(totalReelWatchTimeMsDisplay)}
                 active={selectedReelMetrics.includes('watchTime')}
                 onClick={() => setSelectedReelMetrics((prev) => prev.includes('watchTime') ? prev.filter((m) => m !== 'watchTime') : [...prev, 'watchTime'])}
               />
               <MetricCard
                 label="Avg Watch Time"
-                source="YouTube Analytics average view duration (fallback) or mean long-form watch time"
+                source="YouTube Analytics average view duration (fallback) or mean watch time"
                 color={REEL_METRIC_CONFIG.avgWatch.color}
-                value={formatDurationMs(longVideoAvgWatchMsDisplay)}
+                value={formatDurationMs(avgWatchMsDisplay)}
                 active={selectedReelMetrics.includes('avgWatch')}
                 onClick={() => setSelectedReelMetrics((prev) => prev.includes('avgWatch') ? prev.filter((m) => m !== 'avgWatch') : [...prev, 'avgWatch'])}
               />
               <MetricCard
                 label="Likes"
-                source="post_reactions_like_total"
+                source="Synced video like counts"
                 color={REEL_METRIC_CONFIG.likes.color}
-                value={formatNumber(longVideoLikes)}
+                value={formatNumber(reelLikes)}
                 active={selectedReelMetrics.includes('likes')}
                 onClick={() => setSelectedReelMetrics((prev) => prev.includes('likes') ? prev.filter((m) => m !== 'likes') : [...prev, 'likes'])}
               />
               <MetricCard
                 label="Comments"
-                source="post_comments"
+                source="Synced video comment counts"
                 color={REEL_METRIC_CONFIG.comments.color}
-                value={formatNumber(longVideoComments)}
+                value={formatNumber(reelComments)}
                 active={selectedReelMetrics.includes('comments')}
                 onClick={() => setSelectedReelMetrics((prev) => prev.includes('comments') ? prev.filter((m) => m !== 'comments') : [...prev, 'comments'])}
               />
               <MetricCard
                 label="Shares"
-                source="post_shares"
+                source="Synced video share counts"
                 color={REEL_METRIC_CONFIG.shares.color}
-                value={formatNumber(longVideoShares)}
+                value={formatNumber(reelShares)}
                 active={selectedReelMetrics.includes('shares')}
                 onClick={() => setSelectedReelMetrics((prev) => prev.includes('shares') ? prev.filter((m) => m !== 'shares') : [...prev, 'shares'])}
               />
             </div>
             <InsightChartCard
-              title="Long-form performance"
-              chartHeightPx={youtubeLongChartHeightPx}
+              title="Video performance"
+              chartHeightPx={youtubeVideosChartHeightPx}
               legend={selectedReelMetrics.map((m) => ({ label: REEL_METRIC_CONFIG[m].label, color: REEL_METRIC_CONFIG[m].color }))}
             >
-              {youtubeLongFormChartDataForDisplay.length > 0 ? (
+              {youtubeAllVideosChartDataForDisplay.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
-                    data={youtubeLongFormChartDataForDisplay}
+                    data={youtubeAllVideosChartDataForDisplay}
                     barCategoryGap={UNIFIED_BAR_CATEGORY_GAP}
                     barGap={UNIFIED_BAR_GAP}
-                    margin={{ top: 4, right: 8, left: 0, bottom: youtubeLongChartAxisDense ? 36 : 4 }}
+                    margin={{ top: 4, right: 8, left: 0, bottom: youtubeVideosChartAxisDense ? 36 : 4 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(17,24,39,0.08)" vertical={false} />
                     <XAxis
                       dataKey="date"
                       tickFormatter={formatShortDate}
                       interval={0}
-                      angle={youtubeLongChartAxisDense ? -32 : 0}
-                      textAnchor={youtubeLongChartAxisDense ? 'end' : 'middle'}
-                      height={youtubeLongChartAxisDense ? 64 : undefined}
+                      angle={youtubeVideosChartAxisDense ? -32 : 0}
+                      textAnchor={youtubeVideosChartAxisDense ? 'end' : 'middle'}
+                      height={youtubeVideosChartAxisDense ? 64 : undefined}
                       tick={{ fill: COLOR.textMuted, fontSize: 11 }}
-                      minTickGap={youtubeLongChartAxisDense ? 4 : 0}
+                      minTickGap={youtubeVideosChartAxisDense ? 4 : 0}
                       axisLine={false}
                       tickLine={false}
                     />
@@ -5501,14 +5341,13 @@ export function FacebookAnalyticsView({
                 </ResponsiveContainer>
               ) : (
                 <div className="h-[240px] rounded-[20px] border flex flex-col items-center justify-center text-center px-6" style={{ background: COLOR.card, borderColor: COLOR.border }}>
-                  <p className="text-sm font-semibold" style={{ color: COLOR.text }}>No long-form videos in this period</p>
+                  <p className="text-sm font-semibold" style={{ color: COLOR.text }}>No videos in this period</p>
                   <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
-                    Long-form is everything not classified as Shorts (including short-length regular uploads). Re-sync if splits look wrong.
+                    Sync your channel from the sidebar or widen the date range so uploads with publish dates in range appear here.
                   </p>
                 </div>
               )}
             </InsightChartCard>
-          </div>
         </>
         )}
         </div>
@@ -5528,7 +5367,7 @@ export function FacebookAnalyticsView({
             {([
               { id: 'all' as const, label: 'All' },
               { id: 'posts' as const, label: isTwitter ? 'Tweets' : isPinterest ? 'Pins' : 'Posts' },
-              { id: 'reels' as const, label: isPinterest ? 'Videos' : 'Reels' },
+              { id: 'reels' as const, label: isPinterest || isYouTube ? 'Videos' : 'Reels' },
             ]).map((f) => (
               <button
                 key={f.id}

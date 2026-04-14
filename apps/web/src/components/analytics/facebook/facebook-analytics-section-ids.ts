@@ -6,7 +6,5 @@ export const FACEBOOK_ANALYTICS_SECTION_IDS = {
   traffic: 'traffic',
   posts: 'posts',
   reels: 'reels',
-  /** Long-form YouTube uploads (analytics shell only; scroll target). */
-  videos: 'videos',
   history: 'history',
 } as const;
