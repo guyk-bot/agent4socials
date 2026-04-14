@@ -20,6 +20,7 @@ import {
 import { ArrowRight, ChevronRight, ExternalLink, MessageSquare, RefreshCw, Sparkles, Star } from 'lucide-react';
 import { AnalyticsDateRangePicker } from '../AnalyticsDateRangePicker';
 import { LinkedInCommunityApiJsonPanel } from '../LinkedInCommunityApiJsonPanel';
+import { AnalyticsLocalJsonPanel } from '../AnalyticsLocalJsonPanel';
 import type { FacebookFrontendAnalyticsBundle } from '@/lib/facebook/frontend-analytics-bundle';
 import type { FacebookInsights, FacebookPost } from './types';
 import { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids';
@@ -2873,6 +2874,58 @@ export function FacebookAnalyticsView({
     return [...withDerived].sort((a, b) => b.value - a.value);
   }, [insights?.trafficSources]);
 
+  /** Same synced posts and insights the charts use, for inspection or export. */
+  const youtubeAnalyticsDebugPayload = useMemo(() => {
+    if (!isYouTube) return null;
+    const serializeYoutubePost = (p: FacebookPost) => ({
+      id: p.id,
+      platformPostId: p.platformPostId ?? null,
+      platform: p.platform,
+      content: p.content ?? null,
+      publishedAt: p.publishedAt,
+      permalinkUrl: p.permalinkUrl ?? null,
+      thumbnailUrl: p.thumbnailUrl ?? null,
+      mediaType: p.mediaType ?? null,
+      impressions: p.impressions ?? 0,
+      interactions: p.interactions ?? 0,
+      likeCount: p.likeCount ?? null,
+      commentsCount: p.commentsCount ?? null,
+      sharesCount: p.sharesCount ?? null,
+      platformMetadata: p.platformMetadata ?? null,
+      dashboardClassification: isYouTubeShortPost(p) ? 'short' : 'long_form',
+    });
+    return {
+      dateRange: { start: dateRange.start, end: dateRange.end },
+      syncedVideosLoadedForAccount: posts.map(serializeYoutubePost),
+      syncedVideosPublishedInDateRange: postsInRange.map(serializeYoutubePost),
+      channelInsights: {
+        followers: insights?.followers,
+        impressionsTotal: insights?.impressionsTotal,
+        impressionsTimeSeries: insights?.impressionsTimeSeries,
+        growthTimeSeries: insights?.growthTimeSeries,
+        demographics: insights?.demographics,
+        trafficSourcesFromApi: insights?.trafficSources ?? [],
+        trafficSourcesAsShownInTrafficTable: youtubeTrafficSourcesForDisplay,
+        extra: insights?.extra ?? null,
+        insightsHint: insights?.insightsHint ?? null,
+      },
+      notes: {
+        trafficTableDerivedRow:
+          'trafficSourcesAsShownInTrafficTable includes a synthetic first row __LONG_FORM_NON_SHORTS_FEED__ (total API views minus rows classified as Shorts surfacing).',
+        dashboardClassification:
+          'dashboardClassification matches Short vs long-form in the UI (Shorts playlist when available, else creator signals and duration rules).',
+      },
+    };
+  }, [
+    isYouTube,
+    dateRange.start,
+    dateRange.end,
+    posts,
+    postsInRange,
+    insights,
+    youtubeTrafficSourcesForDisplay,
+  ]);
+
   const youtubeEstimatedWatchMinutes = useMemo(() => {
     const v = insights?.extra?.estimatedMinutesWatched;
     return typeof v === 'number' && Number.isFinite(v) ? v : null;
@@ -5197,6 +5250,13 @@ export function FacebookAnalyticsView({
                 Shorts vs long-form uses your channel’s Shorts playlist and title/description signals — not length alone (regular uploads can be under 3 minutes).
               </p>
             </div>
+            {youtubeAnalyticsDebugPayload ? (
+              <AnalyticsLocalJsonPanel
+                title="Raw YouTube data (JSON)"
+                description="Synced video rows (platformMetadata and dashboard Short vs long-form), plus channel insights used on this page. Expand to view, or copy for debugging."
+                data={youtubeAnalyticsDebugPayload}
+              />
+            ) : null}
             <InsightChartCard
               title="YouTube Shorts performance"
               chartHeightPx={youtubeShortChartHeightPx}
