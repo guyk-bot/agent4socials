@@ -1443,6 +1443,9 @@ export function resolvedPostPermalink(row: {
     const [pageId, storyFbid] = pid.split('_');
     if (pageId && storyFbid) return `https://www.facebook.com/${pageId}/posts/${storyFbid}`;
   }
+  if (plat === 'YOUTUBE' && pid) {
+    return `https://www.youtube.com/watch?v=${pid}`;
+  }
   return null;
 }
 
@@ -1571,7 +1574,7 @@ export function PostsPerformanceTable({
                 </td>
                 <td className="px-3 py-3">
                   <span className="rounded-full px-2 py-1 text-xs" style={{ background: 'rgba(255,255,255,0.08)', color: COLOR.text }}>
-                    {platUpper === 'YOUTUBE' ? (isYouTubeShortPost(r.rawPost) ? 'Short' : 'Long-form') : r.type}
+                    {platUpper === 'YOUTUBE' ? 'Video' : r.type}
                   </span>
                 </td>
                 <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.views)}</td>
@@ -1655,7 +1658,7 @@ export function PostsPerformanceTable({
             </div>
             <div className="mt-2 flex flex-wrap gap-2 text-xs" style={{ color: COLOR.textSecondary }}>
               <span>{formatPostCardDateTime(r.date) || new Date(r.date).toLocaleDateString()}</span>
-              <span>{platUpper === 'YOUTUBE' ? (isYouTubeShortPost(r.rawPost) ? 'Short' : 'Long-form') : r.type}</span>
+              <span>{platUpper === 'YOUTUBE' ? 'Video' : r.type}</span>
               <span>Views {formatNumber(r.views)}</span>
               {!compactVideoTable ? <span>Reach {formatNumber(r.uniqueReach)}</span> : null}
               {!compactVideoTable ? (
@@ -3044,7 +3047,7 @@ export function FacebookAnalyticsView({
         const { watchTimeMs, avgWatchMs } = getWatchTimes(p);
         return {
           post: p,
-          views: bestPostPlayCount(p),
+          views: Math.max(bestPostPlayCount(p), p.impressions ?? 0),
           organicViews: p.facebookInsights?.post_video_views_organic ?? 0,
           avgWatchMs: avgWatchMs ?? 0,
           watchTimeMs: watchTimeMs ?? 0,
@@ -3504,7 +3507,9 @@ export function FacebookAnalyticsView({
         type: isReel ? ('Reel' as const) : ('Post' as const),
         preview: p.content ?? '',
         permalink: p.permalinkUrl,
-        views: bestPostPlayCount(p),
+        views: (p.platform ?? '').toUpperCase() === 'YOUTUBE'
+          ? Math.max(bestPostPlayCount(p), p.impressions ?? 0)
+          : bestPostPlayCount(p),
         uniqueReach: fi.post_impressions_unique ?? 0,
         clicks: bestPostInteractionCount(p),
         likes: fi.post_reactions_like_total ?? p.likeCount ?? 0,
@@ -5042,12 +5047,8 @@ export function FacebookAnalyticsView({
               <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>
                 Videos
               </h2>
-              <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
-                All synced YouTube uploads in this date range (every video in your inventory for the selected dates).
-              </p>
             </div>
           )}
-        {!isYouTube ? (
         <div className="flex gap-2">
           {([
             { id: 'performance' as const, label: 'Performance' },
@@ -5082,7 +5083,6 @@ export function FacebookAnalyticsView({
             </button>
           ))}
         </div>
-        ) : null}
         {!isYouTube ? (
         <>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -5224,13 +5224,6 @@ export function FacebookAnalyticsView({
         </>
         ) : (
         <>
-            {youtubeAnalyticsDebugPayload ? (
-              <AnalyticsLocalJsonPanel
-                title="Raw YouTube data (JSON)"
-                description="Each video includes postUrls (watch and shorts links from the video id), classificationDebug, and channel insights. Expand to view, or copy for debugging."
-                data={youtubeAnalyticsDebugPayload}
-              />
-            ) : null}
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <MetricCard
                 label="Total Video Views"
