@@ -791,7 +791,12 @@ export async function GET(
       try {
         const token = await getValidYoutubeToken(account);
         const ytRows = importedRows.filter((r) => r.platform === 'YOUTUBE');
-        const ids = [...new Set(ytRows.map((r) => r.platformPostId).filter(Boolean))].slice(0, 200);
+        // Also include app-published (Composer) targets not yet in ImportedPost so their view counts show immediately.
+        const appYtIds = appTargets
+          .filter((t) => t.platformPostId && !importedPostIds.has(t.platformPostId))
+          .map((t) => t.platformPostId!)
+          .filter(Boolean);
+        const ids = [...new Set([...ytRows.map((r) => r.platformPostId).filter(Boolean), ...appYtIds])].slice(0, 200);
         youtubeLiveStatsMap = await fetchYoutubeVideoStatsByIdMap(token, ids);
 
         await runWithConcurrency(ytRows, 10, async (row) => {
@@ -1135,22 +1140,45 @@ export async function GET(
         const commentsCount = live?.post_comments ?? 0;
         const sharesCount = live?.post_shares ?? 0;
         const interactions = likeCount + commentsCount + sharesCount;
+
+        // YouTube Composer-published targets: enrich with live video.list stats.
+        const ytSt = account.platform === 'YOUTUBE' && pid ? youtubeLiveStatsMap.get(pid.toLowerCase()) : undefined;
+        const ytImpressions = ytSt?.hasViewCount ? ytSt.viewCount : 0;
+        const ytLikes = ytSt?.hasLikeCount ? ytSt.likeCount : 0;
+        const ytComments = ytSt?.hasCommentCount ? ytSt.commentCount : 0;
+        const ytPermalink = ytSt
+          ? buildYoutubePrimaryPermalink(ytSt.canonicalId, classifyYoutubeVideoFormat({
+              durationSec: ytSt.durationSec,
+              title: ytSt.title || t.post?.content || '',
+              description: ytSt.description || '',
+            }))
+          : null;
+        const ytMeta: Record<string, unknown> = ytSt
+          ? {
+              youtubeStandardWatchUrl: `https://www.youtube.com/watch?v=${ytSt.canonicalId}`,
+              youtubeShortsPageUrl: `https://www.youtube.com/shorts/${ytSt.canonicalId}`,
+              ...(ytSt.durationSec > 0 ? { youtubeDurationSec: ytSt.durationSec } : {}),
+            }
+          : {};
+
         return {
           id: `target-${t.id}`,
           platformPostId: pid,
-          content: t.post?.content ?? null,
+          content: account.platform === 'YOUTUBE' && ytSt?.title ? ytSt.title : (t.post?.content ?? null),
           thumbnailUrl: thumbnailUrlFromFirstPostMedia(t.post?.media[0]),
-          permalinkUrl: null,
-          impressions: fbPick.impressions,
-          interactions,
-          likeCount,
-          commentsCount,
+          permalinkUrl: ytPermalink ?? null,
+          impressions: account.platform === 'YOUTUBE' ? ytImpressions : fbPick.impressions,
+          interactions: account.platform === 'YOUTUBE' ? ytLikes + ytComments : interactions,
+          likeCount: account.platform === 'YOUTUBE' ? ytLikes : likeCount,
+          commentsCount: account.platform === 'YOUTUBE' ? ytComments : commentsCount,
           repostsCount: 0,
           sharesCount,
+          savesCount: 0,
           publishedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : String(t.updatedAt),
           mediaType: t.post?.media[0]?.type ?? null,
           platform: account.platform,
           ...(live && Object.keys(live).length > 0 ? { facebookInsights: live } : {}),
+          ...(account.platform === 'YOUTUBE' && Object.keys(ytMeta).length > 0 ? { platformMetadata: ytMeta } : {}),
         };
       });
 
