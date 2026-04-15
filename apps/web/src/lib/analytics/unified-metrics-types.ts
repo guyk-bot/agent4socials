@@ -61,7 +61,12 @@ export interface UnifiedHistoryPost {
 
 export interface UnifiedSummaryResponse {
   kpi: UnifiedKpiSummary;
+  /** Post impressions by publish day (ImportedPost) plus LinkedIn daily aggregates from snapshots. */
   chart: UnifiedChartData;
+  /** Followers or fans from `AccountMetricSnapshot` by metric day and platform. */
+  audienceChart: UnifiedChartData;
+  /** Likes, comments, shares, reposts summed by post publish day; LinkedIn uses PostPerformance comments + shares by fetch day. */
+  engagementChart: UnifiedChartData;
   topPosts: UnifiedTopPost[];
   history: UnifiedHistoryPost[];
 }

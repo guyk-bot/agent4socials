@@ -73,7 +73,8 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | `/dashboard/settings` | `dashboard/settings/page.tsx` |
 | `/dashboard/automation` | `dashboard/automation/page.tsx` |
 | `/dashboard/smart-links` | `dashboard/smart-links/page.tsx` |
-| `/dashboard/summary` (Console: unified KPIs, `AnalyticsDateRangePicker`, localStorage cache `lib/dashboard-unified-summary-cache.ts`) | `dashboard/summary/page.tsx` |
+| `/dashboard/console` (Console: unified KPIs, Growth / Engagement / Views charts, `AnalyticsDateRangePicker`, cache `lib/dashboard-unified-summary-cache.ts`) | `dashboard/console/page.tsx` |
+| `/dashboard/summary` | Redirects to `/dashboard/console` (same query string) |
 | `/dashboard/ai-assistant` | `dashboard/ai-assistant/page.tsx` |
 | `/dashboard/hashtag-pool` | `dashboard/hashtag-pool/page.tsx` |
 | `/dashboard/analytics` | `dashboard/analytics/page.tsx` |
@@ -143,7 +144,7 @@ Layouts worth knowing: `composer/layout.tsx` uses `AuthenticatedShell`.
 | Shell | `AuthenticatedShell.tsx`, `AppHeader.tsx`, `Sidebar.tsx`, `ConfirmModal.tsx` |
 | Connect | `dashboard/ConnectView.tsx` |
 | FB analytics UI | `analytics/facebook/FacebookAnalyticsView.tsx` (+ `FacebookReadInsightsPanel`, tabs) |
-| Summary dashboard | `dashboard/summary/*` |
+| Console (unified analytics) | `dashboard/console/page.tsx`; legacy `dashboard/summary/page.tsx` |
 | Landing | `landing/SiteHeader.tsx`, `SiteFooter.tsx`, `landing/pricing/*` |
 | Smart links | `smart-links/LinkPageRenderer.tsx` |
 | Auth | `auth/AuthModal.tsx`, `LoginFormContent.tsx`, `SignupFormContent.tsx` |
@@ -187,11 +188,11 @@ Layouts worth knowing: `composer/layout.tsx` uses `AuthenticatedShell`.
 | Posts API | `apps/web/src/app/api/posts/route.ts`, `posts/[id]/route.ts`, `posts/[id]/publish/route.ts` |
 | Publish target logic | `apps/web/src/lib/publish-target.ts` |
 
-### Analytics & summary
+### Analytics & Console
 
 | What | Where |
 |------|--------|
-| Summary dashboard | `apps/web/src/app/dashboard/summary/page.tsx` |
+| Console dashboard | `apps/web/src/app/dashboard/console/page.tsx` |
 | Summary UI components | `apps/web/src/components/dashboard/summary/` (SummaryDashboard, KPICardsGrid, GrowthChartTabs, etc.) |
 | Insights API (account-level: FB Page bundle, IG impressions series, demographics, TikTok user stats) | `apps/web/src/app/api/social/accounts/[id]/insights/route.ts` |
 | **Imported posts API** (sync `?sync=1`, IG/FB/Pinterest media, `platformMetadata`, live insight refresh on GET) | `apps/web/src/app/api/social/accounts/[id]/posts/route.ts` |

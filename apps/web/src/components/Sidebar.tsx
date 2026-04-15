@@ -141,7 +141,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
   }, {});
 
   const text = textColor || '#171717';
-  const isMainAnalyticsView = pathname === '/dashboard' || pathname === '/dashboard/summary';
+  const isMainAnalyticsView = pathname === '/dashboard' || pathname === '/dashboard/console';
   const isPostsPage = pathname === '/posts';
   const isAutomationPage = pathname === '/dashboard/automation';
   const isHashtagPoolPage = pathname === '/dashboard/hashtag-pool';
@@ -153,7 +153,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
     <>
       <div className="p-3">
         <Link
-          href="/dashboard/summary"
+          href="/dashboard/console"
           className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
             isMainAnalyticsView ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 border border-transparent'
           }`}

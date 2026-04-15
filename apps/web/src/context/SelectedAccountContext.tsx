@@ -30,7 +30,7 @@ export function SelectedAccountProvider({ children }: { children: React.ReactNod
     } catch (_) {}
   }, []);
 
-  /** Sidebar account highlight only on per-account dashboard and analytics subroutes. Console (/summary) is unified, so clear there. */
+  /** Sidebar account highlight only on per-account dashboard and analytics subroutes. Console (/dashboard/console) is unified, so clear there. */
   useLayoutEffect(() => {
     const keepSidebarSelection =
       pathname === '/dashboard' ||

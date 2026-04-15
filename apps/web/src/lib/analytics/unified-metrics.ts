@@ -184,6 +184,31 @@ export async function getUnifiedKpiSummary(userId: string, period: UnifiedPeriod
 
 // ─── Chart Data ───────────────────────────────────────────────────────────────
 
+function emptyChartPoint(ymd: string): UnifiedChartPoint {
+  return {
+    date: ymd,
+    Instagram: 0,
+    Meta: 0,
+    X: 0,
+    LinkedIn: 0,
+    YouTube: 0,
+    TikTok: 0,
+    Pinterest: 0,
+  };
+}
+
+/** One row per calendar day in `[since, until]` (UTC YYYY-MM-DD buckets, same as legacy chart). */
+function buildEmptyDateRangeMap(since: Date, until: Date): Record<string, UnifiedChartPoint> {
+  const dateMap: Record<string, UnifiedChartPoint> = {};
+  const cursor = new Date(since);
+  while (cursor <= until) {
+    const d = cursor.toISOString().slice(0, 10);
+    dateMap[d] = emptyChartPoint(d);
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return dateMap;
+}
+
 export async function getUnifiedChartData(userId: string, period: UnifiedPeriod): Promise<UnifiedChartData> {
   const { since, until } = period;
 
@@ -199,25 +224,7 @@ export async function getUnifiedChartData(userId: string, period: UnifiedPeriod)
     }),
   ]);
 
-  // Build a complete date axis so every day in the range is represented
-  const emptyPoint = (): UnifiedChartPoint => ({
-    date: '',
-    Instagram: 0,
-    Meta: 0,
-    X: 0,
-    LinkedIn: 0,
-    YouTube: 0,
-    TikTok: 0,
-    Pinterest: 0,
-  });
-
-  const dateMap: Record<string, UnifiedChartPoint> = {};
-  const cursor = new Date(since);
-  while (cursor <= until) {
-    const d = cursor.toISOString().slice(0, 10);
-    dateMap[d] = { ...emptyPoint(), date: d };
-    cursor.setDate(cursor.getDate() + 1);
-  }
+  const dateMap = buildEmptyDateRangeMap(since, until);
 
   for (const post of posts) {
     const d = new Date(post.publishedAt).toISOString().slice(0, 10);
@@ -230,6 +237,73 @@ export async function getUnifiedChartData(userId: string, period: UnifiedPeriod)
   for (const pp of linkedinPosts) {
     const d = new Date(pp.fetchedAt).toISOString().slice(0, 10);
     if (dateMap[d]) dateMap[d].LinkedIn += pp.impressions ?? 0;
+  }
+
+  return Object.values(dateMap).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/** Daily audience (followers or fans) from metric snapshots, summed across accounts per platform. */
+export async function getUnifiedAudienceChartData(userId: string, period: UnifiedPeriod): Promise<UnifiedChartData> {
+  const { since, until } = period;
+  const dateMap = buildEmptyDateRangeMap(since, until);
+  const keys = Object.keys(dateMap).sort();
+  if (keys.length === 0) return [];
+
+  const snapshots = await prisma.accountMetricSnapshot.findMany({
+    where: { userId, metricDate: { gte: keys[0], lte: keys[keys.length - 1] } },
+    select: { metricDate: true, platform: true, followersCount: true, fansCount: true },
+  });
+
+  for (const s of snapshots) {
+    const label = PLATFORM_LABEL[s.platform] ?? null;
+    if (!label || !dateMap[s.metricDate]) continue;
+    const v = (s.followersCount ?? s.fansCount ?? 0) as number;
+    if (label in dateMap[s.metricDate]) {
+      (dateMap[s.metricDate] as Record<string, number>)[label] += v;
+    }
+  }
+
+  return Object.values(dateMap).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/** Daily engagement from synced posts (and LinkedIn PostPerformance rows) by platform. */
+export async function getUnifiedEngagementChartData(userId: string, period: UnifiedPeriod): Promise<UnifiedChartData> {
+  const { since, until } = period;
+
+  const [posts, linkedinPosts] = await Promise.all([
+    prisma.importedPost.findMany({
+      where: { socialAccount: { userId }, publishedAt: { gte: since, lte: until } },
+      select: {
+        publishedAt: true,
+        platform: true,
+        likeCount: true,
+        commentsCount: true,
+        sharesCount: true,
+        repostsCount: true,
+      },
+      orderBy: { publishedAt: 'asc' },
+    }),
+    prisma.postPerformance.findMany({
+      where: { userId, fetchedAt: { gte: since, lte: until } },
+      select: { fetchedAt: true, comments: true, shares: true },
+    }),
+  ]);
+
+  const dateMap = buildEmptyDateRangeMap(since, until);
+
+  for (const post of posts) {
+    const d = new Date(post.publishedAt).toISOString().slice(0, 10);
+    const label = PLATFORM_LABEL[post.platform ?? ''] ?? null;
+    if (label && dateMap[d] && label in dateMap[d]) {
+      (dateMap[d] as Record<string, number>)[label] += sumEngagement(post);
+    }
+  }
+
+  for (const pp of linkedinPosts) {
+    const d = new Date(pp.fetchedAt).toISOString().slice(0, 10);
+    if (dateMap[d]) {
+      dateMap[d].LinkedIn += (pp.comments ?? 0) + (pp.shares ?? 0);
+    }
   }
 
   return Object.values(dateMap).sort((a, b) => a.date.localeCompare(b.date));

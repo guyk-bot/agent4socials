@@ -3,6 +3,8 @@ import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import {
   getUnifiedKpiSummary,
   getUnifiedChartData,
+  getUnifiedAudienceChartData,
+  getUnifiedEngagementChartData,
   getUnifiedTopPosts,
   getUnifiedPostsHistory,
   resolveUnifiedPeriod,
@@ -24,12 +26,14 @@ export async function GET(req: NextRequest) {
     until: until?.trim() || null,
   });
 
-  const [kpi, chart, topPosts, history] = await Promise.all([
+  const [kpi, chart, audienceChart, engagementChart, topPosts, history] = await Promise.all([
     getUnifiedKpiSummary(userId, period),
     getUnifiedChartData(userId, period),
+    getUnifiedAudienceChartData(userId, period),
+    getUnifiedEngagementChartData(userId, period),
     getUnifiedTopPosts(userId, period, 5),
     getUnifiedPostsHistory(userId, period, 60),
   ]);
 
-  return NextResponse.json({ kpi, chart, topPosts, history });
+  return NextResponse.json({ kpi, chart, audienceChart, engagementChart, topPosts, history });
 }

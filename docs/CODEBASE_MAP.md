@@ -28,7 +28,7 @@ This file is a **short structural index** for agents who need route lists and on
 | Landing / marketing | `page.tsx`, `pricing/`, `terms/`, `privacy/`, `help/` | |
 | Auth | `(auth)/login`, `(auth)/signup` | |
 | Dashboard hub | `dashboard/page.tsx` | Analytics tabs, account selection, `FacebookAnalyticsView`, posts/insights fetch. |
-| Dashboard subpages | `dashboard/accounts/`, `dashboard/inbox/`, `dashboard/analytics/`, `dashboard/summary/`, `dashboard/smart-links/`, `dashboard/automation/`, `settings/` | |
+| Dashboard subpages | `dashboard/accounts/`, `dashboard/inbox/`, `dashboard/analytics/`, `dashboard/console/` (summary URL redirects), `dashboard/smart-links/`, `dashboard/automation/`, `settings/` | |
 | Composer / calendar | `composer/`, `calendar/` | |
 | Posts | `posts/`, `post/[id]/open/` | |
 | Public profile | `[username]/` | |
