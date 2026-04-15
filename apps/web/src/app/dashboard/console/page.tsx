@@ -22,9 +22,6 @@ import {
   CartesianGrid,
 } from 'recharts';
 import {
-  TrendingUp,
-  TrendingDown,
-  Minus,
   Users,
   Eye,
   Heart,
@@ -57,6 +54,8 @@ import { useAccountsCache } from '@/context/AccountsCacheContext';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import type { SocialAccount } from '@/context/SelectedAccountContext';
 import { StickySectionNav, FACEBOOK_ANALYTICS_SECTION_IDS } from '@/components/analytics/facebook/FacebookAnalyticsView';
+import { AnalyticsKpiCard } from '@/components/analytics/AnalyticsKpiCard';
+import { AnalyticsNoticeBanner } from '@/components/analytics/AnalyticsNoticeBanner';
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
 
@@ -158,78 +157,25 @@ const CONSOLE_SUMMARY_NAV_SECTIONS = [
   { id: FACEBOOK_ANALYTICS_SECTION_IDS.history, label: 'History' },
 ] as const;
 
-// ─── KPI Card ─────────────────────────────────────────────────────────────────
+/** Same tokens as `FacebookAnalyticsView` so Console matches per-account dashboards. */
+const ANALYTICS_COLOR = {
+  pageBg: '#f6f7fb',
+  section: '#ffffff',
+  card: '#ffffff',
+  border: 'rgba(17,24,39,0.06)',
+  text: '#111827',
+  textSecondary: '#667085',
+  textMuted: '#98a2b3',
+  violet: '#7c6cff',
+} as const;
 
-function KpiCard({
-  label,
-  value,
-  growthPct,
-  icon,
-  accent,
-  period,
-}: {
-  label: string;
-  value: string;
-  growthPct: number;
-  icon: React.ReactNode;
-  accent: string;
-  period: string;
-}) {
-  const positive = growthPct >= 0;
+function kpiTrend(growthPct: number, period: string): { direction: 'up' | 'down'; value: string } {
   const noChange = Math.abs(growthPct) < 0.05;
-
-  return (
-    <div
-      style={{
-        background: '#ffffff',
-        border: '1px solid rgba(0,0,0,0.07)',
-        borderRadius: 20,
-        padding: '24px 28px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 12,
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: 13, fontWeight: 500, color: '#64748b', letterSpacing: 0.2 }}>{label}</span>
-        <div
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: 10,
-            background: `${accent}18`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: accent,
-          }}
-        >
-          {icon}
-        </div>
-      </div>
-      <div style={{ fontSize: 34, fontWeight: 700, color: '#0f172a', lineHeight: 1 }}>{value}</div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-        {noChange ? (
-          <Minus size={14} color="#94a3b8" />
-        ) : positive ? (
-          <TrendingUp size={14} color="#22c55e" />
-        ) : (
-          <TrendingDown size={14} color="#ef4444" />
-        )}
-        <span
-          style={{
-            fontSize: 12,
-            fontWeight: 600,
-            color: noChange ? '#94a3b8' : positive ? '#22c55e' : '#ef4444',
-          }}
-        >
-          {noChange ? 'No change' : fmtPct(growthPct)}
-        </span>
-        <span style={{ fontSize: 12, color: '#94a3b8' }}>vs prev {period}</span>
-      </div>
-    </div>
-  );
+  if (noChange) return { direction: 'up', value: `No change vs prev ${period}` };
+  return {
+    direction: growthPct >= 0 ? 'up' : 'down',
+    value: `${fmtPct(growthPct)} vs prev ${period}`,
+  };
 }
 
 // ─── Platform Mix Chart ────────────────────────────────────────────────────────
@@ -636,24 +582,15 @@ function HistoryTable({ rows }: { rows: UnifiedHistoryPost[] }) {
   );
 }
 
-// ─── Card wrapper ─────────────────────────────────────────────────────────────
-
-function Card({
-  children,
-  style,
-}: {
-  children: React.ReactNode;
-  style?: React.CSSProperties;
-}) {
+/** Rounded analytics card shell (matches `FacebookAnalyticsView` overview sections). */
+function ShellCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
     <div
+      className={`rounded-[20px] border p-4 sm:p-5 ${className}`}
       style={{
-        background: '#ffffff',
-        border: '1px solid rgba(0,0,0,0.07)',
-        borderRadius: 20,
-        padding: 24,
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-        ...style,
+        borderColor: ANALYTICS_COLOR.border,
+        background: ANALYTICS_COLOR.card,
+        boxShadow: '0 4px 22px rgba(15,23,42,0.06)',
       }}
     >
       {children}
@@ -663,14 +600,7 @@ function Card({
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h2
-      style={{
-        fontSize: 16,
-        fontWeight: 700,
-        color: '#0f172a',
-        margin: '0 0 16px',
-      }}
-    >
+    <h2 className="text-base font-semibold m-0 mb-3" style={{ color: ANALYTICS_COLOR.text }}>
       {children}
     </h2>
   );
@@ -755,8 +685,10 @@ export default function UnifiedSummaryPage() {
     }
     let cancelled = false;
     const cached = readUnifiedSummaryCache(user.id, dateRange.start, dateRange.end);
+    const hadCache = !!cached;
     if (cached) {
       setData(cached);
+      setError(null);
       setLoading(false);
     } else {
       setLoading(true);
@@ -769,9 +701,12 @@ export default function UnifiedSummaryPage() {
         });
         if (cancelled) return;
         setData(res.data);
+        setError(null);
         writeUnifiedSummaryCache(user.id, dateRange.start, dateRange.end, res.data);
       } catch {
-        if (!cancelled) setError('Failed to load analytics. Please try again.');
+        if (!cancelled && !hadCache) {
+          setError('Failed to load analytics. Please try again.');
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -860,7 +795,7 @@ export default function UnifiedSummaryPage() {
       className="p-0 md:p-0.5 space-y-3"
       style={{
         maxWidth: 1400,
-        background: '#f6f7fb',
+        background: ANALYTICS_COLOR.pageBg,
         fontFamily: 'var(--font-inter, system-ui, sans-serif)',
       }}
     >
@@ -887,7 +822,10 @@ export default function UnifiedSummaryPage() {
         </button>
       </div>
 
-      <section className="rounded-[20px] p-3 md:p-3.5" style={{ background: '#ffffff' }}>
+      <section
+        className="rounded-[20px] border p-3 md:p-3.5"
+        style={{ background: ANALYTICS_COLOR.section, borderColor: ANALYTICS_COLOR.border, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}
+      >
         <div className="flex flex-wrap items-center gap-3 justify-between">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2.5">
             <div className="flex flex-wrap items-center gap-2">
@@ -978,162 +916,170 @@ export default function UnifiedSummaryPage() {
         ) : null}
       </section>
 
-      {error && (
-        <div
-          style={{
-            background: '#fef2f2',
-            border: '1px solid #fecaca',
-            borderRadius: 12,
-            padding: '12px 16px',
-            color: '#dc2626',
-            fontSize: 13,
-          }}
-        >
-          {error}
-        </div>
-      )}
+      {error && !data ? (
+        <AnalyticsNoticeBanner
+          variant="permissions"
+          title={error}
+          description="Check your connection and refresh the page. If the problem continues, open a support ticket from the sidebar."
+        />
+      ) : null}
 
-      {/* ── KPI Grid (Overview) ── */}
+      {/* ── Overview: KPIs + Performance (same shell style as per-account dashboard) ── */}
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.overview} className="scroll-mt-28 space-y-4">
         {loading ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16, marginBottom: 24 }}>
-            {[0, 1, 2, 3].map((i) => (
-              <Skeleton key={i} className="" style={{ height: 140 } as React.CSSProperties} />
-            ))}
-          </div>
-        ) : data ? (
-          <div
-            style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16, marginBottom: 24 }}
-          >
-            <KpiCard
-              label="Total Audience"
-              value={fmt(data.kpi.totalAudience)}
-              growthPct={data.kpi.audienceGrowthPercentage}
-              icon={<Users size={18} />}
-              accent="#8b5cf6"
-              period={periodLabel}
-            />
-            <KpiCard
-              label="Total Impressions"
-              value={fmt(data.kpi.totalImpressions)}
-              growthPct={data.kpi.impressionsGrowthPercentage}
-              icon={<Eye size={18} />}
-              accent="#3b82f6"
-              period={periodLabel}
-            />
-            <KpiCard
-              label="Total Engagement"
-              value={fmt(data.kpi.totalEngagement)}
-              growthPct={data.kpi.engagementGrowthPercentage}
-              icon={<Heart size={18} />}
-              accent="#e1306c"
-              period={periodLabel}
-            />
-            <KpiCard
-              label="Posts Published"
-              value={fmt(data.kpi.totalPosts)}
-              growthPct={data.kpi.postsGrowthPercentage}
-              icon={<FileText size={18} />}
-              accent="#f59e0b"
-              period={periodLabel}
-            />
-          </div>
-        ) : null}
-
-        {!loading && data ? (
-          <Card>
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
-              <div>
-                <SectionTitle>
-                  {performanceMode === 'growth'
-                    ? 'Audience by platform'
-                    : performanceMode === 'engagement'
-                      ? 'Engagement by platform'
-                      : 'Impressions by platform'}
-                </SectionTitle>
-                <p style={{ margin: 0, fontSize: 13, color: '#64748b', maxWidth: 720, lineHeight: 1.45 }}>
-                  {performanceMode === 'growth'
-                    ? 'Daily followers or fans from stored metric snapshots (when sync recorded them).'
-                    : performanceMode === 'engagement'
-                      ? 'Likes, comments, shares, and reposts on synced posts by publish day. LinkedIn includes comments and shares from analytics sync.'
-                      : 'Post impressions by publish day. LinkedIn includes daily impression aggregates from sync.'}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2 shrink-0">
-                {(
-                  [
-                    { id: 'growth' as const, label: 'Growth' },
-                    { id: 'engagement' as const, label: 'Engagement' },
-                    { id: 'views' as const, label: 'Views' },
-                  ] as const
-                ).map((tab) => {
-                  const on = performanceMode === tab.id;
-                  return (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => setPerformanceMode(tab.id)}
-                      className={`rounded-xl px-4 py-2 text-sm font-medium transition-colors border ${
-                        on
-                          ? 'border-violet-300 bg-violet-50 text-violet-900'
-                          : 'border-transparent text-neutral-600 hover:bg-neutral-100 hover:border-neutral-200'
-                      }`}
-                    >
-                      {tab.label}
-                    </button>
-                  );
-                })}
-              </div>
+          <ShellCard className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {[0, 1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-28 rounded-2xl" />
+              ))}
             </div>
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
-              <PlatformLegend
-                all={platformsWithChartData.length > 0 ? (platformsWithChartData as string[]) : ([...CHART_PLATFORMS] as string[])}
-                activePlatforms={activePlatforms}
-                toggle={togglePlatform}
+            <div className="h-[300px] rounded-xl animate-pulse bg-neutral-100/90" />
+          </ShellCard>
+        ) : data ? (
+          <ShellCard className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <AnalyticsKpiCard
+                label="Total audience"
+                value={fmt(data.kpi.totalAudience)}
+                trend={kpiTrend(data.kpi.audienceGrowthPercentage, periodLabel)}
+                accent="audience"
+                icon={<Users size={20} className="text-neutral-500" />}
+              />
+              <AnalyticsKpiCard
+                label="Total impressions"
+                value={fmt(data.kpi.totalImpressions)}
+                trend={kpiTrend(data.kpi.impressionsGrowthPercentage, periodLabel)}
+                accent="visibility"
+                icon={<Eye size={20} className="text-neutral-500" />}
+              />
+              <AnalyticsKpiCard
+                label="Total engagement"
+                value={fmt(data.kpi.totalEngagement)}
+                trend={kpiTrend(data.kpi.engagementGrowthPercentage, periodLabel)}
+                accent="engagement"
+                icon={<Heart size={20} className="text-neutral-500" />}
+              />
+              <AnalyticsKpiCard
+                label="Posts published"
+                value={fmt(data.kpi.totalPosts)}
+                trend={kpiTrend(data.kpi.postsGrowthPercentage, periodLabel)}
+                accent="content"
+                icon={<FileText size={20} className="text-neutral-500" />}
               />
             </div>
-            {activeChartData.length > 0 &&
-            activeChartData.every((row) => activePlatforms.every((p) => (row[p] as number) === 0)) ? (
+
+            <div className="space-y-3 border-t pt-4" style={{ borderColor: ANALYTICS_COLOR.border }}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h3 className="text-lg font-semibold m-0" style={{ color: ANALYTICS_COLOR.text }}>
+                  Performance
+                </h3>
+                <div className="flex flex-wrap gap-2" role="group" aria-label="Performance chart mode">
+                  {(
+                    [
+                      { id: 'growth' as const, label: 'Growth' },
+                      { id: 'engagement' as const, label: 'Engagement' },
+                      { id: 'views' as const, label: 'Views' },
+                    ] as const
+                  ).map((tab) => {
+                    const active = performanceMode === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setPerformanceMode(tab.id)}
+                        aria-pressed={active}
+                        className="rounded-lg px-3 py-1.5 text-sm transition-colors"
+                        style={{
+                          background: active ? 'rgba(139,124,255,0.2)' : 'rgba(255,255,255,0.03)',
+                          color: active ? ANALYTICS_COLOR.text : ANALYTICS_COLOR.textSecondary,
+                          border: `1px solid ${active ? ANALYTICS_COLOR.violet : ANALYTICS_COLOR.border}`,
+                        }}
+                      >
+                        {tab.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <p className="text-sm m-0" style={{ color: ANALYTICS_COLOR.textSecondary, maxWidth: 720, lineHeight: 1.45 }}>
+                {performanceMode === 'growth'
+                  ? 'Daily followers or fans from stored metric snapshots (when sync recorded them).'
+                  : performanceMode === 'engagement'
+                    ? 'Likes, comments, shares, and reposts on synced posts by publish day. LinkedIn includes comments and shares from analytics sync.'
+                    : 'Post impressions by publish day. LinkedIn includes daily impression aggregates from sync.'}
+              </p>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <PlatformLegend
+                  all={platformsWithChartData.length > 0 ? (platformsWithChartData as string[]) : ([...CHART_PLATFORMS] as string[])}
+                  activePlatforms={activePlatforms}
+                  toggle={togglePlatform}
+                />
+              </div>
               <div
+                className="rounded-xl px-2 py-2 sm:px-3"
                 style={{
-                  height: 280,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#94a3b8',
-                  fontSize: 14,
-                  textAlign: 'center',
-                  padding: '0 16px',
+                  background: 'linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,252,0.94))',
+                  boxShadow: '0 14px 30px rgba(15,23,42,0.06)',
+                  border: `1px solid ${ANALYTICS_COLOR.border}`,
                 }}
               >
-                {performanceMode === 'growth'
-                  ? 'No audience snapshot data in this date range. Connect accounts and run sync to populate history.'
-                  : performanceMode === 'engagement'
-                    ? 'No engagement on synced posts in this range yet.'
-                    : 'No impression data for this period. Post some content to see it here!'}
-              </div>
-            ) : activeChartData.length > 0 ? (
-              <PlatformMixChart
-                data={activeChartData}
-                activePlatforms={activePlatforms.filter((p) =>
-                  platformsWithChartData.length > 0 ? (platformsWithChartData as string[]).includes(p) : true
+                {activeChartData.length > 0 &&
+                activeChartData.every((row) => activePlatforms.every((p) => (row[p] as number) === 0)) ? (
+                  <div
+                    style={{
+                      height: 280,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: ANALYTICS_COLOR.textMuted,
+                      fontSize: 14,
+                      textAlign: 'center',
+                      padding: '0 16px',
+                    }}
+                  >
+                    {performanceMode === 'growth'
+                      ? 'No audience snapshot data in this date range. Connect accounts and run sync to populate history.'
+                      : performanceMode === 'engagement'
+                        ? 'No engagement on synced posts in this range yet.'
+                        : 'No impression data for this period. Post some content to see it here!'}
+                  </div>
+                ) : activeChartData.length > 0 ? (
+                  <PlatformMixChart
+                    data={activeChartData}
+                    activePlatforms={activePlatforms.filter((p) =>
+                      platformsWithChartData.length > 0 ? (platformsWithChartData as string[]).includes(p) : true
+                    )}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      height: 120,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: ANALYTICS_COLOR.textMuted,
+                      fontSize: 14,
+                    }}
+                  >
+                    No chart data.
+                  </div>
                 )}
-              />
-            ) : (
-              <div style={{ height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 14 }}>
-                No chart data.
               </div>
-            )}
-          </Card>
+            </div>
+          </ShellCard>
         ) : null}
       </section>
 
       {/* ── Platform Mix + Top Posts (Traffic / Posts; Reels scroll target wraps grid) ── */}
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.reels} className="scroll-mt-28 space-y-4">
         {loading ? (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 16, marginBottom: 24 }}>
-            <Skeleton className="" style={{ height: 380 } as React.CSSProperties} />
-            <Skeleton className="" style={{ height: 380 } as React.CSSProperties} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 340px', gap: 16, marginBottom: 24 }}>
+            <ShellCard>
+              <Skeleton className="h-64 rounded-xl" />
+            </ShellCard>
+            <ShellCard>
+              <Skeleton className="h-64 rounded-xl" />
+            </ShellCard>
           </div>
         ) : data ? (
           <div
@@ -1145,42 +1091,48 @@ export default function UnifiedSummaryPage() {
             }}
           >
             <section id={FACEBOOK_ANALYTICS_SECTION_IDS.traffic} className="min-w-0 scroll-mt-28 space-y-4">
-              <Card>
+              <ShellCard>
                 <SectionTitle>Period totals by platform</SectionTitle>
-                <p style={{ margin: '0 0 16px', fontSize: 13, color: '#64748b', lineHeight: 1.45 }}>
+                <p className="m-0 mb-4 text-sm leading-snug" style={{ color: ANALYTICS_COLOR.textSecondary }}>
                   Sum of daily impressions and engagement in this range (same sources as the Overview charts). Open a platform in the sidebar for full breakdowns, demographics, and traffic where the network supports it.
                 </p>
                 {platformPeriodTotals.length === 0 ? (
-                  <div style={{ color: '#94a3b8', fontSize: 14, padding: '24px 0', textAlign: 'center' }}>No cross-platform totals yet for this range.</div>
+                  <div className="py-8 text-center text-sm" style={{ color: ANALYTICS_COLOR.textMuted }}>
+                    No cross-platform totals yet for this range.
+                  </div>
                 ) : (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse text-[13px]">
                       <thead>
-                        <tr style={{ borderBottom: '1px solid rgba(0,0,0,0.08)', textAlign: 'left', color: '#64748b' }}>
-                          <th style={{ padding: '10px 8px' }}>Platform</th>
-                          <th style={{ padding: '10px 8px' }}>Impressions</th>
-                          <th style={{ padding: '10px 8px' }}>Engagement</th>
+                        <tr className="text-left" style={{ borderBottom: `1px solid ${ANALYTICS_COLOR.border}`, color: ANALYTICS_COLOR.textSecondary }}>
+                          <th className="py-2.5 px-2">Platform</th>
+                          <th className="py-2.5 px-2">Impressions</th>
+                          <th className="py-2.5 px-2">Engagement</th>
                         </tr>
                       </thead>
                       <tbody>
                         {platformPeriodTotals.map((row) => (
-                          <tr key={row.platform} style={{ borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
-                            <td style={{ padding: '12px 8px', fontWeight: 600, color: PLATFORM_COLOR[row.platform] ?? '#0f172a' }}>
+                          <tr key={row.platform} style={{ borderBottom: `1px solid ${ANALYTICS_COLOR.border}` }}>
+                            <td className="py-3 px-2 font-semibold" style={{ color: PLATFORM_COLOR[row.platform] ?? ANALYTICS_COLOR.text }}>
                               {row.platform}
                             </td>
-                            <td style={{ padding: '12px 8px', color: '#0f172a' }}>{fmt(row.impressions)}</td>
-                            <td style={{ padding: '12px 8px', color: '#0f172a' }}>{fmt(row.engagement)}</td>
+                            <td className="py-3 px-2 tabular-nums" style={{ color: ANALYTICS_COLOR.text }}>
+                              {fmt(row.impressions)}
+                            </td>
+                            <td className="py-3 px-2 tabular-nums" style={{ color: ANALYTICS_COLOR.text }}>
+                              {fmt(row.engagement)}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
                 )}
-              </Card>
+              </ShellCard>
             </section>
 
             <section id={FACEBOOK_ANALYTICS_SECTION_IDS.posts} className="min-w-0 scroll-mt-28 space-y-4">
-              <Card style={{ overflow: 'hidden' }}>
+              <ShellCard className="overflow-hidden">
                 <SectionTitle>Top Posts</SectionTitle>
                 {data.topPosts.length === 0 ? (
                   <div style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: '32px 0' }}>
@@ -1193,7 +1145,7 @@ export default function UnifiedSummaryPage() {
                     ))}
                   </div>
                 )}
-              </Card>
+              </ShellCard>
             </section>
           </div>
         ) : null}
@@ -1202,14 +1154,16 @@ export default function UnifiedSummaryPage() {
       {/* ── Combined History ── */}
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.history} className="scroll-mt-28 space-y-4">
         {loading ? (
-          <Skeleton className="" style={{ height: 400 } as React.CSSProperties} />
+          <ShellCard>
+            <Skeleton className="h-96 rounded-xl" />
+          </ShellCard>
         ) : data ? (
-          <Card>
+          <ShellCard>
             <SectionTitle>
               Combined Uploads History · {dateRange.start} to {dateRange.end}
             </SectionTitle>
             <HistoryTable rows={data.history} />
-          </Card>
+          </ShellCard>
         ) : null}
       </section>
     </div>
