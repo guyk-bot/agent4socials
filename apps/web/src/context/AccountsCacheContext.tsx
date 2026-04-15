@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useCallback, useContext, useState } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 
 type CachedAccount = { id: string; platform: string; username?: string; profilePicture?: string | null; [key: string]: unknown };
 
@@ -46,11 +46,17 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
     });
   }, []);
 
-  return (
-    <AccountsCacheContext.Provider value={{ cachedAccounts, setCachedAccounts, accountsLoadError, setAccountsLoadError }}>
-      {children}
-    </AccountsCacheContext.Provider>
+  const value = useMemo(
+    () => ({
+      cachedAccounts,
+      setCachedAccounts,
+      accountsLoadError,
+      setAccountsLoadError,
+    }),
+    [cachedAccounts, accountsLoadError, setCachedAccounts, setAccountsLoadError]
   );
+
+  return <AccountsCacheContext.Provider value={value}>{children}</AccountsCacheContext.Provider>;
 }
 
 export function useAccountsCache() {

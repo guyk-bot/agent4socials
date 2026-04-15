@@ -1,6 +1,6 @@
 import type { UnifiedSummaryResponse } from '@/lib/analytics/unified-metrics-types';
 
-const PREFIX = 'agent4socials.unifiedSummary.v3';
+const PREFIX = 'agent4socials.unifiedSummary.v4';
 const TTL_MS = 12 * 60 * 60 * 1000; // 12h: aggregate DB reads; refresh on demand or when stale
 
 function key(userId: string, start: string, end: string): string {

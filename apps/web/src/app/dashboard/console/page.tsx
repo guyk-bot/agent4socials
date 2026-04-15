@@ -56,6 +56,7 @@ import type {
   UnifiedSummaryResponse,
   UnifiedEngagementDay,
   UnifiedActivityDay,
+  UnifiedKpiSummary,
 } from '@/lib/analytics/unified-metrics-types';
 import { PLATFORM_COLOR, CHART_PLATFORMS, PLATFORM_LABEL } from '@/lib/analytics/unified-metrics-types';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
@@ -186,6 +187,31 @@ const CONSOLE_ACCOUNT_PLATFORM_ORDER = ['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'YOUT
 /** Stable fallback so `useMemo` / `useEffect` deps are not a new `[]` every render (avoids update loops). */
 const EMPTY_SOCIAL_ACCOUNTS: SocialAccount[] = [];
 const CHART_PLATFORMS_FALLBACK: string[] = [...CHART_PLATFORMS];
+
+const EMPTY_KPI: UnifiedKpiSummary = {
+  totalAudience: 0,
+  totalImpressions: 0,
+  totalEngagement: 0,
+  totalPosts: 0,
+  audienceGrowthPercentage: 0,
+  impressionsGrowthPercentage: 0,
+  engagementGrowthPercentage: 0,
+  postsGrowthPercentage: 0,
+};
+
+function normalizeUnifiedSummary(d: UnifiedSummaryResponse): UnifiedSummaryResponse {
+  return {
+    ...d,
+    kpi: d?.kpi ? { ...EMPTY_KPI, ...d.kpi } : EMPTY_KPI,
+    chart: Array.isArray(d?.chart) ? d.chart : [],
+    audienceChart: Array.isArray(d?.audienceChart) ? d.audienceChart : [],
+    engagementChart: Array.isArray(d?.engagementChart) ? d.engagementChart : [],
+    engagementBreakdown: Array.isArray(d?.engagementBreakdown) ? d.engagementBreakdown : [],
+    activityBreakdown: Array.isArray(d?.activityBreakdown) ? d.activityBreakdown : [],
+    topPosts: Array.isArray(d?.topPosts) ? d.topPosts : [],
+    history: Array.isArray(d?.history) ? d.history : [],
+  };
+}
 
 function AccountBadgeIcon({ platform, size = 20 }: { platform: string; size?: number }) {
   const p = (platform || '').toUpperCase();
@@ -490,12 +516,22 @@ export default function UnifiedSummaryPage() {
   const cachedAccounts = accountsCache?.cachedAccounts ?? EMPTY_SOCIAL_ACCOUNTS;
   const setSelectedAccount = useSelectedAccount()?.setSelectedAccount;
 
+  /** Content signature so memos do not invalidate when the cache array is a new reference with the same accounts. */
+  const accountsKey =
+    cachedAccounts === EMPTY_SOCIAL_ACCOUNTS
+      ? ''
+      : (cachedAccounts as SocialAccount[])
+          .map((a) => `${a.id}:${(a.platform || '').toUpperCase()}`)
+          .sort()
+          .join('\u0001');
+
   const orderedAccounts = useMemo(() => {
     const list = (cachedAccounts as SocialAccount[]).slice();
     const orderIdx = (p: string) => { const i = (CONSOLE_ACCOUNT_PLATFORM_ORDER as readonly string[]).indexOf(p.toUpperCase()); return i === -1 ? 99 : i; };
     list.sort((a, b) => { const d = orderIdx(a.platform) - orderIdx(b.platform); return d !== 0 ? d : (a.username || '').localeCompare(b.username || ''); });
     return list;
-  }, [cachedAccounts]);
+    // accountsKey captures account set; read latest cachedAccounts from render closure
+  }, [accountsKey]);
 
   const goToAccountDashboard = useCallback((acc: SocialAccount) => {
     setSelectedAccount?.(acc);
@@ -539,7 +575,7 @@ export default function UnifiedSummaryPage() {
       if (prev.length === next.length && prev.every((p, i) => p === next[i])) return prev;
       return next;
     });
-  }, [performanceMode, connectedChartPlatforms]);
+  }, [performanceMode, accountsKey, connectedChartPlatforms]);
 
   // Engagement section
   const [selectedEngagement, setSelectedEngagement] = useState<('likes' | 'comments' | 'shares' | 'reposts')[]>(['likes', 'comments', 'shares']);
@@ -550,7 +586,8 @@ export default function UnifiedSummaryPage() {
   useEffect(() => {
     if (!user?.id) { setData(null); setLoading(false); return; }
     let cancelled = false;
-    const cached = readUnifiedSummaryCache(user.id, dateRange.start, dateRange.end);
+    const cachedRaw = readUnifiedSummaryCache(user.id, dateRange.start, dateRange.end);
+    const cached = cachedRaw ? normalizeUnifiedSummary(cachedRaw) : null;
     const hadCache = !!cached;
     if (cached) { setData(cached); setError(null); setLoading(false); } else { setLoading(true); }
     setError(null);
@@ -558,8 +595,9 @@ export default function UnifiedSummaryPage() {
       try {
         const res = await api.get<UnifiedSummaryResponse>('/analytics/summary', { params: { since: dateRange.start, until: dateRange.end } });
         if (cancelled) return;
-        setData(res.data); setError(null);
-        writeUnifiedSummaryCache(user.id, dateRange.start, dateRange.end, res.data);
+        const normalized = normalizeUnifiedSummary(res.data);
+        setData(normalized); setError(null);
+        writeUnifiedSummaryCache(user.id, dateRange.start, dateRange.end, normalized);
       } catch { if (!cancelled && !hadCache) setError('Failed to load analytics. Please try again.'); }
       finally { if (!cancelled) setLoading(false); }
     })();
