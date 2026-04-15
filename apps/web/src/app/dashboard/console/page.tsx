@@ -861,7 +861,7 @@ export default function UnifiedSummaryPage() {
                 );
               })}
             </div>
-            <div className="flex flex-col items-end gap-1.5">
+            <div className="flex justify-end">
               <PlatformLegend
                 all={connectedChartPlatforms}
                 activePlatforms={activePlatforms}
@@ -869,13 +869,6 @@ export default function UnifiedSummaryPage() {
                 preset={performanceMode}
                 chartData={activeChartData}
               />
-              {performanceMode === 'growth' &&
-                activePlatforms.filter((p) => connectedChartPlatforms.includes(p)).length > 1 && (
-                  <p className="m-0 max-w-xl text-right text-[11px] leading-snug" style={{ color: COLOR.textMuted }}>
-                    Follower lines share one vertical scale. To see a small change (for example, -1), click a
-                    platform above to show only that network, which zooms the axis around its counts.
-                  </p>
-                )}
             </div>
             <InsightChartCard title="Performance" hideHeader flat>
               {activeChartData.length > 0 ? (
