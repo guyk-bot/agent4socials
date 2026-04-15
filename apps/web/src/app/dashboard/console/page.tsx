@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
@@ -590,8 +590,12 @@ export default function UnifiedSummaryPage() {
   }, [searchParams, user?.id]);
 
   const [data, setData] = useState<UnifiedSummaryResponse | null>(null);
+  /** True only when there is no summary to show yet for the current date range (avoid full skeleton during background refresh). */
   const [loading, setLoading] = useState(true);
+  /** True while re-fetching when we already showed cache or prior data for this range. */
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const lastSummaryRangeRef = useRef<string | null>(null);
 
   // Performance section
   const [performanceMode, setPerformanceMode] = useState<'growth' | 'engagement' | 'views'>('growth');
@@ -623,24 +627,58 @@ export default function UnifiedSummaryPage() {
   const [selectedActivity, setSelectedActivity] = useState<('posts')[]>(['posts']);
 
   useEffect(() => {
-    if (!user?.id) { setData(null); setLoading(false); return; }
+    if (!user?.id) {
+      setData(null);
+      setLoading(false);
+      setRefreshing(false);
+      lastSummaryRangeRef.current = null;
+      return;
+    }
     let cancelled = false;
+    const rangeSig = `${dateRange.start}|${dateRange.end}`;
+    const rangeChanged =
+      lastSummaryRangeRef.current !== null && lastSummaryRangeRef.current !== rangeSig;
+    lastSummaryRangeRef.current = rangeSig;
+
     const cachedRaw = readUnifiedSummaryCache(user.id, dateRange.start, dateRange.end);
     const cached = cachedRaw ? normalizeUnifiedSummary(cachedRaw) : null;
     const hadCache = !!cached;
-    if (cached) { setData(cached); setError(null); setLoading(false); } else { setLoading(true); }
+
+    if (cached) {
+      setData(cached);
+      setError(null);
+      setLoading(false);
+      setRefreshing(true);
+    } else {
+      if (rangeChanged) setData(null);
+      setLoading(true);
+      setRefreshing(false);
+    }
     setError(null);
+
     (async () => {
       try {
-        const res = await api.get<UnifiedSummaryResponse>('/analytics/summary', { params: { since: dateRange.start, until: dateRange.end } });
+        const res = await api.get<UnifiedSummaryResponse>('/analytics/summary', {
+          params: { since: dateRange.start, until: dateRange.end },
+        });
         if (cancelled) return;
         const normalized = normalizeUnifiedSummary(res.data);
-        setData(normalized); setError(null);
+        setData(normalized);
+        setError(null);
         writeUnifiedSummaryCache(user.id, dateRange.start, dateRange.end, normalized);
-      } catch { if (!cancelled && !hadCache) setError('Failed to load analytics. Please try again.'); }
-      finally { if (!cancelled) setLoading(false); }
+      } catch {
+        if (!cancelled && !hadCache) setError('Failed to load analytics. Please try again.');
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+          setRefreshing(false);
+        }
+      }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      setRefreshing(false);
+    };
   }, [user?.id, dateRange.start, dateRange.end]);
 
   const onDateRangeChange = useCallback((range: { start: string; end: string }) => {
@@ -733,10 +771,22 @@ export default function UnifiedSummaryPage() {
               })}
             </div>
             <div className="flex min-w-0 flex-wrap items-center gap-3">
-              {loading
-                ? <span className="inline-flex items-center gap-2 text-sm font-medium" style={{ color: COLOR.textSecondary }}><RefreshCw size={13} className="animate-spin opacity-75" aria-hidden />Refreshing…</span>
-                : <span className="inline-flex items-center gap-2 text-sm" style={{ color: COLOR.textSecondary }}><RefreshCw size={13} className="opacity-75" aria-hidden />Updated just now</span>
-              }
+              {loading ? (
+                <span className="inline-flex items-center gap-2 text-sm font-medium" style={{ color: COLOR.textSecondary }}>
+                  <RefreshCw size={13} className="animate-spin opacity-75" aria-hidden />
+                  Loading…
+                </span>
+              ) : refreshing ? (
+                <span className="inline-flex items-center gap-2 text-sm font-medium" style={{ color: COLOR.textSecondary }}>
+                  <RefreshCw size={13} className="animate-spin opacity-75" aria-hidden />
+                  Updating…
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-2 text-sm" style={{ color: COLOR.textSecondary }}>
+                  <RefreshCw size={13} className="opacity-75" aria-hidden />
+                  Updated just now
+                </span>
+              )}
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2"><AnalyticsDateRangePicker start={dateRange.start} end={dateRange.end} onChange={onDateRangeChange} /></div>

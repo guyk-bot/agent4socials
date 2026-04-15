@@ -1,12 +1,12 @@
 import type { UnifiedSummaryResponse } from '@/lib/analytics/unified-metrics-types';
 
 const PREFIX = 'agent4socials.unifiedSummary.v4';
-const TTL_MS = 12 * 60 * 60 * 1000; // 12h: aggregate DB reads; refresh on demand or when stale
 
 function key(userId: string, start: string, end: string): string {
   return `${PREFIX}:${userId}:${start}:${end}`;
 }
 
+/** Returns cached summary if present. Entries are not expired on read so the Console can stale-while-revalidate. */
 export function readUnifiedSummaryCache(
   userId: string,
   start: string,
@@ -18,7 +18,6 @@ export function readUnifiedSummaryCache(
     if (!raw) return null;
     const parsed = JSON.parse(raw) as { at?: number; data?: UnifiedSummaryResponse };
     if (!parsed?.data || typeof parsed.at !== 'number') return null;
-    if (Date.now() - parsed.at > TTL_MS) return null;
     return parsed.data;
   } catch {
     return null;
