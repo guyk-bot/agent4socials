@@ -273,8 +273,8 @@ function AccountBadgeIcon({ platform, size = 20 }: { platform: string; size?: nu
 
 // ─── KPI Card (original colored style) ────────────────────────────────────────
 
-function KpiCard({ label, value, growthPct, icon, accent, period }: {
-  label: string; value: string; growthPct: number; icon: React.ReactNode; accent: string; period: string;
+function KpiCard({ label, value, growthPct, icon, accent }: {
+  label: string; value: string; growthPct: number; icon: React.ReactNode; accent: string;
 }) {
   const positive = growthPct >= 0;
   const noChange = Math.abs(growthPct) < 0.05;
@@ -297,7 +297,6 @@ function KpiCard({ label, value, growthPct, icon, accent, period }: {
         <span style={{ fontSize: 11, fontWeight: 600, color: noChange ? '#94a3b8' : positive ? '#22c55e' : '#ef4444' }}>
           {noChange ? 'No change' : fmtPct(growthPct)}
         </span>
-        <span style={{ fontSize: 11, color: '#94a3b8' }}>vs prev {period}</span>
       </div>
     </div>
   );
@@ -602,23 +601,51 @@ export default function UnifiedSummaryPage() {
 
   const emptyAccountsInitials = ((user?.name?.trim() || user?.email?.split('@')[0] || '?').slice(0, 2) || '?').toUpperCase();
 
+  const startParam = searchParams.get('start') ?? searchParams.get('since') ?? '';
+  const endParam = searchParams.get('end') ?? searchParams.get('until') ?? '';
+  const daysParam = searchParams.get('days') ?? '';
+
+  /** Rolling default range shifts every day and was busting cache keys; pin for this session when URL has no range. */
+  const consoleDefaultRangePinRef = useRef<{ start: string; end: string } | null>(null);
+  const consoleDaysRangePinRef = useRef<{ key: string; start: string; end: string } | null>(null);
+  const consoleDateRangeUserRef = useRef<string>('');
+
   const dateRange = useMemo(() => {
-    const start = searchParams.get('start') ?? searchParams.get('since');
-    const end = searchParams.get('end') ?? searchParams.get('until');
-    if (start && end && /^\d{4}-\d{2}-\d{2}$/.test(start) && /^\d{4}-\d{2}-\d{2}$/.test(end) && start <= end) return { start, end };
-    const rawDays = Number(searchParams.get('days'));
-    if ([7, 30, 90].includes(rawDays)) return rangeFromDaysParam(rawDays);
-    if (user?.id) { const stored = readStoredAnalyticsDateRange(user.id); if (stored) return stored; }
-    return getDefaultAnalyticsDateRange();
-  }, [searchParams, user?.id]);
+    const uid = user?.id ?? '';
+    if (uid !== consoleDateRangeUserRef.current) {
+      consoleDateRangeUserRef.current = uid;
+      consoleDefaultRangePinRef.current = null;
+      consoleDaysRangePinRef.current = null;
+    }
+    if (startParam && endParam && /^\d{4}-\d{2}-\d{2}$/.test(startParam) && /^\d{4}-\d{2}-\d{2}$/.test(endParam) && startParam <= endParam) {
+      return { start: startParam, end: endParam };
+    }
+    const rawDays = Number(daysParam);
+    if ([7, 30, 90].includes(rawDays)) {
+      const key = `${uid}|days=${rawDays}`;
+      if (!consoleDaysRangePinRef.current || consoleDaysRangePinRef.current.key !== key) {
+        const r = rangeFromDaysParam(rawDays);
+        consoleDaysRangePinRef.current = { key, start: r.start, end: r.end };
+      }
+      return { start: consoleDaysRangePinRef.current.start, end: consoleDaysRangePinRef.current.end };
+    }
+    if (user?.id) {
+      const stored = readStoredAnalyticsDateRange(user.id);
+      if (stored) return stored;
+    }
+    if (!consoleDefaultRangePinRef.current) {
+      consoleDefaultRangePinRef.current = getDefaultAnalyticsDateRange();
+    }
+    return consoleDefaultRangePinRef.current;
+  }, [startParam, endParam, daysParam, user?.id]);
 
   const [data, setData] = useState<UnifiedSummaryResponse | null>(null);
-  /** True only when there is no summary to show yet for the current date range (avoid full skeleton during background refresh). */
+  /** True only when there is nothing to show yet for this range (not during silent background refetch). */
   const [loading, setLoading] = useState(true);
-  /** True while re-fetching when we already showed cache or prior data for this range. */
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const lastSummaryRangeRef = useRef<string | null>(null);
+  const lastHydratedSummaryRangeRef = useRef<string | null>(null);
+  const summaryFetchUserRef = useRef<string | null>(null);
 
   // Performance section
   const [performanceMode, setPerformanceMode] = useState<'growth' | 'engagement' | 'views'>('growth');
@@ -653,9 +680,15 @@ export default function UnifiedSummaryPage() {
     if (!user?.id) {
       setData(null);
       setLoading(false);
-      setRefreshing(false);
       lastSummaryRangeRef.current = null;
+      lastHydratedSummaryRangeRef.current = null;
+      summaryFetchUserRef.current = null;
       return;
+    }
+    if (summaryFetchUserRef.current !== user.id) {
+      summaryFetchUserRef.current = user.id;
+      lastSummaryRangeRef.current = null;
+      lastHydratedSummaryRangeRef.current = null;
     }
     let cancelled = false;
     const rangeSig = `${dateRange.start}|${dateRange.end}`;
@@ -666,16 +699,17 @@ export default function UnifiedSummaryPage() {
     const cachedRaw = readUnifiedSummaryCache(user.id, dateRange.start, dateRange.end);
     const cached = cachedRaw ? normalizeUnifiedSummary(cachedRaw) : null;
     const hadCache = !!cached;
+    const sameRangeAlreadyHydrated = lastHydratedSummaryRangeRef.current === rangeSig;
 
     if (cached) {
       setData(cached);
       setError(null);
       setLoading(false);
-      setRefreshing(true);
+      lastHydratedSummaryRangeRef.current = rangeSig;
     } else {
-      if (rangeChanged) setData(null);
-      setLoading(true);
-      setRefreshing(false);
+      if (rangeChanged && !sameRangeAlreadyHydrated) setData(null);
+      if (!sameRangeAlreadyHydrated) setLoading(true);
+      else setLoading(false);
     }
     setError(null);
 
@@ -688,19 +722,18 @@ export default function UnifiedSummaryPage() {
         const normalized = normalizeUnifiedSummary(res.data);
         setData(normalized);
         setError(null);
+        lastHydratedSummaryRangeRef.current = rangeSig;
         writeUnifiedSummaryCache(user.id, dateRange.start, dateRange.end, normalized);
       } catch {
-        if (!cancelled && !hadCache) setError('Failed to load analytics. Please try again.');
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-          setRefreshing(false);
+        if (!cancelled && !hadCache && !sameRangeAlreadyHydrated) {
+          setError('Failed to load analytics. Please try again.');
         }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
     return () => {
       cancelled = true;
-      setRefreshing(false);
     };
   }, [user?.id, dateRange.start, dateRange.end]);
 
@@ -735,12 +768,6 @@ export default function UnifiedSummaryPage() {
     for (const d of bd) posts += d.posts;
     return { posts };
   }, [data]);
-
-  const periodLabel = useMemo(() => {
-    const a = new Date(`${dateRange.start}T12:00:00`).getTime();
-    const b = new Date(`${dateRange.end}T12:00:00`).getTime();
-    return `${Math.max(1, Math.floor((b - a) / 86_400_000) + 1)}d`;
-  }, [dateRange.start, dateRange.end]);
 
   const platformPeriodTotals = useMemo(() => {
     if (!data?.chart) return [];
@@ -799,15 +826,10 @@ export default function UnifiedSummaryPage() {
                   <RefreshCw size={13} className="animate-spin opacity-75" aria-hidden />
                   Loading…
                 </span>
-              ) : refreshing ? (
-                <span className="inline-flex items-center gap-2 text-sm font-medium" style={{ color: COLOR.textSecondary }}>
-                  <RefreshCw size={13} className="animate-spin opacity-75" aria-hidden />
-                  Updating…
-                </span>
               ) : (
                 <span className="inline-flex items-center gap-2 text-sm" style={{ color: COLOR.textSecondary }}>
                   <RefreshCw size={13} className="opacity-75" aria-hidden />
-                  Updated just now
+                  Ready
                 </span>
               )}
             </div>
@@ -827,14 +849,14 @@ export default function UnifiedSummaryPage() {
           OVERVIEW: KPI cards on top, then Performance chart below
          ══════════════════════════════════════════════════════════════════════ */}
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.overview} className="scroll-mt-28 space-y-4">
-        {/* KPI cards — always shown when data exists (even while refreshing) */}
+        {/* KPI cards — always shown when data exists (including during silent refetch) */}
         {data ? (
           <ShellCard className="!p-3 sm:!p-4 space-y-2">
             <h3 className="text-base font-semibold m-0" style={{ color: COLOR.text }}>Overview</h3>
             <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-              <KpiCard label="Followers" value={fmtExactInt(data.kpi.totalAudience)} growthPct={data.kpi.audienceGrowthPercentage} icon={<Users size={15} />} accent={COLOR.mint} period={periodLabel} />
-              <KpiCard label="Views" value={fmtExactInt(data.kpi.totalImpressions)} growthPct={data.kpi.impressionsGrowthPercentage} icon={<Eye size={15} />} accent={COLOR.magenta} period={periodLabel} />
-              <KpiCard label="Engagements" value={fmtExactInt(data.kpi.totalEngagement)} growthPct={data.kpi.engagementGrowthPercentage} icon={<Heart size={15} />} accent={COLOR.violet} period={periodLabel} />
+              <KpiCard label="Followers" value={fmtExactInt(data.kpi.totalAudience)} growthPct={data.kpi.audienceGrowthPercentage} icon={<Users size={15} />} accent={COLOR.mint} />
+              <KpiCard label="Views" value={fmtExactInt(data.kpi.totalImpressions)} growthPct={data.kpi.impressionsGrowthPercentage} icon={<Eye size={15} />} accent={COLOR.magenta} />
+              <KpiCard label="Engagements" value={fmtExactInt(data.kpi.totalEngagement)} growthPct={data.kpi.engagementGrowthPercentage} icon={<Heart size={15} />} accent={COLOR.violet} />
             </div>
           </ShellCard>
         ) : loading ? (
