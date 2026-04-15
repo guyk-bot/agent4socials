@@ -120,8 +120,8 @@ async function syncRecentContent(account: AccountRow) {
   return { itemsProcessed: items, partial };
 }
 
-const IG_INSIGHTS_MIN_REFRESH_MS = 6 * 60 * 60 * 1000; // align with post_metrics stale window in sync config
-const IG_POST_METRICS_BATCH = 35;
+const IG_INSIGHTS_MIN_REFRESH_MS = 12 * 60 * 60 * 1000;
+const IG_POST_METRICS_BATCH = 18;
 
 /** Refresh performance metrics for recently synced posts. */
 async function syncContentMetrics(account: AccountRow) {
@@ -175,7 +175,7 @@ async function syncContentMetrics(account: AccountRow) {
       /* skip individual post errors */
     } finally {
       // Always pause after a Graph attempt so errors and empty payloads do not burst.
-      await new Promise((r) => setTimeout(r, 60));
+      await new Promise((r) => setTimeout(r, 120));
     }
   }
 

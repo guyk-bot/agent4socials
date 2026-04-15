@@ -47,7 +47,8 @@ export const STALE_THRESHOLDS: Record<string, Partial<Record<SyncScope, number>>
   INSTAGRAM: {
     account_overview: 12 * HOUR,
     posts:            4 * HOUR,
-    post_metrics:     8 * HOUR,
+    /** One GET /{media-id}/insights per post; keep infrequent to protect shared Meta app rate limit. */
+    post_metrics:     12 * HOUR,
     comments:         15 * MINUTE,
     messages:         10 * MINUTE,
     demographics:     24 * HOUR,
@@ -56,7 +57,7 @@ export const STALE_THRESHOLDS: Record<string, Partial<Record<SyncScope, number>>
   FACEBOOK: {
     account_overview: 12 * HOUR,
     posts:            4 * HOUR,
-    post_metrics:     8 * HOUR,
+    post_metrics:     12 * HOUR,
     comments:         15 * MINUTE,
     messages:         10 * MINUTE,
     demographics:     24 * HOUR,

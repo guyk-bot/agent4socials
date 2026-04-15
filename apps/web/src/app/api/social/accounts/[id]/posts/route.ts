@@ -656,8 +656,9 @@ export async function GET(
       };
       const insightCandidates = importedRows
         .filter((row) => !igInsightBundleHasMetrics(bundleFromRow(row)))
-        .slice(0, 10);
-      await runWithConcurrency(insightCandidates, 2, async (row) => {
+        .slice(0, 5);
+      for (let i = 0; i < insightCandidates.length; i++) {
+        const row = insightCandidates[i];
         try {
           const reelish = isInstagramLikelyReel({
             media_type: row.mediaType ?? undefined,
@@ -672,7 +673,8 @@ export async function GET(
         } catch {
           // per-post best effort
         }
-      });
+        if (i < insightCandidates.length - 1) await new Promise((r) => setTimeout(r, 220));
+      }
       const thumbCandidates = importedRows
         .filter((row) => {
           if (row.thumbnailUrl) return false;
@@ -1277,20 +1279,10 @@ async function fetchInstagramMediaInsights(
   // Phase 1: main view/reach/watch-time metrics.
   // shares and reposts are intentionally excluded here — Meta sometimes silently omits
   // them when bundled with other metrics, causing the entire set to appear as if shares=0.
+  // Fewer probes per media: each probe is a billed ShadowIGMedia/insights call.
   const metricSets = opts.isReel
-    ? [
-        'views,reach,ig_reels_avg_watch_time,ig_reels_video_view_total_time',
-        'views,reach,total_interactions',
-        'views,reach',
-        'reach',
-      ]
-    : [
-        'views,reach,impressions',
-        'views,reach,total_interactions',
-        'views,reach',
-        'impressions,reach',
-        'reach',
-      ];
+    ? ['views,reach,ig_reels_avg_watch_time,ig_reels_video_view_total_time', 'views,reach']
+    : ['views,reach,impressions', 'impressions,reach'];
   for (const metric of metricSets) {
     try {
       const insightsRes = await axios.get<{
@@ -1322,7 +1314,7 @@ async function fetchInstagramMediaInsights(
   // Phase 2: fetch shares and reposts in a dedicated call so they are never silently
   // dropped when bundled with unrelated metrics that succeed first.
   // `reposts` = public repost to someone's own feed; `shares` = DM / Story shares.
-  const socialMetricSets = ['shares,reposts', 'shares'];
+  const socialMetricSets = ['shares,reposts'];
   for (const metric of socialMetricSets) {
     try {
       const socialRes = await axios.get<{
@@ -1468,7 +1460,8 @@ async function syncImportedPosts(
   credentialsJson?: unknown
 ): Promise<string | undefined> {
   if (platform === 'INSTAGRAM') {
-    const maxMedia = 500;
+    /** Cap media list size; post-level /insights are filled by sync post_metrics, not here. */
+    const maxMedia = 150;
     const merged = new Map<string, IgSyncMediaItem>();
     const igBases = [fbRestBaseUrl, igGraphRestBaseUrl];
     let primaryError: Error | null = null;
@@ -1541,30 +1534,9 @@ async function syncImportedPosts(
       const likeCount = m.like_count ?? 0;
       const commentsCount = m.comments_count ?? 0;
       const interactions = likeCount + commentsCount;
-      const reelish = isInstagramLikelyReel(m);
-      const insightBundle = await fetchInstagramMediaInsightsBestEffort(m.id, accessToken, { isReel: reelish });
-      const views = insightBundle.views;
-      const impressions =
-        views > 0
-          ? views
-          : insightBundle.impressionsLegacy > 0
-            ? insightBundle.impressionsLegacy
-            : insightBundle.reach > 0
-              ? insightBundle.reach
-              : 0;
-      const sharesCount = insightBundle.shares > 0 ? insightBundle.shares : null;
-      const repostsCount = insightBundle.reposts > 0 ? insightBundle.reposts : null;
-      const instagramMeta = {
-        views,
-        reach: insightBundle.reach,
-        impressionsLegacy: insightBundle.impressionsLegacy,
-        totalInteractions: insightBundle.totalInteractions,
-        avgWatchSeconds: insightBundle.avgWatchSeconds,
-        totalWatchSeconds: insightBundle.totalWatchSeconds,
-        shares: insightBundle.shares,
-        reposts: insightBundle.reposts,
-        mediaProductType: m.media_product_type ?? null,
-      };
+      // Do not call GET /{media-id}/insights during bulk sync: N media × several hosts/metric
+      // probes burned Meta app-level quota (ShadowIGMedia/insights). Impressions and rich IG
+      // metrics are updated by the sync engine post_metrics scope (single batched metric call).
       await prisma.importedPost.upsert({
         where: {
           socialAccountId_platformPostId: { socialAccountId, platformPostId: m.id },
@@ -1575,13 +1547,9 @@ async function syncImportedPosts(
           permalinkUrl: m.permalink ?? null,
           publishedAt,
           mediaType: m.media_type ?? null,
-          impressions,
           interactions,
           likeCount,
           commentsCount,
-          ...(sharesCount !== null ? { sharesCount } : {}),
-          ...(repostsCount !== null ? { repostsCount } : {}),
-          platformMetadata: { instagram: instagramMeta },
           syncedAt: new Date(),
         },
         create: {
@@ -1593,13 +1561,10 @@ async function syncImportedPosts(
           permalinkUrl: m.permalink ?? null,
           publishedAt,
           mediaType: m.media_type ?? null,
-          impressions,
+          impressions: 0,
           interactions,
           likeCount,
           commentsCount,
-          ...(sharesCount !== null ? { sharesCount } : {}),
-          ...(repostsCount !== null ? { repostsCount } : {}),
-          platformMetadata: { instagram: instagramMeta },
         },
       });
     }
