@@ -542,15 +542,27 @@ export default function UnifiedSummaryPage() {
       ) : null}
 
       {/* ══════════════════════════════════════════════════════════════════════
-          OVERVIEW: Performance (Growth / Engagement / Views) — matches FB
+          OVERVIEW: KPI cards on top, then Performance chart below
          ══════════════════════════════════════════════════════════════════════ */}
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.overview} className="scroll-mt-28 space-y-4">
-        {loading ? (
-          <ShellCard className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">{[0,1,2,3,4].map((i) => <Skeleton key={i} className="h-20 rounded-[20px]" />)}</div>
-            <Skeleton className="h-[300px] rounded-xl" />
+        {/* KPI cards — always shown when data exists (even while refreshing) */}
+        {data ? (
+          <ShellCard className="space-y-3">
+            <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Overview</h3>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <KpiCard label="Followers" value={fmt(data.kpi.totalAudience)} growthPct={data.kpi.audienceGrowthPercentage} icon={<Users size={18} />} accent={COLOR.mint} period={periodLabel} />
+              <KpiCard label="Engagements" value={fmt(data.kpi.totalEngagement)} growthPct={data.kpi.engagementGrowthPercentage} icon={<Heart size={18} />} accent={COLOR.violet} period={periodLabel} />
+              <KpiCard label="Video Views" value={fmt(data.kpi.totalImpressions)} growthPct={data.kpi.impressionsGrowthPercentage} icon={<Eye size={18} />} accent={COLOR.magenta} period={periodLabel} />
+            </div>
           </ShellCard>
-        ) : data ? (
+        ) : loading ? (
+          <ShellCard className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{[0,1,2].map((i) => <Skeleton key={i} className="h-20 rounded-[20px]" />)}</div>
+          </ShellCard>
+        ) : null}
+
+        {/* Performance chart */}
+        {data ? (
           <ShellCard className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Performance</h3>
@@ -561,18 +573,11 @@ export default function UnifiedSummaryPage() {
                 return (
                   <button key={mode} type="button" onClick={() => setPerformanceMode(mode)} aria-pressed={active}
                     className="rounded-lg px-3 py-1.5 text-sm"
-                    style={{ background: active ? 'rgba(139,124,255,0.2)' : 'rgba(255,255,255,0.03)', color: active ? COLOR.text : COLOR.textSecondary, border: `1px solid ${active ? COLOR.violet : COLOR.border}` }}>
+                    style={{ background: active ? 'rgba(139,124,255,0.15)' : 'rgba(255,255,255,0.03)', color: active ? COLOR.text : COLOR.textSecondary, border: `1px solid ${COLOR.border}` }}>
                     {mode === 'views' ? 'Views' : mode === 'engagement' ? 'Engagement' : 'Growth'}
                   </button>
                 );
               })}
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-              <KpiCard label="Followers" value={fmt(data.kpi.totalAudience)} growthPct={data.kpi.audienceGrowthPercentage} icon={<Users size={18} />} accent={COLOR.mint} period={periodLabel} />
-              <KpiCard label="Engagements" value={fmt(data.kpi.totalEngagement)} growthPct={data.kpi.engagementGrowthPercentage} icon={<Heart size={18} />} accent={COLOR.violet} period={periodLabel} />
-              <KpiCard label="Video Views" value={fmt(data.kpi.totalImpressions)} growthPct={data.kpi.impressionsGrowthPercentage} icon={<Eye size={18} />} accent={COLOR.magenta} period={periodLabel} />
-              <KpiCard label="Content Views" value={fmt(data.kpi.totalImpressions)} growthPct={data.kpi.impressionsGrowthPercentage} icon={<Eye size={18} />} accent={COLOR.amber} period={periodLabel} />
-              <KpiCard label="Page Visits" value={fmt(data.kpi.totalPosts)} growthPct={data.kpi.postsGrowthPercentage} icon={<FileText size={18} />} accent={COLOR.coral} period={periodLabel} />
             </div>
             <div className="flex justify-end">
               <PlatformLegend all={platformsWithChartData.length > 0 ? platformsWithChartData as string[] : [...CHART_PLATFORMS] as string[]} activePlatforms={activePlatforms} toggle={togglePlatform} />
@@ -587,6 +592,8 @@ export default function UnifiedSummaryPage() {
               )}
             </InsightChartCard>
           </ShellCard>
+        ) : loading ? (
+          <ShellCard className="space-y-4"><Skeleton className="h-[300px] rounded-xl" /></ShellCard>
         ) : null}
       </section>
 
@@ -594,9 +601,7 @@ export default function UnifiedSummaryPage() {
           ENGAGEMENT: Likes / Comments / Shares / Reposts — stacked bar chart
          ══════════════════════════════════════════════════════════════════════ */}
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.traffic} className="scroll-mt-28 space-y-4">
-        {loading ? (
-          <ShellCard className="space-y-4"><Skeleton className="h-20 rounded-[20px]" /><Skeleton className="h-[300px] rounded-xl" /></ShellCard>
-        ) : data ? (
+        {data ? (
           <ShellCard className="space-y-3">
             <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Engagement</h3>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -638,6 +643,8 @@ export default function UnifiedSummaryPage() {
               )}
             </InsightChartCard>
           </ShellCard>
+        ) : loading ? (
+          <ShellCard className="space-y-4"><Skeleton className="h-20 rounded-[20px]" /><Skeleton className="h-[300px] rounded-xl" /></ShellCard>
         ) : null}
       </section>
 
@@ -645,9 +652,7 @@ export default function UnifiedSummaryPage() {
           ACTIVITY: Posts per day — line chart
          ══════════════════════════════════════════════════════════════════════ */}
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.reels} className="scroll-mt-28 space-y-4">
-        {loading ? (
-          <ShellCard className="space-y-4"><Skeleton className="h-20 rounded-[20px]" /><Skeleton className="h-[300px] rounded-xl" /></ShellCard>
-        ) : data ? (
+        {data ? (
           <ShellCard className="space-y-3">
             <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Activity</h3>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -683,6 +688,8 @@ export default function UnifiedSummaryPage() {
               )}
             </InsightChartCard>
           </ShellCard>
+        ) : loading ? (
+          <ShellCard className="space-y-4"><Skeleton className="h-20 rounded-[20px]" /><Skeleton className="h-[300px] rounded-xl" /></ShellCard>
         ) : null}
       </section>
 
@@ -690,9 +697,7 @@ export default function UnifiedSummaryPage() {
           POSTS: Top posts + Traffic totals side by side
          ══════════════════════════════════════════════════════════════════════ */}
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.posts} className="scroll-mt-28 space-y-4">
-        {loading ? (
-          <div className="grid gap-4" style={{ gridTemplateColumns: 'minmax(0,1fr) 340px' }}><ShellCard><Skeleton className="h-64 rounded-xl" /></ShellCard><ShellCard><Skeleton className="h-64 rounded-xl" /></ShellCard></div>
-        ) : data ? (
+        {data ? (
           <div className="grid gap-4" style={{ gridTemplateColumns: 'minmax(0,1fr) 340px' }}>
             <ShellCard>
               <h3 className="text-lg font-semibold mb-3" style={{ color: COLOR.text }}>Period totals by platform</h3>
@@ -720,6 +725,8 @@ export default function UnifiedSummaryPage() {
               ) : data.topPosts.map((post, i) => <TopPostCard key={post.id} post={post} rank={i + 1} />)}
             </ShellCard>
           </div>
+        ) : loading ? (
+          <div className="grid gap-4" style={{ gridTemplateColumns: 'minmax(0,1fr) 340px' }}><ShellCard><Skeleton className="h-64 rounded-xl" /></ShellCard><ShellCard><Skeleton className="h-64 rounded-xl" /></ShellCard></div>
         ) : null}
       </section>
 
@@ -727,11 +734,13 @@ export default function UnifiedSummaryPage() {
           HISTORY: Combined uploads table
          ══════════════════════════════════════════════════════════════════════ */}
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.history} className="scroll-mt-28 space-y-4">
-        {loading ? <ShellCard><Skeleton className="h-96 rounded-xl" /></ShellCard> : data ? (
+        {data ? (
           <ShellCard>
             <h3 className="text-lg font-semibold mb-3" style={{ color: COLOR.text }}>Combined Uploads History · {dateRange.start} to {dateRange.end}</h3>
             <HistoryTable rows={data.history} />
           </ShellCard>
+        ) : loading ? (
+          <ShellCard><Skeleton className="h-96 rounded-xl" /></ShellCard>
         ) : null}
       </section>
     </div>

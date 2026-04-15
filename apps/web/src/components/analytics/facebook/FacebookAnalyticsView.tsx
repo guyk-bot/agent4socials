@@ -3864,7 +3864,7 @@ export function FacebookAnalyticsView({
                     style={{
                       background: active ? 'rgba(139,124,255,0.2)' : 'rgba(255,255,255,0.03)',
                       color: active ? COLOR.text : COLOR.textSecondary,
-                      border: `1px solid ${active ? COLOR.violet : COLOR.border}`,
+                      border: `1px solid ${COLOR.border}`,
                     }}
                   >
                     {preset.label}
@@ -3886,7 +3886,7 @@ export function FacebookAnalyticsView({
                   style={{
                     background: storyMode === mode ? 'rgba(139,124,255,0.2)' : 'rgba(255,255,255,0.03)',
                     color: storyMode === mode ? COLOR.text : COLOR.textSecondary,
-                    border: `1px solid ${storyMode === mode ? COLOR.violet : COLOR.border}`,
+                    border: `1px solid ${COLOR.border}`,
                   }}
                 >
                   {mode === 'views' ? 'Views' : mode === 'engagement' ? 'Engagement' : 'Growth'}
@@ -5083,7 +5083,7 @@ export function FacebookAnalyticsView({
               style={{
                 background: reelPreset === preset.id ? 'rgba(139,124,255,0.2)' : 'rgba(255,255,255,0.03)',
                 color: reelPreset === preset.id ? COLOR.text : COLOR.textSecondary,
-                border: `1px solid ${reelPreset === preset.id ? COLOR.violet : COLOR.border}`,
+                border: `1px solid ${COLOR.border}`,
               }}
             >
               {preset.label}
