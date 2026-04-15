@@ -610,8 +610,8 @@ export default function UnifiedSummaryPage() {
             <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Overview</h3>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               <KpiCard label="Followers" value={fmt(data.kpi.totalAudience)} growthPct={data.kpi.audienceGrowthPercentage} icon={<Users size={18} />} accent={COLOR.mint} period={periodLabel} />
+              <KpiCard label="Views" value={fmt(data.kpi.totalImpressions)} growthPct={data.kpi.impressionsGrowthPercentage} icon={<Eye size={18} />} accent={COLOR.magenta} period={periodLabel} />
               <KpiCard label="Engagements" value={fmt(data.kpi.totalEngagement)} growthPct={data.kpi.engagementGrowthPercentage} icon={<Heart size={18} />} accent={COLOR.violet} period={periodLabel} />
-              <KpiCard label="Video Views" value={fmt(data.kpi.totalImpressions)} growthPct={data.kpi.impressionsGrowthPercentage} icon={<Eye size={18} />} accent={COLOR.magenta} period={periodLabel} />
             </div>
           </ShellCard>
         ) : loading ? (
