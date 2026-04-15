@@ -216,7 +216,8 @@ function PlatformMixChart({ data, activePlatforms }: { data: UnifiedChartData; a
         <Tooltip
           contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
           labelFormatter={(v) => fmtAxisDate(String(v))}
-          formatter={(value: number, name: string) => [fmt(value ?? 0), name ?? '']}
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          formatter={(value: any, name: any) => [fmt(Number(value) ?? 0), name ?? '']}
         />
         {activePlatforms.map((p) => (
           <Area key={p} type="monotone" dataKey={p} stackId="1" stroke={PLATFORM_COLOR[p]} strokeWidth={1.5} fill={`url(#grad-${p})`} fillOpacity={0.55} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
@@ -626,7 +627,8 @@ export default function UnifiedSummaryPage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                     <XAxis dataKey="date" tickFormatter={fmtAxisDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} dy={8} minTickGap={28} axisLine={false} tickLine={false} />
                     <YAxis domain={[0, 'auto']} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
-                    <Tooltip contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }} formatter={(v: number, n: string) => [fmt(Number(v) || 0), n.charAt(0).toUpperCase() + n.slice(1)]} labelFormatter={(l) => fmtAxisDate(String(l))} />
+                    <Tooltip contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }} // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    formatter={(v: any, n: any) => [fmt(Number(v) || 0), String(n ?? '').charAt(0).toUpperCase() + String(n ?? '').slice(1)]} labelFormatter={(l) => fmtAxisDate(String(l))} />
                     {selectedEngagement.includes('likes') && <Bar dataKey="likes" stackId="e" fill={ENGAGEMENT_COLORS.likes} radius={engagementStackTopKey === 'likes' ? [6,6,0,0] : [0,0,0,0]} barSize={14} />}
                     {selectedEngagement.includes('comments') && <Bar dataKey="comments" stackId="e" fill={ENGAGEMENT_COLORS.comments} radius={engagementStackTopKey === 'comments' ? [6,6,0,0] : [0,0,0,0]} barSize={14} />}
                     {selectedEngagement.includes('shares') && <Bar dataKey="shares" stackId="e" fill={ENGAGEMENT_COLORS.shares} radius={engagementStackTopKey === 'shares' ? [6,6,0,0] : [0,0,0,0]} barSize={14} />}
@@ -673,7 +675,8 @@ export default function UnifiedSummaryPage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                     <XAxis dataKey="date" tickFormatter={fmtAxisDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} dy={8} minTickGap={18} axisLine={false} tickLine={false} />
                     <YAxis domain={[0, 'auto']} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
-                    <Tooltip contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }} formatter={(v: number, n: string) => [fmt(Number(v) || 0), n === 'posts' ? 'Posts' : n]} labelFormatter={(l) => fmtAxisDate(String(l))} />
+                    <Tooltip contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }} // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    formatter={(v: any, n: any) => [fmt(Number(v) || 0), n === 'posts' ? 'Posts' : String(n ?? '')]} labelFormatter={(l) => fmtAxisDate(String(l))} />
                     {selectedActivity.includes('posts') && <Line type="monotone" dataKey="posts" stroke={ACTIVITY_COLORS.posts} strokeWidth={2} dot={false} />}
                   </ComposedChart>
                 </ResponsiveContainer>
