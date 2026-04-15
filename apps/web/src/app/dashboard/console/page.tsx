@@ -106,6 +106,28 @@ function fmt(n: number): string {
   return String(Math.round(n));
 }
 
+/** Full integer for followers and growth tooltips (no 1.0K rounding). */
+function fmtExactInt(n: number): string {
+  const x = Math.round(Number(n) || 0);
+  return x.toLocaleString('en-US');
+}
+
+/**
+ * When Growth shows one platform, zoom the Y axis around that series so a change of a few
+ * followers is visible. With multiple platforms, scales differ too much for one axis.
+ */
+function growthAudienceYDomain(data: UnifiedChartData, activePlatforms: string[]): [number, number] | undefined {
+  if (activePlatforms.length !== 1 || data.length === 0) return undefined;
+  const p = activePlatforms[0];
+  const vals = data.map((r) => Number((r as Record<string, number>)[p] ?? 0)).filter((v) => Number.isFinite(v));
+  if (vals.length === 0) return undefined;
+  const lo = Math.min(...vals);
+  const hi = Math.max(...vals);
+  const span = hi - lo;
+  const pad = Math.max(1, Math.ceil(span * 0.12 + 3));
+  return [Math.max(0, Math.floor(lo - pad)), Math.ceil(hi + pad)];
+}
+
 function fmtPct(n: number): string {
   return `${n >= 0 ? '+' : ''}${n.toFixed(1)}%`;
 }
@@ -146,7 +168,7 @@ function platformPresetMetric(
 function formatLegendMetric(preset: 'growth' | 'engagement' | 'views', value: number): string {
   if (preset === 'growth') {
     if (value === 0) return '0';
-    const abs = fmt(Math.abs(value));
+    const abs = fmtExactInt(Math.abs(value));
     return `${value > 0 ? '+' : '-'}${abs}`;
   }
   return fmt(value);
@@ -261,18 +283,35 @@ function KpiCard({ label, value, growthPct, icon, accent, period }: {
 
 // ─── Platform mix chart: stacked lines only (no gradient area fill) ───────────
 
-function PlatformMixChart({ data, activePlatforms }: { data: UnifiedChartData; activePlatforms: string[] }) {
+function PlatformMixChart({
+  data,
+  activePlatforms,
+  performanceMode,
+}: {
+  data: UnifiedChartData;
+  activePlatforms: string[];
+  performanceMode: 'growth' | 'engagement' | 'views';
+}) {
+  const growthDomain = performanceMode === 'growth' ? growthAudienceYDomain(data, activePlatforms) : undefined;
+  const valueFmt = performanceMode === 'growth' ? (v: number) => fmtExactInt(v) : (v: number) => fmt(v);
   return (
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={data} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
         <XAxis dataKey="date" tickFormatter={fmtAxisDate} tick={{ fontSize: 11, fill: COLOR.textMuted }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-        <YAxis tickFormatter={(v) => fmt(v)} tick={{ fontSize: 11, fill: COLOR.textMuted }} tickLine={false} axisLine={false} width={48} />
+        <YAxis
+          domain={growthDomain ?? ['auto', 'auto']}
+          tickFormatter={(v) => valueFmt(Number(v))}
+          tick={{ fontSize: 11, fill: COLOR.textMuted }}
+          tickLine={false}
+          axisLine={false}
+          width={56}
+        />
         <Tooltip
           contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
           labelFormatter={(v) => fmtAxisDate(String(v))}
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          formatter={(value: any, name: any) => [fmt(Number(value) ?? 0), name ?? '']}
+          formatter={(value: any, name: any) => [valueFmt(Number(value) ?? 0), name ?? '']}
         />
         {activePlatforms.map((p) => (
           <Line
@@ -720,7 +759,7 @@ export default function UnifiedSummaryPage() {
           <ShellCard className="space-y-3">
             <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Overview</h3>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              <KpiCard label="Followers" value={fmt(data.kpi.totalAudience)} growthPct={data.kpi.audienceGrowthPercentage} icon={<Users size={18} />} accent={COLOR.mint} period={periodLabel} />
+              <KpiCard label="Followers" value={fmtExactInt(data.kpi.totalAudience)} growthPct={data.kpi.audienceGrowthPercentage} icon={<Users size={18} />} accent={COLOR.mint} period={periodLabel} />
               <KpiCard label="Views" value={fmt(data.kpi.totalImpressions)} growthPct={data.kpi.impressionsGrowthPercentage} icon={<Eye size={18} />} accent={COLOR.magenta} period={periodLabel} />
               <KpiCard label="Engagements" value={fmt(data.kpi.totalEngagement)} growthPct={data.kpi.engagementGrowthPercentage} icon={<Heart size={18} />} accent={COLOR.violet} period={periodLabel} />
             </div>
@@ -749,7 +788,7 @@ export default function UnifiedSummaryPage() {
                 );
               })}
             </div>
-            <div className="flex justify-end">
+            <div className="flex flex-col items-end gap-1.5">
               <PlatformLegend
                 all={connectedChartPlatforms}
                 activePlatforms={activePlatforms}
@@ -757,12 +796,20 @@ export default function UnifiedSummaryPage() {
                 preset={performanceMode}
                 chartData={activeChartData}
               />
+              {performanceMode === 'growth' &&
+                activePlatforms.filter((p) => connectedChartPlatforms.includes(p)).length > 1 && (
+                  <p className="m-0 max-w-xl text-right text-[11px] leading-snug" style={{ color: COLOR.textMuted }}>
+                    Follower lines share one vertical scale. To see a small change (for example, -1), click a
+                    platform above to show only that network, which zooms the axis around its counts.
+                  </p>
+                )}
             </div>
             <InsightChartCard title="Performance" hideHeader flat>
               {activeChartData.length > 0 ? (
                 <PlatformMixChart
                   data={activeChartData}
                   activePlatforms={activePlatforms.filter((p) => connectedChartPlatforms.includes(p))}
+                  performanceMode={performanceMode}
                 />
               ) : (
                 <div className="h-full flex items-center justify-center text-sm" style={{ color: COLOR.textMuted }}>
