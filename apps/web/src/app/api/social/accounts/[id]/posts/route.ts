@@ -656,8 +656,8 @@ export async function GET(
       };
       const insightCandidates = importedRows
         .filter((row) => !igInsightBundleHasMetrics(bundleFromRow(row)))
-        .slice(0, 30);
-      await runWithConcurrency(insightCandidates, 6, async (row) => {
+        .slice(0, 10);
+      await runWithConcurrency(insightCandidates, 2, async (row) => {
         try {
           const reelish = isInstagramLikelyReel({
             media_type: row.mediaType ?? undefined,
@@ -680,8 +680,8 @@ export async function GET(
           const url = (row.permalinkUrl ?? '').toLowerCase();
           return mt === 'VIDEO' || url.includes('/reel/');
         })
-        .slice(0, 20);
-      await runWithConcurrency(thumbCandidates, 8, async (row) => {
+        .slice(0, 15);
+      await runWithConcurrency(thumbCandidates, 4, async (row) => {
         try {
           const u = await refetchIgMediaThumbnail(row.platformPostId, account.accessToken);
           if (u) liveInstagramThumbnails[row.platformPostId] = u;

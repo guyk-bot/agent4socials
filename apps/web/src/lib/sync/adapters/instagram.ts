@@ -88,11 +88,11 @@ async function syncRecentContent(account: AccountRow) {
               content:      p.caption ?? undefined,
               thumbnailUrl: p.thumbnail_url ?? p.media_url ?? undefined,
               permalinkUrl: p.permalink ?? undefined,
-              impressions:  0, // metrics fetched separately via post_metrics scope
+              // Do not clear impressions or bump syncedAt here: post_metrics updates those.
+              // Resetting impressions on every media list forced up to 100 /insights calls per sync.
               likeCount:    p.like_count ?? 0,
               commentsCount: p.comments_count ?? 0,
               mediaType:    p.media_product_type ?? p.media_type ?? undefined,
-              syncedAt:     new Date(),
             },
             create: {
               socialAccountId: account.id,
@@ -120,6 +120,9 @@ async function syncRecentContent(account: AccountRow) {
   return { itemsProcessed: items, partial };
 }
 
+const IG_INSIGHTS_MIN_REFRESH_MS = 6 * 60 * 60 * 1000; // align with post_metrics stale window in sync config
+const IG_POST_METRICS_BATCH = 35;
+
 /** Refresh performance metrics for recently synced posts. */
 async function syncContentMetrics(account: AccountRow) {
   const recentPosts = await prisma.importedPost.findMany({
@@ -127,15 +130,22 @@ async function syncContentMetrics(account: AccountRow) {
       socialAccountId: account.id,
       publishedAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
     },
-    select: { platformPostId: true },
-    take: 100,
+    select: { platformPostId: true, impressions: true, syncedAt: true },
+    take: IG_POST_METRICS_BATCH,
     orderBy: { publishedAt: 'desc' },
   });
 
   let items = 0;
   const metricFields = 'impressions,reach,total_interactions,plays,video_views';
+  const now = Date.now();
 
   for (const post of recentPosts) {
+    if (
+      post.impressions > 0 &&
+      now - post.syncedAt.getTime() < IG_INSIGHTS_MIN_REFRESH_MS
+    ) {
+      continue;
+    }
     try {
       const res = await axios.get<{
         data?: Array<{ name: string; values?: Array<{ value: number }>; period?: string }>;
@@ -161,7 +171,12 @@ async function syncContentMetrics(account: AccountRow) {
         },
       });
       items++;
-    } catch { /* skip individual post errors */ }
+    } catch {
+      /* skip individual post errors */
+    } finally {
+      // Always pause after a Graph attempt so errors and empty payloads do not burst.
+      await new Promise((r) => setTimeout(r, 60));
+    }
   }
 
   return { itemsProcessed: items };
