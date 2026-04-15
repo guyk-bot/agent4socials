@@ -121,7 +121,8 @@ const CONSOLE_ACCOUNT_PLATFORM_ORDER = [
   'TWITTER',
 ] as const;
 
-function AccountBadgeIcon({ platform, size = 12 }: { platform: string; size?: number }) {
+/** Same full-color logos as the sidebar; slightly larger than sidebar row icons so the badge reads on avatars. */
+function AccountBadgeIcon({ platform, size = 20 }: { platform: string; size?: number }) {
   const p = (platform || '').toUpperCase();
   const iconProps = { size };
   switch (p) {
@@ -134,7 +135,7 @@ function AccountBadgeIcon({ platform, size = 12 }: { platform: string; size?: nu
     case 'YOUTUBE':
       return <YoutubeIcon {...iconProps} />;
     case 'TWITTER':
-      return <XTwitterIcon {...iconProps} className="text-neutral-700" />;
+      return <XTwitterIcon {...iconProps} className="text-neutral-800" />;
     case 'LINKEDIN':
       return <LinkedinIcon {...iconProps} />;
     case 'PINTEREST':
@@ -146,7 +147,6 @@ function AccountBadgeIcon({ platform, size = 12 }: { platform: string; size?: nu
 
 /** Matches `FacebookAnalyticsView` header tokens for a consistent shell. */
 const CONSOLE_HEADER_COLOR = {
-  text: '#111827',
   textSecondary: '#667085',
   violet: '#7c6cff',
 } as const;
@@ -717,7 +717,9 @@ export default function UnifiedSummaryPage() {
     [router, setSelectedAccount]
   );
 
-  const headerTitle = (user?.name?.trim() || user?.email?.split('@')[0] || 'Console').trim();
+  const emptyAccountsInitials = (
+    (user?.name?.trim() || user?.email?.split('@')[0] || '?').slice(0, 2) || '?'
+  ).toUpperCase();
 
   const dateRange = useMemo(() => {
     const start = searchParams.get('start') ?? searchParams.get('since');
@@ -865,7 +867,7 @@ export default function UnifiedSummaryPage() {
                   }}
                   aria-hidden
                 >
-                  {headerTitle.slice(0, 2).toUpperCase()}
+                  {emptyAccountsInitials}
                 </div>
               ) : (
                 orderedAccounts.map((acc) => {
@@ -876,26 +878,28 @@ export default function UnifiedSummaryPage() {
                       key={acc.id}
                       type="button"
                       onClick={() => goToAccountDashboard(acc)}
-                      className="group shrink-0 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2"
+                      className="group relative shrink-0 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2"
                       title={`Open ${label} dashboard`}
                       aria-label={`Open ${label} dashboard`}
                     >
-                      <span className="relative block h-11 w-11 overflow-hidden rounded-full bg-neutral-100 shadow-sm ring-2 ring-white transition-transform group-hover:scale-[1.03] group-active:scale-[0.98]">
-                        {acc.profilePicture ? (
-                          <img src={acc.profilePicture} alt="" className="h-full w-full object-cover" />
-                        ) : (
-                          <span
-                            className="flex h-full w-full items-center justify-center text-xs font-semibold"
-                            style={{ background: '#eef2ff', color: CONSOLE_HEADER_COLOR.violet }}
-                          >
-                            {initials}
-                          </span>
-                        )}
+                      <span className="relative block h-11 w-11 transition-transform group-hover:scale-[1.03] group-active:scale-[0.98]">
+                        <span className="block h-11 w-11 overflow-hidden rounded-full bg-neutral-100 shadow-sm ring-2 ring-white">
+                          {acc.profilePicture ? (
+                            <img src={acc.profilePicture} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <span
+                              className="flex h-full w-full items-center justify-center text-xs font-semibold"
+                              style={{ background: '#eef2ff', color: CONSOLE_HEADER_COLOR.violet }}
+                            >
+                              {initials}
+                            </span>
+                          )}
+                        </span>
                         <span
-                          className="pointer-events-none absolute -right-0.5 -top-0.5 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-neutral-200/90 [&>svg]:shrink-0"
+                          className="pointer-events-none absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center [&>svg]:h-5 [&>svg]:w-5 [&>svg]:max-h-none [&>svg]:max-w-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]"
                           aria-hidden
                         >
-                          <AccountBadgeIcon platform={acc.platform} size={11} />
+                          <AccountBadgeIcon platform={acc.platform} />
                         </span>
                       </span>
                     </button>
@@ -904,11 +908,6 @@ export default function UnifiedSummaryPage() {
               )}
             </div>
             <div className="flex min-w-0 flex-wrap items-center gap-3">
-              <div className="min-w-0">
-                <h1 className="text-xl font-semibold" style={{ color: CONSOLE_HEADER_COLOR.text }}>
-                  {headerTitle}
-                </h1>
-              </div>
               {loading ? (
                 <span
                   className="inline-flex items-center gap-2 text-sm font-medium"
