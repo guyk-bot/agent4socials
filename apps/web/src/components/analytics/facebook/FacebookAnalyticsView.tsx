@@ -1447,6 +1447,9 @@ export function resolvedPostPermalink(row: {
   if (plat === 'YOUTUBE' && pid) {
     return `https://www.youtube.com/watch?v=${pid}`;
   }
+  if (plat === 'LINKEDIN' && pid) {
+    return `https://www.linkedin.com/feed/update/${encodeURIComponent(pid)}`;
+  }
   return null;
 }
 
@@ -4929,7 +4932,7 @@ export function FacebookAnalyticsView({
             byViews={topByViews.map((p) => ({
               id: p.id,
               preview: p.preview,
-              permalink: p.permalink,
+              permalink: resolvedPostPermalink({ permalink: p.permalink, rawPost: p.rawPost }) ?? p.permalink,
               type: p.type,
               thumbnailUrl: p.rawPost.thumbnailUrl ?? null,
               views: p.views,
@@ -4940,7 +4943,7 @@ export function FacebookAnalyticsView({
             byClicks={topByClicks.map((p) => ({
               id: p.id,
               preview: p.preview,
-              permalink: p.permalink,
+              permalink: resolvedPostPermalink({ permalink: p.permalink, rawPost: p.rawPost }) ?? p.permalink,
               type: p.type,
               thumbnailUrl: p.rawPost.thumbnailUrl ?? null,
               views: p.views,
@@ -4951,7 +4954,7 @@ export function FacebookAnalyticsView({
             byReactions={topByReactions.map((p) => ({
               id: p.id,
               preview: p.preview,
-              permalink: p.permalink,
+              permalink: resolvedPostPermalink({ permalink: p.permalink, rawPost: p.rawPost }) ?? p.permalink,
               type: p.type,
               thumbnailUrl: p.rawPost.thumbnailUrl ?? null,
               views: p.views,
