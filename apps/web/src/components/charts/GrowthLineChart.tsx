@@ -2,8 +2,8 @@
 
 import React, { useCallback, useMemo } from 'react';
 import {
-  AreaChart,
-  Area,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
@@ -79,16 +79,7 @@ export function GrowthLineChart({ data, metric, height = 320, className = '' }: 
   return (
     <div className={className} style={{ height }}>
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart
-          data={chartData}
-          margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
-        >
-          <defs>
-            <linearGradient id={`growth-grad-${metric}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={config.color} stopOpacity={0.35} />
-              <stop offset="100%" stopColor={config.color} stopOpacity={0} />
-            </linearGradient>
-          </defs>
+        <LineChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
           <XAxis
             dataKey="date"
@@ -110,15 +101,16 @@ export function GrowthLineChart({ data, metric, height = 320, className = '' }: 
             tickFormatter={(v) => formatMetricNumber(Number(v))}
           />
           <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#94a3b8', strokeDasharray: '4 4' }} />
-          <Area
+          <Line
             type="monotone"
             dataKey={config.dataKey}
             name={config.label}
             stroke={config.color}
             strokeWidth={2}
-            fill={`url(#growth-grad-${metric})`}
+            dot={false}
+            isAnimationActive={false}
           />
-        </AreaChart>
+        </LineChart>
       </ResponsiveContainer>
     </div>
   );

@@ -13,14 +13,13 @@ import {
 } from '@/lib/calendar-date';
 import { readUnifiedSummaryCache, writeUnifiedSummaryCache } from '@/lib/dashboard-unified-summary-cache';
 import {
-  AreaChart,
-  Area,
   XAxis,
   YAxis,
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
   Line,
+  LineChart,
   ComposedChart,
   Bar,
   BarChart,
@@ -196,20 +195,12 @@ function KpiCard({ label, value, growthPct, icon, accent, period }: {
   );
 }
 
-// ─── Platform Mix stacked area chart ──────────────────────────────────────────
+// ─── Platform mix chart: stacked lines only (no gradient area fill) ───────────
 
 function PlatformMixChart({ data, activePlatforms }: { data: UnifiedChartData; activePlatforms: string[] }) {
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={data} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
-        <defs>
-          {activePlatforms.map((p) => (
-            <linearGradient key={p} id={`grad-${p}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={PLATFORM_COLOR[p]} stopOpacity={0.35} />
-              <stop offset="95%" stopColor={PLATFORM_COLOR[p]} stopOpacity={0.02} />
-            </linearGradient>
-          ))}
-        </defs>
+      <LineChart data={data} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
         <XAxis dataKey="date" tickFormatter={fmtAxisDate} tick={{ fontSize: 11, fill: COLOR.textMuted }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
         <YAxis tickFormatter={(v) => fmt(v)} tick={{ fontSize: 11, fill: COLOR.textMuted }} tickLine={false} axisLine={false} width={48} />
@@ -220,14 +211,23 @@ function PlatformMixChart({ data, activePlatforms }: { data: UnifiedChartData; a
           formatter={(value: any, name: any) => [fmt(Number(value) ?? 0), name ?? '']}
         />
         {activePlatforms.map((p) => (
-          <Area key={p} type="monotone" dataKey={p} stackId="1" stroke={PLATFORM_COLOR[p]} strokeWidth={1.5} fill={`url(#grad-${p})`} fillOpacity={0.55} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
+          <Line
+            key={p}
+            type="monotone"
+            dataKey={p}
+            stroke={PLATFORM_COLOR[p]}
+            strokeWidth={2}
+            dot={false}
+            activeDot={{ r: 4, strokeWidth: 0 }}
+            isAnimationActive={false}
+          />
         ))}
-      </AreaChart>
+      </LineChart>
     </ResponsiveContainer>
   );
 }
 
-// ─── Legend pills ─────────────────────────────────────────────────────────────
+// ─── Legend pills (metric toggles: likes, comments, etc.) ─────────────────────
 
 function LegendPill({ label, color, active, onClick }: { label: string; color: string; active: boolean; onClick: () => void }) {
   return (
@@ -241,12 +241,35 @@ function LegendPill({ label, color, active, onClick }: { label: string; color: s
   );
 }
 
+/** Toggle which platform series are shown on the chart; uses platform logos like the sidebar. */
 function PlatformLegend({ activePlatforms, toggle, all }: { activePlatforms: string[]; toggle: (p: string) => void; all: string[] }) {
   return (
-    <div className="flex flex-wrap gap-2">
-      {all.map((p) => (
-        <LegendPill key={p} label={p} color={PLATFORM_COLOR[p]} active={activePlatforms.includes(p)} onClick={() => toggle(p)} />
-      ))}
+    <div className="flex flex-wrap gap-2" role="group" aria-label="Platforms shown on chart">
+      {all.map((p) => {
+        const active = activePlatforms.includes(p);
+        return (
+          <button
+            key={p}
+            type="button"
+            onClick={() => toggle(p)}
+            aria-pressed={active}
+            title={active ? `Hide ${p}` : `Show ${p}`}
+            className="inline-flex items-center gap-2 rounded-full border px-2.5 py-1.5 text-xs font-medium transition-[opacity,box-shadow,transform] hover:scale-[1.02] active:scale-[0.98]"
+            style={{
+              borderColor: COLOR.border,
+              background: active ? 'rgba(255,255,255,0.95)' : 'rgba(248,250,252,0.9)',
+              opacity: active ? 1 : 0.45,
+              boxShadow: active ? '0 1px 3px rgba(15,23,42,0.08)' : 'none',
+              color: active ? COLOR.text : COLOR.textMuted,
+            }}
+          >
+            <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center [&>svg]:max-h-[18px] [&>svg]:max-w-[18px]">
+              <PlatformIcon platform={p} size={16} />
+            </span>
+            <span>{p}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -288,10 +311,46 @@ function HistoryTable({ rows }: { rows: UnifiedHistoryPost[] }) {
   const visible = filter === 'All' ? rows : rows.filter((r) => r.platform === filter);
   return (
     <div>
-      <div className="flex flex-wrap gap-1.5 mb-4">
-        {platforms.map((p) => (
-          <LegendPill key={p} label={p} color={PLATFORM_COLOR[p] ?? '#8b5cf6'} active={filter === p} onClick={() => setFilter(p)} />
-        ))}
+      <div className="flex flex-wrap gap-1.5 mb-4" role="group" aria-label="Filter history by platform">
+        {platforms.map((p) =>
+          p === 'All' ? (
+            <button
+              key="All"
+              type="button"
+              onClick={() => setFilter('All')}
+              aria-pressed={filter === 'All'}
+              className="rounded-full border px-3 py-1.5 text-xs font-medium transition-opacity"
+              style={{
+                borderColor: COLOR.border,
+                background: filter === 'All' ? 'rgba(255,255,255,0.95)' : 'rgba(248,250,252,0.9)',
+                opacity: filter === 'All' ? 1 : 0.5,
+                color: filter === 'All' ? COLOR.text : COLOR.textMuted,
+              }}
+            >
+              All
+            </button>
+          ) : (
+            <button
+              key={p}
+              type="button"
+              onClick={() => setFilter(p)}
+              aria-pressed={filter === p}
+              title={`Show only ${p}`}
+              className="inline-flex items-center gap-2 rounded-full border px-2.5 py-1.5 text-xs font-medium transition-[opacity,transform] hover:scale-[1.02] active:scale-[0.98]"
+              style={{
+                borderColor: COLOR.border,
+                background: filter === p ? 'rgba(255,255,255,0.95)' : 'rgba(248,250,252,0.9)',
+                opacity: filter === p ? 1 : 0.45,
+                color: filter === p ? COLOR.text : COLOR.textMuted,
+              }}
+            >
+              <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center [&>svg]:max-h-[18px] [&>svg]:max-w-[18px]">
+                <PlatformIcon platform={p} size={16} />
+              </span>
+              <span>{p}</span>
+            </button>
+          )
+        )}
       </div>
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-[13px]">

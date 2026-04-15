@@ -2,8 +2,8 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  AreaChart,
-  Area,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
@@ -58,7 +58,6 @@ export function InteractiveLineChart({
   tooltipStyle = 'light',
 }: InteractiveLineChartProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const id = useMemo(() => `chart-${Math.random().toString(36).slice(2, 9)}`, []);
 
   const chartData = useMemo(() => {
     const map = new Map<string, { date: string; value: number; value2?: number }>();
@@ -114,7 +113,7 @@ export function InteractiveLineChart({
   return (
     <div className={className} style={{ height }}>
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart
+        <LineChart
           data={chartData}
           margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
           onMouseMove={(e) => {
@@ -123,18 +122,6 @@ export function InteractiveLineChart({
           }}
           onMouseLeave={() => setHoveredIndex(null)}
         >
-          <defs>
-            <linearGradient id={`${id}-grad`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity={0.35} />
-              <stop offset="100%" stopColor={color} stopOpacity={0} />
-            </linearGradient>
-            {secondaryData?.length ? (
-              <linearGradient id={`${id}-grad2`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={secondaryColor} stopOpacity={0.25} />
-                <stop offset="100%" stopColor={secondaryColor} stopOpacity={0} />
-              </linearGradient>
-            ) : null}
-          </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
           <XAxis
             dataKey="date"
@@ -175,25 +162,27 @@ export function InteractiveLineChart({
               strokeWidth={1.5}
             />
           )}
-          <Area
+          <Line
             type="monotone"
             dataKey="value"
             name={valueLabel}
             stroke={color}
             strokeWidth={2}
-            fill={`url(#${id}-grad)`}
+            dot={false}
+            isAnimationActive={false}
           />
           {secondaryData?.length && secondaryLabel ? (
-            <Area
+            <Line
               type="monotone"
               dataKey="value2"
               name={secondaryLabel}
               stroke={secondaryColor}
               strokeWidth={2}
-              fill={`url(#${id}-grad2)`}
+              dot={false}
+              isAnimationActive={false}
             />
           ) : null}
-        </AreaChart>
+        </LineChart>
       </ResponsiveContainer>
     </div>
   );
