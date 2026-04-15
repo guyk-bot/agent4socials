@@ -22,7 +22,10 @@ function growthPct(current: number, previous: number): number {
   return ((current - previous) / previous) * 100;
 }
 
-function periodBounds(days: number): { since: Date; until: Date; prevSince: Date; prevUntil: Date } {
+/** Inclusive calendar window + equally long prior window (for growth %). */
+export type UnifiedPeriod = { since: Date; until: Date; prevSince: Date; prevUntil: Date };
+
+function periodBounds(days: number): UnifiedPeriod {
   const until = new Date();
   const since = new Date();
   since.setDate(since.getDate() - days);
@@ -31,6 +34,54 @@ function periodBounds(days: number): { since: Date; until: Date; prevSince: Date
   const prevSince = new Date(prevUntil);
   prevSince.setDate(prevSince.getDate() - days);
   return { since, until, prevSince, prevUntil };
+}
+
+function parseLocalYmdStart(ymd: string): Date {
+  const [y, m, d] = ymd.split('-').map(Number);
+  return new Date(y, m - 1, d, 0, 0, 0, 0);
+}
+
+function parseLocalYmdEnd(ymd: string): Date {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const x = new Date(y, m - 1, d, 23, 59, 59, 999);
+  return x;
+}
+
+const YMD = /^\d{4}-\d{2}-\d{2}$/;
+const MAX_RANGE_DAYS = 366;
+
+/**
+ * Build the reporting window. Prefer explicit `since`/`until` (YYYY-MM-DD, local calendar);
+ * otherwise use rolling `days` (7, 30, or 90) like the legacy summary API.
+ */
+export function resolveUnifiedPeriod(params: {
+  days?: number;
+  since?: string | null;
+  until?: string | null;
+}): UnifiedPeriod {
+  const sIn = params.since?.trim() ?? '';
+  const uIn = params.until?.trim() ?? '';
+  if (sIn && uIn && YMD.test(sIn) && YMD.test(uIn)) {
+    let since = parseLocalYmdStart(sIn);
+    let until = parseLocalYmdEnd(uIn);
+    if (since.getTime() > until.getTime()) return periodBounds(30);
+    const spanDays = Math.floor((until.getTime() - since.getTime()) / 86_400_000) + 1;
+    if (spanDays > MAX_RANGE_DAYS) {
+      since = new Date(until);
+      since.setDate(since.getDate() - (MAX_RANGE_DAYS - 1));
+      since.setHours(0, 0, 0, 0);
+    }
+    const effectiveSpan = Math.floor((until.getTime() - since.getTime()) / 86_400_000) + 1;
+    const prevUntil = new Date(since);
+    prevUntil.setDate(prevUntil.getDate() - 1);
+    prevUntil.setHours(23, 59, 59, 999);
+    const prevSince = new Date(prevUntil);
+    prevSince.setDate(prevSince.getDate() - (effectiveSpan - 1));
+    prevSince.setHours(0, 0, 0, 0);
+    return { since, until, prevSince, prevUntil };
+  }
+  const d = [7, 30, 90].includes(Number(params.days)) ? Number(params.days) : 30;
+  return periodBounds(d);
 }
 
 function sumEngagement(p: {
@@ -44,8 +95,8 @@ function sumEngagement(p: {
 
 // ─── KPI Summary ─────────────────────────────────────────────────────────────
 
-export async function getUnifiedKpiSummary(userId: string, days: number): Promise<UnifiedKpiSummary> {
-  const { since, until, prevSince, prevUntil } = periodBounds(days);
+export async function getUnifiedKpiSummary(userId: string, period: UnifiedPeriod): Promise<UnifiedKpiSummary> {
+  const { since, until, prevSince, prevUntil } = period;
 
   // Latest follower count per social account (most recent snapshot overall)
   const allSnapshots = await prisma.accountMetricSnapshot.findMany({
@@ -133,8 +184,8 @@ export async function getUnifiedKpiSummary(userId: string, days: number): Promis
 
 // ─── Chart Data ───────────────────────────────────────────────────────────────
 
-export async function getUnifiedChartData(userId: string, days: number): Promise<UnifiedChartData> {
-  const { since, until } = periodBounds(days);
+export async function getUnifiedChartData(userId: string, period: UnifiedPeriod): Promise<UnifiedChartData> {
+  const { since, until } = period;
 
   const [posts, linkedinPosts] = await Promise.all([
     prisma.importedPost.findMany({
@@ -186,8 +237,8 @@ export async function getUnifiedChartData(userId: string, days: number): Promise
 
 // ─── Top Posts ────────────────────────────────────────────────────────────────
 
-export async function getUnifiedTopPosts(userId: string, days: number, limit = 5): Promise<UnifiedTopPost[]> {
-  const { since, until } = periodBounds(days);
+export async function getUnifiedTopPosts(userId: string, period: UnifiedPeriod, limit = 5): Promise<UnifiedTopPost[]> {
+  const { since, until } = period;
 
   const posts = await prisma.importedPost.findMany({
     where: { socialAccount: { userId }, publishedAt: { gte: since, lte: until } },
@@ -230,10 +281,10 @@ export async function getUnifiedTopPosts(userId: string, days: number, limit = 5
 
 export async function getUnifiedPostsHistory(
   userId: string,
-  days: number,
+  period: UnifiedPeriod,
   limit = 60
 ): Promise<UnifiedHistoryPost[]> {
-  const { since, until } = periodBounds(days);
+  const { since, until } = period;
 
   const posts = await prisma.importedPost.findMany({
     where: { socialAccount: { userId }, publishedAt: { gte: since, lte: until } },

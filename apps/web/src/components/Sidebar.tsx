@@ -159,7 +159,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
           }`}
         >
           <BarChart3 size={18} className="shrink-0" />
-          Analytics
+          Console
           {isMainAnalyticsView && <ChevronRight size={14} className="ml-auto opacity-70" />}
         </Link>
       </div>

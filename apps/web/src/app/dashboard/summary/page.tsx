@@ -4,6 +4,14 @@ import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
+import { AnalyticsDateRangePicker } from '@/components/analytics/AnalyticsDateRangePicker';
+import {
+  getDefaultAnalyticsDateRange,
+  readStoredAnalyticsDateRange,
+  toLocalCalendarDate,
+  writeStoredAnalyticsDateRange,
+} from '@/lib/calendar-date';
+import { readUnifiedSummaryCache, writeUnifiedSummaryCache } from '@/lib/dashboard-unified-summary-cache';
 import {
   AreaChart,
   Area,
@@ -25,6 +33,8 @@ import {
   Image as ImageIcon,
   Film,
   Calendar,
+  Sparkles,
+  ArrowRight,
 } from 'lucide-react';
 import {
   InstagramIcon,
@@ -614,96 +624,84 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
-// ─── Date Selector ─────────────────────────────────────────────────────────────
-
-function DayToggle({
-  days,
-  onChange,
-}: {
-  days: number;
-  onChange: (d: number) => void;
-}) {
-  const options = [
-    { label: '7 days', value: 7 },
-    { label: '30 days', value: 30 },
-    { label: '90 days', value: 90 },
-  ];
-  return (
-    <div
-      style={{
-        display: 'inline-flex',
-        background: '#f1f5f9',
-        borderRadius: 12,
-        padding: 3,
-        gap: 2,
-      }}
-    >
-      {options.map((o) => (
-        <button
-          key={o.value}
-          onClick={() => onChange(o.value)}
-          style={{
-            padding: '6px 16px',
-            borderRadius: 9,
-            border: 'none',
-            background: days === o.value ? '#ffffff' : 'transparent',
-            color: days === o.value ? '#0f172a' : '#64748b',
-            fontWeight: days === o.value ? 600 : 400,
-            fontSize: 13,
-            cursor: 'pointer',
-            transition: 'all 0.15s',
-            boxShadow: days === o.value ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-          }}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 // ─── Main Page ─────────────────────────────────────────────────────────────────
+
+function rangeFromDaysParam(days: number): { start: string; end: string } {
+  const end = new Date();
+  const start = new Date();
+  start.setDate(start.getDate() - (days - 1));
+  return { start: toLocalCalendarDate(start), end: toLocalCalendarDate(end) };
+}
 
 export default function UnifiedSummaryPage() {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const days = useMemo(() => {
-    const raw = Number(searchParams.get('days'));
-    return [7, 30, 90].includes(raw) ? raw : 30;
-  }, [searchParams]);
+  const dateRange = useMemo(() => {
+    const start = searchParams.get('start') ?? searchParams.get('since');
+    const end = searchParams.get('end') ?? searchParams.get('until');
+    if (start && end && /^\d{4}-\d{2}-\d{2}$/.test(start) && /^\d{4}-\d{2}-\d{2}$/.test(end) && start <= end) {
+      return { start, end };
+    }
+    const rawDays = Number(searchParams.get('days'));
+    if ([7, 30, 90].includes(rawDays)) {
+      return rangeFromDaysParam(rawDays);
+    }
+    if (user?.id) {
+      const stored = readStoredAnalyticsDateRange(user.id);
+      if (stored) return stored;
+    }
+    return getDefaultAnalyticsDateRange();
+  }, [searchParams, user?.id]);
 
   const [data, setData] = useState<UnifiedSummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activePlatforms, setActivePlatforms] = useState<string[]>([...CHART_PLATFORMS]);
 
-  const fetchData = useCallback(async () => {
-    if (!user) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await api.get<UnifiedSummaryResponse>('/analytics/summary', {
-        params: { days },
-      });
-      setData(res.data);
-    } catch {
-      setError('Failed to load analytics. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, [user, days]);
-
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (!user?.id) {
+      setData(null);
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    const cached = readUnifiedSummaryCache(user.id, dateRange.start, dateRange.end);
+    if (cached) {
+      setData(cached);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+    setError(null);
+    (async () => {
+      try {
+        const res = await api.get<UnifiedSummaryResponse>('/analytics/summary', {
+          params: { since: dateRange.start, until: dateRange.end },
+        });
+        if (cancelled) return;
+        setData(res.data);
+        writeUnifiedSummaryCache(user.id, dateRange.start, dateRange.end, res.data);
+      } catch {
+        if (!cancelled) setError('Failed to load analytics. Please try again.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, dateRange.start, dateRange.end]);
 
-  const handleDaysChange = useCallback(
-    (d: number) => {
-      router.push(`/dashboard/summary?days=${d}`);
+  const onDateRangeChange = useCallback(
+    (range: { start: string; end: string }) => {
+      if (user?.id) writeStoredAnalyticsDateRange(range, user.id);
+      router.replace(
+        `/dashboard/summary?start=${encodeURIComponent(range.start)}&end=${encodeURIComponent(range.end)}`
+      );
     },
-    [router]
+    [router, user?.id]
   );
 
   const togglePlatform = useCallback((p: string) => {
@@ -724,7 +722,12 @@ export default function UnifiedSummaryPage() {
     return CHART_PLATFORMS.filter((p) => hasData.has(p));
   }, [data]);
 
-  const periodLabel = days === 7 ? '7d' : days === 30 ? '30d' : '90d';
+  const periodLabel = useMemo(() => {
+    const a = new Date(`${dateRange.start}T12:00:00`).getTime();
+    const b = new Date(`${dateRange.end}T12:00:00`).getTime();
+    const days = Math.max(1, Math.floor((b - a) / 86_400_000) + 1);
+    return `${days}d`;
+  }, [dateRange.start, dateRange.end]);
 
   if (!user) {
     return (
@@ -738,20 +741,44 @@ export default function UnifiedSummaryPage() {
 
   return (
     <div
+      className="space-y-4"
       style={{
-        maxWidth: 1280,
+        maxWidth: 1400,
         margin: '0 auto',
-        padding: '32px 24px 64px',
+        padding: '24px 16px 48px',
         fontFamily: 'var(--font-inter, system-ui, sans-serif)',
       }}
     >
+      <div className="w-full rounded-2xl border border-violet-200/70 bg-gradient-to-br from-violet-50/90 via-white to-rose-50/40 px-3 py-2.5 sm:px-4 sm:py-3 shadow-sm ring-1 ring-violet-100/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3">
+        <div className="min-w-0 flex-1 space-y-1">
+          <div className="flex items-center gap-1.5 text-violet-800">
+            <Sparkles className="w-3.5 h-3.5 shrink-0" aria-hidden />
+            <span className="text-[11px] font-semibold uppercase tracking-wide">Your plan</span>
+          </div>
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0">
+            <span className="text-lg font-bold text-neutral-900 tracking-tight leading-tight">Free</span>
+            <span className="text-sm text-neutral-600 leading-snug">
+              Unlock more than 30 days of history without watermarks and more analytics when you upgrade.
+            </span>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => router.push('/pricing')}
+          className="shrink-0 inline-flex w-full sm:w-auto justify-center items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-md transition-all active:scale-[0.98] gradient-cta-pro"
+        >
+          Upgrade now
+          <ArrowRight className="w-4 h-4" aria-hidden />
+        </button>
+      </div>
+
       {/* ── Header ── */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          marginBottom: 32,
+          marginBottom: 8,
           flexWrap: 'wrap',
           gap: 12,
         }}
@@ -764,7 +791,7 @@ export default function UnifiedSummaryPage() {
             Unified analytics across all your connected platforms
           </p>
         </div>
-        <DayToggle days={days} onChange={handleDaysChange} />
+        <AnalyticsDateRangePicker start={dateRange.start} end={dateRange.end} onChange={onDateRangeChange} />
       </div>
 
       {error && (
@@ -903,7 +930,7 @@ export default function UnifiedSummaryPage() {
       ) : data ? (
         <Card>
           <SectionTitle>
-            Combined Uploads History · Last {days} days
+            Combined Uploads History · {dateRange.start} to {dateRange.end}
           </SectionTitle>
           <HistoryTable rows={data.history} />
         </Card>

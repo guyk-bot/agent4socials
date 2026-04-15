@@ -73,7 +73,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | `/dashboard/settings` | `dashboard/settings/page.tsx` |
 | `/dashboard/automation` | `dashboard/automation/page.tsx` |
 | `/dashboard/smart-links` | `dashboard/smart-links/page.tsx` |
-| `/dashboard/summary` | `dashboard/summary/page.tsx` |
+| `/dashboard/summary` (Console: unified KPIs, `AnalyticsDateRangePicker`, localStorage cache `lib/dashboard-unified-summary-cache.ts`) | `dashboard/summary/page.tsx` |
 | `/dashboard/ai-assistant` | `dashboard/ai-assistant/page.tsx` |
 | `/dashboard/hashtag-pool` | `dashboard/hashtag-pool/page.tsx` |
 | `/dashboard/analytics` | `dashboard/analytics/page.tsx` |

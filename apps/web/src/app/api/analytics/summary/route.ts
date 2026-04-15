@@ -5,20 +5,30 @@ import {
   getUnifiedChartData,
   getUnifiedTopPosts,
   getUnifiedPostsHistory,
+  resolveUnifiedPeriod,
 } from '@/lib/analytics/unified-metrics';
 
 export async function GET(req: NextRequest) {
   const userId = await getPrismaUserIdFromRequest(req.headers.get('authorization'));
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const raw = req.nextUrl.searchParams.get('days');
-  const days = [7, 30, 90].includes(Number(raw)) ? Number(raw) : 30;
+  const sp = req.nextUrl.searchParams;
+  const since = sp.get('since') ?? sp.get('start');
+  const until = sp.get('until') ?? sp.get('end');
+  const rawDays = sp.get('days');
+  const days = [7, 30, 90].includes(Number(rawDays)) ? Number(rawDays) : undefined;
+
+  const period = resolveUnifiedPeriod({
+    days,
+    since: since?.trim() || null,
+    until: until?.trim() || null,
+  });
 
   const [kpi, chart, topPosts, history] = await Promise.all([
-    getUnifiedKpiSummary(userId, days),
-    getUnifiedChartData(userId, days),
-    getUnifiedTopPosts(userId, days, 5),
-    getUnifiedPostsHistory(userId, days, 60),
+    getUnifiedKpiSummary(userId, period),
+    getUnifiedChartData(userId, period),
+    getUnifiedTopPosts(userId, period, 5),
+    getUnifiedPostsHistory(userId, period, 60),
   ]);
 
   return NextResponse.json({ kpi, chart, topPosts, history });
