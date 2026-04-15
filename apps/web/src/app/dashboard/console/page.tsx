@@ -54,8 +54,6 @@ import type {
   UnifiedTopPost,
   UnifiedHistoryPost,
   UnifiedSummaryResponse,
-  UnifiedEngagementDay,
-  UnifiedActivityDay,
   UnifiedKpiSummary,
 } from '@/lib/analytics/unified-metrics-types';
 import { PLATFORM_COLOR, CHART_PLATFORMS, PLATFORM_LABEL } from '@/lib/analytics/unified-metrics-types';
@@ -143,23 +141,57 @@ function fmtTooltipDate(ymd: string): string {
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function rowMetric(row: Record<string, unknown>, key: string): number {
+  return Math.round(Number(row[key] ?? 0));
+}
+
 /**
- * X-axis ticks: show "Jan 15" on the first point of a month, then "18", "21", … until the next month ("Feb 2", …).
- * `series` must be chronological by `date` (YYYY-MM-DD).
+ * X-axis tick dates: calendar 1st (always labeled) plus any day where at least one of `metricKeys`
+ * changed vs the previous row (chronological by `date`).
  */
-function compactAxisTickFromSeries(series: Array<{ date: string }>, tick: string): string {
-  const i = series.findIndex((r) => r.date === tick);
-  const d = new Date(`${tick}T12:00:00`);
-  if (Number.isNaN(d.getTime())) return tick;
-  const mon = d.toLocaleDateString('en-US', { month: 'short' });
-  const day = d.getDate();
-  if (i <= 0) return `${mon} ${day}`;
-  const prev = series[i - 1];
-  if (!prev?.date) return `${mon} ${day}`;
-  const prevD = new Date(`${prev.date}T12:00:00`);
-  if (Number.isNaN(prevD.getTime())) return `${mon} ${day}`;
-  const sameMonth = d.getFullYear() === prevD.getFullYear() && d.getMonth() === prevD.getMonth();
-  return sameMonth ? String(day) : `${mon} ${day}`;
+function buildConsoleAxisTicks(series: Array<{ date: string }>, metricKeys: string[]): string[] {
+  if (series.length === 0) return [];
+  const sorted = [...series].sort((a, b) => a.date.localeCompare(b.date));
+  const keys = metricKeys.filter(Boolean);
+  const out = new Set<string>();
+  for (const row of sorted) {
+    const d = new Date(`${row.date}T12:00:00`);
+    if (!Number.isNaN(d.getTime()) && d.getDate() === 1) out.add(row.date);
+  }
+  if (keys.length === 0) {
+    if (out.size === 0 && sorted.length > 0) {
+      out.add(sorted[0].date);
+      if (sorted.length > 1) out.add(sorted[sorted.length - 1].date);
+    }
+    return Array.from(out).sort((a, b) => a.localeCompare(b));
+  }
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = sorted[i - 1] as unknown as Record<string, unknown>;
+    const cur = sorted[i] as unknown as Record<string, unknown>;
+    let changed = false;
+    for (const k of keys) {
+      if (rowMetric(prev, k) !== rowMetric(cur, k)) {
+        changed = true;
+        break;
+      }
+    }
+    if (changed) out.add(String(cur.date));
+  }
+  if (out.size === 0 && sorted.length > 0) {
+    out.add(sorted[0].date);
+    if (sorted.length > 1) out.add(sorted[sorted.length - 1].date);
+  }
+  return Array.from(out).sort((a, b) => a.localeCompare(b));
+}
+
+/** Label: long month on the 1st; shorter label on other tick days (event days). */
+function formatConsoleAxisTickLabel(ymd: string): string {
+  const d = new Date(`${ymd}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return ymd;
+  if (d.getDate() === 1) {
+    return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+  }
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 /** Map SocialAccount.platform (e.g. FACEBOOK) to unified chart label (e.g. Meta). */
@@ -315,12 +347,28 @@ function PlatformMixChart({
 }) {
   const growthDomain = performanceMode === 'growth' ? growthAudienceYDomain(data, activePlatforms) : undefined;
   const valueFmt = performanceMode === 'growth' ? (v: number) => fmtExactInt(v) : (v: number) => fmt(v);
-  const xTick = (v: string) => compactAxisTickFromSeries(data, v);
+  const platformKey = activePlatforms.join('|');
+  const axisTicks = useMemo(
+    () =>
+      buildConsoleAxisTicks(
+        data,
+        activePlatforms.length > 0 ? activePlatforms : ([...CHART_PLATFORMS] as string[])
+      ),
+    [data, platformKey]
+  );
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={data} margin={{ top: 8, right: 8, left: -12, bottom: 4 }}>
+      <LineChart data={data} margin={{ top: 8, right: 8, left: -12, bottom: 10 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
-        <XAxis dataKey="date" tickFormatter={xTick} tick={{ fontSize: 11, fill: COLOR.textMuted }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+        <XAxis
+          dataKey="date"
+          ticks={axisTicks}
+          tickFormatter={formatConsoleAxisTickLabel}
+          tick={{ fontSize: 10, fill: COLOR.textMuted }}
+          tickLine={false}
+          axisLine={false}
+          interval={0}
+        />
         <YAxis
           domain={growthDomain ?? ['auto', 'auto']}
           tickFormatter={(v) => valueFmt(Number(v))}
@@ -778,6 +826,15 @@ export default function UnifiedSummaryPage() {
     return CHART_PLATFORMS.map((p) => ({ platform: p, impressions: imp[p], engagement: eng[p] })).filter((x) => x.impressions > 0 || x.engagement > 0);
   }, [data]);
 
+  const engagementAxisTicks = useMemo(
+    () => buildConsoleAxisTicks(data?.engagementBreakdown ?? [], selectedEngagement),
+    [data?.engagementBreakdown, selectedEngagement.join('|')]
+  );
+  const activityAxisTicks = useMemo(
+    () => buildConsoleAxisTicks(data?.activityBreakdown ?? [], ['posts']),
+    [data?.activityBreakdown]
+  );
+
   if (!user) return <div className="flex items-center justify-center h-[60vh]" style={{ color: COLOR.textMuted }}>Sign in to view your unified analytics.</div>;
 
   const engagementStackTopKey = [...selectedEngagement].reverse().find(() => true) ?? 'likes';
@@ -942,16 +999,17 @@ export default function UnifiedSummaryPage() {
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={data.engagementBreakdown ?? []} barCategoryGap="20%" barGap={0} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                  <BarChart data={data.engagementBreakdown ?? []} barCategoryGap="20%" barGap={0} margin={{ top: 4, right: 8, left: 0, bottom: 10 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                     <XAxis
                       dataKey="date"
-                      tickFormatter={(v) => compactAxisTickFromSeries(data.engagementBreakdown ?? [], String(v))}
-                      tick={{ fill: COLOR.textMuted, fontSize: 11 }}
+                      ticks={engagementAxisTicks}
+                      tickFormatter={formatConsoleAxisTickLabel}
+                      tick={{ fill: COLOR.textMuted, fontSize: 10 }}
                       dy={8}
-                      minTickGap={28}
                       axisLine={false}
                       tickLine={false}
+                      interval={0}
                     />
                     <YAxis domain={[0, 'auto']} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                     <Tooltip contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }} // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -998,16 +1056,17 @@ export default function UnifiedSummaryPage() {
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={data.activityBreakdown ?? []}>
+                  <ComposedChart data={data.activityBreakdown ?? []} margin={{ bottom: 10 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                     <XAxis
                       dataKey="date"
-                      tickFormatter={(v) => compactAxisTickFromSeries(data.activityBreakdown ?? [], String(v))}
-                      tick={{ fill: COLOR.textMuted, fontSize: 11 }}
+                      ticks={activityAxisTicks}
+                      tickFormatter={formatConsoleAxisTickLabel}
+                      tick={{ fill: COLOR.textMuted, fontSize: 10 }}
                       dy={8}
-                      minTickGap={18}
                       axisLine={false}
                       tickLine={false}
+                      interval={0}
                     />
                     <YAxis domain={[0, 'auto']} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                     <Tooltip contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }} // eslint-disable-next-line @typescript-eslint/no-explicit-any
