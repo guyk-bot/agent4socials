@@ -183,6 +183,10 @@ function PlatformIcon({ platform, size = 16 }: { platform: string; size?: number
 
 const CONSOLE_ACCOUNT_PLATFORM_ORDER = ['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'LINKEDIN', 'PINTEREST', 'TWITTER'] as const;
 
+/** Stable fallback so `useMemo` / `useEffect` deps are not a new `[]` every render (avoids update loops). */
+const EMPTY_SOCIAL_ACCOUNTS: SocialAccount[] = [];
+const CHART_PLATFORMS_FALLBACK: string[] = [...CHART_PLATFORMS];
+
 function AccountBadgeIcon({ platform, size = 20 }: { platform: string; size?: number }) {
   const p = (platform || '').toUpperCase();
   switch (p) {
@@ -483,7 +487,7 @@ export default function UnifiedSummaryPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const accountsCache = useAccountsCache();
-  const cachedAccounts = accountsCache?.cachedAccounts ?? [];
+  const cachedAccounts = accountsCache?.cachedAccounts ?? EMPTY_SOCIAL_ACCOUNTS;
   const setSelectedAccount = useSelectedAccount()?.setSelectedAccount;
 
   const orderedAccounts = useMemo(() => {
@@ -526,11 +530,15 @@ export default function UnifiedSummaryPage() {
       if (lab) labels.add(lab);
     }
     const ordered = (CHART_PLATFORMS as readonly string[]).filter((p) => labels.has(p));
-    return ordered.length > 0 ? ordered : [...CHART_PLATFORMS];
+    return ordered.length > 0 ? ordered : CHART_PLATFORMS_FALLBACK;
   }, [orderedAccounts]);
 
   useEffect(() => {
-    setActivePlatforms([...connectedChartPlatforms]);
+    setActivePlatforms((prev) => {
+      const next = [...connectedChartPlatforms];
+      if (prev.length === next.length && prev.every((p, i) => p === next[i])) return prev;
+      return next;
+    });
   }, [performanceMode, connectedChartPlatforms]);
 
   // Engagement section
