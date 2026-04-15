@@ -35,6 +35,7 @@ import {
   Calendar,
   Sparkles,
   ArrowRight,
+  RefreshCw,
 } from 'lucide-react';
 import {
   InstagramIcon,
@@ -53,6 +54,10 @@ import type {
   UnifiedSummaryResponse,
 } from '@/lib/analytics/unified-metrics-types';
 import { PLATFORM_COLOR, CHART_PLATFORMS } from '@/lib/analytics/unified-metrics-types';
+import { useAccountsCache } from '@/context/AccountsCacheContext';
+import { useSelectedAccount } from '@/context/SelectedAccountContext';
+import type { SocialAccount } from '@/context/SelectedAccountContext';
+import { StickySectionNav, FACEBOOK_ANALYTICS_SECTION_IDS } from '@/components/analytics/facebook/FacebookAnalyticsView';
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
 
@@ -105,6 +110,54 @@ function PlatformIcon({ platform, size = 16 }: { platform: string; size?: number
     default: return null;
   }
 }
+
+const CONSOLE_ACCOUNT_PLATFORM_ORDER = [
+  'FACEBOOK',
+  'INSTAGRAM',
+  'TIKTOK',
+  'YOUTUBE',
+  'LINKEDIN',
+  'PINTEREST',
+  'TWITTER',
+] as const;
+
+function AccountBadgeIcon({ platform, size = 12 }: { platform: string; size?: number }) {
+  const p = (platform || '').toUpperCase();
+  const iconProps = { size };
+  switch (p) {
+    case 'FACEBOOK':
+      return <FacebookIcon {...iconProps} />;
+    case 'INSTAGRAM':
+      return <InstagramIcon {...iconProps} />;
+    case 'TIKTOK':
+      return <TikTokIcon {...iconProps} />;
+    case 'YOUTUBE':
+      return <YoutubeIcon {...iconProps} />;
+    case 'TWITTER':
+      return <XTwitterIcon {...iconProps} className="text-neutral-700" />;
+    case 'LINKEDIN':
+      return <LinkedinIcon {...iconProps} />;
+    case 'PINTEREST':
+      return <PinterestIcon {...iconProps} />;
+    default:
+      return <span className="text-[8px] font-bold text-neutral-400">{p.slice(0, 1) || '?'}</span>;
+  }
+}
+
+/** Matches `FacebookAnalyticsView` header tokens for a consistent shell. */
+const CONSOLE_HEADER_COLOR = {
+  text: '#111827',
+  textSecondary: '#667085',
+  violet: '#7c6cff',
+} as const;
+
+const CONSOLE_SUMMARY_NAV_SECTIONS = [
+  { id: FACEBOOK_ANALYTICS_SECTION_IDS.overview, label: 'Overview' },
+  { id: FACEBOOK_ANALYTICS_SECTION_IDS.traffic, label: 'Traffic' },
+  { id: FACEBOOK_ANALYTICS_SECTION_IDS.posts, label: 'Posts' },
+  { id: FACEBOOK_ANALYTICS_SECTION_IDS.reels, label: 'Reels' },
+  { id: FACEBOOK_ANALYTICS_SECTION_IDS.history, label: 'History' },
+] as const;
 
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
 
@@ -637,6 +690,34 @@ export default function UnifiedSummaryPage() {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const accountsCache = useAccountsCache();
+  const cachedAccounts = accountsCache?.cachedAccounts ?? [];
+  const setSelectedAccount = useSelectedAccount()?.setSelectedAccount;
+
+  const orderedAccounts = useMemo(() => {
+    const list = (cachedAccounts as SocialAccount[]).slice();
+    const orderIdx = (p: string) => {
+      const u = p.toUpperCase();
+      const i = (CONSOLE_ACCOUNT_PLATFORM_ORDER as readonly string[]).indexOf(u);
+      return i === -1 ? 99 : i;
+    };
+    list.sort((a, b) => {
+      const d = orderIdx(a.platform) - orderIdx(b.platform);
+      if (d !== 0) return d;
+      return (a.username || '').localeCompare(b.username || '');
+    });
+    return list;
+  }, [cachedAccounts]);
+
+  const goToAccountDashboard = useCallback(
+    (acc: SocialAccount) => {
+      setSelectedAccount?.(acc);
+      router.push(`/dashboard?accountId=${encodeURIComponent(acc.id)}`);
+    },
+    [router, setSelectedAccount]
+  );
+
+  const headerTitle = (user?.name?.trim() || user?.email?.split('@')[0] || 'Console').trim();
 
   const dateRange = useMemo(() => {
     const start = searchParams.get('start') ?? searchParams.get('since');
@@ -773,18 +854,96 @@ export default function UnifiedSummaryPage() {
 
       <section className="rounded-[20px] p-3 md:p-3.5" style={{ background: '#ffffff' }}>
         <div className="flex flex-wrap items-center gap-3 justify-between">
-          <div className="min-w-0">
-            <h1 className="text-xl font-semibold" style={{ color: '#111827' }}>
-              Command Center
-            </h1>
-            <p className="text-sm mt-0.5 max-w-xl leading-snug" style={{ color: '#667085' }}>
-              Unified analytics across all your connected platforms
-            </p>
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2.5">
+            <div className="flex flex-wrap items-center gap-2">
+              {orderedAccounts.length === 0 ? (
+                <div
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
+                  style={{
+                    background: '#eef2ff',
+                    color: CONSOLE_HEADER_COLOR.violet,
+                  }}
+                  aria-hidden
+                >
+                  {headerTitle.slice(0, 2).toUpperCase()}
+                </div>
+              ) : (
+                orderedAccounts.map((acc) => {
+                  const label = acc.username || acc.platform || 'Account';
+                  const initials = label.replace(/^@/, '').slice(0, 2).toUpperCase() || '?';
+                  return (
+                    <button
+                      key={acc.id}
+                      type="button"
+                      onClick={() => goToAccountDashboard(acc)}
+                      className="group shrink-0 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2"
+                      title={`Open ${label} dashboard`}
+                      aria-label={`Open ${label} dashboard`}
+                    >
+                      <span className="relative block h-11 w-11 overflow-hidden rounded-full bg-neutral-100 shadow-sm ring-2 ring-white transition-transform group-hover:scale-[1.03] group-active:scale-[0.98]">
+                        {acc.profilePicture ? (
+                          <img src={acc.profilePicture} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <span
+                            className="flex h-full w-full items-center justify-center text-xs font-semibold"
+                            style={{ background: '#eef2ff', color: CONSOLE_HEADER_COLOR.violet }}
+                          >
+                            {initials}
+                          </span>
+                        )}
+                        <span
+                          className="pointer-events-none absolute -right-0.5 -top-0.5 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-neutral-200/90 [&>svg]:shrink-0"
+                          aria-hidden
+                        >
+                          <AccountBadgeIcon platform={acc.platform} size={11} />
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+            <div className="flex min-w-0 flex-wrap items-center gap-3">
+              <div className="min-w-0">
+                <h1 className="text-xl font-semibold" style={{ color: CONSOLE_HEADER_COLOR.text }}>
+                  {headerTitle}
+                </h1>
+              </div>
+              {loading ? (
+                <span
+                  className="inline-flex items-center gap-2 text-sm font-medium"
+                  style={{ color: CONSOLE_HEADER_COLOR.textSecondary }}
+                >
+                  <RefreshCw size={13} className="animate-spin opacity-75" aria-hidden />
+                  Refreshing…
+                </span>
+              ) : (
+                <span
+                  className="inline-flex items-center gap-2 text-sm"
+                  style={{ color: CONSOLE_HEADER_COLOR.textSecondary }}
+                >
+                  <RefreshCw size={13} className="opacity-75" aria-hidden />
+                  Updated just now
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <AnalyticsDateRangePicker start={dateRange.start} end={dateRange.end} onChange={onDateRangeChange} />
           </div>
         </div>
+        <div className="mt-2">
+          <StickySectionNav
+            sections={[...CONSOLE_SUMMARY_NAV_SECTIONS]}
+            activeSection={FACEBOOK_ANALYTICS_SECTION_IDS.overview}
+            ariaLabel="Console analytics sections"
+          />
+        </div>
+        {loading && !error ? (
+          <p className="mt-2.5 text-xs font-medium animate-pulse" style={{ color: CONSOLE_HEADER_COLOR.textSecondary }}>
+            Refreshing unified analytics. Numbers and charts will update when ready.
+          </p>
+        ) : null}
       </section>
 
       {error && (
@@ -802,131 +961,139 @@ export default function UnifiedSummaryPage() {
         </div>
       )}
 
-      {/* ── KPI Grid ── */}
-      {loading ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16, marginBottom: 24 }}>
-          {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} className="" style={{ height: 140 } as React.CSSProperties} />
-          ))}
-        </div>
-      ) : data ? (
-        <div
-          style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16, marginBottom: 24 }}
-        >
-          <KpiCard
-            label="Total Audience"
-            value={fmt(data.kpi.totalAudience)}
-            growthPct={data.kpi.audienceGrowthPercentage}
-            icon={<Users size={18} />}
-            accent="#8b5cf6"
-            period={periodLabel}
-          />
-          <KpiCard
-            label="Total Impressions"
-            value={fmt(data.kpi.totalImpressions)}
-            growthPct={data.kpi.impressionsGrowthPercentage}
-            icon={<Eye size={18} />}
-            accent="#3b82f6"
-            period={periodLabel}
-          />
-          <KpiCard
-            label="Total Engagement"
-            value={fmt(data.kpi.totalEngagement)}
-            growthPct={data.kpi.engagementGrowthPercentage}
-            icon={<Heart size={18} />}
-            accent="#e1306c"
-            period={periodLabel}
-          />
-          <KpiCard
-            label="Posts Published"
-            value={fmt(data.kpi.totalPosts)}
-            growthPct={data.kpi.postsGrowthPercentage}
-            icon={<FileText size={18} />}
-            accent="#f59e0b"
-            period={periodLabel}
-          />
-        </div>
-      ) : null}
+      {/* ── KPI Grid (Overview) ── */}
+      <section id={FACEBOOK_ANALYTICS_SECTION_IDS.overview} className="scroll-mt-28 space-y-4">
+        {loading ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16, marginBottom: 24 }}>
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} className="" style={{ height: 140 } as React.CSSProperties} />
+            ))}
+          </div>
+        ) : data ? (
+          <div
+            style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16, marginBottom: 24 }}
+          >
+            <KpiCard
+              label="Total Audience"
+              value={fmt(data.kpi.totalAudience)}
+              growthPct={data.kpi.audienceGrowthPercentage}
+              icon={<Users size={18} />}
+              accent="#8b5cf6"
+              period={periodLabel}
+            />
+            <KpiCard
+              label="Total Impressions"
+              value={fmt(data.kpi.totalImpressions)}
+              growthPct={data.kpi.impressionsGrowthPercentage}
+              icon={<Eye size={18} />}
+              accent="#3b82f6"
+              period={periodLabel}
+            />
+            <KpiCard
+              label="Total Engagement"
+              value={fmt(data.kpi.totalEngagement)}
+              growthPct={data.kpi.engagementGrowthPercentage}
+              icon={<Heart size={18} />}
+              accent="#e1306c"
+              period={periodLabel}
+            />
+            <KpiCard
+              label="Posts Published"
+              value={fmt(data.kpi.totalPosts)}
+              growthPct={data.kpi.postsGrowthPercentage}
+              icon={<FileText size={18} />}
+              accent="#f59e0b"
+              period={periodLabel}
+            />
+          </div>
+        ) : null}
+      </section>
 
-      {/* ── Platform Mix Chart + Top Posts (2-col) ── */}
-      {loading ? (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 16, marginBottom: 24 }}>
-          <Skeleton className="" style={{ height: 380 } as React.CSSProperties} />
-          <Skeleton className="" style={{ height: 380 } as React.CSSProperties} />
-        </div>
-      ) : data ? (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'minmax(0, 1fr) 340px',
-            gap: 16,
-            marginBottom: 24,
-          }}
-        >
-          {/* Platform Mix */}
-          <Card>
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
-              <SectionTitle>Platform Mix · Impressions</SectionTitle>
-              <PlatformLegend
-                all={platformsWithData.length > 0 ? (platformsWithData as string[]) : ([...CHART_PLATFORMS] as string[])}
-                activePlatforms={activePlatforms}
-                toggle={togglePlatform}
-              />
-            </div>
-            {data.chart.every((row) => activePlatforms.every((p) => (row[p] as number) === 0)) ? (
-              <div
-                style={{
-                  height: 280,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#94a3b8',
-                  fontSize: 14,
-                }}
-              >
-                No impression data for this period.
-                <br />
-                Post some content to see it here!
-              </div>
-            ) : (
-              <PlatformMixChart
-                data={data.chart}
-                activePlatforms={activePlatforms.filter((p) =>
-                  platformsWithData.length > 0 ? (platformsWithData as string[]).includes(p) : true
+      {/* ── Platform Mix + Top Posts (Traffic / Posts; Reels scroll target wraps grid) ── */}
+      <section id={FACEBOOK_ANALYTICS_SECTION_IDS.reels} className="scroll-mt-28 space-y-4">
+        {loading ? (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 16, marginBottom: 24 }}>
+            <Skeleton className="" style={{ height: 380 } as React.CSSProperties} />
+            <Skeleton className="" style={{ height: 380 } as React.CSSProperties} />
+          </div>
+        ) : data ? (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'minmax(0, 1fr) 340px',
+              gap: 16,
+              marginBottom: 24,
+            }}
+          >
+            <section id={FACEBOOK_ANALYTICS_SECTION_IDS.traffic} className="min-w-0 scroll-mt-28 space-y-4">
+              <Card>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+                  <SectionTitle>Platform Mix · Impressions</SectionTitle>
+                  <PlatformLegend
+                    all={platformsWithData.length > 0 ? (platformsWithData as string[]) : ([...CHART_PLATFORMS] as string[])}
+                    activePlatforms={activePlatforms}
+                    toggle={togglePlatform}
+                  />
+                </div>
+                {data.chart.every((row) => activePlatforms.every((p) => (row[p] as number) === 0)) ? (
+                  <div
+                    style={{
+                      height: 280,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#94a3b8',
+                      fontSize: 14,
+                    }}
+                  >
+                    No impression data for this period.
+                    <br />
+                    Post some content to see it here!
+                  </div>
+                ) : (
+                  <PlatformMixChart
+                    data={data.chart}
+                    activePlatforms={activePlatforms.filter((p) =>
+                      platformsWithData.length > 0 ? (platformsWithData as string[]).includes(p) : true
+                    )}
+                  />
                 )}
-              />
-            )}
-          </Card>
+              </Card>
+            </section>
 
-          {/* Top Posts */}
-          <Card style={{ overflow: 'hidden' }}>
-            <SectionTitle>Top Posts</SectionTitle>
-            {data.topPosts.length === 0 ? (
-              <div style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: '32px 0' }}>
-                No posts found in this period.
-              </div>
-            ) : (
-              <div>
-                {data.topPosts.map((post, i) => (
-                  <TopPostCard key={post.id} post={post} rank={i + 1} />
-                ))}
-              </div>
-            )}
-          </Card>
-        </div>
-      ) : null}
+            <section id={FACEBOOK_ANALYTICS_SECTION_IDS.posts} className="min-w-0 scroll-mt-28 space-y-4">
+              <Card style={{ overflow: 'hidden' }}>
+                <SectionTitle>Top Posts</SectionTitle>
+                {data.topPosts.length === 0 ? (
+                  <div style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: '32px 0' }}>
+                    No posts found in this period.
+                  </div>
+                ) : (
+                  <div>
+                    {data.topPosts.map((post, i) => (
+                      <TopPostCard key={post.id} post={post} rank={i + 1} />
+                    ))}
+                  </div>
+                )}
+              </Card>
+            </section>
+          </div>
+        ) : null}
+      </section>
 
       {/* ── Combined History ── */}
-      {loading ? (
-        <Skeleton className="" style={{ height: 400 } as React.CSSProperties} />
-      ) : data ? (
-        <Card>
-          <SectionTitle>
-            Combined Uploads History · {dateRange.start} to {dateRange.end}
-          </SectionTitle>
-          <HistoryTable rows={data.history} />
-        </Card>
-      ) : null}
+      <section id={FACEBOOK_ANALYTICS_SECTION_IDS.history} className="scroll-mt-28 space-y-4">
+        {loading ? (
+          <Skeleton className="" style={{ height: 400 } as React.CSSProperties} />
+        ) : data ? (
+          <Card>
+            <SectionTitle>
+              Combined Uploads History · {dateRange.start} to {dateRange.end}
+            </SectionTitle>
+            <HistoryTable rows={data.history} />
+          </Card>
+        ) : null}
+      </section>
     </div>
   );
 }

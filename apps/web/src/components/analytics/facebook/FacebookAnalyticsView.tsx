@@ -1851,15 +1851,18 @@ export function ReelsPerformanceGrid({
 export function StickySectionNav({
   sections,
   activeSection,
+  ariaLabel = 'Analytics sections',
 }: {
   sections: Array<{ id: SectionId; label: string }>;
   activeSection: SectionId;
+  /** e.g. Console vs per-platform dashboard for screen readers */
+  ariaLabel?: string;
 }) {
   return (
     <nav
       className="sticky z-30 rounded-2xl px-2 py-2 backdrop-blur-[10px]"
       style={{ top: 72, background: 'rgba(255,255,255,0.92)', boxShadow: '0 1px 10px rgba(15,23,42,0.06)' }}
-      aria-label="Facebook analytics sections"
+      aria-label={ariaLabel}
     >
       <div className="flex flex-wrap gap-2">
         {sections.map((sec) => (
@@ -3738,7 +3741,7 @@ export function FacebookAnalyticsView({
           </div>
         </div>
         <div className="mt-2">
-          <StickySectionNav sections={sections} activeSection={activeSection} />
+          <StickySectionNav sections={sections} activeSection={activeSection} ariaLabel="Facebook analytics sections" />
         </div>
         {postsLoading && !insightsLoading ? (
           <p className="mt-2.5 text-xs font-medium animate-pulse" style={{ color: COLOR.textSecondary }}>
