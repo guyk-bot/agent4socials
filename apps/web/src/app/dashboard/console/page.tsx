@@ -20,6 +20,10 @@ import {
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
+  Line,
+  ComposedChart,
+  Bar,
+  BarChart,
 } from 'recharts';
 import {
   Users,
@@ -33,6 +37,9 @@ import {
   Sparkles,
   ArrowRight,
   RefreshCw,
+  TrendingUp,
+  TrendingDown,
+  Minus,
 } from 'lucide-react';
 import {
   InstagramIcon,
@@ -48,14 +55,48 @@ import type {
   UnifiedTopPost,
   UnifiedHistoryPost,
   UnifiedSummaryResponse,
+  UnifiedEngagementDay,
+  UnifiedActivityDay,
 } from '@/lib/analytics/unified-metrics-types';
 import { PLATFORM_COLOR, CHART_PLATFORMS } from '@/lib/analytics/unified-metrics-types';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import type { SocialAccount } from '@/context/SelectedAccountContext';
-import { StickySectionNav, FACEBOOK_ANALYTICS_SECTION_IDS } from '@/components/analytics/facebook/FacebookAnalyticsView';
-import { AnalyticsKpiCard } from '@/components/analytics/AnalyticsKpiCard';
-import { AnalyticsNoticeBanner } from '@/components/analytics/AnalyticsNoticeBanner';
+import {
+  StickySectionNav,
+  FACEBOOK_ANALYTICS_SECTION_IDS,
+  MetricCard,
+  InsightChartCard,
+} from '@/components/analytics/facebook/FacebookAnalyticsView';
+
+// ─── Shared color tokens (identical to FacebookAnalyticsView COLOR) ───────────
+
+const COLOR = {
+  pageBg: '#f6f7fb',
+  section: '#ffffff',
+  card: '#ffffff',
+  border: 'rgba(17,24,39,0.06)',
+  text: '#111827',
+  textSecondary: '#667085',
+  textMuted: '#98a2b3',
+  violet: '#7c6cff',
+  mint: '#31c48d',
+  amber: '#f5b942',
+  coral: '#ff8b7b',
+  magenta: '#d946ef',
+  cyan: '#6366f1',
+} as const;
+
+const ENGAGEMENT_COLORS = {
+  likes: '#7c6cff',
+  comments: '#f5b942',
+  shares: '#31c48d',
+  reposts: '#ff8b7b',
+} as const;
+
+const ACTIVITY_COLORS = {
+  posts: '#f5b942',
+} as const;
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
 
@@ -79,7 +120,7 @@ function fmtAxisDate(iso: string): string {
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
-function Skeleton({ className = '', style }: { className?: string; style?: React.CSSProperties }) {
+function Skeleton({ className = '' }: { className?: string }) {
   return (
     <div
       className={`rounded-xl ${className}`}
@@ -87,110 +128,79 @@ function Skeleton({ className = '', style }: { className?: string; style?: React
         background: 'linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%)',
         backgroundSize: '200% 100%',
         animation: 'shimmer 1.6s ease-in-out infinite',
-        ...style,
       }}
     />
   );
 }
 
-// ─── Platform Icon ────────────────────────────────────────────────────────────
+// ─── Platform icon helpers ────────────────────────────────────────────────────
 
 function PlatformIcon({ platform, size = 16 }: { platform: string; size?: number }) {
-  const props = { size };
   switch (platform) {
-    case 'Instagram': return <InstagramIcon {...props} />;
-    case 'Meta': return <FacebookIcon {...props} />;
-    case 'X': return <XTwitterIcon {...props} className="text-neutral-700" />;
-    case 'LinkedIn': return <LinkedinIcon {...props} />;
-    case 'YouTube': return <YoutubeIcon {...props} />;
-    case 'TikTok': return <TikTokIcon {...props} />;
-    case 'Pinterest': return <PinterestIcon {...props} />;
+    case 'Instagram': return <InstagramIcon size={size} />;
+    case 'Meta': return <FacebookIcon size={size} />;
+    case 'X': return <XTwitterIcon size={size} className="text-neutral-700" />;
+    case 'LinkedIn': return <LinkedinIcon size={size} />;
+    case 'YouTube': return <YoutubeIcon size={size} />;
+    case 'TikTok': return <TikTokIcon size={size} />;
+    case 'Pinterest': return <PinterestIcon size={size} />;
     default: return null;
   }
 }
 
-const CONSOLE_ACCOUNT_PLATFORM_ORDER = [
-  'FACEBOOK',
-  'INSTAGRAM',
-  'TIKTOK',
-  'YOUTUBE',
-  'LINKEDIN',
-  'PINTEREST',
-  'TWITTER',
-] as const;
+const CONSOLE_ACCOUNT_PLATFORM_ORDER = ['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'LINKEDIN', 'PINTEREST', 'TWITTER'] as const;
 
-/** Same full-color logos as the sidebar; slightly larger than sidebar row icons so the badge reads on avatars. */
 function AccountBadgeIcon({ platform, size = 20 }: { platform: string; size?: number }) {
   const p = (platform || '').toUpperCase();
-  const iconProps = { size };
   switch (p) {
-    case 'FACEBOOK':
-      return <FacebookIcon {...iconProps} />;
-    case 'INSTAGRAM':
-      return <InstagramIcon {...iconProps} />;
-    case 'TIKTOK':
-      return <TikTokIcon {...iconProps} />;
-    case 'YOUTUBE':
-      return <YoutubeIcon {...iconProps} />;
-    case 'TWITTER':
-      return <XTwitterIcon {...iconProps} className="text-neutral-800" />;
-    case 'LINKEDIN':
-      return <LinkedinIcon {...iconProps} />;
-    case 'PINTEREST':
-      return <PinterestIcon {...iconProps} />;
-    default:
-      return <span className="text-[8px] font-bold text-neutral-400">{p.slice(0, 1) || '?'}</span>;
+    case 'FACEBOOK': return <FacebookIcon size={size} />;
+    case 'INSTAGRAM': return <InstagramIcon size={size} />;
+    case 'TIKTOK': return <TikTokIcon size={size} />;
+    case 'YOUTUBE': return <YoutubeIcon size={size} />;
+    case 'TWITTER': return <XTwitterIcon size={size} className="text-neutral-800" />;
+    case 'LINKEDIN': return <LinkedinIcon size={size} />;
+    case 'PINTEREST': return <PinterestIcon size={size} />;
+    default: return <span className="text-[8px] font-bold text-neutral-400">{p.slice(0, 1) || '?'}</span>;
   }
 }
 
-/** Matches `FacebookAnalyticsView` header tokens for a consistent shell. */
-const CONSOLE_HEADER_COLOR = {
-  textSecondary: '#667085',
-  violet: '#7c6cff',
-} as const;
+// ─── KPI Card (original colored style) ────────────────────────────────────────
 
-const CONSOLE_SUMMARY_NAV_SECTIONS = [
-  { id: FACEBOOK_ANALYTICS_SECTION_IDS.overview, label: 'Overview' },
-  { id: FACEBOOK_ANALYTICS_SECTION_IDS.traffic, label: 'Traffic' },
-  { id: FACEBOOK_ANALYTICS_SECTION_IDS.posts, label: 'Posts' },
-  { id: FACEBOOK_ANALYTICS_SECTION_IDS.reels, label: 'Reels' },
-  { id: FACEBOOK_ANALYTICS_SECTION_IDS.history, label: 'History' },
-] as const;
-
-/** Same tokens as `FacebookAnalyticsView` so Console matches per-account dashboards. */
-const ANALYTICS_COLOR = {
-  pageBg: '#f6f7fb',
-  section: '#ffffff',
-  card: '#ffffff',
-  border: 'rgba(17,24,39,0.06)',
-  text: '#111827',
-  textSecondary: '#667085',
-  textMuted: '#98a2b3',
-  violet: '#7c6cff',
-} as const;
-
-function kpiTrend(growthPct: number, period: string): { direction: 'up' | 'down'; value: string } {
+function KpiCard({ label, value, growthPct, icon, accent, period }: {
+  label: string; value: string; growthPct: number; icon: React.ReactNode; accent: string; period: string;
+}) {
+  const positive = growthPct >= 0;
   const noChange = Math.abs(growthPct) < 0.05;
-  if (noChange) return { direction: 'up', value: `No change vs prev ${period}` };
-  return {
-    direction: growthPct >= 0 ? 'up' : 'down',
-    value: `${fmtPct(growthPct)} vs prev ${period}`,
-  };
+  return (
+    <div style={{
+      background: '#ffffff', border: '1px solid rgba(0,0,0,0.07)', borderRadius: 20,
+      padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 12,
+      boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 13, fontWeight: 500, color: '#64748b', letterSpacing: 0.2 }}>{label}</span>
+        <div style={{
+          width: 36, height: 36, borderRadius: 10, background: `${accent}18`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', color: accent,
+        }}>{icon}</div>
+      </div>
+      <div style={{ fontSize: 34, fontWeight: 700, color: '#0f172a', lineHeight: 1 }}>{value}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        {noChange ? <Minus size={14} color="#94a3b8" /> : positive ? <TrendingUp size={14} color="#22c55e" /> : <TrendingDown size={14} color="#ef4444" />}
+        <span style={{ fontSize: 12, fontWeight: 600, color: noChange ? '#94a3b8' : positive ? '#22c55e' : '#ef4444' }}>
+          {noChange ? 'No change' : fmtPct(growthPct)}
+        </span>
+        <span style={{ fontSize: 12, color: '#94a3b8' }}>vs prev {period}</span>
+      </div>
+    </div>
+  );
 }
 
-// ─── Platform Mix Chart ────────────────────────────────────────────────────────
+// ─── Platform Mix stacked area chart ──────────────────────────────────────────
 
-const AREA_OPACITY = 0.55;
-
-function PlatformMixChart({
-  data,
-  activePlatforms,
-}: {
-  data: UnifiedChartData;
-  activePlatforms: string[];
-}) {
+function PlatformMixChart({ data, activePlatforms }: { data: UnifiedChartData; activePlatforms: string[] }) {
   return (
-    <ResponsiveContainer width="100%" height={280}>
+    <ResponsiveContainer width="100%" height="100%">
       <AreaChart data={data} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
         <defs>
           {activePlatforms.map((p) => (
@@ -201,380 +211,119 @@ function PlatformMixChart({
           ))}
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
-        <XAxis
-          dataKey="date"
-          tickFormatter={fmtAxisDate}
-          tick={{ fontSize: 11, fill: '#94a3b8' }}
-          tickLine={false}
-          axisLine={false}
-          interval="preserveStartEnd"
-        />
-        <YAxis
-          tickFormatter={(v) => fmt(v)}
-          tick={{ fontSize: 11, fill: '#94a3b8' }}
-          tickLine={false}
-          axisLine={false}
-          width={48}
-        />
+        <XAxis dataKey="date" tickFormatter={fmtAxisDate} tick={{ fontSize: 11, fill: COLOR.textMuted }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+        <YAxis tickFormatter={(v) => fmt(v)} tick={{ fontSize: 11, fill: COLOR.textMuted }} tickLine={false} axisLine={false} width={48} />
         <Tooltip
-          contentStyle={{
-            background: '#fff',
-            border: '1px solid rgba(0,0,0,0.08)',
-            borderRadius: 12,
-            fontSize: 12,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-          }}
+          contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
           labelFormatter={(v) => fmtAxisDate(String(v))}
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          formatter={(value: any, name: any) => [fmt(value ?? 0), name ?? '']}
+          formatter={(value: number, name: string) => [fmt(value ?? 0), name ?? '']}
         />
         {activePlatforms.map((p) => (
-          <Area
-            key={p}
-            type="monotone"
-            dataKey={p}
-            stackId="1"
-            stroke={PLATFORM_COLOR[p]}
-            strokeWidth={1.5}
-            fill={`url(#grad-${p})`}
-            fillOpacity={AREA_OPACITY}
-            dot={false}
-            activeDot={{ r: 4, strokeWidth: 0 }}
-          />
+          <Area key={p} type="monotone" dataKey={p} stackId="1" stroke={PLATFORM_COLOR[p]} strokeWidth={1.5} fill={`url(#grad-${p})`} fillOpacity={0.55} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
         ))}
       </AreaChart>
     </ResponsiveContainer>
   );
 }
 
-// ─── Platform Legend Pills ─────────────────────────────────────────────────────
+// ─── Legend pills ─────────────────────────────────────────────────────────────
 
-function PlatformLegend({
-  activePlatforms,
-  toggle,
-  all,
-}: {
-  activePlatforms: string[];
-  toggle: (p: string) => void;
-  all: string[];
-}) {
+function LegendPill({ label, color, active, onClick }: { label: string; color: string; active: boolean; onClick: () => void }) {
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-      {all.map((p) => {
-        const active = activePlatforms.includes(p);
-        return (
-          <button
-            key={p}
-            onClick={() => toggle(p)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '4px 10px',
-              borderRadius: 20,
-              border: `1.5px solid ${active ? PLATFORM_COLOR[p] : 'rgba(0,0,0,0.1)'}`,
-              background: active ? `${PLATFORM_COLOR[p]}12` : 'transparent',
-              cursor: 'pointer',
-              transition: 'all 0.15s',
-              fontSize: 12,
-              fontWeight: 500,
-              color: active ? PLATFORM_COLOR[p] : '#94a3b8',
-            }}
-          >
-            <span
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                background: active ? PLATFORM_COLOR[p] : '#d1d5db',
-                display: 'inline-block',
-              }}
-            />
-            {p}
-          </button>
-        );
-      })}
+    <button type="button" onClick={onClick} className="rounded-full border px-2.5 py-1 text-xs transition-colors" style={{
+      borderColor: active ? color : COLOR.border, color: active ? color : COLOR.textMuted,
+      background: active ? `${color}12` : 'rgba(255,255,255,0.02)',
+    }}>
+      <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ background: active ? color : '#d1d5db' }} />
+      {label}
+    </button>
+  );
+}
+
+function PlatformLegend({ activePlatforms, toggle, all }: { activePlatforms: string[]; toggle: (p: string) => void; all: string[] }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {all.map((p) => (
+        <LegendPill key={p} label={p} color={PLATFORM_COLOR[p]} active={activePlatforms.includes(p)} onClick={() => toggle(p)} />
+      ))}
     </div>
   );
 }
 
-// ─── Top Posts Feed ────────────────────────────────────────────────────────────
+// ─── Top Posts ─────────────────────────────────────────────────────────────────
 
 function TopPostCard({ post, rank }: { post: UnifiedTopPost; rank: number }) {
   const color = PLATFORM_COLOR[post.platform] ?? '#8b5cf6';
   return (
-    <div
-      style={{
-        display: 'flex',
-        gap: 14,
-        padding: '14px 0',
-        borderBottom: '1px solid rgba(0,0,0,0.06)',
-        alignItems: 'flex-start',
-      }}
-    >
-      {/* Rank */}
-      <div
-        style={{
-          minWidth: 28,
-          height: 28,
-          borderRadius: 8,
-          background: rank <= 3 ? `${color}18` : '#f1f5f9',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: 12,
-          fontWeight: 700,
-          color: rank <= 3 ? color : '#94a3b8',
-        }}
-      >
-        {rank}
-      </div>
-
-      {/* Thumbnail */}
-      {post.thumbnailUrl ? (
-        <img
-          src={post.thumbnailUrl}
-          alt=""
-          style={{ width: 48, height: 48, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }}
-        />
-      ) : (
-        <div
-          style={{
-            width: 48,
-            height: 48,
-            borderRadius: 10,
-            background: `${color}12`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color,
-            flexShrink: 0,
-          }}
-        >
-          <FileText size={18} />
-        </div>
+    <div className="flex gap-3.5 py-3.5 items-start" style={{ borderBottom: `1px solid ${COLOR.border}` }}>
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold" style={{ background: rank <= 3 ? `${color}18` : '#f1f5f9', color: rank <= 3 ? color : COLOR.textMuted }}>{rank}</div>
+      {post.thumbnailUrl ? <img src={post.thumbnailUrl} alt="" className="w-12 h-12 rounded-[10px] object-cover shrink-0" /> : (
+        <div className="flex w-12 h-12 shrink-0 items-center justify-center rounded-[10px]" style={{ background: `${color}12`, color }}><FileText size={18} /></div>
       )}
-
-      {/* Content */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5 mb-1">
           <PlatformIcon platform={post.platform} size={13} />
-          <span style={{ fontSize: 11, fontWeight: 600, color }}>
-            {post.platform}
-          </span>
-          <span style={{ fontSize: 11, color: '#94a3b8', marginLeft: 'auto' }}>
-            {fmtDate(post.postedAt)}
-          </span>
+          <span className="text-[11px] font-semibold" style={{ color }}>{post.platform}</span>
+          <span className="text-[11px] ml-auto" style={{ color: COLOR.textMuted }}>{fmtDate(post.postedAt)}</span>
         </div>
-        <p
-          style={{
-            fontSize: 13,
-            color: '#334155',
-            margin: 0,
-            overflow: 'hidden',
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
-            lineHeight: 1.4,
-          }}
-        >
-          {post.caption || '(no caption)'}
-        </p>
-        <div style={{ display: 'flex', gap: 14, marginTop: 6 }}>
-          <Stat icon={<Heart size={11} />} value={fmt(post.likes)} />
-          <Stat icon={<Eye size={11} />} value={fmt(post.impressions)} />
-          {post.url && (
-            <a href={post.url} target="_blank" rel="noopener noreferrer" style={{ marginLeft: 'auto' }}>
-              <ExternalLink size={12} color="#94a3b8" />
-            </a>
-          )}
+        <p className="text-[13px] m-0 leading-snug line-clamp-2" style={{ color: COLOR.text }}>{post.caption || '(no caption)'}</p>
+        <div className="flex gap-3.5 mt-1.5">
+          <span className="flex items-center gap-1 text-[11px]" style={{ color: COLOR.textMuted }}><Heart size={11} />{fmt(post.likes)}</span>
+          <span className="flex items-center gap-1 text-[11px]" style={{ color: COLOR.textMuted }}><Eye size={11} />{fmt(post.impressions)}</span>
+          {post.url && <a href={post.url} target="_blank" rel="noopener noreferrer" className="ml-auto"><ExternalLink size={12} color={COLOR.textMuted} /></a>}
         </div>
       </div>
     </div>
   );
 }
 
-function Stat({ icon, value }: { icon: React.ReactNode; value: string }) {
-  return (
-    <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: '#94a3b8' }}>
-      {icon}
-      {value}
-    </span>
-  );
-}
+// ─── History table ────────────────────────────────────────────────────────────
 
-// ─── Combined History Table ────────────────────────────────────────────────────
-
-const MEDIA_ICON: Record<string, React.ReactNode> = {
-  VIDEO: <Film size={12} />,
-  IMAGE: <ImageIcon size={12} />,
-  REEL: <Film size={12} />,
-};
+const MEDIA_ICON: Record<string, React.ReactNode> = { VIDEO: <Film size={12} />, IMAGE: <ImageIcon size={12} />, REEL: <Film size={12} /> };
 
 function HistoryTable({ rows }: { rows: UnifiedHistoryPost[] }) {
   const [filter, setFilter] = useState<string>('All');
-  const platforms = useMemo(() => {
-    const set = new Set(rows.map((r) => r.platform));
-    return ['All', ...Array.from(set)];
-  }, [rows]);
-
+  const platforms = useMemo(() => ['All', ...Array.from(new Set(rows.map((r) => r.platform)))], [rows]);
   const visible = filter === 'All' ? rows : rows.filter((r) => r.platform === filter);
-
   return (
     <div>
-      {/* Platform filter */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
+      <div className="flex flex-wrap gap-1.5 mb-4">
         {platforms.map((p) => (
-          <button
-            key={p}
-            onClick={() => setFilter(p)}
-            style={{
-              padding: '4px 12px',
-              borderRadius: 20,
-              border: `1.5px solid ${filter === p ? (PLATFORM_COLOR[p] ?? '#8b5cf6') : 'rgba(0,0,0,0.1)'}`,
-              background: filter === p ? `${PLATFORM_COLOR[p] ?? '#8b5cf6'}12` : 'transparent',
-              cursor: 'pointer',
-              fontSize: 12,
-              fontWeight: 500,
-              color: filter === p ? (PLATFORM_COLOR[p] ?? '#8b5cf6') : '#64748b',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 5,
-            }}
-          >
-            {p !== 'All' && <PlatformIcon platform={p} size={12} />}
-            {p}
-          </button>
+          <LegendPill key={p} label={p} color={PLATFORM_COLOR[p] ?? '#8b5cf6'} active={filter === p} onClick={() => setFilter(p)} />
         ))}
       </div>
-
-      {/* Table */}
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-[13px]">
           <thead>
-            <tr style={{ borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
+            <tr style={{ borderBottom: `1px solid ${COLOR.border}` }}>
               {['Platform', 'Post', 'Type', 'Date', 'Impressions', 'Likes', 'Comments', 'Shares', 'Engagement'].map((h) => (
-                <th
-                  key={h}
-                  style={{
-                    padding: '8px 12px',
-                    textAlign: 'left',
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: '#94a3b8',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {h}
-                </th>
+                <th key={h} className="py-2 px-3 text-left text-[11px] font-semibold whitespace-nowrap" style={{ color: COLOR.textMuted }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {visible.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={9}
-                  style={{ padding: '32px 12px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}
-                >
-                  No posts in this period
-                </td>
-              </tr>
-            ) : (
-              visible.map((row) => {
-                const color = PLATFORM_COLOR[row.platform] ?? '#8b5cf6';
-                return (
-                  <tr
-                    key={row.id}
-                    style={{ borderBottom: '1px solid rgba(0,0,0,0.04)' }}
-                  >
-                    {/* Platform */}
-                    <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                        <PlatformIcon platform={row.platform} size={13} />
-                        <span style={{ fontSize: 12, fontWeight: 500, color }}>{row.platform}</span>
-                      </div>
-                    </td>
-                    {/* Post */}
-                    <td style={{ padding: '10px 12px', maxWidth: 240 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        {row.thumbnailUrl ? (
-                          <img
-                            src={row.thumbnailUrl}
-                            alt=""
-                            style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }}
-                          />
-                        ) : (
-                          <div
-                            style={{
-                              width: 32,
-                              height: 32,
-                              borderRadius: 6,
-                              background: `${color}12`,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              color,
-                              flexShrink: 0,
-                            }}
-                          >
-                            <FileText size={13} />
-                          </div>
-                        )}
-                        <span
-                          style={{
-                            color: '#334155',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            maxWidth: 180,
-                            display: 'block',
-                          }}
-                        >
-                          {row.caption || '(no caption)'}
-                        </span>
-                        {row.url && (
-                          <a href={row.url} target="_blank" rel="noopener noreferrer">
-                            <ExternalLink size={11} color="#94a3b8" />
-                          </a>
-                        )}
-                      </div>
-                    </td>
-                    {/* Type */}
-                    <td style={{ padding: '10px 12px' }}>
-                      <span
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 3,
-                          fontSize: 11,
-                          color: '#64748b',
-                          background: '#f1f5f9',
-                          borderRadius: 6,
-                          padding: '2px 7px',
-                        }}
-                      >
-                        {MEDIA_ICON[row.mediaType ?? ''] ?? <FileText size={12} />}
-                        {row.mediaType ?? 'Post'}
-                      </span>
-                    </td>
-                    {/* Date */}
-                    <td style={{ padding: '10px 12px', color: '#64748b', whiteSpace: 'nowrap', fontSize: 12 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <Calendar size={11} />
-                        {fmtDate(row.postedAt)}
-                      </div>
-                    </td>
-                    {/* Metrics */}
-                    {[row.impressions, row.likes, row.comments, row.shares, row.totalEngagement].map((v, i) => (
-                      <td key={i} style={{ padding: '10px 12px', color: '#0f172a', fontWeight: i === 4 ? 600 : 400 }}>
-                        {fmt(v)}
-                      </td>
-                    ))}
-                  </tr>
-                );
-              })
-            )}
+              <tr><td colSpan={9} className="py-8 text-center text-sm" style={{ color: COLOR.textMuted }}>No posts in this period</td></tr>
+            ) : visible.map((row) => {
+              const c = PLATFORM_COLOR[row.platform] ?? '#8b5cf6';
+              return (
+                <tr key={row.id} style={{ borderBottom: `1px solid ${COLOR.border}` }}>
+                  <td className="py-2.5 px-3 whitespace-nowrap"><span className="flex items-center gap-1.5"><PlatformIcon platform={row.platform} size={13} /><span className="text-xs font-medium" style={{ color: c }}>{row.platform}</span></span></td>
+                  <td className="py-2.5 px-3 max-w-[240px]">
+                    <span className="flex items-center gap-2">
+                      {row.thumbnailUrl ? <img src={row.thumbnailUrl} alt="" className="w-8 h-8 rounded-md object-cover shrink-0" /> : <div className="flex w-8 h-8 rounded-md items-center justify-center shrink-0" style={{ background: `${c}12`, color: c }}><FileText size={13} /></div>}
+                      <span className="truncate max-w-[180px] block" style={{ color: COLOR.text }}>{row.caption || '(no caption)'}</span>
+                      {row.url && <a href={row.url} target="_blank" rel="noopener noreferrer"><ExternalLink size={11} color={COLOR.textMuted} /></a>}
+                    </span>
+                  </td>
+                  <td className="py-2.5 px-3"><span className="inline-flex items-center gap-1 text-[11px] rounded-md px-1.5 py-0.5" style={{ background: '#f1f5f9', color: COLOR.textSecondary }}>{MEDIA_ICON[row.mediaType ?? ''] ?? <FileText size={12} />}{row.mediaType ?? 'Post'}</span></td>
+                  <td className="py-2.5 px-3 whitespace-nowrap text-xs" style={{ color: COLOR.textSecondary }}><span className="flex items-center gap-1"><Calendar size={11} />{fmtDate(row.postedAt)}</span></td>
+                  {[row.impressions, row.likes, row.comments, row.shares, row.totalEngagement].map((v, i) => (
+                    <td key={i} className="py-2.5 px-3 tabular-nums" style={{ color: COLOR.text, fontWeight: i === 4 ? 600 : 400 }}>{fmt(v)}</td>
+                  ))}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -582,31 +331,27 @@ function HistoryTable({ rows }: { rows: UnifiedHistoryPost[] }) {
   );
 }
 
-/** Rounded analytics card shell (matches `FacebookAnalyticsView` overview sections). */
+// ─── Shell card (matches FacebookAnalyticsView section blocks) ────────────────
+
 function ShellCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div
-      className={`rounded-[20px] border p-4 sm:p-5 ${className}`}
-      style={{
-        borderColor: ANALYTICS_COLOR.border,
-        background: ANALYTICS_COLOR.card,
-        boxShadow: '0 4px 22px rgba(15,23,42,0.06)',
-      }}
-    >
+    <div className={`rounded-[20px] border p-4 sm:p-5 ${className}`} style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
       {children}
     </div>
   );
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <h2 className="text-base font-semibold m-0 mb-3" style={{ color: ANALYTICS_COLOR.text }}>
-      {children}
-    </h2>
-  );
-}
+// ─── Section nav labels ───────────────────────────────────────────────────────
 
-// ─── Main Page ─────────────────────────────────────────────────────────────────
+const CONSOLE_NAV_SECTIONS = [
+  { id: FACEBOOK_ANALYTICS_SECTION_IDS.overview, label: 'Overview' },
+  { id: FACEBOOK_ANALYTICS_SECTION_IDS.traffic, label: 'Traffic' },
+  { id: FACEBOOK_ANALYTICS_SECTION_IDS.posts, label: 'Posts' },
+  { id: FACEBOOK_ANALYTICS_SECTION_IDS.reels, label: 'Reels' },
+  { id: FACEBOOK_ANALYTICS_SECTION_IDS.history, label: 'History' },
+] as const;
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 function rangeFromDaysParam(days: number): { start: string; end: string } {
   const end = new Date();
@@ -625,111 +370,69 @@ export default function UnifiedSummaryPage() {
 
   const orderedAccounts = useMemo(() => {
     const list = (cachedAccounts as SocialAccount[]).slice();
-    const orderIdx = (p: string) => {
-      const u = p.toUpperCase();
-      const i = (CONSOLE_ACCOUNT_PLATFORM_ORDER as readonly string[]).indexOf(u);
-      return i === -1 ? 99 : i;
-    };
-    list.sort((a, b) => {
-      const d = orderIdx(a.platform) - orderIdx(b.platform);
-      if (d !== 0) return d;
-      return (a.username || '').localeCompare(b.username || '');
-    });
+    const orderIdx = (p: string) => { const i = (CONSOLE_ACCOUNT_PLATFORM_ORDER as readonly string[]).indexOf(p.toUpperCase()); return i === -1 ? 99 : i; };
+    list.sort((a, b) => { const d = orderIdx(a.platform) - orderIdx(b.platform); return d !== 0 ? d : (a.username || '').localeCompare(b.username || ''); });
     return list;
   }, [cachedAccounts]);
 
-  const goToAccountDashboard = useCallback(
-    (acc: SocialAccount) => {
-      setSelectedAccount?.(acc);
-      router.push(`/dashboard?accountId=${encodeURIComponent(acc.id)}`);
-    },
-    [router, setSelectedAccount]
-  );
+  const goToAccountDashboard = useCallback((acc: SocialAccount) => {
+    setSelectedAccount?.(acc);
+    router.push(`/dashboard?accountId=${encodeURIComponent(acc.id)}`);
+  }, [router, setSelectedAccount]);
 
-  const emptyAccountsInitials = (
-    (user?.name?.trim() || user?.email?.split('@')[0] || '?').slice(0, 2) || '?'
-  ).toUpperCase();
+  const emptyAccountsInitials = ((user?.name?.trim() || user?.email?.split('@')[0] || '?').slice(0, 2) || '?').toUpperCase();
 
   const dateRange = useMemo(() => {
     const start = searchParams.get('start') ?? searchParams.get('since');
     const end = searchParams.get('end') ?? searchParams.get('until');
-    if (start && end && /^\d{4}-\d{2}-\d{2}$/.test(start) && /^\d{4}-\d{2}-\d{2}$/.test(end) && start <= end) {
-      return { start, end };
-    }
+    if (start && end && /^\d{4}-\d{2}-\d{2}$/.test(start) && /^\d{4}-\d{2}-\d{2}$/.test(end) && start <= end) return { start, end };
     const rawDays = Number(searchParams.get('days'));
-    if ([7, 30, 90].includes(rawDays)) {
-      return rangeFromDaysParam(rawDays);
-    }
-    if (user?.id) {
-      const stored = readStoredAnalyticsDateRange(user.id);
-      if (stored) return stored;
-    }
+    if ([7, 30, 90].includes(rawDays)) return rangeFromDaysParam(rawDays);
+    if (user?.id) { const stored = readStoredAnalyticsDateRange(user.id); if (stored) return stored; }
     return getDefaultAnalyticsDateRange();
   }, [searchParams, user?.id]);
 
   const [data, setData] = useState<UnifiedSummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Performance section
+  const [performanceMode, setPerformanceMode] = useState<'growth' | 'engagement' | 'views'>('growth');
   const [activePlatforms, setActivePlatforms] = useState<string[]>([...CHART_PLATFORMS]);
-  const [performanceMode, setPerformanceMode] = useState<'growth' | 'engagement' | 'views'>('views');
+  useEffect(() => { setActivePlatforms([...CHART_PLATFORMS]); }, [performanceMode]);
+
+  // Engagement section
+  const [selectedEngagement, setSelectedEngagement] = useState<('likes' | 'comments' | 'shares' | 'reposts')[]>(['likes', 'comments', 'shares']);
+
+  // Activity section
+  const [selectedActivity, setSelectedActivity] = useState<('posts')[]>(['posts']);
 
   useEffect(() => {
-    setActivePlatforms([...CHART_PLATFORMS]);
-  }, [performanceMode]);
-
-  useEffect(() => {
-    if (!user?.id) {
-      setData(null);
-      setLoading(false);
-      return;
-    }
+    if (!user?.id) { setData(null); setLoading(false); return; }
     let cancelled = false;
     const cached = readUnifiedSummaryCache(user.id, dateRange.start, dateRange.end);
     const hadCache = !!cached;
-    if (cached) {
-      setData(cached);
-      setError(null);
-      setLoading(false);
-    } else {
-      setLoading(true);
-    }
+    if (cached) { setData(cached); setError(null); setLoading(false); } else { setLoading(true); }
     setError(null);
     (async () => {
       try {
-        const res = await api.get<UnifiedSummaryResponse>('/analytics/summary', {
-          params: { since: dateRange.start, until: dateRange.end },
-        });
+        const res = await api.get<UnifiedSummaryResponse>('/analytics/summary', { params: { since: dateRange.start, until: dateRange.end } });
         if (cancelled) return;
-        setData(res.data);
-        setError(null);
+        setData(res.data); setError(null);
         writeUnifiedSummaryCache(user.id, dateRange.start, dateRange.end, res.data);
-      } catch {
-        if (!cancelled && !hadCache) {
-          setError('Failed to load analytics. Please try again.');
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      } catch { if (!cancelled && !hadCache) setError('Failed to load analytics. Please try again.'); }
+      finally { if (!cancelled) setLoading(false); }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [user?.id, dateRange.start, dateRange.end]);
 
-  const onDateRangeChange = useCallback(
-    (range: { start: string; end: string }) => {
-      if (user?.id) writeStoredAnalyticsDateRange(range, user.id);
-      router.replace(
-        `/dashboard/console?start=${encodeURIComponent(range.start)}&end=${encodeURIComponent(range.end)}`
-      );
-    },
-    [router, user?.id]
-  );
+  const onDateRangeChange = useCallback((range: { start: string; end: string }) => {
+    if (user?.id) writeStoredAnalyticsDateRange(range, user.id);
+    router.replace(`/dashboard/console?start=${encodeURIComponent(range.start)}&end=${encodeURIComponent(range.end)}`);
+  }, [router, user?.id]);
 
   const togglePlatform = useCallback((p: string) => {
-    setActivePlatforms((prev) =>
-      prev.includes(p) ? (prev.length > 1 ? prev.filter((x) => x !== p) : prev) : [...prev, p]
-    );
+    setActivePlatforms((prev) => prev.includes(p) ? (prev.length > 1 ? prev.filter((x) => x !== p) : prev) : [...prev, p]);
   }, []);
 
   const activeChartData = useMemo((): UnifiedChartData => {
@@ -739,429 +442,291 @@ export default function UnifiedSummaryPage() {
     return data.chart ?? [];
   }, [data, performanceMode]);
 
-  /** Platforms with any non-zero point on the active performance chart. */
   const platformsWithChartData = useMemo(() => {
     if (!activeChartData.length) return [...CHART_PLATFORMS];
-    const hasData = new Set<string>();
-    for (const row of activeChartData) {
-      for (const p of CHART_PLATFORMS) {
-        if ((row[p] as number) > 0) hasData.add(p);
-      }
-    }
-    return CHART_PLATFORMS.filter((p) => hasData.has(p));
+    const s = new Set<string>();
+    for (const row of activeChartData) for (const p of CHART_PLATFORMS) if ((row[p] as number) > 0) s.add(p);
+    return CHART_PLATFORMS.filter((p) => s.has(p));
   }, [activeChartData]);
 
-  const platformPeriodTotals = useMemo(() => {
-    if (!data?.chart) return [];
-    const imp: Record<string, number> = {};
-    const eng: Record<string, number> = {};
-    for (const p of CHART_PLATFORMS) {
-      imp[p] = 0;
-      eng[p] = 0;
-    }
-    const engSeries = data.engagementChart ?? [];
-    for (const row of data.chart) {
-      for (const p of CHART_PLATFORMS) imp[p] += (row[p] as number) ?? 0;
-    }
-    for (const row of engSeries) {
-      for (const p of CHART_PLATFORMS) eng[p] += (row[p] as number) ?? 0;
-    }
-    return CHART_PLATFORMS.map((p) => ({
-      platform: p,
-      impressions: imp[p],
-      engagement: eng[p],
-    })).filter((x) => x.impressions > 0 || x.engagement > 0);
+  // Engagement totals
+  const engTotals = useMemo(() => {
+    const bd = data?.engagementBreakdown ?? [];
+    const t = { likes: 0, comments: 0, shares: 0, reposts: 0 };
+    for (const d of bd) { t.likes += d.likes; t.comments += d.comments; t.shares += d.shares; t.reposts += d.reposts; }
+    return t;
+  }, [data]);
+
+  // Activity totals
+  const actTotals = useMemo(() => {
+    const bd = data?.activityBreakdown ?? [];
+    let posts = 0;
+    for (const d of bd) posts += d.posts;
+    return { posts };
   }, [data]);
 
   const periodLabel = useMemo(() => {
     const a = new Date(`${dateRange.start}T12:00:00`).getTime();
     const b = new Date(`${dateRange.end}T12:00:00`).getTime();
-    const days = Math.max(1, Math.floor((b - a) / 86_400_000) + 1);
-    return `${days}d`;
+    return `${Math.max(1, Math.floor((b - a) / 86_400_000) + 1)}d`;
   }, [dateRange.start, dateRange.end]);
 
-  if (!user) {
-    return (
-      <div
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: '#94a3b8' }}
-      >
-        Sign in to view your unified analytics.
-      </div>
-    );
-  }
+  const platformPeriodTotals = useMemo(() => {
+    if (!data?.chart) return [];
+    const imp: Record<string, number> = {}; const eng: Record<string, number> = {};
+    for (const p of CHART_PLATFORMS) { imp[p] = 0; eng[p] = 0; }
+    for (const row of data.chart) for (const p of CHART_PLATFORMS) imp[p] += (row[p] as number) ?? 0;
+    for (const row of (data.engagementChart ?? [])) for (const p of CHART_PLATFORMS) eng[p] += (row[p] as number) ?? 0;
+    return CHART_PLATFORMS.map((p) => ({ platform: p, impressions: imp[p], engagement: eng[p] })).filter((x) => x.impressions > 0 || x.engagement > 0);
+  }, [data]);
+
+  if (!user) return <div className="flex items-center justify-center h-[60vh]" style={{ color: COLOR.textMuted }}>Sign in to view your unified analytics.</div>;
+
+  const engagementStackTopKey = [...selectedEngagement].reverse().find(() => true) ?? 'likes';
 
   return (
-    <div
-      className="p-0 md:p-0.5 space-y-3"
-      style={{
-        maxWidth: 1400,
-        background: ANALYTICS_COLOR.pageBg,
-        fontFamily: 'var(--font-inter, system-ui, sans-serif)',
-      }}
-    >
+    <div className="p-0 md:p-0.5 space-y-3" style={{ maxWidth: 1400, background: COLOR.pageBg }}>
+      {/* ── Upgrade banner ── */}
       <div className="w-full rounded-2xl border border-violet-200/70 bg-gradient-to-br from-violet-50/90 via-white to-rose-50/40 px-3 py-2.5 sm:px-4 sm:py-3 shadow-sm ring-1 ring-violet-100/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3">
         <div className="min-w-0 flex-1 space-y-1">
-          <div className="flex items-center gap-1.5 text-violet-800">
-            <Sparkles className="w-3.5 h-3.5 shrink-0" aria-hidden />
-            <span className="text-[11px] font-semibold uppercase tracking-wide">Your plan</span>
-          </div>
+          <div className="flex items-center gap-1.5 text-violet-800"><Sparkles className="w-3.5 h-3.5 shrink-0" aria-hidden /><span className="text-[11px] font-semibold uppercase tracking-wide">Your plan</span></div>
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0">
             <span className="text-lg font-bold text-neutral-900 tracking-tight leading-tight">Free</span>
-            <span className="text-sm text-neutral-600 leading-snug">
-              Unlock more than 30 days of history without watermarks and more analytics when you upgrade.
-            </span>
+            <span className="text-sm text-neutral-600 leading-snug">Unlock more than 30 days of history without watermarks and more analytics when you upgrade.</span>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => router.push('/pricing')}
-          className="shrink-0 inline-flex w-full sm:w-auto justify-center items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-md transition-all active:scale-[0.98] gradient-cta-pro"
-        >
-          Upgrade now
-          <ArrowRight className="w-4 h-4" aria-hidden />
+        <button type="button" onClick={() => router.push('/pricing')} className="shrink-0 inline-flex w-full sm:w-auto justify-center items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-md transition-all active:scale-[0.98] gradient-cta-pro">
+          Upgrade now <ArrowRight className="w-4 h-4" aria-hidden />
         </button>
       </div>
 
-      <section
-        className="rounded-[20px] border p-3 md:p-3.5"
-        style={{ background: ANALYTICS_COLOR.section, borderColor: ANALYTICS_COLOR.border, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}
-      >
+      {/* ── Header (avatars + sync + date + nav) ── */}
+      <section className="rounded-[20px] border p-3 md:p-3.5" style={{ background: COLOR.section, borderColor: COLOR.border, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
         <div className="flex flex-wrap items-center gap-3 justify-between">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2.5">
             <div className="flex flex-wrap items-center gap-2">
               {orderedAccounts.length === 0 ? (
-                <div
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
-                  style={{
-                    background: '#eef2ff',
-                    color: CONSOLE_HEADER_COLOR.violet,
-                  }}
-                  aria-hidden
-                >
-                  {emptyAccountsInitials}
-                </div>
-              ) : (
-                orderedAccounts.map((acc) => {
-                  const label = acc.username || acc.platform || 'Account';
-                  const initials = label.replace(/^@/, '').slice(0, 2).toUpperCase() || '?';
-                  return (
-                    <button
-                      key={acc.id}
-                      type="button"
-                      onClick={() => goToAccountDashboard(acc)}
-                      className="group relative shrink-0 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2"
-                      title={`Open ${label} dashboard`}
-                      aria-label={`Open ${label} dashboard`}
-                    >
-                      <span className="relative block h-11 w-11 transition-transform group-hover:scale-[1.03] group-active:scale-[0.98]">
-                        <span className="block h-11 w-11 overflow-hidden rounded-full bg-neutral-100 shadow-sm ring-2 ring-white">
-                          {acc.profilePicture ? (
-                            <img src={acc.profilePicture} alt="" className="h-full w-full object-cover" />
-                          ) : (
-                            <span
-                              className="flex h-full w-full items-center justify-center text-xs font-semibold"
-                              style={{ background: '#eef2ff', color: CONSOLE_HEADER_COLOR.violet }}
-                            >
-                              {initials}
-                            </span>
-                          )}
-                        </span>
-                        <span
-                          className="pointer-events-none absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center [&>svg]:h-5 [&>svg]:w-5 [&>svg]:max-h-none [&>svg]:max-w-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]"
-                          aria-hidden
-                        >
-                          <AccountBadgeIcon platform={acc.platform} />
-                        </span>
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold" style={{ background: '#eef2ff', color: COLOR.violet }} aria-hidden>{emptyAccountsInitials}</div>
+              ) : orderedAccounts.map((acc) => {
+                const label = acc.username || acc.platform || 'Account';
+                const initials = label.replace(/^@/, '').slice(0, 2).toUpperCase() || '?';
+                return (
+                  <button key={acc.id} type="button" onClick={() => goToAccountDashboard(acc)} className="group relative shrink-0 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2" title={`Open ${label} dashboard`}>
+                    <span className="relative block h-11 w-11 transition-transform group-hover:scale-[1.03] group-active:scale-[0.98]">
+                      <span className="block h-11 w-11 overflow-hidden rounded-full bg-neutral-100 shadow-sm ring-2 ring-white">
+                        {acc.profilePicture ? <img src={acc.profilePicture} alt="" className="h-full w-full object-cover" /> : <span className="flex h-full w-full items-center justify-center text-xs font-semibold" style={{ background: '#eef2ff', color: COLOR.violet }}>{initials}</span>}
                       </span>
-                    </button>
-                  );
-                })
-              )}
+                      <span className="pointer-events-none absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center [&>svg]:h-5 [&>svg]:w-5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]" aria-hidden><AccountBadgeIcon platform={acc.platform} /></span>
+                    </span>
+                  </button>
+                );
+              })}
             </div>
             <div className="flex min-w-0 flex-wrap items-center gap-3">
-              {loading ? (
-                <span
-                  className="inline-flex items-center gap-2 text-sm font-medium"
-                  style={{ color: CONSOLE_HEADER_COLOR.textSecondary }}
-                >
-                  <RefreshCw size={13} className="animate-spin opacity-75" aria-hidden />
-                  Refreshing…
-                </span>
-              ) : (
-                <span
-                  className="inline-flex items-center gap-2 text-sm"
-                  style={{ color: CONSOLE_HEADER_COLOR.textSecondary }}
-                >
-                  <RefreshCw size={13} className="opacity-75" aria-hidden />
-                  Updated just now
-                </span>
-              )}
+              {loading
+                ? <span className="inline-flex items-center gap-2 text-sm font-medium" style={{ color: COLOR.textSecondary }}><RefreshCw size={13} className="animate-spin opacity-75" aria-hidden />Refreshing…</span>
+                : <span className="inline-flex items-center gap-2 text-sm" style={{ color: COLOR.textSecondary }}><RefreshCw size={13} className="opacity-75" aria-hidden />Updated just now</span>
+              }
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <AnalyticsDateRangePicker start={dateRange.start} end={dateRange.end} onChange={onDateRangeChange} />
-          </div>
+          <div className="flex flex-wrap items-center gap-2"><AnalyticsDateRangePicker start={dateRange.start} end={dateRange.end} onChange={onDateRangeChange} /></div>
         </div>
         <div className="mt-2">
-          <StickySectionNav
-            sections={[...CONSOLE_SUMMARY_NAV_SECTIONS]}
-            activeSection={FACEBOOK_ANALYTICS_SECTION_IDS.overview}
-            ariaLabel="Console analytics sections"
-          />
+          <StickySectionNav sections={[...CONSOLE_NAV_SECTIONS]} activeSection={FACEBOOK_ANALYTICS_SECTION_IDS.overview} ariaLabel="Console analytics sections" />
         </div>
-        {loading && !error ? (
-          <p className="mt-2.5 text-xs font-medium animate-pulse" style={{ color: CONSOLE_HEADER_COLOR.textSecondary }}>
-            Refreshing unified analytics. Numbers and charts will update when ready.
-          </p>
-        ) : null}
       </section>
 
       {error && !data ? (
-        <AnalyticsNoticeBanner
-          variant="permissions"
-          title={error}
-          description="Check your connection and refresh the page. If the problem continues, open a support ticket from the sidebar."
-        />
+        <div className="rounded-xl border px-4 py-3 text-sm" style={{ background: '#fef2f2', borderColor: '#fecaca', color: '#dc2626' }}>{error}</div>
       ) : null}
 
-      {/* ── Overview: KPIs + Performance (same shell style as per-account dashboard) ── */}
+      {/* ══════════════════════════════════════════════════════════════════════
+          OVERVIEW: Performance (Growth / Engagement / Views) — matches FB
+         ══════════════════════════════════════════════════════════════════════ */}
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.overview} className="scroll-mt-28 space-y-4">
         {loading ? (
           <ShellCard className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {[0, 1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-28 rounded-2xl" />
-              ))}
-            </div>
-            <div className="h-[300px] rounded-xl animate-pulse bg-neutral-100/90" />
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">{[0,1,2,3,4].map((i) => <Skeleton key={i} className="h-20 rounded-[20px]" />)}</div>
+            <Skeleton className="h-[300px] rounded-xl" />
           </ShellCard>
         ) : data ? (
-          <ShellCard className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <AnalyticsKpiCard
-                label="Total audience"
-                value={fmt(data.kpi.totalAudience)}
-                trend={kpiTrend(data.kpi.audienceGrowthPercentage, periodLabel)}
-                accent="audience"
-                icon={<Users size={20} className="text-neutral-500" />}
-              />
-              <AnalyticsKpiCard
-                label="Total impressions"
-                value={fmt(data.kpi.totalImpressions)}
-                trend={kpiTrend(data.kpi.impressionsGrowthPercentage, periodLabel)}
-                accent="visibility"
-                icon={<Eye size={20} className="text-neutral-500" />}
-              />
-              <AnalyticsKpiCard
-                label="Total engagement"
-                value={fmt(data.kpi.totalEngagement)}
-                trend={kpiTrend(data.kpi.engagementGrowthPercentage, periodLabel)}
-                accent="engagement"
-                icon={<Heart size={20} className="text-neutral-500" />}
-              />
-              <AnalyticsKpiCard
-                label="Posts published"
-                value={fmt(data.kpi.totalPosts)}
-                trend={kpiTrend(data.kpi.postsGrowthPercentage, periodLabel)}
-                accent="content"
-                icon={<FileText size={20} className="text-neutral-500" />}
-              />
+          <ShellCard className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Performance</h3>
             </div>
-
-            <div className="space-y-3 border-t pt-4" style={{ borderColor: ANALYTICS_COLOR.border }}>
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <h3 className="text-lg font-semibold m-0" style={{ color: ANALYTICS_COLOR.text }}>
-                  Performance
-                </h3>
-                <div className="flex flex-wrap gap-2" role="group" aria-label="Performance chart mode">
-                  {(
-                    [
-                      { id: 'growth' as const, label: 'Growth' },
-                      { id: 'engagement' as const, label: 'Engagement' },
-                      { id: 'views' as const, label: 'Views' },
-                    ] as const
-                  ).map((tab) => {
-                    const active = performanceMode === tab.id;
-                    return (
-                      <button
-                        key={tab.id}
-                        type="button"
-                        onClick={() => setPerformanceMode(tab.id)}
-                        aria-pressed={active}
-                        className="rounded-lg px-3 py-1.5 text-sm transition-colors"
-                        style={{
-                          background: active ? 'rgba(139,124,255,0.2)' : 'rgba(255,255,255,0.03)',
-                          color: active ? ANALYTICS_COLOR.text : ANALYTICS_COLOR.textSecondary,
-                          border: `1px solid ${active ? ANALYTICS_COLOR.violet : ANALYTICS_COLOR.border}`,
-                        }}
-                      >
-                        {tab.label}
-                      </button>
-                    );
-                  })}
+            <div className="mb-5 flex gap-2">
+              {(['growth', 'engagement', 'views'] as const).map((mode) => {
+                const active = performanceMode === mode;
+                return (
+                  <button key={mode} type="button" onClick={() => setPerformanceMode(mode)} aria-pressed={active}
+                    className="rounded-lg px-3 py-1.5 text-sm"
+                    style={{ background: active ? 'rgba(139,124,255,0.2)' : 'rgba(255,255,255,0.03)', color: active ? COLOR.text : COLOR.textSecondary, border: `1px solid ${active ? COLOR.violet : COLOR.border}` }}>
+                    {mode === 'views' ? 'Views' : mode === 'engagement' ? 'Engagement' : 'Growth'}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              <KpiCard label="Followers" value={fmt(data.kpi.totalAudience)} growthPct={data.kpi.audienceGrowthPercentage} icon={<Users size={18} />} accent={COLOR.mint} period={periodLabel} />
+              <KpiCard label="Engagements" value={fmt(data.kpi.totalEngagement)} growthPct={data.kpi.engagementGrowthPercentage} icon={<Heart size={18} />} accent={COLOR.violet} period={periodLabel} />
+              <KpiCard label="Video Views" value={fmt(data.kpi.totalImpressions)} growthPct={data.kpi.impressionsGrowthPercentage} icon={<Eye size={18} />} accent={COLOR.magenta} period={periodLabel} />
+              <KpiCard label="Content Views" value={fmt(data.kpi.totalImpressions)} growthPct={data.kpi.impressionsGrowthPercentage} icon={<Eye size={18} />} accent={COLOR.amber} period={periodLabel} />
+              <KpiCard label="Page Visits" value={fmt(data.kpi.totalPosts)} growthPct={data.kpi.postsGrowthPercentage} icon={<FileText size={18} />} accent={COLOR.coral} period={periodLabel} />
+            </div>
+            <div className="flex justify-end">
+              <PlatformLegend all={platformsWithChartData.length > 0 ? platformsWithChartData as string[] : [...CHART_PLATFORMS] as string[]} activePlatforms={activePlatforms} toggle={togglePlatform} />
+            </div>
+            <InsightChartCard title="Performance" hideHeader flat>
+              {activeChartData.length > 0 && !activeChartData.every((row) => activePlatforms.every((p) => (row[p] as number) === 0)) ? (
+                <PlatformMixChart data={activeChartData} activePlatforms={activePlatforms.filter((p) => platformsWithChartData.length > 0 ? (platformsWithChartData as string[]).includes(p) : true)} />
+              ) : (
+                <div className="h-full flex items-center justify-center text-sm" style={{ color: COLOR.textMuted }}>
+                  {performanceMode === 'growth' ? 'No audience data yet.' : performanceMode === 'engagement' ? 'No engagement data yet.' : 'No impressions data yet.'}
                 </div>
-              </div>
-              <p className="text-sm m-0" style={{ color: ANALYTICS_COLOR.textSecondary, maxWidth: 720, lineHeight: 1.45 }}>
-                {performanceMode === 'growth'
-                  ? 'Daily followers or fans from stored metric snapshots (when sync recorded them).'
-                  : performanceMode === 'engagement'
-                    ? 'Likes, comments, shares, and reposts on synced posts by publish day. LinkedIn includes comments and shares from analytics sync.'
-                    : 'Post impressions by publish day. LinkedIn includes daily impression aggregates from sync.'}
-              </p>
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                <PlatformLegend
-                  all={platformsWithChartData.length > 0 ? (platformsWithChartData as string[]) : ([...CHART_PLATFORMS] as string[])}
-                  activePlatforms={activePlatforms}
-                  toggle={togglePlatform}
-                />
-              </div>
-              <div
-                className="rounded-xl px-2 py-2 sm:px-3"
-                style={{
-                  background: 'linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,252,0.94))',
-                  boxShadow: '0 14px 30px rgba(15,23,42,0.06)',
-                  border: `1px solid ${ANALYTICS_COLOR.border}`,
-                }}
-              >
-                {activeChartData.length > 0 &&
-                activeChartData.every((row) => activePlatforms.every((p) => (row[p] as number) === 0)) ? (
-                  <div
-                    style={{
-                      height: 280,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: ANALYTICS_COLOR.textMuted,
-                      fontSize: 14,
-                      textAlign: 'center',
-                      padding: '0 16px',
-                    }}
-                  >
-                    {performanceMode === 'growth'
-                      ? 'No audience snapshot data in this date range. Connect accounts and run sync to populate history.'
-                      : performanceMode === 'engagement'
-                        ? 'No engagement on synced posts in this range yet.'
-                        : 'No impression data for this period. Post some content to see it here!'}
-                  </div>
-                ) : activeChartData.length > 0 ? (
-                  <PlatformMixChart
-                    data={activeChartData}
-                    activePlatforms={activePlatforms.filter((p) =>
-                      platformsWithChartData.length > 0 ? (platformsWithChartData as string[]).includes(p) : true
-                    )}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      height: 120,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: ANALYTICS_COLOR.textMuted,
-                      fontSize: 14,
-                    }}
-                  >
-                    No chart data.
-                  </div>
-                )}
-              </div>
-            </div>
+              )}
+            </InsightChartCard>
           </ShellCard>
         ) : null}
       </section>
 
-      {/* ── Platform Mix + Top Posts (Traffic / Posts; Reels scroll target wraps grid) ── */}
+      {/* ══════════════════════════════════════════════════════════════════════
+          ENGAGEMENT: Likes / Comments / Shares / Reposts — stacked bar chart
+         ══════════════════════════════════════════════════════════════════════ */}
+      <section id={FACEBOOK_ANALYTICS_SECTION_IDS.traffic} className="scroll-mt-28 space-y-4">
+        {loading ? (
+          <ShellCard className="space-y-4"><Skeleton className="h-20 rounded-[20px]" /><Skeleton className="h-[300px] rounded-xl" /></ShellCard>
+        ) : data ? (
+          <ShellCard className="space-y-3">
+            <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Engagement</h3>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <MetricCard label="Likes" source="All platforms · likeCount" color={ENGAGEMENT_COLORS.likes} value={fmt(engTotals.likes)} active={selectedEngagement.includes('likes')} onClick={() => setSelectedEngagement((p) => p.includes('likes') ? p.filter((m) => m !== 'likes') : [...p, 'likes'])} />
+              <MetricCard label="Comments" source="All platforms · commentsCount" color={ENGAGEMENT_COLORS.comments} value={fmt(engTotals.comments)} active={selectedEngagement.includes('comments')} onClick={() => setSelectedEngagement((p) => p.includes('comments') ? p.filter((m) => m !== 'comments') : [...p, 'comments'])} />
+              <MetricCard label="Shares" source="All platforms · sharesCount" color={ENGAGEMENT_COLORS.shares} value={fmt(engTotals.shares)} active={selectedEngagement.includes('shares')} onClick={() => setSelectedEngagement((p) => p.includes('shares') ? p.filter((m) => m !== 'shares') : [...p, 'shares'])} />
+              <MetricCard label="Reposts" source="All platforms · repostsCount" color={ENGAGEMENT_COLORS.reposts} value={fmt(engTotals.reposts)} active={selectedEngagement.includes('reposts')} onClick={() => setSelectedEngagement((p) => p.includes('reposts') ? p.filter((m) => m !== 'reposts') : [...p, 'reposts'])} />
+            </div>
+            <div className="flex justify-end">
+              <div className="flex flex-wrap gap-2">
+                {selectedEngagement.map((m) => (
+                  <span key={m} className="rounded-full border px-2.5 py-1 text-xs" style={{ borderColor: COLOR.border, color: COLOR.textSecondary }}>
+                    <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ background: ENGAGEMENT_COLORS[m] }} />{m.charAt(0).toUpperCase() + m.slice(1)}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <InsightChartCard title="Engagement" hideHeader flat>
+              {selectedEngagement.length === 0 ? (
+                <div className="h-[300px] rounded-xl border border-dashed relative overflow-hidden" style={{ borderColor: COLOR.border }}>
+                  <div className="absolute inset-0 z-[2] flex items-center justify-center">
+                    <div className="rounded-2xl px-5 py-3 text-sm font-medium text-center" style={{ background: '#fff', color: COLOR.textSecondary, boxShadow: '0 1px 16px rgba(15,23,42,0.12)' }}>Select at least one metric card to display engagement data.</div>
+                  </div>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data.engagementBreakdown ?? []} barCategoryGap="20%" barGap={0} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+                    <XAxis dataKey="date" tickFormatter={fmtAxisDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} dy={8} minTickGap={28} axisLine={false} tickLine={false} />
+                    <YAxis domain={[0, 'auto']} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <Tooltip contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }} formatter={(v: number, n: string) => [fmt(Number(v) || 0), n.charAt(0).toUpperCase() + n.slice(1)]} labelFormatter={(l) => fmtAxisDate(String(l))} />
+                    {selectedEngagement.includes('likes') && <Bar dataKey="likes" stackId="e" fill={ENGAGEMENT_COLORS.likes} radius={engagementStackTopKey === 'likes' ? [6,6,0,0] : [0,0,0,0]} barSize={14} />}
+                    {selectedEngagement.includes('comments') && <Bar dataKey="comments" stackId="e" fill={ENGAGEMENT_COLORS.comments} radius={engagementStackTopKey === 'comments' ? [6,6,0,0] : [0,0,0,0]} barSize={14} />}
+                    {selectedEngagement.includes('shares') && <Bar dataKey="shares" stackId="e" fill={ENGAGEMENT_COLORS.shares} radius={engagementStackTopKey === 'shares' ? [6,6,0,0] : [0,0,0,0]} barSize={14} />}
+                    {selectedEngagement.includes('reposts') && <Bar dataKey="reposts" stackId="e" fill={ENGAGEMENT_COLORS.reposts} radius={engagementStackTopKey === 'reposts' ? [6,6,0,0] : [0,0,0,0]} barSize={14} />}
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </InsightChartCard>
+          </ShellCard>
+        ) : null}
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          ACTIVITY: Posts per day — line chart
+         ══════════════════════════════════════════════════════════════════════ */}
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.reels} className="scroll-mt-28 space-y-4">
         {loading ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 340px', gap: 16, marginBottom: 24 }}>
-            <ShellCard>
-              <Skeleton className="h-64 rounded-xl" />
-            </ShellCard>
-            <ShellCard>
-              <Skeleton className="h-64 rounded-xl" />
-            </ShellCard>
-          </div>
+          <ShellCard className="space-y-4"><Skeleton className="h-20 rounded-[20px]" /><Skeleton className="h-[300px] rounded-xl" /></ShellCard>
         ) : data ? (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'minmax(0, 1fr) 340px',
-              gap: 16,
-              marginBottom: 24,
-            }}
-          >
-            <section id={FACEBOOK_ANALYTICS_SECTION_IDS.traffic} className="min-w-0 scroll-mt-28 space-y-4">
-              <ShellCard>
-                <SectionTitle>Period totals by platform</SectionTitle>
-                <p className="m-0 mb-4 text-sm leading-snug" style={{ color: ANALYTICS_COLOR.textSecondary }}>
-                  Sum of daily impressions and engagement in this range (same sources as the Overview charts). Open a platform in the sidebar for full breakdowns, demographics, and traffic where the network supports it.
-                </p>
-                {platformPeriodTotals.length === 0 ? (
-                  <div className="py-8 text-center text-sm" style={{ color: ANALYTICS_COLOR.textMuted }}>
-                    No cross-platform totals yet for this range.
+          <ShellCard className="space-y-3">
+            <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Activity</h3>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <MetricCard label="Posts" source="All platforms · posts published in range" color={ACTIVITY_COLORS.posts} value={fmt(actTotals.posts)} active={selectedActivity.includes('posts')} onClick={() => setSelectedActivity((p) => p.includes('posts') ? p.filter((m) => m !== 'posts') : [...p, 'posts'])} />
+            </div>
+            <div className="flex justify-end">
+              <div className="flex flex-wrap gap-2">
+                {selectedActivity.map((m) => (
+                  <span key={m} className="rounded-full border px-2.5 py-1 text-xs" style={{ borderColor: COLOR.border, color: COLOR.textSecondary }}>
+                    <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ background: ACTIVITY_COLORS[m] }} />{m.charAt(0).toUpperCase() + m.slice(1)}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <InsightChartCard title="Activity" hideHeader flat>
+              {selectedActivity.length === 0 ? (
+                <div className="h-[300px] rounded-xl border border-dashed relative overflow-hidden" style={{ borderColor: COLOR.border }}>
+                  <div className="absolute inset-0 z-[2] flex items-center justify-center">
+                    <div className="rounded-2xl px-5 py-3 text-sm font-medium text-center" style={{ background: '#fff', color: COLOR.textSecondary, boxShadow: '0 1px 16px rgba(15,23,42,0.12)' }}>Select at least one metric card to display activity data.</div>
                   </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full border-collapse text-[13px]">
-                      <thead>
-                        <tr className="text-left" style={{ borderBottom: `1px solid ${ANALYTICS_COLOR.border}`, color: ANALYTICS_COLOR.textSecondary }}>
-                          <th className="py-2.5 px-2">Platform</th>
-                          <th className="py-2.5 px-2">Impressions</th>
-                          <th className="py-2.5 px-2">Engagement</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {platformPeriodTotals.map((row) => (
-                          <tr key={row.platform} style={{ borderBottom: `1px solid ${ANALYTICS_COLOR.border}` }}>
-                            <td className="py-3 px-2 font-semibold" style={{ color: PLATFORM_COLOR[row.platform] ?? ANALYTICS_COLOR.text }}>
-                              {row.platform}
-                            </td>
-                            <td className="py-3 px-2 tabular-nums" style={{ color: ANALYTICS_COLOR.text }}>
-                              {fmt(row.impressions)}
-                            </td>
-                            <td className="py-3 px-2 tabular-nums" style={{ color: ANALYTICS_COLOR.text }}>
-                              {fmt(row.engagement)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </ShellCard>
-            </section>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={data.activityBreakdown ?? []}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+                    <XAxis dataKey="date" tickFormatter={fmtAxisDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} dy={8} minTickGap={18} axisLine={false} tickLine={false} />
+                    <YAxis domain={[0, 'auto']} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <Tooltip contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }} formatter={(v: number, n: string) => [fmt(Number(v) || 0), n === 'posts' ? 'Posts' : n]} labelFormatter={(l) => fmtAxisDate(String(l))} />
+                    {selectedActivity.includes('posts') && <Line type="monotone" dataKey="posts" stroke={ACTIVITY_COLORS.posts} strokeWidth={2} dot={false} />}
+                  </ComposedChart>
+                </ResponsiveContainer>
+              )}
+            </InsightChartCard>
+          </ShellCard>
+        ) : null}
+      </section>
 
-            <section id={FACEBOOK_ANALYTICS_SECTION_IDS.posts} className="min-w-0 scroll-mt-28 space-y-4">
-              <ShellCard className="overflow-hidden">
-                <SectionTitle>Top Posts</SectionTitle>
-                {data.topPosts.length === 0 ? (
-                  <div style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: '32px 0' }}>
-                    No posts found in this period.
-                  </div>
-                ) : (
-                  <div>
-                    {data.topPosts.map((post, i) => (
-                      <TopPostCard key={post.id} post={post} rank={i + 1} />
+      {/* ══════════════════════════════════════════════════════════════════════
+          POSTS: Top posts + Traffic totals side by side
+         ══════════════════════════════════════════════════════════════════════ */}
+      <section id={FACEBOOK_ANALYTICS_SECTION_IDS.posts} className="scroll-mt-28 space-y-4">
+        {loading ? (
+          <div className="grid gap-4" style={{ gridTemplateColumns: 'minmax(0,1fr) 340px' }}><ShellCard><Skeleton className="h-64 rounded-xl" /></ShellCard><ShellCard><Skeleton className="h-64 rounded-xl" /></ShellCard></div>
+        ) : data ? (
+          <div className="grid gap-4" style={{ gridTemplateColumns: 'minmax(0,1fr) 340px' }}>
+            <ShellCard>
+              <h3 className="text-lg font-semibold mb-3" style={{ color: COLOR.text }}>Period totals by platform</h3>
+              {platformPeriodTotals.length === 0 ? (
+                <div className="py-8 text-center text-sm" style={{ color: COLOR.textMuted }}>No cross-platform totals yet.</div>
+              ) : (
+                <table className="w-full border-collapse text-[13px]">
+                  <thead><tr style={{ borderBottom: `1px solid ${COLOR.border}`, color: COLOR.textSecondary }} className="text-left"><th className="py-2 px-2">Platform</th><th className="py-2 px-2">Impressions</th><th className="py-2 px-2">Engagement</th></tr></thead>
+                  <tbody>
+                    {platformPeriodTotals.map((r) => (
+                      <tr key={r.platform} style={{ borderBottom: `1px solid ${COLOR.border}` }}>
+                        <td className="py-3 px-2 font-semibold" style={{ color: PLATFORM_COLOR[r.platform] ?? COLOR.text }}>{r.platform}</td>
+                        <td className="py-3 px-2 tabular-nums" style={{ color: COLOR.text }}>{fmt(r.impressions)}</td>
+                        <td className="py-3 px-2 tabular-nums" style={{ color: COLOR.text }}>{fmt(r.engagement)}</td>
+                      </tr>
                     ))}
-                  </div>
-                )}
-              </ShellCard>
-            </section>
+                  </tbody>
+                </table>
+              )}
+            </ShellCard>
+            <ShellCard className="overflow-hidden">
+              <h3 className="text-lg font-semibold mb-3" style={{ color: COLOR.text }}>Top Posts</h3>
+              {data.topPosts.length === 0 ? (
+                <div className="py-8 text-center text-sm" style={{ color: COLOR.textMuted }}>No posts found in this period.</div>
+              ) : data.topPosts.map((post, i) => <TopPostCard key={post.id} post={post} rank={i + 1} />)}
+            </ShellCard>
           </div>
         ) : null}
       </section>
 
-      {/* ── Combined History ── */}
+      {/* ══════════════════════════════════════════════════════════════════════
+          HISTORY: Combined uploads table
+         ══════════════════════════════════════════════════════════════════════ */}
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.history} className="scroll-mt-28 space-y-4">
-        {loading ? (
+        {loading ? <ShellCard><Skeleton className="h-96 rounded-xl" /></ShellCard> : data ? (
           <ShellCard>
-            <Skeleton className="h-96 rounded-xl" />
-          </ShellCard>
-        ) : data ? (
-          <ShellCard>
-            <SectionTitle>
-              Combined Uploads History · {dateRange.start} to {dateRange.end}
-            </SectionTitle>
+            <h3 className="text-lg font-semibold mb-3" style={{ color: COLOR.text }}>Combined Uploads History · {dateRange.start} to {dateRange.end}</h3>
             <HistoryTable rows={data.history} />
           </ShellCard>
         ) : null}

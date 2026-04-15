@@ -59,14 +59,26 @@ export interface UnifiedHistoryPost {
   mediaType: string | null;
 }
 
+export interface UnifiedEngagementDay {
+  date: string;
+  likes: number;
+  comments: number;
+  shares: number;
+  reposts: number;
+}
+
+export interface UnifiedActivityDay {
+  date: string;
+  posts: number;
+}
+
 export interface UnifiedSummaryResponse {
   kpi: UnifiedKpiSummary;
-  /** Post impressions by publish day (ImportedPost) plus LinkedIn daily aggregates from snapshots. */
   chart: UnifiedChartData;
-  /** Followers or fans from `AccountMetricSnapshot` by metric day and platform. */
   audienceChart: UnifiedChartData;
-  /** Likes, comments, shares, reposts summed by post publish day; LinkedIn uses PostPerformance comments + shares by fetch day. */
   engagementChart: UnifiedChartData;
+  engagementBreakdown: UnifiedEngagementDay[];
+  activityBreakdown: UnifiedActivityDay[];
   topPosts: UnifiedTopPost[];
   history: UnifiedHistoryPost[];
 }

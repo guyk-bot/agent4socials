@@ -6,6 +6,8 @@ export type {
   UnifiedTopPost,
   UnifiedHistoryPost,
   UnifiedSummaryResponse,
+  UnifiedEngagementDay,
+  UnifiedActivityDay,
 } from './unified-metrics-types';
 export { PLATFORM_LABEL, PLATFORM_COLOR, CHART_PLATFORMS } from './unified-metrics-types';
 import { PLATFORM_LABEL, CHART_PLATFORMS } from './unified-metrics-types';
@@ -394,4 +396,77 @@ export async function getUnifiedPostsHistory(
     postedAt: p.publishedAt.toISOString(),
     mediaType: p.mediaType,
   }));
+}
+
+// ─── Engagement Breakdown (likes / comments / shares / reposts by day) ────────
+
+import type { UnifiedEngagementDay, UnifiedActivityDay } from './unified-metrics-types';
+
+export async function getUnifiedEngagementBreakdown(
+  userId: string,
+  period: UnifiedPeriod
+): Promise<UnifiedEngagementDay[]> {
+  const { since, until } = period;
+
+  const posts = await prisma.importedPost.findMany({
+    where: { socialAccount: { userId }, publishedAt: { gte: since, lte: until } },
+    select: {
+      publishedAt: true,
+      likeCount: true,
+      commentsCount: true,
+      sharesCount: true,
+      repostsCount: true,
+    },
+    orderBy: { publishedAt: 'asc' },
+  });
+
+  const emptyDay = (): Omit<UnifiedEngagementDay, 'date'> => ({ likes: 0, comments: 0, shares: 0, reposts: 0 });
+  const map: Record<string, UnifiedEngagementDay> = {};
+  const cursor = new Date(since);
+  while (cursor <= until) {
+    const d = cursor.toISOString().slice(0, 10);
+    map[d] = { date: d, ...emptyDay() };
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  for (const p of posts) {
+    const d = new Date(p.publishedAt).toISOString().slice(0, 10);
+    if (!map[d]) continue;
+    map[d].likes += p.likeCount ?? 0;
+    map[d].comments += p.commentsCount ?? 0;
+    map[d].shares += p.sharesCount ?? 0;
+    map[d].reposts += p.repostsCount ?? 0;
+  }
+
+  return Object.values(map).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// ─── Activity Breakdown (posts by day) ────────────────────────────────────────
+
+export async function getUnifiedActivityBreakdown(
+  userId: string,
+  period: UnifiedPeriod
+): Promise<UnifiedActivityDay[]> {
+  const { since, until } = period;
+
+  const posts = await prisma.importedPost.findMany({
+    where: { socialAccount: { userId }, publishedAt: { gte: since, lte: until } },
+    select: { publishedAt: true },
+    orderBy: { publishedAt: 'asc' },
+  });
+
+  const map: Record<string, UnifiedActivityDay> = {};
+  const cursor = new Date(since);
+  while (cursor <= until) {
+    const d = cursor.toISOString().slice(0, 10);
+    map[d] = { date: d, posts: 0 };
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  for (const p of posts) {
+    const d = new Date(p.publishedAt).toISOString().slice(0, 10);
+    if (map[d]) map[d].posts += 1;
+  }
+
+  return Object.values(map).sort((a, b) => a.date.localeCompare(b.date));
 }
