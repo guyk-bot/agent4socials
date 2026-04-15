@@ -136,8 +136,30 @@ function fmtDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function fmtAxisDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+/** Tooltip: full context (not abbreviated axis ticks). */
+function fmtTooltipDate(ymd: string): string {
+  const d = new Date(`${ymd}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return ymd;
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+/**
+ * X-axis ticks: show "Jan 15" on the first point of a month, then "18", "21", … until the next month ("Feb 2", …).
+ * `series` must be chronological by `date` (YYYY-MM-DD).
+ */
+function compactAxisTickFromSeries(series: Array<{ date: string }>, tick: string): string {
+  const i = series.findIndex((r) => r.date === tick);
+  const d = new Date(`${tick}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return tick;
+  const mon = d.toLocaleDateString('en-US', { month: 'short' });
+  const day = d.getDate();
+  if (i <= 0) return `${mon} ${day}`;
+  const prev = series[i - 1];
+  if (!prev?.date) return `${mon} ${day}`;
+  const prevD = new Date(`${prev.date}T12:00:00`);
+  if (Number.isNaN(prevD.getTime())) return `${mon} ${day}`;
+  const sameMonth = d.getFullYear() === prevD.getFullYear() && d.getMonth() === prevD.getMonth();
+  return sameMonth ? String(day) : `${mon} ${day}`;
 }
 
 /** Map SocialAccount.platform (e.g. FACEBOOK) to unified chart label (e.g. Meta). */
@@ -258,24 +280,24 @@ function KpiCard({ label, value, growthPct, icon, accent, period }: {
   const noChange = Math.abs(growthPct) < 0.05;
   return (
     <div style={{
-      background: '#ffffff', border: '1px solid rgba(0,0,0,0.07)', borderRadius: 20,
-      padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 12,
-      boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+      background: '#ffffff', border: '1px solid rgba(0,0,0,0.07)', borderRadius: 14,
+      padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 6,
+      boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: 13, fontWeight: 500, color: '#64748b', letterSpacing: 0.2 }}>{label}</span>
+        <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b', letterSpacing: 0.03, textTransform: 'uppercase' }}>{label}</span>
         <div style={{
-          width: 36, height: 36, borderRadius: 10, background: `${accent}18`,
+          width: 28, height: 28, borderRadius: 8, background: `${accent}18`,
           display: 'flex', alignItems: 'center', justifyContent: 'center', color: accent,
         }}>{icon}</div>
       </div>
-      <div style={{ fontSize: 34, fontWeight: 700, color: '#0f172a', lineHeight: 1 }}>{value}</div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-        {noChange ? <Minus size={14} color="#94a3b8" /> : positive ? <TrendingUp size={14} color="#22c55e" /> : <TrendingDown size={14} color="#ef4444" />}
-        <span style={{ fontSize: 12, fontWeight: 600, color: noChange ? '#94a3b8' : positive ? '#22c55e' : '#ef4444' }}>
+      <div style={{ fontSize: 22, fontWeight: 700, color: '#0f172a', lineHeight: 1.1, letterSpacing: '-0.02em' }}>{value}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+        {noChange ? <Minus size={12} color="#94a3b8" /> : positive ? <TrendingUp size={12} color="#22c55e" /> : <TrendingDown size={12} color="#ef4444" />}
+        <span style={{ fontSize: 11, fontWeight: 600, color: noChange ? '#94a3b8' : positive ? '#22c55e' : '#ef4444' }}>
           {noChange ? 'No change' : fmtPct(growthPct)}
         </span>
-        <span style={{ fontSize: 12, color: '#94a3b8' }}>vs prev {period}</span>
+        <span style={{ fontSize: 11, color: '#94a3b8' }}>vs prev {period}</span>
       </div>
     </div>
   );
@@ -294,11 +316,12 @@ function PlatformMixChart({
 }) {
   const growthDomain = performanceMode === 'growth' ? growthAudienceYDomain(data, activePlatforms) : undefined;
   const valueFmt = performanceMode === 'growth' ? (v: number) => fmtExactInt(v) : (v: number) => fmt(v);
+  const xTick = (v: string) => compactAxisTickFromSeries(data, v);
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={data} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+      <LineChart data={data} margin={{ top: 8, right: 8, left: -12, bottom: 4 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
-        <XAxis dataKey="date" tickFormatter={fmtAxisDate} tick={{ fontSize: 11, fill: COLOR.textMuted }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+        <XAxis dataKey="date" tickFormatter={xTick} tick={{ fontSize: 11, fill: COLOR.textMuted }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
         <YAxis
           domain={growthDomain ?? ['auto', 'auto']}
           tickFormatter={(v) => valueFmt(Number(v))}
@@ -309,7 +332,7 @@ function PlatformMixChart({
         />
         <Tooltip
           contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
-          labelFormatter={(v) => fmtAxisDate(String(v))}
+          labelFormatter={(v) => fmtTooltipDate(String(v))}
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           formatter={(value: any, name: any) => [valueFmt(Number(value) ?? 0), name ?? '']}
         />
@@ -806,17 +829,17 @@ export default function UnifiedSummaryPage() {
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.overview} className="scroll-mt-28 space-y-4">
         {/* KPI cards — always shown when data exists (even while refreshing) */}
         {data ? (
-          <ShellCard className="space-y-3">
-            <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Overview</h3>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              <KpiCard label="Followers" value={fmtExactInt(data.kpi.totalAudience)} growthPct={data.kpi.audienceGrowthPercentage} icon={<Users size={18} />} accent={COLOR.mint} period={periodLabel} />
-              <KpiCard label="Views" value={fmt(data.kpi.totalImpressions)} growthPct={data.kpi.impressionsGrowthPercentage} icon={<Eye size={18} />} accent={COLOR.magenta} period={periodLabel} />
-              <KpiCard label="Engagements" value={fmt(data.kpi.totalEngagement)} growthPct={data.kpi.engagementGrowthPercentage} icon={<Heart size={18} />} accent={COLOR.violet} period={periodLabel} />
+          <ShellCard className="!p-3 sm:!p-4 space-y-2">
+            <h3 className="text-base font-semibold m-0" style={{ color: COLOR.text }}>Overview</h3>
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              <KpiCard label="Followers" value={fmtExactInt(data.kpi.totalAudience)} growthPct={data.kpi.audienceGrowthPercentage} icon={<Users size={15} />} accent={COLOR.mint} period={periodLabel} />
+              <KpiCard label="Views" value={fmtExactInt(data.kpi.totalImpressions)} growthPct={data.kpi.impressionsGrowthPercentage} icon={<Eye size={15} />} accent={COLOR.magenta} period={periodLabel} />
+              <KpiCard label="Engagements" value={fmtExactInt(data.kpi.totalEngagement)} growthPct={data.kpi.engagementGrowthPercentage} icon={<Heart size={15} />} accent={COLOR.violet} period={periodLabel} />
             </div>
           </ShellCard>
         ) : loading ? (
           <ShellCard className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{[0,1,2].map((i) => <Skeleton key={i} className="h-20 rounded-[20px]" />)}</div>
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">{[0,1,2].map((i) => <Skeleton key={i} className="h-[88px] rounded-xl" />)}</div>
           </ShellCard>
         ) : null}
 
@@ -906,10 +929,18 @@ export default function UnifiedSummaryPage() {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={data.engagementBreakdown ?? []} barCategoryGap="20%" barGap={0} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-                    <XAxis dataKey="date" tickFormatter={fmtAxisDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} dy={8} minTickGap={28} axisLine={false} tickLine={false} />
+                    <XAxis
+                      dataKey="date"
+                      tickFormatter={(v) => compactAxisTickFromSeries(data.engagementBreakdown ?? [], String(v))}
+                      tick={{ fill: COLOR.textMuted, fontSize: 11 }}
+                      dy={8}
+                      minTickGap={28}
+                      axisLine={false}
+                      tickLine={false}
+                    />
                     <YAxis domain={[0, 'auto']} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                     <Tooltip contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }} // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    formatter={(v: any, n: any) => [fmt(Number(v) || 0), String(n ?? '').charAt(0).toUpperCase() + String(n ?? '').slice(1)]} labelFormatter={(l) => fmtAxisDate(String(l))} />
+                    formatter={(v: any, n: any) => [fmt(Number(v) || 0), String(n ?? '').charAt(0).toUpperCase() + String(n ?? '').slice(1)]} labelFormatter={(l) => fmtTooltipDate(String(l))} />
                     {selectedEngagement.includes('likes') && <Bar dataKey="likes" stackId="e" fill={ENGAGEMENT_COLORS.likes} radius={engagementStackTopKey === 'likes' ? [6,6,0,0] : [0,0,0,0]} barSize={14} />}
                     {selectedEngagement.includes('comments') && <Bar dataKey="comments" stackId="e" fill={ENGAGEMENT_COLORS.comments} radius={engagementStackTopKey === 'comments' ? [6,6,0,0] : [0,0,0,0]} barSize={14} />}
                     {selectedEngagement.includes('shares') && <Bar dataKey="shares" stackId="e" fill={ENGAGEMENT_COLORS.shares} radius={engagementStackTopKey === 'shares' ? [6,6,0,0] : [0,0,0,0]} barSize={14} />}
@@ -954,10 +985,18 @@ export default function UnifiedSummaryPage() {
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={data.activityBreakdown ?? []}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-                    <XAxis dataKey="date" tickFormatter={fmtAxisDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} dy={8} minTickGap={18} axisLine={false} tickLine={false} />
+                    <XAxis
+                      dataKey="date"
+                      tickFormatter={(v) => compactAxisTickFromSeries(data.activityBreakdown ?? [], String(v))}
+                      tick={{ fill: COLOR.textMuted, fontSize: 11 }}
+                      dy={8}
+                      minTickGap={18}
+                      axisLine={false}
+                      tickLine={false}
+                    />
                     <YAxis domain={[0, 'auto']} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                     <Tooltip contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }} // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    formatter={(v: any, n: any) => [fmt(Number(v) || 0), n === 'posts' ? 'Posts' : String(n ?? '')]} labelFormatter={(l) => fmtAxisDate(String(l))} />
+                    formatter={(v: any, n: any) => [fmt(Number(v) || 0), n === 'posts' ? 'Posts' : String(n ?? '')]} labelFormatter={(l) => fmtTooltipDate(String(l))} />
                     {selectedActivity.includes('posts') && <Line type="monotone" dataKey="posts" stroke={ACTIVITY_COLORS.posts} strokeWidth={2} dot={false} />}
                   </ComposedChart>
                 </ResponsiveContainer>
