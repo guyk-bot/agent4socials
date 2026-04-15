@@ -244,6 +244,41 @@ export async function getUnifiedChartData(userId: string, period: UnifiedPeriod)
   return Object.values(dateMap).sort((a, b) => a.date.localeCompare(b.date));
 }
 
+/**
+ * Snapshot-based audience series has 0 on days with no DB row. Carry the last known total forward
+ * (and extend the first known value backward) so missing sync days do not look like follower loss.
+ */
+function forwardFillAudienceSnapshotGaps(sortedRows: UnifiedChartData): UnifiedChartData {
+  const out = sortedRows.map((row) => ({ ...row }));
+  for (const key of CHART_PLATFORMS) {
+    const nums = out.map((r) => Number((r as Record<string, number>)[key] ?? 0));
+    let firstIdx = -1;
+    for (let i = 0; i < nums.length; i++) {
+      if (nums[i] > 0) {
+        firstIdx = i;
+        break;
+      }
+    }
+    if (firstIdx < 0) continue;
+
+    const firstVal = nums[firstIdx];
+    for (let i = 0; i < firstIdx; i++) {
+      (out[i] as Record<string, number>)[key] = firstVal;
+    }
+
+    let last = firstVal;
+    for (let i = firstIdx; i < out.length; i++) {
+      const v = Number((out[i] as Record<string, number>)[key] ?? 0);
+      if (v > 0) {
+        last = v;
+      } else {
+        (out[i] as Record<string, number>)[key] = last;
+      }
+    }
+  }
+  return out;
+}
+
 /** Daily audience (followers or fans) from metric snapshots, summed across accounts per platform. */
 export async function getUnifiedAudienceChartData(userId: string, period: UnifiedPeriod): Promise<UnifiedChartData> {
   const { since, until } = period;
@@ -265,7 +300,8 @@ export async function getUnifiedAudienceChartData(userId: string, period: Unifie
     }
   }
 
-  return Object.values(dateMap).sort((a, b) => a.date.localeCompare(b.date));
+  const sorted = Object.values(dateMap).sort((a, b) => a.date.localeCompare(b.date));
+  return forwardFillAudienceSnapshotGaps(sorted);
 }
 
 /** Daily engagement from synced posts (and LinkedIn PostPerformance rows) by platform. */
