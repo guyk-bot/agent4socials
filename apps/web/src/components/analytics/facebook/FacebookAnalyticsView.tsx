@@ -378,6 +378,7 @@ function formatDurationMs(ms: number): string {
   if (secs < 60) return `${secs.toFixed(1)}s`;
   const mins = Math.floor(secs / 60);
   const rem = Math.round(secs % 60);
+  if (rem === 0) return `${mins}m`;
   return `${mins}m ${rem}s`;
 }
 
