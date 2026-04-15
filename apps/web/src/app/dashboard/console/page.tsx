@@ -57,7 +57,7 @@ import type {
   UnifiedEngagementDay,
   UnifiedActivityDay,
 } from '@/lib/analytics/unified-metrics-types';
-import { PLATFORM_COLOR, CHART_PLATFORMS } from '@/lib/analytics/unified-metrics-types';
+import { PLATFORM_COLOR, CHART_PLATFORMS, PLATFORM_LABEL } from '@/lib/analytics/unified-metrics-types';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import type { SocialAccount } from '@/context/SelectedAccountContext';
@@ -115,6 +115,40 @@ function fmtDate(iso: string): string {
 
 function fmtAxisDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+/** Map SocialAccount.platform (e.g. FACEBOOK) to unified chart label (e.g. Meta). */
+function chartLabelForAccountPlatform(platform: string): string | null {
+  const key = (platform || '').toUpperCase();
+  return PLATFORM_LABEL[key] ?? null;
+}
+
+/** Change in series from first to last day (Growth). Sum over range (Engagement / Views). */
+function platformPresetMetric(
+  rows: UnifiedChartData,
+  platform: string,
+  preset: 'growth' | 'engagement' | 'views'
+): number {
+  if (rows.length === 0) return 0;
+  if (preset === 'growth') {
+    const first = Number((rows[0] as Record<string, number>)[platform] ?? 0);
+    const last = Number((rows[rows.length - 1] as Record<string, number>)[platform] ?? 0);
+    return Math.round(last - first);
+  }
+  let sum = 0;
+  for (const row of rows) {
+    sum += Number((row as Record<string, number>)[platform] ?? 0);
+  }
+  return Math.round(sum);
+}
+
+function formatLegendMetric(preset: 'growth' | 'engagement' | 'views', value: number): string {
+  if (preset === 'growth') {
+    if (value === 0) return '0';
+    const abs = fmt(Math.abs(value));
+    return `${value > 0 ? '+' : '-'}${abs}`;
+  }
+  return fmt(value);
 }
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
@@ -241,32 +275,56 @@ function LegendPill({ label, color, active, onClick }: { label: string; color: s
   );
 }
 
-/** Toggle which platform series are shown on the chart; uses platform logos like the sidebar. */
-function PlatformLegend({ activePlatforms, toggle, all }: { activePlatforms: string[]; toggle: (p: string) => void; all: string[] }) {
+/** Icon-only toggles; shows change (Growth) or period total (Engagement / Views) for each platform. */
+function PlatformLegend({
+  activePlatforms,
+  toggle,
+  all,
+  preset,
+  chartData,
+}: {
+  activePlatforms: string[];
+  toggle: (p: string) => void;
+  all: string[];
+  preset: 'growth' | 'engagement' | 'views';
+  chartData: UnifiedChartData;
+}) {
   return (
-    <div className="flex flex-wrap gap-2" role="group" aria-label="Platforms shown on chart">
+    <div className="flex flex-wrap justify-end gap-2" role="group" aria-label="Platforms shown on chart">
       {all.map((p) => {
         const active = activePlatforms.includes(p);
+        const raw = platformPresetMetric(chartData, p, preset);
+        const metricText = formatLegendMetric(preset, raw);
+        const metricColor =
+          preset === 'growth'
+            ? raw > 0
+              ? '#16a34a'
+              : raw < 0
+                ? '#dc2626'
+                : COLOR.textMuted
+            : COLOR.text;
         return (
           <button
             key={p}
             type="button"
             onClick={() => toggle(p)}
             aria-pressed={active}
-            title={active ? `Hide ${p}` : `Show ${p}`}
-            className="inline-flex items-center gap-2 rounded-full border px-2.5 py-1.5 text-xs font-medium transition-[opacity,box-shadow,transform] hover:scale-[1.02] active:scale-[0.98]"
+            aria-label={`${p}, ${preset === 'growth' ? 'change in range' : 'total in range'} ${metricText}`}
+            title={`${p}: ${metricText}`}
+            className="inline-flex items-center gap-1.5 rounded-full border px-2 py-1.5 text-xs font-semibold transition-[opacity,box-shadow,transform] hover:scale-[1.02] active:scale-[0.98]"
             style={{
               borderColor: COLOR.border,
               background: active ? 'rgba(255,255,255,0.95)' : 'rgba(248,250,252,0.9)',
               opacity: active ? 1 : 0.45,
               boxShadow: active ? '0 1px 3px rgba(15,23,42,0.08)' : 'none',
-              color: active ? COLOR.text : COLOR.textMuted,
             }}
           >
-            <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center [&>svg]:max-h-[18px] [&>svg]:max-w-[18px]">
-              <PlatformIcon platform={p} size={16} />
+            <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center [&>svg]:max-h-[20px] [&>svg]:max-w-[20px]">
+              <PlatformIcon platform={p} size={18} />
             </span>
-            <span>{p}</span>
+            <span className="tabular-nums min-w-[2ch]" style={{ color: metricColor }}>
+              {metricText}
+            </span>
           </button>
         );
       })}
@@ -459,7 +517,21 @@ export default function UnifiedSummaryPage() {
   // Performance section
   const [performanceMode, setPerformanceMode] = useState<'growth' | 'engagement' | 'views'>('growth');
   const [activePlatforms, setActivePlatforms] = useState<string[]>([...CHART_PLATFORMS]);
-  useEffect(() => { setActivePlatforms([...CHART_PLATFORMS]); }, [performanceMode]);
+
+  /** Chart legend and series only for accounts the user has connected (fallback: all chart keys). */
+  const connectedChartPlatforms = useMemo(() => {
+    const labels = new Set<string>();
+    for (const acc of orderedAccounts) {
+      const lab = chartLabelForAccountPlatform(acc.platform);
+      if (lab) labels.add(lab);
+    }
+    const ordered = (CHART_PLATFORMS as readonly string[]).filter((p) => labels.has(p));
+    return ordered.length > 0 ? ordered : [...CHART_PLATFORMS];
+  }, [orderedAccounts]);
+
+  useEffect(() => {
+    setActivePlatforms([...connectedChartPlatforms]);
+  }, [performanceMode, connectedChartPlatforms]);
 
   // Engagement section
   const [selectedEngagement, setSelectedEngagement] = useState<('likes' | 'comments' | 'shares' | 'reposts')[]>(['likes', 'comments', 'shares']);
@@ -501,13 +573,6 @@ export default function UnifiedSummaryPage() {
     if (performanceMode === 'engagement') return data.engagementChart ?? [];
     return data.chart ?? [];
   }, [data, performanceMode]);
-
-  const platformsWithChartData = useMemo(() => {
-    if (!activeChartData.length) return [...CHART_PLATFORMS];
-    const s = new Set<string>();
-    for (const row of activeChartData) for (const p of CHART_PLATFORMS) if ((row[p] as number) > 0) s.add(p);
-    return CHART_PLATFORMS.filter((p) => s.has(p));
-  }, [activeChartData]);
 
   // Engagement totals
   const engTotals = useMemo(() => {
@@ -639,11 +704,20 @@ export default function UnifiedSummaryPage() {
               })}
             </div>
             <div className="flex justify-end">
-              <PlatformLegend all={platformsWithChartData.length > 0 ? platformsWithChartData as string[] : [...CHART_PLATFORMS] as string[]} activePlatforms={activePlatforms} toggle={togglePlatform} />
+              <PlatformLegend
+                all={connectedChartPlatforms}
+                activePlatforms={activePlatforms}
+                toggle={togglePlatform}
+                preset={performanceMode}
+                chartData={activeChartData}
+              />
             </div>
             <InsightChartCard title="Performance" hideHeader flat>
-              {activeChartData.length > 0 && !activeChartData.every((row) => activePlatforms.every((p) => (row[p] as number) === 0)) ? (
-                <PlatformMixChart data={activeChartData} activePlatforms={activePlatforms.filter((p) => platformsWithChartData.length > 0 ? (platformsWithChartData as string[]).includes(p) : true)} />
+              {activeChartData.length > 0 ? (
+                <PlatformMixChart
+                  data={activeChartData}
+                  activePlatforms={activePlatforms.filter((p) => connectedChartPlatforms.includes(p))}
+                />
               ) : (
                 <div className="h-full flex items-center justify-center text-sm" style={{ color: COLOR.textMuted }}>
                   {performanceMode === 'growth' ? 'No audience data yet.' : performanceMode === 'engagement' ? 'No engagement data yet.' : 'No impressions data yet.'}
