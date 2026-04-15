@@ -741,11 +741,10 @@ export default function UnifiedSummaryPage() {
 
   return (
     <div
-      className="space-y-4"
+      className="p-0 md:p-0.5 space-y-3"
       style={{
         maxWidth: 1400,
-        margin: '0 auto',
-        padding: '24px 16px 48px',
+        background: '#f6f7fb',
         fontFamily: 'var(--font-inter, system-ui, sans-serif)',
       }}
     >
@@ -772,27 +771,21 @@ export default function UnifiedSummaryPage() {
         </button>
       </div>
 
-      {/* ── Header ── */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: 8,
-          flexWrap: 'wrap',
-          gap: 12,
-        }}
-      >
-        <div>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: '#0f172a', margin: 0 }}>
-            Command Center
-          </h1>
-          <p style={{ fontSize: 14, color: '#64748b', margin: '4px 0 0' }}>
-            Unified analytics across all your connected platforms
-          </p>
+      <section className="rounded-[20px] p-3 md:p-3.5" style={{ background: '#ffffff' }}>
+        <div className="flex flex-wrap items-center gap-3 justify-between">
+          <div className="min-w-0">
+            <h1 className="text-xl font-semibold" style={{ color: '#111827' }}>
+              Command Center
+            </h1>
+            <p className="text-sm mt-0.5 max-w-xl leading-snug" style={{ color: '#667085' }}>
+              Unified analytics across all your connected platforms
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <AnalyticsDateRangePicker start={dateRange.start} end={dateRange.end} onChange={onDateRangeChange} />
+          </div>
         </div>
-        <AnalyticsDateRangePicker start={dateRange.start} end={dateRange.end} onChange={onDateRangeChange} />
-      </div>
+      </section>
 
       {error && (
         <div
@@ -803,7 +796,6 @@ export default function UnifiedSummaryPage() {
             padding: '12px 16px',
             color: '#dc2626',
             fontSize: 13,
-            marginBottom: 24,
           }}
         >
           {error}
