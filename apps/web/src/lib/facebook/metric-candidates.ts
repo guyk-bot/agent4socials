@@ -11,6 +11,11 @@
  */
 export const FACEBOOK_PAGE_DAY_METRIC_CANDIDATES: string[] = [
   'page_media_view',
+  /** Replaces legacy reach-style signals per Meta Graph API v25 guidance (June 2026 deprecations). */
+  'page_total_media_view_unique',
+  /** Story-level media metrics when Meta exposes them on Page day insights (may be invalid until fully rolled out). */
+  'story_media_view',
+  'story_total_media_view_unique',
   'page_views_total',
   'page_post_engagements',
   'page_video_views',
@@ -35,6 +40,7 @@ export const FACEBOOK_PAGE_DAY_METRIC_CANDIDATES: string[] = [
  */
 export const FACEBOOK_POST_LIFETIME_METRIC_CANDIDATES: string[] = [
   'post_media_view',
+  'post_total_media_view_unique',
   'post_impressions',
   'post_impressions_unique',
   'post_video_views',

@@ -329,7 +329,14 @@ export async function resolvePostInsightMetricsForSync(params: {
     samplePostId: params.samplePostId,
     accessToken: params.accessToken,
   });
-  const preferred = ['post_media_view', 'post_impressions', 'post_impressions_unique', 'post_engaged_users', 'post_video_views'];
+  const preferred = [
+    'post_media_view',
+    'post_total_media_view_unique',
+    'post_impressions',
+    'post_impressions_unique',
+    'post_engaged_users',
+    'post_video_views',
+  ];
   const ordered = [...preferred.filter((m) => metrics.includes(m)), ...metrics.filter((m) => !preferred.includes(m))];
   return ordered;
 }

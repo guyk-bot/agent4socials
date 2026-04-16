@@ -84,6 +84,9 @@ export function buildPinterestFrontendAnalyticsBundle(input: {
     postImpressions,
     postImpressionsNonviral: postImpressions,
     postImpressionsViral: [] as FacebookMetricSeriesPoint[],
+    mediaViewersUnique: [] as FacebookMetricSeriesPoint[],
+    storyMediaViews: [] as FacebookMetricSeriesPoint[],
+    storyMediaViewersUnique: [] as FacebookMetricSeriesPoint[],
   };
 
   return {
@@ -101,6 +104,9 @@ export function buildPinterestFrontendAnalyticsBundle(input: {
       postImpressions: sumSeries(postImpressions),
       postImpressionsNonviral: sumSeries(postImpressions),
       postImpressionsViral: 0,
+      mediaViewersUnique: 0,
+      storyMediaViews: 0,
+      storyMediaViewersUnique: 0,
     },
     sourceGraphMetricsIncluded: ['pinterest_user_account_analytics'],
   };

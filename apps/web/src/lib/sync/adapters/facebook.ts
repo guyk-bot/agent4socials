@@ -134,7 +134,8 @@ async function syncContentMetrics(account: AccountRow) {
         error?: { message?: string };
       }>(`${fbBaseUrl}/${post.platformPostId}/insights`, {
         params: {
-          metric: 'post_impressions,post_clicks,post_reactions_by_type_total,post_engaged_users,post_shares',
+          metric:
+            'post_media_view,post_total_media_view_unique,post_impressions,post_clicks,post_reactions_by_type_total,post_engaged_users,post_shares',
           access_token: account.accessToken,
         },
         timeout: 8_000,
@@ -153,10 +154,17 @@ async function syncContentMetrics(account: AccountRow) {
       const insightShares = metrics.post_shares ?? 0;
       const mergedShares = Math.max(row?.sharesCount ?? 0, insightShares);
 
+      const viewCount =
+        typeof metrics.post_media_view === 'number'
+          ? metrics.post_media_view
+          : typeof metrics.post_impressions === 'number'
+            ? metrics.post_impressions
+            : 0;
+
       await prisma.importedPost.updateMany({
         where: { socialAccountId: account.id, platformPostId: post.platformPostId },
         data: {
-          impressions:  metrics.post_impressions ?? 0,
+          impressions: viewCount,
           interactions: metrics.post_clicks ?? 0,
           sharesCount: mergedShares,
           syncedAt:     new Date(),

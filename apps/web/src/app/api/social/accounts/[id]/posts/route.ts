@@ -38,6 +38,7 @@ const FB_CORE_POST_LIFETIME_METRICS = [
   'post_impressions',
   'post_impressions_unique',
   'post_media_view',
+  'post_total_media_view_unique',
   'post_video_views',
   'post_video_avg_time_watched',
   'post_video_view_time',
@@ -94,6 +95,7 @@ function facebookStoredInsightsLackViewSignal(meta: Record<string, unknown>): bo
   const m = fi as Record<string, number>;
   const signal = Math.max(
     m.post_media_view ?? 0,
+    m.post_total_media_view_unique ?? 0,
     m.post_video_views ?? 0,
     m.post_impressions ?? 0,
     m.post_impressions_unique ?? 0
@@ -147,7 +149,7 @@ async function fetchFacebookPostSnapshotMap(postId: string, pageAccessToken: str
     }>(`${fbRestBaseUrl}/${postId}`, {
       params: {
         fields:
-          'reactions.summary(1),comments.summary(1),shares,insights.metric(post_media_view,post_video_views,post_impressions,post_impressions_unique,post_reactions_like_total,post_comments,post_shares)',
+          'reactions.summary(1),comments.summary(1),shares,insights.metric(post_media_view,post_total_media_view_unique,post_video_views,post_impressions,post_impressions_unique,post_reactions_like_total,post_comments,post_shares)',
         access_token: pageAccessToken,
       },
       timeout: 12_000,

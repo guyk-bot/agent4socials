@@ -19,6 +19,9 @@ const TOTAL_ROWS: Array<{ key: keyof FacebookFrontendAnalyticsBundle['totals']; 
   { key: 'postImpressions', label: 'Post impressions', hint: 'page_posts_impressions' },
   { key: 'postImpressionsNonviral', label: 'Post impressions (non-viral)' },
   { key: 'postImpressionsViral', label: 'Post impressions (viral)' },
+  { key: 'mediaViewersUnique', label: 'Unique viewers (Page)', hint: 'page_total_media_view_unique' },
+  { key: 'storyMediaViews', label: 'Story media views', hint: 'story_media_view' },
+  { key: 'storyMediaViewersUnique', label: 'Story unique viewers', hint: 'story_total_media_view_unique' },
 ];
 
 function fmt(n: number): string {

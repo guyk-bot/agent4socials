@@ -75,6 +75,7 @@ async function resolveFacebookPageAccessToken(pageId: string, token: string): Pr
 const FB_DAILY_SKIP_LIVE_FETCH_KEYS = new Set([
   'page_impressions',
   'page_media_view',
+  'page_total_media_view_unique',
   'page_views_total',
   'page_post_engagements',
 ]);
@@ -1343,6 +1344,9 @@ export async function GET(
             'page_post_engagements',
             'page_impressions',
             'page_media_view',
+            'page_total_media_view_unique',
+            'story_media_view',
+            'story_total_media_view_unique',
             'page_fan_adds',
             'page_fan_removes',
             /** Traffic tab: page-level post impressions (distinct from per-post insights in the UI). */
@@ -1641,7 +1645,8 @@ export async function GET(
       // Merge snapshot-backed insights so we show full timeline from connection when API window (e.g. 90 days) is shorter than requested range.
       if (sinceParam && untilParam) {
         try {
-          const [snapshotImpressions, snapshotPageViews, snapshotPagePostEngagements] = await Promise.all([
+          const [snapshotImpressions, snapshotPageViews, snapshotPagePostEngagements, snapshotPageMediaViewersUnique] =
+            await Promise.all([
             getInsightsTimeSeries({
               userId,
               platform: 'FACEBOOK',
@@ -1665,6 +1670,14 @@ export async function GET(
               since: sinceParam,
               until: untilParam,
               metricKey: 'page_post_engagements',
+            }),
+            getInsightsTimeSeries({
+              userId,
+              platform: 'FACEBOOK',
+              externalAccountId: account.platformUserId,
+              since: sinceParam,
+              until: untilParam,
+              metricKey: 'page_total_media_view_unique',
             }),
           ]);
           const apiImpressionsOnly = [...(out.impressionsTimeSeries ?? [])];
@@ -1711,6 +1724,15 @@ export async function GET(
             sinceParam,
             untilParam
           );
+          const apiPageMediaViewersOnly = [...(graphSeries.page_total_media_view_unique ?? [])];
+          if (apiPageMediaViewersOnly.length > 0 || snapshotPageMediaViewersUnique.length > 0) {
+            graphSeries.page_total_media_view_unique = mergeSeriesWithSnapshots(
+              apiPageMediaViewersOnly,
+              snapshotPageMediaViewersUnique,
+              sinceParam,
+              untilParam
+            );
+          }
           (out as Record<string, unknown>).facebookPageMetricSeries = graphSeries;
           out.reachTotal = sumMergedDailyOverCalendarRange(
             apiEngagementsOnly,

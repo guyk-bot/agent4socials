@@ -25,6 +25,10 @@ export type FacebookFrontendAnalyticsBundle = {
     postImpressions: FacebookMetricSeriesPoint[];
     postImpressionsNonviral: FacebookMetricSeriesPoint[];
     postImpressionsViral: FacebookMetricSeriesPoint[];
+    /** Meta `page_total_media_view_unique` (people-based; replaces legacy reach-style signals per v25 guidance). */
+    mediaViewersUnique: FacebookMetricSeriesPoint[];
+    storyMediaViews: FacebookMetricSeriesPoint[];
+    storyMediaViewersUnique: FacebookMetricSeriesPoint[];
   };
   /** Sum of daily values over the returned series (simple rollup for KPIs). */
   totals: {
@@ -39,6 +43,9 @@ export type FacebookFrontendAnalyticsBundle = {
     postImpressions: number;
     postImpressionsNonviral: number;
     postImpressionsViral: number;
+    mediaViewersUnique: number;
+    storyMediaViews: number;
+    storyMediaViewersUnique: number;
   };
   /** Graph metric keys that had at least one point in this response. */
   sourceGraphMetricsIncluded: string[];
@@ -82,6 +89,9 @@ export function buildFacebookFrontendAnalyticsBundle(input: {
   const postImpressions = pick(g, 'page_posts_impressions');
   const postImpressionsNonviral = pick(g, 'page_posts_impressions_nonviral');
   const postImpressionsViral = pick(g, 'page_posts_impressions_viral');
+  const mediaViewersUnique = pick(g, 'page_total_media_view_unique');
+  const storyMediaViews = pick(g, 'story_media_view');
+  const storyMediaViewersUnique = pick(g, 'story_total_media_view_unique');
 
   const sourceGraphMetricsIncluded = Object.keys(g).filter((k) => (g[k]?.length ?? 0) > 0);
 
@@ -99,6 +109,9 @@ export function buildFacebookFrontendAnalyticsBundle(input: {
       postImpressions,
       postImpressionsNonviral,
       postImpressionsViral,
+      mediaViewersUnique,
+      storyMediaViews,
+      storyMediaViewersUnique,
     },
     totals: {
       contentViews: sumSeries(contentViews),
@@ -112,6 +125,9 @@ export function buildFacebookFrontendAnalyticsBundle(input: {
       postImpressions: sumSeries(postImpressions),
       postImpressionsNonviral: sumSeries(postImpressionsNonviral),
       postImpressionsViral: sumSeries(postImpressionsViral),
+      mediaViewersUnique: sumSeries(mediaViewersUnique),
+      storyMediaViews: sumSeries(storyMediaViews),
+      storyMediaViewersUnique: sumSeries(storyMediaViewersUnique),
     },
     sourceGraphMetricsIncluded,
   };
