@@ -396,7 +396,12 @@ async function upsertImportedPostWithFallback(args: {
   }
 }
 
-/** GET: list imported posts for this account. ?sync=1 to sync from platform first then return. */
+/**
+ * GET: list imported posts for this account.
+ * - `sync=1`: sync from platform first then return.
+ * - `liveEnrich=1`: opt-in live Facebook/Instagram Graph calls to fill missing post metrics on read
+ *   (otherwise we only use DB + sync; avoids ShadowIGMedia/insights bursts on dashboard prefetch).
+ */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -445,6 +450,7 @@ export async function GET(
     }
     const sync = request.nextUrl.searchParams.get('sync') === '1';
     const force = request.nextUrl.searchParams.get('force') === '1';
+    const liveEnrich = request.nextUrl.searchParams.get('liveEnrich') === '1';
     let syncError: string | undefined;
     if (sync) {
       // Skip the expensive platform sync if it ran within the last 10 minutes, unless force=1.
@@ -591,7 +597,7 @@ export async function GET(
     // Facebook: fill missing video/reel view metrics on read. Sync only attaches lifetime insights to the newest N posts;
     // older Graph ordering used to starve recent reels. Also merge live results with DB so partial maps still upgrade.
     let liveFacebookInsightsByPostId: Record<string, Record<string, number>> = {};
-    if (account.platform === 'FACEBOOK' && importedRows.length > 0) {
+    if (liveEnrich && account.platform === 'FACEBOOK' && importedRows.length > 0) {
       try {
         const fbPageToken = await resolveFacebookPageAccessToken(account.platformUserId, account.accessToken);
         const candidates = importedRows
@@ -633,7 +639,7 @@ export async function GET(
       }
     }
 
-    /** Instagram: refresh media insights + thumbnails on read when DB/sync returned zeros (mirrors Facebook live path). */
+    /** Instagram: optional live media insights (`liveEnrich=1`); thumbnails still fill gaps without insights calls. */
     const liveInstagramInsightBundles: Record<string, IgMediaInsightBundle> = {};
     const liveInstagramThumbnails: Record<string, string | null> = {};
     if (account.platform === 'INSTAGRAM' && account.accessToken && importedRows.length > 0) {
@@ -654,26 +660,28 @@ export async function GET(
           reposts: typeof ig.reposts === 'number' ? ig.reposts : (row.repostsCount ?? 0),
         };
       };
-      const insightCandidates = importedRows
-        .filter((row) => !igInsightBundleHasMetrics(bundleFromRow(row)))
-        .slice(0, 5);
-      for (let i = 0; i < insightCandidates.length; i++) {
-        const row = insightCandidates[i];
-        try {
-          const reelish = isInstagramLikelyReel({
-            media_type: row.mediaType ?? undefined,
-            permalink: row.permalinkUrl ?? undefined,
-          });
-          const bundle = await fetchInstagramMediaInsightsBestEffort(row.platformPostId, account.accessToken, {
-            isReel: reelish,
-          });
-          if (igInsightBundleHasMetrics(bundle)) {
-            liveInstagramInsightBundles[row.platformPostId] = bundle;
+      if (liveEnrich) {
+        const insightCandidates = importedRows
+          .filter((row) => !igInsightBundleHasMetrics(bundleFromRow(row)))
+          .slice(0, 5);
+        for (let i = 0; i < insightCandidates.length; i++) {
+          const row = insightCandidates[i];
+          try {
+            const reelish = isInstagramLikelyReel({
+              media_type: row.mediaType ?? undefined,
+              permalink: row.permalinkUrl ?? undefined,
+            });
+            const bundle = await fetchInstagramMediaInsightsBestEffort(row.platformPostId, account.accessToken, {
+              isReel: reelish,
+            });
+            if (igInsightBundleHasMetrics(bundle)) {
+              liveInstagramInsightBundles[row.platformPostId] = bundle;
+            }
+          } catch {
+            // per-post best effort
           }
-        } catch {
-          // per-post best effort
+          if (i < insightCandidates.length - 1) await new Promise((r) => setTimeout(r, 220));
         }
-        if (i < insightCandidates.length - 1) await new Promise((r) => setTimeout(r, 220));
       }
       const thumbCandidates = importedRows
         .filter((row) => {
