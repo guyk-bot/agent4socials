@@ -358,7 +358,7 @@ const TWITTER_POST_LIMIT = 280;
 const HASHTAG_POOL_KEY = 'agent4socials_hashtag_pool';
 const MAX_HASHTAGS_PER_POST = 5;
 
-type MediaTypeChoice = 'photo' | 'video' | 'reel' | 'carousel';
+type MediaTypeChoice = 'photo' | 'video' | 'reel' | 'carousel' | 'story';
 
 const VIDEO_ACCEPT = 'video/mp4,video/quicktime,video/x-ms-asf,video/x-msvideo,video/x-matroska,video/mpeg,video/webm,.mp4,.mov,.asf,.avi,.mkv,.mpeg,.mpg,.m4v,.webm';
 
@@ -379,6 +379,13 @@ const MEDIA_RECOMMENDATIONS: Record<MediaTypeChoice, { label: string; accept: st
         formatsHint: 'MP4, MOV, ASF, AVI, MKV, MPEG-1/4, WebM',
     },
     carousel: { label: 'Carousel', accept: 'image/*', multiple: true, hint: 'Add multiple images (2–10). Recommended: 1080×1080 per slide. Instagram, Facebook, X, and LinkedIn support carousels.' },
+    story: {
+        label: 'Story',
+        accept: `image/*,${VIDEO_ACCEPT}`,
+        multiple: false,
+        hint: 'Instagram Stories: 1080×1920 (9:16), 15 sec for video. No caption is shown. Published to Instagram only.',
+        formatsHint: 'JPEG, PNG (image) or MP4, MOV (video, up to 15 sec)',
+    },
 };
 
 function normalizeHashtag(t: string): string {
@@ -463,6 +470,9 @@ const MEDIA_SPECS: Record<string, { platform: PlatformKey; name: string; specs: 
         { platform: 'FACEBOOK', name: 'Facebook', specs: [{ label: 'Per slide', value: '1080×1080 (1:1)', tag: 'Recommended' }] },
         { platform: 'LINKEDIN', name: 'LinkedIn', specs: [{ label: 'Per slide', value: '1080×1080 (1:1)', tag: 'Recommended' }] },
         { platform: 'TWITTER', name: 'Twitter/X', specs: [{ label: 'Per slide', value: '1080×1080 (1:1)' }] },
+    ],
+    story: [
+        { platform: 'INSTAGRAM', name: 'Instagram Stories', specs: [{ label: 'Vertical', value: '1080×1920 (9:16)', tag: 'Required' }, { label: 'Image', value: 'JPEG or PNG' }, { label: 'Video', value: 'MP4, up to 15 sec' }] },
     ],
 };
 
@@ -819,7 +829,7 @@ export default function ComposerPage() {
                 if (typeof d.content === 'string') setContent(d.content);
                 if (d.contentByPlatform && typeof d.contentByPlatform === 'object') setContentByPlatform(d.contentByPlatform);
                 if (typeof d.differentContentPerPlatform === 'boolean') setDifferentContentPerPlatform(d.differentContentPerPlatform);
-                if (d.mediaType === 'photo' || d.mediaType === 'video' || d.mediaType === 'reel' || d.mediaType === 'carousel') setMediaType(d.mediaType);
+                if (d.mediaType === 'photo' || d.mediaType === 'video' || d.mediaType === 'reel' || d.mediaType === 'carousel' || d.mediaType === 'story') setMediaType(d.mediaType);
                 if (Array.isArray(d.mediaList)) {
                     const valid = d.mediaList.filter((m) => m && isPersistableMediaUrl(m.fileUrl));
                     if (valid.length) setMediaList(valid);
@@ -1234,9 +1244,9 @@ export default function ComposerPage() {
         });
     }, [accountsFetched, accounts, platforms]);
 
-    // Photo / Video / Reel: only one item allowed; trim if more
+    // Photo / Video / Reel / Story: only one item allowed; trim if more
     useEffect(() => {
-        const singleFormat = mediaType === 'photo' || mediaType === 'video' || mediaType === 'reel';
+        const singleFormat = mediaType === 'photo' || mediaType === 'video' || mediaType === 'reel' || mediaType === 'story';
         if (singleFormat && mediaList.length > 1) {
             setMediaList([mediaList[0]]);
         }
@@ -1410,14 +1420,14 @@ export default function ComposerPage() {
         if (!files?.length) return;
         setMediaUploadError(null);
         setMediaUploading(true);
-        const singleFormat = mediaType === 'photo' || mediaType === 'video' || mediaType === 'reel';
+        const singleFormat = mediaType === 'photo' || mediaType === 'video' || mediaType === 'reel' || mediaType === 'story';
         try {
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
                 if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) continue;
                 const item = await uploadFile(file);
                 setMediaList((prev) => (singleFormat ? [item] : [...prev, item]));
-                if (singleFormat) break; // only one file for Photo / Video / Reel
+                if (singleFormat) break; // only one file for Photo / Video / Reel / Story
             }
         } catch (err: unknown) {
             const msg = err && typeof err === 'object' && 'response' in err && (err.response as { status?: number })?.status === 503
@@ -1742,8 +1752,10 @@ export default function ComposerPage() {
                 scheduleDelivery?: 'auto' | 'email_links';
                 commentAutomation?: { keywords: string[]; replyTemplate: string; replyOnComment?: boolean; usePrivateReply?: boolean; tagCommenter?: boolean } | null;
                 tiktokPublishByAccountId?: Record<string, TikTokDirectPostPayload>;
+                mediaType?: string;
             } = {
                 content: contentFinal,
+                mediaType,
                 media: mediaList.map((m, i) => {
                     if (i === 0 && m.type === 'VIDEO') {
                         return {
@@ -2070,7 +2082,7 @@ export default function ComposerPage() {
     const composerReady = draftRestored && (!editPostId || editLoaded) && accountsFetched;
 
     const composerFramePreview =
-        (mediaType === 'video' || mediaType === 'reel') &&
+        (mediaType === 'video' || mediaType === 'reel' || mediaType === 'story') &&
         mediaList.length === 1 &&
         mediaList[0]?.type === 'VIDEO' &&
         thumbnailChoice === 'frame'
@@ -2322,7 +2334,7 @@ export default function ComposerPage() {
                             <>
                                 <p className="text-sm font-medium text-neutral-700">Choose what to upload</p>
                                 <div className="flex flex-wrap gap-2 p-1 bg-neutral-100/80 rounded-xl w-fit">
-                                    {(['photo', 'reel', 'video', 'carousel'] as const).map((type) => (
+                                    {(['photo', 'reel', 'video', 'carousel', 'story'] as const).map((type) => (
                                         <button
                                             key={type}
                                             type="button"
@@ -2370,7 +2382,7 @@ export default function ComposerPage() {
                                     {mediaUploading && <span className="text-sm text-neutral-500">Uploading…</span>}
                                 </div>
                                 {mediaUploadError && <p className="text-sm text-red-600">{mediaUploadError}</p>}
-                                {(mediaType === 'video' || mediaType === 'reel') && mediaList.length === 1 && mediaList[0].type === 'VIDEO' ? (
+                                {(mediaType === 'video' || mediaType === 'reel' || mediaType === 'story') && mediaList.length === 1 && mediaList[0].type === 'VIDEO' ? (
                                     <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-start">
                                         <div className="p-4 rounded-2xl bg-gradient-to-b from-neutral-50 to-white border border-neutral-200/90 shadow-sm space-y-3 shrink-0 min-w-0">
                                             <div>
@@ -2473,7 +2485,7 @@ export default function ComposerPage() {
                                         </div>
                                         <div className="shrink-0 sm:pt-0 pt-0">
                                             <div
-                                                className={`relative group min-h-0 self-start overflow-hidden rounded-lg border-2 border-neutral-200 bg-neutral-100 shrink-0 ${mediaType === 'video' ? 'aspect-video w-64 max-w-full' : (mediaType === 'reel' ? 'aspect-[9/16] w-44' : 'aspect-video w-52')}`}
+                                                className={`relative group min-h-0 self-start overflow-hidden rounded-lg border-2 border-neutral-200 bg-neutral-100 shrink-0 ${mediaType === 'video' ? 'aspect-video w-64 max-w-full' : (mediaType === 'reel' || mediaType === 'story' ? 'aspect-[9/16] w-44' : 'aspect-video w-52')}`}
                                                 onMouseEnter={handleMediaPeekEnter}
                                                 onMouseLeave={handleMediaPeekLeave}
                                             >
@@ -2481,7 +2493,7 @@ export default function ComposerPage() {
                                                     const effectiveThumbnail = differentThumbnailPerPlatform && selectedPlatformForThumbnail
                                                         ? (thumbnailByPlatform[selectedPlatformForThumbnail] ?? mediaList[0].thumbnailUrl)
                                                         : mediaList[0].thumbnailUrl;
-                                                    const fitClass = mediaType === 'reel' ? 'object-cover' : 'object-contain';
+                                                    const fitClass = mediaType === 'reel' || mediaType === 'story' ? 'object-cover' : 'object-contain';
                                                     const cors = mediaList[0].fileUrl.startsWith('blob:') ? undefined : 'anonymous' as const;
                                                     return thumbnailChoice === 'frame' ? (
                                                     <div className="absolute inset-0 w-full h-full bg-neutral-900 flex items-center justify-center">
@@ -2580,7 +2592,7 @@ export default function ComposerPage() {
                                     {mediaList.map((m, i) => (
                                         <div
                                             key={i}
-                                            className={`relative group rounded-xl overflow-hidden bg-neutral-100 border-2 ${mediaType === 'reel' || mediaType === 'video' ? 'aspect-[9/16]' : 'aspect-square'} ${mediaType === 'carousel' ? 'cursor-grab active:cursor-grabbing border-neutral-300 hover:border-[var(--primary)]/60' : 'border-neutral-200'} ${carouselDraggingIndex === i ? 'opacity-50 ring-2 ring-[var(--primary)]/60' : ''}`}
+                                            className={`relative group rounded-xl overflow-hidden bg-neutral-100 border-2 ${mediaType === 'reel' || mediaType === 'video' || mediaType === 'story' ? 'aspect-[9/16]' : 'aspect-square'} ${mediaType === 'carousel' ? 'cursor-grab active:cursor-grabbing border-neutral-300 hover:border-[var(--primary)]/60' : 'border-neutral-200'} ${carouselDraggingIndex === i ? 'opacity-50 ring-2 ring-[var(--primary)]/60' : ''}`}
                                             onClick={mediaType === 'carousel' ? () => moveCarouselToPosition(i, 0) : undefined}
                                             role={mediaType === 'carousel' ? 'button' : undefined}
                                             draggable={mediaType === 'carousel'}
@@ -3161,7 +3173,7 @@ export default function ComposerPage() {
                             <div className="rounded-xl border-2 border-dashed border-neutral-200 bg-neutral-50/50 flex flex-col items-center justify-center py-8 text-neutral-400">
                                 {mediaList.length > 0 ? (
                                     <>
-                                        <div className={`w-full max-w-[min(100%,480px)] mx-auto rounded-lg overflow-hidden border border-neutral-200 bg-neutral-100 ${(mediaType === 'video' && mediaList[0].type === 'VIDEO') ? 'aspect-video' : (mediaType === 'reel' && mediaList[0].type === 'VIDEO') ? 'aspect-[9/16]' : 'aspect-square'} ${mediaType === 'reel' ? 'border-0 ring-0' : ''}`}>
+                                        <div className={`w-full max-w-[min(100%,480px)] mx-auto rounded-lg overflow-hidden border border-neutral-200 bg-neutral-100 ${(mediaType === 'video' && mediaList[0].type === 'VIDEO') ? 'aspect-video' : ((mediaType === 'reel' || mediaType === 'story') && mediaList[0].type === 'VIDEO') ? 'aspect-[9/16]' : (mediaType === 'story' ? 'aspect-[9/16]' : 'aspect-square')} ${mediaType === 'reel' || mediaType === 'story' ? 'border-0 ring-0' : ''}`}>
                                             {mediaList[0].type === 'VIDEO' ? (
                                                 (mediaList[0] as MediaItem).thumbnailUrl ? (
                                                     <img src={mediaDisplayUrl((mediaList[0] as MediaItem).thumbnailUrl!)} alt="Video" className="w-full h-full object-contain" />
@@ -3189,7 +3201,7 @@ export default function ComposerPage() {
                                 const contentWithHashtags = baseContent.trim() + (tags.length ? ' ' + tags.join(' ') : '');
                                     const accountForPlatform = accounts.find((a: { platform: string }) => a.platform === p) as { username?: string; profilePicture?: string } | undefined;
                                     const mediaForPlatform = differentMediaPerPlatform ? (mediaByPlatform[p] ?? []) : mediaList;
-                                    const effectiveMedia = (mediaType === 'video' || mediaType === 'reel') && mediaForPlatform.length === 1 && differentThumbnailPerPlatform
+                                    const effectiveMedia = (mediaType === 'video' || mediaType === 'reel' || mediaType === 'story') && mediaForPlatform.length === 1 && differentThumbnailPerPlatform
                                         ? mediaForPlatform.map((m, i) => (i === 0 && m.type === 'VIDEO' ? { ...m, thumbnailUrl: thumbnailByPlatform[p] ?? (m as MediaItem).thumbnailUrl } : m))
                                         : mediaForPlatform;
                                 return (
@@ -3219,7 +3231,7 @@ export default function ComposerPage() {
                             <div className="rounded-xl border-2 border-dashed border-neutral-200 bg-neutral-50/50 flex flex-col items-center justify-center py-8 text-neutral-400">
                                 {mediaList.length > 0 ? (
                                     <>
-                                        <div className={`w-full max-w-[min(100%,480px)] mx-auto rounded-lg overflow-hidden border border-neutral-200 bg-neutral-100 ${(mediaType === 'video' && mediaList[0].type === 'VIDEO') ? 'aspect-video' : (mediaType === 'reel' && mediaList[0].type === 'VIDEO') ? 'aspect-[9/16]' : 'aspect-square'} ${mediaType === 'reel' ? 'border-0 ring-0' : ''}`}>
+                                        <div className={`w-full max-w-[min(100%,480px)] mx-auto rounded-lg overflow-hidden border border-neutral-200 bg-neutral-100 ${(mediaType === 'video' && mediaList[0].type === 'VIDEO') ? 'aspect-video' : ((mediaType === 'reel' || mediaType === 'story') && mediaList[0].type === 'VIDEO') ? 'aspect-[9/16]' : (mediaType === 'story' ? 'aspect-[9/16]' : 'aspect-square')} ${mediaType === 'reel' || mediaType === 'story' ? 'border-0 ring-0' : ''}`}>
                                             {mediaList[0].type === 'VIDEO' ? (
                                                 (mediaList[0] as MediaItem).thumbnailUrl ? (
                                                     <img src={mediaDisplayUrl((mediaList[0] as MediaItem).thumbnailUrl!)} alt="Video" className="w-full h-full object-contain" />
@@ -3247,7 +3259,7 @@ export default function ComposerPage() {
                                     const contentWithHashtags = baseContent.trim() + (tags.length ? ' ' + tags.join(' ') : '');
                                     const accountForPlatform = accounts.find((a: { platform: string }) => a.platform === p) as { username?: string; profilePicture?: string } | undefined;
                                     const mediaForPlatform = differentMediaPerPlatform ? (mediaByPlatform[p] ?? []) : mediaList;
-                                    const effectiveMedia = (mediaType === 'video' || mediaType === 'reel') && mediaForPlatform.length === 1 && differentThumbnailPerPlatform
+                                    const effectiveMedia = (mediaType === 'video' || mediaType === 'reel' || mediaType === 'story') && mediaForPlatform.length === 1 && differentThumbnailPerPlatform
                                         ? mediaForPlatform.map((m, i) => (i === 0 && m.type === 'VIDEO' ? { ...m, thumbnailUrl: thumbnailByPlatform[p] ?? (m as MediaItem).thumbnailUrl } : m))
                                         : mediaForPlatform;
                                         return (
@@ -3338,11 +3350,11 @@ function PostPreview({
             default: return <Video size={compact ? 16 : 22} className="text-neutral-500" />;
         }
     };
-    const reelPreview = mediaType === 'reel';
+    const reelPreview = mediaType === 'reel' || mediaType === 'story';
     const aspectBase =
         mediaType === 'video'
             ? 'aspect-video'
-            : mediaType === 'reel' || (media.length === 1 && media[0]?.type === 'VIDEO')
+            : mediaType === 'reel' || mediaType === 'story' || (media.length === 1 && media[0]?.type === 'VIDEO')
               ? 'aspect-[9/16]'
               : 'aspect-square';
     const mediaShellClass =
@@ -3353,6 +3365,11 @@ function PostPreview({
         <div
             className={`rounded-xl overflow-hidden bg-white shadow-sm ${reelPreview ? '' : 'border border-neutral-200'} ${compact ? 'max-w-[260px]' : 'w-full max-w-none mx-auto shadow-lg'}`}
         >
+            {mediaType === 'story' && (
+                <div className="bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400 text-white text-[10px] font-semibold text-center py-1 tracking-wide">
+                    Story preview (Instagram only)
+                </div>
+            )}
             <div className={`${reelPreview ? '' : 'border-b border-neutral-100'} flex items-center gap-1.5 ${compact ? 'p-1.5' : 'p-3'}`}>
                 <div className={`rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden ${compact ? 'w-6 h-6' : 'w-9 h-9'}`}>
                     {profilePicture ? (

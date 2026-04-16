@@ -34,6 +34,8 @@ export type PublishTargetOptions = {
   pinterestSandbox?: boolean;
   /** TikTok video: required for Direct Post (composer modal + scheduled JSON on Post). */
   tiktokDirectPost?: TikTokDirectPostPayload;
+  /** Instagram/Facebook: publish as a Story instead of a feed post. */
+  isStory?: boolean;
 };
 
 export type PublishTargetResult = {
@@ -138,6 +140,7 @@ export async function publishTarget(
     twitterOAuth1,
     pinterestBoardId,
     pinterestSandbox,
+    isStory,
   } = options;
   const { fetch: fetchFn, axios: axiosInstance } = deps;
   const pinterestApiBase = pinterestSandbox ? 'https://api-sandbox.pinterest.com/v5' : 'https://api.pinterest.com/v5';
@@ -170,6 +173,67 @@ export async function publishTarget(
 
   try {
     if (platform === 'INSTAGRAM') {
+      // Story (image or video): published as media_product_type=STORY (no caption supported)
+      if (isStory) {
+        if (firstMediaUrl) {
+          // Video story: resumable upload
+          const containerRes = await axiosInstance.post(
+            `${facebookGraphBaseUrl}/${platformUserId}/media`,
+            null,
+            {
+              params: {
+                media_type: 'VIDEO',
+                media_product_type: 'STORY',
+                upload_type: 'resumable',
+                access_token: token,
+              },
+            }
+          );
+          const creationId = (containerRes.data as { id?: string })?.id;
+          const uploadUri = (containerRes.data as { uri?: string })?.uri;
+          if (!creationId || !uploadUri) throw new Error(JSON.stringify(containerRes.data));
+          const uploadRes = await axiosInstance.post(uploadUri, null, {
+            headers: { Authorization: `OAuth ${token}`, file_url: firstMediaUrl },
+            validateStatus: (s: number) => s === 200 || s === 201,
+          });
+          if (uploadRes.status !== 200 && uploadRes.status !== 201) {
+            throw new Error(uploadRes.data?.debug_info?.message ?? JSON.stringify(uploadRes.data));
+          }
+          const wait = await waitForInstagramContainer(creationId, token, 90_000);
+          if (!wait.ok) throw new Error(wait.error ?? 'Story video container not ready');
+          const publishRes = await axiosInstance.post(
+            `${facebookGraphBaseUrl}/${platformUserId}/media_publish`,
+            null,
+            { params: { creation_id: creationId, access_token: token } }
+          );
+          return { ok: true, platformPostId: (publishRes.data as { id?: string })?.id };
+        }
+        if (firstImageUrl) {
+          // Image story
+          const containerRes = await axiosInstance.post(
+            `${facebookGraphBaseUrl}/${platformUserId}/media`,
+            null,
+            {
+              params: {
+                image_url: firstImageUrl,
+                media_product_type: 'STORY',
+                access_token: token,
+              },
+            }
+          );
+          const creationId = (containerRes.data as { id?: string })?.id;
+          if (!creationId) throw new Error(JSON.stringify(containerRes.data));
+          const wait = await waitForInstagramContainer(creationId, token, 30_000);
+          if (!wait.ok) throw new Error(wait.error ?? 'Story image container not ready');
+          const publishRes = await axiosInstance.post(
+            `${facebookGraphBaseUrl}/${platformUserId}/media_publish`,
+            null,
+            { params: { creation_id: creationId, access_token: token } }
+          );
+          return { ok: true, platformPostId: (publishRes.data as { id?: string })?.id };
+        }
+        return { ok: false, error: 'Instagram Story requires at least one image or video' };
+      }
       if (firstMediaUrl) {
         // Reel: Resumable upload (more reliable than video_url; video_url often fails with 2207076)
         const containerRes = await axiosInstance.post(

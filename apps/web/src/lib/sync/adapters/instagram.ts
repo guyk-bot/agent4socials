@@ -120,15 +120,29 @@ async function syncRecentContent(account: AccountRow) {
   return { itemsProcessed: items, partial };
 }
 
-const IG_INSIGHTS_MIN_REFRESH_MS = 12 * 60 * 60 * 1000;
-const IG_POST_METRICS_BATCH = 18;
+/**
+ * Minimum gap between /insights fetches for posts that already have non-zero impressions.
+ * Increased to 24h: IG post metrics change slowly after the first hour; 12h was generating
+ * ~1200+ ShadowIGMedia/insights API calls per day (visible in the Meta rate-limit dashboard).
+ */
+const IG_INSIGHTS_MIN_REFRESH_MS = 24 * 60 * 60 * 1000;
+/**
+ * Even posts with 0 impressions must wait at least this long between fetches.
+ * Previously there was no cooldown for zero-impression posts, causing them to be
+ * re-fetched on every cron run (every 15 min), which was the primary cause of the spike.
+ */
+const IG_INSIGHTS_ZERO_IMP_COOLDOWN_MS = 6 * 60 * 60 * 1000;
+/** Reduced batch: we only need recent posts; older posts change metrics infrequently. */
+const IG_POST_METRICS_BATCH = 10;
+/** Skip metrics for posts older than this; stories expire and old posts are rarely updated. */
+const IG_POST_METRICS_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
 
 /** Refresh performance metrics for recently synced posts. */
 async function syncContentMetrics(account: AccountRow) {
   const recentPosts = await prisma.importedPost.findMany({
     where: {
       socialAccountId: account.id,
-      publishedAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+      publishedAt: { gte: new Date(Date.now() - IG_POST_METRICS_MAX_AGE_MS) },
     },
     select: { platformPostId: true, impressions: true, syncedAt: true },
     take: IG_POST_METRICS_BATCH,
@@ -140,10 +154,11 @@ async function syncContentMetrics(account: AccountRow) {
   const now = Date.now();
 
   for (const post of recentPosts) {
-    if (
-      post.impressions > 0 &&
-      now - post.syncedAt.getTime() < IG_INSIGHTS_MIN_REFRESH_MS
-    ) {
+    const ageSinceSyncMs = now - post.syncedAt.getTime();
+    // Posts with existing impressions: full 24h cooldown.
+    // Posts with 0 impressions: shorter 6h cooldown to catch new posts, but NOT every cron run.
+    const cooldownMs = post.impressions > 0 ? IG_INSIGHTS_MIN_REFRESH_MS : IG_INSIGHTS_ZERO_IMP_COOLDOWN_MS;
+    if (ageSinceSyncMs < cooldownMs) {
       continue;
     }
     try {

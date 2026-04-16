@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
     scheduleDelivery?: 'auto' | 'email_links' | null;
     commentAutomation?: { keywords: string[]; replyTemplate?: string; replyTemplateByPlatform?: Record<string, string>; replyOnComment?: boolean; usePrivateReply?: boolean } | null;
     tiktokPublishByAccountId?: Record<string, unknown> | null;
+    mediaType?: string | null;
   };
   try {
     body = await request.json();
@@ -65,6 +66,7 @@ export async function POST(request: NextRequest) {
     scheduleDelivery,
     commentAutomation,
     tiktokPublishByAccountId: bodyTiktok,
+    mediaType: bodyMediaType,
   } = body;
   const validTargets = (targets || []).filter(
     (t): t is { platform: string; socialAccountId: string } => Boolean(t?.platform && t?.socialAccountId)
@@ -143,6 +145,7 @@ export async function POST(request: NextRequest) {
       scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
       scheduleDelivery: scheduledAt && (scheduleDelivery === 'auto' || scheduleDelivery === 'email_links') ? scheduleDelivery : null,
       ...(tiktokJson ? { tiktokPublishByAccountId: tiktokJson } : {}),
+      ...(bodyMediaType ? { mediaType: String(bodyMediaType).slice(0, 50) } : {}),
       media: {
         create: media.map((m) => ({
           fileUrl: m.fileUrl,

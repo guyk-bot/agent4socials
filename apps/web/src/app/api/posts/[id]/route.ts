@@ -70,6 +70,7 @@ export async function PATCH(
     scheduleDelivery?: 'auto' | 'email_links' | null;
     commentAutomation?: { keywords: string[]; replyTemplate?: string; replyTemplateByPlatform?: Record<string, string>; replyOnComment?: boolean; usePrivateReply?: boolean } | null;
     tiktokPublishByAccountId?: Record<string, unknown> | null;
+    mediaType?: string | null;
   };
   try {
     body = await request.json();
@@ -87,6 +88,7 @@ export async function PATCH(
     scheduleDelivery,
     commentAutomation,
     tiktokPublishByAccountId: bodyTiktok,
+    mediaType: bodyMediaType,
   } = body;
   const validTargets = (targets || []).filter(
     (t): t is { platform: string; socialAccountId: string } => Boolean(t?.platform && t?.socialAccountId)
@@ -156,6 +158,7 @@ export async function PATCH(
       ...(scheduleDelivery !== undefined ? { scheduleDelivery: scheduledAt && (scheduleDelivery === 'auto' || scheduleDelivery === 'email_links') ? scheduleDelivery : null } : {}),
       status,
       ...(validTargets.length > 0 ? { targetPlatforms: validTargets.map((t) => t.platform) } : {}),
+      ...(bodyMediaType !== undefined ? { mediaType: bodyMediaType ? String(bodyMediaType).slice(0, 50) : null } : {}),
     };
     if (commentAutomation !== undefined) {
       const ca = commentAutomation as { keywords?: string[]; replyTemplate?: string; replyTemplateByPlatform?: Record<string, string>; usePrivateReply?: boolean } | null;

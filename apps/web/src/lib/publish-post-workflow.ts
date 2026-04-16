@@ -75,6 +75,7 @@ export async function runPublishPostWorkflow(input: {
 
   const contentByPlatform = (post as { contentByPlatform?: Record<string, string> | null }).contentByPlatform ?? null;
   const mediaByPlatform = (post as { mediaByPlatform?: Record<string, { fileUrl: string; type: string }[]> | null }).mediaByPlatform ?? null;
+  const postMediaType = (post as { mediaType?: string | null }).mediaType ?? null;
   const storedTiktok = (post as { tiktokPublishByAccountId?: Record<string, unknown> | null }).tiktokPublishByAccountId;
   const bodyTiktok = requestBody.tiktokPublishByAccountId;
   const tiktokMerged: Record<string, unknown> = {
@@ -274,6 +275,8 @@ export async function runPublishPostWorkflow(input: {
       tiktokDirectPost = raw;
     }
 
+    const isStory = postMediaType === 'story' && (platform === 'INSTAGRAM' || platform === 'FACEBOOK');
+
     let result = await publishTarget(
       {
         platform,
@@ -288,6 +291,7 @@ export async function runPublishPostWorkflow(input: {
         pinterestBoardId,
         pinterestSandbox: requestBody.pinterestSandbox === true,
         ...(tiktokDirectPost ? { tiktokDirectPost } : {}),
+        ...(isStory ? { isStory: true } : {}),
       },
       { fetch, axios }
     );
