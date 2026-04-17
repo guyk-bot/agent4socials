@@ -867,7 +867,7 @@ export default function UnifiedSummaryPage() {
       setLivePlatformFallback({});
       return;
     }
-    const targets = orderedAccounts.filter((a) => a.platform === 'TWITTER' || a.platform === 'PINTEREST');
+    const targets = orderedAccounts.filter((a) => a.platform === 'TWITTER' || a.platform === 'PINTEREST' || a.platform === 'LINKEDIN');
     console.log('[Console Fallback] accountsKey:', accountsKey, 'orderedAccounts.length:', orderedAccounts.length, 'targets:', targets.map((a) => ({ id: a.id, platform: a.platform })));
     if (targets.length === 0) {
       setLivePlatformFallback({});
@@ -914,6 +914,14 @@ export default function UnifiedSummaryPage() {
                 : [];
               console.log('[Console Fallback] Pinterest parsed:', { viewsSeriesLength: viewsSeries.length, sampleViews: viewsSeries.slice(0, 3) });
               next.Pinterest = { viewsSeries };
+            } else if (acc.platform === 'LINKEDIN') {
+              const viewsSeries = Array.isArray(payload.impressionsTimeSeries)
+                ? (payload.impressionsTimeSeries as Array<Record<string, unknown>>)
+                    .map((p) => ({ date: String(p.date ?? ''), value: Number(p.value ?? 0) }))
+                    .filter((p) => /^\d{4}-\d{2}-\d{2}$/.test(p.date))
+                : [];
+              console.log('[Console Fallback] LinkedIn parsed:', { viewsSeriesLength: viewsSeries.length, sampleViews: viewsSeries.slice(0, 3) });
+              next.LinkedIn = { viewsSeries };
             }
           } catch (err) {
             const errMsg = err instanceof Error ? err.message : String(err);
@@ -961,7 +969,7 @@ export default function UnifiedSummaryPage() {
     const selectedSeriesKey = performanceMode === 'views' ? 'viewsSeries' : 'engagementSeries';
     const out = activeChartData.map((r) => ({ ...r })) as UnifiedChartData;
     const byDate = new Map<string, number>();
-    for (const platform of ['X', 'Pinterest']) {
+    for (const platform of ['X', 'Pinterest', 'LinkedIn']) {
       const currentTotal = platformPresetMetric(activeChartData, platform, performanceMode);
       const fallbackSeries = livePlatformFallback[platform]?.[selectedSeriesKey];
       console.log('[Console Fallback Merge]', platform, ':', {
