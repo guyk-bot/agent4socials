@@ -876,9 +876,10 @@ export default function UnifiedSummaryPage() {
       await Promise.all(
         targets.map(async (acc) => {
           try {
-            console.log('[Console Fallback] Fetching insights for', acc.platform, acc.id);
+            console.log('[Console Fallback] Fetching insights for', acc.platform, acc.id, 'range:', dateRange.start, '-', dateRange.end);
             const res = await api.get(`/social/accounts/${encodeURIComponent(acc.id)}/insights`, {
               params: { since: dateRange.start, until: dateRange.end },
+              timeout: 30_000,
             });
             const payload = res?.data as Record<string, unknown>;
             console.log('[Console Fallback] Response for', acc.platform, ':', {
@@ -912,7 +913,8 @@ export default function UnifiedSummaryPage() {
               next.Pinterest = { viewsSeries };
             }
           } catch (err) {
-            console.error('[Console Fallback] Error fetching', acc.platform, acc.id, ':', err);
+            const errMsg = err instanceof Error ? err.message : String(err);
+            console.error('[Console Fallback] Error fetching', acc.platform, acc.id, ':', errMsg, err);
           }
         })
       );
