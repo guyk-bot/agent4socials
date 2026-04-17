@@ -1204,10 +1204,6 @@ export default function UnifiedSummaryPage() {
         .map((p) => ({ label: consolePlatformDisplayName(p), color: CONSOLE_PLATFORM_COLOR[p] ?? PLATFORM_COLOR[p] ?? COLOR.textSecondary })),
     [connectedChartPlatforms, postsActivePlatforms]
   );
-  const postsStackTopPlatform = useMemo(() => {
-    const visible = connectedChartPlatforms.filter((p) => postsActivePlatforms.includes(p));
-    return visible.length > 0 ? visible[visible.length - 1] : null;
-  }, [connectedChartPlatforms, postsActivePlatforms]);
   const postsPresetPlatformPieData = useMemo(() => {
     const items: Array<{ name: string; value: number; color: string }> = [];
     for (const platform of connectedChartPlatforms) {
@@ -1607,7 +1603,7 @@ export default function UnifiedSummaryPage() {
                         stackId={`posts-${postsPreset}`}
                         name={consolePlatformDisplayName(p)}
                         fill={POST_TYPE_COLOR[postsPreset]}
-                        radius={postsStackTopPlatform === p ? [6, 6, 0, 0] : [0, 0, 0, 0]}
+                        radius={[0, 0, 0, 0]}
                         hide={!postsActivePlatforms.includes(p)}
                         barSize={16}
                       />
