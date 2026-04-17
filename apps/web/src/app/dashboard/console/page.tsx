@@ -1136,7 +1136,7 @@ export default function UnifiedSummaryPage() {
                   );
                 })}
               </div>
-              <div className="min-w-0 flex-1 overflow-x-auto">
+              <div className="-mt-1 min-w-0 flex-1 overflow-x-auto">
                 <PlatformLegend
                   all={connectedChartPlatforms}
                   activePlatforms={activePlatforms}
