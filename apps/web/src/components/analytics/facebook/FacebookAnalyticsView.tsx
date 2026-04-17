@@ -72,6 +72,7 @@ type ActivityMetricKey = 'actions' | 'posts' | 'conversations' | 'subscriberNet'
 type EngagementMetricKey = 'likes' | 'comments' | 'shares' | 'reposts' | 'dislikes';
 type ContentTypeKey = 'reels' | 'image' | 'carousel';
 type YouTubeContentTypeKey = 'shorts' | 'videos';
+type PostsUploadPresetKey = ContentTypeKey | YouTubeContentTypeKey;
 
 /** Bottom → top stack order for the Engagement chart (must match `<Bar />` order). */
 const ENGAGEMENT_STACK_ORDER_META: readonly EngagementMetricKey[] = ['likes', 'comments', 'shares', 'reposts'];
@@ -2067,6 +2068,7 @@ export function FacebookAnalyticsView({
   ]);
   const [selectedReelMetrics, setSelectedReelMetrics] = useState<ReelMetricKey[]>(['views', 'watchTime', 'avgWatch', 'shares']);
   const [reelPreset, setReelPreset] = useState<ReelPresetKey>('performance');
+  const [selectedPostsUploadPreset, setSelectedPostsUploadPreset] = useState<PostsUploadPresetKey>('reels');
   const [activeSection, setActiveSection] = useState<SectionId>(FACEBOOK_ANALYTICS_SECTION_IDS.overview);
   const [historyFilter, setHistoryFilter] = useState<ContentHistoryFilter>('all');
   const geoPieWrapRef = useRef<HTMLDivElement>(null);
@@ -2206,6 +2208,13 @@ export function FacebookAnalyticsView({
   const isTwitter = insights?.platform?.toUpperCase() === 'TWITTER';
 
   useEffect(() => {
+    setSelectedPostsUploadPreset((prev) => {
+      if (isYouTube) return prev === 'shorts' || prev === 'videos' ? prev : 'videos';
+      return prev === 'reels' || prev === 'image' || prev === 'carousel' ? prev : 'reels';
+    });
+  }, [isYouTube]);
+
+  useEffect(() => {
     if (!isFacebook && !isInstagram) return;
     setReelPreset((p) => (p === 'watch' ? 'performance' : p));
     setSelectedReelMetrics((prev) => {
@@ -2328,6 +2337,61 @@ export function FacebookAnalyticsView({
   const youtubeContentTypeTotal = useMemo(
     () => youtubeContentTypePieData.reduce((s, p) => s + p.value, 0),
     [youtubeContentTypePieData]
+  );
+  const postsUploadChartPresets = useMemo(() => {
+    if (isYouTube) {
+      return [
+        { key: 'shorts' as const, label: 'Shorts', color: YOUTUBE_CONTENT_TYPE_COLOR.shorts },
+        { key: 'videos' as const, label: 'Videos', color: YOUTUBE_CONTENT_TYPE_COLOR.videos },
+      ];
+    }
+    return [
+      { key: 'reels' as const, label: 'Reels', color: CONTENT_TYPE_COLOR.reels },
+      { key: 'image' as const, label: 'Image', color: CONTENT_TYPE_COLOR.image },
+      { key: 'carousel' as const, label: 'Carousel', color: CONTENT_TYPE_COLOR.carousel },
+    ];
+  }, [isYouTube]);
+  const postsUploadByDay = useMemo(() => {
+    const axis = buildDateAxis(dateRange.start, dateRange.end);
+    const byDate = new Map<string, {
+      date: string;
+      reels: number;
+      image: number;
+      carousel: number;
+      shorts: number;
+      videos: number;
+    }>();
+    for (const d of axis) {
+      byDate.set(d, { date: d, reels: 0, image: 0, carousel: 0, shorts: 0, videos: 0 });
+    }
+    for (const p of postsInRange) {
+      const d = toLocalCalendarDate(new Date(p.publishedAt));
+      const row = byDate.get(d);
+      if (!row) continue;
+      if (isYouTube) {
+        if (isYouTubeShortPost(p)) row.shorts += 1;
+        else row.videos += 1;
+        continue;
+      }
+      if (isReelPost(p)) {
+        row.reels += 1;
+        continue;
+      }
+      const mt = String(p.mediaType ?? '').toUpperCase();
+      if (mt === 'CAROUSEL' || mt === 'ALBUM') row.carousel += 1;
+      else row.image += 1;
+    }
+    return axis.map((d) => byDate.get(d)!);
+  }, [dateRange.end, dateRange.start, isYouTube, postsInRange]);
+  const postsUploadPresetTotals = useMemo(
+    (): Record<PostsUploadPresetKey, number> => ({
+      reels: isYouTube ? 0 : contentTypeCounts.reels,
+      image: isYouTube ? 0 : contentTypeCounts.image,
+      carousel: isYouTube ? 0 : contentTypeCounts.carousel,
+      shorts: isYouTube ? youtubeContentTypeCounts.shorts : 0,
+      videos: isYouTube ? youtubeContentTypeCounts.videos : 0,
+    }),
+    [isYouTube, youtubeContentTypeCounts, contentTypeCounts]
   );
   const tiktokViewsInRange = useMemo(
     () => postsInRange.reduce((s, p) => s + (p.impressions ?? bestPostPlayCount(p)), 0),
@@ -5159,6 +5223,106 @@ export function FacebookAnalyticsView({
               />
             )}
             <MetricCard label="Avg Reactions per Post" source="post_reactions_like_total / breakdown" color={COLOR.text} value={avgReactionsPerPost.toFixed(1)} />
+          </div>
+          <div className="rounded-xl border p-4 sm:p-5" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
+            <h4 className="text-base font-semibold mb-3" style={{ color: COLOR.text }}>Uploaded posts</h4>
+            <div className="mb-5 flex items-start justify-between gap-3">
+              <div className="flex shrink-0 gap-2">
+                {postsUploadChartPresets.map((preset) => {
+                  const active = selectedPostsUploadPreset === preset.key;
+                  return (
+                    <button
+                      key={`posts-upload-preset-${preset.key}`}
+                      type="button"
+                      onClick={() => setSelectedPostsUploadPreset(preset.key)}
+                      aria-pressed={active}
+                      className="rounded-lg px-3 py-1.5 text-sm"
+                      style={{
+                        background: active ? `${preset.color}22` : 'rgba(255,255,255,0.03)',
+                        color: active ? COLOR.text : COLOR.textSecondary,
+                        border: `1px solid ${COLOR.border}`,
+                      }}
+                    >
+                      {preset.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="min-w-0 flex-1 overflow-x-auto">
+                <div className="flex flex-nowrap justify-end gap-2">
+                  {postsUploadChartPresets.map((preset) => {
+                    const active = selectedPostsUploadPreset === preset.key;
+                    const total = Number(postsUploadPresetTotals[preset.key] ?? 0);
+                    return (
+                      <button
+                        key={`posts-upload-card-${preset.key}`}
+                        type="button"
+                        onClick={() => setSelectedPostsUploadPreset(preset.key)}
+                        aria-pressed={active}
+                        className="inline-flex min-w-[132px] flex-col items-start rounded-[14px] border px-3 py-2.5 text-left transition-[opacity,box-shadow,transform] hover:scale-[1.01] active:scale-[0.99]"
+                        style={{
+                          borderColor: active ? `${preset.color}45` : COLOR.border,
+                          background: `${preset.color}${active ? '10' : '08'}`,
+                          opacity: active ? 1 : 0.72,
+                          boxShadow: active ? `0 0 0 1px ${preset.color}25, 0 2px 10px rgba(15,23,42,0.06)` : '0 1px 3px rgba(15,23,42,0.04)',
+                        }}
+                      >
+                        <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLOR.textSecondary }}>
+                          {preset.label}
+                        </span>
+                        <span className="tabular-nums text-[17px] leading-tight font-bold" style={{ color: preset.color }}>
+                          {formatNumber(total)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+            <InsightChartCard title="Uploaded posts" hideHeader flat>
+              {postsUploadByDay.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-sm" style={{ color: COLOR.textMuted }}>
+                  No uploads found in this date range.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={postsUploadByDay} barCategoryGap="22%" barGap={0} margin={{ top: 4, right: 8, left: 0, bottom: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+                    <XAxis
+                      dataKey="date"
+                      tickFormatter={formatShortDate}
+                      tick={{ fill: COLOR.textMuted, fontSize: 11 }}
+                      dy={8}
+                      minTickGap={18}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis domain={[0, 'auto']} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <Tooltip
+                      contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
+                      formatter={(v: number | string | undefined, n?: string) => [
+                        formatNumber(Number(v) || 0),
+                        postsUploadChartPresets.find((x) => x.key === String(n ?? ''))?.label ?? String(n ?? ''),
+                      ]}
+                      labelFormatter={(l) => formatShortDate(String(l))}
+                    />
+                    {postsUploadChartPresets.map((preset) => (
+                      <Bar
+                        key={`uploaded-posts-bar-${preset.key}`}
+                        dataKey={preset.key}
+                        name={preset.key}
+                        stackId="uploaded-posts"
+                        fill={preset.color}
+                        radius={[6, 6, 0, 0]}
+                        barSize={UNIFIED_BAR_SIZE}
+                        hide={selectedPostsUploadPreset !== preset.key}
+                        shape={<MinWidthBarShape />}
+                      />
+                    ))}
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </InsightChartCard>
           </div>
           {isYouTube && youtubeContentTypePieData.length > 0 ? (
             <div className="rounded-xl border p-4 sm:p-5" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
