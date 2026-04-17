@@ -452,7 +452,7 @@ function PlatformMixChart({
         {activePlatforms.map((p) => (
           <Line
             key={p}
-            type="monotone"
+            type="natural"
             dataKey={p}
             stroke={CONSOLE_PLATFORM_COLOR[p] ?? PLATFORM_COLOR[p]}
             strokeWidth={2}
@@ -868,7 +868,6 @@ export default function UnifiedSummaryPage() {
       return;
     }
     const targets = orderedAccounts.filter((a) => a.platform === 'TWITTER' || a.platform === 'PINTEREST' || a.platform === 'LINKEDIN');
-    console.log('[Console Fallback] accountsKey:', accountsKey, 'orderedAccounts.length:', orderedAccounts.length, 'targets:', targets.map((a) => ({ id: a.id, platform: a.platform })));
     if (targets.length === 0) {
       setLivePlatformFallback({});
       return;
@@ -879,20 +878,11 @@ export default function UnifiedSummaryPage() {
       await Promise.all(
         targets.map(async (acc) => {
           try {
-            console.log('[Console Fallback] Fetching insights for', acc.platform, acc.id, 'range:', dateRange.start, '-', dateRange.end);
             const res = await api.get(`/social/accounts/${encodeURIComponent(acc.id)}/insights`, {
               params: { since: dateRange.start, until: dateRange.end },
               timeout: 30_000,
             });
             const payload = res?.data as Record<string, unknown>;
-            console.log('[Console Fallback] Response for', acc.platform, ':', {
-              hasImpressionsTimeSeries: Array.isArray(payload.impressionsTimeSeries),
-              impressionsTimeSeriesLength: Array.isArray(payload.impressionsTimeSeries) ? payload.impressionsTimeSeries.length : 0,
-              hasTwitterEngagementTimeSeries: Array.isArray(payload.twitterEngagementTimeSeries),
-              twitterEngagementTimeSeriesLength: Array.isArray(payload.twitterEngagementTimeSeries) ? payload.twitterEngagementTimeSeries.length : 0,
-              impressionsTotal: payload.impressionsTotal,
-              sampleImpressions: Array.isArray(payload.impressionsTimeSeries) ? payload.impressionsTimeSeries.slice(0, 3) : null,
-            });
             if (acc.platform === 'TWITTER') {
               const viewsSeries = Array.isArray(payload.impressionsTimeSeries)
                 ? (payload.impressionsTimeSeries as Array<Record<string, unknown>>)
@@ -904,7 +894,6 @@ export default function UnifiedSummaryPage() {
                     .map((p) => ({ date: String(p.date ?? ''), value: Number(p.value ?? 0) }))
                     .filter((p) => /^\d{4}-\d{2}-\d{2}$/.test(p.date))
                 : [];
-              console.log('[Console Fallback] Twitter parsed:', { viewsSeriesLength: viewsSeries.length, engagementSeriesLength: engagementSeries.length, sampleViews: viewsSeries.slice(0, 3) });
               next.X = { viewsSeries, engagementSeries };
             } else if (acc.platform === 'PINTEREST') {
               const viewsSeries = Array.isArray(payload.impressionsTimeSeries)
@@ -912,7 +901,6 @@ export default function UnifiedSummaryPage() {
                     .map((p) => ({ date: String(p.date ?? ''), value: Number(p.value ?? 0) }))
                     .filter((p) => /^\d{4}-\d{2}-\d{2}$/.test(p.date))
                 : [];
-              console.log('[Console Fallback] Pinterest parsed:', { viewsSeriesLength: viewsSeries.length, sampleViews: viewsSeries.slice(0, 3) });
               next.Pinterest = { viewsSeries };
             } else if (acc.platform === 'LINKEDIN') {
               const viewsSeries = Array.isArray(payload.impressionsTimeSeries)
@@ -920,16 +908,13 @@ export default function UnifiedSummaryPage() {
                     .map((p) => ({ date: String(p.date ?? ''), value: Number(p.value ?? 0) }))
                     .filter((p) => /^\d{4}-\d{2}-\d{2}$/.test(p.date))
                 : [];
-              console.log('[Console Fallback] LinkedIn parsed:', { viewsSeriesLength: viewsSeries.length, sampleViews: viewsSeries.slice(0, 3) });
               next.LinkedIn = { viewsSeries };
             }
-          } catch (err) {
-            const errMsg = err instanceof Error ? err.message : String(err);
-            console.error('[Console Fallback] Error fetching', acc.platform, acc.id, ':', errMsg, err);
+          } catch {
+            // Keep fallback empty on error
           }
         })
       );
-      console.log('[Console Fallback] Final fallback data:', next);
       if (!cancelled) setLivePlatformFallback(next);
     })();
     return () => {
@@ -963,7 +948,6 @@ export default function UnifiedSummaryPage() {
   }, [data, performanceMode]);
 
   const activeChartDataWithFallback = useMemo((): UnifiedChartData => {
-    console.log('[Console Fallback Merge] Starting merge. performanceMode:', performanceMode, 'activeChartData.length:', activeChartData.length, 'livePlatformFallback keys:', Object.keys(livePlatformFallback));
     if (activeChartData.length === 0) return activeChartData;
     if (performanceMode === 'growth') return activeChartData;
     const selectedSeriesKey = performanceMode === 'views' ? 'viewsSeries' : 'engagementSeries';
@@ -971,29 +955,19 @@ export default function UnifiedSummaryPage() {
     const byDate = new Map<string, number>();
     for (const platform of ['X', 'Pinterest', 'LinkedIn']) {
       const currentTotal = platformPresetMetric(activeChartData, platform, performanceMode);
-      const fallbackSeries = livePlatformFallback[platform]?.[selectedSeriesKey];
-      console.log('[Console Fallback Merge]', platform, ':', {
-        currentTotal,
-        selectedSeriesKey,
-        hasFallbackSeries: !!fallbackSeries,
-        fallbackSeriesLength: fallbackSeries?.length ?? 0,
-        sampleFallback: fallbackSeries?.slice(0, 3),
-      });
       if (currentTotal !== 0) continue;
+      const fallbackSeries = livePlatformFallback[platform]?.[selectedSeriesKey];
       if (!fallbackSeries || fallbackSeries.length === 0) continue;
       byDate.clear();
       for (const p of fallbackSeries) byDate.set(p.date, (byDate.get(p.date) ?? 0) + (Number(p.value) || 0));
-      let mergedCount = 0;
       for (const row of out) {
         const d = String(row.date ?? '');
         const add = byDate.get(d) ?? 0;
-        if (add > 0) mergedCount++;
         (row as unknown as Record<string, number>)[platform] = Math.max(
           Number((row as unknown as Record<string, number>)[platform] ?? 0),
           add
         );
       }
-      console.log('[Console Fallback Merge]', platform, 'merged', mergedCount, 'non-zero values');
     }
     return out;
   }, [activeChartData, performanceMode, livePlatformFallback]);
@@ -1248,13 +1222,13 @@ export default function UnifiedSummaryPage() {
                       formatter={(value: any, name: any) => [fmtExactInt(Number(value) || 0), String(name ?? '')]}
                     />
                     {selectedOverviewMetrics.includes('followers') && (
-                      <Line type="monotone" dataKey="followers" name="Followers" stroke={COLOR.mint} strokeWidth={2} dot={false} isAnimationActive={false} />
+                      <Line type="natural" dataKey="followers" name="Followers" stroke={COLOR.mint} strokeWidth={2} dot={false} isAnimationActive={false} />
                     )}
                     {selectedOverviewMetrics.includes('views') && (
-                      <Line type="monotone" dataKey="views" name="Views" stroke={COLOR.magenta} strokeWidth={2} dot={false} isAnimationActive={false} />
+                      <Line type="natural" dataKey="views" name="Views" stroke={COLOR.magenta} strokeWidth={2} dot={false} isAnimationActive={false} />
                     )}
                     {selectedOverviewMetrics.includes('engagements') && (
-                      <Line type="monotone" dataKey="engagements" name="Engagements" stroke={COLOR.violet} strokeWidth={2} dot={false} isAnimationActive={false} />
+                      <Line type="natural" dataKey="engagements" name="Engagements" stroke={COLOR.violet} strokeWidth={2} dot={false} isAnimationActive={false} />
                     )}
                   </LineChart>
                 </ResponsiveContainer>
@@ -1482,7 +1456,7 @@ export default function UnifiedSummaryPage() {
                     <YAxis domain={[0, 'auto']} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                     <Tooltip contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }} // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     formatter={(v: any, n: any) => [fmt(Number(v) || 0), n === 'posts' ? 'Posts' : String(n ?? '')]} labelFormatter={(l) => fmtTooltipDate(String(l))} />
-                    {selectedActivity.includes('posts') && <Line type="monotone" dataKey="posts" stroke={ACTIVITY_COLORS.posts} strokeWidth={2} dot={false} />}
+                    {selectedActivity.includes('posts') && <Line type="natural" dataKey="posts" stroke={ACTIVITY_COLORS.posts} strokeWidth={2} dot={false} />}
                   </ComposedChart>
                 </ResponsiveContainer>
               )}
