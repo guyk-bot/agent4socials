@@ -1342,10 +1342,13 @@ export default function UnifiedSummaryPage() {
                         </Pie>
                         <Tooltip
                           contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
-                          formatter={(value: number, name: string) => [
-                            `${fmt(value)} (${platformDistributionTotal > 0 ? ((value / platformDistributionTotal) * 100).toFixed(1) : 0}%)`,
-                            name,
-                          ]}
+                          formatter={(value, name) => {
+                            const v = Number(value) || 0;
+                            return [
+                              `${fmt(v)} (${platformDistributionTotal > 0 ? ((v / platformDistributionTotal) * 100).toFixed(1) : 0}%)`,
+                              String(name ?? ''),
+                            ];
+                          }}
                         />
                       </PieChart>
                     </ResponsiveContainer>
