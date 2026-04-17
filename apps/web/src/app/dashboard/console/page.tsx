@@ -96,6 +96,14 @@ const ACTIVITY_COLORS = {
   posts: '#f5b942',
 } as const;
 
+/** Console-specific platform colors for the Performance per platform section. */
+const CONSOLE_PLATFORM_COLOR: Record<string, string> = {
+  ...PLATFORM_COLOR,
+  Instagram: '#f356ff',
+  LinkedIn: '#f5b942',
+  Pinterest: '#f97316',
+};
+
 // ─── Utility helpers ──────────────────────────────────────────────────────────
 
 function fmt(n: number): string {
@@ -430,7 +438,7 @@ function PlatformMixChart({
             key={p}
             type="monotone"
             dataKey={p}
-            stroke={PLATFORM_COLOR[p]}
+            stroke={CONSOLE_PLATFORM_COLOR[p] ?? PLATFORM_COLOR[p]}
             strokeWidth={2}
             dot={false}
             activeDot={{ r: 4, strokeWidth: 0 }}
@@ -476,8 +484,7 @@ function PlatformLegend({
         const active = activePlatforms.includes(p);
         const raw = platformPresetMetric(chartData, p, preset);
         const metricText = formatLegendMetric(preset, raw);
-        const metricLabel = preset === 'growth' ? (raw > 0 ? 'Increase' : raw < 0 ? 'Decrease' : 'No change') : 'Total';
-        const platformColor = PLATFORM_COLOR[p] ?? COLOR.textSecondary;
+        const platformColor = CONSOLE_PLATFORM_COLOR[p] ?? PLATFORM_COLOR[p] ?? COLOR.textSecondary;
         return (
           <button
             key={p}
@@ -494,11 +501,11 @@ function PlatformLegend({
               boxShadow: active ? `0 0 0 1px ${platformColor}25, 0 2px 10px rgba(15,23,42,0.06)` : '0 1px 3px rgba(15,23,42,0.04)',
             }}
           >
-            <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLOR.text }}>
+            <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLOR.textSecondary }}>
               {p}
             </span>
             <span className="tabular-nums text-[17px] leading-tight font-bold" style={{ color: platformColor }}>
-              {metricLabel}: {metricText}
+              {metricText}
             </span>
           </button>
         );
