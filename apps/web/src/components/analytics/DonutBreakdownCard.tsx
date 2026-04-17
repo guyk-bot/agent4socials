@@ -202,7 +202,8 @@ export function DonutBreakdownCard({
                     cy="50%"
                     innerRadius="72%"
                     outerRadius="92%"
-                    paddingAngle={2}
+                    paddingAngle={0}
+                    stroke="none"
                     strokeWidth={0}
                     labelLine={false}
                     label={(props: PieLabelRenderProps) => {
@@ -234,7 +235,7 @@ export function DonutBreakdownCard({
                     }}
                   >
                     {chartData.map((entry, index) => (
-                      <Cell key={entry.key} fill={entry.fill} stroke="transparent" />
+                      <Cell key={entry.key} fill={entry.fill} stroke="none" />
                     ))}
                   </Pie>
                   <Tooltip content={TooltipContent} />

@@ -4930,7 +4930,8 @@ export function FacebookAnalyticsView({
                             cy="50%"
                             innerRadius={52}
                             outerRadius={100}
-                            paddingAngle={2}
+                            paddingAngle={0}
+                            stroke="none"
                             label={false}
                             onMouseMove={(data: unknown, index: number, e: React.MouseEvent) => {
                               const rect = geoPieWrapRef.current?.getBoundingClientRect();
@@ -4957,7 +4958,7 @@ export function FacebookAnalyticsView({
                             onMouseLeave={() => setGeoPieHover(null)}
                           >
                             {youtubeGeoBreakdown.pieSlices.map((_, i) => (
-                              <Cell key={i} fill={youtubeGeoPieColor(i)} stroke="rgba(255,255,255,0.85)" strokeWidth={1} />
+                              <Cell key={i} fill={youtubeGeoPieColor(i)} stroke="none" strokeWidth={0} />
                             ))}
                           </Pie>
                         </PieChart>
@@ -5280,9 +5281,9 @@ export function FacebookAnalyticsView({
                 <div className="w-[200px] h-[200px] shrink-0">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie data={contentTypePieData} dataKey="value" nameKey="label" cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={2} strokeWidth={0}>
+                      <Pie data={contentTypePieData} dataKey="value" nameKey="label" cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={0} stroke="none" strokeWidth={0}>
                         {contentTypePieData.map((entry, idx) => (
-                          <Cell key={`content-type-${entry.key}-${idx}`} fill={entry.color} />
+                          <Cell key={`content-type-${entry.key}-${idx}`} fill={entry.color} stroke="none" />
                         ))}
                       </Pie>
                       <Tooltip

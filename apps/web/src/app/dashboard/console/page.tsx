@@ -1422,11 +1422,12 @@ export default function UnifiedSummaryPage() {
                           cy="50%"
                           innerRadius={55}
                           outerRadius={85}
-                          paddingAngle={2}
+                          paddingAngle={0}
+                          stroke="none"
                           strokeWidth={0}
                         >
                           {platformDistributionPieData.map((entry, idx) => (
-                            <Cell key={`cell-${idx}`} fill={entry.color} />
+                            <Cell key={`cell-${idx}`} fill={entry.color} stroke="none" />
                           ))}
                         </Pie>
                         <Tooltip
@@ -1616,9 +1617,9 @@ export default function UnifiedSummaryPage() {
                   <div className="w-[200px] h-[200px] shrink-0">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
-                        <Pie data={consolePostTypePieData} dataKey="value" nameKey="label" cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={2} strokeWidth={0}>
+                        <Pie data={consolePostTypePieData} dataKey="value" nameKey="label" cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={0} stroke="none" strokeWidth={0}>
                           {consolePostTypePieData.map((entry, idx) => (
-                            <Cell key={`post-type-${idx}`} fill={entry.color} />
+                            <Cell key={`post-type-${idx}`} fill={entry.color} stroke="none" />
                           ))}
                         </Pie>
                         <Tooltip
