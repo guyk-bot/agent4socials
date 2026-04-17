@@ -495,7 +495,7 @@ function PlatformMixChart({
         {activePlatforms.map((p) => (
           <Line
             key={p}
-            type="natural"
+            type="monotone"
             dataKey={p}
             stroke={CONSOLE_PLATFORM_COLOR[p] ?? PLATFORM_COLOR[p]}
             strokeWidth={2}
@@ -1288,13 +1288,13 @@ export default function UnifiedSummaryPage() {
                       formatter={(value: any, name: any) => [fmtExactInt(Number(value) || 0), String(name ?? '')]}
                     />
                     {selectedOverviewMetrics.includes('followers') && (
-                      <Line type="natural" dataKey="followers" name="Followers" stroke={COLOR.mint} strokeWidth={2} dot={false} isAnimationActive={false} />
+                      <Line type="monotone" dataKey="followers" name="Followers" stroke={COLOR.mint} strokeWidth={2} dot={false} isAnimationActive={false} />
                     )}
                     {selectedOverviewMetrics.includes('views') && (
-                      <Line type="natural" dataKey="views" name="Views" stroke={COLOR.magenta} strokeWidth={2} dot={false} isAnimationActive={false} />
+                      <Line type="monotone" dataKey="views" name="Views" stroke={COLOR.magenta} strokeWidth={2} dot={false} isAnimationActive={false} />
                     )}
                     {selectedOverviewMetrics.includes('engagements') && (
-                      <Line type="natural" dataKey="engagements" name="Engagements" stroke={COLOR.violet} strokeWidth={2} dot={false} isAnimationActive={false} />
+                      <Line type="monotone" dataKey="engagements" name="Engagements" stroke={COLOR.violet} strokeWidth={2} dot={false} isAnimationActive={false} />
                     )}
                   </LineChart>
                 </ResponsiveContainer>
@@ -1531,7 +1531,7 @@ export default function UnifiedSummaryPage() {
                     <YAxis domain={[0, 'auto']} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                     <Tooltip contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }} // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     formatter={(v: any, n: any) => [fmt(Number(v) || 0), n === 'posts' ? 'Posts' : String(n ?? '')]} labelFormatter={(l) => fmtTooltipDate(String(l))} />
-                    {selectedActivity.includes('posts') && <Line type="natural" dataKey="posts" stroke={ACTIVITY_COLORS.posts} strokeWidth={2} dot={false} />}
+{selectedActivity.includes('posts') && <Line type="monotone" dataKey="posts" stroke={ACTIVITY_COLORS.posts} strokeWidth={2} dot={false} />}
                   </ComposedChart>
                 </ResponsiveContainer>
               )}
