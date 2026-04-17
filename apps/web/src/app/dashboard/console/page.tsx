@@ -284,7 +284,7 @@ const CONSOLE_FALLBACK_CACHE_TTL_MS = 10 * 60 * 1000;
 
 function readConsoleFallbackCache(
   key: string
-): { viewsSeries?: Array<{ date: string; value: number }>; engagementSeries?: Array<{ date: string; value: number } } | null {
+): { viewsSeries?: Array<{ date: string; value: number }>; engagementSeries?: Array<{ date: string; value: number }> } | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = window.localStorage.getItem(key);
