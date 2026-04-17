@@ -755,21 +755,57 @@ export default function DashboardPage() {
     /** Per-account analytics: posts are loaded only by the posts effect (avoids racing sync vs non-sync and prefetch churn). */
     const accountTabOwnsPosts = analyticsTab === 'account';
 
-    // For YouTube: patch in cached extended data (demographics, trafficSources) if the cache entry is missing it.
-    // This lets the geo/traffic widgets show immediately even after a date-range change flushes the main cache.
+    // For YouTube: patch in cached extended data (demographics, trafficSources) when the
+    // incoming payload is missing it OR its `byCountry` list is empty. This is what keeps the
+    // "Views by country" donut from flashing empty when a background SWR refresh returns a
+    // payload in which YouTube Analytics hasn't finished computing the geography breakdown.
+    function demographicsLooksPopulated(d: unknown): boolean {
+      if (!d || typeof d !== 'object') return false;
+      const dd = d as Record<string, unknown>;
+      const byCountry = Array.isArray(dd.byCountry) ? (dd.byCountry as unknown[]) : null;
+      const byGender = Array.isArray(dd.byGender) ? (dd.byGender as unknown[]) : null;
+      const byAge = Array.isArray(dd.byAge) ? (dd.byAge as unknown[]) : null;
+      return (byCountry?.length ?? 0) > 0 || (byGender?.length ?? 0) > 0 || (byAge?.length ?? 0) > 0;
+    }
     function patchYouTubeExtended(payload: Record<string, unknown>): Record<string, unknown> {
       if (selectedAccount?.platform !== 'YOUTUBE') return payload;
-      const hasDemographics = payload.demographics && typeof payload.demographics === 'object';
+      const hasDemographics = demographicsLooksPopulated(payload.demographics);
       const hasTraffic = Array.isArray(payload.trafficSources) && (payload.trafficSources as unknown[]).length > 0;
       if (hasDemographics && hasTraffic) return payload;
       const ext = readYouTubeExtendedCache(accountId);
       if (!ext) return payload;
       return {
         ...payload,
-        ...(!hasDemographics && ext.demographics ? { demographics: ext.demographics } : {}),
+        ...(!hasDemographics && demographicsLooksPopulated(ext.demographics) ? { demographics: ext.demographics } : {}),
         ...(!hasTraffic && ext.trafficSources ? { trafficSources: ext.trafficSources } : {}),
         ...(ext.extra && !payload.extra ? { extra: ext.extra } : {}),
       };
+    }
+
+    /**
+     * Merge a freshly-fetched `data` payload with the in-memory `insights` state so that
+     * previously-populated YouTube extended sections (Views by country, Traffic sources,
+     * dislikes, etc.) stay visible when the new response doesn't include them. This is what
+     * stops the "pie chart disappears and comes back" flicker the user reported.
+     */
+    function mergeIncomingInsights(data: Record<string, unknown>): Record<string, unknown> {
+      if (selectedAccount?.platform !== 'YOUTUBE') return data;
+      const prevRaw = lastInsightsByAccountIdRef.current[accountId];
+      const prev = prevRaw && typeof prevRaw === 'object' ? (prevRaw as Record<string, unknown>) : null;
+      let merged: Record<string, unknown> = { ...data };
+      if (!demographicsLooksPopulated(merged.demographics) && prev && demographicsLooksPopulated(prev.demographics)) {
+        merged.demographics = prev.demographics;
+      }
+      const incomingTraffic = Array.isArray(merged.trafficSources) ? (merged.trafficSources as unknown[]) : null;
+      if ((incomingTraffic?.length ?? 0) === 0 && prev && Array.isArray(prev.trafficSources) && (prev.trafficSources as unknown[]).length > 0) {
+        merged.trafficSources = prev.trafficSources;
+      }
+      if (!merged.extra && prev?.extra) {
+        merged.extra = prev.extra;
+      }
+      // Still patch from localStorage cache if both the incoming payload AND state are lacking.
+      merged = patchYouTubeExtended(merged);
+      return merged;
     }
 
     // If we already have cached data for this range (or prefetched default range), show it immediately and keep it stable.
@@ -807,18 +843,26 @@ export default function DashboardPage() {
           .then((res) => {
             const data = res.data ?? null;
             if (!data) return;
-            // Persist YouTube extended data (geo + traffic) in a separate date-range-independent cache.
+            // Merge first so we retain previously-populated extended sections (byCountry,
+            // trafficSources, extra) instead of overwriting them with an empty refresh.
+            const merged = mergeIncomingInsights(data as Record<string, unknown>);
+            // Only persist YouTube extended data if the merged payload actually has populated
+            // geo/traffic — otherwise an empty SWR response could wipe a good localStorage cache.
             if (selectedAccount?.platform === 'YOUTUBE') {
-              const d = data as Record<string, unknown>;
-              if (d.demographics || d.trafficSources) writeYouTubeExtendedCache(accountId, { demographics: d.demographics, trafficSources: d.trafficSources, extra: d.extra });
+              const hasGeo = demographicsLooksPopulated(merged.demographics);
+              const hasTraffic = Array.isArray(merged.trafficSources) && (merged.trafficSources as unknown[]).length > 0;
+              if (hasGeo || hasTraffic) {
+                writeYouTubeExtendedCache(accountId, { demographics: merged.demographics, trafficSources: merged.trafficSources, extra: merged.extra });
+              }
             }
-            insightsCacheRef.current[cacheKey] = data;
-            lastInsightsByAccountIdRef.current[accountId] = { ...(data as Record<string, unknown>), _dateRange: dateRange };
+            const mergedAsInsights = merged as unknown as NonNullable<typeof insights>;
+            insightsCacheRef.current[cacheKey] = mergedAsInsights;
+            lastInsightsByAccountIdRef.current[accountId] = { ...merged, _dateRange: dateRange };
             lastInsightsFetchedAtRef.current[accountId] = Date.now();
-            appDataRef.current?.setInsightsForAccount(accountId, data);
+            appDataRef.current?.setInsightsForAccount(accountId, mergedAsInsights);
             if (selectedAccountIdRef.current === accountId) {
-              setInsights(data);
-              if (userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, data, dateRange);
+              setInsights(mergedAsInsights);
+              if (userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, merged, dateRange);
             }
           })
           .catch(() => {});
@@ -915,20 +959,27 @@ export default function DashboardPage() {
             // Keep initial payload when forced refresh fails.
           }
         }
+        let merged: Record<string, unknown> | null = null;
         if (data) {
-          // Persist YouTube extended data (geo + traffic) separately so it survives date-range cache misses.
+          merged = mergeIncomingInsights(data as Record<string, unknown>);
+          // Only persist YouTube extended data when the merged payload has real geo/traffic —
+          // guards against transient empty responses wiping a populated localStorage cache.
           if (selectedAccount?.platform === 'YOUTUBE') {
-            const d = data as Record<string, unknown>;
-            if (d.demographics || d.trafficSources) writeYouTubeExtendedCache(accountId, { demographics: d.demographics, trafficSources: d.trafficSources, extra: d.extra });
+            const hasGeo = demographicsLooksPopulated(merged.demographics);
+            const hasTraffic = Array.isArray(merged.trafficSources) && (merged.trafficSources as unknown[]).length > 0;
+            if (hasGeo || hasTraffic) {
+              writeYouTubeExtendedCache(accountId, { demographics: merged.demographics, trafficSources: merged.trafficSources, extra: merged.extra });
+            }
           }
-          insightsCacheRef.current[cacheKey] = data;
-          lastInsightsByAccountIdRef.current[accountId] = { ...(data as Record<string, unknown>), _dateRange: dateRange };
+          const mergedAsInsights = merged as unknown as NonNullable<typeof insights>;
+          insightsCacheRef.current[cacheKey] = mergedAsInsights;
+          lastInsightsByAccountIdRef.current[accountId] = { ...merged, _dateRange: dateRange };
           lastInsightsFetchedAtRef.current[accountId] = Date.now();
-          appDataRef.current?.setInsightsForAccount(accountId, data);
+          appDataRef.current?.setInsightsForAccount(accountId, mergedAsInsights);
         }
         if (selectedAccountIdRef.current === accountId) {
-          setInsights(data);
-          if (data && userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, data, dateRange);
+          setInsights((merged ?? null) as typeof insights);
+          if (merged && userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, merged, dateRange);
         }
       })
       .catch(() => { 
