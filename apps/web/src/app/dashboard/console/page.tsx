@@ -20,7 +20,6 @@ import {
   CartesianGrid,
   Line,
   LineChart,
-  ComposedChart,
   Bar,
   BarChart,
   PieChart,
@@ -86,17 +85,6 @@ const COLOR = {
   coral: '#ff8b7b',
   magenta: '#d946ef',
   cyan: '#6366f1',
-} as const;
-
-const ENGAGEMENT_COLORS = {
-  likes: '#7c6cff',
-  comments: '#f5b942',
-  shares: '#31c48d',
-  reposts: '#ff8b7b',
-} as const;
-
-const ACTIVITY_COLORS = {
-  posts: '#f5b942',
 } as const;
 
 /** Console-specific platform colors for the Performance per platform section. */
@@ -733,7 +721,6 @@ function ShellCard({ children, className = '' }: { children: React.ReactNode; cl
 
 const CONSOLE_NAV_SECTIONS = [
   { id: FACEBOOK_ANALYTICS_SECTION_IDS.overview, label: 'Overview' },
-  { id: FACEBOOK_ANALYTICS_SECTION_IDS.traffic, label: 'Traffic' },
   { id: FACEBOOK_ANALYTICS_SECTION_IDS.posts, label: 'Posts' },
   { id: FACEBOOK_ANALYTICS_SECTION_IDS.reels, label: 'Reels' },
   { id: FACEBOOK_ANALYTICS_SECTION_IDS.history, label: 'History' },
@@ -854,12 +841,7 @@ export default function UnifiedSummaryPage() {
     });
   }, [performanceMode, accountsKey, connectedChartPlatforms]);
 
-  // Engagement section
-  const [selectedEngagement, setSelectedEngagement] = useState<('likes' | 'comments' | 'shares' | 'reposts')[]>(['likes', 'comments', 'shares']);
   const [livePlatformFallback, setLivePlatformFallback] = useState<Record<string, PlatformLiveFallback>>({});
-
-  // Activity section
-  const [selectedActivity, setSelectedActivity] = useState<('posts')[]>(['posts']);
 
   useEffect(() => {
     if (!user?.id) {
@@ -1077,22 +1059,6 @@ export default function UnifiedSummaryPage() {
     return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
   }, [data, connectedChartPlatforms]);
 
-  // Engagement totals
-  const engTotals = useMemo(() => {
-    const bd = data?.engagementBreakdown ?? [];
-    const t = { likes: 0, comments: 0, shares: 0, reposts: 0 };
-    for (const d of bd) { t.likes += d.likes; t.comments += d.comments; t.shares += d.shares; t.reposts += d.reposts; }
-    return t;
-  }, [data]);
-
-  // Activity totals
-  const actTotals = useMemo(() => {
-    const bd = data?.activityBreakdown ?? [];
-    let posts = 0;
-    for (const d of bd) posts += d.posts;
-    return { posts };
-  }, [data]);
-
   const platformPeriodTotals = useMemo(() => {
     if (!data?.chart) return [];
     const imp: Record<string, number> = {}; const eng: Record<string, number> = {};
@@ -1102,10 +1068,6 @@ export default function UnifiedSummaryPage() {
     return CHART_PLATFORMS.map((p) => ({ platform: p, impressions: imp[p], engagement: eng[p] })).filter((x) => x.impressions > 0 || x.engagement > 0);
   }, [data]);
 
-  const engagementAxisTicks = useMemo(
-    () => buildConsoleAxisTicks(data?.engagementBreakdown ?? [], selectedEngagement),
-    [data?.engagementBreakdown, selectedEngagement.join('|')]
-  );
   const overviewAxisTicks = useMemo(
     () => buildConsoleAxisTicks(overviewTrendData, selectedOverviewMetrics),
     [overviewTrendData, selectedOverviewMetrics.join('|')]
@@ -1117,9 +1079,47 @@ export default function UnifiedSummaryPage() {
   const overviewFollowersGrowthPct = overviewFollowersStart <= 0
     ? (overviewFollowersEnd > 0 ? 100 : 0)
     : ((overviewFollowersEnd - overviewFollowersStart) / overviewFollowersStart) * 100;
-  const activityAxisTicks = useMemo(
-    () => buildConsoleAxisTicks(data?.activityBreakdown ?? [], ['posts']),
-    [data?.activityBreakdown]
+  const postsByPlatformTotals = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const p of connectedChartPlatforms) out[p] = 0;
+    const normalize = (platform: string): string => {
+      if (platform === 'Facebook') return 'Meta';
+      if (platform === 'Twitter/X') return 'X';
+      return platform;
+    };
+    for (const row of data?.history ?? []) {
+      const p = normalize(String(row.platform ?? ''));
+      if (p in out) out[p] += 1;
+    }
+    return out;
+  }, [data?.history, connectedChartPlatforms]);
+
+  const postsTimelineData = useMemo(() => {
+    const rows = (data?.chart ?? []).map((r) => ({ date: String(r.date) })) as Array<{ date: string } & Record<string, number>>;
+    const byDate = new Map<string, { date: string } & Record<string, number>>();
+    for (const r of rows) {
+      const base: { date: string } & Record<string, number> = { date: r.date } as { date: string } & Record<string, number>;
+      for (const p of connectedChartPlatforms) base[p] = 0;
+      byDate.set(r.date, base);
+    }
+    const normalize = (platform: string): string => {
+      if (platform === 'Facebook') return 'Meta';
+      if (platform === 'Twitter/X') return 'X';
+      return platform;
+    };
+    for (const post of data?.history ?? []) {
+      const d = toLocalCalendarDate(new Date(post.postedAt));
+      const row = byDate.get(d);
+      if (!row) continue;
+      const p = normalize(String(post.platform ?? ''));
+      if (p in row) row[p] += 1;
+    }
+    return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
+  }, [data?.history, data?.chart, connectedChartPlatforms]);
+
+  const postsAxisTicks = useMemo(
+    () => buildConsoleAxisTicks(postsTimelineData, connectedChartPlatforms as string[]),
+    [postsTimelineData, connectedChartPlatforms.join('|')]
   );
 
   const selectedOverviewLegendItems = useMemo(() => {
@@ -1187,8 +1187,6 @@ export default function UnifiedSummaryPage() {
   );
 
   if (!user) return <div className="flex items-center justify-center h-[60vh]" style={{ color: COLOR.textMuted }}>Sign in to view your unified analytics.</div>;
-
-  const engagementStackTopKey = [...selectedEngagement].reverse().find(() => true) ?? 'likes';
 
   return (
     <div className="p-0 md:p-0.5 space-y-3" style={{ maxWidth: 1400, background: COLOR.pageBg }}>
@@ -1472,98 +1470,52 @@ export default function UnifiedSummaryPage() {
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════════
-          ENGAGEMENT: Likes / Comments / Shares / Reposts — stacked bar chart
-         ══════════════════════════════════════════════════════════════════════ */}
-      <section id={FACEBOOK_ANALYTICS_SECTION_IDS.traffic} className="scroll-mt-28 space-y-4">
-        {data ? (
-          <ShellCard className="space-y-3">
-            <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Engagement</h3>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <MetricCard label="Likes" source="All platforms · likeCount" color={ENGAGEMENT_COLORS.likes} value={fmt(engTotals.likes)} active={selectedEngagement.includes('likes')} onClick={() => setSelectedEngagement((p) => p.includes('likes') ? p.filter((m) => m !== 'likes') : [...p, 'likes'])} />
-              <MetricCard label="Comments" source="All platforms · commentsCount" color={ENGAGEMENT_COLORS.comments} value={fmt(engTotals.comments)} active={selectedEngagement.includes('comments')} onClick={() => setSelectedEngagement((p) => p.includes('comments') ? p.filter((m) => m !== 'comments') : [...p, 'comments'])} />
-              <MetricCard label="Shares" source="All platforms · sharesCount" color={ENGAGEMENT_COLORS.shares} value={fmt(engTotals.shares)} active={selectedEngagement.includes('shares')} onClick={() => setSelectedEngagement((p) => p.includes('shares') ? p.filter((m) => m !== 'shares') : [...p, 'shares'])} />
-              <MetricCard label="Reposts" source="All platforms · repostsCount" color={ENGAGEMENT_COLORS.reposts} value={fmt(engTotals.reposts)} active={selectedEngagement.includes('reposts')} onClick={() => setSelectedEngagement((p) => p.includes('reposts') ? p.filter((m) => m !== 'reposts') : [...p, 'reposts'])} />
-            </div>
-            <div className="flex justify-end">
-              <div className="flex flex-wrap gap-2">
-                {selectedEngagement.map((m) => (
-                  <span key={m} className="rounded-full border px-2.5 py-1 text-xs" style={{ borderColor: COLOR.border, color: COLOR.textSecondary }}>
-                    <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ background: ENGAGEMENT_COLORS[m] }} />{m.charAt(0).toUpperCase() + m.slice(1)}
-                  </span>
-                ))}
-              </div>
-            </div>
-            <InsightChartCard title="Engagement" hideHeader flat>
-              {selectedEngagement.length === 0 ? (
-                <div className="h-[300px] rounded-xl border border-dashed relative overflow-hidden" style={{ borderColor: COLOR.border }}>
-                  <div className="absolute inset-0 z-[2] flex items-center justify-center">
-                    <div className="rounded-2xl px-5 py-3 text-sm font-medium text-center" style={{ background: '#fff', color: COLOR.textSecondary, boxShadow: '0 1px 16px rgba(15,23,42,0.12)' }}>Select at least one metric card to display engagement data.</div>
-                  </div>
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={data.engagementBreakdown ?? []} barCategoryGap="20%" barGap={0} margin={{ top: 4, right: 8, left: 0, bottom: 10 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-                    <XAxis
-                      dataKey="date"
-                      ticks={engagementAxisTicks}
-                      tickFormatter={formatConsoleAxisTickLabel}
-                      tick={{ fill: COLOR.textMuted, fontSize: 10 }}
-                      dy={8}
-                      axisLine={false}
-                      tickLine={false}
-                      interval={0}
-                    />
-                    <YAxis domain={[0, 'auto']} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
-                    <Tooltip contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }} // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    formatter={(v: any, n: any) => [fmt(Number(v) || 0), String(n ?? '').charAt(0).toUpperCase() + String(n ?? '').slice(1)]} labelFormatter={(l) => fmtTooltipDate(String(l))} />
-                    {selectedEngagement.includes('likes') && <Bar dataKey="likes" stackId="e" fill={ENGAGEMENT_COLORS.likes} radius={engagementStackTopKey === 'likes' ? [6,6,0,0] : [0,0,0,0]} barSize={14} />}
-                    {selectedEngagement.includes('comments') && <Bar dataKey="comments" stackId="e" fill={ENGAGEMENT_COLORS.comments} radius={engagementStackTopKey === 'comments' ? [6,6,0,0] : [0,0,0,0]} barSize={14} />}
-                    {selectedEngagement.includes('shares') && <Bar dataKey="shares" stackId="e" fill={ENGAGEMENT_COLORS.shares} radius={engagementStackTopKey === 'shares' ? [6,6,0,0] : [0,0,0,0]} barSize={14} />}
-                    {selectedEngagement.includes('reposts') && <Bar dataKey="reposts" stackId="e" fill={ENGAGEMENT_COLORS.reposts} radius={engagementStackTopKey === 'reposts' ? [6,6,0,0] : [0,0,0,0]} barSize={14} />}
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </InsightChartCard>
-          </ShellCard>
-        ) : loading ? (
-          <ShellCard className="space-y-4"><Skeleton className="h-20 rounded-[20px]" /><Skeleton className="h-[300px] rounded-xl" /></ShellCard>
-        ) : null}
-      </section>
-
-      {/* ══════════════════════════════════════════════════════════════════════
-          ACTIVITY: Posts per day — line chart
+          POSTS: uploaded posts timeline (candlestick-style bars)
          ══════════════════════════════════════════════════════════════════════ */}
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.reels} className="scroll-mt-28 space-y-4">
         {data ? (
           <ShellCard className="space-y-3">
-            <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Activity</h3>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              <MetricCard label="Posts" source="All platforms · posts published in range" color={ACTIVITY_COLORS.posts} value={fmt(actTotals.posts)} active={selectedActivity.includes('posts')} onClick={() => setSelectedActivity((p) => p.includes('posts') ? p.filter((m) => m !== 'posts') : [...p, 'posts'])} />
+            <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Posts</h3>
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+              {connectedChartPlatforms.map((p) => (
+                <div
+                  key={`post-platform-card-${p}`}
+                  className="rounded-[14px] border px-3 py-2.5"
+                  style={{
+                    borderColor: `${(CONSOLE_PLATFORM_COLOR[p] ?? PLATFORM_COLOR[p] ?? COLOR.textSecondary)}45`,
+                    background: `${(CONSOLE_PLATFORM_COLOR[p] ?? PLATFORM_COLOR[p] ?? COLOR.textSecondary)}10`,
+                  }}
+                >
+                  <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLOR.textSecondary }}>
+                    {consolePlatformDisplayName(p)}
+                  </div>
+                  <div className="text-[17px] leading-tight font-bold tabular-nums" style={{ color: CONSOLE_PLATFORM_COLOR[p] ?? PLATFORM_COLOR[p] ?? COLOR.textSecondary }}>
+                    {fmtExactInt(postsByPlatformTotals[p] ?? 0)}
+                  </div>
+                </div>
+              ))}
             </div>
-            <div className="flex justify-end">
-              <div className="flex flex-wrap gap-2">
-                {selectedActivity.map((m) => (
-                  <span key={m} className="rounded-full border px-2.5 py-1 text-xs" style={{ borderColor: COLOR.border, color: COLOR.textSecondary }}>
-                    <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ background: ACTIVITY_COLORS[m] }} />{m.charAt(0).toUpperCase() + m.slice(1)}
-                  </span>
+            <InsightChartCard title="Posts" hideHeader flat>
+              <div className="mb-2 flex flex-wrap justify-end gap-2">
+                {connectedChartPlatforms.map((p) => (
+                  <DotLegendPill
+                    key={`post-legend-${p}`}
+                    label={consolePlatformDisplayName(p)}
+                    color={CONSOLE_PLATFORM_COLOR[p] ?? PLATFORM_COLOR[p] ?? COLOR.textSecondary}
+                  />
                 ))}
               </div>
-            </div>
-            <InsightChartCard title="Activity" hideHeader flat>
-              {selectedActivity.length === 0 ? (
-                <div className="h-[300px] rounded-xl border border-dashed relative overflow-hidden" style={{ borderColor: COLOR.border }}>
-                  <div className="absolute inset-0 z-[2] flex items-center justify-center">
-                    <div className="rounded-2xl px-5 py-3 text-sm font-medium text-center" style={{ background: '#fff', color: COLOR.textSecondary, boxShadow: '0 1px 16px rgba(15,23,42,0.12)' }}>Select at least one metric card to display activity data.</div>
-                  </div>
+              {postsTimelineData.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-sm" style={{ color: COLOR.textMuted }}>
+                  No posts uploaded in this selected timeframe.
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={data.activityBreakdown ?? []} margin={{ bottom: 10 }}>
+                  <BarChart data={postsTimelineData} barCategoryGap="22%" barGap={2} margin={{ top: 4, right: 8, left: 0, bottom: 10 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                     <XAxis
                       dataKey="date"
-                      ticks={activityAxisTicks}
+                      ticks={postsAxisTicks}
                       tickFormatter={formatConsoleAxisTickLabel}
                       tick={{ fill: COLOR.textMuted, fontSize: 10 }}
                       dy={8}
@@ -1573,9 +1525,17 @@ export default function UnifiedSummaryPage() {
                     />
                     <YAxis domain={[0, 'auto']} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                     <Tooltip contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }} // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    formatter={(v: any, n: any) => [fmt(Number(v) || 0), n === 'posts' ? 'Posts' : String(n ?? '')]} labelFormatter={(l) => fmtTooltipDate(String(l))} />
-{selectedActivity.includes('posts') && <Line type="monotone" dataKey="posts" stroke={ACTIVITY_COLORS.posts} strokeWidth={2} dot={false} />}
-                  </ComposedChart>
+                    formatter={(v: any, n: any) => [fmtExactInt(Number(v) || 0), consolePlatformDisplayName(String(n ?? ''))]} labelFormatter={(l) => fmtTooltipDate(String(l))} />
+                    {connectedChartPlatforms.map((p) => (
+                      <Bar
+                        key={`post-bar-${p}`}
+                        dataKey={p}
+                        fill={CONSOLE_PLATFORM_COLOR[p] ?? PLATFORM_COLOR[p] ?? COLOR.textSecondary}
+                        radius={[6, 6, 0, 0]}
+                        barSize={10}
+                      />
+                    ))}
+                  </BarChart>
                 </ResponsiveContainer>
               )}
             </InsightChartCard>
