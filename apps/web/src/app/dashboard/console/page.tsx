@@ -471,7 +471,7 @@ function PlatformLegend({
   chartData: UnifiedChartData;
 }) {
   return (
-    <div className="flex flex-wrap justify-end gap-2" role="group" aria-label="Platforms shown on chart">
+    <div className="flex flex-nowrap justify-end gap-2" role="group" aria-label="Platforms shown on chart">
       {all.map((p) => {
         const active = activePlatforms.includes(p);
         const raw = platformPresetMetric(chartData, p, preset);
@@ -905,6 +905,12 @@ export default function UnifiedSummaryPage() {
     () => buildConsoleAxisTicks(overviewTrendData, selectedOverviewMetrics),
     [overviewTrendData, selectedOverviewMetrics.join('|')]
   );
+
+  const overviewFollowersStart = overviewTrendData.length > 0 ? Number(overviewTrendData[0]?.followers ?? 0) : 0;
+  const overviewFollowersEnd = overviewTrendData.length > 0 ? Number(overviewTrendData[overviewTrendData.length - 1]?.followers ?? 0) : 0;
+  const overviewFollowersGrowthPct = overviewFollowersStart <= 0
+    ? (overviewFollowersEnd > 0 ? 100 : 0)
+    : ((overviewFollowersEnd - overviewFollowersStart) / overviewFollowersStart) * 100;
   const activityAxisTicks = useMemo(
     () => buildConsoleAxisTicks(data?.activityBreakdown ?? [], ['posts']),
     [data?.activityBreakdown]
@@ -985,11 +991,12 @@ export default function UnifiedSummaryPage() {
         {data ? (
           <ShellCard className="!p-3 sm:!p-4 space-y-2">
             <h3 className="text-base font-semibold m-0" style={{ color: COLOR.text }}>Overview</h3>
+            <h4 className="text-sm font-semibold" style={{ color: COLOR.textSecondary }}>Performance</h4>
             <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
               <KpiCard
                 label="Followers"
-                value={fmtExactInt(data.kpi.totalAudience)}
-                growthPct={data.kpi.audienceGrowthPercentage}
+                value={fmtExactInt(overviewFollowersEnd)}
+                growthPct={overviewFollowersGrowthPct}
                 icon={<Users size={15} />}
                 accent={COLOR.mint}
                 active={selectedOverviewMetrics.includes('followers')}
@@ -1014,7 +1021,7 @@ export default function UnifiedSummaryPage() {
                 onClick={() => toggleOverviewMetric('views')}
               />
             </div>
-            <InsightChartCard title="Performance" flat>
+            <InsightChartCard title="Performance" hideHeader flat>
               {selectedOverviewMetrics.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-sm" style={{ color: COLOR.textMuted }}>
                   Select at least one Overview card to display trend data.
@@ -1073,8 +1080,8 @@ export default function UnifiedSummaryPage() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Performance per platform</h3>
             </div>
-            <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-              <div className="flex gap-2">
+            <div className="mb-5 flex items-start justify-between gap-3">
+              <div className="flex shrink-0 gap-2">
                 {(['growth', 'engagement', 'views'] as const).map((mode) => {
                   const active = performanceMode === mode;
                   return (
@@ -1086,13 +1093,15 @@ export default function UnifiedSummaryPage() {
                   );
                 })}
               </div>
-              <PlatformLegend
-                all={connectedChartPlatforms}
-                activePlatforms={activePlatforms}
-                toggle={togglePlatform}
-                preset={performanceMode}
-                chartData={activeChartData}
-              />
+              <div className="min-w-0 flex-1 overflow-x-auto">
+                <PlatformLegend
+                  all={connectedChartPlatforms}
+                  activePlatforms={activePlatforms}
+                  toggle={togglePlatform}
+                  preset={performanceMode}
+                  chartData={activeChartData}
+                />
+              </div>
             </div>
             <InsightChartCard title="Performance" hideHeader flat>
               {activeChartData.length > 0 ? (
