@@ -182,8 +182,8 @@ const TIKTOK_PERFORMANCE_LINE_COLORS: Record<StoryMetricKey, string> = {
 
 const TIKTOK_PERFORMANCE_LABELS: Record<StoryMetricKey, string> = {
   followers: 'Followers',
-  engagements: 'Engagements (range)',
-  videoViews: 'Total video views',
+  engagements: 'Engagement',
+  videoViews: 'Views',
   contentViews: 'Profile likes',
   pageVisits: 'Public videos',
   subscriberNet: 'Subscriber net',
@@ -4112,7 +4112,7 @@ export function FacebookAnalyticsView({
                   tiktokApiHighlight
                 />
                 <SparklineMetricCard
-                  label="Total video views"
+                  label="Views"
                   source="video/list · view_count summed from synced videos (all-time)"
                   color={COLOR.amber}
                   value={formatNumber(tiktokTotalVideoViewsValue)}
@@ -4122,7 +4122,7 @@ export function FacebookAnalyticsView({
                   tiktokApiHighlight
                 />
                 <SparklineMetricCard
-                  label="Engagements (range)"
+                  label="Engagement"
                   source="video/list · likes + comments + shares on posts in range (synced)"
                   color={COLOR.coral}
                   value={formatNumber(tiktokEngagementsInRange)}
