@@ -297,6 +297,16 @@ function normalizeHistoryPlatform(platform: string): string {
   return platform;
 }
 
+function postsEligiblePlatformsForPreset(
+  platforms: string[],
+  preset: PostTypeKey
+): string[] {
+  if (preset === 'image' || preset === 'carousel') {
+    return platforms.filter((p) => p !== 'YouTube');
+  }
+  return platforms;
+}
+
 const CONSOLE_FALLBACK_CACHE_TTL_MS = 10 * 60 * 1000;
 
 function readConsoleFallbackCache(
@@ -857,13 +867,18 @@ export default function UnifiedSummaryPage() {
     });
   }, [performanceMode, accountsKey, connectedChartPlatforms]);
 
+  const postsEligiblePlatforms = useMemo(
+    () => postsEligiblePlatformsForPreset(connectedChartPlatforms, postsPreset),
+    [connectedChartPlatforms, postsPreset]
+  );
+
   useEffect(() => {
     setPostsActivePlatforms((prev) => {
-      const next = [...connectedChartPlatforms];
-      if (prev.length === next.length && prev.every((p, i) => p === next[i])) return prev;
-      return next;
+      const filteredPrev = prev.filter((p) => postsEligiblePlatforms.includes(p));
+      if (filteredPrev.length > 0) return filteredPrev;
+      return [...postsEligiblePlatforms];
     });
-  }, [accountsKey, connectedChartPlatforms]);
+  }, [accountsKey, postsEligiblePlatforms]);
 
   const [livePlatformFallback, setLivePlatformFallback] = useState<Record<string, PlatformLiveFallback>>({});
 
@@ -1520,13 +1535,13 @@ export default function UnifiedSummaryPage() {
               </div>
               <div className="-mt-3 min-w-0 flex-1 overflow-x-auto">
                 <PlatformLegend
-                  all={connectedChartPlatforms}
+                  all={postsEligiblePlatforms}
                   activePlatforms={postsActivePlatforms}
                   toggle={togglePostsPlatform}
                   preset="views"
                   chartData={postsTimelineData.map((row) => {
                     const shaped: Record<string, unknown> = { date: row.date };
-                    for (const p of connectedChartPlatforms) {
+                    for (const p of postsEligiblePlatforms) {
                       shaped[p] = Number((row as unknown as Record<string, number>)[`${postsPreset}_${p}`] ?? 0);
                     }
                     return shaped as UnifiedChartData[number];
@@ -1565,7 +1580,7 @@ export default function UnifiedSummaryPage() {
                     <YAxis domain={[0, 'auto']} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                     <Tooltip contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }} // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     formatter={(v: any, n: any) => [fmtExactInt(Number(v) || 0), consolePlatformDisplayName(String(n ?? ''))]} labelFormatter={(l) => fmtTooltipDate(String(l))} />
-                    {connectedChartPlatforms.map((p) => (
+                    {postsEligiblePlatforms.map((p) => (
                       <Bar
                         key={`post-bar-${postsPreset}-${p}`}
                         dataKey={`${postsPreset}_${p}`}
