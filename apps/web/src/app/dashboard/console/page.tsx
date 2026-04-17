@@ -865,7 +865,7 @@ export default function UnifiedSummaryPage() {
       return;
     }
     const targets = orderedAccounts.filter((a) => a.platform === 'TWITTER' || a.platform === 'PINTEREST');
-    console.log('[Console Fallback] targets:', targets.map((a) => ({ id: a.id, platform: a.platform })));
+    console.log('[Console Fallback] accountsKey:', accountsKey, 'orderedAccounts.length:', orderedAccounts.length, 'targets:', targets.map((a) => ({ id: a.id, platform: a.platform })));
     if (targets.length === 0) {
       setLivePlatformFallback({});
       return;
@@ -922,7 +922,8 @@ export default function UnifiedSummaryPage() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, orderedAccounts, dateRange.start, dateRange.end]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, accountsKey, dateRange.start, dateRange.end]);
 
   const onDateRangeChange = useCallback((range: { start: string; end: string }) => {
     if (user?.id) writeStoredAnalyticsDateRange(range, user.id);
