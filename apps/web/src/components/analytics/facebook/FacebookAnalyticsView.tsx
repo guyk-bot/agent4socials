@@ -670,6 +670,9 @@ function getLegacyYoutubeVideoFormatFromPost(p: FacebookPost): 'short' | 'long' 
  */
 function isYouTubeShortPost(p: FacebookPost): boolean {
   if ((p.platform ?? '').toUpperCase() !== 'YOUTUBE') return false;
+  const permalink = String(p.permalinkUrl ?? '').toLowerCase();
+  // Explicit user-facing rule: if the posted URL contains "short", classify as Shorts.
+  if (permalink.includes('short')) return true;
   const pl = getYoutubeInShortsPlaylistFromPost(p);
   const inChannelShortsPlaylist = pl === true ? true : pl === false ? false : undefined;
   const d = getYoutubeDurationSecFromPost(p) ?? 0;

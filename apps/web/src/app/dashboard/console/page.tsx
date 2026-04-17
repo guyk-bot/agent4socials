@@ -282,7 +282,14 @@ const POST_TYPE_LABEL: Record<PostTypeKey, string> = {
   carousel: 'Carousel',
 };
 
-function classifyConsolePostType(mediaType: string | null | undefined): PostTypeKey | null {
+function classifyConsolePostType(
+  mediaType: string | null | undefined,
+  url: string | null | undefined,
+  platform?: string | null
+): PostTypeKey | null {
+  const plat = String(platform ?? '').toUpperCase();
+  const permalink = String(url ?? '').toLowerCase();
+  if (plat === 'YOUTUBE' && permalink.includes('short')) return 'reels';
   const mt = String(mediaType ?? '').toUpperCase();
   if (!mt) return null;
   if (mt === 'REEL' || mt === 'VIDEO' || mt === 'SHORT') return 'reels';
@@ -1137,7 +1144,7 @@ export default function UnifiedSummaryPage() {
       const row = byDate.get(d);
       if (!row) continue;
       const p = normalizeHistoryPlatform(String(post.platform ?? ''));
-      const t = classifyConsolePostType(post.mediaType);
+      const t = classifyConsolePostType(post.mediaType, post.url, post.platform);
       if (!t) continue;
       const key = `${t}_${p}`;
       if (key in row) row[key] += 1;
