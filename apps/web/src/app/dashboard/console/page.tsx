@@ -189,8 +189,9 @@ function buildConsoleAxisTicks(series: Array<{ date: string }>, metricKeys: stri
     return Array.from(monthTicks).sort((a, b) => a.localeCompare(b));
   }
   const daysSpan = Math.max(1, sorted.length);
-  const maxEventTicks = daysSpan <= 45 ? 10 : daysSpan <= 90 ? 8 : 6;
-  const minGapDays = daysSpan <= 45 ? 2 : daysSpan <= 90 ? 4 : 6;
+  // Show more event dates (especially spikes) while still preventing label collisions.
+  const maxEventTicks = daysSpan <= 45 ? 16 : daysSpan <= 90 ? 12 : 9;
+  const minGapDays = daysSpan <= 45 ? 1 : daysSpan <= 90 ? 2 : 3;
   const monthExclusionDays = 1;
   const toDayNum = (ymd: string) => Math.floor(new Date(`${ymd}T12:00:00`).getTime() / 86_400_000);
   const selectedEvents: string[] = [];
@@ -1007,7 +1008,6 @@ export default function UnifiedSummaryPage() {
         {/* KPI cards — always shown when data exists (including during silent refetch) */}
         {data ? (
           <ShellCard className="!p-3 sm:!p-4 space-y-2">
-            <h3 className="text-base font-semibold m-0" style={{ color: COLOR.text }}>Overview</h3>
             <h4 className="text-lg font-semibold" style={{ color: COLOR.text }}>Performance</h4>
             <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
               <KpiCard
