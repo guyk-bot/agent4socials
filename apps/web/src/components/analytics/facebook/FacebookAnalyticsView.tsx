@@ -241,15 +241,28 @@ function storyMetricSetsEqual(a: StoryMetricKey[], b: readonly StoryMetricKey[])
   return b.every((m) => as.has(m));
 }
 
+/** Top countries in the donut; remainder rolls into "Others". */
+const YOUTUBE_GEO_TOP_COUNTRIES = 9;
+
 /**
- * Golden-angle hue stepping so each country slice gets a distinct color (no short palette repeats).
- * Saturation and lightness vary slightly by index so neighbors stay separable on light backgrounds.
+ * Fixed palette (10 slots: 9 countries + Others). Hues are spaced across the wheel so adjacent slices stay distinguishable.
  */
+const YOUTUBE_GEO_PIE_COLORS = [
+  '#c62828', // red
+  '#1565c0', // blue
+  '#ef6c00', // orange
+  '#2e7d32', // green
+  '#6a1b9a', // purple
+  '#00838f', // teal
+  '#ad1457', // magenta
+  '#4527a0', // indigo
+  '#827717', // olive
+  '#546e7a', // blue-grey — Others
+] as const;
+
 function youtubeGeoPieColor(index: number): string {
-  const h = (index * 137.508) % 360;
-  const s = 70 + ((index * 3) % 5) * 3.5;
-  const l = 42 + ((index * 7) % 4) * 4;
-  return `hsl(${h.toFixed(2)} ${Math.min(92, s).toFixed(1)}% ${Math.min(56, l).toFixed(1)}%)`;
+  const i = Math.max(0, Math.min(index, YOUTUBE_GEO_PIE_COLORS.length - 1));
+  return YOUTUBE_GEO_PIE_COLORS[i] ?? '#546e7a';
 }
 
 function formatYoutubeTrafficSource(raw: string): string {
@@ -2926,16 +2939,39 @@ export function FacebookAnalyticsView({
     } catch {
       regionNames = undefined;
     }
-    const list = rows
+    const ranked = rows
       .map((r) => {
         const code = String(r.dimensionValue || '').trim();
         const value = Number(r.value) || 0;
         const name =
           code.length === 2 && regionNames ? regionNames.of(code.toUpperCase()) ?? code : code || 'Unknown';
-        return { name, value, sharePct: Number(((value / total) * 100).toFixed(1)) };
+        return { name, value };
       })
       .filter((r) => r.value > 0)
       .sort((a, b) => b.value - a.value);
+
+    const top = ranked.slice(0, YOUTUBE_GEO_TOP_COUNTRIES);
+    const rest = ranked.slice(YOUTUBE_GEO_TOP_COUNTRIES);
+    const othersValue = rest.reduce((s, r) => s + r.value, 0);
+
+    const list: Array<{ name: string; value: number; sharePct: number }> =
+      othersValue > 0 && rest.length > 0
+        ? [
+            ...top.map((r) => ({
+              ...r,
+              sharePct: Number(((r.value / total) * 100).toFixed(1)),
+            })),
+            {
+              name: 'Others',
+              value: othersValue,
+              sharePct: Number(((othersValue / total) * 100).toFixed(1)),
+            },
+          ]
+        : top.map((r) => ({
+            ...r,
+            sharePct: Number(((r.value / total) * 100).toFixed(1)),
+          }));
+
     const pieSlices = list.map(({ name, value }) => ({ name, value }));
     return { list, pieSlices };
   }, [insights?.demographics?.byCountry]);
@@ -4835,8 +4871,8 @@ export function FacebookAnalyticsView({
                       })() : null}
                     </div>
                     <ul className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm min-w-0" style={{ color: COLOR.text }}>
-                      {youtubeGeoBreakdown.list.slice(0, 12).map((row, i) => (
-                        <li key={row.name} className="flex items-center justify-between gap-2 border-b border-neutral-100 pb-2">
+                      {youtubeGeoBreakdown.list.map((row, i) => (
+                        <li key={`${row.name}-${i}`} className="flex items-center justify-between gap-2 border-b border-neutral-100 pb-2">
                           <span className="flex items-center gap-2 min-w-0">
                             <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: youtubeGeoPieColor(i) }} />
                             <span className="truncate font-medium">{row.name}</span>
