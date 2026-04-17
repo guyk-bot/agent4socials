@@ -226,7 +226,7 @@ const LINKEDIN_PERFORMANCE_LABELS: Record<StoryMetricKey, string> = {
 /** X (Twitter) reuses the same chart keys as TikTok-style simplified performance. */
 const TWITTER_PERFORMANCE_LABELS: Record<StoryMetricKey, string> = {
   followers: 'Followers',
-  engagements: 'Engagements (range)',
+  engagements: 'Engagements',
   videoViews: 'Tweet impressions',
   contentViews: 'Posts published (daily)',
   pageVisits: 'Profile visits',
@@ -4155,7 +4155,7 @@ export function FacebookAnalyticsView({
                   onClick={() => toggleStoryMetric('followers')}
                 />
                 <SparklineMetricCard
-                  label="Tweet impressions (range)"
+                  label="Tweet impressions"
                   source="Timeline public_metrics.impression_count summed for original posts in range"
                   color={TIKTOK_PERFORMANCE_LINE_COLORS.videoViews}
                   value={formatNumber(twitterImpressionsInRange)}
@@ -4164,7 +4164,7 @@ export function FacebookAnalyticsView({
                   onClick={() => toggleStoryMetric('videoViews')}
                 />
                 <SparklineMetricCard
-                  label="Engagements (range)"
+                  label="Engagements"
                   source="Likes + replies + reposts + quotes + bookmarks from timeline public_metrics"
                   color={COLOR.coral}
                   value={formatNumber(twitterEngagementsTotal)}
@@ -4173,7 +4173,7 @@ export function FacebookAnalyticsView({
                   onClick={() => toggleStoryMetric('engagements')}
                 />
                 <SparklineMetricCard
-                  label="Posts in range"
+                  label="Posts"
                   source="Original posts with created_at in the selected range (replies & pure retweets excluded)"
                   color={TIKTOK_PERFORMANCE_LINE_COLORS.contentViews}
                   value={formatNumber(insights?.recentTweets?.length ?? postsInRange.length)}
