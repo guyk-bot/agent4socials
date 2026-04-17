@@ -859,14 +859,6 @@ export default function UnifiedSummaryPage() {
     return data.chart ?? [];
   }, [data, performanceMode]);
 
-  const zeroDataPlatformsForMode = useMemo(
-    () =>
-      connectedChartPlatforms.filter(
-        (p) => platformPresetMetric(activeChartData, p, performanceMode) === 0
-      ),
-    [connectedChartPlatforms, activeChartData, performanceMode]
-  );
-
   const overviewTrendData = useMemo(() => {
     if (!data) return [] as Array<{ date: string; followers: number; views: number; engagements: number }>;
     const map = new Map<string, { date: string; followers: number; views: number; engagements: number }>();
@@ -1121,12 +1113,6 @@ export default function UnifiedSummaryPage() {
               </div>
             </div>
             <InsightChartCard title="Performance" hideHeader flat>
-              {zeroDataPlatformsForMode.length > 0 ? (
-                <div className="mb-2 text-xs" style={{ color: COLOR.textSecondary }}>
-                  No data in selected range:{' '}
-                  {zeroDataPlatformsForMode.join(', ')}
-                </div>
-              ) : null}
               {activeChartData.length > 0 ? (
                 <PlatformMixChart
                   data={activeChartData}
