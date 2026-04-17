@@ -865,6 +865,7 @@ export default function UnifiedSummaryPage() {
       return;
     }
     const targets = orderedAccounts.filter((a) => a.platform === 'TWITTER' || a.platform === 'PINTEREST');
+    console.log('[Console Fallback] targets:', targets.map((a) => ({ id: a.id, platform: a.platform })));
     if (targets.length === 0) {
       setLivePlatformFallback({});
       return;
@@ -875,10 +876,19 @@ export default function UnifiedSummaryPage() {
       await Promise.all(
         targets.map(async (acc) => {
           try {
+            console.log('[Console Fallback] Fetching insights for', acc.platform, acc.id);
             const res = await api.get(`/social/accounts/${encodeURIComponent(acc.id)}/insights`, {
               params: { since: dateRange.start, until: dateRange.end },
             });
             const payload = res?.data as Record<string, unknown>;
+            console.log('[Console Fallback] Response for', acc.platform, ':', {
+              hasImpressionsTimeSeries: Array.isArray(payload.impressionsTimeSeries),
+              impressionsTimeSeriesLength: Array.isArray(payload.impressionsTimeSeries) ? payload.impressionsTimeSeries.length : 0,
+              hasTwitterEngagementTimeSeries: Array.isArray(payload.twitterEngagementTimeSeries),
+              twitterEngagementTimeSeriesLength: Array.isArray(payload.twitterEngagementTimeSeries) ? payload.twitterEngagementTimeSeries.length : 0,
+              impressionsTotal: payload.impressionsTotal,
+              sampleImpressions: Array.isArray(payload.impressionsTimeSeries) ? payload.impressionsTimeSeries.slice(0, 3) : null,
+            });
             if (acc.platform === 'TWITTER') {
               const viewsSeries = Array.isArray(payload.impressionsTimeSeries)
                 ? (payload.impressionsTimeSeries as Array<Record<string, unknown>>)
@@ -890,6 +900,7 @@ export default function UnifiedSummaryPage() {
                     .map((p) => ({ date: String(p.date ?? ''), value: Number(p.value ?? 0) }))
                     .filter((p) => /^\d{4}-\d{2}-\d{2}$/.test(p.date))
                 : [];
+              console.log('[Console Fallback] Twitter parsed:', { viewsSeriesLength: viewsSeries.length, engagementSeriesLength: engagementSeries.length, sampleViews: viewsSeries.slice(0, 3) });
               next.X = { viewsSeries, engagementSeries };
             } else if (acc.platform === 'PINTEREST') {
               const viewsSeries = Array.isArray(payload.impressionsTimeSeries)
@@ -897,13 +908,15 @@ export default function UnifiedSummaryPage() {
                     .map((p) => ({ date: String(p.date ?? ''), value: Number(p.value ?? 0) }))
                     .filter((p) => /^\d{4}-\d{2}-\d{2}$/.test(p.date))
                 : [];
+              console.log('[Console Fallback] Pinterest parsed:', { viewsSeriesLength: viewsSeries.length, sampleViews: viewsSeries.slice(0, 3) });
               next.Pinterest = { viewsSeries };
             }
-          } catch {
-            // Keep fallback empty on per-account fetch errors.
+          } catch (err) {
+            console.error('[Console Fallback] Error fetching', acc.platform, acc.id, ':', err);
           }
         })
       );
+      console.log('[Console Fallback] Final fallback data:', next);
       if (!cancelled) setLivePlatformFallback(next);
     })();
     return () => {
@@ -936,6 +949,7 @@ export default function UnifiedSummaryPage() {
   }, [data, performanceMode]);
 
   const activeChartDataWithFallback = useMemo((): UnifiedChartData => {
+    console.log('[Console Fallback Merge] Starting merge. performanceMode:', performanceMode, 'activeChartData.length:', activeChartData.length, 'livePlatformFallback keys:', Object.keys(livePlatformFallback));
     if (activeChartData.length === 0) return activeChartData;
     if (performanceMode === 'growth') return activeChartData;
     const selectedSeriesKey = performanceMode === 'views' ? 'viewsSeries' : 'engagementSeries';
@@ -943,19 +957,29 @@ export default function UnifiedSummaryPage() {
     const byDate = new Map<string, number>();
     for (const platform of ['X', 'Pinterest']) {
       const currentTotal = platformPresetMetric(activeChartData, platform, performanceMode);
-      if (currentTotal !== 0) continue;
       const fallbackSeries = livePlatformFallback[platform]?.[selectedSeriesKey];
+      console.log('[Console Fallback Merge]', platform, ':', {
+        currentTotal,
+        selectedSeriesKey,
+        hasFallbackSeries: !!fallbackSeries,
+        fallbackSeriesLength: fallbackSeries?.length ?? 0,
+        sampleFallback: fallbackSeries?.slice(0, 3),
+      });
+      if (currentTotal !== 0) continue;
       if (!fallbackSeries || fallbackSeries.length === 0) continue;
       byDate.clear();
       for (const p of fallbackSeries) byDate.set(p.date, (byDate.get(p.date) ?? 0) + (Number(p.value) || 0));
+      let mergedCount = 0;
       for (const row of out) {
         const d = String(row.date ?? '');
         const add = byDate.get(d) ?? 0;
+        if (add > 0) mergedCount++;
         (row as unknown as Record<string, number>)[platform] = Math.max(
           Number((row as unknown as Record<string, number>)[platform] ?? 0),
           add
         );
       }
+      console.log('[Console Fallback Merge]', platform, 'merged', mergedCount, 'non-zero values');
     }
     return out;
   }, [activeChartData, performanceMode, livePlatformFallback]);
