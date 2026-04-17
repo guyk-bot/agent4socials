@@ -670,9 +670,21 @@ function getLegacyYoutubeVideoFormatFromPost(p: FacebookPost): 'short' | 'long' 
  */
 function isYouTubeShortPost(p: FacebookPost): boolean {
   if ((p.platform ?? '').toUpperCase() !== 'YOUTUBE') return false;
-  const permalink = String(p.permalinkUrl ?? '').toLowerCase();
-  // Explicit user-facing rule: if the posted URL contains "short", classify as Shorts.
-  if (permalink.includes('short')) return true;
+  const meta =
+    p.platformMetadata && typeof p.platformMetadata === 'object' && !Array.isArray(p.platformMetadata)
+      ? (p.platformMetadata as Record<string, unknown>)
+      : {};
+  const urlCandidates = [
+    p.permalinkUrl,
+    p.content,
+    typeof meta.youtubeShortsPageUrl === 'string' ? meta.youtubeShortsPageUrl : null,
+    typeof meta.youtubeWatchUrl === 'string' ? meta.youtubeWatchUrl : null,
+    typeof meta.url === 'string' ? meta.url : null,
+  ]
+    .map((v) => String(v ?? '').toLowerCase())
+    .filter(Boolean);
+  // Explicit user-facing rule: if any stored URL/text contains "short", classify as Shorts.
+  if (urlCandidates.some((v) => v.includes('short'))) return true;
   const pl = getYoutubeInShortsPlaylistFromPost(p);
   const inChannelShortsPlaylist = pl === true ? true : pl === false ? false : undefined;
   const d = getYoutubeDurationSecFromPost(p) ?? 0;
