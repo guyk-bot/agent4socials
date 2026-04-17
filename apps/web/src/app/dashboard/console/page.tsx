@@ -300,6 +300,7 @@ const CONSOLE_ACCOUNT_PLATFORM_ORDER = ['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'YOUT
 /** Stable fallback so `useMemo` / `useEffect` deps are not a new `[]` every render (avoids update loops). */
 const EMPTY_SOCIAL_ACCOUNTS: SocialAccount[] = [];
 const CHART_PLATFORMS_FALLBACK: string[] = [...CHART_PLATFORMS];
+const CONSOLE_PERF_PLATFORM_ORDER = ['Instagram', 'Meta', 'YouTube', 'TikTok', 'X', 'LinkedIn', 'Pinterest'] as const;
 
 const EMPTY_KPI: UnifiedKpiSummary = {
   totalAudience: 0,
@@ -754,8 +755,8 @@ export default function UnifiedSummaryPage() {
       const lab = chartLabelForAccountPlatform(acc.platform);
       if (lab) labels.add(lab);
     }
-    const ordered = (CHART_PLATFORMS as readonly string[]).filter((p) => labels.has(p));
-    return ordered.length > 0 ? ordered : CHART_PLATFORMS_FALLBACK;
+    const ordered = (CONSOLE_PERF_PLATFORM_ORDER as readonly string[]).filter((p) => labels.has(p));
+    return ordered.length > 0 ? ordered : [...CONSOLE_PERF_PLATFORM_ORDER];
   }, [orderedAccounts]);
 
   useEffect(() => {
@@ -915,6 +916,7 @@ export default function UnifiedSummaryPage() {
 
   const overviewFollowersStart = overviewTrendData.length > 0 ? Number(overviewTrendData[0]?.followers ?? 0) : 0;
   const overviewFollowersEnd = overviewTrendData.length > 0 ? Number(overviewTrendData[overviewTrendData.length - 1]?.followers ?? 0) : 0;
+  const overviewFollowersDelta = Math.round(overviewFollowersEnd - overviewFollowersStart);
   const overviewFollowersGrowthPct = overviewFollowersStart <= 0
     ? (overviewFollowersEnd > 0 ? 100 : 0)
     : ((overviewFollowersEnd - overviewFollowersStart) / overviewFollowersStart) * 100;
@@ -1002,7 +1004,7 @@ export default function UnifiedSummaryPage() {
             <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
               <KpiCard
                 label="Followers"
-                value={fmtExactInt(overviewFollowersEnd)}
+                value={`${overviewFollowersDelta > 0 ? '+' : ''}${fmtExactInt(overviewFollowersDelta)}`}
                 growthPct={overviewFollowersGrowthPct}
                 icon={<Users size={15} />}
                 accent={COLOR.mint}
