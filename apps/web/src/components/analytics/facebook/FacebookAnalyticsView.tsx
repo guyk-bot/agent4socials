@@ -68,11 +68,13 @@ type StoryMetricKey =
   | 'pageVisits'
   | 'subscriberNet';
 type ActivityMetricKey = 'actions' | 'posts' | 'conversations' | 'subscriberNet';
-type EngagementMetricKey = 'likes' | 'comments' | 'shares' | 'reposts';
+type EngagementMetricKey = 'likes' | 'comments' | 'shares' | 'reposts' | 'dislikes';
 
 /** Bottom → top stack order for the Engagement chart (must match `<Bar />` order). */
 const ENGAGEMENT_STACK_ORDER_META: readonly EngagementMetricKey[] = ['likes', 'comments', 'shares', 'reposts'];
 const ENGAGEMENT_STACK_ORDER_TIKTOK: readonly EngagementMetricKey[] = ['likes', 'comments', 'shares'];
+/** YouTube: dislikes on top (YouTube Analytics API daily; public dislike counts are not in Data API). */
+const ENGAGEMENT_STACK_ORDER_YOUTUBE: readonly EngagementMetricKey[] = ['likes', 'comments', 'shares', 'dislikes'];
 type TrafficMetricKey =
   | 'postImpressions'
   | 'nonviral'
@@ -275,6 +277,7 @@ const ENGAGEMENT_METRIC_CONFIG: Record<EngagementMetricKey, { label: string; col
   comments: { label: 'Comments', color: COLOR.coral },
   shares: { label: 'Shares', color: COLOR.amber },
   reposts: { label: 'Reposts', color: '#111827' },
+  dislikes: { label: 'Dislikes', color: '#64748b' },
 };
 
 const TRAFFIC_METRIC_CONFIG: Record<TrafficMetricKey, { label: string; color: string }> = {
@@ -2112,6 +2115,16 @@ export function FacebookAnalyticsView({
     setSelectedReelMetrics(['views', 'watchTime', 'avgWatch', 'shares']);
   }, [insights?.platform]);
 
+  useEffect(() => {
+    if (insights?.platform?.toUpperCase() !== 'YOUTUBE') return;
+    setSelectedEngagementMetrics(['likes', 'comments', 'shares', 'dislikes']);
+  }, [insights?.platform]);
+
+  useEffect(() => {
+    if (insights?.platform?.toUpperCase() === 'YOUTUBE') return;
+    setSelectedEngagementMetrics((prev) => prev.filter((k) => k !== 'dislikes'));
+  }, [insights?.platform]);
+
   const profile = insights?.facebookPageProfile;
   const linkedInExtras = insights?.linkedIn;
   const isInstagram = insights?.platform?.toUpperCase() === 'INSTAGRAM';
@@ -2229,6 +2242,26 @@ export function FacebookAnalyticsView({
         0
       ),
     [postsInRange]
+  );
+  /** YouTube Analytics (extended=1): channel dislikes per calendar day. */
+  const youtubeDislikesByDate = useMemo(() => {
+    if (!isYouTube) return {} as Record<string, number>;
+    const raw = insights?.extra?.youtubeDislikesTimeSeries;
+    if (!Array.isArray(raw)) return {};
+    const m: Record<string, number> = {};
+    for (const pt of raw) {
+      if (!pt || typeof pt !== 'object') continue;
+      const o = pt as { date?: unknown; value?: unknown };
+      const d = typeof o.date === 'string' ? o.date.slice(0, 10) : '';
+      if (!d) continue;
+      const v = Number(o.value);
+      m[d] = (m[d] ?? 0) + (Number.isFinite(v) ? Math.max(0, v) : 0);
+    }
+    return m;
+  }, [isYouTube, insights?.extra?.youtubeDislikesTimeSeries]);
+  const dislikesTotal = useMemo(
+    () => (isYouTube ? Object.values(youtubeDislikesByDate).reduce((s, v) => s + v, 0) : 0),
+    [isYouTube, youtubeDislikesByDate]
   );
   /** YouTube Analytics: net subscribers gained minus lost per calendar day (extended API). */
   const youtubeGrowthNetByDate = useMemo(() => {
@@ -3407,8 +3440,9 @@ export function FacebookAnalyticsView({
       comments: commentsByDate[date] ?? 0,
       shares: sharesByDate[date] ?? 0,
       reposts: repostsByDate[date] ?? 0,
+      dislikes: isYouTube ? (youtubeDislikesByDate[date] ?? 0) : 0,
     }));
-  }, [dateAxis, postsInRange, isTwitter, twitterRecentTweets]);
+  }, [dateAxis, postsInRange, isTwitter, twitterRecentTweets, isYouTube, youtubeDislikesByDate]);
   const engagementTicks = useMemo(
     () =>
       buildKeyDateTicks(
@@ -3418,6 +3452,7 @@ export function FacebookAnalyticsView({
           (d.comments ?? 0) > 0 ||
           (d.shares ?? 0) > 0 ||
           (d.reposts ?? 0) > 0 ||
+          (d.dislikes ?? 0) > 0 ||
           false,
         10
       ),
@@ -3428,14 +3463,19 @@ export function FacebookAnalyticsView({
     [engagementTicks]
   );
   const engagementStackTopKey = useMemo((): EngagementMetricKey | null => {
-    const order = isTikTok ? ENGAGEMENT_STACK_ORDER_TIKTOK : ENGAGEMENT_STACK_ORDER_META;
+    const order = isTikTok
+      ? ENGAGEMENT_STACK_ORDER_TIKTOK
+      : isYouTube
+        ? ENGAGEMENT_STACK_ORDER_YOUTUBE
+        : ENGAGEMENT_STACK_ORDER_META;
     const selected = order.filter((k) => {
       if (!selectedEngagementMetrics.includes(k)) return false;
       if (k === 'reposts') return isInstagram || isTwitter;
+      if (k === 'dislikes') return isYouTube;
       return true;
     });
     return selected.length ? selected[selected.length - 1]! : null;
-  }, [isInstagram, isTwitter, isTikTok, selectedEngagementMetrics]);
+  }, [isInstagram, isTwitter, isTikTok, isYouTube, selectedEngagementMetrics]);
   const operationalData = useMemo(() => {
     const actionsRaw = seriesToMap(actionsSeries ?? []);
     // Use per-day values for Actions so the line reflects daily fluctuation
@@ -4406,6 +4446,20 @@ export function FacebookAnalyticsView({
               onClick={() => setSelectedEngagementMetrics((prev) => prev.includes('shares') ? prev.filter((m) => m !== 'shares') : [...prev, 'shares'])}
               tiktokApiHighlight={isTikTok}
             />
+            {isYouTube && (
+              <MetricCard
+                label="Dislikes"
+                source="YouTube Analytics API · dislikes by day (extended insights; creator-only)"
+                color={ENGAGEMENT_METRIC_CONFIG.dislikes.color}
+                value={formatNumber(dislikesTotal)}
+                active={selectedEngagementMetrics.includes('dislikes')}
+                onClick={() =>
+                  setSelectedEngagementMetrics((prev) =>
+                    prev.includes('dislikes') ? prev.filter((m) => m !== 'dislikes') : [...prev, 'dislikes']
+                  )
+                }
+              />
+            )}
             {(isTwitter || isInstagram) && (
               <MetricCard
                 label="Reposts"
@@ -4424,7 +4478,11 @@ export function FacebookAnalyticsView({
           <div className="flex justify-end">
             <div className="flex flex-wrap gap-2">
               {selectedEngagementMetrics
-                .filter((m) => (m === 'reposts' ? isTwitter || isInstagram : true))
+                .filter((m) => {
+                  if (m === 'reposts') return isTwitter || isInstagram;
+                  if (m === 'dislikes') return isYouTube;
+                  return true;
+                })
                 .map((m) => (
                 <span
                   key={m}
@@ -4487,6 +4545,8 @@ export function FacebookAnalyticsView({
                         ? 'Comments'
                         : n === 'reposts'
                           ? 'Reposts'
+                          : n === 'dislikes'
+                            ? 'Dislikes'
                           : 'Shares',
                   ]}
                   labelFormatter={(l) => formatShortDate(String(l))}
@@ -4517,6 +4577,16 @@ export function FacebookAnalyticsView({
                     stackId="engagement"
                     fill={ENGAGEMENT_METRIC_CONFIG.shares.color}
                     radius={engagementStackTopKey === 'shares' ? [6, 6, 0, 0] : [0, 0, 0, 0]}
+                    barSize={UNIFIED_BAR_SIZE}
+                    shape={<MinWidthBarShape />}
+                  />
+                ) : null}
+                {isYouTube && selectedEngagementMetrics.includes('dislikes') ? (
+                  <Bar
+                    dataKey="dislikes"
+                    stackId="engagement"
+                    fill={ENGAGEMENT_METRIC_CONFIG.dislikes.color}
+                    radius={engagementStackTopKey === 'dislikes' ? [6, 6, 0, 0] : [0, 0, 0, 0]}
                     barSize={UNIFIED_BAR_SIZE}
                     shape={<MinWidthBarShape />}
                   />

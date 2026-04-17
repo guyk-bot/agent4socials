@@ -154,7 +154,7 @@ export async function fetchYouTubeExtended(
   const headers = { Authorization: `Bearer ${accessToken}` };
 
   try {
-    const [viewsByCountryRes, viewsByAgeRes, viewsByGenderRes, trafficRes, watchTimeRes, subsRes] = await Promise.allSettled([
+    const [viewsByCountryRes, viewsByAgeRes, viewsByGenderRes, trafficRes, watchTimeRes, subsRes, dislikesRes] = await Promise.allSettled([
       axios.get<{ rows?: Array<(string | number)[]>; error?: { message?: string } }>('https://youtubeanalytics.googleapis.com/v2/reports', {
         params: { ids: 'channel==MINE', startDate, endDate, metrics: 'views', dimensions: 'country', sort: '-views' },
         headers,
@@ -187,6 +187,12 @@ export async function fetchYouTubeExtended(
       }),
       axios.get<{ rows?: Array<(string | number)[]>; error?: { message?: string } }>('https://youtubeanalytics.googleapis.com/v2/reports', {
         params: { ids: 'channel==MINE', startDate, endDate, metrics: 'subscribersGained,subscribersLost', dimensions: 'day', sort: 'day' },
+        headers,
+        timeout: 12_000,
+        validateStatus: () => true,
+      }),
+      axios.get<{ rows?: Array<(string | number)[]>; error?: { message?: string } }>('https://youtubeanalytics.googleapis.com/v2/reports', {
+        params: { ids: 'channel==MINE', startDate, endDate, metrics: 'dislikes', dimensions: 'day', sort: 'day' },
         headers,
         timeout: 12_000,
         validateStatus: () => true,
@@ -246,6 +252,13 @@ export async function fetchYouTubeExtended(
           net: Number(row[1] ?? 0) - Number(row[2] ?? 0),
         }))
       );
+    }
+    const dislikesRows = getRows(dislikesRes, 'dislikes');
+    if (dislikesRows.length) {
+      extra.youtubeDislikesTimeSeries = dislikesRows.map((row) => ({
+        date: String(row[0] ?? '').slice(0, 10),
+        value: Math.max(0, Number(row[1] ?? 0)),
+      }));
     }
 
     if (Object.keys(demographics).length === 0) {
