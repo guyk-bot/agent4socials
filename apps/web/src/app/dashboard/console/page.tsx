@@ -466,6 +466,18 @@ function LegendPill({ label, color, active, onClick }: { label: string; color: s
   );
 }
 
+function DotLegendPill({ label, color }: { label: string; color: string }) {
+  return (
+    <span
+      className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-medium"
+      style={{ borderColor: COLOR.border, background: '#fff', color: COLOR.textSecondary }}
+    >
+      <span className="inline-block h-3 w-3 rounded-full" style={{ background: color }} />
+      {label}
+    </span>
+  );
+}
+
 /** Text cards toggles; shows platform + change/total for current preset. */
 function PlatformLegend({
   activePlatforms,
@@ -926,6 +938,23 @@ export default function UnifiedSummaryPage() {
     [data?.activityBreakdown]
   );
 
+  const selectedOverviewLegendItems = useMemo(() => {
+    const items: Array<{ key: 'followers' | 'engagements' | 'views'; label: string; color: string }> = [
+      { key: 'followers', label: 'Followers', color: COLOR.mint },
+      { key: 'engagements', label: 'Engagements', color: COLOR.violet },
+      { key: 'views', label: 'Views', color: COLOR.magenta },
+    ];
+    return items.filter((i) => selectedOverviewMetrics.includes(i.key));
+  }, [selectedOverviewMetrics]);
+
+  const selectedPlatformLegendItems = useMemo(
+    () =>
+      connectedChartPlatforms
+        .filter((p) => activePlatforms.includes(p))
+        .map((p) => ({ label: p, color: CONSOLE_PLATFORM_COLOR[p] ?? PLATFORM_COLOR[p] ?? COLOR.textSecondary })),
+    [connectedChartPlatforms, activePlatforms]
+  );
+
   if (!user) return <div className="flex items-center justify-center h-[60vh]" style={{ color: COLOR.textMuted }}>Sign in to view your unified analytics.</div>;
 
   const engagementStackTopKey = [...selectedEngagement].reverse().find(() => true) ?? 'likes';
@@ -1031,6 +1060,11 @@ export default function UnifiedSummaryPage() {
               />
             </div>
             <InsightChartCard title="Performance" hideHeader flat>
+              <div className="mb-2 flex flex-wrap gap-2">
+                {selectedOverviewLegendItems.map((item) => (
+                  <DotLegendPill key={item.key} label={item.label} color={item.color} />
+                ))}
+              </div>
               {selectedOverviewMetrics.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-sm" style={{ color: COLOR.textMuted }}>
                   Select at least one Overview card to display trend data.
@@ -1113,6 +1147,11 @@ export default function UnifiedSummaryPage() {
               </div>
             </div>
             <InsightChartCard title="Performance" hideHeader flat>
+              <div className="mb-2 flex flex-wrap gap-2">
+                {selectedPlatformLegendItems.map((item) => (
+                  <DotLegendPill key={item.label} label={item.label} color={item.color} />
+                ))}
+              </div>
               {activeChartData.length > 0 ? (
                 <PlatformMixChart
                   data={activeChartData}
