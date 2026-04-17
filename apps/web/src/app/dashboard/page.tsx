@@ -765,7 +765,13 @@ export default function DashboardPage() {
       const byCountry = Array.isArray(dd.byCountry) ? (dd.byCountry as unknown[]) : null;
       const byGender = Array.isArray(dd.byGender) ? (dd.byGender as unknown[]) : null;
       const byAge = Array.isArray(dd.byAge) ? (dd.byAge as unknown[]) : null;
-      return (byCountry?.length ?? 0) > 0 || (byGender?.length ?? 0) > 0 || (byAge?.length ?? 0) > 0;
+      const byAgeGender = Array.isArray(dd.byAgeGender) ? (dd.byAgeGender as unknown[]) : null;
+      return (
+        (byCountry?.length ?? 0) > 0 ||
+        (byGender?.length ?? 0) > 0 ||
+        (byAge?.length ?? 0) > 0 ||
+        (byAgeGender?.length ?? 0) > 0
+      );
     }
     function patchYouTubeExtended(payload: Record<string, unknown>): Record<string, unknown> {
       if (selectedAccount?.platform !== 'YOUTUBE') return payload;
@@ -802,6 +808,16 @@ export default function DashboardPage() {
       }
       if (!merged.extra && prev?.extra) {
         merged.extra = prev.extra;
+      }
+      // Preserve age×gender breakdown if the refresh dropped only that slice (same pattern as geo).
+      const prevDemo = prev?.demographics as Record<string, unknown> | undefined;
+      const mergedDemo = merged.demographics as Record<string, unknown> | undefined;
+      if (mergedDemo && prevDemo) {
+        const incomingAg = Array.isArray(mergedDemo.byAgeGender) ? (mergedDemo.byAgeGender as unknown[]) : [];
+        const prevAg = Array.isArray(prevDemo.byAgeGender) ? (prevDemo.byAgeGender as unknown[]) : [];
+        if (incomingAg.length === 0 && prevAg.length > 0) {
+          merged.demographics = { ...mergedDemo, byAgeGender: prevDemo.byAgeGender } as typeof merged.demographics;
+        }
       }
       // Still patch from localStorage cache if both the incoming payload AND state are lacking.
       merged = patchYouTubeExtended(merged);

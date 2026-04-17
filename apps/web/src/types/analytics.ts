@@ -9,12 +9,21 @@ export type DemographicBreakdownItem = {
   value: number;
 };
 
+/** YouTube Analytics: views when both ageGroup and gender dimensions are requested together. */
+export type AgeGenderBreakdownItem = {
+  ageGroup: string;
+  gender: string;
+  value: number;
+};
+
 export type Demographics = {
   byCountry?: DemographicBreakdownItem[];
   byCity?: DemographicBreakdownItem[];
   byRegion?: DemographicBreakdownItem[];
   byAge?: DemographicBreakdownItem[];
   byGender?: DemographicBreakdownItem[];
+  /** YouTube: paired age × gender rows from `dimensions=ageGroup,gender`. */
+  byAgeGender?: AgeGenderBreakdownItem[];
   hint?: string;
 };
 

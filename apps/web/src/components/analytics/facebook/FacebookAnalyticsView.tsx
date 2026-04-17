@@ -8,6 +8,7 @@ import {
   CartesianGrid,
   Cell,
   ComposedChart,
+  Legend,
   Line,
   Pie,
   PieChart,
@@ -274,6 +275,53 @@ function formatYoutubeTrafficSource(raw: string): string {
     .toLowerCase();
   if (!t) return raw;
   return t.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** Canonical age bucket keys from YouTube Analytics (`age18-24`, etc.). */
+const YOUTUBE_AGE_GROUP_ORDER = [
+  'age13-17',
+  'age18-24',
+  'age25-34',
+  'age35-44',
+  'age45-54',
+  'age55-64',
+  'age65-',
+] as const;
+
+function normalizeYoutubeAgeGroupKey(raw: string): string {
+  let t = String(raw || '').trim().toLowerCase().replace(/_/g, '-');
+  if (t.startsWith('age-')) t = `age${t.slice(4)}`;
+  if (t.startsWith('age')) {
+    const m = t.match(/^age(\d{2})-(\d{2})$/);
+    if (m) return `age${m[1]}-${m[2]}`;
+    if (/^age65/.test(t)) return 'age65-';
+  }
+  const u = String(raw || '').trim().toUpperCase();
+  const br = u.match(/^AGE_(\d{2})_(\d{2})$/);
+  if (br) return `age${br[1]}-${br[2]}`;
+  if (/65|AGE_65|AGE65/.test(u)) return 'age65-';
+  return t.startsWith('age') ? t : `age${t}`;
+}
+
+function shortLabelForYoutubeAgeKey(key: string): string {
+  const m = /^age(\d{2})-(\d{2})$/i.exec(key);
+  if (m) return `${m[1]}-${m[2]}`;
+  if (/^age65/i.test(key)) return '65+';
+  return key.replace(/^age/i, '') || key;
+}
+
+function youtubeGenderSeriesKey(raw: string): 'male' | 'female' | 'other' {
+  const x = String(raw || '').trim().toLowerCase();
+  if (x === 'male' || x === 'gendermale' || x === 'm' || x === 'gender_male') return 'male';
+  if (x === 'female' || x === 'genderfemale' || x === 'f' || x === 'gender_female') return 'female';
+  return 'other';
+}
+
+function formatYoutubeViewsAxisTick(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return '0';
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1)}M`;
+  if (n >= 1000) return `${Math.round(n / 1000)}K`;
+  return String(Math.round(n));
 }
 
 const ACTIVITY_METRIC_CONFIG: Record<ActivityMetricKey, { label: string; color: string }> = {
@@ -2969,6 +3017,44 @@ export function FacebookAnalyticsView({
     return { list, pieSlices };
   }, [insights?.demographics?.byCountry]);
 
+  /** Grouped-bar rows: Male / Female / Other views per age bucket (YouTube `dimensions=ageGroup,gender`). */
+  const youtubeAgeGenderBarRows = useMemo(() => {
+    const rows = insights?.demographics?.byAgeGender;
+    if (!rows?.length) return [] as Array<{ bucket: string; label: string; male: number; female: number; other: number }>;
+    type Agg = { bucket: string; label: string; male: number; female: number; other: number };
+    const map = new Map<string, Agg>();
+    for (const r of rows) {
+      const rawAge = String(r.ageGroup ?? '').trim();
+      if (!rawAge) continue;
+      const bucket = normalizeYoutubeAgeGroupKey(rawAge);
+      if (!map.has(bucket)) {
+        map.set(bucket, { bucket, label: shortLabelForYoutubeAgeKey(bucket), male: 0, female: 0, other: 0 });
+      }
+      const row = map.get(bucket)!;
+      const v = Number(r.value) || 0;
+      const g = youtubeGenderSeriesKey(String(r.gender ?? ''));
+      if (g === 'male') row.male += v;
+      else if (g === 'female') row.female += v;
+      else row.other += v;
+    }
+    const order = [...YOUTUBE_AGE_GROUP_ORDER];
+    return [...map.values()].sort((a, b) => {
+      const ia = order.indexOf(a.bucket as (typeof YOUTUBE_AGE_GROUP_ORDER)[number]);
+      const ib = order.indexOf(b.bucket as (typeof YOUTUBE_AGE_GROUP_ORDER)[number]);
+      if (ia !== -1 || ib !== -1) {
+        if (ia === -1) return 1;
+        if (ib === -1) return -1;
+        if (ia !== ib) return ia - ib;
+      }
+      return a.label.localeCompare(b.label);
+    });
+  }, [insights?.demographics?.byAgeGender]);
+
+  const youtubeAgeGenderShowOtherBar = useMemo(
+    () => youtubeAgeGenderBarRows.some((r) => r.other > 0),
+    [youtubeAgeGenderBarRows]
+  );
+
   /** Traffic types whose views are attributed to Shorts surfacing; remainder shown as a derived long-form row. */
   const youtubeTrafficSourcesForDisplay = useMemo(() => {
     const list = insights?.trafficSources ?? [];
@@ -4883,6 +4969,67 @@ export function FacebookAnalyticsView({
                   </p>
                 )}
               </div>
+
+              {youtubeAgeGenderBarRows.length > 0 ? (
+                <div className="rounded-xl border p-4 sm:p-5" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
+                  <h4 className="text-base font-semibold mb-1" style={{ color: COLOR.text }}>
+                    Viewers by age and gender
+                  </h4>
+                  <p className="text-xs mb-3 max-w-[920px] leading-relaxed" style={{ color: COLOR.textSecondary }}>
+                    YouTube Analytics · views in this date range. Grouped bars compare male vs female (and other when
+                    reported). YouTube may omit or threshold rows for low traffic.
+                  </p>
+                  <div className="h-[300px] w-full min-w-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={youtubeAgeGenderBarRows}
+                        margin={{ top: 4, right: 8, left: 0, bottom: 4 }}
+                        barCategoryGap="20%"
+                        barGap={3}
+                      >
+                        <defs>
+                          <linearGradient id="ytDemoMale" x1="0" y1="1" x2="0" y2="0">
+                            <stop offset="0%" stopColor="#0f766e" stopOpacity={0.88} />
+                            <stop offset="100%" stopColor="#5eead4" stopOpacity={1} />
+                          </linearGradient>
+                          <linearGradient id="ytDemoFemale" x1="0" y1="1" x2="0" y2="0">
+                            <stop offset="0%" stopColor="#86198f" stopOpacity={0.9} />
+                            <stop offset="100%" stopColor="#f0abfc" stopOpacity={1} />
+                          </linearGradient>
+                          <linearGradient id="ytDemoOther" x1="0" y1="1" x2="0" y2="0">
+                            <stop offset="0%" stopColor="#475569" stopOpacity={0.88} />
+                            <stop offset="100%" stopColor="#cbd5e1" stopOpacity={1} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(17,24,39,0.08)" vertical={false} />
+                        <XAxis dataKey="label" tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                        <YAxis
+                          tickFormatter={(v) => formatYoutubeViewsAxisTick(Number(v))}
+                          tick={{ fill: COLOR.textMuted, fontSize: 11 }}
+                          axisLine={false}
+                          tickLine={false}
+                          width={48}
+                        />
+                        <Tooltip
+                          contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
+                          formatter={(v: number | string | undefined, name?: string) => [formatNumber(Number(v) || 0), name ?? '']}
+                          labelFormatter={(l) => `Age ${l}`}
+                        />
+                        <Legend
+                          verticalAlign="top"
+                          align="right"
+                          wrapperStyle={{ paddingBottom: 8, fontSize: 12, color: COLOR.textSecondary }}
+                        />
+                        <Bar name="Male" dataKey="male" fill="url(#ytDemoMale)" radius={[8, 8, 0, 0]} maxBarSize={40} />
+                        <Bar name="Female" dataKey="female" fill="url(#ytDemoFemale)" radius={[8, 8, 0, 0]} maxBarSize={40} />
+                        {youtubeAgeGenderShowOtherBar ? (
+                          <Bar name="Other" dataKey="other" fill="url(#ytDemoOther)" radius={[8, 8, 0, 0]} maxBarSize={40} />
+                        ) : null}
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              ) : null}
 
               {youtubeTrafficSourcesForDisplay.length > 0 ? (
                 <div className="rounded-xl border p-4 sm:p-5" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>

@@ -154,7 +154,7 @@ export async function fetchYouTubeExtended(
   const headers = { Authorization: `Bearer ${accessToken}` };
 
   try {
-    const [viewsByCountryRes, viewsByAgeRes, viewsByGenderRes, trafficRes, watchTimeRes, subsRes, dislikesRes] = await Promise.allSettled([
+    const [viewsByCountryRes, viewsByAgeRes, viewsByGenderRes, viewsByAgeGenderRes, trafficRes, watchTimeRes, subsRes, dislikesRes] = await Promise.allSettled([
       axios.get<{ rows?: Array<(string | number)[]>; error?: { message?: string } }>('https://youtubeanalytics.googleapis.com/v2/reports', {
         params: { ids: 'channel==MINE', startDate, endDate, metrics: 'views', dimensions: 'country', sort: '-views' },
         headers,
@@ -169,6 +169,12 @@ export async function fetchYouTubeExtended(
       }),
       axios.get<{ rows?: Array<(string | number)[]>; error?: { message?: string } }>('https://youtubeanalytics.googleapis.com/v2/reports', {
         params: { ids: 'channel==MINE', startDate, endDate, metrics: 'views', dimensions: 'gender', sort: '-views' },
+        headers,
+        timeout: 12_000,
+        validateStatus: () => true,
+      }),
+      axios.get<{ rows?: Array<(string | number)[]>; error?: { message?: string } }>('https://youtubeanalytics.googleapis.com/v2/reports', {
+        params: { ids: 'channel==MINE', startDate, endDate, metrics: 'views', dimensions: 'ageGroup,gender', sort: '-views' },
         headers,
         timeout: 12_000,
         validateStatus: () => true,
@@ -228,6 +234,23 @@ export async function fetchYouTubeExtended(
         dimensionValue: String(row[0] ?? ''),
         value: Number(row[1] ?? 0),
       }));
+    }
+    const ageGenderRows = getRows(viewsByAgeGenderRes, 'viewsByAgeGender');
+    if (ageGenderRows.length) {
+      demographics.byAgeGender = ageGenderRows
+        .map((row) => {
+          if (row.length < 3) return null;
+          let d0 = String(row[0] ?? '');
+          let d1 = String(row[1] ?? '');
+          // YouTube returns dimensions in request order (ageGroup, gender); guard if order differs.
+          if (/^(male|female|gender|user_)/i.test(d0) && !/^(male|female|gender|user_)/i.test(d1)) {
+            const t = d0;
+            d0 = d1;
+            d1 = t;
+          }
+          return { ageGroup: d0, gender: d1, value: Number(row[2] ?? 0) };
+        })
+        .filter((x): x is NonNullable<typeof x> => x != null);
     }
     const trafficRows = getRows(trafficRes, 'trafficSource');
     if (trafficRows.length) {
