@@ -1464,71 +1464,6 @@ export default function UnifiedSummaryPage() {
               </div>
             )}
 
-            {consolePostTypePieData.length > 0 && (
-              <div className="relative mt-4 rounded-[16px] border p-4 overflow-hidden" style={{ borderColor: COLOR.border, background: COLOR.card }}>
-                <div className="pointer-events-none absolute inset-0 z-20" aria-hidden>
-                  <span className="absolute left-[16%] top-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
-                  <span className="absolute right-[16%] top-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
-                  <span className="absolute left-1/2 top-[48%] -translate-x-1/2 -translate-y-1/2 text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
-                  <span className="absolute left-[16%] bottom-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
-                  <span className="absolute right-[16%] bottom-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
-                </div>
-                <div className="relative z-10">
-                  <h4 className="text-sm font-semibold mb-3" style={{ color: COLOR.text }}>Post type distribution</h4>
-                  <div className="grid gap-2 sm:grid-cols-3 mb-4">
-                    <div className="rounded-xl border px-3 py-2.5" style={{ borderColor: `${POST_TYPE_COLOR.reels}33`, background: `${POST_TYPE_COLOR.reels}12` }}>
-                      <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLOR.textSecondary }}>Reels</div>
-                      <div className="text-xl font-bold tabular-nums" style={{ color: POST_TYPE_COLOR.reels }}>{fmtExactInt(consolePostTypeCounts.reels)}</div>
-                    </div>
-                    <div className="rounded-xl border px-3 py-2.5" style={{ borderColor: `${POST_TYPE_COLOR.image}33`, background: `${POST_TYPE_COLOR.image}12` }}>
-                      <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLOR.textSecondary }}>Image</div>
-                      <div className="text-xl font-bold tabular-nums" style={{ color: POST_TYPE_COLOR.image }}>{fmtExactInt(consolePostTypeCounts.image)}</div>
-                    </div>
-                    <div className="rounded-xl border px-3 py-2.5" style={{ borderColor: `${POST_TYPE_COLOR.carousel}33`, background: `${POST_TYPE_COLOR.carousel}12` }}>
-                      <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLOR.textSecondary }}>Carousel</div>
-                      <div className="text-xl font-bold tabular-nums" style={{ color: POST_TYPE_COLOR.carousel }}>{fmtExactInt(consolePostTypeCounts.carousel)}</div>
-                    </div>
-                  </div>
-                  <div className="flex flex-col md:flex-row items-center gap-6">
-                    <div className="w-[200px] h-[200px] shrink-0">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie data={consolePostTypePieData} dataKey="value" nameKey="label" cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={2} strokeWidth={0}>
-                            {consolePostTypePieData.map((entry, idx) => (
-                              <Cell key={`post-type-${idx}`} fill={entry.color} />
-                            ))}
-                          </Pie>
-                          <Tooltip
-                            contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
-                            formatter={(value, name) => {
-                              const v = Number(value) || 0;
-                              return [`${fmtExactInt(v)} (${consolePostTypeTotal > 0 ? ((v / consolePostTypeTotal) * 100).toFixed(1) : 0}%)`, String(name ?? '')];
-                            }}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div className="flex-1 grid grid-cols-2 gap-x-6 gap-y-2">
-                      {consolePostTypePieData.map((item) => {
-                        const pct = consolePostTypeTotal > 0 ? ((item.value / consolePostTypeTotal) * 100).toFixed(1) : '0';
-                        return (
-                          <div key={item.key} className="flex items-center justify-between gap-2 py-1">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="w-3 h-3 rounded-full shrink-0" style={{ background: item.color }} />
-                              <span className="text-sm truncate" style={{ color: COLOR.text }}>{item.label}</span>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <span className="text-sm font-semibold tabular-nums" style={{ color: COLOR.text }}>{fmtExactInt(item.value)}</span>
-                              <span className="text-xs tabular-nums" style={{ color: COLOR.textMuted }}>({pct}%)</span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
           </ShellCard>
         ) : loading ? (
           <ShellCard className="space-y-4"><Skeleton className="h-[300px] rounded-xl" /></ShellCard>
@@ -1648,6 +1583,77 @@ export default function UnifiedSummaryPage() {
           <ShellCard className="space-y-4"><Skeleton className="h-20 rounded-[20px]" /><Skeleton className="h-[300px] rounded-xl" /></ShellCard>
         ) : null}
       </section>
+
+      {data && consolePostTypePieData.length > 0 ? (
+        <section className="space-y-4">
+          <ShellCard className="space-y-3">
+            <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Posts</h3>
+            <div className="relative rounded-[16px] border p-4 overflow-hidden" style={{ borderColor: COLOR.border, background: COLOR.card }}>
+              <div className="pointer-events-none absolute inset-0 z-20" aria-hidden>
+                <span className="absolute left-[16%] top-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
+                <span className="absolute right-[16%] top-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
+                <span className="absolute left-1/2 top-[48%] -translate-x-1/2 -translate-y-1/2 text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
+                <span className="absolute left-[16%] bottom-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
+                <span className="absolute right-[16%] bottom-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
+              </div>
+              <div className="relative z-10">
+                <h4 className="text-sm font-semibold mb-3" style={{ color: COLOR.text }}>Post type distribution</h4>
+                <div className="grid gap-2 sm:grid-cols-3 mb-4">
+                  <div className="rounded-xl border px-3 py-2.5" style={{ borderColor: `${POST_TYPE_COLOR.reels}33`, background: `${POST_TYPE_COLOR.reels}12` }}>
+                    <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLOR.textSecondary }}>Reels</div>
+                    <div className="text-xl font-bold tabular-nums" style={{ color: POST_TYPE_COLOR.reels }}>{fmtExactInt(consolePostTypeCounts.reels)}</div>
+                  </div>
+                  <div className="rounded-xl border px-3 py-2.5" style={{ borderColor: `${POST_TYPE_COLOR.image}33`, background: `${POST_TYPE_COLOR.image}12` }}>
+                    <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLOR.textSecondary }}>Image</div>
+                    <div className="text-xl font-bold tabular-nums" style={{ color: POST_TYPE_COLOR.image }}>{fmtExactInt(consolePostTypeCounts.image)}</div>
+                  </div>
+                  <div className="rounded-xl border px-3 py-2.5" style={{ borderColor: `${POST_TYPE_COLOR.carousel}33`, background: `${POST_TYPE_COLOR.carousel}12` }}>
+                    <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLOR.textSecondary }}>Carousel</div>
+                    <div className="text-xl font-bold tabular-nums" style={{ color: POST_TYPE_COLOR.carousel }}>{fmtExactInt(consolePostTypeCounts.carousel)}</div>
+                  </div>
+                </div>
+                <div className="flex flex-col md:flex-row items-center gap-6">
+                  <div className="w-[200px] h-[200px] shrink-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={consolePostTypePieData} dataKey="value" nameKey="label" cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={2} strokeWidth={0}>
+                          {consolePostTypePieData.map((entry, idx) => (
+                            <Cell key={`post-type-${idx}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
+                          formatter={(value, name) => {
+                            const v = Number(value) || 0;
+                            return [`${fmtExactInt(v)} (${consolePostTypeTotal > 0 ? ((v / consolePostTypeTotal) * 100).toFixed(1) : 0}%)`, String(name ?? '')];
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="flex-1 grid grid-cols-2 gap-x-6 gap-y-2">
+                    {consolePostTypePieData.map((item) => {
+                      const pct = consolePostTypeTotal > 0 ? ((item.value / consolePostTypeTotal) * 100).toFixed(1) : '0';
+                      return (
+                        <div key={item.key} className="flex items-center justify-between gap-2 py-1">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="w-3 h-3 rounded-full shrink-0" style={{ background: item.color }} />
+                            <span className="text-sm truncate" style={{ color: COLOR.text }}>{item.label}</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-sm font-semibold tabular-nums" style={{ color: COLOR.text }}>{fmtExactInt(item.value)}</span>
+                            <span className="text-xs tabular-nums" style={{ color: COLOR.textMuted }}>({pct}%)</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ShellCard>
+        </section>
+      ) : null}
 
       {/* ══════════════════════════════════════════════════════════════════════
           POSTS: Top posts + Traffic totals side by side
