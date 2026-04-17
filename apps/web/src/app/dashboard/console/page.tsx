@@ -1186,6 +1186,29 @@ export default function UnifiedSummaryPage() {
     const visible = connectedChartPlatforms.filter((p) => postsActivePlatforms.includes(p));
     return visible.length > 0 ? visible[visible.length - 1] : null;
   }, [connectedChartPlatforms, postsActivePlatforms]);
+  const postsPresetPlatformPieData = useMemo(() => {
+    const items: Array<{ name: string; value: number; color: string }> = [];
+    for (const platform of connectedChartPlatforms) {
+      if (!postsActivePlatforms.includes(platform)) continue;
+      const key = `${postsPreset}_${platform}`;
+      const value = postsTimelineData.reduce(
+        (sum, row) => sum + Number((row as unknown as Record<string, number>)[key] ?? 0),
+        0
+      );
+      if (value <= 0) continue;
+      items.push({
+        name: consolePlatformDisplayName(platform),
+        value,
+        color: CONSOLE_PLATFORM_COLOR[platform] ?? PLATFORM_COLOR[platform] ?? COLOR.textSecondary,
+      });
+    }
+    items.sort((a, b) => b.value - a.value);
+    return items;
+  }, [connectedChartPlatforms, postsActivePlatforms, postsPreset, postsTimelineData]);
+  const postsPresetPlatformPieTotal = useMemo(
+    () => postsPresetPlatformPieData.reduce((s, p) => s + p.value, 0),
+    [postsPresetPlatformPieData]
+  );
 
   if (!user) return <div className="flex items-center justify-center h-[60vh]" style={{ color: COLOR.textMuted }}>Sign in to view your unified analytics.</div>;
 
@@ -1488,7 +1511,7 @@ export default function UnifiedSummaryPage() {
                       onClick={() => setPostsPreset(preset)}
                       aria-pressed={active}
                       className="rounded-lg px-3 py-1.5 text-sm"
-                      style={{ background: active ? `${POST_TYPE_COLOR[preset]}1f` : 'rgba(255,255,255,0.03)', color: active ? COLOR.text : COLOR.textSecondary, border: `1px solid ${COLOR.border}` }}
+                      style={{ background: active ? 'rgba(139,124,255,0.15)' : 'rgba(255,255,255,0.03)', color: active ? COLOR.text : COLOR.textSecondary, border: `1px solid ${COLOR.border}` }}
                     >
                       {POST_TYPE_LABEL[preset]}
                     </button>
@@ -1558,6 +1581,73 @@ export default function UnifiedSummaryPage() {
                 </ResponsiveContainer>
               )}
             </InsightChartCard>
+            {postsPresetPlatformPieData.length > 0 && (
+              <div className="relative mt-4 rounded-[16px] border p-4 overflow-hidden" style={{ borderColor: COLOR.border, background: COLOR.card }}>
+                <div className="pointer-events-none absolute inset-0 z-20" aria-hidden>
+                  <span className="absolute left-[16%] top-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
+                  <span className="absolute right-[16%] top-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
+                  <span className="absolute left-1/2 top-[48%] -translate-x-1/2 -translate-y-1/2 text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
+                  <span className="absolute left-[16%] bottom-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
+                  <span className="absolute right-[16%] bottom-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
+                </div>
+                <div className="relative z-10">
+                  <h4 className="text-sm font-semibold mb-3" style={{ color: COLOR.text }}>
+                    {POST_TYPE_LABEL[postsPreset]} by platform
+                  </h4>
+                  <div className="flex flex-col md:flex-row items-center gap-6">
+                    <div className="w-[200px] h-[200px] shrink-0">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={postsPresetPlatformPieData}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={55}
+                            outerRadius={85}
+                            paddingAngle={0}
+                            stroke="none"
+                            strokeWidth={0}
+                          >
+                            {postsPresetPlatformPieData.map((entry, idx) => (
+                              <Cell key={`posts-preset-platform-cell-${idx}`} fill={entry.color} stroke="none" />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
+                            formatter={(value, name) => {
+                              const v = Number(value) || 0;
+                              return [
+                                `${fmtExactInt(v)} (${postsPresetPlatformPieTotal > 0 ? ((v / postsPresetPlatformPieTotal) * 100).toFixed(1) : 0}%)`,
+                                String(name ?? ''),
+                              ];
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="flex-1 grid grid-cols-2 gap-x-6 gap-y-2">
+                      {postsPresetPlatformPieData.map((item) => {
+                        const pct = postsPresetPlatformPieTotal > 0 ? ((item.value / postsPresetPlatformPieTotal) * 100).toFixed(1) : '0';
+                        return (
+                          <div key={item.name} className="flex items-center justify-between gap-2 py-1">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="w-3 h-3 rounded-full shrink-0" style={{ background: item.color }} />
+                              <span className="text-sm truncate" style={{ color: COLOR.text }}>{item.name}</span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-sm font-semibold tabular-nums" style={{ color: COLOR.text }}>{fmtExactInt(item.value)}</span>
+                              <span className="text-xs tabular-nums" style={{ color: COLOR.textMuted }}>({pct}%)</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </ShellCard>
         ) : loading ? (
           <ShellCard className="space-y-4"><Skeleton className="h-20 rounded-[20px]" /><Skeleton className="h-[300px] rounded-xl" /></ShellCard>
