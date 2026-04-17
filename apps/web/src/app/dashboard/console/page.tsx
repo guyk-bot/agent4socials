@@ -1182,6 +1182,10 @@ export default function UnifiedSummaryPage() {
         .map((p) => ({ label: consolePlatformDisplayName(p), color: CONSOLE_PLATFORM_COLOR[p] ?? PLATFORM_COLOR[p] ?? COLOR.textSecondary })),
     [connectedChartPlatforms, postsActivePlatforms]
   );
+  const postsStackTopPlatform = useMemo(() => {
+    const visible = connectedChartPlatforms.filter((p) => postsActivePlatforms.includes(p));
+    return visible.length > 0 ? visible[visible.length - 1] : null;
+  }, [connectedChartPlatforms, postsActivePlatforms]);
 
   if (!user) return <div className="flex items-center justify-center h-[60vh]" style={{ color: COLOR.textMuted }}>Sign in to view your unified analytics.</div>;
 
@@ -1545,7 +1549,7 @@ export default function UnifiedSummaryPage() {
                         stackId={`posts-${postsPreset}`}
                         name={consolePlatformDisplayName(p)}
                         fill={CONSOLE_PLATFORM_COLOR[p] ?? PLATFORM_COLOR[p] ?? COLOR.textSecondary}
-                        radius={[6, 6, 0, 0]}
+                        radius={postsStackTopPlatform === p ? [6, 6, 0, 0] : [0, 0, 0, 0]}
                         hide={!postsActivePlatforms.includes(p)}
                         barSize={16}
                       />
