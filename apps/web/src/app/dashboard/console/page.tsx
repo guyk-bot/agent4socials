@@ -23,6 +23,9 @@ import {
   ComposedChart,
   Bar,
   BarChart,
+  PieChart,
+  Pie,
+  Cell,
 } from 'recharts';
 import {
   Users,
@@ -1071,6 +1074,29 @@ export default function UnifiedSummaryPage() {
     [connectedChartPlatforms, activePlatforms]
   );
 
+  const platformDistributionPieData = useMemo(() => {
+    const items: Array<{ name: string; value: number; color: string }> = [];
+    for (const platform of connectedChartPlatforms) {
+      if (!activePlatforms.includes(platform)) continue;
+      const raw = platformPresetMetric(activeChartDataWithFallback, platform, performanceMode);
+      const absVal = Math.abs(raw);
+      if (absVal > 0) {
+        items.push({
+          name: consolePlatformDisplayName(platform),
+          value: absVal,
+          color: CONSOLE_PLATFORM_COLOR[platform] ?? PLATFORM_COLOR[platform] ?? COLOR.textSecondary,
+        });
+      }
+    }
+    items.sort((a, b) => b.value - a.value);
+    return items;
+  }, [connectedChartPlatforms, activePlatforms, activeChartDataWithFallback, performanceMode]);
+
+  const platformDistributionTotal = useMemo(
+    () => platformDistributionPieData.reduce((s, p) => s + p.value, 0),
+    [platformDistributionPieData]
+  );
+
   if (!user) return <div className="flex items-center justify-center h-[60vh]" style={{ color: COLOR.textMuted }}>Sign in to view your unified analytics.</div>;
 
   const engagementStackTopKey = [...selectedEngagement].reverse().find(() => true) ?? 'likes';
@@ -1280,6 +1306,62 @@ export default function UnifiedSummaryPage() {
                 </div>
               )}
             </InsightChartCard>
+
+            {/* Platform distribution donut chart */}
+            {platformDistributionPieData.length > 0 && (
+              <div className="mt-4 rounded-[16px] border p-4" style={{ borderColor: COLOR.border, background: COLOR.card }}>
+                <h4 className="text-sm font-semibold mb-3" style={{ color: COLOR.text }}>
+                  {performanceMode === 'growth' ? 'Growth' : performanceMode === 'engagement' ? 'Engagement' : 'Views'} by platform
+                </h4>
+                <div className="flex flex-col md:flex-row items-center gap-6">
+                  <div className="w-[200px] h-[200px] shrink-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={platformDistributionPieData}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={55}
+                          outerRadius={85}
+                          paddingAngle={2}
+                          strokeWidth={0}
+                        >
+                          {platformDistributionPieData.map((entry, idx) => (
+                            <Cell key={`cell-${idx}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
+                          formatter={(value: number, name: string) => [
+                            `${fmt(value)} (${platformDistributionTotal > 0 ? ((value / platformDistributionTotal) * 100).toFixed(1) : 0}%)`,
+                            name,
+                          ]}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="flex-1 grid grid-cols-2 gap-x-6 gap-y-2">
+                    {platformDistributionPieData.map((item) => {
+                      const pct = platformDistributionTotal > 0 ? ((item.value / platformDistributionTotal) * 100).toFixed(1) : '0';
+                      return (
+                        <div key={item.name} className="flex items-center justify-between gap-2 py-1">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="w-3 h-3 rounded-full shrink-0" style={{ background: item.color }} />
+                            <span className="text-sm truncate" style={{ color: COLOR.text }}>{item.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-sm font-semibold tabular-nums" style={{ color: COLOR.text }}>{fmt(item.value)}</span>
+                            <span className="text-xs tabular-nums" style={{ color: COLOR.textMuted }}>({pct}%)</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
           </ShellCard>
         ) : loading ? (
           <ShellCard className="space-y-4"><Skeleton className="h-[300px] rounded-xl" /></ShellCard>
