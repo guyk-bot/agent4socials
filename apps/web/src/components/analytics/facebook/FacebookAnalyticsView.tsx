@@ -2272,7 +2272,7 @@ export function FacebookAnalyticsView({
   const contentTypeCounts = useMemo(() => {
     const counts: Record<ContentTypeKey, number> = { reels: 0, image: 0, carousel: 0 };
     for (const p of postsInRange) {
-      if (isReelLikePost(p)) {
+      if (isReelPost(p)) {
         counts.reels += 1;
         continue;
       }
