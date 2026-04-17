@@ -1014,8 +1014,7 @@ export default function UnifiedSummaryPage() {
                 onClick={() => toggleOverviewMetric('views')}
               />
             </div>
-            <h4 className="mt-1 text-sm font-semibold" style={{ color: COLOR.textSecondary }}>Performance</h4>
-            <InsightChartCard title="Overview trends" hideHeader flat>
+            <InsightChartCard title="Performance" flat>
               {selectedOverviewMetrics.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-sm" style={{ color: COLOR.textMuted }}>
                   Select at least one Overview card to display trend data.
@@ -1072,7 +1071,7 @@ export default function UnifiedSummaryPage() {
         {data ? (
           <ShellCard className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Performance</h3>
+              <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Performance per platform</h3>
             </div>
             <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
               <div className="flex gap-2">
@@ -1096,7 +1095,6 @@ export default function UnifiedSummaryPage() {
               />
             </div>
             <InsightChartCard title="Performance" hideHeader flat>
-              <h4 className="mb-2 text-sm font-semibold" style={{ color: COLOR.textSecondary }}>Performance per platform</h4>
               {activeChartData.length > 0 ? (
                 <PlatformMixChart
                   data={activeChartData}
