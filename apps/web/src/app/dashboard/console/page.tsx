@@ -1367,7 +1367,7 @@ export default function UnifiedSummaryPage() {
                 </div>
                 <div className="relative z-10">
                 <h4 className="text-sm font-semibold mb-3" style={{ color: COLOR.text }}>
-                  {performanceMode === 'growth' ? 'Growth' : performanceMode === 'engagement' ? 'Engagement' : 'Views'} by platform
+                  {performanceMode === 'engagement' ? 'Engagement' : 'Views'} by platform
                 </h4>
                 <div className="flex flex-col md:flex-row items-center gap-6">
                   <div className="w-[200px] h-[200px] shrink-0">
