@@ -7,6 +7,22 @@ import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 import { getValidYoutubeToken } from '@/lib/youtube-token';
 import { linkedInAuthorUrnForUgc, parseLinkedInRestPostElement } from '@/lib/linkedin/sync-ugc-posts';
 import { buildLinkedInRestPostsByAuthorUrl, linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
+import { getCached, setCached } from '@/lib/server-memory-cache';
+
+/**
+ * Rate-limit guardrails (see Meta app dashboard spikes):
+ *   - MAX_SOURCES: cap how many posts we enumerate per account. The legacy value of 500
+ *     meant a single inbox load could fire 500+ `/comments` calls against Meta, and we
+ *     re-ran it on every navigation. Users don't need to see comments on hundreds of
+ *     old posts in the inbox – the most recent ones are what matters.
+ *   - COMMENTS_CACHE_TTL_MS: reuse the response for this long so rapid page refreshes
+ *     don't trigger fresh Graph API fan-outs. Comment sync still runs on the real
+ *     cadence via the sync engine.
+ *   - REPLY_FETCH_LIMIT: how many top-level comments we fan out replies for.
+ */
+const MAX_SOURCES = 40;
+const COMMENTS_CACHE_TTL_MS = 3 * 60 * 1000; // 3 min
+const REPLY_FETCH_LIMIT = 12;
 
 async function fetchAllPages<T>(
   initialUrl: string,
@@ -47,6 +63,19 @@ export async function GET(
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
   const { id } = await params;
+
+  // Short-lived response cache keyed by (user, account). Prevents the Phase 2 prefetch
+  // in AppDataContext from firing the expensive Meta comments fan-out every time the
+  // app mounts / the user reopens analytics.
+  const cacheKey = `comments:${userId}:${id}`;
+  const cached = getCached<unknown>(cacheKey);
+  if (cached) {
+    const res = NextResponse.json(cached);
+    res.headers.set('Cache-Control', 'private, max-age=60');
+    res.headers.set('X-Comments-Cache', 'HIT');
+    return res;
+  }
+
   const account = await prisma.socialAccount.findFirst({
     where: { id, userId },
     select: {
@@ -155,7 +184,19 @@ export async function GET(
 
   // For Instagram/Facebook: also fetch recent media from the platform API so we show comments on
   // posts that weren't published through the app or synced yet (e.g. old posts the user commented on).
+  //
+  // IMPORTANT: we used to run an Instagram /media paginated fetch here AND a second /media fetch
+  // further down for the image/permalink map — two calls for the same data per request. We now
+  // fetch once and reuse the result for both purposes.
   let liveSources: PostSource[] = [];
+  type InstagramMediaItem = {
+    id: string;
+    caption?: string;
+    media_url?: string;
+    thumbnail_url?: string;
+    permalink?: string;
+  };
+  const instagramMediaItems: InstagramMediaItem[] = [];
   if (platform === 'INSTAGRAM' || platform === 'FACEBOOK') {
     try {
       const liveToken = account.accessToken;
@@ -163,26 +204,18 @@ export async function GET(
         const mediaUrl = isInstagramBizEarly
           ? 'https://graph.instagram.com/v25.0/me/media'
           : `${facebookGraphBaseUrl}/${account.platformUserId}/media`;
-        type InstagramMediaItem = { id: string; caption?: string; media_url?: string; thumbnail_url?: string };
-        type InstagramMediaResponse = { data?: InstagramMediaItem[]; paging?: { next?: string } };
-        const allMedia: InstagramMediaItem[] = [];
-        let nextUrl: string | null = null;
-        for (let page = 0; page < 10; page++) {
-          const requestUrl: string = nextUrl !== null ? nextUrl : mediaUrl;
-          const requestConfig = page === 0
-            ? { params: { fields: 'id,caption,media_url,thumbnail_url', limit: 50, access_token: liveToken }, timeout: 15_000 as const }
-            : { timeout: 15_000 as const };
-          const mediaRes = await axios.get<InstagramMediaResponse>(requestUrl, requestConfig);
-          const data: InstagramMediaItem[] = mediaRes.data?.data ?? [];
-          allMedia.push(...data);
-          nextUrl = (data.length === 50 && mediaRes.data?.paging?.next) ? mediaRes.data.paging.next : null;
-          if (!nextUrl) break;
-        }
-        liveSources = allMedia.map((m, i) => ({
+        // One page of 50 is plenty for the inbox — we only show MAX_SOURCES posts anyway.
+        const mediaRes = await axios.get<{ data?: InstagramMediaItem[] }>(mediaUrl, {
+          params: { fields: 'id,caption,media_url,thumbnail_url,permalink', limit: 50, access_token: liveToken },
+          timeout: 15_000,
+        });
+        instagramMediaItems.push(...(mediaRes.data?.data ?? []));
+        liveSources = instagramMediaItems.map((m, i) => ({
           platformPostId: m.id,
           postPreview: (m.caption ?? '').trim() || `Post ${i + 1}`,
           postTargetId: `live-${m.id}`,
           postImageUrl: m.media_url ?? m.thumbnail_url ?? null,
+          postUrl: m.permalink ?? null,
         }));
       } else if (platform === 'FACEBOOK') {
         const fbRes = await axios.get<{ data?: Array<{ id: string; message?: string; story?: string }> }>(
@@ -254,14 +287,14 @@ export async function GET(
   }
 
   // Merge: use DB sources first, then add live media that aren't already in DB (so comments on
-  // old/synced posts and on recent platform-only posts both show up). Cap total to avoid too many API calls.
+  // old/synced posts and on recent platform-only posts both show up). Cap total to keep the
+  // Graph API fan-out bounded (see MAX_SOURCES comment at top of file).
   const existingPostIds = new Set(dbSources.map((s) => s.platformPostId));
   const extraLive = liveSources.filter((s) => !existingPostIds.has(s.platformPostId));
-  const MAX_SOURCES = 500;
   const sources: PostSource[] = [
     ...dbSources,
     ...extraLive.slice(0, Math.max(0, MAX_SOURCES - dbSources.length)),
-  ];
+  ].slice(0, MAX_SOURCES);
   const credJson = credJsonEarly as { loginMethod?: string; igUserToken?: string };
 
   // Instagram Business Login: account.accessToken IS the long-lived Instagram User token.
@@ -292,25 +325,18 @@ export async function GET(
 
   const accountId = account.id;
 
-  // Pre-fetch Instagram media images and permalinks in bulk
+  // Build Instagram media image/permalink maps from the single media fetch we already did above.
+  // We used to fetch /me/media a second time here — that's what was generating duplicate
+  // ShadowIGMedia calls on every comments load.
   const igMediaImageMap = new Map<string, string>();
   const igMediaPermalinkMap = new Map<string, string>();
   if (platform === 'INSTAGRAM') {
-    try {
-      const mediaUrl = isInstagramBusinessLogin
-        ? 'https://graph.instagram.com/v25.0/me/media'
-        : `${facebookGraphBaseUrl}/${account.platformUserId}/media`;
-      const mediaRes = await axios.get<{ data?: Array<{ id: string; media_url?: string; thumbnail_url?: string; permalink?: string }> }>(mediaUrl, {
-        params: { fields: 'id,media_url,thumbnail_url,permalink', limit: 50, access_token: token },
-        timeout: 15_000,
-      });
-      for (const m of mediaRes.data?.data ?? []) {
-        const url = m.media_url ?? m.thumbnail_url;
-        if (url) igMediaImageMap.set(m.id, url);
-        if (m.permalink) igMediaPermalinkMap.set(m.id, m.permalink);
-      }
-    } catch { /* ignore, fallback to other methods */ }
-    // Always override with fresh URLs (DB thumbnailUrls may be expired CDN links)
+    for (const m of instagramMediaItems) {
+      const url = m.media_url ?? m.thumbnail_url;
+      if (url) igMediaImageMap.set(m.id, url);
+      if (m.permalink) igMediaPermalinkMap.set(m.id, m.permalink);
+    }
+    // Always override with fresh URLs (DB thumbnailUrls may be expired CDN links).
     for (const src of sources) {
       if (igMediaImageMap.has(src.platformPostId)) {
         src.postImageUrl = igMediaImageMap.get(src.platformPostId)!;
@@ -324,43 +350,43 @@ export async function GET(
   async function getPostImageUrl(postId: string, plat: string, accessToken: string): Promise<string | null> {
     try {
       if (plat === 'FACEBOOK') {
-        const r = await axios.get<{ full_picture?: string; picture?: string }>(
-          `${facebookGraphBaseUrl}/${postId}`,
-          { params: { fields: 'full_picture,picture', access_token: accessToken } }
-        );
-        const url = r.data?.full_picture ?? r.data?.picture ?? null;
-        if (url) return url;
+        // Prefer the DB thumbnail (populated by sync) to avoid a per-post Graph call for every
+        // post every time the inbox is opened — that's what generated the ~100 `/Video` and
+        // `/ShadowIGMedia` object calls per page load.
         const imp = await prisma.importedPost.findFirst({
           where: { platformPostId: postId, socialAccountId: accountId },
           select: { thumbnailUrl: true },
         });
-        return imp?.thumbnailUrl ?? null;
+        if (imp?.thumbnailUrl) return imp.thumbnailUrl;
+        try {
+          const r = await axios.get<{ full_picture?: string; picture?: string }>(
+            `${facebookGraphBaseUrl}/${postId}`,
+            { params: { fields: 'full_picture,picture', access_token: accessToken } }
+          );
+          return r.data?.full_picture ?? r.data?.picture ?? null;
+        } catch {
+          return null;
+        }
       }
       if (plat === 'INSTAGRAM') {
-        // First check pre-fetched media map (most reliable)
+        // 1) Pre-fetched map from the single /me/media call above.
         if (igMediaImageMap.has(postId)) return igMediaImageMap.get(postId)!;
-        // Fallback to individual API calls
+        // 2) DB thumbnail – no API call.
+        const imp = await prisma.importedPost.findFirst({
+          where: { platformPostId: postId, socialAccountId: accountId },
+          select: { thumbnailUrl: true },
+        });
+        if (imp?.thumbnailUrl) return imp.thumbnailUrl;
+        // 3) Only as a last resort, one Graph call – not both endpoints anymore.
         try {
           const r = await axios.get<{ media_url?: string; thumbnail_url?: string }>(
             `${facebookGraphBaseUrl}/${postId}`,
             { params: { fields: 'media_url,thumbnail_url', access_token: accessToken } }
           );
-          const url = r.data?.media_url ?? r.data?.thumbnail_url ?? null;
-          if (url) return url;
-        } catch (_) {}
-        try {
-          const r = await axios.get<{ media_url?: string; thumbnail_url?: string }>(
-            `https://graph.instagram.com/v25.0/${postId}`,
-            { params: { fields: 'media_url,thumbnail_url', access_token: accessToken } }
-          );
-          const url = r.data?.media_url ?? r.data?.thumbnail_url ?? null;
-          if (url) return url;
-        } catch (_) {}
-        const imp = await prisma.importedPost.findFirst({
-          where: { platformPostId: postId, socialAccountId: accountId },
-          select: { thumbnailUrl: true },
-        });
-        return imp?.thumbnailUrl ?? null;
+          return r.data?.media_url ?? r.data?.thumbnail_url ?? null;
+        } catch {
+          return null;
+        }
       }
       if (plat === 'YOUTUBE') {
         const imp = await prisma.importedPost.findFirst({
@@ -436,7 +462,7 @@ export async function GET(
             }>(
               `https://graph.instagram.com/v25.0/${platformPostId}/comments`,
               { fields: 'id,from{id,username},text,timestamp', access_token: igUserToken, limit: 100 },
-              25
+              5
             );
             for (const c of list) {
               const fromId = c.from?.id;
@@ -449,8 +475,10 @@ export async function GET(
                 isFromMe,
               });
             }
-            // Fetch replies so user sees their own replies in the list
-            const topLevelIds = list.map((x) => x.id);
+            // Fetch replies so user sees their own replies in the list. Cap how many top-level
+            // comments we fan out for — a viral post with hundreds of comments otherwise means
+            // hundreds of /replies calls per inbox load.
+            const topLevelIds = list.slice(0, REPLY_FETCH_LIMIT).map((x) => x.id);
             const replyChunkSize = 8;
             for (let ri = 0; ri < topLevelIds.length; ri += replyChunkSize) {
               const chunkIds = topLevelIds.slice(ri, ri + replyChunkSize);
@@ -459,7 +487,7 @@ export async function GET(
                   const replies = await fetchAllPages<{ id: string; from?: { id?: string; username?: string }; text?: string; timestamp?: string }>(
                     `https://graph.instagram.com/v25.0/${commentId}/replies`,
                     { fields: 'id,from{id,username},text,timestamp', access_token: igUserToken, limit: 100 },
-                    10
+                    3
                   );
                   for (const r of replies) {
                     const rFromId = (r.from as { id?: string })?.id;
@@ -489,7 +517,7 @@ export async function GET(
             }>(
               `${facebookGraphBaseUrl}/${platformPostId}/comments`,
               { fields, access_token: token, limit: 100 },
-              25
+              5
             );
             for (const c of list) {
               const from = c.from;
@@ -506,8 +534,9 @@ export async function GET(
                 isFromMe,
               });
             }
-            // Fetch replies so user sees their own replies in the list
-            const topLevelIds = list.map((x) => x.id);
+            // Fetch replies so user sees their own replies in the list. Cap how many top-level
+            // comments we fan out for — see same rationale in the IG-business branch above.
+            const topLevelIds = list.slice(0, REPLY_FETCH_LIMIT).map((x) => x.id);
             const replyFields = platform === 'INSTAGRAM'
               ? 'id,from{id,username},text,timestamp'
               : 'id,from{id,name,picture},message,created_time';
@@ -527,7 +556,7 @@ export async function GET(
                   }>(
                     `${facebookGraphBaseUrl}/${commentId}/${replyEndpoint}`,
                     { fields: replyFields, access_token: token, limit: 100 },
-                    10
+                    3
                   );
                   for (const r of replies) {
                     const rFrom = r.from;
@@ -722,5 +751,13 @@ export async function GET(
     }
   }
 
-  return NextResponse.json({ comments, ...(error ? { error } : {}) });
+  const payload = { comments, ...(error ? { error } : {}) };
+  // Only cache successful responses (no upstream token/permission errors) — we never want to
+  // lock in a "permission denied" blip into a 3-minute cache.
+  if (!error) setCached(cacheKey, payload, COMMENTS_CACHE_TTL_MS);
+
+  const res = NextResponse.json(payload);
+  res.headers.set('Cache-Control', 'private, max-age=60');
+  res.headers.set('X-Comments-Cache', 'MISS');
+  return res;
 }
