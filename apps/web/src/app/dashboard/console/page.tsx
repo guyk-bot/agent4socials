@@ -276,6 +276,12 @@ const POST_TYPE_COLOR: Record<PostTypeKey, string> = {
   carousel: '#8b5cf6',
 };
 
+const POST_TYPE_LABEL: Record<PostTypeKey, string> = {
+  reels: 'Reels',
+  image: 'Image',
+  carousel: 'Carousel',
+};
+
 function classifyConsolePostType(mediaType: string | null | undefined): PostTypeKey | null {
   const mt = String(mediaType ?? '').toUpperCase();
   if (!mt) return null;
@@ -283,6 +289,12 @@ function classifyConsolePostType(mediaType: string | null | undefined): PostType
   if (mt === 'CAROUSEL' || mt === 'ALBUM') return 'carousel';
   if (mt === 'IMAGE' || mt === 'PHOTO') return 'image';
   return null;
+}
+
+function normalizeHistoryPlatform(platform: string): string {
+  if (platform === 'Facebook') return 'Meta';
+  if (platform === 'Twitter/X') return 'X';
+  return platform;
 }
 
 const CONSOLE_FALLBACK_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -821,6 +833,8 @@ export default function UnifiedSummaryPage() {
     'views',
     'engagements',
   ]);
+  const [postsPreset, setPostsPreset] = useState<PostTypeKey>('reels');
+  const [postsActivePlatforms, setPostsActivePlatforms] = useState<string[]>([...CHART_PLATFORMS]);
 
   /** Chart legend and series only for accounts the user has connected (fallback: all chart keys). */
   const connectedChartPlatforms = useMemo(() => {
@@ -840,6 +854,14 @@ export default function UnifiedSummaryPage() {
       return next;
     });
   }, [performanceMode, accountsKey, connectedChartPlatforms]);
+
+  useEffect(() => {
+    setPostsActivePlatforms((prev) => {
+      const next = [...connectedChartPlatforms];
+      if (prev.length === next.length && prev.every((p, i) => p === next[i])) return prev;
+      return next;
+    });
+  }, [accountsKey, connectedChartPlatforms]);
 
   const [livePlatformFallback, setLivePlatformFallback] = useState<Record<string, PlatformLiveFallback>>({});
 
@@ -997,6 +1019,10 @@ export default function UnifiedSummaryPage() {
     setActivePlatforms((prev) => prev.includes(p) ? (prev.length > 1 ? prev.filter((x) => x !== p) : prev) : [...prev, p]);
   }, []);
 
+  const togglePostsPlatform = useCallback((p: string) => {
+    setPostsActivePlatforms((prev) => prev.includes(p) ? (prev.length > 1 ? prev.filter((x) => x !== p) : prev) : [...prev, p]);
+  }, []);
+
   const toggleOverviewMetric = useCallback((metric: 'followers' | 'views' | 'engagements') => {
     setSelectedOverviewMetrics((prev) => (
       prev.includes(metric)
@@ -1079,47 +1105,32 @@ export default function UnifiedSummaryPage() {
   const overviewFollowersGrowthPct = overviewFollowersStart <= 0
     ? (overviewFollowersEnd > 0 ? 100 : 0)
     : ((overviewFollowersEnd - overviewFollowersStart) / overviewFollowersStart) * 100;
-  const postsByPlatformTotals = useMemo(() => {
-    const out: Record<string, number> = {};
-    for (const p of connectedChartPlatforms) out[p] = 0;
-    const normalize = (platform: string): string => {
-      if (platform === 'Facebook') return 'Meta';
-      if (platform === 'Twitter/X') return 'X';
-      return platform;
-    };
-    for (const row of data?.history ?? []) {
-      const p = normalize(String(row.platform ?? ''));
-      if (p in out) out[p] += 1;
-    }
-    return out;
-  }, [data?.history, connectedChartPlatforms]);
-
   const postsTimelineData = useMemo(() => {
     const rows = (data?.chart ?? []).map((r) => ({ date: String(r.date) })) as Array<{ date: string } & Record<string, number>>;
     const byDate = new Map<string, { date: string } & Record<string, number>>();
     for (const r of rows) {
       const base: { date: string } & Record<string, number> = { date: r.date } as { date: string } & Record<string, number>;
-      for (const p of connectedChartPlatforms) base[p] = 0;
+      for (const t of ['reels', 'image', 'carousel'] as const) {
+        for (const p of connectedChartPlatforms) base[`${t}_${p}`] = 0;
+      }
       byDate.set(r.date, base);
     }
-    const normalize = (platform: string): string => {
-      if (platform === 'Facebook') return 'Meta';
-      if (platform === 'Twitter/X') return 'X';
-      return platform;
-    };
     for (const post of data?.history ?? []) {
       const d = toLocalCalendarDate(new Date(post.postedAt));
       const row = byDate.get(d);
       if (!row) continue;
-      const p = normalize(String(post.platform ?? ''));
-      if (p in row) row[p] += 1;
+      const p = normalizeHistoryPlatform(String(post.platform ?? ''));
+      const t = classifyConsolePostType(post.mediaType);
+      if (!t) continue;
+      const key = `${t}_${p}`;
+      if (key in row) row[key] += 1;
     }
     return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
   }, [data?.history, data?.chart, connectedChartPlatforms]);
 
   const postsAxisTicks = useMemo(
-    () => buildConsoleAxisTicks(postsTimelineData, connectedChartPlatforms as string[]),
-    [postsTimelineData, connectedChartPlatforms.join('|')]
+    () => buildConsoleAxisTicks(postsTimelineData, connectedChartPlatforms.map((p) => `${postsPreset}_${p}`)),
+    [postsTimelineData, connectedChartPlatforms.join('|'), postsPreset]
   );
 
   const selectedOverviewLegendItems = useMemo(() => {
@@ -1162,28 +1173,12 @@ export default function UnifiedSummaryPage() {
     [platformDistributionPieData]
   );
 
-  const consolePostTypeCounts = useMemo(() => {
-    const counts: Record<PostTypeKey, number> = { reels: 0, image: 0, carousel: 0 };
-    for (const row of data?.history ?? []) {
-      const t = classifyConsolePostType(row.mediaType);
-      if (t) counts[t] += 1;
-    }
-    return counts;
-  }, [data?.history]);
-
-  const consolePostTypePieData = useMemo(
+  const postsPresetLegendItems = useMemo(
     () =>
-      ([
-        { key: 'reels' as const, label: 'Reels', value: consolePostTypeCounts.reels, color: POST_TYPE_COLOR.reels },
-        { key: 'image' as const, label: 'Image', value: consolePostTypeCounts.image, color: POST_TYPE_COLOR.image },
-        { key: 'carousel' as const, label: 'Carousel', value: consolePostTypeCounts.carousel, color: POST_TYPE_COLOR.carousel },
-      ] as const).filter((x) => x.value > 0),
-    [consolePostTypeCounts]
-  );
-
-  const consolePostTypeTotal = useMemo(
-    () => consolePostTypePieData.reduce((s, p) => s + p.value, 0),
-    [consolePostTypePieData]
+      connectedChartPlatforms
+        .filter((p) => postsActivePlatforms.includes(p))
+        .map((p) => ({ label: consolePlatformDisplayName(p), color: CONSOLE_PLATFORM_COLOR[p] ?? PLATFORM_COLOR[p] ?? COLOR.textSecondary })),
+    [connectedChartPlatforms, postsActivePlatforms]
   );
 
   if (!user) return <div className="flex items-center justify-center h-[60vh]" style={{ color: COLOR.textMuted }}>Sign in to view your unified analytics.</div>;
@@ -1476,32 +1471,47 @@ export default function UnifiedSummaryPage() {
         {data ? (
           <ShellCard className="space-y-3">
             <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Posts</h3>
-            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-              {connectedChartPlatforms.map((p) => (
-                <div
-                  key={`post-platform-card-${p}`}
-                  className="rounded-[14px] border px-3 py-2.5"
-                  style={{
-                    borderColor: `${(CONSOLE_PLATFORM_COLOR[p] ?? PLATFORM_COLOR[p] ?? COLOR.textSecondary)}45`,
-                    background: `${(CONSOLE_PLATFORM_COLOR[p] ?? PLATFORM_COLOR[p] ?? COLOR.textSecondary)}10`,
-                  }}
-                >
-                  <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLOR.textSecondary }}>
-                    {consolePlatformDisplayName(p)}
-                  </div>
-                  <div className="text-[17px] leading-tight font-bold tabular-nums" style={{ color: CONSOLE_PLATFORM_COLOR[p] ?? PLATFORM_COLOR[p] ?? COLOR.textSecondary }}>
-                    {fmtExactInt(postsByPlatformTotals[p] ?? 0)}
-                  </div>
-                </div>
-              ))}
+            <div className="mb-5 flex items-start justify-between gap-3">
+              <div className="flex shrink-0 gap-2">
+                {(['reels', 'image', 'carousel'] as const).map((preset) => {
+                  const active = postsPreset === preset;
+                  return (
+                    <button
+                      key={`posts-preset-${preset}`}
+                      type="button"
+                      onClick={() => setPostsPreset(preset)}
+                      aria-pressed={active}
+                      className="rounded-lg px-3 py-1.5 text-sm"
+                      style={{ background: active ? `${POST_TYPE_COLOR[preset]}1f` : 'rgba(255,255,255,0.03)', color: active ? COLOR.text : COLOR.textSecondary, border: `1px solid ${COLOR.border}` }}
+                    >
+                      {POST_TYPE_LABEL[preset]}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="-mt-3 min-w-0 flex-1 overflow-x-auto">
+                <PlatformLegend
+                  all={connectedChartPlatforms}
+                  activePlatforms={postsActivePlatforms}
+                  toggle={togglePostsPlatform}
+                  preset="views"
+                  chartData={postsTimelineData.map((row) => {
+                    const shaped: Record<string, unknown> = { date: row.date };
+                    for (const p of connectedChartPlatforms) {
+                      shaped[p] = Number((row as unknown as Record<string, number>)[`${postsPreset}_${p}`] ?? 0);
+                    }
+                    return shaped as UnifiedChartData[number];
+                  }) as UnifiedChartData}
+                />
+              </div>
             </div>
             <InsightChartCard title="Posts" hideHeader flat>
               <div className="mb-2 flex flex-wrap justify-end gap-2">
-                {connectedChartPlatforms.map((p) => (
+                {postsPresetLegendItems.map((item) => (
                   <DotLegendPill
-                    key={`post-legend-${p}`}
-                    label={consolePlatformDisplayName(p)}
-                    color={CONSOLE_PLATFORM_COLOR[p] ?? PLATFORM_COLOR[p] ?? COLOR.textSecondary}
+                    key={`post-legend-${item.label}`}
+                    label={item.label}
+                    color={item.color}
                   />
                 ))}
               </div>
@@ -1511,7 +1521,7 @@ export default function UnifiedSummaryPage() {
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={postsTimelineData} barCategoryGap="22%" barGap={2} margin={{ top: 4, right: 8, left: 0, bottom: 10 }}>
+                  <BarChart data={postsTimelineData} barCategoryGap="22%" barGap={0} margin={{ top: 4, right: 8, left: 0, bottom: 10 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                     <XAxis
                       dataKey="date"
@@ -1528,11 +1538,14 @@ export default function UnifiedSummaryPage() {
                     formatter={(v: any, n: any) => [fmtExactInt(Number(v) || 0), consolePlatformDisplayName(String(n ?? ''))]} labelFormatter={(l) => fmtTooltipDate(String(l))} />
                     {connectedChartPlatforms.map((p) => (
                       <Bar
-                        key={`post-bar-${p}`}
-                        dataKey={p}
+                        key={`post-bar-${postsPreset}-${p}`}
+                        dataKey={`${postsPreset}_${p}`}
+                        stackId={`posts-${postsPreset}`}
+                        name={consolePlatformDisplayName(p)}
                         fill={CONSOLE_PLATFORM_COLOR[p] ?? PLATFORM_COLOR[p] ?? COLOR.textSecondary}
                         radius={[6, 6, 0, 0]}
-                        barSize={10}
+                        hide={!postsActivePlatforms.includes(p)}
+                        barSize={16}
                       />
                     ))}
                   </BarChart>
@@ -1544,77 +1557,6 @@ export default function UnifiedSummaryPage() {
           <ShellCard className="space-y-4"><Skeleton className="h-20 rounded-[20px]" /><Skeleton className="h-[300px] rounded-xl" /></ShellCard>
         ) : null}
       </section>
-
-      {data && consolePostTypePieData.length > 0 ? (
-        <section className="space-y-4">
-          <ShellCard className="space-y-3">
-            <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Posts</h3>
-            <div className="relative rounded-[16px] border p-4 overflow-hidden" style={{ borderColor: COLOR.border, background: COLOR.card }}>
-              <div className="pointer-events-none absolute inset-0 z-20" aria-hidden>
-                <span className="absolute left-[16%] top-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
-                <span className="absolute right-[16%] top-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
-                <span className="absolute left-1/2 top-[48%] -translate-x-1/2 -translate-y-1/2 text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
-                <span className="absolute left-[16%] bottom-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
-                <span className="absolute right-[16%] bottom-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
-              </div>
-              <div className="relative z-10">
-                <h4 className="text-sm font-semibold mb-3" style={{ color: COLOR.text }}>Post type distribution</h4>
-                <div className="grid gap-2 sm:grid-cols-3 mb-4">
-                  <div className="rounded-xl border px-3 py-2.5" style={{ borderColor: `${POST_TYPE_COLOR.reels}33`, background: `${POST_TYPE_COLOR.reels}12` }}>
-                    <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLOR.textSecondary }}>Reels</div>
-                    <div className="text-xl font-bold tabular-nums" style={{ color: POST_TYPE_COLOR.reels }}>{fmtExactInt(consolePostTypeCounts.reels)}</div>
-                  </div>
-                  <div className="rounded-xl border px-3 py-2.5" style={{ borderColor: `${POST_TYPE_COLOR.image}33`, background: `${POST_TYPE_COLOR.image}12` }}>
-                    <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLOR.textSecondary }}>Image</div>
-                    <div className="text-xl font-bold tabular-nums" style={{ color: POST_TYPE_COLOR.image }}>{fmtExactInt(consolePostTypeCounts.image)}</div>
-                  </div>
-                  <div className="rounded-xl border px-3 py-2.5" style={{ borderColor: `${POST_TYPE_COLOR.carousel}33`, background: `${POST_TYPE_COLOR.carousel}12` }}>
-                    <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLOR.textSecondary }}>Carousel</div>
-                    <div className="text-xl font-bold tabular-nums" style={{ color: POST_TYPE_COLOR.carousel }}>{fmtExactInt(consolePostTypeCounts.carousel)}</div>
-                  </div>
-                </div>
-                <div className="flex flex-col md:flex-row items-center gap-6">
-                  <div className="w-[200px] h-[200px] shrink-0">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie data={consolePostTypePieData} dataKey="value" nameKey="label" cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={0} stroke="none" strokeWidth={0}>
-                          {consolePostTypePieData.map((entry, idx) => (
-                            <Cell key={`post-type-${idx}`} fill={entry.color} stroke="none" />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
-                          formatter={(value, name) => {
-                            const v = Number(value) || 0;
-                            return [`${fmtExactInt(v)} (${consolePostTypeTotal > 0 ? ((v / consolePostTypeTotal) * 100).toFixed(1) : 0}%)`, String(name ?? '')];
-                          }}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="flex-1 grid grid-cols-2 gap-x-6 gap-y-2">
-                    {consolePostTypePieData.map((item) => {
-                      const pct = consolePostTypeTotal > 0 ? ((item.value / consolePostTypeTotal) * 100).toFixed(1) : '0';
-                      return (
-                        <div key={item.key} className="flex items-center justify-between gap-2 py-1">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="w-3 h-3 rounded-full shrink-0" style={{ background: item.color }} />
-                            <span className="text-sm truncate" style={{ color: COLOR.text }}>{item.label}</span>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-sm font-semibold tabular-nums" style={{ color: COLOR.text }}>{fmtExactInt(item.value)}</span>
-                            <span className="text-xs tabular-nums" style={{ color: COLOR.textMuted }}>({pct}%)</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </ShellCard>
-        </section>
-      ) : null}
 
       {/* ══════════════════════════════════════════════════════════════════════
           POSTS: Top posts + Traffic totals side by side
