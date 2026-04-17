@@ -85,6 +85,19 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
+  const includesYoutubeTarget = validTargets.some((t) => t.platform === 'YOUTUBE');
+  if (includesYoutubeTarget) {
+    const globalHasImage = Array.isArray(media) && media.some((m) => m?.type === 'IMAGE');
+    const youtubeSpecificMedia =
+      mediaByPlatform && typeof mediaByPlatform === 'object' ? (mediaByPlatform['YOUTUBE'] ?? []) : [];
+    const youtubeHasImage = Array.isArray(youtubeSpecificMedia) && youtubeSpecificMedia.some((m) => m?.type === 'IMAGE');
+    if (globalHasImage || youtubeHasImage || bodyMediaType === 'photo' || bodyMediaType === 'carousel') {
+      return NextResponse.json(
+        { message: 'Uploading images to YouTube is not supported yet. Please use a video for YouTube.' },
+        { status: 400 }
+      );
+    }
+  }
   const accountIds = [...new Set(validTargets.map((t) => t.socialAccountId))];
   const accountsForUser = await prisma.socialAccount.findMany({
     where: { id: { in: accountIds }, userId },

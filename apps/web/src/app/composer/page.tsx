@@ -1741,6 +1741,17 @@ export default function ComposerPage() {
                 }
             }
 
+            // YouTube does not support image uploads in this flow (video only).
+            if (platforms.includes('YOUTUBE')) {
+                const youtubeMedia = differentMediaPerPlatform ? (mediaByPlatform['YOUTUBE'] ?? []) : mediaList;
+                const youtubeHasImage = youtubeMedia.some((m) => m.type === 'IMAGE');
+                if (youtubeHasImage || mediaType === 'photo' || mediaType === 'carousel') {
+                    setLoading(false);
+                    setAlertMessage('Uploading images to YouTube is not supported yet. Please use a video for YouTube.');
+                    return;
+                }
+            }
+
             const payload: {
                 title?: string;
                 content: string;
