@@ -297,7 +297,7 @@ const TRAFFIC_METRIC_CONFIG: Record<TrafficMetricKey, { label: string; color: st
   postImpressions: { label: 'Post Impressions', color: COLOR.cyan },
   nonviral: { label: 'Non-viral Impressions', color: COLOR.trafficNonviralCyan },
   viral: { label: 'Viral Impressions', color: COLOR.magenta },
-  uniqueReachProxy: { label: 'Unique Reach (posts)', color: COLOR.amber },
+  uniqueReachProxy: { label: 'Unique Reach', color: COLOR.amber },
   pageUniqueViewers: { label: 'Unique Viewers (Page)', color: COLOR.mint },
 };
 
@@ -4961,7 +4961,7 @@ export function FacebookAnalyticsView({
             {!isPinterest ? (
               <>
                 <MetricCard
-                  label="Unique Reach (posts)"
+                  label="Unique Reach"
                   source="Sum of post_total_media_view_unique when available, else post_impressions_unique"
                   color={COLOR.amber}
                   value={formatNumber(uniqueReachProxy)}
@@ -4995,13 +4995,6 @@ export function FacebookAnalyticsView({
               <span className="font-medium" style={{ color: COLOR.text }}>Unique reach proxy</span> are hidden. They do not apply to Pin analytics in this dashboard. Use{' '}
               <span className="font-medium" style={{ color: COLOR.text }}>Post impressions</span> and{' '}
               <span className="font-medium" style={{ color: COLOR.text }}>Pin impressions (non-viral)</span> for traffic in this range.
-            </p>
-          ) : null}
-          {isInstagram ? (
-            <p className="text-xs leading-relaxed max-w-[920px]" style={{ color: COLOR.textSecondary }}>
-              Meta does not report viral versus non-viral impressions for Instagram the way it does for Facebook Pages, so those breakdowns are not available in this dashboard. Use{' '}
-              <span className="font-medium" style={{ color: COLOR.text }}>Post impressions</span> and{' '}
-              <span className="font-medium" style={{ color: COLOR.text }}>Unique reach proxy</span> (from account and synced post insights).
             </p>
           ) : null}
           <div className="flex justify-end">
