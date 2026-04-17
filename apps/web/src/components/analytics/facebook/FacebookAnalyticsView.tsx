@@ -71,6 +71,7 @@ type StoryMetricKey =
 type ActivityMetricKey = 'actions' | 'posts' | 'conversations' | 'subscriberNet';
 type EngagementMetricKey = 'likes' | 'comments' | 'shares' | 'reposts' | 'dislikes';
 type ContentTypeKey = 'reels' | 'image' | 'carousel';
+type YouTubeContentTypeKey = 'shorts' | 'videos';
 
 /** Bottom → top stack order for the Engagement chart (must match `<Bar />` order). */
 const ENGAGEMENT_STACK_ORDER_META: readonly EngagementMetricKey[] = ['likes', 'comments', 'shares', 'reposts'];
@@ -111,6 +112,11 @@ const CONTENT_TYPE_COLOR: Record<ContentTypeKey, string> = {
   reels: '#22d3ee',
   image: '#f43f5e',
   carousel: '#8b5cf6',
+};
+
+const YOUTUBE_CONTENT_TYPE_COLOR: Record<YouTubeContentTypeKey, string> = {
+  shorts: '#ff0000',
+  videos: '#282828',
 };
 
 /** Neon outline for metrics sourced from TikTok Open API (user.info, video/list, creator_info). */
@@ -2285,6 +2291,19 @@ export function FacebookAnalyticsView({
     }
     return counts;
   }, [postsInRange]);
+  const youtubeContentTypeCounts = useMemo(() => {
+    if (!isYouTube) return { shorts: 0, videos: 0 };
+    const counts: Record<YouTubeContentTypeKey, number> = { shorts: 0, videos: 0 };
+    for (const p of postsInRange) {
+      if ((p.platform ?? '').toUpperCase() !== 'YOUTUBE') continue;
+      if (isYouTubeShortPost(p)) {
+        counts.shorts += 1;
+      } else {
+        counts.videos += 1;
+      }
+    }
+    return counts;
+  }, [isYouTube, postsInRange]);
   const contentTypePieData = useMemo(
     () =>
       ([
@@ -2294,9 +2313,21 @@ export function FacebookAnalyticsView({
       ] as const).filter((x) => x.value > 0),
     [contentTypeCounts]
   );
+  const youtubeContentTypePieData = useMemo(
+    () =>
+      ([
+        { key: 'shorts' as const, label: 'Shorts', value: youtubeContentTypeCounts.shorts, color: YOUTUBE_CONTENT_TYPE_COLOR.shorts },
+        { key: 'videos' as const, label: 'Videos', value: youtubeContentTypeCounts.videos, color: YOUTUBE_CONTENT_TYPE_COLOR.videos },
+      ] as const).filter((x) => x.value > 0),
+    [youtubeContentTypeCounts]
+  );
   const contentTypeTotal = useMemo(
     () => contentTypePieData.reduce((s, p) => s + p.value, 0),
     [contentTypePieData]
+  );
+  const youtubeContentTypeTotal = useMemo(
+    () => youtubeContentTypePieData.reduce((s, p) => s + p.value, 0),
+    [youtubeContentTypePieData]
   );
   const tiktokViewsInRange = useMemo(
     () => postsInRange.reduce((s, p) => s + (p.impressions ?? bestPostPlayCount(p)), 0),
@@ -5260,7 +5291,58 @@ export function FacebookAnalyticsView({
             )}
             <MetricCard label="Avg Reactions per Post" source="post_reactions_like_total / breakdown" color={COLOR.text} value={avgReactionsPerPost.toFixed(1)} />
           </div>
-          {contentTypePieData.length > 0 ? (
+          {isYouTube && youtubeContentTypePieData.length > 0 ? (
+            <div className="rounded-xl border p-4 sm:p-5" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
+              <h4 className="text-base font-semibold mb-3" style={{ color: COLOR.text }}>Post type distribution</h4>
+              <div className="grid gap-2 sm:grid-cols-2 mb-4">
+                <div className="rounded-xl border px-3 py-2.5" style={{ borderColor: `${YOUTUBE_CONTENT_TYPE_COLOR.shorts}33`, background: `${YOUTUBE_CONTENT_TYPE_COLOR.shorts}12` }}>
+                  <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLOR.textSecondary }}>Shorts</div>
+                  <div className="text-xl font-bold tabular-nums" style={{ color: YOUTUBE_CONTENT_TYPE_COLOR.shorts }}>{formatNumber(youtubeContentTypeCounts.shorts)}</div>
+                </div>
+                <div className="rounded-xl border px-3 py-2.5" style={{ borderColor: `${YOUTUBE_CONTENT_TYPE_COLOR.videos}33`, background: `${YOUTUBE_CONTENT_TYPE_COLOR.videos}12` }}>
+                  <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLOR.textSecondary }}>Videos</div>
+                  <div className="text-xl font-bold tabular-nums" style={{ color: YOUTUBE_CONTENT_TYPE_COLOR.videos }}>{formatNumber(youtubeContentTypeCounts.videos)}</div>
+                </div>
+              </div>
+              <div className="flex flex-col md:flex-row items-center gap-6">
+                <div className="w-[200px] h-[200px] shrink-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={youtubeContentTypePieData} dataKey="value" nameKey="label" cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={0} stroke="none" strokeWidth={0}>
+                        {youtubeContentTypePieData.map((entry, idx) => (
+                          <Cell key={`yt-content-type-${entry.key}-${idx}`} fill={entry.color} stroke="none" />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
+                        formatter={(value, name) => {
+                          const v = Number(value) || 0;
+                          return [`${formatNumber(v)} (${youtubeContentTypeTotal > 0 ? ((v / youtubeContentTypeTotal) * 100).toFixed(1) : 0}%)`, String(name ?? '')];
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex-1 grid grid-cols-2 gap-x-6 gap-y-2">
+                  {youtubeContentTypePieData.map((item) => {
+                    const pct = youtubeContentTypeTotal > 0 ? ((item.value / youtubeContentTypeTotal) * 100).toFixed(1) : '0';
+                    return (
+                      <div key={item.key} className="flex items-center justify-between gap-2 py-1">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="w-3 h-3 rounded-full shrink-0" style={{ background: item.color }} />
+                          <span className="text-sm truncate" style={{ color: COLOR.text }}>{item.label}</span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-sm font-semibold tabular-nums" style={{ color: COLOR.text }}>{formatNumber(item.value)}</span>
+                          <span className="text-xs tabular-nums" style={{ color: COLOR.textMuted }}>({pct}%)</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          ) : contentTypePieData.length > 0 && !isYouTube ? (
             <div className="rounded-xl border p-4 sm:p-5" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
               <h4 className="text-base font-semibold mb-3" style={{ color: COLOR.text }}>Post type distribution</h4>
               <div className="grid gap-2 sm:grid-cols-3 mb-4">
