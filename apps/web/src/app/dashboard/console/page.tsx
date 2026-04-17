@@ -975,15 +975,6 @@ export default function UnifiedSummaryPage() {
                 onClick={() => toggleOverviewMetric('followers')}
               />
               <KpiCard
-                label="Views"
-                value={fmtExactInt(data.kpi.totalImpressions)}
-                growthPct={data.kpi.impressionsGrowthPercentage}
-                icon={<Eye size={15} />}
-                accent={COLOR.magenta}
-                active={selectedOverviewMetrics.includes('views')}
-                onClick={() => toggleOverviewMetric('views')}
-              />
-              <KpiCard
                 label="Engagements"
                 value={fmtExactInt(data.kpi.totalEngagement)}
                 growthPct={data.kpi.engagementGrowthPercentage}
@@ -991,6 +982,15 @@ export default function UnifiedSummaryPage() {
                 accent={COLOR.violet}
                 active={selectedOverviewMetrics.includes('engagements')}
                 onClick={() => toggleOverviewMetric('engagements')}
+              />
+              <KpiCard
+                label="Views"
+                value={fmtExactInt(data.kpi.totalImpressions)}
+                growthPct={data.kpi.impressionsGrowthPercentage}
+                icon={<Eye size={15} />}
+                accent={COLOR.magenta}
+                active={selectedOverviewMetrics.includes('views')}
+                onClick={() => toggleOverviewMetric('views')}
               />
             </div>
             <InsightChartCard title="Overview trends" hideHeader flat>
