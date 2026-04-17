@@ -79,8 +79,7 @@ type TrafficMetricKey =
   | 'postImpressions'
   | 'nonviral'
   | 'viral'
-  | 'uniqueReachProxy'
-  | 'pageUniqueViewers';
+  | 'uniqueReachProxy';
 type ReelMetricKey = 'views' | 'watchTime' | 'avgWatch' | 'clicks' | 'likes' | 'comments' | 'shares' | 'reposts';
 type ReelPresetKey = 'performance' | 'engagement' | 'watch';
 type ContentHistoryFilter = 'all' | 'posts' | 'reels';
@@ -140,7 +139,6 @@ const METRIC_MAP: MetricDef[] = [
   { key: 'page_posts_impressions_nonviral', label: 'Non-viral Impressions', section: 'traffic', source: 'page_posts_impressions_nonviral', color: COLOR.trafficNonviralCyan },
   { key: 'page_posts_impressions_viral', label: 'Viral Impressions', section: 'traffic', source: 'page_posts_impressions_viral', color: COLOR.magenta },
   { key: 'post_media_view', label: 'Post Views', section: 'posts', source: 'post_media_view', color: COLOR.cyan },
-  { key: 'page_total_media_view_unique', label: 'Unique Viewers (Page)', section: 'traffic', source: 'page_total_media_view_unique', color: COLOR.mint },
   { key: 'story_media_view', label: 'Story Media Views', section: 'traffic', source: 'story_media_view', color: COLOR.violet },
   { key: 'story_total_media_view_unique', label: 'Story Unique Viewers', section: 'traffic', source: 'story_total_media_view_unique', color: COLOR.coral },
   { key: 'post_total_media_view_unique', label: 'Unique Viewers (Post)', section: 'posts', source: 'post_total_media_view_unique', color: COLOR.mint },
@@ -298,7 +296,6 @@ const TRAFFIC_METRIC_CONFIG: Record<TrafficMetricKey, { label: string; color: st
   nonviral: { label: 'Non-viral Impressions', color: COLOR.trafficNonviralCyan },
   viral: { label: 'Viral Impressions', color: COLOR.magenta },
   uniqueReachProxy: { label: 'Unique Reach', color: COLOR.amber },
-  pageUniqueViewers: { label: 'Unique Viewers (Page)', color: COLOR.mint },
 };
 
 // Shared bar geometry across Traffic/Reels (overlapping bars).
@@ -2006,7 +2003,6 @@ export function FacebookAnalyticsView({
     'nonviral',
     'viral',
     'uniqueReachProxy',
-    'pageUniqueViewers',
   ]);
   const [selectedReelMetrics, setSelectedReelMetrics] = useState<ReelMetricKey[]>(['views', 'watchTime', 'avgWatch', 'shares']);
   const [reelPreset, setReelPreset] = useState<ReelPresetKey>('performance');
@@ -2889,7 +2885,6 @@ export function FacebookAnalyticsView({
     const postImpressionsMap = seriesToMap(series?.postImpressions ?? []);
     const nonviralMap = seriesToMap(series?.postImpressionsNonviral ?? []);
     const viralMap = seriesToMap(series?.postImpressionsViral ?? []);
-    const pageUniqueViewersMap = seriesToMap(bundle?.series.mediaViewersUnique ?? []);
     /** Only backfill non-viral from per-post impressions when Meta sent no viral/nonviral breakdown at all (same rule as KPI cards). */
     const mayBackfillNonviralFromPosts =
       isFacebook &&
@@ -2910,7 +2905,6 @@ export function FacebookAnalyticsView({
         nonviral,
         viral,
         uniqueReachProxy: uniqueReachByDate[date] ?? 0,
-        pageUniqueViewers: pageUniqueViewersMap[date] ?? 0,
       };
     });
   }, [
@@ -2918,7 +2912,6 @@ export function FacebookAnalyticsView({
     isFacebook,
     bundle?.totals.postImpressionsNonviral,
     bundle?.totals.postImpressionsViral,
-    bundle?.series.mediaViewersUnique,
     series?.postImpressions,
     series?.postImpressionsNonviral,
     series?.postImpressionsViral,
@@ -4972,20 +4965,6 @@ export function FacebookAnalyticsView({
                     )
                   }
                 />
-                {!isInstagram ? (
-                  <MetricCard
-                    label="Unique Viewers (Page)"
-                    source="page_total_media_view_unique (Graph Page insights, day)"
-                    color={COLOR.mint}
-                    value={formatNumber(bundle?.totals.mediaViewersUnique ?? 0)}
-                    active={selectedTrafficMetrics.includes('pageUniqueViewers')}
-                    onClick={() =>
-                      setSelectedTrafficMetrics((prev) =>
-                        prev.includes('pageUniqueViewers') ? prev.filter((m) => m !== 'pageUniqueViewers') : [...prev, 'pageUniqueViewers']
-                      )
-                    }
-                  />
-                ) : null}
               </>
             ) : null}
           </div>
@@ -5042,15 +5021,6 @@ export function FacebookAnalyticsView({
                   {selectedTrafficMetrics.includes('postImpressions') ? <Bar dataKey="postImpressions" fill={COLOR.cyan} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                   {selectedTrafficMetrics.includes('nonviral') ? <Bar dataKey="nonviral" fill={COLOR.trafficNonviralCyan} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                   {selectedTrafficMetrics.includes('uniqueReachProxy') ? <Bar dataKey="uniqueReachProxy" fill={COLOR.amber} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
-                  {selectedTrafficMetrics.includes('pageUniqueViewers') ? (
-                    <Bar
-                      dataKey="pageUniqueViewers"
-                      fill={TRAFFIC_METRIC_CONFIG.pageUniqueViewers.color}
-                      radius={[6, 6, 0, 0]}
-                      barSize={UNIFIED_BAR_SIZE}
-                      shape={<MinWidthBarShape />}
-                    />
-                  ) : null}
                   {selectedTrafficMetrics.includes('viral') ? <Bar dataKey="viral" fill={COLOR.magenta} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
                 </BarChart>
               </ResponsiveContainer>
