@@ -272,6 +272,11 @@ function sumPlatformsForRow(row: Record<string, unknown>, platforms: string[]): 
   return Math.round(total);
 }
 
+type PlatformLiveFallback = {
+  viewsSeries?: Array<{ date: string; value: number }>;
+  engagementSeries?: Array<{ date: string; value: number }>;
+};
+
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
 function Skeleton({ className = '' }: { className?: string }) {
@@ -788,6 +793,7 @@ export default function UnifiedSummaryPage() {
 
   // Engagement section
   const [selectedEngagement, setSelectedEngagement] = useState<('likes' | 'comments' | 'shares' | 'reposts')[]>(['likes', 'comments', 'shares']);
+  const [livePlatformFallback, setLivePlatformFallback] = useState<Record<string, PlatformLiveFallback>>({});
 
   // Activity section
   const [selectedActivity, setSelectedActivity] = useState<('posts')[]>(['posts']);
@@ -853,6 +859,58 @@ export default function UnifiedSummaryPage() {
     };
   }, [user?.id, dateRange.start, dateRange.end]);
 
+  useEffect(() => {
+    if (!user?.id) {
+      setLivePlatformFallback({});
+      return;
+    }
+    const targets = orderedAccounts.filter((a) => a.platform === 'TWITTER' || a.platform === 'PINTEREST');
+    if (targets.length === 0) {
+      setLivePlatformFallback({});
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const next: Record<string, PlatformLiveFallback> = {};
+      await Promise.all(
+        targets.map(async (acc) => {
+          try {
+            const res = await api.get(`/social/accounts/${encodeURIComponent(acc.id)}/insights`, {
+              params: { since: dateRange.start, until: dateRange.end },
+            });
+            const payload = res?.data as Record<string, unknown>;
+            if (acc.platform === 'TWITTER') {
+              const viewsSeries = Array.isArray(payload.impressionsTimeSeries)
+                ? (payload.impressionsTimeSeries as Array<Record<string, unknown>>)
+                    .map((p) => ({ date: String(p.date ?? ''), value: Number(p.value ?? 0) }))
+                    .filter((p) => /^\d{4}-\d{2}-\d{2}$/.test(p.date))
+                : [];
+              const engagementSeries = Array.isArray(payload.twitterEngagementTimeSeries)
+                ? (payload.twitterEngagementTimeSeries as Array<Record<string, unknown>>)
+                    .map((p) => ({ date: String(p.date ?? ''), value: Number(p.value ?? 0) }))
+                    .filter((p) => /^\d{4}-\d{2}-\d{2}$/.test(p.date))
+                : [];
+              next.X = { viewsSeries, engagementSeries };
+            } else if (acc.platform === 'PINTEREST') {
+              const viewsSeries = Array.isArray(payload.impressionsTimeSeries)
+                ? (payload.impressionsTimeSeries as Array<Record<string, unknown>>)
+                    .map((p) => ({ date: String(p.date ?? ''), value: Number(p.value ?? 0) }))
+                    .filter((p) => /^\d{4}-\d{2}-\d{2}$/.test(p.date))
+                : [];
+              next.Pinterest = { viewsSeries };
+            }
+          } catch {
+            // Keep fallback empty on per-account fetch errors.
+          }
+        })
+      );
+      if (!cancelled) setLivePlatformFallback(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, orderedAccounts, dateRange.start, dateRange.end]);
+
   const onDateRangeChange = useCallback((range: { start: string; end: string }) => {
     if (user?.id) writeStoredAnalyticsDateRange(range, user.id);
     router.replace(`/dashboard/console?start=${encodeURIComponent(range.start)}&end=${encodeURIComponent(range.end)}`);
@@ -876,6 +934,31 @@ export default function UnifiedSummaryPage() {
     if (performanceMode === 'engagement') return data.engagementChart ?? [];
     return data.chart ?? [];
   }, [data, performanceMode]);
+
+  const activeChartDataWithFallback = useMemo((): UnifiedChartData => {
+    if (activeChartData.length === 0) return activeChartData;
+    if (performanceMode === 'growth') return activeChartData;
+    const selectedSeriesKey = performanceMode === 'views' ? 'viewsSeries' : 'engagementSeries';
+    const out = activeChartData.map((r) => ({ ...r })) as UnifiedChartData;
+    const byDate = new Map<string, number>();
+    for (const platform of ['X', 'Pinterest']) {
+      const currentTotal = platformPresetMetric(activeChartData, platform, performanceMode);
+      if (currentTotal !== 0) continue;
+      const fallbackSeries = livePlatformFallback[platform]?.[selectedSeriesKey];
+      if (!fallbackSeries || fallbackSeries.length === 0) continue;
+      byDate.clear();
+      for (const p of fallbackSeries) byDate.set(p.date, (byDate.get(p.date) ?? 0) + (Number(p.value) || 0));
+      for (const row of out) {
+        const d = String(row.date ?? '');
+        const add = byDate.get(d) ?? 0;
+        (row as unknown as Record<string, number>)[platform] = Math.max(
+          Number((row as unknown as Record<string, number>)[platform] ?? 0),
+          add
+        );
+      }
+    }
+    return out;
+  }, [activeChartData, performanceMode, livePlatformFallback]);
 
   const overviewTrendData = useMemo(() => {
     if (!data) return [] as Array<{ date: string; followers: number; views: number; engagements: number }>;
@@ -1148,7 +1231,7 @@ export default function UnifiedSummaryPage() {
                   activePlatforms={activePlatforms}
                   toggle={togglePlatform}
                   preset={performanceMode}
-                  chartData={activeChartData}
+                  chartData={activeChartDataWithFallback}
                 />
               </div>
             </div>
@@ -1158,9 +1241,9 @@ export default function UnifiedSummaryPage() {
                   <DotLegendPill key={item.label} label={item.label} color={item.color} />
                 ))}
               </div>
-              {activeChartData.length > 0 ? (
+              {activeChartDataWithFallback.length > 0 ? (
                 <PlatformMixChart
-                  data={activeChartData}
+                  data={activeChartDataWithFallback}
                   activePlatforms={activePlatforms.filter((p) => connectedChartPlatforms.includes(p))}
                   performanceMode={performanceMode}
                 />
