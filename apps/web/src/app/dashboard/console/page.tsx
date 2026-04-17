@@ -260,6 +260,12 @@ function formatLegendMetric(preset: 'growth' | 'engagement' | 'views', value: nu
   return fmt(value);
 }
 
+function consolePlatformDisplayName(platform: string): string {
+  if (platform === 'Meta') return 'Facebook';
+  if (platform === 'X') return 'Twitter/X';
+  return platform;
+}
+
 function sumPlatformsForRow(row: Record<string, unknown>, platforms: string[]): number {
   let total = 0;
   for (const p of platforms) total += Number(row[p] ?? 0);
@@ -516,7 +522,7 @@ function PlatformLegend({
             }}
           >
             <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLOR.textSecondary }}>
-              {p}
+              {consolePlatformDisplayName(p)}
             </span>
             <span className="tabular-nums text-[17px] leading-tight font-bold" style={{ color: platformColor }}>
               {metricText}
@@ -951,7 +957,7 @@ export default function UnifiedSummaryPage() {
     () =>
       connectedChartPlatforms
         .filter((p) => activePlatforms.includes(p))
-        .map((p) => ({ label: p, color: CONSOLE_PLATFORM_COLOR[p] ?? PLATFORM_COLOR[p] ?? COLOR.textSecondary })),
+        .map((p) => ({ label: consolePlatformDisplayName(p), color: CONSOLE_PLATFORM_COLOR[p] ?? PLATFORM_COLOR[p] ?? COLOR.textSecondary })),
     [connectedChartPlatforms, activePlatforms]
   );
 
@@ -1136,7 +1142,7 @@ export default function UnifiedSummaryPage() {
                   );
                 })}
               </div>
-              <div className="-mt-1 min-w-0 flex-1 overflow-x-auto">
+              <div className="-mt-3 min-w-0 flex-1 overflow-x-auto">
                 <PlatformLegend
                   all={connectedChartPlatforms}
                   activePlatforms={activePlatforms}
