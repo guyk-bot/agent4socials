@@ -153,30 +153,51 @@ function buildConsoleAxisTicks(series: Array<{ date: string }>, metricKeys: stri
   if (series.length === 0) return [];
   const sorted = [...series].sort((a, b) => a.date.localeCompare(b.date));
   const keys = metricKeys.filter(Boolean);
-  const out = new Set<string>();
+  const monthTicks = new Set<string>();
   for (const row of sorted) {
     const d = new Date(`${row.date}T12:00:00`);
-    if (!Number.isNaN(d.getTime()) && d.getDate() === 1) out.add(row.date);
+    if (!Number.isNaN(d.getTime()) && d.getDate() === 1) monthTicks.add(row.date);
   }
   if (keys.length === 0) {
-    if (out.size === 0 && sorted.length > 0) {
-      out.add(sorted[0].date);
-      if (sorted.length > 1) out.add(sorted[sorted.length - 1].date);
+    if (monthTicks.size === 0 && sorted.length > 0) {
+      monthTicks.add(sorted[0].date);
+      if (sorted.length > 1) monthTicks.add(sorted[sorted.length - 1].date);
     }
-    return Array.from(out).sort((a, b) => a.localeCompare(b));
+    return Array.from(monthTicks).sort((a, b) => a.localeCompare(b));
   }
+  const eventCandidates: Array<{ date: string; score: number }> = [];
   for (let i = 1; i < sorted.length; i++) {
     const prev = sorted[i - 1] as unknown as Record<string, unknown>;
     const cur = sorted[i] as unknown as Record<string, unknown>;
-    let changed = false;
+    let score = 0;
     for (const k of keys) {
-      if (rowMetric(prev, k) !== rowMetric(cur, k)) {
-        changed = true;
-        break;
-      }
+      score += Math.abs(rowMetric(prev, k) - rowMetric(cur, k));
     }
-    if (changed) out.add(String(cur.date));
+    if (score > 0) eventCandidates.push({ date: String(cur.date), score });
   }
+  if (eventCandidates.length === 0 && sorted.length > 0) {
+    monthTicks.add(sorted[0].date);
+    if (sorted.length > 1) monthTicks.add(sorted[sorted.length - 1].date);
+    return Array.from(monthTicks).sort((a, b) => a.localeCompare(b));
+  }
+  const daysSpan = Math.max(1, sorted.length);
+  const maxEventTicks = daysSpan <= 45 ? 10 : daysSpan <= 90 ? 8 : 6;
+  const minGapDays = daysSpan <= 45 ? 2 : daysSpan <= 90 ? 4 : 6;
+  const monthExclusionDays = 1;
+  const toDayNum = (ymd: string) => Math.floor(new Date(`${ymd}T12:00:00`).getTime() / 86_400_000);
+  const selectedEvents: string[] = [];
+  const sortedByImpact = [...eventCandidates].sort((a, b) => b.score - a.score);
+  const monthsDayNums = Array.from(monthTicks).map(toDayNum);
+  for (const ev of sortedByImpact) {
+    if (selectedEvents.length >= maxEventTicks) break;
+    const evDay = toDayNum(ev.date);
+    // Keep month labels readable by avoiding day labels that collide around month-start ticks.
+    if (monthsDayNums.some((m) => Math.abs(m - evDay) <= monthExclusionDays)) continue;
+    const tooCloseToChosen = selectedEvents.some((d) => Math.abs(toDayNum(d) - evDay) < minGapDays);
+    if (tooCloseToChosen) continue;
+    selectedEvents.push(ev.date);
+  }
+  const out = new Set<string>([...Array.from(monthTicks), ...selectedEvents]);
   if (out.size === 0 && sorted.length > 0) {
     out.add(sorted[0].date);
     if (sorted.length > 1) out.add(sorted[sorted.length - 1].date);
@@ -473,7 +494,7 @@ function PlatformLegend({
               boxShadow: active ? `0 0 0 1px ${platformColor}25, 0 2px 10px rgba(15,23,42,0.06)` : '0 1px 3px rgba(15,23,42,0.04)',
             }}
           >
-            <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: platformColor }}>
+            <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLOR.text }}>
               {p}
             </span>
             <span className="tabular-nums text-[17px] leading-tight font-bold" style={{ color: platformColor }}>
