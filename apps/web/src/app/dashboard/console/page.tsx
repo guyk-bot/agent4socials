@@ -454,14 +454,7 @@ function PlatformLegend({
         const raw = platformPresetMetric(chartData, p, preset);
         const metricText = formatLegendMetric(preset, raw);
         const metricLabel = preset === 'growth' ? (raw > 0 ? 'Increase' : raw < 0 ? 'Decrease' : 'No change') : 'Total';
-        const metricColor =
-          preset === 'growth'
-            ? raw > 0
-              ? '#16a34a'
-              : raw < 0
-                ? '#dc2626'
-                : COLOR.textMuted
-            : COLOR.text;
+        const platformColor = PLATFORM_COLOR[p] ?? COLOR.textSecondary;
         return (
           <button
             key={p}
@@ -472,16 +465,16 @@ function PlatformLegend({
             title={`${p}: ${metricText}`}
             className="inline-flex min-w-[128px] flex-col items-start rounded-xl border px-2.5 py-2 text-left transition-[opacity,box-shadow,transform] hover:scale-[1.02] active:scale-[0.98]"
             style={{
-              borderColor: COLOR.border,
-              background: active ? 'rgba(255,255,255,0.95)' : 'rgba(248,250,252,0.88)',
-              opacity: active ? 1 : 0.45,
-              boxShadow: active ? '0 1px 3px rgba(15,23,42,0.08)' : 'none',
+              borderColor: active ? `${platformColor}70` : COLOR.border,
+              background: active ? `${platformColor}12` : 'rgba(248,250,252,0.9)',
+              opacity: active ? 1 : 0.55,
+              boxShadow: active ? `0 0 0 1px ${platformColor}35, 0 1px 3px rgba(15,23,42,0.08)` : 'none',
             }}
           >
-            <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: COLOR.textSecondary }}>
+            <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: platformColor }}>
               {p}
             </span>
-            <span className="tabular-nums text-sm font-semibold" style={{ color: metricColor }}>
+            <span className="tabular-nums text-sm font-semibold" style={{ color: platformColor }}>
               {metricLabel}: {metricText}
             </span>
           </button>
@@ -1057,19 +1050,19 @@ export default function UnifiedSummaryPage() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Performance</h3>
             </div>
-            <div className="mb-5 flex gap-2">
-              {(['growth', 'engagement', 'views'] as const).map((mode) => {
-                const active = performanceMode === mode;
-                return (
-                  <button key={mode} type="button" onClick={() => setPerformanceMode(mode)} aria-pressed={active}
-                    className="rounded-lg px-3 py-1.5 text-sm"
-                    style={{ background: active ? 'rgba(139,124,255,0.15)' : 'rgba(255,255,255,0.03)', color: active ? COLOR.text : COLOR.textSecondary, border: `1px solid ${COLOR.border}` }}>
-                    {mode === 'views' ? 'Views' : mode === 'engagement' ? 'Engagement' : 'Growth'}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="flex justify-end">
+            <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+              <div className="flex gap-2">
+                {(['growth', 'engagement', 'views'] as const).map((mode) => {
+                  const active = performanceMode === mode;
+                  return (
+                    <button key={mode} type="button" onClick={() => setPerformanceMode(mode)} aria-pressed={active}
+                      className="rounded-lg px-3 py-1.5 text-sm"
+                      style={{ background: active ? 'rgba(139,124,255,0.15)' : 'rgba(255,255,255,0.03)', color: active ? COLOR.text : COLOR.textSecondary, border: `1px solid ${COLOR.border}` }}>
+                      {mode === 'views' ? 'Views' : mode === 'engagement' ? 'Engagement' : 'Growth'}
+                    </button>
+                  );
+                })}
+              </div>
               <PlatformLegend
                 all={connectedChartPlatforms}
                 activePlatforms={activePlatforms}
