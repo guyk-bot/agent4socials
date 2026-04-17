@@ -998,7 +998,7 @@ export default function UnifiedSummaryPage() {
         {data ? (
           <ShellCard className="!p-3 sm:!p-4 space-y-2">
             <h3 className="text-base font-semibold m-0" style={{ color: COLOR.text }}>Overview</h3>
-            <h4 className="text-sm font-semibold" style={{ color: COLOR.textSecondary }}>Performance</h4>
+            <h4 className="text-lg font-semibold" style={{ color: COLOR.text }}>Performance</h4>
             <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
               <KpiCard
                 label="Followers"
