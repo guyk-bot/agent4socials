@@ -465,18 +465,18 @@ function PlatformLegend({
             aria-pressed={active}
             aria-label={`${p}, ${preset === 'growth' ? 'change in range' : 'total in range'} ${metricText}`}
             title={`${p}: ${metricText}`}
-            className="inline-flex min-w-[128px] flex-col items-start rounded-xl border px-2.5 py-2 text-left transition-[opacity,box-shadow,transform] hover:scale-[1.02] active:scale-[0.98]"
+            className="inline-flex min-w-[132px] flex-col items-start rounded-[14px] border px-3 py-2.5 text-left transition-[opacity,box-shadow,transform] hover:scale-[1.01] active:scale-[0.99]"
             style={{
-              borderColor: active ? `${platformColor}70` : COLOR.border,
-              background: active ? `${platformColor}12` : 'rgba(248,250,252,0.9)',
-              opacity: active ? 1 : 0.55,
-              boxShadow: active ? `0 0 0 1px ${platformColor}35, 0 1px 3px rgba(15,23,42,0.08)` : 'none',
+              borderColor: active ? `${platformColor}45` : COLOR.border,
+              background: `${platformColor}${active ? '10' : '08'}`,
+              opacity: active ? 1 : 0.72,
+              boxShadow: active ? `0 0 0 1px ${platformColor}25, 0 2px 10px rgba(15,23,42,0.06)` : '0 1px 3px rgba(15,23,42,0.04)',
             }}
           >
-            <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: platformColor }}>
+            <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: platformColor }}>
               {p}
             </span>
-            <span className="tabular-nums text-sm font-semibold" style={{ color: platformColor }}>
+            <span className="tabular-nums text-[17px] leading-tight font-bold" style={{ color: platformColor }}>
               {metricLabel}: {metricText}
             </span>
           </button>
