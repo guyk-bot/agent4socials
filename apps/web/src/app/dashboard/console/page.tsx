@@ -280,6 +280,49 @@ type PlatformLiveFallback = {
   engagementSeries?: Array<{ date: string; value: number }>;
 };
 
+const CONSOLE_FALLBACK_CACHE_TTL_MS = 10 * 60 * 1000;
+
+function readConsoleFallbackCache(
+  key: string
+): { viewsSeries?: Array<{ date: string; value: number }>; engagementSeries?: Array<{ date: string; value: number } } | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as {
+      ts?: number;
+      viewsSeries?: Array<{ date: string; value: number }>;
+      engagementSeries?: Array<{ date: string; value: number }>;
+    };
+    if (!parsed?.ts || Date.now() - parsed.ts > CONSOLE_FALLBACK_CACHE_TTL_MS) return null;
+    return {
+      viewsSeries: Array.isArray(parsed.viewsSeries) ? parsed.viewsSeries : [],
+      engagementSeries: Array.isArray(parsed.engagementSeries) ? parsed.engagementSeries : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeConsoleFallbackCache(
+  key: string,
+  value: { viewsSeries?: Array<{ date: string; value: number }>; engagementSeries?: Array<{ date: string; value: number }> }
+) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(
+      key,
+      JSON.stringify({
+        ts: Date.now(),
+        viewsSeries: value.viewsSeries ?? [],
+        engagementSeries: value.engagementSeries ?? [],
+      })
+    );
+  } catch {
+    // ignore cache write failures
+  }
+}
+
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
 function Skeleton({ className = '' }: { className?: string }) {
@@ -877,6 +920,14 @@ export default function UnifiedSummaryPage() {
       const next: Record<string, PlatformLiveFallback> = {};
       await Promise.all(
         targets.map(async (acc) => {
+          const cacheKey = `console:fallback:${acc.platform}:${acc.id}:${dateRange.start}:${dateRange.end}`;
+          const cached = readConsoleFallbackCache(cacheKey);
+          if (cached) {
+            if (acc.platform === 'TWITTER') next.X = cached;
+            else if (acc.platform === 'PINTEREST') next.Pinterest = cached;
+            else if (acc.platform === 'LINKEDIN') next.LinkedIn = cached;
+            return;
+          }
           try {
             const res = await api.get(`/social/accounts/${encodeURIComponent(acc.id)}/insights`, {
               params: { since: dateRange.start, until: dateRange.end },
@@ -894,21 +945,36 @@ export default function UnifiedSummaryPage() {
                     .map((p) => ({ date: String(p.date ?? ''), value: Number(p.value ?? 0) }))
                     .filter((p) => /^\d{4}-\d{2}-\d{2}$/.test(p.date))
                 : [];
-              next.X = { viewsSeries, engagementSeries };
+              const parsed = { viewsSeries, engagementSeries };
+              next.X = parsed;
+              writeConsoleFallbackCache(cacheKey, parsed);
             } else if (acc.platform === 'PINTEREST') {
               const viewsSeries = Array.isArray(payload.impressionsTimeSeries)
                 ? (payload.impressionsTimeSeries as Array<Record<string, unknown>>)
                     .map((p) => ({ date: String(p.date ?? ''), value: Number(p.value ?? 0) }))
                     .filter((p) => /^\d{4}-\d{2}-\d{2}$/.test(p.date))
                 : [];
-              next.Pinterest = { viewsSeries };
+              // Pinterest engagement is exposed in the frontend analytics bundle.
+              const fbAnalytics = payload.facebookAnalytics as
+                | { series?: { engagement?: Array<{ date?: string; value?: number }> } }
+                | undefined;
+              const engagementSeries = Array.isArray(fbAnalytics?.series?.engagement)
+                ? fbAnalytics!.series!.engagement!
+                    .map((p) => ({ date: String(p.date ?? ''), value: Number(p.value ?? 0) }))
+                    .filter((p) => /^\d{4}-\d{2}-\d{2}$/.test(p.date))
+                : [];
+              const parsed = { viewsSeries, engagementSeries };
+              next.Pinterest = parsed;
+              writeConsoleFallbackCache(cacheKey, parsed);
             } else if (acc.platform === 'LINKEDIN') {
               const viewsSeries = Array.isArray(payload.impressionsTimeSeries)
                 ? (payload.impressionsTimeSeries as Array<Record<string, unknown>>)
                     .map((p) => ({ date: String(p.date ?? ''), value: Number(p.value ?? 0) }))
                     .filter((p) => /^\d{4}-\d{2}-\d{2}$/.test(p.date))
                 : [];
-              next.LinkedIn = { viewsSeries };
+              const parsed = { viewsSeries };
+              next.LinkedIn = parsed;
+              writeConsoleFallbackCache(cacheKey, parsed);
             }
           } catch {
             // Keep fallback empty on error
@@ -1291,7 +1357,15 @@ export default function UnifiedSummaryPage() {
 
             {/* Platform distribution donut chart - only for Engagement/Views (Growth can be negative) */}
             {performanceMode !== 'growth' && platformDistributionPieData.length > 0 && (
-              <div className="mt-4 rounded-[16px] border p-4" style={{ borderColor: COLOR.border, background: COLOR.card }}>
+              <div className="relative mt-4 rounded-[16px] border p-4 overflow-hidden" style={{ borderColor: COLOR.border, background: COLOR.card }}>
+                <div className="pointer-events-none absolute inset-0 z-20" aria-hidden>
+                  <span className="absolute left-[16%] top-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
+                  <span className="absolute right-[16%] top-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
+                  <span className="absolute left-1/2 top-[48%] -translate-x-1/2 -translate-y-1/2 text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
+                  <span className="absolute left-[16%] bottom-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
+                  <span className="absolute right-[16%] bottom-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
+                </div>
+                <div className="relative z-10">
                 <h4 className="text-sm font-semibold mb-3" style={{ color: COLOR.text }}>
                   {performanceMode === 'growth' ? 'Growth' : performanceMode === 'engagement' ? 'Engagement' : 'Views'} by platform
                 </h4>
@@ -1344,6 +1418,7 @@ export default function UnifiedSummaryPage() {
                       );
                     })}
                   </div>
+                </div>
                 </div>
               </div>
             )}
