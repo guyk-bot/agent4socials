@@ -1289,8 +1289,8 @@ export default function UnifiedSummaryPage() {
               )}
             </InsightChartCard>
 
-            {/* Platform distribution donut chart */}
-            {platformDistributionPieData.length > 0 && (
+            {/* Platform distribution donut chart - only for Engagement/Views (Growth can be negative) */}
+            {performanceMode !== 'growth' && platformDistributionPieData.length > 0 && (
               <div className="mt-4 rounded-[16px] border p-4" style={{ borderColor: COLOR.border, background: COLOR.card }}>
                 <h4 className="text-sm font-semibold mb-3" style={{ color: COLOR.text }}>
                   {performanceMode === 'growth' ? 'Growth' : performanceMode === 'engagement' ? 'Engagement' : 'Views'} by platform
