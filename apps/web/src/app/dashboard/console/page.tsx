@@ -435,9 +435,11 @@ function KpiCard({ label, value, growthPct, icon, accent, active, onClick }: {
       onClick={onClick}
       aria-pressed={onClick ? !!active : undefined}
       style={{
-        background: '#ffffff', border: '1px solid rgba(0,0,0,0.07)', borderRadius: 14,
+        background: active ? `${accent}12` : `${accent}08`,
+        border: `1px solid ${active ? `${accent}66` : `${accent}2b`}`,
+        borderRadius: 14,
         padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 6,
-        boxShadow: active ? `0 0 0 1px ${accent}40, 0 4px 14px ${accent}22` : '0 1px 3px rgba(0,0,0,0.05)',
+        boxShadow: active ? `0 0 0 1px ${accent}33, 0 4px 14px ${accent}22` : '0 1px 3px rgba(0,0,0,0.05)',
         cursor: onClick ? 'pointer' : 'default',
         textAlign: 'left',
       }}
