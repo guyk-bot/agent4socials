@@ -189,9 +189,11 @@ function formatConsoleAxisTickLabel(ymd: string): string {
   const d = new Date(`${ymd}T12:00:00`);
   if (Number.isNaN(d.getTime())) return ymd;
   if (d.getDate() === 1) {
-    return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+    // Show month label only once per month across the axis.
+    return d.toLocaleDateString('en-US', { month: 'long' });
   }
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  // For non-month-start ticks, show only day number to avoid repeated month text.
+  return String(d.getDate());
 }
 
 /** Map SocialAccount.platform (e.g. FACEBOOK) to unified chart label (e.g. Meta). */
