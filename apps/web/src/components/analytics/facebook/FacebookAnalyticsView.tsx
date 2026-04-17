@@ -70,6 +70,7 @@ type StoryMetricKey =
   | 'subscriberNet';
 type ActivityMetricKey = 'actions' | 'posts' | 'conversations' | 'subscriberNet';
 type EngagementMetricKey = 'likes' | 'comments' | 'shares' | 'reposts' | 'dislikes';
+type ContentTypeKey = 'reels' | 'image' | 'carousel';
 
 /** Bottom → top stack order for the Engagement chart (must match `<Bar />` order). */
 const ENGAGEMENT_STACK_ORDER_META: readonly EngagementMetricKey[] = ['likes', 'comments', 'shares', 'reposts'];
@@ -104,6 +105,12 @@ const COLOR = {
   mint: '#31c48d',
   amber: '#f5b942',
   coral: '#ff8b7b',
+};
+
+const CONTENT_TYPE_COLOR: Record<ContentTypeKey, string> = {
+  reels: '#22d3ee',
+  image: '#f43f5e',
+  carousel: '#8b5cf6',
 };
 
 /** Neon outline for metrics sourced from TikTok Open API (user.info, video/list, creator_info). */
@@ -2261,6 +2268,35 @@ export function FacebookAnalyticsView({
   const postsInRange = useMemo(
     () => posts.filter((p) => inRange(p.publishedAt, dateRange.start, dateRange.end)),
     [posts, dateRange.end, dateRange.start]
+  );
+  const contentTypeCounts = useMemo(() => {
+    const counts: Record<ContentTypeKey, number> = { reels: 0, image: 0, carousel: 0 };
+    for (const p of postsInRange) {
+      if (isReelLikePost(p)) {
+        counts.reels += 1;
+        continue;
+      }
+      const mt = String(p.mediaType ?? '').toUpperCase();
+      if (mt === 'CAROUSEL' || mt === 'ALBUM') {
+        counts.carousel += 1;
+      } else {
+        counts.image += 1;
+      }
+    }
+    return counts;
+  }, [postsInRange]);
+  const contentTypePieData = useMemo(
+    () =>
+      ([
+        { key: 'reels' as const, label: 'Reels', value: contentTypeCounts.reels, color: CONTENT_TYPE_COLOR.reels },
+        { key: 'image' as const, label: 'Image', value: contentTypeCounts.image, color: CONTENT_TYPE_COLOR.image },
+        { key: 'carousel' as const, label: 'Carousel', value: contentTypeCounts.carousel, color: CONTENT_TYPE_COLOR.carousel },
+      ] as const).filter((x) => x.value > 0),
+    [contentTypeCounts]
+  );
+  const contentTypeTotal = useMemo(
+    () => contentTypePieData.reduce((s, p) => s + p.value, 0),
+    [contentTypePieData]
   );
   const tiktokViewsInRange = useMemo(
     () => postsInRange.reduce((s, p) => s + (p.impressions ?? bestPostPlayCount(p)), 0),
@@ -5223,6 +5259,62 @@ export function FacebookAnalyticsView({
             )}
             <MetricCard label="Avg Reactions per Post" source="post_reactions_like_total / breakdown" color={COLOR.text} value={avgReactionsPerPost.toFixed(1)} />
           </div>
+          {contentTypePieData.length > 0 ? (
+            <div className="rounded-xl border p-4 sm:p-5" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
+              <h4 className="text-base font-semibold mb-3" style={{ color: COLOR.text }}>Post type distribution</h4>
+              <div className="grid gap-2 sm:grid-cols-3 mb-4">
+                <div className="rounded-xl border px-3 py-2.5" style={{ borderColor: `${CONTENT_TYPE_COLOR.reels}33`, background: `${CONTENT_TYPE_COLOR.reels}12` }}>
+                  <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLOR.textSecondary }}>Reels</div>
+                  <div className="text-xl font-bold tabular-nums" style={{ color: CONTENT_TYPE_COLOR.reels }}>{formatNumber(contentTypeCounts.reels)}</div>
+                </div>
+                <div className="rounded-xl border px-3 py-2.5" style={{ borderColor: `${CONTENT_TYPE_COLOR.image}33`, background: `${CONTENT_TYPE_COLOR.image}12` }}>
+                  <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLOR.textSecondary }}>Image</div>
+                  <div className="text-xl font-bold tabular-nums" style={{ color: CONTENT_TYPE_COLOR.image }}>{formatNumber(contentTypeCounts.image)}</div>
+                </div>
+                <div className="rounded-xl border px-3 py-2.5" style={{ borderColor: `${CONTENT_TYPE_COLOR.carousel}33`, background: `${CONTENT_TYPE_COLOR.carousel}12` }}>
+                  <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLOR.textSecondary }}>Carousel</div>
+                  <div className="text-xl font-bold tabular-nums" style={{ color: CONTENT_TYPE_COLOR.carousel }}>{formatNumber(contentTypeCounts.carousel)}</div>
+                </div>
+              </div>
+              <div className="flex flex-col md:flex-row items-center gap-6">
+                <div className="w-[200px] h-[200px] shrink-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={contentTypePieData} dataKey="value" nameKey="label" cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={2} strokeWidth={0}>
+                        {contentTypePieData.map((entry, idx) => (
+                          <Cell key={`content-type-${entry.key}-${idx}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
+                        formatter={(value, name) => {
+                          const v = Number(value) || 0;
+                          return [`${formatNumber(v)} (${contentTypeTotal > 0 ? ((v / contentTypeTotal) * 100).toFixed(1) : 0}%)`, String(name ?? '')];
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex-1 grid grid-cols-2 gap-x-6 gap-y-2">
+                  {contentTypePieData.map((item) => {
+                    const pct = contentTypeTotal > 0 ? ((item.value / contentTypeTotal) * 100).toFixed(1) : '0';
+                    return (
+                      <div key={item.key} className="flex items-center justify-between gap-2 py-1">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="w-3 h-3 rounded-full shrink-0" style={{ background: item.color }} />
+                          <span className="text-sm truncate" style={{ color: COLOR.text }}>{item.label}</span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-sm font-semibold tabular-nums" style={{ color: COLOR.text }}>{formatNumber(item.value)}</span>
+                          <span className="text-xs tabular-nums" style={{ color: COLOR.textMuted }}>({pct}%)</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          ) : null}
           <TopContentHighlights
             platform={insights?.platform}
             clicksLeaderTitle={
