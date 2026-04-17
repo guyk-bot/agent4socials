@@ -469,10 +469,10 @@ function LegendPill({ label, color, active, onClick }: { label: string; color: s
 function DotLegendPill({ label, color }: { label: string; color: string }) {
   return (
     <span
-      className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-medium"
-      style={{ borderColor: COLOR.border, background: '#fff', color: COLOR.textSecondary }}
+      className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs"
+      style={{ borderColor: COLOR.border, background: 'rgba(255,255,255,0.02)', color: COLOR.textSecondary }}
     >
-      <span className="inline-block h-3 w-3 rounded-full" style={{ background: color }} />
+      <span className="inline-block h-2 w-2 rounded-full" style={{ background: color }} />
       {label}
     </span>
   );
@@ -1060,7 +1060,7 @@ export default function UnifiedSummaryPage() {
               />
             </div>
             <InsightChartCard title="Performance" hideHeader flat>
-              <div className="mb-2 flex flex-wrap gap-2">
+              <div className="mb-2 flex flex-wrap justify-end gap-2">
                 {selectedOverviewLegendItems.map((item) => (
                   <DotLegendPill key={item.key} label={item.label} color={item.color} />
                 ))}
@@ -1147,7 +1147,7 @@ export default function UnifiedSummaryPage() {
               </div>
             </div>
             <InsightChartCard title="Performance" hideHeader flat>
-              <div className="mb-2 flex flex-wrap gap-2">
+              <div className="mb-2 flex flex-wrap justify-end gap-2">
                 {selectedPlatformLegendItems.map((item) => (
                   <DotLegendPill key={item.label} label={item.label} color={item.color} />
                 ))}
