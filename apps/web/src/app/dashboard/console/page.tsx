@@ -228,6 +228,12 @@ function formatLegendMetric(preset: 'growth' | 'engagement' | 'views', value: nu
   return fmt(value);
 }
 
+function sumPlatformsForRow(row: Record<string, unknown>, platforms: string[]): number {
+  let total = 0;
+  for (const p of platforms) total += Number(row[p] ?? 0);
+  return Math.round(total);
+}
+
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
 function Skeleton({ className = '' }: { className?: string }) {
@@ -305,17 +311,30 @@ function AccountBadgeIcon({ platform, size = 20 }: { platform: string; size?: nu
 
 // ─── KPI Card (original colored style) ────────────────────────────────────────
 
-function KpiCard({ label, value, growthPct, icon, accent }: {
-  label: string; value: string; growthPct: number; icon: React.ReactNode; accent: string;
+function KpiCard({ label, value, growthPct, icon, accent, active, onClick }: {
+  label: string;
+  value: string;
+  growthPct: number;
+  icon: React.ReactNode;
+  accent: string;
+  active?: boolean;
+  onClick?: () => void;
 }) {
   const positive = growthPct >= 0;
   const noChange = Math.abs(growthPct) < 0.05;
   return (
-    <div style={{
-      background: '#ffffff', border: '1px solid rgba(0,0,0,0.07)', borderRadius: 14,
-      padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 6,
-      boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-    }}>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={onClick ? !!active : undefined}
+      style={{
+        background: '#ffffff', border: '1px solid rgba(0,0,0,0.07)', borderRadius: 14,
+        padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 6,
+        boxShadow: active ? `0 0 0 1px ${accent}40, 0 4px 14px ${accent}22` : '0 1px 3px rgba(0,0,0,0.05)',
+        cursor: onClick ? 'pointer' : 'default',
+        textAlign: 'left',
+      }}
+    >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b', letterSpacing: 0.03, textTransform: 'uppercase' }}>{label}</span>
         <div style={{
@@ -330,7 +349,7 @@ function KpiCard({ label, value, growthPct, icon, accent }: {
           {noChange ? 'No change' : fmtPct(growthPct)}
         </span>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -414,7 +433,7 @@ function LegendPill({ label, color, active, onClick }: { label: string; color: s
   );
 }
 
-/** Icon-only toggles; shows change (Growth) or period total (Engagement / Views) for each platform. */
+/** Text cards toggles; shows platform + change/total for current preset. */
 function PlatformLegend({
   activePlatforms,
   toggle,
@@ -434,6 +453,7 @@ function PlatformLegend({
         const active = activePlatforms.includes(p);
         const raw = platformPresetMetric(chartData, p, preset);
         const metricText = formatLegendMetric(preset, raw);
+        const metricLabel = preset === 'growth' ? (raw > 0 ? 'Increase' : raw < 0 ? 'Decrease' : 'No change') : 'Total';
         const metricColor =
           preset === 'growth'
             ? raw > 0
@@ -450,19 +470,19 @@ function PlatformLegend({
             aria-pressed={active}
             aria-label={`${p}, ${preset === 'growth' ? 'change in range' : 'total in range'} ${metricText}`}
             title={`${p}: ${metricText}`}
-            className="inline-flex items-center gap-1.5 rounded-full border px-2 py-1.5 text-xs font-semibold transition-[opacity,box-shadow,transform] hover:scale-[1.02] active:scale-[0.98]"
+            className="inline-flex min-w-[128px] flex-col items-start rounded-xl border px-2.5 py-2 text-left transition-[opacity,box-shadow,transform] hover:scale-[1.02] active:scale-[0.98]"
             style={{
               borderColor: COLOR.border,
-              background: active ? 'rgba(255,255,255,0.95)' : 'rgba(248,250,252,0.9)',
+              background: active ? 'rgba(255,255,255,0.95)' : 'rgba(248,250,252,0.88)',
               opacity: active ? 1 : 0.45,
               boxShadow: active ? '0 1px 3px rgba(15,23,42,0.08)' : 'none',
             }}
           >
-            <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center [&>svg]:max-h-[20px] [&>svg]:max-w-[20px]">
-              <PlatformIcon platform={p} size={18} />
+            <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: COLOR.textSecondary }}>
+              {p}
             </span>
-            <span className="tabular-nums min-w-[2ch]" style={{ color: metricColor }}>
-              {metricText}
+            <span className="tabular-nums text-sm font-semibold" style={{ color: metricColor }}>
+              {metricLabel}: {metricText}
             </span>
           </button>
         );
@@ -698,6 +718,11 @@ export default function UnifiedSummaryPage() {
   // Performance section
   const [performanceMode, setPerformanceMode] = useState<'growth' | 'engagement' | 'views'>('growth');
   const [activePlatforms, setActivePlatforms] = useState<string[]>([...CHART_PLATFORMS]);
+  const [selectedOverviewMetrics, setSelectedOverviewMetrics] = useState<Array<'followers' | 'views' | 'engagements'>>([
+    'followers',
+    'views',
+    'engagements',
+  ]);
 
   /** Chart legend and series only for accounts the user has connected (fallback: all chart keys). */
   const connectedChartPlatforms = useMemo(() => {
@@ -794,12 +819,42 @@ export default function UnifiedSummaryPage() {
     setActivePlatforms((prev) => prev.includes(p) ? (prev.length > 1 ? prev.filter((x) => x !== p) : prev) : [...prev, p]);
   }, []);
 
+  const toggleOverviewMetric = useCallback((metric: 'followers' | 'views' | 'engagements') => {
+    setSelectedOverviewMetrics((prev) => (
+      prev.includes(metric)
+        ? (prev.length > 1 ? prev.filter((m) => m !== metric) : prev)
+        : [...prev, metric]
+    ));
+  }, []);
+
   const activeChartData = useMemo((): UnifiedChartData => {
     if (!data) return [];
     if (performanceMode === 'growth') return data.audienceChart ?? [];
     if (performanceMode === 'engagement') return data.engagementChart ?? [];
     return data.chart ?? [];
   }, [data, performanceMode]);
+
+  const overviewTrendData = useMemo(() => {
+    if (!data) return [] as Array<{ date: string; followers: number; views: number; engagements: number }>;
+    const map = new Map<string, { date: string; followers: number; views: number; engagements: number }>();
+    const touch = (date: string) => {
+      if (!map.has(date)) map.set(date, { date, followers: 0, views: 0, engagements: 0 });
+      return map.get(date)!;
+    };
+    for (const row of data.audienceChart ?? []) {
+      const entry = touch(String(row.date));
+      entry.followers = sumPlatformsForRow(row as unknown as Record<string, unknown>, connectedChartPlatforms);
+    }
+    for (const row of data.chart ?? []) {
+      const entry = touch(String(row.date));
+      entry.views = sumPlatformsForRow(row as unknown as Record<string, unknown>, connectedChartPlatforms);
+    }
+    for (const row of data.engagementChart ?? []) {
+      const entry = touch(String(row.date));
+      entry.engagements = sumPlatformsForRow(row as unknown as Record<string, unknown>, connectedChartPlatforms);
+    }
+    return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
+  }, [data, connectedChartPlatforms]);
 
   // Engagement totals
   const engTotals = useMemo(() => {
@@ -829,6 +884,10 @@ export default function UnifiedSummaryPage() {
   const engagementAxisTicks = useMemo(
     () => buildConsoleAxisTicks(data?.engagementBreakdown ?? [], selectedEngagement),
     [data?.engagementBreakdown, selectedEngagement.join('|')]
+  );
+  const overviewAxisTicks = useMemo(
+    () => buildConsoleAxisTicks(overviewTrendData, selectedOverviewMetrics),
+    [overviewTrendData, selectedOverviewMetrics.join('|')]
   );
   const activityAxisTicks = useMemo(
     () => buildConsoleAxisTicks(data?.activityBreakdown ?? [], ['posts']),
@@ -911,10 +970,79 @@ export default function UnifiedSummaryPage() {
           <ShellCard className="!p-3 sm:!p-4 space-y-2">
             <h3 className="text-base font-semibold m-0" style={{ color: COLOR.text }}>Overview</h3>
             <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-              <KpiCard label="Followers" value={fmtExactInt(data.kpi.totalAudience)} growthPct={data.kpi.audienceGrowthPercentage} icon={<Users size={15} />} accent={COLOR.mint} />
-              <KpiCard label="Views" value={fmtExactInt(data.kpi.totalImpressions)} growthPct={data.kpi.impressionsGrowthPercentage} icon={<Eye size={15} />} accent={COLOR.magenta} />
-              <KpiCard label="Engagements" value={fmtExactInt(data.kpi.totalEngagement)} growthPct={data.kpi.engagementGrowthPercentage} icon={<Heart size={15} />} accent={COLOR.violet} />
+              <KpiCard
+                label="Followers"
+                value={fmtExactInt(data.kpi.totalAudience)}
+                growthPct={data.kpi.audienceGrowthPercentage}
+                icon={<Users size={15} />}
+                accent={COLOR.mint}
+                active={selectedOverviewMetrics.includes('followers')}
+                onClick={() => toggleOverviewMetric('followers')}
+              />
+              <KpiCard
+                label="Views"
+                value={fmtExactInt(data.kpi.totalImpressions)}
+                growthPct={data.kpi.impressionsGrowthPercentage}
+                icon={<Eye size={15} />}
+                accent={COLOR.magenta}
+                active={selectedOverviewMetrics.includes('views')}
+                onClick={() => toggleOverviewMetric('views')}
+              />
+              <KpiCard
+                label="Engagements"
+                value={fmtExactInt(data.kpi.totalEngagement)}
+                growthPct={data.kpi.engagementGrowthPercentage}
+                icon={<Heart size={15} />}
+                accent={COLOR.violet}
+                active={selectedOverviewMetrics.includes('engagements')}
+                onClick={() => toggleOverviewMetric('engagements')}
+              />
             </div>
+            <InsightChartCard title="Overview trends" hideHeader flat>
+              {selectedOverviewMetrics.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-sm" style={{ color: COLOR.textMuted }}>
+                  Select at least one Overview card to display trend data.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={overviewTrendData} margin={{ top: 8, right: 8, left: -12, bottom: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
+                    <XAxis
+                      dataKey="date"
+                      ticks={overviewAxisTicks}
+                      tickFormatter={formatConsoleAxisTickLabel}
+                      tick={{ fontSize: 10, fill: COLOR.textMuted }}
+                      tickLine={false}
+                      axisLine={false}
+                      interval={0}
+                    />
+                    <YAxis
+                      domain={[0, 'auto']}
+                      tickFormatter={(v) => fmt(Number(v))}
+                      tick={{ fontSize: 11, fill: COLOR.textMuted }}
+                      tickLine={false}
+                      axisLine={false}
+                      width={56}
+                    />
+                    <Tooltip
+                      contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
+                      labelFormatter={(v) => fmtTooltipDate(String(v))}
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      formatter={(value: any, name: any) => [fmtExactInt(Number(value) || 0), String(name ?? '')]}
+                    />
+                    {selectedOverviewMetrics.includes('followers') && (
+                      <Line type="monotone" dataKey="followers" name="Followers" stroke={COLOR.mint} strokeWidth={2} dot={false} isAnimationActive={false} />
+                    )}
+                    {selectedOverviewMetrics.includes('views') && (
+                      <Line type="monotone" dataKey="views" name="Views" stroke={COLOR.magenta} strokeWidth={2} dot={false} isAnimationActive={false} />
+                    )}
+                    {selectedOverviewMetrics.includes('engagements') && (
+                      <Line type="monotone" dataKey="engagements" name="Engagements" stroke={COLOR.violet} strokeWidth={2} dot={false} isAnimationActive={false} />
+                    )}
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </InsightChartCard>
           </ShellCard>
         ) : loading ? (
           <ShellCard className="space-y-4">
