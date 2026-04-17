@@ -112,12 +112,12 @@ const COLOR = {
 const CONTENT_TYPE_COLOR: Record<ContentTypeKey, string> = {
   reels: '#22d3ee',
   image: '#f43f5e',
-  carousel: '#8b5cf6',
+  carousel: '#22d3ee',
 };
 
 const YOUTUBE_CONTENT_TYPE_COLOR: Record<YouTubeContentTypeKey, string> = {
-  shorts: '#ff0000',
-  videos: '#282828',
+  shorts: '#22d3ee',
+  videos: '#f43f5e',
 };
 
 /** Neon outline for metrics sourced from TikTok Open API (user.info, video/list, creator_info). */
@@ -5227,27 +5227,6 @@ export function FacebookAnalyticsView({
           <div className="rounded-xl border p-4 sm:p-5" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
             <h4 className="text-base font-semibold mb-3" style={{ color: COLOR.text }}>Uploaded posts</h4>
             <div className="mb-5 flex items-start justify-between gap-3">
-              <div className="flex shrink-0 gap-2">
-                {postsUploadChartPresets.map((preset) => {
-                  const active = selectedPostsUploadPreset === preset.key;
-                  return (
-                    <button
-                      key={`posts-upload-preset-${preset.key}`}
-                      type="button"
-                      onClick={() => setSelectedPostsUploadPreset(preset.key)}
-                      aria-pressed={active}
-                      className="rounded-lg px-3 py-1.5 text-sm"
-                      style={{
-                        background: active ? `${preset.color}22` : 'rgba(255,255,255,0.03)',
-                        color: active ? COLOR.text : COLOR.textSecondary,
-                        border: `1px solid ${COLOR.border}`,
-                      }}
-                    >
-                      {preset.label}
-                    </button>
-                  );
-                })}
-              </div>
               <div className="min-w-0 flex-1 overflow-x-auto">
                 <div className="flex flex-nowrap justify-end gap-2">
                   {postsUploadChartPresets.map((preset) => {

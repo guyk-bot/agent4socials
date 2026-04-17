@@ -273,7 +273,7 @@ type PostTypeKey = 'reels' | 'image' | 'carousel';
 const POST_TYPE_COLOR: Record<PostTypeKey, string> = {
   reels: '#22d3ee',
   image: '#f43f5e',
-  carousel: '#8b5cf6',
+  carousel: '#22d3ee',
 };
 
 const POST_TYPE_LABEL: Record<PostTypeKey, string> = {
@@ -1516,24 +1516,37 @@ export default function UnifiedSummaryPage() {
           <ShellCard className="space-y-3">
             <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Posts</h3>
             <div className="mb-5 flex items-start justify-between gap-3">
-              <div className="flex shrink-0 gap-2">
-                {(['reels', 'image', 'carousel'] as const).map((preset) => {
-                  const active = postsPreset === preset;
-                  return (
-                    <button
-                      key={`posts-preset-${preset}`}
-                      type="button"
-                      onClick={() => setPostsPreset(preset)}
-                      aria-pressed={active}
-                      className="rounded-lg px-3 py-1.5 text-sm"
-                      style={{ background: active ? 'rgba(139,124,255,0.15)' : 'rgba(255,255,255,0.03)', color: active ? COLOR.text : COLOR.textSecondary, border: `1px solid ${COLOR.border}` }}
-                    >
-                      {POST_TYPE_LABEL[preset]}
-                    </button>
-                  );
-                })}
-              </div>
               <div className="-mt-3 min-w-0 flex-1 overflow-x-auto">
+                <div className="mb-2 flex flex-nowrap gap-2">
+                  {(['reels', 'image', 'carousel'] as const).map((preset) => {
+                    const active = postsPreset === preset;
+                    const color = POST_TYPE_COLOR[preset];
+                    return (
+                      <button
+                        key={`posts-type-card-${preset}`}
+                        type="button"
+                        onClick={() => setPostsPreset(preset)}
+                        aria-pressed={active}
+                        className="inline-flex min-w-[132px] flex-col items-start rounded-[14px] border px-3 py-2.5 text-left transition-[opacity,box-shadow,transform] hover:scale-[1.01] active:scale-[0.99]"
+                        style={{
+                          borderColor: active ? `${color}45` : COLOR.border,
+                          background: `${color}${active ? '10' : '08'}`,
+                          opacity: active ? 1 : 0.72,
+                          boxShadow: active ? `0 0 0 1px ${color}25, 0 2px 10px rgba(15,23,42,0.06)` : '0 1px 3px rgba(15,23,42,0.04)',
+                        }}
+                      >
+                        <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLOR.textSecondary }}>
+                          {POST_TYPE_LABEL[preset]}
+                        </span>
+                        <span className="tabular-nums text-[17px] leading-tight font-bold" style={{ color }}>
+                          {fmtExactInt(
+                            connectedChartPlatforms.reduce((sum, p) => sum + postsTimelineData.reduce((s, row) => s + Number((row as unknown as Record<string, number>)[`${preset}_${p}`] ?? 0), 0), 0)
+                          )}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
                 <PlatformLegend
                   all={postsEligiblePlatforms}
                   activePlatforms={postsActivePlatforms}
@@ -1586,7 +1599,7 @@ export default function UnifiedSummaryPage() {
                         dataKey={`${postsPreset}_${p}`}
                         stackId={`posts-${postsPreset}`}
                         name={consolePlatformDisplayName(p)}
-                        fill={CONSOLE_PLATFORM_COLOR[p] ?? PLATFORM_COLOR[p] ?? COLOR.textSecondary}
+                        fill={POST_TYPE_COLOR[postsPreset]}
                         radius={postsStackTopPlatform === p ? [6, 6, 0, 0] : [0, 0, 0, 0]}
                         hide={!postsActivePlatforms.includes(p)}
                         barSize={16}
