@@ -1005,13 +1005,14 @@ export default function UnifiedSummaryPage() {
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={overviewTrendData} margin={{ top: 8, right: 8, left: -12, bottom: 10 }}>
+                  <LineChart data={overviewTrendData} margin={{ top: 8, right: 8, left: -12, bottom: 22 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
                     <XAxis
                       dataKey="date"
                       ticks={overviewAxisTicks}
                       tickFormatter={formatConsoleAxisTickLabel}
                       tick={{ fontSize: 10, fill: COLOR.textMuted }}
+                      dy={8}
                       tickLine={false}
                       axisLine={false}
                       interval={0}
