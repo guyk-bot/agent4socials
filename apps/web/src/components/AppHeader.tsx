@@ -71,9 +71,9 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
         )}
         <Link href="/dashboard" className="flex items-center gap-2 shrink-0">
           {logoUrl ? (
-            <img src={logoUrl} alt="" className="h-8 w-8 object-contain" />
+            <img src={logoUrl} alt="" className="h-10 w-10 object-contain" />
           ) : (
-            <img src="/logo.svg" alt="Agent4Socials" className="h-8 w-8 object-contain block bg-transparent" />
+            <img src="/logo.svg" alt="Agent4Socials" className="h-10 w-10 object-contain block bg-transparent" />
           )}
           <span className="font-semibold text-white hidden sm:inline truncate">{appName || 'Agent4Socials'}</span>
         </Link>
