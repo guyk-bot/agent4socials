@@ -11,6 +11,7 @@ import {
   CartesianGrid,
   Cell,
   TooltipProps,
+  Rectangle,
 } from 'recharts';
 
 type DailyPublishing = { date: string; count: number; byPlatform: Record<string, number> };
@@ -32,6 +33,57 @@ const PLATFORM_COLORS: Record<string, string> = {
 };
 
 const ACCENT = '#8b5cf6';
+
+const ENGAGEMENT_ACTIVITY_STACK = ['likes', 'comments'] as const;
+const ENGAGEMENT_ACTIVITY_TOP_RADIUS: [number, number, number, number] = [3, 3, 0, 0];
+const ENGAGEMENT_ACTIVITY_FLAT_RADIUS: [number, number, number, number] = [0, 0, 0, 0];
+
+function engagementActivityBarRadius(
+  payload: Record<string, unknown> | undefined,
+  dataKey: (typeof ENGAGEMENT_ACTIVITY_STACK)[number]
+): [number, number, number, number] {
+  let top: (typeof ENGAGEMENT_ACTIVITY_STACK)[number] | null = null;
+  for (let i = ENGAGEMENT_ACTIVITY_STACK.length - 1; i >= 0; i--) {
+    const k = ENGAGEMENT_ACTIVITY_STACK[i]!;
+    const v = Number(payload?.[k] ?? 0);
+    if (Number.isFinite(v) && v > 0) {
+      top = k;
+      break;
+    }
+  }
+  if (!top) return ENGAGEMENT_ACTIVITY_FLAT_RADIUS;
+  return top === dataKey ? ENGAGEMENT_ACTIVITY_TOP_RADIUS : ENGAGEMENT_ACTIVITY_FLAT_RADIUS;
+}
+
+function EngagementActivityBarShape(props: {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  fill?: string;
+  payload?: Record<string, unknown>;
+  dataKey?: string | number;
+}) {
+  const x = props.x ?? 0;
+  const y = props.y ?? 0;
+  const width = props.width ?? 0;
+  const height = props.height ?? 0;
+  const dk: (typeof ENGAGEMENT_ACTIVITY_STACK)[number] = String(props.dataKey) === 'comments' ? 'comments' : 'likes';
+  const radius = engagementActivityBarRadius(props.payload, dk);
+  const h = Math.abs(height);
+  const iy = height >= 0 ? y : y + height;
+  return (
+    <Rectangle
+      x={x}
+      y={iy}
+      width={width}
+      height={h}
+      fill={props.fill}
+      radius={radius}
+      opacity={h > 0 ? 1 : 0}
+    />
+  );
+}
 
 function formatDateShort(dateStr: string): string {
   try {
@@ -152,8 +204,8 @@ export function ContentActivityPanels({ dailyPublishing, dailyEngagement }: Cont
                 <XAxis dataKey="date" tickFormatter={formatDateShort} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} allowDecimals={false} />
                 <Tooltip content={<EngageTooltip />} cursor={{ fill: 'rgba(139,92,246,0.08)' }} />
-                <Bar dataKey="likes" name="Likes" fill="#b030ad" radius={[3, 3, 0, 0]} stackId="engage" />
-                <Bar dataKey="comments" name="Comments" fill="#8b5cf6" radius={[3, 3, 0, 0]} stackId="engage" />
+                <Bar dataKey="likes" name="Likes" fill="#b030ad" stackId="engage" shape={EngagementActivityBarShape} />
+                <Bar dataKey="comments" name="Comments" fill="#8b5cf6" stackId="engage" shape={EngagementActivityBarShape} />
               </BarChart>
             </ResponsiveContainer>
           </div>

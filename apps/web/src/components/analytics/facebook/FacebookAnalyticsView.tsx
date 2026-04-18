@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   Bar,
@@ -1374,6 +1374,30 @@ function MinWidthBarShape(props: { x?: number; y?: number; width?: number; heigh
       opacity={normalizedHeight > 0 ? 1 : 0}
     />
   );
+}
+
+const ENGAGEMENT_BAR_TOP_RADIUS: [number, number, number, number] = [6, 6, 0, 0];
+const ENGAGEMENT_BAR_FLAT_RADIUS: [number, number, number, number] = [0, 0, 0, 0];
+
+/** Rounded top only on the highest non-zero segment in stack order for this day (Recharts `radius` on `<Bar>` is per-series, not per-datum). */
+function engagementBarRadiusForDatum(
+  payload: Record<string, unknown> | undefined,
+  dataKey: EngagementMetricKey,
+  stackKeysInRenderOrder: readonly EngagementMetricKey[]
+): [number, number, number, number] {
+  if (!payload) return ENGAGEMENT_BAR_FLAT_RADIUS;
+  let topKey: EngagementMetricKey | null = null;
+  for (let i = stackKeysInRenderOrder.length - 1; i >= 0; i--) {
+    const k = stackKeysInRenderOrder[i]!;
+    const raw = payload[k];
+    const v = typeof raw === 'number' ? raw : Number(raw ?? 0);
+    if (Number.isFinite(v) && v > 0) {
+      topKey = k;
+      break;
+    }
+  }
+  if (!topKey) return ENGAGEMENT_BAR_FLAT_RADIUS;
+  return topKey === dataKey ? ENGAGEMENT_BAR_TOP_RADIUS : ENGAGEMENT_BAR_FLAT_RADIUS;
 }
 
 export function EmptyStateCard({ title, subtitle }: { title: string; subtitle: string }) {
@@ -4130,20 +4154,45 @@ export function FacebookAnalyticsView({
     () => [...engagementTicks].sort((a, b) => a.localeCompare(b)),
     [engagementTicks]
   );
-  const engagementStackTopKey = useMemo((): EngagementMetricKey | null => {
+  const engagementStackKeysInRenderOrder = useMemo((): EngagementMetricKey[] => {
     const order = isTikTok
       ? ENGAGEMENT_STACK_ORDER_TIKTOK
       : isYouTube
         ? ENGAGEMENT_STACK_ORDER_YOUTUBE
         : ENGAGEMENT_STACK_ORDER_META;
-    const selected = order.filter((k) => {
+    return order.filter((k) => {
       if (!selectedEngagementMetrics.includes(k)) return false;
       if (k === 'reposts') return isInstagram || isTwitter;
       if (k === 'dislikes') return isYouTube;
       return true;
     });
-    return selected.length ? selected[selected.length - 1]! : null;
   }, [isInstagram, isTwitter, isTikTok, isYouTube, selectedEngagementMetrics]);
+
+  const engagementStackBarShape = useCallback(
+    (props: {
+      x?: number;
+      y?: number;
+      width?: number;
+      height?: number;
+      fill?: string;
+      payload?: Record<string, unknown>;
+      dataKey?: string | number;
+    }) => {
+      const dk = String(props.dataKey ?? '') as EngagementMetricKey;
+      const radius = engagementBarRadiusForDatum(props.payload, dk, engagementStackKeysInRenderOrder);
+      return (
+        <MinWidthBarShape
+          x={props.x}
+          y={props.y}
+          width={props.width}
+          height={props.height}
+          fill={props.fill}
+          radius={radius}
+        />
+      );
+    },
+    [engagementStackKeysInRenderOrder]
+  );
   const operationalData = useMemo(() => {
     const actionsRaw = seriesToMap(actionsSeries ?? []);
     // Use per-day values for Actions so the line reflects daily fluctuation
@@ -5224,9 +5273,8 @@ export function FacebookAnalyticsView({
                     dataKey="likes"
                     stackId="engagement"
                     fill={ENGAGEMENT_METRIC_CONFIG.likes.color}
-                    radius={engagementStackTopKey === 'likes' ? [6, 6, 0, 0] : [0, 0, 0, 0]}
                     barSize={UNIFIED_BAR_SIZE}
-                    shape={<MinWidthBarShape />}
+                    shape={engagementStackBarShape}
                   />
                 ) : null}
                 {selectedEngagementMetrics.includes('comments') ? (
@@ -5234,9 +5282,8 @@ export function FacebookAnalyticsView({
                     dataKey="comments"
                     stackId="engagement"
                     fill={ENGAGEMENT_METRIC_CONFIG.comments.color}
-                    radius={engagementStackTopKey === 'comments' ? [6, 6, 0, 0] : [0, 0, 0, 0]}
                     barSize={UNIFIED_BAR_SIZE}
-                    shape={<MinWidthBarShape />}
+                    shape={engagementStackBarShape}
                   />
                 ) : null}
                 {selectedEngagementMetrics.includes('shares') ? (
@@ -5244,9 +5291,8 @@ export function FacebookAnalyticsView({
                     dataKey="shares"
                     stackId="engagement"
                     fill={ENGAGEMENT_METRIC_CONFIG.shares.color}
-                    radius={engagementStackTopKey === 'shares' ? [6, 6, 0, 0] : [0, 0, 0, 0]}
                     barSize={UNIFIED_BAR_SIZE}
-                    shape={<MinWidthBarShape />}
+                    shape={engagementStackBarShape}
                   />
                 ) : null}
                 {isYouTube && selectedEngagementMetrics.includes('dislikes') ? (
@@ -5254,9 +5300,8 @@ export function FacebookAnalyticsView({
                     dataKey="dislikes"
                     stackId="engagement"
                     fill={ENGAGEMENT_METRIC_CONFIG.dislikes.color}
-                    radius={engagementStackTopKey === 'dislikes' ? [6, 6, 0, 0] : [0, 0, 0, 0]}
                     barSize={UNIFIED_BAR_SIZE}
-                    shape={<MinWidthBarShape />}
+                    shape={engagementStackBarShape}
                   />
                 ) : null}
                 {(isTwitter || isInstagram) && selectedEngagementMetrics.includes('reposts') ? (
@@ -5264,9 +5309,8 @@ export function FacebookAnalyticsView({
                     dataKey="reposts"
                     stackId="engagement"
                     fill={ENGAGEMENT_METRIC_CONFIG.reposts.color}
-                    radius={engagementStackTopKey === 'reposts' ? [6, 6, 0, 0] : [0, 0, 0, 0]}
                     barSize={UNIFIED_BAR_SIZE}
-                    shape={<MinWidthBarShape />}
+                    shape={engagementStackBarShape}
                   />
                 ) : null}
               </BarChart>
