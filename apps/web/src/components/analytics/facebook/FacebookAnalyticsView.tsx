@@ -1840,7 +1840,7 @@ function YoutubeVideosAnalyticsPanel({
 /** Best URL to open a post on the native platform (permalink from API, or Facebook fallback from `platformPostId`). */
 function isCarouselAlbumMedia(mediaType: string | null | undefined): boolean {
   const m = String(mediaType ?? '').toUpperCase();
-  return m === 'CAROUSEL' || m === 'ALBUM';
+  return m === 'CAROUSEL' || m === 'ALBUM' || m === 'CAROUSEL_ALBUM' || m.includes('CAROUSEL');
 }
 
 export function resolvedPostPermalink(row: {
