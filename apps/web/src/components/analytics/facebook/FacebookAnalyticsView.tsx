@@ -854,7 +854,8 @@ function buildReelsLikeChartData(rows: ReelAnalyticsRow[]) {
       date: string;
       views: number;
       watchTimeMinutes: number;
-      avgWatchSeconds: number;
+      /** Sum of (per-video avg watch seconds × that video's views); divide by `views` for the day. */
+      avgWatchSecondsWeighted: number;
       clicks: number;
       likes: number;
       comments: number;
@@ -871,7 +872,7 @@ function buildReelsLikeChartData(rows: ReelAnalyticsRow[]) {
       date,
       views: 0,
       watchTimeMinutes: 0,
-      avgWatchSeconds: 0,
+      avgWatchSecondsWeighted: 0,
       clicks: 0,
       likes: 0,
       comments: 0,
@@ -883,7 +884,10 @@ function buildReelsLikeChartData(rows: ReelAnalyticsRow[]) {
     };
     row.views += r.views;
     row.watchTimeMinutes += (r.watchTimeMs ?? 0) / 60000;
-    row.avgWatchSeconds += r.avgWatchMs / 1000;
+    const v = Math.max(0, r.views);
+    if (v > 0) {
+      row.avgWatchSecondsWeighted += (r.avgWatchMs / 1000) * v;
+    }
     row.clicks +=
       r.post.platform === 'INSTAGRAM'
         ? bestInstagramInteractionCount(r.post)
@@ -896,10 +900,17 @@ function buildReelsLikeChartData(rows: ReelAnalyticsRow[]) {
     byDate[date] = row;
   }
   return Object.values(byDate)
-    .map((row) => ({
-      ...row,
-      avgWatchSeconds: row.count > 0 ? row.avgWatchSeconds / row.count : 0,
-    }))
+    .map((row) => {
+      const { avgWatchSecondsWeighted, ...rest } = row;
+      const views = rest.views;
+      const avgFromWeighted = views > 0 ? avgWatchSecondsWeighted / views : 0;
+      const avgFromWatch =
+        views > 0 && rest.watchTimeMinutes > 0 ? (rest.watchTimeMinutes * 60) / views : 0;
+      return {
+        ...rest,
+        avgWatchSeconds: avgFromWatch > 0 ? avgFromWatch : avgFromWeighted,
+      };
+    })
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
