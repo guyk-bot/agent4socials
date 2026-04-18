@@ -270,16 +270,6 @@ type PlatformLiveFallback = {
 
 type PostTypeKey = 'all' | 'reels' | 'image' | 'carousel';
 
-/** Active preset cards (All / Videos / Image / Carousel) use the same signature accent. */
-const CONSOLE_POSTS_PRESET_ACTIVE = COLOR.violet;
-
-const POST_TYPE_COLOR: Record<PostTypeKey, string> = {
-  all: CONSOLE_POSTS_PRESET_ACTIVE,
-  reels: '#22d3ee',
-  image: '#f43f5e',
-  carousel: '#22d3ee',
-};
-
 const POST_TYPE_LABEL: Record<PostTypeKey, string> = {
   all: 'All',
   reels: 'Videos',
@@ -1547,45 +1537,28 @@ export default function UnifiedSummaryPage() {
           <ShellCard className="space-y-3">
             <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Posts</h3>
             <div className="mb-5 flex items-start justify-between gap-3">
+              <div className="flex shrink-0 flex-wrap gap-2">
+                {(['all', 'reels', 'image', 'carousel'] as const).map((preset) => {
+                  const active = postsPreset === preset;
+                  return (
+                    <button
+                      key={`posts-type-pill-${preset}`}
+                      type="button"
+                      onClick={() => setPostsPreset(preset)}
+                      aria-pressed={active}
+                      className="rounded-lg px-3 py-1.5 text-sm"
+                      style={{
+                        background: active ? 'rgba(139,124,255,0.15)' : 'rgba(255,255,255,0.03)',
+                        color: active ? COLOR.text : COLOR.textSecondary,
+                        border: `1px solid ${COLOR.border}`,
+                      }}
+                    >
+                      {POST_TYPE_LABEL[preset]}
+                    </button>
+                  );
+                })}
+              </div>
               <div className="-mt-3 min-w-0 flex-1 overflow-x-auto">
-                <div className="mb-2 flex flex-nowrap gap-2">
-                  {(['all', 'reels', 'image', 'carousel'] as const).map((preset) => {
-                    const active = postsPreset === preset;
-                    const inactiveAccent = POST_TYPE_COLOR[preset];
-                    return (
-                      <button
-                        key={`posts-type-card-${preset}`}
-                        type="button"
-                        onClick={() => setPostsPreset(preset)}
-                        aria-pressed={active}
-                        className="inline-flex min-w-[132px] flex-col items-start rounded-[14px] border px-3 py-2.5 text-left transition-[opacity,box-shadow,transform] hover:scale-[1.01] active:scale-[0.99]"
-                        style={{
-                          borderColor: active ? `${CONSOLE_POSTS_PRESET_ACTIVE}55` : COLOR.border,
-                          background: active ? 'rgba(124, 108, 255, 0.14)' : `${inactiveAccent}08`,
-                          opacity: active ? 1 : 0.78,
-                          boxShadow: active
-                            ? `0 0 0 1px rgba(124,108,255,0.35), 0 2px 10px rgba(15,23,42,0.08)`
-                            : '0 1px 3px rgba(15,23,42,0.04)',
-                        }}
-                      >
-                        <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLOR.textSecondary }}>
-                          {POST_TYPE_LABEL[preset]}
-                        </span>
-                        <span
-                          className="tabular-nums text-[17px] leading-tight font-bold"
-                          style={{ color: active ? CONSOLE_POSTS_PRESET_ACTIVE : inactiveAccent }}
-                        >
-                          {fmtExactInt(
-                            connectedChartPlatforms.reduce(
-                              (sum, p) => sum + postsTimelineData.reduce((s, row) => s + Number((row as unknown as Record<string, number>)[`${preset}_${p}`] ?? 0), 0),
-                              0
-                            )
-                          )}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
                 <PlatformLegend
                   all={postsEligiblePlatforms}
                   activePlatforms={postsActivePlatforms}
