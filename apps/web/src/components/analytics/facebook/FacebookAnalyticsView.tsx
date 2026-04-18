@@ -84,7 +84,7 @@ type TrafficMetricKey =
   | 'nonviral'
   | 'viral'
   | 'uniqueReachProxy';
-type ReelMetricKey = 'views' | 'watchTime' | 'avgWatch' | 'clicks' | 'likes' | 'comments' | 'shares' | 'reposts';
+type ReelMetricKey = 'views' | 'watchTime' | 'avgWatch' | 'clicks' | 'likes' | 'comments' | 'shares' | 'reposts' | 'dislikes';
 type ReelPresetKey = 'performance' | 'engagement' | 'watch';
 type ContentHistoryFilter = 'all' | 'posts' | 'reels';
 
@@ -392,11 +392,19 @@ const REEL_METRIC_CONFIG: Record<ReelMetricKey, { label: string; color: string }
   comments: { label: 'Comments', color: COLOR.coral },
   shares: { label: 'Shares', color: COLOR.amber },
   reposts: { label: 'Reposts', color: '#111827' },
+  dislikes: { label: 'Dislikes', color: ENGAGEMENT_METRIC_CONFIG.dislikes.color },
 };
 
 const REEL_PRESET_METRICS: Record<ReelPresetKey, ReelMetricKey[]> = {
   performance: ['views', 'watchTime', 'avgWatch', 'shares'],
   engagement: ['likes', 'comments', 'shares', 'reposts'],
+  watch: ['watchTime', 'avgWatch'],
+};
+
+/** YouTube long-form + Shorts panels: include dislikes (channel daily total split by view share when per-video data is absent). */
+const REEL_PRESET_METRICS_YOUTUBE: Record<ReelPresetKey, ReelMetricKey[]> = {
+  performance: ['views', 'watchTime', 'avgWatch', 'shares', 'dislikes'],
+  engagement: ['likes', 'comments', 'shares', 'reposts', 'dislikes'],
   watch: ['watchTime', 'avgWatch'],
 };
 
@@ -852,6 +860,7 @@ function buildReelsLikeChartData(rows: ReelAnalyticsRow[]) {
       comments: number;
       shares: number;
       reposts: number;
+      dislikes: number;
       thumbnailUrl: string | null;
       count: number;
     }
@@ -868,6 +877,7 @@ function buildReelsLikeChartData(rows: ReelAnalyticsRow[]) {
       comments: 0,
       shares: 0,
       reposts: 0,
+      dislikes: 0,
       thumbnailUrl: r.post.thumbnailUrl ?? null,
       count: 0,
     };
@@ -894,6 +904,74 @@ function buildReelsLikeChartData(rows: ReelAnalyticsRow[]) {
 }
 
 type ReelChartDayRow = ReturnType<typeof buildReelsLikeChartData>[number];
+
+/**
+ * Allocate channel-level daily dislikes (YouTube Analytics) between long-form and Shorts
+ * by each day's relative video views in the two series (no per-video dislike in Data API).
+ */
+function mergeYoutubeDislikesProportionally(
+  target: ReelChartDayRow[],
+  siblingViewsByDate: Record<string, number>,
+  youtubeDislikesByDate: Record<string, number>
+): ReelChartDayRow[] {
+  return target.map((row) => {
+    const self = row.views ?? 0;
+    const sib = siblingViewsByDate[row.date] ?? 0;
+    const tot = self + sib;
+    const frac = tot > 0 ? self / tot : 0.5;
+    const dislikes = (youtubeDislikesByDate[row.date] ?? 0) * frac;
+    return { ...row, dislikes };
+  });
+}
+
+type YoutubeReelPanelKpis = {
+  totalViews: number;
+  totalWatchMsDisplay: number;
+  avgWatchMsDisplay: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  dislikesKpi: number;
+};
+
+function buildYoutubeReelPanelKpis(
+  rows: ReelAnalyticsRow[],
+  opts: {
+    viewShare: number;
+    dislikesTotal: number;
+    bothViewsSum: number;
+    youtubeEstimatedWatchMinutes: number | null | undefined;
+    youtubeAvgViewDurationSec: number | null | undefined;
+  }
+): YoutubeReelPanelKpis {
+  const { viewShare, dislikesTotal, bothViewsSum, youtubeEstimatedWatchMinutes, youtubeAvgViewDurationSec } = opts;
+  const totalViews = rows.reduce((s, r) => s + r.views, 0);
+  const totalWatchMs = rows.reduce((s, r) => s + r.watchTimeMs, 0);
+  const likes = rows.reduce((s, r) => s + bestCount(r.post.facebookInsights?.post_reactions_like_total, r.post.likeCount), 0);
+  const comments = rows.reduce((s, r) => s + (r.post.facebookInsights?.post_comments ?? r.post.commentsCount ?? 0), 0);
+  const shares = rows.reduce((s, r) => s + bestShareCount(r.post), 0);
+  const avgWatchMs = totalViews > 0 ? totalWatchMs / totalViews : 0;
+  const scaledEstMin =
+    typeof youtubeEstimatedWatchMinutes === 'number' && youtubeEstimatedWatchMinutes > 0 && viewShare > 0
+      ? youtubeEstimatedWatchMinutes * viewShare
+      : null;
+  const totalWatchMsDisplay =
+    totalWatchMs <= 0 && scaledEstMin != null && scaledEstMin > 0 ? Math.round(scaledEstMin * 60000) : totalWatchMs;
+  const avgWatchMsDisplay =
+    avgWatchMs <= 0 && typeof youtubeAvgViewDurationSec === 'number' && youtubeAvgViewDurationSec > 0
+      ? Math.round(youtubeAvgViewDurationSec * 1000)
+      : avgWatchMs;
+  const dislikesKpi = bothViewsSum > 0 ? Math.round(dislikesTotal * (totalViews / bothViewsSum)) : 0;
+  return {
+    totalViews,
+    totalWatchMsDisplay,
+    avgWatchMsDisplay,
+    likes,
+    comments,
+    shares,
+    dislikesKpi,
+  };
+}
 
 /**
  * When post-level watch metrics are missing, spread channel-level YouTube Analytics
@@ -1564,6 +1642,211 @@ export function CommunitySummaryCard({
   );
 }
 
+type YoutubeVideosAnalyticsPanelProps = {
+  sectionId: string;
+  title: string;
+  kpis: YoutubeReelPanelKpis;
+  chartData: ReelChartDayRow[];
+  chartHeightPx: number;
+  chartAxisDense: boolean;
+  reelPreset: ReelPresetKey;
+  setReelPreset: React.Dispatch<React.SetStateAction<ReelPresetKey>>;
+  selectedReelMetrics: ReelMetricKey[];
+  setSelectedReelMetrics: React.Dispatch<React.SetStateAction<ReelMetricKey[]>>;
+};
+
+function YoutubeVideosAnalyticsPanel({
+  sectionId,
+  title,
+  kpis,
+  chartData,
+  chartHeightPx,
+  chartAxisDense,
+  reelPreset,
+  setReelPreset,
+  selectedReelMetrics,
+  setSelectedReelMetrics,
+}: YoutubeVideosAnalyticsPanelProps) {
+  return (
+    <section id={sectionId} className="scroll-mt-28 space-y-6">
+      <div
+        className="rounded-[20px] border p-4 sm:p-5 space-y-4"
+        style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}
+      >
+        <div>
+          <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>{title}</h2>
+        </div>
+        <div className="flex gap-2">
+          {([
+            { id: 'performance' as const, label: 'Performance' },
+            { id: 'engagement' as const, label: 'Engagement' },
+            { id: 'watch' as const, label: 'Watch' },
+          ]).map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              onClick={() => {
+                setReelPreset(preset.id);
+                setSelectedReelMetrics([...REEL_PRESET_METRICS_YOUTUBE[preset.id]]);
+              }}
+              className="rounded-lg px-3 py-1.5 text-sm"
+              style={{
+                background: reelPreset === preset.id ? 'rgba(139,124,255,0.2)' : 'rgba(255,255,255,0.03)',
+                color: reelPreset === preset.id ? COLOR.text : COLOR.textSecondary,
+                border: `1px solid ${COLOR.border}`,
+              }}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard
+            label="Total Video Views"
+            source="Synced YouTube videos in this group and date range"
+            color={REEL_METRIC_CONFIG.views.color}
+            value={formatNumber(kpis.totalViews)}
+            active={selectedReelMetrics.includes('views')}
+            onClick={() => setSelectedReelMetrics((prev) => (prev.includes('views') ? prev.filter((m) => m !== 'views') : [...prev, 'views']))}
+          />
+          <MetricCard
+            label="Watch Time"
+            source="YouTube Analytics fallback or post-level watch time (allocated by this group’s share of views)"
+            color={REEL_METRIC_CONFIG.watchTime.color}
+            value={formatDurationMs(kpis.totalWatchMsDisplay)}
+            active={selectedReelMetrics.includes('watchTime')}
+            onClick={() => setSelectedReelMetrics((prev) => (prev.includes('watchTime') ? prev.filter((m) => m !== 'watchTime') : [...prev, 'watchTime']))}
+          />
+          <MetricCard
+            label="Avg Watch Time"
+            source="YouTube Analytics average view duration (fallback) or mean watch time"
+            color={REEL_METRIC_CONFIG.avgWatch.color}
+            value={formatDurationMs(kpis.avgWatchMsDisplay)}
+            active={selectedReelMetrics.includes('avgWatch')}
+            onClick={() => setSelectedReelMetrics((prev) => (prev.includes('avgWatch') ? prev.filter((m) => m !== 'avgWatch') : [...prev, 'avgWatch']))}
+          />
+          <MetricCard
+            label="Likes"
+            source="Synced video like counts"
+            color={REEL_METRIC_CONFIG.likes.color}
+            value={formatNumber(kpis.likes)}
+            active={selectedReelMetrics.includes('likes')}
+            onClick={() => setSelectedReelMetrics((prev) => (prev.includes('likes') ? prev.filter((m) => m !== 'likes') : [...prev, 'likes']))}
+          />
+          <MetricCard
+            label="Comments"
+            source="Synced video comment counts"
+            color={REEL_METRIC_CONFIG.comments.color}
+            value={formatNumber(kpis.comments)}
+            active={selectedReelMetrics.includes('comments')}
+            onClick={() => setSelectedReelMetrics((prev) => (prev.includes('comments') ? prev.filter((m) => m !== 'comments') : [...prev, 'comments']))}
+          />
+          <MetricCard
+            label="Shares"
+            source="Synced video share counts"
+            color={REEL_METRIC_CONFIG.shares.color}
+            value={formatNumber(kpis.shares)}
+            active={selectedReelMetrics.includes('shares')}
+            onClick={() => setSelectedReelMetrics((prev) => (prev.includes('shares') ? prev.filter((m) => m !== 'shares') : [...prev, 'shares']))}
+          />
+          <MetricCard
+            label="Dislikes"
+            source="Channel dislikes from YouTube Analytics (daily), split by this group’s share of views vs the other group (Shorts/long-form)"
+            color={REEL_METRIC_CONFIG.dislikes.color}
+            value={formatNumber(kpis.dislikesKpi)}
+            active={selectedReelMetrics.includes('dislikes')}
+            onClick={() => setSelectedReelMetrics((prev) => (prev.includes('dislikes') ? prev.filter((m) => m !== 'dislikes') : [...prev, 'dislikes']))}
+          />
+        </div>
+        <InsightChartCard
+          title="Video performance"
+          chartHeightPx={chartHeightPx}
+          legend={selectedReelMetrics.map((m) => ({ label: REEL_METRIC_CONFIG[m].label, color: REEL_METRIC_CONFIG[m].color }))}
+        >
+          {chartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={chartData}
+                barCategoryGap={UNIFIED_BAR_CATEGORY_GAP}
+                barGap={UNIFIED_BAR_GAP}
+                margin={{ top: 4, right: 8, left: 0, bottom: chartAxisDense ? 36 : 4 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(17,24,39,0.08)" vertical={false} />
+                <XAxis
+                  dataKey="date"
+                  tickFormatter={formatShortDate}
+                  interval={0}
+                  angle={chartAxisDense ? -32 : 0}
+                  textAnchor={chartAxisDense ? 'end' : 'middle'}
+                  height={chartAxisDense ? 64 : undefined}
+                  tick={{ fill: COLOR.textMuted, fontSize: 11 }}
+                  minTickGap={chartAxisDense ? 4 : 0}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                <Tooltip
+                  cursor={{ fill: 'rgba(107,114,128,0.20)' }}
+                  content={(props) => {
+                    const { active, payload, label } = props as unknown as {
+                      active?: boolean;
+                      payload?: Array<{ dataKey?: string; value?: number; payload?: { thumbnailUrl?: string | null } }>;
+                      label?: string;
+                    };
+                    if (!active || !payload?.length) return null;
+                    const row = payload[0]?.payload;
+                    const kv = payload
+                      .filter((p) => typeof p.value === 'number' && typeof p.dataKey === 'string')
+                      .map((p) => ({
+                        key: p.dataKey as ReelMetricKey | 'watchTimeMinutes' | 'avgWatchSeconds' | 'dislikes',
+                        value: p.value ?? 0,
+                      }));
+                    return (
+                      <div className="rounded-xl border px-3 py-2 text-xs shadow-lg" style={{ background: '#ffffff', borderColor: COLOR.border }}>
+                        <p className="font-medium mb-1.5" style={{ color: COLOR.text }}>{formatShortDate(String(label ?? ''))}</p>
+                        {row?.thumbnailUrl ? <img src={row.thumbnailUrl} alt="" className="mb-2 h-10 w-10 rounded object-cover" /> : null}
+                        {kv.map((item) => (
+                          <p key={item.key} style={{ color: COLOR.textSecondary }}>
+                            {item.key === 'watchTimeMinutes'
+                              ? 'Watch Time'
+                              : item.key === 'avgWatchSeconds'
+                                ? 'Avg Watch'
+                                : REEL_METRIC_CONFIG[item.key as ReelMetricKey]?.label ?? item.key}
+                            :{' '}
+                            {item.key === 'watchTimeMinutes'
+                              ? `${item.value.toFixed(1)}m`
+                              : item.key === 'avgWatchSeconds'
+                                ? `${item.value.toFixed(1)}s`
+                                : formatNumber(item.value)}
+                          </p>
+                        ))}
+                      </div>
+                    );
+                  }}
+                />
+                {selectedReelMetrics.includes('views') ? <Bar dataKey="views" fill={REEL_METRIC_CONFIG.views.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                {selectedReelMetrics.includes('likes') ? <Bar dataKey="likes" fill={REEL_METRIC_CONFIG.likes.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                {selectedReelMetrics.includes('comments') ? <Bar dataKey="comments" fill={REEL_METRIC_CONFIG.comments.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                {selectedReelMetrics.includes('shares') ? <Bar dataKey="shares" fill={REEL_METRIC_CONFIG.shares.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                {selectedReelMetrics.includes('watchTime') ? <Bar dataKey="watchTimeMinutes" fill={REEL_METRIC_CONFIG.watchTime.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                {selectedReelMetrics.includes('avgWatch') ? <Bar dataKey="avgWatchSeconds" fill={REEL_METRIC_CONFIG.avgWatch.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+                {selectedReelMetrics.includes('dislikes') ? <Bar dataKey="dislikes" fill={REEL_METRIC_CONFIG.dislikes.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-[240px] rounded-[20px] border flex flex-col items-center justify-center text-center px-6" style={{ background: COLOR.card, borderColor: COLOR.border }}>
+              <p className="text-sm font-semibold" style={{ color: COLOR.text }}>No videos in this period</p>
+              <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
+                Sync your channel from the sidebar or widen the date range so uploads with publish dates in range appear here.
+              </p>
+            </div>
+          )}
+        </InsightChartCard>
+      </div>
+    </section>
+  );
+}
+
 /** Best URL to open a post on the native platform (permalink from API, or Facebook fallback from `platformPostId`). */
 export function resolvedPostPermalink(row: {
   permalink?: string | null;
@@ -1711,7 +1994,11 @@ export function PostsPerformanceTable({
                 </td>
                 <td className="px-3 py-3">
                   <span className="rounded-full px-2 py-1 text-xs" style={{ background: 'rgba(255,255,255,0.08)', color: COLOR.text }}>
-                    {platUpper === 'YOUTUBE' ? 'Video' : r.type}
+                    {platUpper === 'YOUTUBE'
+                      ? isYouTubeShortPost(r.rawPost)
+                        ? 'Shorts'
+                        : 'Long form'
+                      : r.type}
                   </span>
                 </td>
                 <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.views)}</td>
@@ -1795,7 +2082,13 @@ export function PostsPerformanceTable({
             </div>
             <div className="mt-2 flex flex-wrap gap-2 text-xs" style={{ color: COLOR.textSecondary }}>
               <span>{formatPostCardDateTime(r.date) || new Date(r.date).toLocaleDateString()}</span>
-              <span>{platUpper === 'YOUTUBE' ? 'Video' : r.type}</span>
+              <span>
+                {platUpper === 'YOUTUBE'
+                  ? isYouTubeShortPost(r.rawPost)
+                    ? 'Shorts'
+                    : 'Long form'
+                  : r.type}
+              </span>
               <span>Views {formatNumber(r.views)}</span>
               {!compactVideoTable ? <span>Reach {formatNumber(r.uniqueReach)}</span> : null}
               {!compactVideoTable ? (
@@ -2096,6 +2389,14 @@ export function FacebookAnalyticsView({
   ]);
   const [selectedReelMetrics, setSelectedReelMetrics] = useState<ReelMetricKey[]>(['views', 'watchTime', 'avgWatch', 'shares']);
   const [reelPreset, setReelPreset] = useState<ReelPresetKey>('performance');
+  const [ytLongReelPreset, setYtLongReelPreset] = useState<ReelPresetKey>('performance');
+  const [ytShortReelPreset, setYtShortReelPreset] = useState<ReelPresetKey>('performance');
+  const [selectedYtLongReelMetrics, setSelectedYtLongReelMetrics] = useState<ReelMetricKey[]>([
+    ...REEL_PRESET_METRICS_YOUTUBE.performance,
+  ]);
+  const [selectedYtShortReelMetrics, setSelectedYtShortReelMetrics] = useState<ReelMetricKey[]>([
+    ...REEL_PRESET_METRICS_YOUTUBE.performance,
+  ]);
   const [selectedPostsUploadPreset, setSelectedPostsUploadPreset] = useState<PostsUploadPresetKey>('reels');
   const [activeSection, setActiveSection] = useState<SectionId>(FACEBOOK_ANALYTICS_SECTION_IDS.overview);
   const [historyFilter, setHistoryFilter] = useState<ContentHistoryFilter>('all');
@@ -2107,7 +2408,10 @@ export function FacebookAnalyticsView({
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.overview, label: 'Overview' },
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.traffic, label: 'Traffic' },
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.posts, label: plat === 'TWITTER' ? 'Tweets' : plat === 'PINTEREST' ? 'Pins' : 'Posts' },
-      { id: FACEBOOK_ANALYTICS_SECTION_IDS.reels, label: plat === 'PINTEREST' || plat === 'YOUTUBE' ? 'Videos' : 'Reels' },
+      { id: FACEBOOK_ANALYTICS_SECTION_IDS.reels, label: plat === 'PINTEREST' ? 'Videos' : plat === 'YOUTUBE' ? 'Long form videos' : 'Reels' },
+      ...(plat === 'YOUTUBE'
+        ? ([{ id: FACEBOOK_ANALYTICS_SECTION_IDS.youtubeShorts, label: 'YouTube shorts' }] as const)
+        : []),
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.history, label: 'History' },
     ];
     if (plat === 'TIKTOK' || plat === 'TWITTER') {
@@ -2213,6 +2517,10 @@ export function FacebookAnalyticsView({
     if (insights?.platform?.toUpperCase() !== 'YOUTUBE') return;
     setReelPreset('performance');
     setSelectedReelMetrics(['views', 'watchTime', 'avgWatch', 'shares']);
+    setYtLongReelPreset('performance');
+    setYtShortReelPreset('performance');
+    setSelectedYtLongReelMetrics([...REEL_PRESET_METRICS_YOUTUBE.performance]);
+    setSelectedYtShortReelMetrics([...REEL_PRESET_METRICS_YOUTUBE.performance]);
   }, [insights?.platform]);
 
   useEffect(() => {
@@ -3411,6 +3719,15 @@ export function FacebookAnalyticsView({
       });
   }, [isYouTube, postsInRange]);
 
+  const youtubeLongFormVideoRows = useMemo(
+    () => (isYouTube ? youtubeAllVideoRows.filter((r) => !isYouTubeShortPost(r.post)) : []),
+    [isYouTube, youtubeAllVideoRows]
+  );
+  const youtubeShortsVideoRows = useMemo(
+    () => (isYouTube ? youtubeAllVideoRows.filter((r) => isYouTubeShortPost(r.post)) : []),
+    [isYouTube, youtubeAllVideoRows]
+  );
+
   /** Pinterest: use video Pins for the Videos section; if none qualify, fall back to all synced Pins in range. */
   const pinterestVideoRows = useMemo((): ReelAnalyticsRow[] => {
     if (!isPinterest) return [];
@@ -3495,17 +3812,89 @@ export function FacebookAnalyticsView({
     return Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date));
   }, [isTwitter, twitterRecentTweets]);
 
-  /** Single combined chart for YouTube (full channel watch-time estimate scale = 1). */
-  const youtubeAllVideosChartDataForDisplay = useMemo(() => {
-    if (!isYouTube) return [] as ReelChartDayRow[];
-    const raw = buildReelsLikeChartData(youtubeAllVideoRows);
-    return applyYouTubeWatchFallbackToReelChart(
-      raw,
+  const youtubeSplitReelChartBundle = useMemo(() => {
+    if (!isYouTube) {
+      return { longForm: [] as ReelChartDayRow[], shorts: [] as ReelChartDayRow[] };
+    }
+    const lfRaw = buildReelsLikeChartData(youtubeLongFormVideoRows);
+    const sfRaw = buildReelsLikeChartData(youtubeShortsVideoRows);
+    const longSum = youtubeLongFormVideoRows.reduce((s, r) => s + r.views, 0);
+    const shortSum = youtubeShortsVideoRows.reduce((s, r) => s + r.views, 0);
+    const tot = longSum + shortSum;
+    const longScale = tot > 0 ? longSum / tot : 0.5;
+    const shortScale = tot > 0 ? shortSum / tot : 0.5;
+    const sfViewsByDate = Object.fromEntries(sfRaw.map((r) => [r.date, r.views]));
+    const lfViewsByDate = Object.fromEntries(lfRaw.map((r) => [r.date, r.views]));
+    let longForm = applyYouTubeWatchFallbackToReelChart(
+      lfRaw,
       youtubeEstimatedWatchMinutes,
       youtubeAvgViewDurationSec,
-      1
+      longScale
     );
-  }, [isYouTube, youtubeAllVideoRows, youtubeEstimatedWatchMinutes, youtubeAvgViewDurationSec]);
+    longForm = mergeYoutubeDislikesProportionally(longForm, sfViewsByDate, youtubeDislikesByDate);
+    let shorts = applyYouTubeWatchFallbackToReelChart(
+      sfRaw,
+      youtubeEstimatedWatchMinutes,
+      youtubeAvgViewDurationSec,
+      shortScale
+    );
+    shorts = mergeYoutubeDislikesProportionally(shorts, lfViewsByDate, youtubeDislikesByDate);
+    return { longForm, shorts };
+  }, [
+    isYouTube,
+    youtubeLongFormVideoRows,
+    youtubeShortsVideoRows,
+    youtubeEstimatedWatchMinutes,
+    youtubeAvgViewDurationSec,
+    youtubeDislikesByDate,
+  ]);
+
+  const youtubeLongFormChartDataForDisplay = youtubeSplitReelChartBundle.longForm;
+  const youtubeShortsChartDataForDisplay = youtubeSplitReelChartBundle.shorts;
+
+  const youtubeLongFormPanelKpis = useMemo(() => {
+    if (!isYouTube) return null;
+    const longSum = youtubeLongFormVideoRows.reduce((s, r) => s + r.views, 0);
+    const shortSum = youtubeShortsVideoRows.reduce((s, r) => s + r.views, 0);
+    const tot = longSum + shortSum;
+    const viewShare = tot > 0 ? longSum / tot : 0.5;
+    return buildYoutubeReelPanelKpis(youtubeLongFormVideoRows, {
+      viewShare,
+      dislikesTotal,
+      bothViewsSum: tot,
+      youtubeEstimatedWatchMinutes,
+      youtubeAvgViewDurationSec,
+    });
+  }, [
+    isYouTube,
+    youtubeLongFormVideoRows,
+    youtubeShortsVideoRows,
+    dislikesTotal,
+    youtubeEstimatedWatchMinutes,
+    youtubeAvgViewDurationSec,
+  ]);
+
+  const youtubeShortsPanelKpis = useMemo(() => {
+    if (!isYouTube) return null;
+    const longSum = youtubeLongFormVideoRows.reduce((s, r) => s + r.views, 0);
+    const shortSum = youtubeShortsVideoRows.reduce((s, r) => s + r.views, 0);
+    const tot = longSum + shortSum;
+    const viewShare = tot > 0 ? shortSum / tot : 0.5;
+    return buildYoutubeReelPanelKpis(youtubeShortsVideoRows, {
+      viewShare,
+      dislikesTotal,
+      bothViewsSum: tot,
+      youtubeEstimatedWatchMinutes,
+      youtubeAvgViewDurationSec,
+    });
+  }, [
+    isYouTube,
+    youtubeLongFormVideoRows,
+    youtubeShortsVideoRows,
+    dislikesTotal,
+    youtubeEstimatedWatchMinutes,
+    youtubeAvgViewDurationSec,
+  ]);
 
   const reelPerformanceChartHeightPx = useMemo(() => {
     const n = reelsChartData.length;
@@ -3513,14 +3902,21 @@ export function FacebookAnalyticsView({
     return Math.min(560, 300 + (n - 8) * 30);
   }, [reelsChartData.length]);
 
-  const youtubeVideosChartHeightPx = useMemo(() => {
-    const n = youtubeAllVideosChartDataForDisplay.length;
+  const youtubeLongFormChartHeightPx = useMemo(() => {
+    const n = youtubeLongFormChartDataForDisplay.length;
     if (n <= 8) return 300;
     return Math.min(560, 300 + (n - 8) * 30);
-  }, [youtubeAllVideosChartDataForDisplay.length]);
+  }, [youtubeLongFormChartDataForDisplay.length]);
+
+  const youtubeShortsChartHeightPx = useMemo(() => {
+    const n = youtubeShortsChartDataForDisplay.length;
+    if (n <= 8) return 300;
+    return Math.min(560, 300 + (n - 8) * 30);
+  }, [youtubeShortsChartDataForDisplay.length]);
 
   const reelChartAxisDense = reelsChartData.length > 8;
-  const youtubeVideosChartAxisDense = youtubeAllVideosChartDataForDisplay.length > 8;
+  const youtubeLongFormChartAxisDense = youtubeLongFormChartDataForDisplay.length > 8;
+  const youtubeShortsChartAxisDense = youtubeShortsChartDataForDisplay.length > 8;
 
   const storyTicks = useMemo(
     () =>
@@ -5497,7 +5893,45 @@ export function FacebookAnalyticsView({
 
       </section>
 
-      {!isLinkedIn ? (
+      {!isLinkedIn && isYouTube ? (
+        overviewSkeleton ? (
+          <>
+            <section id={FACEBOOK_ANALYTICS_SECTION_IDS.reels} className="scroll-mt-28 space-y-6">
+              <AnalyticsReelsSkeleton />
+            </section>
+            <section id={FACEBOOK_ANALYTICS_SECTION_IDS.youtubeShorts} className="scroll-mt-28 space-y-6">
+              <AnalyticsReelsSkeleton />
+            </section>
+          </>
+        ) : youtubeLongFormPanelKpis && youtubeShortsPanelKpis ? (
+          <>
+            <YoutubeVideosAnalyticsPanel
+              sectionId={FACEBOOK_ANALYTICS_SECTION_IDS.reels}
+              title="Long form videos"
+              kpis={youtubeLongFormPanelKpis}
+              chartData={youtubeLongFormChartDataForDisplay}
+              chartHeightPx={youtubeLongFormChartHeightPx}
+              chartAxisDense={youtubeLongFormChartAxisDense}
+              reelPreset={ytLongReelPreset}
+              setReelPreset={setYtLongReelPreset}
+              selectedReelMetrics={selectedYtLongReelMetrics}
+              setSelectedReelMetrics={setSelectedYtLongReelMetrics}
+            />
+            <YoutubeVideosAnalyticsPanel
+              sectionId={FACEBOOK_ANALYTICS_SECTION_IDS.youtubeShorts}
+              title="YouTube shorts"
+              kpis={youtubeShortsPanelKpis}
+              chartData={youtubeShortsChartDataForDisplay}
+              chartHeightPx={youtubeShortsChartHeightPx}
+              chartAxisDense={youtubeShortsChartAxisDense}
+              reelPreset={ytShortReelPreset}
+              setReelPreset={setYtShortReelPreset}
+              selectedReelMetrics={selectedYtShortReelMetrics}
+              setSelectedReelMetrics={setSelectedYtShortReelMetrics}
+            />
+          </>
+        ) : null
+      ) : !isLinkedIn ? (
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.reels} className="scroll-mt-28 space-y-6">
         {overviewSkeleton ? (
           <AnalyticsReelsSkeleton />
@@ -5506,7 +5940,6 @@ export function FacebookAnalyticsView({
           className="rounded-[20px] border p-4 sm:p-5 space-y-4"
           style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}
         >
-          {!isYouTube ? (
             <div>
               <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>
                 {isPinterest ? 'Videos' : 'Reels'}
@@ -5517,13 +5950,6 @@ export function FacebookAnalyticsView({
                 </p>
               ) : null}
             </div>
-          ) : (
-            <div>
-              <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>
-                Videos
-              </h2>
-            </div>
-          )}
         <div className="flex gap-2">
           {([
             { id: 'performance' as const, label: 'Performance' },
@@ -5558,7 +5984,6 @@ export function FacebookAnalyticsView({
             </button>
           ))}
         </div>
-        {!isYouTube ? (
         <>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard
@@ -5697,127 +6122,6 @@ export function FacebookAnalyticsView({
           )}
         </InsightChartCard>
         </>
-        ) : (
-        <>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <MetricCard
-                label="Total Video Views"
-                source="Synced YouTube videos in this date range"
-                color={REEL_METRIC_CONFIG.views.color}
-                value={formatNumber(totalReelVideoViews)}
-                active={selectedReelMetrics.includes('views')}
-                onClick={() => setSelectedReelMetrics((prev) => prev.includes('views') ? prev.filter((m) => m !== 'views') : [...prev, 'views'])}
-              />
-              <MetricCard
-                label="Watch Time"
-                source="YouTube Analytics fallback or post-level watch time"
-                color={REEL_METRIC_CONFIG.watchTime.color}
-                value={formatDurationMs(totalReelWatchTimeMsDisplay)}
-                active={selectedReelMetrics.includes('watchTime')}
-                onClick={() => setSelectedReelMetrics((prev) => prev.includes('watchTime') ? prev.filter((m) => m !== 'watchTime') : [...prev, 'watchTime'])}
-              />
-              <MetricCard
-                label="Avg Watch Time"
-                source="YouTube Analytics average view duration (fallback) or mean watch time"
-                color={REEL_METRIC_CONFIG.avgWatch.color}
-                value={formatDurationMs(avgWatchMsDisplay)}
-                active={selectedReelMetrics.includes('avgWatch')}
-                onClick={() => setSelectedReelMetrics((prev) => prev.includes('avgWatch') ? prev.filter((m) => m !== 'avgWatch') : [...prev, 'avgWatch'])}
-              />
-              <MetricCard
-                label="Likes"
-                source="Synced video like counts"
-                color={REEL_METRIC_CONFIG.likes.color}
-                value={formatNumber(reelLikes)}
-                active={selectedReelMetrics.includes('likes')}
-                onClick={() => setSelectedReelMetrics((prev) => prev.includes('likes') ? prev.filter((m) => m !== 'likes') : [...prev, 'likes'])}
-              />
-              <MetricCard
-                label="Comments"
-                source="Synced video comment counts"
-                color={REEL_METRIC_CONFIG.comments.color}
-                value={formatNumber(reelComments)}
-                active={selectedReelMetrics.includes('comments')}
-                onClick={() => setSelectedReelMetrics((prev) => prev.includes('comments') ? prev.filter((m) => m !== 'comments') : [...prev, 'comments'])}
-              />
-              <MetricCard
-                label="Shares"
-                source="Synced video share counts"
-                color={REEL_METRIC_CONFIG.shares.color}
-                value={formatNumber(reelShares)}
-                active={selectedReelMetrics.includes('shares')}
-                onClick={() => setSelectedReelMetrics((prev) => prev.includes('shares') ? prev.filter((m) => m !== 'shares') : [...prev, 'shares'])}
-              />
-            </div>
-            <InsightChartCard
-              title="Video performance"
-              chartHeightPx={youtubeVideosChartHeightPx}
-              legend={selectedReelMetrics.map((m) => ({ label: REEL_METRIC_CONFIG[m].label, color: REEL_METRIC_CONFIG[m].color }))}
-            >
-              {youtubeAllVideosChartDataForDisplay.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={youtubeAllVideosChartDataForDisplay}
-                    barCategoryGap={UNIFIED_BAR_CATEGORY_GAP}
-                    barGap={UNIFIED_BAR_GAP}
-                    margin={{ top: 4, right: 8, left: 0, bottom: youtubeVideosChartAxisDense ? 36 : 4 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(17,24,39,0.08)" vertical={false} />
-                    <XAxis
-                      dataKey="date"
-                      tickFormatter={formatShortDate}
-                      interval={0}
-                      angle={youtubeVideosChartAxisDense ? -32 : 0}
-                      textAnchor={youtubeVideosChartAxisDense ? 'end' : 'middle'}
-                      height={youtubeVideosChartAxisDense ? 64 : undefined}
-                      tick={{ fill: COLOR.textMuted, fontSize: 11 }}
-                      minTickGap={youtubeVideosChartAxisDense ? 4 : 0}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
-                    <Tooltip
-                      cursor={{ fill: 'rgba(107,114,128,0.20)' }}
-                      content={(props) => {
-                        const { active, payload, label } = props as unknown as { active?: boolean; payload?: Array<{ dataKey?: string; value?: number; payload?: { thumbnailUrl?: string | null } }>; label?: string };
-                        if (!active || !payload?.length) return null;
-                        const row = payload[0]?.payload;
-                        const kv = payload
-                          .filter((p) => typeof p.value === 'number' && typeof p.dataKey === 'string')
-                          .map((p) => ({ key: p.dataKey as ReelMetricKey | 'watchTimeMinutes' | 'avgWatchSeconds', value: p.value ?? 0 }));
-                        return (
-                          <div className="rounded-xl border px-3 py-2 text-xs shadow-lg" style={{ background: '#ffffff', borderColor: COLOR.border }}>
-                            <p className="font-medium mb-1.5" style={{ color: COLOR.text }}>{formatShortDate(String(label ?? ''))}</p>
-                            {row?.thumbnailUrl ? <img src={row.thumbnailUrl} alt="" className="mb-2 h-10 w-10 rounded object-cover" /> : null}
-                            {kv.map((item) => (
-                              <p key={item.key} style={{ color: COLOR.textSecondary }}>
-                                {(item.key === 'watchTimeMinutes' ? 'Watch Time' : item.key === 'avgWatchSeconds' ? 'Avg Watch' : REEL_METRIC_CONFIG[item.key as ReelMetricKey]?.label ?? item.key)}: {item.key === 'watchTimeMinutes' ? `${item.value.toFixed(1)}m` : item.key === 'avgWatchSeconds' ? `${item.value.toFixed(1)}s` : formatNumber(item.value)}
-                              </p>
-                            ))}
-                          </div>
-                        );
-                      }}
-                    />
-                    {selectedReelMetrics.includes('views') ? <Bar dataKey="views" fill={REEL_METRIC_CONFIG.views.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
-                    {selectedReelMetrics.includes('likes') ? <Bar dataKey="likes" fill={REEL_METRIC_CONFIG.likes.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
-                    {selectedReelMetrics.includes('comments') ? <Bar dataKey="comments" fill={REEL_METRIC_CONFIG.comments.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
-                    {selectedReelMetrics.includes('shares') ? <Bar dataKey="shares" fill={REEL_METRIC_CONFIG.shares.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
-                    {isInstagram && selectedReelMetrics.includes('reposts') ? <Bar dataKey="reposts" fill={REEL_METRIC_CONFIG.reposts.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
-                    {selectedReelMetrics.includes('watchTime') ? <Bar dataKey="watchTimeMinutes" fill={REEL_METRIC_CONFIG.watchTime.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
-                    {selectedReelMetrics.includes('avgWatch') ? <Bar dataKey="avgWatchSeconds" fill={REEL_METRIC_CONFIG.avgWatch.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} /> : null}
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-[240px] rounded-[20px] border flex flex-col items-center justify-center text-center px-6" style={{ background: COLOR.card, borderColor: COLOR.border }}>
-                  <p className="text-sm font-semibold" style={{ color: COLOR.text }}>No videos in this period</p>
-                  <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
-                    Sync your channel from the sidebar or widen the date range so uploads with publish dates in range appear here.
-                  </p>
-                </div>
-              )}
-            </InsightChartCard>
-        </>
-        )}
         </div>
         )}
       </section>
