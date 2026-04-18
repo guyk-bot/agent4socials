@@ -263,6 +263,22 @@ function postImportSyncOnFirstLoad(platform: string | undefined): boolean {
   );
 }
 
+/** Keep Page-level chart bundles when a refresh omits them (same idea as manual Sync merge). */
+function mergeFacebookPageInsightsPreserve(
+  data: Record<string, unknown>,
+  prev: Record<string, unknown> | null | undefined
+): Record<string, unknown> {
+  if (!prev) return data;
+  const merged = { ...data };
+  if (!merged.facebookAnalytics && prev.facebookAnalytics) {
+    merged.facebookAnalytics = prev.facebookAnalytics;
+  }
+  if (merged.facebookPageMetricSeries == null && prev.facebookPageMetricSeries != null) {
+    merged.facebookPageMetricSeries = prev.facebookPageMetricSeries;
+  }
+  return merged;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -302,6 +318,9 @@ export default function DashboardPage() {
     }
   });
   const [importedPostsLoading, setImportedPostsLoading] = useState(false);
+  /** True while manual sync runs but we already had posts — UI keeps tables/charts; button still shows activity. */
+  const [postsSoftSyncing, setPostsSoftSyncing] = useState(false);
+  const manualPostsSyncInFlightRef = useRef(false);
   const [postsSyncError, setPostsSyncError] = useState<string | null>(null);
   const [allPostsSyncError, setAllPostsSyncError] = useState<string | null>(null);
   const [syncAllTrigger, setSyncAllTrigger] = useState(0);
@@ -580,7 +599,12 @@ export default function DashboardPage() {
         return;
       }
       if (ctxList !== undefined) {
-        setImportedPosts(ctxList);
+        const cached = postsCacheRef.current[accountId];
+        if (ctxList.length === 0 && accountPostsHydratedRef.current[accountId] && (cached?.length ?? 0) > 0) {
+          setImportedPosts(cached);
+        } else {
+          setImportedPosts(ctxList);
+        }
         setImportedPostsLoading(false);
         refreshPostsInBackground();
         return;
@@ -795,38 +819,52 @@ export default function DashboardPage() {
      * stops the "pie chart disappears and comes back" flicker the user reported.
      */
     function mergeIncomingInsights(data: Record<string, unknown>): Record<string, unknown> {
-      if (selectedAccount?.platform !== 'YOUTUBE') return data;
       const prevRaw = lastInsightsByAccountIdRef.current[accountId];
       const prev = prevRaw && typeof prevRaw === 'object' ? (prevRaw as Record<string, unknown>) : null;
-      let merged: Record<string, unknown> = { ...data };
-      if (!demographicsLooksPopulated(merged.demographics) && prev && demographicsLooksPopulated(prev.demographics)) {
-        merged.demographics = prev.demographics;
-      }
-      const incomingTraffic = Array.isArray(merged.trafficSources) ? (merged.trafficSources as unknown[]) : null;
-      if ((incomingTraffic?.length ?? 0) === 0 && prev && Array.isArray(prev.trafficSources) && (prev.trafficSources as unknown[]).length > 0) {
-        merged.trafficSources = prev.trafficSources;
-      }
-      if (!merged.extra && prev?.extra) {
-        merged.extra = prev.extra;
-      }
-      // Preserve age×gender breakdown if the refresh dropped only that slice (same pattern as geo).
-      const prevDemo = prev?.demographics as Record<string, unknown> | undefined;
-      const mergedDemo = merged.demographics as Record<string, unknown> | undefined;
-      if (mergedDemo && prevDemo) {
-        const incomingAg = Array.isArray(mergedDemo.byAgeGender) ? (mergedDemo.byAgeGender as unknown[]) : [];
-        const prevAg = Array.isArray(prevDemo.byAgeGender) ? (prevDemo.byAgeGender as unknown[]) : [];
-        if (incomingAg.length === 0 && prevAg.length > 0) {
-          merged.demographics = { ...mergedDemo, byAgeGender: prevDemo.byAgeGender } as typeof merged.demographics;
+
+      if (selectedAccount?.platform === 'YOUTUBE') {
+        let merged: Record<string, unknown> = { ...data };
+        if (!demographicsLooksPopulated(merged.demographics) && prev && demographicsLooksPopulated(prev.demographics)) {
+          merged.demographics = prev.demographics;
         }
+        const incomingTraffic = Array.isArray(merged.trafficSources) ? (merged.trafficSources as unknown[]) : null;
+        if ((incomingTraffic?.length ?? 0) === 0 && prev && Array.isArray(prev.trafficSources) && (prev.trafficSources as unknown[]).length > 0) {
+          merged.trafficSources = prev.trafficSources;
+        }
+        if (!merged.extra && prev?.extra) {
+          merged.extra = prev.extra;
+        }
+        // Preserve age×gender breakdown if the refresh dropped only that slice (same pattern as geo).
+        const prevDemo = prev?.demographics as Record<string, unknown> | undefined;
+        const mergedDemo = merged.demographics as Record<string, unknown> | undefined;
+        if (mergedDemo && prevDemo) {
+          const incomingAg = Array.isArray(mergedDemo.byAgeGender) ? (mergedDemo.byAgeGender as unknown[]) : [];
+          const prevAg = Array.isArray(prevDemo.byAgeGender) ? (prevDemo.byAgeGender as unknown[]) : [];
+          if (incomingAg.length === 0 && prevAg.length > 0) {
+            merged.demographics = { ...mergedDemo, byAgeGender: prevDemo.byAgeGender } as typeof merged.demographics;
+          }
+        }
+        // Still patch from localStorage cache if both the incoming payload AND state are lacking.
+        merged = patchYouTubeExtended(merged);
+        return merged;
       }
-      // Still patch from localStorage cache if both the incoming payload AND state are lacking.
-      merged = patchYouTubeExtended(merged);
-      return merged;
+
+      if (selectedAccount?.platform === 'FACEBOOK') {
+        return mergeFacebookPageInsightsPreserve({ ...data }, prev);
+      }
+
+      return data;
     }
 
     // If we already have cached data for this range (or prefetched default range), show it immediately and keep it stable.
     if (exactCached) {
-      const patchedExact = patchYouTubeExtended(exactCached as Record<string, unknown>);
+      let patchedExact = patchYouTubeExtended(exactCached as Record<string, unknown>);
+      if (selectedAccount?.platform === 'FACEBOOK') {
+        patchedExact = mergeFacebookPageInsightsPreserve(
+          patchedExact,
+          lastInsightsByAccountIdRef.current[accountId] as Record<string, unknown> | undefined
+        );
+      }
       lastInsightsByAccountIdRef.current[accountId] = { ...(patchedExact), _dateRange: dateRange };
       lastInsightsFetchedAtRef.current[accountId] = Date.now();
       setInsights(patchedExact as NonNullable<Parameters<typeof setInsights>[0]>);
@@ -1658,17 +1696,22 @@ export default function DashboardPage() {
             dateRange={dateRange}
             insightsLoading={effectiveInsightsLoading}
             postsLoading={importedPostsLoading}
+            postsSyncActive={importedPostsLoading || postsSoftSyncing}
             onUpgrade={openPricingPopup}
             onSync={async () => {
-              if (!selectedAccount?.id || importedPostsLoading) return;
-              setImportedPostsLoading(true);
+              if (!selectedAccount?.id || manualPostsSyncInFlightRef.current) return;
+              const plat = selectedAccount.platform;
+              const prevForPlatform = importedPosts.filter((p: { platform: string }) => p.platform === plat);
+              if (importedPostsLoading && prevForPlatform.length === 0) return;
+              const useBlockingPostsLoader = prevForPlatform.length === 0;
+              manualPostsSyncInFlightRef.current = true;
+              if (useBlockingPostsLoader) setImportedPostsLoading(true);
+              else setPostsSoftSyncing(true);
               try {
                 const res = await api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: { sync: 1 } });
                 const list = res.data?.posts ?? [];
                 const syncErr = res.data?.syncError as string | undefined;
                 const aid = selectedAccount.id;
-                const plat = selectedAccount.platform;
-                const prevForPlatform = importedPosts.filter((p: { platform: string }) => p.platform === plat);
                 const useList =
                   list.length > 0 ? list : syncErr && prevForPlatform.length > 0 ? prevForPlatform : list;
                 postsCacheRef.current[aid] = useList;
@@ -1691,17 +1734,8 @@ export default function DashboardPage() {
                     const prevInsights = insightsCacheRef.current[cacheKey] ?? lastInsightsByAccountIdRef.current[aid];
                     const prevRec = prevInsights && typeof prevInsights === 'object' ? (prevInsights as Record<string, unknown>) : null;
                     const merged =
-                      selectedAccount.platform === 'FACEBOOK' &&
-                      prevRec &&
-                      !(nextInsights as { facebookAnalytics?: unknown }).facebookAnalytics &&
-                      prevRec.facebookAnalytics
-                        ? {
-                            ...(nextInsights as Record<string, unknown>),
-                            facebookAnalytics: prevRec.facebookAnalytics,
-                            facebookPageMetricSeries:
-                              (nextInsights as { facebookPageMetricSeries?: unknown }).facebookPageMetricSeries ??
-                              prevRec.facebookPageMetricSeries,
-                          }
+                      selectedAccount.platform === 'FACEBOOK'
+                        ? mergeFacebookPageInsightsPreserve(nextInsights as Record<string, unknown>, prevRec)
                         : nextInsights;
                     insightsCacheRef.current[cacheKey] = merged as typeof nextInsights;
                     lastInsightsByAccountIdRef.current[aid] = merged as Record<string, unknown>;
@@ -1719,7 +1753,9 @@ export default function DashboardPage() {
               } catch (_) {
                 setPostsSyncError(null);
               } finally {
-                setImportedPostsLoading(false);
+                if (useBlockingPostsLoader) setImportedPostsLoading(false);
+                setPostsSoftSyncing(false);
+                manualPostsSyncInFlightRef.current = false;
               }
             }}
             onReconnectFacebook={

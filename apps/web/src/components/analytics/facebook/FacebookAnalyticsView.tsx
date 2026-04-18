@@ -42,6 +42,8 @@ export interface FacebookAnalyticsViewProps {
   dateRange: { start: string; end: string };
   insightsLoading: boolean;
   postsLoading: boolean;
+  /** Spinner / "Syncing…" on Sync now; defaults to postsLoading. Use when soft background sync should not block the UI. */
+  postsSyncActive?: boolean;
   onUpgrade?: () => void;
   onSync?: () => void;
   onDateRangeChange?: (range: { start: string; end: string }) => void;
@@ -2450,6 +2452,7 @@ export function FacebookAnalyticsView({
   dateRange,
   insightsLoading,
   postsLoading,
+  postsSyncActive = postsLoading,
   onUpgrade,
   onSync,
   onDateRangeChange,
@@ -4497,7 +4500,7 @@ export function FacebookAnalyticsView({
                 <button
                   type="button"
                   onClick={onSync}
-                  disabled={postsLoading}
+                  disabled={postsSyncActive}
                   className="inline-flex items-center gap-2 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60"
                   style={{
                     color: COLOR.textSecondary,
@@ -4505,8 +4508,8 @@ export function FacebookAnalyticsView({
                     background: 'rgba(255,255,255,0.75)',
                   }}
                 >
-                  <RefreshCw size={13} className={postsLoading ? 'animate-spin opacity-75' : 'opacity-75'} />
-                  {postsLoading ? 'Syncing...' : 'Sync now'}
+                  <RefreshCw size={13} className={postsSyncActive ? 'animate-spin opacity-75' : 'opacity-75'} />
+                  {postsSyncActive ? 'Syncing...' : 'Sync now'}
                 </button>
               ) : (
                 <span className="text-sm inline-flex items-center gap-2" style={{ color: COLOR.textSecondary }}>
@@ -4529,15 +4532,20 @@ export function FacebookAnalyticsView({
         <div className="mt-2">
           <StickySectionNav sections={sections} activeSection={activeSection} ariaLabel="Facebook analytics sections" />
         </div>
-        {postsLoading && !insightsLoading ? (
-          <p className="mt-2.5 text-xs font-medium animate-pulse" style={{ color: COLOR.textSecondary }}>
-            {insights?.platform === 'PINTEREST'
-              ? 'Updating pins from Pinterest, tables will refresh when sync finishes.'
-              : insights?.platform === 'TIKTOK'
-                ? 'Syncing videos from TikTok, tables will refresh when sync finishes.'
-                : insights?.platform === 'LINKEDIN'
-                  ? 'Syncing posts from LinkedIn, tables will refresh when sync finishes.'
-                : 'Updating posts and reels from Facebook, tables will refresh when sync finishes.'}
+        {(postsLoading || postsSyncActive) && !insightsLoading ? (
+          <p
+            className={`mt-2.5 text-xs font-medium${posts.length === 0 ? ' animate-pulse' : ''}`}
+            style={{ color: COLOR.textSecondary }}
+          >
+            {posts.length > 0
+              ? 'Refreshing your post inventory in the background. Metrics and tables update as new data arrives — nothing is cleared while sync runs.'
+              : insights?.platform === 'PINTEREST'
+                ? 'Updating pins from Pinterest, tables will fill in as the sync completes.'
+                : insights?.platform === 'TIKTOK'
+                  ? 'Syncing videos from TikTok, tables will fill in as the sync completes.'
+                  : insights?.platform === 'LINKEDIN'
+                    ? 'Syncing posts from LinkedIn, tables will fill in as the sync completes.'
+                  : 'Updating posts and reels from Facebook, tables will fill in as the sync completes.'}
           </p>
         ) : null}
       </section>
@@ -6170,7 +6178,7 @@ export function FacebookAnalyticsView({
                 )
               : [];
             const historyRows = contentHistoryRows.length > 0 ? contentHistoryRows : twitterFallback;
-            if (postsLoading && historyRows.length === 0) {
+            if (postsLoading && posts.length === 0 && historyRows.length === 0) {
               return (
                 <div className="rounded-[20px] border p-6 space-y-3" style={{ background: COLOR.card, borderColor: COLOR.border }}>
                   <p className="text-sm font-medium" style={{ color: COLOR.text }}>Loading content history…</p>
