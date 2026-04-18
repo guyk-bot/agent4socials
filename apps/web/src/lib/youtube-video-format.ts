@@ -30,6 +30,10 @@ export type YoutubeVideoFormat = 'short' | 'long';
 /**
  * Public URL YouTube uses for Shorts (`/shorts/VIDEO_ID`) vs standard watch (`/watch?v=VIDEO_ID`).
  * @see https://www.youtube.com/shorts/ (path contains `shorts` plus the 11-char video id)
+ *
+ * Note: We also persist `youtubeShortsPageUrl` with this shape for **every** upload as a convenience
+ * link — do **not** infer Shorts vs long-form from that field alone (use playlist index, creator
+ * signals, or a user-facing permalink whose path is `/shorts/…`).
  */
 export function buildYoutubePrimaryPermalink(canonicalVideoId: string, format: YoutubeVideoFormat): string {
   const id = String(canonicalVideoId ?? '').trim();

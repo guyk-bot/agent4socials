@@ -691,7 +691,8 @@ function getLegacyYoutubeVideoFormatFromPost(p: FacebookPost): 'short' | 'long' 
 
 /**
  * Shorts: channel `UUSH…` playlist membership (definitive once synced), else strict creator signals.
- * Legacy rows (no playlist data yet) fall back to the stored `youtubeVideoFormat` as a bridge until re-sync.
+ * Legacy `youtubeVideoFormat` is used only when duration is unknown — otherwise stale "short" flags
+ * would override fresh title/duration classification after we stopped inferring from synthetic URLs.
  */
 function isYouTubeShortPost(p: FacebookPost): boolean {
   if ((p.platform ?? '').toUpperCase() !== 'YOUTUBE') return false;
@@ -699,9 +700,9 @@ function isYouTubeShortPost(p: FacebookPost): boolean {
     p.platformMetadata && typeof p.platformMetadata === 'object' && !Array.isArray(p.platformMetadata)
       ? (p.platformMetadata as Record<string, unknown>)
       : {};
+  // Do not use `youtubeShortsPageUrl`: sync always stores `/shorts/{id}` for every upload as an alternate link.
   const urlCandidates = [
     p.permalinkUrl,
-    typeof meta.youtubeShortsPageUrl === 'string' ? meta.youtubeShortsPageUrl : null,
     typeof meta.youtubeWatchUrl === 'string' ? meta.youtubeWatchUrl : null,
     typeof meta.url === 'string' ? meta.url : null,
   ];
@@ -721,8 +722,9 @@ function isYouTubeShortPost(p: FacebookPost): boolean {
   if (inChannelShortsPlaylist !== undefined) return classified === 'short';
   // Creator signals (#shorts / /shorts/ link) present.
   if (classified === 'short') return true;
-  // No playlist data and no creator signals: use the stored value written by the previous sync
-  // as a bridge until the next sync updates the record.
+  // Title/duration classify as long — ignore legacy `youtubeVideoFormat: short` when we have duration
+  // (common after fixing false `/shorts/` matches from stored alternate URLs).
+  if (d > 0 && classified === 'long') return false;
   const legacy = getLegacyYoutubeVideoFormatFromPost(p);
   if (legacy !== undefined) return legacy === 'short';
   return false;
