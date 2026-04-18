@@ -221,9 +221,9 @@ const YOUTUBE_PERFORMANCE_PRESETS: Record<
 > = {
   overview: {
     label: 'Overview',
-    metrics: ['followers', 'videoViews', 'engagements', 'subscriberNet'],
+    metrics: ['followers', 'videoViews', 'engagements'],
   },
-  subscribers: { label: 'Subscribers', metrics: ['followers', 'subscriberNet'] },
+  subscribers: { label: 'Subscribers', metrics: ['followers'] },
   reach: { label: 'Reach', metrics: ['videoViews', 'engagements'] },
 };
 
@@ -2170,7 +2170,7 @@ export function FacebookAnalyticsView({
 
   useEffect(() => {
     if (insights?.platform?.toUpperCase() !== 'YOUTUBE') return;
-    setSelectedStoryMetrics(['followers', 'videoViews', 'engagements', 'subscriberNet']);
+    setSelectedStoryMetrics(['followers', 'videoViews', 'engagements']);
   }, [insights?.platform]);
 
   useEffect(() => {
@@ -2672,23 +2672,21 @@ export function FacebookAnalyticsView({
           (p.commentsCount ?? 0) +
           bestShareCount(p);
       }
-      const followsRaw: Record<string, number> = {};
-      dateAxis.forEach((d) => {
-        followsRaw[d] = totalFollowers;
-      });
       const videoViewsSeries = dailyValuesOnAxis(dateAxis, viewsMap);
       const engagement = carryForwardSeries(dateAxis, engagementByDate, 0);
-      const follows = carryForwardSeries(dateAxis, followsRaw, totalFollowers, true);
-      const subscriberNetSeries = dailyValuesOnAxis(dateAxis, youtubeGrowthNetByDate);
-      return dateAxis.map((date) => ({
-        date,
-        followers: follows[date] ?? 0,
-        engagements: engagement[date] ?? 0,
-        videoViews: videoViewsSeries[date] ?? 0,
-        contentViews: 0,
-        pageVisits: 0,
-        subscriberNet: subscriberNetSeries[date] ?? 0,
-      }));
+      let subscriberCumulative = 0;
+      return dateAxis.map((date) => {
+        subscriberCumulative += youtubeGrowthNetByDate[date] ?? 0;
+        return {
+          date,
+          followers: subscriberCumulative,
+          engagements: engagement[date] ?? 0,
+          videoViews: videoViewsSeries[date] ?? 0,
+          contentViews: 0,
+          pageVisits: 0,
+          subscriberNet: 0,
+        };
+      });
     }
     if (isTwitter) {
       const apiImp = seriesToMap(insights?.impressionsTimeSeries ?? []);
@@ -2889,20 +2887,18 @@ export function FacebookAnalyticsView({
         postsInRange,
         (p) => (p.likeCount ?? 0) + (p.commentsCount ?? 0) + bestShareCount(p)
       );
-      const start = dateRange.start.slice(0, 10);
-      const end = dateRange.end.slice(0, 10);
-      const ff = totalFollowers;
-      const subscriberNetSeries = dateAxis.map((d) => ({ date: d, value: youtubeGrowthNetByDate[d] ?? 0 }));
+      let cum = 0;
+      const followsCumulative = dateAxis.map((d) => {
+        cum += youtubeGrowthNetByDate[d] ?? 0;
+        return { date: d, value: cum };
+      });
       return {
-        follows: [
-          { date: start, value: ff },
-          { date: end, value: ff },
-        ],
+        follows: followsCumulative,
         engagement: engSeries,
         videoViews: viewsSeries,
         contentViews: [],
         pageVisits: [],
-        subscriberNet: subscriberNetSeries,
+        subscriberNet: [],
       };
     }
     if (isLinkedIn) {
@@ -3624,7 +3620,9 @@ export function FacebookAnalyticsView({
     const contentViewsS = growthSparklineSeries.contentViews;
     const pageTabS = growthSparklineSeries.pageVisits;
     return {
-      growth: `Followers: ${fmt(percentChangeFromSeries(follows))}`,
+      growth: isYouTube
+        ? `Subscribers (net in range): ${fmt(percentChangeFromSeries(follows))}`
+        : `Followers: ${fmt(percentChangeFromSeries(follows))}`,
       engagement: `Engagements: ${fmt(percentChangeFromSeries(engagement))}`,
       views:
         isTwitter
@@ -3828,6 +3826,10 @@ export function FacebookAnalyticsView({
   const performanceChartHasNegativeSubscriberNet = useMemo(
     () => chartByMode.some((d) => (d.subscriberNet ?? 0) < 0),
     [chartByMode]
+  );
+  const performanceChartYoutubeSubscribersSigned = useMemo(
+    () => isYouTube && chartByMode.some((d) => (d.followers ?? 0) < 0),
+    [isYouTube, chartByMode]
   );
 
   // For Twitter when no synced posts, synthesize top-posts entries from recentTweets.
@@ -4454,9 +4456,13 @@ export function FacebookAnalyticsView({
               <div className="mt-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <SparklineMetricCard
                   label="Subscribers"
-                  source="YouTube Data API · channel statistics"
+                  source="Net change in subscribers over the selected range (YouTube Analytics · gained minus lost per day)"
                   color={COLOR.mint}
-                  value={formatNumber(totalFollowers)}
+                  value={
+                    youTubeSubscriberNetInRange > 0
+                      ? `+${formatNumber(youTubeSubscriberNetInRange)}`
+                      : formatNumber(youTubeSubscriberNetInRange)
+                  }
                   series={growthSparklineSeries.follows}
                   active={isCardSelected('followers')}
                   onClick={() => toggleStoryMetric('followers')}
@@ -4478,15 +4484,6 @@ export function FacebookAnalyticsView({
                   series={growthSparklineSeries.engagement}
                   active={isCardSelected('engagements')}
                   onClick={() => toggleStoryMetric('engagements')}
-                />
-                <SparklineMetricCard
-                  label="Subscriber net"
-                  source="YouTube Analytics · net subscribers gained minus lost per day"
-                  color={TIKTOK_PERFORMANCE_LINE_COLORS.subscriberNet}
-                  value={formatNumber(youTubeSubscriberNetInRange)}
-                  series={growthSparklineSeries.subscriberNet}
-                  active={isCardSelected('subscriberNet')}
-                  onClick={() => toggleStoryMetric('subscriberNet')}
                 />
               </div>
             </>
@@ -4597,7 +4594,8 @@ export function FacebookAnalyticsView({
                 <YAxis
                   {...(performanceStoryDualAxis ? { yAxisId: 'left' as const } : {})}
                   domain={
-                    selectedStoryMetrics.includes('subscriberNet') && performanceChartHasNegativeSubscriberNet
+                    (selectedStoryMetrics.includes('subscriberNet') && performanceChartHasNegativeSubscriberNet) ||
+                    (selectedStoryMetrics.includes('followers') && performanceChartYoutubeSubscribersSigned)
                       ? ['dataMin', 'dataMax']
                       : [0, 'auto']
                   }
