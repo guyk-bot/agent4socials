@@ -277,7 +277,7 @@ const POST_TYPE_COLOR: Record<PostTypeKey, string> = {
 };
 
 const POST_TYPE_LABEL: Record<PostTypeKey, string> = {
-  reels: 'Reels',
+  reels: 'Videos',
   image: 'Image',
   carousel: 'Carousel',
 };
@@ -763,7 +763,7 @@ function ShellCard({ children, className = '' }: { children: React.ReactNode; cl
 const CONSOLE_NAV_SECTIONS = [
   { id: FACEBOOK_ANALYTICS_SECTION_IDS.overview, label: 'Overview' },
   { id: FACEBOOK_ANALYTICS_SECTION_IDS.posts, label: 'Posts' },
-  { id: FACEBOOK_ANALYTICS_SECTION_IDS.reels, label: 'Reels' },
+  { id: FACEBOOK_ANALYTICS_SECTION_IDS.reels, label: 'Videos' },
   { id: FACEBOOK_ANALYTICS_SECTION_IDS.history, label: 'History' },
 ] as const;
 
