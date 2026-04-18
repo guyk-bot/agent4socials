@@ -268,15 +268,20 @@ type PlatformLiveFallback = {
   engagementSeries?: Array<{ date: string; value: number }>;
 };
 
-type PostTypeKey = 'reels' | 'image' | 'carousel';
+type PostTypeKey = 'all' | 'reels' | 'image' | 'carousel';
+
+/** Active preset cards (All / Videos / Image / Carousel) use the same signature accent. */
+const CONSOLE_POSTS_PRESET_ACTIVE = COLOR.violet;
 
 const POST_TYPE_COLOR: Record<PostTypeKey, string> = {
+  all: CONSOLE_POSTS_PRESET_ACTIVE,
   reels: '#22d3ee',
   image: '#f43f5e',
   carousel: '#22d3ee',
 };
 
 const POST_TYPE_LABEL: Record<PostTypeKey, string> = {
+  all: 'All',
   reels: 'Videos',
   image: 'Image',
   carousel: 'Carousel',
@@ -303,7 +308,7 @@ function classifyConsolePostType(
   const mt = String(mediaType ?? '').toUpperCase();
   if (!mt) return null;
   if (mt === 'REEL' || mt === 'VIDEO' || mt === 'SHORT') return 'reels';
-  if (mt === 'CAROUSEL' || mt === 'ALBUM') return 'carousel';
+  if (mt === 'CAROUSEL' || mt === 'ALBUM' || mt === 'CAROUSEL_ALBUM' || mt.includes('CAROUSEL')) return 'carousel';
   if (mt === 'IMAGE' || mt === 'PHOTO') return 'image';
   return null;
 }
@@ -862,7 +867,7 @@ export default function UnifiedSummaryPage() {
     'views',
     'engagements',
   ]);
-  const [postsPreset, setPostsPreset] = useState<PostTypeKey>('reels');
+  const [postsPreset, setPostsPreset] = useState<PostTypeKey>('all');
   const [postsActivePlatforms, setPostsActivePlatforms] = useState<string[]>([...CHART_PLATFORMS]);
 
   /** Chart legend and series only for accounts the user has connected (fallback: all chart keys). */
@@ -1147,6 +1152,9 @@ export default function UnifiedSummaryPage() {
       for (const t of ['reels', 'image', 'carousel'] as const) {
         for (const p of connectedChartPlatforms) base[`${t}_${p}`] = 0;
       }
+      for (const p of connectedChartPlatforms) {
+        base[`all_${p}`] = 0;
+      }
       byDate.set(r.date, base);
     }
     for (const post of data?.history ?? []) {
@@ -1159,11 +1167,21 @@ export default function UnifiedSummaryPage() {
       const key = `${t}_${p}`;
       if (key in row) row[key] += 1;
     }
+    for (const row of byDate.values()) {
+      for (const p of connectedChartPlatforms) {
+        row[`all_${p}`] =
+          Number(row[`reels_${p}`] ?? 0) + Number(row[`image_${p}`] ?? 0) + Number(row[`carousel_${p}`] ?? 0);
+      }
+    }
     return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
   }, [data?.history, data?.chart, connectedChartPlatforms]);
 
   const postsAxisTicks = useMemo(
-    () => buildConsoleAxisTicks(postsTimelineData, connectedChartPlatforms.map((p) => `${postsPreset}_${p}`)),
+    () =>
+      buildConsoleAxisTicks(
+        postsTimelineData,
+        postsEligiblePlatformsForPreset(connectedChartPlatforms, postsPreset).map((p) => `${postsPreset}_${p}`)
+      ),
     [postsTimelineData, connectedChartPlatforms.join('|'), postsPreset]
   );
 
@@ -1531,9 +1549,9 @@ export default function UnifiedSummaryPage() {
             <div className="mb-5 flex items-start justify-between gap-3">
               <div className="-mt-3 min-w-0 flex-1 overflow-x-auto">
                 <div className="mb-2 flex flex-nowrap gap-2">
-                  {(['reels', 'image', 'carousel'] as const).map((preset) => {
+                  {(['all', 'reels', 'image', 'carousel'] as const).map((preset) => {
                     const active = postsPreset === preset;
-                    const color = POST_TYPE_COLOR[preset];
+                    const inactiveAccent = POST_TYPE_COLOR[preset];
                     return (
                       <button
                         key={`posts-type-card-${preset}`}
@@ -1542,18 +1560,26 @@ export default function UnifiedSummaryPage() {
                         aria-pressed={active}
                         className="inline-flex min-w-[132px] flex-col items-start rounded-[14px] border px-3 py-2.5 text-left transition-[opacity,box-shadow,transform] hover:scale-[1.01] active:scale-[0.99]"
                         style={{
-                          borderColor: active ? `${color}45` : COLOR.border,
-                          background: `${color}${active ? '10' : '08'}`,
-                          opacity: active ? 1 : 0.72,
-                          boxShadow: active ? `0 0 0 1px ${color}25, 0 2px 10px rgba(15,23,42,0.06)` : '0 1px 3px rgba(15,23,42,0.04)',
+                          borderColor: active ? `${CONSOLE_POSTS_PRESET_ACTIVE}55` : COLOR.border,
+                          background: active ? 'rgba(124, 108, 255, 0.14)' : `${inactiveAccent}08`,
+                          opacity: active ? 1 : 0.78,
+                          boxShadow: active
+                            ? `0 0 0 1px rgba(124,108,255,0.35), 0 2px 10px rgba(15,23,42,0.08)`
+                            : '0 1px 3px rgba(15,23,42,0.04)',
                         }}
                       >
                         <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLOR.textSecondary }}>
                           {POST_TYPE_LABEL[preset]}
                         </span>
-                        <span className="tabular-nums text-[17px] leading-tight font-bold" style={{ color }}>
+                        <span
+                          className="tabular-nums text-[17px] leading-tight font-bold"
+                          style={{ color: active ? CONSOLE_POSTS_PRESET_ACTIVE : inactiveAccent }}
+                        >
                           {fmtExactInt(
-                            connectedChartPlatforms.reduce((sum, p) => sum + postsTimelineData.reduce((s, row) => s + Number((row as unknown as Record<string, number>)[`${preset}_${p}`] ?? 0), 0), 0)
+                            connectedChartPlatforms.reduce(
+                              (sum, p) => sum + postsTimelineData.reduce((s, row) => s + Number((row as unknown as Record<string, number>)[`${preset}_${p}`] ?? 0), 0),
+                              0
+                            )
                           )}
                         </span>
                       </button>
@@ -1603,16 +1629,23 @@ export default function UnifiedSummaryPage() {
                       tickLine={false}
                       interval={0}
                     />
-                    <YAxis domain={[0, 'auto']} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis
+                      domain={[0, 'auto']}
+                      allowDecimals={false}
+                      tickFormatter={(v) => fmtExactInt(Math.round(Number(v)))}
+                      tick={{ fill: COLOR.textMuted, fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
                     <Tooltip contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }} // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     formatter={(v: any, n: any) => [fmtExactInt(Number(v) || 0), consolePlatformDisplayName(String(n ?? ''))]} labelFormatter={(l) => fmtTooltipDate(String(l))} />
                     {postsEligiblePlatforms.map((p) => (
                       <Bar
                         key={`post-bar-${postsPreset}-${p}`}
                         dataKey={`${postsPreset}_${p}`}
-                        stackId={`posts-${postsPreset}`}
+                        stackId="posts-by-platform"
                         name={consolePlatformDisplayName(p)}
-                        fill={POST_TYPE_COLOR[postsPreset]}
+                        fill={CONSOLE_PLATFORM_COLOR[p] ?? PLATFORM_COLOR[p] ?? COLOR.violet}
                         radius={[0, 0, 0, 0]}
                         hide={!postsActivePlatforms.includes(p)}
                         barSize={16}
@@ -1633,7 +1666,7 @@ export default function UnifiedSummaryPage() {
                 </div>
                 <div className="relative z-10">
                   <h4 className="text-sm font-semibold mb-3" style={{ color: COLOR.text }}>
-                    {POST_TYPE_LABEL[postsPreset]} by platform
+                    {postsPreset === 'all' ? 'All posts by platform' : `${POST_TYPE_LABEL[postsPreset]} by platform`}
                   </h4>
                   <div className="flex flex-col md:flex-row items-center gap-6">
                     <div className="w-[200px] h-[200px] shrink-0">
