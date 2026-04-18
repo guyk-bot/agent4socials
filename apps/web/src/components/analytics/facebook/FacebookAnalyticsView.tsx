@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import {
   Bar,
@@ -110,8 +111,8 @@ const COLOR = {
 
 const CONTENT_TYPE_COLOR: Record<ContentTypeKey, string> = {
   reels: '#22d3ee',
-  image: '#f43f5e',
-  carousel: '#22d3ee',
+  image: '#ec4899',
+  carousel: '#9333ea',
 };
 
 const YOUTUBE_CONTENT_TYPE_COLOR: Record<YouTubeContentTypeKey, string> = {
@@ -1837,6 +1838,11 @@ function YoutubeVideosAnalyticsPanel({
 }
 
 /** Best URL to open a post on the native platform (permalink from API, or Facebook fallback from `platformPostId`). */
+function isCarouselAlbumMedia(mediaType: string | null | undefined): boolean {
+  const m = String(mediaType ?? '').toUpperCase();
+  return m === 'CAROUSEL' || m === 'ALBUM';
+}
+
 export function resolvedPostPermalink(row: {
   permalink?: string | null;
   rawPost: FacebookPost;
@@ -1889,6 +1895,65 @@ export function PostsPerformanceTable({
 }) {
   const platUpper = (platform ?? '').toUpperCase();
   const compactVideoTable = platUpper === 'TIKTOK' || platUpper === 'LINKEDIN' || platUpper === 'TWITTER';
+  type RowHoverPreview = {
+    left: number;
+    top: number;
+    thumbUrl: string;
+    carousel: boolean;
+    likes: number;
+    interactions: number;
+    reactions: number;
+  };
+  const [mounted, setMounted] = useState(false);
+  const [rowHover, setRowHover] = useState<RowHoverPreview | null>(null);
+  const hoverClearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => {
+      if (hoverClearTimer.current) clearTimeout(hoverClearTimer.current);
+    };
+  }, []);
+
+  const showRowHover = (r: (typeof rows)[number], rect: DOMRect) => {
+    const url = r.rawPost.thumbnailUrl;
+    if (!url) return;
+    if (hoverClearTimer.current) {
+      clearTimeout(hoverClearTimer.current);
+      hoverClearTimer.current = null;
+    }
+    const pad = 10;
+    const panelW = 220;
+    const panelH = 300;
+    let left = rect.right + pad;
+    let top = rect.top;
+    if (typeof window !== 'undefined') {
+      if (left + panelW > window.innerWidth - pad) {
+        left = Math.max(pad, rect.left - panelW - pad);
+      }
+      if (top + panelH > window.innerHeight - pad) {
+        top = Math.max(pad, window.innerHeight - panelH - pad);
+      }
+    }
+    setRowHover({
+      left,
+      top,
+      thumbUrl: url,
+      carousel: isCarouselAlbumMedia(r.rawPost.mediaType),
+      likes: r.likes,
+      interactions: r.clicks,
+      reactions: r.reactionsTotal,
+    });
+  };
+
+  const scheduleClearRowHover = () => {
+    if (hoverClearTimer.current) clearTimeout(hoverClearTimer.current);
+    hoverClearTimer.current = setTimeout(() => {
+      setRowHover(null);
+      hoverClearTimer.current = null;
+    }, 100);
+  };
+
   const tableHeaders: Array<{ label: string; className: string; title?: string }> = [
     { label: 'Post preview', className: 'w-[240px]' },
     { label: 'Publish date', className: 'w-[132px]' },
@@ -1914,6 +1979,7 @@ export function PostsPerformanceTable({
   ];
   const tableMinW = compactVideoTable ? 'min-w-[860px]' : 'min-w-[1220px]';
   return (
+    <>
     <div className="rounded-[20px] overflow-hidden" style={{ background: COLOR.card, boxShadow: '0 2px 16px rgba(15,23,42,0.06)' }}>
       <div className="hidden md:block overflow-x-auto">
         <table className={`w-full ${tableMinW} table-fixed text-sm`}>
@@ -1937,7 +2003,16 @@ export function PostsPerformanceTable({
             {rows.map((r) => {
               const openUrl = resolvedPostPermalink(r);
               return (
-              <tr key={r.id} className="border-t hover:bg-[#f8fafc]" style={{ borderColor: COLOR.border }}>
+              <tr
+                key={r.id}
+                className="border-t hover:bg-[#f8fafc]"
+                style={{ borderColor: COLOR.border }}
+                onMouseEnter={(e) => {
+                  if (!r.rawPost.thumbnailUrl) return;
+                  showRowHover(r, (e.currentTarget as HTMLTableRowElement).getBoundingClientRect());
+                }}
+                onMouseLeave={scheduleClearRowHover}
+              >
                 <td className="px-3 py-3" style={{ color: COLOR.textSecondary }}>
                   <div className="flex items-start gap-2 min-w-0">
                     {openUrl ? (
@@ -2030,6 +2105,11 @@ export function PostsPerformanceTable({
             key={r.id}
             className="w-full rounded-xl border p-3 text-left"
             style={{ borderColor: COLOR.border, background: 'rgba(255,255,255,0.015)' }}
+            onMouseEnter={(e) => {
+              if (!r.rawPost.thumbnailUrl) return;
+              showRowHover(r, (e.currentTarget as HTMLDivElement).getBoundingClientRect());
+            }}
+            onMouseLeave={scheduleClearRowHover}
           >
             <div className="flex items-start gap-2">
               {openUrl ? (
@@ -2100,6 +2180,36 @@ export function PostsPerformanceTable({
         );})}
       </div>
     </div>
+    {mounted && rowHover
+      ? createPortal(
+          <div
+            className="pointer-events-none fixed z-[9999] w-[220px] overflow-hidden rounded-xl border bg-white shadow-2xl"
+            style={{ left: rowHover.left, top: rowHover.top, borderColor: COLOR.border }}
+          >
+            <img
+              src={rowHover.thumbUrl}
+              alt=""
+              className="aspect-square w-full object-cover"
+              {...pinterestCdnImgProps(rowHover.thumbUrl)}
+            />
+            {rowHover.carousel ? (
+              <div className="space-y-1 border-t px-2.5 py-2 text-xs" style={{ borderColor: COLOR.border, color: COLOR.textSecondary }}>
+                <p style={{ color: COLOR.text }}>
+                  Likes <span className="font-semibold tabular-nums">{formatNumber(rowHover.likes)}</span>
+                </p>
+                <p style={{ color: COLOR.text }}>
+                  Interactions <span className="font-semibold tabular-nums">{formatNumber(rowHover.interactions)}</span>
+                </p>
+                <p style={{ color: COLOR.text }}>
+                  Reactions <span className="font-semibold tabular-nums">{formatNumber(rowHover.reactions)}</span>
+                </p>
+              </div>
+            ) : null}
+          </div>,
+          document.body
+        )
+      : null}
+    </>
   );
 }
 
@@ -2109,6 +2219,9 @@ type TopHighlightRow = {
   permalink?: string | null;
   type: 'Reel' | 'Post';
   thumbnailUrl?: string | null;
+  /** For carousel / album posts: show on hover with interactions. */
+  mediaType?: string | null;
+  likes?: number;
   views: number;
   clicks: number;
   reactions: number;
@@ -2157,7 +2270,7 @@ function TopContentHighlights({
                 </div>
               ) : (
               <div className="shrink-0 w-[104px] pt-1">
-                <div className="relative isolate mt-1 h-[92px] w-[92px]">
+                <div className="group relative isolate mt-1 h-[92px] w-[92px]">
                   <div className="absolute inset-0 overflow-hidden rounded-xl border" style={{ borderColor: COLOR.border, background: '#f3f4f6' }}>
                     {r.thumbnailUrl ? (
                       <img
@@ -2185,6 +2298,34 @@ function TopContentHighlights({
                     className="pointer-events-none absolute z-10 h-11 w-11 -translate-x-2 -translate-y-2 object-contain drop-shadow-md sm:h-12 sm:w-12 sm:-translate-x-2.5 sm:-translate-y-2.5"
                     style={{ left: 0, top: 0 }}
                   />
+                  {r.thumbnailUrl ? (
+                    <div
+                      className="pointer-events-none invisible absolute z-[25] left-full top-0 ml-2 w-[200px] opacity-0 shadow-2xl transition-[opacity,visibility] duration-150 group-hover:visible group-hover:opacity-100"
+                      style={{ borderColor: COLOR.border }}
+                    >
+                      <div className="overflow-hidden rounded-xl border bg-white" style={{ borderColor: COLOR.border }}>
+                        <img
+                          src={r.thumbnailUrl}
+                          alt=""
+                          className="aspect-square w-full object-cover"
+                          {...pinterestCdnImgProps(r.thumbnailUrl)}
+                        />
+                        {isCarouselAlbumMedia(r.mediaType) ? (
+                          <div className="space-y-1 border-t px-2.5 py-2 text-xs" style={{ borderColor: COLOR.border, color: COLOR.textSecondary }}>
+                            <p style={{ color: COLOR.text }}>
+                              Likes <span className="font-semibold tabular-nums">{formatNumber(r.likes ?? 0)}</span>
+                            </p>
+                            <p style={{ color: COLOR.text }}>
+                              Interactions <span className="font-semibold tabular-nums">{formatNumber(r.clicks)}</span>
+                            </p>
+                            <p style={{ color: COLOR.text }}>
+                              Reactions <span className="font-semibold tabular-nums">{formatNumber(r.reactions)}</span>
+                            </p>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </div>
               )}
@@ -2609,19 +2750,6 @@ export function FacebookAnalyticsView({
     }
     return counts;
   }, [postsInRange]);
-  const contentTypePieData = useMemo(
-    () =>
-      ([
-        { key: 'reels' as const, label: 'Reels', value: contentTypeCounts.reels, color: CONTENT_TYPE_COLOR.reels },
-        { key: 'image' as const, label: 'Image', value: contentTypeCounts.image, color: CONTENT_TYPE_COLOR.image },
-        { key: 'carousel' as const, label: 'Carousel', value: contentTypeCounts.carousel, color: CONTENT_TYPE_COLOR.carousel },
-      ] as const).filter((x) => x.value > 0),
-    [contentTypeCounts]
-  );
-  const contentTypeTotal = useMemo(
-    () => contentTypePieData.reduce((s, p) => s + p.value, 0),
-    [contentTypePieData]
-  );
   const postsUploadChartPresets = useMemo(() => {
     if (isYouTube) {
       return [
@@ -5451,37 +5579,33 @@ export function FacebookAnalyticsView({
           {!isYouTube ? (
           <div className="rounded-xl border p-4 sm:p-5" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
             <h4 className="text-base font-semibold mb-3" style={{ color: COLOR.text }}>Uploaded posts</h4>
-            <div className="mb-5 flex items-start justify-between gap-3">
-              <div className="min-w-0 flex-1 overflow-x-auto">
-                <div className="flex flex-nowrap justify-end gap-2">
-                  {postsUploadChartPresets.map((preset) => {
-                    const active = selectedPostsUploadPreset === preset.key;
-                    const total = Number(postsUploadPresetTotals[preset.key] ?? 0);
-                    return (
-                      <button
-                        key={`posts-upload-card-${preset.key}`}
-                        type="button"
-                        onClick={() => setSelectedPostsUploadPreset(preset.key)}
-                        aria-pressed={active}
-                        className="inline-flex min-w-[132px] flex-col items-start rounded-[14px] border px-3 py-2.5 text-left transition-[opacity,box-shadow,transform] hover:scale-[1.01] active:scale-[0.99]"
-                        style={{
-                          borderColor: active ? `${preset.color}45` : COLOR.border,
-                          background: `${preset.color}${active ? '10' : '08'}`,
-                          opacity: active ? 1 : 0.72,
-                          boxShadow: active ? `0 0 0 1px ${preset.color}25, 0 2px 10px rgba(15,23,42,0.06)` : '0 1px 3px rgba(15,23,42,0.04)',
-                        }}
-                      >
-                        <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLOR.textSecondary }}>
-                          {preset.label}
-                        </span>
-                        <span className="tabular-nums text-[17px] leading-tight font-bold" style={{ color: preset.color }}>
-                          {formatNumber(total)}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+            <div className="mb-4 flex flex-wrap gap-2">
+              {postsUploadChartPresets.map((preset) => {
+                const active = selectedPostsUploadPreset === preset.key;
+                const total = Number(postsUploadPresetTotals[preset.key] ?? 0);
+                return (
+                  <button
+                    key={`posts-upload-card-${preset.key}`}
+                    type="button"
+                    onClick={() => setSelectedPostsUploadPreset(preset.key)}
+                    aria-pressed={active}
+                    className="inline-flex min-w-[132px] flex-col items-start rounded-[14px] border px-3 py-2.5 text-left transition-[opacity,box-shadow,transform] hover:scale-[1.01] active:scale-[0.99]"
+                    style={{
+                      borderColor: active ? `${preset.color}45` : COLOR.border,
+                      background: `${preset.color}${active ? '10' : '08'}`,
+                      opacity: active ? 1 : 0.72,
+                      boxShadow: active ? `0 0 0 1px ${preset.color}25, 0 2px 10px rgba(15,23,42,0.06)` : '0 1px 3px rgba(15,23,42,0.04)',
+                    }}
+                  >
+                    <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLOR.textSecondary }}>
+                      {preset.label}
+                    </span>
+                    <span className="tabular-nums text-[17px] leading-tight font-bold" style={{ color: preset.color }}>
+                      {formatNumber(total)}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
             <InsightChartCard title="Uploaded posts" hideHeader flat>
               {postsUploadByDay.length === 0 ? (
@@ -5506,11 +5630,18 @@ export function FacebookAnalyticsView({
                       axisLine={false}
                       tickLine={false}
                     />
-                    <YAxis domain={[0, 'auto']} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis
+                      domain={[0, 'auto']}
+                      allowDecimals={false}
+                      tickFormatter={(v) => formatNumber(Math.round(Number(v)))}
+                      tick={{ fill: COLOR.textMuted, fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
                     <Tooltip
                       contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
                       formatter={(v: number | string | undefined, n?: string) => [
-                        formatNumber(Number(v) || 0),
+                        formatNumber(Math.round(Number(v) || 0)),
                         postsUploadChartPresets.find((x) => x.key === String(n ?? ''))?.label ?? String(n ?? ''),
                       ]}
                       labelFormatter={(l) => formatShortDate(String(l))}
@@ -5534,62 +5665,6 @@ export function FacebookAnalyticsView({
             </InsightChartCard>
           </div>
           ) : null}
-          {contentTypePieData.length > 0 && !isYouTube ? (
-            <div className="rounded-xl border p-4 sm:p-5" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
-              <h4 className="text-base font-semibold mb-3" style={{ color: COLOR.text }}>Post type distribution</h4>
-              <div className="grid gap-2 sm:grid-cols-3 mb-4">
-                <div className="rounded-xl border px-3 py-2.5" style={{ borderColor: `${CONTENT_TYPE_COLOR.reels}33`, background: `${CONTENT_TYPE_COLOR.reels}12` }}>
-                  <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLOR.textSecondary }}>Reels</div>
-                  <div className="text-xl font-bold tabular-nums" style={{ color: CONTENT_TYPE_COLOR.reels }}>{formatNumber(contentTypeCounts.reels)}</div>
-                </div>
-                <div className="rounded-xl border px-3 py-2.5" style={{ borderColor: `${CONTENT_TYPE_COLOR.image}33`, background: `${CONTENT_TYPE_COLOR.image}12` }}>
-                  <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLOR.textSecondary }}>Image</div>
-                  <div className="text-xl font-bold tabular-nums" style={{ color: CONTENT_TYPE_COLOR.image }}>{formatNumber(contentTypeCounts.image)}</div>
-                </div>
-                <div className="rounded-xl border px-3 py-2.5" style={{ borderColor: `${CONTENT_TYPE_COLOR.carousel}33`, background: `${CONTENT_TYPE_COLOR.carousel}12` }}>
-                  <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLOR.textSecondary }}>Carousel</div>
-                  <div className="text-xl font-bold tabular-nums" style={{ color: CONTENT_TYPE_COLOR.carousel }}>{formatNumber(contentTypeCounts.carousel)}</div>
-                </div>
-              </div>
-              <div className="flex flex-col md:flex-row items-center gap-6">
-                <div className="w-[200px] h-[200px] shrink-0">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={contentTypePieData} dataKey="value" nameKey="label" cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={0} stroke="none" strokeWidth={0}>
-                        {contentTypePieData.map((entry, idx) => (
-                          <Cell key={`content-type-${entry.key}-${idx}`} fill={entry.color} stroke="none" />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
-                        formatter={(value, name) => {
-                          const v = Number(value) || 0;
-                          return [`${formatNumber(v)} (${contentTypeTotal > 0 ? ((v / contentTypeTotal) * 100).toFixed(1) : 0}%)`, String(name ?? '')];
-                        }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="flex-1 grid grid-cols-2 gap-x-6 gap-y-2">
-                  {contentTypePieData.map((item) => {
-                    const pct = contentTypeTotal > 0 ? ((item.value / contentTypeTotal) * 100).toFixed(1) : '0';
-                    return (
-                      <div key={item.key} className="flex items-center justify-between gap-2 py-1">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="w-3 h-3 rounded-full shrink-0" style={{ background: item.color }} />
-                          <span className="text-sm truncate" style={{ color: COLOR.text }}>{item.label}</span>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-sm font-semibold tabular-nums" style={{ color: COLOR.text }}>{formatNumber(item.value)}</span>
-                          <span className="text-xs tabular-nums" style={{ color: COLOR.textMuted }}>({pct}%)</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          ) : null}
           <TopContentHighlights
             platform={insights?.platform}
             clicksLeaderTitle={
@@ -5605,6 +5680,8 @@ export function FacebookAnalyticsView({
               permalink: resolvedPostPermalink({ permalink: p.permalink, rawPost: p.rawPost }) ?? p.permalink,
               type: p.type,
               thumbnailUrl: p.rawPost.thumbnailUrl ?? null,
+              mediaType: p.rawPost.mediaType ?? null,
+              likes: p.likes,
               views: p.views,
               clicks: p.clicks,
               reactions: p.reactionsTotal,
@@ -5616,6 +5693,8 @@ export function FacebookAnalyticsView({
               permalink: resolvedPostPermalink({ permalink: p.permalink, rawPost: p.rawPost }) ?? p.permalink,
               type: p.type,
               thumbnailUrl: p.rawPost.thumbnailUrl ?? null,
+              mediaType: p.rawPost.mediaType ?? null,
+              likes: p.likes,
               views: p.views,
               clicks: p.clicks,
               reactions: p.reactionsTotal,
@@ -5627,6 +5706,8 @@ export function FacebookAnalyticsView({
               permalink: resolvedPostPermalink({ permalink: p.permalink, rawPost: p.rawPost }) ?? p.permalink,
               type: p.type,
               thumbnailUrl: p.rawPost.thumbnailUrl ?? null,
+              mediaType: p.rawPost.mediaType ?? null,
+              likes: p.likes,
               views: p.views,
               clicks: p.clicks,
               reactions: p.reactionsTotal,
