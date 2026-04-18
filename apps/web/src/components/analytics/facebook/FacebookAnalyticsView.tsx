@@ -690,19 +690,12 @@ function getLegacyYoutubeVideoFormatFromPost(p: FacebookPost): 'short' | 'long' 
 }
 
 /**
- * Shorts: channel `UUSH…` playlist membership (definitive once synced), else creator signals,
- * then legacy stored format, then a 60 s duration heuristic.
+ * Whether a YouTube upload is a Short (for legacy/debug paths only). We do **not** use video
+ * duration. Signals: `/shorts/` on user-facing URLs, channel Shorts shelf index, `#shorts` /
+ * creator text, then stored `youtubeVideoFormat` when playlist data is absent.
  *
- * Priority order:
- * 1. User-facing permalink contains `/shorts/` → Short.
- * 2. Channel Shorts shelf (`youtubeInShortsPlaylist`) definitive → use it.
- * 3. `#shorts` creator signal in title/description → Short.
- * 4. Legacy `youtubeVideoFormat` stored by previous sync/backfill → use it.
- * 5. Duration ≤ 60 s → Short (YouTube's official max for Shorts is 60 s).
- * 6. Default → long-form.
- *
- * `youtubeShortsPageUrl` is intentionally excluded from URL candidates because sync always
- * stores `/shorts/{id}` as a convenience link for every upload, making it unreliable.
+ * Dashboard analytics no longer split Shorts vs long-form; this remains for debug payloads and
+ * any future feature that needs the distinction without duration guessing.
  */
 function isYouTubeShortPost(p: FacebookPost): boolean {
   if ((p.platform ?? '').toUpperCase() !== 'YOUTUBE') return false;
@@ -711,7 +704,6 @@ function isYouTubeShortPost(p: FacebookPost): boolean {
       ? (p.platformMetadata as Record<string, unknown>)
       : {};
 
-  // 1. User-facing permalink or explicit watch URL only (not the synthetic /shorts/ alternate link).
   const urlCandidates = [
     p.permalinkUrl,
     typeof meta.youtubeWatchUrl === 'string' ? meta.youtubeWatchUrl : null,
@@ -730,21 +722,10 @@ function isYouTubeShortPost(p: FacebookPost): boolean {
     inChannelShortsPlaylist,
   });
 
-  // 2. Playlist membership is definitive.
   if (inChannelShortsPlaylist !== undefined) return classified === 'short';
-
-  // 3. Creator signals (#shorts, explicit /shorts/ link in text).
   if (classified === 'short') return true;
-
-  // 4. Legacy stored `youtubeVideoFormat` written by a previous sync or backfill.
   const legacy = getLegacyYoutubeVideoFormatFromPost(p);
   if (legacy !== undefined) return legacy === 'short';
-
-  // 5. Duration heuristic: YouTube's official max for Shorts is 60 seconds.
-  //    Over-180 s is already caught inside classifyYoutubeVideoFormat → 'long', so d > 180 won't reach here.
-  if (d > 0 && d <= 60) return true;
-
-  // 6. No signal → assume long-form.
   return false;
 }
 
@@ -754,7 +735,8 @@ function isYouTubeShortPost(p: FacebookPost): boolean {
  */
 function isReelPost(p: FacebookPost): boolean {
   if ((p.platform ?? '').toUpperCase() === 'TIKTOK') return true;
-  if ((p.platform ?? '').toUpperCase() === 'YOUTUBE') return isYouTubeShortPost(p);
+  /** YouTube: treat synced uploads as one “videos” surface (no Shorts vs long-form split in UI). */
+  if ((p.platform ?? '').toUpperCase() === 'YOUTUBE') return true;
   // Twitter: any video tweet (mediaType VIDEO or GIF) is treated as a reel/video
   if ((p.platform ?? '').toUpperCase() === 'TWITTER') {
     const mt = (p.mediaType ?? '').toUpperCase();
@@ -2049,11 +2031,7 @@ export function PostsPerformanceTable({
                 </td>
                 <td className="px-3 py-3">
                   <span className="rounded-full px-2 py-1 text-xs" style={{ background: 'rgba(255,255,255,0.08)', color: COLOR.text }}>
-                    {platUpper === 'YOUTUBE'
-                      ? isYouTubeShortPost(r.rawPost)
-                        ? 'Shorts'
-                        : 'Long form'
-                      : r.type}
+                    {platUpper === 'YOUTUBE' ? 'Video' : r.type}
                   </span>
                 </td>
                 <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.views)}</td>
@@ -2138,11 +2116,7 @@ export function PostsPerformanceTable({
             <div className="mt-2 flex flex-wrap gap-2 text-xs" style={{ color: COLOR.textSecondary }}>
               <span>{formatPostCardDateTime(r.date) || new Date(r.date).toLocaleDateString()}</span>
               <span>
-                {platUpper === 'YOUTUBE'
-                  ? isYouTubeShortPost(r.rawPost)
-                    ? 'Shorts'
-                    : 'Long form'
-                  : r.type}
+                {platUpper === 'YOUTUBE' ? 'Video' : r.type}
               </span>
               <span>Views {formatNumber(r.views)}</span>
               {!compactVideoTable ? <span>Reach {formatNumber(r.uniqueReach)}</span> : null}
@@ -2444,12 +2418,8 @@ export function FacebookAnalyticsView({
   ]);
   const [selectedReelMetrics, setSelectedReelMetrics] = useState<ReelMetricKey[]>(['views', 'watchTime', 'avgWatch', 'shares']);
   const [reelPreset, setReelPreset] = useState<ReelPresetKey>('performance');
-  const [ytLongReelPreset, setYtLongReelPreset] = useState<ReelPresetKey>('performance');
-  const [ytShortReelPreset, setYtShortReelPreset] = useState<ReelPresetKey>('performance');
-  const [selectedYtLongReelMetrics, setSelectedYtLongReelMetrics] = useState<ReelMetricKey[]>([
-    ...REEL_PRESET_METRICS_YOUTUBE.performance,
-  ]);
-  const [selectedYtShortReelMetrics, setSelectedYtShortReelMetrics] = useState<ReelMetricKey[]>([
+  const [ytVideoReelPreset, setYtVideoReelPreset] = useState<ReelPresetKey>('performance');
+  const [selectedYtVideoReelMetrics, setSelectedYtVideoReelMetrics] = useState<ReelMetricKey[]>([
     ...REEL_PRESET_METRICS_YOUTUBE.performance,
   ]);
   const [selectedPostsUploadPreset, setSelectedPostsUploadPreset] = useState<PostsUploadPresetKey>('reels');
@@ -2463,10 +2433,7 @@ export function FacebookAnalyticsView({
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.overview, label: 'Overview' },
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.traffic, label: 'Traffic' },
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.posts, label: plat === 'TWITTER' ? 'Tweets' : plat === 'PINTEREST' ? 'Pins' : 'Posts' },
-      { id: FACEBOOK_ANALYTICS_SECTION_IDS.reels, label: plat === 'PINTEREST' ? 'Videos' : plat === 'YOUTUBE' ? 'Long form videos' : 'Reels' },
-      ...(plat === 'YOUTUBE'
-        ? ([{ id: FACEBOOK_ANALYTICS_SECTION_IDS.youtubeShorts, label: 'YouTube shorts' }] as const)
-        : []),
+      { id: FACEBOOK_ANALYTICS_SECTION_IDS.reels, label: plat === 'PINTEREST' || plat === 'YOUTUBE' ? 'Videos' : 'Reels' },
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.history, label: 'History' },
     ];
     if (plat === 'TIKTOK' || plat === 'TWITTER') {
@@ -2492,8 +2459,9 @@ export function FacebookAnalyticsView({
         const visible = entries
           .filter((e) => e.isIntersecting)
           .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-        if (visible?.target?.id && ids.includes(visible.target.id as SectionId)) {
-          setActiveSection(visible.target.id as SectionId);
+        const vid = visible?.target?.id;
+        if (vid && (ids as readonly string[]).includes(vid)) {
+          setActiveSection(vid as SectionId);
         }
       },
       { rootMargin: '-30% 0px -50% 0px', threshold: [0.15, 0.45, 0.75] }
@@ -2572,10 +2540,8 @@ export function FacebookAnalyticsView({
     if (insights?.platform?.toUpperCase() !== 'YOUTUBE') return;
     setReelPreset('performance');
     setSelectedReelMetrics(['views', 'watchTime', 'avgWatch', 'shares']);
-    setYtLongReelPreset('performance');
-    setYtShortReelPreset('performance');
-    setSelectedYtLongReelMetrics([...REEL_PRESET_METRICS_YOUTUBE.performance]);
-    setSelectedYtShortReelMetrics([...REEL_PRESET_METRICS_YOUTUBE.performance]);
+    setYtVideoReelPreset('performance');
+    setSelectedYtVideoReelMetrics([...REEL_PRESET_METRICS_YOUTUBE.performance]);
   }, [insights?.platform]);
 
   useEffect(() => {
@@ -2691,19 +2657,6 @@ export function FacebookAnalyticsView({
     }
     return counts;
   }, [postsInRange]);
-  const youtubeContentTypeCounts = useMemo(() => {
-    if (!isYouTube) return { shorts: 0, videos: 0 };
-    const counts: Record<YouTubeContentTypeKey, number> = { shorts: 0, videos: 0 };
-    for (const p of postsInRange) {
-      if ((p.platform ?? '').toUpperCase() !== 'YOUTUBE') continue;
-      if (isYouTubeShortPost(p)) {
-        counts.shorts += 1;
-      } else {
-        counts.videos += 1;
-      }
-    }
-    return counts;
-  }, [isYouTube, postsInRange]);
   const contentTypePieData = useMemo(
     () =>
       ([
@@ -2747,11 +2700,7 @@ export function FacebookAnalyticsView({
       const d = toLocalCalendarDate(new Date(p.publishedAt));
       const row = byDate.get(d);
       if (!row) continue;
-      if (isYouTube) {
-        if (isYouTubeShortPost(p)) row.shorts += 1;
-        else row.videos += 1;
-        continue;
-      }
+      if (isYouTube) continue;
       if (isReelPost(p)) {
         row.reels += 1;
         continue;
@@ -2767,10 +2716,10 @@ export function FacebookAnalyticsView({
       reels: isYouTube ? 0 : contentTypeCounts.reels,
       image: isYouTube ? 0 : contentTypeCounts.image,
       carousel: isYouTube ? 0 : contentTypeCounts.carousel,
-      shorts: isYouTube ? youtubeContentTypeCounts.shorts : 0,
-      videos: isYouTube ? youtubeContentTypeCounts.videos : 0,
+      shorts: 0,
+      videos: 0,
     }),
-    [isYouTube, youtubeContentTypeCounts, contentTypeCounts]
+    [isYouTube, contentTypeCounts]
   );
   const tiktokViewsInRange = useMemo(
     () => postsInRange.reduce((s, p) => s + (p.impressions ?? bestPostPlayCount(p)), 0),
@@ -3751,7 +3700,7 @@ export function FacebookAnalyticsView({
         trafficTableDerivedRow:
           'trafficSourcesAsShownInTrafficTable includes a synthetic first row __LONG_FORM_NON_SHORTS_FEED__ (total API views minus rows classified as Shorts surfacing).',
         dashboardClassification:
-          'short = definitive channel Shorts shelf membership (youtubeInShortsPlaylist) when available, else stored youtubeVideoFormat from sync, else strict creator signals (#shorts), else a permalink/metadata URL whose path contains /shorts/. We do not infer Shorts from watch?v= alone because YouTube may open Shorts with watch URLs in history.',
+          'The dashboard no longer splits uploads into Shorts vs long-form (one Videos section). classificationDebug still records shelf/creator-based signals for support. We never infer Shorts from duration alone.',
         youtubeShelfMembership:
           'youtubeShelfMembership summarizes youtubeInShortsPlaylist from sync (unknown when the Shorts index could not be fetched).',
       },
@@ -3819,7 +3768,7 @@ export function FacebookAnalyticsView({
       }));
   }, [postsRows]);
 
-  /** YouTube: all synced uploads in range (Shorts and long-form) for one Videos section. */
+  /** YouTube: all synced uploads in range for the unified Videos analytics section. */
   const youtubeAllVideoRows = useMemo((): ReelAnalyticsRow[] => {
     if (!isYouTube) return [];
     return postsInRange
@@ -3835,15 +3784,6 @@ export function FacebookAnalyticsView({
         };
       });
   }, [isYouTube, postsInRange]);
-
-  const youtubeLongFormVideoRows = useMemo(
-    () => (isYouTube ? youtubeAllVideoRows.filter((r) => !isYouTubeShortPost(r.post)) : []),
-    [isYouTube, youtubeAllVideoRows]
-  );
-  const youtubeShortsVideoRows = useMemo(
-    () => (isYouTube ? youtubeAllVideoRows.filter((r) => isYouTubeShortPost(r.post)) : []),
-    [isYouTube, youtubeAllVideoRows]
-  );
 
   /** Pinterest: use video Pins for the Videos section; if none qualify, fall back to all synced Pins in range. */
   const pinterestVideoRows = useMemo((): ReelAnalyticsRow[] => {
@@ -3929,89 +3869,30 @@ export function FacebookAnalyticsView({
     return Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date));
   }, [isTwitter, twitterRecentTweets]);
 
-  const youtubeSplitReelChartBundle = useMemo(() => {
-    if (!isYouTube) {
-      return { longForm: [] as ReelChartDayRow[], shorts: [] as ReelChartDayRow[] };
-    }
-    const lfRaw = buildReelsLikeChartData(youtubeLongFormVideoRows);
-    const sfRaw = buildReelsLikeChartData(youtubeShortsVideoRows);
-    const longSum = youtubeLongFormVideoRows.reduce((s, r) => s + r.views, 0);
-    const shortSum = youtubeShortsVideoRows.reduce((s, r) => s + r.views, 0);
-    const tot = longSum + shortSum;
-    const longScale = tot > 0 ? longSum / tot : 0.5;
-    const shortScale = tot > 0 ? shortSum / tot : 0.5;
-    const sfViewsByDate = Object.fromEntries(sfRaw.map((r) => [r.date, r.views]));
-    const lfViewsByDate = Object.fromEntries(lfRaw.map((r) => [r.date, r.views]));
-    let longForm = applyYouTubeWatchFallbackToReelChart(
-      lfRaw,
+  const youtubeUnifiedVideoChartData = useMemo(() => {
+    if (!isYouTube) return [] as ReelChartDayRow[];
+    const raw = buildReelsLikeChartData(youtubeAllVideoRows);
+    let chart = applyYouTubeWatchFallbackToReelChart(
+      raw,
       youtubeEstimatedWatchMinutes,
       youtubeAvgViewDurationSec,
-      longScale
+      1
     );
-    longForm = mergeYoutubeDislikesProportionally(longForm, sfViewsByDate, youtubeDislikesByDate);
-    let shorts = applyYouTubeWatchFallbackToReelChart(
-      sfRaw,
-      youtubeEstimatedWatchMinutes,
-      youtubeAvgViewDurationSec,
-      shortScale
-    );
-    shorts = mergeYoutubeDislikesProportionally(shorts, lfViewsByDate, youtubeDislikesByDate);
-    return { longForm, shorts };
-  }, [
-    isYouTube,
-    youtubeLongFormVideoRows,
-    youtubeShortsVideoRows,
-    youtubeEstimatedWatchMinutes,
-    youtubeAvgViewDurationSec,
-    youtubeDislikesByDate,
-  ]);
+    chart = mergeYoutubeDislikesProportionally(chart, {}, youtubeDislikesByDate);
+    return chart;
+  }, [isYouTube, youtubeAllVideoRows, youtubeEstimatedWatchMinutes, youtubeAvgViewDurationSec, youtubeDislikesByDate]);
 
-  const youtubeLongFormChartDataForDisplay = youtubeSplitReelChartBundle.longForm;
-  const youtubeShortsChartDataForDisplay = youtubeSplitReelChartBundle.shorts;
-
-  const youtubeLongFormPanelKpis = useMemo(() => {
+  const youtubeUnifiedPanelKpis = useMemo(() => {
     if (!isYouTube) return null;
-    const longSum = youtubeLongFormVideoRows.reduce((s, r) => s + r.views, 0);
-    const shortSum = youtubeShortsVideoRows.reduce((s, r) => s + r.views, 0);
-    const tot = longSum + shortSum;
-    const viewShare = tot > 0 ? longSum / tot : 0.5;
-    return buildYoutubeReelPanelKpis(youtubeLongFormVideoRows, {
-      viewShare,
+    const tot = youtubeAllVideoRows.reduce((s, r) => s + r.views, 0);
+    return buildYoutubeReelPanelKpis(youtubeAllVideoRows, {
+      viewShare: 1,
       dislikesTotal,
       bothViewsSum: tot,
       youtubeEstimatedWatchMinutes,
       youtubeAvgViewDurationSec,
     });
-  }, [
-    isYouTube,
-    youtubeLongFormVideoRows,
-    youtubeShortsVideoRows,
-    dislikesTotal,
-    youtubeEstimatedWatchMinutes,
-    youtubeAvgViewDurationSec,
-  ]);
-
-  const youtubeShortsPanelKpis = useMemo(() => {
-    if (!isYouTube) return null;
-    const longSum = youtubeLongFormVideoRows.reduce((s, r) => s + r.views, 0);
-    const shortSum = youtubeShortsVideoRows.reduce((s, r) => s + r.views, 0);
-    const tot = longSum + shortSum;
-    const viewShare = tot > 0 ? shortSum / tot : 0.5;
-    return buildYoutubeReelPanelKpis(youtubeShortsVideoRows, {
-      viewShare,
-      dislikesTotal,
-      bothViewsSum: tot,
-      youtubeEstimatedWatchMinutes,
-      youtubeAvgViewDurationSec,
-    });
-  }, [
-    isYouTube,
-    youtubeLongFormVideoRows,
-    youtubeShortsVideoRows,
-    dislikesTotal,
-    youtubeEstimatedWatchMinutes,
-    youtubeAvgViewDurationSec,
-  ]);
+  }, [isYouTube, youtubeAllVideoRows, dislikesTotal, youtubeEstimatedWatchMinutes, youtubeAvgViewDurationSec]);
 
   const reelPerformanceChartHeightPx = useMemo(() => {
     const n = reelsChartData.length;
@@ -4019,21 +3900,14 @@ export function FacebookAnalyticsView({
     return Math.min(560, 300 + (n - 8) * 30);
   }, [reelsChartData.length]);
 
-  const youtubeLongFormChartHeightPx = useMemo(() => {
-    const n = youtubeLongFormChartDataForDisplay.length;
+  const youtubeUnifiedChartHeightPx = useMemo(() => {
+    const n = youtubeUnifiedVideoChartData.length;
     if (n <= 8) return 300;
     return Math.min(560, 300 + (n - 8) * 30);
-  }, [youtubeLongFormChartDataForDisplay.length]);
-
-  const youtubeShortsChartHeightPx = useMemo(() => {
-    const n = youtubeShortsChartDataForDisplay.length;
-    if (n <= 8) return 300;
-    return Math.min(560, 300 + (n - 8) * 30);
-  }, [youtubeShortsChartDataForDisplay.length]);
+  }, [youtubeUnifiedVideoChartData.length]);
 
   const reelChartAxisDense = reelsChartData.length > 8;
-  const youtubeLongFormChartAxisDense = youtubeLongFormChartDataForDisplay.length > 8;
-  const youtubeShortsChartAxisDense = youtubeShortsChartDataForDisplay.length > 8;
+  const youtubeUnifiedChartAxisDense = youtubeUnifiedVideoChartData.length > 8;
 
   const storyTicks = useMemo(
     () =>
@@ -5864,6 +5738,7 @@ export function FacebookAnalyticsView({
             )}
             <MetricCard label="Avg Reactions per Post" source="post_reactions_like_total / breakdown" color={COLOR.text} value={avgReactionsPerPost.toFixed(1)} />
           </div>
+          {!isYouTube ? (
           <div className="rounded-xl border p-4 sm:p-5" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
             <h4 className="text-base font-semibold mb-3" style={{ color: COLOR.text }}>Uploaded posts</h4>
             <div className="mb-5 flex items-start justify-between gap-3">
@@ -5909,7 +5784,7 @@ export function FacebookAnalyticsView({
                     data={postsUploadByDay}
                     barCategoryGap="22%"
                     barGap={0}
-                    margin={{ top: 4, right: isYouTube ? 28 : 8, left: 0, bottom: 10 }}
+                    margin={{ top: 4, right: 8, left: 0, bottom: 10 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                     <XAxis
@@ -5920,7 +5795,6 @@ export function FacebookAnalyticsView({
                       minTickGap={18}
                       axisLine={false}
                       tickLine={false}
-                      padding={isYouTube ? { left: 0, right: 20 } : undefined}
                     />
                     <YAxis domain={[0, 'auto']} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                     <Tooltip
@@ -5949,6 +5823,7 @@ export function FacebookAnalyticsView({
               )}
             </InsightChartCard>
           </div>
+          ) : null}
           {contentTypePieData.length > 0 && !isYouTube ? (
             <div className="rounded-xl border p-4 sm:p-5" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
               <h4 className="text-base font-semibold mb-3" style={{ color: COLOR.text }}>Post type distribution</h4>
@@ -6113,41 +5988,22 @@ export function FacebookAnalyticsView({
 
       {!isLinkedIn && isYouTube ? (
         overviewSkeleton ? (
-          <>
-            <section id={FACEBOOK_ANALYTICS_SECTION_IDS.reels} className="scroll-mt-28 space-y-6">
-              <AnalyticsReelsSkeleton />
-            </section>
-            <section id={FACEBOOK_ANALYTICS_SECTION_IDS.youtubeShorts} className="scroll-mt-28 space-y-6">
-              <AnalyticsReelsSkeleton />
-            </section>
-          </>
-        ) : youtubeLongFormPanelKpis && youtubeShortsPanelKpis ? (
-          <>
-            <YoutubeVideosAnalyticsPanel
-              sectionId={FACEBOOK_ANALYTICS_SECTION_IDS.reels}
-              title="Long form videos"
-              kpis={youtubeLongFormPanelKpis}
-              chartData={youtubeLongFormChartDataForDisplay}
-              chartHeightPx={youtubeLongFormChartHeightPx}
-              chartAxisDense={youtubeLongFormChartAxisDense}
-              reelPreset={ytLongReelPreset}
-              setReelPreset={setYtLongReelPreset}
-              selectedReelMetrics={selectedYtLongReelMetrics}
-              setSelectedReelMetrics={setSelectedYtLongReelMetrics}
-            />
-            <YoutubeVideosAnalyticsPanel
-              sectionId={FACEBOOK_ANALYTICS_SECTION_IDS.youtubeShorts}
-              title="YouTube shorts"
-              kpis={youtubeShortsPanelKpis}
-              chartData={youtubeShortsChartDataForDisplay}
-              chartHeightPx={youtubeShortsChartHeightPx}
-              chartAxisDense={youtubeShortsChartAxisDense}
-              reelPreset={ytShortReelPreset}
-              setReelPreset={setYtShortReelPreset}
-              selectedReelMetrics={selectedYtShortReelMetrics}
-              setSelectedReelMetrics={setSelectedYtShortReelMetrics}
-            />
-          </>
+          <section id={FACEBOOK_ANALYTICS_SECTION_IDS.reels} className="scroll-mt-28 space-y-6">
+            <AnalyticsReelsSkeleton />
+          </section>
+        ) : youtubeUnifiedPanelKpis ? (
+          <YoutubeVideosAnalyticsPanel
+            sectionId={FACEBOOK_ANALYTICS_SECTION_IDS.reels}
+            title="Videos"
+            kpis={youtubeUnifiedPanelKpis}
+            chartData={youtubeUnifiedVideoChartData}
+            chartHeightPx={youtubeUnifiedChartHeightPx}
+            chartAxisDense={youtubeUnifiedChartAxisDense}
+            reelPreset={ytVideoReelPreset}
+            setReelPreset={setYtVideoReelPreset}
+            selectedReelMetrics={selectedYtVideoReelMetrics}
+            setSelectedReelMetrics={setSelectedYtVideoReelMetrics}
+          />
         ) : null
       ) : !isLinkedIn ? (
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.reels} className="scroll-mt-28 space-y-6">
@@ -6355,7 +6211,7 @@ export function FacebookAnalyticsView({
           </div>
           <div className="flex flex-wrap gap-2">
             {([
-              { id: 'all' as const, label: 'All' },
+              { id: 'all' as const, label: isYouTube ? 'All videos' : 'All' },
               { id: 'posts' as const, label: isTwitter ? 'Tweets' : isPinterest ? 'Pins' : 'Posts' },
               { id: 'reels' as const, label: isPinterest || isYouTube ? 'Videos' : 'Reels' },
             ]).map((f) => (
