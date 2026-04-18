@@ -72,7 +72,8 @@ type ActivityMetricKey = 'actions' | 'posts' | 'conversations' | 'subscriberNet'
 type EngagementMetricKey = 'likes' | 'comments' | 'shares' | 'reposts' | 'dislikes';
 type ContentTypeKey = 'reels' | 'image' | 'carousel';
 type YouTubeContentTypeKey = 'shorts' | 'videos';
-type PostsUploadPresetKey = ContentTypeKey | YouTubeContentTypeKey;
+/** `all` = stacked reels + image + carousel (non-YouTube only). */
+type PostsUploadPresetKey = 'all' | ContentTypeKey | YouTubeContentTypeKey;
 
 /** Bottom → top stack order for the Engagement chart (must match `<Bar />` order). */
 const ENGAGEMENT_STACK_ORDER_META: readonly EngagementMetricKey[] = ['likes', 'comments', 'shares', 'reposts'];
@@ -2515,7 +2516,7 @@ export function FacebookAnalyticsView({
   const [selectedYtVideoReelMetrics, setSelectedYtVideoReelMetrics] = useState<ReelMetricKey[]>([
     ...REEL_PRESET_METRICS_YOUTUBE.performance,
   ]);
-  const [selectedPostsUploadPreset, setSelectedPostsUploadPreset] = useState<PostsUploadPresetKey>('reels');
+  const [selectedPostsUploadPreset, setSelectedPostsUploadPreset] = useState<PostsUploadPresetKey>('all');
   const [activeSection, setActiveSection] = useState<SectionId>(FACEBOOK_ANALYTICS_SECTION_IDS.overview);
   const [historyFilter, setHistoryFilter] = useState<ContentHistoryFilter>('all');
   const geoPieWrapRef = useRef<HTMLDivElement>(null);
@@ -2660,7 +2661,7 @@ export function FacebookAnalyticsView({
   useEffect(() => {
     setSelectedPostsUploadPreset((prev) => {
       if (isYouTube) return prev === 'shorts' || prev === 'videos' ? prev : 'videos';
-      return prev === 'reels' || prev === 'image' || prev === 'carousel' ? prev : 'reels';
+      return prev === 'all' || prev === 'reels' || prev === 'image' || prev === 'carousel' ? prev : 'all';
     });
   }, [isYouTube]);
 
@@ -2757,6 +2758,7 @@ export function FacebookAnalyticsView({
       ];
     }
     return [
+      { key: 'all' as const, label: 'All', color: COLOR.violet },
       { key: 'reels' as const, label: 'Reels', color: CONTENT_TYPE_COLOR.reels },
       { key: 'image' as const, label: 'Image', color: CONTENT_TYPE_COLOR.image },
       { key: 'carousel' as const, label: 'Carousel', color: CONTENT_TYPE_COLOR.carousel },
@@ -2791,6 +2793,7 @@ export function FacebookAnalyticsView({
   }, [dateRange.end, dateRange.start, isYouTube, postsInRange]);
   const postsUploadPresetTotals = useMemo(
     (): Record<PostsUploadPresetKey, number> => ({
+      all: isYouTube ? 0 : contentTypeCounts.reels + contentTypeCounts.image + contentTypeCounts.carousel,
       reels: isYouTube ? 0 : contentTypeCounts.reels,
       image: isYouTube ? 0 : contentTypeCounts.image,
       carousel: isYouTube ? 0 : contentTypeCounts.carousel,
@@ -3733,6 +3736,34 @@ export function FacebookAnalyticsView({
       };
     });
   }, [postsInRange]);
+
+  type PostsUploadDayTooltipAgg = { interactions: number; reactions: number; thumbnails: string[]; count: number };
+  const postsUploadTooltipByDate = useMemo(() => {
+    const empty = (): PostsUploadDayTooltipAgg => ({ interactions: 0, reactions: 0, thumbnails: [], count: 0 });
+    const map = new Map<
+      string,
+      { all: PostsUploadDayTooltipAgg; reels: PostsUploadDayTooltipAgg; image: PostsUploadDayTooltipAgg; carousel: PostsUploadDayTooltipAgg }
+    >();
+    for (const r of postsRows) {
+      const d = toLocalCalendarDate(new Date(r.date));
+      if (!map.has(d)) {
+        map.set(d, { all: empty(), reels: empty(), image: empty(), carousel: empty() });
+      }
+      const row = map.get(d)!;
+      const bucket: 'reels' | 'image' | 'carousel' =
+        r.type === 'Reel' ? 'reels' : isCarouselAlbumMedia(r.rawPost.mediaType) ? 'carousel' : 'image';
+      const apply = (agg: PostsUploadDayTooltipAgg) => {
+        agg.count += 1;
+        agg.interactions += r.clicks;
+        agg.reactions += r.reactionsTotal;
+        const u = (r.rawPost.thumbnailUrl ?? '').trim();
+        if (u && agg.thumbnails.length < 6 && !agg.thumbnails.includes(u)) agg.thumbnails.push(u);
+      };
+      apply(row.all);
+      apply(row[bucket]);
+    }
+    return map;
+  }, [postsRows]);
 
   const reelsRows = useMemo(() => {
     return postsRows
@@ -5569,15 +5600,21 @@ export function FacebookAnalyticsView({
                             : 'likes + comments + shares + reposts (post-level)'
                 }
                 color={COLOR.text}
-                value={avgInteractionsPerPost.toFixed(1)}
+                value={formatNumber(Math.round(avgInteractionsPerPost))}
               />
             )}
-            <MetricCard label="Avg Reactions per Post" source="post_reactions_like_total / breakdown" color={COLOR.text} value={avgReactionsPerPost.toFixed(1)} />
+            <MetricCard
+              label="Avg Reactions per Post"
+              source="post_reactions_like_total / breakdown"
+              color={COLOR.text}
+              value={formatNumber(Math.round(avgReactionsPerPost))}
+            />
           </div>
           {!isYouTube ? (
           <div className="rounded-xl border p-4 sm:p-5" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
-            <h4 className="text-base font-semibold mb-3" style={{ color: COLOR.text }}>Uploaded posts</h4>
-            <div className="mb-4 flex flex-wrap gap-2">
+            <div className="mb-4 flex flex-col items-start gap-3">
+            <h4 className="text-base font-semibold" style={{ color: COLOR.text }}>Uploaded posts</h4>
+            <div className="flex flex-wrap gap-2">
               {postsUploadChartPresets.map((preset) => {
                 const active = selectedPostsUploadPreset === preset.key;
                 const total = Number(postsUploadPresetTotals[preset.key] ?? 0);
@@ -5604,6 +5641,7 @@ export function FacebookAnalyticsView({
                   </button>
                 );
               })}
+            </div>
             </div>
             <InsightChartCard title="Uploaded posts" hideHeader flat>
               {postsUploadByDay.length === 0 ? (
@@ -5637,26 +5675,131 @@ export function FacebookAnalyticsView({
                       tickLine={false}
                     />
                     <Tooltip
-                      contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
-                      formatter={(v: number | string | undefined, n?: string) => [
-                        formatNumber(Math.round(Number(v) || 0)),
-                        postsUploadChartPresets.find((x) => x.key === String(n ?? ''))?.label ?? String(n ?? ''),
-                      ]}
-                      labelFormatter={(l) => formatShortDate(String(l))}
+                      cursor={{ fill: 'rgba(107,114,128,0.12)' }}
+                      content={(tp) => {
+                        const { active, label, payload } = tp as unknown as {
+                          active?: boolean;
+                          label?: string | number;
+                          payload?: Array<{ dataKey?: string; name?: string; value?: number }>;
+                        };
+                        if (!active || label === undefined || label === null) return null;
+                        const dateKey = String(label);
+                        const tipRow = postsUploadTooltipByDate.get(dateKey);
+                        const preset = selectedPostsUploadPreset;
+                        const agg =
+                          preset === 'all'
+                            ? tipRow?.all
+                            : preset === 'reels'
+                              ? tipRow?.reels
+                              : preset === 'image'
+                                ? tipRow?.image
+                                : preset === 'carousel'
+                                  ? tipRow?.carousel
+                                  : null;
+                        const uploadTypeLabel = (k: string | undefined) =>
+                          k === 'reels'
+                            ? 'Reels'
+                            : k === 'image'
+                              ? 'Image'
+                              : k === 'carousel'
+                                ? 'Carousel'
+                                : String(k ?? '');
+                        const singlePresetLabel =
+                          postsUploadChartPresets.find((x) => x.key === preset)?.label ?? '';
+                        return (
+                          <div
+                            className="rounded-xl border bg-white px-3 py-2.5 text-xs shadow-xl"
+                            style={{ borderColor: COLOR.border, maxWidth: 320 }}
+                          >
+                            <p className="mb-2 text-sm font-semibold" style={{ color: COLOR.text }}>
+                              {formatShortDate(dateKey)}
+                            </p>
+                            {agg && agg.thumbnails.length > 0 ? (
+                              <div className="mb-2 flex flex-wrap gap-1">
+                                {agg.thumbnails.map((url) => (
+                                  <img
+                                    key={url}
+                                    src={url}
+                                    alt=""
+                                    className="h-11 w-11 rounded-lg border object-cover"
+                                    style={{ borderColor: COLOR.border }}
+                                    {...pinterestCdnImgProps(url)}
+                                  />
+                                ))}
+                              </div>
+                            ) : null}
+                            {preset === 'all' ? (
+                              <div className="mb-2 space-y-0.5" style={{ color: COLOR.textSecondary }}>
+                                {(payload ?? [])
+                                  .filter((x) => Number(x.value) > 0 && (x.dataKey === 'reels' || x.dataKey === 'image' || x.dataKey === 'carousel'))
+                                  .map((x) => (
+                                    <p key={String(x.dataKey)}>
+                                      <span className="font-medium" style={{ color: COLOR.text }}>
+                                        {uploadTypeLabel(x.dataKey)}
+                                      </span>
+                                      : {formatNumber(Math.round(Number(x.value) || 0))}
+                                    </p>
+                                  ))}
+                              </div>
+                            ) : (
+                              <p className="mb-2" style={{ color: COLOR.textSecondary }}>
+                                <span className="font-medium" style={{ color: COLOR.text }}>{singlePresetLabel}</span>
+                                {': '}
+                                {formatNumber(
+                                  Math.round(
+                                    Number((payload ?? []).find((x) => x.dataKey === preset)?.value) || 0
+                                  )
+                                )}
+                              </p>
+                            )}
+                            <div className="mt-1 space-y-0.5 border-t pt-2" style={{ borderColor: COLOR.border, color: COLOR.textSecondary }}>
+                              <p>
+                                Interactions{' '}
+                                <span className="font-semibold tabular-nums" style={{ color: COLOR.text }}>
+                                  {formatNumber(agg?.interactions ?? 0)}
+                                </span>
+                              </p>
+                              <p>
+                                Reactions{' '}
+                                <span className="font-semibold tabular-nums" style={{ color: COLOR.text }}>
+                                  {formatNumber(agg?.reactions ?? 0)}
+                                </span>
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      }}
                     />
-                    {postsUploadChartPresets.map((preset) => (
-                      <Bar
-                        key={`uploaded-posts-bar-${preset.key}`}
-                        dataKey={preset.key}
-                        name={preset.key}
-                        stackId="uploaded-posts"
-                        fill={preset.color}
-                        radius={[6, 6, 0, 0]}
-                        barSize={UNIFIED_BAR_SIZE}
-                        hide={selectedPostsUploadPreset !== preset.key}
-                        shape={<MinWidthBarShape />}
-                      />
-                    ))}
+                    {selectedPostsUploadPreset === 'all' ? (
+                      (['reels', 'image', 'carousel'] as const).map((key) => (
+                        <Bar
+                          key={`uploaded-posts-bar-stack-${key}`}
+                          dataKey={key}
+                          name={key}
+                          stackId="upload-by-type"
+                          fill={CONTENT_TYPE_COLOR[key]}
+                          radius={[4, 4, 0, 0]}
+                          barSize={UNIFIED_BAR_SIZE}
+                          shape={<MinWidthBarShape />}
+                        />
+                      ))
+                    ) : (
+                      postsUploadChartPresets
+                        .filter((preset) => preset.key !== 'all')
+                        .map((preset) => (
+                          <Bar
+                            key={`uploaded-posts-bar-${preset.key}`}
+                            dataKey={preset.key}
+                            name={preset.key}
+                            stackId="uploaded-posts"
+                            fill={preset.color}
+                            radius={[6, 6, 0, 0]}
+                            barSize={UNIFIED_BAR_SIZE}
+                            hide={selectedPostsUploadPreset !== preset.key}
+                            shape={<MinWidthBarShape />}
+                          />
+                        ))
+                    )}
                   </BarChart>
                 </ResponsiveContainer>
               )}
