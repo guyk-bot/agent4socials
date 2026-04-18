@@ -690,9 +690,19 @@ function getLegacyYoutubeVideoFormatFromPost(p: FacebookPost): 'short' | 'long' 
 }
 
 /**
- * Shorts: channel `UUSH…` playlist membership (definitive once synced), else strict creator signals.
- * Legacy `youtubeVideoFormat` is used only when duration is unknown — otherwise stale "short" flags
- * would override fresh title/duration classification after we stopped inferring from synthetic URLs.
+ * Shorts: channel `UUSH…` playlist membership (definitive once synced), else creator signals,
+ * then legacy stored format, then a 60 s duration heuristic.
+ *
+ * Priority order:
+ * 1. User-facing permalink contains `/shorts/` → Short.
+ * 2. Channel Shorts shelf (`youtubeInShortsPlaylist`) definitive → use it.
+ * 3. `#shorts` creator signal in title/description → Short.
+ * 4. Legacy `youtubeVideoFormat` stored by previous sync/backfill → use it.
+ * 5. Duration ≤ 60 s → Short (YouTube's official max for Shorts is 60 s).
+ * 6. Default → long-form.
+ *
+ * `youtubeShortsPageUrl` is intentionally excluded from URL candidates because sync always
+ * stores `/shorts/{id}` as a convenience link for every upload, making it unreliable.
  */
 function isYouTubeShortPost(p: FacebookPost): boolean {
   if ((p.platform ?? '').toUpperCase() !== 'YOUTUBE') return false;
@@ -700,13 +710,15 @@ function isYouTubeShortPost(p: FacebookPost): boolean {
     p.platformMetadata && typeof p.platformMetadata === 'object' && !Array.isArray(p.platformMetadata)
       ? (p.platformMetadata as Record<string, unknown>)
       : {};
-  // Do not use `youtubeShortsPageUrl`: sync always stores `/shorts/{id}` for every upload as an alternate link.
+
+  // 1. User-facing permalink or explicit watch URL only (not the synthetic /shorts/ alternate link).
   const urlCandidates = [
     p.permalinkUrl,
     typeof meta.youtubeWatchUrl === 'string' ? meta.youtubeWatchUrl : null,
     typeof meta.url === 'string' ? meta.url : null,
   ];
   if (urlCandidates.some((u) => youtubeUrlIndicatesShorts(u))) return true;
+
   const pl = getYoutubeInShortsPlaylistFromPost(p);
   const inChannelShortsPlaylist = pl === true ? true : pl === false ? false : undefined;
   const d = getYoutubeDurationSecFromPost(p) ?? 0;
@@ -718,15 +730,21 @@ function isYouTubeShortPost(p: FacebookPost): boolean {
     inChannelShortsPlaylist,
   });
 
-  // Playlist check gave a definitive yes or no.
+  // 2. Playlist membership is definitive.
   if (inChannelShortsPlaylist !== undefined) return classified === 'short';
-  // Creator signals (#shorts / /shorts/ link) present.
+
+  // 3. Creator signals (#shorts, explicit /shorts/ link in text).
   if (classified === 'short') return true;
-  // Title/duration classify as long — ignore legacy `youtubeVideoFormat: short` when we have duration
-  // (common after fixing false `/shorts/` matches from stored alternate URLs).
-  if (d > 0 && classified === 'long') return false;
+
+  // 4. Legacy stored `youtubeVideoFormat` written by a previous sync or backfill.
   const legacy = getLegacyYoutubeVideoFormatFromPost(p);
   if (legacy !== undefined) return legacy === 'short';
+
+  // 5. Duration heuristic: YouTube's official max for Shorts is 60 seconds.
+  //    Over-180 s is already caught inside classifyYoutubeVideoFormat → 'long', so d > 180 won't reach here.
+  if (d > 0 && d <= 60) return true;
+
+  // 6. No signal → assume long-form.
   return false;
 }
 
