@@ -2240,6 +2240,7 @@ function TopContentHighlights({
   clicksMetricLabel = 'Clicks',
   hideClicksColumn = false,
   platform,
+  scopeHint,
 }: {
   byViews: TopHighlightRow[];
   byClicks: TopHighlightRow[];
@@ -2250,6 +2251,8 @@ function TopContentHighlights({
   /** Hide the clicks/interactions column entirely (e.g. for Facebook). */
   hideClicksColumn?: boolean;
   platform?: string;
+  /** Short line above the three columns: how leaders relate to posts in range. */
+  scopeHint?: string;
 }) {
   const isTwitterHighlight = (platform ?? '').toUpperCase() === 'TWITTER';
   const rankBadge = (idx: number) => `/rank-badges/${Math.min(3, idx + 1)}.svg`;
@@ -2368,6 +2371,11 @@ function TopContentHighlights({
 
   return (
     <section className="rounded-[20px] p-5" style={{ background: COLOR.card, boxShadow: '0 2px 16px rgba(15,23,42,0.05)' }}>
+      {scopeHint ? (
+        <p className="mb-4 text-xs leading-relaxed max-w-[960px]" style={{ color: COLOR.textSecondary }}>
+          {scopeHint}
+        </p>
+      ) : null}
       <div className={`grid gap-4 ${hideClicksColumn ? 'lg:grid-cols-2' : 'lg:grid-cols-3'}`}>
         {col('Views leaders', 'Views', byViews, !hideClicksColumn)}
         {!hideClicksColumn && col(clicksLeaderTitle, clicksMetricLabel, byClicks, true)}
@@ -3985,6 +3993,10 @@ export function FacebookAnalyticsView({
     }
     return postsRows.reduce((s, r) => s + r.reactionsTotal, 0) / Math.max(1, postsRows.length);
   })();
+  /** Copy for Posts section: what “interactions / reactions” refer to (range + per-post vs summed). */
+  const postsExplainerPublishedPlural = isTwitter ? 'tweets' : isPinterest ? 'pins' : isYouTube ? 'videos' : 'posts';
+  const postsExplainerItemSingular = isTwitter ? 'tweet' : isPinterest ? 'pin' : isYouTube ? 'video' : 'post';
+  const postsExplainerDateRangeLabel = `${formatShortDate(dateRange.start)}–${formatShortDate(dateRange.end)}`;
   const totalReelWatchTimeMs = useMemo(() => {
     if (isYouTube || isPinterest) return reelChartSourceRows.reduce((s, r) => s + r.watchTimeMs, 0);
     return postsRows.filter((r) => r.type === 'Reel').reduce((s, r) => s + r.watchTimeMs, 0);
@@ -5583,7 +5595,7 @@ export function FacebookAnalyticsView({
           >
             <MetricCard
               label={isTwitter ? 'Total Tweets' : isPinterest ? 'Total Pins' : 'Total Posts'}
-              source="Derived from posts in date range"
+              source={`Synced ${postsExplainerPublishedPlural} whose publish time is in the selected range (${postsExplainerDateRangeLabel}).`}
               color={COLOR.text}
               value={formatNumber(
                 isTwitter
@@ -5596,16 +5608,16 @@ export function FacebookAnalyticsView({
                 label="Avg interactions per post"
                 source={
                   isTikTok
-                    ? 'likes + comments + shares (synced TikTok posts)'
+                    ? 'Per synced TikTok in range: likes + comments + shares; divided by count of those videos.'
                     : isTwitter
-                      ? 'likes + comments + reposts (synced X posts in range)'
+                      ? 'Per synced X post in range: likes + comments + reposts; divided by post count in range.'
                       : isYouTube
-                        ? 'likes + comments + shares (synced YouTube videos)'
+                        ? 'Per synced YouTube video in range: likes + comments + shares; divided by video count.'
                         : isLinkedIn
-                          ? 'likes + comments + shares (synced LinkedIn posts)'
+                          ? 'Per synced LinkedIn post in range: likes + comments + shares; divided by post count.'
                           : isInstagram
-                            ? 'likes + comments + shares + reposts'
-                            : 'likes + comments + shares + reposts (post-level)'
+                            ? 'Per synced IG media in range: likes + comments + shares + reposts; divided by post count.'
+                            : 'Per synced Page post in range: likes + comments + shares + reposts; divided by post count.'
                 }
                 color={COLOR.text}
                 value={formatNumber(Math.round(avgInteractionsPerPost))}
@@ -5613,15 +5625,29 @@ export function FacebookAnalyticsView({
             )}
             <MetricCard
               label="Avg Reactions per Post"
-              source="post_reactions_like_total / breakdown"
+              source={`Sum of each ${postsExplainerItemSingular}'s total reactions (from platform insights) ÷ number of ${postsExplainerPublishedPlural} in range.`}
               color={COLOR.text}
               value={formatNumber(Math.round(avgReactionsPerPost))}
             />
           </div>
+          <p className="text-xs leading-relaxed max-w-[960px]" style={{ color: COLOR.textSecondary }}>
+            <span className="font-medium" style={{ color: COLOR.text }}>What these numbers refer to:</span>{' '}
+            Totals and averages use {postsExplainerPublishedPlural} that{' '}
+            <span className="font-medium" style={{ color: COLOR.text }}>published</span> between {postsExplainerDateRangeLabel} and appear in your synced inventory.{' '}
+            In the upload chart, hover a day: <span className="font-medium" style={{ color: COLOR.text }}>Interactions</span> and{' '}
+            <span className="font-medium" style={{ color: COLOR.text }}>Reactions</span> are{' '}
+            <span className="font-medium" style={{ color: COLOR.text }}>added up across every {postsExplainerItemSingular}</span> for that day (thumbnails in the tooltip).{' '}
+            In the leaderboards below, each card is <span className="font-medium" style={{ color: COLOR.text }}>one {postsExplainerItemSingular}</span>; the metrics on that row are only for that item.
+          </p>
           {!isYouTube ? (
           <div className="rounded-xl border p-4 sm:p-5" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
             <div className="mb-4 flex flex-col items-start gap-3">
-            <h4 className="text-base font-semibold" style={{ color: COLOR.text }}>Uploaded posts</h4>
+            <div>
+              <h4 className="text-base font-semibold" style={{ color: COLOR.text }}>Uploaded posts</h4>
+              <p className="mt-1 text-xs leading-relaxed max-w-[920px]" style={{ color: COLOR.textSecondary }}>
+                Bar height is how many {postsExplainerPublishedPlural} went live on each date. Hover a bar to see which pieces of content that day are included — interactions and reactions in the tooltip are summed only across those thumbnails.
+              </p>
+            </div>
             <div className="flex flex-wrap gap-2">
               {postsUploadChartPresets.map((preset) => {
                 const active = selectedPostsUploadPreset === preset.key;
@@ -5774,6 +5800,12 @@ export function FacebookAnalyticsView({
                                 </span>
                               </p>
                             </div>
+                            {agg && agg.count > 0 ? (
+                              <p className="mt-2 border-t pt-2 text-[11px] leading-snug" style={{ borderColor: COLOR.border, color: COLOR.textMuted }}>
+                                Total for {agg.count === 1 ? `this ${postsExplainerItemSingular}` : `these ${formatNumber(agg.count)} ${postsExplainerPublishedPlural}`}
+                                {preset === 'all' ? '' : ` (${singlePresetLabel.toLowerCase()} only)`} published on this date — not your whole account for the range.
+                              </p>
+                            ) : null}
                           </div>
                         );
                       }}
@@ -5816,6 +5848,7 @@ export function FacebookAnalyticsView({
           ) : null}
           <TopContentHighlights
             platform={insights?.platform}
+            scopeHint={`Top ${postsExplainerPublishedPlural} in ${postsExplainerDateRangeLabel} by each metric. Each card is one ${postsExplainerItemSingular}; Views, ${isInstagram || isFacebook || isTikTok || isTwitter || isYouTube || isLinkedIn ? 'Interactions' : 'Clicks'}, and Reactions on that card apply only to that item — not blended with other days.`}
             clicksLeaderTitle={
               isInstagram || isFacebook || isTikTok || isTwitter || isYouTube || isLinkedIn ? 'Interactions leaders' : 'Clicks leaders'
             }
