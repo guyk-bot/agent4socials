@@ -282,6 +282,9 @@ function formatYoutubeTrafficSource(raw: string): string {
   if (raw === '__LONG_FORM_NON_SHORTS_FEED__') {
     return 'Long-form & other (non-Shorts feed)';
   }
+  if (raw === '__OTHER_TRAFFIC_SOURCES__') {
+    return 'Other sources';
+  }
   const t = String(raw || '')
     .replace(/^YT_/i, '')
     .replace(/_/g, ' ')
@@ -289,6 +292,20 @@ function formatYoutubeTrafficSource(raw: string): string {
     .toLowerCase();
   if (!t) return raw;
   return t.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** True when a URL path clearly indicates YouTube Shorts (watch URLs are not reliable). */
+function youtubeUrlIndicatesShorts(url: string | null | undefined): boolean {
+  const u = String(url ?? '').trim().toLowerCase();
+  if (!u) return false;
+  try {
+    const parsed = new URL(u);
+    const path = parsed.pathname.toLowerCase();
+    if (path.includes('/shorts/')) return true;
+  } catch {
+    return u.includes('/shorts/');
+  }
+  return false;
 }
 
 /** Canonical age bucket keys from YouTube Analytics (`age18-24`, etc.). */
@@ -676,15 +693,11 @@ function isYouTubeShortPost(p: FacebookPost): boolean {
       : {};
   const urlCandidates = [
     p.permalinkUrl,
-    p.content,
     typeof meta.youtubeShortsPageUrl === 'string' ? meta.youtubeShortsPageUrl : null,
     typeof meta.youtubeWatchUrl === 'string' ? meta.youtubeWatchUrl : null,
     typeof meta.url === 'string' ? meta.url : null,
-  ]
-    .map((v) => String(v ?? '').toLowerCase())
-    .filter(Boolean);
-  // Explicit user-facing rule: if any stored URL/text contains "short", classify as Shorts.
-  if (urlCandidates.some((v) => v.includes('short'))) return true;
+  ];
+  if (urlCandidates.some((u) => youtubeUrlIndicatesShorts(u))) return true;
   const pl = getYoutubeInShortsPlaylistFromPost(p);
   const inChannelShortsPlaylist = pl === true ? true : pl === false ? false : undefined;
   const d = getYoutubeDurationSecFromPost(p) ?? 0;
@@ -3218,6 +3231,16 @@ export function FacebookAnalyticsView({
     return [...withDerived].sort((a, b) => b.value - a.value);
   }, [insights?.trafficSources]);
 
+  /** Compact table: top 3 sources + one "Other" row (4 rows total) to save vertical space. */
+  const youtubeTrafficSourcesTableRows = useMemo(() => {
+    const rows = youtubeTrafficSourcesForDisplay;
+    if (rows.length <= 4) return rows;
+    const top = rows.slice(0, 3);
+    const rest = rows.slice(3);
+    const otherValue = rest.reduce((s, r) => s + (Number(r.value) || 0), 0);
+    return [...top, { source: '__OTHER_TRAFFIC_SOURCES__' as const, value: otherValue }];
+  }, [youtubeTrafficSourcesForDisplay]);
+
   /** Same synced posts and insights the charts use, for inspection or export. */
   const youtubeAnalyticsDebugPayload = useMemo(() => {
     if (!isYouTube) return null;
@@ -3311,6 +3334,7 @@ export function FacebookAnalyticsView({
         demographics: insights?.demographics,
         trafficSourcesFromApi: insights?.trafficSources ?? [],
         trafficSourcesAsShownInTrafficTable: youtubeTrafficSourcesForDisplay,
+        trafficSourcesCompactTableRows: youtubeTrafficSourcesTableRows,
         extra: insights?.extra ?? null,
         insightsHint: insights?.insightsHint ?? null,
       },
@@ -3318,7 +3342,7 @@ export function FacebookAnalyticsView({
         trafficTableDerivedRow:
           'trafficSourcesAsShownInTrafficTable includes a synthetic first row __LONG_FORM_NON_SHORTS_FEED__ (total API views minus rows classified as Shorts surfacing).',
         dashboardClassification:
-          'short = on your channel Shorts shelf (UUSH playlist) or explicit #shorts / #short or a youtube.com/shorts/VIDEO_ID token in title or description. long_form = everything else, including normal uploads under 3 minutes that are not on the Shorts shelf. YouTube does not expose a single is_short flag in Data API v3; watch and shorts URLs both exist for many videos.',
+          'short = definitive channel Shorts shelf membership (youtubeInShortsPlaylist) when available, else stored youtubeVideoFormat from sync, else strict creator signals (#shorts), else a permalink/metadata URL whose path contains /shorts/. We do not infer Shorts from watch?v= alone because YouTube may open Shorts with watch URLs in history.',
         youtubeShelfMembership:
           'youtubeShelfMembership summarizes youtubeInShortsPlaylist from sync (unknown when the Shorts index could not be fetched).',
       },
@@ -3331,6 +3355,7 @@ export function FacebookAnalyticsView({
     postsInRange,
     insights,
     youtubeTrafficSourcesForDisplay,
+    youtubeTrafficSourcesTableRows,
   ]);
 
   const youtubeEstimatedWatchMinutes = useMemo(() => {
@@ -5061,7 +5086,7 @@ export function FacebookAnalyticsView({
                         </tr>
                       </thead>
                       <tbody>
-                        {youtubeTrafficSourcesForDisplay.slice(0, 20).map((row) => (
+                        {youtubeTrafficSourcesTableRows.map((row) => (
                           <tr key={row.source} className="border-b border-neutral-100 last:border-0">
                             <td className="py-2.5 px-3 font-medium min-w-0 max-w-[60%]">
                               <span className="line-clamp-2">{formatYoutubeTrafficSource(row.source)}</span>

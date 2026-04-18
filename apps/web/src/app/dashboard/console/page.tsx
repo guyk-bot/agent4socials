@@ -282,14 +282,24 @@ const POST_TYPE_LABEL: Record<PostTypeKey, string> = {
   carousel: 'Carousel',
 };
 
+function youtubeUrlIndicatesShortsPath(url: string | null | undefined): boolean {
+  const u = String(url ?? '').trim().toLowerCase();
+  if (!u) return false;
+  try {
+    const parsed = new URL(u);
+    return parsed.pathname.toLowerCase().includes('/shorts/');
+  } catch {
+    return u.includes('/shorts/');
+  }
+}
+
 function classifyConsolePostType(
   mediaType: string | null | undefined,
   url: string | null | undefined,
   platform?: string | null
 ): PostTypeKey | null {
   const plat = String(platform ?? '').toUpperCase();
-  const permalink = String(url ?? '').toLowerCase();
-  if (plat === 'YOUTUBE' && permalink.includes('short')) return 'reels';
+  if (plat === 'YOUTUBE' && youtubeUrlIndicatesShortsPath(url)) return 'reels';
   const mt = String(mediaType ?? '').toUpperCase();
   if (!mt) return null;
   if (mt === 'REEL' || mt === 'VIDEO' || mt === 'SHORT') return 'reels';
