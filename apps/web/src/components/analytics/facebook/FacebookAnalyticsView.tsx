@@ -3530,6 +3530,68 @@ export function FacebookAnalyticsView({
     [youtubeAgeGenderBarRows]
   );
 
+  /** When combined `ageGroup,gender` rows are empty, YouTube may still return separate age and gender breakdowns. */
+  const youtubeAgeOnlyBarRows = useMemo(() => {
+    const combined = insights?.demographics?.byAgeGender;
+    if (Array.isArray(combined) && combined.length > 0) return [] as Array<{ label: string; views: number }>;
+    const rows = insights?.demographics?.byAge;
+    if (!rows?.length) return [] as Array<{ label: string; views: number }>;
+    type Row = { bucket: string; label: string; views: number };
+    const map = new Map<string, Row>();
+    for (const r of rows) {
+      const rawAge = String(r.dimensionValue ?? '').trim();
+      if (!rawAge) continue;
+      const bucket = normalizeYoutubeAgeGroupKey(rawAge);
+      if (!map.has(bucket)) {
+        map.set(bucket, { bucket, label: shortLabelForYoutubeAgeKey(bucket), views: 0 });
+      }
+      const row = map.get(bucket)!;
+      row.views += Number(r.value) || 0;
+    }
+    const order = [...YOUTUBE_AGE_GROUP_ORDER];
+    return [...map.values()]
+      .sort((a, b) => {
+        const ia = order.indexOf(a.bucket as (typeof YOUTUBE_AGE_GROUP_ORDER)[number]);
+        const ib = order.indexOf(b.bucket as (typeof YOUTUBE_AGE_GROUP_ORDER)[number]);
+        if (ia !== -1 || ib !== -1) {
+          if (ia === -1) return 1;
+          if (ib === -1) return -1;
+          if (ia !== ib) return ia - ib;
+        }
+        return a.label.localeCompare(b.label);
+      })
+      .map(({ label, views }) => ({ label, views }));
+  }, [insights?.demographics?.byAge, insights?.demographics?.byAgeGender]);
+
+  const youtubeGenderSimpleRows = useMemo(() => {
+    const combined = insights?.demographics?.byAgeGender;
+    if (Array.isArray(combined) && combined.length > 0) return [] as Array<{ label: string; value: number; fill: string }>;
+    const rows = insights?.demographics?.byGender;
+    if (!rows?.length) return [] as Array<{ label: string; value: number; fill: string }>;
+    const totals = { male: 0, female: 0, other: 0 };
+    for (const r of rows) {
+      const k = youtubeGenderSeriesKey(String(r.dimensionValue ?? ''));
+      totals[k] += Number(r.value) || 0;
+    }
+    const order: Array<'male' | 'female' | 'other'> = ['male', 'female', 'other'];
+    const labelFor: Record<'male' | 'female' | 'other', string> = {
+      male: 'Male',
+      female: 'Female',
+      other: 'Other / unspecified',
+    };
+    const fillFor: Record<'male' | 'female' | 'other', string> = {
+      male: '#14b8a6',
+      female: '#e879f9',
+      other: '#94a3b8',
+    };
+    return order
+      .map((k) => ({ label: labelFor[k], value: totals[k], fill: fillFor[k] }))
+      .filter((r) => r.value > 0);
+  }, [insights?.demographics?.byGender, insights?.demographics?.byAgeGender]);
+
+  const youtubeViewerDemoHasChart =
+    youtubeAgeGenderBarRows.length > 0 || youtubeAgeOnlyBarRows.length > 0 || youtubeGenderSimpleRows.length > 0;
+
   /** Traffic types whose views are attributed to Shorts surfacing; remainder shown as a derived long-form row. */
   const youtubeTrafficSourcesForDisplay = useMemo(() => {
     const list = insights?.trafficSources ?? [];
@@ -5437,66 +5499,147 @@ export function FacebookAnalyticsView({
                 )}
               </div>
 
-              {youtubeAgeGenderBarRows.length > 0 ? (
-                <div className="rounded-xl border p-4 sm:p-5" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
-                  <h4 className="text-base font-semibold mb-1" style={{ color: COLOR.text }}>
-                    Viewers by age and gender
-                  </h4>
-                  <p className="text-xs mb-3 max-w-[920px] leading-relaxed" style={{ color: COLOR.textSecondary }}>
-                    YouTube Analytics · views in this date range. Grouped bars compare male vs female (and other when
-                    reported). YouTube may omit or threshold rows for low traffic.
-                  </p>
-                  <div className="h-[300px] w-full min-w-0">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={youtubeAgeGenderBarRows}
-                        margin={{ top: 4, right: 8, left: 0, bottom: 4 }}
-                        barCategoryGap="20%"
-                        barGap={3}
-                      >
-                        <defs>
-                          <linearGradient id="ytDemoMale" x1="0" y1="1" x2="0" y2="0">
-                            <stop offset="0%" stopColor="#0f766e" stopOpacity={0.88} />
-                            <stop offset="100%" stopColor="#5eead4" stopOpacity={1} />
-                          </linearGradient>
-                          <linearGradient id="ytDemoFemale" x1="0" y1="1" x2="0" y2="0">
-                            <stop offset="0%" stopColor="#86198f" stopOpacity={0.9} />
-                            <stop offset="100%" stopColor="#f0abfc" stopOpacity={1} />
-                          </linearGradient>
-                          <linearGradient id="ytDemoOther" x1="0" y1="1" x2="0" y2="0">
-                            <stop offset="0%" stopColor="#475569" stopOpacity={0.88} />
-                            <stop offset="100%" stopColor="#cbd5e1" stopOpacity={1} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(17,24,39,0.08)" vertical={false} />
-                        <XAxis dataKey="label" tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
-                        <YAxis
-                          tickFormatter={(v) => formatYoutubeViewsAxisTick(Number(v))}
-                          tick={{ fill: COLOR.textMuted, fontSize: 11 }}
-                          axisLine={false}
-                          tickLine={false}
-                          width={48}
-                        />
-                        <Tooltip
-                          contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
-                          formatter={(v: number | string | undefined, name?: string) => [formatNumber(Number(v) || 0), name ?? '']}
-                          labelFormatter={(l) => `Age ${l}`}
-                        />
-                        <Legend
-                          verticalAlign="top"
-                          align="right"
-                          wrapperStyle={{ paddingBottom: 8, fontSize: 12, color: COLOR.textSecondary }}
-                        />
-                        <Bar name="Male" dataKey="male" fill="url(#ytDemoMale)" radius={[8, 8, 0, 0]} maxBarSize={40} />
-                        <Bar name="Female" dataKey="female" fill="url(#ytDemoFemale)" radius={[8, 8, 0, 0]} maxBarSize={40} />
-                        {youtubeAgeGenderShowOtherBar ? (
-                          <Bar name="Other" dataKey="other" fill="url(#ytDemoOther)" radius={[8, 8, 0, 0]} maxBarSize={40} />
+              <div className="rounded-xl border p-4 sm:p-5" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
+                <h4 className="text-base font-semibold mb-1" style={{ color: COLOR.text }}>
+                  Viewers by age and gender
+                </h4>
+                {youtubeViewerDemoHasChart ? (
+                  <>
+                    <p className="text-xs mb-3 max-w-[920px] leading-relaxed" style={{ color: COLOR.textSecondary }}>
+                      {youtubeAgeGenderBarRows.length > 0
+                        ? 'YouTube Analytics · views in this date range. Grouped bars compare male vs female (and other when reported). YouTube may omit or threshold rows for low traffic.'
+                        : 'YouTube did not return combined age × gender rows for this range. Separate age and/or gender breakdowns are shown below when available.'}
+                    </p>
+                    {youtubeAgeGenderBarRows.length > 0 ? (
+                      <div className="h-[300px] w-full min-w-0">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart
+                            data={youtubeAgeGenderBarRows}
+                            margin={{ top: 4, right: 8, left: 0, bottom: 4 }}
+                            barCategoryGap="20%"
+                            barGap={3}
+                          >
+                            <defs>
+                              <linearGradient id="ytDemoMale" x1="0" y1="1" x2="0" y2="0">
+                                <stop offset="0%" stopColor="#0f766e" stopOpacity={0.88} />
+                                <stop offset="100%" stopColor="#5eead4" stopOpacity={1} />
+                              </linearGradient>
+                              <linearGradient id="ytDemoFemale" x1="0" y1="1" x2="0" y2="0">
+                                <stop offset="0%" stopColor="#86198f" stopOpacity={0.9} />
+                                <stop offset="100%" stopColor="#f0abfc" stopOpacity={1} />
+                              </linearGradient>
+                              <linearGradient id="ytDemoOther" x1="0" y1="1" x2="0" y2="0">
+                                <stop offset="0%" stopColor="#475569" stopOpacity={0.88} />
+                                <stop offset="100%" stopColor="#cbd5e1" stopOpacity={1} />
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(17,24,39,0.08)" vertical={false} />
+                            <XAxis dataKey="label" tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                            <YAxis
+                              tickFormatter={(v) => formatYoutubeViewsAxisTick(Number(v))}
+                              tick={{ fill: COLOR.textMuted, fontSize: 11 }}
+                              axisLine={false}
+                              tickLine={false}
+                              width={48}
+                            />
+                            <Tooltip
+                              contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
+                              formatter={(v: number | string | undefined, name?: string) => [formatNumber(Number(v) || 0), name ?? '']}
+                              labelFormatter={(l) => `Age ${l}`}
+                            />
+                            <Legend
+                              verticalAlign="top"
+                              align="right"
+                              wrapperStyle={{ paddingBottom: 8, fontSize: 12, color: COLOR.textSecondary }}
+                            />
+                            <Bar name="Male" dataKey="male" fill="url(#ytDemoMale)" radius={[8, 8, 0, 0]} maxBarSize={40} />
+                            <Bar name="Female" dataKey="female" fill="url(#ytDemoFemale)" radius={[8, 8, 0, 0]} maxBarSize={40} />
+                            {youtubeAgeGenderShowOtherBar ? (
+                              <Bar name="Other" dataKey="other" fill="url(#ytDemoOther)" radius={[8, 8, 0, 0]} maxBarSize={40} />
+                            ) : null}
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    ) : (
+                      <div className="grid gap-4 lg:grid-cols-2 min-w-0">
+                        {youtubeAgeOnlyBarRows.length > 0 ? (
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium mb-2" style={{ color: COLOR.textSecondary }}>
+                              Views by age
+                            </p>
+                            <div className="h-[260px] w-full min-w-0">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <BarChart
+                                  data={youtubeAgeOnlyBarRows}
+                                  margin={{ top: 4, right: 8, left: 0, bottom: 4 }}
+                                  barCategoryGap="18%"
+                                >
+                                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(17,24,39,0.08)" vertical={false} />
+                                  <XAxis dataKey="label" tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                                  <YAxis
+                                    tickFormatter={(v) => formatYoutubeViewsAxisTick(Number(v))}
+                                    tick={{ fill: COLOR.textMuted, fontSize: 11 }}
+                                    axisLine={false}
+                                    tickLine={false}
+                                    width={44}
+                                  />
+                                  <Tooltip
+                                    contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
+                                    formatter={(v: number | string | undefined) => [formatNumber(Number(v) || 0), 'Views']}
+                                    labelFormatter={(l) => `Age ${l}`}
+                                  />
+                                  <Bar dataKey="views" name="Views" fill={COLOR.cyan} radius={[8, 8, 0, 0]} maxBarSize={44} />
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
                         ) : null}
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-              ) : null}
+                        {youtubeGenderSimpleRows.length > 0 ? (
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium mb-2" style={{ color: COLOR.textSecondary }}>
+                              Views by gender
+                            </p>
+                            <div className="h-[260px] w-full min-w-0">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <BarChart
+                                  data={youtubeGenderSimpleRows}
+                                  layout="vertical"
+                                  margin={{ top: 4, right: 16, left: 8, bottom: 4 }}
+                                  barCategoryGap="24%"
+                                >
+                                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(17,24,39,0.08)" horizontal={false} />
+                                  <XAxis
+                                    type="number"
+                                    tickFormatter={(v) => formatYoutubeViewsAxisTick(Number(v))}
+                                    tick={{ fill: COLOR.textMuted, fontSize: 11 }}
+                                    axisLine={false}
+                                    tickLine={false}
+                                  />
+                                  <YAxis type="category" dataKey="label" width={132} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                                  <Tooltip
+                                    contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
+                                    formatter={(v: number | string | undefined) => [formatNumber(Number(v) || 0), 'Views']}
+                                  />
+                                  <Bar dataKey="value" name="Views" radius={[0, 8, 8, 0]} maxBarSize={36}>
+                                    {youtubeGenderSimpleRows.map((entry) => (
+                                      <Cell key={entry.label} fill={entry.fill} />
+                                    ))}
+                                  </Bar>
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm py-6 text-center" style={{ color: COLOR.textSecondary }}>
+                    {insights?.demographics?.hint ??
+                      'No age or gender breakdown for this range yet. YouTube Analytics often withholds or thresholds these dimensions for low traffic, new channels, or delayed processing. Try a wider date range after more views accumulate.'}
+                  </p>
+                )}
+              </div>
 
               {youtubeTrafficSourcesForDisplay.length > 0 ? (
                 <div className="rounded-xl border p-4 sm:p-5" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
