@@ -2741,8 +2741,7 @@ export function FacebookAnalyticsView({
         counts.reels += 1;
         continue;
       }
-      const mt = String(p.mediaType ?? '').toUpperCase();
-      if (mt === 'CAROUSEL' || mt === 'ALBUM') {
+      if (isCarouselAlbumMedia(p.mediaType)) {
         counts.carousel += 1;
       } else {
         counts.image += 1;
@@ -2785,8 +2784,7 @@ export function FacebookAnalyticsView({
         row.reels += 1;
         continue;
       }
-      const mt = String(p.mediaType ?? '').toUpperCase();
-      if (mt === 'CAROUSEL' || mt === 'ALBUM') row.carousel += 1;
+      if (isCarouselAlbumMedia(p.mediaType)) row.carousel += 1;
       else row.image += 1;
     }
     return axis.map((d) => byDate.get(d)!);
