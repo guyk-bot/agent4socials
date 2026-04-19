@@ -945,7 +945,7 @@ const CONSOLE_HISTORY_PLATFORM_ORDER: ReadonlyArray<{ key: string; label: string
   { key: 'Meta', label: 'Facebook' },
   { key: 'YouTube', label: 'YouTube' },
   { key: 'TikTok', label: 'TikTok' },
-  { key: 'X', label: 'Twitter/X' },
+  { key: 'X', label: 'X/Twitter' },
   { key: 'LinkedIn', label: 'LinkedIn' },
   { key: 'Pinterest', label: 'Pinterest' },
 ];
