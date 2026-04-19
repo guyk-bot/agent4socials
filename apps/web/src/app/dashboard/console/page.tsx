@@ -656,7 +656,7 @@ function DotLegendPill({ label, color }: { label: string; color: string }) {
   );
 }
 
-/** One legend line: dot, label, then value + % grouped (no wide flex gap between label and numbers). */
+/** One legend line: swatch, then label + value + % as a single tight cluster (no space-between gap). */
 function ConsolePieLegendMetricRow({
   dotColor,
   label,
@@ -681,17 +681,17 @@ function ConsolePieLegendMetricRow({
       role={role}
       aria-label={ariaLabel}
       style={style}
-      className={`flex items-center gap-x-2 py-0.5 ${className}`}
+      className={`flex w-full min-w-0 items-center gap-x-2 py-0.5 ${className}`}
     >
       <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: dotColor }} aria-hidden />
-      <span className="min-w-0 shrink truncate text-sm" style={{ color: COLOR.text }}>
-        {label}
-      </span>
-      <span className="inline-flex items-baseline gap-1.5 whitespace-nowrap tabular-nums shrink-0">
-        <span className="text-sm font-semibold" style={{ color: COLOR.text }}>
+      <span className="inline-flex min-w-0 flex-wrap items-baseline gap-x-1">
+        <span className="truncate text-sm" style={{ color: COLOR.text }}>
+          {label}
+        </span>
+        <span className="text-sm font-semibold tabular-nums whitespace-nowrap" style={{ color: COLOR.text }}>
           {valueText}
         </span>
-        <span className="text-xs" style={{ color: COLOR.textMuted }}>
+        <span className="text-xs tabular-nums whitespace-nowrap" style={{ color: COLOR.textMuted }}>
           {percentText}
         </span>
       </span>

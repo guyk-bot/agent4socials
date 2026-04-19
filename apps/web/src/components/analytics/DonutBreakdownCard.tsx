@@ -257,16 +257,16 @@ export function DonutBreakdownCard({
               <table className="w-full text-left text-[13px]">
                 <thead>
                   <tr className="border-b border-black/[0.06] bg-neutral-50/80">
-                    <th className="px-3 py-2 font-medium text-[#6b7280]">{legendLabel}</th>
-                    <th className="px-3 py-2 text-right font-medium text-[#6b7280]">Value</th>
-                    <th className="w-[72px] px-3 py-2 text-right font-medium text-[#6b7280]">%</th>
+                    <th className="px-3 py-2 font-medium text-[#6b7280]" scope="col">
+                      {legendLabel}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {legendRows.map((row, i) => (
                     <tr key={row.key} className="border-b border-black/[0.04] last:border-0">
                       <td className="px-3 py-2.5">
-                        <span className="inline-flex items-center gap-2">
+                        <span className="inline-flex min-w-0 flex-wrap items-center gap-x-1">
                           <span
                             className="h-2.5 w-2.5 shrink-0 rounded-full"
                             style={{
@@ -280,14 +280,12 @@ export function DonutBreakdownCard({
                             }}
                             aria-hidden
                           />
-                          <span className="font-medium text-[#111827]">{row.label}</span>
+                          <span className="min-w-0 truncate font-medium text-[#111827]">{row.label}</span>
+                          <span className="shrink-0 tabular-nums font-semibold text-[#111827]">
+                            {formatLegendValue(row.value)}
+                          </span>
+                          <span className="shrink-0 tabular-nums text-[#6b7280]">{row.percent}%</span>
                         </span>
-                      </td>
-                      <td className="px-3 py-2.5 text-right tabular-nums text-[#374151]">
-                        {formatLegendValue(row.value)}
-                      </td>
-                      <td className="px-3 py-2.5 text-right font-semibold tabular-nums text-[#111827]">
-                        {row.percent}%
                       </td>
                     </tr>
                   ))}
