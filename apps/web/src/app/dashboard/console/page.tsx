@@ -665,7 +665,7 @@ function DotLegendPill({ label, color }: { label: string; color: string }) {
   );
 }
 
-/** One legend line: fixed-width swatch column so dots stack vertically; label + metrics. */
+/** One legend line: fixed swatch column (aligned dots) + left-aligned name + right-aligned metrics; paired rows hug the right like the bar-chart legend. */
 function ConsolePieLegendMetricRow({
   dotColor,
   label,
@@ -675,6 +675,7 @@ function ConsolePieLegendMetricRow({
   style,
   role,
   'aria-label': ariaLabel,
+  stretch = false,
 }: {
   dotColor: string;
   label: string;
@@ -684,16 +685,20 @@ function ConsolePieLegendMetricRow({
   style?: React.CSSProperties;
   role?: 'status';
   'aria-label'?: string;
+  /** When true (total row), use full width; otherwise keep the block toward the chart side with a sensible max width. */
+  stretch?: boolean;
 }) {
   return (
     <div
       role={role}
       aria-label={ariaLabel}
       style={style}
-      className={`grid h-full min-h-0 w-full min-w-0 grid-cols-[12px_minmax(0,1fr)_auto_auto] items-center gap-x-2 py-2 ${className}`}
+      className={`grid h-full min-h-0 min-w-0 grid-cols-[12px_minmax(0,1fr)_auto_auto] items-center gap-x-2 py-2.5 ${
+        stretch ? 'w-full' : 'ml-auto w-full max-w-[min(100%,20rem)]'
+      } ${className}`}
     >
-      <span className="h-3 w-3 shrink-0 justify-self-start rounded-full" style={{ background: dotColor }} aria-hidden />
-      <span className="min-w-0 truncate text-right text-sm" style={{ color: COLOR.text }}>
+      <span className="h-3 w-3 shrink-0 place-self-center rounded-full" style={{ background: dotColor }} aria-hidden />
+      <span className="min-w-0 truncate text-left text-sm" style={{ color: COLOR.text }}>
         {label}
       </span>
       <span className="text-sm font-semibold tabular-nums whitespace-nowrap text-right" style={{ color: COLOR.text }}>
@@ -1882,7 +1887,7 @@ export default function UnifiedSummaryPage() {
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
-                  <div className="flex min-w-0 flex-1 flex-col gap-y-2">
+                  <div className="flex min-w-0 flex-1 flex-col gap-y-2.5">
                     {chunkIntoPairs(platformDistributionPieData).map(([left, right], rowIdx) => {
                       const pct = (item: (typeof platformDistributionPieData)[number]) =>
                         platformDistributionTotal > 0 ? ((item.value / platformDistributionTotal) * 100).toFixed(1) : '0';
@@ -1914,6 +1919,7 @@ export default function UnifiedSummaryPage() {
                     })}
                     <div className="mt-2 border-t pt-3" style={{ borderTopColor: COLOR.border }}>
                       <ConsolePieLegendMetricRow
+                        stretch
                         dotColor={COLOR.text}
                         label={performanceMode === 'engagement' ? 'Total engagement' : 'Total views'}
                         valueText={fmtExactInt(platformDistributionTotal)}
@@ -2079,7 +2085,7 @@ export default function UnifiedSummaryPage() {
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
-                    <div className="flex min-w-0 flex-1 flex-col gap-y-2">
+                    <div className="flex min-w-0 flex-1 flex-col gap-y-2.5">
                       {chunkIntoPairs(postsPresetPlatformPieData).map(([left, right], rowIdx) => {
                         const pct = (item: (typeof postsPresetPlatformPieData)[number]) =>
                           postsPresetPlatformPieTotal > 0 ? ((item.value / postsPresetPlatformPieTotal) * 100).toFixed(1) : '0';
@@ -2111,6 +2117,7 @@ export default function UnifiedSummaryPage() {
                       })}
                       <div className="mt-2 border-t pt-3" style={{ borderTopColor: COLOR.border }}>
                         <ConsolePieLegendMetricRow
+                          stretch
                           dotColor={COLOR.text}
                           label={
                             postsPreset === 'all'
