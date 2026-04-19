@@ -634,36 +634,43 @@ function DotLegendPill({ label, color }: { label: string; color: string }) {
   );
 }
 
-/** Bottom total row: same layout as pie legend (dot · label · bold count · grey %). */
-function ConsolePieTotalLegendRow({
+/** One legend line: dot, name, value, (%) — tight columns (no justify-between gap). */
+function ConsolePieLegendMetricRow({
+  dotColor,
   label,
-  value,
-  dotColor = COLOR.text,
+  valueText,
+  percentText,
+  className = '',
+  style,
+  role,
+  'aria-label': ariaLabel,
 }: {
+  dotColor: string;
   label: string;
-  value: number;
-  dotColor?: string;
+  valueText: string;
+  percentText: string;
+  className?: string;
+  style?: React.CSSProperties;
+  role?: 'status';
+  'aria-label'?: string;
 }) {
   return (
     <div
-      className="flex w-full max-w-[min(100%,420px)] items-center justify-between gap-3 py-1 sm:ml-auto"
-      role="status"
-      aria-label={`${label}: ${fmtExactInt(value)}`}
+      role={role}
+      aria-label={ariaLabel}
+      style={style}
+      className={`grid grid-cols-[12px_minmax(0,1fr)_auto_auto] items-center gap-x-2 py-0.5 ${className}`}
     >
-      <div className="flex min-w-0 flex-1 items-center gap-2">
-        <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: dotColor }} aria-hidden />
-        <span className="truncate text-sm" style={{ color: COLOR.text }}>
-          {label}
-        </span>
-      </div>
-      <div className="flex shrink-0 items-center gap-2">
-        <span className="text-sm font-semibold tabular-nums" style={{ color: COLOR.text }}>
-          {fmtExactInt(value)}
-        </span>
-        <span className="text-xs tabular-nums" style={{ color: COLOR.textMuted }}>
-          (100%)
-        </span>
-      </div>
+      <span className="h-3 w-3 shrink-0 rounded-full justify-self-start" style={{ background: dotColor }} aria-hidden />
+      <span className="min-w-0 truncate text-sm" style={{ color: COLOR.text }}>
+        {label}
+      </span>
+      <span className="text-sm font-semibold tabular-nums shrink-0" style={{ color: COLOR.text }}>
+        {valueText}
+      </span>
+      <span className="text-xs tabular-nums shrink-0" style={{ color: COLOR.textMuted }}>
+        {percentText}
+      </span>
     </div>
   );
 }
@@ -1804,29 +1811,30 @@ export default function UnifiedSummaryPage() {
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
-                  <div className="flex-1 grid grid-cols-2 gap-x-6 gap-y-2">
+                  <div className="flex-1 grid grid-cols-2 gap-x-3 gap-y-1 content-start">
                     {platformDistributionPieData.map((item) => {
                       const pct = platformDistributionTotal > 0 ? ((item.value / platformDistributionTotal) * 100).toFixed(1) : '0';
                       return (
-                        <div key={item.name} className="flex items-center justify-between gap-2 py-1">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="w-3 h-3 rounded-full shrink-0" style={{ background: item.color }} />
-                            <span className="text-sm truncate" style={{ color: COLOR.text }}>{item.name}</span>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-sm font-semibold tabular-nums" style={{ color: COLOR.text }}>{fmtExactInt(item.value)}</span>
-                            <span className="text-xs tabular-nums" style={{ color: COLOR.textMuted }}>({pct}%)</span>
-                          </div>
-                        </div>
+                        <ConsolePieLegendMetricRow
+                          key={item.name}
+                          dotColor={item.color}
+                          label={item.name}
+                          valueText={fmtExactInt(item.value)}
+                          percentText={`(${pct}%)`}
+                        />
                       );
                     })}
+                    <ConsolePieLegendMetricRow
+                      className="col-span-2 mt-1 border-t pt-2"
+                      style={{ borderTopColor: COLOR.border }}
+                      dotColor={COLOR.text}
+                      label={performanceMode === 'engagement' ? 'Total engagement' : 'Total views'}
+                      valueText={fmtExactInt(platformDistributionTotal)}
+                      percentText="(100%)"
+                      role="status"
+                      aria-label={`${performanceMode === 'engagement' ? 'Total engagement' : 'Total views'}: ${fmtExactInt(platformDistributionTotal)}`}
+                    />
                   </div>
-                </div>
-                <div className="mt-4 flex w-full justify-end border-t pt-3" style={{ borderColor: COLOR.border }}>
-                  <ConsolePieTotalLegendRow
-                    label={performanceMode === 'engagement' ? 'Total engagement' : 'Total views'}
-                    value={platformDistributionTotal}
-                  />
                 </div>
                 </div>
               </div>
@@ -1985,33 +1993,34 @@ export default function UnifiedSummaryPage() {
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
-                    <div className="flex-1 grid grid-cols-2 gap-x-6 gap-y-2">
+                    <div className="flex-1 grid grid-cols-2 gap-x-3 gap-y-1 content-start">
                       {postsPresetPlatformPieData.map((item) => {
                         const pct = postsPresetPlatformPieTotal > 0 ? ((item.value / postsPresetPlatformPieTotal) * 100).toFixed(1) : '0';
                         return (
-                          <div key={item.name} className="flex items-center justify-between gap-2 py-1">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="w-3 h-3 rounded-full shrink-0" style={{ background: item.color }} />
-                              <span className="text-sm truncate" style={{ color: COLOR.text }}>{item.name}</span>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <span className="text-sm font-semibold tabular-nums" style={{ color: COLOR.text }}>{fmtExactInt(item.value)}</span>
-                              <span className="text-xs tabular-nums" style={{ color: COLOR.textMuted }}>({pct}%)</span>
-                            </div>
-                          </div>
+                          <ConsolePieLegendMetricRow
+                            key={item.name}
+                            dotColor={item.color}
+                            label={item.name}
+                            valueText={fmtExactInt(item.value)}
+                            percentText={`(${pct}%)`}
+                          />
                         );
                       })}
+                      <ConsolePieLegendMetricRow
+                        className="col-span-2 mt-1 border-t pt-2"
+                        style={{ borderTopColor: COLOR.border }}
+                        dotColor={COLOR.text}
+                        label={
+                          postsPreset === 'all'
+                            ? 'Total posts'
+                            : `Total (${POST_TYPE_LABEL[postsPreset]})`
+                        }
+                        valueText={fmtExactInt(postsPresetPlatformPieTotal)}
+                        percentText="(100%)"
+                        role="status"
+                        aria-label={`Total posts in range: ${fmtExactInt(postsPresetPlatformPieTotal)}`}
+                      />
                     </div>
-                  </div>
-                  <div className="mt-4 flex w-full justify-end border-t pt-3" style={{ borderColor: COLOR.border }}>
-                    <ConsolePieTotalLegendRow
-                      label={
-                        postsPreset === 'all'
-                          ? 'Total posts'
-                          : `Total (${POST_TYPE_LABEL[postsPreset]})`
-                      }
-                      value={postsPresetPlatformPieTotal}
-                    />
                   </div>
                 </div>
               </div>
