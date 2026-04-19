@@ -510,67 +510,57 @@ function PlatformMixChart({
   const yDomain = performanceMode === 'engagement' ? ([0, 'auto'] as const) : growthDomain ?? (['auto', 'auto'] as const);
 
   if (performanceMode === 'engagement') {
-    const n = Math.max(1, activePlatforms.length);
-    /** Fixed bar width (px) per platform so candles stay visible; chart scrolls horizontally when many dates. */
-    const barW = n <= 3 ? 20 : n <= 5 ? 15 : n <= 7 ? 12 : 10;
-    const slotPerDay = n * barW + Math.max(0, n - 1) * 2 + 18;
-    const minChartWidth = Math.max(520, Math.min(6000, Math.max(1, data.length) * slotPerDay));
-    const chartH = 300;
+    /** Stacked bars (one column per day) so every platform shares full width — small slices stay visible vs grouped thin columns. */
     return (
-      <div className="w-full overflow-x-auto pb-1" style={{ WebkitOverflowScrolling: 'touch' }}>
-        <div style={{ width: minChartWidth, height: chartH }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={data}
-              barCategoryGap={8}
-              barGap={2}
-              margin={{ top: 8, right: 8, left: -12, bottom: 10 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" vertical={false} />
-              <XAxis
-                dataKey="date"
-                ticks={axisTicks}
-                tickFormatter={formatConsoleAxisTickLabel}
-                tick={{ fontSize: 10, fill: COLOR.textMuted }}
-                tickLine={false}
-                axisLine={false}
-                interval={0}
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart
+          data={data}
+          barCategoryGap="18%"
+          margin={{ top: 8, right: 8, left: -12, bottom: 10 }}
+        >
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" vertical={false} />
+          <XAxis
+            dataKey="date"
+            ticks={axisTicks}
+            tickFormatter={formatConsoleAxisTickLabel}
+            tick={{ fontSize: 10, fill: COLOR.textMuted }}
+            tickLine={false}
+            axisLine={false}
+            interval={0}
+          />
+          <YAxis
+            domain={yDomain}
+            tickFormatter={(v) => valueFmt(Number(v))}
+            tick={{ fontSize: 11, fill: COLOR.textMuted }}
+            tickLine={false}
+            axisLine={false}
+            width={56}
+          />
+          <Tooltip
+            contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
+            labelFormatter={(v) => fmtTooltipDate(String(v))}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            formatter={(value: any, name: any) => [valueFmt(Number(value) ?? 0), consolePlatformDisplayName(String(name ?? ''))]}
+            cursor={{ fill: 'rgba(107,114,128,0.08)' }}
+          />
+          {activePlatforms.map((p) => {
+            const c = CONSOLE_PLATFORM_COLOR[p] ?? PLATFORM_COLOR[p] ?? COLOR.textSecondary;
+            return (
+              <Bar
+                key={p}
+                dataKey={p}
+                stackId="engagement-stack"
+                name={consolePlatformDisplayName(p)}
+                fill={c}
+                stroke="#ffffff"
+                strokeWidth={0.5}
+                radius={[0, 0, 0, 0]}
+                isAnimationActive={false}
               />
-              <YAxis
-                domain={yDomain}
-                tickFormatter={(v) => valueFmt(Number(v))}
-                tick={{ fontSize: 11, fill: COLOR.textMuted }}
-                tickLine={false}
-                axisLine={false}
-                width={56}
-              />
-              <Tooltip
-                contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
-                labelFormatter={(v) => fmtTooltipDate(String(v))}
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                formatter={(value: any, name: any) => [valueFmt(Number(value) ?? 0), name ?? '']}
-                cursor={{ fill: 'rgba(107,114,128,0.08)' }}
-              />
-              {activePlatforms.map((p) => {
-                const c = CONSOLE_PLATFORM_COLOR[p] ?? PLATFORM_COLOR[p] ?? COLOR.textSecondary;
-                return (
-                  <Bar
-                    key={p}
-                    dataKey={p}
-                    name={p}
-                    fill={c}
-                    stroke={c}
-                    strokeWidth={0}
-                    barSize={barW}
-                    radius={[4, 4, 0, 0]}
-                    isAnimationActive={false}
-                  />
-                );
-              })}
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+            );
+          })}
+        </BarChart>
+      </ResponsiveContainer>
     );
   }
 
@@ -1909,7 +1899,7 @@ export default function UnifiedSummaryPage() {
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={postsTimelineData} barCategoryGap="22%" barGap={0} margin={{ top: 4, right: 8, left: 0, bottom: 10 }}>
+                  <BarChart data={postsTimelineData} barCategoryGap="18%" margin={{ top: 4, right: 8, left: 0, bottom: 10 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                     <XAxis
                       dataKey="date"
@@ -1931,18 +1921,20 @@ export default function UnifiedSummaryPage() {
                     />
                     <Tooltip contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }} // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     formatter={(v: any, n: any) => [fmtExactInt(Number(v) || 0), consolePlatformDisplayName(String(n ?? ''))]} labelFormatter={(l) => fmtTooltipDate(String(l))} />
-                    {postsEligiblePlatforms.map((p) => (
-                      <Bar
-                        key={`post-bar-${postsPreset}-${p}`}
-                        dataKey={`${postsPreset}_${p}`}
-                        stackId="posts-by-platform"
-                        name={consolePlatformDisplayName(p)}
-                        fill={CONSOLE_PLATFORM_COLOR[p] ?? PLATFORM_COLOR[p] ?? COLOR.violet}
-                        radius={[0, 0, 0, 0]}
-                        hide={!postsActivePlatforms.includes(p)}
-                        barSize={16}
-                      />
-                    ))}
+                    {postsEligiblePlatforms
+                      .filter((p) => postsActivePlatforms.includes(p))
+                      .map((p) => (
+                        <Bar
+                          key={`post-bar-${postsPreset}-${p}`}
+                          dataKey={`${postsPreset}_${p}`}
+                          stackId="posts-by-platform"
+                          name={consolePlatformDisplayName(p)}
+                          fill={CONSOLE_PLATFORM_COLOR[p] ?? PLATFORM_COLOR[p] ?? COLOR.violet}
+                          stroke="#ffffff"
+                          strokeWidth={0.5}
+                          radius={[0, 0, 0, 0]}
+                        />
+                      ))}
                   </BarChart>
                 </ResponsiveContainer>
               )}
