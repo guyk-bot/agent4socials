@@ -398,7 +398,7 @@ function PlatformIcon({ platform, size = 16 }: { platform: string; size?: number
     case 'YouTube': return <YoutubeIcon size={size} />;
     case 'TikTok': return <TikTokIcon size={size} />;
     case 'Pinterest': return <PinterestIcon size={size} />;
-    default: return null;
+    default: return <FileText size={size} style={{ color: COLOR.textMuted }} />;
   }
 }
 
@@ -835,18 +835,17 @@ function unifiedTopPostToHistoryPost(t: UnifiedTopPost): UnifiedHistoryPost {
 }
 
 function ConsoleTopPostsHighlights({
-  dateRangeLabel,
   byViews,
   byInteractions,
   byReactions,
 }: {
-  dateRangeLabel: string;
   byViews: ConsoleHighlightRow[];
   byInteractions: ConsoleHighlightRow[];
   byReactions: ConsoleHighlightRow[];
 }) {
   const rankBadge = (idx: number) => `/rank-badges/${Math.min(3, idx + 1)}.svg`;
   const cardBg = 'rgba(15,23,39,0.04)';
+  const TH = 96;
 
   const col = (
     title: string,
@@ -865,20 +864,26 @@ function ConsoleTopPostsHighlights({
         rows.map((r, idx) => (
           <div
             key={`${title}-${r.id}-${idx}`}
-            className="rounded-xl p-3 h-[124px]"
+            className="flex max-h-[260px] min-h-[168px] flex-col overflow-hidden rounded-xl p-3.5"
             style={{ background: cardBg, border: `1px solid ${COLOR.border}` }}
           >
-            <div className="flex items-start gap-3">
+            <div className="flex min-h-0 flex-1 items-start gap-3">
               {r.platform === 'X' && !r.thumbnailUrl ? (
-                <div className="flex shrink-0 items-start pt-1">
+                <div className="relative isolate mt-1 shrink-0 pt-1" style={{ width: TH, height: TH }}>
+                  <div
+                    className="absolute inset-0 flex items-center justify-center overflow-hidden rounded-xl border"
+                    style={{ borderColor: COLOR.border, background: '#f3f4f6' }}
+                  >
+                    <FileText size={22} style={{ color: COLOR.textMuted }} />
+                  </div>
                   <img
                     src={rankBadge(idx)}
                     alt={`Rank ${idx + 1}`}
-                    className="h-11 w-11 object-contain drop-shadow-md sm:h-12 sm:w-12"
+                    className="pointer-events-none absolute left-0 top-0 z-10 h-11 w-11 -translate-x-2 -translate-y-2 object-contain drop-shadow-md sm:h-12 sm:w-12 sm:-translate-x-2.5 sm:-translate-y-2.5"
                   />
                 </div>
               ) : (
-                <div className="relative isolate mt-1 h-[92px] w-[92px] shrink-0 pt-1">
+                <div className="relative isolate mt-1 shrink-0 pt-1" style={{ width: TH, height: TH }}>
                   <div
                     className="absolute inset-0 overflow-hidden rounded-xl border"
                     style={{ borderColor: COLOR.border, background: '#f3f4f6' }}
@@ -910,18 +915,23 @@ function ConsoleTopPostsHighlights({
                   />
                 </div>
               )}
-              <div className="flex min-h-[92px] min-w-0 flex-1 flex-col">
-                <p className="shrink-0 text-[11px] leading-4 tabular-nums" style={{ color: COLOR.textMuted }}>
-                  {formatConsolePostCardDateTime(r.publishedAt)}
-                </p>
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" style={{ minHeight: TH }}>
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center [&>svg]:max-h-[18px] [&>svg]:max-w-[18px]" aria-hidden>
+                    <PlatformIcon platform={r.platform} size={16} />
+                  </span>
+                  <p className="min-w-0 truncate text-[11px] leading-4 tabular-nums" style={{ color: COLOR.textMuted }}>
+                    {formatConsolePostCardDateTime(r.publishedAt)}
+                  </p>
+                </div>
                 <p
-                  className="mt-1 min-h-0 text-[13px] leading-[18px] line-clamp-4"
+                  className="mt-1.5 min-h-0 flex-1 overflow-hidden text-[13px] leading-snug text-ellipsis [display:-webkit-box] [-webkit-line-clamp:4] [-webkit-box-orient:vertical] break-words"
                   style={{ color: COLOR.textSecondary }}
                   title={r.preview.trim() || undefined}
                 >
                   {consoleHighlightPreview(r.preview)}
                 </p>
-                <div className="mt-auto flex flex-wrap gap-x-3 gap-y-1 pt-2 text-xs" style={{ color: COLOR.textMuted }}>
+                <div className="mt-auto flex shrink-0 flex-wrap gap-x-3 gap-y-1 border-t pt-2 text-xs" style={{ color: COLOR.textMuted, borderTopColor: COLOR.border }}>
                   <span
                     style={
                       metricLabel === 'Views'
@@ -960,14 +970,9 @@ function ConsoleTopPostsHighlights({
 
   return (
     <div>
-      <h3 className="text-lg font-semibold mb-1" style={{ color: COLOR.text }}>
+      <h3 className="text-lg font-semibold mb-4" style={{ color: COLOR.text }}>
         Top performing posts
       </h3>
-      <p className="mb-4 text-xs leading-relaxed max-w-[960px]" style={{ color: COLOR.textSecondary }}>
-        Top posts in {dateRangeLabel} by each metric. Each card is one post; Views, Interactions, and Reactions on that
-        row are only for that post. Interactions use synced engagement totals; Reactions use likes as the cross-network
-        proxy.
-      </p>
       <div className="grid gap-4 lg:grid-cols-3">
         {col('Views leaders', 'Views', byViews)}
         {col('Interactions leaders', 'Interactions', byInteractions)}
@@ -2159,7 +2164,6 @@ export default function UnifiedSummaryPage() {
               </div>
             ) : (
               <ConsoleTopPostsHighlights
-                dateRangeLabel={`${dateRange.start}–${dateRange.end}`}
                 byViews={consoleTopByViews}
                 byInteractions={consoleTopByInteractions}
                 byReactions={consoleTopByReactions}
