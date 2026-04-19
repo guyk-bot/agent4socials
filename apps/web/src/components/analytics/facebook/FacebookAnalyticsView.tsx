@@ -5626,24 +5626,10 @@ export function FacebookAnalyticsView({
               value={formatNumber(Math.round(avgReactionsPerPost))}
             />
           </div>
-          <p className="text-xs leading-relaxed max-w-[960px]" style={{ color: COLOR.textSecondary }}>
-            <span className="font-medium" style={{ color: COLOR.text }}>What these numbers refer to:</span>{' '}
-            Totals and averages use {postsExplainerPublishedPlural} that{' '}
-            <span className="font-medium" style={{ color: COLOR.text }}>published</span> between {postsExplainerDateRangeLabel} and appear in your synced inventory.{' '}
-            In the upload chart, hover a day: <span className="font-medium" style={{ color: COLOR.text }}>Interactions</span> and{' '}
-            <span className="font-medium" style={{ color: COLOR.text }}>Reactions</span> are{' '}
-            <span className="font-medium" style={{ color: COLOR.text }}>added up across every {postsExplainerItemSingular}</span> for that day (thumbnails in the tooltip).{' '}
-            In the leaderboards below, each card is <span className="font-medium" style={{ color: COLOR.text }}>one {postsExplainerItemSingular}</span>; the metrics on that row are only for that item.
-          </p>
           {!isYouTube ? (
           <div className="rounded-xl border p-4 sm:p-5" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
             <div className="mb-4 flex flex-col items-start gap-3">
-            <div>
-              <h4 className="text-base font-semibold" style={{ color: COLOR.text }}>Uploaded posts</h4>
-              <p className="mt-1 text-xs leading-relaxed max-w-[920px]" style={{ color: COLOR.textSecondary }}>
-                Bar height is how many {postsExplainerPublishedPlural} went live on each date. Hover a bar to see which pieces of content that day are included — interactions and reactions in the tooltip are summed only across those thumbnails.
-              </p>
-            </div>
+            <h4 className="text-base font-semibold" style={{ color: COLOR.text }}>Uploaded posts</h4>
             <div className="flex flex-wrap gap-1.5">
               {postsUploadChartPresets.map((preset) => {
                 const active = selectedPostsUploadPreset === preset.key;
