@@ -5408,14 +5408,16 @@ export function FacebookAnalyticsView({
                         );
                       })() : null}
                     </div>
-                    <ul className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm min-w-0" style={{ color: COLOR.text }}>
+                    <ul className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm min-w-0" style={{ color: COLOR.text }}>
                       {youtubeGeoBreakdown.list.map((row, i) => (
                         <li
                           key={`${row.name}-${i}`}
-                          className="grid min-w-0 grid-cols-[10px_minmax(0,1fr)_auto] items-center gap-x-2 border-b border-neutral-100 pb-2"
+                          className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 border-b border-neutral-100 py-2"
                         >
-                          <span className="h-2.5 w-2.5 shrink-0 justify-self-start rounded-full" style={{ background: youtubeGeoPieColor(i) }} />
-                          <span className="min-w-0 truncate text-right font-medium">{row.name}</span>
+                          <span className="flex min-w-0 items-center justify-end gap-x-2">
+                            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: youtubeGeoPieColor(i) }} />
+                            <span className="min-w-0 truncate text-right font-medium">{row.name}</span>
+                          </span>
                           <span className="shrink-0 text-right tabular-nums" style={{ color: COLOR.textSecondary }}>
                             {formatNumber(row.value)}{' '}
                             <span className="text-neutral-400">({row.sharePct}%)</span>

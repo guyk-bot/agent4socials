@@ -265,23 +265,25 @@ export function DonutBreakdownCard({
                 <tbody>
                   {legendRows.map((row, i) => (
                     <tr key={row.key} className="border-b border-black/[0.04] last:border-0">
-                      <td className="px-3 py-2.5">
-                        <div className="grid w-full min-w-0 grid-cols-[10px_minmax(0,1fr)_auto_auto] items-center gap-x-2">
-                          <span
-                            className="h-2.5 w-2.5 shrink-0 justify-self-start rounded-full"
-                            style={{
-                              backgroundColor: resolveSliceColor(
-                                (() => {
-                                  const ci = chartData.findIndex((c) => c.key === row.key);
-                                  return ci >= 0 ? ci : i;
-                                })(),
-                                row.colorToken
-                              ),
-                            }}
-                            aria-hidden
-                          />
-                          <span className="min-w-0 truncate text-right text-[13px] font-medium text-[#111827]">
-                            {row.label}
+                      <td className="px-3 py-3">
+                        <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2">
+                          <span className="flex min-w-0 items-center justify-end gap-x-2">
+                            <span
+                              className="h-2.5 w-2.5 shrink-0 rounded-full"
+                              style={{
+                                backgroundColor: resolveSliceColor(
+                                  (() => {
+                                    const ci = chartData.findIndex((c) => c.key === row.key);
+                                    return ci >= 0 ? ci : i;
+                                  })(),
+                                  row.colorToken
+                                ),
+                              }}
+                              aria-hidden
+                            />
+                            <span className="min-w-0 truncate text-right text-[13px] font-medium text-[#111827]">
+                              {row.label}
+                            </span>
                           </span>
                           <span className="shrink-0 text-right text-[13px] font-semibold tabular-nums text-[#111827]">
                             {formatLegendValue(row.value)}
