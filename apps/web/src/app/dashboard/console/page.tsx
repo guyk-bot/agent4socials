@@ -656,7 +656,7 @@ function DotLegendPill({ label, color }: { label: string; color: string }) {
   );
 }
 
-/** One legend line: swatch, then label + value + % as a single tight cluster (no space-between gap). */
+/** One legend line: swatch + label (right-aligned toward numbers) + value + %. */
 function ConsolePieLegendMetricRow({
   dotColor,
   label,
@@ -681,19 +681,17 @@ function ConsolePieLegendMetricRow({
       role={role}
       aria-label={ariaLabel}
       style={style}
-      className={`flex w-full min-w-0 items-center gap-x-2 py-0.5 ${className}`}
+      className={`grid w-full min-w-0 grid-cols-[12px_minmax(0,1fr)_auto_auto] items-center gap-x-2 py-0.5 ${className}`}
     >
-      <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: dotColor }} aria-hidden />
-      <span className="inline-flex min-w-0 flex-wrap items-baseline gap-x-1">
-        <span className="truncate text-sm" style={{ color: COLOR.text }}>
-          {label}
-        </span>
-        <span className="text-sm font-semibold tabular-nums whitespace-nowrap" style={{ color: COLOR.text }}>
-          {valueText}
-        </span>
-        <span className="text-xs tabular-nums whitespace-nowrap" style={{ color: COLOR.textMuted }}>
-          {percentText}
-        </span>
+      <span className="h-3 w-3 shrink-0 justify-self-start rounded-full" style={{ background: dotColor }} aria-hidden />
+      <span className="min-w-0 truncate text-right text-sm" style={{ color: COLOR.text }}>
+        {label}
+      </span>
+      <span className="text-sm font-semibold tabular-nums whitespace-nowrap text-right" style={{ color: COLOR.text }}>
+        {valueText}
+      </span>
+      <span className="text-xs tabular-nums whitespace-nowrap text-right" style={{ color: COLOR.textMuted }}>
+        {percentText}
       </span>
     </div>
   );
@@ -1875,7 +1873,7 @@ export default function UnifiedSummaryPage() {
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
-                  <div className="flex-1 grid grid-cols-2 gap-x-3 gap-y-1 content-start">
+                  <div className="flex-1 grid grid-cols-2 gap-x-2 gap-y-1 content-start">
                     {platformDistributionPieData.map((item) => {
                       const pct = platformDistributionTotal > 0 ? ((item.value / platformDistributionTotal) * 100).toFixed(1) : '0';
                       return (
@@ -2055,7 +2053,7 @@ export default function UnifiedSummaryPage() {
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
-                    <div className="flex-1 grid grid-cols-2 gap-x-3 gap-y-1 content-start">
+                    <div className="flex-1 grid grid-cols-2 gap-x-2 gap-y-1 content-start">
                       {postsPresetPlatformPieData.map((item) => {
                         const pct = postsPresetPlatformPieTotal > 0 ? ((item.value / postsPresetPlatformPieTotal) * 100).toFixed(1) : '0';
                         return (

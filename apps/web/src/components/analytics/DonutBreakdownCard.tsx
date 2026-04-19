@@ -266,9 +266,9 @@ export function DonutBreakdownCard({
                   {legendRows.map((row, i) => (
                     <tr key={row.key} className="border-b border-black/[0.04] last:border-0">
                       <td className="px-3 py-2.5">
-                        <span className="inline-flex min-w-0 flex-wrap items-center gap-x-1">
+                        <div className="grid w-full min-w-0 grid-cols-[10px_minmax(0,1fr)_auto_auto] items-center gap-x-2">
                           <span
-                            className="h-2.5 w-2.5 shrink-0 rounded-full"
+                            className="h-2.5 w-2.5 shrink-0 justify-self-start rounded-full"
                             style={{
                               backgroundColor: resolveSliceColor(
                                 (() => {
@@ -280,12 +280,14 @@ export function DonutBreakdownCard({
                             }}
                             aria-hidden
                           />
-                          <span className="min-w-0 truncate font-medium text-[#111827]">{row.label}</span>
-                          <span className="shrink-0 tabular-nums font-semibold text-[#111827]">
+                          <span className="min-w-0 truncate text-right text-[13px] font-medium text-[#111827]">
+                            {row.label}
+                          </span>
+                          <span className="shrink-0 text-right text-[13px] font-semibold tabular-nums text-[#111827]">
                             {formatLegendValue(row.value)}
                           </span>
-                          <span className="shrink-0 tabular-nums text-[#6b7280]">{row.percent}%</span>
-                        </span>
+                          <span className="shrink-0 text-right text-[13px] tabular-nums text-[#6b7280]">{row.percent}%</span>
+                        </div>
                       </td>
                     </tr>
                   ))}
