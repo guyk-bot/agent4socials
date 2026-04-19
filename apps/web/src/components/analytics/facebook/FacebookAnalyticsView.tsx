@@ -28,6 +28,7 @@ import { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids
 import { localCalendarDateFromIso, toLocalCalendarDate } from '@/lib/calendar-date';
 import { formatMetricNumber as formatNumber } from '@/lib/metric-format';
 import { isLegacyInstagramInsightsUnavailableHint } from '@/lib/strip-legacy-insights-hint';
+import { createMinWidthStackedBarShape } from '@/lib/recharts-stacked-bar-shape';
 import {
   buildYoutubePrimaryPermalink,
   classifyYoutubeVideoFormat,
@@ -1340,34 +1341,16 @@ function MinWidthBarShape(props: { x?: number; y?: number; width?: number; heigh
       height={normalizedHeight}
       fill={fill}
       radius={props.radius ?? fallbackRadius}
+      stroke="none"
       opacity={normalizedHeight > 0 ? 1 : 0}
     />
   );
 }
 
-const ENGAGEMENT_BAR_TOP_RADIUS: [number, number, number, number] = [6, 6, 0, 0];
-const ENGAGEMENT_BAR_FLAT_RADIUS: [number, number, number, number] = [0, 0, 0, 0];
-
-/** Rounded top only on the highest non-zero segment in stack order for this day (Recharts `radius` on `<Bar>` is per-series, not per-datum). */
-function engagementBarRadiusForDatum(
-  payload: Record<string, unknown> | undefined,
-  dataKey: EngagementMetricKey,
-  stackKeysInRenderOrder: readonly EngagementMetricKey[]
-): [number, number, number, number] {
-  if (!payload) return ENGAGEMENT_BAR_FLAT_RADIUS;
-  let topKey: EngagementMetricKey | null = null;
-  for (let i = stackKeysInRenderOrder.length - 1; i >= 0; i--) {
-    const k = stackKeysInRenderOrder[i]!;
-    const raw = payload[k];
-    const v = typeof raw === 'number' ? raw : Number(raw ?? 0);
-    if (Number.isFinite(v) && v > 0) {
-      topKey = k;
-      break;
-    }
-  }
-  if (!topKey) return ENGAGEMENT_BAR_FLAT_RADIUS;
-  return topKey === dataKey ? ENGAGEMENT_BAR_TOP_RADIUS : ENGAGEMENT_BAR_FLAT_RADIUS;
-}
+/** Stacked traffic (non-viral bottom, viral top). */
+const TRAFFIC_STACK_BAR_SHAPE = createMinWidthStackedBarShape(['nonviral', 'viral'], { radius: 6, minWidth: 10 });
+/** Meta/IG posts-by-type stack (reels → image → carousel bottom to top). */
+const META_POSTS_UPLOAD_STACK_SHAPE = createMinWidthStackedBarShape(['reels', 'image', 'carousel'], { radius: 5, minWidth: 10 });
 
 export function EmptyStateCard({ title, subtitle }: { title: string; subtitle: string }) {
   return (
@@ -1515,19 +1498,26 @@ export function InsightChartCard({
 
 export function StackedTrafficChart({ data }: { data: Array<{ date: string; nonviral: number; viral: number }> }) {
   const trafficTicks = buildKeyDateTicks(data, (d) => (d.nonviral ?? 0) > 0 || (d.viral ?? 0) > 0, 10);
+  const trafficYMax = useMemo(() => {
+    let max = 0;
+    for (const row of data) {
+      max = Math.max(max, Number(row.nonviral) + Number(row.viral));
+    }
+    return max <= 0 ? 1 : Math.ceil(max * 1.14);
+  }, [data]);
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={data}>
+      <BarChart data={data} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
         <XAxis dataKey="date" ticks={trafficTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} minTickGap={18} axisLine={false} tickLine={false} />
-        <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+        <YAxis domain={[0, trafficYMax]} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
         <Tooltip
           contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
           formatter={(v: number | string | undefined, n?: string) => [formatNumber(Number(v) || 0), n === 'nonviral' ? 'Non-viral' : 'Viral']}
           labelFormatter={(l) => formatShortDate(String(l))}
         />
-        <Bar dataKey="nonviral" stackId="a" fill={COLOR.trafficNonviralCyan} radius={[6, 6, 0, 0]} shape={<MinWidthBarShape />} />
-        <Bar dataKey="viral" stackId="a" fill={COLOR.magenta} radius={[6, 6, 0, 0]} shape={<MinWidthBarShape />} />
+        <Bar dataKey="nonviral" stackId="a" fill={COLOR.trafficNonviralCyan} shape={TRAFFIC_STACK_BAR_SHAPE} />
+        <Bar dataKey="viral" stackId="a" fill={COLOR.magenta} shape={TRAFFIC_STACK_BAR_SHAPE} />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -2802,6 +2792,17 @@ export function FacebookAnalyticsView({
     }
     return axis.map((d) => byDate.get(d)!);
   }, [dateRange.end, dateRange.start, isYouTube, postsInRange]);
+
+  const postsUploadChartYMax = useMemo(() => {
+    if (postsUploadByDay.length === 0) return 1;
+    let max = 0;
+    for (const row of postsUploadByDay) {
+      const stacked = Number(row.reels) + Number(row.image) + Number(row.carousel);
+      max = Math.max(max, stacked, Number(row.reels), Number(row.image), Number(row.carousel));
+    }
+    return max <= 0 ? 1 : Math.ceil(max * 1.14);
+  }, [postsUploadByDay]);
+
   const postsUploadPresetTotals = useMemo(
     (): Record<PostsUploadPresetKey, number> => ({
       all: isYouTube ? 0 : contentTypeCounts.reels + contentTypeCounts.image + contentTypeCounts.carousel,
@@ -4159,31 +4160,26 @@ export function FacebookAnalyticsView({
     });
   }, [isInstagram, isTwitter, isTikTok, isYouTube, selectedEngagementMetrics]);
 
-  const engagementStackBarShape = useCallback(
-    (props: {
-      x?: number;
-      y?: number;
-      width?: number;
-      height?: number;
-      fill?: string;
-      payload?: Record<string, unknown>;
-      dataKey?: string | number;
-    }) => {
-      const dk = String(props.dataKey ?? '') as EngagementMetricKey;
-      const radius = engagementBarRadiusForDatum(props.payload, dk, engagementStackKeysInRenderOrder);
-      return (
-        <MinWidthBarShape
-          x={props.x}
-          y={props.y}
-          width={props.width}
-          height={props.height}
-          fill={props.fill}
-          radius={radius}
-        />
-      );
-    },
-    [engagementStackKeysInRenderOrder]
+  const engagementStackKeysSig = engagementStackKeysInRenderOrder.join('|');
+  const EngagementStackedBarShape = useMemo(
+    () => createMinWidthStackedBarShape(engagementStackKeysInRenderOrder as readonly string[], { radius: 6, minWidth: 10 }),
+    [engagementStackKeysSig],
   );
+
+  const engagementChartYMax = useMemo(() => {
+    const keys = engagementStackKeysInRenderOrder;
+    if (keys.length === 0) return 1;
+    let max = 0;
+    for (const row of engagementData) {
+      let s = 0;
+      for (const k of keys) {
+        s += Number((row as Record<string, unknown>)[k] ?? 0);
+      }
+      max = Math.max(max, s);
+    }
+    return max <= 0 ? 1 : Math.ceil(max * 1.14);
+  }, [engagementData, engagementStackKeysSig]);
+
   const operationalData = useMemo(() => {
     const actionsRaw = seriesToMap(actionsSeries ?? []);
     // Use per-day values for Actions so the line reflects daily fluctuation
@@ -5227,7 +5223,7 @@ export function FacebookAnalyticsView({
                 data={engagementData}
                 barCategoryGap={UNIFIED_BAR_CATEGORY_GAP}
                 barGap={0}
-                margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+                margin={{ top: 14, right: 8, left: 0, bottom: 0 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                 <XAxis
@@ -5245,7 +5241,7 @@ export function FacebookAnalyticsView({
                   axisLine={false}
                   tickLine={false}
                 />
-                <YAxis domain={[0, 'auto']} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis domain={[0, engagementChartYMax]} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                 <Tooltip
                   shared
                   cursor={{ fill: 'rgba(107,114,128,0.20)' }}
@@ -5270,7 +5266,7 @@ export function FacebookAnalyticsView({
                     stackId="engagement"
                     fill={ENGAGEMENT_METRIC_CONFIG.likes.color}
                     barSize={UNIFIED_BAR_SIZE}
-                    shape={engagementStackBarShape}
+                    shape={EngagementStackedBarShape}
                   />
                 ) : null}
                 {selectedEngagementMetrics.includes('comments') ? (
@@ -5279,7 +5275,7 @@ export function FacebookAnalyticsView({
                     stackId="engagement"
                     fill={ENGAGEMENT_METRIC_CONFIG.comments.color}
                     barSize={UNIFIED_BAR_SIZE}
-                    shape={engagementStackBarShape}
+                    shape={EngagementStackedBarShape}
                   />
                 ) : null}
                 {selectedEngagementMetrics.includes('shares') ? (
@@ -5288,7 +5284,7 @@ export function FacebookAnalyticsView({
                     stackId="engagement"
                     fill={ENGAGEMENT_METRIC_CONFIG.shares.color}
                     barSize={UNIFIED_BAR_SIZE}
-                    shape={engagementStackBarShape}
+                    shape={EngagementStackedBarShape}
                   />
                 ) : null}
                 {isYouTube && selectedEngagementMetrics.includes('dislikes') ? (
@@ -5297,7 +5293,7 @@ export function FacebookAnalyticsView({
                     stackId="engagement"
                     fill={ENGAGEMENT_METRIC_CONFIG.dislikes.color}
                     barSize={UNIFIED_BAR_SIZE}
-                    shape={engagementStackBarShape}
+                    shape={EngagementStackedBarShape}
                   />
                 ) : null}
                 {(isTwitter || isInstagram) && selectedEngagementMetrics.includes('reposts') ? (
@@ -5306,7 +5302,7 @@ export function FacebookAnalyticsView({
                     stackId="engagement"
                     fill={ENGAGEMENT_METRIC_CONFIG.reposts.color}
                     barSize={UNIFIED_BAR_SIZE}
-                    shape={engagementStackBarShape}
+                    shape={EngagementStackedBarShape}
                   />
                 ) : null}
               </BarChart>
@@ -5688,7 +5684,7 @@ export function FacebookAnalyticsView({
                     data={postsUploadByDay}
                     barCategoryGap="22%"
                     barGap={0}
-                    margin={{ top: 4, right: 8, left: 0, bottom: 10 }}
+                    margin={{ top: 14, right: 8, left: 0, bottom: 10 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                     <XAxis
@@ -5701,7 +5697,7 @@ export function FacebookAnalyticsView({
                       tickLine={false}
                     />
                     <YAxis
-                      domain={[0, 'auto']}
+                      domain={[0, postsUploadChartYMax]}
                       allowDecimals={false}
                       tickFormatter={(v) => formatNumber(Math.round(Number(v)))}
                       tick={{ fill: COLOR.textMuted, fontSize: 11 }}
@@ -5818,9 +5814,8 @@ export function FacebookAnalyticsView({
                           name={key}
                           stackId="upload-by-type"
                           fill={CONTENT_TYPE_COLOR[key]}
-                          radius={[4, 4, 0, 0]}
                           barSize={UNIFIED_BAR_SIZE}
-                          shape={<MinWidthBarShape />}
+                          shape={META_POSTS_UPLOAD_STACK_SHAPE}
                         />
                       ))
                     ) : (
@@ -5833,10 +5828,9 @@ export function FacebookAnalyticsView({
                             name={preset.key}
                             stackId="uploaded-posts"
                             fill={preset.color}
-                            radius={[6, 6, 0, 0]}
                             barSize={UNIFIED_BAR_SIZE}
                             hide={selectedPostsUploadPreset !== preset.key}
-                            shape={<MinWidthBarShape />}
+                            shape={META_POSTS_UPLOAD_STACK_SHAPE}
                           />
                         ))
                     )}

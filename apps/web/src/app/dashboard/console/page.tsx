@@ -12,6 +12,7 @@ import {
   writeStoredAnalyticsDateRange,
 } from '@/lib/calendar-date';
 import { readUnifiedSummaryCache, writeUnifiedSummaryCache } from '@/lib/dashboard-unified-summary-cache';
+import { createMinWidthStackedBarShape } from '@/lib/recharts-stacked-bar-shape';
 import {
   XAxis,
   YAxis,
@@ -507,7 +508,30 @@ function PlatformMixChart({
     [data, platformKey]
   );
 
-  const yDomain = performanceMode === 'engagement' ? ([0, 'auto'] as const) : growthDomain ?? (['auto', 'auto'] as const);
+  const stackKeysForEngagement = useMemo(
+    () => (activePlatforms.length > 0 ? activePlatforms : ([...CHART_PLATFORMS] as string[])),
+    [platformKey],
+  );
+
+  const engagementStackMax = useMemo(() => {
+    const keys = stackKeysForEngagement;
+    let max = 0;
+    for (const row of data) {
+      let s = 0;
+      for (const p of keys) {
+        s += Number((row as Record<string, unknown>)[p] ?? 0);
+      }
+      max = Math.max(max, s);
+    }
+    return max <= 0 ? 1 : Math.ceil(max * 1.14);
+  }, [data, stackKeysForEngagement]);
+
+  const ConsoleEngagementStackBarShape = useMemo(
+    () => createMinWidthStackedBarShape(stackKeysForEngagement, { radius: 6, minWidth: 10 }),
+    [stackKeysForEngagement],
+  );
+
+  const lineChartYDomain = growthDomain ?? (['auto', 'auto'] as const);
 
   if (performanceMode === 'engagement') {
     /** Stacked bars (one column per day) so every platform shares full width — small slices stay visible vs grouped thin columns. */
@@ -516,7 +540,7 @@ function PlatformMixChart({
         <BarChart
           data={data}
           barCategoryGap="18%"
-          margin={{ top: 8, right: 8, left: -12, bottom: 10 }}
+          margin={{ top: 16, right: 8, left: -12, bottom: 10 }}
         >
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" vertical={false} />
           <XAxis
@@ -529,7 +553,7 @@ function PlatformMixChart({
             interval={0}
           />
           <YAxis
-            domain={yDomain}
+            domain={[0, engagementStackMax]}
             tickFormatter={(v) => valueFmt(Number(v))}
             tick={{ fontSize: 11, fill: COLOR.textMuted }}
             tickLine={false}
@@ -552,9 +576,7 @@ function PlatformMixChart({
                 stackId="engagement-stack"
                 name={consolePlatformDisplayName(p)}
                 fill={c}
-                stroke="#ffffff"
-                strokeWidth={0.5}
-                radius={[0, 0, 0, 0]}
+                shape={ConsoleEngagementStackBarShape}
                 isAnimationActive={false}
               />
             );
@@ -578,7 +600,7 @@ function PlatformMixChart({
           interval={0}
         />
         <YAxis
-          domain={yDomain}
+          domain={lineChartYDomain}
           tickFormatter={(v) => valueFmt(Number(v))}
           tick={{ fontSize: 11, fill: COLOR.textMuted }}
           tickLine={false}
@@ -634,7 +656,7 @@ function DotLegendPill({ label, color }: { label: string; color: string }) {
   );
 }
 
-/** One legend line: dot, name, value, (%) — tight columns (no justify-between gap). */
+/** One legend line: dot, label, then value + % grouped (no wide flex gap between label and numbers). */
 function ConsolePieLegendMetricRow({
   dotColor,
   label,
@@ -659,17 +681,19 @@ function ConsolePieLegendMetricRow({
       role={role}
       aria-label={ariaLabel}
       style={style}
-      className={`grid grid-cols-[12px_minmax(0,1fr)_auto_auto] items-center gap-x-2 py-0.5 ${className}`}
+      className={`flex items-center gap-x-2 py-0.5 ${className}`}
     >
-      <span className="h-3 w-3 shrink-0 rounded-full justify-self-start" style={{ background: dotColor }} aria-hidden />
-      <span className="min-w-0 truncate text-sm" style={{ color: COLOR.text }}>
+      <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: dotColor }} aria-hidden />
+      <span className="min-w-0 shrink truncate text-sm" style={{ color: COLOR.text }}>
         {label}
       </span>
-      <span className="text-sm font-semibold tabular-nums shrink-0" style={{ color: COLOR.text }}>
-        {valueText}
-      </span>
-      <span className="text-xs tabular-nums shrink-0" style={{ color: COLOR.textMuted }}>
-        {percentText}
+      <span className="inline-flex items-baseline gap-1.5 whitespace-nowrap tabular-nums shrink-0">
+        <span className="text-sm font-semibold" style={{ color: COLOR.text }}>
+          {valueText}
+        </span>
+        <span className="text-xs" style={{ color: COLOR.textMuted }}>
+          {percentText}
+        </span>
       </span>
     </div>
   );
@@ -1517,6 +1541,33 @@ export default function UnifiedSummaryPage() {
         .map((p) => ({ label: consolePlatformDisplayName(p), color: CONSOLE_PLATFORM_COLOR[p] ?? PLATFORM_COLOR[p] ?? COLOR.textSecondary })),
     [connectedChartPlatforms, postsActivePlatforms]
   );
+
+  const postsBarStackKeys = useMemo(
+    () =>
+      postsEligiblePlatforms
+        .filter((p) => postsActivePlatforms.includes(p))
+        .map((p) => `${postsPreset}_${p}`),
+    [postsEligiblePlatforms, postsActivePlatforms, postsPreset],
+  );
+
+  const postsBarStackMax = useMemo(() => {
+    if (postsTimelineData.length === 0 || postsBarStackKeys.length === 0) return 1;
+    let max = 0;
+    for (const row of postsTimelineData) {
+      let s = 0;
+      for (const k of postsBarStackKeys) {
+        s += Number((row as Record<string, unknown>)[k] ?? 0);
+      }
+      max = Math.max(max, s);
+    }
+    return max <= 0 ? 1 : Math.ceil(max * 1.14);
+  }, [postsTimelineData, postsBarStackKeys]);
+
+  const PostsConsoleStackBarShape = useMemo(
+    () => createMinWidthStackedBarShape(postsBarStackKeys, { radius: 6, minWidth: 10 }),
+    [postsBarStackKeys],
+  );
+
   const postsPresetPlatformPieData = useMemo(() => {
     const items: Array<{ name: string; value: number; color: string }> = [];
     for (const platform of connectedChartPlatforms) {
@@ -1920,7 +1971,7 @@ export default function UnifiedSummaryPage() {
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={postsTimelineData} barCategoryGap="18%" margin={{ top: 4, right: 8, left: 0, bottom: 10 }}>
+                  <BarChart data={postsTimelineData} barCategoryGap="18%" margin={{ top: 16, right: 8, left: 0, bottom: 10 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                     <XAxis
                       dataKey="date"
@@ -1933,7 +1984,7 @@ export default function UnifiedSummaryPage() {
                       interval={0}
                     />
                     <YAxis
-                      domain={[0, 'auto']}
+                      domain={[0, postsBarStackMax]}
                       allowDecimals={false}
                       tickFormatter={(v) => fmtExactInt(Math.round(Number(v)))}
                       tick={{ fill: COLOR.textMuted, fontSize: 11 }}
@@ -1951,9 +2002,7 @@ export default function UnifiedSummaryPage() {
                           stackId="posts-by-platform"
                           name={consolePlatformDisplayName(p)}
                           fill={CONSOLE_PLATFORM_COLOR[p] ?? PLATFORM_COLOR[p] ?? COLOR.violet}
-                          stroke="#ffffff"
-                          strokeWidth={0.5}
-                          radius={[0, 0, 0, 0]}
+                          shape={PostsConsoleStackBarShape}
                         />
                       ))}
                   </BarChart>
