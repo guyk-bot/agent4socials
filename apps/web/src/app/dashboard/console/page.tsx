@@ -484,7 +484,7 @@ function KpiCard({ label, value, growthPct, icon, accent, active, onClick }: {
   );
 }
 
-// ─── Platform mix chart: stacked lines only (no gradient area fill) ───────────
+// ─── Platform mix chart: lines (growth / views); grouped bars = candles (engagement) ─
 
 function PlatformMixChart({
   data,
@@ -506,6 +506,66 @@ function PlatformMixChart({
       ),
     [data, platformKey]
   );
+
+  const yDomain = performanceMode === 'engagement' ? ([0, 'auto'] as const) : growthDomain ?? (['auto', 'auto'] as const);
+
+  if (performanceMode === 'engagement') {
+    const n = Math.max(1, activePlatforms.length);
+    const maxBarSize = n >= 7 ? 7 : n >= 5 ? 9 : n >= 3 ? 12 : 16;
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart
+          data={data}
+          barCategoryGap="20%"
+          barGap={1}
+          margin={{ top: 8, right: 8, left: -12, bottom: 10 }}
+        >
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" vertical={false} />
+          <XAxis
+            dataKey="date"
+            ticks={axisTicks}
+            tickFormatter={formatConsoleAxisTickLabel}
+            tick={{ fontSize: 10, fill: COLOR.textMuted }}
+            tickLine={false}
+            axisLine={false}
+            interval={0}
+          />
+          <YAxis
+            domain={yDomain}
+            tickFormatter={(v) => valueFmt(Number(v))}
+            tick={{ fontSize: 11, fill: COLOR.textMuted }}
+            tickLine={false}
+            axisLine={false}
+            width={56}
+          />
+          <Tooltip
+            contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
+            labelFormatter={(v) => fmtTooltipDate(String(v))}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            formatter={(value: any, name: any) => [valueFmt(Number(value) ?? 0), name ?? '']}
+            cursor={{ fill: 'rgba(107,114,128,0.08)' }}
+          />
+          {activePlatforms.map((p) => {
+            const c = CONSOLE_PLATFORM_COLOR[p] ?? PLATFORM_COLOR[p] ?? COLOR.textSecondary;
+            return (
+              <Bar
+                key={p}
+                dataKey={p}
+                name={p}
+                fill={c}
+                stroke={c}
+                strokeWidth={0}
+                maxBarSize={maxBarSize}
+                radius={[3, 3, 0, 0]}
+                isAnimationActive={false}
+              />
+            );
+          })}
+        </BarChart>
+      </ResponsiveContainer>
+    );
+  }
+
   return (
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={data} margin={{ top: 8, right: 8, left: -12, bottom: 10 }}>
@@ -520,7 +580,7 @@ function PlatformMixChart({
           interval={0}
         />
         <YAxis
-          domain={growthDomain ?? ['auto', 'auto']}
+          domain={yDomain}
           tickFormatter={(v) => valueFmt(Number(v))}
           tick={{ fontSize: 11, fill: COLOR.textMuted }}
           tickLine={false}
