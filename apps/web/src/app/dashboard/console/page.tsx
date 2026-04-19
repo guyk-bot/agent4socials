@@ -511,58 +511,66 @@ function PlatformMixChart({
 
   if (performanceMode === 'engagement') {
     const n = Math.max(1, activePlatforms.length);
-    const maxBarSize = n >= 7 ? 7 : n >= 5 ? 9 : n >= 3 ? 12 : 16;
+    /** Fixed bar width (px) per platform so candles stay visible; chart scrolls horizontally when many dates. */
+    const barW = n <= 3 ? 20 : n <= 5 ? 15 : n <= 7 ? 12 : 10;
+    const slotPerDay = n * barW + Math.max(0, n - 1) * 2 + 18;
+    const minChartWidth = Math.max(520, Math.min(6000, Math.max(1, data.length) * slotPerDay));
+    const chartH = 300;
     return (
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart
-          data={data}
-          barCategoryGap="20%"
-          barGap={1}
-          margin={{ top: 8, right: 8, left: -12, bottom: 10 }}
-        >
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" vertical={false} />
-          <XAxis
-            dataKey="date"
-            ticks={axisTicks}
-            tickFormatter={formatConsoleAxisTickLabel}
-            tick={{ fontSize: 10, fill: COLOR.textMuted }}
-            tickLine={false}
-            axisLine={false}
-            interval={0}
-          />
-          <YAxis
-            domain={yDomain}
-            tickFormatter={(v) => valueFmt(Number(v))}
-            tick={{ fontSize: 11, fill: COLOR.textMuted }}
-            tickLine={false}
-            axisLine={false}
-            width={56}
-          />
-          <Tooltip
-            contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
-            labelFormatter={(v) => fmtTooltipDate(String(v))}
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            formatter={(value: any, name: any) => [valueFmt(Number(value) ?? 0), name ?? '']}
-            cursor={{ fill: 'rgba(107,114,128,0.08)' }}
-          />
-          {activePlatforms.map((p) => {
-            const c = CONSOLE_PLATFORM_COLOR[p] ?? PLATFORM_COLOR[p] ?? COLOR.textSecondary;
-            return (
-              <Bar
-                key={p}
-                dataKey={p}
-                name={p}
-                fill={c}
-                stroke={c}
-                strokeWidth={0}
-                maxBarSize={maxBarSize}
-                radius={[3, 3, 0, 0]}
-                isAnimationActive={false}
+      <div className="w-full overflow-x-auto pb-1" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <div style={{ width: minChartWidth, height: chartH }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={data}
+              barCategoryGap={8}
+              barGap={2}
+              margin={{ top: 8, right: 8, left: -12, bottom: 10 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" vertical={false} />
+              <XAxis
+                dataKey="date"
+                ticks={axisTicks}
+                tickFormatter={formatConsoleAxisTickLabel}
+                tick={{ fontSize: 10, fill: COLOR.textMuted }}
+                tickLine={false}
+                axisLine={false}
+                interval={0}
               />
-            );
-          })}
-        </BarChart>
-      </ResponsiveContainer>
+              <YAxis
+                domain={yDomain}
+                tickFormatter={(v) => valueFmt(Number(v))}
+                tick={{ fontSize: 11, fill: COLOR.textMuted }}
+                tickLine={false}
+                axisLine={false}
+                width={56}
+              />
+              <Tooltip
+                contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
+                labelFormatter={(v) => fmtTooltipDate(String(v))}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                formatter={(value: any, name: any) => [valueFmt(Number(value) ?? 0), name ?? '']}
+                cursor={{ fill: 'rgba(107,114,128,0.08)' }}
+              />
+              {activePlatforms.map((p) => {
+                const c = CONSOLE_PLATFORM_COLOR[p] ?? PLATFORM_COLOR[p] ?? COLOR.textSecondary;
+                return (
+                  <Bar
+                    key={p}
+                    dataKey={p}
+                    name={p}
+                    fill={c}
+                    stroke={c}
+                    strokeWidth={0}
+                    barSize={barW}
+                    radius={[4, 4, 0, 0]}
+                    isAnimationActive={false}
+                  />
+                );
+              })}
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
     );
   }
 
@@ -636,49 +644,36 @@ function DotLegendPill({ label, color }: { label: string; color: string }) {
   );
 }
 
-/** Matches platform strip cards: uppercase label + bold total (used beside pie + posts summary). */
-function ConsolePeriodTotalChip({
+/** Bottom total row: same layout as pie legend (dot · label · bold count · grey %). */
+function ConsolePieTotalLegendRow({
   label,
   value,
-  sublabel,
-  align = 'start',
+  dotColor = COLOR.text,
 }: {
   label: string;
   value: number;
-  sublabel?: string;
-  align?: 'start' | 'end';
+  dotColor?: string;
 }) {
-  const alignEnd = align === 'end';
   return (
     <div
-      className={`inline-flex min-w-[108px] flex-col rounded-xl border px-2 py-1.5 shrink-0 ${alignEnd ? 'items-end' : 'items-start'}`}
-      style={{
-        borderColor: COLOR.border,
-        background: 'rgba(248,250,252,0.95)',
-        boxShadow: '0 1px 3px rgba(15,23,42,0.04)',
-      }}
+      className="flex w-full max-w-[min(100%,420px)] items-center justify-between gap-3 py-1 sm:ml-auto"
       role="status"
+      aria-label={`${label}: ${fmtExactInt(value)}`}
     >
-      <div className="flex items-center gap-2">
-        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: COLOR.text }} aria-hidden />
-        <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLOR.textSecondary }}>
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: dotColor }} aria-hidden />
+        <span className="truncate text-sm" style={{ color: COLOR.text }}>
           {label}
         </span>
       </div>
-      <span
-        className={`mt-1 text-[17px] font-bold tabular-nums leading-tight ${alignEnd ? 'text-right' : ''}`}
-        style={{ color: COLOR.text }}
-      >
-        {fmtExactInt(value)}
-      </span>
-      {sublabel ? (
-        <span
-          className={`mt-0.5 max-w-[220px] text-[11px] leading-snug ${alignEnd ? 'text-right' : ''}`}
-          style={{ color: COLOR.textMuted }}
-        >
-          {sublabel}
+      <div className="flex shrink-0 items-center gap-2">
+        <span className="text-sm font-semibold tabular-nums" style={{ color: COLOR.text }}>
+          {fmtExactInt(value)}
         </span>
-      ) : null}
+        <span className="text-xs tabular-nums" style={{ color: COLOR.textMuted }}>
+          (100%)
+        </span>
+      </div>
     </div>
   );
 }
@@ -1571,53 +1566,42 @@ export default function UnifiedSummaryPage() {
                   <span className="absolute left-[16%] bottom-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
                   <span className="absolute right-[16%] bottom-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
                 </div>
-                <div className="relative z-10">
+                <div className="relative z-10 flex flex-col">
                 <h4 className="text-sm font-semibold mb-3" style={{ color: COLOR.text }}>
                   {performanceMode === 'engagement' ? 'Engagement' : 'Views'} by platform
                 </h4>
                 <div className="flex flex-col md:flex-row md:items-stretch gap-6">
-                  <div className="flex flex-row items-center justify-center gap-4 shrink-0 md:justify-start">
-                    <div className="w-[200px] h-[200px] shrink-0">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={platformDistributionPieData}
-                            dataKey="value"
-                            nameKey="name"
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={55}
-                            outerRadius={85}
-                            paddingAngle={0}
-                            stroke="none"
-                            strokeWidth={0}
-                          >
-                            {platformDistributionPieData.map((entry, idx) => (
-                              <Cell key={`cell-${idx}`} fill={entry.color} stroke="none" />
-                            ))}
-                          </Pie>
-                          <Tooltip
-                            contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
-                            formatter={(value, name) => {
-                              const v = Number(value) || 0;
-                              return [
-                                `${fmtExactInt(v)} (${platformDistributionTotal > 0 ? ((v / platformDistributionTotal) * 100).toFixed(1) : 0}%)`,
-                                String(name ?? ''),
-                              ];
-                            }}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <ConsolePeriodTotalChip
-                      label="Total"
-                      value={platformDistributionTotal}
-                      sublabel={
-                        performanceMode === 'engagement'
-                          ? 'Engagement summed for active platforms'
-                          : 'Views summed for active platforms'
-                      }
-                    />
+                  <div className="mx-auto w-[200px] h-[200px] shrink-0 md:mx-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={platformDistributionPieData}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={55}
+                          outerRadius={85}
+                          paddingAngle={0}
+                          stroke="none"
+                          strokeWidth={0}
+                        >
+                          {platformDistributionPieData.map((entry, idx) => (
+                            <Cell key={`cell-${idx}`} fill={entry.color} stroke="none" />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
+                          formatter={(value, name) => {
+                            const v = Number(value) || 0;
+                            return [
+                              `${fmtExactInt(v)} (${platformDistributionTotal > 0 ? ((v / platformDistributionTotal) * 100).toFixed(1) : 0}%)`,
+                              String(name ?? ''),
+                            ];
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
                   </div>
                   <div className="flex-1 grid grid-cols-2 gap-x-6 gap-y-2">
                     {platformDistributionPieData.map((item) => {
@@ -1636,6 +1620,12 @@ export default function UnifiedSummaryPage() {
                       );
                     })}
                   </div>
+                </div>
+                <div className="mt-4 flex w-full justify-end border-t pt-3" style={{ borderColor: COLOR.border }}>
+                  <ConsolePieTotalLegendRow
+                    label={performanceMode === 'engagement' ? 'Total engagement' : 'Total views'}
+                    value={platformDistributionTotal}
+                  />
                 </div>
                 </div>
               </div>
@@ -1811,15 +1801,13 @@ export default function UnifiedSummaryPage() {
                     </div>
                   </div>
                   <div className="mt-4 flex w-full justify-end border-t pt-3" style={{ borderColor: COLOR.border }}>
-                    <ConsolePeriodTotalChip
-                      label="Total"
-                      value={postsPresetPlatformPieTotal}
-                      sublabel={
+                    <ConsolePieTotalLegendRow
+                      label={
                         postsPreset === 'all'
-                          ? 'Posts in range (all types, platforms above)'
-                          : `${POST_TYPE_LABEL[postsPreset]} posts in range (platforms above)`
+                          ? 'Total posts'
+                          : `Total (${POST_TYPE_LABEL[postsPreset]})`
                       }
-                      align="end"
+                      value={postsPresetPlatformPieTotal}
                     />
                   </div>
                 </div>
