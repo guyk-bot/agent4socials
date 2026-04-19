@@ -264,6 +264,15 @@ function sumPlatformsForRow(row: Record<string, unknown>, platforms: string[]): 
   return Math.round(total);
 }
 
+/** Pairs items for a 2-column legend so each row is one shared baseline (left + right). */
+function chunkIntoPairs<T>(items: readonly T[]): Array<[T, T | undefined]> {
+  const out: Array<[T, T | undefined]> = [];
+  for (let i = 0; i < items.length; i += 2) {
+    out.push([items[i]!, items[i + 1]]);
+  }
+  return out;
+}
+
 type PlatformLiveFallback = {
   viewsSeries?: Array<{ date: string; value: number }>;
   engagementSeries?: Array<{ date: string; value: number }>;
@@ -681,7 +690,7 @@ function ConsolePieLegendMetricRow({
       role={role}
       aria-label={ariaLabel}
       style={style}
-      className={`grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2 py-2 ${className}`}
+      className={`grid h-full min-h-0 w-full min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2 py-2 ${className}`}
     >
       <span className="flex min-w-0 items-center justify-end gap-x-2">
         <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: dotColor }} aria-hidden />
@@ -1875,29 +1884,46 @@ export default function UnifiedSummaryPage() {
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
-                  <div className="flex-1 grid grid-cols-2 gap-x-2 gap-y-2 content-start">
-                    {platformDistributionPieData.map((item) => {
-                      const pct = platformDistributionTotal > 0 ? ((item.value / platformDistributionTotal) * 100).toFixed(1) : '0';
+                  <div className="flex min-w-0 flex-1 flex-col gap-y-2">
+                    {chunkIntoPairs(platformDistributionPieData).map(([left, right], rowIdx) => {
+                      const pct = (item: (typeof platformDistributionPieData)[number]) =>
+                        platformDistributionTotal > 0 ? ((item.value / platformDistributionTotal) * 100).toFixed(1) : '0';
                       return (
-                        <ConsolePieLegendMetricRow
-                          key={item.name}
-                          dotColor={item.color}
-                          label={item.name}
-                          valueText={fmtExactInt(item.value)}
-                          percentText={`(${pct}%)`}
-                        />
+                        <div
+                          key={`platform-pie-legend-row-${rowIdx}`}
+                          className="grid min-h-[2.5rem] grid-cols-2 items-stretch gap-x-2"
+                        >
+                          <ConsolePieLegendMetricRow
+                            key={left.name}
+                            dotColor={left.color}
+                            label={left.name}
+                            valueText={fmtExactInt(left.value)}
+                            percentText={`(${pct(left)}%)`}
+                          />
+                          {right ? (
+                            <ConsolePieLegendMetricRow
+                              key={right.name}
+                              dotColor={right.color}
+                              label={right.name}
+                              valueText={fmtExactInt(right.value)}
+                              percentText={`(${pct(right)}%)`}
+                            />
+                          ) : (
+                            <span className="min-w-0" aria-hidden />
+                          )}
+                        </div>
                       );
                     })}
-                    <ConsolePieLegendMetricRow
-                      className="col-span-2 mt-2 border-t pt-3"
-                      style={{ borderTopColor: COLOR.border }}
-                      dotColor={COLOR.text}
-                      label={performanceMode === 'engagement' ? 'Total engagement' : 'Total views'}
-                      valueText={fmtExactInt(platformDistributionTotal)}
-                      percentText="(100%)"
-                      role="status"
-                      aria-label={`${performanceMode === 'engagement' ? 'Total engagement' : 'Total views'}: ${fmtExactInt(platformDistributionTotal)}`}
-                    />
+                    <div className="mt-2 border-t pt-3" style={{ borderTopColor: COLOR.border }}>
+                      <ConsolePieLegendMetricRow
+                        dotColor={COLOR.text}
+                        label={performanceMode === 'engagement' ? 'Total engagement' : 'Total views'}
+                        valueText={fmtExactInt(platformDistributionTotal)}
+                        percentText="(100%)"
+                        role="status"
+                        aria-label={`${performanceMode === 'engagement' ? 'Total engagement' : 'Total views'}: ${fmtExactInt(platformDistributionTotal)}`}
+                      />
+                    </div>
                   </div>
                 </div>
                 </div>
@@ -2055,33 +2081,50 @@ export default function UnifiedSummaryPage() {
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
-                    <div className="flex-1 grid grid-cols-2 gap-x-2 gap-y-2 content-start">
-                      {postsPresetPlatformPieData.map((item) => {
-                        const pct = postsPresetPlatformPieTotal > 0 ? ((item.value / postsPresetPlatformPieTotal) * 100).toFixed(1) : '0';
+                    <div className="flex min-w-0 flex-1 flex-col gap-y-2">
+                      {chunkIntoPairs(postsPresetPlatformPieData).map(([left, right], rowIdx) => {
+                        const pct = (item: (typeof postsPresetPlatformPieData)[number]) =>
+                          postsPresetPlatformPieTotal > 0 ? ((item.value / postsPresetPlatformPieTotal) * 100).toFixed(1) : '0';
                         return (
-                          <ConsolePieLegendMetricRow
-                            key={item.name}
-                            dotColor={item.color}
-                            label={item.name}
-                            valueText={fmtExactInt(item.value)}
-                            percentText={`(${pct}%)`}
-                          />
+                          <div
+                            key={`posts-pie-legend-row-${rowIdx}`}
+                            className="grid min-h-[2.5rem] grid-cols-2 items-stretch gap-x-2"
+                          >
+                            <ConsolePieLegendMetricRow
+                              key={left.name}
+                              dotColor={left.color}
+                              label={left.name}
+                              valueText={fmtExactInt(left.value)}
+                              percentText={`(${pct(left)}%)`}
+                            />
+                            {right ? (
+                              <ConsolePieLegendMetricRow
+                                key={right.name}
+                                dotColor={right.color}
+                                label={right.name}
+                                valueText={fmtExactInt(right.value)}
+                                percentText={`(${pct(right)}%)`}
+                              />
+                            ) : (
+                              <span className="min-w-0" aria-hidden />
+                            )}
+                          </div>
                         );
                       })}
-                      <ConsolePieLegendMetricRow
-                        className="col-span-2 mt-2 border-t pt-3"
-                        style={{ borderTopColor: COLOR.border }}
-                        dotColor={COLOR.text}
-                        label={
-                          postsPreset === 'all'
-                            ? 'Total posts'
-                            : `Total (${POST_TYPE_LABEL[postsPreset]})`
-                        }
-                        valueText={fmtExactInt(postsPresetPlatformPieTotal)}
-                        percentText="(100%)"
-                        role="status"
-                        aria-label={`Total posts in range: ${fmtExactInt(postsPresetPlatformPieTotal)}`}
-                      />
+                      <div className="mt-2 border-t pt-3" style={{ borderTopColor: COLOR.border }}>
+                        <ConsolePieLegendMetricRow
+                          dotColor={COLOR.text}
+                          label={
+                            postsPreset === 'all'
+                              ? 'Total posts'
+                              : `Total (${POST_TYPE_LABEL[postsPreset]})`
+                          }
+                          valueText={fmtExactInt(postsPresetPlatformPieTotal)}
+                          percentText="(100%)"
+                          role="status"
+                          aria-label={`Total posts in range: ${fmtExactInt(postsPresetPlatformPieTotal)}`}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
