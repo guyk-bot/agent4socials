@@ -2230,7 +2230,7 @@ function TopContentHighlights({
   clicksMetricLabel = 'Clicks',
   hideClicksColumn = false,
   platform,
-  scopeHint,
+  title = 'Top performing posts',
 }: {
   byViews: TopHighlightRow[];
   byClicks: TopHighlightRow[];
@@ -2241,8 +2241,8 @@ function TopContentHighlights({
   /** Hide the clicks/interactions column entirely (e.g. for Facebook). */
   hideClicksColumn?: boolean;
   platform?: string;
-  /** Short line above the three columns: how leaders relate to posts in range. */
-  scopeHint?: string;
+  /** Section heading above the leader columns. */
+  title?: string;
 }) {
   const isTwitterHighlight = (platform ?? '').toUpperCase() === 'TWITTER';
   const rankBadge = (idx: number) => `/rank-badges/${Math.min(3, idx + 1)}.svg`;
@@ -2361,11 +2361,9 @@ function TopContentHighlights({
 
   return (
     <section className="rounded-[20px] p-5" style={{ background: COLOR.card, boxShadow: '0 2px 16px rgba(15,23,42,0.05)' }}>
-      {scopeHint ? (
-        <p className="mb-4 text-xs leading-relaxed max-w-[960px]" style={{ color: COLOR.textSecondary }}>
-          {scopeHint}
-        </p>
-      ) : null}
+      <h2 className="mb-4 text-lg font-semibold tracking-tight" style={{ color: COLOR.text }}>
+        {title}
+      </h2>
       <div className={`grid gap-4 ${hideClicksColumn ? 'lg:grid-cols-2' : 'lg:grid-cols-3'}`}>
         {col('Views leaders', 'Views', byViews, !hideClicksColumn)}
         {!hideClicksColumn && col(clicksLeaderTitle, clicksMetricLabel, byClicks, true)}
@@ -5830,7 +5828,6 @@ export function FacebookAnalyticsView({
           ) : null}
           <TopContentHighlights
             platform={insights?.platform}
-            scopeHint={`Top ${postsExplainerPublishedPlural} in ${postsExplainerDateRangeLabel} by each metric. Each card is one ${postsExplainerItemSingular}; Views, ${isInstagram || isFacebook || isTikTok || isTwitter || isYouTube || isLinkedIn ? 'Interactions' : 'Clicks'}, and Reactions on that card apply only to that item — not blended with other days.`}
             clicksLeaderTitle={
               isInstagram || isFacebook || isTikTok || isTwitter || isYouTube || isLinkedIn ? 'Interactions leaders' : 'Clicks leaders'
             }
