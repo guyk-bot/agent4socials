@@ -665,7 +665,7 @@ function DotLegendPill({ label, color }: { label: string; color: string }) {
   );
 }
 
-/** One legend line: fixed swatch column (aligned dots) + left-aligned name + right-aligned metrics; paired rows hug the right like the bar-chart legend. */
+/** One legend line: flex spacer pushes [dot + name] flush next to value + %; dots share one vertical line. */
 function ConsolePieLegendMetricRow({
   dotColor,
   label,
@@ -685,7 +685,7 @@ function ConsolePieLegendMetricRow({
   style?: React.CSSProperties;
   role?: 'status';
   'aria-label'?: string;
-  /** When true (total row), use full width; otherwise keep the block toward the chart side with a sensible max width. */
+  /** Total row: allow full label width (no truncate). */
   stretch?: boolean;
 }) {
   return (
@@ -693,18 +693,24 @@ function ConsolePieLegendMetricRow({
       role={role}
       aria-label={ariaLabel}
       style={style}
-      className={`grid h-full min-h-0 min-w-0 grid-cols-[12px_minmax(0,1fr)_auto_auto] items-center gap-x-2 py-2.5 ${
-        stretch ? 'w-full' : 'ml-auto w-full max-w-[min(100%,20rem)]'
-      } ${className}`}
+      className={`flex h-full min-h-0 w-full min-w-0 items-center gap-x-2 py-2.5 ${className}`}
     >
-      <span className="h-3 w-3 shrink-0 place-self-center rounded-full" style={{ background: dotColor }} aria-hidden />
-      <span className="min-w-0 truncate text-left text-sm" style={{ color: COLOR.text }}>
-        {label}
+      <span className="min-w-0 flex-1 shrink" aria-hidden />
+      <span
+        className={`inline-flex min-w-0 items-center gap-x-2 ${stretch ? 'max-w-none' : 'max-w-[11rem] sm:max-w-[12rem]'}`}
+      >
+        <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: dotColor }} aria-hidden />
+        <span
+          className={`min-w-0 text-left text-sm ${stretch ? '' : 'truncate'}`}
+          style={{ color: COLOR.text }}
+        >
+          {label}
+        </span>
       </span>
-      <span className="text-sm font-semibold tabular-nums whitespace-nowrap text-right" style={{ color: COLOR.text }}>
+      <span className="shrink-0 text-sm font-semibold tabular-nums whitespace-nowrap" style={{ color: COLOR.text }}>
         {valueText}
       </span>
-      <span className="text-xs tabular-nums whitespace-nowrap text-right" style={{ color: COLOR.textMuted }}>
+      <span className="shrink-0 text-xs tabular-nums whitespace-nowrap" style={{ color: COLOR.textMuted }}>
         {percentText}
       </span>
     </div>
