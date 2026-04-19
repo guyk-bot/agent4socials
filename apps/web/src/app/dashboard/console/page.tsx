@@ -728,28 +728,211 @@ function PlatformLegend({
   );
 }
 
-// ─── Top Posts ─────────────────────────────────────────────────────────────────
+// ─── Top posts (three-column leaders, same pattern as per-account analytics) ───
 
-function TopPostCard({ post, rank }: { post: UnifiedTopPost; rank: number }) {
-  const color = PLATFORM_COLOR[post.platform] ?? '#8b5cf6';
-  return (
-    <div className="flex gap-3.5 py-3.5 items-start" style={{ borderBottom: `1px solid ${COLOR.border}` }}>
-      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold" style={{ background: rank <= 3 ? `${color}18` : '#f1f5f9', color: rank <= 3 ? color : COLOR.textMuted }}>{rank}</div>
-      {post.thumbnailUrl ? <img src={post.thumbnailUrl} alt="" className="w-12 h-12 rounded-[10px] object-cover shrink-0" /> : (
-        <div className="flex w-12 h-12 shrink-0 items-center justify-center rounded-[10px]" style={{ background: `${color}12`, color }}><FileText size={18} /></div>
+type ConsoleHighlightRow = {
+  id: string;
+  preview: string;
+  permalink: string | null;
+  thumbnailUrl: string | null;
+  views: number;
+  interactions: number;
+  reactions: number;
+  publishedAt: string;
+  platform: string;
+};
+
+function formatConsolePostCardDateTime(iso: string): string {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  } catch {
+    return '—';
+  }
+}
+
+function consoleHighlightPreview(text: string): string {
+  const t = text.replace(/\s+/g, ' ').trim();
+  if (!t) return 'View post';
+  return t.length > 140 ? `${t.slice(0, 137)}…` : t;
+}
+
+function historyPostToHighlightRow(h: UnifiedHistoryPost): ConsoleHighlightRow {
+  return {
+    id: h.id,
+    preview: h.caption ?? '',
+    permalink: h.url,
+    thumbnailUrl: h.thumbnailUrl,
+    views: h.impressions ?? 0,
+    interactions: h.totalEngagement ?? 0,
+    reactions: h.likes ?? 0,
+    publishedAt: h.postedAt,
+    platform: h.platform,
+  };
+}
+
+function unifiedTopPostToHistoryPost(t: UnifiedTopPost): UnifiedHistoryPost {
+  return {
+    id: t.id,
+    platform: t.platform,
+    caption: t.caption,
+    url: t.url,
+    thumbnailUrl: t.thumbnailUrl,
+    likes: t.likes,
+    comments: t.comments,
+    shares: t.shares,
+    impressions: t.impressions,
+    totalEngagement: t.totalEngagement,
+    postedAt: t.postedAt,
+    mediaType: null,
+  };
+}
+
+function ConsoleTopPostsHighlights({
+  dateRangeLabel,
+  byViews,
+  byInteractions,
+  byReactions,
+}: {
+  dateRangeLabel: string;
+  byViews: ConsoleHighlightRow[];
+  byInteractions: ConsoleHighlightRow[];
+  byReactions: ConsoleHighlightRow[];
+}) {
+  const rankBadge = (idx: number) => `/rank-badges/${Math.min(3, idx + 1)}.svg`;
+  const cardBg = 'rgba(15,23,39,0.04)';
+
+  const col = (
+    title: string,
+    metricLabel: 'Views' | 'Interactions' | 'Reactions',
+    rows: ConsoleHighlightRow[]
+  ) => (
+    <div className="space-y-3">
+      <p className="text-base font-semibold tracking-tight" style={{ color: COLOR.text }}>
+        {title}
+      </p>
+      {rows.length === 0 ? (
+        <p className="text-sm" style={{ color: COLOR.textMuted }}>
+          No items yet
+        </p>
+      ) : (
+        rows.map((r, idx) => (
+          <div
+            key={`${title}-${r.id}-${idx}`}
+            className="rounded-xl p-3 h-[124px]"
+            style={{ background: cardBg, border: `1px solid ${COLOR.border}` }}
+          >
+            <div className="flex items-start gap-3">
+              {r.platform === 'X' && !r.thumbnailUrl ? (
+                <div className="flex shrink-0 items-start pt-1">
+                  <img
+                    src={rankBadge(idx)}
+                    alt={`Rank ${idx + 1}`}
+                    className="h-11 w-11 object-contain drop-shadow-md sm:h-12 sm:w-12"
+                  />
+                </div>
+              ) : (
+                <div className="relative isolate mt-1 h-[92px] w-[92px] shrink-0 pt-1">
+                  <div
+                    className="absolute inset-0 overflow-hidden rounded-xl border"
+                    style={{ borderColor: COLOR.border, background: '#f3f4f6' }}
+                  >
+                    {r.thumbnailUrl ? (
+                      <img src={r.thumbnailUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center" style={{ color: COLOR.textMuted }}>
+                        <FileText size={22} />
+                      </div>
+                    )}
+                    {r.permalink ? (
+                      <a
+                        href={r.permalink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="absolute right-1.5 bottom-1.5 z-[1] inline-flex h-5 w-5 items-center justify-center rounded-full"
+                        style={{ background: 'rgba(17,24,39,0.72)', color: '#ffffff' }}
+                        aria-label="Open post"
+                      >
+                        <ExternalLink size={11} />
+                      </a>
+                    ) : null}
+                  </div>
+                  <img
+                    src={rankBadge(idx)}
+                    alt={`Rank ${idx + 1}`}
+                    className="pointer-events-none absolute left-0 top-0 z-10 h-11 w-11 -translate-x-2 -translate-y-2 object-contain drop-shadow-md sm:h-12 sm:w-12 sm:-translate-x-2.5 sm:-translate-y-2.5"
+                  />
+                </div>
+              )}
+              <div className="flex min-h-[92px] min-w-0 flex-1 flex-col">
+                <p className="shrink-0 text-[11px] leading-4 tabular-nums" style={{ color: COLOR.textMuted }}>
+                  {formatConsolePostCardDateTime(r.publishedAt)}
+                </p>
+                <p
+                  className="mt-1 min-h-0 text-[13px] leading-[18px] line-clamp-4"
+                  style={{ color: COLOR.textSecondary }}
+                  title={r.preview.trim() || undefined}
+                >
+                  {consoleHighlightPreview(r.preview)}
+                </p>
+                <div className="mt-auto flex flex-wrap gap-x-3 gap-y-1 pt-2 text-xs" style={{ color: COLOR.textMuted }}>
+                  <span
+                    style={
+                      metricLabel === 'Views'
+                        ? { color: COLOR.text, fontWeight: 700, fontSize: 13 }
+                        : undefined
+                    }
+                  >
+                    Views {fmt(r.views)}
+                  </span>
+                  <span
+                    style={
+                      metricLabel === 'Interactions'
+                        ? { color: COLOR.text, fontWeight: 700, fontSize: 13 }
+                        : undefined
+                    }
+                  >
+                    Interactions {fmt(r.interactions)}
+                  </span>
+                  <span
+                    style={
+                      metricLabel === 'Reactions'
+                        ? { color: COLOR.text, fontWeight: 700, fontSize: 13 }
+                        : undefined
+                    }
+                  >
+                    Reactions {fmt(r.reactions)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))
       )}
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5 mb-1">
-          <PlatformIcon platform={post.platform} size={13} />
-          <span className="text-[11px] font-semibold" style={{ color }}>{post.platform}</span>
-          <span className="text-[11px] ml-auto" style={{ color: COLOR.textMuted }}>{fmtDate(post.postedAt)}</span>
-        </div>
-        <p className="text-[13px] m-0 leading-snug line-clamp-2" style={{ color: COLOR.text }}>{post.caption || '(no caption)'}</p>
-        <div className="flex gap-3.5 mt-1.5">
-          <span className="flex items-center gap-1 text-[11px]" style={{ color: COLOR.textMuted }}><Heart size={11} />{fmt(post.likes)}</span>
-          <span className="flex items-center gap-1 text-[11px]" style={{ color: COLOR.textMuted }}><Eye size={11} />{fmt(post.impressions)}</span>
-          {post.url && <a href={post.url} target="_blank" rel="noopener noreferrer" className="ml-auto"><ExternalLink size={12} color={COLOR.textMuted} /></a>}
-        </div>
+    </div>
+  );
+
+  return (
+    <div>
+      <h3 className="text-lg font-semibold mb-1" style={{ color: COLOR.text }}>
+        Top performing posts
+      </h3>
+      <p className="mb-4 text-xs leading-relaxed max-w-[960px]" style={{ color: COLOR.textSecondary }}>
+        Top posts in {dateRangeLabel} by each metric. Each card is one post; Views, Interactions, and Reactions on that
+        row are only for that post. Interactions use synced engagement totals; Reactions use likes as the cross-network
+        proxy.
+      </p>
+      <div className="grid gap-4 lg:grid-cols-3">
+        {col('Views leaders', 'Views', byViews)}
+        {col('Interactions leaders', 'Interactions', byInteractions)}
+        {col('Reactions leaders', 'Reactions', byReactions)}
       </div>
     </div>
   );
@@ -1348,6 +1531,34 @@ export default function UnifiedSummaryPage() {
     [postsPresetPlatformPieData]
   );
 
+  const consoleTopPostsPool = useMemo((): UnifiedHistoryPost[] => {
+    if (!data) return [];
+    const map = new Map<string, UnifiedHistoryPost>();
+    for (const h of data.history) map.set(h.id, h);
+    for (const t of data.topPosts) {
+      if (!map.has(t.id)) map.set(t.id, unifiedTopPostToHistoryPost(t));
+    }
+    return Array.from(map.values());
+  }, [data]);
+
+  const consoleLeaderRows = useMemo(
+    () => consoleTopPostsPool.map(historyPostToHighlightRow),
+    [consoleTopPostsPool]
+  );
+
+  const consoleTopByViews = useMemo(
+    () => [...consoleLeaderRows].sort((a, b) => b.views - a.views).slice(0, 3),
+    [consoleLeaderRows]
+  );
+  const consoleTopByInteractions = useMemo(
+    () => [...consoleLeaderRows].sort((a, b) => b.interactions - a.interactions).slice(0, 3),
+    [consoleLeaderRows]
+  );
+  const consoleTopByReactions = useMemo(
+    () => [...consoleLeaderRows].sort((a, b) => b.reactions - a.reactions).slice(0, 3),
+    [consoleLeaderRows]
+  );
+
   if (!user) return <div className="flex items-center justify-center h-[60vh]" style={{ color: COLOR.textMuted }}>Sign in to view your unified analytics.</div>;
 
   return (
@@ -1820,11 +2031,25 @@ export default function UnifiedSummaryPage() {
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════════
-          POSTS: Top posts + Traffic totals side by side
+          POSTS: Top performing posts (leaders) + period totals
          ══════════════════════════════════════════════════════════════════════ */}
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.posts} className="scroll-mt-28 space-y-4">
         {data ? (
-          <div className="grid gap-4" style={{ gridTemplateColumns: 'minmax(0,1fr) 340px' }}>
+          <div className="space-y-4">
+            <ShellCard>
+              {consoleLeaderRows.length === 0 ? (
+                <div className="py-8 text-center text-sm" style={{ color: COLOR.textMuted }}>
+                  No posts in this period yet. Sync accounts and publish in the selected range to see leaders here.
+                </div>
+              ) : (
+                <ConsoleTopPostsHighlights
+                  dateRangeLabel={`${dateRange.start}–${dateRange.end}`}
+                  byViews={consoleTopByViews}
+                  byInteractions={consoleTopByInteractions}
+                  byReactions={consoleTopByReactions}
+                />
+              )}
+            </ShellCard>
             <ShellCard>
               <h3 className="text-lg font-semibold mb-3" style={{ color: COLOR.text }}>Period totals by platform</h3>
               {platformPeriodTotals.length === 0 ? (
@@ -1844,15 +2069,16 @@ export default function UnifiedSummaryPage() {
                 </table>
               )}
             </ShellCard>
-            <ShellCard className="overflow-hidden">
-              <h3 className="text-lg font-semibold mb-3" style={{ color: COLOR.text }}>Top Posts</h3>
-              {data.topPosts.length === 0 ? (
-                <div className="py-8 text-center text-sm" style={{ color: COLOR.textMuted }}>No posts found in this period.</div>
-              ) : data.topPosts.map((post, i) => <TopPostCard key={post.id} post={post} rank={i + 1} />)}
-            </ShellCard>
           </div>
         ) : loading ? (
-          <div className="grid gap-4" style={{ gridTemplateColumns: 'minmax(0,1fr) 340px' }}><ShellCard><Skeleton className="h-64 rounded-xl" /></ShellCard><ShellCard><Skeleton className="h-64 rounded-xl" /></ShellCard></div>
+          <div className="space-y-4">
+            <ShellCard>
+              <Skeleton className="h-48 w-full rounded-xl" />
+            </ShellCard>
+            <ShellCard>
+              <Skeleton className="h-40 w-full rounded-xl" />
+            </ShellCard>
+          </div>
         ) : null}
       </section>
 
