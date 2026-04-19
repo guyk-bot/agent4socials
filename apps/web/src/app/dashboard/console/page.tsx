@@ -591,7 +591,7 @@ function PlatformLegend({
   chartData: UnifiedChartData;
 }) {
   return (
-    <div className="flex flex-nowrap justify-end gap-2" role="group" aria-label="Platforms shown on chart">
+    <div className="flex flex-nowrap justify-end gap-1.5" role="group" aria-label="Platforms shown on chart">
       {all.map((p) => {
         const active = activePlatforms.includes(p);
         const raw = platformPresetMetric(chartData, p, preset);
@@ -605,7 +605,7 @@ function PlatformLegend({
             aria-pressed={active}
             aria-label={`${p}, ${preset === 'growth' ? 'change in range' : 'total in range'} ${metricText}`}
             title={`${p}: ${metricText}`}
-            className="inline-flex min-w-[132px] flex-col items-start rounded-[14px] border px-3 py-2.5 text-left transition-[opacity,box-shadow,transform] hover:scale-[1.01] active:scale-[0.99]"
+            className="inline-flex min-w-[108px] flex-col items-start rounded-xl border px-2 py-1.5 text-left transition-[opacity,box-shadow,transform] hover:scale-[1.01] active:scale-[0.99]"
             style={{
               borderColor: active ? `${platformColor}45` : COLOR.border,
               background: `${platformColor}${active ? '10' : '08'}`,

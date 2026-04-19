@@ -5648,7 +5648,7 @@ export function FacebookAnalyticsView({
                 Bar height is how many {postsExplainerPublishedPlural} went live on each date. Hover a bar to see which pieces of content that day are included — interactions and reactions in the tooltip are summed only across those thumbnails.
               </p>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {postsUploadChartPresets.map((preset) => {
                 const active = selectedPostsUploadPreset === preset.key;
                 const total = Number(postsUploadPresetTotals[preset.key] ?? 0);
@@ -5658,7 +5658,7 @@ export function FacebookAnalyticsView({
                     type="button"
                     onClick={() => setSelectedPostsUploadPreset(preset.key)}
                     aria-pressed={active}
-                    className="inline-flex min-w-[132px] flex-col items-start rounded-[14px] border px-3 py-2.5 text-left transition-[opacity,box-shadow,transform] hover:scale-[1.01] active:scale-[0.99]"
+                    className="inline-flex min-w-[108px] flex-col items-start rounded-xl border px-2 py-1.5 text-left transition-[opacity,box-shadow,transform] hover:scale-[1.01] active:scale-[0.99]"
                     style={{
                       borderColor: active ? `${preset.color}45` : COLOR.border,
                       background: `${preset.color}${active ? '10' : '08'}`,
