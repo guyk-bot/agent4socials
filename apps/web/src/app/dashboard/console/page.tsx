@@ -576,6 +576,53 @@ function DotLegendPill({ label, color }: { label: string; color: string }) {
   );
 }
 
+/** Matches platform strip cards: uppercase label + bold total (used beside pie + posts summary). */
+function ConsolePeriodTotalChip({
+  label,
+  value,
+  sublabel,
+  align = 'start',
+}: {
+  label: string;
+  value: number;
+  sublabel?: string;
+  align?: 'start' | 'end';
+}) {
+  const alignEnd = align === 'end';
+  return (
+    <div
+      className={`inline-flex min-w-[108px] flex-col rounded-xl border px-2 py-1.5 shrink-0 ${alignEnd ? 'items-end' : 'items-start'}`}
+      style={{
+        borderColor: COLOR.border,
+        background: 'rgba(248,250,252,0.95)',
+        boxShadow: '0 1px 3px rgba(15,23,42,0.04)',
+      }}
+      role="status"
+    >
+      <div className="flex items-center gap-2">
+        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: COLOR.text }} aria-hidden />
+        <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLOR.textSecondary }}>
+          {label}
+        </span>
+      </div>
+      <span
+        className={`mt-1 text-[17px] font-bold tabular-nums leading-tight ${alignEnd ? 'text-right' : ''}`}
+        style={{ color: COLOR.text }}
+      >
+        {fmtExactInt(value)}
+      </span>
+      {sublabel ? (
+        <span
+          className={`mt-0.5 max-w-[220px] text-[11px] leading-snug ${alignEnd ? 'text-right' : ''}`}
+          style={{ color: COLOR.textMuted }}
+        >
+          {sublabel}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 /** Text cards toggles; shows platform + change/total for current preset. */
 function PlatformLegend({
   activePlatforms,
@@ -1468,38 +1515,49 @@ export default function UnifiedSummaryPage() {
                 <h4 className="text-sm font-semibold mb-3" style={{ color: COLOR.text }}>
                   {performanceMode === 'engagement' ? 'Engagement' : 'Views'} by platform
                 </h4>
-                <div className="flex flex-col md:flex-row items-center gap-6">
-                  <div className="w-[200px] h-[200px] shrink-0">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={platformDistributionPieData}
-                          dataKey="value"
-                          nameKey="name"
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={55}
-                          outerRadius={85}
-                          paddingAngle={0}
-                          stroke="none"
-                          strokeWidth={0}
-                        >
-                          {platformDistributionPieData.map((entry, idx) => (
-                            <Cell key={`cell-${idx}`} fill={entry.color} stroke="none" />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
-                          formatter={(value, name) => {
-                            const v = Number(value) || 0;
-                            return [
-                              `${fmt(v)} (${platformDistributionTotal > 0 ? ((v / platformDistributionTotal) * 100).toFixed(1) : 0}%)`,
-                              String(name ?? ''),
-                            ];
-                          }}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
+                <div className="flex flex-col md:flex-row md:items-stretch gap-6">
+                  <div className="flex flex-row items-center justify-center gap-4 shrink-0 md:justify-start">
+                    <div className="w-[200px] h-[200px] shrink-0">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={platformDistributionPieData}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={55}
+                            outerRadius={85}
+                            paddingAngle={0}
+                            stroke="none"
+                            strokeWidth={0}
+                          >
+                            {platformDistributionPieData.map((entry, idx) => (
+                              <Cell key={`cell-${idx}`} fill={entry.color} stroke="none" />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
+                            formatter={(value, name) => {
+                              const v = Number(value) || 0;
+                              return [
+                                `${fmtExactInt(v)} (${platformDistributionTotal > 0 ? ((v / platformDistributionTotal) * 100).toFixed(1) : 0}%)`,
+                                String(name ?? ''),
+                              ];
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <ConsolePeriodTotalChip
+                      label="Total"
+                      value={platformDistributionTotal}
+                      sublabel={
+                        performanceMode === 'engagement'
+                          ? 'Engagement summed for active platforms'
+                          : 'Views summed for active platforms'
+                      }
+                    />
                   </div>
                   <div className="flex-1 grid grid-cols-2 gap-x-6 gap-y-2">
                     {platformDistributionPieData.map((item) => {
@@ -1511,7 +1569,7 @@ export default function UnifiedSummaryPage() {
                             <span className="text-sm truncate" style={{ color: COLOR.text }}>{item.name}</span>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-sm font-semibold tabular-nums" style={{ color: COLOR.text }}>{fmt(item.value)}</span>
+                            <span className="text-sm font-semibold tabular-nums" style={{ color: COLOR.text }}>{fmtExactInt(item.value)}</span>
                             <span className="text-xs tabular-nums" style={{ color: COLOR.textMuted }}>({pct}%)</span>
                           </div>
                         </div>
@@ -1637,12 +1695,12 @@ export default function UnifiedSummaryPage() {
                   <span className="absolute left-[16%] bottom-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
                   <span className="absolute right-[16%] bottom-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
                 </div>
-                <div className="relative z-10">
+                <div className="relative z-10 flex flex-col">
                   <h4 className="text-sm font-semibold mb-3" style={{ color: COLOR.text }}>
                     {postsPreset === 'all' ? 'All posts by platform' : `${POST_TYPE_LABEL[postsPreset]} by platform`}
                   </h4>
-                  <div className="flex flex-col md:flex-row items-center gap-6">
-                    <div className="w-[200px] h-[200px] shrink-0">
+                  <div className="flex flex-col md:flex-row md:items-stretch gap-6">
+                    <div className="mx-auto w-[200px] h-[200px] shrink-0 md:mx-0">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie
@@ -1691,6 +1749,18 @@ export default function UnifiedSummaryPage() {
                         );
                       })}
                     </div>
+                  </div>
+                  <div className="mt-4 flex w-full justify-end border-t pt-3" style={{ borderColor: COLOR.border }}>
+                    <ConsolePeriodTotalChip
+                      label="Total"
+                      value={postsPresetPlatformPieTotal}
+                      sublabel={
+                        postsPreset === 'all'
+                          ? 'Posts in range (all types, platforms above)'
+                          : `${POST_TYPE_LABEL[postsPreset]} posts in range (platforms above)`
+                      }
+                      align="end"
+                    />
                   </div>
                 </div>
               </div>
