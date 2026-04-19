@@ -939,52 +939,74 @@ function ConsoleTopPostsHighlights({
 
 const MEDIA_ICON: Record<string, React.ReactNode> = { VIDEO: <Film size={12} />, IMAGE: <ImageIcon size={12} />, REEL: <Film size={12} /> };
 
+/** Matches console platform strip order. Keys match `UnifiedHistoryPost.platform` (Facebook posts use `Meta`). */
+const CONSOLE_HISTORY_PLATFORM_ORDER: ReadonlyArray<{ key: string; label: string }> = [
+  { key: 'Instagram', label: 'Instagram' },
+  { key: 'Meta', label: 'Facebook' },
+  { key: 'YouTube', label: 'YouTube' },
+  { key: 'TikTok', label: 'TikTok' },
+  { key: 'X', label: 'Twitter/X' },
+  { key: 'LinkedIn', label: 'LinkedIn' },
+  { key: 'Pinterest', label: 'Pinterest' },
+];
+
 function HistoryTable({ rows }: { rows: UnifiedHistoryPost[] }) {
   const [filter, setFilter] = useState<string>('All');
-  const platforms = useMemo(() => ['All', ...Array.from(new Set(rows.map((r) => r.platform)))], [rows]);
+  const orderedPlatformFilters = useMemo(() => {
+    const present = new Set(rows.map((r) => r.platform));
+    const ordered = CONSOLE_HISTORY_PLATFORM_ORDER.filter(({ key }) => present.has(key));
+    const known = new Set(CONSOLE_HISTORY_PLATFORM_ORDER.map((o) => o.key));
+    const extras = [...present].filter((k) => !known.has(k)).sort().map((key) => ({ key, label: key }));
+    return [...ordered, ...extras];
+  }, [rows]);
+
+  useEffect(() => {
+    if (filter === 'All') return;
+    if (!rows.some((r) => r.platform === filter)) setFilter('All');
+  }, [rows, filter]);
+
   const visible = filter === 'All' ? rows : rows.filter((r) => r.platform === filter);
+
+  const pillBase =
+    'rounded-full border px-2.5 py-1.5 text-xs transition-[opacity,transform,box-shadow] hover:scale-[1.02] active:scale-[0.98]';
+  const pillStyle = (selected: boolean) => ({
+    borderColor: COLOR.border,
+    background: selected ? 'rgba(255,255,255,0.98)' : 'rgba(248,250,252,0.72)',
+    opacity: selected ? 1 : 0.3,
+    color: selected ? COLOR.text : COLOR.textMuted,
+    fontWeight: selected ? 600 : 500,
+    boxShadow: selected ? '0 1px 2px rgba(15,23,42,0.07)' : 'none',
+  } as const);
+
   return (
     <div>
       <div className="flex flex-wrap gap-1.5 mb-4" role="group" aria-label="Filter history by platform">
-        {platforms.map((p) =>
-          p === 'All' ? (
-            <button
-              key="All"
-              type="button"
-              onClick={() => setFilter('All')}
-              aria-pressed={filter === 'All'}
-              className="rounded-full border px-3 py-1.5 text-xs font-medium transition-opacity"
-              style={{
-                borderColor: COLOR.border,
-                background: filter === 'All' ? 'rgba(255,255,255,0.95)' : 'rgba(248,250,252,0.9)',
-                opacity: filter === 'All' ? 1 : 0.5,
-                color: filter === 'All' ? COLOR.text : COLOR.textMuted,
-              }}
-            >
-              All
-            </button>
-          ) : (
-            <button
-              key={p}
-              type="button"
-              onClick={() => setFilter(p)}
-              aria-pressed={filter === p}
-              title={`Show only ${p}`}
-              className="inline-flex items-center gap-2 rounded-full border px-2.5 py-1.5 text-xs font-medium transition-[opacity,transform] hover:scale-[1.02] active:scale-[0.98]"
-              style={{
-                borderColor: COLOR.border,
-                background: filter === p ? 'rgba(255,255,255,0.95)' : 'rgba(248,250,252,0.9)',
-                opacity: filter === p ? 1 : 0.45,
-                color: filter === p ? COLOR.text : COLOR.textMuted,
-              }}
-            >
-              <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center [&>svg]:max-h-[18px] [&>svg]:max-w-[18px]">
-                <PlatformIcon platform={p} size={16} />
-              </span>
-              <span>{p}</span>
-            </button>
-          )
-        )}
+        <button
+          key="All"
+          type="button"
+          onClick={() => setFilter('All')}
+          aria-pressed={filter === 'All'}
+          className={`${pillBase} px-3 font-medium`}
+          style={pillStyle(filter === 'All')}
+        >
+          All
+        </button>
+        {orderedPlatformFilters.map(({ key, label }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setFilter(key)}
+            aria-pressed={filter === key}
+            title={`Show only ${label}`}
+            className={`${pillBase} inline-flex items-center gap-2 font-medium`}
+            style={pillStyle(filter === key)}
+          >
+            <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center [&>svg]:max-h-[18px] [&>svg]:max-w-[18px]">
+              <PlatformIcon platform={key} size={16} />
+            </span>
+            <span>{label}</span>
+          </button>
+        ))}
       </div>
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-[13px]">
@@ -1395,15 +1417,6 @@ export default function UnifiedSummaryPage() {
     }
     return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
   }, [data, connectedChartPlatforms]);
-
-  const platformPeriodTotals = useMemo(() => {
-    if (!data?.chart) return [];
-    const imp: Record<string, number> = {}; const eng: Record<string, number> = {};
-    for (const p of CHART_PLATFORMS) { imp[p] = 0; eng[p] = 0; }
-    for (const row of data.chart) for (const p of CHART_PLATFORMS) imp[p] += (row[p] as number) ?? 0;
-    for (const row of (data.engagementChart ?? [])) for (const p of CHART_PLATFORMS) eng[p] += (row[p] as number) ?? 0;
-    return CHART_PLATFORMS.map((p) => ({ platform: p, impressions: imp[p], engagement: eng[p] })).filter((x) => x.impressions > 0 || x.engagement > 0);
-  }, [data]);
 
   const overviewAxisTicks = useMemo(
     () => buildConsoleAxisTicks(overviewTrendData, selectedOverviewMetrics),
@@ -2032,64 +2045,38 @@ export default function UnifiedSummaryPage() {
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════════
-          POSTS: Top performing posts (leaders) + period totals
+          POSTS: Top performing posts (leaders)
          ══════════════════════════════════════════════════════════════════════ */}
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.posts} className="scroll-mt-28 space-y-4">
         {data ? (
-          <div className="space-y-4">
-            <ShellCard>
-              {consoleLeaderRows.length === 0 ? (
-                <div className="py-8 text-center text-sm" style={{ color: COLOR.textMuted }}>
-                  No posts in this period yet. Sync accounts and publish in the selected range to see leaders here.
-                </div>
-              ) : (
-                <ConsoleTopPostsHighlights
-                  dateRangeLabel={`${dateRange.start}–${dateRange.end}`}
-                  byViews={consoleTopByViews}
-                  byInteractions={consoleTopByInteractions}
-                  byReactions={consoleTopByReactions}
-                />
-              )}
-            </ShellCard>
-            <ShellCard>
-              <h3 className="text-lg font-semibold mb-3" style={{ color: COLOR.text }}>Period totals by platform</h3>
-              {platformPeriodTotals.length === 0 ? (
-                <div className="py-8 text-center text-sm" style={{ color: COLOR.textMuted }}>No cross-platform totals yet.</div>
-              ) : (
-                <table className="w-full border-collapse text-[13px]">
-                  <thead><tr style={{ borderBottom: `1px solid ${COLOR.border}`, color: COLOR.textSecondary }} className="text-left"><th className="py-2 px-2">Platform</th><th className="py-2 px-2">Impressions</th><th className="py-2 px-2">Engagement</th></tr></thead>
-                  <tbody>
-                    {platformPeriodTotals.map((r) => (
-                      <tr key={r.platform} style={{ borderBottom: `1px solid ${COLOR.border}` }}>
-                        <td className="py-3 px-2 font-semibold" style={{ color: PLATFORM_COLOR[r.platform] ?? COLOR.text }}>{r.platform}</td>
-                        <td className="py-3 px-2 tabular-nums" style={{ color: COLOR.text }}>{fmt(r.impressions)}</td>
-                        <td className="py-3 px-2 tabular-nums" style={{ color: COLOR.text }}>{fmt(r.engagement)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </ShellCard>
-          </div>
+          <ShellCard>
+            {consoleLeaderRows.length === 0 ? (
+              <div className="py-8 text-center text-sm" style={{ color: COLOR.textMuted }}>
+                No posts in this period yet. Sync accounts and publish in the selected range to see leaders here.
+              </div>
+            ) : (
+              <ConsoleTopPostsHighlights
+                dateRangeLabel={`${dateRange.start}–${dateRange.end}`}
+                byViews={consoleTopByViews}
+                byInteractions={consoleTopByInteractions}
+                byReactions={consoleTopByReactions}
+              />
+            )}
+          </ShellCard>
         ) : loading ? (
-          <div className="space-y-4">
-            <ShellCard>
-              <Skeleton className="h-48 w-full rounded-xl" />
-            </ShellCard>
-            <ShellCard>
-              <Skeleton className="h-40 w-full rounded-xl" />
-            </ShellCard>
-          </div>
+          <ShellCard>
+            <Skeleton className="h-48 w-full rounded-xl" />
+          </ShellCard>
         ) : null}
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════════
-          HISTORY: Combined uploads table
+          HISTORY: uploads table
          ══════════════════════════════════════════════════════════════════════ */}
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.history} className="scroll-mt-28 space-y-4">
         {data ? (
           <ShellCard>
-            <h3 className="text-lg font-semibold mb-3" style={{ color: COLOR.text }}>Combined Uploads History · {dateRange.start} to {dateRange.end}</h3>
+            <h3 className="text-lg font-semibold mb-3" style={{ color: COLOR.text }}>History</h3>
             <HistoryTable rows={data.history} />
           </ShellCard>
         ) : loading ? (
