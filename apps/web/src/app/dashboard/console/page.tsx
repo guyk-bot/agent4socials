@@ -665,7 +665,7 @@ function DotLegendPill({ label, color }: { label: string; color: string }) {
   );
 }
 
-/** One legend line: swatch + label grouped and aligned toward values; value + % in fixed columns. */
+/** One legend line: fixed-width swatch column so dots stack vertically; label + metrics. */
 function ConsolePieLegendMetricRow({
   dotColor,
   label,
@@ -690,13 +690,11 @@ function ConsolePieLegendMetricRow({
       role={role}
       aria-label={ariaLabel}
       style={style}
-      className={`grid h-full min-h-0 w-full min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2 py-2 ${className}`}
+      className={`grid h-full min-h-0 w-full min-w-0 grid-cols-[12px_minmax(0,1fr)_auto_auto] items-center gap-x-2 py-2 ${className}`}
     >
-      <span className="flex min-w-0 items-center justify-end gap-x-2">
-        <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: dotColor }} aria-hidden />
-        <span className="min-w-0 truncate text-right text-sm" style={{ color: COLOR.text }}>
-          {label}
-        </span>
+      <span className="h-3 w-3 shrink-0 justify-self-start rounded-full" style={{ background: dotColor }} aria-hidden />
+      <span className="min-w-0 truncate text-right text-sm" style={{ color: COLOR.text }}>
+        {label}
       </span>
       <span className="text-sm font-semibold tabular-nums whitespace-nowrap text-right" style={{ color: COLOR.text }}>
         {valueText}
