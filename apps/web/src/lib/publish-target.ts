@@ -251,8 +251,10 @@ async function twitterOAuth2ResumableMediaUpload(
   const state = finPi?.state;
   if (state && state !== 'succeeded') {
     const statusUrl = `${TWITTER_V2_MEDIA_BASE}?command=STATUS&media_id=${encodeURIComponent(mediaId)}`;
-    for (let wait = 0; wait < 90_000; wait += 2000) {
-      await new Promise((r) => setTimeout(r, 2000));
+    // Images usually finish quickly; avoid sleeping 2s before the first STATUS poll.
+    const maxWaitMs = mediaCategory === 'tweet_image' ? 22_000 : 90_000;
+    const deadline = Date.now() + maxWaitMs;
+    while (Date.now() < deadline) {
       const statusRes = await axiosInstance.get(statusUrl, {
         headers: auth,
         timeout: 12_000,
@@ -264,6 +266,16 @@ async function twitterOAuth2ResumableMediaUpload(
       if (st === 'failed') {
         return { ok: false, error: 'Twitter media processing failed (v2 STATUS)' };
       }
+      const secs =
+        typeof proc?.check_after_secs === 'number'
+          ? proc.check_after_secs
+          : typeof finPi?.check_after_secs === 'number'
+            ? finPi.check_after_secs
+            : mediaCategory === 'tweet_image'
+              ? 0.35
+              : 1.5;
+      const waitMs = Math.min(12_000, Math.max(250, Math.round(secs * 1000)));
+      await new Promise((r) => setTimeout(r, waitMs));
     }
   }
 

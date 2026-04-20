@@ -1954,12 +1954,14 @@ export default function ComposerPage() {
                         if (mediaSkipped?.length) msg += ` Note: ${mediaSkipped.join(', ')} posted as text only (image upload was not allowed).`;
                         if (inboxPlatforms?.length) msg += ` TikTok: video posted as Private (TikTok restricts unaudited apps to private only). Open TikTok app, Profile, tap the video and set visibility to Public. After app approval, posts can go public automatically.`;
                         setAlertMessage(msg);
-                        try {
-                            const listRes = await api.get('/posts');
-                            const list = Array.isArray(listRes.data) ? listRes.data : [];
-                            appData?.setScheduledPosts?.(list);
-                        } catch (_) {}
                         router.push(`/posts?published=1&highlight=${encodeURIComponent(editPostId)}`);
+                        void api
+                            .get('/posts')
+                            .then((listRes) => {
+                                const list = Array.isArray(listRes.data) ? listRes.data : [];
+                                appData?.setScheduledPosts?.(list);
+                            })
+                            .catch(() => {});
                     } catch (err: unknown) {
                         const res = err && typeof err === 'object' && 'response' in err ? (err as { response?: { status?: number; data?: { message?: string } } }).response : undefined;
                         const status = res?.status;
@@ -2038,24 +2040,28 @@ export default function ComposerPage() {
                 }
                 if (!postId && !scheduledAt) {
                     setAlertMessage('Post was created but we could not publish it. Open it from History and try Post now.');
-                    try {
-                        const listRes = await api.get('/posts');
-                        const list = Array.isArray(listRes.data) ? listRes.data : [];
-                        appData?.setScheduledPosts?.(list);
-                    } catch (_) {}
                     router.push('/posts');
+                    void api
+                        .get('/posts')
+                        .then((listRes) => {
+                            const list = Array.isArray(listRes.data) ? listRes.data : [];
+                            appData?.setScheduledPosts?.(list);
+                        })
+                        .catch(() => {});
                     return;
                 }
                 if (scheduledAt) {
                     const schedParams = new URLSearchParams({ scheduled: '1', delivery: scheduleDelivery === 'email_links' ? 'email' : 'auto', platforms: platforms.join(','), at: new Date(scheduledAt).toISOString() });
                     router.push(`/calendar?${schedParams.toString()}`);
                 } else {
-                    try {
-                        const listRes = await api.get('/posts');
-                        const list = Array.isArray(listRes.data) ? listRes.data : [];
-                        appData?.setScheduledPosts?.(list);
-                    } catch (_) {}
                     router.push(`/posts?published=1&highlight=${encodeURIComponent(postId)}`);
+                    void api
+                        .get('/posts')
+                        .then((listRes) => {
+                            const list = Array.isArray(listRes.data) ? listRes.data : [];
+                            appData?.setScheduledPosts?.(list);
+                        })
+                        .catch(() => {});
                 }
             }
         } catch (err: unknown) {
@@ -2133,7 +2139,7 @@ export default function ComposerPage() {
                 <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(23,23,23,0.82)' }} role="status" aria-live="polite">
                     <Loader2 size={48} className="animate-spin text-white mb-4" aria-hidden />
                     <p className="text-white font-medium text-lg">Publishing to {platforms.map((p) => PLATFORM_LABELS[p] ?? p).join(', ')}…</p>
-                    <p className="text-neutral-300 text-sm mt-1">Do not close this page. This may take a minute.</p>
+                    <p className="text-neutral-300 text-sm mt-1">Keep this tab open. Most posts finish in a few seconds; large video uploads can take longer.</p>
                 </div>,
                 document.body,
             )}

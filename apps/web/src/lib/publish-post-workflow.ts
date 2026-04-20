@@ -133,11 +133,19 @@ export async function runPublishPostWorkflow(input: {
     return fileUrl;
   }
 
-  const results: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[] = [];
   const debugInfo: { mediaUrlsByPlatform?: Record<string, string>; fullErrors?: Record<string, string> } | undefined =
     isDebug ? { mediaUrlsByPlatform: {}, fullErrors: {} } : undefined;
 
-  for (const target of post.targets) {
+  type PublishOutcome = {
+    platform: string;
+    ok: boolean;
+    error?: string;
+    mediaSkipped?: boolean;
+    sentToInbox?: boolean;
+  };
+
+  const results: PublishOutcome[] = await Promise.all(
+    post.targets.map(async (target): Promise<PublishOutcome> => {
     const { platform, socialAccount } = target;
     let token = socialAccount.accessToken;
     if (platform === 'PINTEREST') {
@@ -218,12 +226,11 @@ export async function runPublishPostWorkflow(input: {
               where: { id: target.id },
               data: { status: PostStatus.FAILED, error: `Media URL ${headRes.status}${hint}`.slice(0, 500) },
             });
-            results.push({
+            return {
               platform,
               ok: false,
               error: `Media URL returned ${headRes.status} (Meta would get same).${hint} Check docs/INSTAGRAM_2207076_ANALYSIS.md`,
-            });
-            continue;
+            };
           }
         } catch (preflightErr) {
           const msg = (preflightErr as Error)?.message ?? String(preflightErr);
@@ -231,12 +238,11 @@ export async function runPublishPostWorkflow(input: {
             where: { id: target.id },
             data: { status: PostStatus.FAILED, error: `Media unreachable: ${msg}`.slice(0, 500) },
           });
-          results.push({
+          return {
             platform,
             ok: false,
             error: `Media URL unreachable: ${msg}. Set S3_PUBLIC_URL, CRON_SECRET in Vercel. See docs/INSTAGRAM_2207076_ANALYSIS.md`,
-          });
-          continue;
+          };
         }
       }
     }
@@ -261,8 +267,7 @@ export async function runPublishPostWorkflow(input: {
           error: 'Pinterest needs at least one image or video in the post.',
         },
       });
-      results.push({ platform, ok: false, error: 'Pinterest needs at least one image or video.' });
-      continue;
+      return { platform, ok: false, error: 'Pinterest needs at least one image or video.' };
     }
 
     const isTiktokVideo = platform === 'TIKTOK' && targetMedia.some((m) => m.type === 'VIDEO');
@@ -278,8 +283,7 @@ export async function runPublishPostWorkflow(input: {
           where: { id: target.id },
           data: { status: PostStatus.FAILED, error: msg.slice(0, 500) },
         });
-        results.push({ platform, ok: false, error: msg.slice(0, 200) });
-        continue;
+        return { platform, ok: false, error: msg.slice(0, 200) };
       }
       tiktokDirectPost = raw;
     }
@@ -385,8 +389,8 @@ export async function runPublishPostWorkflow(input: {
           ...(inboxNote ? { error: inboxNote } : {}),
         },
       });
-      results.push({ platform, ok: true, ...(result.mediaSkipped ? { mediaSkipped: true } : {}), ...(result.sentToInbox ? { sentToInbox: true } : {}) });
-    } else {
+      return { platform, ok: true, ...(result.mediaSkipped ? { mediaSkipped: true } : {}), ...(result.sentToInbox ? { sentToInbox: true } : {}) };
+    }
       if (platform === 'INSTAGRAM') {
         console.error('[Instagram publish failed]', { postId, error: result.error, mediaUrl: firstImageUrl || firstMediaUrl });
       }
@@ -400,9 +404,9 @@ export async function runPublishPostWorkflow(input: {
       if (isDebug && debugInfo?.fullErrors && result.error) {
         debugInfo.fullErrors[platform] = result.error;
       }
-      results.push({ platform, ok: false, error: result.error?.slice(0, 200) });
-    }
-  }
+      return { platform, ok: false, error: result.error?.slice(0, 200) };
+  })
+  );
 
   const anyFailed = results.some((r) => !r.ok);
   await prisma.post.update({
