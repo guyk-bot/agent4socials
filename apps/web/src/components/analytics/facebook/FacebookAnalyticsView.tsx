@@ -4651,6 +4651,7 @@ export function FacebookAnalyticsView({
         <>
         {!isLinkedIn ? (
         <>
+        {!isPinterest ? (
         <div className="rounded-[20px] border p-4 sm:p-5 space-y-3" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Performance</h3>
@@ -5101,6 +5102,7 @@ export function FacebookAnalyticsView({
           )}
           </InsightChartCard>
         </div>
+        ) : null}
 
         <div className="rounded-[20px] border p-4 sm:p-5 space-y-3" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -5526,13 +5528,6 @@ export function FacebookAnalyticsView({
               </>
             ) : null}
           </div>
-          {isPinterest ? (
-            <p className="text-xs leading-relaxed max-w-[920px]" style={{ color: COLOR.textSecondary }}>
-              For Pinterest, <span className="font-medium" style={{ color: COLOR.text }}>Viral impressions</span> and{' '}
-              <span className="font-medium" style={{ color: COLOR.text }}>Unique reach proxy</span> are hidden because they do not map cleanly to Pin analytics in this dashboard. Traffic here uses{' '}
-              <span className="font-medium" style={{ color: COLOR.text }}>Post impressions</span>.
-            </p>
-          ) : null}
           <div className="flex justify-end">
             <div className="flex flex-wrap gap-2">
               {selectedTrafficMetrics.map((m) => (
