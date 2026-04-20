@@ -1292,11 +1292,14 @@ export default function ComposerPage() {
             contentType: file.type || 'application/octet-stream',
         });
         const { uploadUrl, fileUrl } = res.data;
-        await fetch(uploadUrl, {
+        const putRes = await fetch(uploadUrl, {
             method: 'PUT',
             body: file,
             headers: { 'Content-Type': file.type || 'application/octet-stream' },
         });
+        if (!putRes.ok) {
+            throw new Error(`Upload failed: ${putRes.status}`);
+        }
         return { fileUrl, type };
     }
 
@@ -1421,13 +1424,20 @@ export default function ComposerPage() {
         setMediaUploadError(null);
         setMediaUploading(true);
         const singleFormat = mediaType === 'photo' || mediaType === 'video' || mediaType === 'reel' || mediaType === 'story';
+        const CAROUSEL_MAX_SLIDES = 10;
         try {
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) continue;
-                const item = await uploadFile(file);
-                setMediaList((prev) => (singleFormat ? [item] : [...prev, item]));
-                if (singleFormat) break; // only one file for Photo / Video / Reel / Story
+            const valid = Array.from(files).filter((f) => f.type.startsWith('image/') || f.type.startsWith('video/'));
+            if (!valid.length) return;
+
+            if (singleFormat) {
+                const item = await uploadFile(valid[0]);
+                setMediaList([item]);
+            } else {
+                const remaining = Math.max(0, CAROUSEL_MAX_SLIDES - mediaList.length);
+                if (!remaining) return;
+                const batch = valid.slice(0, remaining);
+                const items = await Promise.all(batch.map((file) => uploadFile(file)));
+                setMediaList((prev) => [...prev, ...items]);
             }
         } catch (err: unknown) {
             const msg = err && typeof err === 'object' && 'response' in err && (err.response as { status?: number })?.status === 503
@@ -1446,15 +1456,13 @@ export default function ComposerPage() {
         setMediaUploadError(null);
         setMediaUploading(true);
         try {
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) continue;
-                const item = await uploadFile(file);
-                setMediaByPlatform((prev) => ({
-                    ...prev,
-                    [platform]: [...(prev[platform] || []), item],
-                }));
-            }
+            const valid = Array.from(files).filter((f) => f.type.startsWith('image/') || f.type.startsWith('video/'));
+            if (!valid.length) return;
+            const items = await Promise.all(valid.map((file) => uploadFile(file)));
+            setMediaByPlatform((prev) => ({
+                ...prev,
+                [platform]: [...(prev[platform] || []), ...items],
+            }));
         } catch (err: unknown) {
             const msg = err && typeof err === 'object' && 'response' in err && (err.response as { status?: number })?.status === 503
                 ? 'Media storage is not configured. Add S3 (or R2) env vars to enable uploads.'
@@ -2118,6 +2126,26 @@ export default function ComposerPage() {
         }
     }, [composerReady]);
 
+    // Prefetch AI brand context so "Generate with AI" opens without waiting on /ai/brand-context.
+    useEffect(() => {
+        if (!composerReady) return;
+        let cancelled = false;
+        api.get('/ai/brand-context')
+            .then((res) => {
+                if (cancelled) return;
+                const data = res.data;
+                setHasBrandContext(
+                    !!(data && typeof data === 'object' && (data.targetAudience ?? data.toneOfVoice ?? data.productDescription))
+                );
+            })
+            .catch(() => {
+                if (!cancelled) setHasBrandContext(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [composerReady]);
+
     if (!composerReady) {
     return (
             <>
@@ -2208,7 +2236,7 @@ export default function ComposerPage() {
                                 Set up your brand context first in <Link href="/dashboard/ai-assistant" className="underline font-medium">Dashboard → AI Assistant</Link> so the AI can match your voice and audience.
                             </p>
                         )}
-                        {hasBrandContext === true && (
+                        {hasBrandContext !== false && (
                             <>
                                 <label className="mt-4 block text-sm font-medium text-neutral-700">What&apos;s this post about?</label>
                                 <input
@@ -2278,12 +2306,6 @@ export default function ComposerPage() {
                                     </button>
                                 </div>
                             </>
-                        )}
-                        {hasBrandContext === null && (
-                            <div className="mt-4 flex items-center gap-2 text-neutral-500">
-                                <Loader2 size={18} className="animate-spin" />
-                                <span className="text-sm">Checking brand context…</span>
-                            </div>
                         )}
                     </div>
                     </div>
