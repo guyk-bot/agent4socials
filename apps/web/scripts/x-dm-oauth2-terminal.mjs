@@ -11,7 +11,7 @@ import { exec } from 'child_process';
 
 const PORT = parseInt(process.env.PORT || '3456', 10);
 const REDIRECT_URI = `http://localhost:${PORT}/callback`;
-const SCOPE = 'tweet.read tweet.write users.read dm.read dm.write offline.access';
+const SCOPE = 'tweet.read tweet.write users.read media.write dm.read dm.write offline.access';
 const CODE_VERIFIER = 'challenge';
 
 const clientId = process.env.TWITTER_CLIENT_ID?.trim();

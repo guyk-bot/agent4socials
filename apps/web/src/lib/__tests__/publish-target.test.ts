@@ -102,8 +102,8 @@ describe('publishTarget', () => {
       const axiosPostCalls: { url: string; data?: unknown }[] = [];
       const axiosMock = {
         get: async (url: string) => {
-          if (url.includes('api.twitter.com/2/media/upload') && url.includes('command=STATUS')) {
-            return { status: 200, data: { processing_info: { state: 'succeeded' } } };
+          if (url.includes('/2/media/upload') && url.includes('command=STATUS')) {
+            return { status: 200, data: { data: { processing_info: { state: 'succeeded' } } } };
           }
           return { data: {} };
         },

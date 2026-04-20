@@ -24,7 +24,7 @@ export class SocialService {
             case Platform.FACEBOOK:
                 return `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.META_APP_ID}&redirect_uri=${process.env.FACEBOOK_REDIRECT_URI}&state=${state}&scope=pages_manage_posts,pages_read_engagement,pages_show_list`;
             case Platform.TWITTER:
-                return `https://twitter.com/i/oauth2/authorize?client_id=${process.env.TWITTER_CLIENT_ID}&redirect_uri=${process.env.TWITTER_REDIRECT_URI}&response_type=code&scope=tweet.read%20tweet.write%20users.read%20offline.access&state=${state}&code_challenge=challenge&code_challenge_method=plain`;
+                return `https://twitter.com/i/oauth2/authorize?client_id=${process.env.TWITTER_CLIENT_ID}&redirect_uri=${process.env.TWITTER_REDIRECT_URI}&response_type=code&scope=tweet.read%20tweet.write%20users.read%20media.write%20offline.access&state=${state}&code_challenge=challenge&code_challenge_method=plain`;
             case Platform.LINKEDIN:
                 return `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${process.env.LINKEDIN_CLIENT_ID}&redirect_uri=${process.env.LINKEDIN_REDIRECT_URI}&state=${state}&scope=openid%20profile%20email%20w_member_social`;
             default:

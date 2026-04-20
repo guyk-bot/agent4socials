@@ -79,7 +79,8 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
     case 'TWITTER': {
       // Full "Send and manage Direct Messages" consent (group conversations, delete, react) requires dm.read + dm.write.
       // Ensure the app has "Read and write" Direct Messages in X Developer Portal → App → Settings → User authentication settings.
-      const defaultTwitterScope = 'tweet.read tweet.write users.read dm.read dm.write offline.access';
+      // media.write is required for OAuth 2.0 v2 media upload (images/videos); without it X may return “Application-Only” on upload.
+      const defaultTwitterScope = 'tweet.read tweet.write users.read media.write dm.read dm.write offline.access';
       const twitterScope = (typeof process.env.TWITTER_OAUTH_SCOPES === 'string' && process.env.TWITTER_OAUTH_SCOPES.trim())
         ? process.env.TWITTER_OAUTH_SCOPES.trim()
         : defaultTwitterScope;

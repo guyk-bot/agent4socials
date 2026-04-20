@@ -1925,6 +1925,7 @@ export default function ComposerPage() {
                             let hint = '';
                             if (failed.includes('TWITTER')) {
                                 if (failed.includes('Credits Depleted') || failed.includes('credits')) hint = ' Your X (Twitter) account has no API credits. Add credits in your X account billing or upgrade your plan.';
+                                else if (failed.includes('Application-Only') || failed.includes('Unsupported Authentication')) hint = ' Reconnect X from Dashboard → Accounts so the app can request the **media.write** scope (needed for image upload with OAuth 2.0), or use “Enable image upload” for OAuth 1.0a. If you set TWITTER_OAUTH_SCOPES in Vercel, add media.write.';
                                 else if (failed.includes('403') || failed.includes('media')) hint = ' Enable image upload from the Dashboard (select your X account and click "Enable image upload"), then reconnect.';
                                 else if (failed.includes('401') || failed.includes('Unauthorized')) hint = ' Your Twitter session may have expired. Reconnect the Twitter account in the Accounts page, then try again.';
                                 else if (failed.includes('socket hang up') || failed.includes('ECONNRESET')) hint = ' Connection to X dropped (often temporary). Check your X profile to see if the post went through; if not, open the post from History and try Post now again.';
@@ -1996,6 +1997,7 @@ export default function ComposerPage() {
                             let hint = '';
                             if (failed.includes('TWITTER')) {
                                 if (failed.includes('Credits Depleted') || failed.includes('credits')) hint = ' Your X (Twitter) account has no API credits. Add credits in your X account billing or upgrade your plan.';
+                                else if (failed.includes('Application-Only') || failed.includes('Unsupported Authentication')) hint = ' Reconnect X from Dashboard → Accounts so the app can request the **media.write** scope (needed for image upload with OAuth 2.0), or use “Enable image upload” for OAuth 1.0a. If you set TWITTER_OAUTH_SCOPES in Vercel, add media.write.';
                                 else if (failed.includes('403') || failed.includes('media')) hint = ' Enable image upload from the Dashboard (select your X account and click "Enable image upload"), then reconnect.';
                                 else if (failed.includes('401') || failed.includes('Unauthorized')) hint = ' Your Twitter session may have expired. Reconnect the Twitter account in the Accounts page, then try again.';
                                 else if (failed.includes('socket hang up') || failed.includes('ECONNRESET')) hint = ' Connection to X dropped (often temporary). Check your X profile to see if the post went through; if not, open the post from History and try Post now again.';

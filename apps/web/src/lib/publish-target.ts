@@ -127,10 +127,11 @@ async function fetchMediaBuffer(
 /**
  * X API v2 media upload (OAuth 2.0 user Bearer).
  * - v1.1 `upload.twitter.com` + Bearer is rejected as application-only for many apps.
- * - The legacy single `POST api.x.com/2/media/upload` with multipart `command=INIT` is deprecated; use split endpoints instead.
+ * - The legacy single `POST …/2/media/upload` with multipart `command=INIT` is deprecated; use split endpoints instead.
+ * - OAuth 2.0 user tokens must include **media.write** for v2 media upload; without it, X may return “Application-Only” / unsupported auth.
  * @see https://devcommunity.x.com/t/media-upload-endpoints-update-and-extended-migration-deadline/241818
  */
-const TWITTER_V2_MEDIA_BASE = 'https://api.twitter.com/2/media/upload';
+const TWITTER_V2_MEDIA_BASE = 'https://api.x.com/2/media/upload';
 
 function twitterInitMediaTypeFromImageContentType(contentType: string): { mediaType: string; filename: string } {
   const c = contentType.toLowerCase();
@@ -138,6 +139,19 @@ function twitterInitMediaTypeFromImageContentType(contentType: string): { mediaT
   if (c.includes('webp')) return { mediaType: 'image/webp', filename: 'image.webp' };
   if (c.includes('gif')) return { mediaType: 'image/gif', filename: 'image.gif' };
   return { mediaType: 'image/jpeg', filename: 'image.jpg' };
+}
+
+function twitterV2MediaProcessingInfo(data: unknown): { state?: string; check_after_secs?: number } | undefined {
+  if (!data || typeof data !== 'object') return undefined;
+  const o = data as Record<string, unknown>;
+  const top = o.processing_info;
+  if (top && typeof top === 'object') return top as { state?: string; check_after_secs?: number };
+  const inner = o.data;
+  if (inner && typeof inner === 'object') {
+    const pi = (inner as Record<string, unknown>).processing_info;
+    if (pi && typeof pi === 'object') return pi as { state?: string; check_after_secs?: number };
+  }
+  return undefined;
 }
 
 function parseTwitterMediaUploadId(body: unknown): string | undefined {
@@ -185,7 +199,12 @@ async function twitterOAuth2ResumableMediaUpload(
   if (initRes.status !== 200) {
     const err =
       typeof initRes.data === 'object' ? JSON.stringify(initRes.data) : String(initRes.data ?? initRes.status);
-    return { ok: false, error: `Twitter media initialize (v2) failed: ${initRes.status} ${err}`.slice(0, 500) };
+    let msg = `Twitter media initialize (v2) failed: ${initRes.status} ${err}`.slice(0, 500);
+    if (/Application-Only|Unsupported Authentication/i.test(err)) {
+      msg +=
+        ' Reconnect X from Dashboard → Accounts so the app requests the **media.write** scope (or use “Enable image upload” for OAuth 1.0a media). If you set TWITTER_OAUTH_SCOPES in Vercel, include media.write.';
+    }
+    return { ok: false, error: msg };
   }
   const mediaId = parseTwitterMediaUploadId(initRes.data);
   if (!mediaId) {
@@ -228,8 +247,8 @@ async function twitterOAuth2ResumableMediaUpload(
     return { ok: false, error: `Twitter media finalize (v2) failed: ${finalizeRes.status} ${err}`.slice(0, 500) };
   }
 
-  const fin = finalizeRes.data as { processing_info?: { state?: string; check_after_secs?: number } } | undefined;
-  const state = fin?.processing_info?.state;
+  const finPi = twitterV2MediaProcessingInfo(finalizeRes.data);
+  const state = finPi?.state;
   if (state && state !== 'succeeded') {
     const statusUrl = `${TWITTER_V2_MEDIA_BASE}?command=STATUS&media_id=${encodeURIComponent(mediaId)}`;
     for (let wait = 0; wait < 90_000; wait += 2000) {
@@ -239,7 +258,7 @@ async function twitterOAuth2ResumableMediaUpload(
         timeout: 12_000,
         validateStatus: () => true,
       });
-      const proc = (statusRes.data as { processing_info?: { state?: string } } | undefined)?.processing_info;
+      const proc = twitterV2MediaProcessingInfo(statusRes.data);
       const st = proc?.state;
       if (st === 'succeeded') break;
       if (st === 'failed') {
