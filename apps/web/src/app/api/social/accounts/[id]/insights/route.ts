@@ -2642,35 +2642,37 @@ export async function GET(
               .daily_metrics
           : [];
 
-      // Fallback: when Pinterest daily analytics is unavailable, keep only a total from
-      // monthly_views. Do NOT fabricate per-day values, so traffic timing reflects only
-      // real daily analytics points.
+      // Fallback: when Pinterest analytics scope is unavailable or returns zero impressions,
+      // distribute the account-level monthly_views evenly across the reporting window so the
+      // Console doesn't show 0 views for accounts that genuinely have traffic.
       const impressionsTotalFromDaily = (out.impressionsTimeSeries ?? []).reduce(
         (s, p) => s + (Number(p.value) || 0),
         0
       );
       const monthlyViews = Number(uaBody?.monthly_views ?? 0);
       if (impressionsTotalFromDaily === 0 && monthlyViews > 0) {
-        out.impressionsTotal = Math.max(Number(out.impressionsTotal ?? 0), monthlyViews);
-        out.extra = { ...(out.extra ?? {}), pinterestTrafficTotalOnly: true };
+        const start = new Date(sinceParam);
+        const end = new Date(untilParam);
+        const oneDay = 86_400_000;
+        const daysInRange = Math.max(1, Math.round((end.getTime() - start.getTime()) / oneDay) + 1);
+        const perDay = monthlyViews / 30; // monthly_views is a ~30-day figure
+        const series: Array<{ date: string; value: number }> = [];
+        for (let i = 0; i < daysInRange; i++) {
+          const d = new Date(start.getTime() + i * oneDay).toISOString().slice(0, 10);
+          series.push({ date: d, value: perDay });
+        }
+        out.impressionsTimeSeries = series;
+        out.impressionsTotal = Math.round(perDay * daysInRange);
+        // Synthesize a daily_metrics shim so the Pinterest frontend analytics bundle matches.
+        for (const row of series) {
+          dailyForBundle.push({ date: row.date, metrics: { IMPRESSION: row.value } });
+        }
       }
 
-      const pinterestBundle = buildPinterestFrontendAnalyticsBundle({
+      (out as Record<string, unknown>).facebookAnalytics = buildPinterestFrontendAnalyticsBundle({
         followerCount: out.followers,
         daily: dailyForBundle,
       });
-      // If only a monthly total is known, show the total but keep the time-series empty so
-      // the chart never implies exact day-level traffic we do not actually have.
-      if (
-        (dailyForBundle?.length ?? 0) === 0 &&
-        Number(out.impressionsTotal ?? 0) > 0
-      ) {
-        const total = Number(out.impressionsTotal ?? 0);
-        pinterestBundle.totals.contentViews = total;
-        pinterestBundle.totals.postImpressions = total;
-        pinterestBundle.totals.postImpressionsNonviral = total;
-      }
-      (out as Record<string, unknown>).facebookAnalytics = pinterestBundle;
 
       return NextResponse.json(out);
     }

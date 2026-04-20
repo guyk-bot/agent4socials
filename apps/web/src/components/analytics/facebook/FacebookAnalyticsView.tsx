@@ -4651,7 +4651,6 @@ export function FacebookAnalyticsView({
         <>
         {!isLinkedIn ? (
         <>
-        {!isPinterest ? (
         <div className="rounded-[20px] border p-4 sm:p-5 space-y-3" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Performance</h3>
@@ -5102,7 +5101,6 @@ export function FacebookAnalyticsView({
           )}
           </InsightChartCard>
         </div>
-        ) : null}
 
         <div className="rounded-[20px] border p-4 sm:p-5 space-y-3" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -5219,6 +5217,7 @@ export function FacebookAnalyticsView({
               ))}
             </div>
           </div>
+          {!isPinterest ? (
           <InsightChartCard title="Engagement" hideHeader flat>
           {selectedEngagementMetrics.length === 0 ? (
             <div className="h-[300px] rounded-xl border border-dashed relative overflow-hidden" style={{ borderColor: COLOR.border }}>
@@ -5325,6 +5324,7 @@ export function FacebookAnalyticsView({
             </div>
           )}
           </InsightChartCard>
+          ) : null}
         </div>
 
         </>
