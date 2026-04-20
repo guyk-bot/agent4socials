@@ -331,25 +331,36 @@ function postsEligiblePlatformsForPreset(
 
 const CONSOLE_FALLBACK_CACHE_TTL_MS = 10 * 60 * 1000;
 
+type ConsoleFallbackSeries = {
+  viewsSeries?: Array<{ date: string; value: number }>;
+  engagementSeries?: Array<{ date: string; value: number }>;
+};
+
+/**
+ * Always returns whatever is cached in localStorage so Twitter/X, Pinterest, and LinkedIn
+ * leader rows render instantly on revisits. `isFresh` tells the caller whether a
+ * background refresh is still needed (stale-while-revalidate).
+ */
 function readConsoleFallbackCache(
   key: string
-): { viewsSeries?: Array<{ date: string; value: number }>; engagementSeries?: Array<{ date: string; value: number }> } | null {
-  if (typeof window === 'undefined') return null;
+): { data: ConsoleFallbackSeries | null; isFresh: boolean } {
+  if (typeof window === 'undefined') return { data: null, isFresh: false };
   try {
     const raw = window.localStorage.getItem(key);
-    if (!raw) return null;
+    if (!raw) return { data: null, isFresh: false };
     const parsed = JSON.parse(raw) as {
       ts?: number;
       viewsSeries?: Array<{ date: string; value: number }>;
       engagementSeries?: Array<{ date: string; value: number }>;
     };
-    if (!parsed?.ts || Date.now() - parsed.ts > CONSOLE_FALLBACK_CACHE_TTL_MS) return null;
-    return {
+    const data: ConsoleFallbackSeries = {
       viewsSeries: Array.isArray(parsed.viewsSeries) ? parsed.viewsSeries : [],
       engagementSeries: Array.isArray(parsed.engagementSeries) ? parsed.engagementSeries : [],
     };
+    const isFresh = typeof parsed?.ts === 'number' && Date.now() - parsed.ts <= CONSOLE_FALLBACK_CACHE_TTL_MS;
+    return { data, isFresh };
   } catch {
-    return null;
+    return { data: null, isFresh: false };
   }
 }
 
@@ -1317,25 +1328,47 @@ export default function UnifiedSummaryPage() {
       return;
     }
     let cancelled = false;
+
+    const keyFor = (platform: SocialAccount['platform']): 'X' | 'Pinterest' | 'LinkedIn' | null => {
+      if (platform === 'TWITTER') return 'X';
+      if (platform === 'PINTEREST') return 'Pinterest';
+      if (platform === 'LINKEDIN') return 'LinkedIn';
+      return null;
+    };
+
+    // 1) Paint any cached data immediately (ignoring TTL) so revisits render instantly.
+    const initial: Record<string, PlatformLiveFallback> = {};
+    const toRefresh: Array<{ acc: SocialAccount; cacheKey: string }> = [];
+    for (const acc of targets) {
+      const cacheKey = `console:fallback:${acc.platform}:${acc.id}:${dateRange.start}:${dateRange.end}`;
+      const { data: cached, isFresh } = readConsoleFallbackCache(cacheKey);
+      const fallbackKey = keyFor(acc.platform);
+      if (cached && fallbackKey) initial[fallbackKey] = cached;
+      if (!cached || !isFresh) toRefresh.push({ acc, cacheKey });
+    }
+    setLivePlatformFallback(initial);
+
+    if (toRefresh.length === 0) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    // 2) Revalidate stale/missing entries in the background and patch them in as they arrive.
     (async () => {
-      const next: Record<string, PlatformLiveFallback> = {};
       await Promise.all(
-        targets.map(async (acc) => {
-          const cacheKey = `console:fallback:${acc.platform}:${acc.id}:${dateRange.start}:${dateRange.end}`;
-          const cached = readConsoleFallbackCache(cacheKey);
-          if (cached) {
-            if (acc.platform === 'TWITTER') next.X = cached;
-            else if (acc.platform === 'PINTEREST') next.Pinterest = cached;
-            else if (acc.platform === 'LINKEDIN') next.LinkedIn = cached;
-            return;
-          }
+        toRefresh.map(async ({ acc, cacheKey }) => {
           try {
             const res = await api.get(`/social/accounts/${encodeURIComponent(acc.id)}/insights`, {
               params: { since: dateRange.start, until: dateRange.end },
               timeout: 30_000,
             });
+            if (cancelled) return;
             const payload = res?.data as Record<string, unknown>;
+            let parsed: PlatformLiveFallback | null = null;
+            let fallbackKey: 'X' | 'Pinterest' | 'LinkedIn' | null = null;
             if (acc.platform === 'TWITTER') {
+              fallbackKey = 'X';
               const viewsSeries = Array.isArray(payload.impressionsTimeSeries)
                 ? (payload.impressionsTimeSeries as Array<Record<string, unknown>>)
                     .map((p) => ({ date: String(p.date ?? ''), value: Number(p.value ?? 0) }))
@@ -1346,16 +1379,14 @@ export default function UnifiedSummaryPage() {
                     .map((p) => ({ date: String(p.date ?? ''), value: Number(p.value ?? 0) }))
                     .filter((p) => /^\d{4}-\d{2}-\d{2}$/.test(p.date))
                 : [];
-              const parsed = { viewsSeries, engagementSeries };
-              next.X = parsed;
-              writeConsoleFallbackCache(cacheKey, parsed);
+              parsed = { viewsSeries, engagementSeries };
             } else if (acc.platform === 'PINTEREST') {
+              fallbackKey = 'Pinterest';
               const viewsSeries = Array.isArray(payload.impressionsTimeSeries)
                 ? (payload.impressionsTimeSeries as Array<Record<string, unknown>>)
                     .map((p) => ({ date: String(p.date ?? ''), value: Number(p.value ?? 0) }))
                     .filter((p) => /^\d{4}-\d{2}-\d{2}$/.test(p.date))
                 : [];
-              // Pinterest engagement is exposed in the frontend analytics bundle.
               const fbAnalytics = payload.facebookAnalytics as
                 | { series?: { engagement?: Array<{ date?: string; value?: number }> } }
                 | undefined;
@@ -1364,26 +1395,31 @@ export default function UnifiedSummaryPage() {
                     .map((p) => ({ date: String(p.date ?? ''), value: Number(p.value ?? 0) }))
                     .filter((p) => /^\d{4}-\d{2}-\d{2}$/.test(p.date))
                 : [];
-              const parsed = { viewsSeries, engagementSeries };
-              next.Pinterest = parsed;
-              writeConsoleFallbackCache(cacheKey, parsed);
+              parsed = { viewsSeries, engagementSeries };
             } else if (acc.platform === 'LINKEDIN') {
+              fallbackKey = 'LinkedIn';
               const viewsSeries = Array.isArray(payload.impressionsTimeSeries)
                 ? (payload.impressionsTimeSeries as Array<Record<string, unknown>>)
                     .map((p) => ({ date: String(p.date ?? ''), value: Number(p.value ?? 0) }))
                     .filter((p) => /^\d{4}-\d{2}-\d{2}$/.test(p.date))
                 : [];
-              const parsed = { viewsSeries };
-              next.LinkedIn = parsed;
+              parsed = { viewsSeries };
+            }
+            if (parsed && fallbackKey) {
               writeConsoleFallbackCache(cacheKey, parsed);
+              if (!cancelled) {
+                const key = fallbackKey;
+                const value = parsed;
+                setLivePlatformFallback((prev) => ({ ...prev, [key]: value }));
+              }
             }
           } catch {
-            // Keep fallback empty on error
+            // Keep whatever cached value we already rendered.
           }
         })
       );
-      if (!cancelled) setLivePlatformFallback(next);
     })();
+
     return () => {
       cancelled = true;
     };

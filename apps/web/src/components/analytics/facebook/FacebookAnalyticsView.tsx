@@ -2492,7 +2492,10 @@ export function FacebookAnalyticsView({
       return;
     }
     if (['TIKTOK', 'YOUTUBE', 'LINKEDIN', 'PINTEREST', 'TWITTER'].includes(String(insights.platform).toUpperCase())) {
-      if ((insights.followers ?? 0) > 0 || (insights.impressionsTotal ?? 0) > 0) setSkipOverviewSkeleton(true);
+      // Render the overview as soon as we have any insights payload (cached or live) so
+      // X/Pinterest (which hit live platform APIs per request) don't block paint waiting
+      // for non-zero numbers to materialize.
+      setSkipOverviewSkeleton(true);
     }
   }, [insights]);
   const overviewSkeleton =
