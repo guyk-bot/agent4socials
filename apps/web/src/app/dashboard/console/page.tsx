@@ -277,6 +277,8 @@ function chunkIntoPairs<T>(items: readonly T[]): Array<[T, T | undefined]> {
 type PlatformLiveFallback = {
   viewsSeries?: Array<{ date: string; value: number }>;
   engagementSeries?: Array<{ date: string; value: number }>;
+  viewsTotal?: number;
+  engagementTotal?: number;
 };
 
 type PostTypeKey = 'all' | 'reels' | 'image' | 'carousel';
@@ -340,6 +342,8 @@ const CONSOLE_FALLBACK_CACHE_TTL_MS = 10 * 60 * 1000;
 type ConsoleFallbackSeries = {
   viewsSeries?: Array<{ date: string; value: number }>;
   engagementSeries?: Array<{ date: string; value: number }>;
+  viewsTotal?: number;
+  engagementTotal?: number;
 };
 
 /**
@@ -372,7 +376,12 @@ function readConsoleFallbackCache(
 
 function writeConsoleFallbackCache(
   key: string,
-  value: { viewsSeries?: Array<{ date: string; value: number }>; engagementSeries?: Array<{ date: string; value: number }> }
+  value: {
+    viewsSeries?: Array<{ date: string; value: number }>;
+    engagementSeries?: Array<{ date: string; value: number }>;
+    viewsTotal?: number;
+    engagementTotal?: number;
+  }
 ) {
   if (typeof window === 'undefined') return;
   try {
@@ -1402,7 +1411,11 @@ export default function UnifiedSummaryPage() {
       const { data: cached, isFresh } = readConsoleFallbackCache(cacheKey);
       const fallbackKey = keyFor(acc.platform);
       if (cached && fallbackKey) initial[fallbackKey] = cached;
-      if (!cached || !isFresh) toRefresh.push({ acc, cacheKey });
+      const weakPinterestCache =
+        acc.platform === 'PINTEREST' &&
+        !!cached &&
+        (Number(cached.engagementTotal ?? 0) <= 0 || (cached.engagementSeries?.length ?? 0) === 0);
+      if (!cached || !isFresh || weakPinterestCache) toRefresh.push({ acc, cacheKey });
     }
     setLivePlatformFallback(initial);
 
@@ -1437,7 +1450,12 @@ export default function UnifiedSummaryPage() {
                     .map((p) => ({ date: String(p.date ?? ''), value: Number(p.value ?? 0) }))
                     .filter((p) => /^\d{4}-\d{2}-\d{2}$/.test(p.date))
                 : [];
-              parsed = { viewsSeries, engagementSeries };
+              parsed = {
+                viewsSeries,
+                engagementSeries,
+                viewsTotal: Number(payload.impressionsTotal ?? 0),
+                engagementTotal: engagementSeries.reduce((s, p) => s + (Number(p.value) || 0), 0),
+              };
             } else if (acc.platform === 'PINTEREST') {
               fallbackKey = 'Pinterest';
               const viewsSeries = Array.isArray(payload.impressionsTimeSeries)
@@ -1453,7 +1471,17 @@ export default function UnifiedSummaryPage() {
                     .map((p) => ({ date: String(p.date ?? ''), value: Number(p.value ?? 0) }))
                     .filter((p) => /^\d{4}-\d{2}-\d{2}$/.test(p.date))
                 : [];
-              parsed = { viewsSeries, engagementSeries };
+              const fbTotals = payload.facebookAnalytics as
+                | { totals?: { engagement?: number; contentViews?: number; postImpressions?: number } }
+                | undefined;
+              const engagementTotalFromSeries = engagementSeries.reduce((s, p) => s + (Number(p.value) || 0), 0);
+              const engagementTotalFromBundle = Number(fbTotals?.totals?.engagement ?? 0);
+              parsed = {
+                viewsSeries,
+                engagementSeries,
+                viewsTotal: Number(payload.impressionsTotal ?? fbTotals?.totals?.contentViews ?? fbTotals?.totals?.postImpressions ?? 0),
+                engagementTotal: Math.max(engagementTotalFromSeries, engagementTotalFromBundle),
+              };
             } else if (acc.platform === 'LINKEDIN') {
               fallbackKey = 'LinkedIn';
               const viewsSeries = Array.isArray(payload.impressionsTimeSeries)
@@ -1461,7 +1489,7 @@ export default function UnifiedSummaryPage() {
                     .map((p) => ({ date: String(p.date ?? ''), value: Number(p.value ?? 0) }))
                     .filter((p) => /^\d{4}-\d{2}-\d{2}$/.test(p.date))
                 : [];
-              parsed = { viewsSeries };
+              parsed = { viewsSeries, viewsTotal: Number(payload.impressionsTotal ?? 0) };
             }
             if (parsed && fallbackKey) {
               writeConsoleFallbackCache(cacheKey, parsed);
@@ -1516,22 +1544,35 @@ export default function UnifiedSummaryPage() {
     if (activeChartData.length === 0) return activeChartData;
     if (performanceMode === 'growth') return activeChartData;
     const selectedSeriesKey = performanceMode === 'views' ? 'viewsSeries' : 'engagementSeries';
+    const selectedTotalKey = performanceMode === 'views' ? 'viewsTotal' : 'engagementTotal';
     const out = activeChartData.map((r) => ({ ...r })) as UnifiedChartData;
     const byDate = new Map<string, number>();
     for (const platform of ['X', 'Pinterest', 'LinkedIn']) {
       const currentTotal = platformPresetMetric(activeChartData, platform, performanceMode);
       if (currentTotal !== 0) continue;
-      const fallbackSeries = livePlatformFallback[platform]?.[selectedSeriesKey];
-      if (!fallbackSeries || fallbackSeries.length === 0) continue;
-      byDate.clear();
-      for (const p of fallbackSeries) byDate.set(p.date, (byDate.get(p.date) ?? 0) + (Number(p.value) || 0));
-      for (const row of out) {
-        const d = String(row.date ?? '');
-        const add = byDate.get(d) ?? 0;
-        (row as unknown as Record<string, number>)[platform] = Math.max(
-          Number((row as unknown as Record<string, number>)[platform] ?? 0),
-          add
-        );
+      const fallbackRow = livePlatformFallback[platform];
+      const fallbackSeries = fallbackRow?.[selectedSeriesKey];
+      if (fallbackSeries && fallbackSeries.length > 0) {
+        byDate.clear();
+        for (const p of fallbackSeries) byDate.set(p.date, (byDate.get(p.date) ?? 0) + (Number(p.value) || 0));
+        for (const row of out) {
+          const d = String(row.date ?? '');
+          const add = byDate.get(d) ?? 0;
+          (row as unknown as Record<string, number>)[platform] = Math.max(
+            Number((row as unknown as Record<string, number>)[platform] ?? 0),
+            add
+          );
+        }
+      }
+      const synthesizedTotal = Number(fallbackRow?.[selectedTotalKey] ?? 0);
+      if (synthesizedTotal > 0) {
+        const totalAfterSeries = platformPresetMetric(out, platform, performanceMode);
+        if (totalAfterSeries <= 0) {
+          const last = out[out.length - 1] as unknown as Record<string, number> | undefined;
+          if (last) {
+            last[platform] = Math.max(Number(last[platform] ?? 0), synthesizedTotal);
+          }
+        }
       }
     }
     return out;
