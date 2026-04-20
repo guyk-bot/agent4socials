@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import {
+  postScalarsSelectWithMediaType,
+  postScalarsSelectWithoutMediaType,
+  prismaPostReadWithMediaTypeFallback,
+} from '@/lib/prisma-post-media-type-fallback';
 
 /**
  * GET /api/posts/[id]/open?t=TOKEN
@@ -17,22 +22,24 @@ export async function GET(
   if (!t?.trim()) {
     return NextResponse.json({ message: 'Token required' }, { status: 400 });
   }
-  const post = await prisma.post.findFirst({
-    where: {
-      id: postId,
-      emailOpenToken: t.trim(),
-      emailOpenTokenExpiresAt: { gte: new Date() },
-    },
-    omit: { mediaType: true },
-    include: {
-      media: true,
-      targets: {
-        include: {
-          socialAccount: { select: { platform: true, username: true } },
+  const post = await prismaPostReadWithMediaTypeFallback((withMediaTypeCol) =>
+    prisma.post.findFirst({
+      where: {
+        id: postId,
+        emailOpenToken: t.trim(),
+        emailOpenTokenExpiresAt: { gte: new Date() },
+      },
+      select: {
+        ...(withMediaTypeCol ? postScalarsSelectWithMediaType() : postScalarsSelectWithoutMediaType()),
+        media: true,
+        targets: {
+          include: {
+            socialAccount: { select: { platform: true, username: true } },
+          },
         },
       },
-    },
-  });
+    })
+  );
   if (!post) {
     return NextResponse.json({ message: 'Invalid or expired link' }, { status: 404 });
   }

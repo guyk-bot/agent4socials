@@ -4,14 +4,12 @@ import { prisma } from '@/lib/db';
 import { PostStatus, Platform, Prisma } from '@prisma/client';
 import { isTikTokDirectPostPayload } from '@/lib/tiktok/tiktok-publish-compliance';
 import { friendlyMessageIfPrismaSchemaDrift } from '@/lib/prisma-db-hints';
-
-function isMissingPostMediaTypeColumn(error: unknown): boolean {
-  const e = error as { message?: string; code?: string; meta?: { column?: unknown } };
-  const msg = String(e?.message ?? '');
-  const metaColumn = String(e?.meta?.column ?? '');
-  if (e?.code === 'P2022' && metaColumn.toLowerCase().includes('mediatype')) return true;
-  return msg.includes('mediaType') && msg.includes('does not exist');
-}
+import {
+  isMissingPostMediaTypeColumn,
+  postScalarsSelectWithMediaType,
+  postScalarsSelectWithoutMediaType,
+  prismaPostReadWithMediaTypeFallback,
+} from '@/lib/prisma-post-media-type-fallback';
 
 /**
  * GET /api/posts/[id] - Fetch a single post for viewing/editing in composer.
@@ -28,18 +26,20 @@ export async function GET(
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
   const { id } = await params;
-  const post = await prisma.post.findFirst({
-    where: { id, userId },
-    omit: { mediaType: true },
-    include: {
-      media: true,
-      targets: {
-        include: {
-          socialAccount: { select: { id: true, platform: true, username: true } },
+  const post = await prismaPostReadWithMediaTypeFallback((withMediaTypeCol) =>
+    prisma.post.findFirst({
+      where: { id, userId },
+      select: {
+        ...(withMediaTypeCol ? postScalarsSelectWithMediaType() : postScalarsSelectWithoutMediaType()),
+        media: true,
+        targets: {
+          include: {
+            socialAccount: { select: { id: true, platform: true, username: true } },
+          },
         },
       },
-    },
-  });
+    })
+  );
   if (!post) {
     return NextResponse.json({ message: 'Post not found' }, { status: 404 });
   }
@@ -61,11 +61,15 @@ export async function PATCH(
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
   const { id } = await params;
-  const existing = await prisma.post.findFirst({
-    where: { id, userId },
-    omit: { mediaType: true },
-    include: { targets: true },
-  });
+  const existing = await prismaPostReadWithMediaTypeFallback((withMediaTypeCol) =>
+    prisma.post.findFirst({
+      where: { id, userId },
+      select: {
+        ...(withMediaTypeCol ? postScalarsSelectWithMediaType() : postScalarsSelectWithoutMediaType()),
+        targets: true,
+      },
+    })
+  );
   if (!existing) {
     return NextResponse.json({ message: 'Post not found' }, { status: 404 });
   }
@@ -207,10 +211,10 @@ export async function PATCH(
       }
     }
     const updateArgs = {
-      omit: { mediaType: true } as const,
       where: { id },
       data: updateData as never,
-      include: {
+      select: {
+        ...postScalarsSelectWithoutMediaType(),
         media: true,
         targets: {
           include: {
@@ -228,6 +232,15 @@ export async function PATCH(
       post = await prisma.post.update({
         ...updateArgs,
         data: withoutMediaType as never,
+        select: {
+          ...postScalarsSelectWithoutMediaType(),
+          media: true,
+          targets: {
+            include: {
+              socialAccount: { select: { username: true } },
+            },
+          },
+        },
       });
     }
     return NextResponse.json(post);

@@ -5,14 +5,12 @@ import { PostStatus, Platform, Prisma } from '@prisma/client';
 import { isTikTokDirectPostPayload } from '@/lib/tiktok/tiktok-publish-compliance';
 import { sendScheduleConfirmationEmail } from '@/lib/resend';
 import { friendlyMessageIfPrismaSchemaDrift } from '@/lib/prisma-db-hints';
-
-function isMissingPostMediaTypeColumn(error: unknown): boolean {
-  const e = error as { message?: string; code?: string; meta?: { column?: unknown } };
-  const msg = String(e?.message ?? '');
-  const metaColumn = String(e?.meta?.column ?? '');
-  if (e?.code === 'P2022' && metaColumn.toLowerCase().includes('mediatype')) return true;
-  return msg.includes('mediaType') && msg.includes('does not exist');
-}
+import {
+  isMissingPostMediaTypeColumn,
+  postScalarsSelectWithMediaType,
+  postScalarsSelectWithoutMediaType,
+  prismaPostReadWithMediaTypeFallback,
+} from '@/lib/prisma-post-media-type-fallback';
 
 export async function GET(request: NextRequest) {
   if (!process.env.DATABASE_URL) {
@@ -22,19 +20,21 @@ export async function GET(request: NextRequest) {
   if (!userId) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
-  const posts = await prisma.post.findMany({
-    where: { userId },
-    omit: { mediaType: true },
-    include: {
-      media: true,
-      targets: {
-        include: {
-          socialAccount: { select: { username: true } },
+  const posts = await prismaPostReadWithMediaTypeFallback((withMediaTypeCol) =>
+    prisma.post.findMany({
+      where: { userId },
+      select: {
+        ...(withMediaTypeCol ? postScalarsSelectWithMediaType() : postScalarsSelectWithoutMediaType()),
+        media: true,
+        targets: {
+          include: {
+            socialAccount: { select: { username: true } },
+          },
         },
       },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
+      orderBy: { createdAt: 'desc' },
+    })
+  );
   return NextResponse.json(posts);
 }
 
@@ -189,9 +189,9 @@ export async function POST(request: NextRequest) {
     },
   };
   const createArgs = {
-    omit: { mediaType: true } as const,
     data: baseCreateData as never,
-    include: {
+    select: {
+      ...postScalarsSelectWithoutMediaType(),
       media: true,
       targets: {
         include: {

@@ -13,6 +13,11 @@ import { createMediaServeToken } from '@/lib/media-serve-token';
 import { ensureInstagramJpegOnR2 } from '@/lib/instagram-media-r2';
 import { refreshTwitterToken } from '@/lib/twitter-refresh';
 import { getValidPinterestToken } from '@/lib/pinterest-token';
+import {
+  postScalarsSelectWithMediaType,
+  postScalarsSelectWithoutMediaType,
+  prismaPostReadWithMediaTypeFallback,
+} from '@/lib/prisma-post-media-type-fallback';
 
 export type PublishPostRequestBody = {
   token?: string;
@@ -36,32 +41,34 @@ export async function runPublishPostWorkflow(input: {
 }): Promise<PublishPostWorkflowResult> {
   const { postId, isCron, userId, linkToken, requestBody, isDebug } = input;
 
-  const post = await prisma.post.findFirst({
-    where: isCron
-      ? { id: postId, status: PostStatus.SCHEDULED, scheduledAt: { lte: new Date() }, scheduleDelivery: 'auto' }
-      : linkToken
-        ? { id: postId, emailOpenToken: linkToken, emailOpenTokenExpiresAt: { gte: new Date() } }
-        : { id: postId, userId: userId! },
-    omit: { mediaType: true },
-    include: {
-      media: true,
-      targets: {
-        include: {
-          socialAccount: {
-            select: {
-              id: true,
-              platform: true,
-              platformUserId: true,
-              accessToken: true,
-              refreshToken: true,
-              expiresAt: true,
-              credentialsJson: true,
+  const post = await prismaPostReadWithMediaTypeFallback((withMediaTypeCol) =>
+    prisma.post.findFirst({
+      where: isCron
+        ? { id: postId, status: PostStatus.SCHEDULED, scheduledAt: { lte: new Date() }, scheduleDelivery: 'auto' }
+        : linkToken
+          ? { id: postId, emailOpenToken: linkToken, emailOpenTokenExpiresAt: { gte: new Date() } }
+          : { id: postId, userId: userId! },
+      select: {
+        ...(withMediaTypeCol ? postScalarsSelectWithMediaType() : postScalarsSelectWithoutMediaType()),
+        media: true,
+        targets: {
+          include: {
+            socialAccount: {
+              select: {
+                id: true,
+                platform: true,
+                platformUserId: true,
+                accessToken: true,
+                refreshToken: true,
+                expiresAt: true,
+                credentialsJson: true,
+              },
             },
           },
         },
       },
-    },
-  });
+    })
+  );
   if (!post) {
     return { status: 404, body: { message: 'Post not found' } };
   }
@@ -71,8 +78,8 @@ export async function runPublishPostWorkflow(input: {
 
   await prisma.post.update({
     where: { id: postId },
-    omit: { mediaType: true },
     data: { status: PostStatus.POSTING },
+    select: { id: true },
   });
 
   const contentByPlatform = (post as { contentByPlatform?: Record<string, string> | null }).contentByPlatform ?? null;
@@ -400,11 +407,11 @@ export async function runPublishPostWorkflow(input: {
   const anyFailed = results.some((r) => !r.ok);
   await prisma.post.update({
     where: { id: postId },
-    omit: { mediaType: true },
     data: {
       status: anyFailed ? PostStatus.FAILED : PostStatus.POSTED,
       ...(anyFailed ? {} : { postedAt: new Date() }),
     },
+    select: { id: true },
   });
 
   const body: Record<string, unknown> = { ok: !anyFailed, results };

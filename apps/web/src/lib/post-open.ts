@@ -1,4 +1,9 @@
 import { prisma } from '@/lib/db';
+import {
+  postScalarsSelectWithMediaType,
+  postScalarsSelectWithoutMediaType,
+  prismaPostReadWithMediaTypeFallback,
+} from '@/lib/prisma-post-media-type-fallback';
 
 export type PostOpenData = {
   content: string;
@@ -16,22 +21,24 @@ export type PostOpenData = {
 };
 
 export async function getPostForOpen(postId: string, token: string): Promise<PostOpenData | null> {
-  const post = await prisma.post.findFirst({
-    where: {
-      id: postId,
-      emailOpenToken: token.trim(),
-      emailOpenTokenExpiresAt: { gte: new Date() },
-    },
-    omit: { mediaType: true },
-    include: {
-      media: true,
-      targets: {
-        include: {
-          socialAccount: { select: { platform: true, username: true } },
+  const post = await prismaPostReadWithMediaTypeFallback((withMediaTypeCol) =>
+    prisma.post.findFirst({
+      where: {
+        id: postId,
+        emailOpenToken: token.trim(),
+        emailOpenTokenExpiresAt: { gte: new Date() },
+      },
+      select: {
+        ...(withMediaTypeCol ? postScalarsSelectWithMediaType() : postScalarsSelectWithoutMediaType()),
+        media: true,
+        targets: {
+          include: {
+            socialAccount: { select: { platform: true, username: true } },
+          },
         },
       },
-    },
-  });
+    })
+  );
   if (!post) return null;
 
   type PostWithJson = {

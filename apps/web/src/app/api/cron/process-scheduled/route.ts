@@ -4,6 +4,11 @@ import { PostStatus } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import { sendScheduledPostLinksEmail, sendScheduledPublishFailureEmail } from '@/lib/resend';
 import { runPublishPostWorkflow } from '@/lib/publish-post-workflow';
+import {
+  postScalarsSelectWithMediaType,
+  postScalarsSelectWithoutMediaType,
+  prismaPostReadWithMediaTypeFallback,
+} from '@/lib/prisma-post-media-type-fallback';
 
 /** Enough for publish + email paths; comment-automation is no longer chained by default. */
 export const maxDuration = 60;
@@ -71,19 +76,21 @@ async function executeProcessScheduled() {
 
   let due;
   try {
-    due = await prisma.post.findMany({
-      where: {
-        status: PostStatus.SCHEDULED,
-        scheduledAt: { lte: now },
-      },
-      orderBy: { scheduledAt: 'asc' },
-      take: MAX_POSTS_PER_RUN,
-      omit: { mediaType: true },
-      include: {
-        user: { select: { id: true, email: true } },
-        targets: true,
-      },
-    });
+    due = await prismaPostReadWithMediaTypeFallback((withMediaTypeCol) =>
+      prisma.post.findMany({
+        where: {
+          status: PostStatus.SCHEDULED,
+          scheduledAt: { lte: now },
+        },
+        orderBy: { scheduledAt: 'asc' },
+        take: MAX_POSTS_PER_RUN,
+        select: {
+          ...(withMediaTypeCol ? postScalarsSelectWithMediaType() : postScalarsSelectWithoutMediaType()),
+          user: { select: { id: true, email: true } },
+          targets: true,
+        },
+      })
+    );
   } catch (dbErr) {
     console.error('[Cron] Database error in process-scheduled:', dbErr);
     return { processed: 0, results: [], error: 'Database error' };
@@ -113,11 +120,11 @@ async function executeProcessScheduled() {
       const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
       await prisma.post.update({
         where: { id: post.id },
-        omit: { mediaType: true },
         data: {
           emailOpenToken: token,
           emailOpenTokenExpiresAt: expiresAt,
         },
+        select: { id: true },
       });
       const openLink = `${baseUrl()}/post/${post.id}/open?t=${encodeURIComponent(token)}`;
       const userEmail = (post as typeof post & { user?: { email?: string | null } }).user?.email ?? null;
@@ -129,8 +136,8 @@ async function executeProcessScheduled() {
       if (sendResult.ok) {
         await prisma.post.update({
           where: { id: post.id },
-          omit: { mediaType: true },
           data: { scheduleEmailSentAt: now },
+          select: { id: true },
         });
       }
       if (!sendResult.ok && post.scheduledAt) {

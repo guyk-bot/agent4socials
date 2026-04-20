@@ -2,6 +2,11 @@ import { prisma } from '@/lib/db';
 import { PostStatus, Prisma } from '@prisma/client';
 import axios, { type AxiosResponse } from 'axios';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
+import {
+  postScalarsSelectWithMediaType,
+  postScalarsSelectWithoutMediaType,
+  prismaPostReadWithMediaTypeFallback,
+} from '@/lib/prisma-post-media-type-fallback';
 
 export type CommentAutomation = {
   keywords: string[];
@@ -112,23 +117,25 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
     where: { status: PostStatus.POSTED, commentAutomation: { not: Prisma.DbNull } },
   });
 
-  const posts = await prisma.post.findMany({
-    where: {
-      status: PostStatus.POSTED,
-      commentAutomation: { not: Prisma.DbNull },
-    },
-    orderBy: { updatedAt: 'desc' },
-    take: maxPostsPerRun,
-    omit: { mediaType: true },
-    include: {
-      targets: {
-        where: { platformPostId: { not: null }, status: PostStatus.POSTED },
-        include: {
-          socialAccount: { select: { id: true, platform: true, accessToken: true, platformUserId: true, credentialsJson: true } },
+  const posts = await prismaPostReadWithMediaTypeFallback((withMediaTypeCol) =>
+    prisma.post.findMany({
+      where: {
+        status: PostStatus.POSTED,
+        commentAutomation: { not: Prisma.DbNull },
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: maxPostsPerRun,
+      select: {
+        ...(withMediaTypeCol ? postScalarsSelectWithMediaType() : postScalarsSelectWithoutMediaType()),
+        targets: {
+          where: { platformPostId: { not: null }, status: PostStatus.POSTED },
+          include: {
+            socialAccount: { select: { id: true, platform: true, accessToken: true, platformUserId: true, credentialsJson: true } },
+          },
         },
       },
-    },
-  });
+    })
+  );
 
   if (posts.length === 0) {
     return {
