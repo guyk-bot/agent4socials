@@ -5,12 +5,12 @@
 When publishing a post with an image to X (Twitter), we:
 
 1. Fetch the image from your stored URL (e.g. S3).
-2. Upload it via **v1.1** only: **POST https://upload.twitter.com/1.1/media/upload.json** (multipart/form-data). The v2 media endpoint does not accept OAuth 2.0 Bearer; we use v1.1 with OAuth 1.0a when configured, otherwise Bearer.
+2. Upload it:
+   - **OAuth 2.0 only (typical connect flow):** **POST https://api.x.com/2/media/upload** with INIT → APPEND → FINALIZE (multipart) and the user’s **OAuth 2.0 user access token** (Bearer). The legacy **upload.twitter.com/1.1/media/upload.json** call with Bearer is rejected as *application-only* for many apps, which produced text-only tweets with no image.
+   - **OAuth 1.0a also stored** (`TWITTER_API_KEY` / `TWITTER_API_SECRET` + “Enable image upload” / twitter-1oa callback): **POST https://upload.twitter.com/1.1/media/upload.json** (simple multipart) with **OAuth 1.0a** signed requests (same as before).
 3. Create the tweet with the returned `media_id` via **POST https://api.twitter.com/2/tweets**.
 
-We use the **form-data** npm package so the multipart request has the correct `Content-Type` boundary (Node’s built-in `FormData` can produce invalid boundaries and lead to 403).
-
-Authentication is your app’s **OAuth 2.0 PKCE** access token (Bearer). X’s docs state that PKCE tokens can be used for v1.1 media upload.
+We use the **form-data** npm package so multipart requests have the correct `Content-Type` boundary (Node’s built-in `FormData` can produce invalid boundaries and lead to 403).
 
 ## "Something went wrong" when connecting or reconnecting (OAuth 2.0)
 

@@ -26,7 +26,7 @@ export type PublishTargetOptions = {
   imageUrls?: string[];
   /** Optional cover/thumbnail URL for video (e.g. Instagram Reels cover_url). */
   videoThumbnailUrl?: string;
-  /** When set, Twitter v1.1 media upload uses OAuth 1.0a (avoids 403). Tweet creation still uses token (OAuth 2.0). */
+  /** When set, Twitter image upload uses v1.1 simple multipart + OAuth 1.0a. Without it, images use X API v2 resumable upload with the OAuth 2.0 user token. */
   twitterOAuth1?: { accessToken: string; accessTokenSecret: string };
   /** Pinterest Pin target board (from account credentials after connect). */
   pinterestBoardId?: string | null;
@@ -122,6 +122,131 @@ async function fetchMediaBuffer(
   const buffer = Buffer.from(await res.arrayBuffer());
   const contentType = res.headers.get('content-type') || 'video/mp4';
   return { buffer, contentType };
+}
+
+/** X API v2 media upload (OAuth 2.0 user Bearer). v1.1 `upload.twitter.com` rejects many OAuth2 user tokens as application-only. */
+const TWITTER_MEDIA_UPLOAD_V2_URL = 'https://api.x.com/2/media/upload';
+
+function twitterInitMediaTypeFromImageContentType(contentType: string): { mediaType: string; filename: string } {
+  const c = contentType.toLowerCase();
+  if (c.includes('png')) return { mediaType: 'image/png', filename: 'image.png' };
+  if (c.includes('webp')) return { mediaType: 'image/webp', filename: 'image.webp' };
+  if (c.includes('gif')) return { mediaType: 'image/gif', filename: 'image.gif' };
+  return { mediaType: 'image/jpeg', filename: 'image.jpg' };
+}
+
+function parseTwitterMediaUploadId(body: unknown): string | undefined {
+  if (!body || typeof body !== 'object') return undefined;
+  const o = body as Record<string, unknown>;
+  const data = o.data;
+  if (data && typeof data === 'object') {
+    const d = data as Record<string, unknown>;
+    if (typeof d.id === 'string' && d.id.trim()) return d.id.trim();
+    if (typeof d.media_id_string === 'string' && d.media_id_string.trim()) return d.media_id_string.trim();
+  }
+  if (typeof o.media_id_string === 'string' && o.media_id_string.trim()) return o.media_id_string.trim();
+  return undefined;
+}
+
+/**
+ * INIT → APPEND → FINALIZE on v2 media upload with OAuth 2.0 user access token.
+ * @see https://docs.x.com/x-api/media/upload-media
+ */
+async function twitterOAuth2ResumableMediaUpload(
+  axiosInstance: PublishDeps['axios'],
+  userAccessToken: string,
+  buffer: Buffer,
+  mediaType: string,
+  mediaCategory: string,
+  appendFilename: string
+): Promise<{ ok: true; mediaId: string } | { ok: false; error: string }> {
+  const auth = { Authorization: `Bearer ${userAccessToken}` };
+
+  const initForm = new FormData();
+  initForm.append('command', 'INIT');
+  initForm.append('total_bytes', String(buffer.length));
+  initForm.append('media_type', mediaType);
+  initForm.append('media_category', mediaCategory);
+  const initLen = await new Promise<number>((resolve, reject) => {
+    initForm.getLength((err: Error | null, length?: number) => (err ? reject(err) : resolve(length ?? 0)));
+  });
+  const initHeaders = { ...auth, ...initForm.getHeaders(), 'Content-Length': String(initLen) };
+
+  const initRes = await axiosInstance.post(TWITTER_MEDIA_UPLOAD_V2_URL, initForm, {
+    headers: initHeaders,
+    maxBodyLength: Infinity,
+    maxContentLength: Infinity,
+    timeout: 60_000,
+    validateStatus: () => true,
+  });
+  if (initRes.status !== 200) {
+    const err =
+      typeof initRes.data === 'object' ? JSON.stringify(initRes.data) : String(initRes.data ?? initRes.status);
+    return { ok: false, error: `Twitter media INIT (X API v2) failed: ${initRes.status} ${err}`.slice(0, 500) };
+  }
+  const mediaId = parseTwitterMediaUploadId(initRes.data);
+  if (!mediaId) {
+    return {
+      ok: false,
+      error: `Twitter media INIT (X API v2) did not return a media id: ${JSON.stringify(initRes.data)}`.slice(0, 500),
+    };
+  }
+
+  const appendForm = new FormData();
+  appendForm.append('command', 'APPEND');
+  appendForm.append('media_id', mediaId);
+  appendForm.append('segment_index', '0');
+  appendForm.append('media', buffer, { filename: appendFilename, contentType: mediaType });
+  const appendRes = await axiosInstance.post(TWITTER_MEDIA_UPLOAD_V2_URL, appendForm, {
+    headers: { ...auth, ...appendForm.getHeaders() },
+    maxBodyLength: Infinity,
+    maxContentLength: Infinity,
+    timeout: 60_000,
+    validateStatus: () => true,
+  });
+  if (appendRes.status !== 204 && appendRes.status !== 200) {
+    const err =
+      typeof appendRes.data === 'object' ? JSON.stringify(appendRes.data) : String(appendRes.data ?? appendRes.status);
+    return { ok: false, error: `Twitter media APPEND (X API v2) failed: ${appendRes.status} ${err}`.slice(0, 500) };
+  }
+
+  const finalizeForm = new FormData();
+  finalizeForm.append('command', 'FINALIZE');
+  finalizeForm.append('media_id', mediaId);
+  const finalizeRes = await axiosInstance.post(TWITTER_MEDIA_UPLOAD_V2_URL, finalizeForm, {
+    headers: { ...auth, ...finalizeForm.getHeaders() },
+    timeout: 60_000,
+    validateStatus: () => true,
+  });
+  if (finalizeRes.status !== 200) {
+    const err =
+      typeof finalizeRes.data === 'object'
+        ? JSON.stringify(finalizeRes.data)
+        : String(finalizeRes.data ?? finalizeRes.status);
+    return { ok: false, error: `Twitter media FINALIZE (X API v2) failed: ${finalizeRes.status} ${err}`.slice(0, 500) };
+  }
+
+  const fin = finalizeRes.data as { processing_info?: { state?: string } } | undefined;
+  const state = fin?.processing_info?.state;
+  if (state && state !== 'succeeded') {
+    const statusUrl = `${TWITTER_MEDIA_UPLOAD_V2_URL}?command=STATUS&media_id=${encodeURIComponent(mediaId)}`;
+    for (let wait = 0; wait < 60_000; wait += 2000) {
+      await new Promise((r) => setTimeout(r, 2000));
+      const statusRes = await axiosInstance.get(statusUrl, {
+        headers: auth,
+        timeout: 10_000,
+        validateStatus: () => true,
+      });
+      const proc = (statusRes.data as { processing_info?: { state?: string } } | undefined)?.processing_info;
+      const st = proc?.state;
+      if (st === 'succeeded') break;
+      if (st === 'failed') {
+        return { ok: false, error: 'Twitter media processing failed (X API v2 STATUS)' };
+      }
+    }
+  }
+
+  return { ok: true, mediaId };
 }
 
 export async function publishTarget(
@@ -799,37 +924,63 @@ export async function publishTarget(
         try {
           const { buffer, contentType } = await fetchImageBuffer(firstImageUrl, fetchFn);
           const mediaCategory = 'tweet_image';
-          const filename = contentType.includes('png') ? 'image.png' : 'image.jpg';
-          const form = new FormData();
-          form.append('media', buffer, { filename, contentType });
-          form.append('media_category', mediaCategory);
+          if (useOAuth1) {
+            const filename = contentType.includes('png') ? 'image.png' : 'image.jpg';
+            const form = new FormData();
+            form.append('media', buffer, { filename, contentType });
+            form.append('media_category', mediaCategory);
 
-          const contentLength = await new Promise<number>((resolve, reject) => {
-            form.getLength((err: Error | null, length?: number) => (err ? reject(err) : resolve(length ?? 0)));
-          });
-          const formHeaders = { ...form.getHeaders(), 'Content-Length': String(contentLength) };
+            const contentLength = await new Promise<number>((resolve, reject) => {
+              form.getLength((err: Error | null, length?: number) => (err ? reject(err) : resolve(length ?? 0)));
+            });
+            const formHeaders = { ...form.getHeaders(), 'Content-Length': String(contentLength) };
 
-          const uploadRes = await axiosInstance.post(v1Url, form, {
-            headers: { ...getUploadHeaders('POST'), ...formHeaders },
-            maxContentLength: Infinity,
-            maxBodyLength: Infinity,
-            timeout: 60_000,
-            validateStatus: () => true,
-          });
+            const uploadRes = await axiosInstance.post(v1Url, form, {
+              headers: { ...getUploadHeaders('POST'), ...formHeaders },
+              maxContentLength: Infinity,
+              maxBodyLength: Infinity,
+              timeout: 60_000,
+              validateStatus: () => true,
+            });
 
-          if (uploadRes.status !== 200) {
-            const errData = uploadRes.data as unknown;
-            const errText = typeof errData === 'object' ? JSON.stringify(errData) : String(errData ?? uploadRes.status);
-            if (uploadRes.status === 403) {
-              if (typeof console !== 'undefined' && console.error) console.error('[Twitter media upload] 403:', errText.slice(0, 500));
-              mediaSkipped = true;
+            if (uploadRes.status !== 200) {
+              const errData = uploadRes.data as unknown;
+              const errText = typeof errData === 'object' ? JSON.stringify(errData) : String(errData ?? uploadRes.status);
+              if (uploadRes.status === 403) {
+                if (typeof console !== 'undefined' && console.error) console.error('[Twitter media upload] 403:', errText.slice(0, 500));
+                mediaSkipped = true;
+              } else {
+                throw new Error(`Twitter media upload failed: ${uploadRes.status} ${errText}`.slice(0, 300));
+              }
             } else {
-              throw new Error(`Twitter media upload failed: ${uploadRes.status} ${errText}`.slice(0, 300));
+              const data = uploadRes.data as { media_id_string?: string; media_id?: number } | undefined;
+              const mediaId = data?.media_id_string ?? (data?.media_id != null ? String(data.media_id) : undefined);
+              if (mediaId) mediaIds = [mediaId];
             }
           } else {
-            const data = uploadRes.data as { media_id_string?: string; media_id?: number } | undefined;
-            const mediaId = data?.media_id_string ?? (data?.media_id != null ? String(data.media_id) : undefined);
-            if (mediaId) mediaIds = [mediaId];
+            if (!token || token === 'oauth1') {
+              return {
+                ok: false,
+                error:
+                  'Twitter/X image upload needs a valid OAuth 2.0 user token, or reconnect with “Enable image upload” (OAuth 1.0a).',
+              };
+            }
+            const { mediaType, filename } = twitterInitMediaTypeFromImageContentType(contentType);
+            const v2Up = await twitterOAuth2ResumableMediaUpload(
+              axiosInstance,
+              token,
+              buffer,
+              mediaType,
+              mediaCategory,
+              filename
+            );
+            if (!v2Up.ok) {
+              return {
+                ok: false,
+                error: `${v2Up.error} If this persists, add TWITTER_API_KEY / TWITTER_API_SECRET and reconnect X so media can use OAuth 1.0a on v1.1 upload.`,
+              };
+            }
+            mediaIds = [v2Up.mediaId];
           }
         } catch (err) {
           throw err;
