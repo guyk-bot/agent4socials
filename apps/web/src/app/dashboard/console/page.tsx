@@ -1576,9 +1576,9 @@ export default function UnifiedSummaryPage() {
     const selectedTotalKey = performanceMode === 'views' ? 'viewsTotal' : 'engagementTotal';
     const out = activeChartData.map((r) => ({ ...r })) as UnifiedChartData;
     const byDate = new Map<string, number>();
+    // Merge live per-account insights for X / Pinterest / LinkedIn. Always use Math.max vs unified DB
+    // series so Pinterest account-level analytics still show when ImportedPost rows are sparse or zero.
     for (const platform of ['X', 'Pinterest', 'LinkedIn']) {
-      const currentTotal = platformPresetMetric(activeChartData, platform, performanceMode);
-      if (currentTotal !== 0) continue;
       const fallbackRow = livePlatformFallback[platform];
       const fallbackSeries = fallbackRow?.[selectedSeriesKey];
       if (fallbackSeries && fallbackSeries.length > 0) {

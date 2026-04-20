@@ -50,10 +50,20 @@ export function buildPinterestFrontendAnalyticsBundle(input: {
       metricNum(m, 'SAVE', 'save') +
         metricNum(m, 'OUTBOUND_CLICK', 'outbound_click') +
         metricNum(m, 'PIN_CLICK', 'pin_click') +
-        metricNum(m, 'CLICKTHROUGH', 'clickthrough');
+        metricNum(m, 'CLICKTHROUGH', 'clickthrough') +
+        metricNum(m, 'CLOSEUP', 'closeup');
     const vid =
-      metricNum(m, 'VIDEO_MRC_VIEW', 'video_mrc_view', 'VIDEO_START', 'video_start', 'VIDEO_V50_WATCH', 'video_v50_watch') ||
-      metricNum(m, 'QUARTILE_95_PERCENT_VIEW', 'quartile_95_percent_view');
+      metricNum(
+        m,
+        'VIDEO_MRC_VIEW',
+        'video_mrc_view',
+        'VIDEO_START',
+        'video_start',
+        'VIDEO_V50_WATCH',
+        'video_v50_watch',
+        'VIDEO_V50_WATCH_TIME',
+        'video_v50_watch_time'
+      ) || metricNum(m, 'QUARTILE_95_PERCENT_VIEW', 'quartile_95_percent_view');
     rawContent.push({ date: d, value: imp });
     rawEngagement.push({ date: d, value: eng });
     rawVideo.push({ date: d, value: vid });

@@ -2544,8 +2544,9 @@ export async function GET(
             // By default Pinterest only returns IMPRESSION on user_account/analytics; request every
             // metric the dashboard bundle consumes so Engagements, Saves, Clicks, and Video Views
             // actually populate instead of showing 0.
+            // Omit VIDEO_V50_WATCH_TIME: some apps get 400 invalid metric_types when it is bundled with others.
             metric_types:
-              'IMPRESSION,ENGAGEMENT,SAVE,PIN_CLICK,OUTBOUND_CLICK,CLOSEUP,VIDEO_MRC_VIEW,VIDEO_V50_WATCH_TIME',
+              'IMPRESSION,ENGAGEMENT,SAVE,PIN_CLICK,OUTBOUND_CLICK,CLOSEUP,VIDEO_MRC_VIEW',
           },
           validateStatus: () => true,
         });
@@ -2573,8 +2574,22 @@ export async function GET(
             /* keep original response */
           }
         }
-        if (analyticsRes.status === 200 && analyticsRes.data?.all) {
-          const daily = analyticsRes.data.all.daily_metrics ?? [];
+        // Always derive day-level impressions from the *resolved* analytics payload (retry may be 200 when the first request was not).
+        const resolvedAll =
+          analyticsStatus === 200 &&
+          analyticsBody &&
+          typeof analyticsBody === 'object' &&
+          (analyticsBody as { all?: unknown }).all
+            ? (analyticsBody as {
+                all: {
+                  summary_metrics?: Record<string, number | string>;
+                  daily_metrics?: Array<{ date?: string; metrics?: Record<string, number> }>;
+                };
+              }).all
+            : null;
+
+        if (resolvedAll) {
+          const daily = resolvedAll.daily_metrics ?? [];
           const byDate: Record<string, number> = {};
           for (const row of daily) {
             const m = row.metrics ?? {};
@@ -2588,13 +2603,13 @@ export async function GET(
           out.impressionsTimeSeries = Object.entries(byDate)
             .map(([date, value]) => ({ date, value }))
             .sort((a, b) => a.date.localeCompare(b.date));
-          const sm = analyticsRes.data.all.summary_metrics ?? {};
+          const sm = resolvedAll.summary_metrics ?? {};
           const totalImp =
             (typeof sm.IMPRESSION === 'number' ? sm.IMPRESSION : undefined) ??
             (typeof sm.impression === 'number' ? sm.impression : undefined);
           if (typeof totalImp === 'number') out.impressionsTotal = totalImp;
-          else out.impressionsTotal = out.impressionsTimeSeries.reduce((s, p) => s + p.value, 0);
-        } else if (analyticsRes.status === 403 || analyticsRes.status === 401) {
+          else out.impressionsTotal = (out.impressionsTimeSeries ?? []).reduce((s, p) => s + p.value, 0);
+        } else if (analyticsStatus === 403 || analyticsStatus === 401) {
           out.insightsHint =
             'Pinterest analytics for this date range may require Standard API access and analytics scopes. Reconnect Pinterest from Accounts. Follower and profile data may still load.';
         }

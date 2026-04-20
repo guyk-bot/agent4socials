@@ -387,6 +387,14 @@ function pickPinterestPinMetrics90dBucket(pinMetrics: unknown): PinterestPinMetr
   return null;
 }
 
+/** Pinterest `VIDEO_AVG_WATCH_TIME` is typically in ms (see API examples); keep a small guard for seconds-like values. */
+function pinterestVideoAvgWatchMs(raw: number): number {
+  if (!Number.isFinite(raw) || raw <= 0) return 0;
+  // If it looks like seconds for a short clip, promote to ms.
+  if (raw > 0 && raw < 250) return raw * 1000;
+  return raw;
+}
+
 function extractPinterestImportedPostMetrics(args: {
   mediaType: 'VIDEO' | 'IMAGE' | string | null | undefined;
   pinMetrics: unknown;
@@ -432,15 +440,10 @@ function extractPinterestImportedPostMetrics(args: {
   // `interactions` is our product-level rollup for dashboards: reactions + comments + saves + clicks.
   const interactions = reactions + comments + saves + pinClicks + outboundClicks;
 
-  const avgWatchMsFromApi = videoAvgWatchRaw > 0 ? normalizeAvgWatchMs(videoAvgWatchRaw) : 0;
-  const viewsForWatchNormalize = Math.max(1, plays);
-  const totalWatchMsRaw =
-    videoV50WatchRaw > 0
-      ? normalizeTotalWatchMs(videoV50WatchRaw, viewsForWatchNormalize, avgWatchMsFromApi)
-      : 0;
+  const avgWatchMsFromApi = videoAvgWatchRaw > 0 ? pinterestVideoAvgWatchMs(videoAvgWatchRaw) : 0;
   const totalWatchMs =
-    totalWatchMsRaw > 0
-      ? totalWatchMsRaw
+    videoV50WatchRaw > 0
+      ? Math.max(0, videoV50WatchRaw)
       : avgWatchMsFromApi > 0 && plays > 0
         ? avgWatchMsFromApi * plays
         : 0;
@@ -759,6 +762,72 @@ export async function GET(
         }
       } catch (e) {
         console.warn('[Imported posts] Pinterest thumb enrich on read:', (e as Error)?.message ?? e);
+      }
+    }
+
+    /** Pinterest: older rows synced before `pin_metrics` support are all-zero in DB; refresh a small slice on read. */
+    if (account.platform === 'PINTEREST' && importedRows.length > 0 && account.accessToken) {
+      try {
+        const headers = { Authorization: `Bearer ${account.accessToken}` };
+        const candidates = importedRows
+          .filter((r) => {
+            if (r.platform !== 'PINTEREST') return false;
+            const eng =
+              (r.likeCount ?? 0) +
+              (r.commentsCount ?? 0) +
+              (r.sharesCount ?? 0) +
+              (r.savesCount ?? 0) +
+              (r.interactions ?? 0);
+            const meta =
+              r.platformMetadata && typeof r.platformMetadata === 'object' && !Array.isArray(r.platformMetadata)
+                ? (r.platformMetadata as Record<string, unknown>)
+                : {};
+            const pm = meta.pinterest && typeof meta.pinterest === 'object' && !Array.isArray(meta.pinterest) ? (meta.pinterest as Record<string, unknown>) : {};
+            const hasMetrics = Boolean(pm.pin_metrics);
+            return eng <= 0 || !hasMetrics;
+          })
+          .slice(0, 40);
+
+        await runWithConcurrency(candidates, 5, async (row) => {
+          const detail = await fetchPinterestPinDetail(row.platformPostId, headers);
+          if (!detail?.pin_metrics) return;
+          const extracted = extractPinterestImportedPostMetrics({ mediaType: row.mediaType, pinMetrics: detail.pin_metrics });
+          const prev = await findImportedPostPrevSafe(account.id, row.platformPostId);
+          const prevMeta =
+            prev?.platformMetadata && typeof prev.platformMetadata === 'object' && !Array.isArray(prev.platformMetadata)
+              ? (prev.platformMetadata as Record<string, unknown>)
+              : {};
+          const platformMetadata = {
+            ...prevMeta,
+            pinterest: {
+              ...(typeof prevMeta.pinterest === 'object' && prevMeta.pinterest && !Array.isArray(prevMeta.pinterest)
+                ? (prevMeta.pinterest as Record<string, unknown>)
+                : {}),
+              pin_metrics: detail.pin_metrics,
+              compatInsights: extracted.facebookInsightsCompat,
+              metricsRefreshedAt: new Date().toISOString(),
+            },
+          };
+          try {
+            await prisma.importedPost.update({
+              where: { socialAccountId_platformPostId: { socialAccountId: account.id, platformPostId: row.platformPostId } },
+              data: {
+                impressions: extracted.impressions,
+                interactions: extracted.interactions,
+                likeCount: extracted.likeCount,
+                commentsCount: extracted.commentsCount,
+                sharesCount: extracted.sharesCount,
+                savesCount: extracted.savesCount,
+                platformMetadata: platformMetadata as object,
+                syncedAt: new Date(),
+              },
+            });
+          } catch {
+            /* non-fatal */
+          }
+        });
+      } catch (e) {
+        console.warn('[Imported posts] Pinterest metrics refresh on read:', (e as Error)?.message ?? e);
       }
     }
 
@@ -1164,6 +1233,16 @@ export async function GET(
               };
             })()
           : undefined;
+      const pinterestCompatInsights: Record<string, number> | undefined =
+        p.platform === 'PINTEREST' &&
+        meta.pinterest &&
+        typeof meta.pinterest === 'object' &&
+        !Array.isArray(meta.pinterest) &&
+        (meta.pinterest as Record<string, unknown>).compatInsights &&
+        typeof (meta.pinterest as Record<string, unknown>).compatInsights === 'object' &&
+        !Array.isArray((meta.pinterest as Record<string, unknown>).compatInsights)
+          ? ((meta.pinterest as Record<string, unknown>).compatInsights as Record<string, number>)
+          : undefined;
       const mergedFacebookInsights =
         p.platform === 'FACEBOOK'
           ? mergeFacebookInsightMaps(dbFacebookInsights, liveFacebookInsightsByPostId[p.platformPostId])
@@ -1173,10 +1252,26 @@ export async function GET(
           ? mergedFacebookInsights
           : p.platform === 'INSTAGRAM'
             ? igCompatInsights
-            : undefined;
+            : p.platform === 'PINTEREST' && pinterestCompatInsights && Object.keys(pinterestCompatInsights).length > 0
+              ? pinterestCompatInsights
+              : undefined;
       const fbImpressionsFromInsights =
         p.platform === 'FACEBOOK' && mergedFacebookInsights
           ? pickFacebookPostImpressionsFromInsightMap(mergedFacebookInsights).impressions
+          : 0;
+      const pinterestPlaysFromInsights =
+        p.platform === 'PINTEREST' && pinterestCompatInsights
+          ? Math.max(
+              typeof pinterestCompatInsights.post_video_views === 'number' ? pinterestCompatInsights.post_video_views : 0,
+              typeof pinterestCompatInsights.post_media_view === 'number' ? pinterestCompatInsights.post_media_view : 0
+            )
+          : 0;
+      const pinterestImpressionsFromInsights =
+        p.platform === 'PINTEREST' && pinterestCompatInsights
+          ? Math.max(
+              typeof pinterestCompatInsights.post_impressions === 'number' ? pinterestCompatInsights.post_impressions : 0,
+              pinterestPlaysFromInsights
+            )
           : 0;
       const impressionsSerialized =
         p.platform === 'INSTAGRAM'
@@ -1187,7 +1282,9 @@ export async function GET(
               ? ytSt?.hasViewCount
                 ? ytSt.viewCount
                 : p.impressions ?? 0
-              : p.impressions ?? 0;
+              : p.platform === 'PINTEREST'
+                ? Math.max(p.impressions ?? 0, pinterestImpressionsFromInsights)
+                : p.impressions ?? 0;
       const likeCountOut =
         p.platform === 'FACEBOOK'
           ? Math.max(p.likeCount ?? 0, mergedFacebookInsights?.post_reactions_like_total ?? 0)
@@ -1204,12 +1301,19 @@ export async function GET(
         p.platform === 'FACEBOOK'
           ? Math.max(p.sharesCount ?? 0, mergedFacebookInsights?.post_shares ?? 0)
           : p.sharesCount ?? 0;
+      const savesCountOut = p.savesCount ?? 0;
       const interactionsOut =
         p.platform === 'FACEBOOK'
           ? likeCountOut + commentsCountOut + sharesCountOut
           : p.platform === 'YOUTUBE'
             ? likeCountOut + commentsCountOut
-            : p.interactions ?? 0;
+            : p.platform === 'PINTEREST'
+              ? (() => {
+                  const stored = typeof p.interactions === 'number' && Number.isFinite(p.interactions) ? p.interactions : 0;
+                  if (stored > 0) return stored;
+                  return likeCountOut + commentsCountOut + sharesCountOut + savesCountOut;
+                })()
+              : p.interactions ?? 0;
       return {
         id: p.id,
         platformPostId: p.platformPostId,
@@ -1259,7 +1363,7 @@ export async function GET(
           p.platform === 'INSTAGRAM' && mergedIgInsight
             ? Math.max(mergedIgInsight.shares, sharesCountOut)
             : sharesCountOut,
-        savesCount: p.savesCount ?? 0,
+        savesCount: savesCountOut,
         publishedAt: p.publishedAt instanceof Date ? p.publishedAt.toISOString() : String(p.publishedAt),
         mediaType: p.mediaType,
         platform: p.platform,
@@ -1275,7 +1379,10 @@ export async function GET(
                 reactions: likeCountOut,
                 comments: commentsCountOut,
                 shares: sharesCountOut,
-                totalEngagement: likeCountOut + commentsCountOut + sharesCountOut,
+                totalEngagement:
+                  p.platform === 'PINTEREST'
+                    ? likeCountOut + commentsCountOut + sharesCountOut + savesCountOut
+                    : likeCountOut + commentsCountOut + sharesCountOut,
               },
             }
           : {}),
@@ -2428,6 +2535,7 @@ async function syncImportedPosts(
       created_at?: string;
       link?: string;
       media?: unknown;
+      pin_metrics?: unknown;
     };
     try {
       const headers = { Authorization: `Bearer ${accessToken}` };
@@ -2437,7 +2545,7 @@ async function syncImportedPosts(
       while (pages < 15) {
         const res = await axios.get<{ items?: PinItem[]; bookmark?: string }>('https://api.pinterest.com/v5/pins', {
           headers,
-          params: { page_size: 25, ...(bookmark ? { bookmark } : {}) },
+          params: { page_size: 25, pin_metrics: true, ...(bookmark ? { bookmark } : {}) },
           validateStatus: () => true,
           timeout: 25_000,
         });
@@ -2462,18 +2570,44 @@ async function syncImportedPosts(
         const publishedAt = pin.created_at ? new Date(pin.created_at) : new Date();
         const content = (pin.title ?? pin.description ?? '').trim() || null;
         let detailMedia: unknown | null = null;
+        let pinMetrics: unknown | null = pin.pin_metrics ?? null;
         let thumbnailUrl = pickPinThumbnailFromMedia(pin.media);
-        if (!thumbnailUrl) {
-          detailMedia = await fetchPinterestPinMedia(pinId, headers);
-          thumbnailUrl = pickPinThumbnailFromMedia(detailMedia);
+        if (!thumbnailUrl || !pinMetrics) {
+          const detail = await fetchPinterestPinDetail(pinId, headers);
+          if (!thumbnailUrl) {
+            detailMedia = detail?.media ?? null;
+            thumbnailUrl = pickPinThumbnailFromMedia(detailMedia);
+          }
+          pinMetrics = pinMetrics ?? detail?.pin_metrics ?? null;
         }
         const permalinkUrl = `https://www.pinterest.com/pin/${pinId}/`;
         const mediaType =
           inferPinterestMediaType(pin.media) ??
           inferPinterestMediaType(detailMedia) ??
           'IMAGE';
-        const impressions = 0;
-        const interactions = 0;
+        const prev = await findImportedPostPrevSafe(socialAccountId, pinId);
+        const prevMeta =
+          prev?.platformMetadata && typeof prev.platformMetadata === 'object' && !Array.isArray(prev.platformMetadata)
+            ? (prev.platformMetadata as Record<string, unknown>)
+            : {};
+        const extracted = extractPinterestImportedPostMetrics({ mediaType, pinMetrics });
+        const impressions = extracted.impressions;
+        const interactions = extracted.interactions;
+        const likeCount = extracted.likeCount;
+        const commentsCount = extracted.commentsCount;
+        const sharesCount = extracted.sharesCount;
+        const savesCount = extracted.savesCount;
+        const platformMetadata = {
+          ...prevMeta,
+          pinterest: {
+            ...(typeof prevMeta.pinterest === 'object' && prevMeta.pinterest && !Array.isArray(prevMeta.pinterest)
+              ? (prevMeta.pinterest as Record<string, unknown>)
+              : {}),
+            pin_metrics: pinMetrics,
+            compatInsights: extracted.facebookInsightsCompat,
+            metricsExtractedAt: new Date().toISOString(),
+          },
+        };
         await prisma.importedPost.upsert({
           where: { socialAccountId_platformPostId: { socialAccountId, platformPostId: pinId } },
           update: {
@@ -2484,6 +2618,11 @@ async function syncImportedPosts(
             mediaType,
             impressions,
             interactions,
+            likeCount,
+            commentsCount,
+            sharesCount,
+            savesCount,
+            platformMetadata: platformMetadata as object,
             syncedAt: new Date(),
           },
           create: {
@@ -2497,6 +2636,11 @@ async function syncImportedPosts(
             mediaType,
             impressions,
             interactions,
+            likeCount,
+            commentsCount,
+            sharesCount,
+            savesCount,
+            platformMetadata: platformMetadata as object,
           },
         });
       }
