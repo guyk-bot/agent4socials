@@ -250,6 +250,7 @@ export async function runPublishPostWorkflow(input: {
     const creds = socialAccount.credentialsJson as {
       twitterOAuth1AccessToken?: string;
       twitterOAuth1AccessTokenSecret?: string;
+      grantedScope?: string;
       pinterestDefaultBoardId?: string | null;
     } | null;
     const twitterOAuth1 =
@@ -289,6 +290,29 @@ export async function runPublishPostWorkflow(input: {
     }
 
     const isStory = postMediaType === 'story' && (platform === 'INSTAGRAM' || platform === 'FACEBOOK');
+
+    if (platform === 'TWITTER' && firstImageUrl) {
+      const oauth1Ready =
+        Boolean(creds?.twitterOAuth1AccessToken && creds?.twitterOAuth1AccessTokenSecret) &&
+        Boolean(process.env.TWITTER_API_KEY && process.env.TWITTER_API_SECRET);
+      if (!oauth1Ready) {
+        const gs = typeof creds?.grantedScope === 'string' ? creds.grantedScope.trim() : '';
+        if (gs && !/\bmedia\.write\b/i.test(gs)) {
+          const errLong =
+            'X (Twitter): this connection was authorized without the media.write scope, so image upload is blocked. Disconnect X in Dashboard → Accounts and connect again (consent must include media), or use “Enable image upload” for OAuth 1.0a. If you use TWITTER_OAUTH_SCOPES in Vercel, add media.write and redeploy before reconnecting.';
+          await prisma.postTarget.update({
+            where: { id: target.id },
+            data: { status: PostStatus.FAILED, error: errLong.slice(0, 500) },
+          });
+          return {
+            platform,
+            ok: false,
+            error:
+              'X reconnect required for images: your connection lacks media.write. Disconnect X, reconnect, or use Enable image upload.'.slice(0, 200),
+          };
+        }
+      }
+    }
 
     let result = await publishTarget(
       {

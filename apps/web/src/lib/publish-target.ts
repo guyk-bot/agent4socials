@@ -129,9 +129,10 @@ async function fetchMediaBuffer(
  * - v1.1 `upload.twitter.com` + Bearer is rejected as application-only for many apps.
  * - The legacy single `POST …/2/media/upload` with multipart `command=INIT` is deprecated; use split endpoints instead.
  * - OAuth 2.0 user tokens must include **media.write** for v2 media upload; without it, X may return “Application-Only” / unsupported auth.
+ * - Try **api.twitter.com** first, then **api.x.com**—some tokens succeed on one host only.
  * @see https://devcommunity.x.com/t/media-upload-endpoints-update-and-extended-migration-deadline/241818
  */
-const TWITTER_V2_MEDIA_BASE = 'https://api.x.com/2/media/upload';
+const TWITTER_V2_MEDIA_HOSTS = ['https://api.twitter.com/2/media/upload', 'https://api.x.com/2/media/upload'] as const;
 
 function twitterInitMediaTypeFromImageContentType(contentType: string): { mediaType: string; filename: string } {
   const c = contentType.toLowerCase();
@@ -171,6 +172,10 @@ function parseTwitterMediaUploadId(body: unknown): string | undefined {
  * OAuth 2.0 user-context media upload using X v2 split endpoints (initialize → append → finalize).
  * @see https://docs.x.com/x-api/media/media-upload-initialize
  */
+function twitterMediaAuthHint(): string {
+  return ' Reconnect X from Dashboard → Accounts so the app requests the **media.write** scope (or use “Enable image upload” for OAuth 1.0a media). If you set TWITTER_OAUTH_SCOPES in Vercel, include media.write.';
+}
+
 async function twitterOAuth2ResumableMediaUpload(
   axiosInstance: PublishDeps['axios'],
   userAccessToken: string,
@@ -181,43 +186,63 @@ async function twitterOAuth2ResumableMediaUpload(
 ): Promise<{ ok: true; mediaId: string } | { ok: false; error: string }> {
   const auth = { Authorization: `Bearer ${userAccessToken}` };
 
-  const initRes = await axiosInstance.post(
-    `${TWITTER_V2_MEDIA_BASE}/initialize`,
-    {
-      media_type: mediaType,
-      total_bytes: buffer.length,
-      media_category: mediaCategory,
-    },
-    {
-      headers: { ...auth, 'Content-Type': 'application/json' },
-      maxBodyLength: Infinity,
-      maxContentLength: Infinity,
-      timeout: 60_000,
-      validateStatus: () => true,
-    }
-  );
-  if (initRes.status !== 200) {
-    const err =
+  let mediaBase = '';
+  let initPayload: unknown = null;
+  let lastInitErr = '';
+
+  for (const host of TWITTER_V2_MEDIA_HOSTS) {
+    const initRes = await axiosInstance.post(
+      `${host}/initialize`,
+      {
+        media_type: mediaType,
+        total_bytes: buffer.length,
+        media_category: mediaCategory,
+      },
+      {
+        headers: { ...auth, 'Content-Type': 'application/json' },
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity,
+        timeout: 60_000,
+        validateStatus: () => true,
+      }
+    );
+    const errStr =
       typeof initRes.data === 'object' ? JSON.stringify(initRes.data) : String(initRes.data ?? initRes.status);
-    let msg = `Twitter media initialize (v2) failed: ${initRes.status} ${err}`.slice(0, 500);
-    if (/Application-Only|Unsupported Authentication/i.test(err)) {
-      msg +=
-        ' Reconnect X from Dashboard → Accounts so the app requests the **media.write** scope (or use “Enable image upload” for OAuth 1.0a media). If you set TWITTER_OAUTH_SCOPES in Vercel, include media.write.';
+    if (initRes.status === 200) {
+      const id = parseTwitterMediaUploadId(initRes.data);
+      if (id) {
+        mediaBase = host;
+        initPayload = initRes.data;
+        break;
+      }
+      lastInitErr = `Twitter media initialize (v2) did not return a media id: ${JSON.stringify(initRes.data)}`.slice(0, 500);
+      return { ok: false, error: lastInitErr };
     }
+    lastInitErr = `Twitter media initialize (v2) failed: ${initRes.status} ${errStr}`.slice(0, 500);
+    const isAuthShape = /Application-Only|Unsupported Authentication/i.test(errStr);
+    if (!isAuthShape) {
+      return { ok: false, error: lastInitErr };
+    }
+  }
+
+  if (!mediaBase || !initPayload) {
+    let msg = lastInitErr || 'Twitter media initialize (v2) failed on all hosts.';
+    if (/Application-Only|Unsupported Authentication/i.test(msg)) msg += twitterMediaAuthHint();
     return { ok: false, error: msg };
   }
-  const mediaId = parseTwitterMediaUploadId(initRes.data);
+
+  const mediaId = parseTwitterMediaUploadId(initPayload);
   if (!mediaId) {
     return {
       ok: false,
-      error: `Twitter media initialize (v2) did not return a media id: ${JSON.stringify(initRes.data)}`.slice(0, 500),
+      error: `Twitter media initialize (v2) did not return a media id: ${JSON.stringify(initPayload)}`.slice(0, 500),
     };
   }
 
   const appendForm = new FormData();
   appendForm.append('segment_index', '0');
   appendForm.append('media', buffer, { filename: appendFilename, contentType: mediaType });
-  const appendRes = await axiosInstance.post(`${TWITTER_V2_MEDIA_BASE}/${encodeURIComponent(mediaId)}/append`, appendForm, {
+  const appendRes = await axiosInstance.post(`${mediaBase}/${encodeURIComponent(mediaId)}/append`, appendForm, {
     headers: { ...auth, ...appendForm.getHeaders() },
     maxBodyLength: Infinity,
     maxContentLength: Infinity,
@@ -231,7 +256,7 @@ async function twitterOAuth2ResumableMediaUpload(
   }
 
   const finalizeRes = await axiosInstance.post(
-    `${TWITTER_V2_MEDIA_BASE}/${encodeURIComponent(mediaId)}/finalize`,
+    `${mediaBase}/${encodeURIComponent(mediaId)}/finalize`,
     {},
     {
       headers: { ...auth, 'Content-Type': 'application/json' },
@@ -250,7 +275,7 @@ async function twitterOAuth2ResumableMediaUpload(
   const finPi = twitterV2MediaProcessingInfo(finalizeRes.data);
   const state = finPi?.state;
   if (state && state !== 'succeeded') {
-    const statusUrl = `${TWITTER_V2_MEDIA_BASE}?command=STATUS&media_id=${encodeURIComponent(mediaId)}`;
+    const statusUrl = `${mediaBase}?command=STATUS&media_id=${encodeURIComponent(mediaId)}`;
     // Images usually finish quickly; avoid sleeping 2s before the first STATUS poll.
     const maxWaitMs = mediaCategory === 'tweet_image' ? 22_000 : 90_000;
     const deadline = Date.now() + maxWaitMs;

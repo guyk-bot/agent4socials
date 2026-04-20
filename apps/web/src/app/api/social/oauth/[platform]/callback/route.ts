@@ -1044,6 +1044,21 @@ export async function GET(
       credentialsJsonToSet = { ...prevObj, linkedinRestPersonUrn: personUrn };
     }
   }
+  if (plat === 'TWITTER' && twitterCreds) {
+    const existingTw = await prisma.socialAccount.findFirst({
+      where: {
+        userId,
+        platform: 'TWITTER',
+        platformUserId: tokenData.platformUserId,
+      },
+      select: { credentialsJson: true },
+    });
+    const prevTw =
+      existingTw?.credentialsJson && typeof existingTw.credentialsJson === 'object' && existingTw.credentialsJson !== null
+        ? { ...(existingTw.credentialsJson as Record<string, unknown>) }
+        : {};
+    credentialsJsonToSet = { ...prevTw, ...twitterCreds };
+  }
   try {
     if (plat === 'PINTEREST') {
       await ensurePinterestPlatformEnum();
