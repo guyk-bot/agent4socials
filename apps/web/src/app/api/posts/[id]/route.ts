@@ -6,7 +6,10 @@ import { isTikTokDirectPostPayload } from '@/lib/tiktok/tiktok-publish-complianc
 import { friendlyMessageIfPrismaSchemaDrift } from '@/lib/prisma-db-hints';
 
 function isMissingPostMediaTypeColumn(error: unknown): boolean {
-  const msg = String((error as { message?: string })?.message ?? '');
+  const e = error as { message?: string; code?: string; meta?: { column?: unknown } };
+  const msg = String(e?.message ?? '');
+  const metaColumn = String(e?.meta?.column ?? '');
+  if (e?.code === 'P2022' && metaColumn.toLowerCase().includes('mediatype')) return true;
   return msg.includes('mediaType') && msg.includes('does not exist');
 }
 
