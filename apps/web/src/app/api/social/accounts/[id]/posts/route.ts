@@ -319,6 +319,29 @@ function pickPinThumbnailFromMedia(media: unknown): string | null {
   return null;
 }
 
+/** Pinterest media payload can vary between list/detail endpoints; infer canonical post format. */
+function inferPinterestMediaType(media: unknown): 'VIDEO' | 'IMAGE' | null {
+  if (!media || typeof media !== 'object' || Array.isArray(media)) return null;
+  const m = media as Record<string, unknown>;
+  const mt = String(m.media_type ?? '').toLowerCase();
+  if (mt === 'video' || mt === 'animated_gif') return 'VIDEO';
+  if (mt === 'image') return 'IMAGE';
+
+  // Detail payloads often expose video payloads under one of these keys.
+  const hasVideoPayload = ['video', 'videos', 'video_list', 'story_pin_data'].some((k) => {
+    const v = m[k];
+    return typeof v === 'object' && v !== null;
+  });
+  if (hasVideoPayload) return 'VIDEO';
+
+  // Image-like payloads still indicate a static Pin.
+  const hasImagePayload =
+    typeof m.cover_image_url === 'string' ||
+    (typeof m.images === 'object' && m.images !== null);
+  if (hasImagePayload) return 'IMAGE';
+  return null;
+}
+
 async function fetchPinterestPinMedia(
   pinId: string,
   headers: Record<string, string>,
@@ -2295,17 +2318,17 @@ async function syncImportedPosts(
         if (!pinId) continue;
         const publishedAt = pin.created_at ? new Date(pin.created_at) : new Date();
         const content = (pin.title ?? pin.description ?? '').trim() || null;
+        let detailMedia: unknown | null = null;
         let thumbnailUrl = pickPinThumbnailFromMedia(pin.media);
         if (!thumbnailUrl) {
-          const detailMedia = await fetchPinterestPinMedia(pinId, headers);
+          detailMedia = await fetchPinterestPinMedia(pinId, headers);
           thumbnailUrl = pickPinThumbnailFromMedia(detailMedia);
         }
         const permalinkUrl = `https://www.pinterest.com/pin/${pinId}/`;
-        const listMt =
-          pin.media && typeof pin.media === 'object' && 'media_type' in pin.media
-            ? String((pin.media as { media_type?: string }).media_type ?? '').toLowerCase()
-            : '';
-        const mediaType = listMt === 'video' ? 'VIDEO' : 'IMAGE';
+        const mediaType =
+          inferPinterestMediaType(pin.media) ??
+          inferPinterestMediaType(detailMedia) ??
+          'IMAGE';
         const impressions = 0;
         const interactions = 0;
         await prisma.importedPost.upsert({
