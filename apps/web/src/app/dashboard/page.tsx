@@ -869,10 +869,26 @@ export default function DashboardPage() {
         const prevVideoViews = Number(prevTotals.videoViews ?? 0);
         const nextContentViews = Number(nextTotals.contentViews ?? 0);
         const nextImpressions = Number(next.impressionsTotal ?? 0);
+        const toPoints = (v: unknown): Array<{ date: string; value: number }> =>
+          Array.isArray(v)
+            ? (v as Array<Record<string, unknown>>)
+                .map((p) => ({ date: String(p.date ?? ''), value: Number(p.value ?? 0) }))
+                .filter((p) => /^\d{4}-\d{2}-\d{2}$/.test(p.date) && Number.isFinite(p.value))
+            : [];
+        const uniqueRoundedValues = (pts: Array<{ date: string; value: number }>) =>
+          new Set(pts.map((p) => Math.round((Number(p.value) || 0) * 100) / 100)).size;
+        const nextTrafficSeries = toPoints((nextSeries.postImpressions ?? nextSeries.contentViews ?? null) as unknown);
+        const prevTrafficSeries = toPoints((prevSeries.postImpressions ?? prevSeries.contentViews ?? null) as unknown);
+        const incomingLooksUniformFallback =
+          nextTrafficSeries.length >= 14 &&
+          uniqueRoundedValues(nextTrafficSeries) <= 2;
+        const prevLooksRicher =
+          prevTrafficSeries.length > 0 &&
+          uniqueRoundedValues(prevTrafficSeries) >= 3;
         // Pinterest API intermittently returns an impressions-only payload for the same date range.
         // Keep prior engagement/video slices so cards and charts do not "pop" between full and partial data.
         const looksPartial = nextContentViews > 0 && nextImpressions > 0 && nextEngagement <= 0 && prevEngagement > 0;
-        if (looksPartial) {
+        if (looksPartial || (incomingLooksUniformFallback && prevLooksRicher)) {
           next.facebookAnalytics = {
             ...nextBundle,
             series: {
@@ -880,14 +896,31 @@ export default function DashboardPage() {
               engagement: prevSeries.engagement ?? nextSeries.engagement,
               totalActions: prevSeries.totalActions ?? nextSeries.totalActions,
               videoViews: prevSeries.videoViews ?? nextSeries.videoViews,
+              ...(incomingLooksUniformFallback && prevLooksRicher
+                ? {
+                    postImpressions: prevSeries.postImpressions ?? nextSeries.postImpressions,
+                    postImpressionsNonviral: prevSeries.postImpressionsNonviral ?? nextSeries.postImpressionsNonviral,
+                    contentViews: prevSeries.contentViews ?? nextSeries.contentViews,
+                  }
+                : {}),
             },
             totals: {
               ...nextTotals,
               engagement: prevTotals.engagement ?? nextTotals.engagement,
               totalActions: prevTotals.totalActions ?? nextTotals.totalActions,
               videoViews: prevVideoViews > 0 ? prevVideoViews : nextVideoViews,
+              ...(incomingLooksUniformFallback && prevLooksRicher
+                ? {
+                    contentViews: prevTotals.contentViews ?? nextTotals.contentViews,
+                    postImpressions: prevTotals.postImpressions ?? nextTotals.postImpressions,
+                    postImpressionsNonviral: prevTotals.postImpressionsNonviral ?? nextTotals.postImpressionsNonviral,
+                  }
+                : {}),
             },
           };
+          if (incomingLooksUniformFallback && prevLooksRicher) {
+            next.impressionsTimeSeries = prev.impressionsTimeSeries ?? next.impressionsTimeSeries;
+          }
         }
         return next;
       }
