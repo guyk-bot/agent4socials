@@ -1217,6 +1217,8 @@ export default function UnifiedSummaryPage() {
   const lastSummaryRangeRef = useRef<string | null>(null);
   const lastHydratedSummaryRangeRef = useRef<string | null>(null);
   const summaryFetchUserRef = useRef<string | null>(null);
+  /** Track accounts we've already kicked off a background post-sync for in this session. */
+  const consolePostsSyncedRef = useRef<Set<string>>(new Set());
 
   // Performance section
   const [performanceMode, setPerformanceMode] = useState<'growth' | 'engagement' | 'views'>('growth');
@@ -1323,6 +1325,55 @@ export default function UnifiedSummaryPage() {
       cancelled = true;
     };
   }, [user?.id, dateRange.start, dateRange.end]);
+
+  // Twitter and Pinterest are not covered by the scheduled cron (genericAdapter is a no-op), so
+  // importedPost rows only exist for accounts the user manually opened. Kick off a one-shot
+  // background sync for each such account when the Console loads, then re-fetch the summary so
+  // posts that just landed in the DB appear in the charts without requiring a manual refresh.
+  useEffect(() => {
+    if (!user?.id) return;
+    const targets = orderedAccounts.filter(
+      (a) => a.platform === 'TWITTER' || a.platform === 'PINTEREST'
+    );
+    if (targets.length === 0) return;
+
+    let cancelled = false;
+    const pendingSyncs: Promise<unknown>[] = [];
+    for (const acc of targets) {
+      if (consolePostsSyncedRef.current.has(acc.id)) continue;
+      consolePostsSyncedRef.current.add(acc.id);
+      pendingSyncs.push(
+        api
+          .get(`/social/accounts/${encodeURIComponent(acc.id)}/posts`, {
+            params: { sync: 1 },
+            timeout: 45_000,
+          })
+          .catch(() => undefined)
+      );
+    }
+    if (pendingSyncs.length === 0) return;
+
+    (async () => {
+      await Promise.all(pendingSyncs);
+      if (cancelled || !user?.id) return;
+      try {
+        const res = await api.get<UnifiedSummaryResponse>('/analytics/summary', {
+          params: { since: dateRange.start, until: dateRange.end },
+        });
+        if (cancelled) return;
+        const normalized = normalizeUnifiedSummary(res.data);
+        setData(normalized);
+        writeUnifiedSummaryCache(user.id, dateRange.start, dateRange.end, normalized);
+      } catch {
+        /* Keep whatever we already rendered. */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, accountsKey, dateRange.start, dateRange.end]);
 
   useEffect(() => {
     if (!user?.id) {
