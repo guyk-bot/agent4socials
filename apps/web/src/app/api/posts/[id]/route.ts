@@ -5,6 +5,11 @@ import { PostStatus, Platform, Prisma } from '@prisma/client';
 import { isTikTokDirectPostPayload } from '@/lib/tiktok/tiktok-publish-compliance';
 import { friendlyMessageIfPrismaSchemaDrift } from '@/lib/prisma-db-hints';
 
+function isMissingPostMediaTypeColumn(error: unknown): boolean {
+  const msg = String((error as { message?: string })?.message ?? '');
+  return msg.includes('mediaType') && msg.includes('does not exist');
+}
+
 /**
  * GET /api/posts/[id] - Fetch a single post for viewing/editing in composer.
  */
@@ -196,7 +201,7 @@ export async function PATCH(
         return NextResponse.json({ message: 'tiktokPublishByAccountId must be an object or null.' }, { status: 400 });
       }
     }
-    const post = await prisma.post.update({
+    const updateArgs = {
       where: { id },
       data: updateData as never,
       include: {
@@ -207,7 +212,18 @@ export async function PATCH(
           },
         },
       },
-    });
+    };
+    let post;
+    try {
+      post = await prisma.post.update(updateArgs);
+    } catch (updateErr) {
+      if (!isMissingPostMediaTypeColumn(updateErr)) throw updateErr;
+      const { mediaType: _dropMediaType, ...withoutMediaType } = updateData;
+      post = await prisma.post.update({
+        ...updateArgs,
+        data: withoutMediaType as never,
+      });
+    }
     return NextResponse.json(post);
   } catch (e) {
     const drift = friendlyMessageIfPrismaSchemaDrift(e);

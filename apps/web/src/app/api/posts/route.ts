@@ -6,6 +6,11 @@ import { isTikTokDirectPostPayload } from '@/lib/tiktok/tiktok-publish-complianc
 import { sendScheduleConfirmationEmail } from '@/lib/resend';
 import { friendlyMessageIfPrismaSchemaDrift } from '@/lib/prisma-db-hints';
 
+function isMissingPostMediaTypeColumn(error: unknown): boolean {
+  const msg = String((error as { message?: string })?.message ?? '');
+  return msg.includes('mediaType') && msg.includes('does not exist');
+}
+
 export async function GET(request: NextRequest) {
   if (!process.env.DATABASE_URL) {
     return NextResponse.json({ message: 'Posts require DATABASE_URL' }, { status: 503 });
@@ -140,46 +145,47 @@ export async function POST(request: NextRequest) {
   }
   const status: PostStatus = scheduledAt ? PostStatus.SCHEDULED : PostStatus.DRAFT;
   try {
-  const post = await prisma.post.create({
-    data: {
-      userId,
-      ...(title !== undefined && title !== null && String(title).trim() ? { title: String(title).trim().slice(0, 300) } : {}),
-      content: content ?? null,
-      ...(contentByPlatform && Object.keys(contentByPlatform).length > 0 ? { contentByPlatform } : {}),
-      ...(mediaByPlatform && Object.keys(mediaByPlatform).length > 0 ? { mediaByPlatform } : {}),
-      ...(commentAutomation && Array.isArray(commentAutomation.keywords) && commentAutomation.keywords.length > 0 && (
-        (commentAutomation.replyTemplate ?? '').trim() ||
-        (commentAutomation.replyTemplateByPlatform && typeof commentAutomation.replyTemplateByPlatform === 'object' && Object.values(commentAutomation.replyTemplateByPlatform).some((s: unknown) => (typeof s === 'string' && s.trim())))
-      )
-        ? { commentAutomation: commentAutomation as object }
-        : {}),
-      status,
-      targetPlatforms: validTargets.map((t) => t.platform),
-      scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
-      scheduleDelivery: scheduledAt && (scheduleDelivery === 'auto' || scheduleDelivery === 'email_links') ? scheduleDelivery : null,
-      ...(tiktokJson ? { tiktokPublishByAccountId: tiktokJson } : {}),
-      ...(bodyMediaType ? { mediaType: String(bodyMediaType).slice(0, 50) } : {}),
-      media: {
-        create: media.map((m) => ({
-          fileUrl: m.fileUrl,
-          type: m.type as 'IMAGE' | 'VIDEO',
-          metadata: (() => {
-            const meta = m as { thumbnailUrl?: string; useVideoDefaultForPublish?: boolean };
-            const obj: Record<string, unknown> = {};
-            if (meta.thumbnailUrl) obj.thumbnailUrl = meta.thumbnailUrl;
-            if (meta.useVideoDefaultForPublish) obj.useVideoDefaultForPublish = true;
-            return (Object.keys(obj).length ? obj : undefined) as Prisma.InputJsonValue | undefined;
-          })(),
-        })),
-      },
-      targets: {
-        create: validTargets.map((t) => ({
-          platform: t.platform as Platform,
-          socialAccountId: t.socialAccountId,
-          status,
-        })),
-      },
+  const baseCreateData: Record<string, unknown> = {
+    userId,
+    ...(title !== undefined && title !== null && String(title).trim() ? { title: String(title).trim().slice(0, 300) } : {}),
+    content: content ?? null,
+    ...(contentByPlatform && Object.keys(contentByPlatform).length > 0 ? { contentByPlatform } : {}),
+    ...(mediaByPlatform && Object.keys(mediaByPlatform).length > 0 ? { mediaByPlatform } : {}),
+    ...(commentAutomation && Array.isArray(commentAutomation.keywords) && commentAutomation.keywords.length > 0 && (
+      (commentAutomation.replyTemplate ?? '').trim() ||
+      (commentAutomation.replyTemplateByPlatform && typeof commentAutomation.replyTemplateByPlatform === 'object' && Object.values(commentAutomation.replyTemplateByPlatform).some((s: unknown) => (typeof s === 'string' && s.trim())))
+    )
+      ? { commentAutomation: commentAutomation as object }
+      : {}),
+    status,
+    targetPlatforms: validTargets.map((t) => t.platform),
+    scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
+    scheduleDelivery: scheduledAt && (scheduleDelivery === 'auto' || scheduleDelivery === 'email_links') ? scheduleDelivery : null,
+    ...(tiktokJson ? { tiktokPublishByAccountId: tiktokJson } : {}),
+    ...(bodyMediaType ? { mediaType: String(bodyMediaType).slice(0, 50) } : {}),
+    media: {
+      create: media.map((m) => ({
+        fileUrl: m.fileUrl,
+        type: m.type as 'IMAGE' | 'VIDEO',
+        metadata: (() => {
+          const meta = m as { thumbnailUrl?: string; useVideoDefaultForPublish?: boolean };
+          const obj: Record<string, unknown> = {};
+          if (meta.thumbnailUrl) obj.thumbnailUrl = meta.thumbnailUrl;
+          if (meta.useVideoDefaultForPublish) obj.useVideoDefaultForPublish = true;
+          return (Object.keys(obj).length ? obj : undefined) as Prisma.InputJsonValue | undefined;
+        })(),
+      })),
     },
+    targets: {
+      create: validTargets.map((t) => ({
+        platform: t.platform as Platform,
+        socialAccountId: t.socialAccountId,
+        status,
+      })),
+    },
+  };
+  const createArgs = {
+    data: baseCreateData as never,
     include: {
       media: true,
       targets: {
@@ -188,7 +194,18 @@ export async function POST(request: NextRequest) {
         },
       },
     },
-  });
+  };
+  let post;
+  try {
+    post = await prisma.post.create(createArgs);
+  } catch (createErr) {
+    if (!isMissingPostMediaTypeColumn(createErr)) throw createErr;
+    const { mediaType: _dropMediaType, ...withoutMediaType } = baseCreateData;
+    post = await prisma.post.create({
+      ...createArgs,
+      data: withoutMediaType as never,
+    });
+  }
   if (scheduledAt) {
     try {
       const user = await prisma.user.findUnique({
