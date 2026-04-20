@@ -3488,6 +3488,23 @@ export function FacebookAnalyticsView({
     const postImpressionsMap = seriesToMap(series?.postImpressions ?? []);
     const nonviralMap = seriesToMap(series?.postImpressionsNonviral ?? []);
     const viralMap = seriesToMap(series?.postImpressionsViral ?? []);
+    const hasApiTrafficSeries =
+      Object.values(postImpressionsMap).some((v) => (v ?? 0) > 0) ||
+      Object.values(nonviralMap).some((v) => (v ?? 0) > 0) ||
+      Object.values(viralMap).some((v) => (v ?? 0) > 0);
+    const hasPostDerivedSeries = Object.values(postImpressionsByPublishDate).some((v) => (v ?? 0) > 0);
+    // Pinterest often has totals immediately while per-day series arrives later.
+    // Keep chart bars visible instantly using a stable single-day fallback.
+    if (isPinterest && !hasApiTrafficSeries && !hasPostDerivedSeries && postImpressions > 0) {
+      const lastDate = dateAxis[dateAxis.length - 1] ?? toLocalCalendarDate(new Date());
+      return dateAxis.map((date) => ({
+        date,
+        postImpressions: date === lastDate ? postImpressions : 0,
+        nonviral: 0,
+        viral: 0,
+        uniqueReachProxy: 0,
+      }));
+    }
     /** Only backfill non-viral from per-post impressions when Meta sent no viral/nonviral breakdown at all (same rule as KPI cards). */
     const mayBackfillNonviralFromPosts =
       isFacebook &&
@@ -3520,6 +3537,8 @@ export function FacebookAnalyticsView({
     series?.postImpressionsViral,
     uniqueReachByDate,
     postImpressionsByPublishDate,
+    isPinterest,
+    postImpressions,
   ]);
 
   /** Pie slices must be `{ name, value }` only: a `percent` field breaks Recharts labels (conflicts with internal `percent`). */
