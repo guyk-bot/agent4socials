@@ -124,8 +124,13 @@ async function fetchMediaBuffer(
   return { buffer, contentType };
 }
 
-/** X API v2 media upload (OAuth 2.0 user Bearer). v1.1 `upload.twitter.com` rejects many OAuth2 user tokens as application-only. */
-const TWITTER_MEDIA_UPLOAD_V2_URL = 'https://api.x.com/2/media/upload';
+/**
+ * X API v2 media upload (OAuth 2.0 user Bearer).
+ * - v1.1 `upload.twitter.com` + Bearer is rejected as application-only for many apps.
+ * - The legacy single `POST api.x.com/2/media/upload` with multipart `command=INIT` is deprecated; use split endpoints instead.
+ * @see https://devcommunity.x.com/t/media-upload-endpoints-update-and-extended-migration-deadline/241818
+ */
+const TWITTER_V2_MEDIA_BASE = 'https://api.twitter.com/2/media/upload';
 
 function twitterInitMediaTypeFromImageContentType(contentType: string): { mediaType: string; filename: string } {
   const c = contentType.toLowerCase();
@@ -149,8 +154,8 @@ function parseTwitterMediaUploadId(body: unknown): string | undefined {
 }
 
 /**
- * INIT → APPEND → FINALIZE on v2 media upload with OAuth 2.0 user access token.
- * @see https://docs.x.com/x-api/media/upload-media
+ * OAuth 2.0 user-context media upload using X v2 split endpoints (initialize → append → finalize).
+ * @see https://docs.x.com/x-api/media/media-upload-initialize
  */
 async function twitterOAuth2ResumableMediaUpload(
   axiosInstance: PublishDeps['axios'],
@@ -162,86 +167,83 @@ async function twitterOAuth2ResumableMediaUpload(
 ): Promise<{ ok: true; mediaId: string } | { ok: false; error: string }> {
   const auth = { Authorization: `Bearer ${userAccessToken}` };
 
-  const initForm = new FormData();
-  initForm.append('command', 'INIT');
-  initForm.append('total_bytes', String(buffer.length));
-  initForm.append('media_type', mediaType);
-  initForm.append('media_category', mediaCategory);
-  const initLen = await new Promise<number>((resolve, reject) => {
-    initForm.getLength((err: Error | null, length?: number) => (err ? reject(err) : resolve(length ?? 0)));
-  });
-  const initHeaders = { ...auth, ...initForm.getHeaders(), 'Content-Length': String(initLen) };
-
-  const initRes = await axiosInstance.post(TWITTER_MEDIA_UPLOAD_V2_URL, initForm, {
-    headers: initHeaders,
-    maxBodyLength: Infinity,
-    maxContentLength: Infinity,
-    timeout: 60_000,
-    validateStatus: () => true,
-  });
+  const initRes = await axiosInstance.post(
+    `${TWITTER_V2_MEDIA_BASE}/initialize`,
+    {
+      media_type: mediaType,
+      total_bytes: buffer.length,
+      media_category: mediaCategory,
+    },
+    {
+      headers: { ...auth, 'Content-Type': 'application/json' },
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity,
+      timeout: 60_000,
+      validateStatus: () => true,
+    }
+  );
   if (initRes.status !== 200) {
     const err =
       typeof initRes.data === 'object' ? JSON.stringify(initRes.data) : String(initRes.data ?? initRes.status);
-    return { ok: false, error: `Twitter media INIT (X API v2) failed: ${initRes.status} ${err}`.slice(0, 500) };
+    return { ok: false, error: `Twitter media initialize (v2) failed: ${initRes.status} ${err}`.slice(0, 500) };
   }
   const mediaId = parseTwitterMediaUploadId(initRes.data);
   if (!mediaId) {
     return {
       ok: false,
-      error: `Twitter media INIT (X API v2) did not return a media id: ${JSON.stringify(initRes.data)}`.slice(0, 500),
+      error: `Twitter media initialize (v2) did not return a media id: ${JSON.stringify(initRes.data)}`.slice(0, 500),
     };
   }
 
   const appendForm = new FormData();
-  appendForm.append('command', 'APPEND');
-  appendForm.append('media_id', mediaId);
   appendForm.append('segment_index', '0');
   appendForm.append('media', buffer, { filename: appendFilename, contentType: mediaType });
-  const appendRes = await axiosInstance.post(TWITTER_MEDIA_UPLOAD_V2_URL, appendForm, {
+  const appendRes = await axiosInstance.post(`${TWITTER_V2_MEDIA_BASE}/${encodeURIComponent(mediaId)}/append`, appendForm, {
     headers: { ...auth, ...appendForm.getHeaders() },
     maxBodyLength: Infinity,
     maxContentLength: Infinity,
     timeout: 60_000,
     validateStatus: () => true,
   });
-  if (appendRes.status !== 204 && appendRes.status !== 200) {
+  if (appendRes.status < 200 || appendRes.status >= 300) {
     const err =
       typeof appendRes.data === 'object' ? JSON.stringify(appendRes.data) : String(appendRes.data ?? appendRes.status);
-    return { ok: false, error: `Twitter media APPEND (X API v2) failed: ${appendRes.status} ${err}`.slice(0, 500) };
+    return { ok: false, error: `Twitter media append (v2) failed: ${appendRes.status} ${err}`.slice(0, 500) };
   }
 
-  const finalizeForm = new FormData();
-  finalizeForm.append('command', 'FINALIZE');
-  finalizeForm.append('media_id', mediaId);
-  const finalizeRes = await axiosInstance.post(TWITTER_MEDIA_UPLOAD_V2_URL, finalizeForm, {
-    headers: { ...auth, ...finalizeForm.getHeaders() },
-    timeout: 60_000,
-    validateStatus: () => true,
-  });
+  const finalizeRes = await axiosInstance.post(
+    `${TWITTER_V2_MEDIA_BASE}/${encodeURIComponent(mediaId)}/finalize`,
+    {},
+    {
+      headers: { ...auth, 'Content-Type': 'application/json' },
+      timeout: 60_000,
+      validateStatus: () => true,
+    }
+  );
   if (finalizeRes.status !== 200) {
     const err =
       typeof finalizeRes.data === 'object'
         ? JSON.stringify(finalizeRes.data)
         : String(finalizeRes.data ?? finalizeRes.status);
-    return { ok: false, error: `Twitter media FINALIZE (X API v2) failed: ${finalizeRes.status} ${err}`.slice(0, 500) };
+    return { ok: false, error: `Twitter media finalize (v2) failed: ${finalizeRes.status} ${err}`.slice(0, 500) };
   }
 
-  const fin = finalizeRes.data as { processing_info?: { state?: string } } | undefined;
+  const fin = finalizeRes.data as { processing_info?: { state?: string; check_after_secs?: number } } | undefined;
   const state = fin?.processing_info?.state;
   if (state && state !== 'succeeded') {
-    const statusUrl = `${TWITTER_MEDIA_UPLOAD_V2_URL}?command=STATUS&media_id=${encodeURIComponent(mediaId)}`;
-    for (let wait = 0; wait < 60_000; wait += 2000) {
+    const statusUrl = `${TWITTER_V2_MEDIA_BASE}?command=STATUS&media_id=${encodeURIComponent(mediaId)}`;
+    for (let wait = 0; wait < 90_000; wait += 2000) {
       await new Promise((r) => setTimeout(r, 2000));
       const statusRes = await axiosInstance.get(statusUrl, {
         headers: auth,
-        timeout: 10_000,
+        timeout: 12_000,
         validateStatus: () => true,
       });
       const proc = (statusRes.data as { processing_info?: { state?: string } } | undefined)?.processing_info;
       const st = proc?.state;
       if (st === 'succeeded') break;
       if (st === 'failed') {
-        return { ok: false, error: 'Twitter media processing failed (X API v2 STATUS)' };
+        return { ok: false, error: 'Twitter media processing failed (v2 STATUS)' };
       }
     }
   }

@@ -86,7 +86,7 @@ describe('publishTarget', () => {
   });
 
   describe('Twitter with image', () => {
-    it('fetches image, uploads via X API v2 (api.x.com/2/media/upload), then creates tweet with media.media_ids', async () => {
+    it('fetches image, uploads via X API v2 split media endpoints, then creates tweet with media.media_ids', async () => {
       const fetchCalls: { url: string; init?: RequestInit }[] = [];
       const fetchMock = async (url: string, init?: RequestInit) => {
         fetchCalls.push({ url, init });
@@ -100,24 +100,22 @@ describe('publishTarget', () => {
       };
 
       const axiosPostCalls: { url: string; data?: unknown }[] = [];
-      let v2MediaPostCount = 0;
       const axiosMock = {
         get: async (url: string) => {
-          if (url.includes('api.x.com/2/media/upload') && url.includes('command=STATUS')) {
+          if (url.includes('api.twitter.com/2/media/upload') && url.includes('command=STATUS')) {
             return { status: 200, data: { processing_info: { state: 'succeeded' } } };
           }
           return { data: {} };
         },
         post: async (url: string, data?: unknown) => {
           axiosPostCalls.push({ url, data });
-          if (url.includes('api.x.com/2/media/upload')) {
-            v2MediaPostCount += 1;
-            if (v2MediaPostCount === 1) {
-              return { status: 200, data: { data: { id: '12345' } } };
-            }
-            if (v2MediaPostCount === 2) {
-              return { status: 204, data: {} };
-            }
+          if (url.includes('/2/media/upload/initialize')) {
+            return { status: 200, data: { data: { id: '12345' } } };
+          }
+          if (url.includes('/2/media/upload/12345/append')) {
+            return { status: 204, data: {} };
+          }
+          if (url.includes('/2/media/upload/12345/finalize')) {
             return { status: 200, data: {} };
           }
           if (url.includes('api.twitter.com/2/tweets')) {
@@ -144,9 +142,10 @@ describe('publishTarget', () => {
       // 1) Fetched the image
       expect(fetchCalls.some((c) => c.url === fakeImageUrl)).toBe(true);
 
-      // 2) Uploaded via X API v2 (INIT / APPEND / FINALIZE)
-      const v2Uploads = axiosPostCalls.filter((c) => c.url.includes('api.x.com/2/media/upload'));
-      expect(v2Uploads.length).toBeGreaterThanOrEqual(3);
+      // 2) initialize + append + finalize
+      expect(axiosPostCalls.some((c) => c.url.includes('/2/media/upload/initialize'))).toBe(true);
+      expect(axiosPostCalls.some((c) => c.url.includes('/2/media/upload/12345/append'))).toBe(true);
+      expect(axiosPostCalls.some((c) => c.url.includes('/2/media/upload/12345/finalize'))).toBe(true);
 
       // 3) Created tweet with media_ids
       const tweetCall = axiosPostCalls.find((c) => c.url.includes('2/tweets'));

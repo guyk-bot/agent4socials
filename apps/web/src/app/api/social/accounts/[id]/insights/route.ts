@@ -2090,9 +2090,36 @@ export async function GET(
       // Each page is 100 tweets × ~200ms avg = ~20s for 10 pages; leave headroom for user/cron calls.
       const rangeDays = Math.max(1, (new Date(untilDay).getTime() - new Date(sinceDay).getTime()) / 86_400_000);
       const maxPages = rangeDays <= 14 ? 5 : rangeDays <= 31 ? 8 : 12;
+      /** Timeline + user lookup require numeric user id; older rows may have a placeholder if /users/me failed at connect. */
+      let twitterUserIdForApi = (account.platformUserId || '').trim();
+      if (!/^\d+$/.test(twitterUserIdForApi)) {
+        const handle = (account.username || '').replace(/^@/, '').trim();
+        if (handle) {
+          const lu = await axios.get<{ data?: { id?: string } }>(
+            `https://api.twitter.com/2/users/by/username/${encodeURIComponent(handle)}`,
+            {
+              params: { 'user.fields': 'id' },
+              headers: { Authorization: `Bearer ${liveAccessToken}` },
+              timeout: 12_000,
+              validateStatus: () => true,
+            }
+          );
+          const resolved = lu.data?.data?.id?.trim();
+          if (resolved && /^\d+$/.test(resolved)) {
+            twitterUserIdForApi = resolved;
+            if (resolved !== account.platformUserId) {
+              void prisma.socialAccount
+                .update({ where: { id: account.id }, data: { platformUserId: resolved } })
+                .catch(() => {
+                  /* non-fatal */
+                });
+            }
+          }
+        }
+      }
       tw = await fetchTwitterTimelineInsights({
         accessToken: liveAccessToken,
-        platformUserId: account.platformUserId,
+        platformUserId: twitterUserIdForApi,
         socialAccountId: account.id,
         sinceDay,
         untilDay,
