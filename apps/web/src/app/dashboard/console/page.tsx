@@ -58,6 +58,7 @@ import type {
   UnifiedHistoryPost,
   UnifiedSummaryResponse,
   UnifiedKpiSummary,
+  UnifiedPostsBreakdownDay,
 } from '@/lib/analytics/unified-metrics-types';
 import { PLATFORM_COLOR, CHART_PLATFORMS, PLATFORM_LABEL } from '@/lib/analytics/unified-metrics-types';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
@@ -445,6 +446,7 @@ function normalizeUnifiedSummary(d: UnifiedSummaryResponse): UnifiedSummaryRespo
     engagementChart: Array.isArray(d?.engagementChart) ? d.engagementChart : [],
     engagementBreakdown: Array.isArray(d?.engagementBreakdown) ? d.engagementBreakdown : [],
     activityBreakdown: Array.isArray(d?.activityBreakdown) ? d.activityBreakdown : [],
+    postsBreakdown: Array.isArray(d?.postsBreakdown) ? d.postsBreakdown : [],
     topPosts: Array.isArray(d?.topPosts) ? d.topPosts : [],
     history: Array.isArray(d?.history) ? d.history : [],
   };
@@ -1530,6 +1532,26 @@ export default function UnifiedSummaryPage() {
       }
       byDate.set(r.date, base);
     }
+
+    // Prefer the uncapped server-side breakdown so platforms with many posts (or
+    // text-only tweets pushed outside the 60-row history window) still show up.
+    const breakdown = (data as unknown as { postsBreakdown?: UnifiedPostsBreakdownDay[] } | null)?.postsBreakdown;
+    if (Array.isArray(breakdown) && breakdown.length > 0) {
+      for (const day of breakdown) {
+        const row = byDate.get(day.date);
+        if (!row) continue;
+        for (const p of connectedChartPlatforms) {
+          row[`reels_${p}`] = Number(day.reels?.[p] ?? 0);
+          row[`image_${p}`] = Number(day.image?.[p] ?? 0);
+          row[`carousel_${p}`] = Number(day.carousel?.[p] ?? 0);
+          row[`all_${p}`] =
+            Number(row[`reels_${p}`] ?? 0) + Number(row[`image_${p}`] ?? 0) + Number(row[`carousel_${p}`] ?? 0);
+        }
+      }
+      return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
+    }
+
+    // Fallback: older cached summaries (no postsBreakdown field) still use history.
     for (const post of data?.history ?? []) {
       const d = toLocalCalendarDate(new Date(post.postedAt));
       const row = byDate.get(d);
@@ -1547,7 +1569,7 @@ export default function UnifiedSummaryPage() {
       }
     }
     return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
-  }, [data?.history, data?.chart, connectedChartPlatforms]);
+  }, [data, connectedChartPlatforms]);
 
   const postsAxisTicks = useMemo(
     () =>

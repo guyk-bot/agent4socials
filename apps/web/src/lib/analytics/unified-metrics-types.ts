@@ -72,6 +72,21 @@ export interface UnifiedActivityDay {
   posts: number;
 }
 
+/**
+ * Daily per-platform post counts split by content type. This is computed from ALL
+ * `importedPost` rows in the reporting window (not capped at the history limit)
+ * so the Console "Posts" chart can show accurate per-platform totals even when a
+ * user has hundreds of posts and some platforms fall outside the history slice.
+ */
+export interface UnifiedPostsBreakdownDay {
+  date: string;
+  /** Per-platform counts keyed by label (Instagram, Meta, X, LinkedIn, YouTube, TikTok, Pinterest). */
+  reels: Record<string, number>;
+  image: Record<string, number>;
+  carousel: Record<string, number>;
+  all: Record<string, number>;
+}
+
 export interface UnifiedSummaryResponse {
   kpi: UnifiedKpiSummary;
   chart: UnifiedChartData;
@@ -79,6 +94,7 @@ export interface UnifiedSummaryResponse {
   engagementChart: UnifiedChartData;
   engagementBreakdown: UnifiedEngagementDay[];
   activityBreakdown: UnifiedActivityDay[];
+  postsBreakdown: UnifiedPostsBreakdownDay[];
   topPosts: UnifiedTopPost[];
   history: UnifiedHistoryPost[];
 }

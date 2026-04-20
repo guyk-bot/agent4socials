@@ -477,6 +477,89 @@ export async function getUnifiedEngagementBreakdown(
   return Object.values(map).sort((a, b) => a.date.localeCompare(b.date));
 }
 
+// ─── Posts Breakdown (daily per-platform per-type counts, uncapped) ───────────
+
+type PostTypeBucket = 'reels' | 'image' | 'carousel';
+
+/**
+ * Classify a post into the Console "Posts" chart buckets. Mirrors
+ * `classifyConsolePostType` in the Console page so server and client agree.
+ */
+function classifyPostBucket(
+  mediaType: string | null,
+  permalinkUrl: string | null,
+  platform: string | null
+): PostTypeBucket | null {
+  const plat = String(platform ?? '').toUpperCase();
+  const url = String(permalinkUrl ?? '').toLowerCase();
+  if (plat === 'YOUTUBE' && url.includes('/shorts/')) return 'reels';
+  const mt = String(mediaType ?? '').toUpperCase();
+  if (!mt) {
+    // X text-only tweets (and some LinkedIn / Pinterest rows) have no mediaType
+    // but must still roll into the posts chart so those platforms aren't 0.
+    if (plat === 'TWITTER' || plat === 'LINKEDIN' || plat === 'PINTEREST') return 'image';
+    return null;
+  }
+  if (mt === 'REEL' || mt === 'VIDEO' || mt === 'SHORT') return 'reels';
+  if (mt === 'CAROUSEL' || mt === 'ALBUM' || mt === 'CAROUSEL_ALBUM' || mt.includes('CAROUSEL')) return 'carousel';
+  if (
+    mt === 'IMAGE' || mt === 'PHOTO' || mt === 'PIN' || mt === 'PIN_IMAGE' ||
+    mt === 'STORY' || mt === 'TEXT' || mt === 'NOTE'
+  ) return 'image';
+  return null;
+}
+
+export async function getUnifiedPostsBreakdown(
+  userId: string,
+  period: UnifiedPeriod
+): Promise<import('./unified-metrics-types').UnifiedPostsBreakdownDay[]> {
+  const { since, until } = period;
+
+  const posts = await prisma.importedPost.findMany({
+    where: { socialAccount: { userId }, publishedAt: { gte: since, lte: until } },
+    select: {
+      publishedAt: true,
+      platform: true,
+      mediaType: true,
+      permalinkUrl: true,
+    },
+  });
+
+  const emptyPlatformMap = (): Record<string, number> => {
+    const obj: Record<string, number> = {};
+    for (const p of CHART_PLATFORMS) obj[p] = 0;
+    return obj;
+  };
+
+  const map: Record<string, import('./unified-metrics-types').UnifiedPostsBreakdownDay> = {};
+  const cursor = new Date(since);
+  while (cursor <= until) {
+    const d = cursor.toISOString().slice(0, 10);
+    map[d] = {
+      date: d,
+      reels: emptyPlatformMap(),
+      image: emptyPlatformMap(),
+      carousel: emptyPlatformMap(),
+      all: emptyPlatformMap(),
+    };
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  for (const post of posts) {
+    const d = new Date(post.publishedAt).toISOString().slice(0, 10);
+    const row = map[d];
+    if (!row) continue;
+    const label = PLATFORM_LABEL[post.platform ?? ''] ?? null;
+    if (!label) continue;
+    const bucket = classifyPostBucket(post.mediaType, post.permalinkUrl, post.platform);
+    if (!bucket) continue;
+    row[bucket][label] = (row[bucket][label] ?? 0) + 1;
+    row.all[label] = (row.all[label] ?? 0) + 1;
+  }
+
+  return Object.values(map).sort((a, b) => a.date.localeCompare(b.date));
+}
+
 // ─── Activity Breakdown (posts by day) ────────────────────────────────────────
 
 export async function getUnifiedActivityBreakdown(

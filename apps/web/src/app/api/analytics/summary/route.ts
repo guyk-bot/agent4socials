@@ -7,6 +7,7 @@ import {
   getUnifiedEngagementChartData,
   getUnifiedEngagementBreakdown,
   getUnifiedActivityBreakdown,
+  getUnifiedPostsBreakdown,
   getUnifiedTopPosts,
   getUnifiedPostsHistory,
   resolveUnifiedPeriod,
@@ -28,16 +29,37 @@ export async function GET(req: NextRequest) {
     until: until?.trim() || null,
   });
 
-  const [kpi, chart, audienceChart, engagementChart, engagementBreakdown, activityBreakdown, topPosts, history] = await Promise.all([
+  const [
+    kpi,
+    chart,
+    audienceChart,
+    engagementChart,
+    engagementBreakdown,
+    activityBreakdown,
+    postsBreakdown,
+    topPosts,
+    history,
+  ] = await Promise.all([
     getUnifiedKpiSummary(userId, period),
     getUnifiedChartData(userId, period),
     getUnifiedAudienceChartData(userId, period),
     getUnifiedEngagementChartData(userId, period),
     getUnifiedEngagementBreakdown(userId, period),
     getUnifiedActivityBreakdown(userId, period),
+    getUnifiedPostsBreakdown(userId, period),
     getUnifiedTopPosts(userId, period, 5),
     getUnifiedPostsHistory(userId, period, 60),
   ]);
 
-  return NextResponse.json({ kpi, chart, audienceChart, engagementChart, engagementBreakdown, activityBreakdown, topPosts, history });
+  return NextResponse.json({
+    kpi,
+    chart,
+    audienceChart,
+    engagementChart,
+    engagementBreakdown,
+    activityBreakdown,
+    postsBreakdown,
+    topPosts,
+    history,
+  });
 }
