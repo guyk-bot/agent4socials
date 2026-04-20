@@ -775,6 +775,22 @@ export default function DashboardPage() {
       (userIdRef.current ? readDashboardInsightsSession(userIdRef.current, accountId, undefined, dateRange) : null);
     const staleForAccount =
       staleRaw && typeof staleRaw === 'object' ? (staleRaw as Record<string, unknown>) : null;
+    // Pinterest traffic should appear instantly on open; allow a longer same-account fallback payload
+    // (any recent range) while fresh insights load in the background.
+    const pinterestQuickFallback =
+      selectedAccount?.platform === 'PINTEREST'
+        ? (
+            readInsightsFromLocalStorage(accountId, 6 * 60 * 60 * 1000) ??
+            (userIdRef.current
+              ? readDashboardInsightsSession(userIdRef.current, accountId, 6 * 60 * 60 * 1000)
+              : null)
+          )
+        : null;
+    const staleCandidate =
+      staleForAccount ??
+      (pinterestQuickFallback && typeof pinterestQuickFallback === 'object'
+        ? (pinterestQuickFallback as Record<string, unknown>)
+        : null);
     const postsCached = postsCacheRef.current[accountId] ?? app?.getPosts(accountId);
     /** Per-account analytics: posts are loaded only by the posts effect (avoids racing sync vs non-sync and prefetch churn). */
     const accountTabOwnsPosts = analyticsTab === 'account';
@@ -1020,8 +1036,8 @@ export default function DashboardPage() {
     // the date range itself changed) AND only when that data is fresh (< 10 min old).
     // Stale data from a different date range or a previous session plots time-series points
     // at the wrong positions, causing a visible "concentration then jump" artifact.
-    if (staleForAccount && !isDateRangeChange) {
-      const patchedStale = patchYouTubeExtended(staleForAccount);
+    if (staleCandidate && (!isDateRangeChange || selectedAccount?.platform === 'PINTEREST')) {
+      const patchedStale = patchYouTubeExtended(staleCandidate);
       lastInsightsByAccountIdRef.current[accountId] = patchedStale;
       setInsights(patchedStale as NonNullable<Parameters<typeof setInsights>[0]>);
       if (userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, patchedStale, dateRange);
