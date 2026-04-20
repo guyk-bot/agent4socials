@@ -893,18 +893,25 @@ export default function DashboardPage() {
             : [];
         const uniqueRoundedValues = (pts: Array<{ date: string; value: number }>) =>
           new Set(pts.map((p) => Math.round((Number(p.value) || 0) * 100) / 100)).size;
+        const nonZeroPoints = (pts: Array<{ date: string; value: number }>) =>
+          pts.filter((p) => (Number(p.value) || 0) > 0).length;
         const nextTrafficSeries = toPoints((nextSeries.postImpressions ?? nextSeries.contentViews ?? null) as unknown);
         const prevTrafficSeries = toPoints((prevSeries.postImpressions ?? prevSeries.contentViews ?? null) as unknown);
         const incomingLooksUniformFallback =
           nextTrafficSeries.length >= 14 &&
           uniqueRoundedValues(nextTrafficSeries) <= 2;
+        const incomingLooksThin =
+          nonZeroPoints(nextTrafficSeries) <= 1;
         const prevLooksRicher =
           prevTrafficSeries.length > 0 &&
+          nonZeroPoints(prevTrafficSeries) >= 3 &&
           uniqueRoundedValues(prevTrafficSeries) >= 3;
         // Pinterest API intermittently returns an impressions-only payload for the same date range.
         // Keep prior engagement/video slices so cards and charts do not "pop" between full and partial data.
         const looksPartial = nextContentViews > 0 && nextImpressions > 0 && nextEngagement <= 0 && prevEngagement > 0;
-        if (looksPartial || (incomingLooksUniformFallback && prevLooksRicher)) {
+        const shouldPreservePriorSeries =
+          prevLooksRicher && (incomingLooksUniformFallback || incomingLooksThin);
+        if (looksPartial || shouldPreservePriorSeries) {
           next.facebookAnalytics = {
             ...nextBundle,
             series: {
@@ -912,7 +919,7 @@ export default function DashboardPage() {
               engagement: prevSeries.engagement ?? nextSeries.engagement,
               totalActions: prevSeries.totalActions ?? nextSeries.totalActions,
               videoViews: prevSeries.videoViews ?? nextSeries.videoViews,
-              ...(incomingLooksUniformFallback && prevLooksRicher
+              ...(shouldPreservePriorSeries
                 ? {
                     postImpressions: prevSeries.postImpressions ?? nextSeries.postImpressions,
                     postImpressionsNonviral: prevSeries.postImpressionsNonviral ?? nextSeries.postImpressionsNonviral,
@@ -925,7 +932,7 @@ export default function DashboardPage() {
               engagement: prevTotals.engagement ?? nextTotals.engagement,
               totalActions: prevTotals.totalActions ?? nextTotals.totalActions,
               videoViews: prevVideoViews > 0 ? prevVideoViews : nextVideoViews,
-              ...(incomingLooksUniformFallback && prevLooksRicher
+              ...(shouldPreservePriorSeries
                 ? {
                     contentViews: prevTotals.contentViews ?? nextTotals.contentViews,
                     postImpressions: prevTotals.postImpressions ?? nextTotals.postImpressions,
@@ -934,7 +941,7 @@ export default function DashboardPage() {
                 : {}),
             },
           };
-          if (incomingLooksUniformFallback && prevLooksRicher) {
+          if (shouldPreservePriorSeries) {
             next.impressionsTimeSeries = prev.impressionsTimeSeries ?? next.impressionsTimeSeries;
           }
         }
