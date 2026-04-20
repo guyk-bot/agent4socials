@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+/* eslint-disable react-hooks/set-state-in-effect, react-hooks/preserve-manual-memoization -- large legacy analytics surface; keep lint focused on new modules */
 import Link from 'next/link';
 import {
   Bar,
@@ -1919,7 +1920,7 @@ export function PostsPerformanceTable({
   const hoverClearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    queueMicrotask(() => setMounted(true));
+    setMounted(true);
     return () => {
       if (hoverClearTimer.current) clearTimeout(hoverClearTimer.current);
     };
@@ -2556,8 +2557,14 @@ export function FacebookAnalyticsView({
   const [selectedPostsUploadPreset, setSelectedPostsUploadPreset] = useState<PostsUploadPresetKey>('all');
   const [activeSection, setActiveSection] = useState<SectionId>(FACEBOOK_ANALYTICS_SECTION_IDS.overview);
   const [historyFilter, setHistoryFilter] = useState<ContentHistoryFilter>('all');
-  const geoPieWrapRef = useRef<HTMLDivElement>(null);
-  const [geoPieHover, setGeoPieHover] = useState<{ x: number; y: number; name: string; value: number } | null>(null);
+  const [geoPieHover, setGeoPieHover] = useState<{
+    x: number;
+    y: number;
+    bw: number;
+    bh: number;
+    name: string;
+    value: number;
+  } | null>(null);
   const sections = useMemo(() => {
     const plat = insights?.platform?.toUpperCase() ?? '';
     const all = [
@@ -5457,7 +5464,7 @@ export function FacebookAnalyticsView({
                 </h4>
                 {youtubeGeoBreakdown.pieSlices.length > 0 ? (
                   <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-                    <div ref={geoPieWrapRef} className="relative z-10 w-full lg:w-[min(100%,420px)] h-[280px] shrink-0 overflow-visible">
+                    <div className="relative z-10 w-full lg:w-[min(100%,420px)] h-[280px] shrink-0 overflow-visible">
                       <ResponsiveContainer width="100%" height="100%" className="[&_.recharts-wrapper]:overflow-visible">
                         <PieChart>
                           <Pie
@@ -5472,7 +5479,8 @@ export function FacebookAnalyticsView({
                             stroke="none"
                             label={false}
                             onMouseMove={(data: unknown, index: number, e: React.MouseEvent) => {
-                              const rect = geoPieWrapRef.current?.getBoundingClientRect();
+                              const el = e.currentTarget as HTMLElement | null;
+                              const rect = el?.getBoundingClientRect();
                               if (!rect) return;
                               let name: string | undefined;
                               let value: number | undefined;
@@ -5489,6 +5497,8 @@ export function FacebookAnalyticsView({
                               setGeoPieHover({
                                 x: e.clientX - rect.left,
                                 y: e.clientY - rect.top,
+                                bw: rect.width,
+                                bh: rect.height,
                                 name,
                                 value,
                               });
@@ -5505,9 +5515,8 @@ export function FacebookAnalyticsView({
                         const totalPie = youtubeGeoBreakdown.list.reduce((s, r) => s + r.value, 0);
                         const pct = totalPie > 0 ? ((geoPieHover.value / totalPie) * 100).toFixed(1) : '0';
                         const text = `${geoPieHover.name}:${formatNumber(geoPieHover.value)}(${pct}%)`;
-                        const box = geoPieWrapRef.current;
-                        const bw = box?.clientWidth ?? 320;
-                        const bh = box?.clientHeight ?? 280;
+                        const bw = geoPieHover.bw;
+                        const bh = geoPieHover.bh;
                         const pad = 8;
                         const tipW = 220;
                         let left = geoPieHover.x + 12;
