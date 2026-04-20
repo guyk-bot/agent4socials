@@ -853,6 +853,45 @@ export default function DashboardPage() {
         return mergeFacebookPageInsightsPreserve({ ...data }, prev);
       }
 
+      if (selectedAccount?.platform === 'PINTEREST' && prev) {
+        const next = { ...data };
+        const nextBundle = (next.facebookAnalytics ?? null) as Record<string, unknown> | null;
+        const prevBundle = (prev.facebookAnalytics ?? null) as Record<string, unknown> | null;
+        if (!nextBundle || !prevBundle) return next;
+        const nextTotals = (nextBundle.totals ?? null) as Record<string, unknown> | null;
+        const prevTotals = (prevBundle.totals ?? null) as Record<string, unknown> | null;
+        const nextSeries = (nextBundle.series ?? null) as Record<string, unknown> | null;
+        const prevSeries = (prevBundle.series ?? null) as Record<string, unknown> | null;
+        if (!nextTotals || !prevTotals || !nextSeries || !prevSeries) return next;
+        const nextEngagement = Number(nextTotals.engagement ?? 0);
+        const prevEngagement = Number(prevTotals.engagement ?? 0);
+        const nextVideoViews = Number(nextTotals.videoViews ?? 0);
+        const prevVideoViews = Number(prevTotals.videoViews ?? 0);
+        const nextContentViews = Number(nextTotals.contentViews ?? 0);
+        const nextImpressions = Number(next.impressionsTotal ?? 0);
+        // Pinterest API intermittently returns an impressions-only payload for the same date range.
+        // Keep prior engagement/video slices so cards and charts do not "pop" between full and partial data.
+        const looksPartial = nextContentViews > 0 && nextImpressions > 0 && nextEngagement <= 0 && prevEngagement > 0;
+        if (looksPartial) {
+          next.facebookAnalytics = {
+            ...nextBundle,
+            series: {
+              ...nextSeries,
+              engagement: prevSeries.engagement ?? nextSeries.engagement,
+              totalActions: prevSeries.totalActions ?? nextSeries.totalActions,
+              videoViews: prevSeries.videoViews ?? nextSeries.videoViews,
+            },
+            totals: {
+              ...nextTotals,
+              engagement: prevTotals.engagement ?? nextTotals.engagement,
+              totalActions: prevTotals.totalActions ?? nextTotals.totalActions,
+              videoViews: prevVideoViews > 0 ? prevVideoViews : nextVideoViews,
+            },
+          };
+        }
+        return next;
+      }
+
       return data;
     }
 

@@ -2688,7 +2688,7 @@ export function FacebookAnalyticsView({
   /** Pinterest analytics has no viral split or per-pin unique reach in this UI; keep pin impressions only. */
   useEffect(() => {
     if (!isPinterest) return;
-    setSelectedTrafficMetrics((prev) => prev.filter((m) => m !== 'viral' && m !== 'uniqueReachProxy'));
+    setSelectedTrafficMetrics(['postImpressions']);
   }, [isPinterest]);
 
   const tiktokUser = insights?.tiktokUser;
@@ -5477,7 +5477,7 @@ export function FacebookAnalyticsView({
               active={selectedTrafficMetrics.includes('postImpressions')}
               onClick={() => setSelectedTrafficMetrics((prev) => prev.includes('postImpressions') ? prev.filter((m) => m !== 'postImpressions') : [...prev, 'postImpressions'])}
             />
-            {!isInstagram ? (
+            {!isInstagram && !isPinterest ? (
               <>
                 <MetricCard
                   label="Non-viral Impressions"
@@ -5487,16 +5487,14 @@ export function FacebookAnalyticsView({
                   active={selectedTrafficMetrics.includes('nonviral')}
                   onClick={() => setSelectedTrafficMetrics((prev) => prev.includes('nonviral') ? prev.filter((m) => m !== 'nonviral') : [...prev, 'nonviral'])}
                 />
-                {!isPinterest ? (
-                  <MetricCard
-                    label="Viral Impressions"
-                    source="page_posts_impressions_viral"
-                    color={COLOR.magenta}
-                    value={formatNumber(viralImpressions)}
-                    active={selectedTrafficMetrics.includes('viral')}
-                    onClick={() => setSelectedTrafficMetrics((prev) => prev.includes('viral') ? prev.filter((m) => m !== 'viral') : [...prev, 'viral'])}
-                  />
-                ) : null}
+                <MetricCard
+                  label="Viral Impressions"
+                  source="page_posts_impressions_viral"
+                  color={COLOR.magenta}
+                  value={formatNumber(viralImpressions)}
+                  active={selectedTrafficMetrics.includes('viral')}
+                  onClick={() => setSelectedTrafficMetrics((prev) => prev.includes('viral') ? prev.filter((m) => m !== 'viral') : [...prev, 'viral'])}
+                />
               </>
             ) : null}
             {!isPinterest ? (
@@ -5519,9 +5517,8 @@ export function FacebookAnalyticsView({
           {isPinterest ? (
             <p className="text-xs leading-relaxed max-w-[920px]" style={{ color: COLOR.textSecondary }}>
               For Pinterest, <span className="font-medium" style={{ color: COLOR.text }}>Viral impressions</span> and{' '}
-              <span className="font-medium" style={{ color: COLOR.text }}>Unique reach proxy</span> are hidden. They do not apply to Pin analytics in this dashboard. Use{' '}
-              <span className="font-medium" style={{ color: COLOR.text }}>Post impressions</span> and{' '}
-              <span className="font-medium" style={{ color: COLOR.text }}>Pin impressions (non-viral)</span> for traffic in this range.
+              <span className="font-medium" style={{ color: COLOR.text }}>Unique reach proxy</span> are hidden because they do not map cleanly to Pin analytics in this dashboard. Traffic here uses{' '}
+              <span className="font-medium" style={{ color: COLOR.text }}>Post impressions</span>.
             </p>
           ) : null}
           <div className="flex justify-end">
