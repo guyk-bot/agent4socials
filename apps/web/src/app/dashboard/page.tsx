@@ -828,6 +828,18 @@ export default function DashboardPage() {
       };
     }
 
+    function twitterSeriesTotalValue(series: unknown): number {
+      if (!Array.isArray(series)) return 0;
+      let s = 0;
+      for (const pt of series) {
+        if (pt && typeof pt === 'object' && 'value' in (pt as object)) {
+          const v = Number((pt as { value?: unknown }).value);
+          if (Number.isFinite(v)) s += v;
+        }
+      }
+      return s;
+    }
+
     /**
      * Merge a freshly-fetched `data` payload with the in-memory `insights` state so that
      * previously-populated YouTube extended sections (Views by country, Traffic sources,
@@ -948,6 +960,30 @@ export default function DashboardPage() {
         return next;
       }
 
+      if (selectedAccount?.platform === 'TWITTER' && prev) {
+        const next = { ...data };
+        const incomingRecent = Array.isArray(next.recentTweets) ? (next.recentTweets as unknown[]) : [];
+        const prevRecent = Array.isArray(prev.recentTweets) ? (prev.recentTweets as unknown[]) : [];
+        if (prevRecent.length > 0 && incomingRecent.length === 0) {
+          next.recentTweets = prev.recentTweets;
+        }
+        const incomingEng = next.twitterEngagementTimeSeries;
+        const prevEng = prev.twitterEngagementTimeSeries;
+        const incomingEngPts = Array.isArray(incomingEng) ? incomingEng : [];
+        const prevEngPts = Array.isArray(prevEng) ? prevEng : [];
+        if (prevEngPts.length > 0) {
+          if (incomingEngPts.length === 0) {
+            next.twitterEngagementTimeSeries = prevEng;
+          } else if (
+            twitterSeriesTotalValue(incomingEngPts) === 0 &&
+            twitterSeriesTotalValue(prevEngPts) > 0
+          ) {
+            next.twitterEngagementTimeSeries = prevEng;
+          }
+        }
+        return next;
+      }
+
       return data;
     }
 
@@ -1039,11 +1075,14 @@ export default function DashboardPage() {
       return;
     }
 
-    // No exact range match: show last successful payload only when *switching accounts* (not when
-    // the date range itself changed) AND only when that data is fresh (< 10 min old).
-    // Stale data from a different date range or a previous session plots time-series points
-    // at the wrong positions, causing a visible "concentration then jump" artifact.
-    if (staleCandidate && (!isDateRangeChange || selectedAccount?.platform === 'PINTEREST')) {
+    // No exact range match: show last successful payload when switching accounts, or when the
+    // date range changed for platforms where a brief wrong-axis flash is less bad than wiping
+    // the whole UI (Pinterest traffic, X/Twitter — Reels chart + recent tweets come from insights).
+    // Stale data from a different date range can plot time-series at the wrong positions for FB/IG;
+    // those still clear until the new-range fetch returns.
+    const preserveStaleWhileRefetch =
+      selectedAccount?.platform === 'PINTEREST' || selectedAccount?.platform === 'TWITTER';
+    if (staleCandidate && (!isDateRangeChange || preserveStaleWhileRefetch)) {
       const patchedStale = patchYouTubeExtended(staleCandidate);
       lastInsightsByAccountIdRef.current[accountId] = patchedStale;
       setInsights(patchedStale as NonNullable<Parameters<typeof setInsights>[0]>);
@@ -1127,7 +1166,11 @@ export default function DashboardPage() {
           appDataRef.current?.setInsightsForAccount(accountId, mergedAsInsights);
         }
         if (selectedAccountIdRef.current === accountId) {
-          setInsights((merged ?? null) as typeof insights);
+          setInsights((prev) => {
+            if (merged) return merged as NonNullable<typeof insights>;
+            if (prev && selectedAccount?.platform === 'TWITTER') return prev;
+            return null;
+          });
           if (merged && userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, merged, dateRange);
         }
       })
