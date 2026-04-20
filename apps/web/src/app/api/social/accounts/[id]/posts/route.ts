@@ -570,6 +570,7 @@ async function upsertImportedPostWithFallback(args: {
 /**
  * GET: list imported posts for this account.
  * - `sync=1`: sync from platform first then return.
+ * - `force=1`: with `sync=1`, bypass the 10-minute per-account cooldown (manual refresh).
  * - `liveEnrich=1`: opt-in live Facebook/Instagram Graph calls to fill missing post metrics on read
  *   (otherwise we only use DB + sync; avoids ShadowIGMedia/insights bursts on dashboard prefetch).
  */
@@ -623,12 +624,14 @@ export async function GET(
     const force = request.nextUrl.searchParams.get('force') === '1';
     const liveEnrich = request.nextUrl.searchParams.get('liveEnrich') === '1';
     let syncError: string | undefined;
+    let syncSkippedDueToCooldown = false;
     if (sync) {
       // Skip the expensive platform sync if it ran within the last 10 minutes, unless force=1.
       const SYNC_COOLDOWN_MS = 10 * 60 * 1000;
       const lastSync = account.lastSyncAttemptAt?.getTime() ?? 0;
       const recentEnough = !force && Date.now() - lastSync < SYNC_COOLDOWN_MS;
       if (recentEnough) {
+        syncSkippedDueToCooldown = true;
         console.log('[posts] skipping sync — ran', Math.round((Date.now() - lastSync) / 1000), 's ago');
       } else {
         // Stamp attempt time before calling out so re-entrant requests skip it too.
@@ -1471,7 +1474,12 @@ export async function GET(
       (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
     );
 
-    return NextResponse.json({ posts, syncError, ...(xApiBudgetError ? { xApiBudgetError } : {}) });
+    return NextResponse.json({
+      posts,
+      syncError,
+      ...(syncSkippedDueToCooldown ? { syncSkippedDueToCooldown: true as const } : {}),
+      ...(xApiBudgetError ? { xApiBudgetError } : {}),
+    });
   } catch (e) {
     console.error('[Imported posts] GET error:', e);
     const msg = (e as Error)?.message ?? 'Server error while loading posts.';
@@ -2542,10 +2550,17 @@ async function syncImportedPosts(
       const collected: PinItem[] = [];
       let bookmark: string | undefined;
       let pages = 0;
-      while (pages < 15) {
+      /** Pinterest cursor order is not guaranteed newest-first; paginate enough so recent pins are included for busy accounts. */
+      const MAX_PIN_LIST_PAGES = 50;
+      while (pages < MAX_PIN_LIST_PAGES) {
         const res = await axios.get<{ items?: PinItem[]; bookmark?: string }>('https://api.pinterest.com/v5/pins', {
           headers,
-          params: { page_size: 25, pin_metrics: true, ...(bookmark ? { bookmark } : {}) },
+          params: {
+            page_size: 25,
+            pin_metrics: true,
+            include_protected_pins: true,
+            ...(bookmark ? { bookmark } : {}),
+          },
           validateStatus: () => true,
           timeout: 25_000,
         });

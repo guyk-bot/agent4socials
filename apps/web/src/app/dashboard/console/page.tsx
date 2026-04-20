@@ -1383,7 +1383,7 @@ export default function UnifiedSummaryPage() {
       pendingSyncs.push(
         api
           .get(`/social/accounts/${encodeURIComponent(acc.id)}/posts`, {
-            params: { sync: 1 },
+            params: { sync: 1, force: 1 },
             timeout: 45_000,
           })
           .catch(() => undefined)

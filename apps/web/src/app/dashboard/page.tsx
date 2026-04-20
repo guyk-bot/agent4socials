@@ -1846,7 +1846,7 @@ export default function DashboardPage() {
               if (useBlockingPostsLoader) setImportedPostsLoading(true);
               else setPostsSoftSyncing(true);
               try {
-                const res = await api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: { sync: 1 } });
+                const res = await api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: { sync: 1, force: 1 } });
                 const list = res.data?.posts ?? [];
                 const syncErr = res.data?.syncError as string | undefined;
                 const aid = selectedAccount.id;
@@ -2075,14 +2075,14 @@ export default function DashboardPage() {
                       setImportedPostsLoading(true);
                       try {
                         if (selectedAccount?.id) {
-                          const res = await api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: { sync: 1 } });
+                          const res = await api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: { sync: 1, force: 1 } });
                           setImportedPosts(res.data?.posts ?? []);
                           setPostsSyncError(res.data?.syncError ?? null);
                         } else if (accounts.length > 0) {
                           const allPosts: Array<{ id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; impressions: number; interactions: number; publishedAt: string; mediaType?: string | null; platform: string }> = [];
                           for (const acc of accounts) {
                             try {
-                              await api.get(`/social/accounts/${acc.id}/posts`, { params: { sync: 1 } });
+                              await api.get(`/social/accounts/${acc.id}/posts`, { params: { sync: 1, force: 1 } });
                               const r = await api.get(`/social/accounts/${acc.id}/posts`);
                               allPosts.push(...(r.data?.posts ?? []));
                             } catch { /* skip failed account */ }
