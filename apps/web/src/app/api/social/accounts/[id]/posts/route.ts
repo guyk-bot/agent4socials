@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
-import { Platform, PostStatus, Prisma } from '@prisma/client';
+import { Platform, PostStatus } from '@prisma/client';
 import axios, { type AxiosResponse } from 'axios';
 import { getValidYoutubeToken } from '@/lib/youtube-token';
 import {
@@ -545,8 +545,8 @@ async function findImportedPostPrevSafe(socialAccountId: string, platformPostId:
 async function upsertImportedPostWithFallback(args: {
   socialAccountId: string;
   platformPostId: string;
-  createData: Prisma.ImportedPostCreateInput;
-  updateData: Prisma.ImportedPostUpdateInput;
+  createData: any;
+  updateData: any;
 }) {
   const { socialAccountId, platformPostId, createData, updateData } = args;
   try {
@@ -557,10 +557,8 @@ async function upsertImportedPostWithFallback(args: {
     });
   } catch (e) {
     if (!isMissingImportedPostPlatformMetadataColumn(e)) throw e;
-    const { platformMetadata: _ignoredCreatePlatformMetadata, ...createWithoutMeta } = createData;
-    const { platformMetadata: _ignoredUpdatePlatformMetadata, ...updateWithoutMeta } = updateData;
-    void _ignoredCreatePlatformMetadata;
-    void _ignoredUpdatePlatformMetadata;
+    const { platformMetadata: _pmCreate, ...createWithoutMeta } = createData;
+    const { platformMetadata: _pmUpdate, ...updateWithoutMeta } = updateData;
     await prisma.importedPost.upsert({
       where: { socialAccountId_platformPostId: { socialAccountId, platformPostId } },
       update: updateWithoutMeta,
@@ -672,7 +670,7 @@ export async function GET(
     });
 
     // For Twitter: batched `GET /2/tweets?ids=` (up to 100 per call) so older imported rows still get public_metrics.
-    const twitterEnrich: Record<string, { likeCount: number; commentsCount: number; repostsCount: number; thumbnailUrl: string | null }> = {};
+    let twitterEnrich: Record<string, { likeCount: number; commentsCount: number; repostsCount: number; thumbnailUrl: string | null }> = {};
     let xApiBudgetError: string | undefined;
     if (account.platform === 'TWITTER' && importedRows.length > 0) {
       try {
@@ -835,7 +833,7 @@ export async function GET(
 
     // Facebook: fill missing video/reel view metrics on read. Sync only attaches lifetime insights to the newest N posts;
     // older Graph ordering used to starve recent reels. Also merge live results with DB so partial maps still upgrade.
-    const liveFacebookInsightsByPostId: Record<string, Record<string, number>> = {};
+    let liveFacebookInsightsByPostId: Record<string, Record<string, number>> = {};
     if (liveEnrich && account.platform === 'FACEBOOK' && importedRows.length > 0) {
       try {
         const fbPageToken = await resolveFacebookPageAccessToken(account.platformUserId, account.accessToken);
