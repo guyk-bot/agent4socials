@@ -24,6 +24,7 @@ import {
 import { fetchYoutubeVideoStatsByIdMap, type YtVideoStatsRow } from '@/lib/youtube/fetch-video-stats-batch';
 import { checkAndIncrementXApiUsage } from '@/lib/x/x-api-usage';
 import { fetchTweetsByIdsBatched, metricsFromTweetPayload } from '@/lib/x/twitter-tweets-batch';
+import { refreshTwitterToken } from '@/lib/twitter-refresh';
 
 export const maxDuration = 60;
 
@@ -672,13 +673,57 @@ export async function GET(
       take: 200,
     });
 
-    // For Twitter: batched `GET /2/tweets?ids=` (up to 100 per call) so older imported rows still get public_metrics.
-    let twitterEnrich: Record<string, { likeCount: number; commentsCount: number; repostsCount: number; thumbnailUrl: string | null }> = {};
+    // For Twitter: batched `GET /2/tweets?ids=` (up to 100 per call) so imported rows AND composer-published
+    // targets get public_metrics / impressions. Previously we only enriched when importedRows was non-empty,
+    // so app-published tweets appeared in Content History with all zeros.
+    type TwitterEnrichRow = {
+      likeCount: number;
+      commentsCount: number;
+      repostsCount: number;
+      quoteCount: number;
+      impressions: number;
+      thumbnailUrl: string | null;
+    };
+    let twitterEnrich: Record<string, TwitterEnrichRow> = {};
     let xApiBudgetError: string | undefined;
-    if (account.platform === 'TWITTER' && importedRows.length > 0) {
-      try {
-        const ids = importedRows.map((r) => r.platformPostId).filter(Boolean);
-        const { byId, mediaByKey } = await fetchTweetsByIdsBatched(account.id, account.accessToken, ids);
+    if (account.platform === 'TWITTER') {
+      const ids = [
+        ...new Set(
+          [
+            ...importedRows.map((r) => r.platformPostId),
+            ...appTargets.map((t) => t.platformPostId).filter(Boolean),
+          ].filter(Boolean) as string[]
+        ),
+      ];
+      const bearerOk = account.accessToken && account.accessToken !== 'oauth1';
+      if (ids.length > 0 && bearerOk) {
+        let bearer = account.accessToken;
+        if (account.refreshToken) {
+          const expiresAtMs = account.expiresAt ? new Date(account.expiresAt).getTime() : 0;
+          const fiveMinMs = 5 * 60 * 1000;
+          if (!expiresAtMs || Date.now() + fiveMinMs >= expiresAtMs) {
+            try {
+              const refreshed = await refreshTwitterToken(account.refreshToken);
+              bearer = refreshed.accessToken;
+              await prisma.socialAccount
+                .update({
+                  where: { id: account.id },
+                  data: {
+                    accessToken: refreshed.accessToken,
+                    ...(refreshed.refreshToken ? { refreshToken: refreshed.refreshToken } : {}),
+                    expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000),
+                  },
+                })
+                .catch(() => {
+                  /* non-fatal */
+                });
+            } catch {
+              /* use existing bearer */
+            }
+          }
+        }
+        try {
+          const { byId, mediaByKey } = await fetchTweetsByIdsBatched(account.id, bearer, ids);
         for (const [tid, t] of byId) {
           const m = metricsFromTweetPayload(t);
           const firstMediaKey = t.attachments?.media_keys?.[0];
@@ -688,6 +733,8 @@ export async function GET(
             likeCount: m.like_count,
             commentsCount: m.reply_count,
             repostsCount: m.retweet_count,
+            quoteCount: m.quote_count,
+            impressions: m.impression_count,
             thumbnailUrl,
           };
           try {
@@ -729,6 +776,7 @@ export async function GET(
         }
       } catch {
         // non-fatal; use DB values
+      }
       }
     }
 
@@ -1287,7 +1335,9 @@ export async function GET(
                 : p.impressions ?? 0
               : p.platform === 'PINTEREST'
                 ? Math.max(p.impressions ?? 0, pinterestImpressionsFromInsights)
-                : p.impressions ?? 0;
+                : p.platform === 'TWITTER'
+                  ? Math.max(p.impressions ?? 0, enrich?.impressions ?? 0)
+                  : p.impressions ?? 0;
       const likeCountOut =
         p.platform === 'FACEBOOK'
           ? Math.max(p.likeCount ?? 0, mergedFacebookInsights?.post_reactions_like_total ?? 0)
@@ -1303,13 +1353,20 @@ export async function GET(
       const sharesCountOut =
         p.platform === 'FACEBOOK'
           ? Math.max(p.sharesCount ?? 0, mergedFacebookInsights?.post_shares ?? 0)
-          : p.sharesCount ?? 0;
+          : p.platform === 'TWITTER'
+            ? Math.max(p.sharesCount ?? 0, enrich?.quoteCount ?? 0)
+            : p.sharesCount ?? 0;
       const savesCountOut = p.savesCount ?? 0;
       const interactionsOut =
         p.platform === 'FACEBOOK'
           ? likeCountOut + commentsCountOut + sharesCountOut
           : p.platform === 'YOUTUBE'
             ? likeCountOut + commentsCountOut
+            : p.platform === 'TWITTER'
+              ? Math.max(
+                  typeof p.interactions === 'number' && Number.isFinite(p.interactions) ? p.interactions : 0,
+                  likeCountOut + commentsCountOut + (enrich?.repostsCount ?? p.repostsCount ?? 0) + sharesCountOut
+                )
             : p.platform === 'PINTEREST'
               ? (() => {
                   const stored = typeof p.interactions === 'number' && Number.isFinite(p.interactions) ? p.interactions : 0;
@@ -1422,6 +1479,7 @@ export async function GET(
       .filter((t) => !importedPostIds.has(t.platformPostId!))
       .map((t) => {
         const pid = t.platformPostId ?? null;
+        const twE = account.platform === 'TWITTER' && pid ? twitterEnrich[pid] : undefined;
         const live = pid ? appExtraFacebookInsightsByPostId[pid] : undefined;
         const fbPick = live ? pickFacebookPostImpressionsFromInsightMap(live) : { impressions: 0, metricUsed: null };
         const likeCount = live?.post_reactions_like_total ?? 0;
@@ -1453,14 +1511,29 @@ export async function GET(
           id: `target-${t.id}`,
           platformPostId: pid,
           content: account.platform === 'YOUTUBE' && ytSt?.title ? ytSt.title : (t.post?.content ?? null),
-          thumbnailUrl: thumbnailUrlFromFirstPostMedia(t.post?.media[0]),
-          permalinkUrl: ytPermalink ?? null,
-          impressions: account.platform === 'YOUTUBE' ? ytImpressions : fbPick.impressions,
-          interactions: account.platform === 'YOUTUBE' ? ytLikes + ytComments : interactions,
-          likeCount: account.platform === 'YOUTUBE' ? ytLikes : likeCount,
-          commentsCount: account.platform === 'YOUTUBE' ? ytComments : commentsCount,
-          repostsCount: 0,
-          sharesCount,
+          thumbnailUrl: twE?.thumbnailUrl ?? thumbnailUrlFromFirstPostMedia(t.post?.media[0]),
+          permalinkUrl:
+            account.platform === 'YOUTUBE'
+              ? ytPermalink ?? null
+              : account.platform === 'TWITTER' && pid
+                ? `https://x.com/i/web/status/${pid}`
+                : null,
+          impressions:
+            account.platform === 'YOUTUBE'
+              ? ytImpressions
+              : account.platform === 'TWITTER' && twE
+                ? twE.impressions
+                : fbPick.impressions,
+          interactions:
+            account.platform === 'YOUTUBE'
+              ? ytLikes + ytComments
+              : account.platform === 'TWITTER' && twE
+                ? twE.likeCount + twE.commentsCount + twE.repostsCount + twE.quoteCount
+                : interactions,
+          likeCount: account.platform === 'YOUTUBE' ? ytLikes : account.platform === 'TWITTER' && twE ? twE.likeCount : likeCount,
+          commentsCount: account.platform === 'YOUTUBE' ? ytComments : account.platform === 'TWITTER' && twE ? twE.commentsCount : commentsCount,
+          repostsCount: account.platform === 'TWITTER' && twE ? twE.repostsCount : 0,
+          sharesCount: account.platform === 'TWITTER' && twE ? twE.quoteCount : sharesCount,
           savesCount: 0,
           publishedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : String(t.updatedAt),
           mediaType: t.post?.media[0]?.type ?? null,

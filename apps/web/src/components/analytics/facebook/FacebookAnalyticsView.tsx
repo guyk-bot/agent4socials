@@ -1019,6 +1019,12 @@ function bestPostInteractionCount(p: FacebookPost): number {
     const saves = typeof p.savesCount === 'number' && Number.isFinite(p.savesCount) ? Math.max(0, p.savesCount) : 0;
     return fromParts + saves;
   }
+  if (platform === 'TWITTER') {
+    const stored = typeof p.interactions === 'number' && Number.isFinite(p.interactions) ? p.interactions : 0;
+    const parts =
+      (p.likeCount ?? 0) + (p.commentsCount ?? 0) + bestShareCount(p) + (typeof p.repostsCount === 'number' ? p.repostsCount : 0);
+    return Math.max(stored, parts);
+  }
   return fi.post_clicks ?? 0;
 }
 
@@ -6219,7 +6225,9 @@ export function FacebookAnalyticsView({
         </div>
 
         <InsightChartCard
-          title={isPinterest ? 'Video Pin performance' : 'Reel Performance'}
+          title={
+            isPinterest ? 'Video Pin performance' : isTwitter ? 'Video & tweet performance' : 'Reel Performance'
+          }
           chartHeightPx={reelPerformanceChartHeightPx}
           legend={selectedReelMetrics.map((m) => ({ label: REEL_METRIC_CONFIG[m].label, color: REEL_METRIC_CONFIG[m].color }))}
         >
