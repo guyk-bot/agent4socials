@@ -306,10 +306,15 @@ function classifyConsolePostType(
   const plat = String(platform ?? '').toUpperCase();
   if (plat === 'YOUTUBE' && youtubeUrlIndicatesShortsPath(url)) return 'reels';
   const mt = String(mediaType ?? '').toUpperCase();
-  if (!mt) return null;
+  // X text-only tweets (and some LinkedIn / Pinterest rows) sync with no mediaType; they must
+  // still roll into the Console posts chart / pie. Treat as a generic non-video post bucket.
+  if (!mt) {
+    if (plat === 'TWITTER' || plat === 'X' || plat === 'LINKEDIN' || plat === 'PINTEREST') return 'image';
+    return null;
+  }
   if (mt === 'REEL' || mt === 'VIDEO' || mt === 'SHORT') return 'reels';
   if (mt === 'CAROUSEL' || mt === 'ALBUM' || mt === 'CAROUSEL_ALBUM' || mt.includes('CAROUSEL')) return 'carousel';
-  if (mt === 'IMAGE' || mt === 'PHOTO') return 'image';
+  if (mt === 'IMAGE' || mt === 'PHOTO' || mt === 'PIN' || mt === 'PIN_IMAGE' || mt === 'STORY' || mt === 'TEXT' || mt === 'NOTE') return 'image';
   return null;
 }
 
