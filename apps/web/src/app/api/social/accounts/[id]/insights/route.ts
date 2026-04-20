@@ -2538,11 +2538,41 @@ export async function GET(
           };
         }>('https://api.pinterest.com/v5/user_account/analytics', {
           headers,
-          params: { start_date: sinceParam, end_date: untilParam },
+          params: {
+            start_date: sinceParam,
+            end_date: untilParam,
+            // By default Pinterest only returns IMPRESSION on user_account/analytics; request every
+            // metric the dashboard bundle consumes so Engagements, Saves, Clicks, and Video Views
+            // actually populate instead of showing 0.
+            metric_types:
+              'IMPRESSION,ENGAGEMENT,SAVE,PIN_CLICK,OUTBOUND_CLICK,CLOSEUP,VIDEO_MRC_VIEW,VIDEO_V50_WATCH_TIME',
+          },
           validateStatus: () => true,
         });
         analyticsStatus = analyticsRes.status;
         analyticsBody = analyticsRes.data;
+        // Some Pinterest accounts reject the multi-metric request (invalid combination, missing scope)
+        // with 400/403. Retry with just IMPRESSION so we at least get views back.
+        if (analyticsRes.status >= 400 && analyticsRes.status !== 429) {
+          try {
+            const retryRes = await axios.get<{
+              all?: {
+                summary_metrics?: Record<string, number | string>;
+                daily_metrics?: Array<{ date?: string; metrics?: Record<string, number> }>;
+              };
+            }>('https://api.pinterest.com/v5/user_account/analytics', {
+              headers,
+              params: { start_date: sinceParam, end_date: untilParam },
+              validateStatus: () => true,
+            });
+            if (retryRes.status === 200) {
+              analyticsStatus = retryRes.status;
+              analyticsBody = retryRes.data;
+            }
+          } catch {
+            /* keep original response */
+          }
+        }
         if (analyticsRes.status === 200 && analyticsRes.data?.all) {
           const daily = analyticsRes.data.all.daily_metrics ?? [];
           const byDate: Record<string, number> = {};
