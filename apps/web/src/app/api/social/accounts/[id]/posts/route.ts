@@ -342,21 +342,164 @@ function inferPinterestMediaType(media: unknown): 'VIDEO' | 'IMAGE' | null {
   return null;
 }
 
-async function fetchPinterestPinMedia(
+type PinterestPinMetricsBucket = Record<string, number>;
+
+function toFiniteInt(n: unknown): number {
+  if (typeof n !== 'number' || !Number.isFinite(n)) return 0;
+  return Math.max(0, Math.round(n));
+}
+
+function pinterestMetricFromBucket(bucket: PinterestPinMetricsBucket | null | undefined, keys: string[]): number {
+  if (!bucket) return 0;
+  for (const k of keys) {
+    const v = bucket[k];
+    const n = toFiniteInt(v);
+    if (n > 0) return n;
+  }
+  // Pinterest sometimes returns lowercase snake keys in examples; tolerate case drift.
+  const lowerMap = new Map<string, number>();
+  for (const [k, v] of Object.entries(bucket)) {
+    if (typeof v !== 'number' || !Number.isFinite(v)) continue;
+    lowerMap.set(k.toLowerCase(), Math.max(0, Math.round(v)));
+  }
+  for (const k of keys) {
+    const n = lowerMap.get(k.toLowerCase());
+    if (typeof n === 'number' && n > 0) return n;
+  }
+  return 0;
+}
+
+function pickPinterestPinMetricsLifetimeBucket(pinMetrics: unknown): PinterestPinMetricsBucket | null {
+  if (!pinMetrics || typeof pinMetrics !== 'object' || Array.isArray(pinMetrics)) return null;
+  const pm = pinMetrics as Record<string, unknown>;
+  const lm = pm.lifetime_metrics;
+  if (lm && typeof lm === 'object' && !Array.isArray(lm)) return lm as PinterestPinMetricsBucket;
+  const nested = pm.lifetime;
+  if (nested && typeof nested === 'object' && !Array.isArray(nested)) return nested as PinterestPinMetricsBucket;
+  return null;
+}
+
+function pickPinterestPinMetrics90dBucket(pinMetrics: unknown): PinterestPinMetricsBucket | null {
+  if (!pinMetrics || typeof pinMetrics !== 'object' || Array.isArray(pinMetrics)) return null;
+  const pm = pinMetrics as Record<string, unknown>;
+  const b90 = pm['90d'];
+  if (b90 && typeof b90 === 'object' && !Array.isArray(b90)) return b90 as PinterestPinMetricsBucket;
+  return null;
+}
+
+function extractPinterestImportedPostMetrics(args: {
+  mediaType: 'VIDEO' | 'IMAGE' | string | null | undefined;
+  pinMetrics: unknown;
+}): {
+  impressions: number;
+  interactions: number;
+  likeCount: number;
+  commentsCount: number;
+  sharesCount: number;
+  savesCount: number;
+  /** Best-effort Meta-shaped fields for shared dashboard helpers (watch times are ms). */
+  facebookInsightsCompat: Record<string, number>;
+} {
+  const mt = String(args.mediaType ?? '').toUpperCase();
+  const isVideo = mt === 'VIDEO';
+  const lifetime = pickPinterestPinMetricsLifetimeBucket(args.pinMetrics);
+  const d90 = pickPinterestPinMetrics90dBucket(args.pinMetrics);
+
+  const reactions = pinterestMetricFromBucket(lifetime, ['TOTAL_REACTIONS', 'REACTION', 'reaction']) ||
+    pinterestMetricFromBucket(d90, ['reaction']);
+  const comments = pinterestMetricFromBucket(lifetime, ['TOTAL_COMMENTS', 'COMMENT', 'comment']) ||
+    pinterestMetricFromBucket(d90, ['comment']);
+  const saves = pinterestMetricFromBucket(lifetime, ['SAVE', 'save']) || pinterestMetricFromBucket(d90, ['save']);
+  const pinClicks = pinterestMetricFromBucket(lifetime, ['PIN_CLICK', 'pin_click']) || pinterestMetricFromBucket(d90, ['pin_click']);
+  const outboundClicks =
+    pinterestMetricFromBucket(lifetime, ['OUTBOUND_CLICK', 'OUTBOUND_CLICKS', 'outbound_click']) ||
+    pinterestMetricFromBucket(d90, ['clickthrough', 'OUTBOUND_CLICK']);
+
+  const impressionImage =
+    pinterestMetricFromBucket(lifetime, ['IMPRESSION', 'impression']) || pinterestMetricFromBucket(d90, ['impression']);
+
+  const videoMrc =
+    pinterestMetricFromBucket(lifetime, ['VIDEO_MRC_VIEW', 'VIDEO_MRC_VIEWS']) || pinterestMetricFromBucket(d90, ['VIDEO_MRC_VIEW']);
+  const videoStarts =
+    pinterestMetricFromBucket(lifetime, ['VIDEO_START', 'VIDEO_STARTS']) || pinterestMetricFromBucket(d90, ['VIDEO_START']);
+  const videoAvgWatchRaw =
+    pinterestMetricFromBucket(lifetime, ['VIDEO_AVG_WATCH_TIME']) || pinterestMetricFromBucket(d90, ['VIDEO_AVG_WATCH_TIME']);
+  const videoV50WatchRaw =
+    pinterestMetricFromBucket(lifetime, ['VIDEO_V50_WATCH_TIME']) || pinterestMetricFromBucket(d90, ['VIDEO_V50_WATCH_TIME']);
+
+  const plays = isVideo ? Math.max(videoMrc, videoStarts, impressionImage) : impressionImage;
+
+  // `interactions` is our product-level rollup for dashboards: reactions + comments + saves + clicks.
+  const interactions = reactions + comments + saves + pinClicks + outboundClicks;
+
+  const avgWatchMsFromApi = videoAvgWatchRaw > 0 ? normalizeAvgWatchMs(videoAvgWatchRaw) : 0;
+  const viewsForWatchNormalize = Math.max(1, plays);
+  const totalWatchMsRaw =
+    videoV50WatchRaw > 0
+      ? normalizeTotalWatchMs(videoV50WatchRaw, viewsForWatchNormalize, avgWatchMsFromApi)
+      : 0;
+  const totalWatchMs =
+    totalWatchMsRaw > 0
+      ? totalWatchMsRaw
+      : avgWatchMsFromApi > 0 && plays > 0
+        ? avgWatchMsFromApi * plays
+        : 0;
+
+  const facebookInsightsCompat: Record<string, number> = {};
+  if (plays > 0) {
+    facebookInsightsCompat.post_video_views = plays;
+    facebookInsightsCompat.post_media_view = plays;
+  }
+  if (impressionImage > 0) {
+    facebookInsightsCompat.post_impressions = impressionImage;
+  }
+  if (avgWatchMsFromApi > 0) {
+    // Keep consistent with Meta fields used by `getWatchTimes` (avg is ms).
+    facebookInsightsCompat.post_video_avg_time_watched = Math.round(avgWatchMsFromApi);
+  }
+  if (totalWatchMs > 0) {
+    facebookInsightsCompat.post_video_view_time = Math.round(totalWatchMs);
+  }
+
+  return {
+    impressions: Math.max(0, plays),
+    interactions: Math.max(0, interactions),
+    likeCount: Math.max(0, reactions),
+    commentsCount: Math.max(0, comments),
+    // Product mapping: treat Pinterest Saves as "shares" in our generic post model.
+    sharesCount: Math.max(0, saves),
+    savesCount: Math.max(0, saves),
+    facebookInsightsCompat,
+  };
+}
+
+async function fetchPinterestPinDetail(
   pinId: string,
   headers: Record<string, string>,
-): Promise<unknown | null> {
+): Promise<{ media: unknown | null; pin_metrics: unknown | null } | null> {
   try {
-    const res = await axios.get<{ media?: unknown }>(`https://api.pinterest.com/v5/pins/${encodeURIComponent(pinId)}`, {
+    const res = await axios.get<{
+      media?: unknown;
+      pin_metrics?: unknown;
+    }>(`https://api.pinterest.com/v5/pins/${encodeURIComponent(pinId)}`, {
       headers,
+      params: { pin_metrics: true },
       validateStatus: () => true,
       timeout: 12_000,
     });
     if (res.status !== 200) return null;
-    return res.data?.media ?? null;
+    return { media: res.data?.media ?? null, pin_metrics: res.data?.pin_metrics ?? null };
   } catch {
     return null;
   }
+}
+
+async function fetchPinterestPinMedia(
+  pinId: string,
+  headers: Record<string, string>,
+): Promise<unknown | null> {
+  const detail = await fetchPinterestPinDetail(pinId, headers);
+  return detail?.media ?? null;
 }
 
 function thumbnailUrlFromFirstPostMedia(m: {

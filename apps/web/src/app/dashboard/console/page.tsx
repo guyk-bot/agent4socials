@@ -128,7 +128,36 @@ function growthAudienceYDomain(data: UnifiedChartData, activePlatforms: string[]
 }
 
 function fmtPct(n: number): string {
-  return `${n >= 0 ? '+' : ''}${n.toFixed(1)}%`;
+  const x = Number(n);
+  if (!Number.isFinite(x)) return '—';
+  const sign = x > 0 ? '+' : '';
+  const ax = Math.abs(x);
+  // Show more precision for small % moves; avoid misleading rounding like +0.0% when it's +0.04%.
+  if (ax !== 0 && ax < 0.1) return `${sign}${x.toFixed(2)}%`;
+  if (ax < 10) return `${sign}${x.toFixed(2)}%`;
+  if (ax < 100) return `${sign}${x.toFixed(1)}%`;
+  if (ax < 1000) return `${sign}${Math.round(x * 10) / 10}%`;
+  return `${sign}${Math.round(x)}%`;
+}
+
+function followerSeriesGrowthPct(series: Array<{ followers: number }>): number {
+  const vals = series.map((p) => Math.round(Number(p.followers) || 0));
+  if (vals.length === 0) return 0;
+  const start = vals[0] ?? 0;
+  const end = vals[vals.length - 1] ?? 0;
+  if (start > 0) return ((end - start) / start) * 100;
+  // If the series begins at 0 (common when tracking starts mid-range), anchor growth to the first non-zero point.
+  let baseline = 0;
+  for (const v of vals) {
+    if (v > 0) {
+      baseline = v;
+      break;
+    }
+  }
+  if (baseline > 0) return ((end - baseline) / baseline) * 100;
+  if (end === 0) return 0;
+  // No positive baseline in-window: show true relative scale vs a 1-follower baseline (not a fake +100%).
+  return (end / 1) * 100;
 }
 
 function fmtDate(iso: string): string {
@@ -487,7 +516,7 @@ function KpiCard({ label, value, growthPct, icon, accent, active, onClick }: {
   onClick?: () => void;
 }) {
   const positive = growthPct >= 0;
-  const noChange = Math.abs(growthPct) < 0.05;
+  const noChange = Math.abs(growthPct) < 0.005;
   return (
     <button
       type="button"
@@ -1608,9 +1637,7 @@ export default function UnifiedSummaryPage() {
   const overviewFollowersStart = overviewTrendData.length > 0 ? Number(overviewTrendData[0]?.followers ?? 0) : 0;
   const overviewFollowersEnd = overviewTrendData.length > 0 ? Number(overviewTrendData[overviewTrendData.length - 1]?.followers ?? 0) : 0;
   const overviewFollowersDelta = Math.round(overviewFollowersEnd - overviewFollowersStart);
-  const overviewFollowersGrowthPct = overviewFollowersStart <= 0
-    ? (overviewFollowersEnd > 0 ? 100 : 0)
-    : ((overviewFollowersEnd - overviewFollowersStart) / overviewFollowersStart) * 100;
+  const overviewFollowersGrowthPct = followerSeriesGrowthPct(overviewTrendData);
   const postsTimelineData = useMemo(() => {
     const rows = (data?.chart ?? []).map((r) => ({ date: String(r.date) })) as Array<{ date: string } & Record<string, number>>;
     const byDate = new Map<string, { date: string } & Record<string, number>>();

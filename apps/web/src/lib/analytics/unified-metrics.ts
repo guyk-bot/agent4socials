@@ -20,8 +20,15 @@ import type {
 } from './unified-metrics-types';
 
 function growthPct(current: number, previous: number): number {
-  if (previous === 0) return current > 0 ? 100 : 0;
-  return ((current - previous) / previous) * 100;
+  const c = Number(current) || 0;
+  const p = Number(previous) || 0;
+  if (p === 0) {
+    if (c === 0) return 0;
+    // Avoid the misleading hard-coded "+100%" when the prior window is empty/zero.
+    // Treat a zero baseline as "1 unit" so the UI shows the true relative scale.
+    return (c / 1) * 100;
+  }
+  return ((c - p) / p) * 100;
 }
 
 /** Inclusive calendar window + equally long prior window (for growth %). */
