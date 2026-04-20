@@ -1186,7 +1186,7 @@ export async function GET(
 
   const mainAccount = await prisma.socialAccount.findFirst({
     where: { userId, platform: plat, platformUserId: tokenData.platformUserId },
-    select: { id: true, userId: true, platform: true, platformUserId: true, accessToken: true },
+    select: { id: true, userId: true, platform: true, platformUserId: true, accessToken: true, credentialsJson: true },
   });
   // Bootstrap follower/following snapshot for Instagram and Facebook only (YouTube excluded).
   if (mainAccount && (plat === 'INSTAGRAM' || plat === 'FACEBOOK')) {
@@ -1196,8 +1196,27 @@ export async function GET(
       console.warn('[OAuth] Bootstrap metric snapshot:', (e as Error)?.message ?? e);
     }
   }
+  // X/Twitter: auto-kick the OAuth 1.0a flow to store per-user media upload creds.
+  // OAuth 2.0 v2 media upload is unreliable across X app configurations even when
+  // media.write is granted (X may still reject the upload as "Application-Only").
+  // OAuth 1.0a on upload.twitter.com/1.1/media/upload.json is the reliable path for
+  // image upload, so we enable it automatically when TWITTER_API_KEY/SECRET are set.
+  let extraQuery = '';
+  if (plat === 'TWITTER' && mainAccount?.id) {
+    const hasTwitterOAuth1Env = !!process.env.TWITTER_API_KEY && !!process.env.TWITTER_API_SECRET;
+    const creds =
+      mainAccount.credentialsJson && typeof mainAccount.credentialsJson === 'object' && mainAccount.credentialsJson !== null
+        ? (mainAccount.credentialsJson as Record<string, unknown>)
+        : {};
+    const hasOAuth1Stored =
+      typeof creds['twitterOAuth1AccessToken'] === 'string' &&
+      typeof creds['twitterOAuth1AccessTokenSecret'] === 'string';
+    if (hasTwitterOAuth1Env && !hasOAuth1Stored) {
+      extraQuery = '&twitter_1oa_next=1';
+    }
+  }
   const successRedirectUrl = mainAccount?.id
-    ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(mainAccount.id)}&connecting=1`
+    ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(mainAccount.id)}&connecting=1${extraQuery}`
     : `${baseUrl}/dashboard`;
   return NextResponse.redirect(successRedirectUrl);
 }

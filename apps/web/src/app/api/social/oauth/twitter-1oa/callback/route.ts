@@ -90,27 +90,66 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${dashboardUrl}?error=twitter_1oa_user_lookup_failed`);
   }
 
-  const credentialsJson = {
+  const oauth1Creds = {
     twitterOAuth1AccessToken: accessToken,
     twitterOAuth1AccessTokenSecret: accessTokenSecret,
   };
 
   const existing = await prisma.socialAccount.findFirst({
-    where: { userId: pending.userId, platform: 'TWITTER' },
-    select: { id: true },
+    where: { userId: pending.userId, platform: 'TWITTER', platformUserId },
+    select: { id: true, accessToken: true, credentialsJson: true },
   });
 
   if (existing) {
+    const prevCreds =
+      existing.credentialsJson && typeof existing.credentialsJson === 'object' && existing.credentialsJson !== null
+        ? { ...(existing.credentialsJson as Record<string, unknown>) }
+        : {};
+    // Merge OAuth1 media creds into existing credentialsJson so we keep grantedScope etc.
+    // Do NOT overwrite the OAuth2 Bearer accessToken (required to POST /2/tweets). If the
+    // existing row for some reason has no Bearer yet, fall back to the OAuth1 sentinel
+    // so the media-only path still works for legacy rows.
+    const nextAccessToken =
+      existing.accessToken && existing.accessToken !== 'oauth1' ? existing.accessToken : 'oauth1';
     await prisma.socialAccount.update({
       where: { id: existing.id },
       data: {
         platformUserId,
         username: username ?? platformUserId ?? '',
-        credentialsJson,
-        accessToken: 'oauth1',
+        credentialsJson: { ...prevCreds, ...oauth1Creds },
+        accessToken: nextAccessToken,
+        status: 'connected',
+        disconnectedAt: null,
       },
     });
-    return NextResponse.redirect(`${dashboardUrl}?accountId=${encodeURIComponent(existing.id)}`);
+    return NextResponse.redirect(`${dashboardUrl}?accountId=${encodeURIComponent(existing.id)}&connecting=1`);
+  }
+
+  // No prior row for this platformUserId (rare: OAuth1 flow ran before OAuth2).
+  // Check if there is ANY TWITTER account for this user we should merge into.
+  const anyExisting = await prisma.socialAccount.findFirst({
+    where: { userId: pending.userId, platform: 'TWITTER' },
+    select: { id: true, accessToken: true, credentialsJson: true },
+  });
+  if (anyExisting) {
+    const prevCreds =
+      anyExisting.credentialsJson && typeof anyExisting.credentialsJson === 'object' && anyExisting.credentialsJson !== null
+        ? { ...(anyExisting.credentialsJson as Record<string, unknown>) }
+        : {};
+    const nextAccessToken =
+      anyExisting.accessToken && anyExisting.accessToken !== 'oauth1' ? anyExisting.accessToken : 'oauth1';
+    await prisma.socialAccount.update({
+      where: { id: anyExisting.id },
+      data: {
+        platformUserId,
+        username: username ?? platformUserId ?? '',
+        credentialsJson: { ...prevCreds, ...oauth1Creds },
+        accessToken: nextAccessToken,
+        status: 'connected',
+        disconnectedAt: null,
+      },
+    });
+    return NextResponse.redirect(`${dashboardUrl}?accountId=${encodeURIComponent(anyExisting.id)}&connecting=1`);
   }
 
   const created = await prisma.socialAccount.create({
@@ -119,10 +158,10 @@ export async function GET(request: NextRequest) {
       platform: 'TWITTER',
       platformUserId,
       username: username ?? platformUserId ?? '',
-      credentialsJson,
+      credentialsJson: oauth1Creds,
       accessToken: 'oauth1',
     },
     select: { id: true },
   });
-  return NextResponse.redirect(`${dashboardUrl}?accountId=${encodeURIComponent(created.id)}`);
+  return NextResponse.redirect(`${dashboardUrl}?accountId=${encodeURIComponent(created.id)}&connecting=1`);
 }
