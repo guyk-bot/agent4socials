@@ -1012,6 +1012,12 @@ function bestPostInteractionCount(p: FacebookPost): number {
   if (platform === 'YOUTUBE') {
     return (p.likeCount ?? 0) + (p.commentsCount ?? 0) + bestShareCount(p);
   }
+  if (platform === 'PINTEREST') {
+    const stored = typeof p.interactions === 'number' && Number.isFinite(p.interactions) ? p.interactions : 0;
+    if (stored > 0) return stored;
+    const saves = typeof p.savesCount === 'number' && Number.isFinite(p.savesCount) ? Math.max(0, p.savesCount) : 0;
+    return fromParts + saves;
+  }
   return fi.post_clicks ?? 0;
 }
 
@@ -1311,7 +1317,7 @@ function buildDateAxis(start: string, end: string): string[] {
   const [ys, ms, ds] = n(start);
   const [ye, me, de] = n(end);
   if (!ys || !ms || !ds || !ye || !me || !de) return out;
-  let cur = new Date(ys, ms - 1, ds);
+  const cur = new Date(ys, ms - 1, ds);
   const last = new Date(ye, me - 1, de);
   if (cur > last) return out;
   while (cur <= last) {
@@ -1353,6 +1359,8 @@ function MinWidthBarShape(props: { x?: number; y?: number; width?: number; heigh
 const TRAFFIC_STACK_BAR_SHAPE = createMinWidthStackedBarShape(['nonviral', 'viral'], { radius: 6, minWidth: 10 });
 /** Meta/IG posts-by-type stack (reels → image → carousel bottom to top). */
 const META_POSTS_UPLOAD_STACK_SHAPE = createMinWidthStackedBarShape(['reels', 'image', 'carousel'], { radius: 5, minWidth: 10 });
+/** TikTok uploads: video-style posts and carousels only (no standalone image stack). */
+const TIKTOK_POSTS_UPLOAD_STACK_SHAPE = createMinWidthStackedBarShape(['reels', 'carousel'], { radius: 5, minWidth: 10 });
 
 export function EmptyStateCard({ title, subtitle }: { title: string; subtitle: string }) {
   return (
@@ -1864,6 +1872,9 @@ export function PostsPerformanceTable({
   clicksColumnLabel = 'Clicks',
   hideClicksColumn = false,
   platform,
+  showCommentsColumn = false,
+  showSharesColumn = false,
+  sharesColumnLabel = 'Shares',
 }: {
   rows: Array<{
     id: string;
@@ -1887,6 +1898,10 @@ export function PostsPerformanceTable({
   hideClicksColumn?: boolean;
   /** Used to hide Meta-only columns and relabel watch metrics for TikTok. */
   platform?: string;
+  /** Pinterest (and similar): show explicit Comments / Shares (Saves) columns beyond Likes/Reactions. */
+  showCommentsColumn?: boolean;
+  showSharesColumn?: boolean;
+  sharesColumnLabel?: string;
 }) {
   const platUpper = (platform ?? '').toUpperCase();
   const compactVideoTable = platUpper === 'TIKTOK' || platUpper === 'LINKEDIN' || platUpper === 'TWITTER';
@@ -1904,7 +1919,7 @@ export function PostsPerformanceTable({
   const hoverClearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    setMounted(true);
+    queueMicrotask(() => setMounted(true));
     return () => {
       if (hoverClearTimer.current) clearTimeout(hoverClearTimer.current);
     };
@@ -1958,6 +1973,8 @@ export function PostsPerformanceTable({
     ...(hideClicksColumn ? [] : [{ label: clicksColumnLabel, className: 'w-[116px] min-w-[116px] pl-5' }]),
     { label: 'Likes', className: 'w-[72px]' },
     { label: 'Reactions', className: 'w-[88px]' },
+    ...(showCommentsColumn ? [{ label: 'Comments', className: 'w-[88px]' }] : []),
+    ...(showSharesColumn ? [{ label: sharesColumnLabel, className: 'w-[92px]' }] : []),
     ...(compactVideoTable
       ? []
       : [
@@ -1972,7 +1989,11 @@ export function PostsPerformanceTable({
           { label: platUpper === 'YOUTUBE' ? 'Duration' : 'Avg watch', className: 'w-[80px]' },
         ]),
   ];
-  const tableMinW = compactVideoTable ? 'min-w-[860px]' : 'min-w-[1220px]';
+  const tableMinW = compactVideoTable
+    ? 'min-w-[860px]'
+    : showCommentsColumn || showSharesColumn
+      ? 'min-w-[1400px]'
+      : 'min-w-[1220px]';
   return (
     <>
     <div className="rounded-[20px] overflow-hidden" style={{ background: COLOR.card, boxShadow: '0 2px 16px rgba(15,23,42,0.06)' }}>
@@ -2061,6 +2082,12 @@ export function PostsPerformanceTable({
                 {!hideClicksColumn && <td className="pl-5 pr-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.clicks)}</td>}
                 <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.likes)}</td>
                 <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.reactionsTotal)}</td>
+                {showCommentsColumn ? (
+                  <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.rawPost.commentsCount ?? 0)}</td>
+                ) : null}
+                {showSharesColumn ? (
+                  <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(bestShareCount(r.rawPost))}</td>
+                ) : null}
                 {!compactVideoTable ? (
                   <>
                     <td
@@ -2170,6 +2197,12 @@ export function PostsPerformanceTable({
                   {clicksColumnLabel} {formatNumber(r.clicks)}
                 </span>
               )}
+              {showCommentsColumn ? <span>Comments {formatNumber(r.rawPost.commentsCount ?? 0)}</span> : null}
+              {showSharesColumn ? (
+                <span>
+                  {sharesColumnLabel} {formatNumber(bestShareCount(r.rawPost))}
+                </span>
+              ) : null}
             </div>
           </div>
         );})}
@@ -2669,9 +2702,10 @@ export function FacebookAnalyticsView({
   useEffect(() => {
     setSelectedPostsUploadPreset((prev) => {
       if (isYouTube) return prev === 'shorts' || prev === 'videos' ? prev : 'videos';
+      if (isTikTok && prev === 'image') return 'all';
       return prev === 'all' || prev === 'reels' || prev === 'image' || prev === 'carousel' ? prev : 'all';
     });
-  }, [isYouTube]);
+  }, [isYouTube, isTikTok]);
 
   useEffect(() => {
     if (!isFacebook && !isInstagram) return;
@@ -2752,12 +2786,14 @@ export function FacebookAnalyticsView({
       }
       if (isCarouselAlbumMedia(p.mediaType)) {
         counts.carousel += 1;
+      } else if (isTikTok) {
+        counts.reels += 1;
       } else {
         counts.image += 1;
       }
     }
     return counts;
-  }, [postsInRange]);
+  }, [isTikTok, postsInRange]);
   const postsUploadChartPresets = useMemo(() => {
     if (isYouTube) {
       return [
@@ -2765,13 +2801,15 @@ export function FacebookAnalyticsView({
         { key: 'videos' as const, label: 'Videos', color: YOUTUBE_CONTENT_TYPE_COLOR.videos },
       ];
     }
-    return [
+    const base = [
       { key: 'all' as const, label: 'All', color: COLOR.violet },
       { key: 'reels' as const, label: isPinterest ? 'Videos' : 'Reels', color: CONTENT_TYPE_COLOR.reels },
       { key: 'image' as const, label: 'Image', color: CONTENT_TYPE_COLOR.image },
       { key: 'carousel' as const, label: 'Carousel', color: CONTENT_TYPE_COLOR.carousel },
     ];
-  }, [isYouTube, isPinterest]);
+    if (isTikTok) return base.filter((p) => p.key !== 'image');
+    return base;
+  }, [isYouTube, isPinterest, isTikTok]);
   const postsUploadByDay = useMemo(() => {
     const axis = buildDateAxis(dateRange.start, dateRange.end);
     const byDate = new Map<string, {
@@ -2795,10 +2833,11 @@ export function FacebookAnalyticsView({
         continue;
       }
       if (isCarouselAlbumMedia(p.mediaType)) row.carousel += 1;
+      else if (isTikTok) row.reels += 1;
       else row.image += 1;
     }
     return axis.map((d) => byDate.get(d)!);
-  }, [dateRange.end, dateRange.start, isYouTube, postsInRange]);
+  }, [dateRange.end, dateRange.start, isTikTok, isYouTube, postsInRange]);
 
   const postsUploadChartYMax = useMemo(() => {
     if (postsUploadByDay.length === 0) return 1;
@@ -3750,10 +3789,17 @@ export function FacebookAnalyticsView({
       const fi = p.facebookInsights ?? {};
       const reactions = parseReactionTotal(fi.post_reactions_by_type_total);
       const isReel = isReelPost(p);
+      const plat = String(p.platform ?? '').toUpperCase();
       const hasCore =
-        typeof fi.post_media_view === 'number' ||
-        typeof fi.post_total_media_view_unique === 'number' ||
-        typeof fi.post_impressions_unique === 'number';
+        plat === 'PINTEREST'
+          ? typeof fi.post_media_view === 'number' ||
+            typeof fi.post_video_views === 'number' ||
+            typeof fi.post_impressions === 'number' ||
+            typeof p.impressions === 'number' ||
+            bestPostInteractionCount(p) > 0
+          : typeof fi.post_media_view === 'number' ||
+            typeof fi.post_total_media_view_unique === 'number' ||
+            typeof fi.post_impressions_unique === 'number';
       const { watchTimeMs, avgWatchMs } = getWatchTimes(p);
       return {
         id: p.id,
@@ -3762,7 +3808,13 @@ export function FacebookAnalyticsView({
         preview: p.content ?? '',
         permalink: p.permalinkUrl,
         views: bestPostPlayCount(p),
-        uniqueReach: bestFacebookPostUniqueViewers(fi as Record<string, number>),
+        uniqueReach:
+          plat === 'PINTEREST'
+            ? Math.max(
+                typeof fi.post_impressions === 'number' && Number.isFinite(fi.post_impressions) ? fi.post_impressions : 0,
+                typeof p.impressions === 'number' && Number.isFinite(p.impressions) ? p.impressions : 0
+              )
+            : bestFacebookPostUniqueViewers(fi as Record<string, number>),
         clicks: bestPostInteractionCount(p),
         likes: bestCount(fi.post_reactions_like_total, p.likeCount),
         reactionsTotal: reactions || bestCount(fi.post_reactions_like_total, p.likeCount),
@@ -3789,7 +3841,13 @@ export function FacebookAnalyticsView({
       }
       const row = map.get(d)!;
       const bucket: 'reels' | 'image' | 'carousel' =
-        r.type === 'Reel' ? 'reels' : isCarouselAlbumMedia(r.rawPost.mediaType) ? 'carousel' : 'image';
+        r.type === 'Reel'
+          ? 'reels'
+          : isCarouselAlbumMedia(r.rawPost.mediaType)
+            ? 'carousel'
+            : isTikTok
+              ? 'reels'
+              : 'image';
       const apply = (agg: PostsUploadDayTooltipAgg) => {
         agg.count += 1;
         agg.interactions += r.clicks;
@@ -3801,7 +3859,7 @@ export function FacebookAnalyticsView({
       apply(row[bucket]);
     }
     return map;
-  }, [postsRows]);
+  }, [isTikTok, postsRows]);
 
   const reelsRows = useMemo(() => {
     return postsRows
@@ -4005,6 +4063,7 @@ export function FacebookAnalyticsView({
     }
     const sum = postsInRange.reduce((acc, post) => {
       if (isInstagram) return acc + bestInstagramInteractionCount(post);
+      if (isPinterest) return acc + bestPostInteractionCount(post);
       if (isTikTok || isTwitter || isYouTube || isLinkedIn) {
         return acc + (post.likeCount ?? 0) + (post.commentsCount ?? 0) + bestShareCount(post);
       }
@@ -4028,9 +4087,12 @@ export function FacebookAnalyticsView({
     if (isYouTube || isPinterest) return reelChartSourceRows.reduce((s, r) => s + r.watchTimeMs, 0);
     return postsRows.filter((r) => r.type === 'Reel').reduce((s, r) => s + r.watchTimeMs, 0);
   }, [isYouTube, isPinterest, reelChartSourceRows, postsRows]);
-  const reelClicks = reelChartSourceRows.reduce((s, r) => (
-    s + (r.post.platform === 'INSTAGRAM' ? bestInstagramInteractionCount(r.post) : (r.post.facebookInsights?.post_clicks ?? 0))
-  ), 0);
+  const reelClicks = reelChartSourceRows.reduce((s, r) => {
+    const plat = String(r.post.platform ?? '').toUpperCase();
+    if (plat === 'INSTAGRAM') return s + bestInstagramInteractionCount(r.post);
+    if (plat === 'PINTEREST') return s + bestPostInteractionCount(r.post);
+    return s + (r.post.facebookInsights?.post_clicks ?? 0);
+  }, 0);
   const reelLikes = reelChartSourceRows.reduce((s, r) => s + bestCount(r.post.facebookInsights?.post_reactions_like_total, r.post.likeCount), 0);
   const reelComments = reelChartSourceRows.reduce((s, r) => s + (r.post.facebookInsights?.post_comments ?? r.post.commentsCount ?? 0), 0);
   const reelShares = reelChartSourceRows.reduce((s, r) => s + bestShareCount(r.post), 0);
@@ -4047,9 +4109,12 @@ export function FacebookAnalyticsView({
       ? Math.round(youtubeAvgViewDurationSec * 1000)
       : avgWatchMs;
   const viewToClickEfficiency =
-    reelChartSourceRows.reduce((s, r) => (
-      s + (r.post.platform === 'INSTAGRAM' ? bestInstagramInteractionCount(r.post) : (r.post.facebookInsights?.post_clicks ?? 0))
-    ), 0) / Math.max(1, totalReelVideoViews);
+    reelChartSourceRows.reduce((s, r) => {
+      const plat = String(r.post.platform ?? '').toUpperCase();
+      if (plat === 'INSTAGRAM') return s + bestInstagramInteractionCount(r.post);
+      if (plat === 'PINTEREST') return s + bestPostInteractionCount(r.post);
+      return s + (r.post.facebookInsights?.post_clicks ?? 0);
+    }, 0) / Math.max(1, totalReelVideoViews);
   const storyModeHoverHint = useMemo(() => {
     const fmt = (v: number | null | undefined) => (typeof v === 'number' && Number.isFinite(v) ? `${v >= 0 ? '+' : ''}${v.toFixed(1)}%` : 'n/a');
     const follows = growthSparklineSeries.follows;
@@ -4325,10 +4390,17 @@ export function FacebookAnalyticsView({
       const fi = p.facebookInsights ?? {};
       const reactions = parseReactionTotal(fi.post_reactions_by_type_total);
       const isReel = isReelPost(p);
+      const plat = String(p.platform ?? '').toUpperCase();
       const hasCore =
-        typeof fi.post_media_view === 'number' ||
-        typeof fi.post_total_media_view_unique === 'number' ||
-        typeof fi.post_impressions_unique === 'number';
+        plat === 'PINTEREST'
+          ? typeof fi.post_media_view === 'number' ||
+            typeof fi.post_video_views === 'number' ||
+            typeof fi.post_impressions === 'number' ||
+            typeof p.impressions === 'number' ||
+            bestPostInteractionCount(p) > 0
+          : typeof fi.post_media_view === 'number' ||
+            typeof fi.post_total_media_view_unique === 'number' ||
+            typeof fi.post_impressions_unique === 'number';
       const { watchTimeMs, avgWatchMs } = getWatchTimes(p);
       const withPid = p as FacebookPost & { platformPostId?: string | null };
       return {
@@ -4340,7 +4412,13 @@ export function FacebookAnalyticsView({
         views: (p.platform ?? '').toUpperCase() === 'YOUTUBE'
           ? Math.max(bestPostPlayCount(p), p.impressions ?? 0)
           : bestPostPlayCount(p),
-        uniqueReach: bestFacebookPostUniqueViewers(fi as Record<string, number>),
+        uniqueReach:
+          plat === 'PINTEREST'
+            ? Math.max(
+                typeof fi.post_impressions === 'number' && Number.isFinite(fi.post_impressions) ? fi.post_impressions : 0,
+                typeof p.impressions === 'number' && Number.isFinite(p.impressions) ? p.impressions : 0
+              )
+            : bestFacebookPostUniqueViewers(fi as Record<string, number>),
         clicks: bestPostInteractionCount(p),
         likes: fi.post_reactions_like_total ?? p.likeCount ?? 0,
         reactionsTotal: reactions || (fi.post_reactions_like_total ?? p.likeCount ?? 0),
@@ -5642,7 +5720,7 @@ export function FacebookAnalyticsView({
                         : isLinkedIn
                           ? 'Per synced LinkedIn post in range: likes + comments + shares; divided by post count.'
                           : isPinterest
-                            ? 'Per synced Pin in range: likes + comments + shares + engagements; divided by pin count.'
+                            ? 'Per synced Pin in range: Pinterest lifetime reactions + comments + saves + Pin clicks + outbound clicks (when available), using synced pin_metrics; divided by pin count.'
                           : isInstagram
                             ? 'Per synced IG media in range: likes + comments + shares + reposts; divided by post count.'
                             : 'Per synced Page post in range: likes + comments + shares + reposts; divided by post count.'
@@ -5653,7 +5731,11 @@ export function FacebookAnalyticsView({
             )}
             <MetricCard
               label="Avg Reactions per Post"
-              source={`Sum of each ${postsExplainerItemSingular}'s total reactions (from platform insights) ÷ number of ${postsExplainerPublishedPlural} in range.`}
+              source={
+                isPinterest
+                  ? `Per synced Pin in range: Pinterest “reactions” (TOTAL_REACTIONS / reaction) from pin_metrics ÷ number of ${postsExplainerPublishedPlural} in range.`
+                  : `Sum of each ${postsExplainerItemSingular}'s total reactions (from platform insights) ÷ number of ${postsExplainerPublishedPlural} in range.`
+              }
               color={COLOR.text}
               value={formatNumber(Math.round(avgReactionsPerPost))}
             />
@@ -5779,7 +5861,12 @@ export function FacebookAnalyticsView({
                             {preset === 'all' ? (
                               <div className="mb-2 space-y-0.5" style={{ color: COLOR.textSecondary }}>
                                 {(payload ?? [])
-                                  .filter((x) => Number(x.value) > 0 && (x.dataKey === 'reels' || x.dataKey === 'image' || x.dataKey === 'carousel'))
+                                  .filter((x) => {
+                                    const dk = x.dataKey;
+                                    if (!Number(x.value) || (dk !== 'reels' && dk !== 'image' && dk !== 'carousel')) return false;
+                                    if (isTikTok && dk === 'image') return false;
+                                    return true;
+                                  })
                                   .map((x) => (
                                     <p key={String(x.dataKey)}>
                                       <span className="font-medium" style={{ color: COLOR.text }}>
@@ -5825,7 +5912,7 @@ export function FacebookAnalyticsView({
                       }}
                     />
                     {selectedPostsUploadPreset === 'all' ? (
-                      (['reels', 'image', 'carousel'] as const).map((key) => (
+                      (isTikTok ? (['reels', 'carousel'] as const) : (['reels', 'image', 'carousel'] as const)).map((key) => (
                         <Bar
                           key={`uploaded-posts-bar-stack-${key}`}
                           dataKey={key}
@@ -5833,7 +5920,7 @@ export function FacebookAnalyticsView({
                           stackId="upload-by-type"
                           fill={CONTENT_TYPE_COLOR[key]}
                           barSize={UNIFIED_BAR_SIZE}
-                          shape={META_POSTS_UPLOAD_STACK_SHAPE}
+                          shape={isTikTok ? TIKTOK_POSTS_UPLOAD_STACK_SHAPE : META_POSTS_UPLOAD_STACK_SHAPE}
                         />
                       ))
                     ) : (
@@ -5848,7 +5935,7 @@ export function FacebookAnalyticsView({
                             fill={preset.color}
                             barSize={UNIFIED_BAR_SIZE}
                             hide={selectedPostsUploadPreset !== preset.key}
-                            shape={META_POSTS_UPLOAD_STACK_SHAPE}
+                            shape={isTikTok ? TIKTOK_POSTS_UPLOAD_STACK_SHAPE : META_POSTS_UPLOAD_STACK_SHAPE}
                           />
                         ))
                     )}
@@ -6056,7 +6143,7 @@ export function FacebookAnalyticsView({
             <>
               <MetricCard
                 label="Watch Time"
-                source="post_video_view_time"
+                source={isPinterest ? 'Pinterest pin_metrics · VIDEO_V50_WATCH_TIME (fallback: VIDEO_AVG_WATCH_TIME × plays)' : 'post_video_view_time'}
                 color={REEL_METRIC_CONFIG.watchTime.color}
                 value={formatDurationMs(totalReelWatchTimeMsDisplay)}
                 active={selectedReelMetrics.includes('watchTime')}
@@ -6064,7 +6151,11 @@ export function FacebookAnalyticsView({
               />
               <MetricCard
                 label="Avg Watch Time"
-                source="Mean post_video_avg_time_watched"
+                source={
+                  isPinterest
+                    ? 'Pinterest pin_metrics · VIDEO_AVG_WATCH_TIME (mapped to post_video_avg_time_watched)'
+                    : 'Mean post_video_avg_time_watched'
+                }
                 color={REEL_METRIC_CONFIG.avgWatch.color}
                 value={formatDurationMs(avgWatchMsDisplay)}
                 active={selectedReelMetrics.includes('avgWatch')}
@@ -6073,8 +6164,12 @@ export function FacebookAnalyticsView({
             </>
           ) : null}
           <MetricCard
-            label="Likes"
-            source="post_reactions_like_total"
+            label={isPinterest ? 'Reactions' : 'Likes'}
+            source={
+              isPinterest
+                ? 'Pinterest pin_metrics · TOTAL_REACTIONS / reaction (mapped to post_reactions_like_total)'
+                : 'post_reactions_like_total'
+            }
             color={REEL_METRIC_CONFIG.likes.color}
             value={formatNumber(reelLikes)}
             active={selectedReelMetrics.includes('likes')}
@@ -6082,15 +6177,21 @@ export function FacebookAnalyticsView({
           />
           <MetricCard
             label="Comments"
-            source="post_comments"
+            source={isPinterest ? 'Pinterest pin_metrics · TOTAL_COMMENTS / comment (mapped to post_comments)' : 'post_comments'}
             color={REEL_METRIC_CONFIG.comments.color}
             value={formatNumber(reelComments)}
             active={selectedReelMetrics.includes('comments')}
             onClick={() => setSelectedReelMetrics((prev) => prev.includes('comments') ? prev.filter((m) => m !== 'comments') : [...prev, 'comments'])}
           />
           <MetricCard
-            label="Shares"
-            source={isInstagram ? 'Instagram media insights · shares metric (DMs + Story shares)' : 'post_shares'}
+            label={isPinterest ? 'Saves' : 'Shares'}
+            source={
+              isInstagram
+                ? 'Instagram media insights · shares metric (DMs + Story shares)'
+                : isPinterest
+                  ? 'Pinterest pin_metrics · SAVE (mapped to post_shares / sharesCount for dashboards)'
+                  : 'post_shares'
+            }
             color={REEL_METRIC_CONFIG.shares.color}
             value={formatNumber(reelShares)}
             active={selectedReelMetrics.includes('shares')}
@@ -6237,9 +6338,14 @@ export function FacebookAnalyticsView({
             return (
               <PostsPerformanceTable
                 rows={historyRows}
-                clicksColumnLabel={isInstagram || isTikTok || isLinkedIn || isTwitter ? 'Interactions' : 'Clicks'}
+                clicksColumnLabel={
+                  isInstagram || isTikTok || isLinkedIn || isTwitter || isPinterest ? 'Interactions' : 'Clicks'
+                }
                 hideClicksColumn={isInstagram}
                 platform={insights?.platform}
+                showCommentsColumn={isPinterest}
+                showSharesColumn={isPinterest}
+                sharesColumnLabel={isPinterest ? 'Saves' : 'Shares'}
               />
             );
           })()}
