@@ -5629,7 +5629,7 @@ export function FacebookAnalyticsView({
                   : postsInRange.length
               )}
             />
-            {(isInstagram || isFacebook || isTikTok || isTwitter || isYouTube || isLinkedIn) && (
+            {(isInstagram || isFacebook || isTikTok || isTwitter || isYouTube || isLinkedIn || isPinterest) && (
               <MetricCard
                 label="Avg interactions per post"
                 source={
@@ -5641,6 +5641,8 @@ export function FacebookAnalyticsView({
                         ? 'Per synced YouTube video in range: likes + comments + shares; divided by video count.'
                         : isLinkedIn
                           ? 'Per synced LinkedIn post in range: likes + comments + shares; divided by post count.'
+                          : isPinterest
+                            ? 'Per synced Pin in range: likes + comments + shares + engagements; divided by pin count.'
                           : isInstagram
                             ? 'Per synced IG media in range: likes + comments + shares + reposts; divided by post count.'
                             : 'Per synced Page post in range: likes + comments + shares + reposts; divided by post count.'
