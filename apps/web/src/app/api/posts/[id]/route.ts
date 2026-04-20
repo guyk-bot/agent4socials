@@ -30,6 +30,7 @@ export async function GET(
   const { id } = await params;
   const post = await prisma.post.findFirst({
     where: { id, userId },
+    omit: { mediaType: true },
     include: {
       media: true,
       targets: {
@@ -62,6 +63,7 @@ export async function PATCH(
   const { id } = await params;
   const existing = await prisma.post.findFirst({
     where: { id, userId },
+    omit: { mediaType: true },
     include: { targets: true },
   });
   if (!existing) {
@@ -205,6 +207,7 @@ export async function PATCH(
       }
     }
     const updateArgs = {
+      omit: { mediaType: true } as const,
       where: { id },
       data: updateData as never,
       include: {

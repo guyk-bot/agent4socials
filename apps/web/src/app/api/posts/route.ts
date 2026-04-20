@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
   }
   const posts = await prisma.post.findMany({
     where: { userId },
+    omit: { mediaType: true },
     include: {
       media: true,
       targets: {
@@ -188,6 +189,7 @@ export async function POST(request: NextRequest) {
     },
   };
   const createArgs = {
+    omit: { mediaType: true } as const,
     data: baseCreateData as never,
     include: {
       media: true,

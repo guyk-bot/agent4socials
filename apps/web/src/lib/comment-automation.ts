@@ -119,6 +119,7 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
     },
     orderBy: { updatedAt: 'desc' },
     take: maxPostsPerRun,
+    omit: { mediaType: true },
     include: {
       targets: {
         where: { platformPostId: { not: null }, status: PostStatus.POSTED },

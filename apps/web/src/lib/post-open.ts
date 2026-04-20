@@ -22,6 +22,7 @@ export async function getPostForOpen(postId: string, token: string): Promise<Pos
       emailOpenToken: token.trim(),
       emailOpenTokenExpiresAt: { gte: new Date() },
     },
+    omit: { mediaType: true },
     include: {
       media: true,
       targets: {

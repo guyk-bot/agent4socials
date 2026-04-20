@@ -42,6 +42,7 @@ export async function runPublishPostWorkflow(input: {
       : linkToken
         ? { id: postId, emailOpenToken: linkToken, emailOpenTokenExpiresAt: { gte: new Date() } }
         : { id: postId, userId: userId! },
+    omit: { mediaType: true },
     include: {
       media: true,
       targets: {
@@ -70,6 +71,7 @@ export async function runPublishPostWorkflow(input: {
 
   await prisma.post.update({
     where: { id: postId },
+    omit: { mediaType: true },
     data: { status: PostStatus.POSTING },
   });
 
@@ -398,6 +400,7 @@ export async function runPublishPostWorkflow(input: {
   const anyFailed = results.some((r) => !r.ok);
   await prisma.post.update({
     where: { id: postId },
+    omit: { mediaType: true },
     data: {
       status: anyFailed ? PostStatus.FAILED : PostStatus.POSTED,
       ...(anyFailed ? {} : { postedAt: new Date() }),

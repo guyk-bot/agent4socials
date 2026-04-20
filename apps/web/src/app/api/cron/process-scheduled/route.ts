@@ -78,6 +78,7 @@ async function executeProcessScheduled() {
       },
       orderBy: { scheduledAt: 'asc' },
       take: MAX_POSTS_PER_RUN,
+      omit: { mediaType: true },
       include: {
         user: { select: { id: true, email: true } },
         targets: true,
@@ -112,6 +113,7 @@ async function executeProcessScheduled() {
       const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
       await prisma.post.update({
         where: { id: post.id },
+        omit: { mediaType: true },
         data: {
           emailOpenToken: token,
           emailOpenTokenExpiresAt: expiresAt,
@@ -127,6 +129,7 @@ async function executeProcessScheduled() {
       if (sendResult.ok) {
         await prisma.post.update({
           where: { id: post.id },
+          omit: { mediaType: true },
           data: { scheduleEmailSentAt: now },
         });
       }

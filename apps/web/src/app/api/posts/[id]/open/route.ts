@@ -23,6 +23,7 @@ export async function GET(
       emailOpenToken: t.trim(),
       emailOpenTokenExpiresAt: { gte: new Date() },
     },
+    omit: { mediaType: true },
     include: {
       media: true,
       targets: {
