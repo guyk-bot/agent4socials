@@ -2622,6 +2622,10 @@ export function FacebookAnalyticsView({
       setSelectedEngagementMetrics(['likes', 'comments', 'shares', 'reposts']);
       return;
     }
+    if (insights?.platform?.toUpperCase() === 'PINTEREST') {
+      setSelectedEngagementMetrics(['shares']);
+      return;
+    }
     if (insights?.platform?.toUpperCase() !== 'TIKTOK') return;
     const engAllowed = new Set<EngagementMetricKey>(['likes', 'comments', 'shares']);
     const reelAllowed = new Set<ReelMetricKey>(['views', 'clicks', 'likes', 'comments', 'shares']);
@@ -4077,6 +4081,17 @@ export function FacebookAnalyticsView({
   }, [postsInRange, isTwitter, twitterRecentTweets]);
   const totalActions = actionsTotal;
   const engagementData = useMemo(() => {
+    if (isPinterest) {
+      const engagementByDate = seriesToMap(actionsSeries ?? []);
+      return dateAxis.map((date) => ({
+        date,
+        likes: 0,
+        comments: 0,
+        shares: engagementByDate[date] ?? 0,
+        reposts: 0,
+        dislikes: 0,
+      }));
+    }
     const likesByDate = postsInRange.reduce<Record<string, number>>((acc, post) => {
       const d = localCalendarDateFromIso(post.publishedAt);
       acc[d] = (acc[d] ?? 0) + bestCount(post.facebookInsights?.post_reactions_like_total, post.likeCount ?? post.engagementBreakdown?.reactions);
@@ -4127,7 +4142,7 @@ export function FacebookAnalyticsView({
       reposts: repostsByDate[date] ?? 0,
       dislikes: isYouTube ? (youtubeDislikesByDate[date] ?? 0) : 0,
     }));
-  }, [dateAxis, postsInRange, isTwitter, twitterRecentTweets, isYouTube, youtubeDislikesByDate]);
+  }, [dateAxis, postsInRange, isTwitter, twitterRecentTweets, isYouTube, youtubeDislikesByDate, isPinterest, actionsSeries]);
   const engagementTicks = useMemo(
     () =>
       buildKeyDateTicks(
@@ -5103,44 +5118,50 @@ export function FacebookAnalyticsView({
             <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Engagement</h3>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {!isPinterest ? (
+              <MetricCard
+                label="Likes"
+                source={
+                  isTikTok
+                    ? 'video/list · like_count (synced posts)'
+                    : isTwitter
+                      ? 'Synced X posts · likeCount (timeline metrics also in Performance table)'
+                    : isLinkedIn
+                      ? 'Synced LinkedIn posts · likeCount'
+                      : 'post_reactions_like_total'
+                }
+                color={ENGAGEMENT_METRIC_CONFIG.likes.color}
+                value={formatNumber(likesTotal)}
+                active={selectedEngagementMetrics.includes('likes')}
+                onClick={() => setSelectedEngagementMetrics((prev) => prev.includes('likes') ? prev.filter((m) => m !== 'likes') : [...prev, 'likes'])}
+                tiktokApiHighlight={isTikTok}
+              />
+            ) : null}
+            {!isPinterest ? (
+              <MetricCard
+                label="Comments"
+                source={
+                  isTikTok
+                    ? 'video/list · comment_count (synced posts)'
+                    : isTwitter
+                      ? 'Synced X posts · commentsCount'
+                    : isLinkedIn
+                      ? 'Synced LinkedIn posts · commentsCount'
+                      : 'post_comments'
+                }
+                color={ENGAGEMENT_METRIC_CONFIG.comments.color}
+                value={formatNumber(commentsTotal)}
+                active={selectedEngagementMetrics.includes('comments')}
+                onClick={() => setSelectedEngagementMetrics((prev) => prev.includes('comments') ? prev.filter((m) => m !== 'comments') : [...prev, 'comments'])}
+                tiktokApiHighlight={isTikTok}
+              />
+            ) : null}
             <MetricCard
-              label="Likes"
+              label={isPinterest ? 'Engagements' : 'Shares'}
               source={
-                isTikTok
-                  ? 'video/list · like_count (synced posts)'
-                  : isTwitter
-                    ? 'Synced X posts · likeCount (timeline metrics also in Performance table)'
-                  : isLinkedIn
-                    ? 'Synced LinkedIn posts · likeCount'
-                    : 'post_reactions_like_total'
-              }
-              color={ENGAGEMENT_METRIC_CONFIG.likes.color}
-              value={formatNumber(likesTotal)}
-              active={selectedEngagementMetrics.includes('likes')}
-              onClick={() => setSelectedEngagementMetrics((prev) => prev.includes('likes') ? prev.filter((m) => m !== 'likes') : [...prev, 'likes'])}
-              tiktokApiHighlight={isTikTok}
-            />
-            <MetricCard
-              label="Comments"
-              source={
-                isTikTok
-                  ? 'video/list · comment_count (synced posts)'
-                  : isTwitter
-                    ? 'Synced X posts · commentsCount'
-                  : isLinkedIn
-                    ? 'Synced LinkedIn posts · commentsCount'
-                    : 'post_comments'
-              }
-              color={ENGAGEMENT_METRIC_CONFIG.comments.color}
-              value={formatNumber(commentsTotal)}
-              active={selectedEngagementMetrics.includes('comments')}
-              onClick={() => setSelectedEngagementMetrics((prev) => prev.includes('comments') ? prev.filter((m) => m !== 'comments') : [...prev, 'comments'])}
-              tiktokApiHighlight={isTikTok}
-            />
-            <MetricCard
-              label="Shares"
-              source={
-                isTikTok
+                isPinterest
+                  ? 'Pinterest user analytics · ENGAGEMENT (or SAVE + OUTBOUND_CLICK + PIN_CLICK fallback)'
+                  : isTikTok
                   ? 'video/list · share_count (synced posts)'
                   : isTwitter
                     ? 'Synced X posts · sharesCount (native reposts where mapped)'
@@ -5151,7 +5172,7 @@ export function FacebookAnalyticsView({
                     : 'post_shares'
               }
               color={ENGAGEMENT_METRIC_CONFIG.shares.color}
-              value={formatNumber(sharesTotal)}
+              value={formatNumber(isPinterest ? totalActions : sharesTotal)}
               active={selectedEngagementMetrics.includes('shares')}
               onClick={() => setSelectedEngagementMetrics((prev) => prev.includes('shares') ? prev.filter((m) => m !== 'shares') : [...prev, 'shares'])}
               tiktokApiHighlight={isTikTok}
@@ -5200,7 +5221,7 @@ export function FacebookAnalyticsView({
                   style={{ borderColor: COLOR.border, color: COLOR.textSecondary, background: 'rgba(255,255,255,0.02)' }}
                 >
                   <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ background: ENGAGEMENT_METRIC_CONFIG[m].color }} />
-                  {ENGAGEMENT_METRIC_CONFIG[m].label}
+                  {isPinterest && m === 'shares' ? 'Engagements' : ENGAGEMENT_METRIC_CONFIG[m].label}
                 </span>
               ))}
             </div>
@@ -5255,6 +5276,8 @@ export function FacebookAnalyticsView({
                         ? 'Comments'
                         : n === 'reposts'
                           ? 'Reposts'
+                          : isPinterest && n === 'shares'
+                            ? 'Engagements'
                           : n === 'dislikes'
                             ? 'Dislikes'
                           : 'Shares',
