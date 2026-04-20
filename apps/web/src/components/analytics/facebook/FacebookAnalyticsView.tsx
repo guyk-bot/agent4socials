@@ -702,6 +702,8 @@ function isReelPost(p: FacebookPost): boolean {
   const url = (p.permalinkUrl ?? '').toLowerCase();
   if (url.includes('/reel/') || url.includes('/reels/')) return true;
   const mt = (p.mediaType ?? '').toUpperCase();
+  // Pinterest uses VIDEO instead of REEL semantics.
+  if ((p.platform ?? '').toUpperCase() === 'PINTEREST' && mt === 'VIDEO') return true;
   if (mt === 'REEL') return true;
   const meta =
     p.platformMetadata && typeof p.platformMetadata === 'object' && !Array.isArray(p.platformMetadata)
@@ -2765,11 +2767,11 @@ export function FacebookAnalyticsView({
     }
     return [
       { key: 'all' as const, label: 'All', color: COLOR.violet },
-      { key: 'reels' as const, label: 'Reels', color: CONTENT_TYPE_COLOR.reels },
+      { key: 'reels' as const, label: isPinterest ? 'Videos' : 'Reels', color: CONTENT_TYPE_COLOR.reels },
       { key: 'image' as const, label: 'Image', color: CONTENT_TYPE_COLOR.image },
       { key: 'carousel' as const, label: 'Carousel', color: CONTENT_TYPE_COLOR.carousel },
     ];
-  }, [isYouTube]);
+  }, [isYouTube, isPinterest]);
   const postsUploadByDay = useMemo(() => {
     const axis = buildDateAxis(dateRange.start, dateRange.end);
     const byDate = new Map<string, {
