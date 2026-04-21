@@ -286,6 +286,8 @@ export default function DashboardPage() {
   const { openSignup } = useAuthModal();
   const { cachedAccounts, setCachedAccounts, accountsLoadError, setAccountsLoadError } = useAccountsCache() ?? { cachedAccounts: [], setCachedAccounts: () => {}, accountsLoadError: null, setAccountsLoadError: () => {} };
   const appData = useAppData();
+  const shouldApplyVisibleChartUpdate = () =>
+    typeof document === 'undefined' || document.visibilityState === 'visible';
   /** Stable ref so effects do not re-run on every AppDataProvider render (prefetch updates replace context value). */
   const appDataRef = useRef(appData);
   appDataRef.current = appData;
@@ -325,10 +327,19 @@ export default function DashboardPage() {
   const [allPostsSyncError, setAllPostsSyncError] = useState<string | null>(null);
   const [syncAllTrigger, setSyncAllTrigger] = useState(0);
   const [dateRange, setDateRange] = useState(() => getDefaultDateRange());
+  /**
+   * Hydrate date range from session storage only once per mounted dashboard.
+   * Auth/session refreshes can flip `user?.id` and re-run this effect, which
+   * re-applies a different stored range and shifts chart x-axis/domain,
+   * producing the "candles jump when I return to the tab" glitch.
+   */
+  const dateRangeHydratedRef = useRef(false);
   useEffect(() => {
+    if (dateRangeHydratedRef.current) return;
     if (!user?.id) return;
     const stored = readStoredAnalyticsDateRange(user.id);
     if (stored) setDateRange(stored);
+    dateRangeHydratedRef.current = true;
   }, [user?.id]);
   const handleAnalyticsDateRangeChange = useCallback(
     (r: { start: string; end: string }) => {
@@ -637,7 +648,7 @@ export default function DashboardPage() {
             accountPostsHydratedRef.current[accountId] = true;
             accountPostsLastSyncAtRef.current[accountId] = Date.now();
             appDataRef.current?.setPostsForAccount(accountId, list);
-            if (selectedAccountIdRef.current === accountId) setImportedPosts(list);
+            if (shouldApplyVisibleChartUpdate() && selectedAccountIdRef.current === accountId) setImportedPosts(list);
           })
           .catch(() => {});
       };
@@ -683,7 +694,7 @@ export default function DashboardPage() {
           accountPostsHydratedRef.current[accountId] = true;
           accountPostsLastSyncAtRef.current[accountId] = Date.now();
           appDataRef.current?.setPostsForAccount(accountId, list);
-          setImportedPosts(list);
+          if (shouldApplyVisibleChartUpdate()) setImportedPosts(list);
           setPostsSyncError(res.data?.syncError ?? null);
         })
         .catch(() => { setPostsSyncError(null); })
@@ -1213,7 +1224,7 @@ export default function DashboardPage() {
           lastInsightsFetchedAtRef.current[accountId] = Date.now();
           appDataRef.current?.setInsightsForAccount(accountId, mergedAsInsights);
         }
-        if (selectedAccountIdRef.current === accountId) {
+        if (shouldApplyVisibleChartUpdate() && selectedAccountIdRef.current === accountId) {
           setInsights((prev) => {
             if (merged) return merged as NonNullable<typeof insights>;
             if (prev && selectedAccount?.platform === 'TWITTER') return prev;
@@ -1244,7 +1255,7 @@ export default function DashboardPage() {
             const list = postsRes.data?.posts ?? [];
             postsCacheRef.current[accountId] = list;
             appDataRef.current?.setPostsForAccount(accountId, list);
-            if (selectedAccountIdRef.current === accountId) setImportedPosts(list);
+            if (shouldApplyVisibleChartUpdate() && selectedAccountIdRef.current === accountId) setImportedPosts(list);
           })
           .catch(() => {})
           .finally(() => setImportedPostsLoading(false));

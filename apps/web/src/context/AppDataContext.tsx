@@ -403,6 +403,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     setPrefetchStatus('loading');
     setPrefetchPhase2Done(false);
 
+    const shouldApplyPhase2Write = () =>
+      typeof document === 'undefined' || document.visibilityState === 'visible';
+
     (async () => {
       try {
         const accountsRes = await api.get<{ id: string; platform: string; username?: string; profilePicture?: string | null; platformUserId?: string }[]>('/social/accounts');
@@ -457,10 +460,10 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
                 })
                 .catch(() => ({ data: undefined })),
             ]);
-            if (!cancelled && postsRes.data?.posts) {
+            if (!cancelled && shouldApplyPhase2Write() && postsRes.data?.posts) {
               setPostsByAccountId((prev) => ({ ...prev, [acc.id]: postsRes.data!.posts! }));
             }
-            if (!cancelled && insightsRes.data) {
+            if (!cancelled && shouldApplyPhase2Write() && insightsRes.data) {
               setInsightsByAccountId((prev) => ({
                 ...prev,
                 [acc.id]: stripLegacyInsightsHint(insightsRes.data as CachedInsights) as CachedInsights,
@@ -473,14 +476,14 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           if (COMMENT_PLATFORMS.has(acc.platform)) {
             try {
               const r = await api.get<{ comments?: CachedComment[] }>(`/social/accounts/${acc.id}/comments`);
-              if (!cancelled && r.data) setCommentsByAccountId((prev) => ({ ...prev, [acc.id]: r.data.comments ?? [] }));
+              if (!cancelled && shouldApplyPhase2Write() && r.data) setCommentsByAccountId((prev) => ({ ...prev, [acc.id]: r.data.comments ?? [] }));
             } catch { /* skip */ }
           }
           if (cancelled) break;
           if (CONVO_PLATFORMS.has(acc.platform)) {
             try {
               const r = await api.get<{ conversations?: CachedConversation[]; error?: string }>(`/social/accounts/${acc.id}/conversations`);
-              if (!cancelled && !r.data?.error) {
+              if (!cancelled && shouldApplyPhase2Write() && !r.data?.error) {
                 setConversationsByAccountId((prev) => ({ ...prev, [acc.id]: r.data?.conversations ?? [] }));
               }
             } catch { /* skip */ }
@@ -489,7 +492,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           if (ENGAGEMENT_PLATFORMS.has(acc.platform)) {
             try {
               const r = await api.get<{ engagement?: CachedEngagement[] }>(`/social/accounts/${acc.id}/engagement`);
-              if (!cancelled) setEngagementByAccountId((prev) => ({ ...prev, [acc.id]: r.data?.engagement ?? [] }));
+              if (!cancelled && shouldApplyPhase2Write()) setEngagementByAccountId((prev) => ({ ...prev, [acc.id]: r.data?.engagement ?? [] }));
             } catch { /* skip */ }
           }
         }
