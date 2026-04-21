@@ -8,6 +8,7 @@ import { getValidYoutubeToken } from '@/lib/youtube-token';
 import { linkedInAuthorUrnForUgc, parseLinkedInRestPostElement } from '@/lib/linkedin/sync-ugc-posts';
 import { buildLinkedInRestPostsByAuthorUrl, linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
 import { getCached, setCached } from '@/lib/server-memory-cache';
+import { isMetaNonCriticalThrottled, noteMetaRateLimitError, noteMetaUsageFromHeaders } from '@/lib/meta-usage-guard';
 
 /**
  * Rate-limit guardrails (see Meta app dashboard spikes):
@@ -35,10 +36,11 @@ async function fetchAllPages<T>(
   let pages = 0;
 
   while (nextUrl && pages < pageLimit) {
-    const response: { data?: { data?: T[]; paging?: { next?: string } } } = await axios.get(nextUrl, {
+    const response: { data?: { data?: T[]; paging?: { next?: string } }; headers?: Record<string, string | undefined> } = await axios.get(nextUrl, {
       ...(nextParams ? { params: nextParams } : {}),
       timeout: 15_000,
     });
+    noteMetaUsageFromHeaders(response.headers);
     out.push(...(response.data?.data ?? []));
     nextUrl = response.data?.paging?.next ?? null;
     nextParams = undefined;
@@ -93,6 +95,7 @@ export async function GET(
   }
 
   const platform = account.platform;
+  const metaThrottle = (platform === 'INSTAGRAM' || platform === 'FACEBOOK') && isMetaNonCriticalThrottled();
   if (
     platform !== 'INSTAGRAM' &&
     platform !== 'FACEBOOK' &&
@@ -209,6 +212,7 @@ export async function GET(
           params: { fields: 'id,caption,media_url,thumbnail_url,permalink', limit: 50, access_token: liveToken },
           timeout: 15_000,
         });
+        noteMetaUsageFromHeaders(mediaRes.headers);
         instagramMediaItems.push(...(mediaRes.data?.data ?? []));
         liveSources = instagramMediaItems.map((m, i) => ({
           platformPostId: m.id,
@@ -291,10 +295,11 @@ export async function GET(
   // Graph API fan-out bounded (see MAX_SOURCES comment at top of file).
   const existingPostIds = new Set(dbSources.map((s) => s.platformPostId));
   const extraLive = liveSources.filter((s) => !existingPostIds.has(s.platformPostId));
+  const maxSources = metaThrottle && platform === 'INSTAGRAM' ? 16 : MAX_SOURCES;
   const sources: PostSource[] = [
     ...dbSources,
-    ...extraLive.slice(0, Math.max(0, MAX_SOURCES - dbSources.length)),
-  ].slice(0, MAX_SOURCES);
+    ...extraLive.slice(0, Math.max(0, maxSources - dbSources.length)),
+  ].slice(0, maxSources);
   const credJson = credJsonEarly as { loginMethod?: string; igUserToken?: string };
 
   // Instagram Business Login: account.accessToken IS the long-lived Instagram User token.
@@ -431,7 +436,7 @@ export async function GET(
   // Fetch comments for Instagram / Facebook in parallel (up to 6 at a time) for speed
   if (platform === 'INSTAGRAM' || platform === 'FACEBOOK') {
     const igFbSources = sources.filter(() => true); // all sources
-    const CHUNK = 6;
+    const CHUNK = metaThrottle && platform === 'INSTAGRAM' ? 2 : 6;
     for (let i = 0; i < igFbSources.length; i += CHUNK) {
       const chunk = igFbSources.slice(i, i + CHUNK);
       await Promise.all(chunk.map(async ({ platformPostId, postPreview, postTargetId, postPublishedAt, postImageUrl: sourceImageUrl, postUrl: sourcePostUrl }) => {
@@ -478,7 +483,9 @@ export async function GET(
             // Fetch replies so user sees their own replies in the list. Cap how many top-level
             // comments we fan out for — a viral post with hundreds of comments otherwise means
             // hundreds of /replies calls per inbox load.
-            const topLevelIds = list.slice(0, REPLY_FETCH_LIMIT).map((x) => x.id);
+            const topLevelIds = (metaThrottle && platform === 'INSTAGRAM')
+              ? []
+              : list.slice(0, REPLY_FETCH_LIMIT).map((x) => x.id);
             const replyChunkSize = 8;
             for (let ri = 0; ri < topLevelIds.length; ri += replyChunkSize) {
               const chunkIds = topLevelIds.slice(ri, ri + replyChunkSize);
@@ -536,7 +543,9 @@ export async function GET(
             }
             // Fetch replies so user sees their own replies in the list. Cap how many top-level
             // comments we fan out for — see same rationale in the IG-business branch above.
-            const topLevelIds = list.slice(0, REPLY_FETCH_LIMIT).map((x) => x.id);
+            const topLevelIds = (metaThrottle && platform === 'INSTAGRAM')
+              ? []
+              : list.slice(0, REPLY_FETCH_LIMIT).map((x) => x.id);
             const replyFields = platform === 'INSTAGRAM'
               ? 'id,from{id,username},text,timestamp'
               : 'id,from{id,name,picture},message,created_time';
@@ -579,8 +588,10 @@ export async function GET(
             }
           }
         } catch (err) {
+          const axErr = err as { response?: { data?: { error?: { code?: number; message?: string } } } };
+          const code = axErr?.response?.data?.error?.code;
+          if (code === 4 || code === 32 || code === 613) noteMetaRateLimitError();
           if (!firstError) {
-            const axErr = err as { response?: { data?: { error?: { message?: string; code?: number } } } };
             const msg = axErr?.response?.data?.error?.message ?? String(err);
             firstError = msg;
           }

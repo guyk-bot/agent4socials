@@ -26,6 +26,7 @@ import { fetchYoutubeVideoStatsByIdMap, type YtVideoStatsRow } from '@/lib/youtu
 import { checkAndIncrementXApiUsage } from '@/lib/x/x-api-usage';
 import { fetchTweetsByIdsBatched, metricsFromTweetPayload } from '@/lib/x/twitter-tweets-batch';
 import { refreshTwitterToken } from '@/lib/twitter-refresh';
+import { isMetaNonCriticalThrottled, noteMetaRateLimitError, noteMetaUsageFromHeaders } from '@/lib/meta-usage-guard';
 
 export const maxDuration = 60;
 
@@ -554,6 +555,7 @@ async function fetchInstagramMediaPermalink(mediaId: string, accessToken: string
         timeout: 8000,
         validateStatus: () => true,
       });
+      noteMetaUsageFromHeaders(res.headers);
       if (res.status !== 200) continue;
       const perm = (res.data as { permalink?: string })?.permalink;
       if (typeof perm === 'string' && perm.trim()) return perm.trim();
@@ -645,6 +647,7 @@ export async function GET(
     const sync = request.nextUrl.searchParams.get('sync') === '1';
     const force = request.nextUrl.searchParams.get('force') === '1';
     const liveEnrich = request.nextUrl.searchParams.get('liveEnrich') === '1';
+    const metaThrottle = account.platform === 'INSTAGRAM' && isMetaNonCriticalThrottled();
     let syncError: string | undefined;
     let syncSkippedDueToCooldown = false;
     if (sync) {
@@ -969,7 +972,7 @@ export async function GET(
           reposts: typeof ig.reposts === 'number' ? ig.reposts : (row.repostsCount ?? 0),
         };
       };
-      if (liveEnrich) {
+      if (liveEnrich && !metaThrottle) {
         const insightCandidates = importedRows
           .filter((row) => !igInsightBundleHasMetrics(bundleFromRow(row)))
           .slice(0, 5);
@@ -999,7 +1002,7 @@ export async function GET(
           const url = (row.permalinkUrl ?? '').toLowerCase();
           return mt === 'VIDEO' || url.includes('/reel/');
         })
-        .slice(0, 15);
+        .slice(0, metaThrottle ? 4 : 15);
       await runWithConcurrency(thumbCandidates, 4, async (row) => {
         try {
           const u = await refetchIgMediaThumbnail(row.platformPostId, account.accessToken);
@@ -1500,7 +1503,7 @@ export async function GET(
     if (account.platform === 'INSTAGRAM' && account.accessToken && appTargets.length > 0) {
       const needPermalink = appTargets
         .filter((t) => t.platformPostId && !importedPostIds.has(t.platformPostId!))
-        .slice(0, 25);
+        .slice(0, metaThrottle ? 8 : 25);
       await runWithConcurrency(needPermalink, 5, async (t) => {
         const mid = t.platformPostId!;
         const perm = await fetchInstagramMediaPermalink(mid, account.accessToken);
@@ -1687,13 +1690,18 @@ async function fetchInstagramMediaInsights(
     try {
       const insightsRes = await axios.get<{
         data?: Array<{ name: string; values?: Array<{ value: number }>; total_value?: { value: number } }>;
-        error?: { message?: string };
+        error?: { message?: string; code?: number };
       }>(`${baseUrl}/${mediaId}/insights`, {
         params: { metric, access_token: accessToken },
         timeout: 12_000,
         validateStatus: () => true,
       });
-      if (insightsRes.status >= 400 || insightsRes.data?.error) continue;
+      noteMetaUsageFromHeaders(insightsRes.headers);
+      if (insightsRes.status >= 400 || insightsRes.data?.error) {
+        const code = insightsRes.data?.error?.code;
+        if (code === 4 || code === 32 || code === 613) noteMetaRateLimitError();
+        continue;
+      }
       const data = insightsRes.data?.data ?? [];
       if (data.length === 0) continue;
       for (const d of data) {
@@ -1719,13 +1727,18 @@ async function fetchInstagramMediaInsights(
     try {
       const socialRes = await axios.get<{
         data?: Array<{ name: string; values?: Array<{ value: number }>; total_value?: { value: number } }>;
-        error?: { message?: string };
+        error?: { message?: string; code?: number };
       }>(`${baseUrl}/${mediaId}/insights`, {
         params: { metric, access_token: accessToken },
         timeout: 8_000,
         validateStatus: () => true,
       });
-      if (socialRes.status >= 400 || socialRes.data?.error) continue;
+      noteMetaUsageFromHeaders(socialRes.headers);
+      if (socialRes.status >= 400 || socialRes.data?.error) {
+        const code = socialRes.data?.error?.code;
+        if (code === 4 || code === 32 || code === 613) noteMetaRateLimitError();
+        continue;
+      }
       const socialData = socialRes.data?.data ?? [];
       if (socialData.length === 0) continue;
       for (const d of socialData) {
@@ -1836,6 +1849,7 @@ async function refetchIgMediaThumbnail(mediaId: string, accessToken: string): Pr
         `${apiBase}/${mediaId}`,
         { params: { fields: 'thumbnail_url,media_url', access_token: accessToken }, timeout: 8000 }
       );
+      noteMetaUsageFromHeaders(refetch.headers);
       const u = refetch.data?.thumbnail_url ?? refetch.data?.media_url;
       if (u) return u;
     } catch {
