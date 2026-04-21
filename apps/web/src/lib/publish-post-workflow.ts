@@ -165,8 +165,12 @@ export async function runPublishPostWorkflow(input: {
       thumbnailUrl?: string;
     }[];
     const allImages = targetMedia.filter((m) => m.type === 'IMAGE');
+    const firstVideo = targetMedia.find((m) => m.type === 'VIDEO');
     let firstImageUrl = allImages[0]?.fileUrl;
-    let firstMediaUrl = targetMedia[0]?.fileUrl;
+    // Instagram/Facebook Reels and native video use `firstMediaUrl`. It must be a real VIDEO asset;
+    // using `targetMedia[0]` sent single images through the IG Reels pipeline (transcoding: invalid duration).
+    let firstMediaUrl =
+      platform === 'INSTAGRAM' || platform === 'FACEBOOK' ? firstVideo?.fileUrl : targetMedia[0]?.fileUrl;
     let videoThumbnailUrl =
       targetMedia[0] && targetMedia[0].type === 'VIDEO' ? (targetMedia[0] as { thumbnailUrl?: string }).thumbnailUrl : undefined;
     let imageUrls: string[] | undefined;
