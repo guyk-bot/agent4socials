@@ -708,7 +708,10 @@ export default function DashboardPage() {
     setImportedPostsLoading(true);
     setAllPostsSyncError(null);
     runSync(false);
-  }, [selectedAccount?.id, hasAccounts, syncAllTrigger, accounts.map((a) => a.id).join(','), analyticsTab, appData?.prefetchPhase2Done]);
+  // Intentionally exclude `appData?.prefetchPhase2Done` to keep charts stable after initial render.
+  // Background Phase 2 refreshes should silently update the cache without swapping the
+  // currently-rendered posts — explicit sync/date/account changes are the only triggers.
+  }, [selectedAccount?.id, hasAccounts, syncAllTrigger, accounts.map((a) => a.id).join(','), analyticsTab]);
 
   const insightsCacheRef = useRef<Record<string, { platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number; profileViewsTotal?: number }>>({});
   /** Last successful insights payload per account (any date range). Used to avoid full-page skeleton when switching accounts before range cache hits. */
@@ -1165,7 +1168,9 @@ export default function DashboardPage() {
       }
     }
 
-  }, [analyticsTab, selectedAccount?.id, selectedAccount?.platform, dateRange.start, dateRange.end, syncAllTrigger, justConnected, appData?.prefetchStatus, appData?.cacheRehydrated, appData?.prefetchPhase2Done]);
+  // `appData?.prefetchPhase2Done` is intentionally omitted: its flip should not auto-swap
+  // the insights we already rendered. The user sees fresh data only after explicit sync.
+  }, [analyticsTab, selectedAccount?.id, selectedAccount?.platform, dateRange.start, dateRange.end, syncAllTrigger, justConnected, appData?.prefetchStatus, appData?.cacheRehydrated]);
 
   // Facebook Page reviews (pages_read_user_content)
   useEffect(() => {
