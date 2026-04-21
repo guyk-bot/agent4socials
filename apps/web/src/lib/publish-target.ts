@@ -671,80 +671,157 @@ export async function publishTarget(
         // Video upload: initialize -> PUT parts -> finalize -> create post with video URN
         const { buffer } = await fetchMediaBuffer(firstMediaUrl, fetchFn);
         const fileSizeBytes = buffer.length;
-        const initRes = await axiosInstance.post(
-          'https://api.linkedin.com/rest/videos?action=initializeUpload',
-          {
-            initializeUploadRequest: {
-              owner: author,
-              fileSizeBytes,
-              uploadCaptions: false,
-              uploadThumbnail: false,
+        try {
+          const initRes = await axiosInstance.post(
+            'https://api.linkedin.com/rest/videos?action=initializeUpload',
+            {
+              initializeUploadRequest: {
+                owner: author,
+                fileSizeBytes,
+                uploadCaptions: false,
+                uploadThumbnail: false,
+              },
             },
-          },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              ...linkedInRestCommunityHeaders(token),
-            },
-            validateStatus: () => true,
+            {
+              headers: {
+                'Content-Type': 'application/json',
+                ...linkedInRestCommunityHeaders(token),
+              },
+              validateStatus: () => true,
+            }
+          );
+          if (initRes.status !== 200) {
+            const errBody = initRes.data as { message?: string; code?: string } | undefined;
+            const detail = typeof errBody?.message === 'string' ? errBody.message : JSON.stringify(initRes.data ?? {});
+            throw new Error(`LinkedIn video initializeUpload failed (${initRes.status}): ${detail}`);
           }
-        );
-        if (initRes.status !== 200) {
-          const errBody = initRes.data as { message?: string; code?: string } | undefined;
-          const detail = typeof errBody?.message === 'string' ? errBody.message : JSON.stringify(initRes.data ?? {});
-          if (
-            initRes.status === 403 &&
-            (detail.includes('partnerApiVideosExternal') || detail.includes('initializeUpload'))
-          ) {
+          const val = (initRes.data as { value?: { video?: string; uploadToken?: string; uploadInstructions?: { uploadUrl: string; firstByte: number; lastByte: number }[] } })?.value;
+          const videoUrn = val?.video;
+          const uploadToken = val?.uploadToken ?? '';
+          const instructions = val?.uploadInstructions ?? [];
+          if (!videoUrn || instructions.length === 0) {
+            throw new Error(JSON.stringify(initRes.data ?? {}));
+          }
+          const uploadedPartIds: string[] = [];
+          for (const part of instructions) {
+            const chunk = buffer.subarray(part.firstByte, part.lastByte + 1);
+            const putRes = await axiosInstance.put(part.uploadUrl, chunk, {
+              headers: {
+                'Content-Type': 'application/octet-stream',
+                Authorization: `Bearer ${token}`,
+              },
+              maxBodyLength: Infinity,
+              maxContentLength: Infinity,
+              validateStatus: () => true,
+            });
+            const etag = (putRes.headers as Record<string, string>)?.['etag'] ?? (putRes.headers as Record<string, string>)?.['ETag'];
+            const partId = typeof etag === 'string' ? etag.replace(/^"|"$/g, '') : undefined;
+            if (partId) uploadedPartIds.push(partId);
+            if (putRes.status !== 200) {
+              throw new Error(`LinkedIn video part upload failed: ${putRes.status}`);
+            }
+          }
+          await axiosInstance.post(
+            'https://api.linkedin.com/rest/videos?action=finalizeUpload',
+            {
+              finalizeUploadRequest: {
+                video: videoUrn,
+                uploadToken,
+                uploadedPartIds,
+              },
+            },
+            {
+              headers: {
+                'Content-Type': 'application/json',
+                ...linkedInRestCommunityHeaders(token),
+              },
+            }
+          );
+          postBody.content = { media: { id: videoUrn, title: (caption || 'Video').slice(0, 200) } };
+        } catch (restVideoErr) {
+          // Fallback for apps where /rest/videos is partner-gated: legacy UGC /assets upload.
+          try {
+            const registerRes = await axiosInstance.post(
+              'https://api.linkedin.com/v2/assets?action=registerUpload',
+              {
+                registerUploadRequest: {
+                  recipes: ['urn:li:digitalmediaRecipe:feedshare-video'],
+                  owner: author,
+                  serviceRelationships: [{ relationshipType: 'OWNER', identifier: 'urn:li:userGeneratedContent' }],
+                },
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  'X-Restli-Protocol-Version': '2.0.0',
+                  'Content-Type': 'application/json',
+                },
+              }
+            );
+            const regVal = (registerRes.data as {
+              value?: {
+                asset?: string;
+                uploadMechanism?: {
+                  'com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest'?: { uploadUrl?: string };
+                };
+              };
+            })?.value;
+            const assetUrn = regVal?.asset;
+            const uploadUrl = regVal?.uploadMechanism?.['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest']?.uploadUrl;
+            if (!assetUrn || !uploadUrl) {
+              throw new Error(`LinkedIn legacy registerUpload missing fields: ${JSON.stringify(registerRes.data ?? {})}`);
+            }
+            const upRes = await axiosInstance.put(uploadUrl, buffer, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/octet-stream',
+              },
+              maxBodyLength: Infinity,
+              maxContentLength: Infinity,
+              validateStatus: () => true,
+            });
+            if (upRes.status < 200 || upRes.status >= 300) {
+              throw new Error(`LinkedIn legacy upload failed (${upRes.status})`);
+            }
+            const ugcRes = await axiosInstance.post(
+              'https://api.linkedin.com/v2/ugcPosts',
+              {
+                author,
+                lifecycleState: 'PUBLISHED',
+                specificContent: {
+                  'com.linkedin.ugc.ShareContent': {
+                    shareCommentary: { text: caption || ' ' },
+                    shareMediaCategory: 'VIDEO',
+                    media: [
+                      {
+                        status: 'READY',
+                        media: assetUrn,
+                        title: { text: (caption || 'Video').slice(0, 200) },
+                      },
+                    ],
+                  },
+                },
+                visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  'X-Restli-Protocol-Version': '2.0.0',
+                  'Content-Type': 'application/json',
+                },
+              }
+            );
+            const ugcHeaders = (ugcRes.headers ?? {}) as Record<string, string>;
+            const ugcPostUrn = ugcHeaders['x-restli-id'] ?? (ugcRes.data as { id?: string })?.id;
+            return { ok: true, platformPostId: typeof ugcPostUrn === 'string' ? ugcPostUrn : undefined };
+          } catch (legacyErr) {
+            const restMsg = restVideoErr instanceof Error ? restVideoErr.message : String(restVideoErr);
+            const legacyMsg = legacyErr instanceof Error ? legacyErr.message : String(legacyErr);
             throw new Error(
-              'LinkedIn returned 403 on video upload (Videos API / initializeUpload). That permission is separate from "Share on LinkedIn" and is often gated as partner/Community Management access. Workarounds: publish a still image or text-only to LinkedIn, or apply for the Community Management / Videos API program for your LinkedIn app. If you created a new LinkedIn app, update LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET, add the same products and redirect URL, then disconnect and reconnect LinkedIn in Agent4Socials so the token is re-issued with the right scopes.'
+              `LinkedIn video upload failed on both APIs. REST Videos: ${restMsg}. Legacy UGC fallback: ${legacyMsg}.`
             );
           }
-          throw new Error(`LinkedIn video initializeUpload failed (${initRes.status}): ${detail}`);
         }
-        const val = (initRes.data as { value?: { video?: string; uploadToken?: string; uploadInstructions?: { uploadUrl: string; firstByte: number; lastByte: number }[] } })?.value;
-        const videoUrn = val?.video;
-        const uploadToken = val?.uploadToken ?? '';
-        const instructions = val?.uploadInstructions ?? [];
-        if (!videoUrn || instructions.length === 0) {
-          throw new Error(JSON.stringify(initRes.data ?? {}));
-        }
-        const uploadedPartIds: string[] = [];
-        for (const part of instructions) {
-          const chunk = buffer.subarray(part.firstByte, part.lastByte + 1);
-          const putRes = await axiosInstance.put(part.uploadUrl, chunk, {
-            headers: {
-              'Content-Type': 'application/octet-stream',
-              Authorization: `Bearer ${token}`,
-            },
-            maxBodyLength: Infinity,
-            maxContentLength: Infinity,
-            validateStatus: () => true,
-          });
-          const etag = (putRes.headers as Record<string, string>)?.['etag'] ?? (putRes.headers as Record<string, string>)?.['ETag'];
-          const partId = typeof etag === 'string' ? etag.replace(/^"|"$/g, '') : undefined;
-          if (partId) uploadedPartIds.push(partId);
-          if (putRes.status !== 200) {
-            throw new Error(`LinkedIn video part upload failed: ${putRes.status}`);
-          }
-        }
-        await axiosInstance.post(
-          'https://api.linkedin.com/rest/videos?action=finalizeUpload',
-          {
-            finalizeUploadRequest: {
-              video: videoUrn,
-              uploadToken,
-              uploadedPartIds,
-            },
-          },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              ...linkedInRestCommunityHeaders(token),
-            },
-          }
-        );
-        postBody.content = { media: { id: videoUrn, title: (caption || 'Video').slice(0, 200) } };
       }
       const postRes = await axiosInstance.post(
         'https://api.linkedin.com/rest/posts',
