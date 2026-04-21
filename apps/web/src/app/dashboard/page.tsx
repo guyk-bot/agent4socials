@@ -554,6 +554,17 @@ export default function DashboardPage() {
   const accountPostsHydratedRef = useRef<Record<string, boolean>>({});
   const accountPostsLastSyncAtRef = useRef<Record<string, number>>({});
   const syncAllRequestedRef = useRef<string | null>(null);
+  /**
+   * Once the single-account posts effect has taken action for a given
+   * `${accountId}-${syncAllTrigger}` pair, we lock out further auto-runs.
+   * Without this, unrelated dep changes (e.g. `cachedAccounts` getting a new
+   * reference after Phase 1, or a React re-render triggered by Phase 2 writing
+   * to AppDataContext) would re-enter the effect and swap `importedPosts`
+   * out from under the user — causing the "candles change a few seconds after
+   * the page opens" behaviour. The lock is released only when the user
+   * explicitly syncs, switches accounts, or reloads the tab.
+   */
+  const singleAccountPostsRunKeyRef = useRef<string>('');
 
   // Auto-select the platform filter when switching accounts (or reset to 'all' for Summary)
   useEffect(() => {
@@ -568,6 +579,15 @@ export default function DashboardPage() {
     const skipInstagramAutoRefresh = selectedAccount?.platform === 'INSTAGRAM' && !justConnected;
     if (selectedAccount?.id) {
       const accountId = selectedAccount.id;
+      // Guard: skip this branch if we already ran it for the same
+      // (account, syncAllTrigger) combination. Unrelated dep changes (like
+      // `accounts.map(...)` getting a new reference after Phase 1, or a
+      // re-render triggered by Phase 2 writing into AppDataContext) would
+      // otherwise cause a second pass that swaps `importedPosts` with newer
+      // data, making the charts visibly jump after initial load.
+      const runKey = `${accountId}:${syncAllTrigger}`;
+      if (singleAccountPostsRunKeyRef.current === runKey) return;
+      singleAccountPostsRunKeyRef.current = runKey;
       const refList = postsCacheRef.current[accountId];
       const ctxList = appCtx?.getPosts(accountId);
       const hasAnyCachedPosts = ((refList?.length ?? 0) > 0) || ((ctxList?.length ?? 0) > 0);
@@ -722,6 +742,18 @@ export default function DashboardPage() {
   const prevInsightsLoadKeyRef = useRef<string>('');
   const fbForcedRefreshRef = useRef<Record<string, boolean>>({});
   const selectedAccountIdRef = useRef<string | null>(null);
+  /**
+   * Locks the main insights effect to a single run per
+   * (accountId, dateRange, syncAllTrigger, justConnected) combination.
+   * Otherwise benign dep changes — `appData?.prefetchStatus` flipping from
+   * `idle` → `loading` → `done`, or `accounts` getting a new reference after
+   * Phase 1 (which triggers a dashboard re-render) — would re-enter the
+   * effect and call `setInsights` with whatever AppDataContext happens to
+   * hold at that moment, producing the "chart changes after a few seconds"
+   * flicker users keep reporting. Explicit syncs still flow through because
+   * `syncAllTrigger` is part of the key.
+   */
+  const insightsRunKeyRef = useRef<string>('');
   const aggregatedCacheRef = useRef<{ key: string; data: { totalFollowers: number; totalImpressions: number; totalReach: number; totalProfileViews: number; totalPageViews: number; byPlatform: Record<string, { followers: number; impressions: number; timeSeries: Array<{ date: string; value: number }> }>; combinedTimeSeries: Array<{ date: string; value: number }> } } | null>(null);
 
   // Seed range cache + last-insights from AppData as soon as it exists (localStorage rehydrate or prefetch), no need to wait for prefetchStatus.
@@ -748,6 +780,14 @@ export default function DashboardPage() {
     if (!selectedAccount?.id || !dateRange.start || !dateRange.end) return;
     // Wait for cache rehydration to complete before checking for cached data
     if (!appData?.cacheRehydrated) return;
+    // Lock the main insights effect once we've acted on a given
+    // (account, dateRange, sync, justConnected) combination — see
+    // `insightsRunKeyRef` above for the reasoning. This prevents Phase 2 /
+    // prefetchStatus flips from replaying the effect and swapping the
+    // already-rendered chart data.
+    const runKey = `${selectedAccount.id}:${dateRange.start}:${dateRange.end}:${syncAllTrigger}:${justConnected ? 1 : 0}`;
+    if (insightsRunKeyRef.current === runKey) return;
+    insightsRunKeyRef.current = runKey;
     const prevAccountId = selectedAccountIdRef.current;
     selectedAccountIdRef.current = selectedAccount.id;
     const accountId = selectedAccount.id;
