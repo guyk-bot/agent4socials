@@ -1488,15 +1488,22 @@ export function MetricCard({
 }) {
   const hint = `Source metric: ${source}${typeof trendPercent === 'number' && Number.isFinite(trendPercent) ? `. Change in selected range: ${trendPercent >= 0 ? '+' : ''}${trendPercent.toFixed(1)}%.` : ''}`;
   const apiRing = tiktokApiHighlight ? TIKTOK_API_CARD_CLASS : instagramGraphHighlight ? INSTAGRAM_GRAPH_API_CARD_CLASS : '';
+  const hasApiRing = Boolean(apiRing);
+  const tintBg = hasApiRing ? undefined : active ? `${color}22` : `${color}14`;
   return (
     <button
       type="button"
       onClick={onClick}
       title={hint}
-      className={`rounded-[12px] px-3 py-1.5 text-left transition-all hover:-translate-y-[1px] ${apiRing}`}
+      className={`rounded-[14px] px-3 py-2 text-left transition-all hover:-translate-y-[1px] ${apiRing}`}
       style={{
-        background: active ? `${color}10` : COLOR.card,
-        boxShadow: active ? '0 2px 16px rgba(15,23,42,0.06)' : '0 2px 16px rgba(15,23,42,0.05)',
+        ...(tintBg ? { background: tintBg } : {}),
+        ...(!hasApiRing ? { border: `1px solid ${active ? `${color}33` : `${color}22`}` } : {}),
+        boxShadow: hasApiRing
+          ? undefined
+          : active
+            ? '0 2px 14px rgba(15,23,42,0.08)'
+            : '0 1px 10px rgba(15,23,42,0.04)',
       }}
     >
       <span className="text-xs font-medium tracking-tight" style={{ color: COLOR.textMuted }}>{label}</span>
@@ -5822,70 +5829,70 @@ type PostsUploadDayTooltipAgg = {
                 <h4 className="text-base font-semibold" style={{ color: COLOR.text }}>Uploaded posts</h4>
               </div>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                <div
-                  className="rounded-[12px] border px-3 py-2"
-                  style={{ borderColor: COLOR.border, background: '#ffffff' }}
-                  title={`Synced ${postsExplainerPublishedPlural} whose publish time is in the selected range (${postsExplainerDateRangeLabel}).`}
-                >
-                  <p className="text-[11px] font-medium" style={{ color: COLOR.textMuted }}>
-                    {isTwitter ? 'Total Tweets' : isPinterest ? 'Total Pins' : 'Total Posts'}
-                  </p>
-                  <p className="mt-0.5 text-[18px] font-semibold tabular-nums" style={{ color: COLOR.text }}>
-                    {formatNumber(
-                      isTwitter
-                        ? Math.max(postsInRange.length, twitterRecentTweets.length)
-                        : postsInRange.length
-                    )}
-                  </p>
-                </div>
-                <div
-                  className="rounded-[12px] border px-3 py-2"
-                  style={{ borderColor: COLOR.border, background: '#ffffff' }}
-                  title="Per synced item in range: total views divided by item count."
-                >
-                  <p className="text-[11px] font-medium" style={{ color: COLOR.textMuted }}>Avg views per post</p>
-                  <p className="mt-0.5 text-[18px] font-semibold tabular-nums" style={{ color: COLOR.text }}>
-                    {formatNumber(Math.round(avgViewsPerPost))}
-                  </p>
-                </div>
-                <div
-                  className="rounded-[12px] border px-3 py-2"
-                  style={{ borderColor: COLOR.border, background: '#ffffff' }}
-                  title={
-                    isTikTok
-                      ? 'Per synced TikTok in range: likes + comments + shares; divided by count of those videos.'
-                      : isTwitter
-                        ? 'Per synced X post in range: likes + comments + reposts; divided by post count in range.'
-                        : isYouTube
-                          ? 'Per synced YouTube video in range: likes + comments + shares; divided by video count.'
-                          : isLinkedIn
-                            ? 'Per synced LinkedIn post in range: likes + comments + shares; divided by post count.'
-                            : isPinterest
-                              ? 'Per synced Pin in range: Pinterest lifetime reactions + comments + saves + Pin clicks + outbound clicks (when available), using synced pin_metrics; divided by pin count.'
-                              : isInstagram
-                                ? 'Per synced IG media in range: likes + comments + shares + reposts; divided by post count.'
-                                : 'Per synced Page post in range: likes + comments + shares + reposts; divided by post count.'
-                  }
-                >
-                  <p className="text-[11px] font-medium" style={{ color: COLOR.textMuted }}>Avg interactions per post</p>
-                  <p className="mt-0.5 text-[18px] font-semibold tabular-nums" style={{ color: COLOR.text }}>
-                    {formatNumber(Math.round(avgInteractionsPerPost))}
-                  </p>
-                </div>
-                <div
-                  className="rounded-[12px] border px-3 py-2"
-                  style={{ borderColor: COLOR.border, background: '#ffffff' }}
-                  title={
-                    isPinterest
-                      ? `Per synced Pin in range: Pinterest “reactions” (TOTAL_REACTIONS / reaction) from pin_metrics ÷ number of ${postsExplainerPublishedPlural} in range.`
-                      : `Sum of each ${postsExplainerItemSingular}'s total reactions (from platform insights) ÷ number of ${postsExplainerPublishedPlural} in range.`
-                  }
-                >
-                  <p className="text-[11px] font-medium" style={{ color: COLOR.textMuted }}>Avg Reactions per Post</p>
-                  <p className="mt-0.5 text-[18px] font-semibold tabular-nums" style={{ color: COLOR.text }}>
-                    {formatNumber(Math.round(avgReactionsPerPost))}
-                  </p>
-                </div>
+                {(
+                  [
+                    {
+                      label: isTwitter ? 'Total Tweets' : isPinterest ? 'Total Pins' : 'Total Posts',
+                      value: formatNumber(
+                        isTwitter ? Math.max(postsInRange.length, twitterRecentTweets.length) : postsInRange.length
+                      ),
+                      color: COLOR.violet,
+                      title: `Synced ${postsExplainerPublishedPlural} whose publish time is in the selected range (${postsExplainerDateRangeLabel}).`,
+                    },
+                    {
+                      label: 'Avg views per post',
+                      value: formatNumber(Math.round(avgViewsPerPost)),
+                      color: COLOR.trafficNonviralCyan,
+                      title: 'Per synced item in range: total views divided by item count.',
+                    },
+                    {
+                      label: 'Avg interactions per post',
+                      value: formatNumber(Math.round(avgInteractionsPerPost)),
+                      color: COLOR.magenta,
+                      title:
+                        isTikTok
+                          ? 'Per synced TikTok in range: likes + comments + shares; divided by count of those videos.'
+                          : isTwitter
+                            ? 'Per synced X post in range: likes + comments + reposts; divided by post count in range.'
+                            : isYouTube
+                              ? 'Per synced YouTube video in range: likes + comments + shares; divided by video count.'
+                              : isLinkedIn
+                                ? 'Per synced LinkedIn post in range: likes + comments + shares; divided by post count.'
+                                : isPinterest
+                                  ? 'Per synced Pin in range: Pinterest lifetime reactions + comments + saves + Pin clicks + outbound clicks (when available), using synced pin_metrics; divided by pin count.'
+                                  : isInstagram
+                                    ? 'Per synced IG media in range: likes + comments + shares + reposts; divided by post count.'
+                                    : 'Per synced Page post in range: likes + comments + shares + reposts; divided by post count.',
+                    },
+                    {
+                      label: 'Avg Reactions per Post',
+                      value: formatNumber(Math.round(avgReactionsPerPost)),
+                      color: COLOR.amber,
+                      title:
+                        isPinterest
+                          ? `Per synced Pin in range: Pinterest “reactions” (TOTAL_REACTIONS / reaction) from pin_metrics ÷ number of ${postsExplainerPublishedPlural} in range.`
+                          : `Sum of each ${postsExplainerItemSingular}'s total reactions (from platform insights) ÷ number of ${postsExplainerPublishedPlural} in range.`,
+                    },
+                  ] as const
+                ).map((c) => (
+                  <div
+                    key={c.label}
+                    className="rounded-[14px] px-3 py-2 text-left"
+                    title={c.title}
+                    style={{
+                      background: `${c.color}14`,
+                      border: `1px solid ${c.color}26`,
+                      boxShadow: '0 1px 10px rgba(15,23,42,0.04)',
+                    }}
+                  >
+                    <p className="text-xs font-medium tracking-tight" style={{ color: COLOR.textMuted }}>
+                      {c.label}
+                    </p>
+                    <p className="mt-1 text-[22px] font-semibold tabular-nums tracking-tight" style={{ color: c.color }}>
+                      {c.value}
+                    </p>
+                  </div>
+                ))}
               </div>
             </div>
             <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-3">
@@ -5910,18 +5917,18 @@ type PostsUploadDayTooltipAgg = {
                         })
                       }
                       aria-pressed={active}
-                      className="rounded-[12px] border px-3 py-2 text-left transition-[box-shadow,background-color,border-color]"
+                      className="rounded-[14px] px-3 py-2 text-left transition-all hover:-translate-y-[1px]"
                       style={{
-                        borderColor: COLOR.border,
-                        background: '#ffffff',
-                        boxShadow: active ? `inset 3px 0 0 0 ${candleColor}` : 'none',
+                        background: active ? `${candleColor}26` : `${candleColor}14`,
+                        border: `1px solid ${active ? `${candleColor}44` : `${candleColor}28`}`,
+                        boxShadow: active ? '0 2px 14px rgba(15,23,42,0.08)' : '0 1px 10px rgba(15,23,42,0.04)',
                       }}
                       title={`Filter uploaded posts chart by ${preset.label}. Click again to exclude this format.`}
                     >
-                      <p className="text-[11px] font-medium" style={{ color: COLOR.textMuted }}>
+                      <p className="text-xs font-medium tracking-tight" style={{ color: COLOR.textMuted }}>
                         {preset.label}
                       </p>
-                      <p className="mt-0.5 text-[18px] font-semibold tabular-nums" style={{ color: COLOR.text }}>
+                      <p className="mt-1 text-[22px] font-semibold tabular-nums tracking-tight" style={{ color: candleColor }}>
                         {formatNumber(total)}
                       </p>
                     </button>
