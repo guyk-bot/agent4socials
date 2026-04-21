@@ -1944,7 +1944,7 @@ export default function ComposerPage() {
             // If editing an already-posted post, create a new post (and publish/schedule) instead of updating the original
             const updateExisting = editPostId && !editPostAlreadyPosted;
             if (updateExisting) {
-                await api.patch(`/posts/${editPostId}`, payload);
+                await api.patch(`/posts/${editPostId}`, payload, { timeout: 180_000 });
                 clearComposerDraft();
                 if (saveAsDraft) {
                     router.push('/posts?draft_saved=1');
@@ -2021,7 +2021,7 @@ export default function ComposerPage() {
                     }
                 }
             } else {
-            const createRes = await api.post<{ id: string }>('/posts', payload);
+            const createRes = await api.post<{ id: string }>('/posts', payload, { timeout: 180_000 });
             const postId = createRes.data?.id;
                 clearComposerDraft();
                 if (saveAsDraft) {
