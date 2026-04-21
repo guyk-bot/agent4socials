@@ -1865,6 +1865,10 @@ export function resolvedPostPermalink(row: {
     const [pageId, storyFbid] = pid.split('_');
     if (pageId && storyFbid) return `https://www.facebook.com/${pageId}/posts/${storyFbid}`;
   }
+  // Page video upload returns a numeric video id (no underscore); feed/photo uses pageId_postId.
+  if (plat === 'FACEBOOK' && /^\d+$/.test(pid)) {
+    return `https://www.facebook.com/watch/?v=${pid}`;
+  }
   if (plat === 'YOUTUBE' && pid) {
     return `https://www.youtube.com/watch?v=${pid}`;
   }

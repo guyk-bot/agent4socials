@@ -13,6 +13,7 @@ import {
 } from '@/lib/facebook/fetchers';
 import { syncFacebookAuxiliaryIngest } from '@/lib/facebook/sync-extras';
 import { fbRestBaseUrl } from '@/lib/facebook/constants';
+import { META_GRAPH_FACEBOOK_API_VERSION } from '@/lib/meta-graph-insights';
 import { getValidPinterestToken } from '@/lib/pinterest-token';
 import { parseTikTokVideoEngagement, parseTikTokVideoDurationSec } from '@/lib/tiktok/video-engagement';
 import { syncLinkedInUgcPosts } from '@/lib/linkedin/sync-ugc-posts';
@@ -541,6 +542,26 @@ async function findImportedPostPrevSafe(socialAccountId: string, platformPostId:
     if (!prev) return null;
     return { impressions: prev.impressions ?? 0, platformMetadata: null };
   }
+}
+
+/** Permalink for Composer-published IG media before it appears in media list sync. */
+async function fetchInstagramMediaPermalink(mediaId: string, accessToken: string): Promise<string | null> {
+  const igHost = `https://graph.instagram.com/${META_GRAPH_FACEBOOK_API_VERSION}`;
+  for (const base of [fbRestBaseUrl, igHost]) {
+    try {
+      const res = await axios.get(`${base}/${encodeURIComponent(mediaId)}`, {
+        params: { fields: 'permalink', access_token: accessToken },
+        timeout: 8000,
+        validateStatus: () => true,
+      });
+      if (res.status !== 200) continue;
+      const perm = (res.data as { permalink?: string })?.permalink;
+      if (typeof perm === 'string' && perm.trim()) return perm.trim();
+    } catch {
+      /* try next host */
+    }
+  }
+  return null;
 }
 
 async function upsertImportedPostWithFallback(args: {
@@ -1474,6 +1495,19 @@ export async function GET(
       }
     }
 
+    /** Composer IG rows use media id only; Content History needs permalink before media-list sync. */
+    const igComposerPermalinkByMediaId: Record<string, string> = {};
+    if (account.platform === 'INSTAGRAM' && account.accessToken && appTargets.length > 0) {
+      const needPermalink = appTargets
+        .filter((t) => t.platformPostId && !importedPostIds.has(t.platformPostId!))
+        .slice(0, 25);
+      await runWithConcurrency(needPermalink, 5, async (t) => {
+        const mid = t.platformPostId!;
+        const perm = await fetchInstagramMediaPermalink(mid, account.accessToken);
+        if (perm) igComposerPermalinkByMediaId[mid] = perm;
+      });
+    }
+
     // App-published targets not yet in importedPosts
     const appExtra = appTargets
       .filter((t) => !importedPostIds.has(t.platformPostId!))
@@ -1517,7 +1551,9 @@ export async function GET(
               ? ytPermalink ?? null
               : account.platform === 'TWITTER' && pid
                 ? `https://x.com/i/web/status/${pid}`
-                : null,
+                : account.platform === 'INSTAGRAM' && pid
+                  ? igComposerPermalinkByMediaId[pid] ?? null
+                  : null,
           impressions:
             account.platform === 'YOUTUBE'
               ? ytImpressions
