@@ -643,29 +643,125 @@ export async function publishTarget(
       };
       if (firstImageUrl) {
         const { buffer, contentType } = await fetchImageBuffer(firstImageUrl, fetchFn);
-        const initRes = await axiosInstance.post(
-          'https://api.linkedin.com/rest/images?action=initializeUpload',
-          { initializeUploadRequest: { owner: author } },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              ...linkedInRestCommunityHeaders(token),
-            },
+        try {
+          const initRes = await axiosInstance.post(
+            'https://api.linkedin.com/rest/images?action=initializeUpload',
+            { initializeUploadRequest: { owner: author } },
+            {
+              headers: {
+                'Content-Type': 'application/json',
+                ...linkedInRestCommunityHeaders(token),
+              },
+              validateStatus: () => true,
+            }
+          );
+          if (initRes.status !== 200) {
+            const errBody = initRes.data as { message?: string; code?: string } | undefined;
+            const detail = typeof errBody?.message === 'string' ? errBody.message : JSON.stringify(initRes.data ?? {});
+            throw new Error(`LinkedIn image initializeUpload failed (${initRes.status}): ${detail}`);
           }
-        );
-        const val = (initRes.data as { value?: { uploadUrl?: string; image?: string } })?.value;
-        const uploadUrl = val?.uploadUrl;
-        const imageUrn = val?.image;
-        if (uploadUrl && imageUrn) {
-          await axiosInstance.put(uploadUrl, buffer, {
+          const val = (initRes.data as { value?: { uploadUrl?: string; image?: string } })?.value;
+          const uploadUrl = val?.uploadUrl;
+          const imageUrn = val?.image;
+          if (!uploadUrl || !imageUrn) {
+            throw new Error(`LinkedIn image initializeUpload missing fields: ${JSON.stringify(initRes.data ?? {})}`);
+          }
+          const upRes = await axiosInstance.put(uploadUrl, buffer, {
             headers: {
               'Content-Type': contentType,
               Authorization: `Bearer ${token}`,
             },
             maxBodyLength: Infinity,
             maxContentLength: Infinity,
+            validateStatus: () => true,
           });
+          if (upRes.status < 200 || upRes.status >= 300) {
+            throw new Error(`LinkedIn image upload failed (${upRes.status})`);
+          }
           postBody.content = { media: { id: imageUrn, altText: caption.slice(0, 120) || undefined } };
+        } catch (restImageErr) {
+          // Fallback for apps where /rest/images is partner-gated: legacy UGC /assets upload.
+          try {
+            const registerRes = await axiosInstance.post(
+              'https://api.linkedin.com/v2/assets?action=registerUpload',
+              {
+                registerUploadRequest: {
+                  recipes: ['urn:li:digitalmediaRecipe:feedshare-image'],
+                  owner: author,
+                  serviceRelationships: [{ relationshipType: 'OWNER', identifier: 'urn:li:userGeneratedContent' }],
+                },
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  'X-Restli-Protocol-Version': '2.0.0',
+                  'Content-Type': 'application/json',
+                },
+              }
+            );
+            const regVal = (registerRes.data as {
+              value?: {
+                asset?: string;
+                uploadMechanism?: {
+                  'com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest'?: { uploadUrl?: string };
+                };
+              };
+            })?.value;
+            const assetUrn = regVal?.asset;
+            const uploadUrl = regVal?.uploadMechanism?.['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest']?.uploadUrl;
+            if (!assetUrn || !uploadUrl) {
+              throw new Error(`LinkedIn legacy image registerUpload missing fields: ${JSON.stringify(registerRes.data ?? {})}`);
+            }
+            const upRes = await axiosInstance.put(uploadUrl, buffer, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': contentType || 'application/octet-stream',
+              },
+              maxBodyLength: Infinity,
+              maxContentLength: Infinity,
+              validateStatus: () => true,
+            });
+            if (upRes.status < 200 || upRes.status >= 300) {
+              throw new Error(`LinkedIn legacy image upload failed (${upRes.status})`);
+            }
+            const ugcRes = await axiosInstance.post(
+              'https://api.linkedin.com/v2/ugcPosts',
+              {
+                author,
+                lifecycleState: 'PUBLISHED',
+                specificContent: {
+                  'com.linkedin.ugc.ShareContent': {
+                    shareCommentary: { text: caption || ' ' },
+                    shareMediaCategory: 'IMAGE',
+                    media: [
+                      {
+                        status: 'READY',
+                        media: assetUrn,
+                        title: { text: (caption || 'Image').slice(0, 200) },
+                      },
+                    ],
+                  },
+                },
+                visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  'X-Restli-Protocol-Version': '2.0.0',
+                  'Content-Type': 'application/json',
+                },
+              }
+            );
+            const ugcHeaders = (ugcRes.headers ?? {}) as Record<string, string>;
+            const ugcPostUrn = ugcHeaders['x-restli-id'] ?? (ugcRes.data as { id?: string })?.id;
+            return { ok: true, platformPostId: typeof ugcPostUrn === 'string' ? ugcPostUrn : undefined };
+          } catch (legacyErr) {
+            const restMsg = restImageErr instanceof Error ? restImageErr.message : String(restImageErr);
+            const legacyMsg = legacyErr instanceof Error ? legacyErr.message : String(legacyErr);
+            throw new Error(
+              `LinkedIn image upload failed on both APIs. REST Images: ${restMsg}. Legacy UGC fallback: ${legacyMsg}.`
+            );
+          }
         }
       } else if (firstMediaUrl) {
         // Video upload: initialize -> PUT parts -> finalize -> create post with video URN
