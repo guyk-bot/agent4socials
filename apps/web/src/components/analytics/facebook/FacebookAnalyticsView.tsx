@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/preserve-manual-memoization -- large legacy analytics surface; keep lint focused on new modules */
 import Link from 'next/link';
 import {
@@ -1998,64 +1997,7 @@ export function PostsPerformanceTable({
 }) {
   const platUpper = (platform ?? '').toUpperCase();
   const compactVideoTable = platUpper === 'TIKTOK' || platUpper === 'LINKEDIN' || platUpper === 'TWITTER';
-  type RowHoverPreview = {
-    left: number;
-    top: number;
-    thumbUrl: string;
-    carousel: boolean;
-    likes: number;
-    interactions: number;
-    reactions: number;
-  };
-  const [mounted, setMounted] = useState(false);
-  const [rowHover, setRowHover] = useState<RowHoverPreview | null>(null);
-  const hoverClearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    setMounted(true);
-    return () => {
-      if (hoverClearTimer.current) clearTimeout(hoverClearTimer.current);
-    };
-  }, []);
-
-  const showRowHover = (r: (typeof rows)[number], rect: DOMRect) => {
-    const url = r.rawPost.thumbnailUrl;
-    if (!url) return;
-    if (hoverClearTimer.current) {
-      clearTimeout(hoverClearTimer.current);
-      hoverClearTimer.current = null;
-    }
-    const pad = 10;
-    const panelW = 220;
-    const panelH = 300;
-    let left = rect.right + pad;
-    let top = rect.top;
-    if (typeof window !== 'undefined') {
-      if (left + panelW > window.innerWidth - pad) {
-        left = Math.max(pad, rect.left - panelW - pad);
-      }
-      if (top + panelH > window.innerHeight - pad) {
-        top = Math.max(pad, window.innerHeight - panelH - pad);
-      }
-    }
-    setRowHover({
-      left,
-      top,
-      thumbUrl: url,
-      carousel: isCarouselAlbumMedia(r.rawPost.mediaType),
-      likes: r.likes,
-      interactions: r.clicks,
-      reactions: r.reactionsTotal,
-    });
-  };
-
-  const scheduleClearRowHover = () => {
-    if (hoverClearTimer.current) clearTimeout(hoverClearTimer.current);
-    hoverClearTimer.current = setTimeout(() => {
-      setRowHover(null);
-      hoverClearTimer.current = null;
-    }, 100);
-  };
+  // Disabled hover-zoom preview in Content History rows per UX request.
 
   const tableHeaders: Array<{ label: string; className: string; title?: string }> = [
     { label: 'Post preview', className: 'w-[240px]' },
@@ -2116,11 +2058,6 @@ export function PostsPerformanceTable({
                 key={r.id}
                 className="border-t hover:bg-[#f8fafc]"
                 style={{ borderColor: COLOR.border }}
-                onMouseEnter={(e) => {
-                  if (!r.rawPost.thumbnailUrl) return;
-                  showRowHover(r, (e.currentTarget as HTMLTableRowElement).getBoundingClientRect());
-                }}
-                onMouseLeave={scheduleClearRowHover}
               >
                 <td className="px-3 py-3" style={{ color: COLOR.textSecondary }}>
                   <div className="flex items-start gap-2 min-w-0">
@@ -2220,11 +2157,6 @@ export function PostsPerformanceTable({
             key={r.id}
             className="w-full rounded-xl border p-3 text-left"
             style={{ borderColor: COLOR.border, background: 'rgba(255,255,255,0.015)' }}
-            onMouseEnter={(e) => {
-              if (!r.rawPost.thumbnailUrl) return;
-              showRowHover(r, (e.currentTarget as HTMLDivElement).getBoundingClientRect());
-            }}
-            onMouseLeave={scheduleClearRowHover}
           >
             <div className="flex items-start gap-2">
               {openUrl ? (
@@ -2301,35 +2233,6 @@ export function PostsPerformanceTable({
         );})}
       </div>
     </div>
-    {mounted && rowHover
-      ? createPortal(
-          <div
-            className="pointer-events-none fixed z-[9999] w-[220px] overflow-hidden rounded-xl border bg-white shadow-2xl"
-            style={{ left: rowHover.left, top: rowHover.top, borderColor: COLOR.border }}
-          >
-            <img
-              src={rowHover.thumbUrl}
-              alt=""
-              className="aspect-square w-full object-cover"
-              {...pinterestCdnImgProps(rowHover.thumbUrl)}
-            />
-            {rowHover.carousel ? (
-              <div className="space-y-1 border-t px-2.5 py-2 text-xs" style={{ borderColor: COLOR.border, color: COLOR.textSecondary }}>
-                <p style={{ color: COLOR.text }}>
-                  Likes <span className="font-semibold tabular-nums">{formatNumber(rowHover.likes)}</span>
-                </p>
-                <p style={{ color: COLOR.text }}>
-                  Interactions <span className="font-semibold tabular-nums">{formatNumber(rowHover.interactions)}</span>
-                </p>
-                <p style={{ color: COLOR.text }}>
-                  Reactions <span className="font-semibold tabular-nums">{formatNumber(rowHover.reactions)}</span>
-                </p>
-              </div>
-            ) : null}
-          </div>,
-          document.body
-        )
-      : null}
     </>
   );
 }
