@@ -76,7 +76,6 @@ type EngagementMetricKey = 'likes' | 'comments' | 'shares' | 'reposts' | 'dislik
 type ContentTypeKey = 'reels' | 'image' | 'carousel';
 type YouTubeContentTypeKey = 'shorts' | 'videos';
 /** `all` = stacked reels + image + carousel (non-YouTube only). */
-type PostsUploadPresetKey = 'all' | ContentTypeKey | YouTubeContentTypeKey;
 
 /** Bottom → top stack order for the Engagement chart (must match `<Bar />` order). */
 const ENGAGEMENT_STACK_ORDER_META: readonly EngagementMetricKey[] = ['likes', 'comments', 'shares', 'reposts'];
@@ -2526,7 +2525,7 @@ export function FacebookAnalyticsView({
   const [selectedYtVideoReelMetrics, setSelectedYtVideoReelMetrics] = useState<ReelMetricKey[]>([
     ...REEL_PRESET_METRICS_YOUTUBE.performance,
   ]);
-  const [selectedPostsUploadPreset, setSelectedPostsUploadPreset] = useState<PostsUploadPresetKey>('all');
+  const [selectedPostsUploadTypes, setSelectedPostsUploadTypes] = useState<ContentTypeKey[]>([]);
   const [activeSection, setActiveSection] = useState<SectionId>(FACEBOOK_ANALYTICS_SECTION_IDS.overview);
   const [historyFilter, setHistoryFilter] = useState<ContentHistoryFilter>('all');
   const [geoPieHover, setGeoPieHover] = useState<{
@@ -2679,12 +2678,9 @@ export function FacebookAnalyticsView({
   const isTwitter = insights?.platform?.toUpperCase() === 'TWITTER';
 
   useEffect(() => {
-    setSelectedPostsUploadPreset((prev) => {
-      if (isYouTube) return prev === 'shorts' || prev === 'videos' ? prev : 'videos';
-      if (isTikTok && prev === 'image') return 'all';
-      return prev === 'all' || prev === 'reels' || prev === 'image' || prev === 'carousel' ? prev : 'all';
-    });
-  }, [isYouTube, isTikTok]);
+    if (!isTikTok) return;
+    setSelectedPostsUploadTypes((prev) => prev.filter((k) => k !== 'image'));
+  }, [isTikTok]);
 
   useEffect(() => {
     if (!isFacebook && !isInstagram) return;
@@ -2873,17 +2869,12 @@ export function FacebookAnalyticsView({
     return max <= 0 ? 1 : Math.ceil(max * 1.14);
   }, [postsUploadByDay]);
 
-  const postsUploadPresetTotals = useMemo(
-    (): Record<PostsUploadPresetKey, number> => ({
-      all: isYouTube ? 0 : contentTypeCounts.reels + contentTypeCounts.image + contentTypeCounts.carousel,
-      reels: isYouTube ? 0 : contentTypeCounts.reels,
-      image: isYouTube ? 0 : contentTypeCounts.image,
-      carousel: isYouTube ? 0 : contentTypeCounts.carousel,
-      shorts: 0,
-      videos: 0,
-    }),
-    [isYouTube, contentTypeCounts]
-  );
+  const postsUploadVisibleKeys = useMemo(() => {
+    const base = (isTikTok ? ['reels', 'carousel'] : ['reels', 'image', 'carousel']) as ContentTypeKey[];
+    if (selectedPostsUploadTypes.length === 0) return base;
+    const picked = base.filter((k) => selectedPostsUploadTypes.includes(k));
+    return picked.length > 0 ? picked : base;
+  }, [isTikTok, selectedPostsUploadTypes]);
   const tiktokViewsInRange = useMemo(
     () => postsInRange.reduce((s, p) => s + (p.impressions ?? bestPostPlayCount(p)), 0),
     [postsInRange]
@@ -5502,6 +5493,7 @@ type PostsUploadDayTooltipAgg = {
                     stackId="engagement"
                     fill={ENGAGEMENT_METRIC_CONFIG.likes.color}
                     barSize={UNIFIED_BAR_SIZE}
+                    isAnimationActive={false}
                     shape={EngagementStackedBarShape}
                   />
                 ) : null}
@@ -5511,6 +5503,7 @@ type PostsUploadDayTooltipAgg = {
                     stackId="engagement"
                     fill={ENGAGEMENT_METRIC_CONFIG.comments.color}
                     barSize={UNIFIED_BAR_SIZE}
+                    isAnimationActive={false}
                     shape={EngagementStackedBarShape}
                   />
                 ) : null}
@@ -5520,6 +5513,7 @@ type PostsUploadDayTooltipAgg = {
                     stackId="engagement"
                     fill={ENGAGEMENT_METRIC_CONFIG.shares.color}
                     barSize={UNIFIED_BAR_SIZE}
+                    isAnimationActive={false}
                     shape={EngagementStackedBarShape}
                   />
                 ) : null}
@@ -5529,6 +5523,7 @@ type PostsUploadDayTooltipAgg = {
                     stackId="engagement"
                     fill={ENGAGEMENT_METRIC_CONFIG.dislikes.color}
                     barSize={UNIFIED_BAR_SIZE}
+                    isAnimationActive={false}
                     shape={EngagementStackedBarShape}
                   />
                 ) : null}
@@ -5538,6 +5533,7 @@ type PostsUploadDayTooltipAgg = {
                     stackId="engagement"
                     fill={ENGAGEMENT_METRIC_CONFIG.reposts.color}
                     barSize={UNIFIED_BAR_SIZE}
+                    isAnimationActive={false}
                     shape={EngagementStackedBarShape}
                   />
                 ) : null}
@@ -5795,10 +5791,10 @@ type PostsUploadDayTooltipAgg = {
                     formatter={(v: number | string | undefined, n?: string) => [formatNumber(Number(v) || 0), n && n in TRAFFIC_METRIC_CONFIG ? TRAFFIC_METRIC_CONFIG[n as TrafficMetricKey].label : String(n ?? '')]}
                     labelFormatter={(l) => formatShortDate(String(l))}
                   />
-                  {selectedTrafficMetrics.includes('postImpressions') ? <Bar dataKey="postImpressions" fill={COLOR.cyan} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} isAnimationActive={!isPinterest} /> : null}
-                  {selectedTrafficMetrics.includes('nonviral') ? <Bar dataKey="nonviral" fill={COLOR.trafficNonviralCyan} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} isAnimationActive={!isPinterest} /> : null}
-                  {selectedTrafficMetrics.includes('uniqueReachProxy') ? <Bar dataKey="uniqueReachProxy" fill={COLOR.amber} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} isAnimationActive={!isPinterest} /> : null}
-                  {selectedTrafficMetrics.includes('viral') ? <Bar dataKey="viral" fill={COLOR.magenta} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} isAnimationActive={!isPinterest} /> : null}
+                  {selectedTrafficMetrics.includes('postImpressions') ? <Bar dataKey="postImpressions" fill={COLOR.cyan} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} isAnimationActive={false} /> : null}
+                  {selectedTrafficMetrics.includes('nonviral') ? <Bar dataKey="nonviral" fill={COLOR.trafficNonviralCyan} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} isAnimationActive={false} /> : null}
+                  {selectedTrafficMetrics.includes('uniqueReachProxy') ? <Bar dataKey="uniqueReachProxy" fill={COLOR.amber} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} isAnimationActive={false} /> : null}
+                  {selectedTrafficMetrics.includes('viral') ? <Bar dataKey="viral" fill={COLOR.magenta} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} isAnimationActive={false} /> : null}
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -5820,50 +5816,119 @@ type PostsUploadDayTooltipAgg = {
           </div>
           {!isYouTube ? (
           <div className="rounded-xl border p-4 sm:p-5" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
-            <div className="mb-4 flex flex-col items-start gap-3">
-            <h4 className="text-base font-semibold" style={{ color: COLOR.text }}>Uploaded posts</h4>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setSelectedPostsUploadPreset('all')}
-                className="rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
-                style={{
-                  background: selectedPostsUploadPreset === 'all' ? 'rgba(124,108,255,0.14)' : '#ffffff',
-                  color: selectedPostsUploadPreset === 'all' ? COLOR.violet : COLOR.textSecondary,
-                  border: `1px solid ${selectedPostsUploadPreset === 'all' ? 'rgba(124,108,255,0.24)' : COLOR.border}`,
-                }}
-                aria-pressed={selectedPostsUploadPreset === 'all'}
-              >
-                All
-              </button>
+            <div className="mb-4 flex flex-col gap-3">
+            <div className="flex w-full flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div className="space-y-3">
+                <h4 className="text-base font-semibold" style={{ color: COLOR.text }}>Uploaded posts</h4>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPostsUploadTypes([])}
+                    className="rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
+                    style={{
+                      background: selectedPostsUploadTypes.length === 0 ? 'rgba(124,108,255,0.14)' : '#ffffff',
+                      color: selectedPostsUploadTypes.length === 0 ? COLOR.violet : COLOR.textSecondary,
+                      border: `1px solid ${selectedPostsUploadTypes.length === 0 ? 'rgba(124,108,255,0.24)' : COLOR.border}`,
+                    }}
+                    aria-pressed={selectedPostsUploadTypes.length === 0}
+                  >
+                    All
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div
+                  className="rounded-[12px] border px-3 py-2"
+                  style={{ borderColor: COLOR.border, background: '#ffffff' }}
+                  title={`Synced ${postsExplainerPublishedPlural} whose publish time is in the selected range (${postsExplainerDateRangeLabel}).`}
+                >
+                  <p className="text-[11px] font-medium" style={{ color: COLOR.textMuted }}>
+                    {isTwitter ? 'Total Tweets' : isPinterest ? 'Total Pins' : 'Total Posts'}
+                  </p>
+                  <p className="mt-0.5 text-[18px] font-semibold tabular-nums" style={{ color: COLOR.text }}>
+                    {formatNumber(
+                      isTwitter
+                        ? Math.max(postsInRange.length, twitterRecentTweets.length)
+                        : postsInRange.length
+                    )}
+                  </p>
+                </div>
+                <div
+                  className="rounded-[12px] border px-3 py-2"
+                  style={{ borderColor: COLOR.border, background: '#ffffff' }}
+                  title="Per synced item in range: total views divided by item count."
+                >
+                  <p className="text-[11px] font-medium" style={{ color: COLOR.textMuted }}>Avg views per post</p>
+                  <p className="mt-0.5 text-[18px] font-semibold tabular-nums" style={{ color: COLOR.text }}>
+                    {formatNumber(Math.round(avgViewsPerPost))}
+                  </p>
+                </div>
+                <div
+                  className="rounded-[12px] border px-3 py-2"
+                  style={{ borderColor: COLOR.border, background: '#ffffff' }}
+                  title={
+                    isTikTok
+                      ? 'Per synced TikTok in range: likes + comments + shares; divided by count of those videos.'
+                      : isTwitter
+                        ? 'Per synced X post in range: likes + comments + reposts; divided by post count in range.'
+                        : isYouTube
+                          ? 'Per synced YouTube video in range: likes + comments + shares; divided by video count.'
+                          : isLinkedIn
+                            ? 'Per synced LinkedIn post in range: likes + comments + shares; divided by post count.'
+                            : isPinterest
+                              ? 'Per synced Pin in range: Pinterest lifetime reactions + comments + saves + Pin clicks + outbound clicks (when available), using synced pin_metrics; divided by pin count.'
+                              : isInstagram
+                                ? 'Per synced IG media in range: likes + comments + shares + reposts; divided by post count.'
+                                : 'Per synced Page post in range: likes + comments + shares + reposts; divided by post count.'
+                  }
+                >
+                  <p className="text-[11px] font-medium" style={{ color: COLOR.textMuted }}>Avg interactions per post</p>
+                  <p className="mt-0.5 text-[18px] font-semibold tabular-nums" style={{ color: COLOR.text }}>
+                    {formatNumber(Math.round(avgInteractionsPerPost))}
+                  </p>
+                </div>
+                <div
+                  className="rounded-[12px] border px-3 py-2"
+                  style={{ borderColor: COLOR.border, background: '#ffffff' }}
+                  title={
+                    isPinterest
+                      ? `Per synced Pin in range: Pinterest “reactions” (TOTAL_REACTIONS / reaction) from pin_metrics ÷ number of ${postsExplainerPublishedPlural} in range.`
+                      : `Sum of each ${postsExplainerItemSingular}'s total reactions (from platform insights) ÷ number of ${postsExplainerPublishedPlural} in range.`
+                  }
+                >
+                  <p className="text-[11px] font-medium" style={{ color: COLOR.textMuted }}>Avg Reactions per Post</p>
+                  <p className="mt-0.5 text-[18px] font-semibold tabular-nums" style={{ color: COLOR.text }}>
+                    {formatNumber(Math.round(avgReactionsPerPost))}
+                  </p>
+                </div>
+              </div>
             </div>
             <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-3">
               {postsUploadChartPresets
                 .filter((preset) => preset.key !== 'all')
                 .map((preset) => {
-                  const total = Number(postsUploadPresetTotals[preset.key] ?? 0);
-                  const active = selectedPostsUploadPreset === preset.key;
+                  const key = preset.key as ContentTypeKey;
+                  const total = Number(contentTypeCounts[key] ?? 0);
+                  const active = selectedPostsUploadTypes.includes(key);
                   return (
                     <button
                       type="button"
                       key={`posts-upload-metric-${preset.key}`}
-                      onClick={() =>
-                        setSelectedPostsUploadPreset((prev) => (prev === preset.key ? 'all' : preset.key))
-                      }
+                      onClick={() => setSelectedPostsUploadTypes((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]))}
                       aria-pressed={active}
                       className="rounded-[12px] px-3 py-2 text-left transition-[opacity,box-shadow,transform] hover:scale-[1.01] active:scale-[0.99]"
                       style={{
-                        background: `${preset.color}10`,
+                        background: '#ffffff',
                         boxShadow: active
-                          ? `0 0 0 1px ${preset.color}35, 0 2px 16px rgba(15,23,42,0.08)`
+                          ? `0 0 0 1px rgba(124,108,255,0.35), 0 2px 16px rgba(15,23,42,0.08)`
                           : '0 2px 16px rgba(15,23,42,0.05)',
-                        opacity: active ? 1 : 0.9,
+                        opacity: 1,
                       }}
                     >
                       <span className="text-xs font-medium tracking-tight" style={{ color: COLOR.textMuted }}>
                         {preset.label}
                       </span>
-                      <p className="mt-1 text-[24px] font-semibold tracking-tight" style={{ color: preset.color }}>
+                      <p className="mt-1 text-[24px] font-semibold tracking-tight" style={{ color: COLOR.text }}>
                         {formatNumber(total)}
                       </p>
                     </button>
@@ -5913,17 +5978,30 @@ type PostsUploadDayTooltipAgg = {
                         if (!active || label === undefined || label === null) return null;
                         const dateKey = String(label);
                         const tipRow = postsUploadTooltipByDate.get(dateKey);
-                        const preset = selectedPostsUploadPreset;
-                        const agg =
-                          preset === 'all'
-                            ? tipRow?.all
-                            : preset === 'reels'
-                              ? tipRow?.reels
-                              : preset === 'image'
-                                ? tipRow?.image
-                                : preset === 'carousel'
-                                  ? tipRow?.carousel
-                                  : null;
+                        const activeKeys = postsUploadVisibleKeys;
+                        const agg = (() => {
+                          if (!tipRow) return null;
+                          const seed: PostsUploadDayTooltipAgg = {
+                            items: [],
+                            interactions: 0,
+                            reactions: 0,
+                            views: 0,
+                            thumbnails: [],
+                            count: 0,
+                          };
+                          for (const k of activeKeys) {
+                            const bucket = tipRow[k];
+                            seed.items.push(...bucket.items);
+                            seed.interactions += bucket.interactions;
+                            seed.reactions += bucket.reactions;
+                            seed.views += bucket.views;
+                            seed.count += bucket.count;
+                            if (bucket.thumbnails.length) {
+                              seed.thumbnails.push(...bucket.thumbnails);
+                            }
+                          }
+                          return seed;
+                        })();
                         const uploadTypeLabel = (k: string | undefined) =>
                           k === 'reels'
                             ? 'Reels'
@@ -5932,8 +6010,6 @@ type PostsUploadDayTooltipAgg = {
                               : k === 'carousel'
                                 ? 'Carousel'
                                 : String(k ?? '');
-                        const singlePresetLabel =
-                          postsUploadChartPresets.find((x) => x.key === preset)?.label ?? '';
                         return (
                           <div
                             className="rounded-xl border bg-white px-3 py-2.5 text-xs shadow-xl"
@@ -5970,35 +6046,22 @@ type PostsUploadDayTooltipAgg = {
                                 ))}
                               </div>
                             ) : null}
-                            {preset === 'all' ? (
-                              <div className="mb-2 space-y-0.5" style={{ color: COLOR.textSecondary }}>
-                                {(payload ?? [])
-                                  .filter((x) => {
-                                    const dk = x.dataKey;
-                                    if (!Number(x.value) || (dk !== 'reels' && dk !== 'image' && dk !== 'carousel')) return false;
-                                    if (isTikTok && dk === 'image') return false;
-                                    return true;
-                                  })
-                                  .map((x) => (
-                                    <p key={String(x.dataKey)}>
-                                      <span className="font-medium" style={{ color: COLOR.text }}>
-                                        {uploadTypeLabel(x.dataKey)}
-                                      </span>
-                                      : {formatNumber(Math.round(Number(x.value) || 0))}
-                                    </p>
-                                  ))}
-                              </div>
-                            ) : (
-                              <p className="mb-2" style={{ color: COLOR.textSecondary }}>
-                                <span className="font-medium" style={{ color: COLOR.text }}>{singlePresetLabel}</span>
-                                {': '}
-                                {formatNumber(
-                                  Math.round(
-                                    Number((payload ?? []).find((x) => x.dataKey === preset)?.value) || 0
-                                  )
-                                )}
-                              </p>
-                            )}
+                            <div className="mb-2 space-y-0.5" style={{ color: COLOR.textSecondary }}>
+                              {(payload ?? [])
+                                .filter((x) => {
+                                  const dk = x.dataKey;
+                                  if (!Number(x.value) || (dk !== 'reels' && dk !== 'image' && dk !== 'carousel')) return false;
+                                  return postsUploadVisibleKeys.includes(dk as ContentTypeKey);
+                                })
+                                .map((x) => (
+                                  <p key={String(x.dataKey)}>
+                                    <span className="font-medium" style={{ color: COLOR.text }}>
+                                      {uploadTypeLabel(x.dataKey)}
+                                    </span>
+                                    : {formatNumber(Math.round(Number(x.value) || 0))}
+                                  </p>
+                                ))}
+                            </div>
                             <div className="mt-1 space-y-0.5 border-t pt-2" style={{ borderColor: COLOR.border, color: COLOR.textSecondary }}>
                               <p>
                                 Views{' '}
@@ -6023,104 +6086,23 @@ type PostsUploadDayTooltipAgg = {
                         );
                       }}
                     />
-                    {selectedPostsUploadPreset === 'all' ? (
-                      (isTikTok ? (['reels', 'carousel'] as const) : (['reels', 'image', 'carousel'] as const)).map((key) => (
-                        <Bar
-                          key={`uploaded-posts-bar-stack-${key}`}
-                          dataKey={key}
-                          name={key}
-                          stackId="upload-by-type"
-                          fill={CONTENT_TYPE_COLOR[key]}
-                          barSize={UNIFIED_BAR_SIZE}
-                          shape={isTikTok ? TIKTOK_POSTS_UPLOAD_STACK_SHAPE : META_POSTS_UPLOAD_STACK_SHAPE}
-                        />
-                      ))
-                    ) : (
-                      postsUploadChartPresets
-                        .filter((preset) => preset.key !== 'all')
-                        .map((preset) => (
-                          <Bar
-                            key={`uploaded-posts-bar-${preset.key}`}
-                            dataKey={preset.key}
-                            name={preset.key}
-                            stackId="uploaded-posts"
-                            fill={preset.color}
-                            barSize={UNIFIED_BAR_SIZE}
-                            hide={selectedPostsUploadPreset !== preset.key}
-                            shape={isTikTok ? TIKTOK_POSTS_UPLOAD_STACK_SHAPE : META_POSTS_UPLOAD_STACK_SHAPE}
-                          />
-                        ))
-                    )}
+                    {(isTikTok ? (['reels', 'carousel'] as const) : (['reels', 'image', 'carousel'] as const)).map((key) => (
+                      <Bar
+                        key={`uploaded-posts-bar-stack-${key}`}
+                        dataKey={key}
+                        name={key}
+                        stackId="upload-by-type"
+                        fill={CONTENT_TYPE_COLOR[key]}
+                        barSize={UNIFIED_BAR_SIZE}
+                        isAnimationActive={false}
+                        hide={!postsUploadVisibleKeys.includes(key)}
+                        shape={isTikTok ? TIKTOK_POSTS_UPLOAD_STACK_SHAPE : META_POSTS_UPLOAD_STACK_SHAPE}
+                      />
+                    ))}
                   </BarChart>
                 </ResponsiveContainer>
               )}
             </InsightChartCard>
-            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <div
-                className="rounded-[12px] border px-3 py-2"
-                style={{ borderColor: COLOR.border, background: '#ffffff' }}
-                title={`Synced ${postsExplainerPublishedPlural} whose publish time is in the selected range (${postsExplainerDateRangeLabel}).`}
-              >
-                <p className="text-[11px] font-medium" style={{ color: COLOR.textMuted }}>
-                  {isTwitter ? 'Total Tweets' : isPinterest ? 'Total Pins' : 'Total Posts'}
-                </p>
-                <p className="mt-0.5 text-[18px] font-semibold tabular-nums" style={{ color: COLOR.text }}>
-                  {formatNumber(
-                    isTwitter
-                      ? Math.max(postsInRange.length, twitterRecentTweets.length)
-                      : postsInRange.length
-                  )}
-                </p>
-              </div>
-              <div
-                className="rounded-[12px] border px-3 py-2"
-                style={{ borderColor: COLOR.border, background: '#ffffff' }}
-                title="Per synced item in range: total views divided by item count."
-              >
-                <p className="text-[11px] font-medium" style={{ color: COLOR.textMuted }}>Avg views per post</p>
-                <p className="mt-0.5 text-[18px] font-semibold tabular-nums" style={{ color: COLOR.text }}>
-                  {formatNumber(Math.round(avgViewsPerPost))}
-                </p>
-              </div>
-              <div
-                className="rounded-[12px] border px-3 py-2"
-                style={{ borderColor: COLOR.border, background: '#ffffff' }}
-                title={
-                  isTikTok
-                    ? 'Per synced TikTok in range: likes + comments + shares; divided by count of those videos.'
-                    : isTwitter
-                      ? 'Per synced X post in range: likes + comments + reposts; divided by post count in range.'
-                      : isYouTube
-                        ? 'Per synced YouTube video in range: likes + comments + shares; divided by video count.'
-                        : isLinkedIn
-                          ? 'Per synced LinkedIn post in range: likes + comments + shares; divided by post count.'
-                          : isPinterest
-                            ? 'Per synced Pin in range: Pinterest lifetime reactions + comments + saves + Pin clicks + outbound clicks (when available), using synced pin_metrics; divided by pin count.'
-                            : isInstagram
-                              ? 'Per synced IG media in range: likes + comments + shares + reposts; divided by post count.'
-                              : 'Per synced Page post in range: likes + comments + shares + reposts; divided by post count.'
-                }
-              >
-                <p className="text-[11px] font-medium" style={{ color: COLOR.textMuted }}>Avg interactions per post</p>
-                <p className="mt-0.5 text-[18px] font-semibold tabular-nums" style={{ color: COLOR.text }}>
-                  {formatNumber(Math.round(avgInteractionsPerPost))}
-                </p>
-              </div>
-              <div
-                className="rounded-[12px] border px-3 py-2"
-                style={{ borderColor: COLOR.border, background: '#ffffff' }}
-                title={
-                  isPinterest
-                    ? `Per synced Pin in range: Pinterest “reactions” (TOTAL_REACTIONS / reaction) from pin_metrics ÷ number of ${postsExplainerPublishedPlural} in range.`
-                    : `Sum of each ${postsExplainerItemSingular}'s total reactions (from platform insights) ÷ number of ${postsExplainerPublishedPlural} in range.`
-                }
-              >
-                <p className="text-[11px] font-medium" style={{ color: COLOR.textMuted }}>Avg Reactions per Post</p>
-                <p className="mt-0.5 text-[18px] font-semibold tabular-nums" style={{ color: COLOR.text }}>
-                  {formatNumber(Math.round(avgReactionsPerPost))}
-                </p>
-              </div>
-            </div>
           </div>
           ) : null}
           <TopContentHighlights

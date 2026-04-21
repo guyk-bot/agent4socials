@@ -1145,6 +1145,23 @@ export default function DashboardPage() {
       }
     }
 
+    // Hard stability gate:
+    // Do not silently refetch insights when we already rendered cached/stale data.
+    // Silent refreshes were the source of "candles move a few seconds later".
+    // We only refetch automatically when:
+    // - user explicitly triggered Sync (`syncAllTrigger`),
+    // - user just connected an account, or
+    // - user changed date range/account and we have no usable cache to render.
+    const shouldFetchInsights =
+      syncAllTrigger > 0 ||
+      justConnected ||
+      isDateRangeChange ||
+      (!exactCached && !staleCandidate);
+    if (!shouldFetchInsights) {
+      setInsightsLoading(false);
+      return;
+    }
+
     // Fetch insights; optional fast posts only when not on per-account analytics (single owner for posts there).
     const insightsPromise = api.get(`/social/accounts/${accountId}/insights`, {
       params:
