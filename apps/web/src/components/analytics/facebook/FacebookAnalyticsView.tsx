@@ -5858,38 +5858,41 @@ type PostsUploadDayTooltipAgg = {
             <div className="mb-4 flex flex-col items-start gap-3">
             <h4 className="text-base font-semibold" style={{ color: COLOR.text }}>Uploaded posts</h4>
             <div className="flex flex-wrap gap-2">
-              {postsUploadChartPresets.map((preset) => {
-                const active = selectedPostsUploadPreset === preset.key;
-                return (
-                  <button
-                    key={`posts-upload-preset-${preset.key}`}
-                    type="button"
-                    onClick={() => setSelectedPostsUploadPreset(preset.key)}
-                    className="rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
-                    style={{
-                      background: active ? 'rgba(124,108,255,0.14)' : '#ffffff',
-                      color: active ? COLOR.violet : COLOR.textSecondary,
-                      border: `1px solid ${active ? 'rgba(124,108,255,0.24)' : COLOR.border}`,
-                    }}
-                    aria-pressed={active}
-                  >
-                    {preset.label}
-                  </button>
-                );
-              })}
+              <button
+                type="button"
+                onClick={() => setSelectedPostsUploadPreset('all')}
+                className="rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
+                style={{
+                  background: selectedPostsUploadPreset === 'all' ? 'rgba(124,108,255,0.14)' : '#ffffff',
+                  color: selectedPostsUploadPreset === 'all' ? COLOR.violet : COLOR.textSecondary,
+                  border: `1px solid ${selectedPostsUploadPreset === 'all' ? 'rgba(124,108,255,0.24)' : COLOR.border}`,
+                }}
+                aria-pressed={selectedPostsUploadPreset === 'all'}
+              >
+                All
+              </button>
             </div>
             <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-3">
               {postsUploadChartPresets
                 .filter((preset) => preset.key !== 'all')
                 .map((preset) => {
                   const total = Number(postsUploadPresetTotals[preset.key] ?? 0);
+                  const active = selectedPostsUploadPreset === preset.key;
                   return (
-                    <div
+                    <button
+                      type="button"
                       key={`posts-upload-metric-${preset.key}`}
-                      className="rounded-[12px] px-3 py-2 text-left"
+                      onClick={() =>
+                        setSelectedPostsUploadPreset((prev) => (prev === preset.key ? 'all' : preset.key))
+                      }
+                      aria-pressed={active}
+                      className="rounded-[12px] px-3 py-2 text-left transition-[opacity,box-shadow,transform] hover:scale-[1.01] active:scale-[0.99]"
                       style={{
                         background: `${preset.color}10`,
-                        boxShadow: '0 2px 16px rgba(15,23,42,0.05)',
+                        boxShadow: active
+                          ? `0 0 0 1px ${preset.color}35, 0 2px 16px rgba(15,23,42,0.08)`
+                          : '0 2px 16px rgba(15,23,42,0.05)',
+                        opacity: active ? 1 : 0.9,
                       }}
                     >
                       <span className="text-xs font-medium tracking-tight" style={{ color: COLOR.textMuted }}>
@@ -5898,7 +5901,7 @@ type PostsUploadDayTooltipAgg = {
                       <p className="mt-1 text-[24px] font-semibold tracking-tight" style={{ color: preset.color }}>
                         {formatNumber(total)}
                       </p>
-                    </div>
+                    </button>
                   );
                 })}
             </div>
