@@ -415,34 +415,54 @@ export async function runPublishPostWorkflow(input: {
       });
       return { platform, ok: true, ...(result.mediaSkipped ? { mediaSkipped: true } : {}), ...(result.sentToInbox ? { sentToInbox: true } : {}) };
     }
-      if (platform === 'INSTAGRAM') {
-        console.error('[Instagram publish failed]', { postId, error: result.error, mediaUrl: firstImageUrl || firstMediaUrl });
-      }
-      if (platform === 'TIKTOK') {
-        console.error('[TikTok publish failed]', { postId, error: result.error });
-      }
-      await prisma.postTarget.update({
-        where: { id: target.id },
-        data: { status: PostStatus.FAILED, error: result.error?.slice(0, 500) },
-      });
-      if (isDebug && debugInfo?.fullErrors && result.error) {
-        debugInfo.fullErrors[platform] = result.error;
-      }
-      return { platform, ok: false, error: result.error?.slice(0, 200) };
+    if (platform === 'INSTAGRAM') {
+      console.error('[Instagram publish failed]', { postId, error: result.error, mediaUrl: firstImageUrl || firstMediaUrl });
+    }
+    if (platform === 'TIKTOK') {
+      console.error('[TikTok publish failed]', { postId, error: result.error });
+    }
+    // Do not overwrite POSTED: overlapping publishes (double submit / retry) can succeed on
+    // the platform first, then a slower duplicate attempt returns an error and would wrongly
+    // mark the target FAILED and hide it from dashboard Content History.
+    await prisma.postTarget.updateMany({
+      where: { id: target.id, status: { not: PostStatus.POSTED } },
+      data: { status: PostStatus.FAILED, error: result.error?.slice(0, 500) },
+    });
+    if (isDebug && debugInfo?.fullErrors && result.error) {
+      debugInfo.fullErrors[platform] = result.error;
+    }
+    return { platform, ok: false, error: result.error?.slice(0, 200) };
   })
   );
 
   const anyFailed = results.some((r) => !r.ok);
+  const targetsNow = await prisma.postTarget.findMany({
+    where: { postId },
+    select: { status: true },
+  });
+  const totalTargets = targetsNow.length;
+  const postedCount = targetsNow.filter((t) => t.status === PostStatus.POSTED).length;
+  const allTargetsPosted = totalTargets > 0 && postedCount === totalTargets;
+  const nextPostStatus =
+    totalTargets === 0
+      ? anyFailed
+        ? PostStatus.FAILED
+        : PostStatus.POSTED
+      : allTargetsPosted
+        ? PostStatus.POSTED
+        : PostStatus.FAILED;
+  const bodyOk = totalTargets === 0 ? !anyFailed : allTargetsPosted;
+
   await prisma.post.update({
     where: { id: postId },
     data: {
-      status: anyFailed ? PostStatus.FAILED : PostStatus.POSTED,
-      ...(anyFailed ? {} : { postedAt: new Date() }),
+      status: nextPostStatus,
+      ...(allTargetsPosted ? { postedAt: new Date() } : {}),
     },
     select: { id: true },
   });
 
-  const body: Record<string, unknown> = { ok: !anyFailed, results };
+  const body: Record<string, unknown> = { ok: bodyOk, results };
   if (isDebug && debugInfo) body.debugInfo = debugInfo;
   return { status: 200, body };
 }
