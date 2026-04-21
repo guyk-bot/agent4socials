@@ -2374,6 +2374,8 @@ function TopContentHighlights({
 }) {
   const isTwitterHighlight = (platform ?? '').toUpperCase() === 'TWITTER';
   const rankBadge = (idx: number) => `/rank-badges/${Math.min(3, idx + 1)}.svg`;
+  const formatBadgeLabel = (r: TopHighlightRow): string =>
+    r.type === 'Reel' ? 'Reel' : isCarouselAlbumMedia(r.mediaType) ? 'Carousel' : 'Image';
   const col = (title: string, metricLabel: 'Views' | 'Clicks' | 'Reactions' | 'Interactions', rows: TopHighlightRow[], showClicks = true) => (
     <div className="space-y-3">
       <p className="text-base font-semibold tracking-tight" style={{ color: COLOR.text }}>{title}</p>
@@ -2381,7 +2383,7 @@ function TopContentHighlights({
         <p className="text-sm" style={{ color: COLOR.textMuted }}>No items yet</p>
       ) : (
         rows.map((r, idx) => (
-          <div key={`${title}-${r.id}-${idx}`} className="rounded-xl p-3 h-[124px]" style={{ background: COLOR.elevated }}>
+          <div key={`${title}-${r.id}-${idx}`} className="rounded-xl p-3 h-[136px] overflow-hidden" style={{ background: COLOR.elevated }}>
             <div className="flex items-start gap-3">
               {isTwitterHighlight && !r.thumbnailUrl ? (
                 /* Text-only tweet: show just the rank badge, no thumbnail box */
@@ -2394,7 +2396,7 @@ function TopContentHighlights({
                 </div>
               ) : (
               <div className="shrink-0 w-[104px] pt-1">
-                <div className="group relative isolate mt-1 h-[92px] w-[92px]">
+                <div className="relative isolate mt-1 h-[92px] w-[92px]">
                   <div className="absolute inset-0 overflow-hidden rounded-xl border" style={{ borderColor: COLOR.border, background: '#f3f4f6' }}>
                     {r.thumbnailUrl ? (
                       <img
@@ -2422,34 +2424,6 @@ function TopContentHighlights({
                     className="pointer-events-none absolute z-10 h-11 w-11 -translate-x-2 -translate-y-2 object-contain drop-shadow-md sm:h-12 sm:w-12 sm:-translate-x-2.5 sm:-translate-y-2.5"
                     style={{ left: 0, top: 0 }}
                   />
-                  {r.thumbnailUrl ? (
-                    <div
-                      className="pointer-events-none invisible absolute z-[25] left-full top-0 ml-2 w-[200px] opacity-0 shadow-2xl transition-[opacity,visibility] duration-150 group-hover:visible group-hover:opacity-100"
-                      style={{ borderColor: COLOR.border }}
-                    >
-                      <div className="overflow-hidden rounded-xl border bg-white" style={{ borderColor: COLOR.border }}>
-                        <img
-                          src={r.thumbnailUrl}
-                          alt=""
-                          className="aspect-square w-full object-cover"
-                          {...pinterestCdnImgProps(r.thumbnailUrl)}
-                        />
-                        {isCarouselAlbumMedia(r.mediaType) ? (
-                          <div className="space-y-1 border-t px-2.5 py-2 text-xs" style={{ borderColor: COLOR.border, color: COLOR.textSecondary }}>
-                            <p style={{ color: COLOR.text }}>
-                              Likes <span className="font-semibold tabular-nums">{formatNumber(r.likes ?? 0)}</span>
-                            </p>
-                            <p style={{ color: COLOR.text }}>
-                              Interactions <span className="font-semibold tabular-nums">{formatNumber(r.clicks)}</span>
-                            </p>
-                            <p style={{ color: COLOR.text }}>
-                              Reactions <span className="font-semibold tabular-nums">{formatNumber(r.reactions)}</span>
-                            </p>
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                  ) : null}
                 </div>
               </div>
               )}
@@ -2457,8 +2431,11 @@ function TopContentHighlights({
                 <p className="text-[11px] leading-4 tabular-nums shrink-0" style={{ color: COLOR.textMuted }}>
                   {formatPostCardDateTime(r.publishedAt) || '—'}
                 </p>
+                <p className="mt-1 text-[10px] uppercase tracking-wide" style={{ color: COLOR.textMuted }}>
+                  {formatBadgeLabel(r)}
+                </p>
                 <p
-                  className="mt-1 min-h-0 text-[13px] leading-[18px] line-clamp-4"
+                  className="mt-1 min-h-0 text-[13px] leading-[18px] line-clamp-2"
                   style={{ color: COLOR.textSecondary }}
                   title={(r.preview || '').trim() || undefined}
                 >
@@ -3971,9 +3948,22 @@ export function FacebookAnalyticsView({
     });
   }, [postsInRangeForPostsTabUi]);
 
-  type PostsUploadDayTooltipAgg = { interactions: number; reactions: number; thumbnails: string[]; count: number };
+type PostsUploadTooltipItem = {
+  id: string;
+  thumbnailUrl: string | null;
+  mediaFormat: 'Reel' | 'Image' | 'Carousel';
+  interactions: number;
+  reactions: number;
+};
+type PostsUploadDayTooltipAgg = {
+  interactions: number;
+  reactions: number;
+  thumbnails: string[];
+  count: number;
+  items: PostsUploadTooltipItem[];
+};
   const postsUploadTooltipByDate = useMemo(() => {
-    const empty = (): PostsUploadDayTooltipAgg => ({ interactions: 0, reactions: 0, thumbnails: [], count: 0 });
+    const empty = (): PostsUploadDayTooltipAgg => ({ interactions: 0, reactions: 0, thumbnails: [], count: 0, items: [] });
     const map = new Map<
       string,
       { all: PostsUploadDayTooltipAgg; reels: PostsUploadDayTooltipAgg; image: PostsUploadDayTooltipAgg; carousel: PostsUploadDayTooltipAgg }
@@ -3998,6 +3988,20 @@ export function FacebookAnalyticsView({
         agg.reactions += r.reactionsTotal;
         const u = (r.rawPost.thumbnailUrl ?? '').trim();
         if (u && agg.thumbnails.length < 6 && !agg.thumbnails.includes(u)) agg.thumbnails.push(u);
+        if (!agg.items.some((x) => x.id === r.id)) {
+          agg.items.push({
+            id: r.id,
+            thumbnailUrl: u || null,
+            mediaFormat:
+              r.type === 'Reel'
+                ? 'Reel'
+                : isCarouselAlbumMedia(r.rawPost.mediaType)
+                  ? 'Carousel'
+                  : 'Image',
+            interactions: r.clicks,
+            reactions: r.reactionsTotal,
+          });
+        }
       };
       apply(row.all);
       apply(row[bucket]);
@@ -6050,17 +6054,29 @@ export function FacebookAnalyticsView({
                             <p className="mb-2 text-sm font-semibold" style={{ color: COLOR.text }}>
                               {formatShortDate(dateKey)}
                             </p>
-                            {agg && agg.thumbnails.length > 0 ? (
-                              <div className="mb-2 flex flex-wrap gap-1">
-                                {agg.thumbnails.map((url) => (
-                                  <img
-                                    key={url}
-                                    src={url}
-                                    alt=""
-                                    className="h-11 w-11 rounded-lg border object-cover"
-                                    style={{ borderColor: COLOR.border }}
-                                    {...pinterestCdnImgProps(url)}
-                                  />
+                            {agg && agg.items.length > 0 ? (
+                              <div className="mb-2 space-y-2">
+                                {agg.items.slice(0, 4).map((item) => (
+                                  <div key={item.id} className="flex items-center gap-2 rounded-lg border p-1.5" style={{ borderColor: COLOR.border }}>
+                                    {item.thumbnailUrl ? (
+                                      <img
+                                        src={item.thumbnailUrl}
+                                        alt=""
+                                        className="h-9 w-9 rounded object-cover"
+                                        {...pinterestCdnImgProps(item.thumbnailUrl)}
+                                      />
+                                    ) : (
+                                      <div className="h-9 w-9 rounded" style={{ background: 'rgba(124,108,255,0.10)' }} />
+                                    )}
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-[11px] font-semibold" style={{ color: COLOR.text }}>{item.mediaFormat}</p>
+                                      <p className="text-[11px]" style={{ color: COLOR.textSecondary }}>
+                                        Interactions <span className="font-semibold tabular-nums" style={{ color: COLOR.text }}>{formatNumber(item.interactions)}</span>
+                                        {' · '}
+                                        Reactions <span className="font-semibold tabular-nums" style={{ color: COLOR.text }}>{formatNumber(item.reactions)}</span>
+                                      </p>
+                                    </div>
+                                  </div>
                                 ))}
                               </div>
                             ) : null}
@@ -6107,12 +6123,6 @@ export function FacebookAnalyticsView({
                                 </span>
                               </p>
                             </div>
-                            {agg && agg.count > 0 ? (
-                              <p className="mt-2 border-t pt-2 text-[11px] leading-snug" style={{ borderColor: COLOR.border, color: COLOR.textMuted }}>
-                                Total for {agg.count === 1 ? `this ${postsExplainerItemSingular}` : `these ${formatNumber(agg.count)} ${postsExplainerPublishedPlural}`}
-                                {preset === 'all' ? '' : ` (${singlePresetLabel.toLowerCase()} only)`} published on this date — not your whole account for the range.
-                              </p>
-                            ) : null}
                           </div>
                         );
                       }}
