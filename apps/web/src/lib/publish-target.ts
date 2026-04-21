@@ -683,8 +683,22 @@ export async function publishTarget(
               'Content-Type': 'application/json',
               ...linkedInRestCommunityHeaders(token),
             },
+            validateStatus: () => true,
           }
         );
+        if (initRes.status !== 200) {
+          const errBody = initRes.data as { message?: string; code?: string } | undefined;
+          const detail = typeof errBody?.message === 'string' ? errBody.message : JSON.stringify(initRes.data ?? {});
+          if (
+            initRes.status === 403 &&
+            (detail.includes('partnerApiVideosExternal') || detail.includes('initializeUpload'))
+          ) {
+            throw new Error(
+              'LinkedIn returned 403 on video upload (Videos API / initializeUpload). That permission is separate from "Share on LinkedIn" and is often gated as partner/Community Management access. Workarounds: publish a still image or text-only to LinkedIn, or apply for the Community Management / Videos API program for your LinkedIn app. If you created a new LinkedIn app, update LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET, add the same products and redirect URL, then disconnect and reconnect LinkedIn in Agent4Socials so the token is re-issued with the right scopes.'
+            );
+          }
+          throw new Error(`LinkedIn video initializeUpload failed (${initRes.status}): ${detail}`);
+        }
         const val = (initRes.data as { value?: { video?: string; uploadToken?: string; uploadInstructions?: { uploadUrl: string; firstByte: number; lastByte: number }[] } })?.value;
         const videoUrn = val?.video;
         const uploadToken = val?.uploadToken ?? '';
