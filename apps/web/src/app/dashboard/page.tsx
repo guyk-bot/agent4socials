@@ -577,6 +577,10 @@ export default function DashboardPage() {
         return Date.now() - last >= THIRTY_MIN_MS;
       };
       const refreshPostsInBackground = () => {
+        // Keep dashboard charts stable after initial render.
+        // If we already have cached posts for this account, do not auto-refresh
+        // in the background; updates should come from explicit sync actions.
+        if (hasAnyCachedPosts) return;
         if (skipInstagramAutoRefresh && hasAnyCachedPosts && !shouldBackgroundSyncPosts()) return;
         api.get(`/social/accounts/${accountId}/posts`, {
           params: shouldBackgroundSyncPosts() ? { sync: 1 } : (postImportSyncOnFirstLoad(selectedAccount?.platform) ? { sync: 1 } : {}),
@@ -714,7 +718,6 @@ export default function DashboardPage() {
   /** Tracks the last `accountId-since-until` key that was loaded so we can detect date-range changes. */
   const prevInsightsLoadKeyRef = useRef<string>('');
   const fbForcedRefreshRef = useRef<Record<string, boolean>>({});
-  const igForcedRefreshRef = useRef<Record<string, boolean>>({});
   const selectedAccountIdRef = useRef<string | null>(null);
   const aggregatedCacheRef = useRef<{ key: string; data: { totalFollowers: number; totalImpressions: number; totalReach: number; totalProfileViews: number; totalPageViews: number; byPlatform: Record<string, { followers: number; impressions: number; timeSeries: Array<{ date: string; value: number }> }>; combinedTimeSeries: Array<{ date: string; value: number }> } } | null>(null);
 
@@ -742,7 +745,6 @@ export default function DashboardPage() {
     if (!selectedAccount?.id || !dateRange.start || !dateRange.end) return;
     // Wait for cache rehydration to complete before checking for cached data
     if (!appData?.cacheRehydrated) return;
-    const skipInstagramAutoRefresh = selectedAccount?.platform === 'INSTAGRAM' && !justConnected;
     const prevAccountId = selectedAccountIdRef.current;
     selectedAccountIdRef.current = selectedAccount.id;
     const accountId = selectedAccount.id;
@@ -1009,57 +1011,9 @@ export default function DashboardPage() {
       setInsights(patchedExact as NonNullable<Parameters<typeof setInsights>[0]>);
       if (userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, patchedExact, dateRange);
       setInsightsLoading(false);
-      let runInsightsSwr = true;
-      if (skipInstagramAutoRefresh) {
-        const isInstagramZeroState = Boolean(
-          selectedAccount?.platform === 'INSTAGRAM' &&
-          Number(exactCached.followers ?? 0) === 0 &&
-          Number(exactCached.impressionsTotal ?? 0) === 0 &&
-          Number(exactCached.profileViewsTotal ?? exactCached.pageViewsTotal ?? 0) === 0
-        );
-        if (!isInstagramZeroState || igForcedRefreshRef.current[cacheKey]) {
-          runInsightsSwr = false;
-        } else {
-          igForcedRefreshRef.current[cacheKey] = true;
-        }
-      }
-      if (runInsightsSwr) {
-        api.get(`/social/accounts/${accountId}/insights`, {
-          params:
-            selectedAccount?.platform === 'FACEBOOK'
-              ? { since: dateRange.start, until: dateRange.end, persist: 0 }
-              : selectedAccount?.platform === 'YOUTUBE'
-                ? { since: dateRange.start, until: dateRange.end, extended: 1 }
-                : { since: dateRange.start, until: dateRange.end },
-          timeout: INSIGHTS_HTTP_MS,
-        })
-          .then((res) => {
-            const data = res.data ?? null;
-            if (!data) return;
-            // Merge first so we retain previously-populated extended sections (byCountry,
-            // trafficSources, extra) instead of overwriting them with an empty refresh.
-            const merged = mergeIncomingInsights(data as Record<string, unknown>);
-            // Only persist YouTube extended data if the merged payload actually has populated
-            // geo/traffic — otherwise an empty SWR response could wipe a good localStorage cache.
-            if (selectedAccount?.platform === 'YOUTUBE') {
-              const hasGeo = demographicsLooksPopulated(merged.demographics);
-              const hasTraffic = Array.isArray(merged.trafficSources) && (merged.trafficSources as unknown[]).length > 0;
-              if (hasGeo || hasTraffic) {
-                writeYouTubeExtendedCache(accountId, { demographics: merged.demographics, trafficSources: merged.trafficSources, extra: merged.extra });
-              }
-            }
-            const mergedAsInsights = merged as unknown as NonNullable<typeof insights>;
-            insightsCacheRef.current[cacheKey] = mergedAsInsights;
-            lastInsightsByAccountIdRef.current[accountId] = { ...merged, _dateRange: dateRange };
-            lastInsightsFetchedAtRef.current[accountId] = Date.now();
-            appDataRef.current?.setInsightsForAccount(accountId, mergedAsInsights);
-            if (selectedAccountIdRef.current === accountId) {
-              setInsights(mergedAsInsights);
-              if (userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, merged, dateRange);
-            }
-          })
-          .catch(() => {});
-      }
+      // Keep charts stable when we already have cached insights for this range.
+      // We intentionally skip background SWR here to avoid visible graph drift a few
+      // seconds after opening Analytics. Data will update on explicit sync/refresh.
       if (!accountTabOwnsPosts) {
         if (postsCached !== undefined && postsCached !== null) {
           setImportedPosts(postsCached);
