@@ -377,10 +377,13 @@ export async function publishTarget(
           if (!creationId || !uploadUri) throw new Error(JSON.stringify(containerRes.data));
           const uploadRes = await axiosInstance.post(uploadUri, null, {
             headers: { Authorization: `OAuth ${token}`, file_url: firstMediaUrl },
-            validateStatus: (s: number) => s === 200 || s === 201,
+            validateStatus: () => true,
           });
           if (uploadRes.status !== 200 && uploadRes.status !== 201) {
-            throw new Error(uploadRes.data?.debug_info?.message ?? JSON.stringify(uploadRes.data));
+            const detail =
+              uploadRes.data?.debug_info?.message ??
+              (typeof uploadRes.data === 'string' ? uploadRes.data.slice(0, 400) : JSON.stringify(uploadRes.data));
+            throw new Error(`Instagram story video upload failed (${uploadRes.status}): ${detail}`);
           }
           const wait = await waitForInstagramContainer(creationId, token, 90_000);
           if (!wait.ok) throw new Error(wait.error ?? 'Story video container not ready');
@@ -443,7 +446,7 @@ export async function publishTarget(
               Authorization: `OAuth ${token}`,
               file_url: firstMediaUrl,
             },
-            validateStatus: (s: number) => s === 200 || s === 201,
+            validateStatus: () => true,
           }
         );
         if (uploadRes.status !== 200 && uploadRes.status !== 201) {
@@ -451,7 +454,7 @@ export async function publishTarget(
           const hint = (uploadRes.data?.debug_info?.type === 'ProcessingFailedError' || (typeof debugMsg === 'string' && debugMsg.includes('processing failed')))
             ? ' Instagram could not process the media. Ensure the video/image URL is publicly accessible (HTTPS), Reels: 9:16 aspect ratio, 15-90 sec, MP4. See docs/INSTAGRAM_2207076_ANALYSIS.md.'
             : '';
-          throw new Error(debugMsg + hint);
+          throw new Error(`Instagram reel upload failed (${uploadRes.status}): ${debugMsg}${hint}`);
         }
         const wait = await waitForInstagramContainer(creationId, token, 90_000);
         if (!wait.ok) throw new Error(wait.error ?? 'Reel container not ready');
@@ -1665,8 +1668,14 @@ export async function publishTarget(
       } else {
         message = JSON.stringify(ax.response.data);
       }
+    } else if (typeof ax?.response?.data === 'string') {
+      const status = typeof ax?.response?.status === 'number' ? `HTTP ${ax.response.status}: ` : '';
+      message = `${status}${ax.response.data.slice(0, 450)}`;
     } else {
       message = (err as Error)?.message || 'Unknown error';
+    }
+    if (platform === 'INSTAGRAM' && /status code 403/i.test(message)) {
+      message += ' Instagram denied the publish request (403). Common causes: missing instagram_content_publish permission, non Business/Creator IG account linked to a Facebook Page, or media URL blocked to Meta crawlers.';
     }
     return { ok: false, error: message.slice(0, 500) };
   }
