@@ -6,13 +6,15 @@ import { trackUsage } from '@/lib/usage-tracking';
 
 const TWITTER_AI_MAX_CHARS = 230;
 
-function buildSystemPrompt(brand: {
+type BrandFields = {
   targetAudience: string | null;
   toneOfVoice: string | null;
   toneExamples: string | null;
   productDescription: string | null;
   additionalContext: string | null;
-}): string {
+};
+
+function buildSystemPrompt(brand: BrandFields): string {
   const parts: string[] = [
     'You are a social media copywriter. Generate a short, engaging post description that fits the brand.',
   ];
@@ -63,49 +65,14 @@ function getPlatformHint(platform: string): string {
   return '';
 }
 
-export async function POST(request: NextRequest) {
-  if (!process.env.OPENAI_API_KEY?.trim()) {
-    return NextResponse.json(
-      { message: 'AI description generation is not configured (OPENAI_API_KEY)' },
-      { status: 503 }
-    );
-  }
-  if (!process.env.DATABASE_URL) {
-    return NextResponse.json({ message: 'DATABASE_URL required' }, { status: 503 });
-  }
-  const userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
-  if (!userId) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-  }
-  trackUsage(userId, 'ai_generation');
-  let body: { topic?: string; prompt?: string; platform?: string; includeCtaAndAutomation?: boolean; ctaAutomationPrompt?: string };
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ message: 'Invalid JSON' }, { status: 400 });
-  }
-  const topic = typeof body.topic === 'string' ? body.topic.trim() : '';
-  const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
-  const platform = typeof body.platform === 'string' ? body.platform.trim() : '';
-  const includeCtaAndAutomation = body.includeCtaAndAutomation === true;
-  const ctaAutomationPrompt = typeof body.ctaAutomationPrompt === 'string' ? body.ctaAutomationPrompt.trim() : '';
-
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { brandContext: true } });
-  const ctx = user?.brandContext as Record<string, unknown> | null;
-  if (!ctx) {
-    return NextResponse.json(
-      { message: 'Set up your brand context first in Dashboard > AI Assistant' },
-      { status: 400 }
-    );
-  }
-  const brand = {
-    targetAudience: (ctx.targetAudience as string | undefined) ?? null,
-    toneOfVoice: (ctx.toneOfVoice as string | undefined) ?? null,
-    toneExamples: (ctx.toneExamples as string | undefined) ?? null,
-    productDescription: (ctx.productDescription as string | undefined) ?? null,
-    additionalContext: (ctx.additionalContext as string | undefined) ?? null,
-  };
-
+async function generateDescriptionForPlatform(
+  brand: BrandFields,
+  topic: string,
+  prompt: string | undefined,
+  platform: string,
+  includeCtaAndAutomation: boolean,
+  ctaAutomationPrompt: string | undefined
+): Promise<{ content: string; cta?: string; keywords?: string[]; replyTemplate?: string }> {
   const systemPrompt = buildSystemPrompt(brand);
   const platformHint = platform ? getPlatformHint(platform) : '';
   let userContent = [topic && `Topic: ${topic}`, prompt && `Instructions: ${prompt}`, platform && `Platform: ${platform}${platformHint ? `. ${platformHint}` : ''}. Do not include any hashtags in the content.`]
@@ -118,23 +85,14 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  let raw: string;
-  try {
-    const result = await openAiChat(
-      [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userContent },
-      ],
-      { max_tokens: includeCtaAndAutomation ? 600 : 500 }
-    );
-    raw = result.content;
-  } catch (e) {
-    console.error('[OpenAI] generate-description', e instanceof Error ? e.message : e);
-    return NextResponse.json(
-      { message: 'AI service error. Try again later.' },
-      { status: 502 }
-    );
-  }
+  const result = await openAiChat(
+    [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userContent },
+    ],
+    { max_tokens: includeCtaAndAutomation ? 600 : 500 }
+  );
+  const raw = result.content;
 
   if (includeCtaAndAutomation) {
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
@@ -155,21 +113,141 @@ export async function POST(request: NextRequest) {
         ? (parsed.keywords as unknown[]).filter((k): k is string => typeof k === 'string').map((k) => k.trim().toLowerCase()).filter(Boolean).slice(0, 5)
         : undefined;
       const replyTemplate = typeof parsed.replyTemplate === 'string' ? cleanGeneratedText(parsed.replyTemplate).slice(0, 500) : undefined;
-      return NextResponse.json({
+      return {
         content,
         ...(cta !== undefined ? { cta } : {}),
         ...(keywords?.length ? { keywords } : {}),
         ...(replyTemplate ? { replyTemplate } : {}),
-      });
+      };
     }
   }
 
   let content = cleanGeneratedText(raw);
   const platformUpper = platform.toUpperCase();
   if (platformUpper === 'TWITTER' || platformUpper === 'X') {
-    // Strict Twitter AI target for generated content.
     const max = TWITTER_AI_MAX_CHARS;
     if (content.length > max) content = content.slice(0, max).trim();
   }
-  return NextResponse.json({ content });
+  return { content };
+}
+
+export async function POST(request: NextRequest) {
+  if (!process.env.OPENAI_API_KEY?.trim()) {
+    return NextResponse.json(
+      { message: 'AI description generation is not configured (OPENAI_API_KEY)' },
+      { status: 503 }
+    );
+  }
+  if (!process.env.DATABASE_URL) {
+    return NextResponse.json({ message: 'DATABASE_URL required' }, { status: 503 });
+  }
+  const userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
+  if (!userId) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
+
+  let body: {
+    topic?: string;
+    prompt?: string;
+    platform?: string;
+    platforms?: unknown;
+    includeCtaAndAutomation?: boolean;
+    ctaAutomationPrompt?: string;
+  };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ message: 'Invalid JSON' }, { status: 400 });
+  }
+
+  const platformsMulti = Array.isArray(body.platforms)
+    ? (body.platforms as unknown[])
+        .filter((p): p is string => typeof p === 'string')
+        .map((p) => p.trim())
+        .filter(Boolean)
+    : [];
+
+  const topic = typeof body.topic === 'string' ? body.topic.trim() : '';
+  const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
+  const platform = typeof body.platform === 'string' ? body.platform.trim() : '';
+  const includeCtaAndAutomation = body.includeCtaAndAutomation === true;
+  const ctaAutomationPrompt = typeof body.ctaAutomationPrompt === 'string' ? body.ctaAutomationPrompt.trim() : '';
+
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { brandContext: true } });
+  const ctx = user?.brandContext as Record<string, unknown> | null;
+  if (!ctx) {
+    return NextResponse.json(
+      { message: 'Set up your brand context first in Dashboard > AI Assistant' },
+      { status: 400 }
+    );
+  }
+  const brand: BrandFields = {
+    targetAudience: (ctx.targetAudience as string | undefined) ?? null,
+    toneOfVoice: (ctx.toneOfVoice as string | undefined) ?? null,
+    toneExamples: (ctx.toneExamples as string | undefined) ?? null,
+    productDescription: (ctx.productDescription as string | undefined) ?? null,
+    additionalContext: (ctx.additionalContext as string | undefined) ?? null,
+  };
+
+  if (platformsMulti.length > 1) {
+    trackUsage(userId, 'ai_generation', platformsMulti.length);
+    try {
+      const results = await Promise.all(
+        platformsMulti.map((p, i) =>
+          generateDescriptionForPlatform(
+            brand,
+            topic,
+            prompt || undefined,
+            p,
+            i === 0 && includeCtaAndAutomation,
+            i === 0 && includeCtaAndAutomation ? ctaAutomationPrompt || undefined : undefined
+          )
+        )
+      );
+      const byPlatform: Record<string, string> = {};
+      for (let i = 0; i < platformsMulti.length; i++) {
+        byPlatform[platformsMulti[i]] = results[i].content;
+      }
+      const first = results[0];
+      return NextResponse.json({
+        byPlatform,
+        ...(typeof first.cta === 'string' ? { cta: first.cta } : {}),
+        ...(first.keywords?.length ? { keywords: first.keywords } : {}),
+        ...(first.replyTemplate ? { replyTemplate: first.replyTemplate } : {}),
+      });
+    } catch (e) {
+      console.error('[OpenAI] generate-description batch', e instanceof Error ? e.message : e);
+      return NextResponse.json(
+        { message: 'AI service error. Try again later.' },
+        { status: 502 }
+      );
+    }
+  }
+
+  trackUsage(userId, 'ai_generation');
+  try {
+    const out = await generateDescriptionForPlatform(
+      brand,
+      topic,
+      prompt || undefined,
+      platform,
+      includeCtaAndAutomation,
+      includeCtaAndAutomation ? ctaAutomationPrompt || undefined : undefined
+    );
+    if (includeCtaAndAutomation && (out.cta !== undefined || out.keywords?.length || out.replyTemplate)) {
+      return NextResponse.json({
+        content: out.content,
+        ...(out.cta !== undefined ? { cta: out.cta } : {}),
+        ...(out.keywords?.length ? { keywords: out.keywords } : {}),
+        ...(out.replyTemplate ? { replyTemplate: out.replyTemplate } : {}),
+      });
+    }
+    return NextResponse.json({ content: out.content });
+  } catch (e) {
+    console.error('[OpenAI] generate-description', e instanceof Error ? e.message : e);
+    return NextResponse.json(
+      { message: 'AI service error. Try again later.' },
+      { status: 502 }
+    );
+  }
 }

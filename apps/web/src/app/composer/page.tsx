@@ -1056,45 +1056,85 @@ export default function ComposerPage() {
         };
 
         if (differentContentPerPlatform && platforms.length > 0) {
-            // Generate one description per selected platform; first call includes CTA + automation
-            const firstPlatform = platforms[0];
-            const rest = platforms.slice(1);
-            const firstPromise = api.post<{ content?: string; cta?: string; keywords?: string[]; replyTemplate?: string }>('/ai/generate-description', {
-                topic,
-                prompt,
-                platform: firstPlatform,
-                includeCtaAndAutomation: aiIncludeCtaAndAutomation,
-                ctaAutomationPrompt: aiIncludeCtaAndAutomation ? aiCtaAutomationPrompt.trim() || undefined : undefined,
-            }).then((res) => ({ platform: firstPlatform, data: res.data }));
-            const restPromises = rest.map((p) =>
-                api.post<{ content?: string }>('/ai/generate-description', { topic, prompt, platform: p }).then((res) => ({ platform: p, data: res.data }))
-            );
-            Promise.all([firstPromise, ...restPromises])
-                .then((results) => {
-                    const first = results[0];
-                    const ctaText = aiIncludeCtaAndAutomation ? (first?.data as { cta?: string })?.cta?.trim() ?? '' : '';
-                    setContentByPlatform((prev) => {
-                        const next = { ...prev };
-                        for (const { platform, data: d } of results) {
-                            let text = d?.content ?? '';
-                            if (aiIncludeCtaAndAutomation && ctaText) {
-                                text = text.trim() + '\n\n' + ctaText;
+            // One HTTP request: server runs OpenAI per platform in parallel (avoids client axios slot queue).
+            if (platforms.length > 1) {
+                api.post<{
+                    byPlatform?: Record<string, string>;
+                    cta?: string;
+                    keywords?: string[];
+                    replyTemplate?: string;
+                }>('/ai/generate-description', {
+                    topic,
+                    prompt,
+                    platforms,
+                    includeCtaAndAutomation: aiIncludeCtaAndAutomation,
+                    ctaAutomationPrompt: aiIncludeCtaAndAutomation ? aiCtaAutomationPrompt.trim() || undefined : undefined,
+                })
+                    .then((res) => {
+                        const { byPlatform, cta, keywords, replyTemplate } = res.data;
+                        const ctaText = aiIncludeCtaAndAutomation ? (cta?.trim() ?? '') : '';
+                        const firstPlatform = platforms[0];
+                        setContentByPlatform((prev) => {
+                            const next = { ...prev };
+                            for (const platform of platforms) {
+                                let text = byPlatform?.[platform] ?? '';
+                                if (aiIncludeCtaAndAutomation && ctaText) {
+                                    text = text.trim() + '\n\n' + ctaText;
+                                }
+                                if (platform === 'TWITTER') {
+                                    text = clampTwitterAiText(text);
+                                }
+                                next[platform] = text;
                             }
-                            if (platform === 'TWITTER') {
-                                text = clampTwitterAiText(text);
-                            }
-                            next[platform] = text;
+                            return next;
+                        });
+                        if (aiIncludeCtaAndAutomation) {
+                            applyCtaAndAutomation(
+                                {
+                                    content: byPlatform?.[firstPlatform] ?? '',
+                                    ...(typeof cta === 'string' ? { cta } : {}),
+                                    ...(keywords?.length ? { keywords } : {}),
+                                    ...(typeof replyTemplate === 'string' ? { replyTemplate } : {}),
+                                },
+                                firstPlatform
+                            );
                         }
-                        return next;
-                    });
-                    if (aiIncludeCtaAndAutomation && first?.data) applyCtaAndAutomation(first.data, first.platform);
-                    setAiModalOpen(false);
+                        setAiModalOpen(false);
+                    })
+                    .catch((err) => {
+                        const msg = err.response?.data?.message ?? 'Failed to generate for one or more platforms. Try again.';
+                        setAiError(msg);
+                    })
+                    .finally(() => setAiLoading(false));
+            } else {
+                const firstPlatform = platforms[0];
+                api.post<{ content?: string; cta?: string; keywords?: string[]; replyTemplate?: string }>('/ai/generate-description', {
+                    topic,
+                    prompt,
+                    platform: firstPlatform,
+                    includeCtaAndAutomation: aiIncludeCtaAndAutomation,
+                    ctaAutomationPrompt: aiIncludeCtaAndAutomation ? aiCtaAutomationPrompt.trim() || undefined : undefined,
                 })
-                .catch((err) => {
-                    const msg = err.response?.data?.message ?? 'Failed to generate for one or more platforms. Try again.';
-                    setAiError(msg);
-                })
-                .finally(() => setAiLoading(false));
+                    .then((res) => {
+                        const d = res.data;
+                        const ctaText = aiIncludeCtaAndAutomation ? d?.cta?.trim() ?? '' : '';
+                        let text = d?.content ?? '';
+                        if (aiIncludeCtaAndAutomation && ctaText) {
+                            text = text.trim() + '\n\n' + ctaText;
+                        }
+                        if (firstPlatform === 'TWITTER') {
+                            text = clampTwitterAiText(text);
+                        }
+                        setContentByPlatform((prev) => ({ ...prev, [firstPlatform]: text }));
+                        if (aiIncludeCtaAndAutomation && d) applyCtaAndAutomation(d, firstPlatform);
+                        setAiModalOpen(false);
+                    })
+                    .catch((err) => {
+                        const msg = err.response?.data?.message ?? 'Failed to generate for one or more platforms. Try again.';
+                        setAiError(msg);
+                    })
+                    .finally(() => setAiLoading(false));
+            }
         } else {
             api.post<{ content?: string; cta?: string; keywords?: string[]; replyTemplate?: string }>('/ai/generate-description', {
                 topic,
