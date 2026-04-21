@@ -2525,7 +2525,8 @@ export function FacebookAnalyticsView({
   const [selectedYtVideoReelMetrics, setSelectedYtVideoReelMetrics] = useState<ReelMetricKey[]>([
     ...REEL_PRESET_METRICS_YOUTUBE.performance,
   ]);
-  const [selectedPostsUploadTypes, setSelectedPostsUploadTypes] = useState<ContentTypeKey[]>([]);
+  /** All upload format cards selected by default (no separate "All" preset). */
+  const [selectedPostsUploadTypes, setSelectedPostsUploadTypes] = useState<ContentTypeKey[]>(['reels', 'image', 'carousel']);
   const [activeSection, setActiveSection] = useState<SectionId>(FACEBOOK_ANALYTICS_SECTION_IDS.overview);
   const [historyFilter, setHistoryFilter] = useState<ContentHistoryFilter>('all');
   const [geoPieHover, setGeoPieHover] = useState<{
@@ -2871,9 +2872,7 @@ export function FacebookAnalyticsView({
 
   const postsUploadVisibleKeys = useMemo(() => {
     const base = (isTikTok ? ['reels', 'carousel'] : ['reels', 'image', 'carousel']) as ContentTypeKey[];
-    if (selectedPostsUploadTypes.length === 0) return base;
-    const picked = base.filter((k) => selectedPostsUploadTypes.includes(k));
-    return picked.length > 0 ? picked : base;
+    return base.filter((k) => selectedPostsUploadTypes.includes(k));
   }, [isTikTok, selectedPostsUploadTypes]);
   const tiktokViewsInRange = useMemo(
     () => postsInRange.reduce((s, p) => s + (p.impressions ?? bestPostPlayCount(p)), 0),
@@ -5819,23 +5818,8 @@ type PostsUploadDayTooltipAgg = {
           <div className="rounded-xl border p-4 sm:p-5" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
             <div className="mb-4 flex flex-col gap-3">
             <div className="flex w-full flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-              <div className="space-y-3">
+              <div>
                 <h4 className="text-base font-semibold" style={{ color: COLOR.text }}>Uploaded posts</h4>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedPostsUploadTypes([])}
-                    className="rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
-                    style={{
-                      background: selectedPostsUploadTypes.length === 0 ? 'rgba(124,108,255,0.14)' : '#ffffff',
-                      color: selectedPostsUploadTypes.length === 0 ? COLOR.violet : COLOR.textSecondary,
-                      border: `1px solid ${selectedPostsUploadTypes.length === 0 ? 'rgba(124,108,255,0.24)' : COLOR.border}`,
-                    }}
-                    aria-pressed={selectedPostsUploadTypes.length === 0}
-                  >
-                    All
-                  </button>
-                </div>
               </div>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <div
@@ -5904,32 +5888,40 @@ type PostsUploadDayTooltipAgg = {
                 </div>
               </div>
             </div>
-            <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-3">
               {postsUploadChartPresets
                 .filter((preset) => preset.key !== 'all')
                 .map((preset) => {
                   const key = preset.key as ContentTypeKey;
                   const total = Number(contentTypeCounts[key] ?? 0);
+                  const candleColor = CONTENT_TYPE_COLOR[key];
                   const active = selectedPostsUploadTypes.includes(key);
                   return (
                     <button
                       type="button"
                       key={`posts-upload-metric-${preset.key}`}
-                      onClick={() => setSelectedPostsUploadTypes((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]))}
+                      onClick={() =>
+                        setSelectedPostsUploadTypes((prev) => {
+                          if (prev.includes(key)) {
+                            if (prev.length <= 1) return prev;
+                            return prev.filter((k) => k !== key);
+                          }
+                          return [...prev, key];
+                        })
+                      }
                       aria-pressed={active}
-                      className="rounded-[12px] px-3 py-2 text-left transition-[opacity,box-shadow,transform] hover:scale-[1.01] active:scale-[0.99]"
+                      className="rounded-[12px] border px-3 py-2 text-left transition-[box-shadow,background-color,border-color]"
                       style={{
+                        borderColor: COLOR.border,
                         background: '#ffffff',
-                        boxShadow: active
-                          ? `0 0 0 1px rgba(124,108,255,0.35), 0 2px 16px rgba(15,23,42,0.08)`
-                          : '0 2px 16px rgba(15,23,42,0.05)',
-                        opacity: 1,
+                        boxShadow: active ? `inset 3px 0 0 0 ${candleColor}` : 'none',
                       }}
+                      title={`Filter uploaded posts chart by ${preset.label}. Click again to exclude this format.`}
                     >
-                      <span className="text-xs font-medium tracking-tight" style={{ color: COLOR.textMuted }}>
+                      <p className="text-[11px] font-medium" style={{ color: COLOR.textMuted }}>
                         {preset.label}
-                      </span>
-                      <p className="mt-1 text-[24px] font-semibold tracking-tight" style={{ color: COLOR.text }}>
+                      </p>
+                      <p className="mt-0.5 text-[18px] font-semibold tabular-nums" style={{ color: COLOR.text }}>
                         {formatNumber(total)}
                       </p>
                     </button>

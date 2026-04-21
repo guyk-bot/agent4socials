@@ -1,14 +1,18 @@
 ---
-description: Always commit and push changes to git after making edits
+description: Always commit and push after implementing user-requested changes
 alwaysApply: true
 ---
 
 # Git: Commit and push after changes
 
-After making any code or config changes in this project:
+Whenever the user asks for **any** code, UI, config, or copy change in this project:
 
-1. **Stage** all changes: `git add -A`
-2. **Commit** with a clear message describing what changed: `git commit -m "Brief description"`. Use the repo's configured author (`git config user.email` / `user.name`) so Vercel triggers a deploy; that identity must match the GitHub account linked to the Vercel project.
-3. **Push** to the remote: `git push origin main` (or the current branch)
+1. Implement the change.
+2. In the **same assistant turn**, **stage**, **commit**, and **push** — do not wait for a separate “push it” message unless the user explicitly says **not** to push (e.g. “don’t push yet”, “local only”).
+3. **Stage**: `git add -A` (or stage only the files you touched if you must avoid unrelated dirty files).
+4. **Commit**: clear imperative subject, complete sentences in body if needed. Use the repo’s configured author so deploy hooks (e.g. Vercel) behave as expected.
+5. **Push**: `git push` to the current branch (usually `main`).
 
-Do this in the same turn as the edits, unless the user explicitly asks not to push. Use `git_write` and `network` permissions when running git commands.
+If there is nothing to commit after edits, still confirm the branch is clean and pushed.
+
+Use `git_write` and `network` permissions when running git commands.
