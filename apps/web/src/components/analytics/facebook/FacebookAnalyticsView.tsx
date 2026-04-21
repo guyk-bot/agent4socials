@@ -5954,7 +5954,7 @@ type PostsUploadDayTooltipAgg = {
           <div className="rounded-xl border p-4 sm:p-5" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
             <div className="mb-4 flex flex-col items-start gap-3">
             <h4 className="text-base font-semibold" style={{ color: COLOR.text }}>Uploaded posts</h4>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="grid w-full grid-cols-2 gap-2.5 sm:grid-cols-4">
               {postsUploadChartPresets.map((preset) => {
                 const active = selectedPostsUploadPreset === preset.key;
                 const total = Number(postsUploadPresetTotals[preset.key] ?? 0);
@@ -5964,7 +5964,7 @@ type PostsUploadDayTooltipAgg = {
                     type="button"
                     onClick={() => setSelectedPostsUploadPreset(preset.key)}
                     aria-pressed={active}
-                    className="inline-flex min-w-[108px] flex-col items-start rounded-xl border px-2 py-1.5 text-left transition-[opacity,box-shadow,transform] hover:scale-[1.01] active:scale-[0.99]"
+                    className="inline-flex h-[74px] w-full flex-col items-start justify-between rounded-xl border px-3 py-2 text-left transition-[opacity,box-shadow,transform] hover:scale-[1.01] active:scale-[0.99]"
                     style={{
                       borderColor: active ? `${preset.color}45` : COLOR.border,
                       background: `${preset.color}${active ? '10' : '08'}`,
