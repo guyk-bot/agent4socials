@@ -765,8 +765,89 @@ function bestFacebookPostUniqueViewers(fi: Record<string, number> | undefined): 
   return Math.max(next, legacy);
 }
 
+type PinterestMetricsExtract = {
+  reactions: number;
+  comments: number;
+  saves: number;
+  pinClicks: number;
+  outboundClicks: number;
+  interactions: number;
+};
+
+function toFiniteMetricInt(v: unknown): number {
+  if (typeof v !== 'number' || !Number.isFinite(v)) return 0;
+  return Math.max(0, Math.round(v));
+}
+
+function pinterestMetricFromBucket(bucket: Record<string, unknown> | null | undefined, keys: string[]): number {
+  if (!bucket) return 0;
+  for (const k of keys) {
+    const n = toFiniteMetricInt(bucket[k]);
+    if (n > 0) return n;
+  }
+  const lowerMap = new Map<string, number>();
+  for (const [k, raw] of Object.entries(bucket)) {
+    const n = toFiniteMetricInt(raw);
+    if (n > 0) lowerMap.set(k.toLowerCase(), n);
+  }
+  for (const k of keys) {
+    const n = lowerMap.get(k.toLowerCase());
+    if (typeof n === 'number' && n > 0) return n;
+  }
+  return 0;
+}
+
+/** Fallback extraction from `platformMetadata.pinterest.pin_metrics` when DB counters are stale/zero. */
+function pinterestMetricsFromPostMetadata(p: FacebookPost): PinterestMetricsExtract {
+  const platform = String(p.platform ?? '').toUpperCase();
+  if (platform !== 'PINTEREST') {
+    return { reactions: 0, comments: 0, saves: 0, pinClicks: 0, outboundClicks: 0, interactions: 0 };
+  }
+  const meta =
+    p.platformMetadata && typeof p.platformMetadata === 'object' && !Array.isArray(p.platformMetadata)
+      ? (p.platformMetadata as Record<string, unknown>)
+      : null;
+  const pm =
+    meta?.pinterest && typeof meta.pinterest === 'object' && !Array.isArray(meta.pinterest)
+      ? (meta.pinterest as Record<string, unknown>)
+      : null;
+  const pinMetrics =
+    pm?.pin_metrics && typeof pm.pin_metrics === 'object' && !Array.isArray(pm.pin_metrics)
+      ? (pm.pin_metrics as Record<string, unknown>)
+      : null;
+  if (!pinMetrics) return { reactions: 0, comments: 0, saves: 0, pinClicks: 0, outboundClicks: 0, interactions: 0 };
+
+  const lifetime =
+    pinMetrics.lifetime_metrics && typeof pinMetrics.lifetime_metrics === 'object' && !Array.isArray(pinMetrics.lifetime_metrics)
+      ? (pinMetrics.lifetime_metrics as Record<string, unknown>)
+      : pinMetrics.lifetime && typeof pinMetrics.lifetime === 'object' && !Array.isArray(pinMetrics.lifetime)
+        ? (pinMetrics.lifetime as Record<string, unknown>)
+        : null;
+  const d90 =
+    pinMetrics['90d'] && typeof pinMetrics['90d'] === 'object' && !Array.isArray(pinMetrics['90d'])
+      ? (pinMetrics['90d'] as Record<string, unknown>)
+      : null;
+  const read = (keys: string[]) => pinterestMetricFromBucket(lifetime, keys) || pinterestMetricFromBucket(d90, keys);
+
+  const reactions = read(['TOTAL_REACTIONS', 'REACTION', 'reaction']);
+  const comments = read(['TOTAL_COMMENTS', 'COMMENT', 'comment']);
+  const saves = read(['SAVE', 'save']);
+  const pinClicks = read(['PIN_CLICK', 'pin_click']);
+  const outboundClicks = read(['OUTBOUND_CLICK', 'OUTBOUND_CLICKS', 'outbound_click', 'clickthrough']);
+  const interactions = reactions + comments + saves + pinClicks + outboundClicks;
+  return { reactions, comments, saves, pinClicks, outboundClicks, interactions };
+}
+
 /** Meta often returns share count on the post node while lifetime insights use 0; take the max of all sources. */
 function bestShareCount(p: FacebookPost): number {
+  if ((p.platform ?? '').toUpperCase() === 'PINTEREST') {
+    const pinMeta = pinterestMetricsFromPostMetadata(p);
+    const fromMeta = pinMeta.saves;
+    const fromStored = typeof p.sharesCount === 'number' && Number.isFinite(p.sharesCount) ? Math.max(0, p.sharesCount) : 0;
+    const fromEng = p.engagementBreakdown?.shares;
+    const fromBreakdown = typeof fromEng === 'number' && Number.isFinite(fromEng) ? Math.max(0, fromEng) : 0;
+    return Math.max(fromMeta, fromStored, fromBreakdown);
+  }
   const fi = p.facebookInsights ?? {};
   const a = typeof fi.post_shares === 'number' && Number.isFinite(fi.post_shares) ? Math.max(0, fi.post_shares) : 0;
   const b = typeof p.sharesCount === 'number' && Number.isFinite(p.sharesCount) ? Math.max(0, p.sharesCount) : 0;
@@ -1015,7 +1096,8 @@ function bestPostInteractionCount(p: FacebookPost): number {
   }
   if (platform === 'PINTEREST') {
     const stored = typeof p.interactions === 'number' && Number.isFinite(p.interactions) ? p.interactions : 0;
-    if (stored > 0) return stored;
+    const metaInteractions = pinterestMetricsFromPostMetadata(p).interactions;
+    if (Math.max(stored, metaInteractions) > 0) return Math.max(stored, metaInteractions);
     const saves = typeof p.savesCount === 'number' && Number.isFinite(p.savesCount) ? Math.max(0, p.savesCount) : 0;
     return fromParts + saves;
   }
@@ -4445,6 +4527,7 @@ export function FacebookAnalyticsView({
   const allPostsRows = useMemo(() => {
     return posts.map((p) => {
       const fi = p.facebookInsights ?? {};
+      const pinMeta = pinterestMetricsFromPostMetadata(p);
       const reactions = parseReactionTotal(fi.post_reactions_by_type_total);
       const isReel = isReelPost(p);
       const plat = String(p.platform ?? '').toUpperCase();
@@ -4477,8 +4560,14 @@ export function FacebookAnalyticsView({
               )
             : bestFacebookPostUniqueViewers(fi as Record<string, number>),
         clicks: bestPostInteractionCount(p),
-        likes: fi.post_reactions_like_total ?? p.likeCount ?? 0,
-        reactionsTotal: reactions || (fi.post_reactions_like_total ?? p.likeCount ?? 0),
+        likes:
+          plat === 'PINTEREST'
+            ? Math.max(pinMeta.reactions, fi.post_reactions_like_total ?? 0, p.likeCount ?? 0)
+            : (fi.post_reactions_like_total ?? p.likeCount ?? 0),
+        reactionsTotal:
+          plat === 'PINTEREST'
+            ? Math.max(pinMeta.reactions, fi.post_reactions_like_total ?? 0, p.likeCount ?? 0)
+            : (reactions || (fi.post_reactions_like_total ?? p.likeCount ?? 0)),
         watchTimeMs,
         avgWatchMs,
         reactionBreakdownRaw: fi.post_reactions_by_type_total,
