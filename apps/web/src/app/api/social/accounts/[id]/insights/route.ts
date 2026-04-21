@@ -2086,10 +2086,10 @@ export async function GET(
         }
       }
 
-      // Cap pages tightly so the 60s Vercel limit is never hit.
-      // Each page is 100 tweets × ~200ms avg = ~20s for 10 pages; leave headroom for user/cron calls.
+      // Paginate user timeline (100 tweets/page). Cap below Vercel maxDuration; bias slightly higher
+      // for 30-day dashboards so Tweet Performance + Content History match more of what users see on X.
       const rangeDays = Math.max(1, (new Date(untilDay).getTime() - new Date(sinceDay).getTime()) / 86_400_000);
-      const maxPages = rangeDays <= 14 ? 5 : rangeDays <= 31 ? 8 : 12;
+      const maxPages = rangeDays <= 14 ? 8 : rangeDays <= 31 ? 14 : 18;
       /** Timeline + user lookup require numeric user id; older rows may have a placeholder if /users/me failed at connect. */
       let twitterUserIdForApi = (account.platformUserId || '').trim();
       if (!/^\d+$/.test(twitterUserIdForApi)) {

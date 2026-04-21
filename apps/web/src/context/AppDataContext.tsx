@@ -438,25 +438,37 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         const COMMENT_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER']);
         const CONVO_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK']);
         const ENGAGEMENT_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK', 'YOUTUBE']);
-        for (const acc of accounts) {
+        // X/Twitter first so opening the Twitter tab after login hits warm cache sooner; posts + insights
+        // in parallel per account so Phase 2 finishes roughly twice as fast as sequential fetches.
+        const prefetchOrder = [...accounts].sort((a, b) => {
+          const aw = a.platform === 'TWITTER' ? 0 : 1;
+          const bw = b.platform === 'TWITTER' ? 0 : 1;
+          return aw - bw;
+        });
+        for (const acc of prefetchOrder) {
           if (cancelled) break;
           try {
-            const r = await api.get<{ posts?: CachedPost[] }>(`/social/accounts/${acc.id}/posts`, { timeout: 60_000 });
-            if (!cancelled && r.data?.posts) setPostsByAccountId((prev) => ({ ...prev, [acc.id]: r.data!.posts! }));
-          } catch { /* skip */ }
-          if (cancelled) break;
-          try {
-            const r = await api.get<CachedInsights>(`/social/accounts/${acc.id}/insights`, {
-              params: { since: dateRange.start, until: dateRange.end },
-              timeout: PREFETCH_INSIGHTS_TIMEOUT_MS,
-            });
-            if (!cancelled && r.data) {
+            const [postsRes, insightsRes] = await Promise.all([
+              api.get<{ posts?: CachedPost[] }>(`/social/accounts/${acc.id}/posts`, { timeout: 60_000 }).catch(() => ({ data: undefined })),
+              api
+                .get<CachedInsights>(`/social/accounts/${acc.id}/insights`, {
+                  params: { since: dateRange.start, until: dateRange.end },
+                  timeout: PREFETCH_INSIGHTS_TIMEOUT_MS,
+                })
+                .catch(() => ({ data: undefined })),
+            ]);
+            if (!cancelled && postsRes.data?.posts) {
+              setPostsByAccountId((prev) => ({ ...prev, [acc.id]: postsRes.data!.posts! }));
+            }
+            if (!cancelled && insightsRes.data) {
               setInsightsByAccountId((prev) => ({
                 ...prev,
-                [acc.id]: stripLegacyInsightsHint(r.data as CachedInsights) as CachedInsights,
+                [acc.id]: stripLegacyInsightsHint(insightsRes.data as CachedInsights) as CachedInsights,
               }));
             }
-          } catch { /* skip */ }
+          } catch {
+            /* skip */
+          }
           if (cancelled) break;
           if (COMMENT_PLATFORMS.has(acc.platform)) {
             try {

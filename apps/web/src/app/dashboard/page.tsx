@@ -599,15 +599,23 @@ export default function DashboardPage() {
         return;
       }
       if (ctxList !== undefined) {
-        const cached = postsCacheRef.current[accountId];
-        if (ctxList.length === 0 && accountPostsHydratedRef.current[accountId] && (cached?.length ?? 0) > 0) {
-          setImportedPosts(cached);
-        } else {
-          setImportedPosts(ctxList);
+        // Prefetch can leave [] in context before the importer runs; treating that as "no cache"
+        // avoids an empty Content History until a background refresh completes (common for X/Pinterest).
+        const emptyPrefetch =
+          ctxList.length === 0 &&
+          !accountPostsHydratedRef.current[accountId] &&
+          (selectedAccount?.platform === 'TWITTER' || selectedAccount?.platform === 'PINTEREST');
+        if (!emptyPrefetch) {
+          const cached = postsCacheRef.current[accountId];
+          if (ctxList.length === 0 && accountPostsHydratedRef.current[accountId] && (cached?.length ?? 0) > 0) {
+            setImportedPosts(cached);
+          } else {
+            setImportedPosts(ctxList);
+          }
+          setImportedPostsLoading(false);
+          refreshPostsInBackground();
+          return;
         }
-        setImportedPostsLoading(false);
-        refreshPostsInBackground();
-        return;
       }
       if (accountPostsHydratedRef.current[accountId]) {
         // Already loaded once — keep whatever is already displayed; do not blank the chart.

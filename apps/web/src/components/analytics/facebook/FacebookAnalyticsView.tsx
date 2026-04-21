@@ -4443,8 +4443,61 @@ export function FacebookAnalyticsView({
       };
     });
   }, [posts]);
+
+  /** X: merge live timeline rows from insights so Content History matches Tweet graph before post sync catches up. */
+  const allPostsRowsWithTwitterExtras = useMemo(() => {
+    if (!isTwitter || !twitterRecentTweets.length) return allPostsRows;
+    const knownIds = new Set(
+      posts
+        .map((p) => (p as FacebookPost & { platformPostId?: string | null }).platformPostId)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0)
+    );
+    const extras = twitterRecentTweets
+      .filter((t) => t.id && !knownIds.has(t.id))
+      .map((t) => {
+        const rawMt = (t.mediaType ?? '').toLowerCase();
+        const isVideo = rawMt === 'video' || rawMt === 'animated_gif';
+        const impressions = t.impression_count ?? 0;
+        const rawPost = {
+          content: t.text,
+          thumbnailUrl: t.thumbnailUrl,
+          mediaType: t.mediaType,
+          platform: 'TWITTER' as const,
+          platformPostId: t.id,
+          permalinkUrl: `https://x.com/i/web/status/${t.id}`,
+          publishedAt: t.created_at ?? '',
+          impressions,
+          likeCount: t.like_count,
+          commentsCount: t.reply_count,
+          repostsCount: t.retweet_count,
+          sharesCount: t.quote_count,
+          interactions:
+            (t.like_count ?? 0) + (t.reply_count ?? 0) + (t.retweet_count ?? 0) + (t.quote_count ?? 0),
+        } as FacebookPost;
+        return {
+          id: `tw-insights-${t.id}`,
+          date: t.created_at ?? '',
+          type: isVideo ? ('Reel' as const) : ('Post' as const),
+          preview: t.text,
+          permalink: rawPost.permalinkUrl,
+          views: Math.max(impressions, bestPostPlayCount(rawPost)),
+          uniqueReach: 0,
+          clicks: bestPostInteractionCount(rawPost),
+          likes: t.like_count ?? 0,
+          reactionsTotal: t.like_count ?? 0,
+          watchTimeMs: 0,
+          avgWatchMs: 0,
+          reactionBreakdownRaw: undefined,
+          status: 'Ready' as const,
+          rawPost,
+        };
+      });
+    if (!extras.length) return allPostsRows;
+    return [...allPostsRows, ...extras].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [isTwitter, twitterRecentTweets, posts, allPostsRows]);
+
   const allReelsRows = useMemo(() => {
-    return allPostsRows
+    return allPostsRowsWithTwitterExtras
       .filter((r) => r.type === 'Reel')
       .map((r) => ({
         post: r.rawPost,
@@ -4452,29 +4505,30 @@ export function FacebookAnalyticsView({
         organicViews: r.rawPost.facebookInsights?.post_video_views_organic ?? 0,
         avgWatchMs: r.rawPost.facebookInsights?.post_video_avg_time_watched ?? 0,
       }));
-  }, [allPostsRows]);
+  }, [allPostsRowsWithTwitterExtras]);
   const contentHistoryRows = useMemo(() => {
     const plat = insights?.platform?.toUpperCase() ?? '';
     const pinterest = plat === 'PINTEREST';
     const youtube = plat === 'YOUTUBE';
-    if (historyFilter === 'posts') return allPostsRows.filter((r) => r.type === 'Post');
+    const rows = allPostsRowsWithTwitterExtras;
+    if (historyFilter === 'posts') return rows.filter((r) => r.type === 'Post');
     if (historyFilter === 'reels') {
       if (pinterest) {
-        const videoPins = allPostsRows.filter((r) => {
+        const videoPins = rows.filter((r) => {
           const p = r.rawPost;
           const mt = (p.mediaType ?? '').toUpperCase();
           if (mt === 'VIDEO') return true;
           return isVideoishPost(p);
         });
-        return videoPins.length > 0 ? videoPins : allPostsRows;
+        return videoPins.length > 0 ? videoPins : rows;
       }
       if (youtube) {
-        return allPostsRows.filter((r) => (r.rawPost.platform ?? '').toUpperCase() === 'YOUTUBE');
+        return rows.filter((r) => (r.rawPost.platform ?? '').toUpperCase() === 'YOUTUBE');
       }
-      return allPostsRows.filter((r) => r.type === 'Reel');
+      return rows.filter((r) => r.type === 'Reel');
     }
-    return allPostsRows;
-  }, [allPostsRows, historyFilter, insights?.platform]);
+    return rows;
+  }, [allPostsRowsWithTwitterExtras, historyFilter, insights?.platform]);
 
   return (
     <div className="p-0 md:p-0.5 space-y-3" style={{ background: COLOR.pageBg, maxWidth: 1400 }}>
