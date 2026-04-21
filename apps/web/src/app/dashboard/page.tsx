@@ -549,7 +549,11 @@ export default function DashboardPage() {
     fetchData();
   }, []);
 
-  const postsCacheRef = useRef<Record<string, Array<{ id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; impressions: number; interactions: number; publishedAt: string; mediaType?: string | null; platform: string }>>>({});
+  type DashboardPost = { id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; impressions: number; interactions: number; publishedAt: string; mediaType?: string | null; platform: string };
+  /** Mirror of `importedPosts` state readable from effects without adding it to dep arrays. */
+  const importedPostsRef = useRef<DashboardPost[]>(importedPosts);
+  importedPostsRef.current = importedPosts;
+  const postsCacheRef = useRef<Record<string, DashboardPost[]>>({});
   /** After we have loaded this account's posts from the API once, avoid replacing with empty AppData prefetch noise. */
   const accountPostsHydratedRef = useRef<Record<string, boolean>>({});
   const accountPostsLastSyncAtRef = useRef<Record<string, number>>({});
@@ -590,6 +594,28 @@ export default function DashboardPage() {
       singleAccountPostsRunKeyRef.current = runKey;
       const refList = postsCacheRef.current[accountId];
       const ctxList = appCtx?.getPosts(accountId);
+      // Safety net: if refs/context were cleared (e.g. by the reconnect auto-
+      // sync flow) but we already have rendered posts for this account in
+      // state, re-populate the caches from that state instead of firing an
+      // HTTP fetch and visibly swapping the chart data a few seconds later.
+      if (
+        syncAllTrigger === 0 &&
+        (refList?.length ?? 0) === 0 &&
+        (ctxList?.length ?? 0) === 0 &&
+        Array.isArray(importedPostsRef.current) &&
+        importedPostsRef.current.length > 0 &&
+        selectedAccount?.platform
+      ) {
+        const platform = selectedAccount.platform;
+        const preserved = importedPostsRef.current.filter((p) => p.platform === platform);
+        if (preserved.length > 0) {
+          postsCacheRef.current[accountId] = preserved;
+          appDataRef.current?.setPostsForAccount(accountId, preserved);
+          accountPostsHydratedRef.current[accountId] = true;
+          setImportedPostsLoading(false);
+          return;
+        }
+      }
       const hasAnyCachedPosts = ((refList?.length ?? 0) > 0) || ((ctxList?.length ?? 0) > 0);
       const THIRTY_MIN_MS = 30 * 60 * 1000;
       const shouldBackgroundSyncPosts = () => {
@@ -1445,7 +1471,29 @@ export default function DashboardPage() {
   const hintNeedsReconnect = Boolean(hintText && (
     /reconnect/i.test(hintText) || /session expired/i.test(hintText) || /log back in/i.test(hintText)
   ));
-  const reconnectCondition = hasFbOrIg && (hintNeedsReconnect || postsSyncError || (allPostsSyncError && (allPostsSyncError.includes('Reconnect') || allPostsSyncError.includes('Session expired') || allPostsSyncError.includes('log back in'))));
+  /**
+   * If the currently displayed analytics actually contain real numbers, a
+   * leftover `insightsHint` from a previous session (or a transient
+   * `postsSyncError`) should NOT trigger the silent background reconnect
+   * flow — that flow clears AppDataContext and bumps `syncAllTrigger`, which
+   * re-runs the insights/posts effects, re-fetches from the API, and
+   * replaces the rendered charts with the fresh payload a few seconds after
+   * the page finished loading. Skip auto-reconnect whenever we already have
+   * meaningful data to show; the user can still click Reconnect explicitly
+   * if needed.
+   */
+  const hasMeaningfulDisplayedInsights = Boolean(
+    displayInsights && (
+      (displayInsights.followers ?? 0) > 0 ||
+      (displayInsights.impressionsTotal ?? 0) > 0 ||
+      (Array.isArray(displayInsights.impressionsTimeSeries) &&
+        displayInsights.impressionsTimeSeries.some((d) => (d?.value ?? 0) > 0))
+    )
+  );
+  const reconnectCondition =
+    hasFbOrIg &&
+    !hasMeaningfulDisplayedInsights &&
+    (hintNeedsReconnect || postsSyncError || (allPostsSyncError && (allPostsSyncError.includes('Reconnect') || allPostsSyncError.includes('Session expired') || allPostsSyncError.includes('log back in'))));
   const autoSyncAttemptedRef = useRef(false);
 
   // Auto-sync when we would have shown the reconnect banner: refresh FB/IG accounts in background, then refetch data (no user button).
