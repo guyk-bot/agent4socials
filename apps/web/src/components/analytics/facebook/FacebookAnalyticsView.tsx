@@ -698,7 +698,7 @@ function isReelPost(p: FacebookPost): boolean {
   // Twitter: any video tweet (mediaType VIDEO or GIF) is treated as a reel/video
   if ((p.platform ?? '').toUpperCase() === 'TWITTER') {
     const mt = (p.mediaType ?? '').toUpperCase();
-    return mt === 'VIDEO' || mt === 'GIF' || mt === 'REEL';
+    return mt === 'VIDEO' || mt === 'GIF' || mt === 'ANIMATED_GIF' || mt === 'REEL';
   }
   const url = (p.permalinkUrl ?? '').toLowerCase();
   if (url.includes('/reel/') || url.includes('/reels/')) return true;
@@ -2790,9 +2790,54 @@ export function FacebookAnalyticsView({
     () => posts.filter((p) => inRange(p.publishedAt, dateRange.start, dateRange.end)),
     [posts, dateRange.end, dateRange.start]
   );
+  const twitterRecentTweets = useMemo(
+    () => (isTwitter ? (insights?.recentTweets ?? []) : []),
+    [isTwitter, insights?.recentTweets]
+  );
+  /** Synced posts + timeline tweets missing from DB (same source as charts) for X upload counts & Posts tab rows. */
+  const postsInRangeForPostsTabUi = useMemo(() => {
+    if (!isTwitter || twitterRecentTweets.length === 0) return postsInRange;
+    const knownIds = new Set(
+      postsInRange
+        .map((p) => (p as FacebookPost & { platformPostId?: string | null }).platformPostId)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0)
+    );
+    const extras: FacebookPost[] = twitterRecentTweets
+      .filter((t) => Boolean(t.id) && !knownIds.has(t.id))
+      .map((t) => {
+        const mtLower = (t.mediaType ?? '').toLowerCase();
+        const mediaType =
+          mtLower === 'video' || mtLower === 'animated_gif'
+            ? 'VIDEO'
+            : mtLower === 'photo'
+              ? 'IMAGE'
+              : (t.mediaType ?? 'IMAGE').toUpperCase();
+        return {
+          id: `tw-posts-tab-${t.id}`,
+          content: t.text,
+          thumbnailUrl: t.thumbnailUrl,
+          mediaType,
+          platform: 'TWITTER',
+          platformPostId: t.id,
+          permalinkUrl: `https://x.com/i/web/status/${t.id}`,
+          publishedAt: t.created_at ?? '',
+          impressions: t.impression_count ?? 0,
+          likeCount: t.like_count ?? 0,
+          commentsCount: t.reply_count ?? 0,
+          repostsCount: t.retweet_count ?? 0,
+          sharesCount: t.quote_count ?? 0,
+          interactions:
+            (t.like_count ?? 0) +
+            (t.reply_count ?? 0) +
+            (t.retweet_count ?? 0) +
+            (t.quote_count ?? 0),
+        } as FacebookPost;
+      });
+    return extras.length ? [...postsInRange, ...extras] : postsInRange;
+  }, [isTwitter, twitterRecentTweets, postsInRange]);
   const contentTypeCounts = useMemo(() => {
     const counts: Record<ContentTypeKey, number> = { reels: 0, image: 0, carousel: 0 };
-    for (const p of postsInRange) {
+    for (const p of postsInRangeForPostsTabUi) {
       if (isReelPost(p)) {
         counts.reels += 1;
         continue;
@@ -2806,7 +2851,7 @@ export function FacebookAnalyticsView({
       }
     }
     return counts;
-  }, [isTikTok, postsInRange]);
+  }, [isTikTok, postsInRangeForPostsTabUi]);
   const postsUploadChartPresets = useMemo(() => {
     if (isYouTube) {
       return [
@@ -2836,7 +2881,7 @@ export function FacebookAnalyticsView({
     for (const d of axis) {
       byDate.set(d, { date: d, reels: 0, image: 0, carousel: 0, shorts: 0, videos: 0 });
     }
-    for (const p of postsInRange) {
+    for (const p of postsInRangeForPostsTabUi) {
       const d = toLocalCalendarDate(new Date(p.publishedAt));
       const row = byDate.get(d);
       if (!row) continue;
@@ -2850,7 +2895,7 @@ export function FacebookAnalyticsView({
       else row.image += 1;
     }
     return axis.map((d) => byDate.get(d)!);
-  }, [dateRange.end, dateRange.start, isTikTok, isYouTube, postsInRange]);
+  }, [dateRange.end, dateRange.start, isTikTok, isYouTube, postsInRangeForPostsTabUi]);
 
   const postsUploadChartYMax = useMemo(() => {
     if (postsUploadByDay.length === 0) return 1;
@@ -3798,7 +3843,7 @@ export function FacebookAnalyticsView({
   }, [insights?.extra]);
 
   const postsRows = useMemo(() => {
-    return postsInRange.map((p) => {
+    return postsInRangeForPostsTabUi.map((p) => {
       const fi = p.facebookInsights ?? {};
       const reactions = parseReactionTotal(fi.post_reactions_by_type_total);
       const isReel = isReelPost(p);
@@ -3838,7 +3883,7 @@ export function FacebookAnalyticsView({
         rawPost: p,
       };
     });
-  }, [postsInRange]);
+  }, [postsInRangeForPostsTabUi]);
 
   type PostsUploadDayTooltipAgg = { interactions: number; reactions: number; thumbnails: string[]; count: number };
   const postsUploadTooltipByDate = useMemo(() => {
@@ -3924,12 +3969,6 @@ export function FacebookAnalyticsView({
       };
     });
   }, [isPinterest, postsInRange]);
-
-  // For Twitter, supplement postsInRange counts with live recentTweets when the synced set is smaller.
-  const twitterRecentTweets = useMemo(
-    () => (isTwitter ? (insights?.recentTweets ?? []) : []),
-    [isTwitter, insights?.recentTweets]
-  );
 
   const twitterVideoReelsRows = useMemo((): ReelAnalyticsRow[] => {
     if (!isTwitter || twitterRecentTweets.length === 0) return [];
@@ -4066,7 +4105,7 @@ export function FacebookAnalyticsView({
     [reelsChartData]
   );
 
-  const avgPostsPerWeek = postsInRange.length / Math.max(1, dateAxis.length / 7);
+  const avgPostsPerWeek = postsInRangeForPostsTabUi.length / Math.max(1, dateAxis.length / 7);
   const avgClicksPerPost = postsRows.reduce((s, r) => s + r.clicks, 0) / Math.max(1, postsRows.length);
   const avgInteractionsPerPost = (() => {
     // For Twitter with no synced posts, use live recentTweets as source
@@ -4074,7 +4113,8 @@ export function FacebookAnalyticsView({
       const total = twitterRecentTweets.reduce((s, t) => s + (t.like_count ?? 0) + (t.reply_count ?? 0) + (t.retweet_count ?? 0) + (t.quote_count ?? 0), 0);
       return total / twitterRecentTweets.length;
     }
-    const sum = postsInRange.reduce((acc, post) => {
+    const listForAvg = isTwitter ? postsInRangeForPostsTabUi : postsInRange;
+    const sum = listForAvg.reduce((acc, post) => {
       if (isInstagram) return acc + bestInstagramInteractionCount(post);
       if (isPinterest) return acc + bestPostInteractionCount(post);
       if (isTikTok || isTwitter || isYouTube || isLinkedIn) {
@@ -4082,7 +4122,7 @@ export function FacebookAnalyticsView({
       }
       return acc + bestCount(post.facebookInsights?.post_reactions_like_total, post.likeCount) + (post.facebookInsights?.post_comments ?? post.commentsCount ?? 0) + bestShareCount(post) + bestRepostCount(post);
     }, 0);
-    return sum / Math.max(1, postsInRange.length);
+    return sum / Math.max(1, listForAvg.length);
   })();
   const avgReactionsPerPost = (() => {
     // For Twitter with no synced posts, use live recentTweets likes as reactions
@@ -4511,7 +4551,11 @@ export function FacebookAnalyticsView({
     const pinterest = plat === 'PINTEREST';
     const youtube = plat === 'YOUTUBE';
     const rows = allPostsRowsWithTwitterExtras;
-    if (historyFilter === 'posts') return rows.filter((r) => r.type === 'Post');
+    if (historyFilter === 'posts') {
+      // On X, "Tweets" = all tweets (photo + video). We label video tweets as Reel; Instagram "Posts" excludes Reels.
+      if (plat === 'TWITTER') return rows;
+      return rows.filter((r) => r.type === 'Post');
+    }
     if (historyFilter === 'reels') {
       if (pinterest) {
         const videoPins = rows.filter((r) => {
@@ -6388,9 +6432,7 @@ export function FacebookAnalyticsView({
           {(() => {
             const twitterFallback = isTwitter && contentHistoryRows.length === 0
               ? twitterFallbackRows.filter((r) =>
-                  historyFilter === 'all' ? true :
-                  historyFilter === 'reels' ? r.type === 'Reel' :
-                  r.type === 'Post'
+                  historyFilter === 'reels' ? r.type === 'Reel' : true
                 )
               : [];
             const historyRows = contentHistoryRows.length > 0 ? contentHistoryRows : twitterFallback;
