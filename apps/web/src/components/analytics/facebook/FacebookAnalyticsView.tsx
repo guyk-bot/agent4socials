@@ -5857,33 +5857,50 @@ type PostsUploadDayTooltipAgg = {
           <div className="rounded-xl border p-4 sm:p-5" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
             <div className="mb-4 flex flex-col items-start gap-3">
             <h4 className="text-base font-semibold" style={{ color: COLOR.text }}>Uploaded posts</h4>
-            <div className="grid w-full grid-cols-2 gap-2.5 sm:grid-cols-4">
+            <div className="flex flex-wrap gap-2">
               {postsUploadChartPresets.map((preset) => {
                 const active = selectedPostsUploadPreset === preset.key;
-                const total = Number(postsUploadPresetTotals[preset.key] ?? 0);
                 return (
                   <button
-                    key={`posts-upload-card-${preset.key}`}
+                    key={`posts-upload-preset-${preset.key}`}
                     type="button"
                     onClick={() => setSelectedPostsUploadPreset(preset.key)}
-                    aria-pressed={active}
-                    className="inline-flex h-[74px] w-full flex-col items-start justify-between rounded-xl border px-3 py-2 text-left transition-[opacity,box-shadow,transform] hover:scale-[1.01] active:scale-[0.99]"
+                    className="rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
                     style={{
-                      borderColor: active ? `${preset.color}45` : COLOR.border,
-                      background: `${preset.color}${active ? '10' : '08'}`,
-                      opacity: active ? 1 : 0.72,
-                      boxShadow: active ? `0 0 0 1px ${preset.color}25, 0 2px 10px rgba(15,23,42,0.06)` : '0 1px 3px rgba(15,23,42,0.04)',
+                      background: active ? 'rgba(124,108,255,0.14)' : '#ffffff',
+                      color: active ? COLOR.violet : COLOR.textSecondary,
+                      border: `1px solid ${active ? 'rgba(124,108,255,0.24)' : COLOR.border}`,
                     }}
+                    aria-pressed={active}
                   >
-                    <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLOR.textSecondary }}>
-                      {preset.label}
-                    </span>
-                    <span className="tabular-nums text-[17px] leading-tight font-bold" style={{ color: preset.color }}>
-                      {formatNumber(total)}
-                    </span>
+                    {preset.label}
                   </button>
                 );
               })}
+            </div>
+            <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-3">
+              {postsUploadChartPresets
+                .filter((preset) => preset.key !== 'all')
+                .map((preset) => {
+                  const total = Number(postsUploadPresetTotals[preset.key] ?? 0);
+                  return (
+                    <div
+                      key={`posts-upload-metric-${preset.key}`}
+                      className="rounded-[12px] px-3 py-2 text-left"
+                      style={{
+                        background: `${preset.color}10`,
+                        boxShadow: '0 2px 16px rgba(15,23,42,0.05)',
+                      }}
+                    >
+                      <span className="text-xs font-medium tracking-tight" style={{ color: COLOR.textMuted }}>
+                        {preset.label}
+                      </span>
+                      <p className="mt-1 text-[24px] font-semibold tracking-tight" style={{ color: preset.color }}>
+                        {formatNumber(total)}
+                      </p>
+                    </div>
+                  );
+                })}
             </div>
             </div>
             <InsightChartCard title="Uploaded posts" hideHeader flat>
