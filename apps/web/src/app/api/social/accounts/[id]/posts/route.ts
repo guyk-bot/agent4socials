@@ -175,6 +175,46 @@ async function fetchFacebookPostSnapshotMap(postId: string, pageAccessToken: str
   return out;
 }
 
+type FacebookThumbAttachmentNode = {
+  media?: { image?: { src?: string } };
+  subattachments?: { data?: FacebookThumbAttachmentNode[] };
+};
+
+type FacebookThumbPostNode = {
+  full_picture?: string;
+  attachments?: { data?: FacebookThumbAttachmentNode[] };
+};
+
+function pickFacebookThumbnailFromPublishedPost(p: FacebookThumbPostNode): string | null {
+  const full = typeof p.full_picture === 'string' ? p.full_picture.trim() : '';
+  if (full) return full;
+  const first = p.attachments?.data?.[0];
+  const top = first?.media?.image?.src?.trim();
+  if (top) return top;
+  for (const sub of first?.subattachments?.data ?? []) {
+    const u = sub.media?.image?.src?.trim();
+    if (u) return u;
+  }
+  return null;
+}
+
+async function fetchFacebookPostThumbnail(postId: string, pageAccessToken: string): Promise<string | null> {
+  try {
+    const res = await axios.get<FacebookThumbPostNode>(`${fbRestBaseUrl}/${postId}`, {
+      params: {
+        fields: 'full_picture,attachments{media{image{src}},subattachments{media{image{src}}}}',
+        access_token: pageAccessToken,
+      },
+      timeout: 10_000,
+      validateStatus: () => true,
+    });
+    if (res.status !== 200 || !res.data) return null;
+    return pickFacebookThumbnailFromPublishedPost(res.data);
+  } catch {
+    return null;
+  }
+}
+
 async function resolveFacebookPageAccessToken(pageId: string, token: string): Promise<string> {
   try {
     const res = await axios.get<{ data?: Array<{ id?: string; access_token?: string }>; error?: { message?: string } }>(
@@ -840,6 +880,35 @@ export async function GET(
       }
     }
 
+    /** Facebook: backfill missing thumbnails from attachment image sources. */
+    const facebookThumbByPostId: Record<string, string> = {};
+    if (account.platform === 'FACEBOOK' && importedRows.length > 0) {
+      try {
+        const fbPageToken = await resolveFacebookPageAccessToken(account.platformUserId, account.accessToken);
+        const missing = importedRows.filter((r) => !r.thumbnailUrl?.trim()).slice(0, 40);
+        await runWithConcurrency(missing, 6, async (r) => {
+          const url = await fetchFacebookPostThumbnail(r.platformPostId, fbPageToken);
+          if (!url) return;
+          facebookThumbByPostId[r.platformPostId] = url;
+          try {
+            await prisma.importedPost.update({
+              where: {
+                socialAccountId_platformPostId: {
+                  socialAccountId: account.id,
+                  platformPostId: r.platformPostId,
+                },
+              },
+              data: { thumbnailUrl: url, syncedAt: new Date() },
+            });
+          } catch {
+            /* row missing or race */
+          }
+        });
+      } catch (e) {
+        console.warn('[Imported posts] Facebook thumb enrich on read:', (e as Error)?.message ?? e);
+      }
+    }
+
     /** Pinterest: older rows synced before `pin_metrics` support are all-zero in DB; refresh a small slice on read. */
     if (account.platform === 'PINTEREST' && importedRows.length > 0 && account.accessToken) {
       try {
@@ -1405,6 +1474,7 @@ export async function GET(
         thumbnailUrl:
           enrich?.thumbnailUrl ??
           liveInstagramThumbnails[p.platformPostId] ??
+          (account.platform === 'FACEBOOK' ? facebookThumbByPostId[p.platformPostId] : undefined) ??
           (account.platform === 'PINTEREST' ? pinterestThumbByPinId[p.platformPostId] : undefined) ??
           p.thumbnailUrl ??
           null,
@@ -2095,13 +2165,14 @@ async function syncImportedPosts(
             }
           : {}),
       };
+      const thumbnailUrl = pickFacebookThumbnailFromPublishedPost(p);
 
       await upsertImportedPostWithFallback({
         socialAccountId,
         platformPostId: p.id,
         updateData: {
           content: p.message ?? null,
-          thumbnailUrl: p.full_picture ?? null,
+          thumbnailUrl,
           permalinkUrl: p.permalink_url ?? null,
           publishedAt,
           mediaType: mediaTypeGuess,
@@ -2118,7 +2189,7 @@ async function syncImportedPosts(
           platformPostId: p.id,
           platform,
           content: p.message ?? null,
-          thumbnailUrl: p.full_picture ?? null,
+          thumbnailUrl,
           permalinkUrl: p.permalink_url ?? null,
           publishedAt,
           mediaType: mediaTypeGuess,

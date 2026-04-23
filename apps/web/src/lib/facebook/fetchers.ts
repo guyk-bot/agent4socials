@@ -49,7 +49,13 @@ export type FbPublishedPostRow = {
       media_type?: string;
       type?: string;
       media?: { image?: { src?: string } };
-      subattachments?: { data?: Array<{ media_type?: string; type?: string }> };
+      subattachments?: {
+        data?: Array<{
+          media_type?: string;
+          type?: string;
+          media?: { image?: { src?: string } };
+        }>;
+      };
     }>;
   };
 };
@@ -57,7 +63,7 @@ export type FbPublishedPostRow = {
 type PublishedPostsPage = { data?: FbPublishedPostRow[]; paging?: { next?: string; cursors?: { after?: string } } };
 
 const PUBLISHED_FIELDS =
-  'id,message,created_time,permalink_url,full_picture,status_type,reactions.summary(1),comments.summary(1),shares,attachments{media_type,type,media{image{src}},subattachments{media_type,type}}';
+  'id,message,created_time,permalink_url,full_picture,status_type,reactions.summary(1),comments.summary(1),shares,attachments{media_type,type,media{image{src}},subattachments{media_type,type,media{image{src}}}}';
 
 const POSTS_FEED_FIELDS = 'id,message,created_time,permalink_url';
 
