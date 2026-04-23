@@ -5902,18 +5902,18 @@ type PostsUploadDayTooltipAgg = {
                         })
                       }
                       aria-pressed={active}
-                      className="rounded-[12px] border px-3 py-2 text-left transition-[box-shadow,background-color,border-color]"
+                      className="rounded-[14px] px-3 py-2 text-left transition-all hover:-translate-y-[1px]"
                       style={{
-                        borderColor: COLOR.border,
-                        background: '#ffffff',
-                        boxShadow: active ? `inset 3px 0 0 0 ${candleColor}` : '0 2px 16px rgba(15,23,42,0.05)',
+                        background: active ? `${candleColor}26` : `${candleColor}14`,
+                        border: `1px solid ${active ? `${candleColor}44` : `${candleColor}28`}`,
+                        boxShadow: active ? '0 2px 14px rgba(15,23,42,0.08)' : '0 1px 10px rgba(15,23,42,0.04)',
                       }}
                       title={`Filter uploaded posts chart by ${preset.label}. Click again to exclude this format.`}
                     >
-                      <p className="text-[11px] font-medium" style={{ color: COLOR.textMuted }}>
+                      <p className="text-xs font-medium tracking-tight" style={{ color: COLOR.textMuted }}>
                         {preset.label}
                       </p>
-                      <p className="mt-0.5 text-[18px] font-semibold tabular-nums" style={{ color: COLOR.text }}>
+                      <p className="mt-1 text-[22px] font-semibold tabular-nums tracking-tight" style={{ color: candleColor }}>
                         {formatNumber(total)}
                       </p>
                     </button>
