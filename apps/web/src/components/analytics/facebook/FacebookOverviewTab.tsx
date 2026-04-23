@@ -87,7 +87,7 @@ export function FacebookOverviewTab({
           <button
             type="button"
             onClick={() => (onUpgrade ? onUpgrade() : window.location.assign('/pricing'))}
-            className="shrink-0 w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 rounded-lg bg-gradient-to-r from-[#8b5cf6] to-[#b030ad] text-neutral-900 font-semibold text-sm hover:opacity-90 transition-opacity"
+            className="shrink-0 w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 rounded-lg gradient-cta-pro text-white font-semibold text-sm hover:opacity-90 transition-opacity"
           >
             Upgrade
           </button>

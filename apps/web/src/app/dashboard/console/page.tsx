@@ -1829,9 +1829,9 @@ export default function UnifiedSummaryPage() {
   return (
     <div className="p-0 md:p-0.5 space-y-3" style={{ maxWidth: 1400, background: COLOR.pageBg }}>
       {/* ── Upgrade banner ── */}
-      <div className="w-full rounded-2xl border border-violet-200/70 bg-gradient-to-br from-violet-50/90 via-white to-rose-50/40 px-3 py-2.5 sm:px-4 sm:py-3 shadow-sm ring-1 ring-violet-100/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3">
+      <div className="w-full rounded-2xl border upgrade-banner-warm px-3 py-2.5 sm:px-4 sm:py-3 shadow-sm ring-1 ring-orange-100/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3">
         <div className="min-w-0 flex-1 space-y-1">
-          <div className="flex items-center gap-1.5 text-violet-800"><Sparkles className="w-3.5 h-3.5 shrink-0" aria-hidden /><span className="text-[11px] font-semibold uppercase tracking-wide">Your plan</span></div>
+          <div className="flex items-center gap-1.5 upgrade-badge-warm"><Sparkles className="w-3.5 h-3.5 shrink-0" aria-hidden /><span className="text-[11px] font-semibold uppercase tracking-wide">Your plan</span></div>
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0">
             <span className="text-lg font-bold text-neutral-900 tracking-tight leading-tight">Free</span>
             <span className="text-sm text-neutral-600 leading-snug">Unlock more than 30 days of history without watermarks and more analytics when you upgrade.</span>

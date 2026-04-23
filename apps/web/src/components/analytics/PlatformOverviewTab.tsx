@@ -159,11 +159,11 @@ export function PlatformOverviewTab({
   return (
     <div className="space-y-6 max-w-full" style={{ maxWidth: 1400 }}>
       {showWatermark && (
-        <div className="rounded-xl border border-[#8b5cf6]/30 bg-gradient-to-r from-[#8b5cf6]/10 to-[#b030ad]/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="rounded-xl border upgrade-banner-warm px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
           <button
             type="button"
             onClick={onUpgrade}
-            className="shrink-0 w-full sm:w-auto inline-flex items-center justify-center px-5 py-2.5 rounded-lg bg-gradient-to-r from-[#8b5cf6] to-[#b030ad] text-neutral-900 font-semibold text-sm hover:opacity-90 transition-opacity"
+            className="shrink-0 w-full sm:w-auto inline-flex items-center justify-center px-5 py-2.5 rounded-lg gradient-cta-pro text-white font-semibold text-sm hover:opacity-90 transition-opacity"
           >
             Upgrade plan
           </button>

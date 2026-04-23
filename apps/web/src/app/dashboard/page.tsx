@@ -82,7 +82,7 @@ function DataSyncBanner({
     PINTEREST: <PinterestIcon size={29} />,
   };
   /** Same violet → fuchsia → rose gradient on every platform (matches Upgrade / Get Pro CTA). */
-  const grad = 'from-violet-700 via-fuchsia-600 to-rose-600';
+  const grad = 'from-[#ffb000] via-[#ff7a00] to-[#ff4d00]';
   const icon = platform ? platformIcons[platform] : null;
   const analyticsStep = insightsLoading ? 'loading' : 'done';
   const postsStep = postsLoading ? 'loading' : 'done';
@@ -1808,8 +1808,8 @@ export default function DashboardPage() {
       )}
       {/* Instagram-only: analytics and posts not available; CTA to connect with Facebook */}
       {!analyticsLoadingOnly && selectedAccount?.platform === 'INSTAGRAM' && (selectedAccount as { instagramLoginOnly?: boolean }).instagramLoginOnly && (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-4 px-4 py-4 rounded-lg border border-violet-200/80 bg-gradient-to-r from-violet-50 via-fuchsia-50/50 to-rose-50/40">
-          <p className="text-sm text-violet-950">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-4 px-4 py-4 rounded-lg border upgrade-banner-warm">
+          <p className="text-sm text-orange-900">
             <strong>Analytics and posts are not available</strong> when connected with Instagram only. Connect with Facebook to unlock full analytics, post history, and insights on both the Account and Posts tabs.
           </p>
           <button
@@ -2035,11 +2035,11 @@ export default function DashboardPage() {
             )}
             <div className={importedPostsLoading ? 'hidden' : undefined}>
             {postsShowWatermark && (
-              <div className="rounded-xl border border-[#8b5cf6]/30 bg-gradient-to-r from-[#8b5cf6]/10 to-[#b030ad]/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+              <div className="rounded-xl border upgrade-banner-warm px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
                 <button
                   type="button"
                   onClick={openPricingPopup}
-                  className="shrink-0 w-full sm:w-auto inline-flex items-center justify-center px-5 py-2.5 rounded-lg bg-gradient-to-r from-[#8b5cf6] to-[#b030ad] text-neutral-900 font-semibold text-sm hover:opacity-90 transition-opacity"
+                  className="shrink-0 w-full sm:w-auto inline-flex items-center justify-center px-5 py-2.5 rounded-lg gradient-cta-pro text-white font-semibold text-sm hover:opacity-90 transition-opacity"
                 >
                   Upgrade plan
                 </button>

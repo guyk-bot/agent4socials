@@ -222,9 +222,9 @@ export default function AccountPage() {
       <div className="card rounded-2xl overflow-hidden border border-neutral-200/80 shadow-sm">
         <div className="p-4 sm:p-6 space-y-5">
           {/* Plan row at top of card (matches analytics upgrade styling) */}
-          <div className="w-full rounded-2xl border border-violet-200/70 bg-gradient-to-br from-violet-50/90 via-white to-rose-50/40 px-3 py-2.5 sm:px-4 sm:py-3 shadow-sm ring-1 ring-violet-100/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3">
+          <div className="w-full rounded-2xl border upgrade-banner-warm px-3 py-2.5 sm:px-4 sm:py-3 shadow-sm ring-1 ring-orange-100/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3">
             <div className="min-w-0 flex-1 space-y-1">
-              <div className="flex items-center gap-1.5 text-violet-800">
+              <div className="flex items-center gap-1.5 upgrade-badge-warm">
                 <Sparkles className="w-3.5 h-3.5 shrink-0" aria-hidden />
                 <span className="text-[11px] font-semibold uppercase tracking-wide">Your plan</span>
               </div>
@@ -262,7 +262,7 @@ export default function AccountPage() {
                   <button
                     type="button"
                     onClick={copyUserId}
-                    className="p-1 text-neutral-500 hover:text-violet-800 hover:bg-violet-50 rounded transition-colors"
+                    className="p-1 text-neutral-500 hover:text-orange-800 hover:bg-orange-50 rounded transition-colors"
                     title="Copy full User ID"
                   >
                     {copiedId ? <Check size={13} className="text-green-600" /> : <Copy size={13} />}
