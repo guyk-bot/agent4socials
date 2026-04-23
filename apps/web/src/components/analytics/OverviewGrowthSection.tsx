@@ -850,7 +850,7 @@ export function OverviewGrowthSection({
               primary
               metricId="followers"
               isActive={activeMetrics.has('followers')}
-              isPrimary={primaryFocus === 'followers'}
+              isPrimary={activeMetrics.has('followers') && primaryFocus === 'followers'}
               onFocusMetric={handleFocusMetric}
             />
             <KpiCard
@@ -859,7 +859,7 @@ export function OverviewGrowthSection({
               tint="emerald"
               metricId="following"
               isActive={activeMetrics.has('following')}
-              isPrimary={primaryFocus === 'following'}
+              isPrimary={activeMetrics.has('following') && primaryFocus === 'following'}
               onFocusMetric={handleFocusMetric}
             />
             <KpiCard
@@ -868,7 +868,7 @@ export function OverviewGrowthSection({
               tint="slate"
               metricId="posts"
               isActive={activeMetrics.has('posts')}
-              isPrimary={primaryFocus === 'posts'}
+              isPrimary={activeMetrics.has('posts') && primaryFocus === 'posts'}
               onFocusMetric={handleFocusMetric}
             />
           </div>
@@ -883,7 +883,7 @@ export function OverviewGrowthSection({
               primary
               metricId="followers"
               isActive={activeMetrics.has('followers')}
-              isPrimary={primaryFocus === 'followers'}
+              isPrimary={activeMetrics.has('followers') && primaryFocus === 'followers'}
               onFocusMetric={handleFocusMetric}
             />
             <KpiCard
@@ -893,7 +893,7 @@ export function OverviewGrowthSection({
               tint="blue"
               metricId="views"
               isActive={activeMetrics.has('views')}
-              isPrimary={primaryFocus === 'views'}
+              isPrimary={activeMetrics.has('views') && primaryFocus === 'views'}
               onFocusMetric={handleFocusMetric}
             />
             <KpiCard
@@ -902,7 +902,7 @@ export function OverviewGrowthSection({
               tint="emerald"
               metricId="visits"
               isActive={activeMetrics.has('visits')}
-              isPrimary={primaryFocus === 'visits'}
+              isPrimary={activeMetrics.has('visits') && primaryFocus === 'visits'}
               onFocusMetric={handleFocusMetric}
             />
             <KpiCard
@@ -911,7 +911,7 @@ export function OverviewGrowthSection({
               tint="slate"
               metricId="posts"
               isActive={activeMetrics.has('posts')}
-              isPrimary={primaryFocus === 'posts'}
+              isPrimary={activeMetrics.has('posts') && primaryFocus === 'posts'}
               onFocusMetric={handleFocusMetric}
             />
           </div>
