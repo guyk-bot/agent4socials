@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState, useMemo, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
+import { ANALYTICS_CHART_SELECT_METRIC_MESSAGE } from '@/lib/analytics-chart-messages';
 import { AnalyticsDateRangePicker } from '@/components/analytics/AnalyticsDateRangePicker';
 import {
   getDefaultAnalyticsDateRange,
@@ -1555,11 +1556,9 @@ export default function UnifiedSummaryPage() {
   }, []);
 
   const toggleOverviewMetric = useCallback((metric: 'followers' | 'views' | 'engagements') => {
-    setSelectedOverviewMetrics((prev) => (
-      prev.includes(metric)
-        ? (prev.length > 1 ? prev.filter((m) => m !== metric) : prev)
-        : [...prev, metric]
-    ));
+    setSelectedOverviewMetrics((prev) =>
+      prev.includes(metric) ? prev.filter((m) => m !== metric) : [...prev, metric]
+    );
   }, []);
 
   const activeChartData = useMemo((): UnifiedChartData => {
@@ -1934,8 +1933,8 @@ export default function UnifiedSummaryPage() {
                 ))}
               </div>
               {selectedOverviewMetrics.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-sm" style={{ color: COLOR.textMuted }}>
-                  Select at least one Overview card to display trend data.
+                <div className="h-full flex items-center justify-center text-sm px-4 text-center" style={{ color: COLOR.textMuted }}>
+                  {ANALYTICS_CHART_SELECT_METRIC_MESSAGE}
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">

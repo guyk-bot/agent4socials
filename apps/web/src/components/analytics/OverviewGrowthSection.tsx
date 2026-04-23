@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ANALYTICS_CHART_SELECT_METRIC_MESSAGE } from '@/lib/analytics-chart-messages';
 import { Download } from 'lucide-react';
 import {
   Line,
@@ -278,6 +279,14 @@ function FollowersGrowthChart({
 
   const lastDate = chartData.length > 0 ? chartData[chartData.length - 1].date : null;
   const tickCount = 4;
+
+  if (activeMetrics.size === 0) {
+    return (
+      <div className="rounded-[22px] bg-white border border-neutral-100 shadow-md p-6 min-h-[300px] flex items-center justify-center text-center px-6">
+        <p className="text-sm font-medium text-neutral-500 max-w-md">{ANALYTICS_CHART_SELECT_METRIC_MESSAGE}</p>
+      </div>
+    );
+  }
 
   return (
     <div className={`rounded-[22px] bg-white border border-neutral-100 shadow-md p-6 hover:shadow-lg hover:border-neutral-200/80 transition-all duration-200 ${!hasEnoughData ? 'opacity-85' : ''}`}>
@@ -746,9 +755,11 @@ export function OverviewGrowthSection({
     setActiveMetrics((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
-        if (next.size <= 1) return prev;
         next.delete(id);
-        setPrimaryFocus((p) => (p === id ? CHART_METRIC_IDS.find((m) => next.has(m)) ?? p : p));
+        setPrimaryFocus((p) => {
+          if (p !== id) return p;
+          return CHART_METRIC_IDS.find((m) => next.has(m)) ?? 'followers';
+        });
         return next;
       }
       next.add(id);

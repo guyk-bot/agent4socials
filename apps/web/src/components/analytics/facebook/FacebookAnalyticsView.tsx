@@ -27,6 +27,7 @@ import type { FacebookInsights, FacebookPost } from './types';
 import { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids';
 import { localCalendarDateFromIso, toLocalCalendarDate } from '@/lib/calendar-date';
 import { formatMetricNumber as formatNumber } from '@/lib/metric-format';
+import { ANALYTICS_CHART_SELECT_METRIC_MESSAGE } from '@/lib/analytics-chart-messages';
 import { isLegacyInstagramInsightsUnavailableHint } from '@/lib/strip-legacy-insights-hint';
 import { createMinWidthStackedBarShape } from '@/lib/recharts-stacked-bar-shape';
 import {
@@ -1600,6 +1601,26 @@ export function InsightChartCard({
   );
 }
 
+function AnalyticsChartSelectMetricPlaceholder() {
+  return (
+    <div
+      className="h-full min-h-[240px] rounded-xl border border-dashed flex items-center justify-center"
+      style={{ borderColor: COLOR.border }}
+    >
+      <div
+        className="rounded-2xl px-5 py-3 text-sm font-medium text-center max-w-[560px] w-[min(560px,92%)]"
+        style={{
+          background: 'rgba(255,255,255,1)',
+          color: COLOR.textSecondary,
+          boxShadow: '0 1px 16px rgba(15,23,42,0.12)',
+        }}
+      >
+        {ANALYTICS_CHART_SELECT_METRIC_MESSAGE}
+      </div>
+    </div>
+  );
+}
+
 export function StackedTrafficChart({ data }: { data: Array<{ date: string; nonviral: number; viral: number }> }) {
   const trafficTicks = buildKeyDateTicks(data, (d) => (d.nonviral ?? 0) > 0 || (d.viral ?? 0) > 0, 10);
   const trafficYMax = useMemo(() => {
@@ -1850,7 +1871,16 @@ function YoutubeVideosAnalyticsPanel({
           chartHeightPx={chartHeightPx}
           legend={selectedReelMetrics.map((m) => ({ label: REEL_METRIC_CONFIG[m].label, color: REEL_METRIC_CONFIG[m].color }))}
         >
-          {chartData.length > 0 ? (
+          {chartData.length === 0 ? (
+            <div className="h-[240px] rounded-[20px] border flex flex-col items-center justify-center text-center px-6" style={{ background: COLOR.card, borderColor: COLOR.border }}>
+              <p className="text-sm font-semibold" style={{ color: COLOR.text }}>No videos in this period</p>
+              <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
+                Sync your channel from the sidebar or widen the date range so uploads with publish dates in range appear here.
+              </p>
+            </div>
+          ) : selectedReelMetrics.length === 0 ? (
+            <AnalyticsChartSelectMetricPlaceholder />
+          ) : (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={chartData}
@@ -1920,13 +1950,6 @@ function YoutubeVideosAnalyticsPanel({
                 {selectedReelMetrics.includes('dislikes') ? <Bar dataKey="dislikes" fill={REEL_METRIC_CONFIG.dislikes.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} isAnimationActive={false} /> : null}
               </BarChart>
             </ResponsiveContainer>
-          ) : (
-            <div className="h-[240px] rounded-[20px] border flex flex-col items-center justify-center text-center px-6" style={{ background: COLOR.card, borderColor: COLOR.border }}>
-              <p className="text-sm font-semibold" style={{ color: COLOR.text }}>No videos in this period</p>
-              <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
-                Sync your channel from the sidebar or widen the date range so uploads with publish dates in range appear here.
-              </p>
-            </div>
           )}
         </InsightChartCard>
       </div>
@@ -5236,16 +5259,7 @@ type PostsUploadDayTooltipAgg = {
           </div>
           <InsightChartCard title="Performance" hideHeader flat>
           {selectedStoryMetrics.length === 0 ? (
-            <div className="h-[300px] rounded-xl border border-dashed relative overflow-hidden" style={{ borderColor: COLOR.border }}>
-              <div className="absolute inset-0 z-[2] flex items-center justify-center">
-                <div
-                  className="rounded-2xl px-5 py-3 text-sm font-medium text-center max-w-[560px] w-[min(560px,92%)]"
-                  style={{ background: 'rgba(255,255,255,1)', color: COLOR.textSecondary, boxShadow: '0 1px 16px rgba(15,23,42,0.12)' }}
-                >
-                  Select at least one metric card to display performance data.
-                </div>
-              </div>
-            </div>
+            <AnalyticsChartSelectMetricPlaceholder />
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={chartByMode}>
@@ -5440,16 +5454,7 @@ type PostsUploadDayTooltipAgg = {
           {!isPinterest ? (
           <InsightChartCard title="Engagement" hideHeader flat>
           {selectedEngagementMetrics.length === 0 ? (
-            <div className="h-[300px] rounded-xl border border-dashed relative overflow-hidden" style={{ borderColor: COLOR.border }}>
-              <div className="absolute inset-0 z-[2] flex items-center justify-center">
-                <div
-                  className="rounded-2xl px-5 py-3 text-sm font-medium text-center max-w-[560px] w-[min(560px,92%)]"
-                  style={{ background: 'rgba(255,255,255,1)', color: COLOR.textSecondary, boxShadow: '0 1px 16px rgba(15,23,42,0.12)' }}
-                >
-                  Select at least one metric card to display engagement data.
-                </div>
-              </div>
-            </div>
+            <AnalyticsChartSelectMetricPlaceholder />
           ) : (
             <div className="h-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -5772,16 +5777,7 @@ type PostsUploadDayTooltipAgg = {
           </div>
           <InsightChartCard title="Visibility Composition" hideHeader flat>
             {selectedTrafficMetrics.length === 0 ? (
-              <div className="h-[300px] rounded-xl border border-dashed relative overflow-hidden" style={{ borderColor: COLOR.border }}>
-                <div className="absolute inset-0 z-[2] flex items-center justify-center">
-                  <div
-                    className="rounded-2xl px-5 py-3 text-sm font-medium text-center max-w-[560px] w-[min(560px,92%)]"
-                    style={{ background: 'rgba(255,255,255,1)', color: COLOR.textSecondary, boxShadow: '0 1px 16px rgba(15,23,42,0.12)' }}
-                  >
-                    Select at least one metric card to display traffic data.
-                  </div>
-                </div>
-              </div>
+              <AnalyticsChartSelectMetricPlaceholder />
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
@@ -5836,19 +5832,16 @@ type PostsUploadDayTooltipAgg = {
                       value: formatNumber(
                         isTwitter ? Math.max(postsInRange.length, twitterRecentTweets.length) : postsInRange.length
                       ),
-                      color: COLOR.violet,
                       title: `Synced ${postsExplainerPublishedPlural} whose publish time is in the selected range (${postsExplainerDateRangeLabel}).`,
                     },
                     {
                       label: 'Avg views per post',
                       value: formatNumber(Math.round(avgViewsPerPost)),
-                      color: COLOR.trafficNonviralCyan,
                       title: 'Per synced item in range: total views divided by item count.',
                     },
                     {
                       label: 'Avg interactions per post',
                       value: formatNumber(Math.round(avgInteractionsPerPost)),
-                      color: COLOR.magenta,
                       title:
                         isTikTok
                           ? 'Per synced TikTok in range: likes + comments + shares; divided by count of those videos.'
@@ -5867,7 +5860,6 @@ type PostsUploadDayTooltipAgg = {
                     {
                       label: 'Avg Reactions per Post',
                       value: formatNumber(Math.round(avgReactionsPerPost)),
-                      color: COLOR.amber,
                       title:
                         isPinterest
                           ? `Per synced Pin in range: Pinterest “reactions” (TOTAL_REACTIONS / reaction) from pin_metrics ÷ number of ${postsExplainerPublishedPlural} in range.`
@@ -5877,18 +5869,14 @@ type PostsUploadDayTooltipAgg = {
                 ).map((c) => (
                   <div
                     key={c.label}
-                    className="rounded-[14px] px-3 py-2 text-left"
+                    className="rounded-[12px] border px-3 py-2 text-left"
                     title={c.title}
-                    style={{
-                      background: `${c.color}14`,
-                      border: `1px solid ${c.color}26`,
-                      boxShadow: '0 1px 10px rgba(15,23,42,0.04)',
-                    }}
+                    style={{ borderColor: COLOR.border, background: '#ffffff', boxShadow: '0 2px 16px rgba(15,23,42,0.05)' }}
                   >
-                    <p className="text-xs font-medium tracking-tight" style={{ color: COLOR.textMuted }}>
+                    <p className="text-[11px] font-medium" style={{ color: COLOR.textMuted }}>
                       {c.label}
                     </p>
-                    <p className="mt-1 text-[22px] font-semibold tabular-nums tracking-tight" style={{ color: c.color }}>
+                    <p className="mt-0.5 text-[18px] font-semibold tabular-nums" style={{ color: COLOR.text }}>
                       {c.value}
                     </p>
                   </div>
@@ -5909,26 +5897,23 @@ type PostsUploadDayTooltipAgg = {
                       key={`posts-upload-metric-${preset.key}`}
                       onClick={() =>
                         setSelectedPostsUploadTypes((prev) => {
-                          if (prev.includes(key)) {
-                            if (prev.length <= 1) return prev;
-                            return prev.filter((k) => k !== key);
-                          }
+                          if (prev.includes(key)) return prev.filter((k) => k !== key);
                           return [...prev, key];
                         })
                       }
                       aria-pressed={active}
-                      className="rounded-[14px] px-3 py-2 text-left transition-all hover:-translate-y-[1px]"
+                      className="rounded-[12px] border px-3 py-2 text-left transition-[box-shadow,background-color,border-color]"
                       style={{
-                        background: active ? `${candleColor}26` : `${candleColor}14`,
-                        border: `1px solid ${active ? `${candleColor}44` : `${candleColor}28`}`,
-                        boxShadow: active ? '0 2px 14px rgba(15,23,42,0.08)' : '0 1px 10px rgba(15,23,42,0.04)',
+                        borderColor: COLOR.border,
+                        background: '#ffffff',
+                        boxShadow: active ? `inset 3px 0 0 0 ${candleColor}` : '0 2px 16px rgba(15,23,42,0.05)',
                       }}
                       title={`Filter uploaded posts chart by ${preset.label}. Click again to exclude this format.`}
                     >
-                      <p className="text-xs font-medium tracking-tight" style={{ color: COLOR.textMuted }}>
+                      <p className="text-[11px] font-medium" style={{ color: COLOR.textMuted }}>
                         {preset.label}
                       </p>
-                      <p className="mt-1 text-[22px] font-semibold tabular-nums tracking-tight" style={{ color: candleColor }}>
+                      <p className="mt-0.5 text-[18px] font-semibold tabular-nums" style={{ color: COLOR.text }}>
                         {formatNumber(total)}
                       </p>
                     </button>
@@ -5941,6 +5926,8 @@ type PostsUploadDayTooltipAgg = {
                 <div className="h-full flex items-center justify-center text-sm" style={{ color: COLOR.textMuted }}>
                   No uploads found in this date range.
                 </div>
+              ) : selectedPostsUploadTypes.length === 0 ? (
+                <AnalyticsChartSelectMetricPlaceholder />
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
@@ -6376,7 +6363,20 @@ type PostsUploadDayTooltipAgg = {
           chartHeightPx={reelPerformanceChartHeightPx}
           legend={selectedReelMetrics.map((m) => ({ label: REEL_METRIC_CONFIG[m].label, color: REEL_METRIC_CONFIG[m].color }))}
         >
-          {reelsChartData.length > 0 ? (
+          {reelsChartData.length === 0 ? (
+            <div className="h-[240px] rounded-[20px] border flex flex-col items-center justify-center text-center px-6" style={{ background: COLOR.card, borderColor: COLOR.border }}>
+              <p className="text-sm font-semibold" style={{ color: COLOR.text }}>
+                {isPinterest ? 'No Pins in this period' : 'No reels in this period'}
+              </p>
+              <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
+                {isPinterest
+                  ? 'Connect Pinterest and sync Pins so video Pins (or all Pins) with publish dates in this range appear here.'
+                  : 'Reel analytics appears after reels are discovered in your post inventory.'}
+              </p>
+            </div>
+          ) : selectedReelMetrics.length === 0 ? (
+            <AnalyticsChartSelectMetricPlaceholder />
+          ) : (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={reelsChartData}
@@ -6429,17 +6429,6 @@ type PostsUploadDayTooltipAgg = {
                 {selectedReelMetrics.includes('avgWatch') ? <Bar dataKey="avgWatchSeconds" fill={REEL_METRIC_CONFIG.avgWatch.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} isAnimationActive={false} /> : null}
               </BarChart>
             </ResponsiveContainer>
-          ) : (
-            <div className="h-[240px] rounded-[20px] border flex flex-col items-center justify-center text-center px-6" style={{ background: COLOR.card, borderColor: COLOR.border }}>
-              <p className="text-sm font-semibold" style={{ color: COLOR.text }}>
-                {isPinterest ? 'No Pins in this period' : 'No reels in this period'}
-              </p>
-              <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
-                {isPinterest
-                  ? 'Connect Pinterest and sync Pins so video Pins (or all Pins) with publish dates in this range appear here.'
-                  : 'Reel analytics appears after reels are discovered in your post inventory.'}
-              </p>
-            </div>
           )}
         </InsightChartCard>
         </>
