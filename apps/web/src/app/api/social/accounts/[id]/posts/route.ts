@@ -215,6 +215,41 @@ async function fetchFacebookPostThumbnail(postId: string, pageAccessToken: strin
   }
 }
 
+function extractOgImageFromHtml(html: string): string | null {
+  if (!html) return null;
+  const patterns = [
+    /<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]+content=["']([^"']+)["'][^>]*>/i,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image(?::secure_url)?["'][^>]*>/i,
+    /<meta[^>]+name=["']twitter:image(?::src)?["'][^>]+content=["']([^"']+)["'][^>]*>/i,
+  ];
+  for (const p of patterns) {
+    const m = html.match(p);
+    const url = m?.[1]?.trim();
+    if (url && /^https?:\/\//i.test(url)) return url;
+  }
+  return null;
+}
+
+async function fetchOpenGraphThumbnail(permalinkUrl: string): Promise<string | null> {
+  try {
+    const res = await fetch(permalinkUrl, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; Agent4SocialsBot/1.0; +https://agent4socials.com)',
+        Accept: 'text/html,application/xhtml+xml',
+      },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return null;
+    const ctype = (res.headers.get('content-type') ?? '').toLowerCase();
+    if (ctype && !ctype.includes('text/html')) return null;
+    const html = await res.text();
+    return extractOgImageFromHtml(html);
+  } catch {
+    return null;
+  }
+}
+
 async function resolveFacebookPageAccessToken(pageId: string, token: string): Promise<string> {
   try {
     const res = await axios.get<{ data?: Array<{ id?: string; access_token?: string }>; error?: { message?: string } }>(
@@ -909,6 +944,36 @@ export async function GET(
       }
     }
 
+    /** Generic: when no stored thumbnail exists, try scraping `og:image` from permalink pages. */
+    const ogThumbByPostId: Record<string, string> = {};
+    {
+      const missing = importedRows
+        .filter((r) => !r.thumbnailUrl?.trim())
+        .filter((r) => {
+          const u = (r.permalinkUrl ?? '').trim();
+          return /^https?:\/\//i.test(u);
+        })
+        .slice(0, 30);
+      await runWithConcurrency(missing, 4, async (r) => {
+        const url = await fetchOpenGraphThumbnail(String(r.permalinkUrl));
+        if (!url) return;
+        ogThumbByPostId[r.platformPostId] = url;
+        try {
+          await prisma.importedPost.update({
+            where: {
+              socialAccountId_platformPostId: {
+                socialAccountId: account.id,
+                platformPostId: r.platformPostId,
+              },
+            },
+            data: { thumbnailUrl: url, syncedAt: new Date() },
+          });
+        } catch {
+          /* row missing or race */
+        }
+      });
+    }
+
     /** Pinterest: older rows synced before `pin_metrics` support are all-zero in DB; refresh a small slice on read. */
     if (account.platform === 'PINTEREST' && importedRows.length > 0 && account.accessToken) {
       try {
@@ -1476,6 +1541,7 @@ export async function GET(
           liveInstagramThumbnails[p.platformPostId] ??
           (account.platform === 'FACEBOOK' ? facebookThumbByPostId[p.platformPostId] : undefined) ??
           (account.platform === 'PINTEREST' ? pinterestThumbByPinId[p.platformPostId] : undefined) ??
+          ogThumbByPostId[p.platformPostId] ??
           p.thumbnailUrl ??
           null,
         permalinkUrl: (() => {
