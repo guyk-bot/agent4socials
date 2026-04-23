@@ -19,6 +19,72 @@ import type {
   UnifiedHistoryPost,
 } from './unified-metrics-types';
 
+function extractOgImageFromHtml(html: string): string | null {
+  if (!html) return null;
+  const patterns = [
+    /<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]+content=["']([^"']+)["'][^>]*>/i,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image(?::secure_url)?["'][^>]*>/i,
+    /<meta[^>]+name=["']twitter:image(?::src)?["'][^>]+content=["']([^"']+)["'][^>]*>/i,
+  ];
+  for (const p of patterns) {
+    const m = html.match(p);
+    const url = m?.[1]?.trim();
+    if (url && /^https?:\/\//i.test(url)) return url;
+  }
+  return null;
+}
+
+async function fetchOpenGraphThumbnail(permalinkUrl: string): Promise<string | null> {
+  try {
+    const res = await fetch(permalinkUrl, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; Agent4SocialsBot/1.0; +https://agent4socials.com)',
+        Accept: 'text/html,application/xhtml+xml',
+      },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return null;
+    const ctype = (res.headers.get('content-type') ?? '').toLowerCase();
+    if (ctype && !ctype.includes('text/html')) return null;
+    const html = await res.text();
+    return extractOgImageFromHtml(html);
+  } catch {
+    return null;
+  }
+}
+
+async function enrichMissingThumbnails(
+  rows: Array<{ id: string; thumbnailUrl: string | null; permalinkUrl: string | null }>,
+  cap = 24,
+): Promise<Record<string, string>> {
+  const missing = rows
+    .filter((r) => !r.thumbnailUrl?.trim())
+    .filter((r) => /^https?:\/\//i.test((r.permalinkUrl ?? '').trim()))
+    .slice(0, cap);
+  const out: Record<string, string> = {};
+  const concurrency = 4;
+  for (let i = 0; i < missing.length; i += concurrency) {
+    const chunk = missing.slice(i, i + concurrency);
+    await Promise.all(
+      chunk.map(async (r) => {
+        const url = await fetchOpenGraphThumbnail(String(r.permalinkUrl));
+        if (!url) return;
+        out[r.id] = url;
+        try {
+          await prisma.importedPost.update({
+            where: { id: r.id },
+            data: { thumbnailUrl: url, syncedAt: new Date() },
+          });
+        } catch {
+          // non-fatal
+        }
+      }),
+    );
+  }
+  return out;
+}
+
 function growthPct(current: number, previous: number): number {
   const c = Number(current) || 0;
   const p = Number(previous) || 0;
@@ -377,6 +443,7 @@ export async function getUnifiedTopPosts(userId: string, period: UnifiedPeriod, 
     orderBy: [{ likeCount: 'desc' }, { impressions: 'desc' }],
     take: limit * 4,
   });
+  const fallbackThumbById = await enrichMissingThumbnails(posts, 20);
 
   return posts
     .map((p) => ({
@@ -384,7 +451,7 @@ export async function getUnifiedTopPosts(userId: string, period: UnifiedPeriod, 
       platform: PLATFORM_LABEL[p.platform ?? ''] ?? (p.platform ?? 'Unknown'),
       caption: p.content ?? '',
       url: p.permalinkUrl,
-      thumbnailUrl: p.thumbnailUrl,
+      thumbnailUrl: fallbackThumbById[p.id] ?? p.thumbnailUrl,
       totalEngagement: sumEngagement(p),
       impressions: p.impressions ?? 0,
       likes: p.likeCount ?? 0,
@@ -424,13 +491,14 @@ export async function getUnifiedPostsHistory(
     orderBy: { publishedAt: 'desc' },
     take: limit,
   });
+  const fallbackThumbById = await enrichMissingThumbnails(posts, 30);
 
   return posts.map((p) => ({
     id: p.id,
     platform: PLATFORM_LABEL[p.platform ?? ''] ?? (p.platform ?? 'Unknown'),
     caption: p.content ?? '',
     url: p.permalinkUrl,
-    thumbnailUrl: p.thumbnailUrl,
+    thumbnailUrl: fallbackThumbById[p.id] ?? p.thumbnailUrl,
     likes: p.likeCount ?? 0,
     comments: p.commentsCount ?? 0,
     shares: (p.sharesCount ?? 0) + (p.repostsCount ?? 0),
