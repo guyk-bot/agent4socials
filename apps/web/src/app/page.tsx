@@ -332,15 +332,12 @@ export default function Home() {
           </div>
 
           <div className="relative mx-auto max-w-5xl px-4 sm:px-6 text-center">
-            <h1 className="mt-1 text-[44px] font-bold tracking-[-0.028em] leading-[1.04] sm:text-5xl md:text-[64px] lg:text-[76px]">
-              <span className="block text-[#1a161f]">2-7X Your Content Potential</span>
-              <span className="mt-1.5 block text-[#1a161f]">Without Paying For Ads</span>
+            <h1 className="mt-1 text-[40px] font-bold tracking-[-0.028em] leading-[1.06] text-[#1a161f] sm:text-5xl md:text-[60px] lg:text-[72px]">
+              The all-in-one platform for social media growth.
             </h1>
 
-            <p className="mx-auto mt-6 max-w-[760px] text-[15px] sm:text-lg text-[#5d5768] leading-relaxed">
-              The only social media management tool
-              <span className="sm:hidden"><br /></span>
-              you will ever need!
+            <p className="mx-auto mt-5 max-w-[860px] text-[15px] font-medium sm:text-[19px] text-[#5d5768] leading-relaxed">
+              Schedule posts, automate replies, track analytics, and create content with AI, all across seven platforms in one dashboard.
             </p>
 
             <div className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3.5 sm:gap-4">
