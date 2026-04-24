@@ -1795,14 +1795,18 @@ function igInsightBundleHasSocialMetrics(b: IgMediaInsightBundle): boolean {
   return b.shares > 0 || b.reposts > 0;
 }
 
+function igInsightBundleHasBothSocialMetrics(b: IgMediaInsightBundle): boolean {
+  return b.shares > 0 && b.reposts > 0;
+}
+
 async function fetchInstagramMediaInsightsBestEffort(
   mediaId: string,
   accessToken: string,
   opts: { isReel: boolean }
 ): Promise<IgMediaInsightBundle> {
   const primary = await fetchInstagramMediaInsights(fbRestBaseUrl, mediaId, accessToken, opts);
-  // Keep fallback host when social metrics are still missing (shares/reposts can be omitted on one host).
-  if (igInsightBundleHasMetrics(primary) && igInsightBundleHasSocialMetrics(primary)) return primary;
+  // Keep fallback host when either social metric is still missing.
+  if (igInsightBundleHasMetrics(primary) && igInsightBundleHasBothSocialMetrics(primary)) return primary;
   const secondary = await fetchInstagramMediaInsights(igGraphRestBaseUrl, mediaId, accessToken, opts);
   return mergeIgInsightBundles(primary, secondary);
 }
