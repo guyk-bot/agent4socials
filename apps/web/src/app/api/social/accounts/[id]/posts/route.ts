@@ -1106,10 +1106,15 @@ export async function GET(
           reposts: typeof ig.reposts === 'number' ? ig.reposts : (row.repostsCount ?? 0),
         };
       };
-      if (liveEnrich && !metaThrottle) {
+      if (!metaThrottle) {
         const insightCandidates = importedRows
-          .filter((row) => !igInsightBundleHasMetrics(bundleFromRow(row)))
-          .slice(0, 5);
+          .filter((row) => {
+            const b = bundleFromRow(row);
+            const missingCore = !igInsightBundleHasMetrics(b);
+            const missingSocial = !igInsightBundleHasSocialMetrics(b);
+            return (liveEnrich && missingCore) || missingSocial;
+          })
+          .slice(0, liveEnrich ? 8 : 6);
         for (let i = 0; i < insightCandidates.length; i++) {
           const row = insightCandidates[i];
           try {
@@ -1120,7 +1125,7 @@ export async function GET(
             const bundle = await fetchInstagramMediaInsightsBestEffort(row.platformPostId, account.accessToken, {
               isReel: reelish,
             });
-            if (igInsightBundleHasMetrics(bundle)) {
+            if (igInsightBundleHasMetrics(bundle) || igInsightBundleHasSocialMetrics(bundle)) {
               liveInstagramInsightBundles[row.platformPostId] = bundle;
             }
           } catch {
@@ -1786,13 +1791,18 @@ function igInsightBundleHasMetrics(b: IgMediaInsightBundle): boolean {
   );
 }
 
+function igInsightBundleHasSocialMetrics(b: IgMediaInsightBundle): boolean {
+  return b.shares > 0 || b.reposts > 0;
+}
+
 async function fetchInstagramMediaInsightsBestEffort(
   mediaId: string,
   accessToken: string,
   opts: { isReel: boolean }
 ): Promise<IgMediaInsightBundle> {
   const primary = await fetchInstagramMediaInsights(fbRestBaseUrl, mediaId, accessToken, opts);
-  if (igInsightBundleHasMetrics(primary)) return primary;
+  // Keep fallback host when social metrics are still missing (shares/reposts can be omitted on one host).
+  if (igInsightBundleHasMetrics(primary) && igInsightBundleHasSocialMetrics(primary)) return primary;
   const secondary = await fetchInstagramMediaInsights(igGraphRestBaseUrl, mediaId, accessToken, opts);
   return mergeIgInsightBundles(primary, secondary);
 }
