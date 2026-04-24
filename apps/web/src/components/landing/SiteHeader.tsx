@@ -34,17 +34,17 @@ export default function SiteHeader() {
         </Link>
         <nav className="hidden items-center gap-6 lg:gap-8 md:flex">
           {navLinks.map((link) => (
-            <Link key={link.href} href={link.href} className="text-sm font-medium text-white/80 hover:text-[#c084fc] active:text-[#f472b6] transition-colors">
+            <Link key={link.href} href={link.href} className="text-sm font-medium text-white/80 hover:text-[#ff8a00] active:text-[#ff5a00] transition-colors">
               {link.label}
             </Link>
           ))}
-          <button type="button" onClick={openLogin} className="text-sm font-medium text-white/80 hover:text-[#c084fc] active:text-[#f472b6] transition-colors">
+          <button type="button" onClick={openLogin} className="text-sm font-medium text-white/80 hover:text-[#ff8a00] active:text-[#ff5a00] transition-colors">
             Log in
           </button>
           <button
             type="button"
             onClick={openSignup}
-            className="rounded-full bg-[linear-gradient(135deg,#7b2cbf,#e11d48)] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(123,44,191,0.28)] transition-all hover:shadow-[0_14px_28px_rgba(225,29,72,0.28)] hover:scale-[1.02]"
+            className="rounded-full bg-[linear-gradient(135deg,#ffb000,#ff4d00)] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(255,122,0,0.28)] transition-all hover:shadow-[0_14px_28px_rgba(255,77,0,0.28)] hover:scale-[1.02]"
           >
             Try for free
           </button>
@@ -53,14 +53,14 @@ export default function SiteHeader() {
           <button
             type="button"
             onClick={openSignup}
-            className="rounded-full bg-[linear-gradient(135deg,#7b2cbf,#e11d48)] px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(123,44,191,0.26)]"
+            className="rounded-full bg-[linear-gradient(135deg,#ffb000,#ff4d00)] px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(255,122,0,0.26)]"
           >
             Try for free
           </button>
           <button
             type="button"
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="p-2 text-white/80 hover:text-[#c084fc] active:text-[#f472b6] rounded-lg hover:bg-white/10 transition-colors"
+            className="p-2 text-white/80 hover:text-[#ff8a00] active:text-[#ff5a00] rounded-lg hover:bg-white/10 transition-colors"
             aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
           >
             {mobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -74,7 +74,7 @@ export default function SiteHeader() {
               key={link.href}
               href={link.href}
               onClick={() => setMobileOpen(false)}
-              className="py-3 px-3 rounded-xl text-white/80 hover:text-[#c084fc] active:text-[#f472b6] hover:bg-white/10 font-medium transition-colors"
+              className="py-3 px-3 rounded-xl text-white/80 hover:text-[#ff8a00] active:text-[#ff5a00] hover:bg-white/10 font-medium transition-colors"
             >
               {link.label}
             </Link>
@@ -82,14 +82,14 @@ export default function SiteHeader() {
           <button
             type="button"
             onClick={() => { setMobileOpen(false); openLogin(); }}
-            className="py-3 px-3 rounded-xl text-white/80 hover:text-[#c084fc] active:text-[#f472b6] hover:bg-white/10 font-medium transition-colors w-full text-left"
+            className="py-3 px-3 rounded-xl text-white/80 hover:text-[#ff8a00] active:text-[#ff5a00] hover:bg-white/10 font-medium transition-colors w-full text-left"
           >
             Log in
           </button>
           <button
             type="button"
             onClick={() => { setMobileOpen(false); openSignup(); }}
-            className="mt-2 mx-3 py-3 rounded-full bg-[linear-gradient(135deg,#7b2cbf,#e11d48)] text-center font-semibold text-white w-full shadow-[0_10px_22px_rgba(123,44,191,0.26)]"
+            className="mt-2 mx-3 py-3 rounded-full bg-[linear-gradient(135deg,#ffb000,#ff4d00)] text-center font-semibold text-white w-full shadow-[0_10px_22px_rgba(255,122,0,0.26)]"
           >
             Try for free
           </button>
