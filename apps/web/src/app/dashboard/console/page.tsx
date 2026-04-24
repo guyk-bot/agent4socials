@@ -1832,12 +1832,12 @@ export default function UnifiedSummaryPage() {
   return (
     <div className="p-0 md:p-0.5 space-y-3" style={{ maxWidth: 1400, background: COLOR.pageBg }}>
       {/* ── Upgrade banner ── */}
-      <div className="w-full rounded-2xl border px-3 py-2.5 sm:px-4 sm:py-3 shadow-sm ring-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3 bg-gradient-to-r from-neutral-700 via-neutral-600 to-neutral-700 border-neutral-500 ring-neutral-500/70">
+      <div className="w-full rounded-2xl border px-3 py-2.5 sm:px-4 sm:py-3 shadow-sm ring-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3 bg-white/35 border-white/55 ring-white/45 backdrop-blur-md">
         <div className="min-w-0 flex-1 space-y-1">
-          <div className="flex items-center gap-1.5 text-neutral-200"><Sparkles className="w-3.5 h-3.5 shrink-0" aria-hidden /><span className="text-[11px] font-semibold uppercase tracking-wide">Your plan</span></div>
+          <div className="flex items-center gap-1.5 text-neutral-700"><Sparkles className="w-3.5 h-3.5 shrink-0" aria-hidden /><span className="text-[11px] font-semibold uppercase tracking-wide">Your plan</span></div>
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0">
-            <span className="text-lg font-bold text-white tracking-tight leading-tight">Free</span>
-            <span className="text-sm text-neutral-300 leading-snug">Unlock more than 30 days of history without watermarks and more analytics when you upgrade.</span>
+            <span className="text-lg font-bold text-neutral-900 tracking-tight leading-tight">Free</span>
+            <span className="text-sm text-neutral-700 leading-snug">Unlock more than 30 days of history without watermarks and more analytics when you upgrade.</span>
           </div>
         </div>
         <button type="button" onClick={() => router.push('/pricing')} className="shrink-0 inline-flex w-full sm:w-auto justify-center items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-md transition-all active:scale-[0.98] gradient-cta-pro">
