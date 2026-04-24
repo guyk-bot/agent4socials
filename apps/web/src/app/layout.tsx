@@ -56,27 +56,27 @@ export const metadata: Metadata = {
     siteName: "Agent4Socials",
     title: "Agent4Socials | Schedule Posts & Analytics for All Major Social Platforms",
     description: "Schedule posts and get analytics across Instagram, YouTube, TikTok, Facebook, Twitter and LinkedIn. Try for free.",
-    images: [{ url: "/logo-192.png?v=14", width: 192, height: 192, alt: "Agent4Socials" }],
+    images: [{ url: "/logo-192.png?v=15", width: 192, height: 192, alt: "Agent4Socials" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Agent4Socials | Schedule Posts & Analytics",
     description: "One dashboard for scheduling and analytics. Try for free.",
-    images: ["/logo-192.png?v=14"],
+    images: ["/logo-192.png?v=15"],
   },
   robots: {
     index: true,
     follow: true,
     googleBot: { index: true, follow: true },
   },
-  // Tab favicon: `a4s-tab.svg` + `app/icon.svg` (copy of `real website favicon.svg`); bump ?v when replacing assets.
+  // Tab favicon: public `a4s-tab.svg` (+ PNG/ICO fallbacks). Do not add `app/icon.*` — Next serves it at `/icon.*` and browsers often prefer it over `metadata.icons`. Bump ?v when replacing assets.
   icons: {
     icon: [
-      { url: "/a4s-tab.svg?v=14", type: "image/svg+xml" },
-      { url: "/favicon-48.png?v=14", sizes: "48x48", type: "image/png" },
-      { url: "/favicon.ico?v=14", sizes: "any", type: "image/x-icon" },
+      { url: "/a4s-tab.svg?v=15", type: "image/svg+xml" },
+      { url: "/favicon-48.png?v=15", sizes: "48x48", type: "image/png" },
+      { url: "/favicon.ico?v=15", sizes: "any", type: "image/x-icon" },
     ],
-    apple: [{ url: "/favicon-192.png?v=14", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: "/favicon-192.png?v=15", sizes: "192x192", type: "image/png" }],
   },
   manifest: "/manifest.json",
   appleWebApp: {
