@@ -24,7 +24,7 @@ export default function SiteHeader() {
       <div className="mx-auto flex h-14 sm:h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2 sm:gap-2.5 transition-opacity hover:opacity-90 min-w-0">
           <Image
-            src="/logo-white.svg"
+            src="/a4s-header.svg?v=12"
             alt="Agent4Socials"
             width={36}
             height={36}

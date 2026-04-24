@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
-import Image from 'next/image';
+import React, { useRef } from 'react';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
 import { Upload, Type, RotateCcw } from 'lucide-react';
+
+/** Shown when no custom upload is saved (matches tab favicon + header default). */
+const OFFICIAL_LOGO_SRC = '/a4s-tab.svg?v=12';
 
 export default function SettingsPage() {
   const {
@@ -14,7 +16,7 @@ export default function SettingsPage() {
     reset,
   } = useWhiteLabel();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [logoPreview, setLogoPreview] = useState<string | null>(logoUrl);
+  const logoPreview = logoUrl ?? OFFICIAL_LOGO_SRC;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -22,7 +24,6 @@ export default function SettingsPage() {
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = reader.result as string;
-      setLogoPreview(dataUrl);
       setLogoUrl(dataUrl);
     };
     reader.readAsDataURL(file);
@@ -41,11 +42,7 @@ export default function SettingsPage() {
         <h2 className="font-semibold text-gray-900">Your logo</h2>
         <div className="flex items-center gap-6">
           <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-gray-200 bg-gray-50">
-            {logoPreview ? (
-              <img src={logoPreview} alt="Your logo" className="h-full w-full object-contain p-1" />
-            ) : (
-              <Image src="/logo.svg" alt="Default" width={48} height={48} />
-            )}
+            <img src={logoPreview} alt="" className="h-full w-full object-contain p-1" />
           </div>
           <div className="flex flex-col gap-2">
             <input
@@ -65,13 +62,10 @@ export default function SettingsPage() {
             </button>
             <button
               type="button"
-              onClick={() => {
-                setLogoPreview(null);
-                setLogoUrl(null);
-              }}
-              className="text-sm text-gray-500 hover:text-gray-700"
+              onClick={() => setLogoUrl(null)}
+              className="text-sm font-medium text-orange-600 hover:text-orange-700"
             >
-              Use default logo
+              Use official logo
             </button>
           </div>
         </div>

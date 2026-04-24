@@ -46,7 +46,7 @@ function AuthModalInner() {
           </svg>
         </button>
         <div className="text-center mb-6">
-          <Image src="/logo.svg" alt="Agent4Socials" width={48} height={48} className="h-12 w-12 mx-auto" />
+          <Image src="/a4s-tab.svg?v=12" alt="Agent4Socials" width={48} height={48} className="h-12 w-12 mx-auto" />
         </div>
         {modal === 'login' && (
           <LoginFormContent profileFailedMessage={profileFailedMessage} authError={error ?? undefined} />
