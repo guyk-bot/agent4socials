@@ -91,7 +91,8 @@ const COLOR = {
 } as const;
 
 const CONSOLE_ENGAGEMENT_ACCENT = '#f59e0b';
-const CONSOLE_VIEWS_ACCENT = '#f97316';
+/** Views KPI + overview line (distinct from orange engagements). */
+const CONSOLE_VIEWS_ACCENT = '#9333ea';
 
 /** Console-specific platform colors for the Performance per platform section. */
 const CONSOLE_PLATFORM_COLOR: Record<string, string> = {
