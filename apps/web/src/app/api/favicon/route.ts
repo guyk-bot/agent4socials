@@ -3,12 +3,12 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 /**
- * Serve the 4S logo as the favicon so /favicon.ico always returns the correct image
+ * Serve the current favicon image so /favicon.ico always returns the branded icon
  * and caches can be bypassed via Cache-Control.
  */
 export async function GET() {
   try {
-    const filePath = join(process.cwd(), 'public', 'logo-48.png');
+    const filePath = join(process.cwd(), 'public', 'favicon-48.png');
     const buffer = await readFile(filePath);
     return new NextResponse(buffer, {
       status: 200,
