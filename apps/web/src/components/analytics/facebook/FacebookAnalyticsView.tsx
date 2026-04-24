@@ -1499,7 +1499,7 @@ export function MetricCard({
       className={`rounded-[14px] px-3 py-2 text-left transition-all hover:-translate-y-[1px] ${apiRing}`}
       style={{
         ...(tintBg ? { background: tintBg } : {}),
-        ...(!hasApiRing ? { border: `1px solid ${active ? `${color}33` : `${color}22`}` } : {}),
+        ...(!hasApiRing ? { border: `1px solid ${COLOR.border}` } : {}),
         boxShadow: hasApiRing
           ? undefined
           : active
