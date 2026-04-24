@@ -33,7 +33,7 @@ function AuthModalInner() {
       aria-label={modal === 'login' ? 'Log in' : 'Sign up'}
     >
       <div
-        className="relative w-full max-w-md rounded-[24px] border border-[#eadff5] bg-[#fffdff] p-8 shadow-[0_24px_60px_rgba(26,22,31,0.12)]"
+        className="relative w-full max-w-md rounded-[24px] border border-[#f4d9bf] bg-[#fffdf9] p-8 shadow-[0_24px_60px_rgba(26,22,31,0.12)]"
         onClick={(e) => e.stopPropagation()}
       >
         <button

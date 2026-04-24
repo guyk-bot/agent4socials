@@ -198,10 +198,10 @@ export default function SignupFormContent() {
   };
 
   const inputClass =
-    'block w-full rounded-xl border border-[#efe7f7] bg-white py-2.5 pl-10 pr-10 text-[#1a161f] placeholder-[#8d8799] transition-colors focus:border-[#7b2cbf]/50 focus:outline-none focus:ring-2 focus:ring-[#7b2cbf]/25';
+    'block w-full rounded-xl border border-[#f3e3d2] bg-white py-2.5 pl-10 pr-10 text-[#1a161f] placeholder-[#8d8799] transition-colors focus:border-[#ea580c]/50 focus:outline-none focus:ring-2 focus:ring-[#ea580c]/25';
 
   const otpBoxClass =
-    'h-12 w-10 sm:w-11 rounded-xl border border-[#efe7f7] bg-white text-center text-lg font-semibold text-[#1a161f] transition-colors focus:border-[#7b2cbf]/50 focus:outline-none focus:ring-2 focus:ring-[#7b2cbf]/25';
+    'h-12 w-10 sm:w-11 rounded-xl border border-[#f3e3d2] bg-white text-center text-lg font-semibold text-[#1a161f] transition-colors focus:border-[#ea580c]/50 focus:outline-none focus:ring-2 focus:ring-[#ea580c]/25';
 
   const lockoutActive = lockoutUntilMs !== null && Date.now() < lockoutUntilMs;
   const cooldownActive = !lockoutActive && cooldownUntil !== null && Date.now() < cooldownUntil;
@@ -217,7 +217,7 @@ export default function SignupFormContent() {
             type="button"
             onClick={handleGoogle}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-3 rounded-xl border border-[#efe7f7] bg-white px-4 py-3 text-[#1a161f] transition-colors hover:bg-[#faf7fd] disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-3 rounded-xl border border-[#f3e3d2] bg-white px-4 py-3 text-[#1a161f] transition-colors hover:bg-[#fff7ed] disabled:opacity-50"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -230,10 +230,10 @@ export default function SignupFormContent() {
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-[#efe7f7]" />
+              <div className="w-full border-t border-[#f3e3d2]" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="bg-[#fffdff] px-2 text-[#5d5768]">or sign up with email</span>
+              <span className="bg-[#fffdf9] px-2 text-[#5d5768]">or sign up with email</span>
             </div>
           </div>
 
@@ -288,11 +288,11 @@ export default function SignupFormContent() {
                 type="checkbox"
                 checked={termsAccepted}
                 onChange={(e) => setTermsAccepted(e.target.checked)}
-                className="mt-0.5 rounded border-[#d7cae5] bg-white text-[#7b2cbf] focus:ring-[#7b2cbf]/40"
+                className="mt-0.5 rounded border-[#f2c38d] bg-white text-[#ea580c] focus:ring-[#ea580c]/40"
               />
               <span>
                 I agree to the{' '}
-                <Link href="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-[#7b2cbf] hover:text-[#6420a3] underline">
+                <Link href="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-[#c2410c] hover:text-[#9a3412] underline">
                   Terms of Service
                 </Link>
               </span>
@@ -302,14 +302,14 @@ export default function SignupFormContent() {
                 type="checkbox"
                 checked={marketingConsent}
                 onChange={(e) => setMarketingConsent(e.target.checked)}
-                className="rounded border-[#d7cae5] bg-white text-[#7b2cbf] focus:ring-[#7b2cbf]/40"
+                className="rounded border-[#f2c38d] bg-white text-[#ea580c] focus:ring-[#ea580c]/40"
               />
               Send me product updates and tips (optional)
             </label>
             <button
               type="submit"
               disabled={loading || !termsAccepted}
-              className="w-full flex justify-center items-center gap-2 py-3.5 px-4 rounded-full text-sm font-semibold text-white bg-gradient-to-r from-[#7b2cbf] to-[#d7263d] shadow-[0_12px_24px_rgba(123,44,191,0.28)] hover:brightness-105 disabled:opacity-50 transition-all"
+              className="gradient-cta-pro w-full flex justify-center items-center gap-2 py-3.5 px-4 rounded-full text-sm font-semibold text-white shadow-[0_12px_24px_rgba(255,122,0,0.30)] hover:brightness-105 disabled:opacity-50 transition-all"
             >
               {loading ? 'Sending code...' : 'Sign up'} <ArrowRight className="w-4 h-4" />
             </button>
@@ -361,7 +361,7 @@ export default function SignupFormContent() {
           <button
             type="submit"
             disabled={loading || code.length !== 6}
-            className="w-full flex justify-center items-center gap-2 py-3.5 px-4 rounded-full text-sm font-semibold text-white bg-gradient-to-r from-[#7b2cbf] to-[#d7263d] shadow-[0_12px_24px_rgba(123,44,191,0.28)] hover:brightness-105 disabled:opacity-50 transition-all"
+            className="gradient-cta-pro w-full flex justify-center items-center gap-2 py-3.5 px-4 rounded-full text-sm font-semibold text-white shadow-[0_12px_24px_rgba(255,122,0,0.30)] hover:brightness-105 disabled:opacity-50 transition-all"
           >
             {loading ? 'Verifying...' : 'Verify and sign in'} <ArrowRight className="w-4 h-4" />
           </button>
@@ -371,7 +371,7 @@ export default function SignupFormContent() {
               type="button"
               onClick={handleResend}
               disabled={!canRequestResend}
-              className="text-sm font-semibold text-[#7b2cbf] hover:text-[#6420a3] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="text-sm font-semibold text-[#c2410c] hover:text-[#9a3412] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {resendLoading ? 'Sending…' : "Didn't get the code? Send again"}
             </button>
@@ -379,7 +379,7 @@ export default function SignupFormContent() {
               <p className="text-xs text-[#5d5768]">
                 You can request a new code in <span className="font-mono font-semibold text-[#1a161f]">{formatMmSs(lockoutRemainingSec)}</span>
                 . Or{' '}
-                <button type="button" onClick={openLogin} className="font-semibold text-[#7b2cbf] hover:text-[#6420a3]">
+                <button type="button" onClick={openLogin} className="font-semibold text-[#c2410c] hover:text-[#9a3412]">
                   log in
                 </button>{' '}
                 or use Google.
@@ -399,7 +399,7 @@ export default function SignupFormContent() {
               setCooldownUntil(null);
               setLockoutUntilMs(null);
             }}
-            className="w-full text-sm text-[#7b2cbf] hover:text-[#6420a3] transition-colors"
+            className="w-full text-sm text-[#c2410c] hover:text-[#9a3412] transition-colors"
           >
             Use a different email
           </button>
@@ -408,7 +408,7 @@ export default function SignupFormContent() {
 
       <p className="text-center text-sm text-[#5d5768]">
         Already have an account?{' '}
-        <button type="button" onClick={openLogin} className="font-semibold text-[#7b2cbf] hover:text-[#6420a3] transition-colors">
+        <button type="button" onClick={openLogin} className="font-semibold text-[#c2410c] hover:text-[#9a3412] transition-colors">
           Log in
         </button>
       </p>

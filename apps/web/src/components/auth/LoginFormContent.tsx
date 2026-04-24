@@ -72,7 +72,7 @@ export default function LoginFormContent({ profileFailedMessage, authError }: Pr
             <div className="rounded-xl border border-[#d9efdc] bg-[#f2fbf4] px-4 py-3 text-sm text-[#2f9e44]">{profileFailedMessage}</div>
           )}
           {profileErrorDetail && (
-            <div className="rounded-xl border border-[#efe7f7] bg-[#faf7fd] px-4 py-2 font-mono text-xs text-[#5d5768]">Detail: {profileErrorDetail}</div>
+            <div className="rounded-xl border border-[#f3e3d2] bg-[#fff7ed] px-4 py-2 font-mono text-xs text-[#5d5768]">Detail: {profileErrorDetail}</div>
           )}
         </div>
       )}
@@ -82,7 +82,7 @@ export default function LoginFormContent({ profileFailedMessage, authError }: Pr
         type="button"
         onClick={handleGoogle}
         disabled={loading}
-        className="w-full flex items-center justify-center gap-3 rounded-xl border border-[#efe7f7] bg-white px-4 py-3 text-[#1a161f] transition-colors hover:bg-[#faf7fd] disabled:opacity-50"
+        className="w-full flex items-center justify-center gap-3 rounded-xl border border-[#f3e3d2] bg-white px-4 py-3 text-[#1a161f] transition-colors hover:bg-[#fff7ed] disabled:opacity-50"
       >
         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
           <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -94,8 +94,8 @@ export default function LoginFormContent({ profileFailedMessage, authError }: Pr
       </button>
 
       <div className="relative">
-        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-[#efe7f7]" /></div>
-        <div className="relative flex justify-center text-sm"><span className="bg-[#fffdff] px-2 text-[#5d5768]">or log in with email</span></div>
+        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-[#f3e3d2]" /></div>
+        <div className="relative flex justify-center text-sm"><span className="bg-[#fffdf9] px-2 text-[#5d5768]">or log in with email</span></div>
       </div>
 
       <form className="space-y-4" onSubmit={handleSubmit}>
@@ -103,7 +103,7 @@ export default function LoginFormContent({ profileFailedMessage, authError }: Pr
           <label className="text-sm font-medium text-[#5d5768]">Email address</label>
           <div className="mt-1 relative">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 text-[#5d5768] pointer-events-none"><Mail size={18} /></div>
-            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="block w-full rounded-xl border border-[#efe7f7] bg-white py-2.5 pl-10 pr-3 text-[#1a161f] placeholder-[#8d8799] transition-colors focus:border-[#7b2cbf]/50 focus:outline-none focus:ring-2 focus:ring-[#7b2cbf]/25" placeholder="name@example.com" />
+            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="block w-full rounded-xl border border-[#f3e3d2] bg-white py-2.5 pl-10 pr-3 text-[#1a161f] placeholder-[#8d8799] transition-colors focus:border-[#ea580c]/50 focus:outline-none focus:ring-2 focus:ring-[#ea580c]/25" placeholder="name@example.com" />
           </div>
         </div>
         <div>
@@ -115,7 +115,7 @@ export default function LoginFormContent({ profileFailedMessage, authError }: Pr
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="block w-full rounded-xl border border-[#efe7f7] bg-white py-2.5 pl-10 pr-10 text-[#1a161f] placeholder-[#8d8799] transition-colors focus:border-[#7b2cbf]/50 focus:outline-none focus:ring-2 focus:ring-[#7b2cbf]/25"
+              className="block w-full rounded-xl border border-[#f3e3d2] bg-white py-2.5 pl-10 pr-10 text-[#1a161f] placeholder-[#8d8799] transition-colors focus:border-[#ea580c]/50 focus:outline-none focus:ring-2 focus:ring-[#ea580c]/25"
               placeholder="••••••••"
               autoComplete="current-password"
             />
@@ -130,14 +130,14 @@ export default function LoginFormContent({ profileFailedMessage, authError }: Pr
             </button>
           </div>
         </div>
-        <button type="submit" disabled={loading} className="w-full flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#7b2cbf] to-[#d7263d] px-4 py-3.5 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(123,44,191,0.28)] transition-all hover:brightness-105 disabled:opacity-50">
+        <button type="submit" disabled={loading} className="gradient-cta-pro w-full flex items-center justify-center gap-2 rounded-full px-4 py-3.5 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(255,122,0,0.30)] transition-all hover:brightness-105 disabled:opacity-50">
           {loading ? 'Logging in...' : 'Log in'} <ArrowRight className="w-4 h-4" />
         </button>
       </form>
 
       <p className="text-center text-sm text-[#5d5768]">
         Don&apos;t have an account?{' '}
-        <button type="button" onClick={openSignup} className="font-semibold text-[#7b2cbf] transition-colors hover:text-[#6420a3]">
+        <button type="button" onClick={openSignup} className="font-semibold text-[#c2410c] transition-colors hover:text-[#9a3412]">
           Sign up for free
         </button>
       </p>
