@@ -10,7 +10,8 @@ type MetaUsage = {
 
 const META_USAGE_CACHE_KEY = 'meta:app-usage:latest';
 const META_THROTTLE_UNTIL_CACHE_KEY = 'meta:noncritical:throttle-until';
-const META_THROTTLE_MINUTES = 12;
+/** How long to skip optional Meta fan-out after high usage or rate-limit signals. */
+const META_THROTTLE_MINUTES = 22;
 
 function toNumber(v: unknown): number {
   const n = typeof v === 'number' ? v : Number(v);
@@ -43,7 +44,8 @@ export function noteMetaUsageFromHeaders(
   if (!usage) return;
 
   setCached(META_USAGE_CACHE_KEY, usage, 30 * 60 * 1000);
-  const high = usage.callCount >= 90 || usage.totalTime >= 90 || usage.totalCpuTime >= 90;
+  /** Start backing off before Meta hits 100% app-level limits (dashboard prefetch + sync add up fast). */
+  const high = usage.callCount >= 55 || usage.totalTime >= 55 || usage.totalCpuTime >= 55;
   if (high) {
     setCached(META_THROTTLE_UNTIL_CACHE_KEY, Date.now() + META_THROTTLE_MINUTES * 60 * 1000, META_THROTTLE_MINUTES * 60 * 1000);
   }

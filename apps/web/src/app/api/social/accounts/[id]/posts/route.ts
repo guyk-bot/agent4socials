@@ -672,6 +672,7 @@ async function upsertImportedPostWithFallback(args: {
  * - `force=1`: with `sync=1`, bypass the 10-minute per-account cooldown (manual refresh).
  * - `liveEnrich=1`: opt-in live Facebook/Instagram Graph calls to fill missing post metrics on read
  *   (otherwise we only use DB + sync; avoids ShadowIGMedia/insights bursts on dashboard prefetch).
+ *   Instagram media insights on read require `liveEnrich=1` (never implied by missing fields alone).
  */
 export async function GET(
   request: NextRequest,
@@ -1109,12 +1110,13 @@ export async function GET(
       if (!metaThrottle) {
         const insightCandidates = importedRows
           .filter((row) => {
+            if (!liveEnrich) return false;
             const b = bundleFromRow(row);
             const missingCore = !igInsightBundleHasMetrics(b);
             const missingSocial = !igInsightBundleHasSocialMetrics(b);
-            return (liveEnrich && missingCore) || missingSocial;
+            return missingCore || missingSocial;
           })
-          .slice(0, liveEnrich ? 8 : 6);
+          .slice(0, 8);
         for (let i = 0; i < insightCandidates.length; i++) {
           const row = insightCandidates[i];
           try {
@@ -1131,9 +1133,10 @@ export async function GET(
           } catch {
             // per-post best effort
           }
-          if (i < insightCandidates.length - 1) await new Promise((r) => setTimeout(r, 220));
+          if (i < insightCandidates.length - 1) await new Promise((r) => setTimeout(r, 420));
         }
       }
+      /** Best-effort missing reel/video thumbnails only; sequential + capped to limit ShadowIGMedia GETs. */
       const thumbCandidates = importedRows
         .filter((row) => {
           if (row.thumbnailUrl) return false;
@@ -1141,15 +1144,17 @@ export async function GET(
           const url = (row.permalinkUrl ?? '').toLowerCase();
           return mt === 'VIDEO' || url.includes('/reel/');
         })
-        .slice(0, metaThrottle ? 4 : 15);
-      await runWithConcurrency(thumbCandidates, 4, async (row) => {
+        .slice(0, metaThrottle ? 2 : liveEnrich ? 6 : 4);
+      for (let ti = 0; ti < thumbCandidates.length; ti++) {
+        const row = thumbCandidates[ti];
         try {
-          const u = await refetchIgMediaThumbnail(row.platformPostId, account.accessToken);
+          const u = await refetchIgMediaThumbnail(row.platformPostId, account.accessToken, { tryIgFallback: false });
           if (u) liveInstagramThumbnails[row.platformPostId] = u;
         } catch {
           // ignore
         }
-      });
+        if (ti < thumbCandidates.length - 1) await new Promise((r) => setTimeout(r, metaThrottle ? 550 : 380));
+      }
     }
 
     // YouTube: inline Shorts-playlist backfill for posts missing `youtubeInShortsPlaylist`.
@@ -1992,8 +1997,14 @@ async function collectInstagramMediaEdgeItems(
   return out;
 }
 
-async function refetchIgMediaThumbnail(mediaId: string, accessToken: string): Promise<string | null> {
-  for (const apiBase of [fbRestBaseUrl, igGraphRestBaseUrl]) {
+async function refetchIgMediaThumbnail(
+  mediaId: string,
+  accessToken: string,
+  opts?: { tryIgFallback?: boolean }
+): Promise<string | null> {
+  const tryIgFallback = opts?.tryIgFallback !== false;
+  const bases = tryIgFallback ? [fbRestBaseUrl, igGraphRestBaseUrl] : [fbRestBaseUrl];
+  for (const apiBase of bases) {
     try {
       const refetch = await axios.get<{ thumbnail_url?: string; media_url?: string }>(
         `${apiBase}/${mediaId}`,
